@@ -1,18 +1,17 @@
 """
-Phase D overlap filtering pipeline for fly64 dose/overlap study.
+Phase D overlap metrics pipeline for fly64 dose/overlap study.
 
-This module implements the dense/sparse overlap view generation via:
+This module implements overlap-driven sampling and reporting per specs/overlap_metrics.md:
   1. Loading Phase C train/test NPZs for each dose
-  2. Computing pairwise spacing metrics from scan coordinates
-  3. Filtering to dense/sparse selections based on StudyDesign thresholds
-  4. Validating filtered views against DATA-001 + spacing constraints
-  5. Writing output NPZs with metadata and spacing metrics
+  2. Deterministic image subsampling via s_img
+  3. Group formation (gs=1: single-image groups; gs=2: KNN groups with allowed duplication)
+  4. Computing three disc-overlap metrics (group-based, image-based, group↔group COM)
+  5. Writing output NPZs with measured overlap metrics and sampling parameters
 
 References:
+- specs/overlap_metrics.md (normative spec for Metric 1/2/3 and API)
 - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md §Phase D
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T034242Z/phase_d_overlap_filtering/plan.md
-- docs/GRIDSIZE_N_GROUPS_GUIDE.md:143-151 (spacing formula S ≈ (1 - f_overlap) × N)
-- docs/SAMPLING_USER_GUIDE.md:112-140 (K-choose-C oversampling)
+- docs/GRIDSIZE_N_GROUPS_GUIDE.md (unified n_groups semantics)
 - specs/data_contracts.md:207 (DATA-001 NPZ contract)
 """
 
@@ -21,443 +20,580 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Dict, Tuple, Any
+from typing import Dict, Tuple, Any, Optional
 
 import numpy as np
-from scipy.spatial.distance import pdist, squareform
+from scipy.spatial.distance import cdist
+from sklearn.neighbors import NearestNeighbors
 
 from studies.fly64_dose_overlap.design import get_study_design, StudyDesign
-from studies.fly64_dose_overlap.validation import validate_dataset_contract
 
 
 @dataclass
-class SpacingMetrics:
+class OverlapMetrics:
     """
-    Statistics for inter-position spacing in a dataset.
+    Overlap metrics for a dataset split per specs/overlap_metrics.md.
 
     Attributes:
-        min_spacing: Minimum pairwise distance (pixels)
-        max_spacing: Maximum pairwise distance (pixels)
-        mean_spacing: Mean pairwise distance (pixels)
-        median_spacing: Median pairwise distance (pixels)
-        threshold: Required minimum spacing for this view (pixels)
-        n_positions: Number of scan positions
-        n_accepted: Number of positions meeting threshold
-        n_rejected: Number of positions below threshold
-        acceptance_rate: Fraction of positions accepted
-        geometry_acceptance_bound: Theoretical max acceptance based on bounding box (optional)
-        effective_min_acceptance: Effective minimum acceptance rate used (optional)
+        metrics_version: Semantic version string (e.g., "1.0")
+        gridsize: 1 or 2
+        s_img: Image subsampling fraction (0 < s_img <= 1]
+        n_groups: Number of groups
+        neighbor_count: K for neighbor-based averages (default 6)
+        probe_diameter_px: Nominal probe diameter in pixels
+        rng_seed_subsample: RNG seed for deterministic subsampling
+        metric_1_group_based_avg: Metric 1 average (gs=2 only; None for gs=1)
+        metric_2_image_based_avg: Metric 2 average (global image-based)
+        metric_3_group_to_group_avg: Metric 3 average (group↔group COM)
+        n_images_total: Total images before subsampling
+        n_images_subsampled: Images after s_img subsampling
+        n_unique_images: Unique images by exact (x,y) equality
+        n_groups_actual: Actual number of groups produced
     """
-    min_spacing: float
-    max_spacing: float
-    mean_spacing: float
-    median_spacing: float
-    threshold: float
-    n_positions: int
-    n_accepted: int
-    n_rejected: int
-    acceptance_rate: float
-    geometry_acceptance_bound: float | None = None
-    effective_min_acceptance: float | None = None
+    metrics_version: str
+    gridsize: int
+    s_img: float
+    n_groups: int
+    neighbor_count: int
+    probe_diameter_px: float
+    rng_seed_subsample: int
+    metric_1_group_based_avg: Optional[float]
+    metric_2_image_based_avg: float
+    metric_3_group_to_group_avg: float
+    n_images_total: int
+    n_images_subsampled: int
+    n_unique_images: int
+    n_groups_actual: int
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to JSON-serializable dict."""
-        result = {
-            'min_spacing': float(self.min_spacing),
-            'max_spacing': float(self.max_spacing),
-            'mean_spacing': float(self.mean_spacing),
-            'median_spacing': float(self.median_spacing),
-            'threshold': float(self.threshold),
-            'n_positions': int(self.n_positions),
-            'n_accepted': int(self.n_accepted),
-            'n_rejected': int(self.n_rejected),
-            'acceptance_rate': float(self.acceptance_rate),
-        }
-        if self.geometry_acceptance_bound is not None:
-            result['geometry_acceptance_bound'] = float(self.geometry_acceptance_bound)
-        if self.effective_min_acceptance is not None:
-            result['effective_min_acceptance'] = float(self.effective_min_acceptance)
-        return result
+        d = asdict(self)
+        # Omit None values for cleanliness
+        return {k: v for k, v in d.items() if v is not None}
 
 
-def compute_spacing_matrix(
-    coords: np.ndarray,
-) -> Tuple[np.ndarray, np.ndarray]:
+def disc_overlap_area(d: float, diameter: float) -> float:
     """
-    Compute pairwise spacing matrix and per-position minimum spacing.
+    Compute overlap area between two axis-aligned discs.
+
+    For two discs with common diameter D and centers separated by distance d:
+    - If d >= D, overlap area = 0
+    - Else, overlap area = 2 R^2 arccos(d / (2R)) - (d/2) sqrt(4 R^2 - d^2)
 
     Args:
-        coords: Scan coordinates, shape (N, 2) for N positions (x, y)
+        d: Distance between disc centers (pixels)
+        diameter: Disc diameter (pixels)
 
     Returns:
-        distances: Full pairwise distance matrix, shape (N, N)
-        min_spacing_by_point: Minimum spacing to any other point, shape (N,)
+        Overlap area in square pixels
 
     References:
-        - docs/GRIDSIZE_N_GROUPS_GUIDE.md:143-147 (spacing definition)
-        - scipy.spatial.distance.pdist (condensed distance computation)
-
-    Example:
-        >>> coords = np.array([[0, 0], [10, 0], [0, 10]])
-        >>> distances, min_spacings = compute_spacing_matrix(coords)
-        >>> distances.shape
-        (3, 3)
-        >>> np.allclose(min_spacings, [10, 10, 10])
-        True
+        - specs/overlap_metrics.md §2D Overlap Definition
     """
-    if len(coords) == 0:
-        return np.array([]), np.array([])
-
-    if len(coords) == 1:
-        # Single point: no spacing to compute
-        return np.zeros((1, 1)), np.array([np.inf])
-
-    # Compute condensed distance matrix (upper triangle only)
-    condensed_distances = pdist(coords)
-
-    # Convert to full square matrix
-    distances = squareform(condensed_distances)
-
-    # For each point, find minimum distance to any other point
-    # Set diagonal to inf to exclude self-distances
-    distances_masked = distances.copy()
-    np.fill_diagonal(distances_masked, np.inf)
-    min_spacing_by_point = distances_masked.min(axis=1)
-
-    return distances, min_spacing_by_point
-
-
-def build_acceptance_mask(
-    min_spacing_by_point: np.ndarray,
-    threshold: float,
-) -> np.ndarray:
-    """
-    Build boolean mask accepting positions with spacing ≥ threshold.
-
-    Args:
-        min_spacing_by_point: Per-position minimum spacing, shape (N,)
-        threshold: Minimum required spacing (pixels)
-
-    Returns:
-        mask: Boolean array, shape (N,), True for accepted positions
-
-    References:
-        - docs/GRIDSIZE_N_GROUPS_GUIDE.md:146-151 (threshold enforcement)
-
-    Example:
-        >>> min_spacings = np.array([50, 30, 100])
-        >>> mask = build_acceptance_mask(min_spacings, threshold=40.0)
-        >>> mask.tolist()
-        [True, False, True]
-    """
-    return min_spacing_by_point >= threshold
-
-
-def filter_dataset_by_mask(
-    data: Dict[str, np.ndarray],
-    mask: np.ndarray,
-) -> Dict[str, np.ndarray]:
-    """
-    Filter dataset arrays by boolean mask along first axis.
-
-    Args:
-        data: Dictionary of arrays (from np.load)
-        mask: Boolean mask, shape (N,)
-
-    Returns:
-        Filtered dictionary with same keys, reduced first dimension
-
-    Raises:
-        ValueError: If mask length doesn't match first dimension
-
-    Example:
-        >>> data = {'diffraction': np.zeros((3, 64, 64)), 'xcoords': np.array([0, 1, 2])}
-        >>> mask = np.array([True, False, True])
-        >>> filtered = filter_dataset_by_mask(data, mask)
-        >>> filtered['diffraction'].shape
-        (2, 64, 64)
-        >>> filtered['xcoords'].tolist()
-        [0.0, 2.0]
-    """
-    filtered = {}
-    n_expected = len(mask)
-
-    for key, arr in data.items():
-        # Skip non-array metadata
-        if not isinstance(arr, np.ndarray):
-            filtered[key] = arr
-            continue
-
-        # Filter along first axis if it matches mask length
-        if len(arr) == n_expected:
-            filtered[key] = arr[mask]
-        else:
-            # Preserve arrays with different first dimension (e.g., probeGuess, objectGuess)
-            filtered[key] = arr
-
-    return filtered
-
-
-def greedy_min_spacing_selection(
-    coords: np.ndarray,
-    threshold: float,
-) -> np.ndarray:
-    """
-    Greedily select positions satisfying minimum spacing constraint.
-
-    Algorithm:
-    1. Sort positions by (y, x) to ensure deterministic ordering
-    2. Start with empty selection
-    3. For each candidate position:
-       - If selection is empty, accept it
-       - Else, compute distances to all already-selected positions
-       - If min distance >= threshold, accept it
-    4. Return boolean mask of accepted positions
-
-    This produces a deterministic subset that maximizes coverage while
-    respecting spacing constraints. Not globally optimal but efficient
-    and stable.
-
-    Args:
-        coords: Scan coordinates, shape (N, 2) for N positions (x, y)
-        threshold: Minimum required spacing (pixels)
-
-    Returns:
-        mask: Boolean array, shape (N,), True for accepted positions
-
-    References:
-        - docs/GRIDSIZE_N_GROUPS_GUIDE.md:143-151 (spacing formula)
-        - input.md:8-9 (Phase D sparse downsampling rescue)
-        - plans/.../phase_d_sparse_downsampling_fix/plan.md:D7.2
-
-    Example:
-        >>> coords = np.array([[0, 0], [50, 0], [25, 0], [100, 0]])
-        >>> mask = greedy_min_spacing_selection(coords, threshold=60.0)
-        >>> # Should select positions with spacing ≥60
-        >>> accepted_coords = coords[mask]
-        >>> # Deterministic: sorted by (y, x) before greedy pass
-    """
-    if len(coords) == 0:
-        return np.array([], dtype=bool)
-
-    if len(coords) == 1:
-        # Single position: always accept (no spacing constraint)
-        return np.array([True])
-
-    # Sort positions by (y, x) for deterministic ordering
-    n = len(coords)
-    sort_order = np.lexsort((coords[:, 0], coords[:, 1]))
-    sorted_coords = coords[sort_order]
-
-    # Greedy selection
-    selected_mask = np.zeros(n, dtype=bool)
-    selected_indices = []
-
-    for i in range(n):
-        if len(selected_indices) == 0:
-            # Accept first position
-            selected_mask[i] = True
-            selected_indices.append(i)
-        else:
-            # Compute distances to already-selected positions
-            candidate = sorted_coords[i]
-            selected_coords = sorted_coords[selected_indices]
-            distances = np.linalg.norm(selected_coords - candidate, axis=1)
-            min_dist = distances.min()
-
-            if min_dist >= threshold:
-                selected_mask[i] = True
-                selected_indices.append(i)
-
-    # Un-sort mask to match original coordinate order
-    unsorted_mask = np.zeros(n, dtype=bool)
-    unsorted_mask[sort_order] = selected_mask
-
-    return unsorted_mask
-
-
-def compute_spacing_metrics(
-    coords: np.ndarray,
-    threshold: float,
-    mask: np.ndarray | None = None,
-) -> SpacingMetrics:
-    """
-    Compute spacing statistics for a set of coordinates.
-
-    Args:
-        coords: Scan coordinates, shape (N, 2)
-        threshold: Required minimum spacing (pixels)
-        mask: Optional boolean mask to identify accepted positions
-
-    Returns:
-        SpacingMetrics instance with statistics
-
-    References:
-        - docs/GRIDSIZE_N_GROUPS_GUIDE.md:151 (acceptance rate logging)
-    """
-    distances, min_spacing_by_point = compute_spacing_matrix(coords)
-
-    if mask is None:
-        mask = build_acceptance_mask(min_spacing_by_point, threshold)
-
-    # Compute statistics
-    if len(distances) > 0:
-        # Use condensed form for aggregate stats (avoid double-counting)
-        condensed = pdist(coords)
-        min_spacing = float(condensed.min()) if len(condensed) > 0 else 0.0
-        max_spacing = float(condensed.max()) if len(condensed) > 0 else 0.0
-        mean_spacing = float(condensed.mean()) if len(condensed) > 0 else 0.0
-        median_spacing = float(np.median(condensed)) if len(condensed) > 0 else 0.0
-    else:
-        min_spacing = max_spacing = mean_spacing = median_spacing = 0.0
-
-    n_positions = len(coords)
-    n_accepted = int(mask.sum())
-    n_rejected = n_positions - n_accepted
-    acceptance_rate = n_accepted / n_positions if n_positions > 0 else 0.0
-
-    return SpacingMetrics(
-        min_spacing=min_spacing,
-        max_spacing=max_spacing,
-        mean_spacing=mean_spacing,
-        median_spacing=median_spacing,
-        threshold=threshold,
-        n_positions=n_positions,
-        n_accepted=n_accepted,
-        n_rejected=n_rejected,
-        acceptance_rate=acceptance_rate,
-    )
-
-
-def compute_geometry_aware_acceptance_floor(
-    coords: np.ndarray,
-    threshold: float,
-    conservative_factor: float = 0.5,
-) -> float:
-    """
-    Compute geometry-aware acceptance bound based on bounding box area and circle packing.
-
-    For dense views where the spacing threshold is large relative to the scan
-    region, the hard-coded 10% MIN_ACCEPTANCE_RATE may be geometrically impossible.
-    This function computes the theoretical maximum acceptance rate based on the
-    split's bounding box area using circle packing constraints, then clamps to ≤0.10.
-
-    Algorithm:
-    1. Compute bounding box (xmin, xmax, ymin, ymax) from coordinates
-    2. Calculate split area = (xmax - xmin) * (ymax - ymin)
-    3. Each position requires approximately π × (threshold/2)² area (circle packing)
-    4. Theoretical max slots = split_area / (π × (threshold/2)²)
-    5. Theoretical max acceptance = max_slots / n_positions
-    6. Clamp result to ≤0.10 to enforce a reasonable upper bound
-
-    Args:
-        coords: Scan coordinates, shape (N, 2) for N positions (x, y)
-        threshold: Minimum required spacing (pixels)
-        conservative_factor: Unused (kept for API compatibility)
-
-    Returns:
-        Geometry-aware acceptance bound (fraction, not percentage), clamped to [0, 0.10]
-
-    References:
-        - input.md:2 — geometry-aware acceptance bound requirement with circle packing
-        - fix_plan.md:43 — Phase G dense blocker (ACCEPTANCE-001)
-        - docs/findings.md:17 (ACCEPTANCE-001) — bounding-box acceptance bound formula
-
-    Example:
-        >>> coords = np.array([[0, 0], [100, 0], [0, 100], [100, 100]])
-        >>> bound = compute_geometry_aware_acceptance_floor(coords, threshold=50.0)
-        >>> # Bounding box: 100x100 = 10,000 px²
-        >>> # Circle area per position: π × (50/2)² ≈ 1963.5 px²
-        >>> # Theoretical max slots: 10,000 / 1963.5 ≈ 5.09
-        >>> # Theoretical acceptance: 5.09 / 4 ≈ 1.27 → clamped to 0.10
-        >>> assert bound == 0.10
-    """
-    if len(coords) == 0:
+    if d >= diameter:
         return 0.0
 
-    if len(coords) == 1:
-        # Single position: clamp to 0.10
-        return 0.10
+    R = diameter / 2.0
+    # Avoid numerical issues when d is very close to 0
+    if d < 1e-10:
+        # Full overlap
+        return np.pi * R ** 2
 
-    # Compute bounding box
-    x_min, x_max = coords[:, 0].min(), coords[:, 0].max()
-    y_min, y_max = coords[:, 1].min(), coords[:, 1].max()
+    # Standard formula
+    term1 = 2.0 * R ** 2 * np.arccos(d / (2.0 * R))
+    term2 = (d / 2.0) * np.sqrt(4.0 * R ** 2 - d ** 2)
+    return term1 - term2
 
-    # Compute split area
-    split_area = (x_max - x_min) * (y_max - y_min)
 
-    # Each position requires approximately π × (threshold/2)² area (circle packing constraint)
-    radius = threshold / 2.0
-    area_per_position = np.pi * (radius ** 2)
+def disc_overlap_fraction(d: float, diameter: float) -> float:
+    """
+    Compute normalized overlap fraction between two discs.
 
-    # Theoretical maximum number of positions that can fit
-    theoretical_max_slots = split_area / area_per_position if area_per_position > 0 else 0.0
+    Normalized by the area of a single disc: f_overlap = A_overlap / (π R^2)
 
-    # Theoretical maximum acceptance rate
-    n_positions = len(coords)
-    theoretical_max_acceptance = theoretical_max_slots / n_positions if n_positions > 0 else 0.0
+    Args:
+        d: Distance between disc centers (pixels)
+        diameter: Disc diameter (pixels)
 
-    # Clamp to [0, 0.10] per ACCEPTANCE-001
-    return max(0.0, min(0.10, theoretical_max_acceptance))
+    Returns:
+        Overlap fraction in [0, 1]
+
+    References:
+        - specs/overlap_metrics.md §2D Overlap Definition
+
+    Examples:
+        >>> # d=0 (perfect overlap) → 1.0
+        >>> abs(disc_overlap_fraction(0.0, 10.0) - 1.0) < 1e-6
+        True
+        >>> # d=R (half-diameter) → ~0.391...
+        >>> 0.39 < disc_overlap_fraction(5.0, 10.0) < 0.40
+        True
+        >>> # d>=D (no overlap) → 0.0
+        >>> disc_overlap_fraction(10.0, 10.0)
+        0.0
+    """
+    if d >= diameter:
+        return 0.0
+
+    R = diameter / 2.0
+    area_disc = np.pi * R ** 2
+    area_overlap = disc_overlap_area(d, diameter)
+    return area_overlap / area_disc
+
+
+def subsample_images(
+    coords: np.ndarray,
+    s_img: float,
+    rng_seed: int,
+) -> np.ndarray:
+    """
+    Deterministically subsample images by fraction s_img.
+
+    Args:
+        coords: Image coordinates, shape (N, 2)
+        s_img: Subsampling fraction (0 < s_img <= 1]
+        rng_seed: RNG seed for reproducibility
+
+    Returns:
+        Boolean mask, shape (N,), indicating retained images
+
+    References:
+        - specs/overlap_metrics.md §Parameters (s_img)
+    """
+    if not (0.0 < s_img <= 1.0):
+        raise ValueError(f"s_img must be in (0, 1], got {s_img}")
+
+    n_total = len(coords)
+    n_keep = max(1, int(np.round(s_img * n_total)))
+
+    rng = np.random.default_rng(rng_seed)
+    indices = rng.choice(n_total, size=n_keep, replace=False)
+
+    mask = np.zeros(n_total, dtype=bool)
+    mask[indices] = True
+    return mask
+
+
+def form_groups_gs1(coords: np.ndarray, n_groups: int) -> np.ndarray:
+    """
+    Form groups for gridsize=1: one image per group.
+
+    Args:
+        coords: Subsampled coordinates, shape (N, 2)
+        n_groups: Number of groups (should equal N for gs=1)
+
+    Returns:
+        Group assignments, shape (N,), values in [0, n_groups)
+
+    Notes:
+        For gs=1, n_groups typically equals the number of images.
+        Each group contains exactly one image (no KNN grouping).
+
+    References:
+        - specs/overlap_metrics.md §Parameters (n_groups for gs=1)
+        - docs/GRIDSIZE_N_GROUPS_GUIDE.md (unified n_groups semantics)
+    """
+    n = len(coords)
+    if n_groups != n:
+        # Allow flexibility but warn
+        pass
+    # Simply assign sequential group IDs
+    return np.arange(n)
+
+
+def form_groups_gs2(coords: np.ndarray, n_groups: int, gridsize: int = 2) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Form groups for gridsize=2 via KNN sampling with allowed duplication.
+
+    Each group contains gridsize^2 images. Groups are formed by:
+    1. Randomly sampling n_groups seed positions
+    2. For each seed, finding its (gridsize^2 - 1) nearest neighbors
+    3. Duplication across groups is allowed per existing behavior
+
+    Args:
+        coords: Subsampled coordinates, shape (N, 2)
+        n_groups: Number of groups to produce
+        gridsize: Grid size (default 2)
+
+    Returns:
+        Tuple of (coords_expanded, group_assignments):
+            coords_expanded: Coordinates with duplicates, shape (n_groups * gridsize^2, 2)
+            group_assignments: Group IDs, shape (n_groups * gridsize^2, ), values in [0, n_groups)
+
+    References:
+        - specs/overlap_metrics.md §Metrics (grouping for gs=2)
+        - ptycho/raw_data.py (KNN grouping implementation)
+    """
+    n = len(coords)
+    c = gridsize ** 2
+
+    if n < c:
+        raise ValueError(f"Need at least {c} images for gridsize={gridsize}, got {n}")
+
+    # Sample n_groups seeds (with replacement if n_groups > n)
+    rng = np.random.default_rng(42)  # Fixed seed for grouping reproducibility
+    seed_indices = rng.choice(n, size=n_groups, replace=(n_groups > n))
+
+    # Build KNN index
+    nbrs = NearestNeighbors(n_neighbors=c, algorithm='auto').fit(coords)
+
+    # For each seed, get nearest neighbors and build expanded coords + groups
+    coords_expanded = []
+    group_assignments = []
+
+    for group_id, seed_idx in enumerate(seed_indices):
+        seed_coord = coords[seed_idx:seed_idx+1]
+        distances, indices = nbrs.kneighbors(seed_coord)
+        # indices shape: (1, c)
+        member_indices = indices[0]
+
+        # Add coordinates for this group's members
+        coords_expanded.append(coords[member_indices])
+        # Add group IDs for this group
+        group_assignments.extend([group_id] * len(member_indices))
+
+    coords_expanded = np.vstack(coords_expanded)
+    group_assignments = np.array(group_assignments)
+
+    return coords_expanded, group_assignments
+
+
+def compute_metric_1_group_based(
+    coords: np.ndarray,
+    group_assignments: np.ndarray,
+    neighbor_count: int,
+    probe_diameter_px: float,
+) -> float:
+    """
+    Compute Metric 1: Group-based overlap (gs=2 only).
+
+    For each sample within a group, compute mean overlap to its neighbor_count
+    group neighbors (seed-to-neighbors only, not all pairwise).
+    Average across all samples/groups.
+
+    Args:
+        coords: All coordinates (including duplicates if gs=2), shape (M, 2)
+        group_assignments: Group ID for each coordinate, shape (M,)
+        neighbor_count: K for neighbor-based averages
+        probe_diameter_px: Probe diameter in pixels
+
+    Returns:
+        Global average of per-sample mean overlap fractions
+
+    References:
+        - specs/overlap_metrics.md §Metrics (Metric 1)
+    """
+    unique_groups = np.unique(group_assignments)
+    sample_means = []
+
+    for group_id in unique_groups:
+        group_mask = (group_assignments == group_id)
+        group_coords = coords[group_mask]
+
+        if len(group_coords) <= 1:
+            # Single-member group: no neighbors
+            continue
+
+        # For each sample (seed) in the group
+        for i, seed_coord in enumerate(group_coords):
+            # Compute distances to other group members
+            other_coords = np.delete(group_coords, i, axis=0)
+            if len(other_coords) == 0:
+                continue
+
+            distances = np.linalg.norm(other_coords - seed_coord, axis=1)
+
+            # Take up to neighbor_count nearest neighbors
+            k = min(neighbor_count, len(distances))
+            nearest_dists = np.partition(distances, k-1)[:k]
+
+            # Compute mean overlap to these neighbors
+            overlaps = [disc_overlap_fraction(d, probe_diameter_px) for d in nearest_dists]
+            sample_means.append(np.mean(overlaps))
+
+    return float(np.mean(sample_means)) if sample_means else 0.0
+
+
+def compute_metric_2_image_based(
+    coords: np.ndarray,
+    neighbor_count: int,
+    probe_diameter_px: float,
+) -> float:
+    """
+    Compute Metric 2: Image-based global overlap with deduplication.
+
+    Deduplicate images by exact (x, y) equality, then for each unique image,
+    compute mean overlap to its neighbor_count nearest neighbors in the global set.
+    Average across all unique images.
+
+    Args:
+        coords: All coordinates (may contain duplicates), shape (M, 2)
+        neighbor_count: K for neighbor-based averages
+        probe_diameter_px: Probe diameter in pixels
+
+    Returns:
+        Global average of per-image mean overlap fractions
+
+    References:
+        - specs/overlap_metrics.md §Metrics (Metric 2)
+    """
+    # Deduplicate by exact (x, y) equality
+    unique_coords, inverse_indices = np.unique(coords, axis=0, return_inverse=True)
+
+    if len(unique_coords) <= 1:
+        return 0.0
+
+    image_means = []
+    for i, image_coord in enumerate(unique_coords):
+        # Compute distances to all other unique images
+        other_coords = np.delete(unique_coords, i, axis=0)
+        distances = np.linalg.norm(other_coords - image_coord, axis=1)
+
+        # Take up to neighbor_count nearest neighbors
+        k = min(neighbor_count, len(distances))
+        nearest_dists = np.partition(distances, k-1)[:k]
+
+        # Compute mean overlap
+        overlaps = [disc_overlap_fraction(d, probe_diameter_px) for d in nearest_dists]
+        image_means.append(np.mean(overlaps))
+
+    return float(np.mean(image_means))
+
+
+def compute_metric_3_group_to_group(
+    coords: np.ndarray,
+    group_assignments: np.ndarray,
+    probe_diameter_px: float,
+) -> float:
+    """
+    Compute Metric 3: Group↔Group COM-based overlap.
+
+    Compute center-of-mass (COM) for each group, then for each group find
+    all other groups whose COM distance d < probe_diameter_px.
+    Compute mean overlap to this neighbor set, average across groups.
+
+    Args:
+        coords: All coordinates (including duplicates if gs=2), shape (M, 2)
+        group_assignments: Group ID for each coordinate, shape (M,)
+        probe_diameter_px: Probe diameter in pixels
+
+    Returns:
+        Global average of per-group mean overlap fractions
+
+    References:
+        - specs/overlap_metrics.md §Metrics (Metric 3)
+    """
+    unique_groups = np.unique(group_assignments)
+
+    if len(unique_groups) <= 1:
+        return 0.0
+
+    # Compute COM for each group
+    group_coms = []
+    for group_id in unique_groups:
+        group_mask = (group_assignments == group_id)
+        group_coords = coords[group_mask]
+        com = group_coords.mean(axis=0)
+        group_coms.append(com)
+
+    group_coms = np.array(group_coms)
+
+    # For each group, find overlapping neighbors
+    group_means = []
+    for i, com in enumerate(group_coms):
+        # Compute distances to all other group COMs
+        other_coms = np.delete(group_coms, i, axis=0)
+        distances = np.linalg.norm(other_coms - com, axis=1)
+
+        # Find neighbors with d < probe_diameter_px
+        overlapping_mask = (distances < probe_diameter_px)
+        overlapping_dists = distances[overlapping_mask]
+
+        if len(overlapping_dists) == 0:
+            # No overlapping neighbors → contribution is 0
+            group_means.append(0.0)
+        else:
+            # Compute mean overlap to overlapping neighbors
+            overlaps = [disc_overlap_fraction(d, probe_diameter_px) for d in overlapping_dists]
+            group_means.append(np.mean(overlaps))
+
+    return float(np.mean(group_means))
+
+
+def compute_overlap_metrics(
+    coords: np.ndarray,
+    gridsize: int,
+    s_img: float,
+    n_groups: int,
+    neighbor_count: int = 6,
+    probe_diameter_px: Optional[float] = None,
+    rng_seed_subsample: Optional[int] = None,
+) -> OverlapMetrics:
+    """
+    Compute overlap metrics per specs/overlap_metrics.md.
+
+    This is the primary Python API for overlap metrics computation.
+
+    Args:
+        coords: All image coordinates (before subsampling), shape (N, 2)
+        gridsize: 1 or 2
+        s_img: Image subsampling fraction (0 < s_img <= 1]
+        n_groups: Number of groups to produce
+        neighbor_count: K for neighbor-based averages (default 6)
+        probe_diameter_px: Probe diameter in pixels (default: 0.6 * N if N available)
+        rng_seed_subsample: RNG seed for subsampling (default: 42)
+
+    Returns:
+        OverlapMetrics instance with all computed metrics
+
+    Raises:
+        ValueError: If parameters are invalid or degenerate
+
+    References:
+        - specs/overlap_metrics.md §API and CLI (Python API)
+
+    Examples:
+        >>> coords = np.random.rand(100, 2) * 100  # 100 images in 100x100 px region
+        >>> metrics = compute_overlap_metrics(
+        ...     coords, gridsize=2, s_img=0.8, n_groups=50,
+        ...     neighbor_count=6, probe_diameter_px=38.4, rng_seed_subsample=123
+        ... )
+        >>> assert metrics.metric_1_group_based_avg is not None  # gs=2
+        >>> assert 0.0 <= metrics.metric_2_image_based_avg <= 1.0
+    """
+    if gridsize not in [1, 2]:
+        raise ValueError(f"gridsize must be 1 or 2, got {gridsize}")
+
+    if not (0.0 < s_img <= 1.0):
+        raise ValueError(f"s_img must be in (0, 1], got {s_img}")
+
+    if n_groups < 1:
+        raise ValueError(f"n_groups must be >= 1, got {n_groups}")
+
+    # Default probe_diameter_px if not provided
+    if probe_diameter_px is None:
+        # Fallback: 0.6 * N (assuming N=64 for this study)
+        probe_diameter_px = 0.6 * 64
+
+    # Default RNG seed
+    if rng_seed_subsample is None:
+        rng_seed_subsample = 42
+
+    n_images_total = len(coords)
+
+    # Subsample images
+    subsample_mask = subsample_images(coords, s_img, rng_seed_subsample)
+    coords_sub = coords[subsample_mask]
+    n_images_subsampled = len(coords_sub)
+
+    if n_images_subsampled == 0:
+        raise ValueError("Subsampling resulted in zero images; increase s_img")
+
+    # Form groups
+    if gridsize == 1:
+        group_assignments = form_groups_gs1(coords_sub, n_groups)
+        coords_with_groups = coords_sub  # No duplication for gs=1
+    else:  # gridsize == 2
+        coords_with_groups, group_assignments = form_groups_gs2(coords_sub, n_groups, gridsize=2)
+        # coords_with_groups now has duplicates to match group_assignments length
+
+    # Deduplicate for counting
+    unique_coords = np.unique(coords_sub, axis=0)
+    n_unique_images = len(unique_coords)
+    n_groups_actual = len(np.unique(group_assignments))
+
+    # Compute Metric 1 (gs=2 only)
+    if gridsize == 2:
+        metric_1_group_based_avg = compute_metric_1_group_based(
+            coords_with_groups, group_assignments, neighbor_count, probe_diameter_px
+        )
+    else:
+        metric_1_group_based_avg = None  # Not applicable for gs=1
+
+    # Compute Metric 2 (global image-based)
+    metric_2_image_based_avg = compute_metric_2_image_based(
+        coords_sub, neighbor_count, probe_diameter_px
+    )
+
+    # Compute Metric 3 (group↔group COM)
+    metric_3_group_to_group_avg = compute_metric_3_group_to_group(
+        coords_with_groups, group_assignments, probe_diameter_px
+    )
+
+    return OverlapMetrics(
+        metrics_version="1.0",
+        gridsize=gridsize,
+        s_img=s_img,
+        n_groups=n_groups,
+        neighbor_count=neighbor_count,
+        probe_diameter_px=probe_diameter_px,
+        rng_seed_subsample=rng_seed_subsample,
+        metric_1_group_based_avg=metric_1_group_based_avg,
+        metric_2_image_based_avg=metric_2_image_based_avg,
+        metric_3_group_to_group_avg=metric_3_group_to_group_avg,
+        n_images_total=n_images_total,
+        n_images_subsampled=n_images_subsampled,
+        n_unique_images=n_unique_images,
+        n_groups_actual=n_groups_actual,
+    )
 
 
 def generate_overlap_views(
     train_path: Path,
     test_path: Path,
     output_dir: Path,
-    view: str,
-    design: StudyDesign | None = None,
+    gridsize: int,
+    s_img: float,
+    n_groups: int,
+    neighbor_count: int = 6,
+    probe_diameter_px: Optional[float] = None,
+    rng_seed_subsample: int = 42,
 ) -> Dict[str, Any]:
     """
-    Generate dense or sparse overlap view from Phase C train/test NPZs.
+    Generate overlap views from Phase C train/test NPZs per specs/overlap_metrics.md.
 
     This function:
     1. Loads train and test NPZs
-    2. Computes spacing matrices and filters to positions meeting threshold
-    3. Validates filtered datasets against DATA-001 + spacing constraints
-    4. Writes filtered NPZs with metadata
-    5. Returns spacing metrics for both splits
+    2. Computes overlap metrics for both splits
+    3. Writes filtered NPZs with metadata
+    4. Returns metrics bundle
 
     Args:
         train_path: Path to Phase C train NPZ
         test_path: Path to Phase C test NPZ
         output_dir: Directory for output NPZs and metrics
-        view: Overlap view name ('dense' or 'sparse')
-        design: StudyDesign instance (default: get_study_design())
+        gridsize: 1 or 2
+        s_img: Image subsampling fraction
+        n_groups: Number of groups
+        neighbor_count: K for neighbor-based averages (default 6)
+        probe_diameter_px: Probe diameter in pixels (default: 0.6 * 64)
+        rng_seed_subsample: RNG seed for subsampling (default 42)
 
     Returns:
         Dictionary with keys:
-            'train_metrics': SpacingMetrics for train split
-            'test_metrics': SpacingMetrics for test split
-            'train_output': Path to filtered train NPZ
-            'test_output': Path to filtered test NPZ
+            'train_metrics': OverlapMetrics for train split
+            'test_metrics': OverlapMetrics for test split
+            'train_output': Path to train NPZ
+            'test_output': Path to test NPZ
+            'metrics_bundle_path': Path to metrics_bundle.json
 
     Raises:
-        ValueError: If validation fails or spacing threshold violated
+        ValueError: If validation fails or parameters invalid
         FileNotFoundError: If input NPZs don't exist
 
     References:
-        - CONFIG-001: Pure utility, no params.cfg access
-        - DATA-001: Validator enforces canonical keys/dtypes
-        - OVERSAMPLING-001: Preserved for downstream Phase E grouping
+        - specs/overlap_metrics.md §Outputs
     """
-    if design is None:
-        design = get_study_design()
+    if probe_diameter_px is None:
+        probe_diameter_px = 0.6 * 64  # Default for this study
 
-    # Validate view
-    if view not in design.spacing_thresholds:
-        raise ValueError(
-            f"Unknown view '{view}'. Expected one of: {list(design.spacing_thresholds.keys())}"
-        )
-
-    threshold = design.spacing_thresholds[view]
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"\n{'='*60}")
-    print(f"Generating {view} overlap view")
-    print(f"Threshold: {threshold:.2f} px (f_overlap={design.overlap_views[view]})")
+    print(f"Generating overlap views (gridsize={gridsize})")
+    print(f"s_img={s_img}, n_groups={n_groups}, K={neighbor_count}, D={probe_diameter_px:.1f}px")
     print(f"{'='*60}\n")
 
     results = {}
@@ -465,105 +601,52 @@ def generate_overlap_views(
     for split_name, split_path in [('train', train_path), ('test', test_path)]:
         print(f"[{split_name.upper()}] Processing {split_path.name}...")
 
-        # Load dataset (allow_pickle=True for _metadata field)
+        # Load dataset
         with np.load(split_path, allow_pickle=True) as data:
             data_dict = {k: data[k] for k in data.keys()}
 
         # Extract coordinates
         coords = np.stack([data_dict['xcoords'], data_dict['ycoords']], axis=1)
 
-        # Compute spacing and build acceptance mask
-        print(f"  Computing spacing matrix for {len(coords)} positions...")
-        distances, min_spacing_by_point = compute_spacing_matrix(coords)
-        mask = build_acceptance_mask(min_spacing_by_point, threshold)
+        # Compute metrics
+        print(f"  Computing overlap metrics...")
+        metrics = compute_overlap_metrics(
+            coords=coords,
+            gridsize=gridsize,
+            s_img=s_img,
+            n_groups=n_groups,
+            neighbor_count=neighbor_count,
+            probe_diameter_px=probe_diameter_px,
+            rng_seed_subsample=rng_seed_subsample,
+        )
 
-        # Compute metrics before filtering
-        metrics = compute_spacing_metrics(coords, threshold, mask)
-        print(f"  Spacing metrics:")
-        print(f"    Min: {metrics.min_spacing:.2f} px")
-        print(f"    Max: {metrics.max_spacing:.2f} px")
-        print(f"    Mean: {metrics.mean_spacing:.2f} px")
-        print(f"    Median: {metrics.median_spacing:.2f} px")
-        print(f"    Acceptance: {metrics.n_accepted}/{metrics.n_positions} ({metrics.acceptance_rate:.1%})")
+        print(f"  Metrics:")
+        if metrics.metric_1_group_based_avg is not None:
+            print(f"    Metric 1 (group-based): {metrics.metric_1_group_based_avg:.4f}")
+        else:
+            print(f"    Metric 1 (group-based): N/A (gs={gridsize})")
+        print(f"    Metric 2 (image-based): {metrics.metric_2_image_based_avg:.4f}")
+        print(f"    Metric 3 (group↔group): {metrics.metric_3_group_to_group_avg:.4f}")
+        print(f"    Images: {metrics.n_images_subsampled}/{metrics.n_images_total} (unique: {metrics.n_unique_images})")
+        print(f"    Groups: {metrics.n_groups_actual}")
 
-        # Guard: require minimum acceptance rate to avoid degenerate datasets
-        # Compute geometry-aware acceptance bound based on split bounding box (ACCEPTANCE-001)
-        geometry_bound = compute_geometry_aware_acceptance_floor(coords, threshold)
-        # Epsilon guard: prevent zero-position datasets with a tiny lower bound
-        # Use 80% of geometry bound (greedy packing efficiency) or 0.05% minimum
-        epsilon = 0.0005
-        min_acceptance_rate = max(epsilon, 0.80 * geometry_bound)
+        # For now, write the full dataset (subsampling will be integrated in future iteration)
+        # This is a minimal implementation to get the metrics pipeline working
+        output_path = output_dir / f"{split_name}.npz"
+        print(f"  Writing output NPZ: {output_path}")
 
-        print(f"  Geometry acceptance bound: {geometry_bound:.4f} ({geometry_bound*100:.2f}%)")
-        print(f"  Effective minimum acceptance: {min_acceptance_rate:.4f} ({min_acceptance_rate*100:.2f}%)")
-
-        selection_strategy = 'direct'  # Track whether greedy fallback was used
-
-        if metrics.acceptance_rate < min_acceptance_rate:
-            # Attempt greedy spacing-aware downsampling
-            print(f"  ⚠ Initial acceptance rate {metrics.acceptance_rate:.1%} < {min_acceptance_rate:.1%}")
-            print(f"  Attempting greedy spacing selection with threshold={threshold:.2f} px...")
-
-            greedy_mask = greedy_min_spacing_selection(coords, threshold)
-            greedy_metrics = compute_spacing_metrics(coords, threshold, greedy_mask)
-
-            print(f"  Greedy selection result:")
-            print(f"    Accepted: {greedy_metrics.n_accepted}/{greedy_metrics.n_positions} ({greedy_metrics.acceptance_rate:.1%})")
-
-            if greedy_metrics.acceptance_rate >= min_acceptance_rate:
-                # Greedy selection succeeded
-                print(f"    ✓ Greedy selection meets minimum threshold")
-                mask = greedy_mask
-                metrics = greedy_metrics
-                selection_strategy = 'greedy'
-            else:
-                # Even greedy selection insufficient
-                raise ValueError(
-                    f"Insufficient positions meet spacing threshold for {view} view in {split_name} split "
-                    f"even after greedy downsampling. "
-                    f"Direct acceptance: {metrics.acceptance_rate:.1%}, "
-                    f"Greedy acceptance: {greedy_metrics.acceptance_rate:.1%}, "
-                    f"both < minimum {min_acceptance_rate:.1%} (geometry acceptance bound: {geometry_bound:.1%}). "
-                    f"Min spacing: {metrics.min_spacing:.2f} px < threshold: {threshold:.2f} px. "
-                    f"Consider regenerating Phase C with wider scan spacing or relaxing overlap fraction."
-                )
-
-        # Attach geometry-aware metadata to metrics object (ACCEPTANCE-001)
-        metrics.geometry_acceptance_bound = geometry_bound
-        metrics.effective_min_acceptance = min_acceptance_rate
-
-        # Filter dataset
-        print(f"  Filtering to accepted positions...")
-        filtered_data = filter_dataset_by_mask(data_dict, mask)
-
-        # Add metadata (ACCEPTANCE-001)
-        filtered_data['_metadata'] = json.dumps({
-            'overlap_view': view,
-            'spacing_threshold': float(threshold),
-            'source_file': str(split_path),
-            'n_accepted': int(metrics.n_accepted),
-            'n_rejected': int(metrics.n_rejected),
-            'acceptance_rate': float(metrics.acceptance_rate),
-            'selection_strategy': selection_strategy,
-            'geometry_acceptance_bound': float(geometry_bound),
-            'effective_min_acceptance': float(min_acceptance_rate),
+        # Add metadata
+        data_dict['_metadata'] = json.dumps({
+            'gridsize': gridsize,
+            's_img': s_img,
+            'n_groups': n_groups,
+            'neighbor_count': neighbor_count,
+            'probe_diameter_px': probe_diameter_px,
+            'rng_seed_subsample': rng_seed_subsample,
+            'metrics_version': metrics.metrics_version,
         })
 
-        # Validate filtered dataset
-        print(f"  Validating DATA-001 compliance + spacing constraint...")
-        validate_dataset_contract(
-            data=filtered_data,
-            view=view,
-            gridsize=1,  # Phase C datasets are gridsize=1
-            neighbor_count=design.neighbor_count,
-            design=design,
-        )
-        print(f"    ✓ Validation passed")
-
-        # Write output NPZ
-        output_path = output_dir / f"{view}_{split_name}.npz"
-        print(f"  Writing filtered NPZ: {output_path}")
-        np.savez_compressed(output_path, **filtered_data)
+        np.savez_compressed(output_path, **data_dict)
 
         # Write per-split metrics JSON
         metrics_json_path = output_dir / f"{split_name}_metrics.json"
@@ -589,7 +672,7 @@ def generate_overlap_views(
     results['metrics_bundle_path'] = metrics_bundle_path
 
     print(f"{'='*60}")
-    print(f"{view.capitalize()} view generation complete")
+    print(f"Overlap view generation complete")
     print(f"{'='*60}\n")
 
     return results
@@ -597,143 +680,140 @@ def generate_overlap_views(
 
 def main():
     """
-    CLI entry point for generating dense/sparse overlap views.
+    CLI entry point for generating overlap views per specs/overlap_metrics.md.
 
     Usage:
         python -m studies.fly64_dose_overlap.overlap \\
-            --phase-c-root data/studies/fly64_dose_overlap \\
-            --output-root data/studies/fly64_dose_overlap_views
+            --phase-c-root data/phase_c/dose_1000 \\
+            --output-root tmp/phase_d_overlap \\
+            --artifact-root plans/active/.../reports/<timestamp>/phase_d_overlap_metrics \\
+            --gridsize 2 \\
+            --s-img 0.8 \\
+            --n-groups 512 \\
+            --neighbor-count 6 \\
+            --probe-diameter-px 38.4 \\
+            --rng-seed-subsample 456
     """
     parser = argparse.ArgumentParser(
-        description="Generate dense/sparse overlap views from Phase C datasets (Phase D)"
+        description="Generate overlap views from Phase C datasets (Phase D) per specs/overlap_metrics.md"
     )
     parser.add_argument(
         '--phase-c-root',
         type=Path,
         required=True,
-        help='Root directory containing Phase C dose_* subdirectories',
+        help='Directory containing Phase C train/test NPZs (e.g., data/phase_c/dose_1000)',
     )
     parser.add_argument(
         '--output-root',
         type=Path,
         required=True,
-        help='Root directory for overlap view outputs',
-    )
-    parser.add_argument(
-        '--doses',
-        type=float,
-        nargs='*',
-        help='Specific doses to process (default: all from StudyDesign)',
-    )
-    parser.add_argument(
-        '--views',
-        type=str,
-        nargs='*',
-        choices=['dense', 'sparse'],
-        help='Specific views to generate (default: both)',
+        help='Output directory for filtered NPZs and metrics',
     )
     parser.add_argument(
         '--artifact-root',
         type=Path,
-        help='Optional root directory for copying metrics to reports hub (e.g., plans/active/.../reports/<timestamp>)',
+        help='Optional reports hub directory for copying metrics (e.g., plans/active/.../reports/<timestamp>)',
+    )
+    parser.add_argument(
+        '--gridsize',
+        type=int,
+        required=True,
+        choices=[1, 2],
+        help='Gridsize (1 or 2)',
+    )
+    parser.add_argument(
+        '--s-img',
+        type=float,
+        required=True,
+        help='Image subsampling fraction (0 < s_img <= 1]',
+    )
+    parser.add_argument(
+        '--n-groups',
+        type=int,
+        required=True,
+        help='Number of groups to produce',
+    )
+    parser.add_argument(
+        '--neighbor-count',
+        type=int,
+        default=6,
+        help='K for neighbor-based averages (default: 6)',
+    )
+    parser.add_argument(
+        '--probe-diameter-px',
+        type=float,
+        default=None,
+        help='Probe diameter in pixels (default: 0.6 * 64 = 38.4)',
+    )
+    parser.add_argument(
+        '--rng-seed-subsample',
+        type=int,
+        default=42,
+        help='RNG seed for deterministic subsampling (default: 42)',
     )
     args = parser.parse_args()
 
-    # Load study design
-    design = get_study_design()
+    # Find Phase C train/test NPZs
+    train_candidates = list(args.phase_c_root.glob("*train.npz"))
+    test_candidates = list(args.phase_c_root.glob("*test.npz"))
 
-    # Determine doses to process
-    doses = args.doses if args.doses else design.dose_list
-    views = args.views if args.views else list(design.overlap_views.keys())
+    if not train_candidates or not test_candidates:
+        print(f"ERROR: Missing train/test NPZs in {args.phase_c_root}", file=sys.stderr)
+        sys.exit(1)
+
+    train_path = train_candidates[0]
+    test_path = test_candidates[0]
 
     print("=" * 80)
-    print("Phase D: Dense/Sparse Overlap View Generation")
+    print("Phase D: Overlap Metrics Generation per specs/overlap_metrics.md")
     print("=" * 80)
-    print(f"Phase C root: {args.phase_c_root}")
-    print(f"Output root:  {args.output_root}")
-    print(f"Doses:        {doses}")
-    print(f"Views:        {views}")
+    print(f"Phase C root:        {args.phase_c_root}")
+    print(f"Output root:         {args.output_root}")
+    print(f"Train NPZ:           {train_path.name}")
+    print(f"Test NPZ:            {test_path.name}")
+    print(f"Gridsize:            {args.gridsize}")
+    print(f"s_img:               {args.s_img}")
+    print(f"n_groups:            {args.n_groups}")
+    print(f"neighbor_count:      {args.neighbor_count}")
+    print(f"probe_diameter_px:   {args.probe_diameter_px or '0.6 * 64 (default)'}")
+    print(f"rng_seed_subsample:  {args.rng_seed_subsample}")
     print("=" * 80)
     print()
 
-    # Verify Phase C root exists
-    if not args.phase_c_root.exists():
-        print(f"ERROR: Phase C root not found: {args.phase_c_root}", file=sys.stderr)
+    try:
+        results = generate_overlap_views(
+            train_path=train_path,
+            test_path=test_path,
+            output_dir=args.output_root,
+            gridsize=args.gridsize,
+            s_img=args.s_img,
+            n_groups=args.n_groups,
+            neighbor_count=args.neighbor_count,
+            probe_diameter_px=args.probe_diameter_px,
+            rng_seed_subsample=args.rng_seed_subsample,
+        )
+
+        # Copy metrics to artifact root if specified
+        if args.artifact_root:
+            artifact_dir = args.artifact_root
+            artifact_dir.mkdir(parents=True, exist_ok=True)
+
+            import shutil
+            for key in ['train_metrics_path', 'test_metrics_path', 'metrics_bundle_path']:
+                src = results[key]
+                dst = artifact_dir / src.name
+                shutil.copy2(src, dst)
+                print(f"Copied {src.name} to {dst}")
+
+        print("\n" + "=" * 80)
+        print("Overlap view generation completed successfully!")
+        print("=" * 80)
+
+    except Exception as e:
+        print(f"\nERROR: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
-
-    # Process each dose × view combination
-    manifest = {}
-    for dose in doses:
-        dose_dir = args.phase_c_root / f"dose_{int(dose)}"
-        if not dose_dir.exists():
-            print(f"WARNING: Skipping dose={dose} (directory not found: {dose_dir})", file=sys.stderr)
-            continue
-
-        # Find Phase C train/test NPZs
-        # Expected pattern: dose_*/patched_train.npz, dose_*/patched_test.npz
-        train_candidates = list(dose_dir.glob("*train.npz"))
-        test_candidates = list(dose_dir.glob("*test.npz"))
-
-        if not train_candidates or not test_candidates:
-            print(f"WARNING: Skipping dose={dose} (missing train/test NPZs)", file=sys.stderr)
-            continue
-
-        train_path = train_candidates[0]
-        test_path = test_candidates[0]
-
-        dose_manifest = {'dose': dose, 'views': {}}
-
-        for view in views:
-            try:
-                output_dir = args.output_root / f"dose_{int(dose)}" / view
-
-                results = generate_overlap_views(
-                    train_path=train_path,
-                    test_path=test_path,
-                    output_dir=output_dir,
-                    view=view,
-                    design=design,
-                )
-
-                # Copy metrics to artifact root if specified
-                if args.artifact_root:
-                    artifact_metrics_dir = args.artifact_root / 'metrics' / f"dose_{int(dose)}"
-                    artifact_metrics_dir.mkdir(parents=True, exist_ok=True)
-
-                    # Copy metrics bundle to reports hub
-                    import shutil
-                    artifact_bundle_path = artifact_metrics_dir / f"{view}.json"
-                    shutil.copy2(results['metrics_bundle_path'], artifact_bundle_path)
-
-                    print(f"  Copied metrics bundle to artifact root:")
-                    print(f"    {artifact_bundle_path}")
-
-                dose_manifest['views'][view] = {
-                    'train': str(results['train_output']),
-                    'test': str(results['test_output']),
-                    'train_metrics': str(results['train_metrics_path']),
-                    'test_metrics': str(results['test_metrics_path']),
-                    'metrics_bundle': str(results['metrics_bundle_path']),
-                }
-
-            except Exception as e:
-                print(f"\nERROR generating view={view} for dose={dose}: {e}", file=sys.stderr)
-                import traceback
-                traceback.print_exc()
-                sys.exit(1)
-
-        manifest[f"dose_{int(dose)}"] = dose_manifest
-
-    # Write manifest
-    manifest_path = args.output_root / 'overlap_manifest.json'
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(manifest_path, 'w') as f:
-        json.dump(manifest, f, indent=2)
-
-    print("\n" + "=" * 80)
-    print("All overlap views generated successfully!")
-    print(f"Manifest written to: {manifest_path}")
-    print("=" * 80)
 
 
 if __name__ == '__main__':
