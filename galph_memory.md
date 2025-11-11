@@ -3442,3 +3442,17 @@
   - Rewrote docs/fix_plan.md (s=262) with a new implementation entry for `6a51d47a` plus this Planning Attempt, and rewrote input.md directing Ralph to add the post-verify-only pytest assertions, run both orchestrator commands (`--clobber`, `--post-verify-only`), and publish MS-SSIM/MAE + preview/verifier evidence into the active hub.
 - Next actions for Ralph: extend `test_run_phase_g_dense_post_verify_only_executes_chain` with SSIM grid/verification banner assertions (collect + exec logs), then run `run_phase_g_dense.py --clobber` followed by `--post-verify-only` into the 2025-11-12 hub, capturing SSIM grid, verification, highlights, metrics, inventory artifacts, and logging MS-SSIM ±0.000 / MAE ±0.000000 deltas + preview verdict across the summaries/docs.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-12T223500Z: Dense rerun evidence bundle directive
+- dwell: 1 (first planning loop after the 2025-11-12T201200Z ready_for_implementation hand-off; still no counted rerun evidence)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; exported AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md for downstream commands.
+  - Reality check confirmed commit `ba93f39a` landed the post-verify-only banner guard with GREEN logs, yet the active hub still lacks `{analysis,verification,metrics}` artifacts (only `cli/run_phase_g_dense_stdout.log` + `phase_c_generation.log` exist).
+  - Updated implementation.md (Phase G checklist line 213 now `[x]`), refreshed plan/plan.md timestamp 2025-11-12T223500Z to focus on rerunning the counted pipeline + verification-only sweep, and prepended the latest Turn Summary block to summary.md + summary/summary.md per hub hygiene.
+  - Added a new Attempt entry to docs/fix_plan.md and rewrote input.md so Ralph reruns the mapped collect/execution selectors, executes `run_phase_g_dense.py --clobber` followed by `--post-verify-only`, and publishes MS-SSIM ±0.000 / MAE ±0.000000 deltas + preview/verifier evidence under the hub and ledger.
+- Next actions for Ralph: follow the new Do Now (rerun the targeted pytest selectors, run both CLI commands with tee’d logs, ensure `analysis/*` is populated, then update summary.md/docs/fix_plan.md/galph_memory with MS-SSIM/MAE deltas, preview verdict, SSIM grid + verification/highlights references).
+- <Action State>: [ready_for_implementation]

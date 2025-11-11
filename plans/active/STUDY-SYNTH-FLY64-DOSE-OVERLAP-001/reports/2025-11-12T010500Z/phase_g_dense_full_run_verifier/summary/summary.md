@@ -1,4 +1,10 @@
 ### Turn Summary
+Locked the focus on delivering the dense Phase C→G rerun plus the immediate --post-verify-only sweep so the 2025-11-12 hub finally captures SSIM grid, verification, highlights, metrics, and MS-SSIM/MAE evidence.
+Marked the post-verify-only pytest guard complete in implementation.md and rewrote plan/plan.md + docs/fix_plan.md + input.md with the ready-for-implementation Do Now that reruns the targeted selectors, runs run_phase_g_dense.py --clobber, follows with --post-verify-only, and logs everything into the hub.
+Next: Ralph reruns the mapped pytest selectors, executes both CLI commands into the hub, and records MS-SSIM ±0.000 / MAE ±0.000000 plus preview/verifier references in summary.md, docs/fix_plan.md, and galph_memory.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (plan/plan.md, summary.md, summary/summary.md, collect/pytest_collect_post_verify_only.log, green/pytest_post_verify_only.log)
+
+### Turn Summary
 Confirmed commit 6a51d47a landed the SSIM grid + verification banner guard for the full run, so I re-scoped the focus to add the missing post-verify-only guard before demanding the counted dense rerun.
 Updated implementation.md checklist, plan/plan.md, docs/fix_plan.md, and input.md so Ralph extends the `test_run_phase_g_dense_post_verify_only_executes_chain` pytest to cover SSIM grid + verification lines, then runs `run_phase_g_dense.py` (`--clobber` and `--post-verify-only`) into the 2025-11-12 hub with complete analysis/verifier artifacts.
 Next: ship the new pytest coverage, capture collect/green logs, execute the dense pipeline plus post-verify sweep, and publish MS-SSIM/MAE + preview/verifier evidence across the hub summaries and ledger.
