@@ -2,6 +2,12 @@
 
 This document provides a high-level overview of the `ptycho/` core library architecture, its main components, and how they interact. It is intended to be a "map" of the system.
 
+### Scope & Structure
+
+- Shared core: This page focuses on modules common to both backends (data contracts, grouping, configuration, orchestration concepts) and explicitly marks backend-specific details.
+- Backend-specific details: TensorFlow and PyTorch implementations are documented in clearly separated subsections and diagrams. When in doubt, look for labels “(TensorFlow)” or “(PyTorch)”.
+- Pointers: TensorFlow path centers on `ptycho/` modules; PyTorch path centers on `ptycho_torch/` modules and is further detailed in **<doc-ref type="guide">docs/workflows/pytorch.md</doc-ref>**.
+
 For detailed development practices, anti-patterns, and the project's design philosophy, please see the **<doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref>**.
 
 ## 1. Component Diagram
@@ -45,16 +51,16 @@ graph TD
 
 Note on coordinates: The data pipeline standardizes scan positions in channel format `(B, 1, 2, C)` with axis order `[x, y]`; channel index `c` maps to `(row, col)` via row‑major (`row=c//gridsize`, `col=c%gridsize`). See `docs/specs/spec-ptycho-interfaces.md` for the full contract.
 
-## 2. Typical Workflow Sequence (Training Run)
+## 2A. Typical Workflow Sequence (Training Run, TensorFlow)
 
-This diagram illustrates the sequence of function calls and data object transformations during a standard training run initiated by a script like `scripts/training/train.py`.
+This diagram illustrates the TensorFlow sequence of function calls and data object transformations during a standard training run initiated by a script like `scripts/training/train.py`.
 
 ```mermaid
 sequenceDiagram
     participant Script as scripts/training/train.py
-    participant W as workflows/components.py
-    participant L as loader.py
-    participant M as model.py
+    participant W as TF workflows/components.py
+    participant L as TF loader.py
+    participant M as TF model.py
     participant E as evaluation.py
 
     Script->>W: run_cdi_example(train_data, test_data, config)
@@ -72,6 +78,36 @@ sequenceDiagram
         M-->>W: returns reconstructed_obj
         W->>E: eval_reconstruction(reconstructed_obj, ground_truth)
         E-->>W: returns metrics_dict
+    end
+
+    W-->>Script: returns results_dict
+```
+
+## 2B. Typical Workflow Sequence (Training Run, PyTorch)
+
+This diagram illustrates the PyTorch training sequence using Lightning. It assumes the same shared configuration/dataclass setup bridged via `update_legacy_dict(params.cfg, config)` and the config bridge.
+
+```mermaid
+sequenceDiagram
+    participant Script as scripts/training/train.py
+    participant W as Torch workflows/components.py
+    participant D as Torch dataloader/DataContainer
+    participant L as Lightning Trainer
+    participant M as Torch model.py
+
+    Script->>W: run_cdi_example_torch(train_data, test_data, config)
+    W->>D: create_container_from_raw(train_data)
+    D-->>W: returns train_container (PtychoDataContainerTorch)
+
+    W->>L: build Trainer(config) + fit(model)
+    Note over L: Lightning training loop executes...
+    L-->>W: returns training_history
+
+    alt If test_data is provided
+        W->>D: create_container_from_raw(test_data)
+        D-->>W: returns test_container
+        L->>M: predict(test_container)
+        M-->>L: returns reconstructed_patches
     end
 
     W-->>Script: returns results_dict
@@ -118,8 +154,10 @@ This is the most critical step, especially for **overlap-based training (`gridsi
 
 This approach avoids generating or caching all possible groups and significantly reduces memory and compute overhead. For `gridsize = 1`, seeds are used directly without neighbor search.
 
-### Stage 3: Transformation to Tensors (`loader.py`)
-This final stage prepares the data for TensorFlow by converting the grouped NumPy arrays into a `PtychoDataContainer`, which holds the final, model-ready `tf.Tensor` objects (`X`, `Y`, `coords_nominal`, etc.) that are passed directly to the model.
+### Stage 3: Transformation to Backend Containers
+This final stage prepares the data for the selected backend by converting grouped NumPy arrays into model‑ready containers:
+- TensorFlow: `PtychoDataContainer` (holds `tf.Tensor` objects such as `X`, `Y`, `coords_nominal`, etc.)
+- PyTorch: `PtychoDataContainerTorch` (holds `torch.Tensor` objects with equivalent fields)
 
 ## 4. Component Reference
 
@@ -129,8 +167,10 @@ This final stage prepares the data for TensorFlow by converting the grouped NumP
 
 -   **`params.py`**: The **legacy global state**. A global dictionary that is **DEPRECATED** but maintained for backward compatibility.
 
--   **`raw_data.py` & `loader.py`**: The **data ingestion and transformation layers**. They convert raw `.npz` files into model-ready `PtychoDataContainer` objects.
-    -   **Key Functions:** `raw_data.generate_grouped_data()`, `loader.create_ptycho_data_container()`.
+-   **`raw_data.py` & `loader.py`**: The **data ingestion and transformation layers**. They convert raw `.npz` files into model-ready containers.
+    -   **TensorFlow:** `PtychoDataContainer` via `loader.create_ptycho_data_container()`
+    -   **PyTorch:** `PtychoDataContainerTorch` via `ptycho_torch.data_container_bridge`
+    -   **Key Functions:** `raw_data.generate_grouped_data()` and backend-specific container factories
     -   For a visual breakdown of grouping and grids, see **<doc-ref type="technical">docs/GRIDSIZE_N_GROUPS_GUIDE.md</doc-ref>**.
 
 -   **`diffsim.py`**: The **forward physics model**. Encapsulates the scientific domain knowledge of ptychography.
@@ -240,6 +280,13 @@ graph TD
     I --> G
     G --> J
 ```
+
+### Backend Module Mapping (at a glance)
+- Orchestration: `ptycho/workflows/components.py` ↔ `ptycho_torch/workflows/components.py`
+- Data container: `ptycho/loader.PtychoDataContainer` ↔ `ptycho_torch/data_container_bridge.PtychoDataContainerTorch`
+- Data loader: `ptycho/loader.py` ↔ `ptycho_torch/dataloader.py`
+- Model: `ptycho/model.py` ↔ `ptycho_torch/model.py`
+- Manager (persistence): `ptycho/model_manager.py` ↔ `ptycho_torch/model_manager.py`
 
 ## 9. Stable Modules and Config Lifecycle
 
