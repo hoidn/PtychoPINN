@@ -10,7 +10,7 @@ This diagram shows the primary modules in the `ptycho/` library and their relati
 
 **Note:** The component highlighted in red (`params.py`) is a legacy part of the system that is being actively phased out.
 
-**Backend Selection:** As of Phase F (INTEGRATE-PYTORCH-001), PtychoPINN supports dual backends via the `backend` configuration field (`'tensorflow'` or `'pytorch'`). The dispatcher routes to `ptycho.workflows.components` (TensorFlow) or `ptycho_torch.workflows.components` (PyTorch) based on this field. Both paths share the same data pipeline (`raw_data.py`, `loader.py`) and configuration system (`config/config.py`, `params.py` bridge), ensuring CONFIG-001 compliance regardless of backend choice. See `specs/ptychodus_api_spec.md` §4.8 for routing guarantees and `docs/workflows/pytorch.md` §12 for integration guidance.
+**Backend Selection:** PtychoPINN supports dual backends via a `backend` configuration field (`'tensorflow'` or `'pytorch'`). The dispatcher routes to `ptycho.workflows.components` (TensorFlow) or, when available, to the PyTorch orchestration described in `docs/workflows/pytorch.md`. Both paths share the same data pipeline (`raw_data.py`, `loader.py`) and configuration system (`config/config.py` with a legacy `params.py` bridge). For API surface and contracts, see `docs/specs/spec-ptycho-interfaces.md`.
 
 ```mermaid
 graph TD
@@ -86,7 +86,7 @@ graph TD
     A[1. NPZ File on Disk] --> B(2. Ingestion: RawData Object);
     B --> C{gridsize > 1?};
     C -- No --> D[3a. Legacy Sequential<br>Subsampling];
-    C -- Yes --> E[3b. Group-Aware Subsampling<br>(Group-then-Sample)];
+    C -- Yes --> E[3b. Group-Aware Subsampling<br>(Sample-then-Group)];
     D --> F[4. Grouped Data Dictionary<br>(NumPy Arrays)];
     E --> F;
     F --> G(5. Transformation: loader.py);
@@ -109,12 +109,12 @@ graph TD
 The process begins by creating a `RawData` object, which is a direct in-memory representation of the `.npz` file.
 
 ### Stage 2: Neighbor-Aware Grouping (`RawData.generate_grouped_data()`)
-This is the most critical step, especially for **overlap-based training (`gridsize > 1`)**. To ensure training samples are both spatially representative and physically coherent, this function implements a **"group-then-sample"** strategy:
-1.  **Discover All Valid Groups:** It scans the *entire* dataset's coordinates to find all possible sets of physically adjacent scan points.
-2.  **Cache the Groups:** The results are saved to a cache file (e.g., `my_dataset.g2k4.groups_cache.npz`) to avoid expensive re-computation.
-3.  **Randomly Sample from Groups:** It then randomly samples the requested number of *groups* from this complete, pre-computed set.
+This is the most critical step, especially for **overlap-based training (`gridsize > 1`)**. To ensure training samples are both spatially representative and physically coherent, this function implements a performant **"sample‑then‑group"** strategy:
+1.  **Sample Seed Points:** Select seed indices (random or sequential) from the dataset.
+2.  **Find Neighbors for Seeds:** Build a KD‑tree once and query K nearest neighbors for each seed.
+3.  **Form Groups:** For each seed, select `C=gridsize²` indices from its neighbor set to form a solution region.
 
-For `gridsize = 1`, this logic is bypassed in favor of simple sequential subsampling for backward compatibility.
+This approach avoids generating or caching all possible groups and significantly reduces memory and compute overhead. For `gridsize = 1`, seeds are used directly without neighbor search.
 
 ### Stage 3: Transformation to Tensors (`loader.py`)
 This final stage prepares the data for TensorFlow by converting the grouped NumPy arrays into a `PtychoDataContainer`, which holds the final, model-ready `tf.Tensor` objects (`X`, `Y`, `coords_nominal`, etc.) that are passed directly to the model.
@@ -157,6 +157,6 @@ This final stage prepares the data for TensorFlow by converting the grouped NumP
 
 -   **Explicit over Implicit**: New code should favor passing configuration and data as explicit arguments rather than relying on global state. This principle is explained in detail in the **<doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref>**.
 
--   **Data Contracts**: All data exchange between components must adhere to the formats defined in the **<doc-ref type="contract">specs/data_contracts.md</doc-ref>**.
+-   **Data Contracts**: All data exchange between components must adhere to the formats defined in **<doc-ref type="contract">docs/specs/spec-ptycho-interfaces.md</doc-ref>**.
 
 -   **Separation of Concerns**: Physics simulation (`diffsim`), model architecture (`model`), and data handling (`loader`) are kept in separate, specialized modules.
