@@ -3,8 +3,7 @@ Phase B dataset validation harness for the synthetic fly64 dose/overlap study.
 
 This module provides reusable contract checks for NPZ datasets ensuring:
 - DATA-001 compliance: canonical keys/dtypes and amplitude requirement
-- StudyDesign spacing thresholds for dense/sparse overlap views
-- y-axis train/test split validation
+- y-axis train/test split validation (non-strict informational check)
 - Oversampling preconditions (neighbor_count ≥ gridsize²)
 
 References:
@@ -47,13 +46,13 @@ def validate_dataset_contract(
        - objectGuess/probeGuess: complex64
        - xcoords/ycoords: float (any precision)
     3. Consistent array shapes (n_images axis alignment)
-    4. Spacing thresholds for dense/sparse views (if view provided)
-    5. y-axis train/test split validation (coordinates split by sign)
-    6. Oversampling preconditions: neighbor_count ≥ gridsize² (if gridsize>1)
+    4. y-axis train/test split validation (coordinates split by sign; informational)
+    5. Oversampling preconditions: neighbor_count ≥ gridsize² (if gridsize>1)
 
     Args:
         data: Dictionary of numpy arrays (typically from np.load('dataset.npz'))
-        view: Optional overlap view name ('dense' or 'sparse') to validate spacing
+        view: Deprecated. Ignored. Kept for backward compatibility with callers that
+              previously passed 'dense'/'sparse' to trigger spacing gates.
         gridsize: Grouping gridsize (default 1); used for oversampling check
         neighbor_count: K for K-NN grouping; must be ≥ C=gridsize² if gridsize>1
         design: StudyDesign instance for spacing thresholds (default: get_study_design())
@@ -122,33 +121,11 @@ def validate_dataset_contract(
             f"diffraction first axis {n_images}"
         )
 
-    # 4. Spacing thresholds (if view provided)
-    # Compute inter-group spacing from coordinates
-    # Rule: S ≈ (1 - f_group) × N (docs/GRIDSIZE_N_GROUPS_GUIDE.md:143-151)
-    if view is not None:
-        if view not in design.spacing_thresholds:
-            raise ValueError(
-                f"Unknown view '{view}'. Expected one of: "
-                f"{list(design.spacing_thresholds.keys())}"
-            )
-        threshold = design.spacing_thresholds[view]
-
-        # Compute pairwise distances between all scan positions
-        coords = np.stack([data['xcoords'], data['ycoords']], axis=1)  # (N, 2)
-        # For large datasets, check min spacing via sample (full O(N²) may be slow)
-        # Here we do full check for correctness; optimize later if needed
-        if len(coords) > 1:
-            from scipy.spatial.distance import pdist
-            distances = pdist(coords)  # condensed distance matrix
-            min_spacing = distances.min() if len(distances) > 0 else float('inf')
-
-            if min_spacing < threshold:
-                raise ValueError(
-                    f"Minimum inter-position spacing {min_spacing:.2f} px "
-                    f"< required threshold {threshold:.2f} px for view '{view}'. "
-                    f"Expected S ≈ (1 - f_overlap) × N = "
-                    f"(1 - {design.overlap_views[view]}) × {design.patch_size_pixels}."
-                )
+    # 4. Spacing thresholds — removed as acceptance gates.
+    # Per docs/GRIDSIZE_N_GROUPS_GUIDE.md, geometry/packing acceptance gates are
+    # no longer enforced. Phase D measures overlap via metrics; training proceeds
+    # without spacing-based rejection. The 'view' parameter is retained only for
+    # backward compatibility and is intentionally ignored here.
 
     # 5. y-axis train/test split validation
     # Study design uses split_axis='y'; verify coordinates are spatially separated

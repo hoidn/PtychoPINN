@@ -267,9 +267,12 @@ def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=F
     probeGuess = data['probeGuess']
     objectGuess = data.get('objectGuess', None)
     
-    # --- FIX: Load the 'Y' array if it exists ---
+    # Optional ground-truth patches. Some NPZs (e.g., Phase C patched_*.npz)
+    # may include a singleton 'Y' with shape (1, N, N, 1) rather than one
+    # per image. Guard against shape mismatches by degrading to None unless
+    # the first axis matches the dataset size. This keeps TensorFlow loader
+    # behavior consistent (it will create a placeholder when Y is missing).
     Y_patches = data['Y'] if 'Y' in data else None
-    # ---------------------------------------------
 
     # Apply coordinate transformations
     if flip_x:
@@ -296,6 +299,21 @@ def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=F
 
     # Implement independent subsampling logic
     dataset_size = xcoords.shape[0]
+
+    # Validate optional Y shape before any indexing with selected_indices
+    if Y_patches is not None:
+        try:
+            if getattr(Y_patches, 'shape', None) is None or Y_patches.shape[0] != dataset_size:
+                # Shape mismatch (e.g., singleton); ignore Y to avoid index errors
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Ignoring NPZ 'Y' with incompatible shape %s (expected first axis %d)",
+                    getattr(Y_patches, 'shape', None), dataset_size,
+                )
+                Y_patches = None
+        except Exception:
+            # Defensive: if anything goes wrong with Y inspection, null it out
+            Y_patches = None
     
     # Determine how many images to use for subsampling
     if n_subsample is not None:
@@ -332,7 +350,7 @@ def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=F
                           xcoords_start[selected_indices], ycoords_start[selected_indices],
                           diff3d[selected_indices], probeGuess,
                           scan_index[selected_indices], objectGuess=objectGuess,
-                          # --- FIX: Pass the loaded Y array to the constructor ---
+                          # Pass Y only when it is per-image and shape-validated
                           Y=(Y_patches[selected_indices] if Y_patches is not None else None))
 
     return ptycho_data

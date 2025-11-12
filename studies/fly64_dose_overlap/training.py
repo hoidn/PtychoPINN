@@ -411,7 +411,10 @@ def _execute_training_job_tensorflow(*, config, job, log_path):
     if not test_path.exists():
         raise FileNotFoundError(f"Test dataset not found: {test_path}")
 
-    view_for_validation = job.view if job.view in {'dense', 'sparse'} else None
+    # Phase D now measures overlap via metrics (see docs/GRIDSIZE_N_GROUPS_GUIDE.md),
+    # and spacing/packing acceptance gates are removed. Disable spacing gating by
+    # omitting the 'view' parameter during dataset validation.
+    view_for_validation = None
 
     try:
         with np.load(train_path, allow_pickle=True) as train_npz:

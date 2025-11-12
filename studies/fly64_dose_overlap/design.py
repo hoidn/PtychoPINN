@@ -26,8 +26,9 @@ class StudyDesign:
         gridsizes: Gridsize configurations {1: single-image groups, 2: 4-image groups}
         neighbor_count: K for K-NN grouping and K-choose-C oversampling (gs=2 only)
         patch_size_pixels: Nominal patch size N for spacing calculations
-        overlap_views: Overlap fraction targets for dense/sparse views
-        spacing_thresholds: Derived minimum center spacing S (pixels) for each view
+        overlap_views: Overlap fraction targets for dense/sparse views (targets only)
+        spacing_thresholds: Derived nominal spacing S (pixels) for each view (reference only;
+                           not used for training-time acceptance)
         train_test_split_axis: Spatial axis for train/test separation ('y')
         rng_seeds: Fixed random seeds for reproducibility
         metrics_config: MS-SSIM and other metric parameters
@@ -72,13 +73,11 @@ class StudyDesign:
 
     def __post_init__(self):
         """
-        Compute derived spacing thresholds from overlap targets.
+        Compute nominal spacing thresholds from overlap targets for reference/reporting.
 
         Rule: S ≈ (1 − f_group) × N
-        where S is min center spacing (pixels), f_group is overlap fraction,
-        N is patch size.
-
-        Reference: docs/GRIDSIZE_N_GROUPS_GUIDE.md:142-151
+        (Reference value; no longer used as an acceptance gate. See
+        docs/GRIDSIZE_N_GROUPS_GUIDE.md §Inter‑Group Overlap Control.)
         """
         self.spacing_thresholds = {
             view: (1.0 - f_overlap) * self.patch_size_pixels
@@ -114,7 +113,7 @@ class StudyDesign:
                     f"overlap_views['{view}']={f_overlap} must be in [0, 1)"
                 )
 
-        # Spacing thresholds positive
+        # Spacing thresholds are derived references; ensure numeric sanity only
         for view, S in self.spacing_thresholds.items():
             if S <= 0:
                 raise ValueError(
