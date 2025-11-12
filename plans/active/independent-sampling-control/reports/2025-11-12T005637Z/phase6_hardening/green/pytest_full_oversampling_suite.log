@@ -1,0 +1,19 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 7 items
+
+tests/test_oversampling.py::TestAutomaticOversampling::test_automatic_oversampling_triggers PASSED [ 14%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_enable_oversampling_flag_required PASSED [ 28%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_gridsize_1_no_oversampling PASSED [ 42%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_neighbor_pool_size_guard PASSED [ 57%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_oversampling_with_different_k_values PASSED [ 71%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_reproducibility_with_seed PASSED [ 85%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_standard_sampling_no_oversampling PASSED [100%]
+
+============================== 7 passed in 24.24s ==============================
