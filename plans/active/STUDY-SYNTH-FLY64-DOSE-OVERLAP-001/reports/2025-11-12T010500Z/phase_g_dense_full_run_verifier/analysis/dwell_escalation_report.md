@@ -31,3 +31,9 @@
 - Supervisor: Galph (planning agent)
 - Engineering owner: Ralph (implementation agent)
 - Hub: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/`
+
+## Update — 2025-11-13T091500Z
+- Dwell climbed back to Tier 3 (8 consecutive supervisor loops) because no new `{analysis}` artifacts or Ralph commits have landed since the 2025-11-13T051200Z audit; `analysis/` still contains only `blocker.log` and this report.
+- `git status --porcelain` lists only hub evidence files, and `git log --all --oneline --grep 'RALPH' -n 5` still tops out at `b6cd7e4f` (2025-11-11), confirming engineering has not rerun the counted dense pipeline.
+- `cli/phase_d_dense.log` continues to show the argparse usage error (`overlap.py: error: the following arguments are required: --gridsize, --s-img, --n-groups`), meaning the helper never forwarded the sampling parameters that Phase D requires. `cli/run_phase_g_dense_post_verify_only.log` remains the same usage banner, so the verifier chain has still never executed under this repo.
+- Until Ralph executes the ready_for_implementation brief (pytest scalar-mask + acceptance selectors, counted `run_phase_g_dense.py --clobber`, immediately followed by the fully parameterized `--post-verify-only`, then `report_phase_g_dense_metrics.py`/`analyze_dense_metrics.py` and publication of the SSIM/verification/highlights/preview/metrics bundle), this focus stays in `blocked_escalation`. Any further failures must be logged under `$HUB/red/blocked_<timestamp>.md` with the exact command and exit code before another supervisor hand-off occurs.

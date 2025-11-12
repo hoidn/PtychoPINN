@@ -149,3 +149,60 @@ Key constraints (per request):
 - Author `test_strategy.md` for this initiative
 - Implement exporter/importer skeletons with unit tests (RED)
 - Prepare CLI scaffold for Run1084 conversion
+
+<plan_update version="1.0">
+  <trigger>Phase G dense rerun is blocked in dwell escalation, so we are pivoting to the next highest priority backlog item (Run1084 Ptychodus exporter) and need a concrete hand-off with evidence requirements.</trigger>
+  <focus_id>EXPORT-PTYCHODUS-PRODUCT-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md, specs/data_contracts.md, docs/DATA_MANAGEMENT_GUIDE.md, docs/fix_plan.md, plans/active/EXPORT-PTYCHODUS-PRODUCT-001/implementation_plan.md, plans/active/EXPORT-PTYCHODUS-PRODUCT-001/test_strategy.md, ptycho/io/ptychodus_product_io.py, tests/io/test_ptychodus_product_io.py, scripts/tools/convert_to_ptychodus_product.py</documents_read>
+  <current_plan_path>plans/active/EXPORT-PTYCHODUS-PRODUCT-001/implementation_plan.md</current_plan_path>
+  <proposed_changes>activate a long-lived reports hub, define a Run1084 conversion Do Now with explicit pytest selector + CLI commands, add evidence publication requirements, and align outputs with specs/data_contracts.md.</proposed_changes>
+  <impacts>requires creating `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/`, capturing pytest and CLI logs, verifying the generated HDF5 via the Ptychodus reader, and drafting a DATA_MANAGEMENT_GUIDE usage snippet once the conversion succeeds.</impacts>
+  <ledger_updates>docs/fix_plan.md Active Focus switches to EXPORT-PTYCHODUS-PRODUCT-001 with planning status; Latest Attempt records this Do Now and hub path.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
+### 13. Do Now — Run1084 exporter smoke (2025-11-13T091500Z)
+
+1. **Guard + hub setup**
+   - Work from `/home/ollie/Documents/PtychoPINN`; export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`.
+   - Set `HUB="$PWD/plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap"`. Direct all logs/artifacts into this hub (subdirs `green/`, `cli/`, `analysis/`, `summary/`).
+2. **Unit + smoke tests**
+   - Run `pytest tests/io/test_ptychodus_product_io.py -vv | tee "$HUB"/green/pytest_product_io.log`.
+   - Keep the existing `@pytest.mark.slow` CLI smoke enabled; dataset path `datasets/Run1084_recon3_postPC_shrunk_3.npz` must not be committed, so ensure `outputs/` targets remain git-ignored.
+3. **Run1084 conversion CLI**
+   - Execute  
+     ```bash
+     python scripts/tools/convert_to_ptychodus_product.py \
+       --input-npz datasets/Run1084_recon3_postPC_shrunk_3.npz \
+       --output-product outputs/ptychodus_products/run1084_product.h5 \
+       --name Run1084 --comments "Run1084 product export" \
+       --detector-distance-m 0.0 --probe-energy-eV 8000.0 \
+       --exposure-time-s 0.1 --object-pixel-size-m 5e-8 \
+       --probe-pixel-size-m 1.25e-7 --object-center-x-m 0.0 --object-center-y-m 0.0 \
+       --include-diffraction
+     |& tee "$HUB"/cli/convert_run1084.log
+     ```
+   - Artifact outputs (`*.h5`) stay under `outputs/ptychodus_products/` (git-ignored). Capture command/exit status inside `analysis/artifact_inventory.txt`.
+4. **Product verification**
+   - Use the reference reader to ensure spec compliance:  
+     ```bash
+     python - <<'PY' | tee "$HUB"/analysis/verify_product.log
+     from ptychodus.src.ptychodus.plugins.h5_product_file import H5ProductFileIO
+     from pathlib import Path
+     import json
+
+     product = Path("outputs/ptychodus_products/run1084_product.h5")
+     reader = H5ProductFileIO()
+     data = reader.read(product)
+     summary = {
+         "name": data.metadata.name,
+         "n_scan": len(data.scan_geometry.positions),
+         "probe_shape": data.probe.dataset.shape,
+         "object_shape": data.object.dataset.shape,
+     }
+     print(json.dumps(summary, indent=2))
+     PY
+     ```
+   - Record the JSON summary in `"$HUB"/analysis/product_summary.json` and link it from `summary/summary.md`.
+5. **Documentation note**
+   - Draft a short usage snippet for `docs/DATA_MANAGEMENT_GUIDE.md` under a new “Ptychodus Product Export” subsection (include CLI example + reminder that outputs stay outside git). Store the draft in `"$HUB"/analysis/data_guide_snippet.md` for review before editing the doc.

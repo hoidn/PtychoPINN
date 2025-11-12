@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
 **Last Updated:** 2025-11-13 (Galph s=271)
-**Active Focus:** STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G dense rerun + verification bundle [ready_for_implementation] (rerun the counted pipeline with scalar-mask guards, immediately execute the fully parameterized `--post-verify-only` sweep, and publish the SSIM grid / verification / highlights / metrics / preview / artifact-inventory bundle before re-entering Phase E or comparison work.)
+**Active Focus:** EXPORT-PTYCHODUS-PRODUCT-001 — Run1084 Ptychodus exporter/importer evidence [planning] (run `pytest tests/io/test_ptychodus_product_io.py -vv`, convert `datasets/Run1084_recon3_postPC_shrunk_3.npz` via the CLI, verify the HDF5 with the Ptychodus reader, and draft the DATA_MANAGEMENT_GUIDE snippet while STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 stays in blocked_escalation awaiting dense rerun artifacts.)
 
 ---
 
@@ -33,7 +33,7 @@ Use the “Working Plan” and “reports/” under each initiative for day‑to
 ## [STUDY-SYNTH-FLY64-DOSE-OVERLAP-001] Synthetic fly64 dose/overlap study
 - Depends on: —
 - Priority: High
-- Status: ready_for_implementation — Filter scalar bypass + regression already merged, so Ralph must now execute the counted dense rerun + fully parameterized `--post-verify-only` sweep and publish the SSIM/verification/highlights/metrics bundle documented below (see `analysis/dwell_escalation_report.md`).
+- Status: blocked_escalation — Dwell hit Tier 3 again (8 consecutive supervisor loops) with no `{analysis}` artifacts beyond `blocker.log` + the dwell report, so this focus is paused until Ralph executes the counted dense rerun + fully parameterized `--post-verify-only` sweep and publishes the full SSIM/verification/highlights/metrics bundle documented below.
 - Owner/Date: Ralph/2025-11-05
 - Working Plan: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md`
 - Reports Hub (Phase D metrics): `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics/`
@@ -46,6 +46,8 @@ Use the “Working Plan” and “reports/” under each initiative for day‑to
 - Notes: Use existing fly64 object/probe; enforce y-axis split; group-level overlap control now measured via overlap metrics (specs/overlap_metrics.md); emphasize phase MS-SSIM; PINN backend: TensorFlow; pty-chi LSQML baseline (100 epochs) uses PyTorch internally. Phase D overlap metrics hub (`plans/active/.../phase_d_overlap_metrics/`) already contains gs1/gs2 CLI logs + JSON bundles.
 - Attempts History: See `docs/archive/2025-11-06_fix_plan_archive.md` (section for this initiative) and the initiative's `reports/` directories for run logs and metrics.
   
+- Latest Attempt (2025-11-13T091500Z): planning — Dwell counter returned to Tier 3 (8 consecutive supervisor loops) with zero new CLI logs, SSIM/verification/highlights, preview, or metrics artifacts under the Phase G hub. `git status --porcelain` still only lists hub evidence while `git log --all --grep 'RALPH' -n 5` tops out at `b6cd7e4f` (2025-11-11), confirming Ralph has not rerun the counted pipeline. `cli/phase_d_dense.log` and `cli/run_phase_g_dense_post_verify_only.log` remain argparse usage banners (`--gridsize/--s-img/--n-groups` missing). Added a follow-up section to `analysis/dwell_escalation_report.md`, marked the focus `blocked_escalation`, and paused further planning until Ralph executes the guard pytest selectors plus both CLI commands and publishes the SSIM/verification/highlights/metrics/preview bundle (failures → `$HUB/red/blocked_<timestamp>.md` with the command + exit code).
+
 - Latest Attempt (2025-11-12T011535Z): planning — Re-read docs/index.md; docs/findings.md (DATA-001 / PREVIEW-PHASE-001 / TEST-CLI-001 / ACCEPTANCE-001); docs/INITIATIVE_WORKFLOW_GUIDE.md; docs/TESTING_GUIDE.md §§Phase G orchestrator/metrics; docs/development/TEST_SUITE_INDEX.md; specs/data_contracts.md §12; docs/fix_plan.md; galph_memory.md; input.md; `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md`; and the Phase G hub artifacts (plan, summaries, `analysis/blocker.log`, `analysis/dwell_escalation_report.md`, `cli/phase_d_dense.log`, `green/pytest_filter_dataset_by_mask.log`). Confirmed `studies/fly64_dose_overlap/overlap.py::filter_dataset_by_mask` already bypasses scalar metadata and the regression test exists with green evidence, so the blocker is now exclusively the counted dense rerun + fully parameterized `--post-verify-only` sweep and metrics bundle. Updated the plan checklist, refreshed the Do Now with the guarding pytest selectors plus both CLI commands, and rewrote input.md so Ralph must run the tests, rerun the pipeline from `/home/ollie/Documents/PtychoPINN`, and publish the SSIM/verification/highlights/metrics/preview bundle (failures → `$HUB/red/`). Focus set to ready_for_implementation.
 
 
@@ -113,11 +115,19 @@ Do Now (updated):
 ## [EXPORT-PTYCHODUS-PRODUCT-001] TF-side Ptychodus product exporter/importer + Run1084 conversion
 - Depends on: —
 - Priority: Medium
-- Status: planning
+- Status: planning — scope now focused on proving the existing exporter/importer + CLI by producing a Run1084 HDF5 product with reproducible pytest + reader evidence.
 - Owner/Date: Codex Agent/2025-10-28
 - Working Plan: `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/implementation_plan.md`
 - Test Strategy: `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/test_strategy.md`
-- Attempts History: Initial plan/test strategy drafted — see plan files for details.
+- Reports Hub: `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/`
+- Do Now (2025-11-13T091500Z):
+  1. Guard from `/home/ollie/Documents/PtychoPINN`, export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`, and set `HUB="$PWD/plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap"`.
+  2. Run `pytest tests/io/test_ptychodus_product_io.py -vv | tee "$HUB"/green/pytest_product_io.log` (keep the Run1084 CLI smoke enabled).
+  3. Convert Run1084 to an HDF5 product with  
+     `python scripts/tools/convert_to_ptychodus_product.py --input-npz datasets/Run1084_recon3_postPC_shrunk_3.npz --output-product outputs/ptychodus_products/run1084_product.h5 --name Run1084 --comments "Run1084 product export" --object-pixel-size-m 5e-8 --probe-pixel-size-m 1.25e-7 --object-center-x-m 0.0 --object-center-y-m 0.0 --include-diffraction |& tee "$HUB"/cli/convert_run1084.log`.
+  4. Verify the generated product with `ptychodus.src.ptychodus.plugins.h5_product_file.H5ProductFileIO`, store the JSON summary under `analysis/product_summary.json`, and capture the script output in `analysis/verify_product.log`.
+  5. Draft a short DATA_MANAGEMENT_GUIDE snippet explaining the CLI usage + evidence policy (`analysis/data_guide_snippet.md`), then update docs after the product verification passes.
+- Latest Attempt (2025-11-13T091500Z): planning — Re-read docs/index.md, docs/findings.md (DATA-001), specs/data_contracts.md, docs/DATA_MANAGEMENT_GUIDE.md, docs/fix_plan.md, the implementation plan, test_strategy, `ptycho/io/ptychodus_product_io.py`, `tests/io/test_ptychodus_product_io.py`, and `scripts/tools/convert_to_ptychodus_product.py`. Created the long-lived reports hub `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/`, added a plan `<plan_update>` defining the Run1084 Do Now, and wired the hub/file expectations (pytest log, CLI log, product summary JSON, doc snippet draft). Focus set to planning until the evidence run completes.
 
 ## [INTEGRATE-PYTORCH-001-STUBS] Finish PyTorch workflow stubs deferred from Phase D2
 - Status: archived 2025-10-20 — see `docs/archive/2025-10-20_fix_plan_archive.md#integrate-pytorch-001-stubs-finish-pytorch-workflow-stubs-deferred-from-phase-d2`.

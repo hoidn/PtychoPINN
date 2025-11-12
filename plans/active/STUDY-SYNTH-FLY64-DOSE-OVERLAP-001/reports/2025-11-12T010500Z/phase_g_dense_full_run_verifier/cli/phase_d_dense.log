@@ -3,51 +3,13 @@
 # Log: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/phase_d_dense.log
 # ==============================================================================
 
+usage: overlap.py [-h] --phase-c-root PHASE_C_ROOT --output-root OUTPUT_ROOT
+                  [--artifact-root ARTIFACT_ROOT] --gridsize {1,2} --s-img
+                  S_IMG --n-groups N_GROUPS [--neighbor-count NEIGHBOR_COUNT]
+                  [--probe-diameter-px PROBE_DIAMETER_PX]
+                  [--rng-seed-subsample RNG_SEED_SUBSAMPLE]
+overlap.py: error: the following arguments are required: --gridsize, --s-img, --n-groups
 
-ERROR generating view=dense for dose=1000.0: len() of unsized object
-Traceback (most recent call last):
-  File "/home/ollie/Documents/PtychoPINN/studies/fly64_dose_overlap/overlap.py", line 690, in main
-    results = generate_overlap_views(
-              ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/studies/fly64_dose_overlap/overlap.py", line 537, in generate_overlap_views
-    filtered_data = filter_dataset_by_mask(data_dict, mask)
-                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/studies/fly64_dose_overlap/overlap.py", line 194, in filter_dataset_by_mask
-    if len(arr) == n_expected:
-       ^^^^^^^^
-TypeError: len() of unsized object
-================================================================================
-Phase D: Dense/Sparse Overlap View Generation
-================================================================================
-Phase C root: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c
-Output root:  /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d
-Doses:        [1000.0]
-Views:        ['dense']
-================================================================================
-
-
-============================================================
-Generating dense overlap view
-Threshold: 38.40 px (f_overlap=0.7)
-============================================================
-
-[TRAIN] Processing patched_train.npz...
-  Computing spacing matrix for 5088 positions...
-  Spacing metrics:
-    Min: 0.06 px
-    Max: 372.78 px
-    Mean: 134.49 px
-    Median: 125.41 px
-    Acceptance: 0/5088 (0.0%)
-  Geometry acceptance bound: 0.0096 (0.96%)
-  Effective minimum acceptance: 0.0077 (0.77%)
-  ⚠ Initial acceptance rate 0.0% < 0.8%
-  Attempting greedy spacing selection with threshold=38.40 px...
-  Greedy selection result:
-    Accepted: 42/5088 (0.8%)
-    ✓ Greedy selection meets minimum threshold
-  Filtering to accepted positions...
-
-[run_phase_g_dense] ERROR: Command failed with return code 1
+[run_phase_g_dense] ERROR: Command failed with return code 2
 Command: /home/ollie/miniconda3/envs/ptycho311/bin/python -m studies.fly64_dose_overlap.overlap --phase-c-root /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c --output-root /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d --doses 1000 --views dense --artifact-root /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis
 Log: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/phase_d_dense.log
