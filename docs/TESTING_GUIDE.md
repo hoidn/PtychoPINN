@@ -1,26 +1,24 @@
 # PtychoPINN Testing Guide
 
-This document provides comprehensive guidance on testing strategies, running the test suite, and contributing new tests to the PtychoPINN project.
+This guide describes how to run tests and validate study workflows.
 
 ## Running the Full Test Suite
 
-To run all automated tests, execute the following command from the project's root directory:
+Preferred (pytest)
+- The project standard is to run tests via pytest selectors:
+  ```bash
+  pytest tests/ -q
+  ```
 
-```bash
-python -m unittest discover tests/
-```
+Legacy unittest modules
+- A few legacy suites still use `unittest` discovery. Run them explicitly when needed:
+  ```bash
+  python -m unittest tests.image.test_cropping -v
+  python -m unittest tests.image.test_registration -v
+  ```
 
-This command will discover and run all test files in the `tests/` directory that follow the `test_*.py` naming convention.
-
-### Alternative: Using pytest
-
-If you prefer pytest (optional dependency), you can run:
-
-```bash
-pytest tests/
-```
-
-**Important:** Always run tests from the project root directory to ensure proper path resolution and module imports.
+Notes
+- Always run from the repo root so imports and relative paths resolve correctly.
 
 ## Test Types
 
@@ -74,10 +72,10 @@ This test ensures that:
 
 ### Study Tests
 
-Specialized tests for synthetic dataset generation and scientific studies.
+Specialized tests for the synthetic fly64 dose/overlap study.
 
-- **Location:** `tests/study/test_dose_overlap_*.py` files
-- **Purpose:** Validate dataset generation pipelines, spacing analysis, and study orchestration
+- **Location:** `tests/study/test_dose_overlap_*.py`
+- **Purpose:** Validate dataset generation, overlap metrics (explicit `s_img`/`n_groups`), and study orchestration per `specs/overlap_metrics.md` and `docs/GRIDSIZE_N_GROUPS_GUIDE.md`. Dense/sparse labels and spacing/packing acceptance gates are deprecated for Phase D in this study.
 - **Examples:**
   - `test_dose_overlap_design.py` - Tests study design configuration and validation
   - `test_dose_overlap_generation.py` - Tests Phase C dataset generation pipeline
@@ -89,14 +87,9 @@ Specialized tests for synthetic dataset generation and scientific studies.
   # Run all study tests
   pytest tests/study/ -v
 
-  # Run Phase D overlap filtering tests
+  # Phase D overlap metrics (unit + integration)
   pytest tests/study/test_dose_overlap_overlap.py -v
-
-  # Run specific metrics manifest test
-  pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_metrics_manifest -vv
-
-  # Run spacing filter regression tests
-  pytest tests/study/test_dose_overlap_overlap.py -k spacing_filter -vv
+  pytest tests/study/test_dose_overlap_overlap.py::test_overlap_metrics_bundle -vv
 
   # Run Phase E training tests
   pytest tests/study/test_dose_overlap_training.py -v
@@ -400,7 +393,7 @@ python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py 
 
 # Real execution mode (remove --collect-only, add --clobber to archive stale outputs)
 export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
-python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \
+$PYTHON_BIN plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \
   --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/phase_g_dense_execution \
   --dose 1000 \
   --view dense \
@@ -414,6 +407,27 @@ python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py 
   --view dense \
   --splits train test
 ```
+
+### Phase D — Overlap Metrics (CLI)
+
+Use the dedicated CLI to generate Phase D overlap metrics per spec (no spacing/packing gates; explicit `s_img` and `n_groups`).
+
+```bash
+python -m studies.fly64_dose_overlap.overlap \
+  --phase-c-root data/phase_c/dose_1000 \
+  --output-root tmp/phase_d_overlap/dose_1000 \
+  --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/phase_d_overlap_metrics \
+  --gridsize 2 \
+  --s-img 0.8 \
+  --n-groups 512 \
+  --neighbor-count 6 \
+  --probe-diameter-px 38.4 \
+  --rng-seed-subsample 456
+```
+
+Selectors
+- Unit + integration: `pytest tests/study/test_dose_overlap_overlap.py -v`
+- Bundle schema: `pytest tests/study/test_dose_overlap_overlap.py::test_overlap_metrics_bundle -vv`
 
 The orchestrator runs 8 sequential commands (Phase C generation → D overlap → E training baseline/dense → F reconstruction train/test → G comparison train/test), captures per-phase CLI logs under `{HUB}/cli/`, calls `summarize_phase_g_outputs()` after successful pipeline completion, invokes the reporting helper to generate aggregate Markdown + highlights, prints a highlights preview to stdout for quick sanity-checks of MS-SSIM/MAE deltas, then invokes `analyze_dense_metrics.py` to generate the final `metrics_digest.md` combining summary + highlights. Emits blocker log on any command failure.
 
@@ -559,7 +573,7 @@ Before starting any significant feature development, establish a baseline of the
 
 1. **Run the full test suite and save results:**
    ```bash
-   python -m unittest discover tests/ -v > test_baseline_$(date +%Y%m%d).txt 2>&1
+   $PYTHON_BIN -m unittest discover tests/ -v > test_baseline_$(date +%Y%m%d).txt 2>&1
    ```
 
 2. **Document pre-existing failures:**

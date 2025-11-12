@@ -29,7 +29,7 @@ This document is the **constitution** for the Claude AI agents working on the Pt
     - Tier 2 (dwell=4): if Ralph did not execute (see `ralph_last_commit` tracking and git log checks), document the blocker (with citations) and switch to a blocker focus or mark current focus blocked with a return condition.
     - Tier 3 (dwell=6): absolute limit — force‑block, create a dwell escalation report under the active hub, and switch focus.
     Supervisor records `ralph_last_commit=<sha8|none>` in `galph_memory.md` and applies a pre‑planning dwell gate each loop.
-11. **Interpreter policy.** Obey PYTHON-ENV-001 in `docs/DEVELOPER_GUIDE.md` (use the active interpreter via `sys.executable`/`PYTHON_BIN`; do not rely on PATH `python`).
+11. **Interpreter policy.** Obey PYTHON-ENV-001 in `docs/DEVELOPER_GUIDE.md` (invoke Python via PATH `python`; avoid repository-specific interpreter wrappers).
 
 ---
 
