@@ -1,41 +1,72 @@
 # Phase D Overlap Metrics Implementation Hub (2025-11-12T010500Z)
 
-## Reality Check — 2025-11-13
-- `studies/fly64_dose_overlap/overlap.py` still performs dense/sparse spacing enforcement (`build_acceptance_mask`, `greedy_min_spacing_selection`, `compute_spacing_metrics`) and aborts when acceptance < geometry-aware minimum. No code exists for the spec-mandated overlap metrics (Metric 1/2/3) or explicit `s_img`/`n_groups` controls.
-- CLI (`python -m studies.fly64_dose_overlap.overlap`) only exposes `--phase-c-root/--output-root/--views`; there are no knobs for gridsize, sampling fraction, group counts, neighbor count, or probe diameter inputs.
-- Metrics bundle currently contains only spacing stats (min/mean spacing, acceptance) per split. There are no `metric_1_group_based_avg`, `metric_2_image_based_avg`, or `metric_3_group_to_group_avg` fields, nor do manifests/metadata record the explicit sampling parameters from specs/overlap_metrics.md.
-- Tests in `tests/study/test_dose_overlap_overlap.py` reinforce the old behavior (dense vs sparse thresholds, spacing acceptance, geometry guard). There are zero tests covering disc overlap math, deduplication, COM grouping, or the new CLI arguments; the existing acceptance-floor test merely guards against the Phase G geometry bug.
+<plan_update version="1.0">
+  <trigger>Spec implementation + tests landed (d94f24f7 + green log), but the hub still lacks real CLI runs and metrics JSONs, so Phase G remains blocked.</trigger>
+  <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md, specs/overlap_metrics.md, docs/GRIDSIZE_N_GROUPS_GUIDE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/fix_plan.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md, galph_memory.md, input.md, studies/fly64_dose_overlap/overlap.py, tests/study/test_dose_overlap_overlap.py, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics/{summary.md,analysis/artifact_inventory.txt}</documents_read>
+  <current_plan_path>plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics/plan/plan.md</current_plan_path>
+  <proposed_changes>Document the delivered commit/log, note the missing CLI artifacts, and restate the Do Now so Ralph runs the overlap CLI for gs1 + gs2 against data/phase_c/dose_1000 while archiving logs/metrics under this hub.</proposed_changes>
+  <impacts>Phase G stays blocked until metrics JSON + bundle files exist; Phase E cannot resume until these outputs feed training manifests.</impacts>
+  <ledger_updates>docs/fix_plan.md Latest Attempt, implementation.md Phase D update, input.md rewrite, summary.md Turn Summary.</ledger_updates>
+  <status>approved</status>
+</plan_update>
 
-## Do Now — Hand-off to Ralph
-1. **Implement overlap metrics API** in `studies/fly64_dose_overlap/overlap.py`:
-   - Add a reusable disc-overlap helper that matches specs/overlap_metrics.md (“two discs diameter D, distance d”).
-   - Build Metric 1 (gs=2 only, per-sample mean overlap to neighbor_count group members), Metric 2 (global unique-image KNN), and Metric 3 (group COM overlap) with parameterized `neighbor_count` (default 6) and logged `probe_diameter_px`. Ensure Metric 1 is skipped for `gridsize=1`.
-   - Use deterministic subsampling controlled by `s_img` + `rng_seed_subsample`, then honor the unified `n_groups` policy from docs/GRIDSIZE_N_GROUPS_GUIDE.md (gs=1 → one image per group; gs=2 → n_groups × gridsize² images with allowed duplication).
+## Reality Check — 2025-11-12
+- Commit `d94f24f7` rewrote `studies/fly64_dose_overlap/overlap.py` with disc-overlap math, Metric 1/2/3 helpers, deterministic `s_img` subsampling, and the new CLI arguments. The matching pytest module now has 18 targeted cases (log at `$HUB/green/pytest_phase_d_overlap.log`).
+- The hub still lacks CLI executions: `cli/` and `metrics/` are empty, so there are no `train_metrics.json`, `test_metrics.json`, or `metrics_bundle.json` files for real Phase C data. Without those artifacts Phase G cannot rerun and Phase E cannot align manifests.
+- Phase C dose_1000 data lives at `data/phase_c/dose_1000` with `patched_train.npz`/`patched_test.npz`, so nothing blocks immediate CLI runs once the environment guardrails are followed.
 
-2. **Deprecate spacing gates/dense+sparse labels**:
-   - Remove MIN_ACCEPTANCE_RATE, greedy fallback, and spacing-threshold failures. Runs should only abort for degenerate inputs (empty after subsample, invalid params).
-   - Metadata (`_metadata`, metrics bundle) must record `gridsize`, `s_img`, `n_groups`, `neighbor_count`, `probe_diameter_px`, RNG seeds, and the Metric 1/2/3 averages. Retain historical spacing stats only if useful for regression but mark them as non-blocking.
+## Do Now — CLI metrics capture (blocking Phase E/G)
+1. Guard the working directory and export the required env vars:
+   ```bash
+   test "$(pwd -P)" = "/home/ollie/Documents/PtychoPINN"
+   export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
+   export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics
+   mkdir -p "$HUB"/{cli,metrics}
+   ```
+2. Refresh the Phase D pytest selector to tie evidence directly to these runs:
+   ```bash
+   pytest tests/study/test_dose_overlap_overlap.py::test_overlap_metrics_bundle -vv \
+     | tee "$HUB"/green/pytest_phase_d_overlap_bundle_rerun.log
+   ```
+3. Execute the overlap CLI twice against `data/phase_c/dose_1000`, capturing stdout/stderr via `tee` and directing metrics to profile-specific folders:
+   ```bash
+   python -m studies.fly64_dose_overlap.overlap \
+     --phase-c-root data/phase_c/dose_1000 \
+     --output-root tmp/phase_d_overlap/gs1_s100_n512 \
+     --artifact-root "$HUB"/metrics/gs1_s100_n512 \
+     --gridsize 1 \
+     --s-img 1.0 \
+     --n-groups 512 \
+     --neighbor-count 6 \
+     --probe-diameter-px 38.4 \
+     --rng-seed-subsample 456 \
+     |& tee "$HUB"/cli/phase_d_overlap_gs1.log
 
-3. **Refresh CLI and manifests**:
-   - Replace `--views dense/sparse` with explicit flags: `--gridsize`, `--s-img`, `--n-groups`, optional `--neighbor-count`, `--probe-diameter-px`, `--rng-seed-subsample`. Keep `--phase-c-root`, `--output-root`, `--artifact-root` for hub copies.
-   - CLI should iterate over requested dose × (gridsize, s_img, n_groups) tuples and drop per-split metrics JSON + aggregated `metrics_bundle.json` plus a manifest describing the sampling parameters and resulting overlap stats.
+   python -m studies.fly64_dose_overlap.overlap \
+     --phase-c-root data/phase_c/dose_1000 \
+     --output-root tmp/phase_d_overlap/gs2_s080_n512 \
+     --artifact-root "$HUB"/metrics/gs2_s080_n512 \
+     --gridsize 2 \
+     --s-img 0.8 \
+     --n-groups 512 \
+     --neighbor-count 6 \
+     --probe-diameter-px 38.4 \
+     --rng-seed-subsample 456 \
+     |& tee "$HUB"/cli/phase_d_overlap_gs2.log
+   ```
+4. Verify that each run produced `train_metrics.json`, `test_metrics.json`, and `metrics_bundle.json` inside `$HUB/metrics/<profile>/` with Metric 1/2/3 averages (Metric 1 omitted for gs1). Note the observed values in `summary.md`, refresh `analysis/artifact_inventory.txt`, and, if any command fails, store the log under `$HUB/red/` with command + exit code.
 
-4. **Update tests + documentation**:
-   - Rewrite `tests/study/test_dose_overlap_overlap.py` to cover the disc overlap helper, Metric 1/2/3 calculations (gs=1 skip Metric 1), parameter plumbing, and bundle schema. Remove spacing-threshold assertions and dense/sparse semantics; add fixtures for deterministic subsampling and group COM neighbors.
-   - Extend the module’s CLI test(s) so the new arguments round-trip and the metrics bundle contains the new fields with expected values, including the omission of Metric 1 for gs=1.
-   - Update `plans/active/.../test_strategy.md` if selectors or artifacts change once tests exist.
-
-5. **Evidence expectations for this hub** (root = `$HUB = plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics/`):
-   - `green/pytest_phase_d_overlap.log` capturing `pytest tests/study/test_dose_overlap_overlap.py -vv` with the new selectors passing.
-   - CLI run logs demonstrating the new arguments (place under `cli/phase_d_overlap_metrics.log`). Include command lines with `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` + `HUB` exports per policy.
-   - Updated metrics artifacts: per-split JSON (`train_metrics.json`, `test_metrics.json`) and `metrics_bundle.json` showing Metric 1/2/3, sampling parameters, and RNG seeds.
-   - If sampling/generation helpers emit additional summaries, record them under `analysis/` and add an `artifact_inventory.txt` listing key files.
+## Evidence expectations
+- GREEN pytest log for the bundle selector (`green/pytest_phase_d_overlap_bundle_rerun.log`).
+- CLI stdout/stderr per run under `cli/phase_d_overlap_gs1.log` and `cli/phase_d_overlap_gs2.log`.
+- Metrics artifacts copied into `$HUB/metrics/gs1_s100_n512/` and `$HUB/metrics/gs2_s080_n512/` (each containing `train_metrics.json`, `test_metrics.json`, `metrics_bundle.json`).
+- Updated `analysis/artifact_inventory.txt` listing the new files plus command references, and a short narrative snippet in `summary/` or `summary.md` describing Metric 1/2/3 outcomes.
 
 ## References
-- `docs/index.md` — authoritative doc map (docs/prompt_sources_map.json is still missing).
+- `docs/index.md` — authoritative doc map.
 - `docs/findings.md` — POLICY-001, CONFIG-001, DATA-001, OVERSAMPLING-001, ACCEPTANCE-001 guardrails.
-- `specs/overlap_metrics.md` — canonical metric definitions + CLI expectations.
-- `docs/GRIDSIZE_N_GROUPS_GUIDE.md` — unified `n_groups` policy.
-- `plans/active/.../implementation.md` §Phase D — spec-adopted objectives.
-- `plans/active/.../test_strategy.md` — selectors + bundle requirements.
-- `docs/TESTING_GUIDE.md` & `docs/development/TEST_SUITE_INDEX.md` — command references for pytest selectors.
+- `specs/overlap_metrics.md` — Metric 1/2/3 definitions + CLI contract.
+- `docs/GRIDSIZE_N_GROUPS_GUIDE.md` — unified `n_groups` semantics.
+- `docs/TESTING_GUIDE.md`, `docs/development/TEST_SUITE_INDEX.md` — pytest selectors + evidence policy.
+- `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md` — Phased plan + Do Now context.

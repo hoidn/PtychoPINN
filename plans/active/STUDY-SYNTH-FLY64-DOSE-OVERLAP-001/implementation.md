@@ -172,46 +172,91 @@ Checklist
 - DATA-001: Canonical NHW layout enforced by `transpose_rename_convert_tool`
 - OVERSAMPLING-001: K=7 neighbor_count preserved in patch generation for Phase D
 
-### Phase D — Overlap Metrics (SPEC ADOPTED)
-**Status:** Spec adopted; code changes pending — this phase now uses explicit overlap-driven metrics and sampling controls. Dense/sparse labels and spacing acceptance gates are deprecated for this study.
+<plan_update version="1.0">
+  <trigger>Phase D code/tests already landed (commit d94f24f7 + GREEN log), yet the checklist still marks them pending and no CLI metrics artifacts exist in the hub.</trigger>
+  <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md, specs/overlap_metrics.md, docs/GRIDSIZE_N_GROUPS_GUIDE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/fix_plan.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics/plan/plan.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics/analysis/artifact_inventory.txt, input.md, galph_memory.md, studies/fly64_dose_overlap/overlap.py, tests/study/test_dose_overlap_overlap.py</documents_read>
+  <current_plan_path>plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md</current_plan_path>
+  <proposed_changes>Check off the API/CLI/test tasks, document the delivered commit/log, and refocus Phase D on capturing gs1/gs2 CLI metrics under the active hub before Phase E/G resume.</proposed_changes>
+  <impacts>Phase G remains blocked until real metrics JSONs + bundles live in the Phase D hub; Ralph’s next Do Now is to run the overlap CLI twice (gs1 + gs2) against `data/phase_c/dose_1000` and archive the outputs.</impacts>
+  <ledger_updates>docs/fix_plan.md status + Latest Attempt, hub plan update, input.md rewrite, galph_memory.md dwell/state entry, summary.md Turn Summary.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
+### Phase D — Overlap Metrics (CODE COMPLETE, CLI evidence pending)
+**Status:** Implementation + tests landed in `d94f24f7` with 18/18 GREEN cases; the remaining work is to generate CLI evidence (gs1 + gs2) so the hub holds Metric 1/2/3 JSONs before Phases E/G resume.
 
 Deprecation Note
-- Dense/Sparse labels and geometry/spacing acceptance gates are deprecated for this study. Use explicit `s_img`/`n_groups` and report measured overlap metrics per `specs/overlap_metrics.md`.
+- Dense/Sparse labels and geometry/spacing acceptance gates remain deprecated. Every run must rely on explicit `s_img`/`n_groups` controls and record measured overlaps per `specs/overlap_metrics.md`.
 
 Checklist
-- [ ] Implement API: compute Metric 1 (gs=2), Metric 2, Metric 3; disc overlap with parameterized `probe_diameter_px`.
-- [ ] Add CLI controls: `--gridsize`, `--s_img`, `--n_groups`, `--neighbor-count`, `--probe-diameter-px`.
-- [ ] Update tests: disc overlap unit tests; Metric 1/2/3; gs=1 skips Metric 1; integration bundle fields.
-- [ ] Record per‑split metrics JSON and aggregated bundle under the Phase D hub.
+- [x] Implement API: compute Metric 1 (gs=2), Metric 2, Metric 3; disc overlap with parameterized `probe_diameter_px`.
+- [x] Add CLI controls: `--gridsize`, `--s-img`, `--n-groups`, `--neighbor-count`, `--probe-diameter-px`.
+- [x] Update tests: disc overlap unit tests; Metric 1/2/3; gs=1 skips Metric 1; integration bundle fields.
+- [ ] Record per-split metrics JSON and aggregated bundle under the Phase D hub (gs1 `s_img=1.0,n_groups=512` and gs2 `s_img=0.8,n_groups=512` using `data/phase_c/dose_1000`).
 
-**Planned Components (no code changes in this loop):**
-- Implement `specs/overlap_metrics.md` definitions: Metric 1 (group-based, gs=2 only), Metric 2 (image-based, dedup by exact coords), Metric 3 (group↔group via COMs) using disc overlap with parameterized `probe_diameter_px` (default from FWHM or documented fallback).
-- Controls move to explicit `--s_img` and `--n_groups` (and Python API equivalents). No geometry acceptance gates; runs proceed and record measured overlaps. gs=1 skips Metric 1 and couples `n_groups` to `n_samples` post-subsample.
-- Manifests/metrics bundle to record: `gridsize`, `s_img`, `n_groups`, `neighbor_count` (default 6), `probe_diameter_px`, RNG seeds, and the three metric averages (omit Metric 1 for gs=1).
-- CLI messages and docs will deprecate dense/sparse labels; orchestration continues to produce per-split metrics JSON and an aggregated bundle.
+**Reality (2025-11-12):**
+- `studies/fly64_dose_overlap/overlap.py` now exposes `disc_overlap_*`, deterministic subsampling with `rng_seed_subsample`, Metric 1/2/3 helpers, and a CLI with the explicit knobs. Commit `d94f24f7` holds the code changes.
+- `tests/study/test_dose_overlap_overlap.py` covers disc overlap math, Metric 1/2/3 aggregation, API guards, and bundle schema. Evidence: `$HUB/green/pytest_phase_d_overlap.log` (18 passed in 1.63 s).
+- The Phase D hub lacks CLI executions: `cli/` and `metrics/` are empty, so no `train_metrics.json`, `test_metrics.json`, or `metrics_bundle.json` exist for real Phase C data. Phase G remains blocked until those artifacts are archived.
 
-#### Pending Tasks (Engineering)
-- Implement the overlap metrics pipeline in `studies/fly64_dose_overlap/overlap.py`: remove geometry/spacing acceptance gates plus dense/sparse labels, add deterministic subsampling driven by `s_img` + `rng_seed_subsample`, honor the unified `n_groups` policy (`docs/GRIDSIZE_N_GROUPS_GUIDE.md`), and expose helpers for Metric 1/2/3 per `specs/overlap_metrics.md` (disc overlap math, neighbor_count default 6, configurable `probe_diameter_px`). Metadata/metrics JSON must log the explicit parameters and computed averages (Metric 1 omitted for gs=1).
-- Refresh the Phase D CLI to accept `--gridsize`, `--s-img`, `--n-groups`, `--neighbor-count`, `--probe-diameter-px`, and `--rng-seed-subsample` (plus the existing Phase C/Artifact roots). Retain the Python API and wrap the CLI around it so scripted runs (e.g., future Phase G orchestrations) can call into the same functions.
-- Update `tests/study/test_dose_overlap_overlap.py` (and any helper fixtures) so disc-overlap math, Metric 1/2/3 aggregation, CLI argument plumbing, and the new bundle schema are covered. Remove spacing-threshold assertions and keep the ACCEPTANCE-001 geometry guard only as historical context in docstrings. Provide at least one CLI-focused selector that inspects `metrics_bundle.json`.
-- Evidence for this loop must land under `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics/`: capture `pytest tests/study/test_dose_overlap_overlap.py -vv | tee \"$HUB\"/green/pytest_phase_d_overlap.log`, drop CLI stdout/err into `cli/phase_d_overlap_metrics.log`, and ensure the new per-split metrics JSON + `metrics_bundle.json` include the Metric 1/2/3 fields and sampling parameters. Blockers go to `$HUB/red/blocked_<timestamp>.md` with command + exit code.
-  - Defer Phase G orchestrations until Phase D metrics ship and tests are GREEN.
+**Do Now — CLI evidence + metrics capture (blocking Phase E/G):**
+1. Guard repo root and export required env vars:
+   ```bash
+   test "$(pwd -P)" = "/home/ollie/Documents/PtychoPINN"
+   export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
+   export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics
+   mkdir -p "$HUB"/{cli,metrics}
+   ```
+2. Refresh pytest evidence tied to this CLI work:
+   ```bash
+   pytest tests/study/test_dose_overlap_overlap.py::test_overlap_metrics_bundle -vv \
+     | tee "$HUB"/green/pytest_phase_d_overlap_bundle_rerun.log
+   ```
+3. Run the overlap CLI twice against `data/phase_c/dose_1000`, capturing stdout/stderr with `tee` and directing metrics into per-profile folders:
+   ```bash
+   python -m studies.fly64_dose_overlap.overlap \
+     --phase-c-root data/phase_c/dose_1000 \
+     --output-root tmp/phase_d_overlap/gs1_s100_n512 \
+     --artifact-root "$HUB"/metrics/gs1_s100_n512 \
+     --gridsize 1 \
+     --s-img 1.0 \
+     --n-groups 512 \
+     --neighbor-count 6 \
+     --probe-diameter-px 38.4 \
+     --rng-seed-subsample 456 \
+     |& tee "$HUB"/cli/phase_d_overlap_gs1.log
 
-**Metrics Bundle (to be updated):**
-- Aggregated JSON must include per-split Metric 1 (gs=2 only), Metric 2, Metric 3 values *and* the recorded parameters (`gridsize`, `s_img`, `n_groups`, `neighbor_count`, `probe_diameter_px`, RNG seeds). Spacing-acceptance fields become informational only; they must not gate execution.
+   python -m studies.fly64_dose_overlap.overlap \
+     --phase-c-root data/phase_c/dose_1000 \
+     --output-root tmp/phase_d_overlap/gs2_s080_n512 \
+     --artifact-root "$HUB"/metrics/gs2_s080_n512 \
+     --gridsize 2 \
+     --s-img 0.8 \
+     --n-groups 512 \
+     --neighbor-count 6 \
+     --probe-diameter-px 38.4 \
+     --rng-seed-subsample 456 \
+     |& tee "$HUB"/cli/phase_d_overlap_gs2.log
+   ```
+4. Verify each profile produced `train_metrics.json`, `test_metrics.json`, and `metrics_bundle.json` under `$HUB/metrics/<profile>/` with the recorded knobs plus Metric 1/2/3 averages (Metric 1 omitted for gs1). Summarize observed values in `summary.md`, update `analysis/artifact_inventory.txt`, and reference the files in docs/fix_plan.md before proceeding.
+5. If a command fails, capture its log under `$HUB/red/` with exit code + command line; keep the focus blocked until resolved.
+
+**Metrics Bundle Expectations:**
+- Each JSON records `metrics_version`, `gridsize`, `s_img`, `n_groups`, `neighbor_count`, `probe_diameter_px`, `rng_seed_subsample`, and Metric 1/2/3 averages (Metric 1 omitted for gs1). Spacing/acceptance stats remain informational.
 
 **Key Constraints & References:**
-- Oversampling guardrail remains: neighbor_count≥C (default 6 for metrics; grouping still uses K≥C for gs=2).
-- CONFIG-001 boundaries maintained: Phase D utilities must not mutate legacy params; pure NPZ usage.
-- DATA-001 compliance ensured via validator; manifests updated to include overlap metrics, not spacing gates.
+- Oversampling guardrail: neighbor_count ≥ gridsize² requirement (default 6 satisfies gs2 needs).
+- CONFIG-001 boundaries: Phase D code runs strictly on NPZ inputs without mutating `params.cfg`.
+- DATA-001 compliance: rely on the Phase B validator and do not bypass canonical NHW layout.
 
 **Artifact Hubs:**
-- Overlap-metrics implementation + CLI/tests: `reports/2025-11-12T010500Z/phase_d_overlap_metrics/`
+- Overlap-metrics implementation/tests/CLI: `reports/2025-11-12T010500Z/phase_d_overlap_metrics/`
 - Spacing filter implementation: `reports/2025-11-04T034242Z/phase_d_overlap_filtering/`
-- Metrics bundle + CLI validation: `reports/2025-11-04T045500Z/phase_d_cli_validation/`
+- Metrics bundle + CLI validation (historical): `reports/2025-11-04T045500Z/phase_d_cli_validation/`
 - Documentation sync: `reports/2025-11-04T051200Z/phase_d_doc_sync/`
 
-**Findings Applied:** CONFIG-001 (pure NPZ loading), DATA-001 (canonical layout), OVERSAMPLING-001 (K≥C preserved for gs=2). Dense/sparse label usage deprecated per `docs/GRIDSIZE_N_GROUPS_GUIDE.md` update.
+**Findings Applied:** CONFIG-001 (pure NPZ loading), DATA-001 (canonical layout), OVERSAMPLING-001 (K≥C preserved for gs=2), ACCEPTANCE-001 (geometry-aware floors recorded but non-blocking). Dense/sparse labels remain deprecated per `docs/GRIDSIZE_N_GROUPS_GUIDE.md`.
 
 ### Phase E — Train PtychoPINN (PAUSED — awaiting TensorFlow rework)
 **Status:** Paused. We must restore the TensorFlow training pipeline before any further runs; PyTorch work is retained below as historical context but no longer authoritative for this initiative.

@@ -6,10 +6,40 @@ from typing import Iterable, Optional
 import shutil
 from datetime import datetime
 from pathlib import Path
+import time
+import random
 
 
 def _run(cmd: Iterable[str], timeout: Optional[int] = None, check: bool = False) -> subprocess.CompletedProcess:
     return subprocess.run(list(cmd), timeout=timeout, check=check, capture_output=True, text=True)
+
+
+def _run_with_lock_retry(cmd: Iterable[str], *, timeout: Optional[int] = None, retries: int = 10, log_print=None) -> subprocess.CompletedProcess:
+    """Run a git command with backoff when the index lock is busy.
+
+    Concurrent orchestrators in the same repo can temporarily hold
+    `.git/index.lock`. Rather than failing immediately, back off with
+    jitter and retry a few times. Never force-remove the lock here.
+    """
+    attempt = 0
+    last_cp: Optional[subprocess.CompletedProcess] = None
+    base = 0.4
+    while attempt <= retries:
+        cp = _run(cmd, timeout=timeout)
+        last_cp = cp
+        err = (cp.stderr or "")
+        if cp.returncode == 0:
+            return cp
+        if "index.lock" in err:
+            delay = min(5.0, base * (2 ** attempt)) + random.random() * 0.25
+            if log_print:
+                log_print(f"[git_bus] index.lock busy; retrying in {delay:.2f}s (attempt {attempt+1}/{retries})…")
+            time.sleep(delay)
+            attempt += 1
+            continue
+        # Not a lock-related error; return immediately
+        return cp
+    return last_cp if last_cp is not None else _run(cmd, timeout=timeout)
 
 
 def _rebase_in_progress() -> bool:
@@ -84,13 +114,13 @@ def safe_pull(log_print, remote: Optional[str] = None, branch: Optional[str] = N
             if _rebase_in_progress():
                 _abort_rebase(log_print)
             # Fetch latest for the specific branch
-            fcp = _run(["git", "fetch", remote, branch], timeout=60)
+            fcp = _run_with_lock_retry(["git", "fetch", remote, branch], timeout=60, log_print=log_print)
             if fcp.stdout:
                 log_print(fcp.stdout.rstrip())
             if fcp.stderr:
                 log_print(fcp.stderr.rstrip())
             # Attempt a rebase onto the fetched remote branch with autostash
-            rcp = _run(["git", "-c", "rebase.autoStash=true", "rebase", f"{remote}/{branch}"], timeout=120)
+            rcp = _run_with_lock_retry(["git", "-c", "rebase.autoStash=true", "rebase", f"{remote}/{branch}"], timeout=180, log_print=log_print)
             if rcp.stdout:
                 log_print(rcp.stdout.rstrip())
             if rcp.stderr:
@@ -117,13 +147,13 @@ def safe_pull(log_print, remote: Optional[str] = None, branch: Optional[str] = N
             ):
                 try:
                     log_print("[git_bus] Rebase blocked; attempting manual autostash…")
-                    _run(["git", "stash", "push", "-u", "-m", "orchestrator-safe_pull-autostash"], timeout=30)
-                    rcp2 = _run(["git", "rebase", f"{remote}/{branch}"], timeout=120)
+                    _run_with_lock_retry(["git", "stash", "push", "-u", "-m", "orchestrator-safe_pull-autostash"], timeout=45, log_print=log_print)
+                    rcp2 = _run_with_lock_retry(["git", "rebase", f"{remote}/{branch}"], timeout=180, log_print=log_print)
                     if rcp2.stdout:
                         log_print(rcp2.stdout.rstrip())
                     if rcp2.stderr:
                         log_print(rcp2.stderr.rstrip())
-                    pop = _run(["git", "stash", "pop"], timeout=30)
+                    pop = _run_with_lock_retry(["git", "stash", "pop"], timeout=45, log_print=log_print)
                     if pop.stdout:
                         log_print(pop.stdout.rstrip())
                     if pop.stderr:
@@ -135,7 +165,7 @@ def safe_pull(log_print, remote: Optional[str] = None, branch: Optional[str] = N
             return False
         # Legacy path: rely on upstream config
         cmd = ["git", "pull", "--rebase"]
-        cp = _run(cmd, timeout=30)
+        cp = _run_with_lock_retry(cmd, timeout=60, log_print=log_print)
         if cp.stdout:
             log_print(cp.stdout.rstrip())
         if cp.stderr:
@@ -160,17 +190,17 @@ def safe_pull(log_print, remote: Optional[str] = None, branch: Optional[str] = N
         ):
             try:
                 log_print("[git_bus] Detected local modifications blocking rebase; attempting autostash…")
-                _run(["git", "stash", "push", "-u", "-m", "orchestrator-safe_pull-autostash"], timeout=30)
+                _run_with_lock_retry(["git", "stash", "push", "-u", "-m", "orchestrator-safe_pull-autostash"], timeout=45, log_print=log_print)
                 cmd2 = ["git", "pull", "--rebase"]
                 if remote and branch:
                     cmd2 += [remote, branch]
-                cp2 = _run(cmd2, timeout=60)
+                cp2 = _run_with_lock_retry(cmd2, timeout=90, log_print=log_print)
                 if cp2.stdout:
                     log_print(cp2.stdout.rstrip())
                 if cp2.stderr:
                     log_print(cp2.stderr.rstrip())
                 # Try to restore working changes
-                pop = _run(["git", "stash", "pop"], timeout=30)
+                pop = _run_with_lock_retry(["git", "stash", "pop"], timeout=45, log_print=log_print)
                 if pop.stdout:
                     log_print(pop.stdout.rstrip())
                 if pop.stderr:
@@ -188,19 +218,19 @@ def safe_pull(log_print, remote: Optional[str] = None, branch: Optional[str] = N
     _abort_rebase(log_print)
     if remote and branch:
         # Fetch and attempt fast-forward merge
-        fcp = _run(["git", "fetch", remote, branch])
+        fcp = _run_with_lock_retry(["git", "fetch", remote, branch], timeout=60, log_print=log_print)
         if fcp.stdout:
             log_print(fcp.stdout.rstrip())
         if fcp.stderr:
             log_print(fcp.stderr.rstrip())
-        mcp = _run(["git", "merge", "--ff-only", f"{remote}/{branch}"])
+        mcp = _run_with_lock_retry(["git", "merge", "--ff-only", f"{remote}/{branch}"], timeout=120, log_print=log_print)
         if mcp.stdout:
             log_print(mcp.stdout.rstrip())
         if mcp.stderr:
             log_print(mcp.stderr.rstrip())
         return mcp.returncode == 0
     else:
-        cp2 = _run(["git", "pull", "--no-rebase"])
+        cp2 = _run_with_lock_retry(["git", "pull", "--no-rebase"], timeout=60, log_print=log_print)
         if cp2.stdout:
             log_print(cp2.stdout.rstrip())
         if cp2.stderr:
@@ -220,16 +250,17 @@ def safe_pull(log_print, remote: Optional[str] = None, branch: Optional[str] = N
 
 
 def add(paths: Iterable[str]) -> None:
-    _run(["git", "add", *paths])
+    # Add may also fail on index.lock; retry briefly
+    _run_with_lock_retry(["git", "add", *paths], timeout=60)
 
 
 def commit(message: str) -> bool:
-    cp = _run(["git", "commit", "-m", message])
+    cp = _run_with_lock_retry(["git", "commit", "-m", message], timeout=120)
     return cp.returncode == 0
 
 
 def push(log_print) -> None:
-    cp = _run(["git", "push"])
+    cp = _run(["git", "push"])  # network op; index lock not expected
     if cp.stdout:
         log_print(cp.stdout.rstrip())
     if cp.stderr:
@@ -237,7 +268,7 @@ def push(log_print) -> None:
 
 
 def push_to(branch: str, log_print, remote: str = "origin") -> None:
-    cp = _run(["git", "push", remote, f"HEAD:{branch}"])
+    cp = _run(["git", "push", remote, f"HEAD:{branch}"])  # index lock not expected
     if cp.stdout:
         log_print(cp.stdout.rstrip())
     if cp.stderr:
@@ -249,7 +280,7 @@ def push_with_rebase(branch: str, log_print, remote: str = "origin") -> bool:
     to reconcile by pulling/rebasing and retry the push. Returns True
     on success, False otherwise.
     """
-    cp = _run(["git", "push", remote, f"HEAD:{branch}"])
+    cp = _run(["git", "push", remote, f"HEAD:{branch}"])  # index lock not expected
     if cp.stdout:
         log_print(cp.stdout.rstrip())
     if cp.returncode == 0:

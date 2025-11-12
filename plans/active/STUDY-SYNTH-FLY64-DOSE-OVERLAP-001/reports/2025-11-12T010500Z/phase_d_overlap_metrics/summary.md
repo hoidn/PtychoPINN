@@ -1,3 +1,9 @@
+### Turn Summary
+Verified commit `d94f24f7` already delivered the Phase D overlap metrics + 18-case tests and documented the gap between the plan/ledger and the current code.
+Updated the implementation plan, hub plan, and docs/fix_plan so API/CLI/test items are checked off and the Do Now now targets gs1/gs2 CLI runs plus refreshed pytest evidence in the Phase D hub.
+Next: Ralph reruns `pytest tests/study/test_dose_overlap_overlap.py::test_overlap_metrics_bundle -vv`, executes the overlap CLI twice against `data/phase_c/dose_1000` (gs1 `s_img=1.0,n_groups=512`, gs2 `s_img=0.8,n_groups=512`), and archives `train_metrics.json`/`test_metrics.json`/`metrics_bundle.json` along with CLI logs + inventory updates under the hub before resuming Phase E/G.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics/ (implementation.md, plan/plan.md, summary.md updates)
+
 # Phase D Overlap Metrics Implementation — Loop Summary
 
 **Loop timestamp:** 2025-11-11  
