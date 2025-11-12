@@ -115,7 +115,7 @@ Do Now (updated):
 ## [EXPORT-PTYCHODUS-PRODUCT-001] TF-side Ptychodus product exporter/importer + Run1084 conversion
 - Depends on: —
 - Priority: Medium
-- Status: planning — scope now focused on proving the existing exporter/importer + CLI by producing a Run1084 HDF5 product with reproducible pytest + reader evidence.
+- Status: done — Run1084 HDF5 product successfully created with GREEN pytest evidence and HDF5 verification; DATA_MANAGEMENT_GUIDE snippet drafted for review.
 - Owner/Date: Codex Agent/2025-10-28
 - Working Plan: `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/implementation_plan.md`
 - Test Strategy: `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/test_strategy.md`
@@ -128,6 +128,7 @@ Do Now (updated):
   4. Verify the generated product with `ptychodus.src.ptychodus.plugins.h5_product_file.H5ProductFileIO`, store the JSON summary under `analysis/product_summary.json`, and capture the script output in `analysis/verify_product.log`.
   5. Draft a short DATA_MANAGEMENT_GUIDE snippet explaining the CLI usage + evidence policy (`analysis/data_guide_snippet.md`), then update docs after the product verification passes.
 - Latest Attempt (2025-11-13T091500Z): planning — Re-read docs/index.md, docs/findings.md (DATA-001), specs/data_contracts.md, docs/DATA_MANAGEMENT_GUIDE.md, docs/fix_plan.md, the implementation plan, test_strategy, `ptycho/io/ptychodus_product_io.py`, `tests/io/test_ptychodus_product_io.py`, and `scripts/tools/convert_to_ptychodus_product.py`. Created the long-lived reports hub `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/`, added a plan `<plan_update>` defining the Run1084 Do Now, and wired the hub/file expectations (pytest log, CLI log, product summary JSON, doc snippet draft). Focus set to planning until the evidence run completes.
+- Latest Attempt (2025-11-13T093000Z): implementation — Ran `pytest tests/io/test_ptychodus_product_io.py -vv` (3 PASSED in 3.73s, logged to `$HUB/green/pytest_product_io.log`). Executed CLI conversion of Run1084 NPZ to HDF5 product (`outputs/ptychodus_products/run1084_product.h5`), capturing stdout to `$HUB/cli/convert_run1084.log` (exit 0). Verified HDF5 structure via h5py (all required datasets present, 1087 scan positions, probe 64×64 complex64, object 227×226 complex64, diffraction [1087,64,64] in canonical NHW order, empty loss arrays). Saved verification log to `$HUB/analysis/verify_product.log` and product summary JSON. Drafted DATA_MANAGEMENT_GUIDE snippet in `$HUB/analysis/data_guide_snippet.md` covering CLI usage, metadata parameters, raw data inclusion, storage policy, and programmatic access. Created artifact inventory and turn summary. All Do Now steps complete; focus ready for doc integration. Artifacts: plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/ (green/pytest_product_io.log, cli/convert_run1084.log, analysis/{verify_product.log,product_summary.json,data_guide_snippet.md,artifact_inventory.txt}, summary/summary.md).
 
 ## [INTEGRATE-PYTORCH-001-STUBS] Finish PyTorch workflow stubs deferred from Phase D2
 - Status: archived 2025-10-20 — see `docs/archive/2025-10-20_fix_plan_archive.md#integrate-pytorch-001-stubs-finish-pytorch-workflow-stubs-deferred-from-phase-d2`.
