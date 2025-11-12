@@ -57,3 +57,16 @@ Artifact Inventory — Run1084 Ptychodus Product Export (2025-11-13T091500Z)
 - Review data_guide_snippet.md
 - Update docs/DATA_MANAGEMENT_GUIDE.md with usage example
 - Consider round-trip test (export → import → verify)
+
+## Documentation Updates (2025-11-13 evidence-only loop)
+- docs/DATA_MANAGEMENT_GUIDE.md: Replaced legacy "Exporting to Ptychodus HDF5 Product" section (lines 242-260) with comprehensive "Ptychodus Product Export" subsection (lines 242-375)
+  - CLI example with all metadata flags
+  - Raw data inclusion toggle (--include-diffraction/--no-include-diffraction)
+  - Product file structure breakdown
+  - Storage policy reminder (outputs/ptychodus_products/)
+  - Programmatic access examples
+  - Verification code snippet
+  - References to specs/data_contracts.md and ptycho/io/ptychodus_product_io.py
+- docs/index.md: Added Data Management Guide entry in Configuration & Data section (lines 115-118)
+  - Description emphasizes Ptychodus export workflow
+  - Keywords include ptychodus-export for discoverability

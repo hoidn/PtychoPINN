@@ -1,3 +1,9 @@
+### Turn Summary (Documentation Integration — 2025-11-13)
+Replaced the legacy "Exporting to Ptychodus HDF5 Product" section in docs/DATA_MANAGEMENT_GUIDE.md (lines 242-375) with the comprehensive "Ptychodus Product Export" subsection from the hub snippet, including CLI examples, metadata parameters, raw data toggle, storage policy, programmatic access, and verification code.
+Added Data Management Guide entry to docs/index.md (lines 115-118) for discoverability with Ptychodus export keywords.
+Updated hub artifact_inventory.txt with documentation file paths and section details.
+Artifacts: plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/ (docs edits, artifact_inventory.txt update)
+
 ### Turn Summary
 Audited the Run1084 exporter hub and confirmed docs/DATA_MANAGEMENT_GUIDE.md still only contains the legacy one-paragraph HDF5 export note.
 Re-synced docs/fix_plan.md, the implementation brief, and input.md so Ralph must drop the approved CLI example, metadata parameter explanations, raw-data toggle, storage policy warning, and references from $HUB/analysis/data_guide_snippet.md.

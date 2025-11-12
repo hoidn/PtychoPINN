@@ -108,9 +108,14 @@ This index provides a comprehensive overview of all available documentation with
 **Use this when:** Setting up training or inference runs, understanding parameter precedence, or creating reproducible experiment configurations.
 
 #### [Data Contracts](../specs/data_contracts.md) CRITICAL
-**Description:** Official format specifications for NPZ datasets including required keys, data types, shapes, and normalization requirements.  
-**Keywords:** NPZ-format, data-contracts, normalization, diffraction, amplitude  
+**Description:** Official format specifications for NPZ datasets including required keys, data types, shapes, and normalization requirements.
+**Keywords:** NPZ-format, data-contracts, normalization, diffraction, amplitude
 **Use this when:** Creating or validating datasets, troubleshooting data format errors, or understanding amplitude vs intensity requirements.
+
+#### [Data Management Guide](DATA_MANAGEMENT_GUIDE.md)
+**Description:** Best practices for managing NPZ and HDF5 data files, git hygiene rules, and Ptychodus product export workflow with metadata parameters and raw data inclusion options.
+**Keywords:** data-management, git-hygiene, file-types, NPZ, HDF5, ptychodus-export
+**Use this when:** Need to export reconstructions to Ptychodus format, understanding data file organization, or ensuring data files are not committed to git.
 
 #### [Data Normalization Guide](DATA_NORMALIZATION_GUIDE.md)
 **Description:** Explains the three distinct types of normalization (physics, statistical, display) and their proper application throughout the data pipeline to avoid common scaling errors.  
