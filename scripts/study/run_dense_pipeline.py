@@ -39,8 +39,9 @@ def main() -> int:
     # Accept both the upstream flag and a neutral alias
     parser.add_argument("--hub", dest="hub", type=str, default=None)
     parser.add_argument("--output-root", dest="output_root", type=str, default=None)
-    # Accept and forward unknown args to upstream runner
-    ns, unknown = parser.parse_known_args()
+    # Collect the rest of the args verbatim to avoid drift
+    parser.add_argument("args", nargs=argparse.REMAINDER)
+    ns = parser.parse_args()
 
     # Build the command to call the upstream runner
     repo_root = Path(__file__).resolve().parents[2]
@@ -64,8 +65,7 @@ def main() -> int:
         forwarded.extend(["--hub", ns.output_root])
 
     # Pass through the remainder unchanged
-    # Append any unknown args (e.g., --dose/--view/--splits/--clobber/etc.)
-    forwarded.extend(unknown)
+    forwarded.extend(ns.args)
 
     cmd = [sys.executable, str(upstream)] + forwarded
     result = subprocess.run(cmd)
@@ -74,3 +74,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

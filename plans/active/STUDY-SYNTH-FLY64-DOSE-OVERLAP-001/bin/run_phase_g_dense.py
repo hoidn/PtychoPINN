@@ -2,8 +2,8 @@
 """
 Phase G Dense Execution Orchestrator for STUDY-SYNTH-FLY64-DOSE-OVERLAP-001.
 
-Runs the complete Phase C->G pipeline (dataset generation -> overlap views -> training ->
-reconstruction -> comparison) for a single dose/view/splits configuration, capturing all
+Runs the complete Phase C→G pipeline (dataset generation → overlap views → training →
+reconstruction → comparison) for a single dose/view/splits configuration, capturing all
 CLI outputs to per-phase log files under the provided hub directory.
 
 Enforces TYPE-PATH-001 (Path normalization), propagates AUTHORITATIVE_CMDS_DOC, and
@@ -11,10 +11,10 @@ halts execution on any non-zero subprocess return code with blocker log notes.
 
 Usage:
     export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
-    python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \
-        --hub plans/active/.../reports/<timestamp>/phase_g_execution_real_runs \
-        --dose 1000 \
-        --view dense \
+    python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \\
+        --hub plans/active/.../reports/<timestamp>/phase_g_execution_real_runs \\
+        --dose 1000 \\
+        --view dense \\
         --splits train test
 
 Outputs:
@@ -31,7 +31,8 @@ If any command fails, execution halts and a blocker note is written to:
 DEPRECATION NOTICE
 - Prefer the neutral entrypoint under `scripts/study/run_dense_pipeline.py` for
   invoking this pipeline. That script forwards to this runner while providing a
-  stable, plan-agnostic path and an `--output-root` alias for `--hub`.
+  stable, plan‑agnostic path and an `--output-root` alias for `--hub`.
+"""
 """
 
 from __future__ import annotations
