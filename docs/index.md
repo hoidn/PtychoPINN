@@ -239,6 +239,41 @@ This index provides a comprehensive overview of all available documentation with
 
 ### Specifications
 
+#### [PtychoPINN Spec — Index](specs/spec-ptychopinn.md)
+**Description:** Index of normative spec shards for the TensorFlow‑based physics‑informed ptychography pipeline (core physics, runtime, workflow, interfaces, conformance, tracing).  
+**Keywords:** spec, ptychography, TensorFlow, physics‑informed, index  
+**Use this when:** You need the top‑level map of all PtychoPINN specifications.
+
+#### [PtychoPINN Core Physics & Data Contracts](specs/spec-ptycho-core.md)
+**Description:** Normative definition of the forward model (object·probe→FFT→|F|²/N²→sqrt), Poisson observation, intensity scaling symmetry, coordinates/patch extraction, probe/masking/smoothing, valid inputs, losses, and outputs.  
+**Keywords:** physics, FFT, Poisson, scaling, offsets, probe, contracts  
+**Use this when:** Implementing or auditing the physical/mathematical operations and strict data shapes.
+
+#### [PtychoPINN Runtime & Execution](specs/spec-ptycho-runtime.md)
+**Description:** TensorFlow runtime guardrails: dtype/device policy, XLA translation/compile modes, vectorization/streaming, graph hygiene, environment flags, and error conditions.  
+**Keywords:** runtime, TensorFlow, XLA, vectorization, determinism  
+**Use this when:** Tuning performance, enabling XLA, or validating execution safety constraints.
+
+#### [PtychoPINN Workflow](specs/spec-ptycho-workflow.md)
+**Description:** End‑to‑end pipeline: NPZ ingest → grouping → normalization → model → loss/optimization → inference → stitching → evaluation; staging knobs and guards.  
+**Keywords:** workflow, grouping, normalization, training, inference, stitching, evaluation  
+**Use this when:** Building or verifying the full training/inference pipeline.
+
+#### [PtychoPINN Interfaces](specs/spec-ptycho-interfaces.md)
+**Description:** Public API surface and data/file interfaces (RawData, loader, models, training/eval), model I/O contracts, precedence rules for params/env, and error conditions.  
+**Keywords:** API, data‑contracts, shapes, params, precedence  
+**Use this when:** Integrating modules, writing loaders, or consuming model interfaces.
+
+#### [PtychoPINN Conformance Tests](specs/spec-ptycho-conformance.md)
+**Description:** Acceptance tests PTY‑AT‑XXX: forward amplitude equivalence, Poisson semantics, grouping/coords shapes, translation round‑trip, intensity scaling symmetry, positive intensity for NLL, loader contracts, inference determinism, stitch border math.  
+**Keywords:** conformance, acceptance‑tests, parity, validation  
+**Use this when:** Certifying a build or diagnosing regressions against the spec.
+
+#### [PtychoPINN Tracing & Debug](specs/spec-ptycho-tracing.md)
+**Description:** Tracing obligations for physics/intermediate tensors, coordinate/translation traces, scaling invariants, and first‑divergence workflow with artifact guidance.  
+**Keywords:** tracing, debug, parity, diagnostics  
+**Use this when:** Investigating numerical/physics divergences or instrumentation gaps.
+
 #### [Ptychodus Integration API Spec](../specs/ptychodus_api_spec.md)
 **Description:** Normative API contract for integrating PtychoPINN with Ptychodus, covering configuration bridging, backend selection, data ingestion, lifecycle, and persistence expectations.  
 **Keywords:** spec, API, integration, config-bridge, backend  
@@ -249,7 +284,7 @@ This index provides a comprehensive overview of all available documentation with
 **Keywords:** data-contracts, HDF5, product, metadata, probe, object  
 **Use this when:** Writing/reading product files or converting datasets to the Ptychodus product format.
 
-#### [Overlap Metrics Spec](../specs/overlap_metrics.md)
+#### [Overlap Metrics Spec](specs/overlap_metrics.md)
 **Description:** Overlap-driven sampling and reporting for Phase D. Defines three 2D disc-overlap metrics (group-based, image-based, and group↔group COM-based), explicit controls via `s_img` and `n_groups`, and removes spacing/packing acceptance gates.  
 **Keywords:** overlap, metrics, s_img, n_groups, probe-diameter, gridsize  
 **Use this when:** Implementing or validating Phase D overlap behavior and reporting measured overlaps instead of geometry gating.
