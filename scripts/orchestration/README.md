@@ -104,7 +104,7 @@ Output structure:
     ]]>
     <ls path="docs" commit="abc1234">
       <![CDATA[
-      docs/architecture/pytorch_design.md
+      docs/workflows/pytorch.md
       ...
       ]]>
     </ls>

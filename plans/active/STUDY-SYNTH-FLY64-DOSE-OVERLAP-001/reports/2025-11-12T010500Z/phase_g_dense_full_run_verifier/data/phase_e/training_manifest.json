@@ -1,14 +1,14 @@
 {
-  "timestamp": "2025-11-12T20:51:51.300635Z",
+  "timestamp": "2025-11-12T22:16:40.794839Z",
   "phase_c_root": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c",
   "phase_d_root": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d",
   "artifact_root": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e",
   "filters": {
     "dose": 1000.0,
     "view": "dense",
-    "gridsize": 2
+    "gridsize": null
   },
-  "dry_run": false,
+  "dry_run": true,
   "jobs": [
     {
       "dose": 1000.0,
@@ -20,8 +20,15 @@
       "artifact_dir": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2",
       "backend": "tensorflow",
       "result": {
-        "status": "failed",
-        "error": "Dataset validation failed: ValueError: Minimum inter-position spacing 0.06 px < required threshold 38.40 px for view 'dense'. Expected S \u2248 (1 - f_overlap) \u00d7 N = (1 - 0.7) \u00d7 128."
+        "dose": 1000.0,
+        "view": "dense",
+        "gridsize": 2,
+        "train_data_path": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d/dose_1000/dense/train.npz",
+        "test_data_path": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d/dose_1000/dense/test.npz",
+        "log_path": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2/train.log",
+        "artifact_dir": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2",
+        "dry_run": true,
+        "backend": "tensorflow"
       }
     }
   ],

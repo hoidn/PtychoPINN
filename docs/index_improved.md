@@ -113,10 +113,10 @@ This index provides a comprehensive overview of all available documentation with
 **Keywords:** inference, reconstruction, visualization, model-loading, testing  
 **Use this when:** Have a trained model and want to generate reconstructions from new test data.
 
-#### [Evaluation](../scripts/evaluation/README.md) 
-**Description:** Complete single-model evaluation framework with automatic model detection, comprehensive metrics (MAE, PSNR, SSIM, FRC), alignment, and rich visualizations.  
-**Keywords:** evaluation, metrics, alignment, visualization, model-detection  
-**Use this when:** Need comprehensive quantitative analysis of a single trained model against ground truth.
+#### Evaluation (via Studies) — [Studies Guide](../scripts/studies/README.md)
+**Description:** Use the Studies tooling to run evaluations and aggregate metrics across runs; for single reconstructions, see Inference.  
+**Keywords:** evaluation, studies, metrics, analysis, aggregation  
+**Use this when:** Running evaluations across datasets or comparing models using existing study tools.
 
 #### [Simulation](../scripts/simulation/README.md)
 **Description:** Two-stage modular simulation architecture for generating ptychographic datasets: Stage 1 creates object/probe inputs, Stage 2 simulates diffraction patterns.  
@@ -156,10 +156,10 @@ This index provides a comprehensive overview of all available documentation with
 **Keywords:** generalization-study, model-comparison, training-sizes, automated-workflow  
 **Use this when:** Systematically comparing model performance across different amounts of training data.
 
-#### [Quick Reference for Studies](../scripts/studies/QUICK_REFERENCE.md)
-**Description:** Quick command reference for study scripts and workflows.  
-**Keywords:** study-scripts, quick-reference, commands  
-**Use this when:** Need quick access to study-related commands and patterns.
+#### [Studies Guide](../scripts/studies/README.md)
+**Description:** Study scripts and workflows for generalization experiments, comparisons, and metrics aggregation.  
+**Keywords:** studies, generalization, comparisons, workflows  
+**Use this when:** Running study workflows or comparing multiple models.
 
 ## 🔬 Datasets & Experiments
 

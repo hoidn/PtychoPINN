@@ -1,6 +1,6 @@
 {
-  "timestamp": "2025-11-12T12:52:09.547765",
-  "skipped_count": 8,
+  "timestamp": "2025-11-12T14:17:00.352105",
+  "skipped_count": 9,
   "skipped_jobs": [
     {
       "dose": 1000.0,
@@ -13,6 +13,12 @@
       "view": "baseline",
       "split": "test",
       "reason": "view filter (requested: dense)"
+    },
+    {
+      "dose": 1000.0,
+      "view": "dense",
+      "split": "test",
+      "reason": "split filter (requested: train)"
     },
     {
       "dose": 1000.0,

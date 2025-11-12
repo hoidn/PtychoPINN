@@ -1,16 +1,16 @@
 {
-  "timestamp": "2025-11-12T12:52:09.547500",
+  "timestamp": "2025-11-12T14:17:00.351853",
   "phase_c_root": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c",
   "phase_d_root": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d",
   "artifact_root": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f",
   "filters": {
     "dose": 1000.0,
     "view": "dense",
-    "split": null,
+    "split": "train",
     "gridsize": null
   },
   "total_jobs": 4,
-  "filtered_jobs": 2,
+  "filtered_jobs": 1,
   "missing_jobs": [
     {
       "dose": 1000.0,
@@ -58,15 +58,6 @@
       "output_dir": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/train",
       "algorithm": "LSQML",
       "num_epochs": 100
-    },
-    {
-      "dose": 1000.0,
-      "view": "dense",
-      "split": "test",
-      "input_npz": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d/dose_1000/dense/test.npz",
-      "output_dir": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/test",
-      "algorithm": "LSQML",
-      "num_epochs": 100
     }
   ],
   "execution_results": [
@@ -74,22 +65,9 @@
       "dose": 1000.0,
       "view": "dense",
       "split": "train",
-      "returncode": 1,
+      "returncode": 0,
       "log_path": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/train/ptychi.log",
-      "stdout_preview": "",
-      "selection_strategy": "unknown",
-      "acceptance_rate": 0.0,
-      "spacing_threshold": 0.0,
-      "n_accepted": 0,
-      "n_rejected": 0
-    },
-    {
-      "dose": 1000.0,
-      "view": "dense",
-      "split": "test",
-      "returncode": 1,
-      "log_path": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/test/ptychi.log",
-      "stdout_preview": "",
+      "stdout_preview": "[DRY RUN] Would execute: python scripts/reconstruction/ptychi_reconstruct_tike.py --algorithm LSQML --num-epochs 100 --input-npz plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T0105",
       "selection_strategy": "unknown",
       "acceptance_rate": 0.0,
       "spacing_threshold": 0.0,

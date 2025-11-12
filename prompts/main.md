@@ -88,9 +88,9 @@
        - **Search first** with `ripgrep` patterns; if partial implementation exists, finish it rather than duplicating.
 
     5. **Implement**
-       - Follow runtime guardrails from `docs/pytorch_runtime_checklist.md` (vectorization, dtype/device neutrality, `torch.compile` hygiene).
-       - Maintain configuration parity per `docs/development/c_to_pytorch_config_map.md`.
-       - Keep CLI/backends consistent with `docs/architecture.md` and `docs/architecture/pytorch_design.md`.
+       - Follow runtime guardrails in `docs/workflows/pytorch.md` (vectorization, dtype/device neutrality, compile hygiene).
+       - Maintain configuration parity per `docs/workflows/pytorch.md` (CONFIG-001: update_legacy_dict bridge).
+       - Keep CLI/backends consistent with `docs/architecture.md` and `docs/workflows/pytorch.md`.
        - No placeholders or trivial stubs; implement the real behavior.
 
     6. **Tests**
@@ -108,7 +108,7 @@
 
     9. **Artifacts**
        - Save `pytest.log`, `summary.md`, metrics JSONs under the loop’s reports directory.
-       - For parity/debug work, include correlation, MSE/RMSE, max|Δ|, sum ratios, and diff heatmaps per `docs/spec-db-tracing.md`.
+       - For parity/debug work, include correlation, MSE/RMSE, max|Δ|, sum ratios, and diff heatmaps per `docs/specs/spec-ptycho-tracing.md`.
 
     10. **Documentation & ledgers**
         - Update user/dev docs touched by the change to remain consistent.
