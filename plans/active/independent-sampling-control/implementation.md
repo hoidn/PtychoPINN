@@ -33,6 +33,24 @@ Full Dataset → [Subsample] → RawData → generate_grouped_data(n_images) →
 
 ---
 
+<plan_update version="1.0">
+  <trigger>Phase 6A guardrails (explicit oversampling controls + RawData gating) are already merged with green pytest evidence, yet the plan still listed them as pending.</trigger>
+  <focus_id>INDEPENDENT-SAMPLING-CONTROL-PHASE6</focus_id>
+  <documents_read>docs/index.md, docs/findings.md (OVERSAMPLING-001), docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/TESTING_GUIDE.md §§Oversampling coverage, docs/COMMANDS_REFERENCE.md, docs/SAMPLING_USER_GUIDE.md, docs/fix_plan.md, input.md, plans/active/independent-sampling-control/reports/2025-11-12T005637Z/phase6_hardening/summary.md, plans/active/independent-sampling-control/test_tracking.md</documents_read>
+  <current_plan_path>plans/active/independent-sampling-control/implementation.md</current_plan_path>
+  <proposed_changes>Document the delivered enable_oversampling/neighbor_pool_size plumbing, RawData guardrails, pytest coverage, and doc updates so Phase 6A can close and the active focus can pivot back to the Phase G backlog.</proposed_changes>
+  <impacts>Marks Phase 6A objectives complete with cited evidence (hub logs + commit 7e99cebc); frees this initiative so the supervisor can re-engage STUDY-SYNTH-FLY64-DOSE-OVERLAP-001.</impacts>
+  <ledger_updates>Update docs/fix_plan.md, hub summary.md, and galph_memory.md to reflect completion + pivot.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
+### Phase 6A Guardrails (2025-11-12) ✅
+- Training/Inference configs expose `enable_oversampling: bool = False` and `neighbor_pool_size: Optional[int] = None`; CLI entry points auto-wire the flags (commit `7e99cebc`).
+- `ptycho/raw_data.py::generate_grouped_data` enforces OVERSAMPLING-001 with explicit opt-in gates plus `[OVERSAMPLING DEBUG]` logs for flag/pool checks.
+- `tests/test_oversampling.py` adds `test_enable_oversampling_flag_required`, `test_neighbor_pool_size_guard`, and updates the trigger/regression cases (green logs in `plans/active/independent-sampling-control/reports/2025-11-12T005637Z/phase6_hardening/green/`).
+- Docs (`docs/SAMPLING_USER_GUIDE.md`, `docs/COMMANDS_REFERENCE.md`) now describe the new switches, prerequisites, and CLI examples.
+- Evidence hub: `plans/active/independent-sampling-control/reports/2025-11-12T005637Z/phase6_hardening/` (summary.md + pytest logs) captures the proof; no further Do Now items remain for this initiative.
+
 ## Phase 1: Core Infrastructure (Day 1) ✅ COMPLETED
 **Goal**: Add subsampling capability to data loading pipeline
 

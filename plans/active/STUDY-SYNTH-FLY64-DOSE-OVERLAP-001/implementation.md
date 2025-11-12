@@ -325,8 +325,19 @@ Checklist
 - [x] Extend `tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_post_verify_only_executes_chain` so the `--post-verify-only` path also asserts the SSIM grid summary/log plus verification report/log/highlights lines and ensures stubbed CLI logs exist (TEST-CLI-001, TYPE-PATH-001). — commit `ba93f39a`.
 - [x] Replace the placeholder `geometry_aware_floor` logic in `studies/fly64_dose_overlap/overlap.py::generate_overlap_views` with a per-split bounding-box acceptance bound: compute the theoretical maximum acceptance as `(area / (pi * (threshold / 2) ** 2)) / n_positions`, clamp the bound to ≤0.10, guard against zero with a tiny epsilon, and persist both `geometry_acceptance_bound` and the resulting `effective_min_acceptance` through `SpacingMetrics`, `metrics_bundle.json`, and `_metadata`. (Implemented in `studies/fly64_dose_overlap/overlap.py:334-555`; verified locally + via `$HUB/green/pytest_dense_acceptance_floor.log`.) (docs/findings.md: STUDY-001, ACCEPTANCE-001; specs/data_contracts.md §12.)
 - [x] Extend `tests/study/test_dose_overlap_overlap.py` with `test_generate_overlap_views_dense_acceptance_floor` to pin the low-acceptance scenario and verify the metrics bundle records `geometry_acceptance_bound`/`effective_min_acceptance`. (`tests/study/test_dose_overlap_overlap.py:523-661`; GREEN log at `$HUB/green/pytest_dense_acceptance_floor.log`.) (docs/development/TEST_SUITE_INDEX.md:62.)
-- [ ] Harden `studies/fly64_dose_overlap/overlap.py::filter_dataset_by_mask` so scalar NPZ entries (e.g., metadata floats) bypass the boolean mask instead of raising `TypeError: len() of unsized object`, and add a regression in `tests/study/test_dose_overlap_overlap.py` that loads a Phase D NPZ stub containing scalar arrays to prove masking keeps metadata intact before rerunning the CLI. (DATA-001, specs/overlap_metrics.md §Behavior.)
+- [x] Hardened `studies/fly64_dose_overlap/overlap.py::filter_dataset_by_mask` to bypass scalar/0-D metadata and added `tests/study/test_dose_overlap_overlap.py::test_filter_dataset_by_mask_handles_scalar_metadata` (GREEN log: `$HUB/green/pytest_filter_dataset_by_mask.log`). (DATA-001, specs/overlap_metrics.md §Behavior.)
 - [ ] Rerun the counted dense pipeline (after the fix/test above) with logs under the hub: `python plans/active/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense_stdout.log`, then immediately invoke `python plans/active/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --post-verify-only |& tee "$HUB"/cli/run_phase_g_dense_post_verify_only.log` before rerunning the metrics helpers if `analysis/metrics_summary.json` is stale so `{analysis}` gains SSIM grid summary/log, verification report/log, highlights log, metrics summary/digest, preview text, and `artifact_inventory.txt`. (docs/TESTING_GUIDE.md §§Phase G orchestrator + metrics; docs/findings.md: PREVIEW-PHASE-001, TEST-CLI-001.)
+
+<plan_update version="1.0">
+  <trigger>Filter scalar bypass + regression already exist (green log in the Phase G hub), but the plan still told Ralph to implement them.</trigger>
+  <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md (DATA-001, PREVIEW-PHASE-001, TEST-CLI-001), docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/TESTING_GUIDE.md §§Phase G orchestrator, docs/development/TEST_SUITE_INDEX.md, docs/fix_plan.md, input.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_filter_dataset_by_mask.log</documents_read>
+  <current_plan_path>plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md</current_plan_path>
+  <proposed_changes>Mark the scalar-mask checklist item complete with evidence pointers and restate the Do Now so it focuses on rerunning the counted dense pipeline/post-verify sweep while still re-running the guarding pytest selectors.</proposed_changes>
+  <impacts>Ensures engineering spends the next loop on the counted rerun + verification bundle instead of reimplementing an existing fix.</impacts>
+  <ledger_updates>docs/fix_plan.md Latest Attempt, hub summary.md, galph_memory.md, and input.md all reference the simplified Do Now.</ledger_updates>
+  <status>approved</status>
+</plan_update>
 
 <plan_update version="1.0">
   <trigger>`cli/phase_d_dense.log` now fails with `TypeError: len() of unsized object` at `studies/fly64_dose_overlap/overlap.py:194`, proving the Phase D CLI applies boolean masks to scalar metadata entries; the counted dense rerun cannot proceed until the helper and tests are hardened.</trigger>
@@ -347,35 +358,35 @@ Checklist
      export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier
      ```
   2. Reproduce the failure (optional) by tailing `$HUB/cli/phase_d_dense.log` so fixes cite the concrete stack trace.
-  3. Patch `studies/fly64_dose_overlap/overlap.py::filter_dataset_by_mask` to:
-     - Detect scalars / zero-dimensional arrays and copy them through untouched.
-     - Keep existing masking for arrays where `len(arr) == n_expected`.
-     - Update docstrings/logging so the helper states that metadata entries bypass masking.
-  4. Extend `tests/study/test_dose_overlap_overlap.py` with a regression (either augmenting `test_generate_overlap_views_dense_acceptance_floor` fixtures or adding a new targeted test) that constructs a fake `data_dict` containing scalar metadata values and asserts `filter_dataset_by_mask` returns them unchanged while masking arrays correctly. Record evidence via `pytest tests/study/test_dose_overlap_overlap.py::test_<new_case> -vv | tee "$HUB"/green/pytest_filter_mask_scalar.log` (failures → `$HUB/red/`).
-  5. Re-run the dense acceptance selector to guard geometry logic plus the new regression:
+  3. Re-run the scalar-mask regression to prove the existing fix still holds before touching the CLI again:
+     ```bash
+     pytest tests/study/test_dose_overlap_overlap.py::test_filter_dataset_by_mask_handles_scalar_metadata -vv \
+       | tee "$HUB"/green/pytest_filter_dataset_by_mask.log
+     ```
+  4. Re-run the dense acceptance selector to guard geometry logic:
      ```bash
      pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_dense_acceptance_floor -vv \
        | tee "$HUB"/green/pytest_dense_acceptance_floor.log
      ```
-  6. Execute the counted dense pipeline with clobber to regenerate `data/phase_c/run_manifest.json`, Phase D NPZs, and CLI logs:
+  5. Execute the counted dense pipeline with clobber to regenerate `data/phase_c/run_manifest.json`, Phase D NPZs, and CLI logs:
      ```bash
      python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \
        --hub "$HUB" --dose 1000 --view dense --splits train test --clobber \
        |& tee "$HUB"/cli/run_phase_g_dense_stdout.log
      ```
-  7. Immediately run the fully parameterized post-verify sweep so the shortened chain refreshes SSIM grid/verification/highlights artifacts:
+  6. Immediately run the fully parameterized post-verify sweep so the shortened chain refreshes SSIM grid/verification/highlights artifacts:
      ```bash
      python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \
        --hub "$HUB" --dose 1000 --view dense --splits train test --post-verify-only \
        |& tee "$HUB"/cli/run_phase_g_dense_post_verify_only.log
      ```
-  8. If `analysis/metrics_summary.json` predates the rerun, execute `plans/active/.../bin/report_phase_g_dense_metrics.py --hub "$HUB" --metrics "$HUB"/analysis/metrics_summary.json` followed by `plans/active/.../bin/analyze_dense_metrics.py --hub "$HUB"` so `{analysis}` contains:
+  7. If `analysis/metrics_summary.json` predates the rerun, execute `plans/active/.../bin/report_phase_g_dense_metrics.py --hub "$HUB" --metrics "$HUB"/analysis/metrics_summary.json` followed by `plans/active/.../bin/analyze_dense_metrics.py --hub "$HUB"` so `{analysis}` contains:
      - `ssim_grid_summary.md`, `ssim_grid.log`
      - `verification_report.json`, `verify_dense_stdout.log`
      - `check_dense_highlights.log`
      - `metrics_summary.json`, `metrics_delta_highlights_preview.txt`, `metrics_digest.md`
      - `preview.txt` (phase-only verdict) and `analysis/artifact_inventory.txt`
-  9. Update `summary.md`, `summary/summary.md`, docs/fix_plan.md, and galph_memory with MS-SSIM ±0.000 / MAE ±0.000000 deltas, preview verdict, pytest selectors, CLI command lines, and artifact paths. Failures go under `$HUB/red/blocked_<timestamp>.md` with exit codes.
+  8. Update `summary.md`, `summary/summary.md`, docs/fix_plan.md, and galph_memory with MS-SSIM ±0.000 / MAE ±0.000000 deltas, preview verdict, pytest selectors, CLI command lines, and artifact paths. Failures go under `$HUB/red/blocked_<timestamp>.md` with exit codes.
 <plan_update version="1.0">
   <trigger>`cli/run_phase_g_dense_post_verify_only.log` only contains the argparse usage banner, proving the post-verify helper was invoked without the required `--dose/--view/--splits` arguments; we must restate the full command before another engineering loop.</trigger>
   <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
