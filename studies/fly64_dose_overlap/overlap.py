@@ -490,6 +490,8 @@ def compute_overlap_metrics(
     neighbor_count: int = 6,
     probe_diameter_px: Optional[float] = None,
     rng_seed_subsample: Optional[int] = None,
+    *,
+    coords_are_subsampled: bool = False,
 ) -> OverlapMetrics:
     """
     Compute overlap metrics per specs/overlap_metrics.md.
@@ -543,10 +545,14 @@ def compute_overlap_metrics(
 
     n_images_total = len(coords)
 
-    # Subsample images
-    subsample_mask = subsample_images(coords, s_img, rng_seed_subsample)
-    coords_sub = coords[subsample_mask]
-    n_images_subsampled = len(coords_sub)
+    # Subsample images unless coords have already been filtered upstream
+    if coords_are_subsampled:
+        coords_sub = coords
+        n_images_subsampled = len(coords_sub)
+    else:
+        subsample_mask = subsample_images(coords, s_img, rng_seed_subsample)
+        coords_sub = coords[subsample_mask]
+        n_images_subsampled = len(coords_sub)
 
     if n_images_subsampled == 0:
         raise ValueError("Subsampling resulted in zero images; increase s_img")
@@ -665,19 +671,27 @@ def generate_overlap_views(
         with np.load(split_path, allow_pickle=True) as data:
             data_dict = {k: data[k] for k in data.keys()}
 
-        # Extract coordinates
+        # Extract coordinates and apply subsampling mask for output NPZs
         coords = np.stack([data_dict['xcoords'], data_dict['ycoords']], axis=1)
+
+        # Compute subsample mask once so NPZs and metrics are aligned
+        subsample_mask = subsample_images(coords, s_img, rng_seed_subsample)
+
+        # Filter the dataset by mask along the first axis where applicable
+        filtered_dict = filter_dataset_by_mask(data_dict, subsample_mask)
+        coords_sub = np.stack([filtered_dict['xcoords'], filtered_dict['ycoords']], axis=1)
 
         # Compute metrics
         print(f"  Computing overlap metrics...")
         metrics = compute_overlap_metrics(
-            coords=coords,
+            coords=coords_sub,
             gridsize=gridsize,
             s_img=s_img,
             n_groups=n_groups,
             neighbor_count=neighbor_count,
             probe_diameter_px=probe_diameter_px,
             rng_seed_subsample=rng_seed_subsample,
+            coords_are_subsampled=True,
         )
 
         print(f"  Metrics:")
@@ -690,13 +704,12 @@ def generate_overlap_views(
         print(f"    Images: {metrics.n_images_subsampled}/{metrics.n_images_total} (unique: {metrics.n_unique_images})")
         print(f"    Groups: {metrics.n_groups_actual}")
 
-        # For now, write the full dataset (subsampling will be integrated in future iteration)
-        # This is a minimal implementation to get the metrics pipeline working
+        # Write the filtered dataset NPZ for this split
         output_path = output_dir / f"{split_name}.npz"
         print(f"  Writing output NPZ: {output_path}")
 
-        # Add metadata
-        data_dict['_metadata'] = json.dumps({
+        # Add metadata to filtered payload
+        filtered_dict['_metadata'] = json.dumps({
             'gridsize': gridsize,
             's_img': s_img,
             'n_groups': n_groups,
@@ -706,7 +719,7 @@ def generate_overlap_views(
             'metrics_version': metrics.metrics_version,
         })
 
-        np.savez_compressed(output_path, **data_dict)
+        np.savez_compressed(output_path, **filtered_dict)
 
         # Write per-split metrics JSON
         metrics_json_path = output_dir / f"{split_name}_metrics.json"
