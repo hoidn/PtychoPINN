@@ -362,7 +362,7 @@ class RawData:
         return train_raw_data, test_raw_data
 
     #@debug
-    def generate_grouped_data(self, N, K = 4, nsamples = 1, dataset_path: Optional[str] = None, seed: Optional[int] = None, sequential_sampling: bool = False, gridsize: Optional[int] = None):
+    def generate_grouped_data(self, N, K = 4, nsamples = 1, dataset_path: Optional[str] = None, seed: Optional[int] = None, sequential_sampling: bool = False, gridsize: Optional[int] = None, enable_oversampling: bool = False, neighbor_pool_size: Optional[int] = None):
         """
         Generate nearest-neighbor solution region grouping with efficient sampling.
         
@@ -391,6 +391,12 @@ class RawData:
             gridsize (int, optional): Grid size for patch grouping. If None, falls back to
                                      params.get('gridsize', 1). Explicit parameter takes precedence
                                      for better dependency injection and testing.
+            enable_oversampling (bool, optional): Explicit opt-in for K choose C oversampling.
+                                                 Defaults to False. When True and nsamples > n_points,
+                                                 enables oversampling if neighbor_pool_size >= C.
+            neighbor_pool_size (Optional[int], optional): Pool size K for oversampling. If None,
+                                                         defaults to the K parameter. Must be >= C
+                                                         when enable_oversampling is True.
 
         Returns:
             dict: Dictionary containing grouped data with keys:
@@ -432,16 +438,40 @@ class RawData:
         # Unified efficient logic for all gridsize values
         C = gridsize ** 2  # Number of coordinates per solution region
         n_points = len(self.xcoords)
-        
+
+        # Determine effective pool size K for oversampling
+        effective_K = neighbor_pool_size if neighbor_pool_size is not None else K
+
         # Debug logging for method entry
         logging.info(f"[OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples={nsamples}, n_points={n_points}, C={C}, K={K}")
         logging.info(f"[OVERSAMPLING DEBUG] Parameters: gridsize={gridsize}, N={N}, sequential_sampling={sequential_sampling}")
-        
+        logging.info(f"[OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling={enable_oversampling}, neighbor_pool_size={neighbor_pool_size}, effective_K={effective_K}")
+
         # Determine if oversampling is needed
         needs_oversampling = (nsamples > n_points) and (C > 1)
         logging.info(f"[OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = {nsamples} > {n_points} = {nsamples > n_points}")
         logging.info(f"[OVERSAMPLING DEBUG] Oversampling check: C > 1 = {C} > 1 = {C > 1}")
         logging.info(f"[OVERSAMPLING DEBUG] needs_oversampling = {needs_oversampling}")
+
+        # OVERSAMPLING-001 Guard: Require explicit opt-in and enforce preconditions
+        if needs_oversampling:
+            if not enable_oversampling:
+                logging.error(f"[OVERSAMPLING DEBUG] Oversampling disabled (enable_oversampling={enable_oversampling})")
+                raise ValueError(
+                    f"Requesting {nsamples} groups but only {n_points} points available (gridsize={gridsize}, C={C}). "
+                    f"K choose C oversampling is required but not enabled. "
+                    f"Set enable_oversampling=True and ensure neighbor_pool_size >= {C} to proceed. "
+                    f"See OVERSAMPLING-001 in docs/findings.md for details."
+                )
+            if effective_K < C:
+                logging.error(f"[OVERSAMPLING DEBUG] neighbor_pool_size ({effective_K}) < C ({C})")
+                raise ValueError(
+                    f"K choose C oversampling requires neighbor_pool_size >= C (gridsize²). "
+                    f"Got neighbor_pool_size={effective_K}, but C={C}. "
+                    f"Increase neighbor_pool_size to at least {C}. "
+                    f"See OVERSAMPLING-001 in docs/findings.md for details."
+                )
+            logging.info(f"[OVERSAMPLING DEBUG] Oversampling guards passed: enable_oversampling=True, effective_K={effective_K} >= C={C}")
         
         # Determine sampling strategy
         if sequential_sampling:
@@ -460,10 +490,10 @@ class RawData:
         if needs_oversampling:
             # Use K choose C oversampling when requesting more groups than available points
             logging.info(f"[OVERSAMPLING DEBUG] Taking oversampling branch: K choose C oversampling")
-            logging.info(f"Automatically using K choose C oversampling: {nsamples} groups requested but only {n_points} points available (K={K}, C={C})")
+            logging.info(f"Automatically using K choose C oversampling: {nsamples} groups requested but only {n_points} points available (K={effective_K}, C={C})")
             selected_groups = self._generate_groups_with_oversampling(
                 nsamples=nsamples,
-                K=K,
+                K=effective_K,
                 C=C,
                 seed=seed,
                 seed_indices=seed_indices

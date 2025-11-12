@@ -51,27 +51,29 @@ def interpret_n_images_parameter(n_images: int, gridsize: int) -> tuple[int, str
         message = f"Parameter interpretation: --n-images={n_images} refers to neighbor groups (gridsize={gridsize}, total patterns={total_patterns})"
         return n_images, message
 
-def interpret_sampling_parameters(config: TrainingConfig) -> tuple[int, int, str]:
+def interpret_sampling_parameters(config: TrainingConfig):
     """
-    Interpret sampling parameters with support for independent control.
-    
+    Interpret sampling parameters with support for independent control and oversampling.
+
     Priority:
     1. If n_subsample is specified: use it for data subsampling
     2. Otherwise: use n_groups for legacy behavior
-    
+
     Args:
         config: Training configuration with sampling parameters
-        
+
     Returns:
-        tuple: (n_subsample, n_groups, interpretation_message)
+        tuple: (n_subsample, n_groups, enable_oversampling, neighbor_pool_size, interpretation_message)
     """
     gridsize = config.model.gridsize
-    
+    enable_oversampling = config.enable_oversampling
+    neighbor_pool_size = config.neighbor_pool_size
+
     # Case 1: Independent control with n_subsample
     if config.n_subsample is not None:
         n_subsample = config.n_subsample
         n_groups = config.n_groups
-        
+
         if gridsize == 1:
             message = (f"Independent sampling control: subsampling {n_subsample} images, "
                       f"using {n_groups} groups for training")
@@ -79,9 +81,12 @@ def interpret_sampling_parameters(config: TrainingConfig) -> tuple[int, int, str
             total_from_groups = n_groups * gridsize * gridsize
             message = (f"Independent sampling control: subsampling {n_subsample} images, "
                       f"creating {n_groups} groups (approx {total_from_groups} patterns from groups)")
-        
-        return n_subsample, n_groups, message
-    
+            if enable_oversampling:
+                K = neighbor_pool_size if neighbor_pool_size is not None else config.neighbor_count
+                message += f" [Oversampling enabled: K={K}]"
+
+        return n_subsample, n_groups, enable_oversampling, neighbor_pool_size, message
+
     # Case 2: Legacy behavior - n_groups controls both
     else:
         # For backward compatibility, n_groups controls subsampling
@@ -96,8 +101,11 @@ def interpret_sampling_parameters(config: TrainingConfig) -> tuple[int, int, str
             total_patterns = n_groups * gridsize * gridsize
             message = (f"Legacy mode: --n-groups={n_groups} refers to neighbor groups "
                       f"(gridsize={gridsize}, approx {total_patterns} patterns)")
-        
-        return n_subsample, n_groups, message
+            if enable_oversampling:
+                K = neighbor_pool_size if neighbor_pool_size is not None else config.neighbor_count
+                message += f" [Oversampling enabled: K={K}]"
+
+        return n_subsample, n_groups, enable_oversampling, neighbor_pool_size, message
 def main() -> None:
     """Main function to orchestrate the CDI example script execution."""
     args = parse_arguments()
@@ -110,7 +118,7 @@ def main() -> None:
     config = setup_configuration(args, args.config)
     
     # Interpret sampling parameters with new independent control support
-    n_subsample, n_groups, interpretation_message = interpret_sampling_parameters(config)
+    n_subsample, n_groups, enable_oversampling, neighbor_pool_size, interpretation_message = interpret_sampling_parameters(config)
     logger.info(interpretation_message)
     
     # Log warning if potentially problematic configuration

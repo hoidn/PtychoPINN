@@ -111,31 +111,61 @@ ptycho_train --train_data_file data.npz \
 
 ## Oversampling (K choose C)
 
-The loader supports K‑choose‑C oversampling today. When `gridsize>1` and you request more groups than available seed points, it generates multiple combinations from each seed’s K nearest neighbors.
+**NEW in Phase 6**: Oversampling now requires **explicit opt-in** and validation to prevent accidental misuse.
 
-### Preconditions
-- `gridsize > 1` so that `C = gridsize² > 1`
-- Choose `neighbor_count (K) ≥ C` (e.g., for `gridsize=2`, use `K=7`)
+The loader supports K‑choose‑C oversampling for creating more training groups than available seed points by sampling multiple combinations from each seed's K nearest neighbors.
 
-### How to Trigger Oversampling
-- Request more groups than images subsampled: set `n_groups > n_subsample`
-- Keep `gridsize>1` and `neighbor_count≥C`
+### Prerequisites (OVERSAMPLING-001)
+1. **`gridsize > 1`** so that `C = gridsize² > 1`
+2. **`enable_oversampling=True`** - Explicit opt-in flag (required as of Phase 6)
+3. **`neighbor_pool_size ≥ C`** - Pool size must be at least C (default: uses `neighbor_count` value)
 
-Example:
+### How to Enable Oversampling
+
+**Basic Example:**
 ```bash
 ptycho_train --train_data_file data.npz \
-    --n_subsample 500 \    # 500 seed points
-    --n_groups 2000 \      # ask for 2000 groups
-    --gridsize 2 \
-    --neighbor_count 7 \
+    --n_subsample 500 \           # 500 seed points
+    --n_groups 2000 \             # ask for 2000 groups
+    --gridsize 2 \                # C = 4
+    --neighbor_count 7 \          # K value for grouping
+    --enable_oversampling \       # NEW: Explicit opt-in
+    --neighbor_pool_size 7 \      # NEW: Pool size (must be >= C=4)
     --output_dir oversampled_run
 ```
-The loader will enter the oversampling branch and draw K‑choose‑C combinations per seed until it reaches `n_groups`. Logs include lines prefixed with `[OVERSAMPLING DEBUG]` indicating the branch taken and pool size.
+
+**Why the guards?** Oversampling reuses local neighborhoods and can lead to overfitting if used incorrectly. The explicit flags ensure you're aware of this behavior.
+
+### Error Messages
+
+If you request `n_groups > n_subsample` without proper flags, you'll see:
+```
+ValueError: Requesting 2000 groups but only 500 points available (gridsize=2, C=4).
+K choose C oversampling is required but not enabled.
+Set enable_oversampling=True and ensure neighbor_pool_size >= 4 to proceed.
+See OVERSAMPLING-001 in docs/findings.md for details.
+```
+
+If `neighbor_pool_size < C`:
+```
+ValueError: K choose C oversampling requires neighbor_pool_size >= C (gridsize²).
+Got neighbor_pool_size=3, but C=4.
+Increase neighbor_pool_size to at least 4.
+See OVERSAMPLING-001 in docs/findings.md for details.
+```
+
+### Debug Logging
+
+The loader emits `[OVERSAMPLING DEBUG]` log lines showing:
+- Whether oversampling is enabled/disabled
+- Effective pool size K
+- Which branch (oversampling vs. standard) was taken
 
 ### Notes & Tips
-- Larger K increases the combination pool; keep K reasonable for memory.
-- Oversampling reuses local neighborhoods; monitor for overfitting using held‑out regions (e.g., spatial half splits).
-- Works with independent sampling: you can keep `n_subsample` small (memory‑friendly) while training on many groups.
+- **Larger K** increases the combination pool; keep K reasonable for memory
+- **Overfitting risk**: Oversampling reuses local neighborhoods; monitor using held‑out regions (e.g., spatial half splits)
+- **Memory friendly**: Works with independent sampling - keep `n_subsample` small while training on many groups
+- **Default behavior**: If `neighbor_pool_size` is `None`, it defaults to the `neighbor_count` value
 
 ## Reproducibility
 

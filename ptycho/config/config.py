@@ -122,6 +122,8 @@ class TrainingConfig:
     n_subsample: Optional[int] = None  # Number of images to subsample before grouping (independent control)
     subsample_seed: Optional[int] = None  # Random seed for reproducible subsampling
     neighbor_count: int = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
+    enable_oversampling: bool = False  # Explicit opt-in for K choose C oversampling (requires gridsize>1 and neighbor_pool_size>=C)
+    neighbor_pool_size: Optional[int] = None  # Pool size for K choose C oversampling (if None, defaults to neighbor_count)
     positions_provided: bool = True
     probe_trainable: bool = False
     intensity_scale_trainable: bool = True  # Changed default
@@ -157,6 +159,8 @@ class InferenceConfig:
     n_subsample: Optional[int] = None  # Number of images to subsample for inference (independent control)
     subsample_seed: Optional[int] = None  # Random seed for reproducible subsampling
     neighbor_count: int = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
+    enable_oversampling: bool = False  # Explicit opt-in for K choose C oversampling (requires gridsize>1 and neighbor_pool_size>=C)
+    neighbor_pool_size: Optional[int] = None  # Pool size for K choose C oversampling (if None, defaults to neighbor_count)
     debug: bool = False
     output_dir: Path = Path("inference_outputs")
     backend: Literal['tensorflow', 'pytorch'] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility

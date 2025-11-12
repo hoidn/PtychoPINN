@@ -578,12 +578,14 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
     elif isinstance(data, RawData):
         # Use config.n_groups for nsamples - this is the interpreted value from the training script
         dataset = data.generate_grouped_data(
-            config.model.N, 
+            config.model.N,
             K=config.neighbor_count,  # Use configurable K value
             nsamples=config.n_groups,  # Use n_groups (clearer naming)
             dataset_path=str(config.train_data_file) if config.train_data_file else None,
             sequential_sampling=config.sequential_sampling,  # Pass sequential sampling flag
-            gridsize=config.model.gridsize  # Pass gridsize explicitly (replaces global params dependency)
+            gridsize=config.model.gridsize,  # Pass gridsize explicitly (replaces global params dependency)
+            enable_oversampling=config.enable_oversampling,  # Explicit opt-in for K choose C oversampling
+            neighbor_pool_size=config.neighbor_pool_size  # Pool size for oversampling (if None, defaults to neighbor_count)
         )
         return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)
     else:

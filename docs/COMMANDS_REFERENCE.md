@@ -109,6 +109,13 @@ ptycho_train --train_data_file dataset.npz --n_subsample 5000 --n_groups 1000 --
 
 # Reproducible sampling (NEW)
 ptycho_train --train_data_file dataset.npz --n_subsample 3000 --n_groups 500 --subsample_seed 42 --output_dir my_run
+
+# K choose C oversampling (NEW - Phase 6 with explicit opt-in)
+ptycho_train --train_data_file dataset.npz \
+    --n_subsample 500 --n_groups 2000 \
+    --gridsize 2 --neighbor_count 7 \
+    --enable_oversampling --neighbor_pool_size 7 \
+    --output_dir oversampled_run
 ```
 
 ### 📊 NEW: Independent Sampling Control
@@ -155,6 +162,33 @@ INFO - Using grouping-aware subsampling strategy for gridsize=2
 ```
 
 **Backward Compatibility**: The deprecated `--n-images` parameter still works but will show a deprecation warning.
+
+### 🔄 NEW: K Choose C Oversampling (Phase 6)
+
+**Use case:** When you want to create more training groups than available seed points by sampling multiple combinations from each seed's neighbors.
+
+**Prerequisites (OVERSAMPLING-001):**
+- `gridsize > 1` (so C = gridsize² > 1)
+- `--enable-oversampling` flag (explicit opt-in)
+- `--neighbor-pool-size >= C` (pool size must be at least gridsize²)
+
+**Example:**
+```bash
+# Create 2000 groups from only 500 seed points
+ptycho_train --train_data_file dataset.npz \
+    --n_subsample 500 \
+    --n_groups 2000 \
+    --gridsize 2 \
+    --neighbor_count 7 \
+    --enable_oversampling \
+    --neighbor_pool_size 7 \
+    --output_dir oversampled_run
+```
+
+**Important Notes:**
+- **Overfitting risk:** Oversampling reuses local neighborhoods; monitor using spatial validation splits
+- **Debug logs:** Look for `[OVERSAMPLING DEBUG]` messages showing which branch was taken
+- **Error handling:** Clear error messages guide you if prerequisites aren't met (see `docs/SAMPLING_USER_GUIDE.md`)
 
 ---
 
