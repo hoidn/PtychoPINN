@@ -161,48 +161,31 @@ Key constraints (per request):
   <status>approved</status>
 </plan_update>
 
-### 13. Do Now — Run1084 exporter smoke (2025-11-13T091500Z)
+<plan_update version="1.0">
+  <trigger>Ralph delivered the Run1084 exporter evidence (pytest log + HDF5 verification + doc draft), so we now need to fold the approved snippet into the canonical Data Management Guide and capture the doc update in our ledger.</trigger>
+  <focus_id>EXPORT-PTYCHODUS-PRODUCT-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md, specs/data_contracts.md, docs/DATA_MANAGEMENT_GUIDE.md, docs/fix_plan.md, plans/active/EXPORT-PTYCHODUS-PRODUCT-001/implementation_plan.md, plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/analysis/data_guide_snippet.md, plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/analysis/artifact_inventory.txt, input.md</documents_read>
+  <current_plan_path>plans/active/EXPORT-PTYCHODUS-PRODUCT-001/implementation_plan.md</current_plan_path>
+  <proposed_changes>record exporter evidence completion, add a documentation-focused Do Now (merge snippet into docs/DATA_MANAGEMENT_GUIDE.md, cite the CLI workflow, remind about git-ignored outputs), and require updated hub summaries/inventory plus ledger references once docs land.</proposed_changes>
+  <impacts>requires editing docs/DATA_MANAGEMENT_GUIDE.md (non-production), refreshing the hub summary + artifact inventory, and updating docs/fix_plan.md/input.md so future loops know documentation is pending review.</impacts>
+  <ledger_updates>docs/fix_plan.md gains a 2025-11-13T101500Z attempt noting exporter evidence review and the new documentation task; Active Focus blurb + status flip to reflect “doc integration pending”.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
+### 13. Do Now — Data Management Guide integration (2025-11-13T101500Z)
 
 1. **Guard + hub setup**
-   - Work from `/home/ollie/Documents/PtychoPINN`; export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`.
-   - Set `HUB="$PWD/plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap"`. Direct all logs/artifacts into this hub (subdirs `green/`, `cli/`, `analysis/`, `summary/`).
-2. **Unit + smoke tests**
-   - Run `pytest tests/io/test_ptychodus_product_io.py -vv | tee "$HUB"/green/pytest_product_io.log`.
-   - Keep the existing `@pytest.mark.slow` CLI smoke enabled; dataset path `datasets/Run1084_recon3_postPC_shrunk_3.npz` must not be committed, so ensure `outputs/` targets remain git-ignored.
-3. **Run1084 conversion CLI**
-   - Execute  
-     ```bash
-     python scripts/tools/convert_to_ptychodus_product.py \
-       --input-npz datasets/Run1084_recon3_postPC_shrunk_3.npz \
-       --output-product outputs/ptychodus_products/run1084_product.h5 \
-       --name Run1084 --comments "Run1084 product export" \
-       --detector-distance-m 0.0 --probe-energy-eV 8000.0 \
-       --exposure-time-s 0.1 --object-pixel-size-m 5e-8 \
-       --probe-pixel-size-m 1.25e-7 --object-center-x-m 0.0 --object-center-y-m 0.0 \
-       --include-diffraction
-     |& tee "$HUB"/cli/convert_run1084.log
-     ```
-   - Artifact outputs (`*.h5`) stay under `outputs/ptychodus_products/` (git-ignored). Capture command/exit status inside `analysis/artifact_inventory.txt`.
-4. **Product verification**
-   - Use the reference reader to ensure spec compliance:  
-     ```bash
-     python - <<'PY' | tee "$HUB"/analysis/verify_product.log
-     from ptychodus.src.ptychodus.plugins.h5_product_file import H5ProductFileIO
-     from pathlib import Path
-     import json
-
-     product = Path("outputs/ptychodus_products/run1084_product.h5")
-     reader = H5ProductFileIO()
-     data = reader.read(product)
-     summary = {
-         "name": data.metadata.name,
-         "n_scan": len(data.scan_geometry.positions),
-         "probe_shape": data.probe.dataset.shape,
-         "object_shape": data.object.dataset.shape,
-     }
-     print(json.dumps(summary, indent=2))
-     PY
-     ```
-   - Record the JSON summary in `"$HUB"/analysis/product_summary.json` and link it from `summary/summary.md`.
-5. **Documentation note**
-   - Draft a short usage snippet for `docs/DATA_MANAGEMENT_GUIDE.md` under a new “Ptychodus Product Export” subsection (include CLI example + reminder that outputs stay outside git). Store the draft in `"$HUB"/analysis/data_guide_snippet.md` for review before editing the doc.
+   - Work from `/home/ollie/Documents/PtychoPINN`, export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`, and set  
+     `HUB="$PWD/plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap"`.
+   - Confirm the drafted snippet lives at `analysis/data_guide_snippet.md` and the exporter evidence (pytest log, CLI log, verify log, product summary) is checked into this hub.
+2. **Integrate the documentation snippet**
+   - Add a new “Ptychodus Product Export” subsection to `docs/DATA_MANAGEMENT_GUIDE.md` (after the HDF5/NPZ sections) that:
+     - Summarizes the CLI workflow, including the concrete `convert_to_ptychodus_product.py` command with required metadata flags.
+     - Explains metadata parameters, raw-data inclusion toggles, storage policy (keep products under `outputs/ptychodus_products/`), and programmatic export/import helpers.
+     - Links back to `specs/data_contracts.md` and `ptycho/io/ptychodus_product_io.py` for canonical behavior.
+   - Use the drafted content as the base but tighten language to match the guide’s tone; cite the Run1084 example explicitly.
+3. **Index + ledger references**
+   - If the new subsection adds capabilities that should be discoverable from `docs/index.md`, insert a short cross-link under the Data Management Guide entry.
+   - Update `analysis/artifact_inventory.txt` and both hub summaries (`summary.md`, `summary/summary.md`) to mention the doc insertion (include file path + section heading).
+4. **Evidence + blockers**
+   - No new pytest selector is required for this doc-only pass. Record the doc diff in git, capture a brief note under `summary/summary.md`, and if any portion is blocked (e.g., missing dataset), create `red/blocked_<timestamp>.md` with the command/log snippet plus next steps.

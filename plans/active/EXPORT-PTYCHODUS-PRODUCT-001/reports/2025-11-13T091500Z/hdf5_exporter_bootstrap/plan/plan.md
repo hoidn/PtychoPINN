@@ -6,15 +6,13 @@
 - No Run1084 HDF5 product artifacts or DATA_MANAGEMENT_GUIDE snippets exist, so downstream consumers cannot validate the TensorFlow-side exporter.
 
 ## Do Now
-1. Guard from `/home/ollie/Documents/PtychoPINN`, export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`, and set `HUB="$PWD/plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap"`.
-2. Run `pytest tests/io/test_ptychodus_product_io.py -vv | tee "$HUB"/green/pytest_product_io.log` (keep the CLI smoke enabled).
-3. Convert `datasets/Run1084_recon3_postPC_shrunk_3.npz` into `outputs/ptychodus_products/run1084_product.h5` via the CLI and capture stdout/stderr in `"$HUB"/cli/convert_run1084.log`.
-4. Inspect the generated HDF5 with `ptychodus.src.ptychodus.plugins.h5_product_file.H5ProductFileIO`, write the JSON summary to `analysis/product_summary.json`, and log the script output in `analysis/verify_product.log`.
-5. Draft the DATA_MANAGEMENT_GUIDE snippet describing the CLI + evidence policy (`analysis/data_guide_snippet.md`) so documentation can be updated immediately after the exporter evidence lands.
+1. Guard from `/home/ollie/Documents/PtychoPINN`, export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`, set `HUB="$PWD/plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap"`, and make sure the drafted snippet + exporter evidence are present in this hub.
+2. Insert the approved “Ptychodus Product Export” subsection into `docs/DATA_MANAGEMENT_GUIDE.md` (after the NPZ/HDF5 format descriptions). Include the Run1084 CLI example, metadata flag explanations, raw-data inclusion toggle, storage policy reminder, and references to `specs/data_contracts.md` + `ptycho/io/ptychodus_product_io.py`.
+3. If useful for discoverability, add a one-line cross-link under the Data Management Guide entry in `docs/index.md` pointing to the new subsection.
+4. Refresh `analysis/artifact_inventory.txt`, `summary.md`, and `summary/summary.md` so they cite the documentation insertion (file path + section title). Log blockers in `red/blocked_<timestamp>.md` if anything prevents the doc edit.
 
 ## Evidence Requirements
-- `green/pytest_product_io.log` with PASS/FAIL counts (no skips).
-- `cli/convert_run1084.log` capturing the exact command and conversion result.
-- `analysis/product_summary.json` + `analysis/verify_product.log` proving the Ptychodus reader can load the file (name, scan count, probe/object shapes).
-- `analysis/data_guide_snippet.md` (draft snippet ready for docs/DATA_MANAGEMENT_GUIDE.md).
-- `analysis/artifact_inventory.txt` referencing every artifact above plus the git-ignored output location `outputs/ptychodus_products/run1084_product.h5`.
+- `docs/DATA_MANAGEMENT_GUIDE.md` diff showing the new subsection (reference it in `analysis/artifact_inventory.txt`).
+- Optional `docs/index.md` diff if a new cross-link is added.
+- Updated `summary.md` and `summary/summary.md` noting the doc insertion, plus refreshed `analysis/artifact_inventory.txt`.
+- Existing exporter evidence (`green/pytest_product_io.log`, `cli/convert_run1084.log`, `analysis/verify_product.log`, `analysis/product_summary.json`) remains part of this hub for traceability.

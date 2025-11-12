@@ -34,8 +34,7 @@ setup(
         'tensorboard',
         'tensorboard-data-server',
         'tensorboard-plugin-wit',
-        # Default to CPU-only TensorFlow to avoid conflicting NVIDIA package pins
-        'tensorflow',
+        'tensorflow[and-cuda]',
         'tensorflow-datasets',
         'tensorflow-estimator',
         'tensorflow-hub',
@@ -51,9 +50,6 @@ setup(
             'mlflow',        # Experiment tracking
             'tensordict',    # Batch data handling
         ],
-        # Optional GPU-enabled TensorFlow (installs pinned NVIDIA CUDA packages)
-        'tf-gpu': [
-            'tensorflow[and-cuda]'
-        ],
+        
     },
     zip_safe = False)

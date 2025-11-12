@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2025-11-13 (Galph s=271)
-**Active Focus:** EXPORT-PTYCHODUS-PRODUCT-001 — Run1084 Ptychodus exporter/importer evidence [planning] (run `pytest tests/io/test_ptychodus_product_io.py -vv`, convert `datasets/Run1084_recon3_postPC_shrunk_3.npz` via the CLI, verify the HDF5 with the Ptychodus reader, and draft the DATA_MANAGEMENT_GUIDE snippet while STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 stays in blocked_escalation awaiting dense rerun artifacts.)
+**Last Updated:** 2025-11-13 (Galph s=272)
+**Active Focus:** EXPORT-PTYCHODUS-PRODUCT-001 — Run1084 exporter documentation handoff [planning] (merge the approved snippet into `docs/DATA_MANAGEMENT_GUIDE.md`, add the cross-link in `docs/index.md` if needed, refresh the hub summaries/inventory, and log the doc update while STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 stays blocked_escalation awaiting dense rerun artifacts.)
 
 ---
 
@@ -115,20 +115,19 @@ Do Now (updated):
 ## [EXPORT-PTYCHODUS-PRODUCT-001] TF-side Ptychodus product exporter/importer + Run1084 conversion
 - Depends on: —
 - Priority: Medium
-- Status: done — Run1084 HDF5 product successfully created with GREEN pytest evidence and HDF5 verification; DATA_MANAGEMENT_GUIDE snippet drafted for review.
+- Status: planning — Run1084 exporter evidence is complete; documentation needs to be updated with the approved snippet plus ledger references before closing the initiative.
 - Owner/Date: Codex Agent/2025-10-28
 - Working Plan: `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/implementation_plan.md`
 - Test Strategy: `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/test_strategy.md`
 - Reports Hub: `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/`
-- Do Now (2025-11-13T091500Z):
+- Do Now (2025-11-13T101500Z):
   1. Guard from `/home/ollie/Documents/PtychoPINN`, export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`, and set `HUB="$PWD/plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap"`.
-  2. Run `pytest tests/io/test_ptychodus_product_io.py -vv | tee "$HUB"/green/pytest_product_io.log` (keep the Run1084 CLI smoke enabled).
-  3. Convert Run1084 to an HDF5 product with  
-     `python scripts/tools/convert_to_ptychodus_product.py --input-npz datasets/Run1084_recon3_postPC_shrunk_3.npz --output-product outputs/ptychodus_products/run1084_product.h5 --name Run1084 --comments "Run1084 product export" --object-pixel-size-m 5e-8 --probe-pixel-size-m 1.25e-7 --object-center-x-m 0.0 --object-center-y-m 0.0 --include-diffraction |& tee "$HUB"/cli/convert_run1084.log`.
-  4. Verify the generated product with `ptychodus.src.ptychodus.plugins.h5_product_file.H5ProductFileIO`, store the JSON summary under `analysis/product_summary.json`, and capture the script output in `analysis/verify_product.log`.
-  5. Draft a short DATA_MANAGEMENT_GUIDE snippet explaining the CLI usage + evidence policy (`analysis/data_guide_snippet.md`), then update docs after the product verification passes.
+  2. Integrate the drafted “Ptychodus Product Export” subsection into `docs/DATA_MANAGEMENT_GUIDE.md` (after the NPZ/HDF5 sections). The new section must include the approved CLI example (with metadata flags), explain raw-data inclusion toggles, reiterate the storage policy (keep products under `outputs/ptychodus_products/`), and cite `specs/data_contracts.md` + `ptycho/io/ptychodus_product_io.py` for canonical behavior.
+  3. If discoverability would benefit, add a short cross-link under the Data Management Guide entry in `docs/index.md` pointing at the new subsection.
+  4. Update `analysis/artifact_inventory.txt`, `summary.md`, and `summary/summary.md` within the active hub so they reference the documentation edit (file path + section heading). No new pytest selector is required for this doc-only pass; blockers must drop a note in `red/blocked_<timestamp>.md`.
 - Latest Attempt (2025-11-13T091500Z): planning — Re-read docs/index.md, docs/findings.md (DATA-001), specs/data_contracts.md, docs/DATA_MANAGEMENT_GUIDE.md, docs/fix_plan.md, the implementation plan, test_strategy, `ptycho/io/ptychodus_product_io.py`, `tests/io/test_ptychodus_product_io.py`, and `scripts/tools/convert_to_ptychodus_product.py`. Created the long-lived reports hub `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/`, added a plan `<plan_update>` defining the Run1084 Do Now, and wired the hub/file expectations (pytest log, CLI log, product summary JSON, doc snippet draft). Focus set to planning until the evidence run completes.
 - Latest Attempt (2025-11-13T093000Z): implementation — Ran `pytest tests/io/test_ptychodus_product_io.py -vv` (3 PASSED in 3.73s, logged to `$HUB/green/pytest_product_io.log`). Executed CLI conversion of Run1084 NPZ to HDF5 product (`outputs/ptychodus_products/run1084_product.h5`), capturing stdout to `$HUB/cli/convert_run1084.log` (exit 0). Verified HDF5 structure via h5py (all required datasets present, 1087 scan positions, probe 64×64 complex64, object 227×226 complex64, diffraction [1087,64,64] in canonical NHW order, empty loss arrays). Saved verification log to `$HUB/analysis/verify_product.log` and product summary JSON. Drafted DATA_MANAGEMENT_GUIDE snippet in `$HUB/analysis/data_guide_snippet.md` covering CLI usage, metadata parameters, raw data inclusion, storage policy, and programmatic access. Created artifact inventory and turn summary. All Do Now steps complete; focus ready for doc integration. Artifacts: plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/ (green/pytest_product_io.log, cli/convert_run1084.log, analysis/{verify_product.log,product_summary.json,data_guide_snippet.md,artifact_inventory.txt}, summary/summary.md).
+- Latest Attempt (2025-11-13T101500Z): planning — Reviewed the Run1084 hub evidence (`green/pytest_product_io.log`, `cli/convert_run1084.log`, `analysis/{verify_product.log,product_summary.json,data_guide_snippet.md,artifact_inventory.txt}`) plus docs/index.md, docs/findings.md (DATA-001), specs/data_contracts.md, docs/DATA_MANAGEMENT_GUIDE.md, and the implementation plan. Confirmed exporter evidence is complete and the documentation snippet is ready for publication. Updated the working plan with a new `<plan_update>` + Do Now describing the doc insertion, hub summary refresh, and optional docs/index cross-link. Status stays planning until the doc diff lands.
 
 ## [INTEGRATE-PYTORCH-001-STUBS] Finish PyTorch workflow stubs deferred from Phase D2
 - Status: archived 2025-10-20 — see `docs/archive/2025-10-20_fix_plan_archive.md#integrate-pytorch-001-stubs-finish-pytorch-workflow-stubs-deferred-from-phase-d2`.
