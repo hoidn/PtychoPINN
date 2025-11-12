@@ -27,6 +27,7 @@ from studies.fly64_dose_overlap.overlap import (
     disc_overlap_area,
     disc_overlap_fraction,
     subsample_images,
+    filter_dataset_by_mask,
     form_groups_gs1,
     form_groups_gs2,
     compute_metric_1_group_based,
@@ -98,6 +99,47 @@ def test_subsample_images_deterministic():
 
     # Check fraction
     assert len(coords[mask1]) == 50  # 50% of 100
+
+
+def test_filter_dataset_by_mask_handles_scalar_metadata():
+    """
+    Test that filter_dataset_by_mask handles scalar/0-D array metadata.
+
+    Regression test for TypeError: len() of unsized object when metadata
+    contains scalar values (e.g., dose, rng_seed).
+
+    References:
+        - input.md (2025-11-13): Phase G dense blocker
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/.../analysis/blocker.log
+    """
+    # Create dataset with regular arrays and scalar metadata
+    data = {
+        'diffraction': np.random.randn(5, 64, 64).astype(np.float32),
+        'xcoords': np.array([0.0, 1.0, 2.0, 3.0, 4.0], dtype=np.float32),
+        'ycoords': np.array([0.0, 1.0, 2.0, 3.0, 4.0], dtype=np.float32),
+        'dose': np.array(1000.0),  # 0-D array (scalar)
+        'rng_seed': np.array(42),  # 0-D array (scalar int)
+        'objectGuess': np.random.randn(128, 128).astype(np.complex64),  # Different shape
+    }
+
+    mask = np.array([True, False, True, False, True])  # Keep indices 0, 2, 4
+
+    # Should not raise TypeError
+    filtered = filter_dataset_by_mask(data, mask)
+
+    # Check filtered arrays
+    assert filtered['diffraction'].shape == (3, 64, 64)
+    assert filtered['xcoords'].shape == (3,)
+    assert np.array_equal(filtered['xcoords'], np.array([0.0, 2.0, 4.0], dtype=np.float32))
+
+    # Check scalar metadata is broadcast
+    assert filtered['dose'].shape == (3,)
+    assert np.all(filtered['dose'] == 1000.0)
+    assert filtered['rng_seed'].shape == (3,)
+    assert np.all(filtered['rng_seed'] == 42)
+
+    # Check objectGuess is preserved (different first dimension)
+    assert filtered['objectGuess'].shape == (128, 128)
 
 
 def test_form_groups_gs1():
