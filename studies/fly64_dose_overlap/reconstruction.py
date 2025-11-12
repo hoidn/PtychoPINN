@@ -166,7 +166,9 @@ def build_ptychi_jobs(
             phase_d_dose_dir = phase_d_root / f"dose_{dose_int}"
             for view in ["dense", "sparse"]:
                 view_dir = phase_d_dose_dir / view
-                overlap_npz = view_dir / f"{view}_{split}.npz"
+                primary_npz = view_dir / f"{view}_{split}.npz"
+                fallback_npz = view_dir / f"{split}.npz"
+                overlap_npz = primary_npz if primary_npz.exists() else fallback_npz
 
                 if not overlap_npz.exists():
                     if allow_missing:
@@ -176,13 +178,15 @@ def build_ptychi_jobs(
                                 "dose": dose,
                                 "view": view,
                                 "split": split,
-                                "reason": f"Phase D overlap NPZ not found: {overlap_npz}",
+                                "reason": (
+                                    f"Phase D overlap NPZ not found (checked {primary_npz.name} and {fallback_npz.name})"
+                                ),
                             })
                         continue
                     else:
                         raise FileNotFoundError(
-                            f"Phase D overlap NPZ not found: {overlap_npz}. "
-                            f"Expected from Phase D overlap filtering."
+                            f"Phase D overlap NPZ not found under {view_dir}. "
+                            f"Expected {primary_npz.name} or {fallback_npz.name}."
                         )
 
                 overlap_output = artifact_root / f"dose_{dose_int}" / view / split

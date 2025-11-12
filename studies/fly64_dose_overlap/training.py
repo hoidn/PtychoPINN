@@ -191,17 +191,25 @@ def build_training_jobs(
 
         # Jobs 2-3: Overlap views (gs2, Phase D filtered NPZs under view subdirectories)
         for view in ['dense', 'sparse']:
-            # Phase D path: dose_{dose}/{view}/{view}_{split}.npz
-            train_data_path = phase_d_root / dose_suffix / view / f"{view}_train.npz"
-            test_data_path = phase_d_root / dose_suffix / view / f"{view}_test.npz"
+            # Phase D path (primary): dose_{dose}/{view}/{view}_{split}.npz
+            primary_train = phase_d_root / dose_suffix / view / f"{view}_train.npz"
+            primary_test = phase_d_root / dose_suffix / view / f"{view}_test.npz"
 
-            # Check if overlap view NPZs exist
+            # Backward-compatibility (fallback): some generators write train.npz/test.npz
+            fallback_train = phase_d_root / dose_suffix / view / "train.npz"
+            fallback_test = phase_d_root / dose_suffix / view / "test.npz"
+
+            # Prefer primary naming; fallback if needed
+            train_data_path = primary_train if primary_train.exists() else fallback_train
+            test_data_path = primary_test if primary_test.exists() else fallback_test
+
+            # Check if overlap view NPZs exist (after fallback)
             if not train_data_path.exists() or not test_data_path.exists():
                 if allow_missing_phase_d:
-                    # Build skip reason message
+                    # Build skip reason message (report both probed paths)
                     reason = (
                         f"NPZ files not found (train={train_data_path.exists()}, test={test_data_path.exists()}). "
-                        f"This is expected when Phase D overlap filtering rejected the view due to spacing threshold."
+                        f"Checked primary ({primary_train.name}/{primary_test.name}) and fallback (train.npz/test.npz)."
                     )
 
                     # Log skip
