@@ -1,0 +1,59 @@
+Artifact Inventory — Run1084 Ptychodus Product Export (2025-11-13T091500Z)
+=============================================================================
+
+## Evidence Artifacts
+
+### Green (Tests PASSED)
+- green/pytest_product_io.log
+  - pytest tests/io/test_ptychodus_product_io.py -vv
+  - 3 passed in 3.73s
+  - test_export_writes_minimal_hdf5: PASSED
+  - test_import_reads_hdf5_to_rawdata: PASSED
+  - test_cli_convert_run1084_smoke: PASSED
+
+### CLI (Command Execution)
+- cli/convert_run1084.log
+  - Command: python scripts/tools/convert_to_ptychodus_product.py \
+      --input-npz datasets/Run1084_recon3_postPC_shrunk_3.npz \
+      --output-product outputs/ptychodus_products/run1084_product.h5 \
+      --name Run1084 --comments "Run1084 product export" \
+      --detector-distance-m 0.0 --probe-energy-eV 8000.0 \
+      --exposure-time-s 0.1 --object-pixel-size-m 5e-8 \
+      --probe-pixel-size-m 1.25e-7 --object-center-x-m 0.0 --object-center-y-m 0.0 \
+      --include-diffraction
+  - Exit: 0 (SUCCESS)
+  - Output: outputs/ptychodus_products/run1084_product.h5
+
+### Analysis
+- analysis/verify_product.log
+  - HDF5 structure verification via h5py
+  - All required datasets present
+- analysis/product_summary.json
+  - Metadata: name="Run1084", n_scan=1087
+  - Probe: shape=[64,64], complex64
+  - Object: shape=[227,226], complex64
+  - Raw data: diffraction shape=[1087,64,64] (NHW canonical)
+- analysis/data_guide_snippet.md
+  - Draft documentation for DATA_MANAGEMENT_GUIDE.md
+
+## Product File (git-ignored)
+- outputs/ptychodus_products/run1084_product.h5
+  - Size: ~34MB (estimated)
+  - Conforms to specs/data_contracts.md
+  - Includes raw diffraction data in /raw_data group
+  - Empty loss_values and loss_epochs datasets (per spec)
+
+## Acceptance Criteria Status
+- ✅ HDF5 product conforms to specs/data_contracts.md
+- ✅ All required root attributes present
+- ✅ Positions stored in meters (converted from pixels)
+- ✅ Probe and object datasets with pixel geometry attributes
+- ✅ Empty loss datasets for reader compatibility
+- ✅ Raw data bundle included (diffraction + coordinates)
+- ✅ Tests PASS (3/3)
+- ✅ CLI conversion succeeds for Run1084
+
+## Next Steps
+- Review data_guide_snippet.md
+- Update docs/DATA_MANAGEMENT_GUIDE.md with usage example
+- Consider round-trip test (export → import → verify)

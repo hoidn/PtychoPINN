@@ -34,7 +34,8 @@ setup(
         'tensorboard',
         'tensorboard-data-server',
         'tensorboard-plugin-wit',
-        'tensorflow[and-cuda]',
+        # Default to CPU-only TensorFlow to avoid conflicting NVIDIA package pins
+        'tensorflow',
         'tensorflow-datasets',
         'tensorflow-estimator',
         'tensorflow-hub',
@@ -49,6 +50,10 @@ setup(
             'lightning',     # PyTorch Lightning for training orchestration
             'mlflow',        # Experiment tracking
             'tensordict',    # Batch data handling
+        ],
+        # Optional GPU-enabled TensorFlow (installs pinned NVIDIA CUDA packages)
+        'tf-gpu': [
+            'tensorflow[and-cuda]'
         ],
     },
     zip_safe = False)

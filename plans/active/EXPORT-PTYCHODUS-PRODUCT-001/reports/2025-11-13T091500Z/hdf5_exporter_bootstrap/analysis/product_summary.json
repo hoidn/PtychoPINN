@@ -1,0 +1,18 @@
+{
+  "name": "Run1084",
+  "n_scan": 1087,
+  "probe_shape": [
+    64,
+    64
+  ],
+  "object_shape": [
+    227,
+    226
+  ],
+  "contains_raw_data": true,
+  "diffraction_shape": [
+    1087,
+    64,
+    64
+  ]
+}

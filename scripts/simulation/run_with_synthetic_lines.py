@@ -109,9 +109,9 @@ def run_simulation_workflow(
     output_file_path = output_dir / "simulated_data.npz"
 
     # Construct the command
-    # Prefer module execution to avoid env-fragile direct script paths
     command = [
-        "python", "-m", "scripts.simulation.simulate_and_save",
+        sys.executable,
+        str(simulate_script_path),
         "--input-file", str(synthetic_input_path),
         "--output-file", str(output_file_path),
     ]

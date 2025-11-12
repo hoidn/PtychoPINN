@@ -24,18 +24,33 @@ dependencies = [
     "scikit-image",
     "scikit-learn",
     "scipy",
-    "tensorflow[and-cuda]>=2.13.0",
+    # Default to CPU-only TensorFlow to avoid hard CUDA pins that conflict with PyTorch wheels.
+    "tensorflow>=2.13.0",
     "tensorflow-datasets",
     "tensorflow-hub",
     "tensorflow-metadata",
     "tensorflow-probability",  # This version works with TF 2.15
     #"tensorflow-probability<0.23.0",  # This version works with TF 2.15
+    # PyTorch is a required backend per POLICY-001
+    "torch>=2.2",
     #"torchmetrics",
     #"torchvision",
     "tqdm",
     "ujson",
 ]
 dynamic = ["version"]
+
+[project.optional-dependencies]
+# Developer extras for the PyTorch workflow (does not include torch itself — core depends on it)
+torch = [
+    "lightning",
+    "mlflow",
+    "tensordict",
+]
+# Optional GPU-enabled TensorFlow (installs pinned NVIDIA CUDA packages). Use in a separate env.
+tf-gpu = [
+    "tensorflow[and-cuda]>=2.13.0",
+]
 
 [project.scripts]
 ptycho_train = "scripts.training.train:main"
