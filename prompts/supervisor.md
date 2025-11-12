@@ -35,19 +35,15 @@
     - docs/fix_plan.md
     - docs/findings.md
     - docs/architecture.md
-    - docs/architecture/pytorch_design.md
-    - docs/pytorch_runtime_checklist.md
-    - docs/development/c_to_pytorch_config_map.md
-    - docs/development/testing_strategy.md
+    - docs/DEVELOPER_GUIDE.md
+    - docs/INITIATIVE_WORKFLOW_GUIDE.md
+    - docs/COMMANDS_REFERENCE.md
     - docs/TESTING_GUIDE.md
     - docs/development/TEST_SUITE_INDEX.md
+    - docs/specs/spec-ptychopinn.md
     - specs/data_contracts.md
-    - specs/ptychodus_api_spec.md
-    - docs/spec-db*.md, docs/config_crosswalk.md, docs/dials_api.md, docs/dxtbx_api.md, docs/simtbx_api.md, docs/nanobrag_api.md
-    - docs/spec-db-conformance.md, docs/spec-db-tracing.md
     - prompts/callchain.md
-    - CLAUDE.md, AGENTS.md, galph_memory.md
-    - docs/prompt_sources_map.json
+    - galph_memory.md
   </primary_references>
 
   <loop_discipline>

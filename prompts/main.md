@@ -15,15 +15,12 @@
     - docs/fix_plan.md  <!-- focus item + Attempts History -->
     - docs/findings.md  <!-- scan for relevant IDs -->
     - docs/architecture.md
-    - docs/architecture/pytorch_design.md
-    - docs/pytorch_runtime_checklist.md
-    - docs/development/c_to_pytorch_config_map.md
-    - docs/development/testing_strategy.md
+    - docs/DEVELOPER_GUIDE.md
+    - docs/COMMANDS_REFERENCE.md
     - docs/TESTING_GUIDE.md
     - docs/development/TEST_SUITE_INDEX.md
-    - docs/spec-db-conformance.md
-    - docs/spec-db*.md, docs/config_crosswalk.md, docs/dials_api.md, docs/dxtbx_api.md, docs/simtbx_api.md, docs/nanobrag_api.md
-    - CLAUDE.md, AGENTS.md
+    - docs/specs/spec-ptychopinn.md
+    - specs/data_contracts.md
     - Any plan files referenced by `input.md` or the fix‑plan item
   </required_reading>
 
