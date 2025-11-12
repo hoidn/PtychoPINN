@@ -21,3 +21,12 @@ I0000 00:00:1762908240.859916 1405781 service.cc:160]   StreamExecutor device (0
 2025-11-11 16:44:00.885581: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
 I0000 00:00:1762908240.905240 1405781 cuda_dnn.cc:529] Loaded cuDNN version 91002
 I0000 00:00:1762908241.061753 1405781 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+2025-11-11 16:44:42.562712: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 1350565888 exceeds 10% of free system memory.
+2025-11-11 16:44:44.644263: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 1350565888 exceeds 10% of free system memory.
+WARNING:tensorflow:From /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow_probability/python/distributions/distribution.py:342: calling _Independent.__init__ (from tensorflow_probability.python.distributions.independent) with reinterpreted_batch_ndims=None is deprecated and will be removed after 2022-03-01.
+Instructions for updating:
+Please pass an integer value for `reinterpreted_batch_ndims`. The current behavior corresponds to `reinterpreted_batch_ndims=tf.size(distribution.batch_shape_tensor()) - 1`.
+2025-11-11 16:44:45.672396: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 1350565888 exceeds 10% of free system memory.
+2025-11-11 16:45:04.759141: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence
+2025-11-11 16:45:07.956442: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 675282944 exceeds 10% of free system memory.
+2025-11-11 16:45:08.895207: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 675282944 exceeds 10% of free system memory.
