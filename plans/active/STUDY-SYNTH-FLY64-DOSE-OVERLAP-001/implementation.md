@@ -545,6 +545,19 @@ Checklist
 - [ ] Update `$HUB/summary/summary.md`, docs/fix_plan.md, and galph_memory with MS-SSIM ±0.000 / MAE ±0.000000 deltas, preview verdict (PREVIEW-PHASE-001), verifier/highlight log references, pytest selectors, and doc/test guard status.
 - [ ] If verification surfaces discrepancies, capture blocker logs under `$HUB/red/`, append to docs/fix_plan.md Attempts History with failure signature, and rerun once resolved.
 
+<plan_update version="1.0">
+  <trigger>Dwell reached Tier 3 (six consecutive planning loops) with zero new `{analysis}` artifacts, so Phase G dense work must be force-blocked until Ralph executes the counted rerun + post-verify sweep.</trigger>
+  <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001, PREVIEW-PHASE-001, PHASEC-METADATA-001, ACCEPTANCE-001), docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, specs/data_contracts.md, docs/fix_plan.md, galph_memory.md, input.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/plan/plan.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/summary/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/blocker.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dwell_escalation_report.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/phase_d_dense.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_post_verify_only.log</documents_read>
+  <current_plan_path>plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md</current_plan_path>
+  <proposed_changes>Record the dwell escalation, point to `analysis/dwell_escalation_report.md`, and mark the Phase G checklist as blocked until Ralph delivers the counted rerun, post-verify sweep, and MS-SSIM/MAE evidence bundle.</proposed_changes>
+  <impacts>Focus status becomes `blocked_escalation`; supervisor work must switch to a different initiative until engineering produces fresh `{analysis}` artifacts for this hub.</impacts>
+  <ledger_updates>docs/fix_plan.md status flip + Attempts History entry; hub `summary.md` prepended with Turn Summary referencing the dwell escalation; galph_memory updated with `state=blocked`.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
+- **2025-11-13T000500Z dwell gate:** `{analysis}` still shows only `blocker.log` and `cli/run_phase_g_dense_post_verify_only.log` remains the argparse usage banner, so the focus is now frozen in `blocked_escalation`. See `analysis/dwell_escalation_report.md` for the Tier 3 summary and required actions; no further planning/doc loops may target this initiative until Ralph lands the counted rerun + post-verify evidence described above.
+
 ## Execution Hygiene
 - **Hub reuse:** Stick to the two active hubs noted at the top of this plan (Phase E training + Phase G comparison). Per `docs/INITIATIVE_WORKFLOW_GUIDE.md`, only create a new timestamped hub when fresh production evidence is produced; otherwise append to the existing hub’s `summary.md`.
 - **Dirty hub protocol:** Supervisors must log residual artifacts (missing SSIM grid, deleted manifest, etc.) inside the hub’s `summary/summary.md` *and* `docs/fix_plan.md` before handing off so Ralph is never asked to reconstruct Phase C blindly.
