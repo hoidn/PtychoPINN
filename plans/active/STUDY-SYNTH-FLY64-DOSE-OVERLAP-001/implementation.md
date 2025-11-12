@@ -183,8 +183,19 @@ Checklist
   <status>approved</status>
 </plan_update>
 
-### Phase D — Overlap Metrics (CODE COMPLETE, CLI evidence pending)
-**Status:** Implementation + tests landed in `d94f24f7` with 18/18 GREEN cases; the remaining work is to generate CLI evidence (gs1 + gs2) so the hub holds Metric 1/2/3 JSONs before Phases E/G resume.
+<plan_update version="1.0">
+  <trigger>Phase D hub review (2025-11-13) shows gs1/gs2 CLI runs already archived with metrics JSONs even though the checklist/Do Now still claim they are missing.</trigger>
+  <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md (POLICY-001, CONFIG-001, DATA-001, ACCEPTANCE-001), docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/GRIDSIZE_N_GROUPS_GUIDE.md, specs/overlap_metrics.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics/summary/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics/analysis/artifact_inventory.txt, docs/fix_plan.md, galph_memory.md, input.md</documents_read>
+  <current_plan_path>plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md</current_plan_path>
+  <proposed_changes>Mark the CLI metrics checklist item complete, summarize the observed Metric 1/2/3 values with evidence pointers, and remove the stale Do Now so Phase G becomes the active blocker.</proposed_changes>
+  <impacts>Phase E/G guardrails can now reference the archived metrics bundle; all remaining work moves to the dense rerun + verification tasks.</impacts>
+  <ledger_updates>docs/fix_plan.md active-focus entry, hub summary turn block, input.md rewrite, galph_memory.md dwell/state update.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
+### Phase D — Overlap Metrics (CLI evidence archived)
+**Status:** Implementation, tests, and the gs1/gs2 CLI evidence bundle are complete (commit `d94f24f7` + `$HUB/summary/summary.md` + `analysis/artifact_inventory.txt`). This phase now feeds Phase E manifests and Phase G reruns; no open tasks remain here.
 
 Deprecation Note
 - Dense/Sparse labels and geometry/spacing acceptance gates remain deprecated. Every run must rely on explicit `s_img`/`n_groups` controls and record measured overlaps per `specs/overlap_metrics.md`.
@@ -193,70 +204,21 @@ Checklist
 - [x] Implement API: compute Metric 1 (gs=2), Metric 2, Metric 3; disc overlap with parameterized `probe_diameter_px`.
 - [x] Add CLI controls: `--gridsize`, `--s-img`, `--n-groups`, `--neighbor-count`, `--probe-diameter-px`.
 - [x] Update tests: disc overlap unit tests; Metric 1/2/3; gs=1 skips Metric 1; integration bundle fields.
-- [ ] Record per-split metrics JSON and aggregated bundle under the Phase D hub (gs1 `s_img=1.0,n_groups=512` and gs2 `s_img=0.8,n_groups=512` using `data/phase_c/dose_1000`).
+- [x] Record per-split metrics JSON and aggregated bundle under the Phase D hub (gs1 `s_img=1.0,n_groups=512` and gs2 `s_img=0.8,n_groups=512` using `data/phase_c/dose_1000`). Evidence: `metrics/gs1_s100_n512/*.json`, `metrics/gs2_s080_n512/*.json`, `cli/phase_d_overlap_gs{1,2}.log`, `analysis/artifact_inventory.txt`.
 
-**Reality (2025-11-12):**
-- `studies/fly64_dose_overlap/overlap.py` now exposes `disc_overlap_*`, deterministic subsampling with `rng_seed_subsample`, Metric 1/2/3 helpers, and a CLI with the explicit knobs. Commit `d94f24f7` holds the code changes.
-- `tests/study/test_dose_overlap_overlap.py` covers disc overlap math, Metric 1/2/3 aggregation, API guards, and bundle schema. Evidence: `$HUB/green/pytest_phase_d_overlap.log` (18 passed in 1.63 s).
-- The Phase D hub lacks CLI executions: `cli/` and `metrics/` are empty, so no `train_metrics.json`, `test_metrics.json`, or `metrics_bundle.json` exist for real Phase C data. Phase G remains blocked until those artifacts are archived.
+**Reality (2025-11-13):**
+- `studies/fly64_dose_overlap/overlap.py` + `tests/study/test_dose_overlap_overlap.py` remain as above (commit `d94f24f7`, `$HUB/green/pytest_phase_d_overlap.log`).
+- Both CLI profiles completed on 2025-11-11 (see `$HUB/summary/summary.md`). Metrics highlight:
+  - **gs1 s_img=1.0, n_groups=512:** Metric 2 train/test ≈0.891, Metric 3 ≈0.266; Metric 1 N/A by design.
+  - **gs2 s_img=0.8, n_groups=512:** Metric 1 train/test ≈0.892, Metric 2 ≈0.878, Metric 3 ≈0.269.
+- `analysis/artifact_inventory.txt` and `summary/summary.md` list the commands, JSON paths, and Metric 1/2/3 deltas. This satisfies the guardrail blocking Phase E/G.
 
-**Do Now — CLI evidence + metrics capture (blocking Phase E/G):**
-1. Guard repo root and export required env vars:
-   ```bash
-   test "$(pwd -P)" = "/home/ollie/Documents/PtychoPINN"
-   export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
-   export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics
-   mkdir -p "$HUB"/{cli,metrics}
-   ```
-2. Refresh pytest evidence tied to this CLI work:
-   ```bash
-   pytest tests/study/test_dose_overlap_overlap.py::test_overlap_metrics_bundle -vv \
-     | tee "$HUB"/green/pytest_phase_d_overlap_bundle_rerun.log
-   ```
-3. Run the overlap CLI twice against `data/phase_c/dose_1000`, capturing stdout/stderr with `tee` and directing metrics into per-profile folders:
-   ```bash
-   python -m studies.fly64_dose_overlap.overlap \
-     --phase-c-root data/phase_c/dose_1000 \
-     --output-root tmp/phase_d_overlap/gs1_s100_n512 \
-     --artifact-root "$HUB"/metrics/gs1_s100_n512 \
-     --gridsize 1 \
-     --s-img 1.0 \
-     --n-groups 512 \
-     --neighbor-count 6 \
-     --probe-diameter-px 38.4 \
-     --rng-seed-subsample 456 \
-     |& tee "$HUB"/cli/phase_d_overlap_gs1.log
+**Hand-off:**
+- Reference artifacts from `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics/`.
+- Use `metrics/gs{1,2}_*/metrics_bundle.json` plus `analysis/artifact_inventory.txt` when Phase E manifests or Phase G comparisons need overlap statistics.
+- All new blocking work now lives under Phase G (dense rerun + verification bundle); see the section below for the active Do Now.
 
-   python -m studies.fly64_dose_overlap.overlap \
-     --phase-c-root data/phase_c/dose_1000 \
-     --output-root tmp/phase_d_overlap/gs2_s080_n512 \
-     --artifact-root "$HUB"/metrics/gs2_s080_n512 \
-     --gridsize 2 \
-     --s-img 0.8 \
-     --n-groups 512 \
-     --neighbor-count 6 \
-     --probe-diameter-px 38.4 \
-     --rng-seed-subsample 456 \
-     |& tee "$HUB"/cli/phase_d_overlap_gs2.log
-   ```
-4. Verify each profile produced `train_metrics.json`, `test_metrics.json`, and `metrics_bundle.json` under `$HUB/metrics/<profile>/` with the recorded knobs plus Metric 1/2/3 averages (Metric 1 omitted for gs1). Summarize observed values in `summary.md`, update `analysis/artifact_inventory.txt`, and reference the files in docs/fix_plan.md before proceeding.
-5. If a command fails, capture its log under `$HUB/red/` with exit code + command line; keep the focus blocked until resolved.
-
-**Metrics Bundle Expectations:**
-- Each JSON records `metrics_version`, `gridsize`, `s_img`, `n_groups`, `neighbor_count`, `probe_diameter_px`, `rng_seed_subsample`, and Metric 1/2/3 averages (Metric 1 omitted for gs1). Spacing/acceptance stats remain informational.
-
-**Key Constraints & References:**
-- Oversampling guardrail: neighbor_count ≥ gridsize² requirement (default 6 satisfies gs2 needs).
-- CONFIG-001 boundaries: Phase D code runs strictly on NPZ inputs without mutating `params.cfg`.
-- DATA-001 compliance: rely on the Phase B validator and do not bypass canonical NHW layout.
-
-**Artifact Hubs:**
-- Overlap-metrics implementation/tests/CLI: `reports/2025-11-12T010500Z/phase_d_overlap_metrics/`
-- Spacing filter implementation: `reports/2025-11-04T034242Z/phase_d_overlap_filtering/`
-- Metrics bundle + CLI validation (historical): `reports/2025-11-04T045500Z/phase_d_cli_validation/`
-- Documentation sync: `reports/2025-11-04T051200Z/phase_d_doc_sync/`
-
-**Findings Applied:** CONFIG-001 (pure NPZ loading), DATA-001 (canonical layout), OVERSAMPLING-001 (K≥C preserved for gs=2), ACCEPTANCE-001 (geometry-aware floors recorded but non-blocking). Dense/sparse labels remain deprecated per `docs/GRIDSIZE_N_GROUPS_GUIDE.md`.
+**Findings Applied:** CONFIG-001 (pure NPZ loading), DATA-001 (canonical layout), OVERSAMPLING-001 (K≥C preserved for gs=2), ACCEPTANCE-001 (geometry-aware floors recorded and logged). Dense/sparse labels remain deprecated per `docs/GRIDSIZE_N_GROUPS_GUIDE.md`.
 
 ### Phase E — Train PtychoPINN (PAUSED — awaiting TensorFlow rework)
 **Status:** Paused. We must restore the TensorFlow training pipeline before any further runs; PyTorch work is retained below as historical context but no longer authoritative for this initiative.
@@ -363,7 +325,57 @@ Checklist
 - [x] Extend `tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_post_verify_only_executes_chain` so the `--post-verify-only` path also asserts the SSIM grid summary/log plus verification report/log/highlights lines and ensures stubbed CLI logs exist (TEST-CLI-001, TYPE-PATH-001). — commit `ba93f39a`.
 - [x] Replace the placeholder `geometry_aware_floor` logic in `studies/fly64_dose_overlap/overlap.py::generate_overlap_views` with a per-split bounding-box acceptance bound: compute the theoretical maximum acceptance as `(area / (pi * (threshold / 2) ** 2)) / n_positions`, clamp the bound to ≤0.10, guard against zero with a tiny epsilon, and persist both `geometry_acceptance_bound` and the resulting `effective_min_acceptance` through `SpacingMetrics`, `metrics_bundle.json`, and `_metadata`. (Implemented in `studies/fly64_dose_overlap/overlap.py:334-555`; verified locally + via `$HUB/green/pytest_dense_acceptance_floor.log`.) (docs/findings.md: STUDY-001, ACCEPTANCE-001; specs/data_contracts.md §12.)
 - [x] Extend `tests/study/test_dose_overlap_overlap.py` with `test_generate_overlap_views_dense_acceptance_floor` to pin the low-acceptance scenario and verify the metrics bundle records `geometry_acceptance_bound`/`effective_min_acceptance`. (`tests/study/test_dose_overlap_overlap.py:523-661`; GREEN log at `$HUB/green/pytest_dense_acceptance_floor.log`.) (docs/development/TEST_SUITE_INDEX.md:62.)
-- [ ] Rerun the counted dense pipeline with logs under the hub: `python plans/active/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense_stdout.log`, then immediately invoke `python plans/active/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --post-verify-only |& tee "$HUB"/cli/run_phase_g_dense_post_verify_only.log` before rerunning the metrics helpers if `analysis/metrics_summary.json` is stale so `{analysis}` gains SSIM grid summary/log, verification report/log, highlights log, metrics summary/digest, preview text, and `artifact_inventory.txt`. (docs/TESTING_GUIDE.md §§Phase G orchestrator + metrics; docs/findings.md: PREVIEW-PHASE-001, TEST-CLI-001.)
+- [ ] Harden `studies/fly64_dose_overlap/overlap.py::filter_dataset_by_mask` so scalar NPZ entries (e.g., metadata floats) bypass the boolean mask instead of raising `TypeError: len() of unsized object`, and add a regression in `tests/study/test_dose_overlap_overlap.py` that loads a Phase D NPZ stub containing scalar arrays to prove masking keeps metadata intact before rerunning the CLI. (DATA-001, specs/overlap_metrics.md §Behavior.)
+- [ ] Rerun the counted dense pipeline (after the fix/test above) with logs under the hub: `python plans/active/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense_stdout.log`, then immediately invoke `python plans/active/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --post-verify-only |& tee "$HUB"/cli/run_phase_g_dense_post_verify_only.log` before rerunning the metrics helpers if `analysis/metrics_summary.json` is stale so `{analysis}` gains SSIM grid summary/log, verification report/log, highlights log, metrics summary/digest, preview text, and `artifact_inventory.txt`. (docs/TESTING_GUIDE.md §§Phase G orchestrator + metrics; docs/findings.md: PREVIEW-PHASE-001, TEST-CLI-001.)
+
+<plan_update version="1.0">
+  <trigger>`cli/phase_d_dense.log` now fails with `TypeError: len() of unsized object` at `studies/fly64_dose_overlap/overlap.py:194`, proving the Phase D CLI applies boolean masks to scalar metadata entries; the counted dense rerun cannot proceed until the helper and tests are hardened.</trigger>
+  <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001, PREVIEW-PHASE-001, PHASEC-METADATA-001, ACCEPTANCE-001), docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, specs/data_contracts.md §12, specs/overlap_metrics.md, docs/GRIDSIZE_N_GROUPS_GUIDE.md, docs/fix_plan.md, galph_memory.md, input.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/plan/plan.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/summary/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/blocker.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/phase_d_dense.log</documents_read>
+  <current_plan_path>plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md</current_plan_path>
+  <proposed_changes>Add a checklist item + bug-triage note for the filter hardening + regression test and restate the Do Now so engineering first fixes the helper/tests, then re-runs the counted dense pipeline followed by the post-verify sweep and metrics helpers.</proposed_changes>
+  <impacts>Dense evidence remains blocked until the TypeError is resolved locally; once fixed, the rerun must still deliver SSIM/verification/highlights/metrics/previews/artifact inventory artifacts with MS-SSIM ±0.000 / MAE ±0.000000 deltas logged.</impacts>
+  <ledger_updates>docs/fix_plan.md active focus + Latest Attempt, hub summary.md + summary/summary.md, input.md rewrite, galph_memory.md dwell/state update.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+- **2025-11-13T021600Z bug triage:** `cli/phase_d_dense.log` now ends with `TypeError: len() of unsized object` when `filter_dataset_by_mask` iterates `phase_d_metadata` scalars. This proves the helper applies the boolean mask to entries without `__len__`, so Phase D CLI aborts before it can emit train/test metrics or hand off to Phase E. Fix the helper to detect scalars (e.g., `np.isscalar`, zero-dimensional arrays) and leave them untouched, then add a regression in `tests/study/test_dose_overlap_overlap.py` that loads a mocked Phase D NPZ containing scalar metadata (`train_metadata["dose_factor"]`, etc.) and asserts the mask skips those fields while still filtering arrays with matching lengths. Only after that code/test change lands may we rerun the counted dense pipeline + `--post-verify-only` sweep.
+- **Do Now — Bugfix + counted rerun (ready_for_implementation):**
+  1. Guard the working directory and env vars:
+     ```bash
+     test "$(pwd -P)" = "/home/ollie/Documents/PtychoPINN"
+     export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
+     export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier
+     ```
+  2. Reproduce the failure (optional) by tailing `$HUB/cli/phase_d_dense.log` so fixes cite the concrete stack trace.
+  3. Patch `studies/fly64_dose_overlap/overlap.py::filter_dataset_by_mask` to:
+     - Detect scalars / zero-dimensional arrays and copy them through untouched.
+     - Keep existing masking for arrays where `len(arr) == n_expected`.
+     - Update docstrings/logging so the helper states that metadata entries bypass masking.
+  4. Extend `tests/study/test_dose_overlap_overlap.py` with a regression (either augmenting `test_generate_overlap_views_dense_acceptance_floor` fixtures or adding a new targeted test) that constructs a fake `data_dict` containing scalar metadata values and asserts `filter_dataset_by_mask` returns them unchanged while masking arrays correctly. Record evidence via `pytest tests/study/test_dose_overlap_overlap.py::test_<new_case> -vv | tee "$HUB"/green/pytest_filter_mask_scalar.log` (failures → `$HUB/red/`).
+  5. Re-run the dense acceptance selector to guard geometry logic plus the new regression:
+     ```bash
+     pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_dense_acceptance_floor -vv \
+       | tee "$HUB"/green/pytest_dense_acceptance_floor.log
+     ```
+  6. Execute the counted dense pipeline with clobber to regenerate `data/phase_c/run_manifest.json`, Phase D NPZs, and CLI logs:
+     ```bash
+     python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \
+       --hub "$HUB" --dose 1000 --view dense --splits train test --clobber \
+       |& tee "$HUB"/cli/run_phase_g_dense_stdout.log
+     ```
+  7. Immediately run the fully parameterized post-verify sweep so the shortened chain refreshes SSIM grid/verification/highlights artifacts:
+     ```bash
+     python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \
+       --hub "$HUB" --dose 1000 --view dense --splits train test --post-verify-only \
+       |& tee "$HUB"/cli/run_phase_g_dense_post_verify_only.log
+     ```
+  8. If `analysis/metrics_summary.json` predates the rerun, execute `plans/active/.../bin/report_phase_g_dense_metrics.py --hub "$HUB" --metrics "$HUB"/analysis/metrics_summary.json` followed by `plans/active/.../bin/analyze_dense_metrics.py --hub "$HUB"` so `{analysis}` contains:
+     - `ssim_grid_summary.md`, `ssim_grid.log`
+     - `verification_report.json`, `verify_dense_stdout.log`
+     - `check_dense_highlights.log`
+     - `metrics_summary.json`, `metrics_delta_highlights_preview.txt`, `metrics_digest.md`
+     - `preview.txt` (phase-only verdict) and `analysis/artifact_inventory.txt`
+  9. Update `summary.md`, `summary/summary.md`, docs/fix_plan.md, and galph_memory with MS-SSIM ±0.000 / MAE ±0.000000 deltas, preview verdict, pytest selectors, CLI command lines, and artifact paths. Failures go under `$HUB/red/blocked_<timestamp>.md` with exit codes.
 <plan_update version="1.0">
   <trigger>`cli/run_phase_g_dense_post_verify_only.log` only contains the argparse usage banner, proving the post-verify helper was invoked without the required `--dose/--view/--splits` arguments; we must restate the full command before another engineering loop.</trigger>
   <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
@@ -425,12 +437,30 @@ Checklist
 </plan_update>
 
 - **Do Now — geometry-aware acceptance floor + dense rerun (ready_for_implementation):**
-  1. Guard rails: `test "$(pwd -P)" = "/home/ollie/Documents/PtychoPINN"` and export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier`; capture stdout/err for every command via `tee` inside the hub (POLICY-001, TYPE-PATH-001).
-  2. Implement the geometry-aware acceptance floor in `studies/fly64_dose_overlap/overlap.py::generate_overlap_views`: compute each split’s bounding-box area, derive the theoretical acceptance bound (`area / (π * (threshold / 2) ** 2) / n_positions`), clamp the effective minimum acceptance to `min(0.10, bound)` (guard against degenerate cases), and log both the derived bound and actual acceptance inside the spacing metrics record + `_metadata`. Keep the greedy fallback but only raise if even the geometry-aware floor fails; cite docs/findings.md (ACCEPTANCE-001) in code comments.
-  3. Extend `tests/study/test_dose_overlap_overlap.py` with `test_generate_overlap_views_dense_acceptance_floor`: craft a low-acceptance split, assert `generate_overlap_views` returns filtered NPZs + metrics without raising, and verify the metrics bundle stores `geometry_acceptance_bound`/`effective_min_acceptance`. Run `pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_dense_acceptance_floor -vv | tee "$HUB"/green/pytest_dense_acceptance_floor.log` (RED output → `$HUB/red/blocked_<timestamp>.md`).
-  4. Execute `python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense_stdout.log`, confirm Phase C/D finish, then immediately run `python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --post-verify-only |& tee "$HUB"/cli/run_phase_g_dense_post_verify_only.log` so the helper does not exit at the argparse usage banner.
-  5. If `analysis/metrics_summary.json` predates the rerun, execute `python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/report_phase_g_dense_metrics.py --hub "$HUB" --metrics "$HUB"/analysis/metrics_summary.json` and `python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/analyze_dense_metrics.py --hub "$HUB"` so `metrics_delta_highlights_preview.txt` (PREVIEW-PHASE-001) and `metrics_digest.md` capture the refreshed acceptance metadata and MS-SSIM/MAE deltas.
-  6. Evidence expectations: `{analysis}` must now contain `ssim_grid_summary.md`, `ssim_grid.log`, `verification_report.json`, `verify_dense_stdout.log`, `check_dense_highlights.log`, `metrics_summary.json`, `metrics_delta_highlights_preview.txt`, `metrics_digest.md`, and `artifact_inventory.txt` with MS-SSIM ±0.000 / MAE ±0.000000 deltas + preview verdict referenced in `$HUB/summary/summary.md`, docs/fix_plan.md, and galph_memory. Any failure must be logged to `$HUB/red/blocked_<timestamp>.md` with the exact command + exit code before pausing.
+<plan_update version="1.0">
+  <trigger>Hub reality check shows `cli/phase_d_dense.log` still dies with `TypeError: len() of unsized object` inside `filter_dataset_by_mask`, and `input.md` regressed to a Phase D Do Now even though Phase D metrics already exist. We need to course-correct the plan/input so Ralph fixes the scalar-mask bug and reruns the dense pipeline with the correct commands.</trigger>
+  <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001, PREVIEW-PHASE-001, PHASEC-METADATA-001, ACCEPTANCE-001), docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/fix_plan.md, galph_memory.md, input.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/{plan/plan.md,summary.md,summary/summary.md}, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/blocker.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/phase_d_dense.log</documents_read>
+  <current_plan_path>plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md</current_plan_path>
+  <proposed_changes>Document the scalar metadata blocker, swap the Do Now nucleus to “fix filter_dataset_by_mask + add regression test + rerun dense pipeline/metrics helpers,” and restate the artifact expectations so `{analysis}` gains the SSIM/verification/highlights/metrics/previews bundle.</proposed_changes>
+  <impacts>Requires production edits in `studies/fly64_dose_overlap/overlap.py`, new pytest coverage in `tests/study/test_dose_overlap_overlap.py`, rerunning the long Phase C→G pipeline plus the `--post-verify-only` helper, and refreshing hub docs/logs with MS-SSIM/MAE deltas.</impacts>
+  <ledger_updates>Update docs/fix_plan.md (Active Focus + Latest Attempt), hub summary.md + summary/summary.md, input.md, and galph_memory with the corrected Do Now/state.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
+- **Do Now — scalar-safe mask + dense rerun (ready_for_implementation):**
+  1. Guard rails: `test "$(pwd -P)" = "/home/ollie/Documents/PtychoPINN"` and export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier`; capture every command with `tee` under the hub (POLICY-001, TYPE-PATH-001, PYTHON-ENV-001).
+  2. Patch `studies/fly64_dose_overlap/overlap.py::filter_dataset_by_mask` so scalar metadata fields (float/int scalars, 0-D numpy arrays) no longer raise `TypeError: len() of unsized object`. Convert each entry to `np.asarray`; when `arr.ndim == 0` (or `np.isscalar(arr)`), broadcast the scalar to `mask.size` via `np.full`/`np.repeat` before applying the boolean mask, preserving dtype and logging the expanded shape for traceability.
+  3. Add a regression test such as `tests/study/test_dose_overlap_overlap.py::test_filter_dataset_by_mask_handles_scalar_metadata` that feeds a fake dataset containing scalar metadata plus arrays, asserts the helper broadcasts scalars to the correct length, and verifies dense acceptance metadata still matches ACCEPTANCE-001 expectations.
+  4. Rerun the targeted selectors with logs under `$HUB/green/`:  
+     • `pytest tests/study/test_dose_overlap_overlap.py::test_filter_dataset_by_mask_handles_scalar_metadata -vv | tee "$HUB"/green/pytest_filter_dataset_by_mask.log`  
+     • `pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_dense_acceptance_floor -vv | tee "$HUB"/green/pytest_dense_acceptance_floor.log`
+  5. Execute the counted dense pipeline: `python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense_stdout.log` so Phase C manifests (`data/phase_c/run_manifest.json`, `patched_{train,test}.npz`) are regenerated instead of restored.
+  6. Immediately run the fully parameterized helper: `python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --post-verify-only |& tee "$HUB"/cli/run_phase_g_dense_post_verify_only.log` to exercise the shortened verification/highlights chain.
+  7. Refresh the metrics helpers if `analysis/metrics_summary.json` predates the rerun:  
+     • `python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/report_phase_g_dense_metrics.py --hub "$HUB" --metrics "$HUB"/analysis/metrics_summary.json`  
+     • `python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/analyze_dense_metrics.py --hub "$HUB"`
+  8. Evidence expectations: `{analysis}` must now contain `ssim_grid_summary.md`, `ssim_grid.log`, `verification_report.json`, `verify_dense_stdout.log`, `check_dense_highlights.log`, `metrics_summary.json`, `metrics_delta_highlights_preview.txt`, `metrics_digest.md`, and `artifact_inventory.txt` with MS-SSIM ±0.000 / MAE ±0.000000 deltas + phase-only preview verdict referenced in `$HUB/summary/summary.md`, docs/fix_plan.md, and galph_memory. Failures go under `$HUB/red/blocked_<timestamp>.md` with the exact command + exit code before pausing.
 - **2025-11-12T231800Z audit:** After stash→pull→pop the repo remains dirty only under this hub; `{analysis}` still just holds `blocker.log`, `cli/` still stops at `{phase_c_generation,phase_d_dense,run_phase_g_dense_stdout}.log`, and there are zero SSIM grid, verification, preview, metrics, or artifact-inventory artifacts. `cli/phase_d_dense.log` again ends with `ValueError: Object arrays cannot be loaded when allow_pickle=False`, confirming the dense rerun never advanced past Phase D inside `/home/ollie/Documents/PtychoPINN`.
 - **2025-11-13T003000Z audit:** `timeout 30 git pull --rebase` now runs cleanly (no stash cycle needed) and `git log -10 --oneline` shows the overlap `allow_pickle=True` fix (`5cd130d3`) is already on this branch, so the lingering ValueError in `cli/phase_d_dense.log` is stale output from `/home/ollie/Documents/PtychoPINN2`. The active hub still lacks any counted dense evidence: `analysis/` only holds `blocker.log`, `{cli}` contains `{phase_c_generation,phase_d_dense,run_phase_g_dense_stdout(_retry,_v2).log}`, and there are zero SSIM grid summaries, verification/previews, metrics delta files, or artifact inventory snapshots. With the fix landed locally, the only remaining action is to rerun `run_phase_g_dense.py --clobber ...` followed immediately by `--post-verify-only` **from /home/ollie/Documents/PtychoPINN** so Phase C manifests regenerate and `{analysis,cli}` fill with real artifacts.
 - **2025-11-13T012200Z audit:** `git status --porcelain` only lists the stale `cli/phase_d_dense.log` inside the active hub, so per the evidence-only rule I skipped `git pull --rebase` (recorded `evidence_only_dirty=true`) and exported `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` before editing. Re-read docs/index.md, docs/findings.md (POLICY-001 / CONFIG-001 / DATA-001 / TYPE-PATH-001 / STUDY-001 / TEST-CLI-001 / PREVIEW-PHASE-001 / PHASEC-METADATA-001 / ACCEPTANCE-001), docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, specs/data_contracts.md §12, docs/fix_plan.md, galph_memory.md, input.md, `summary.md`, `summary/summary.md`, `analysis/blocker.log`, `cli/phase_d_dense.log`, and `cli/run_phase_g_dense_post_verify_only.log`. `{analysis}` is still just `blocker.log` and the post-verify CLI log remains the argparse usage banner because the command missed `--dose/--view/--splits`, so SSIM grid / verification / highlights / metrics / preview / inventory artifacts do not exist yet. Reissue the same ready_for_implementation Do Now with the fully parameterized post-verify command and the MS-SSIM ±0.000 / MAE ±0.000000 reporting requirements.
