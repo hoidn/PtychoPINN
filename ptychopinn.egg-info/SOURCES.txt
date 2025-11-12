@@ -2448,6 +2448,15 @@ plans/active/ADR-003-BACKEND-API/reports/2025-11-04T093500Z/phase_e_governance_c
 plans/active/ADR-003-BACKEND-API/reports/2025-11-04T093500Z/phase_e_governance_closeout/logs/pytest_api_deprecation.log
 plans/active/EXPORT-PTYCHODUS-PRODUCT-001/implementation_plan.md
 plans/active/EXPORT-PTYCHODUS-PRODUCT-001/test_strategy.md
+plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/summary.md
+plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/analysis/artifact_inventory.txt
+plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/analysis/data_guide_snippet.md
+plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/analysis/product_summary.json
+plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/analysis/verify_product.log
+plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/cli/convert_run1084.log
+plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/green/pytest_product_io.log
+plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/plan/plan.md
+plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/summary/summary.md
 plans/active/INTEGRATE-PYTORCH-000/implementation.md
 plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025000Z/delta_log.md
 plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025000Z/module_inventory.md
@@ -3497,6 +3506,7 @@ plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase
 plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_stdout.log
 plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_stdout_continued.log
 plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_stdout_retry.log
+plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_stdout_smoke.log
 plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_stdout_v2.log
 plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/collect/pytest_collect_exec_digest.log
 plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/collect/pytest_collect_exec_highlights.log
