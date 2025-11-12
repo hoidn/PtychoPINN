@@ -71,9 +71,9 @@ This index provides a comprehensive overview of all available documentation with
 **Use this when:** Starting any development work, debugging shape mismatches, understanding the codebase architecture, or implementing new features using TDD methodology.
 
 #### [Architecture Overview](architecture.md)
-**Description:** High-level component diagram and data flow visualization of the `ptycho/` core library, showing module relationships and typical workflow sequences.  
-**Keywords:** components, data-flow, modules, workflow, visualization  
-**Use this when:** Getting oriented with the codebase structure, understanding how modules interact, or planning new component integration.
+**Description:** High-level component and data-flow map for the `ptycho/` core library with: Scripts Overview (training/inference/reconstruction/studies), training and inference-only sequence diagrams, PyTorch backend architecture notes + diagram, stable-modules policy, and the config lifecycle snippet (`update_legacy_dict(params.cfg, config)`).  
+**Keywords:** components, data-flow, scripts, workflow, inference, pytorch-backend, stable-modules, configuration  
+**Use this when:** Getting oriented with the codebase structure, mapping scripts to orchestrators, understanding inference flow, or switching between TensorFlow and PyTorch backends.
 
 #### [Testing Guide](TESTING_GUIDE.md)
 **Description:** Comprehensive testing strategy covering unit tests, integration tests, TDD methodology, regression testing practices, and specific guidance for testing CLI parameters and backward compatibility.  

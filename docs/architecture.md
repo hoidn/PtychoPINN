@@ -125,13 +125,13 @@ This final stage prepares the data for TensorFlow by converting the grouped NumP
 
 -   **`config/config.py`**: The **modern, authoritative configuration system**.
     -   **Key Components:** `ModelConfig`, `TrainingConfig`, `InferenceConfig` (dataclasses).
-    -   See the **<doc-ref type="guide">docs/CONFIGURATION_GUIDE.md</doc-ref>**.
+    -   See the **<doc-ref type="guide">docs/CONFIGURATION.md</doc-ref>**.
 
 -   **`params.py`**: The **legacy global state**. A global dictionary that is **DEPRECATED** but maintained for backward compatibility.
 
 -   **`raw_data.py` & `loader.py`**: The **data ingestion and transformation layers**. They convert raw `.npz` files into model-ready `PtychoDataContainer` objects.
     -   **Key Functions:** `raw_data.generate_grouped_data()`, `loader.create_ptycho_data_container()`.
-    -   For a visual breakdown, see **<doc-ref type="technical">ptycho/loader_structure.md</doc-ref>**.
+    -   For a visual breakdown of grouping and grids, see **<doc-ref type="technical">docs/GRIDSIZE_N_GROUPS_GUIDE.md</doc-ref>**.
 
 -   **`diffsim.py`**: The **forward physics model**. Encapsulates the scientific domain knowledge of ptychography.
     -   **Key Functions:** `illuminate_and_diffract()`, `mk_simdata()`.
@@ -149,11 +149,17 @@ This final stage prepares the data for TensorFlow by converting the grouped NumP
 
 -   **`evaluation.py`**: The **metrics and quality control module**. Contains all logic for calculating performance metrics (PSNR, SSIM, FRC).
     -   **Key Function:** `eval_reconstruction()`.
-    -   Its usage is detailed in the **<doc-ref type="guide">docs/MODEL_COMPARISON_GUIDE.md</doc-ref>**.
+    -   Usage examples are covered in **<doc-ref type="guide">docs/WORKFLOW_GUIDE.md</doc-ref>** and **<doc-ref type="workflow-guide">scripts/studies/README.md</doc-ref>**.
 
 -   **`workflows/components.py`**: The **high-level orchestration layer**. Chains together calls to the core library modules to execute end-to-end tasks.
     -   **Key Functions:** `run_cdi_example()`, `setup_configuration()`.
-    -   For usage examples, see **<doc-ref type="workflow-guide">scripts/training/CLAUDE.md</doc-ref>**.
+    -   For usage examples, see **<doc-ref type="workflow-guide">scripts/training/README.md</doc-ref>**.
+
+-   **`model_manager.py`**: Model bundle persistence and reload. Handles multi-model archives (`wts.h5.zip`) and restores `params.cfg` on load.
+
+-   **`image/reassemble_patches`**: Utilities for assembling predicted patches into full-field reconstructions (used by workflows and inference scripts).
+
+-   **`io/` (Package)**: Input/output helpers for consistent file handling across training, inference, and studies.
 
 ## 5. Key Design Principles
 
@@ -162,3 +168,93 @@ This final stage prepares the data for TensorFlow by converting the grouped NumP
 -   **Data Contracts**: All data exchange between components must adhere to the formats defined in **<doc-ref type="contract">docs/specs/spec-ptycho-interfaces.md</doc-ref>**.
 
 -   **Separation of Concerns**: Physics simulation (`diffsim`), model architecture (`model`), and data handling (`loader`) are kept in separate, specialized modules.
+
+## 6. Scripts Overview
+
+This project includes a set of user-facing scripts that build on the workflow orchestration layer:
+
+- `scripts/training/train.py`: CLI entry for end-to-end training. Uses `ptycho.workflows.components.run_cdi_example()`.
+- `scripts/inference/inference.py`: Inference + optional stitching using a previously trained model. Uses `load_inference_bundle()` and reassembly helpers.
+- `scripts/reconstruction/run_tike_reconstruction.py`: Integrates with Tike reconstructions for comparison and reassembly.
+- `scripts/studies/README.md`: Study and comparison workflows driving multi-model evaluations and aggregations.
+
+See also: **<doc-ref type="workflow-guide">docs/WORKFLOW_GUIDE.md</doc-ref>** and per-folder READMEs under `scripts/`.
+
+## 7. Typical Workflow Sequence (Inference-Only)
+
+The sequence below illustrates inference using a trained model bundle (no further training):
+
+```mermaid
+sequenceDiagram
+    participant Script as scripts/inference/inference.py
+    participant W as workflows/components.py
+    participant MM as model_manager.py
+    participant Img as image/reassemble_patches
+    participant E as evaluation.py
+
+    Script->>W: load_inference_bundle(model_dir)
+    W->>MM: ModelManager.load_multiple_models(wts.h5.zip)
+    MM-->>W: returns {'diffraction_to_obj': model}, config
+
+    Script->>W: predict(test_container)
+    W-->>Script: reconstructed_patches
+
+    Script->>Img: reassemble_patches(reconstructed_patches, coords)
+    Img-->>Script: amplitude, phase
+
+    Script->>E: eval_reconstruction(amplitude, phase, ground_truth)
+    E-->>Script: metrics_dict
+```
+
+## 8. Backend Architecture (PyTorch)
+
+PtychoPINN provides a PyTorch stack with parity to the TensorFlow workflows:
+
+- Orchestration: `ptycho_torch/workflows/components.py` mirrors the TensorFlow API.
+- Guide: **<doc-ref type="guide">docs/workflows/pytorch.md</doc-ref>** covers configuration bridging, training via Lightning, checkpointing, and inference.
+- Data contract and configuration: shared with TensorFlow (`config/config.py`, `RawData`, and grouping pipeline).
+
+```mermaid
+graph TD
+    subgraph "Shared Config & Data"
+        A[config/config.py] --> B[params.cfg (Legacy Bridge)]
+        C[NPZ Files] --> D[ptycho.raw_data.RawData]
+    end
+
+    subgraph "PyTorch Orchestration"
+        E[ptycho_torch/config_bridge.py]
+        F[ptycho_torch/workflows/components.py]
+        G[Lightning Trainer]
+    end
+
+    subgraph "PyTorch Core"
+        H[ptycho_torch/dataloader.py]
+        I[ptycho_torch/model.py]
+        J[ptycho_torch/model_manager.py]
+    end
+
+    D --> H
+    E --> F
+    B --> F
+    H --> G
+    I --> G
+    G --> J
+```
+
+## 9. Stable Modules and Config Lifecycle
+
+- Stable/Do‑Not‑Modify (without an approved plan): `ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`.
+- Mandatory config bridge before legacy modules (PyTorch policy also applies):
+
+```python
+from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
+from ptycho import params
+
+# ... create ModelConfig + TrainingConfig instances as needed ...
+config = TrainingConfig(model=ModelConfig(...))
+
+# Bridge to legacy dict (required before data loading / legacy usage)
+update_legacy_dict(params.cfg, config)
+```
+
+See **<doc-ref type="debug">docs/debugging/QUICK_REFERENCE_PARAMS.md</doc-ref>** for critical notes on `params.cfg` initialization and shape-mismatch troubleshooting.
