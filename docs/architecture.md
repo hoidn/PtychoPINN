@@ -43,6 +43,8 @@ graph TD
     style B fill:#ffcdd2,stroke:#b71c1c,stroke-width:2px
 ```
 
+Note on coordinates: The data pipeline standardizes scan positions in channel format `(B, 1, 2, C)` with axis order `[x, y]`; channel index `c` maps to `(row, col)` via row‑major (`row=c//gridsize`, `col=c%gridsize`). See `docs/specs/spec-ptycho-interfaces.md` for the full contract.
+
 ## 2. Typical Workflow Sequence (Training Run)
 
 This diagram illustrates the sequence of function calls and data object transformations during a standard training run initiated by a script like `scripts/training/train.py`.
