@@ -176,6 +176,66 @@ def subsample_images(
     return mask
 
 
+def filter_dataset_by_mask(
+    data: Dict[str, np.ndarray],
+    mask: np.ndarray,
+) -> Dict[str, np.ndarray]:
+    """
+    Filter dataset arrays by boolean mask along first axis.
+
+    Handles scalar and 0-D array metadata by broadcasting to mask length.
+
+    Args:
+        data: Dictionary of arrays (from np.load)
+        mask: Boolean mask, shape (N,)
+
+    Returns:
+        Filtered dictionary with same keys, reduced first dimension for arrays
+        matching mask length. Scalar/0-D arrays are broadcast to mask length.
+
+    Raises:
+        ValueError: If mask length doesn't match first dimension for non-scalar arrays
+
+    Example:
+        >>> data = {'diffraction': np.zeros((3, 64, 64)), 'xcoords': np.array([0, 1, 2])}
+        >>> mask = np.array([True, False, True])
+        >>> filtered = filter_dataset_by_mask(data, mask)
+        >>> filtered['diffraction'].shape
+        (2, 64, 64)
+        >>> filtered['xcoords'].tolist()
+        [0.0, 2.0]
+
+        >>> # Scalar metadata is broadcast
+        >>> data_with_scalar = {'coords': np.array([0, 1, 2]), 'dose': 1000.0}
+        >>> filtered = filter_dataset_by_mask(data_with_scalar, mask)
+        >>> filtered['dose']  # Broadcast to mask length
+        array([1000., 1000.])
+    """
+    filtered = {}
+    n_expected = len(mask)
+    n_keep = int(mask.sum())
+
+    for key, arr in data.items():
+        # Skip non-array metadata
+        if not isinstance(arr, np.ndarray):
+            filtered[key] = arr
+            continue
+
+        # Handle scalar (0-D) arrays by broadcasting
+        if arr.ndim == 0:
+            filtered[key] = np.full(n_keep, arr.item())
+            continue
+
+        # Filter along first axis if it matches mask length
+        if len(arr) == n_expected:
+            filtered[key] = arr[mask]
+        else:
+            # Preserve arrays with different first dimension (e.g., probeGuess, objectGuess)
+            filtered[key] = arr
+
+    return filtered
+
+
 def form_groups_gs1(coords: np.ndarray, n_groups: int) -> np.ndarray:
     """
     Form groups for gridsize=1: one image per group.

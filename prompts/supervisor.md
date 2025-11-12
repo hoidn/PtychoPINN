@@ -56,7 +56,10 @@
     - <strong>Bundling permitted:</strong> multiple checklist IDs under the same focus when scope‑bounded and feasible in one loop; Attempts History must reflect <em>every row touched</em>.
     - Keep `galph_memory.md` updated each turn (focus, action type, artifacts, and &lt;Action State&gt;).
     - <strong>Implementation floor (hard):</strong> For a given focus, you may run <em>at most one</em> docs‑only loop in a row. The next turn must hand off a Do Now with at least one <em>production code</em> task (`<file>::<function>`) and a validating pytest node—or mark blocked and switch focus.
-    - <strong>Dwell enforcement (hard):</strong> Remain in `gathering_evidence` or `planning` at most two consecutive turns per focus. On the third, either set `ready_for_implementation` with a code task or switch focus and record the block.
+    - <strong>Dwell enforcement (three-tier hard gate):</strong>
+      • <strong>Tier 1 (dwell=2):</strong> On the second consecutive planning/doc loop you MUST either (a) transition to `ready_for_implementation` with a runnable production code task (selector included), or (b) switch focus and record the blocker in `docs/fix_plan.md` and `galph_memory.md`.
+      • <strong>Tier 2 (dwell=4):</strong> If `state=ready_for_implementation` and Ralph has not executed since the last turn, you MUST document the precise blocker in `docs/fix_plan.md` (quote the Do Now from `input.md`, the exact command/selector, and the minimal error signature with hub paths), create a NEW blocker focus item (e.g., FIX-…‑001), switch to that blocker or mark the current focus `blocked` with a return condition, and reset dwell=0 for the new focus. Respect the WIP cap (≤ 2 initiatives in_progress).
+      • <strong>Tier 3 (dwell=6, ABSOLUTE LIMIT):</strong> STOP planning this focus, force-mark it `blocked_escalation` in `docs/fix_plan.md`, and create `<Hub>/analysis/dwell_escalation_report.md` summarizing attempts, recurring blockers, and recommended intervention; then MANDATORY switch to the highest-priority non‑blocked item and log the escalation in `galph_memory.md`.
     - Work‑in‑progress cap: ≤ 2 initiatives with status `in_progress`.
     - <strong>Environment Freeze (hard):</strong> Do not propose/execute environment changes unless the focus is environment maintenance.
     - <strong>No Env Diagnostics:</strong> Do not persist environment/system dumps; if an import fails, record only the minimal error signature in `docs/fix_plan.md`.
@@ -64,6 +67,14 @@
 
   <startup_steps>
     0. <strong>Dwell tracking (persistent):</strong> If `galph_memory.md` is missing, create it and write an initial entry for the current focus with `state=gathering_evidence`, `dwell=0`. Otherwise, read the last entry for this focus and <em>carry forward</em> dwell unless the prior loop landed <em>implementation evidence</em> (production/test code commits) or the active hub gained new `analysis/` deliverables (e.g., metrics JSONs, verification JSONs, `artifact_inventory.txt`). Planning‑only/doc‑only loops do <em>not</em> reset dwell. If `dwell==2` and prior two loops were non‑implementation, pre‑set `state=ready_for_implementation`.
+
+       <strong>Dwell escalation gate (pre‑planning check):</strong>
+       • If dwell ≥ 6: Apply Tier 3 immediately (force‑block focus, write `<Hub>/analysis/dwell_escalation_report.md`, switch focus).
+       • If dwell ≥ 4 and `state=ready_for_implementation`: verify a Ralph execution occurred since the last turn. Detect via git log using both commit conventions and sync markers:
+         `git log --all --oneline -n 1 --grep='^RALPH ' --grep='actor=ralph'`
+         Optionally include hub paths if you scope by path: `-- "plans/active/**" "tests/**" "studies/**"`.
+         If unchanged since the last recorded `ralph_last_commit`, apply Tier 2 (document blocker with citations, create blocker focus, switch; reset dwell for new focus).
+       • If dwell == 2 and `state=planning`: this turn MUST either hand off a runnable production task or switch focus.
     1. <strong>Conditional git sync (evidence‑aware):</strong>
        • Read `input.md` and extract the current `Reports Hub` path.  
        • Compute dirty paths: `git status --porcelain`.  
@@ -264,6 +275,7 @@
     Dwell guard: remain in `gathering_evidence`/`planning` ≤ 2 consecutive turns per focus; dwell persists across planning/doc loops and only resets after implementation evidence (code/tests) or new hub `analysis/` deliverables. On the third planning/doc turn, either transition to `ready_for_implementation` with a <em>runnable</em> production task for Ralph or switch focus and record the block. Paper hand‑offs do not reset dwell.
     End‑of‑turn logging (required): append in `galph_memory.md`  
     `focus=<id/slug>` `state=<gathering_evidence|planning|ready_for_implementation>` `dwell=<n>`  
+    `ralph_last_commit=<sha8|none>`  
     `artifacts=<plans/active/<initiative>/reports/<timestamp>/>` `next_action=<one‑liner or 'switch_focus'>`
     Reference: `prompts/fsm_analysis.md`.
   </fsm>

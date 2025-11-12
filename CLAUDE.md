@@ -24,7 +24,11 @@ This document is the **constitution** for the Claude AI agents working on the Pt
 7. **Respect the PyTorch policy.** PyTorch (torch ≥ 2.2) is mandatory (POLICY-001). PyTorch workflows must still run `update_legacy_dict(params.cfg, config)` before touching legacy modules; see `docs/workflows/pytorch.md`.
 8. **Testing proof is mandatory.** Any task involving tests must provide passing `pytest` evidence and archived logs as described in `prompts/main.md` and `docs/TESTING_GUIDE.md`.
 9. **Plan test infrastructure up front.** Before Phase B or any implementation that adds/changes tests, capture the strategy using `plans/templates/test_strategy_template.md` (or the initiative’s `test_strategy.md`) and link it from `docs/fix_plan.md`.
-10. **Dwell persistence and enforcement.** Planning/doc‑only loops do not reset dwell. Dwell only resets after implementation evidence (production/test code commits) or new hub `analysis/` deliverables. On a third consecutive planning/doc loop for the same focus, either hand off a runnable production task to engineering or mark the item `blocked` and switch focus; do not continue planning.
+10. **Dwell persistence and enforcement.** Planning/doc‑only loops do not reset dwell. Dwell resets only after implementation evidence (production/test code commits) or new hub `analysis/` deliverables. Enforcement follows a three‑tier policy enforced by `prompts/supervisor.md`:
+    - Tier 1 (dwell=2): must hand off a runnable production task or switch focus.
+    - Tier 2 (dwell=4): if Ralph did not execute (see `ralph_last_commit` tracking and git log checks), document the blocker (with citations) and switch to a blocker focus or mark current focus blocked with a return condition.
+    - Tier 3 (dwell=6): absolute limit — force‑block, create a dwell escalation report under the active hub, and switch focus.
+    Supervisor records `ralph_last_commit=<sha8|none>` in `galph_memory.md` and applies a pre‑planning dwell gate each loop.
 11. **Interpreter policy.** Obey PYTHON-ENV-001 in `docs/DEVELOPER_GUIDE.md` (use the active interpreter via `sys.executable`/`PYTHON_BIN`; do not rely on PATH `python`).
 
 ---

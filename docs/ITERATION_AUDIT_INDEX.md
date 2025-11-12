@@ -130,7 +130,7 @@ For complete attribution map with rationales, see **Section 4** of full audit.
 | DATA-001 | `docs/findings.md` (allow_pickle) | `overlap.py:232`, `training.py:409` | i=287 | ✅ Landed |
 | TEST-CLI-001 | `prompts/main.md:100` (pytest before CLI) | `green/pytest_*.log` | i=285+ | ✅ Applied |
 | TYPE-PATH-001 | `docs/findings.md` (hub-relative paths) | `run_phase_g_dense.py:234` | i=270 | ✅ Landed |
-| Dwell enforcement | `prompts/supervisor.md:60` (max 2 loops) | `galph_memory.md` tracking | i=290+ | ⚠️ Delayed |
+| Dwell enforcement | `prompts/supervisor.md:59-66,262+` (three-tier 2/4/6) | `galph_memory.md` + `ralph_last_commit` | i=290+ | ✅ Updated |
 | Implementation floor | `prompts/main.md:32` (code task req) | — | i=290+ | ⚠️ Violated i=262-284 |
 
 **Legend:**
