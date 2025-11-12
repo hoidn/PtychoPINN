@@ -21,14 +21,34 @@ API Surface (Normative)
   - `image.stitching.reassemble_patches(patches, config, part='amp'|'phase'|'complex', norm_Y_I=..., norm=...)` — CPU numpy reassembly.
 
 Data Formats (Normative)
-- NPZ:
-  - Required: `xcoords (M,)`, `ycoords (M,)`, `diff3d (M,N,N)` amplitude, `probeGuess (N,N)` complex, `scan_index (M,)`.
-  - Optional: `objectGuess (H,W)` complex, `xcoords_start (M,)`, `ycoords_start (M,)`.
+- NPZ (keys, dtypes, semantics):
+  - Required:
+    • `xcoords (M,) float64` pixels, `ycoords (M,) float64` pixels
+    • `diff3d (M,N,N) float32` amplitude (sqrt of photon counts)
+    • `probeGuess (N,N) complex64`
+  - Optional:
+    • `scan_index (M,) int64` (defaults to zeros if missing)
+    • `objectGuess (H,W) complex64`
+    • `xcoords_start (M,)`, `ycoords_start (M,)` (default to `xcoords`, `ycoords` if missing)
 - Grouped dict keys:
-  - `diffraction (B,N,N,C)`, `X_full (B,N,N,C)`, `coords_offsets (B,1,2,1)`, `coords_relative (B,1,2,C)`, `nn_indices (B,C)`, optional `Y (B,N,N,C) complex`.
+  - Canonical keys:
+    • `diffraction (B,N,N,C) float32` amplitude
+    • `X_full (B,N,N,C) float32` normalized amplitude
+    • `coords_offsets (B,1,2,1) float32`, `coords_relative (B,1,2,C) float32`
+    • `nn_indices (B,C) int32`
+    • Optional `Y (B,N,N,C) complex64`
+  - Coordinate axis order and mapping:
+    • The third axis is `[x, y]` in that order.
+    • Channel index c maps to `(row, col)` via row‑major: `row = c // gridsize`, `col = c % gridsize`.
+  - Aliases:
+    • Implementations MAY provide `coords_start_offsets`/`coords_start_relative` as legacy synonyms; loaders MUST accept either the canonical or legacy pair.
 - Model I/O:
   - Inputs: `[diffraction (B,N,N,C) float32 · s, positions (B,1,2,C) float32]`.
   - Outputs: `[object (B,N,N,1) complex64, amplitude (B,N,N,C) float32, intensity (B,N,N,C) float32]`.
+
+Loader Behavior (Normative)
+- When ground truth `Y` is absent, loaders MAY emit a shape‑compatible placeholder `Y (complex64)`; training integrations MUST disable any MAE terms that require real ground truth. NLL and real‑space terms remain valid without `Y`.
+- `coords_nominal` and `coords_true` SHALL be equal when jitter/true positions are not provided by the dataset.
 
 Precedence and Configuration (Normative)
 - `ptycho.params.cfg` (legacy) provides global defaults:
@@ -40,10 +60,9 @@ Precedence and Configuration (Normative)
   - `ptycho/train.py` is deprecated and SHALL NOT be used for new development.
 
 Errors (Normative)
-- Missing required NPZ keys SHALL error.
+- Missing required NPZ keys (listed above) SHALL error. Optional keys SHALL fall back as specified.
 - Shape mismatches (channels, coordinates, N) SHALL error.
 - Unsupported N SHALL error.
 
 Notes (Informative)
 - Prefer workflow orchestrations when available; legacy global config remains to support existing modules.
-

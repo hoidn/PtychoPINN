@@ -8,10 +8,12 @@ Units, Conventions, and Frames (Normative)
 - Pixels and coordinates: All image‑plane arrays are sampled on square pixel grids; offsets and scan coordinates are in pixel units on the object sampling grid.
 - Complex fields: Complex64 tensors represent object/probe fields; amplitude and phase are float32 tensors.
 - Diffraction domain: Far‑field amplitude is sqrt of intensity; intensity represents expected photon counts per pixel.
+- Phase range and wrapping: Phase values SHALL be represented on [-π, π] with standard wrapping; evaluation MAY apply mean or plane alignment but SHALL NOT change the underlying contract.
 - Tensor ordering:
   - Full images and patches: `(batch, H, W, C)`; channel dimension C = gridsize² for grouped patches.
   - Grid format: `(batch, gridsize, gridsize, N, N, 1)`.
   - Flat format: `(batch × gridsize², N, N, 1)`.
+  - Channel index mapping: Channel index c in [0..C−1] SHALL map to grid coordinates `(row, col)` via row‑major order: `row = c // gridsize`, `col = c % gridsize`. Implementations MUST preserve this mapping across all format transformations.
 
 Ptychographic Forward Model (Normative)
 Let the object patch be represented by amplitude `Y_I(x,y)` and phase `Y_φ(x,y)`, probe `P(x,y)`, and object field `O(x,y) = Y_I(x,y) · exp(i · Y_φ(x,y))`. Probe illumination yields `Ψ(x,y) = P(x,y) · O(x,y)`.
@@ -54,7 +56,7 @@ Tensor Format Transformations (Normative)
 - Grid ↔ Channel:
   - `_grid_to_channel`: `(B, gr, gr, N, N, 1) → (B, N, N, C)`
   - `_channel_to_flat`: `(B, N, N, C) → (B×C, N, N, 1)`
-- These transformations SHALL preserve pixel ordering and spatial adjacencies as implemented in `ptycho/tf_helper.py`.
+- Transformations SHALL preserve pixel ordering and spatial adjacencies. In particular, the row‑major channel→(row,col) mapping above is normative and MUST be preserved by all transforms.
 
 Probe, Masking, and Smoothing (Normative)
 - Probe `P(x,y)`:
@@ -74,7 +76,7 @@ Model Sizes and Valid Inputs (Normative)
 Losses and Regularization (Normative)
 - Poisson negative log‑likelihood (primary):
   - Labels: `Y_true = (s · X)^2` (counts); Prediction: `Y_pred = (s · Â)^2` with `Â` predicted amplitude.
-  - Loss per pixel: `L_poisson = Y_pred − Y_true · log(Y_pred)` (TensorFlow log‑Poisson form). The implementation SHALL ensure `Y_pred > 0` prior to log.
+  - Loss per pixel: `L_poisson = Y_pred − Y_true · log(Y_pred)` (TensorFlow log‑Poisson form). Implementations SHALL ensure `Y_pred > 0` prior to `log`. Compliance MAY be achieved by (a) using a strictly‑positive amplitude activation (e.g., sigmoid/softplus) or (b) adding a small epsilon before log with `ε ≥ 1e−12`.
   - Code: `ptycho/model.py` (negloglik).
 - Real‑space terms (optional):
   - Total variation on complex object (sum of squared finite differences over real+imag components).
@@ -82,15 +84,24 @@ Losses and Regularization (Normative)
   - Code: `ptycho/tf_helper.py` (total_variation_complex, realspace_loss, complex_mae).
 
 Normalization Invariants (Normative)
-- Dataset‑level `intensity_scale` `s` is a learned or fixed parameter used symmetrically:
-  - Training inputs: model sees `X_scaled = s · X`.
+- Dataset‑level `intensity_scale` `s` is a learned or fixed parameter used symmetrically. Two compliant calculation modes are allowed, with the following precedence:
+  1) Dataset‑derived mode (preferred): `s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])` computed from illuminated objects over the dataset.
+  2) Closed‑form fallback: `s ≈ sqrt(nphotons) / (N/2)` when dataset statistics are unavailable at runtime.
+  In both modes symmetry SHALL hold:
+  - Training inputs: `X_scaled = s · X`.
   - Labels: `Y_amp_scaled = s · X` (amplitude), `Y_int = (s · X)^2` (intensity).
   - Model output amplitude `Â` is appropriately inverse‑scaled for intensity; symmetry SHALL be preserved (asserted in simulation paths).
 
 Data Contracts (Normative)
 - Raw NPZ (RawData.from_file):
-  - Required: `xcoords (M,)`, `ycoords (M,)`, `diff3d (M, N, N)` amplitude; `probeGuess (N, N)` complex; `scan_index (M,)`.
-  - Optional: `objectGuess (H, W)` complex; `xcoords_start (M,)`, `ycoords_start (M,)`.
+  - Required keys and dtypes:
+    • `xcoords (M,) float64` pixels, `ycoords (M,) float64` pixels
+    • `diff3d (M, N, N) float32` amplitude (sqrt of counts)
+    • `probeGuess (N, N) complex64`
+  - Optional keys and semantics:
+    • `scan_index (M,) int64` (defaults to zeros if missing)
+    • `objectGuess (H, W) complex64`
+    • `xcoords_start (M,)`, `ycoords_start (M,)` (default to `xcoords`, `ycoords` if missing)
 - Grouped dataset (RawData.generate_grouped_data → dict):
   - `diffraction (B, N, N, C)` amplitude, `X_full` normalized amplitude (same shape).
   - `coords_offsets (B,1,2,1)`, `coords_relative (B,1,2,C)`, `nn_indices (B,C)`.
@@ -110,7 +121,9 @@ Outputs (Normative)
 - Post‑stitching (numpy):
   - Reassembled object images via `image.stitching.reassemble_patches`.
 
+Error Tolerances (Normative)
+- Equality vs tolerance: forward amplitude equivalence assessed with max relative error ≤ 1e−6; shapes and index mapping MUST match exactly; counts/intensity positivity MUST hold strictly (after epsilon, if used).
+
 Non‑Goals (Informative)
 - Multi‑slice propagation, partial coherence, and rectangular pixels are out of scope for this version.
 - Advanced priors beyond TV/MAE are not modeled in the current architecture.
-

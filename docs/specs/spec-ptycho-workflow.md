@@ -25,7 +25,7 @@ Pipeline (Normative)
 4) Loader → Model‑Ready Tensors
    - Convert arrays to tensors: X float32, coords float32, Y complex64 (optional); enforce shape/dtype contracts.
    - Train/test split SHALL apply consistently across X, coords, and optional Y.
-   - Compute or set dataset‑level `intensity_scale` `s` for model I/O (either via simulation estimates or `train_pinn.calculate_intensity_scale`).
+   - Compute or set dataset‑level `intensity_scale` `s` for model I/O. Precedence: (1) dataset‑derived `s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])` when available; (2) closed‑form fallback `s ≈ sqrt(nphotons)/(N/2)` otherwise.
 
 5) Model Construction (U‑Net + Physics)
    - Inputs: `[diffraction (B,N,N,C) float32 · s, positions (B,1,2,C) float32]`.
@@ -37,13 +37,16 @@ Pipeline (Normative)
 6) Loss and Optimization
    - Loss = `realspace_weight · realspace_loss(object)` + `mae_weight · MAE(pred_amp_scaled, target_amp)` + `nll_weight · PoissonNLL((s·X)², (s·Â)²)`.
    - Default emphasis: `nll_weight = 1`; TV/MAE optional; optimizer: Adam(1e‑3).
-   - Guard: `Y_pred` (intensity) fed to log SHALL be strictly positive.
+   - Positivity guard: `Y_pred` (intensity) fed to `log` SHALL be strictly positive, achieved either via strictly‑positive amplitude activation or by adding an epsilon `ε ≥ 1e−12` before log.
+   - Ground truth absence: When `Y` is not provided, `mae_weight` MUST be 0 (or otherwise disabled). NLL and real‑space terms remain valid.
 
 7) Inference
    - Use `diffraction_to_obj` for object prediction given `[diffraction, positions]`; ensure probe is consistent with training.
 
 8) Stitching & Evaluation
-   - Stitch predicted patches (numpy) into full object using `image.stitching.reassemble_patches` with config (offset, gridsize) and border clipping.
+   - Stitch predicted patches (numpy) into full object using `image.stitching.reassemble_patches`.
+   - Stitching config contract (required keys): `N (int)`, `gridsize (int)`, `offset (int)`, `nimgs_test (int)`; optional `outer_offset_test (int)`.
+   - Border math (normative): Let `outer_offset = outer_offset_test if set else offset`. Then `bordersize = (N − outer_offset/2)/2`, `borderleft = ceil(bordersize)`, `borderright = floor(bordersize)`, `clipsize = bordersize + ((gridsize − 1)·offset)/2`, `clipleft = ceil(clipsize)`, `clipright = floor(clipsize)`.
    - Evaluation metrics: MS‑SSIM, FRC(0.5), MAE on amplitude/phase with appropriate phase alignment.
 
 Staging and Options (Normative)
@@ -59,4 +62,5 @@ Failure Modes and Guards (Normative)
 - Mismatched channels between X and Y SHALL raise.
 - NaNs/negatives in predicted intensity SHALL be guarded before log in Poisson NLL.
 - Unsupported N SHALL raise in encoder/decoder factories.
-
+- Missing required stitching config keys SHALL raise.
+- Coordinate channel→(row,col) mapping violations (non row‑major) SHALL raise.
