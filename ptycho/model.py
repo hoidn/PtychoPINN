@@ -504,7 +504,15 @@ dist_poisson_intensity = create_poisson_distribution_for_loss
 # Poisson distribution over expected diffraction intensity (i.e. photons per
 # pixel)
 def negloglik(y_true, y_pred):
-    """Compute Poisson negative log-likelihood using TensorFlow's built-in function"""
+    """Compute Poisson negative log-likelihood.
+
+    Contract
+    --------
+    - y_true: target intensity (counts), strictly positive
+    - y_pred: predicted intensity (counts), strictly positive
+    - Implementations MUST ensure y_pred > 0 prior to the log operation
+      (e.g., strictly-positive activation on amplitude head or epsilon ≥ 1e-12).
+    """
     # y_true is the target intensity (already squared)
     # y_pred is the predicted intensity (already squared)
     # Use TensorFlow's Poisson loss which computes: y_pred - y_true * log(y_pred)

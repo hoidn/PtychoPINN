@@ -94,12 +94,13 @@ State Dependencies:
 - Caching behavior eliminated - no dependency on dataset_path for cache files
 
 Data Contract Compliance:
-Adheres to data contracts in specs/data_contracts.md, expecting NPZ files with:
-- 'diffraction': amplitude data (not intensity), shape (n_images, N, N)
-- 'objectGuess': full sample object, shape (M, M) where M >> N
-- 'probeGuess': scanning probe, shape (N, N)
-- 'xcoords', 'ycoords': scan positions, shape (n_images,)
-- Optional: 'Y' pre-computed patches, 'xcoords_start', 'ycoords_start'
+Adheres to normative specs in `docs/specs/spec-ptycho-interfaces.md` and `docs/specs/spec-ptycho-core.md`.
+Expected NPZ keys and dtypes:
+- `xcoords (M,) float64`, `ycoords (M,) float64` — pixel coordinates on the object grid
+- `diff3d (M, N, N) float32` — amplitude (sqrt of counts), not intensity
+- `probeGuess (N, N) complex64` — probe in object pixel grid
+- Optional: `scan_index (M,) int64` (defaults to zeros), `objectGuess (H, W) complex64`,
+  `xcoords_start (M,)`, `ycoords_start (M,)` (default to `xcoords`, `ycoords`)
 
 Primary Consumers:
 - ptycho.data_preprocessing (3 imports): Uses RawData for preprocessing workflows
@@ -967,4 +968,3 @@ def normalize_data(dset: dict, N: int) -> np.ndarray:
             ((N / 2)**2) / np.mean(tf.reduce_sum(dset['diffraction']**2, axis=[1, 2]))
             )
     return X_full_norm * X_full
-

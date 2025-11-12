@@ -69,9 +69,13 @@ TensorFlow Integration:
     - All NumPy arrays undergo dtype conversion: float64→float32, complex128→complex64
     - Tensor shapes are validated for TensorFlow compatibility and GPU efficiency
     - Multi-channel dimensions preserved for gridsize > 1 neural network architectures
-    - Missing ground truth handled with properly-shaped complex dummy tensors
+    - Missing ground truth handled with properly-shaped complex dummy tensors (MAE losses should be disabled in this case)
     - Seamless integration with tf.data.Dataset and Keras model.fit() workflows
     - Primary consumers: ptycho.model, ptycho.train_pinn, ptycho.workflows.components
+
+Coordinate Semantics:
+    - Offsets use channel format `(B, 1, 2, C)` with axis order `[x, y]`
+    - Channel index `c` maps to `(row, col)` via row‑major: `row=c//gridsize`, `col=c%gridsize`
 """
 
 import numpy as np
@@ -99,14 +103,14 @@ class PtychoDataContainer:
     appropriate TensorFlow dtypes for efficient GPU computation.
     
     Tensor Attributes:
-        X: Diffraction patterns - tf.float32, shape (n_images, N, N, n_channels)
-           where n_channels = gridsize^2 for multi-channel configurations
-        Y_I: Ground truth amplitude patches - tf.float32, shape (n_images, patch_size, patch_size, n_channels)
-        Y_phi: Ground truth phase patches - tf.float32, shape (n_images, patch_size, patch_size, n_channels)
-        Y: Combined complex ground truth - tf.complex64, shape (n_images, patch_size, patch_size, n_channels)
-        coords_nominal: Scan coordinates - tf.float32, shape (n_images, 2)
-        coords_true: True scan coordinates - tf.float32, shape (n_images, 2)
-        probe: Probe function - tf.complex64, shape (N, N)
+        X: Diffraction patterns — tf.float32, shape (B, N, N, C)
+           where C = gridsize^2 for multi‑channel configurations (channel = scan position)
+        Y_I: Ground truth amplitude patches — tf.float32, shape (B, N, N, C)
+        Y_phi: Ground truth phase patches — tf.float32, shape (B, N, N, C)
+        Y: Combined complex ground truth — tf.complex64, shape (B, N, N, C)
+        coords_nominal: Scan coordinates (channel format) — tf.float32, shape (B, 1, 2, C)
+        coords_true: True scan coordinates (channel format) — tf.float32, shape (B, 1, 2, C)
+        probe: Probe function — tf.complex64, shape (N, N)
         
     NumPy Attributes (preserved from raw_data grouping):
         norm_Y_I: Normalization factors for amplitude
@@ -115,7 +119,7 @@ class PtychoDataContainer:
         global_offsets: Global coordinate offsets
         local_offsets: Local coordinate offsets within patches
         
-    The container automatically handles complex tensor composition (Y = Y_I * exp(1j * Y_phi))
+    The container automatically composes complex ground truth (Y = Y_I * exp(1j · Y_phi))
     and provides comprehensive debug representations showing tensor statistics.
     """
     @debug
