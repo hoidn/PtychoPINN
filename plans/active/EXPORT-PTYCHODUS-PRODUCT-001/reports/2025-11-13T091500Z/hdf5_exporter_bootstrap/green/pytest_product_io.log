@@ -1,0 +1,15 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: not available (/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/torch/lib/libtorch_cuda.so: undefined symbol: ncclCommWindowRegister)
+
+rootdir: /home/ollie/Documents/PtychoPINN
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 3 items
+
+tests/io/test_ptychodus_product_io.py::test_export_writes_minimal_hdf5 PASSED [ 33%]
+tests/io/test_ptychodus_product_io.py::test_import_reads_hdf5_to_rawdata PASSED [ 66%]
+tests/io/test_ptychodus_product_io.py::test_cli_convert_run1084_smoke PASSED [100%]
+
+============================== 3 passed in 3.73s ===============================

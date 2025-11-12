@@ -1,0 +1,111 @@
+{
+  "file": "outputs/ptychodus_products/run1084_product.h5",
+  "root_attributes": {
+    "bundle_version": "1.0",
+    "comments": "Run1084 product export",
+    "contains_raw_data": "1",
+    "detector_object_distance_m": 0.0,
+    "exposure_time_s": 0.1,
+    "mass_attenuation_m2_kg": 0.0,
+    "name": "Run1084",
+    "probe_energy_eV": 8000.0,
+    "probe_photon_count": 0.0,
+    "tomography_angle_deg": 0.0
+  },
+  "datasets": {
+    "probe": {
+      "shape": [
+        64,
+        64
+      ],
+      "dtype": "complex64",
+      "attrs": {
+        "pixel_height_m": 1.25e-07,
+        "pixel_width_m": 1.25e-07
+      }
+    },
+    "object": {
+      "shape": [
+        227,
+        226
+      ],
+      "dtype": "complex64",
+      "attrs": {
+        "center_x_m": 0.0,
+        "center_y_m": 0.0,
+        "pixel_height_m": 5e-08,
+        "pixel_width_m": 5e-08
+      }
+    },
+    "probe_position_indexes": {
+      "shape": [
+        1087
+      ],
+      "dtype": "int64",
+      "attrs": {}
+    },
+    "probe_position_x_m": {
+      "shape": [
+        1087
+      ],
+      "dtype": "float64",
+      "attrs": {}
+    },
+    "probe_position_y_m": {
+      "shape": [
+        1087
+      ],
+      "dtype": "float64",
+      "attrs": {}
+    },
+    "loss_values": {
+      "shape": [
+        0
+      ],
+      "dtype": "float64",
+      "attrs": {}
+    },
+    "loss_epochs": {
+      "shape": [
+        0
+      ],
+      "dtype": "int64",
+      "attrs": {}
+    },
+    "object_layer_spacing_m": {
+      "shape": [
+        0
+      ],
+      "dtype": "float64",
+      "attrs": {}
+    },
+    "raw_data": {
+      "keys": [
+        "diffraction",
+        "objectGuess",
+        "probeGuess",
+        "scan_index",
+        "xcoords",
+        "ycoords"
+      ],
+      "diffraction_shape": [
+        1087,
+        64,
+        64
+      ],
+      "diffraction_attrs": {
+        "axis_canonical": "NHW",
+        "original_axis_order": "HWN"
+      }
+    }
+  },
+  "n_scan_positions": 1087,
+  "probe_shape": [
+    64,
+    64
+  ],
+  "object_shape": [
+    227,
+    226
+  ]
+}
