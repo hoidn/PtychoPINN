@@ -27,6 +27,12 @@ Outputs:
 
 If any command fails, execution halts and a blocker note is written to:
     {HUB}/analysis/blocker.log
+
+DEPRECATION NOTICE
+- Prefer the neutral entrypoint under `scripts/study/run_dense_pipeline.py` for
+  invoking this pipeline. That script forwards to this runner while providing a
+  stable, plan‑agnostic path and an `--output-root` alias for `--hub`.
+"""
 """
 
 from __future__ import annotations

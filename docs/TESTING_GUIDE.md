@@ -291,7 +291,7 @@ Tests validate two behaviors: successful reporting with all models present (veri
 **Usage:**
 ```bash
 # Generate report from metrics_summary.json with highlights
-python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/report_phase_g_dense_metrics.py \
+python scripts/study/report_dense_metrics.py \
   --metrics plans/active/.../reports/<timestamp>/phase_g_dense_execution/analysis/metrics_summary.json \
   --output plans/active/.../reports/<timestamp>/phase_g_dense_execution/analysis/aggregate_report.md \
   --highlights plans/active/.../reports/<timestamp>/phase_g_dense_execution/analysis/aggregate_highlights.txt
@@ -315,7 +315,7 @@ Tests validate two behaviors: success digest (exit 0, success banner present, no
 **Usage:**
 ```bash
 # Generate digest from Phase G outputs
-python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/analyze_dense_metrics.py \
+python scripts/study/analyze_dense_metrics.py \
   --metrics plans/active/.../reports/<timestamp>/analysis/metrics_summary.json \
   --highlights plans/active/.../reports/<timestamp>/analysis/aggregate_highlights.txt \
   --output plans/active/.../reports/<timestamp>/analysis/metrics_digest.md
@@ -384,8 +384,8 @@ The orchestrator automatically persists computed MS-SSIM/MAE deltas to two compl
 ```bash
 # Dry-run mode (prints planned commands without execution)
 export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
-python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \
-  --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/phase_g_dense_execution \
+python scripts/study/run_dense_pipeline.py \
+  --output-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/dense_execution \
   --dose 1000 \
   --view dense \
   --splits train test \
@@ -393,16 +393,16 @@ python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py 
 
 # Real execution mode (remove --collect-only, add --clobber to archive stale outputs)
 export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
-$PYTHON_BIN plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \
-  --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/phase_g_dense_execution \
+python scripts/study/run_dense_pipeline.py \
+  --output-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/dense_execution \
   --dose 1000 \
   --view dense \
   --splits train test \
   --clobber
 
 # Real execution (Phase C→G pipeline with metrics summary)
-python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \
-  --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/phase_g_dense_execution \
+python scripts/study/run_dense_pipeline.py \
+  --output-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/dense_execution \
   --dose 1000 \
   --view dense \
   --splits train test
