@@ -862,7 +862,7 @@ def main():
     # Ensure artifact root exists
     args.artifact_root.mkdir(parents=True, exist_ok=True)
 
-    # Step 1: Build full job matrix with non-strict mode for CLI
+    # Step 1: Build job matrix with optional pre-filtering by dose for CLI
     # CLI mode uses allow_missing_phase_d=True to handle scenarios where Phase D
     # overlap filtering rejected some views due to spacing threshold (e.g., sparse
     # view with too few positions). This allows baseline training to proceed even
@@ -873,10 +873,25 @@ def main():
     skip_events = []
     print(f"Enumerating training jobs from Phase C ({args.phase_c_root}) and Phase D ({args.phase_d_root})...")
     print(f"  → Selected backend: {args.backend}")
+
+    # Important: if --dose is provided, constrain the study design BEFORE
+    # instantiating TrainingJob objects. This avoids constructing jobs for
+    # other doses that may not have Phase C datasets in this workspace,
+    # which would otherwise raise FileNotFoundError during TrainingJob
+    # validation (baseline jobs validate patched_{train,test}.npz).
+    design = get_study_design()
+    if args.dose is not None:
+        try:
+            # Normalize to float (StudyDesign uses floats)
+            design.dose_list = [float(args.dose)]
+        except Exception:
+            design.dose_list = [args.dose]
+
     all_jobs = build_training_jobs(
         phase_c_root=args.phase_c_root,
         phase_d_root=args.phase_d_root,
         artifact_root=args.artifact_root,
+        design=design,
         allow_missing_phase_d=True,  # Non-strict mode for CLI robustness
         skip_events=skip_events,  # Phase E5: capture skip metadata
     )

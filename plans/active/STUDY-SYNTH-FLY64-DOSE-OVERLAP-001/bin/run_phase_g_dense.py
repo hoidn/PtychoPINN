@@ -41,6 +41,8 @@ from pathlib import Path
 from typing import List
 
 from ptycho.metadata import MetadataManager
+from contextlib import redirect_stdout, redirect_stderr
+import io
 
 # Interpreter selection (PYTHON-ENV-001):
 # Use the active interpreter for all Python subprocess commands.
@@ -949,16 +951,11 @@ def main() -> int:
     ]
     commands.append(("Phase C: Dataset Generation", phase_c_cmd, cli_log_dir / "phase_c_generation.log"))
 
-    # Phase D: Overlap View Generation
-    phase_d_cmd = [
-        PYTHON_BIN, "-m", "studies.fly64_dose_overlap.overlap",
-        "--phase-c-root", str(phase_c_root),
-        "--output-root", str(phase_d_root),
-        "--doses", str(dose),
-        "--views", view,
-        "--artifact-root", str(phase_g_root),
-    ]
-    commands.append(("Phase D: Overlap View Generation", phase_d_cmd, cli_log_dir / f"phase_d_{view}.log"))
+    # Phase D: Overlap View Generation (programmatic, avoid fragile CLI arg passing)
+    # Use defaults aligned with prior study choices for dense view.
+    # Sentinel command tells the executor loop to invoke programmatic path.
+    phase_d_log = cli_log_dir / f"phase_d_{view}.log"
+    commands.append(("Phase D: Overlap View Generation", ["__PHASE_D_PROGRAMMATIC__"], phase_d_log))
 
     # Phase E: Training (baseline gs1 + view gs2)
     # Baseline (gs1)
@@ -1222,7 +1219,63 @@ def main() -> int:
         print(f"\n{'=' * 80}")
         print(f"[{i}/{len(commands)}] {desc}")
         print(f"{'=' * 80}\n")
-        run_command(cmd, log_path)
+        # Special-case Phase D to call Python API directly (no CLI args dependency)
+        if isinstance(cmd, list) and len(cmd) == 1 and cmd[0] == "__PHASE_D_PROGRAMMATIC__":
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            buf = io.StringIO()
+            with open(log_path, "w", encoding="utf-8") as flog, redirect_stdout(flog), redirect_stderr(flog):
+                print(f"# Programmatic Phase D overlap generation")
+                print(f"# Hub: {hub}")
+                print(f"# Phase C root: {phase_c_root}")
+                print(f"# Phase D root: {phase_d_root}")
+                # Derive inputs/outputs
+                dose_dir = Path(phase_c_root) / f"dose_{int(dose)}"
+                train_npz = dose_dir / "patched_train.npz"
+                test_npz = dose_dir / "patched_test.npz"
+                out_dir = Path(phase_d_root) / f"dose_{int(dose)}" / f"{view}"
+                out_dir.mkdir(parents=True, exist_ok=True)
+
+                # Parameter defaults (prior study defaults)
+                if view == "dense":
+                    gridsize = 2
+                    s_img = 0.8
+                    n_groups = 512
+                else:
+                    gridsize = 1
+                    s_img = 1.0
+                    n_groups = 512
+                neighbor_count = 25
+                probe_diameter_px = 38.4
+                rng_seed_subsample = 456
+
+                print(f"Using parameters: gridsize={gridsize}, s_img={s_img}, n_groups={n_groups}, K={neighbor_count}, D={probe_diameter_px}, seed={rng_seed_subsample}")
+                # Import and execute
+                from studies.fly64_dose_overlap.overlap import generate_overlap_views
+                try:
+                    generate_overlap_views(
+                        train_path=train_npz,
+                        test_path=test_npz,
+                        output_dir=out_dir,
+                        gridsize=gridsize,
+                        s_img=s_img,
+                        n_groups=n_groups,
+                        neighbor_count=neighbor_count,
+                        probe_diameter_px=probe_diameter_px,
+                        rng_seed_subsample=rng_seed_subsample,
+                    )
+                    print("Programmatic Phase D complete.")
+                except Exception as e:
+                    print(f"[run_phase_g_dense] ERROR during programmatic Phase D: {e}")
+                    # Write blocker log
+                    blocker_path = Path(phase_g_root) / "blocker.log"
+                    blocker_path.parent.mkdir(parents=True, exist_ok=True)
+                    with open(blocker_path, "w", encoding="utf-8") as blocker:
+                        blocker.write("Blocked during Phase D overlap generation (programmatic)\n")
+                        blocker.write(f"Exception: {e}\n")
+                        blocker.write(f"Log: {log_path}\n")
+                    return 1
+        else:
+            run_command(cmd, log_path)
 
         # After Phase C completes, clean up unwanted dose directories and validate metadata
         # (Skip this guard when --collect-only to keep dry runs fast)
