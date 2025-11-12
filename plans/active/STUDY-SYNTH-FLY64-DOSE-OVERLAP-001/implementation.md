@@ -46,10 +46,10 @@ Components
   - A convenience entry that prepares output hubs, validates inputs, calls subordinate tools, and collects derived analysis artifacts. It exposes callable helpers for summary/validation in addition to its CLI.
 
 Data Contracts & Types
-- Dataset NPZ (DATA‑001; `specs/data_contracts.md`)
+- Dataset NPZ (DATA‑001; `docs/specs/spec-ptycho-interfaces.md`)
   - Arrays: diffraction stack; object/probe; coordinate vectors; index arrays where applicable.
   - Required metadata: `_metadata` with canonicalization markers and provenance fields.
-- Overlap Metrics JSON (per split) + Bundle
+- Overlap Metrics JSON (per split) + Bundle (see `docs/specs/overlap_metrics.md`)
   - Fields: `metrics_version`, `gridsize`, `s_img`, `n_groups`, `neighbor_count`, `probe_diameter_px`, `rng_seed_subsample`, averages for metrics (group‑based when applicable), and size counts (`n_images_total`, `n_images_subsampled`, `n_unique_images`, `n_groups_actual`).
 - Training Manifest
   - Job configuration, selected inputs, produced artifact paths, integrity hashes (e.g., SHA256), and optional skip summary link.
@@ -143,6 +143,15 @@ Artifacts & Logging
 - Phase E — Training (TF): gs1 baseline + gs2 runs; SHA256 manifests.
 - Phase F — Baseline (pty‑chi): LSQML (100 epochs) with artifact capture.
 - Phase G — Comparison & Analysis: SSIM grid; verification; highlights; metrics bundle.
+
+## Integration Guarantees (Spec‑Forward)
+- Controls → Training Data Flow:
+  - `s_img` and `rng_seed_subsample` SHALL map to data loading as `n_subsample = ⌊s_img · N⌋` and `subsample_seed = rng_seed_subsample` via `ptycho.workflows.components.load_data()`.
+  - `n_groups` SHALL be the target count for solution regions; for `gridsize=1` this equals the number of positions; for `gridsize=2` grouping uses K‑NN with allowed duplication per `docs/specs/overlap_metrics.md`.
+  - `neighbor_count` SHALL be threaded into validation/training to keep K consistent with Phase D metrics (K ≥ C for gs2).
+- Evidence:
+  - Per‑split metrics JSON and `metrics_bundle.json` are archived alongside Phase D NPZs.
+  - Training manifests/logs MUST echo `s_img`, `n_groups`, `neighbor_count`, and derived `n_subsample`.
 
 ## Phases
 
