@@ -65,8 +65,16 @@ def build_comparison_jobs(
     phase_e_root = Path(phase_e_root)
     phase_f_root = Path(phase_f_root)
 
-    # Define deterministic ordering
-    doses = [500, 1000, 2000]
+    # Define deterministic ordering of doses by scanning Phase C root
+    # Accept any dose_* folders (e.g., dose_1000, dose_100000) and sort ascending
+    doses = []
+    for p in phase_c_root.iterdir():
+        if p.is_dir() and p.name.startswith('dose_'):
+            try:
+                doses.append(int(p.name.split('_', 1)[1]))
+            except (ValueError, IndexError):
+                continue
+    doses = sorted(set(doses))
     views = ['dense', 'sparse']
     splits = ['train', 'test']
 
@@ -307,8 +315,8 @@ def main():
                         help='Root directory for Phase F pty-chi manifests')
     parser.add_argument('--artifact-root', type=Path, required=True,
                         help='Output directory for manifest and summary')
-    parser.add_argument('--dose', type=int, choices=[500, 1000, 2000],
-                        help='Filter to specific dose')
+    parser.add_argument('--dose', type=int,
+                        help='Filter to specific dose (any integer present under phase-c-root)')
     parser.add_argument('--view', choices=['dense', 'sparse'],
                         help='Filter to specific view')
     parser.add_argument('--split', choices=['train', 'test'],
