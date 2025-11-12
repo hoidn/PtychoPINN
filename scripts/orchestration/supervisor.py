@@ -352,12 +352,16 @@ def main() -> int:
             bt = branch_target  # resolved later; closure evaluated at call
         except NameError:
             bt = None
-        ok = safe_pull(_cap, "origin", bt) if bt else safe_pull(_cap)
+        # Serialize Git mutations to avoid index.lock collisions
+        from .git_bus import git_lock as _git_lock
+        with _git_lock(_cap):
+            ok = safe_pull(_cap, "origin", bt) if bt else safe_pull(_cap)
         if not ok:
             # Retry once after scrubbing submodules (pointer drift robustness)
             _submodule_scrub(log_func)
             buf.clear()
-            ok = safe_pull(_cap, "origin", bt) if bt else safe_pull(_cap)
+            with _git_lock(_cap):
+                ok = safe_pull(_cap, "origin", bt) if bt else safe_pull(_cap)
             err_line = None
             for line in reversed(buf):
                 low = line.lower()
@@ -609,19 +613,23 @@ def main() -> int:
 
         # Stamp FIRST (idempotent): write local handoff or failure before any pushes
         st = OrchestrationState.read(str(args.state_file))
-        if post_ok:
-            st.stamp(expected_actor="ralph", status="waiting-ralph", galph_commit=sha)
-            st.write(str(args.state_file))
-            add([str(args.state_file)])
-            commit(f"[SYNC i={st.iteration}] actor=galph → next=ralph status=ok galph_commit={sha}")
-        else:
-            st.stamp(expected_actor="galph", status="failed", galph_commit=sha)
-            st.write(str(args.state_file))
-            add([str(args.state_file)])
-            commit(f"[SYNC i={st.iteration}] actor=galph status=fail galph_commit={sha}")
+        from .git_bus import git_lock as _git_lock
+        with _git_lock(logp):
+            if post_ok:
+                st.stamp(expected_actor="ralph", status="waiting-ralph", galph_commit=sha)
+                st.write(str(args.state_file))
+                add([str(args.state_file)])
+                commit(f"[SYNC i={st.iteration}] actor=galph → next=ralph status=ok galph_commit={sha}")
+            else:
+                st.stamp(expected_actor="galph", status="failed", galph_commit=sha)
+                st.write(str(args.state_file))
+                add([str(args.state_file)])
+                commit(f"[SYNC i={st.iteration}] actor=galph status=fail galph_commit={sha}")
 
-        # Publish stamped state. If push fails, exit; restart will resume push without re-running work.
-        if not push_with_rebase(branch_target, logp):
+        # Publish stamped state under mutex to avoid concurrent rebase/push cycles
+        with _git_lock(logp):
+            push_ok = push_with_rebase(branch_target, logp)
+        if not push_ok:
             print("[sync] ERROR: failed to push stamped state; resolve and relaunch to resume push.")
             return 1
         if not post_ok:

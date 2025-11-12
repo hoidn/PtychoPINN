@@ -7,6 +7,10 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 import time
+try:
+    import fcntl  # POSIX file locking
+except ImportError:  # pragma: no cover - non-POSIX
+    fcntl = None  # type: ignore
 import random
 
 
@@ -40,6 +44,76 @@ def _run_with_lock_retry(cmd: Iterable[str], *, timeout: Optional[int] = None, r
         # Not a lock-related error; return immediately
         return cp
     return last_cp if last_cp is not None else _run(cmd, timeout=timeout)
+
+
+class _GitMutex:
+    """A coarse repo-wide mutex around Git operations.
+
+    Prevents concurrent orchestrator processes from running index-mutating
+    commands at the same time, which commonly triggers `.git/index.lock`
+    contention. Uses POSIX `flock` when available; otherwise acts as a
+    best-effort no-op (still relying on `_run_with_lock_retry`).
+    """
+
+    def __init__(self, lock_path: str = ".git/orchestrator.lock", timeout: float = 30.0, log_print=None) -> None:
+        self.lock_path = lock_path
+        self.timeout = timeout
+        self.log_print = log_print
+        self._fh: Optional[object] = None
+
+    def __enter__(self):
+        if fcntl is None:
+            # Non-POSIX: no-op
+            return self
+        # Ensure parent directory exists
+        os.makedirs(os.path.dirname(self.lock_path) or ".", exist_ok=True)
+        self._fh = open(self.lock_path, "w")
+        start = time.time()
+        attempt = 0
+        while True:
+            try:
+                fcntl.flock(self._fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)  # type: ignore[attr-defined]
+                # record holder pid for forensics
+                try:
+                    self._fh.seek(0)
+                    self._fh.truncate()
+                    self._fh.write(f"pid={os.getpid()}\n")
+                    self._fh.flush()
+                except Exception:
+                    pass
+                return self
+            except BlockingIOError:
+                attempt += 1
+                if (time.time() - start) > self.timeout:
+                    if self.log_print:
+                        self.log_print(f"[git_bus] git mutex acquire timeout after {self.timeout:.1f}s; proceeding without lock (will retry on index.lock)")
+                    return self
+                # short jittered backoff while waiting for peer
+                time.sleep(min(0.5, 0.05 * (2 ** min(attempt, 4))))
+
+    def __exit__(self, exc_type, exc, tb):
+        if fcntl is None:
+            return False
+        try:
+            if self._fh is not None:
+                try:
+                    fcntl.flock(self._fh.fileno(), fcntl.LOCK_UN)  # type: ignore[attr-defined]
+                finally:
+                    self._fh.close()
+        except Exception:
+            pass
+        return False
+
+
+def git_lock(log_print=None, timeout: float = 30.0) -> _GitMutex:
+    """Return a context manager that acquires a coarse Git mutex.
+
+    Usage:
+        with git_lock(logger):
+            safe_pull(logger, ...)
+            add([...]); commit("msg"); push_with_rebase(...)
+    """
+    return _GitMutex(timeout=timeout, log_print=log_print)
 
 
 def _rebase_in_progress() -> bool:

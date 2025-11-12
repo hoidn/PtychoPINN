@@ -9,7 +9,7 @@ from pathlib import Path, PurePath
 from subprocess import Popen, PIPE
 
 from .state import OrchestrationState
-from .git_bus import safe_pull, add, commit, push_to, short_head, has_unpushed_commits, assert_on_branch, current_branch, push_with_rebase
+from .git_bus import safe_pull, add, commit, push_to, short_head, has_unpushed_commits, assert_on_branch, current_branch, push_with_rebase, git_lock
 from .autocommit import autocommit_reports
 
 
@@ -230,9 +230,11 @@ def main() -> int:
             # Mark running
             st.status = "running-ralph"
             st.write(str(args.state_file))
-            add([str(args.state_file)])
-            commit(f"[SYNC i={st.iteration}] actor=ralph status=running")
-            push_to(branch_target, logp)
+            from .git_bus import git_lock as _git_lock
+            with _git_lock(logp):
+                add([str(args.state_file)])
+                commit(f"[SYNC i={st.iteration}] actor=ralph status=running")
+                push_to(branch_target, logp)
 
         # Execute one engineer loop
         prompt_path = Path("prompts") / f"{args.prompt}.md"
@@ -261,19 +263,24 @@ def main() -> int:
 
         if args.sync_via_git:
             # STAMP FIRST (idempotent)
+            from .git_bus import git_lock as _git_lock
             if rc == 0:
                 st.stamp(expected_actor="galph", status="complete", increment=True, ralph_commit=sha)
                 st.write(str(args.state_file))
-                add([str(args.state_file)])
-                commit(f"[SYNC i={st.iteration}] actor=ralph → next=galph status=ok ralph_commit={sha}")
+                with _git_lock(logp):
+                    add([str(args.state_file)])
+                    commit(f"[SYNC i={st.iteration}] actor=ralph → next=galph status=ok ralph_commit={sha}")
             else:
                 st.stamp(expected_actor="ralph", status="failed", increment=False, ralph_commit=sha)
                 st.write(str(args.state_file))
-                add([str(args.state_file)])
-                commit(f"[SYNC i={st.iteration}] actor=ralph status=fail ralph_commit={sha}")
+                with _git_lock(logp):
+                    add([str(args.state_file)])
+                    commit(f"[SYNC i={st.iteration}] actor=ralph status=fail ralph_commit={sha}")
 
             # Publish stamped state. If push fails, exit; restart resumes push.
-            if not push_with_rebase(branch_target, logp):
+            with _git_lock(logp):
+                push_ok = push_with_rebase(branch_target, logp)
+            if not push_ok:
                 print("[sync] ERROR: failed to push stamped state; resolve and relaunch to resume push.")
                 return 1
             if rc != 0:
@@ -283,7 +290,9 @@ def main() -> int:
         # Optional: push local commits from the loop (async hygiene)
         if rc == 0 and has_unpushed_commits():
             try:
-                push_to(branch_target, logp)
+                from .git_bus import git_lock as _git_lock
+                with _git_lock(logp):
+                    push_to(branch_target, logp)
             except Exception as e:
                 logp(f"WARNING: git push failed: {e}")
                 return 1

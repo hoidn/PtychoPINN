@@ -198,6 +198,7 @@ Notes:
 
 ## Troubleshooting
 - Pull failures: both orchestrators now fail fast on git pull errors (including untracked‑file or local‑modification collisions). Read the console/log message, resolve locally (commit/stash/move), and rerun.
+- Index lock robustness: supervisor and loop operations acquire a coarse Git mutex (`.git/orchestrator.lock`) around add/commit/rebase/merge/push to serialize mutations and avoid `.git/index.lock` contention between concurrent processes. A bounded backoff still applies inside commands as a second line of defense.
 - Submodule pointer drift: if `.claude/` or other gitlinks appear dirty, the supervisor auto-scrubs submodules (sync + update with `--checkout --force`) before retries. This is idempotent and does not commit pointer bumps; it aligns worktrees to the recorded superproject commits.
 - Push rejected / rebase in progress: orchestrators auto‑abort in‑progress rebase before pulling. If conflicts arise, fix them locally, commit, and rerun.
 - Branch mismatch: checkout the correct branch or adjust `--branch`.
