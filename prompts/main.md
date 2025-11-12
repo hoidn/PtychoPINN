@@ -52,14 +52,14 @@
     - If `input.md` includes an `analysis_question`, or factor/order relevant to your focus is unclear,
       you MAY run `prompts/callchain.md` first (no production edits).
       Variables: `analysis_question`, `initiative_id`, `scope_hints`, `roi_hint`, `namespace_filter`.
-      Write artifacts to `plans/active/<initiative_id>/reports/` and consume them (`callchain/static.md`, `trace/tap_points.md`) before coding.
+      Record brief findings in the initiative’s `plans/active/<initiative_id>/summary.md` and link to any bulky artifacts stored externally or under `.artifacts/`.
   </callchain_snapshot>
 
   <implementation_flow>
     0. **Guard / Implementation nucleus (mandatory unless Mode: Docs)**
        If `Mode != Docs` and the Do Now lacks `Implement:` or is provided as a narrative brief, apply stall‑autonomy:
        - Extract the **smallest** viable code change from the brief that advances the acceptance criterion and choose a **validating pytest node**.
-       - <strong>Allowed nucleus surfaces (in order):</strong> initiative `bin/` scripts under `plans/active/<initiative>/bin/**`, `tests/**` (targeted guard or minimal test), `scripts/tools/**`. Touch production modules only with explicit supervisor authorization.
+      - <strong>Allowed nucleus surfaces (in order):</strong> initiative `bin/` scripts under `plans/active/<initiative>/bin/**`, `tests/**` (targeted guard or minimal test), `scripts/tools/**`. Touch production modules only with explicit supervisor authorization.
        - If prerequisites (e.g., git hygiene, long‑running artifacts) block the main task, still land a micro nucleus on the allowed surfaces (e.g., add a workspace guard, selector, or CLI check) and run its targeted test.
        - Execute this nucleus first. If time runs short, ship the nucleus rather than expanding scope.
 
@@ -137,7 +137,7 @@
     - Forgetting required env flags (e.g., `KMP_DUPLICATE_LIB_OK=TRUE`, `NANOBRAGG_DISABLE_COMPILE=1` when needed).
     - Violating `[panel, slow, fast]` ordering.
     - Treating source weights multiplicatively (equal‑weight rule).
-    - Leaving artifacts outside the reports directory.
+    - Storing bulky artifacts in‑repo instead of linking externally or using `.artifacts/`.
     - Skipping ledger updates or `docs/findings.md` when new knowledge appears.
     - Completing two consecutive loops without code for the same focus (stall‑autonomy must trigger).
     - Finishing with an “Active” selector collecting 0 tests after your changes (fix or downgrade with rationale).
@@ -155,8 +155,8 @@
     - Any `CLAUDE.md` or `docs/architecture.md` updates (1–3 lines each).
     - Next most‑important item you would pick if you had another loop.
 
-    **Turn Summary (required at end of reply):** Append a lightweight Markdown block humans can skim. Format: a single level‑3 heading `### Turn Summary`, followed by 3–5 short single‑line sentences describing: (a) what you shipped/advanced this turn, (b) the main problem and how you handled it (or note it’s still open), and (c) the single next step you intend. Finish with an `Artifacts:` line pointing to this loop’s reports directory and (optionally) 1–2 filenames. Do **not** include focus IDs, branch names, dwell/state, or pytest selectors (those are already captured in `galph_memory.md` and `input.md`). Markdown only — no JSON/YAML/XML.
-    **Persistence:** Write the **exact same block** to `plans/active/<initiative-id>/reports/<ISO8601Z>/summary.md` for this loop (use the initiative ID and timestamp used for this loop’s Artifacts path). If `summary.md` already exists, **prepend** this turn’s block above earlier notes.
+    **Turn Summary (required at end of reply):** Append a lightweight Markdown block humans can skim. Format: a single level‑3 heading `### Turn Summary`, followed by 3–5 short single‑line sentences describing: (a) what you shipped/advanced this turn, (b) the main problem and how you handled it (or note it’s still open), and (c) the single next step you intend. Finish with an `Artifacts:` line listing links (if any) to external or `.artifacts/` evidence. Do **not** include focus IDs, branch names, dwell/state, or pytest selectors (those are already captured in `galph_memory.md` and `input.md`). Markdown only — no JSON/YAML/XML.
+    **Persistence:** Write the **exact same block** to `plans/active/<initiative-id>/summary.md` for this loop and **prepend** it above earlier notes.
 
     Example:
     ### Turn Summary

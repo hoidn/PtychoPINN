@@ -42,14 +42,14 @@ your-project/
 ```
 
 ### Artifact Storage Standard
-All generated reports, logs, plots, and other loop artifacts belong alongside their initiative. Create a timestamped directory under `plans/active/<initiative-id>/reports/` the first time you capture evidence for a new milestone (for example, `plans/active/TEST-PYTORCH-001/reports/2025-10-16T153000Z/`). Keep using that “hub” for subsequent loops on the same milestone—append to its `summary.md`, drop new logs into the existing `red/`, `green/`, `analysis/` folders, and update `docs/fix_plan.md` with the same path. Only mint another timestamp when you actually start collecting evidence for a different milestone. Git automatically ignores these report folders via `plans/**/reports/` in `.gitignore`, so make sure you prune large raw datasets before commits.
+Keep evidence lean. For each initiative, maintain a single `plans/active/<initiative-id>/summary.md` and prepend a Turn Summary per loop. Store bulky artifacts outside the repo (or under a git‑ignored `.artifacts/` folder) and link to them from the plan/ledger. Do not create timestamped report directories.
 
 ### Dwell Enforcement Policy (Process)
 This workflow participates in the supervisor/engineer loop defined in `prompts/supervisor.md` and `prompts/main.md`. Dwell (consecutive planning/doc loops for the same focus) is enforced via a three‑tier policy:
 
 - Tier 1 (dwell=2): supervisor must hand off a runnable production task (with pytest selector) or switch focus.
-- Tier 2 (dwell=4): if the engineer did not execute, supervisor documents the blocker (quoted Do Now, command/selector, hub paths, minimal error) and switches to a blocker focus or marks the current one blocked with a return condition.
-- Tier 3 (dwell=6): absolute limit — force‑block, create a dwell escalation report under the active hub (`analysis/dwell_escalation_report.md`), and switch focus.
+- Tier 2 (dwell=4): if the engineer did not execute, supervisor documents the blocker (quoted Do Now, command/selector, minimal error) and switches to a blocker focus or marks the current one blocked with a return condition.
+- Tier 3 (dwell=6): absolute limit — force‑block, record a dwell escalation note in the initiative’s summary, and switch focus.
 
 Supervisor records `ralph_last_commit=<sha8|none>` in `galph_memory.md` and checks git log each loop to detect execution. See `CLAUDE.md` §2.10 and `docs/templates/blocker_report_template.md`.
 

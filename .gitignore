@@ -79,3 +79,8 @@ datasets/Run1084_recon3_postPC_shrunk_lowpass.npz
 data/memmap/
 data/state_files.npz
 train_debug.log
+# Artifacts (new policy)
+.artifacts/
+
+# Legacy report hubs (keep ignored; do not create new ones)
+plans/**/reports/**

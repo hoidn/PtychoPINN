@@ -24,10 +24,11 @@
     changes materially. Cross‑reference the current plan location from `docs/fix_plan.md` so Ralph can
     locate it.
 
-    Reports hubs are now long‑lived: pick (or continue using) a timestamped directory under
-    `plans/active/<initiative-id>/reports/` and reuse it until a real milestone lands
-    (new production code/test evidence). Only mint a fresh timestamp when capturing a new milestone.
-    When reusing a hub, append to its `summary.md` and note the same path in `docs/fix_plan.md`.
+    Artifact policy: keep evidence lean. Do not create timestamped “report hubs”. For each
+    initiative, maintain a single `plans/active/<initiative-id>/summary.md` and prepend a Turn
+    Summary per loop. Store bulky artifacts outside the repo (or under a git‑ignored
+    `.artifacts/` folder) and link to them from the plan/ledger. Dwell resets only after
+    implementation evidence (production/test code commits), not based on artifact uploads.
   </agent_context>
 
   <primary_references>
@@ -54,15 +55,15 @@
     - <strong>Implementation floor (hard):</strong> For a given focus, you may run <em>at most one</em> docs‑only loop in a row. The next turn must hand off a Do Now with at least one <em>production code</em> task (`<file>::<function>`) and a validating pytest node—or mark blocked and switch focus.
     - <strong>Dwell enforcement (three-tier hard gate):</strong>
       • <strong>Tier 1 (dwell=2):</strong> On the second consecutive planning/doc loop you MUST either (a) transition to `ready_for_implementation` with a runnable production code task (selector included), or (b) switch focus and record the blocker in `docs/fix_plan.md` and `galph_memory.md`.
-      • <strong>Tier 2 (dwell=4):</strong> If `state=ready_for_implementation` and Ralph has not executed since the last turn, you MUST document the precise blocker in `docs/fix_plan.md` (quote the Do Now from `input.md`, the exact command/selector, and the minimal error signature with hub paths), create a NEW blocker focus item (e.g., FIX-…‑001), switch to that blocker or mark the current focus `blocked` with a return condition, and reset dwell=0 for the new focus. Respect the WIP cap (≤ 2 initiatives in_progress).
-      • <strong>Tier 3 (dwell=6, ABSOLUTE LIMIT):</strong> STOP planning this focus, force-mark it `blocked_escalation` in `docs/fix_plan.md`, and create `<Hub>/analysis/dwell_escalation_report.md` summarizing attempts, recurring blockers, and recommended intervention; then MANDATORY switch to the highest-priority non‑blocked item and log the escalation in `galph_memory.md`.
+      • <strong>Tier 2 (dwell=4):</strong> If `state=ready_for_implementation` and Ralph has not executed since the last turn, you MUST document the precise blocker in `docs/fix_plan.md` (quote the Do Now from `input.md`, the exact command/selector, and the minimal error signature), create a NEW blocker focus item (e.g., FIX-…‑001), switch to that blocker or mark the current focus `blocked` with a return condition, and reset dwell=0 for the new focus. Respect the WIP cap (≤ 2 initiatives in_progress).
+      • <strong>Tier 3 (dwell=6, ABSOLUTE LIMIT):</strong> STOP planning this focus, force-mark it `blocked_escalation` in `docs/fix_plan.md`, and record a dwell escalation note in the initiative’s `summary.md` (attempts, recurring blockers, recommended intervention); then MANDATORY switch to the highest-priority non‑blocked item and log the escalation in `galph_memory.md`.
     - Work‑in‑progress cap: ≤ 2 initiatives with status `in_progress`.
     - <strong>Environment Freeze (hard):</strong> Do not propose/execute environment changes unless the focus is environment maintenance.
     - <strong>No Env Diagnostics:</strong> Do not persist environment/system dumps; if an import fails, record only the minimal error signature in `docs/fix_plan.md`.
   </loop_discipline>
 
   <startup_steps>
-    0. <strong>Dwell tracking (persistent):</strong> If `galph_memory.md` is missing, create it and write an initial entry for the current focus with `state=gathering_evidence`, `dwell=0`. Otherwise, read the last entry for this focus and <em>carry forward</em> dwell unless the prior loop landed <em>implementation evidence</em> (production/test code commits) or the active hub gained new `analysis/` deliverables (e.g., metrics JSONs, verification JSONs, `artifact_inventory.txt`). Planning‑only/doc‑only loops do <em>not</em> reset dwell. If `dwell==2` and prior two loops were non‑implementation, pre‑set `state=ready_for_implementation`.
+    0. <strong>Dwell tracking (persistent):</strong> If `galph_memory.md` is missing, create it and write an initial entry for the current focus with `state=gathering_evidence`, `dwell=0`. Otherwise, read the last entry for this focus and <em>carry forward</em> dwell unless the prior loop landed <em>implementation evidence</em> (production/test code commits). Planning‑only/doc‑only loops do <em>not</em> reset dwell. If `dwell==2` and prior two loops were non‑implementation, pre‑set `state=ready_for_implementation`.
 
        <strong>Dwell escalation gate (pre‑planning check):</strong>
        • If dwell ≥ 6: Apply Tier 3 immediately (force‑block focus, write `<Hub>/analysis/dwell_escalation_report.md`, switch focus).
@@ -122,11 +123,8 @@
         • First emit: `<analysis_question>`, `<initiative_id>`, `<scope_hints>`, `<roi_hint>`, `<namespace_filter>`, `<time_budget_minutes>`.  
         • Then follow `prompts/callchain.md` (question‑driven).  
         • Expected outputs:
-          - `plans/active/<initiative_id>/reports/callchain/static.md`
-          - `plans/active/<initiative_id>/reports/callgraph/dynamic.txt` (optional)
-          - `plans/active/<initiative_id>/reports/trace/tap_points.md`
-          - `plans/active/<initiative_id>/reports/summary.md`
-          - `plans/active/<initiative_id>/reports/env/trace_env.json`
+          - Prepend a short findings note to `plans/active/<initiative_id>/summary.md`.
+          - Link to any large artifacts stored externally or under `.artifacts/`.
         • Guardrails: module/device/dtype neutrality; small ROI; respect Protected Assets; stable key names in traces.
 
       <scriptization_policy>
@@ -140,7 +138,7 @@
 
           <tier name="T1 — Small one‑off (first use; not decision‑carrying)">
             - Criteria: up to ~25 lines; may import third‑party libs; reads small inputs; used once to inform you but <em>not</em> handed to Ralph and <em>not</em> used to gate decisions across loops.
-            - Action: embed the full code in a fenced block inside `plans/active/<initiative-id>/reports/<timestamp>/summary.md` under “One‑off analysis”. Save outputs in the same report dir. <em>No</em> separate script file.
+            - Action: embed the full code in a fenced block inside `plans/active/<initiative-id>/summary.md` under “One‑off analysis”. Save only minimal outputs inline; link bulky artifacts externally or under `.artifacts/`. <em>No</em> separate script file.
             - Note: if you run it again in a future loop (same or different params), it <strong>auto‑promotes to T2</strong>.
           </tier>
 
@@ -160,7 +158,7 @@
               """
               <one-line purpose>  (initiative: <ID>, owner: galph)
               Inputs: <args>    Data deps: <paths or "none">
-              Outputs: <artifact files> under plans/active/<initiative-id>/reports/<timestamp>/
+              Outputs: minimal inline notes in `summary.md`; link to external artifacts if needed.
               Repro: python <this_script>.py <args...>
               """
               import argparse
@@ -212,13 +210,13 @@
 
     - <strong>Brief</strong>: 3–5 sentences in natural language describing what Ralph should do now. Prefer action verbs and concrete outcomes over forms.
     - <strong>Refs</strong> (footer): exactly these keys on separate lines:
-      • <code>Hub:</code> path to the active Reports Hub (reuse across loops until a milestone lands).  
+      • <code>Summary:</code> `plans/active/<initiative-id>/summary.md` (prepend a Turn Summary per loop).  
       • <code>Plan:</code> path to the single evolving plan for this focus.  
       • <code>Selector:</code> one validating pytest node (or `none — evidence-only`).
 
     Notes:
     - Keep detailed runbooks, pitfalls, and fallback steps in the plan file (`plans/active/<initiative-id>/implementation.md` or the focus file). Link them from the Brief if needed.
-    - If two consecutive loops were non‑implementation, the Brief must name a <em>production command</em> to run and point to the Hub; it is invalid to restate prerequisites without execution.
+    - If two consecutive loops were non‑implementation, the Brief must name a <em>production command</em> to run; it is invalid to restate prerequisites without execution.
     - You may not run two Docs loops in a row for the same focus.
     - The Engineer will extract a minimal implementation nucleus from the Brief when no explicit `Implement:` block is present.
   </input_md_requirements>
@@ -234,29 +232,28 @@
   </semantics_audit>
 
   <end_of_loop_hygiene>
-    - Append a concise update to `galph_memory.md` with: timestamp, focus, dwell count, action type, key observations, artifact path, next actions, and `<Action State>`. Increment dwell after non‑implementation turns; <strong>do not reset dwell</strong> unless code/tests landed or the hub gained new `analysis/` deliverables. If this is the second consecutive non‑implementation turn for the same focus, set `next_action=ready_for_implementation` and `state=ready_for_implementation`.
+    - Append a concise update to `galph_memory.md` with: timestamp, focus, dwell count, action type, key observations, links to any artifacts, next actions, and `<Action State>`. Increment dwell after non‑implementation turns; <strong>do not reset dwell</strong> unless code/tests landed. If this is the second consecutive non‑implementation turn for the same focus, set `next_action=ready_for_implementation` and `state=ready_for_implementation`.
     - Verify `input.md` is fully rewritten and saved.
     - Ensure `docs/fix_plan.md` reflects latest decisions or document why changes were deferred.
     - <strong>Right‑sized scriptization checks:</strong>
       • T0/T1 probes appear only in `summary.md` (with code and output), not as separate files.  
       • Anything referenced in `input.md` is T2 and exists as a script path with CLI args.  
       • Promote‑on‑second‑use applied where relevant (open a follow‑up if promotion must occur next loop).
-    - <strong>Git hygiene (conditional push):</strong>
+    - <strong>Git hygiene:</strong>
         • `git status` to inspect changes; revert only accidental edits from this loop.  
         • `git add -A` and `git commit -m "SUPERVISOR: <scope> - <tests or rationale>"` (use `tests: not run` when applicable).  
-        • If non‑evidence files changed, attempt `git pull --ff-only` then `git push`.  
-        • If only evidence files changed (under the current Hub) or the remote diverged, record the divergence under `<Hub>/analysis/git_divergence.log` and <strong>skip</strong> push for this loop.
-    - The repository should be clean when exiting unless a deliberate evidence‑dirty state is documented in `galph_memory.md`.
+        • `git pull --ff-only` then `git push`.
+    - The repository should be clean when exiting.
 
-    - <strong>Turn Summary (required):</strong> At the very end of your supervisor reply, append a lightweight Markdown block humans can skim. Format: a single level‑3 heading <code>### Turn Summary</code>, then 3–5 short single‑line sentences covering: (a) what you shipped/advanced, (b) the main problem and how you handled it (or note it’s still open), and (c) the single next step. End with an <code>Artifacts:</code> line pointing to this loop’s reports directory and (optionally) 1–2 filenames. Do <em>not</em> include focus IDs, branch names, dwell/state, or pytest selectors (those live in <code>galph_memory.md</code> and <code>input.md</code>).
-    - <strong>Persistence:</strong> Write the <em>exact same block</em> to the active hub’s <code>summary.md</code>. If you’re reusing an existing hub, prepend your new block above the prior entries; only create a new timestamped directory (and summary) when you actually spun up a new hub.
+    - <strong>Turn Summary (required):</strong> At the very end of your supervisor reply, append a lightweight Markdown block humans can skim. Format: a single level‑3 heading <code>### Turn Summary</code>, then 3–5 short single‑line sentences covering: (a) what you shipped/advanced, (b) the main problem and how you handled it (or note it’s still open), and (c) the single next step. End with an <code>Artifacts:</code> line listing links (if any) to external or `.artifacts/` evidence. Do <em>not</em> include focus IDs, branch names, dwell/state, or pytest selectors (those live in <code>galph_memory.md</code> and <code>input.md</code>).
+    - <strong>Persistence:</strong> Write the <em>exact same block</em> to `plans/active/<initiative-id>/summary.md` for this focus and prepend it above earlier notes.
 
     Example:
     ### Turn Summary
     Implemented score coercion so CLI diagnostics always emit numeric ROI scores; no telemetry schema changes.
     Resolved the mocked‑score TypeError with explicit float casting and added an empty‑list guard; remaining paths look clean.
     Next: run the full CLI test module and refresh docs only if any user‑visible messages changed.
-    Artifacts: plans/active/TORCH-CLI-004/reports/2025-11-04T222435Z/ (pytest_torch_diag.log, out.h5)
+    Artifacts: https://example-objstore/run/222435Z/ (pytest_torch_diag.log, out.h5)
   </end_of_loop_hygiene>
 
   <notes>
@@ -268,11 +265,11 @@
 
   <fsm>
     States: `gathering_evidence`, `planning`, `ready_for_implementation`.  
-    Dwell guard: remain in `gathering_evidence`/`planning` ≤ 2 consecutive turns per focus; dwell persists across planning/doc loops and only resets after implementation evidence (code/tests) or new hub `analysis/` deliverables. On the third planning/doc turn, either transition to `ready_for_implementation` with a <em>runnable</em> production task for Ralph or switch focus and record the block. Paper hand‑offs do not reset dwell.
+    Dwell guard: remain in `gathering_evidence`/`planning` ≤ 2 consecutive turns per focus; dwell persists across planning/doc loops and only resets after implementation evidence (code/tests). On the third planning/doc turn, either transition to `ready_for_implementation` with a <em>runnable</em> production task for Ralph or switch focus and record the block. Paper hand‑offs do not reset dwell.
     End‑of‑turn logging (required): append in `galph_memory.md`  
     `focus=<id/slug>` `state=<gathering_evidence|planning|ready_for_implementation>` `dwell=<n>`  
     `ralph_last_commit=<sha8|none>`  
-    `artifacts=<plans/active/<initiative>/reports/<timestamp>/>` `next_action=<one‑liner or 'switch_focus'>`
+    `summary=plans/active/<initiative>/summary.md` `next_action=<one‑liner or 'switch_focus'>`
     Reference: `prompts/fsm_analysis.md`.
   </fsm>
 

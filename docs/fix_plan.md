@@ -11,7 +11,7 @@ Housekeeping: This ledger is intentionally brief. Detailed “Attempts History�
 - Earlier snapshots: `docs/archive/2025-10-17_fix_plan_archive.md`, `docs/archive/2025-10-20_fix_plan_archive.md`
 - Artifact/plan policy (2025-11-12): Each focus keeps a single evolving plan file (see “Working Plan” below). Reuse the same reports hub until you capture a new milestone; append new evidence and summaries into the existing directory instead of creating a fresh timestamp every loop.
 
-Use the “Working Plan” and “reports/” under each initiative for day‑to‑day artifacts.
+Use the “Working Plan” and the per‑initiative `summary.md` for day‑to‑day artifacts. Link to any bulky evidence stored externally or under `.artifacts/`.
 
 ---
 
@@ -21,7 +21,7 @@ Use the “Working Plan” and “reports/” under each initiative for day‑to
 - Status: done — Phase 6A guardrails landed (explicit `enable_oversampling`/`neighbor_pool_size` plumbing, RawData gating per OVERSAMPLING-001, extended pytest coverage, and refreshed docs).
 - Owner/Date: Ralph/2025-11-12 (handoff prepared by Galph)
 - Working Plan: `plans/active/independent-sampling-control/implementation.md`
-- Reports Hub (Phase 6 hardening): `plans/active/independent-sampling-control/reports/2025-11-12T005637Z/phase6_hardening/`
+- Historical reports hub (Phase 6 hardening): `plans/active/independent-sampling-control/reports/2025-11-12T005637Z/phase6_hardening/` (do not create new hubs)
 - Test Strategy: `plans/active/independent-sampling-control/test_tracking.md`
 - Constraints: Maintain CONFIG-001 (update_legacy_dict before legacy code), OVERSAMPLING-001 (require gridsize>1 and K≥C), and do not regress existing sampling modes (legacy `n_images`, independent `n_subsample`+`n_groups`); avoid touching `ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`.
 - Notes: `RawData.generate_grouped_data` currently auto-enters oversampling when `nsamples > n_points`; Phase 6A must require an explicit opt-in flag plus pool sizing, emit actionable logs, and capture doc/examples per `docs/initiatives/independent_sampling_control/phase6_plan.md` and `docs/SAMPLING_USER_GUIDE.md`.
@@ -36,15 +36,13 @@ Use the “Working Plan” and “reports/” under each initiative for day‑to
 - Status: ready_for_implementation — Unblocked. New hub `{analysis}` deliverable created: `verification_report.json` (preflight validation summary). Env/import issues addressed (module import smoke passes); HUB subdirectory creation added to runner. Proceed with counted dense rerun + fully parameterized post‑verify sweep and metrics reporting, then publish the full SSIM/verification/highlights/metrics bundle.
 - Owner/Date: Ralph/2025-11-05
 - Working Plan: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md`
-- Reports Hub (Phase D metrics): `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics/`
-- Reports Hub (Phase E): `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T110500Z/phase_e_training_bundle_real_runs_exec/`
-- Reports Hub (Phase G): `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/`
+- Historical reports hubs: Phase D/E/G paths under `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/...` (do not create new hubs)
 - Test Strategy: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md`
 - Constraints: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/constraint_analysis.md`
-- Guardrail (2025-11-12): Phase E spec/manifest tasks (bundle_path normalization, SHA256 emission, stdout logging) are considered **satisfied**. Any future Attempt on this focus must either (a) archive a real dense gs2 or baseline gs1 training CLI run under `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T110500Z/phase_e_training_bundle_real_runs_exec/` (reuse the hub) or (b) capture SSIM/MS-SSIM comparison metrics from `comparison.py --dry-run=false`. Documentation-only or prep-only loops are invalid until one of those evidence types is delivered.
+- Guardrail (2025-11-12): Phase E spec/manifest tasks (bundle_path normalization, SHA256 emission, stdout logging) are considered **satisfied**. Any future Attempt on this focus must either (a) link a real dense gs2 or baseline gs1 training CLI run (external or `.artifacts/`) or (b) capture SSIM/MS-SSIM comparison metrics from `comparison.py --dry-run=false`. Documentation-only or prep-only loops are invalid until one of those evidence types is delivered.
 - Guardrail (2025-11-13): Scalar hardening + regression already exist; every rerun must (1) guard with `pytest tests/study/test_dose_overlap_overlap.py::{test_filter_dataset_by_mask_handles_scalar_metadata,test_generate_overlap_views_dense_acceptance_floor} -vv`, (2) execute `python plans/active/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber` followed immediately by the fully parameterized `--post-verify-only` command, and (3) publish `analysis/{ssim_grid_summary.md,ssim_grid.log,verification_report.json,verify_dense_stdout.log,check_dense_highlights.log,metrics_summary.json,metrics_delta_highlights_preview.txt,metrics_digest.md,artifact_inventory.txt}` plus a phase-only preview verdict before touching Phase E or comparison scripts again. Failures go under `$HUB/red/`.
 - Notes: Use existing fly64 object/probe; enforce y-axis split; group-level overlap control now measured via overlap metrics (specs/overlap_metrics.md); emphasize phase MS-SSIM; PINN backend: TensorFlow; pty-chi LSQML baseline (100 epochs) uses PyTorch internally. Phase D overlap metrics hub (`plans/active/.../phase_d_overlap_metrics/`) already contains gs1/gs2 CLI logs + JSON bundles.
-- Attempts History: See `docs/archive/2025-11-06_fix_plan_archive.md` (section for this initiative) and the initiative's `reports/` directories for run logs and metrics.
+- Attempts History: See `docs/archive/2025-11-06_fix_plan_archive.md` (section for this initiative) and legacy `reports/` directories for historical logs and metrics. New loops should link external/`.artifacts/` evidence instead of creating hubs.
   
 - Latest Attempt (2025-11-13T091500Z): planning — Dwell counter returned to Tier 3 (8 consecutive supervisor loops) with zero new CLI logs, SSIM/verification/highlights, preview, or metrics artifacts under the Phase G hub. `git status --porcelain` still only lists hub evidence while `git log --all --grep 'RALPH' -n 5` tops out at `b6cd7e4f` (2025-11-11), confirming Ralph has not rerun the counted pipeline. `cli/phase_d_dense.log` and `cli/run_phase_g_dense_post_verify_only.log` remain argparse usage banners (`--gridsize/--s-img/--n-groups` missing). Added a follow-up section to `analysis/dwell_escalation_report.md`, marked the focus `blocked_escalation`, and paused further planning until Ralph executes the guard pytest selectors plus both CLI commands and publishes the SSIM/verification/highlights/metrics/preview bundle (failures → `$HUB/red/blocked_<timestamp>.md` with the command + exit code).
 
