@@ -42,8 +42,8 @@ Components
   - Enumerates and executes baseline reconstruction jobs; records outputs and execution telemetry.
 - Comparison & Analysis Tools (`studies/fly64_dose_overlap/comparison.py`, bin helpers under `plans/active/.../bin/`)
   - Build and optionally execute comparison jobs, transform comparison outputs into summary metrics, generate aggregate reports/digests/highlights.
-- Pipeline Runner (`scripts/study/run_dense_pipeline.py` — preferred; legacy runner under `plans/.../bin/` is deprecated)
-  - A convenience entry that prepares output roots, validates inputs, calls subordinate tools, and collects derived analysis artifacts. It exposes callable helpers (via the underlying runner) for summary/validation in addition to its CLI.
+- Pipeline Runner (`plans/active/.../bin/run_phase_g_dense.py`)
+  - A convenience entry that prepares output hubs, validates inputs, calls subordinate tools, and collects derived analysis artifacts. It exposes callable helpers for summary/validation in addition to its CLI.
 
 Data Contracts & Types
 - Dataset NPZ (DATA‑001; `docs/specs/spec-ptycho-interfaces.md`)
@@ -79,7 +79,7 @@ Interfaces (CLI ↔ Python API)
   - CLI: `python -m studies.fly64_dose_overlap.reconstruction --phase-c-root <dir> --phase-d-root <dir> --artifact-root <dir> --dose <int> --view <dense|sparse> --split <train|test> [--dry-run]`
   - API: `build_ptychi_jobs(...) -> list`; `run_ptychi_job(job, dry_run=False) -> result`.
 - Comparison & Analysis
-- CLI: `python -m studies.fly64_dose_overlap.comparison [--dry-run|--execute] ...`; helpers are exposed via neutral wrappers: `scripts/study/report_dense_metrics.py`, `scripts/study/analyze_dense_metrics.py`.
+  - CLI: `python -m studies.fly64_dose_overlap.comparison [--dry-run|--execute] ...`; helpers `report_phase_g_dense_metrics.py`, `analyze_dense_metrics.py` are primarily CLIs (with internal functions tested via unit tests).
   - API: `build_comparison_jobs(...) -> list`; `execute_comparison_jobs(jobs, artifact_root) -> manifest`. Runner exposes callable helpers like `summarize_phase_g_outputs()`.
 
 Relationships & Invariants
