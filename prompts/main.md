@@ -20,7 +20,14 @@
     - docs/TESTING_GUIDE.md
     - docs/development/TEST_SUITE_INDEX.md
     - docs/specs/spec-ptychopinn.md
+    - docs/specs/spec-ptycho-core.md
+    - docs/specs/spec-ptycho-runtime.md
+    - docs/specs/spec-ptycho-interfaces.md
+    - docs/specs/spec-ptycho-workflow.md
+    - docs/specs/spec-ptycho-tracing.md
     - specs/data_contracts.md
+    - specs/ptychodus_api_spec.md
+    - specs/overlap_metrics.md
     - Any plan files referenced by `input.md` or the fix‑plan item
   </required_reading>
 
