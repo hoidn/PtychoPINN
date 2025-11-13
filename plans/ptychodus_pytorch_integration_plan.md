@@ -223,12 +223,31 @@ Outcome: Training CLI succeeded (bundle at `cli/pytorch_cli_smoke/train_outputs/
 
 #### Next Do Now — CUDA-by-default execution configs (2025-11-13)
 
-- [ ] **Enforce CUDA defaults in canonical CLIs:** Update `scripts/training/train.py` and `scripts/inference/inference.py` so `--torch-accelerator` defaults to `'cuda'` (policy baseline per `docs/workflows/pytorch.md` table in §12/§13). Refresh CLI help text to explain GPU-default and the `--torch-accelerator cpu` escape hatch for unsupported hosts.
-- [ ] **Upgrade accelerator resolution logic:** Extend `ptycho_torch/cli/shared.py::resolve_accelerator` to treat `'auto'` as `'cuda'` when `torch.cuda.is_available()` and `'cpu'` otherwise, emitting a warning that cites POLICY-001 when downgrading so logs stay actionable.
-- [ ] **Regression tests for defaults + auto-detection:** Update `tests/torch/test_cli_shared.py` to cover the new `auto→cuda`/`auto→cpu` branches and adjust backend-selector tests so they expect `'cuda'` defaults (verify `build_execution_config_from_args` invocation arguments).
-- [ ] **Targeted pytest run:** `pytest tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_pytorch_execution_config_flags tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_backend_moves_model_to_execution_device tests/torch/test_cli_shared.py::TestPyTorchCliShared::test_resolve_accelerator_auto_defaults -vv | tee "$HUB"/green/pytest_cuda_default_exec_config.log`.
-- [ ] **GPU smoke rerun without explicit accelerator flags:** Re-execute the PyTorch training CLI and CUDA inference CLI **without** `--torch-accelerator` so the new defaults are exercised, capture stdout to `cli/pytorch_cli_smoke_training/{train_cuda_default.log,inference_cuda_default.log}`, and regenerate amplitude/phase PNGs to prove CUDA remains active.
-- [ ] **Hub + summary refresh:** Record the CLI/code changes, pytest log, and GPU command outputs in `analysis/artifact_inventory.txt`, prepend the Turn Summary, and cite GPU model/driver alongside updated findings references (POLICY-001 / CONFIG-001 / CONFIG-LOGGER-001 / EXEC-ACCUM-001 / DATA-SUP-001).
+- [x] **Enforce CUDA defaults in canonical CLIs:** `scripts/training/train.py` and `scripts/inference/inference.py` now default `--torch-accelerator` to `'cuda'` with explicit POLICY-001 help text (commit `420e2f14`; see `analysis/artifact_inventory.txt`).
+- [x] **Upgrade accelerator resolution logic:** Confirmed `ptycho_torch/cli/shared.py::resolve_accelerator` already auto-selects CUDA and emits POLICY-001 warnings on CPU fallback; documented behavior in hub summary.
+- [x] **Regression tests for defaults + auto-detection:** Backend-selector + CLI-shared suites updated to expect CUDA defaults; GREEN log captured at `reports/2025-11-13T150000Z/parity_reactivation/green/pytest_cuda_default_exec_config.log`.
+- [x] **Targeted pytest run:** `pytest tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_pytorch_execution_config_flags tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_backend_moves_model_to_execution_device tests/torch/test_cli_shared.py::TestResolveAccelerator::test_resolve_accelerator_auto_defaults -vv | tee "$HUB"/green/pytest_cuda_default_exec_config.log` (3 PASSED in 3.65 s).
+- [x] **GPU smoke rerun without explicit accelerator flags:** Replayed the PyTorch training/inference CLIs without `--torch-accelerator`; logs in `cli/pytorch_cli_smoke_training/{train_cuda_default.log,inference_cuda_default.log}` plus regenerated PNGs.
+- [x] **Hub + summary refresh:** `analysis/artifact_inventory.txt`, initiative summary, and hub summaries now cite CUDA-default behavior, GPU model/driver, and resolved DEVICE-MISMATCH-001 references.
+
+<plan_update version="1.0">
+  <trigger>CUDA defaults are in place for the canonical CLIs, but callers that omit `torch_execution_config` (e.g., backend_selector from Ptychodus) still inherit the dataclass default `'cpu'`, silently violating POLICY-001.</trigger>
+  <focus_id>INTEGRATE-PYTORCH-PARITY-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md (POLICY-001 / CONFIG-001 / CONFIG-LOGGER-001 / EXEC-ACCUM-001 / DATA-SUP-001), docs/workflows/pytorch.md, docs/DEVELOPER_GUIDE.md, docs/COMMANDS_REFERENCE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/fix_plan.md, plans/ptychodus_pytorch_integration_plan.md, plans/active/INTEGRATE-PYTORCH-001/summary.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/analysis/artifact_inventory.txt, input.md</documents_read>
+  <current_plan_path>plans/ptychodus_pytorch_integration_plan.md</current_plan_path>
+  <proposed_changes>Add a new immediate-focus checklist to elevate `PyTorchExecutionConfig` defaults (auto-detect CUDA, warn + fall back to CPU), ensure backend selector call sites inherit the GPU baseline even when no execution config is provided, and add regression tests for the new behavior.</proposed_changes>
+  <impacts>Updating the dataclass touches `ptycho/config/config.py`, the PyTorch workflow helpers, and new pytest coverage. Without this work, library consumers continue to run PyTorch on CPU by default.</impacts>
+  <ledger_updates>Revise docs/fix_plan.md, summary.md, and input.md to describe the new Do Now; capture future evidence under the existing hub.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
+#### Next Do Now — PyTorchExecutionConfig GPU defaults (2025-11-13)
+
+- [ ] **Promote GPU-first defaults:** Update `ptycho/config/config.py::PyTorchExecutionConfig` so `accelerator` defaults to `'auto'` and `__post_init__` resolves `'auto'` to `'cuda'` when `torch.cuda.is_available()` (fallback to `'cpu'` with a POLICY-001 warning). Document the behavior inline.
+- [ ] **Honor defaults in backend selector:** Ensure `ptycho_torch/workflows/components.py` call sites that synthesize an execution config (`_run_inference_and_reconstruct`, `_train_with_lightning`, etc.) inherit the GPU-first dataclass, log the resolved accelerator, and avoid silently running on CPU when execution_config is `None`.
+- [ ] **Regression tests:** Add a dedicated pytest module (e.g., `tests/torch/test_execution_config_defaults.py`) that monkeypatches `torch.cuda.is_available` to assert auto→CUDA on GPU hosts, warning + auto→CPU on CPU-only hosts, and verifies `backend_selector.run_cdi_example_with_backend(..., torch_execution_config=None)` requests CUDA when available.
+- [ ] **Targeted selector:** `pytest tests/torch/test_execution_config_defaults.py::TestPyTorchExecutionConfigDefaults::test_auto_prefers_cuda tests/torch/test_execution_config_defaults.py::TestPyTorchExecutionConfigDefaults::test_auto_warns_and_falls_back_to_cpu -vv | tee "$HUB"/green/pytest_execution_config_defaults.log`.
+- [ ] **Hub + summary refresh:** Capture the new pytest log + warning output, cite GPU/CPU detection results, and update `analysis/artifact_inventory.txt`, initiative summary, and hub summaries accordingly.
 
 
 ### 1. Scope & Goals
