@@ -1,86 +1,80 @@
-# Phase R PyTorch Parity Reactivation Summary
+# Phase R Backend Selector Integration — Hub Summary
 
-## Focus
-INTEGRATE-PYTORCH-PARITY-001 — PyTorch backend API parity reactivation
+**Date:** 2025-11-13  
+**Focus:** INTEGRATE-PYTORCH-PARITY-001 — PyTorch backend API parity reactivation  
+**Phase:** CLI routing via backend selector  
+**Commit:** a53f897b
 
-## Date
-2025-11-13T15:00:00Z
+## Deliverables
 
-## Objective
-Restore PyTorch config bridge + persistence parity after Phase F handoff. Close gaps identified in `PYTORCH_INVENTORY_SUMMARY.txt`:
-1. Config bridge never invoked in CLI entry points
-2. Missing n_groups defaults
-3. Persistence stub unimplemented
-4. Regression guard idle since 2025-10-19
+Successfully integrated backend_selector into production training and inference CLIs,
+enabling PyTorch backend invocation from canonical entry points while maintaining
+TensorFlow backward compatibility.
 
-## Implementation Summary
+### 1. Training CLI (scripts/training/train.py)
 
-### 1. Config Bridge Wiring (ALREADY COMPLETE)
-**Finding:** CLI entry points already use config_factory pattern
-- `ptycho_torch/train.py:708`: Uses `create_training_payload()`
-- `ptycho_torch/inference.py:556`: Uses `create_inference_payload()`
-- Both factories call `populate_legacy_params()` which wraps `update_legacy_dict()`
-- **Status:** ✅ CONFIG-001 compliance verified
+- **Routing:** Replaced direct `run_cdi_example` import with `backend_selector.run_cdi_example_with_backend`
+- **Persistence Guard:** Added `if config.backend == 'tensorflow':` check before calling:
+  * `model_manager.save(str(config.output_dir))`
+  * `save_outputs(recon_amp, recon_phase, results, str(config.output_dir))`
+- **PyTorch Path:** Skips TensorFlow-only helpers; logs bundle_path from results dict
+- **CONFIG-001:** Preserves `update_legacy_dict(params.cfg, config)` call at line 132
 
-### 2. Missing Config Defaults (NO CHANGES NEEDED)
-**Finding:** Defaults handled by config_bridge adapter layer
-- `n_groups`: Expected in overrides dict (config_bridge.py:250)
-- `test_data_file`: Expected in overrides dict (config_bridge.py:249)
-- `gaussian_smoothing_sigma`: Hardcoded 0.0 in ModelConfig kwargs (config_bridge.py:176)
-- **Status:** ✅ No PyTorch config_params.py changes required
+### 2. Inference CLI (scripts/inference/inference.py)
 
-### 3. Persistence Shim (NEW IMPLEMENTATION)
-**File:** `ptycho_torch/api/base_api.py:612-687`
-**Implementation:** Minimal viable persistence shim
-- Emits Lightning checkpoint + JSON manifest bundle
-- Manifest includes: backend='pytorch', checkpoint reference, params.cfg snapshot
-- CONFIG-001 gate: Raises ValueError if params.cfg empty before save
-- Future work: Full .h5.zip adapter (Phase 5)
-**Status:** ✅ Implemented per Phase R scope
+- **Routing:** Replaced direct `load_inference_bundle` import with `backend_selector.load_inference_bundle_with_backend`
+- **Backend Dispatch:** Passes `InferenceConfig` to selector for automatic backend routing
+- **CONFIG-001:** Documented that params.cfg restoration happens inside backend-specific loaders
 
-### 4. Regression Guard (GREEN)
-**Selector:** `pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity -vv`
-**Result:** 45/45 PASSED (100% pass rate, 3.66s)
-**Coverage:** All spec-required fields across ModelConfig, TrainingConfig, InferenceConfig
-**Log:** `plans/active/.../green/pytest_config_bridge.log`
-**Status:** ✅ Regression test suite active and passing
+### 3. Test Coverage
 
-## Files Touched
+#### Training Tests (tests/scripts/test_training_backend_selector.py)
 
-### Code Changes
-- `ptycho_torch/api/base_api.py` (lines 612-687)
-  - Implemented `save_pytorch()` method
+- `test_pytorch_backend_dispatch`:
+  * Verifies CLI calls `run_cdi_example_with_backend` with `backend='pytorch'`
+  * Asserts `model_manager.save()` and `save_outputs()` NOT called for PyTorch
+  * Confirms `results['backend'] == 'pytorch'` and bundle_path logged
 
-### Test Evidence
-- `tests/torch/test_config_bridge.py` (executed, no changes)
-  - All 45 parity tests passing
+- `test_tensorflow_backend_persistence`:
+  * Verifies TensorFlow backend still calls legacy persistence helpers
+  * Confirms backward compatibility for existing TensorFlow workflows
 
-### Hub Artifacts
-- `green/pytest_config_bridge.log` (45 passed tests)
-- `analysis/artifact_inventory.txt` (detailed findings)
-- `summary.md` (this file)
-- `summary/summary.md` (turn summary per prompt protocol)
+**Result:** 2 passed in 3.70s ✅
 
-## Exit Criteria Assessment
+#### Inference Tests (tests/scripts/test_inference_backend_selector.py)
 
-Phase R Reactivation Checklist:
-- [✅] a) update_legacy_dict invoked in both CLI entry points
-- [✅] b) config defaults + persistence shim merged
-- [✅] c) targeted pytest selector green with evidence
-- [✅] d) hub analysis/artifact_inventory.txt lists code/test paths
-- [✅] e) summary.md complete
+- `test_pytorch_backend_dispatch`:
+  * Verifies CLI calls `load_inference_bundle_with_backend` with `backend='pytorch'`
+  * Confirms PyTorch model returned and params_dict restored
 
-**Status:** READY FOR HANDOFF
+- `test_tensorflow_backend_dispatch`:
+  * Verifies TensorFlow backend routing continues to work
 
-## Next Actions
+- `test_backend_selector_preserves_config_001_compliance`:
+  * Documents params.cfg restoration inside backend-specific loaders
 
-Per integration plan (`plans/ptychodus_pytorch_integration_plan.md`):
-1. Resume Phase 2 (Data Ingestion & Grouping) when Phase R foundations are approved
-2. Integrate persistence shim into workflows (training outputs should emit manifest)
-3. Monitor test_data_file warnings in tests (16 warnings, acceptable for MVP scope)
+**Result:** 3 passed in 3.66s ✅
 
-## References
-- Integration plan: `plans/ptychodus_pytorch_integration_plan.md`
-- Test strategy: `plans/pytorch_integration_test_plan.md`
-- Spec: `specs/ptychodus_api_spec.md` §4.6 (persistence contract)
-- Finding: `docs/findings.md` CONFIG-001 (initialization order)
+## Evidence
+
+- **Commit:** a53f897b
+- **Green Logs:**
+  * `green/pytest_training_backend_dispatch.log` (2 passed)
+  * `green/pytest_inference_backend_dispatch.log` (3 passed)
+- **Artifact Inventory:** `analysis/artifact_inventory.txt`
+
+## Policy Compliance
+
+- ✅ POLICY-001: PyTorch>=2.2 enforced (version 2.8.0+cu128 confirmed in test logs)
+- ✅ CONFIG-001: update_legacy_dict called before backend dispatch in training CLI
+- ✅ CONFIG-001: params.cfg restoration handled inside backend-specific loaders for inference
+- ✅ TYPE-PATH-001: Path objects handled correctly in backend_selector
+
+## Next Steps
+
+Phase R quick wins are complete. The production CLIs now support `--backend pytorch`
+via backend_selector routing. Next increment should focus on:
+
+1. End-to-end CLI execution tests with real PyTorch backend invocation
+2. Verify PyTorch workflows are fully CONFIG-001 compliant
+3. Validate persistence parity between TensorFlow and PyTorch bundles
