@@ -36,6 +36,19 @@
   <status>approved</status>
 </plan_update>
 
+<plan_update version="1.0">
+  <trigger>Ralph delivered the inference CLI backend flag, reran the backend-dispatch selectors, and produced PyTorch CLI smoke logs; inference still fails because `scripts/inference/inference.py` always executes the TensorFlow-only `perform_inference` path (`'probe'` KeyError in `$HUB/cli/pytorch_cli_smoke/inference.log`).</trigger>
+  <focus_id>INTEGRATE-PYTORCH-PARITY-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md, docs/workflows/pytorch.md, docs/fix_plan.md, plans/ptychodus_pytorch_integration_plan.md, plans/pytorch_integration_test_plan.md, plans/active/INTEGRATE-PYTORCH-001/summary.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/analysis/artifact_inventory.txt, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke/inference.log, scripts/inference/inference.py, ptycho/workflows/backend_selector.py, ptycho_torch/workflows/components.py, ptycho_torch/inference.py, ptycho_torch/config_factory.py, tests/scripts/test_inference_backend_selector.py</documents_read>
+  <current_plan_path>plans/ptychodus_pytorch_integration_plan.md</current_plan_path>
+  <proposed_changes>- Mark the PyTorch CLI smoke checklist complete and record the partial inference result.
+- Add a new immediate-focus checklist that targets the missing PyTorch inference execution path: branch the CLI when backend='pytorch', reuse `ptycho_torch.inference._run_inference_and_reconstruct`, and prove it via unit tests + CLI rerun with the minimal fixture.
+- Call out the need to update hub inventory/summary with the new inference logs once the path runs clean.</proposed_changes>
+  <impacts>Touching `scripts/inference/inference.py` risks regressions for TensorFlow users and requires new tests to guard PyTorch routing; CLI refactor must respect POLICY-001/CONFIG-001 and capture fresh hub evidence.</impacts>
+  <ledger_updates>Update docs/fix_plan.md Do Now + Attempts History with the PyTorch inference gap, refresh input.md, and prepend the initiative summary with this decision so Ralph has a clear Do Now.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
 ## Ptychodus ↔ PtychoPINN (PyTorch) Integration Plan
 
 ### Immediate Focus — Phase R (Bridge Reactivation, 2025-11-13)
@@ -61,15 +74,25 @@
 
 #### Next Do Now — Inference backend flag + PyTorch CLI smoke (2025-11-13)
 
-- [ ] **Expose backend flag on inference CLI:** Extend `scripts/inference/inference.py::parse_arguments` / `setup_inference_configuration` to accept `--backend {tensorflow,pytorch}` (default `tensorflow`), plumb the value into `InferenceConfig.backend`, and update help text/docstring references so users can opt into PyTorch while respecting POLICY-001 / CONFIG-001.
-- [ ] **Unit-test the new CLI surface:** Update `tests/scripts/test_inference_backend_selector.py` with a case that exercises the CLI argument parsing (e.g., instantiate args namespace with `backend='pytorch'`, call `setup_inference_configuration`, and assert `config.backend` propagates). Re-run `pytest tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_backend_dispatch -vv tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_pytorch_backend_dispatch -vv` and log to `$HUB/green/`.
-- [ ] **PyTorch training CLI smoke:** From the repo root, set `HUB="$PWD/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation"`, create `"$HUB"/cli/pytorch_cli_smoke`, and run  
+- [x] **Expose backend flag on inference CLI:** Extend `scripts/inference/inference.py::parse_arguments` / `setup_inference_configuration` to accept `--backend {tensorflow,pytorch}` (default `tensorflow`), plumb the value into `InferenceConfig.backend`, and update help text/docstring references so users can opt into PyTorch while respecting POLICY-001 / CONFIG-001.
+- [x] **Unit-test the new CLI surface:** Update `tests/scripts/test_inference_backend_selector.py` with a case that exercises the CLI argument parsing (e.g., instantiate args namespace with `backend='pytorch'`, call `setup_inference_configuration`, and assert `config.backend` propagates). Re-run `pytest tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_backend_dispatch -vv tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_pytorch_backend_dispatch -vv` and log to `$HUB/green/`.
+- [x] **PyTorch training CLI smoke:** From the repo root, set `HUB="$PWD/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation"`, create `"$HUB"/cli/pytorch_cli_smoke`, and run  
   `python scripts/training/train.py --config configs/gridsize2_minimal.yaml --train_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --test_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --backend pytorch --output_dir "$HUB"/cli/pytorch_cli_smoke/train_outputs --n_groups 4 --n_subsample 16 --neighbor_count 7 --batch_size 4 --nepochs 1 |& tee "$HUB"/cli/pytorch_cli_smoke/train.log`.  
   Capture the emitted `bundle_path` (should be `$HUB/cli/pytorch_cli_smoke/train_outputs/wts.h5.zip`) and note any Lightning warnings in the log.
-- [ ] **PyTorch inference CLI smoke:** Using the new backend flag, run  
+- [x] **PyTorch inference CLI smoke:** Using the new backend flag, run  
   `python scripts/inference/inference.py --model_path "$HUB"/cli/pytorch_cli_smoke/train_outputs --test_data tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --output_dir "$HUB"/cli/pytorch_cli_smoke/inference_outputs --backend pytorch --n_images 4 --n_subsample 16 |& tee "$HUB"/cli/pytorch_cli_smoke/inference.log`,  
   ensuring it loads the PyTorch bundle, restores `params.cfg`, and writes outputs under `inference_outputs/`.
-- [ ] **Hub + summary updates:** Append both CLI commands/logs to `analysis/artifact_inventory.txt`, note the training/inference output dirs + bundle path in `summary.md` and `summary/summary.md`, and drop any failures under `$HUB/red/blocked_<timestamp>.md`.
+- [x] **Hub + summary updates:** Append both CLI commands/logs to `analysis/artifact_inventory.txt`, note the training/inference output dirs + bundle path in `summary.md` and `summary/summary.md`, and drop any failures under `$HUB/red/blocked_<timestamp>.md`.
+
+Outcome: Training CLI succeeded (bundle at `cli/pytorch_cli_smoke/train_outputs/wts.h5.zip`), but the inference CLI still exits with `Error during inference: 'probe'` because `perform_inference()` expects TensorFlow models. Logs live under `$HUB/cli/pytorch_cli_smoke/{train.log,inference.log}` and the artifact inventory documents the partial status.
+
+#### Next Do Now — PyTorch inference execution path (2025-11-13)
+
+- [ ] **Branch the inference CLI:** Update `scripts/inference/inference.py` so when `config.backend == 'pytorch'` it bypasses `perform_inference()` and instead calls a PyTorch helper (e.g., `ptycho_torch.inference._run_inference_and_reconstruct`) that consumes the Lightning module returned by `load_inference_bundle_with_backend`. Ensure the helper receives the `RawData` object already loaded by the CLI, honors `n_subsample`/`n_images`, and reuses `save_reconstruction_images` so outputs match the TensorFlow UX. Guard TensorFlow-specific code paths (e.g., probe visualization, tf.keras cleanup) so they only run for `backend='tensorflow'`.
+- [ ] **Execution config plumbing:** Instantiate a `PyTorchExecutionConfig` (respecting POLICY-001 / CONFIG-LOGGER-001) when running the PyTorch branch so we can control inference batch size / accelerator if future flags are added. Default to CPU for the minimal smoke test but keep the structure ready for future CLI flags.
+- [ ] **Extend backend-dispatch tests:** Augment `tests/scripts/test_inference_backend_selector.py` with a case that patches `ptycho_torch.inference._run_inference_and_reconstruct` to assert it is called when `backend='pytorch'`, and that the TensorFlow `perform_inference()` path is skipped. Keep existing dispatch tests green. Re-run `pytest tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_pytorch_backend_dispatch tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_backend_dispatch -vv | tee "$HUB"/green/pytest_backend_selector_cli.log`.
+- [ ] **Smoke rerun:** Reuse the minimal dataset fixture to rerun the PyTorch training and inference CLI commands (same as above) so we capture a successful inference log plus the generated amplitude/phase PNGs under `$HUB/cli/pytorch_cli_smoke/inference_outputs/`. Record stdout/stderr to `cli/pytorch_cli_smoke/{train.log,inference.log}` and update `$HUB/analysis/artifact_inventory.txt`.
+- [ ] **Hub + summary refresh:** Document the new code paths, pytest selector, CLI commands, and artifact outputs in `$HUB/summary.md`, `$HUB/summary/summary.md`, and `analysis/artifact_inventory.txt`; drop any new failures under `$HUB/red/blocked_<timestamp>.md`.
 
 ### 1. Scope & Goals
 

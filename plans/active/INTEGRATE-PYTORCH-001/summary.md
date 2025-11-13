@@ -1,4 +1,10 @@
 ### Turn Summary
+Confirmed Ralph’s inference CLI flag + smoke landed (commit c983bdc8) and captured the remaining PyTorch inference failure (`'probe'` KeyError), then reoriented the plan toward a backend-aware inference branch.
+Updated plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, and input.md with the new Do Now covering the PyTorch branch, backend-selector test updates, and rerunning the minimal CLI smoke with refreshed hub evidence.
+Next: implement the PyTorch inference execution path, extend backend selector tests, rerun the training/inference commands, and update the hub summaries/artifact inventory.
+Artifacts: docs/fix_plan.md, plans/ptychodus_pytorch_integration_plan.md, input.md
+
+### Turn Summary
 Documented that backend-selector wiring (commit a53f897b + green backend-dispatch logs) is complete, marked the Phase R checklist done in the plan, and added the inference backend flag + PyTorch CLI smoke checklist.
 Updated docs/fix_plan.md and input.md so Ralph now implements the new `--backend` inference option, reruns the backend selectors, and executes the minimal-dataset training/inference commands under `$HUB/cli/pytorch_cli_smoke`.
 Next: implement the CLI flag/tests, run the PyTorch smoke commands, and publish the new pytest/CLI logs plus artifact inventory updates.

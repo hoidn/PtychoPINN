@@ -29618,3 +29618,13 @@
 2025-11-12 17:25:06,667 - INFO - Models saved successfully to plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke/train_outputs/wts.h5.zip
 2025-11-12 17:25:06,667 - INFO - Backend dispatcher: workflow complete (backend=pytorch)
 2025-11-12 17:25:06,667 - INFO - PyTorch backend completed. Check plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke/train_outputs for saved bundles.
+2025-11-12 17:39:21,664 - DEBUG - Saved NPZ with metadata to /tmp/pytest-of-ollie/pytest-679/test_build_simulation_plan_han0/base_with_metadata.npz
+2025-11-12 17:39:21,670 - DEBUG - Loaded metadata from /tmp/pytest-of-ollie/pytest-679/test_build_simulation_plan_han0/base_with_metadata.npz
+2025-11-12 17:39:21,702 - DEBUG - Saved NPZ with metadata to /tmp/pytest-of-ollie/pytest-679/test_load_data_for_sim_handles0/data_with_metadata.npz
+2025-11-12 17:39:21,703 - DEBUG - Loaded metadata from /tmp/pytest-of-ollie/pytest-679/test_load_data_for_sim_handles0/data_with_metadata.npz
+2025-11-12 17:39:21,781 - DEBUG - Saved NPZ with metadata to /tmp/pytest-of-ollie/pytest-679/test_generate_dataset_for_dose0/base.npz
+2025-11-12 17:39:21,788 - DEBUG - Loaded metadata from /tmp/pytest-of-ollie/pytest-679/test_generate_dataset_for_dose0/base.npz
+2025-11-12 17:39:22,751 - DEBUG - Saved NPZ with metadata to /tmp/pytest-of-ollie/pytest-679/test_generate_dataset_for_dose0/output/dose_1000/patched_train.npz
+2025-11-12 17:39:23,700 - DEBUG - Saved NPZ with metadata to /tmp/pytest-of-ollie/pytest-679/test_generate_dataset_for_dose0/output/dose_1000/patched_test.npz
+2025-11-12 17:39:23,739 - DEBUG - Loaded metadata from /tmp/pytest-of-ollie/pytest-679/test_generate_dataset_for_dose0/output/dose_1000/patched_train.npz
+2025-11-12 17:39:23,776 - DEBUG - Loaded metadata from /tmp/pytest-of-ollie/pytest-679/test_generate_dataset_for_dose0/output/dose_1000/patched_test.npz
