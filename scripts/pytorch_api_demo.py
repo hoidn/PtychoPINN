@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""Programmatic example: run Ptychodus API with PyTorch and TensorFlow backends."""
+"""
+Programmatic example of running the Ptychodus API with both TensorFlow and PyTorch
+backends. Matches the CLI flows but stays within Python: we load RawData, build
+TrainingConfig/InferenceConfig, call the backend selector, and capture outputs.
+"""
 from __future__ import annotations
 
 from pathlib import Path
 
 from ptycho.raw_data import RawData
+from ptycho import model_manager
 from ptycho.config.config import (
     ModelConfig,
     TrainingConfig,
@@ -44,8 +49,17 @@ def run_backend(backend: str, out_dir: Path) -> None:
         nepochs=1,
     )
 
-    run_cdi_example_with_backend(train_data, test_data, train_cfg, do_stitching=False)
-    print(f"[{backend}] training complete: bundle → {train_cfg.output_dir}")
+    torch_exec = PyTorchExecutionConfig(accelerator="cpu") if backend == "pytorch" else None
+    run_cdi_example_with_backend(
+        train_data,
+        test_data,
+        train_cfg,
+        do_stitching=False,
+        torch_execution_config=torch_exec,
+    )
+    if backend == "tensorflow":
+        model_manager.save(str(train_cfg.output_dir))
+    print(f"[{backend}] training complete → {train_cfg.output_dir}")
 
     infer_cfg = InferenceConfig(
         model=train_cfg.model,
@@ -67,7 +81,7 @@ def run_backend(backend: str, out_dir: Path) -> None:
         amp, phase = tf_components.perform_inference(model, container, params_dict, infer_cfg, quiet=True)
         tf_components.save_outputs(amp, phase, {}, infer_cfg.output_dir)
 
-    print(f"[{backend}] inference outputs stored in {infer_cfg.output_dir}\n")
+    print(f"[{backend}] inference outputs → {infer_cfg.output_dir}\n")
 
 
 def main() -> None:
