@@ -9,7 +9,7 @@
 - Torch is required in project policy but not exercised directly in this TensorFlow-based study; ensure tests skip gracefully if torch-related paths are unneeded.
 
 ## 3. Test Tiers
-- Unit: dataset contract checks (keys/dtypes), dose normalization ranges, spacing calculations.
+- Unit: dataset contract checks (keys/dtypes), dose normalization ranges, overlap-metric calculations.
 - Integration: end-to-end dataset creation + split + grouping + filtering (no training), ensuring artifacts produced.
 - Smoke: minimal training invocation (short epochs) to verify plumbing, not performance.
 
@@ -34,9 +34,9 @@ Validates:
 - Dose list [1e3, 1e4, 1e5]
 - Gridsizes {1, 2} with neighbor_count=7
 - K ≥ C constraint (K=7 ≥ C=4 for gridsize=2)
-- Overlap views: dense=0.7, sparse=0.2
-- Derived spacing thresholds: dense ≈ 38.4px, sparse ≈ 102.4px
-- Spacing formula S = (1 − f_group) × N with N=128
+- Subsampling fractions `s_img ∈ {1.0, 0.8, 0.6}` and requested group counts `n_groups ∈ {512, 768, 1024}`
+- Disc-overlap metric defaults per `specs/overlap_metrics.md` (Metric 1 gs2-only, Metric 2 global, Metric 3 group COM)
+- Probe diameter derived from patch size (N=128) → `probe_diameter_px = 0.6 * N` for Metric calculations
 - Train/test split axis='y'
 - RNG seeds: simulation=42, grouping=123, subsampling=456
 - MS-SSIM config: sigma=1.0, emphasize_phase=True
@@ -51,10 +51,10 @@ Validates:
 - Validator: `studies/fly64_dose_overlap/validation.py::validate_dataset_contract` checks ✅
   - DATA-001 NPZ keys/dtypes and amplitude requirement (`diffraction` as amplitude float32, complex64 fields for object/probe) per `docs/specs/spec-ptycho-interfaces.md`.
   - Train/test split axis `'y'` using StudyDesign constants.
-  - Spacing thresholds `S ≈ (1 - f_group) × N` derived from `design.get_study_design()`; enforce dense/sparse minima (GRIDSIZE_N_GROUPS_GUIDE.md:143-151).
+  - Geometry metadata (`geometry_acceptance_bound`, `effective_min_acceptance`) recorded for observability (no abort gate).
   - Oversampling preconditions (neighbor_count ≥ gridsize²) aligned with OVERSAMPLING-001.
 - Tests: `tests/study/test_dose_overlap_dataset_contract.py` ✅
-  - 11 tests covering happy path, missing keys, dtype violations, shape mismatches, spacing thresholds, oversampling constraints
+  - 11 tests covering happy path, missing keys, dtype violations, shape mismatches, overlap-metric metadata, oversampling constraints
   - All tests PASSED in GREEN phase (0.96s runtime)
   - RED phase: stub implementation → 1 FAILED (NotImplementedError)
   - GREEN phase: full implementation → 11 PASSED
@@ -197,7 +197,7 @@ python -m studies.fly64_dose_overlap.training \
 - CONFIG-001: Builder remains pure; `skip_events` accumulated client-side in CLI `main()`.
 - DATA-001: Phase C/D regeneration reuses canonical NPZ contract; bridge validates keys/dtypes.
 - POLICY-001: PyTorch backend required; `backend='pytorch'` set in training config.
-- OVERSAMPLING-001: Skip reasons reference spacing threshold enforcement from Phase D filtering.
+- OVERSAMPLING-001: Skip reasons reference overlap metric emission and oversampling bounds from Phase D filtering.
 
 **Documentation Registry Updates (Attempt #26):**
 - `docs/TESTING_GUIDE.md:110-142` — Added Phase E5 skip summary narrative, updated selector snippets, and documented deterministic CLI dry-run command with artifact path.
@@ -231,7 +231,7 @@ python -m studies.fly64_dose_overlap.training \
 - New `test_run_ptychi_job_invokes_script` exercises `run_ptychi_job` dry-run + mocked subprocess path, ensuring CONFIG-001 safety (builder remains pure) and argument propagation.
 - Added script-level unit test `tests/scripts/test_ptychi_reconstruct_tike.py::test_main_uses_cli_arguments` covering argparse defaults vs overrides; RED→GREEN evidence stored under `reports/2025-11-04T210000Z/phase_f_ptychi_baseline_f2_cli_input_fix/{red,green}/`.
 - CLI dry-run selector promoted to ACTIVE in Attempt #F1.3 validating filter combos, manifest + skip summary emission, and artifact logging under `reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/`.
-- Sparse metadata assertions validated in Attempt #88 — no code changes required; tests confirmed GREEN and manifest telemetry present (`selection_strategy`, `acceptance_rate`, `spacing_threshold`, `n_accepted`, `n_rejected`).
+- Sparse metadata assertions validated in Attempt #88 — no code changes required; tests confirmed GREEN and manifest telemetry present (`selection_strategy`, `acceptance_rate`, `geometry_acceptance_bound`, `n_accepted`, `n_rejected`).
 
 **Execution Proof (F0–F3):**
 - RED log: `reports/2025-11-04T094500Z/phase_f_ptychi_baseline/red/pytest_phase_f_red.log`
@@ -281,7 +281,7 @@ python -m studies.fly64_dose_overlap.training \
 
 ## 7. PASS Criteria
 - All contract checks pass for generated datasets
-- Filtering invariants satisfied; logs record spacing stats
+- Filtering invariants satisfied; logs record overlap metric stats
 - Comparison CSVs exist with non-empty records for each condition
 - MS-SSIM sanity table reports `OK` for every model (or documented exception) at the configured threshold
 - No unexpected SKIPs, and any expected SKIPs are justified in summary.md

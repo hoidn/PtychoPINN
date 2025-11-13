@@ -27,6 +27,19 @@ Initiative Header
   <status>approved</status>
 </plan_update>
 
+<plan_update version="1.0">
+  <trigger>Hub inspection on 2025-11-14 confirms `{analysis}/verification_report.json` still shows 0/10 checks, `cli/run_phase_g_dense*.log` timestamps remain 2025-11-12, `cli/phase_d_dense.log` is empty, and `cli/phase_e_dense_gs2_dose1000.log` reports “No jobs match the specified filters” because dense NPZ files were never regenerated. The only Phase G comparison log (`analysis/dose_100000/dense/train/comparison.log`) continues to fail with `ValueError: Dimensions must be equal, but are 128 and 32`, proving no fresh counted run occurred after the acceptance-floor + scalar-mask fixes.</trigger>
+  <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md, docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/GRIDSIZE_N_GROUPS_GUIDE.md, specs/data_contracts.md, docs/fix_plan.md, galph_memory.md, input.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/verification_report.json, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/comparison_manifest.json, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_100000/dense/train/comparison.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_stdout.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/phase_d_dense.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/phase_e_dense_gs2_dose1000.log</documents_read>
+  <current_plan_path>plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md</current_plan_path>
+  <proposed_changes>- Preserve the existing Do Now nucleus but emphasize that the counted run must produce non-empty Phase D/Phase E CLI logs and fresh NPZ/weight artifacts before Phase F/G can proceed.
+- Call out the stale comparison failure (ValueError in `Translation.call`) so debugging efforts capture the first failing selector/log if it reproduces.
+- Reiterate ACCEPTANCE-001 / TEST-CLI-001 / PREVIEW-PHASE-001 guardrails inside the Do Now description and summaries.</proposed_changes>
+  <impacts>Without a full rerun, `{analysis}` lacks SSIM/verification/highlights/metrics/preview artifacts, verification preflight blocks Phase G acceptance, and downstream comparison evidence cannot be trusted.</impacts>
+  <ledger_updates>Update docs/fix_plan.md, initiative summary, hub summary, input.md, and galph_memory with the refreshed observations; keep Do Now ready_for_implementation so Ralph executes the pytest selectors + clobbered pipeline + metrics helpers.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
 
 ## Problem Statement
 We want to study PtychoPINN performance on synthetic datasets derived from the fly64 reconstructed object/probe across multiple photon doses, while manipulating inter-group overlap between solution regions. We will compare against a maximum-likelihood iterative baseline (pty-chi LSQML) using MS-SSIM (phase emphasis, amplitude reported) and related metrics. The study must prevent spatial leakage between train and test.
@@ -184,9 +197,9 @@ Checklist
 - Image subsampling rates `s_img ∈ {1.0, 0.8, 0.6}` — fraction of diffraction frames retained per dose.
 - Requested group counts `n_groups ∈ {512, 768, 1024}` (per `docs/GRIDSIZE_N_GROUPS_GUIDE.md`) — scales the number of solution regions per field of view while keeping intra-group K-NN neighborhoods tight (K=7 ≥ C=4 for gs2).
 
-**Derived overlap metric:**
-- For every `(dose, s_img, n_groups)` combination we record the achieved overlap fraction `f_overlap = 1 - (mean spacing / N)` via the spacing calculator (N=128 px patch size).
-- Labels such as “dense” or “sparse” are reporting shorthands only; artifacts, manifests, and tests must rely on the recorded knobs (`s_img`, `n_groups`) plus the measured `f_overlap`.
+**Measured overlap metrics:**
+- For every `(dose, s_img, n_groups)` combination we emit the Metric 1/2/3 disc-overlap averages defined in `specs/overlap_metrics.md` (plus `probe_diameter_px`, `neighbor_count`, RNG seeds). These values are persisted per split (train/test) and bundled in `metrics_bundle.json`.
+- Labels such as “dense” or “sparse” are legacy shorthands only; artifacts, manifests, tests, and analysis must rely on the recorded knobs (`s_img`, `n_groups`) plus the measured overlap metrics.
 
 **Patch geometry:**
 - Patch size N=128 pixels (nominal from fly64 reconstructions)
@@ -220,7 +233,7 @@ Checklist
 - [x] Documentation updated with validator scope and findings references
 - Working Plan: `reports/2025-11-04T025541Z/phase_b_test_infra/plan.md`
 - Deliverables:
-  - `studies/fly64_dose_overlap/validation.py::validate_dataset_contract` enforcing DATA-001 keys/dtypes, amplitude requirement, spacing thresholds vs design constants, and y-axis split integrity. ✅
+- `studies/fly64_dose_overlap/validation.py::validate_dataset_contract` enforcing DATA-001 keys/dtypes, amplitude requirement, geometry metadata (`geometry_acceptance_bound`, `effective_min_acceptance`) for observability, and y-axis split integrity. ✅
   - Validator now asserts each manifest includes `image_subsampling`, requested `n_groups`, and the derived `overlap_fraction`, ensuring downstream code/tests never assume hard-coded view labels. ✅
   - pytest coverage in `tests/study/test_dose_overlap_dataset_contract.py` (11 tests, all PASSED) with logged red/green runs. ✅
   - Updated documentation (`implementation.md`, `test_strategy.md`, `summary.md`) recording validator scope and findings references (CONFIG-001, DATA-001, OVERSAMPLING-001). ✅
@@ -408,6 +421,7 @@ Checklist
        --hub "$HUB" --dose 1000 --view dense --splits train test --clobber \
        |& tee "$HUB"/cli/run_phase_g_dense_stdout.log
      ```
+     Immediately after the command completes, confirm `$HUB/cli/phase_d_dense.log` now records the programmatic overlap run and that `$HUB/data/phase_d/dose_1000/dense/{train.npz,test.npz}` exist; if either check fails, capture `$HUB/red/blocked_<timestamp>.md` with the log snippet instead of continuing. Likewise verify `$HUB/cli/phase_e_dense_gs2_dose1000.log` shows at least one completed job and that `$HUB/data/phase_e/dose_1000/dense/gs2/wts.h5.zip` exists before proceeding to Phase F/G.
   6. Immediately run the fully parameterized post-verify sweep so the shortened chain refreshes SSIM grid/verification/highlights artifacts:
      ```bash
      python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \
@@ -421,6 +435,7 @@ Checklist
      - `metrics_summary.json`, `metrics_delta_highlights_preview.txt`, `metrics_digest.md`
      - `preview.txt` (phase-only verdict) and `analysis/artifact_inventory.txt`
   8. Update `summary.md`, `summary/summary.md`, docs/fix_plan.md, and galph_memory with MS-SSIM ±0.000 / MAE ±0.000000 deltas, preview verdict, pytest selectors, CLI command lines, and artifact paths. Failures go under `$HUB/red/blocked_<timestamp>.md` with exit codes.
+- **2025-11-14T011500Z audit:** `analysis/verification_report.json` still reports `n_valid=0`, the newest CLI log remains `run_phase_g_dense_stdout.log` (timestamp 2025-11-12T22:24Z), `cli/phase_d_dense.log` is empty, and `cli/phase_e_dense_gs2_dose1000.log` logs “No jobs match the specified filters” because dense NPZ files were never detected. `analysis/comparison_manifest.json` + `analysis/dose_100000/dense/train/comparison.log` still reference the old dose=100000 run that failed with `ValueError: Dimensions must be equal, but are 128 and 32` inside `Translation.call`, so there is no usable Phase G MS-SSIM/MAE evidence. Do Now stays in ready_for_implementation with the guards above: rerun the two pytest selectors, execute the counted dense pipeline with `--clobber`, verify Phase D/Phase E outputs actually materialize, run the fully parameterized `--post-verify-only` sweep, and regenerate the metrics/digest/preview/inventory bundle under `$HUB/analysis`.
 - **2025-11-13T010930Z audit:** `git status --porcelain` only lists the deleted `data/phase_c/run_manifest.json` inside this hub, so per the evidence-only rule we skipped `git pull --rebase` (recorded as `evidence_only_dirty=true`). `{analysis}` is still just `blocker.log`, `{cli}` tops out at `phase_c_generation.log`, `phase_d_dense.log`, and the various `run_phase_g_dense_stdout*.log` files, and `cli/run_phase_g_dense_post_verify_only.log` remains the argparse usage banner because the command omitted `--dose/--view/--splits`. Do Now stays ready_for_implementation: guard the working directory, rerun the pytest selector, execute the counted dense run, immediately run the fully parameterized `--post-verify-only` command, refresh the metrics helpers if `analysis/metrics_summary.json` is stale, and do not stop until `{analysis}` contains the SSIM grid / verification / highlights / metrics / preview / artifact inventory bundle with MS-SSIM ±0.000 / MAE ±0.000000 deltas recorded across hub summaries and docs.
 - **2025-11-11T131617Z reality check:** After stashing/restoring the deleted `data/phase_c/run_manifest.json` plus CLI/pytest logs to satisfy `git pull --rebase`, `{analysis}` still only contains `blocker.log` while `{cli}` is limited to `phase_c_generation.log`, `phase_d_dense.log`, and `run_phase_g_dense_stdout.log`. No SSIM grid, verification, preview, metrics, or artifact-inventory outputs exist yet, so the counted dense run + immediate `--post-verify-only` sweep remain the blocking deliverables for this phase.
 - **2025-11-12T210000Z retrospective:** Latest hub inspection confirms nothing changed since the prior attempt—`analysis/` still only holds `blocker.log`, `cli/` still has the short trio of logs, and `data/phase_c/run_manifest.json` remains deleted (must be regenerated by the counted run, not restored manually). `cli/phase_d_dense.log` shows the last execution ran from `/home/ollie/Documents/PtychoPINN2` and failed with `ValueError: Object arrays cannot be loaded when allow_pickle=False`, so enforcing `test "$(pwd -P)" = "/home/ollie/Documents/PtychoPINN"` before every command stays mandatory. A quick `git log -10 --oneline` retrospective shows no new Ralph commits landed since the previous Do Now, so the focus remains ready_for_implementation with the same pytest + CLI guardrails.
