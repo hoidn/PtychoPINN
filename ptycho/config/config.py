@@ -218,7 +218,7 @@ class PyTorchExecutionConfig:
         5. Inference knobs: inference_batch_size, middle_trim, pad_eval
     """
     # Lightning Trainer knobs
-    accelerator: str = 'cpu'  # Options: 'cpu', 'gpu', 'tpu', 'mps', 'auto'
+    accelerator: str = 'auto'  # Options: 'cpu', 'gpu', 'tpu', 'mps', 'auto' (default 'auto' → 'cuda' if available, else 'cpu')
     strategy: str = 'auto'  # Options: 'auto', 'ddp', 'fsdp', 'deepspeed'
     deterministic: bool = True  # Enforce reproducibility (seed_everything + deterministic mode)
     gradient_clip_val: Optional[float] = None  # Gradient clipping threshold (None = disabled)
@@ -252,7 +252,13 @@ class PyTorchExecutionConfig:
 
     def __post_init__(self):
         """
-        Validate PyTorchExecutionConfig fields (ADR-003 Phase D.B).
+        Validate PyTorchExecutionConfig fields and resolve 'auto' accelerator (ADR-003 Phase D.B).
+
+        Auto-Resolution Logic (POLICY-001 compliance):
+            When accelerator='auto':
+            - Resolves to 'cuda' if torch.cuda.is_available() == True
+            - Falls back to 'cpu' with POLICY-001 warning if no CUDA device found
+            - Ensures GPU-first behavior per docs/workflows/pytorch.md §12
 
         Raises:
             ValueError: If validation fails with descriptive message
@@ -270,6 +276,7 @@ class PyTorchExecutionConfig:
         Notes:
             - Warnings for deterministic+num_workers handled in CLI helper (build_execution_config_from_args)
             - Field defaults are safe; validation catches programmatic misuse
+            - Auto-resolution modifies the accelerator field in-place via object.__setattr__
         """
         # Accelerator whitelist (Lightning supported values)
         valid_accelerators = {'auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps'}
@@ -278,6 +285,31 @@ class PyTorchExecutionConfig:
                 f"Invalid accelerator: '{self.accelerator}'. "
                 f"Expected one of {sorted(valid_accelerators)}."
             )
+
+        # Auto-resolution: 'auto' → 'cuda' if available, else 'cpu' with POLICY-001 warning
+        if self.accelerator == 'auto':
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    object.__setattr__(self, 'accelerator', 'cuda')
+                else:
+                    object.__setattr__(self, 'accelerator', 'cpu')
+                    warnings.warn(
+                        "POLICY-001: PyTorch backend defaults to GPU execution. "
+                        "No CUDA device detected; falling back to CPU. "
+                        "For production workloads, ensure CUDA is available or explicitly set accelerator='cpu'.",
+                        UserWarning,
+                        stacklevel=3
+                    )
+            except ImportError:
+                # Should not happen given POLICY-001 (torch is mandatory), but handle gracefully
+                object.__setattr__(self, 'accelerator', 'cpu')
+                warnings.warn(
+                    "POLICY-001: PyTorch not available. Falling back to CPU accelerator. "
+                    "Install PyTorch (torch>=2.2) for GPU acceleration.",
+                    UserWarning,
+                    stacklevel=3
+                )
 
         # Non-negative workers
         if self.num_workers < 0:

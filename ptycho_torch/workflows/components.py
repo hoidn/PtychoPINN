@@ -552,6 +552,7 @@ def _build_inference_dataloader(
     if execution_config is None:
         from ptycho.config.config import PyTorchExecutionConfig
         execution_config = PyTorchExecutionConfig()
+        logger.info(f"PyTorchExecutionConfig auto-instantiated for inference dataloader (accelerator resolved to '{execution_config.accelerator}')")
 
     # Determine batch size: execution_config.inference_batch_size overrides config.batch_size (Phase C3.B2)
     batch_size = execution_config.inference_batch_size or getattr(config, 'batch_size', 1)
@@ -729,6 +730,7 @@ def _train_with_lightning(
     if execution_config is None:
         from ptycho.config.config import PyTorchExecutionConfig
         execution_config = PyTorchExecutionConfig()
+        logger.info(f"PyTorchExecutionConfig auto-instantiated for Lightning training (accelerator resolved to '{execution_config.accelerator}')")
 
     # EB1.D: Configure checkpoint/early-stop callbacks (ADR-003 Phase EB1)
     callbacks = []
