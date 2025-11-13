@@ -941,8 +941,10 @@ def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_
             def process_batch():
                 batch_imgs_padded = pad_patches(batch_imgs, padded_size)
                 batch_translated = Translation(jitter_stddev=0.0, use_xla=should_use_xla())([batch_imgs_padded, -batch_offsets])
-                batch_channels = _flat_to_channel(batch_translated, N=padded_size)
-                return tf.reduce_sum(batch_channels, axis=3, keepdims=True)
+                # Sum directly over batch dimension to accumulate onto canvas
+                # Shape: (batch_size_actual, padded_size, padded_size, 1) -> (1, padded_size, padded_size, 1)
+                batch_summed = tf.reduce_sum(batch_translated, axis=0, keepdims=True)
+                return batch_summed
             
             def skip_batch():
                 return tf.zeros_like(canvas)

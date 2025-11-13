@@ -129,24 +129,55 @@ class ReassemblePatchesLayer(layers.Layer):
 
     Inputs: [patches (B, N, N, C), positions (B, 1, 2, C)]
     Output: (B, padded_size, padded_size, 1)
+
+    Automatically uses batched reassembly when the number of patches exceeds
+    the batch size threshold to avoid Translation layer shape mismatches and
+    GPU memory issues with large dense datasets.
     """
-    
-    def __init__(self, **kwargs):
+
+    def __init__(self, batch_size: int = 64, **kwargs):
         super().__init__(**kwargs)
-    
+        self.batch_size = batch_size
+
     def call(self, inputs: List[tf.Tensor]) -> tf.Tensor:
-        """Reassemble patches.
-        
+        """Reassemble patches using batched processing for large patch counts.
+
         Args:
             inputs: List of [patches, positions] tensors
-            
+
         Returns:
             Reassembled object
+
+        Note:
+            When patches have shape (B, N, N, C) with B*C > batch_size,
+            the batched reassembly path is used to process patches in chunks,
+            ensuring the Translation layer sees matching tensor shapes.
         """
         from . import tf_helper as hh
         patches, positions = inputs
-        return hh.reassemble_patches(patches, 
-                                    fn_reassemble_real=hh.mk_reassemble_position_real(positions))
+
+        # Calculate total number of patches (B * C)
+        B = tf.shape(patches)[0]
+        C = tf.shape(patches)[3]
+        num_patches = B * C
+
+        # Use batched reassembly when we have many patches to avoid
+        # Translation layer shape mismatches with large dense datasets
+        def use_batched():
+            return hh.reassemble_patches(patches,
+                                        fn_reassemble_real=hh.mk_reassemble_position_batched_real(
+                                            positions, batch_size=self.batch_size))
+
+        def use_unbatched():
+            return hh.reassemble_patches(patches,
+                                        fn_reassemble_real=hh.mk_reassemble_position_real(positions))
+
+        # Switch to batched processing when patch count exceeds threshold
+        return tf.cond(
+            tf.greater(num_patches, self.batch_size),
+            use_batched,
+            use_unbatched
+        )
     
     def compute_output_shape(self, input_shape: List[tf.TensorShape]) -> tf.TensorShape:
         from . import params
@@ -154,9 +185,11 @@ class ReassemblePatchesLayer(layers.Layer):
         batch_size = input_shape[0][0]
         channels = input_shape[0][-1]
         return tf.TensorShape([batch_size, padded_size, padded_size, channels])
-    
+
     def get_config(self) -> Dict[str, Any]:
-        return super().get_config()
+        config = super().get_config()
+        config['batch_size'] = self.batch_size
+        return config
 
 
 @tf.keras.utils.register_keras_serializable(package='ptycho')
