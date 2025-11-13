@@ -188,6 +188,43 @@ following behavioural contract in addition to the configuration bridge.
   `global_offsets` and model output channels to follow the existing TensorFlow helper contract
   (`ptychodus/src/ptychodus/model/ptychopinn/reconstructor.py:153-159`, `ptycho/tf_helper.py`).
 
+#### 4.4.1. Inference Model I/O Shapes (Authoritative)
+
+The inference bundle (`wts.h5.zip`) MUST contain two models: `autoencoder` and
+`diffraction_to_obj`. External callers SHALL invoke `diffraction_to_obj`. Shapes use:
+- B: batch size; N: patch size (e.g., 64, 128); C: channels = `gridsize²` (1 for gs=1; 4 for gs=2).
+All diffraction inputs are amplitude (sqrt intensity) per DATA‑001.
+
+TensorFlow — `diffraction_to_obj`
+- Inputs (channels‑last):
+  - `input`: tf.float32 amplitude, `[B, N, N, C]`
+  - `input_positions`: tf.float32 relative offsets, `[B, 1, 2, C]`
+- Output:
+  - `trimmed_obj`: tf.complex64 complex object patch, `[B, N, N, 1]`
+- Notes: SavedModel signature uses named inputs `input` and `input_positions` and returns
+  `trimmed_obj`. Stitching is performed by helper functions outside the model.
+
+PyTorch — `diffraction_to_obj`
+- Inputs (channels‑first):
+  - `x`: torch.float32 amplitude, `[B, C, N, N]`
+  - `positions`: torch.float32 relative offsets, `[B, C, 1, 2]`
+  - `probe`: complex64 probe (implementation‑specific tensor; typically `[N, N]`)
+  - `input_scale_factor`: torch.float32 per‑sample scale, `[B]` or `[B,1,1,1]`
+- Output:
+  - Complex object patches per channel, either as complex `[B, C, N, N]` or real/imag stacked
+    `[B, C, N, N, 2]` (converted to complex downstream). Reassembly is performed by workflow helpers.
+
+Autoencoder (both backends)
+- Internal sub‑model; accepts the same diffraction input and produces amplitude/phase per channel that
+  are combined into complex object patches. External inference SHOULD call `diffraction_to_obj`.
+
+Channel semantics
+- `C = gridsize²`. Position tensors align with the same channel order as diffraction inputs.
+
+Scaling
+- Backends MUST ensure positive intensities for Poisson losses. TF applies `IntensityScaler` layers;
+  Torch uses `IntensityScalerModule` with per‑sample factors.
+
 #### 4.5. Training Workflow and NPZ Interfaces
 
 - `export_training_data()` writes NPZ archives with keys `xcoords`, `ycoords`, `diff3d`, `probeGuess`,

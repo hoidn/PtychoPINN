@@ -52,6 +52,23 @@ graph TD
 
 Note on coordinates: The data pipeline standardizes scan positions in channel format `(B, 1, 2, C)` with axis order `[x, y]`; channel index `c` maps to `(row, col)` via row‑major (`row=c//gridsize`, `col=c%gridsize`). See `docs/specs/spec-ptycho-interfaces.md` for the full contract.
 
+## Inference Model I/O (Shapes Overview)
+
+The inference bundle (`wts.h5.zip`) contains two models (`autoencoder`, `diffraction_to_obj`). External inference SHOULD invoke `diffraction_to_obj`.
+
+- Symbols: B = batch size; N = patch size (64/128); C = channels = `gridsize²`.
+- Inputs are amplitude (sqrt of intensity) per DATA‑001; scaling handled by backend components.
+
+TensorFlow — `diffraction_to_obj`
+- Inputs: `input [B, N, N, C]` (float32), `input_positions [B, 1, 2, C]` (float32)
+- Output: `trimmed_obj [B, N, N, 1]` (complex64)
+
+PyTorch — `diffraction_to_obj`
+- Inputs: `x [B, C, N, N]` (float32), `positions [B, C, 1, 2]` (float32), plus `probe` and `input_scale_factor`
+- Output: complex patches per channel (`[B, C, N, N]` or `[B, C, N, N, 2]` → complex)
+
+Authoritative details live in `specs/ptychodus_api_spec.md §4.4.1`.
+
 ## 2. Workflow Sequences
 
 Backend-specific workflow sequences are documented in:
