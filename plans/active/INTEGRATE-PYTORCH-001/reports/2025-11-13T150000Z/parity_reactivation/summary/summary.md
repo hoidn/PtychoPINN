@@ -1,4 +1,10 @@
 ### Turn Summary
+Closed the execution-config Do Now: commit 9daa00b7 adds the manual-optimization guard and supervised-data detection in `_train_with_lightning`, refreshed docs/tests, and landed a clean PINN-mode training CLI log plus artifacts under the active hub.
+Documented the new evidence in the artifact inventory + red blockers (supervised data still missing) and noted that the inference half of the PINN smoke needs to be rerun against `train_outputs/wts.h5.zip`.
+Next: add spec-mandated defaults to `ptycho_torch/config_params.py`, update `config_factory`/`config_bridge` so the TensorFlow bridge no longer relies on ad-hoc overrides, extend `tests/torch/test_config_bridge.py`, rerun the parity selector, and capture a fresh PyTorch inference CLI log with the new bundle.
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/{green/pytest_backend_selector_cli.log,cli/pytorch_cli_smoke_training/train_clean.log}
+
+### Turn Summary
 Logged the supervised-loss fix plus the new EXEC-ACCUM-001 / DATA-SUP-001 blockers, updated the hub plan + docs/fix_plan/input.md so the next increment adds the gradient-accumulation guard, supervised data check, and PINN-mode CLI smoke rerun.
 Documented the manual-optimization limitation and unlabeled-data dependency in docs/findings.md and refreshed the Reports Hub expectations (pytest selector with new guard test, training/inference CLI commands without `--torch-accumulate-grad-batches`).
 Next: implement the guard + regression test, fail fast when supervised data lacks labels, rerun the selector, and redo the CLI smoke / hub summaries with updated logs.

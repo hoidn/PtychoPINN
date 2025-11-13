@@ -36,15 +36,25 @@ sys.path.insert(0, str(project_root))
 # ============================================================================
 
 @pytest.fixture
-def cuda_cpu_env(monkeypatch):
+def cuda_gpu_env(monkeypatch):
     """
-    Force CPU-only execution by setting CUDA_VISIBLE_DEVICES="".
+    Force CUDA execution by pinning CUDA_VISIBLE_DEVICES to a specific GPU.
 
-    This ensures deterministic, reproducible behavior regardless of GPU availability.
-    Per docs/workflows/pytorch.md §§6,8 and TEST-PYTORCH-001 Phase A prerequisites.
+    Skips the test suite if a CUDA-capable device is unavailable to keep the
+    GPU-first regression contract documented in docs/workflows/pytorch.md §§11–12.
     """
-    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "")
-    return os.environ.copy()
+    try:
+        import torch
+    except ImportError:  # pragma: no cover - enforced by POLICY-001
+        pytest.skip("PyTorch is required for TEST-PYTORCH-001")
+
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA GPU required for TEST-PYTORCH-001 baseline (set CUDA_VISIBLE_DEVICES)")
+
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0")
+    env = os.environ.copy()
+    env["CUDA_VISIBLE_DEVICES"] = "0"
+    return env
 
 
 @pytest.fixture
@@ -63,14 +73,14 @@ def data_file():
 # Helper Functions
 # ============================================================================
 
-def _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env):
+def _run_pytorch_workflow(tmp_path, data_file, cuda_gpu_env):
     """
     Execute PyTorch train→save→load→infer workflow via subprocess calls.
 
     Parameters:
         tmp_path: pytest tmp_path fixture for output directories
         data_file: Path to NPZ dataset
-        cuda_cpu_env: Environment dict with CUDA_VISIBLE_DEVICES=""
+        cuda_gpu_env: Environment dict with CUDA_VISIBLE_DEVICES="0"
 
     Returns:
         SimpleNamespace with:
@@ -104,7 +114,7 @@ def _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env):
         "--n_images", "64",   # Matches fixture subset size
         "--gridsize", "1",
         "--batch_size", "4",
-        "--device", "cpu",    # Deterministic CPU-only execution per cuda_cpu_env fixture
+        "--accelerator", "cuda",  # Deterministic single-GPU execution per cuda_gpu_env fixture
         "--disable_mlflow",
     ]
 
@@ -112,7 +122,7 @@ def _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env):
         train_command,
         capture_output=True,
         text=True,
-        env=cuda_cpu_env,
+        env=cuda_gpu_env,
         check=False
     )
 
@@ -134,14 +144,14 @@ def _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env):
         "--test_data", str(data_file),
         "--output_dir", str(inference_output_dir),
         "--n_images", "32",  # Half of fixture size for faster inference validation
-        "--device", "cpu",
+        "--accelerator", "cuda",
     ]
 
     infer_result = subprocess.run(
         inference_command,
         capture_output=True,
         text=True,
-        env=cuda_cpu_env,
+        env=cuda_gpu_env,
         check=False
     )
 
@@ -173,7 +183,7 @@ def _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env):
 # Pytest-Native Integration Tests
 # ============================================================================
 
-def test_bundle_loader_returns_modules(tmp_path, data_file, cuda_cpu_env):
+def test_bundle_loader_returns_modules(tmp_path, data_file, cuda_gpu_env):
     """
     Regression test: bundle loader must return Lightning modules, not dicts.
 
@@ -204,12 +214,12 @@ def test_bundle_loader_returns_modules(tmp_path, data_file, cuda_cpu_env):
         "--n_images", "32",
         "--gridsize", "1",
         "--batch_size", "4",
-        "--device", "cpu",
+        "--accelerator", "cuda",
         "--disable_mlflow",
     ]
 
     train_result = subprocess.run(
-        train_command, capture_output=True, text=True, env=cuda_cpu_env, check=False
+        train_command, capture_output=True, text=True, env=cuda_gpu_env, check=False
     )
 
     if train_result.returncode != 0:
@@ -242,7 +252,7 @@ def test_bundle_loader_returns_modules(tmp_path, data_file, cuda_cpu_env):
         pytest.fail(f"Model does not support .eval(): {e}")
 
 
-def test_run_pytorch_train_save_load_infer(tmp_path, data_file, cuda_cpu_env):
+def test_run_pytorch_train_save_load_infer(tmp_path, data_file, cuda_gpu_env):
     """
     Tests the complete PyTorch train → save → load → infer workflow.
 
@@ -259,7 +269,7 @@ def test_run_pytorch_train_save_load_infer(tmp_path, data_file, cuda_cpu_env):
     Implementation: _run_pytorch_workflow executes train/infer via subprocess
     """
     # Execute complete workflow via subprocess helper (Phase C2 implementation)
-    result = _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env)
+    result = _run_pytorch_workflow(tmp_path, data_file, cuda_gpu_env)
 
     # Assertions
     assert result.training_output_dir.exists(), "Training output directory not created"

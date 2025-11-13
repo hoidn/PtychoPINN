@@ -1,45 +1,25 @@
-# Artifact Inventory — Supervised Loss Mapping Fix (2025-11-13T184500Z)
+# Artifact Inventory — Execution-config guardrails + PINN CLI rerun (2025-11-13T190500Z)
 
 ## Green Evidence (Tests Passing)
-- green/pytest_backend_selector_cli.log
-  - 3 PASSED in 5.25s
-  - test_pytorch_execution_config_flags (training + inference)
-  - test_supervised_mode_enforces_mae_loss (new regression coverage)
-  - Verifies supervised mode forces loss_function='MAE' before Lightning instantiation
+- `green/pytest_backend_selector_cli.log`
+  - 4 PASSED in 5.22s
+  - `tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_pytorch_execution_config_flags`
+  - `tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_manual_accumulation_guard`
+  - `tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_supervised_mode_enforces_mae_loss`
+  - `tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_execution_config_flags`
 
-## CLI Attempts (Blocked by Downstream Issues)
-- cli/pytorch_cli_smoke_training/train.log
-  - Original attempt with --torch-accumulate-grad-batches 2
-  - Blocked: manual optimization incompatible with automatic accumulation
-  - Evidence: red/blocked_20251113T184100Z_manual_optim_accum.md
-  
-- cli/pytorch_cli_smoke_training/train_clean.log
-  - Retry without accumulate flag
-  - SUCCESS: Loss mapping fixed - no loss_name AttributeError
-  - Blocked: KeyError 'label_amp' (supervised requires ground-truth labels)
-  - Evidence: red/blocked_20251113T184300Z_supervised_data_contract.md
+## CLI Evidence (PINN smoke rerun)
+- Training — `cli/pytorch_cli_smoke_training/train_clean.log`
+  - Command: `python scripts/training/train.py --train_data_file tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz --backend pytorch --model_type pinn --n_images 100 --n_groups 100 --n_subsample 100 --nepochs 2 --output_dir "$HUB"/cli/pytorch_cli_smoke_training/train_outputs --torch-accelerator cpu --torch-num-workers 0 --torch-learning-rate 5e-4 --torch-logger csv --torch-deterministic --torch-enable-checkpointing`
+  - Result: 2 epochs on fly001 subset completed, checkpoints and `wts.h5.zip` archived under `cli/pytorch_cli_smoke_training/train_outputs/`
+  - Logs confirm CSV logger + checkpointing enabled and Lightning run exited cleanly.
+- Inference — `cli/pytorch_cli_smoke/inference.log` (2025-11-12T17:59Z run against minimal fixture) still the latest recorded inference evidence. Need a fresh inference run that consumes the new `train_outputs/wts.h5.zip` bundle; capture stdout + PNGs under `cli/pytorch_cli_smoke_training/` to close the loop.
 
-## Code Changes
-- ptycho_torch/workflows/components.py:667-682
-  - Added supervised→MAE loss enforcement in _train_with_lightning
-  - Detects mode='Supervised' and overrides loss_function='MAE'
-  - Prevents AttributeError: 'loss_name' missing
-  
-- tests/scripts/test_training_backend_selector.py:312-422
-  - New test: test_supervised_mode_enforces_mae_loss
-  - Regression coverage for supervised loss mapping
+## Code Changes (commit `9daa00b7`)
+- `ptycho_torch/workflows/components.py`: Added DATA-SUP-001 guard that inspects the first training batch for `label_amp` / `label_phase` before allowing supervised runs, plus EXEC-ACCUM-001 guard that raises a descriptive RuntimeError when manual optimization is combined with `accum_steps>1`.
+- `tests/scripts/test_training_backend_selector.py`: Added `test_manual_accumulation_guard` alongside the existing supervised-loss regression to lock the new guardrails.
+- `docs/workflows/pytorch.md`: Documented the manual-optimization limitation and the supervised data requirement, citing EXEC-ACCUM-001 / DATA-SUP-001.
 
-## Commit
-- 2f36b6c6 "INTEGRATE-PYTORCH-PARITY-001 ptycho_torch: enforce loss_function='MAE' for supervised mode"
-- Phase: R (supervised loss mapping)
-- Tests: pytest_backend_selector_cli (3 PASSED)
-
-## Outstanding Blockers
-1. Manual optimization + accumulate_grad_batches incompatibility (defer)
-2. Supervised mode requires labeled data (label_amp/label_phase keys) (defer)
-
-## Next Actions
-Per input.md Do Now steps 5-6:
-- Switch to unsupervised (PINN) mode for CLI smoke validation
-- OR defer supervised CLI smoke until labeled synthetic dataset available
-- Document current progress in hub summaries
+## Outstanding Follow-ups
+1. Supervised-mode execution remains blocked until we create a labeled synthetic dataset (`label_amp`/`label_phase`). Continue logging attempts under `$HUB/red/blocked_*.md`.
+2. Rerun the PyTorch inference CLI with the newly trained PINN bundle (`cli/pytorch_cli_smoke_training/train_outputs/wts.h5.zip`) using the documented `--torch-*` flags, capture stdout/PNGs under `cli/pytorch_cli_smoke_training/`, and refresh `summary.md` + `analysis/artifact_inventory.txt` once the inference step succeeds.

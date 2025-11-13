@@ -20,11 +20,23 @@ Create an automated integration test that exercises the PyTorch (``ptycho_torch`
    - Prediction tensor has expected shape `(batch, channels, N, N)` and finite values.
    - No errors in stderr/stdout and optional MLflow artifacts suppressed in CI scenario.
 
+<plan_update version="1.0">
+  <trigger>Shift the PyTorch integration regression to use GPU execution by default per new baseline directive.</trigger>
+  <focus_id>TEST-PYTORCH-001</focus_id>
+  <documents_read>docs/index.md, docs/workflows/pytorch.md, plans/pytorch_integration_test_plan.md</documents_read>
+  <current_plan_path>plans/pytorch_integration_test_plan.md</current_plan_path>
+  <proposed_changes>Update the prerequisites and acceptance criteria so CUDA GPU execution is required; replace CPU-only guidance with GPU language in setup steps.</proposed_changes>
+  <impacts>Test infrastructure must guarantee at least one CUDA device; CPU execution is now a fallback path and no longer satisfies the baseline contract.</impacts>
+  <ledger_updates>Record this GPU-baseline shift in docs/fix_plan.md when logging the next attempt for TEST-PYTORCH-001.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
 ## Prerequisites & Utilities
 
+- **Environment requirement**: run on a CUDA-capable host and pin the test harness to a specific GPU by setting `CUDA_VISIBLE_DEVICES="0"` (or the appropriate ID). Capture driver + CUDA versions in the report; CPU runs should be called out as reduced-capability evidence only.
 - **Dataset fixture**: assemble a minimal NPZ + probe pair with only a handful of patterns (e.g. subsample an existing fly dataset). Store under `tests/fixtures/pytorch_integration/` for deterministic runs.
 - **Script adjustments**:
-  - Add CLI flags or environment overrides to `ptycho_torch/train.py` for `--max_epochs`, `--device`, and `--disable_mlflow`.
+  - Add CLI flags or environment overrides to `ptycho_torch/train.py` for `--max_epochs`, `--accelerator`, and `--disable_mlflow`.
   - Ensure the dataloader respects a fixed random seed and small batch size when running in test mode.
   - Provide an inference helper (e.g. `ptycho_torch/inference.py`) that loads the trained Lightning module without requiring MLflow.
 
@@ -32,9 +44,9 @@ Create an automated integration test that exercises the PyTorch (``ptycho_torch`
 
 1. **Setup**
    - Copy fixture NPZ/probe into temporary ptycho/probe directories.
-   - Export `CUDA_VISIBLE_DEVICES=""` to force CPU.
+   - Export `CUDA_VISIBLE_DEVICES="0"` (or another specific GPU ID) to guarantee CUDA execution and deterministic device placement.
 2. **Train**
-   - Invoke train module with `--max_epochs=1`, `--batch_size=4`, `--disable_mlflow` (new flag), `--device=cpu`.
+   - Invoke train module with `--max_epochs=1`, `--batch_size=4`, `--disable_mlflow`, and `--accelerator=cuda` while `CUDA_VISIBLE_DEVICES` pins the GPU selection.
    - Assert return code `0`.
 3. **Infer**
    - Call inference helper with paths to checkpoint and memmap directory.
@@ -45,7 +57,7 @@ Create an automated integration test that exercises the PyTorch (``ptycho_torch`
 
 ## Acceptance Criteria
 
-- Test passes reliably on CPU-only environments within 2 minutes.
+- Test passes reliably on a single-GPU CUDA environment within 2 minutes. CPU-only runs are acceptable only as explicitly documented fallbacks and must be flagged in summaries.
 - Fails loudly if training script, dataloader contracts, or inference pipeline regress.
 - No external services (MLflow, GPU drivers) required.
 

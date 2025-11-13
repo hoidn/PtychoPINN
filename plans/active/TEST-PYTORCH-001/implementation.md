@@ -1,8 +1,19 @@
 # TEST-PYTORCH-001 — PyTorch Integration Regression Plan
 
+<plan_update version="1.0">
+  <trigger>Baseline must shift from CPU-only determinism to CUDA GPU execution per new backend policy.</trigger>
+  <focus_id>TEST-PYTORCH-001</focus_id>
+  <documents_read>docs/index.md, docs/workflows/pytorch.md, plans/pytorch_integration_test_plan.md, plans/active/TEST-PYTORCH-001/implementation.md</documents_read>
+  <current_plan_path>plans/active/TEST-PYTORCH-001/implementation.md</current_plan_path>
+  <proposed_changes>Rewrite context/goals to describe GPU-default regression, update Phase A/B/D guidance, and replace CPU-only selectors with CUDA-pinned commands.</proposed_changes>
+  <impacts>Requires CI and local developers to have access to at least one CUDA device; CPU evidence becomes fallback-only and must be labeled as such.</impacts>
+  <ledger_updates>Log this GPU-baseline edit in docs/fix_plan.md under the TEST-PYTORCH-001 focus when recording the next attempt.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
 ## Context
 - Initiative: TEST-PYTORCH-001 — Author PyTorch integration workflow regression
-- Phase Goal: Deliver a CPU-friendly regression that exercises the PyTorch train→save→load→infer pipeline end-to-end and codifies evidence capture/log hygiene so CI guards the backend.
+- Phase Goal: Deliver a GPU-default regression (CUDA device pinned via `CUDA_VISIBLE_DEVICES`) that exercises the PyTorch train→save→load→infer pipeline end-to-end and codifies evidence capture/log hygiene so CI guards the backend. Legacy CPU runs remain documented as fallback evidence only.
 - Dependencies:
   - `plans/pytorch_integration_test_plan.md` (original charter and scope notes)
   - `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md` (CLI contract, Lightning wiring, MLflow controls)
@@ -22,12 +33,12 @@ Exit Criteria: Baseline summary documenting available fixtures, current test sta
 | --- | --- | --- | --- |
 | A1 | Inventory existing coverage and blockers | [x] | Re-read `tests/torch/test_integration_workflow_torch.py` and charter to identify gaps (e.g., unittest style, heavy dataset). Document findings in `reports/<TS>/baseline/inventory.md`. **COMPLETE 2025-10-19:** Comprehensive inventory at `reports/2025-10-19T115303Z/baseline/inventory.md` catalogues unittest style, GREEN baseline status, zero blockers. |
 | A2 | Validate fixture + CLI readiness | [x] | Dry-run `pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv` with `TEE_LOG=plans/active/TEST-PYTORCH-001/reports/<TS>/baseline/pytest_integration_current.log`. Note runtime, return code, and missing artifacts. **COMPLETE 2025-10-19:** Baseline PASSED in 32.54s (27% of 120s budget), full log captured at `reports/2025-10-19T115303Z/baseline/pytest_integration_current.log`. |
-| A3 | Capture prerequisites checklist | [x] | Summarize required environment knobs (e.g., `CUDA_VISIBLE_DEVICES=""`, `--disable_mlflow`) and confirm dataset path size/time budget in `reports/<TS>/baseline/summary.md`. **COMPLETE 2025-10-19:** Prerequisites + runtime analysis at `reports/2025-10-19T115303Z/baseline/summary.md`. PyTorch 2.8.0+cu128, dataset 35 MB, CPU-only execution confirmed. |
+| A3 | Capture prerequisites checklist | [x] | Summarize required environment knobs (now `CUDA_VISIBLE_DEVICES="0"` + driver versions, `--disable_mlflow`) and confirm dataset path size/time budget in `reports/<TS>/baseline/summary.md`. **COMPLETE 2025-10-19:** Prerequisites + runtime analysis at `reports/2025-10-19T115303Z/baseline/summary.md`. PyTorch 2.8.0+cu128, dataset 35 MB, CPU-only execution confirmed (legacy). **Update:** Next refresh must restate these prerequisites for a CUDA host and capture GPU model/driver metadata. |
 
 ---
 
 ### Phase B — Fixture Minimization & Deterministic Config
-Goal: Produce a deterministic, ≤2 minute CPU fixture/config combo to keep regression lean and reproducible.
+Goal: Produce a deterministic, ≤2 minute GPU fixture/config combo to keep regression lean and reproducible (document CPU fallback behavior separately).
 Prereqs: Phase A baseline complete; identify dataset bottlenecks.
 Exit Criteria: Lightweight fixture committed (or documented sourcing), CLI overrides scripted, and guidance recorded for reuse.
 
@@ -61,9 +72,9 @@ Planning reference: `plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/ph
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| D1 | Record runtime + resource profile | [x] | ✅ 2025-10-19 — Runtime profile complete at `reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md`. Aggregated C2/C3/D1 runtimes (mean 35.92s, variance 0.17%). Environment documented: Python 3.11.13, PyTorch 2.8.0+cu128, Ryzen 9 5950X (32 CPUs), 128GB RAM. Guardrails defined: ≤90s CI max, 60s warning, 36s±5s baseline. Artifacts: `env_snapshot.txt`, `pytest_modernization_phase_d.log`, `runtime_profile.md`. |
+| D1 | Record runtime + resource profile | [x] | ✅ 2025-10-19 — Runtime profile complete at `reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md`. Aggregated C2/C3/D1 runtimes (mean 35.92s, variance 0.17%). Environment documented: Python 3.11.13, PyTorch 2.8.0+cu128, Ryzen 9 5950X (32 CPUs), 128GB RAM. Guardrails defined: ≤90s CI max, 60s warning, 36s±5s baseline. **Update:** GPU baseline is now mandatory; capture next runtime profile on a reproducible CUDA host (record GPU model, driver, CUDA toolkit) and revise guardrails once data is collected. Artifacts: `env_snapshot.txt`, `pytest_modernization_phase_d.log`, `runtime_profile.md`. |
 | D2 | Update documentation + ledger | [x] | ✅ 2025-10-19 — Documentation alignment complete (Attempt #11). Updated this implementation plan D1 row with artifact citations. Appended `docs/fix_plan.md` [TEST-PYTORCH-001] Attempt #11 with Phase D2 summary referencing runtime profile (2025-10-19T193425Z) and updated workflow doc. Refreshed `docs/workflows/pytorch.md` §11 (new "Regression Test & Runtime Expectations" subsection) with pytest selector, 36s±5s baseline, ≤90s CI guardrail, POLICY-001/FORMAT-001 reminders. Artifacts: `reports/2025-10-19T201900Z/phase_d_hardening/{doc_alignment_notes.md,summary.md}`. |
-| D3 | CI integration follow-up | [x] | ✅ 2025-10-19 — CI integration strategy complete (Attempt #12). No `.github/workflows/` exists; documented CI-ready guidance in `reports/2025-10-19T232500Z/phase_d_hardening/ci_notes.md`. Pytest selector defined: `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv`. Runtime guardrails: 120s timeout (conservative), 90s nominal, 60s warning. Recommended markers: `@pytest.mark.integration` + `@pytest.mark.slow` (optional). Follow-up tickets: FU-001 (add markers), FU-002 (implement GH workflow), FU-003 (update TEST_SUITE_INDEX.md). Artifacts: `ci_notes.md`, `summary.md`. |
+| D3 | CI integration follow-up | [x] | ✅ 2025-10-19 — CI integration strategy complete (Attempt #12). No `.github/workflows/` exists; documented CI-ready guidance in `reports/2025-10-19T232500Z/phase_d_hardening/ci_notes.md`. Pytest selector defined: `CUDA_VISIBLE_DEVICES="0" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv`. Runtime guardrails: 120s timeout (conservative), 90s nominal, 60s warning (update once GPU runtime data is available). Recommended markers: `@pytest.mark.integration` + `@pytest.mark.slow` (optional). Follow-up tickets: FU-001 (add markers), FU-002 (implement GH workflow), FU-003 (update TEST_SUITE_INDEX.md). Artifacts: `ci_notes.md`, `summary.md`. |
 
 ---
 

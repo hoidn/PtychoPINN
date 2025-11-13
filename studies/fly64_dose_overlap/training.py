@@ -1008,6 +1008,25 @@ def main():
         # Convert result dict paths to strings for JSON serialization
         # Phase E6: Normalize bundle_path to be relative to artifact_dir
         result_serializable = {}
+        def _sanitize(value):
+            """Recursively convert training results to JSON-safe data."""
+            if isinstance(value, Path):
+                return str(value)
+            if isinstance(value, (str, int, float, bool)) or value is None:
+                return value
+            if isinstance(value, dict):
+                sanitized = {}
+                for key, val in value.items():
+                    # Drop heavy/non-serializable entries such as TF models
+                    if key in {'models', 'model', 'autoencoder', 'diffraction_to_obj'}:
+                        continue
+                    sanitized[key] = _sanitize(val)
+                return sanitized
+            if isinstance(value, (list, tuple)):
+                return [_sanitize(v) for v in value]
+            # Fallback to string representation for any remaining objects
+            return str(value)
+
         for k, v in result.items():
             if isinstance(v, Path):
                 result_serializable[k] = str(v)
@@ -1026,7 +1045,7 @@ def main():
                     # (should not happen in normal execution, but defensive)
                     result_serializable[k] = str(v)
             else:
-                result_serializable[k] = v
+                result_serializable[k] = _sanitize(v)
 
         job_results.append({
             'dose': job.dose,

@@ -265,26 +265,26 @@ The PyTorch integration workflow is validated by a comprehensive pytest regressi
 ### Test Selector
 
 ```bash
-CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv
+CUDA_VISIBLE_DEVICES="0" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv
 ```
 
-**Environment Requirement:** `CUDA_VISIBLE_DEVICES=""` enforces CPU-only execution per test contract (enforced via `cuda_cpu_env` fixture).
+**Environment Requirement:** Pin the regression to a specific CUDA device (e.g., `CUDA_VISIBLE_DEVICES="0"`) so every automated run exercises the GPU backend. The pytest fixture `cuda_gpu_env` enforces this contract by masking other devices.
 
 ### Runtime Performance
 
 **Current Performance (Phase B3 Minimal Fixture):**
-- **Smoke Test Runtime:** 3.82s (fixture validation suite, 7 tests)
-- **Integration Test Runtime:** 14.53s (full train→save→load→infer cycle)
+- **Smoke Test Runtime:** 3.82s on legacy CPU runs (fixture validation suite, 7 tests). GPU timing TBD after first CUDA run; update runtime_profile.md accordingly.
+- **Integration Test Runtime:** 14.53s on CPU legacy evidence. Future GPU baselines must be recorded once CUDA runs are executed.
 - **Test Dataset:** `tests/fixtures/pytorch_integration/minimal_dataset_v1.npz` (64 scan positions, 25 KB)
-- **CI Budget:** ≤90s on modern CPU hardware (integration test runs at 16% of budget)
-- **Warning Threshold:** 45s (3.1× current runtime triggers investigation)
+- **CI Budget:** ≤90s on a single CUDA device (initial value mirrored from CPU budget; adjust after capturing GPU telemetry)
+- **Warning Threshold:** 45s (temporary value; recompute after GPU runtime capture)
 
 **Historical Baselines:**
 - Phase D1 Runtime: 35.9s ± 0.5s (canonical dataset, 1087 positions)
 - Phase B1 Runtime: 21.91s (canonical dataset, n_groups=64 override)
 - Phase B3 Improvement: 33.7% faster vs Phase B1 baseline
 
-**Environment:** Verified on Python 3.11.13, PyTorch 2.8.0+cu128, Lightning 2.5.5, Ryzen 9 5950X (32 CPUs), 128GB RAM.
+**Environment:** Legacy evidence captured on Python 3.11.13, PyTorch 2.8.0+cu128, Lightning 2.5.5, Ryzen 9 5950X (32 CPUs), 128GB RAM. **New requirement:** future regression evidence must cite the CUDA GPU model/driver (e.g., NVIDIA A100 40GB, CUDA 12.4) in addition to host specs.
 
 **Performance Profile:** See `plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md` for full telemetry.
 
@@ -315,7 +315,7 @@ The regression validates:
 - **Recommended Timeout:** 90s (6.2× current runtime, conservative buffer for CI infrastructure variance)
 - **Retry Policy:** 1 retry on timeout (accounts for CI jitter)
 - **Markers:** Consider `@pytest.mark.integration` + `@pytest.mark.slow` for selective execution
-- **CPU-Only Enforcement:** Use `CUDA_VISIBLE_DEVICES=""` in CI to ensure deterministic CPU-only execution (GPU unavailability is tested via separate POLICY-001 checks)
+- **GPU Enforcement:** Set `CUDA_VISIBLE_DEVICES="0"` (or an explicit GPU selection) in CI to guarantee CUDA execution. If a CPU fallback run is required, label it clearly in the report and rerun on GPU as soon as resources are available.
 
 **Reference:** See `plans/active/TEST-PYTORCH-001/implementation.md` for phased test development history and `plans/active/TEST-PYTORCH-001/reports/2025-10-19T233500Z/phase_b_fixture/summary.md` for Phase B3 fixture integration details.
 
@@ -329,7 +329,7 @@ The following execution config flags are available in `ptycho_torch/train.py`:
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--accelerator` | str | `'auto'` | Hardware accelerator: `'auto'` (detect GPU, default), `'cpu'` (CPU-only), `'gpu'`/`'cuda'` (NVIDIA GPU), `'tpu'` (Google TPU), `'mps'` (Apple Silicon). Dataclass default is `'cpu'`; CLI helper overrides to `'auto'`. |
+| `--accelerator` | str | `'cuda'` | Hardware accelerator: `'cuda'` (default single-GPU run), `'auto'` (detect accelerator), `'cpu'` (fallback), `'tpu'`, `'mps'`. The execution-config dataclass now defaults to `'cuda'`; override explicitly when a GPU is unavailable. |
 | `--deterministic` / `--no-deterministic` | bool | `True` | Enable deterministic training (reproducibility) |
 | `--num-workers` | int | `0` | Number of DataLoader worker processes (0 = main thread) |
 | `--learning-rate` | float | `1e-3` | Optimizer learning rate |
@@ -370,7 +370,7 @@ This flag currently maps to `--logger none` internally for backward compatibilit
 
 **Example CLI command with execution flags:**
 ```bash
-python -m ptycho_torch.train \
+CUDA_VISIBLE_DEVICES="0" python -m ptycho_torch.train \
   --train_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz \
   --test_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz \
   --output_dir /tmp/cli_smoke \
@@ -378,7 +378,7 @@ python -m ptycho_torch.train \
   --gridsize 2 \
   --batch_size 4 \
   --max_epochs 1 \
-  --accelerator cpu \
+  --accelerator cuda \
   --deterministic \
   --num-workers 0 \
   --learning-rate 1e-3 \
@@ -410,7 +410,7 @@ The following execution config flags are available in `ptycho_torch/inference.py
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--accelerator` | str | `'auto'` | Hardware accelerator type (`'auto'`, `'cpu'`, `'gpu'`, `'cuda'`, `'tpu'`, `'mps'`). Auto-detects available device (cuda if available, else cpu). |
+| `--accelerator` | str | `'cuda'` | Hardware accelerator type (`'cuda'` default for single-GPU inference, `'auto'`, `'cpu'`, `'tpu'`, `'mps'`). Override explicitly when running on CPU-only infrastructure. |
 | `--num-workers` | int | `0` | Number of DataLoader worker processes |
 | `--inference-batch-size` | int | `None` | Batch size for inference (default: None = reuse training batch_size from checkpoint) |
 | `--quiet` | flag | `False` | Suppress progress bars and reduce console logging |
@@ -428,13 +428,13 @@ Inference orchestration is extracted to `_run_inference_and_reconstruct()` helpe
 
 **Example CLI Command:**
 ```bash
-# Run inference with minimal dataset fixture
-python -m ptycho_torch.inference \
+# Run inference with minimal dataset fixture on a single CUDA device
+CUDA_VISIBLE_DEVICES="0" python -m ptycho_torch.inference \
   --model_path outputs/trained_model \
   --test_data tests/fixtures/pytorch_integration/minimal_dataset_v1.npz \
   --output_dir outputs/inference_results \
   --n_images 64 \
-  --accelerator cpu \
+  --accelerator cuda \
   --quiet
 ```
 
