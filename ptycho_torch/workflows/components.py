@@ -664,6 +664,23 @@ def _train_with_lightning(
     pt_model_config = payload.pt_model_config
     pt_training_config = payload.pt_training_config
 
+    # CRITICAL: Supervised mode REQUIRES a compatible loss function (MAE)
+    # The Lightning module expects loss_name to be defined, which only happens when:
+    #   1. mode='Unsupervised' AND loss_function='Poisson' → sets loss_name='poisson_train'
+    #   2. mode='Unsupervised' AND loss_function='MAE' → sets loss_name='mae_train'
+    #   3. mode='Supervised' AND loss_function='MAE' → sets loss_name='mae_train'
+    # Without this override, supervised mode with default loss_function='Poisson' causes
+    # AttributeError: 'PtychoPINN_Lightning' object has no attribute 'loss_name'
+    # See: ptycho_torch/model.py:1052-1066
+    if pt_model_config.mode == 'Supervised' and pt_model_config.loss_function != 'MAE':
+        logger.info(
+            f"Backend override: supervised mode requires MAE loss "
+            f"(was {pt_model_config.loss_function}), forcing loss_function='MAE'"
+        )
+        # Create new ModelConfig with corrected loss_function
+        from dataclasses import replace
+        pt_model_config = replace(pt_model_config, loss_function='MAE')
+
     # Create minimal InferenceConfig for Lightning module (training payload doesn't include it)
     pt_inference_config = PTInferenceConfig()
 

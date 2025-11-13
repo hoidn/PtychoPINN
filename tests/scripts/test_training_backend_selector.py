@@ -308,3 +308,115 @@ class TestTrainingCliBackendDispatch:
                 backend_call_args = mock_run_cdi_example.call_args
                 assert backend_call_args[1]['torch_execution_config'] is mock_exec_config, \
                     "Backend selector should receive the PyTorchExecutionConfig as torch_execution_config parameter"
+
+    def test_supervised_mode_enforces_mae_loss(self):
+        """
+        Test that supervised model_type forces loss_function='MAE' in PyTorch backend.
+
+        Background:
+        The PyTorch Lightning module (PtychoPINN_Lightning) requires loss_name to be
+        defined for logging. The __init__ method only sets loss_name when specific
+        combinations of mode + loss_function are matched (see ptycho_torch/model.py:1052-1066):
+          - Unsupervised + Poisson → loss_name='poisson_train'
+          - Unsupervised + MAE → loss_name='mae_train'
+          - Supervised + MAE → loss_name='mae_train'
+
+        Without this enforcement, supervised mode with default loss_function='Poisson'
+        causes: AttributeError: 'PtychoPINN_Lightning' object has no attribute 'loss_name'
+
+        This test verifies that ptycho_torch/workflows/components.py:_train_with_lightning
+        detects supervised mode and overrides loss_function='MAE' before instantiating
+        the Lightning module.
+
+        Phase: R (supervised loss mapping)
+        Reference: plans/active/INTEGRATE-PYTORCH-001/reports/.../red/blocked_20251113T183500Z_loss_name.md
+        """
+        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho_torch.config_params import ModelConfig as PTModelConfig
+        from ptycho_torch.config_factory import create_training_payload
+        from pathlib import Path
+
+        # Create canonical TF config with supervised mode
+        model_config = ModelConfig(
+            N=64,
+            gridsize=2,
+            model_type='supervised',  # TensorFlow naming
+        )
+        config = TrainingConfig(
+            model=model_config,
+            train_data_file=Path('datasets/train.npz'),
+            output_dir=Path('outputs/test_supervised'),
+            n_groups=128,
+            nepochs=1,
+            backend='pytorch',
+        )
+
+        # Simulate factory payload creation (as _train_with_lightning does)
+        mode_map = {'pinn': 'Unsupervised', 'supervised': 'Supervised'}
+        factory_overrides = {
+            'n_groups': config.n_groups,
+            'gridsize': config.model.gridsize,
+            'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
+            'amp_activation': config.model.amp_activation,
+            'n_filters_scale': config.model.n_filters_scale,
+            'max_epochs': config.nepochs,
+        }
+
+        # Mock the factory to return a payload with default loss_function='Poisson'
+        mock_payload = MagicMock()
+        mock_pt_model_config = PTModelConfig(
+            mode='Supervised',  # PyTorch naming
+            loss_function='Poisson',  # Default value (incompatible with Supervised)
+            C_forward=4,
+            C_model=4,
+        )
+        mock_payload.pt_model_config = mock_pt_model_config
+        mock_payload.pt_data_config = MagicMock()
+        mock_payload.pt_training_config = MagicMock()
+
+        with patch('ptycho_torch.config_factory.create_training_payload', return_value=mock_payload):
+            # Import the helper that applies the supervised→MAE override
+            from ptycho_torch.workflows.components import _train_with_lightning
+
+            # Mock the Lightning module instantiation to capture the corrected config
+            mock_lightning_module = MagicMock()
+            mock_lightning_module.val_loss_name = 'mae_val_loss'  # Expected for MAE
+            captured_model_config = None
+
+            def capture_model_config(model_config, data_config, training_config, inference_config):
+                nonlocal captured_model_config
+                captured_model_config = model_config
+                return mock_lightning_module
+
+            # Mock all dependencies of _train_with_lightning
+            mock_train_container = MagicMock()
+            mock_train_container.diffraction = MagicMock()
+            mock_test_container = None
+
+            with patch('ptycho_torch.model.PtychoPINN_Lightning', side_effect=capture_model_config):
+                with patch('ptycho_torch.workflows.components._build_lightning_dataloaders', return_value=(MagicMock(), None)):
+                    with patch('lightning.pytorch.Trainer') as mock_trainer_class:
+                        mock_trainer = MagicMock()
+                        mock_trainer.fit = MagicMock()
+                        mock_trainer_class.return_value = mock_trainer
+
+                        try:
+                            # Execute _train_with_lightning with supervised config
+                            results = _train_with_lightning(
+                                mock_train_container,
+                                mock_test_container,
+                                config,
+                                execution_config=None
+                            )
+                        except Exception as e:
+                            # If the override didn't happen, we'll get AttributeError during training
+                            # But we're verifying the config before that point
+                            pass
+
+            # Verify the model_config passed to Lightning module has loss_function='MAE'
+            assert captured_model_config is not None, \
+                "PtychoPINN_Lightning should have been instantiated"
+            assert captured_model_config.mode == 'Supervised', \
+                "Model should be in Supervised mode"
+            assert captured_model_config.loss_function == 'MAE', \
+                "Supervised mode should enforce loss_function='MAE' (prevents missing loss_name AttributeError)"
