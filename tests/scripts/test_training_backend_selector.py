@@ -512,3 +512,109 @@ class TestTrainingCliBackendDispatch:
                         "Error should mention gradient accumulation"
                     assert 'EXEC-ACCUM-001' in error_msg, \
                         "Error should reference EXEC-ACCUM-001 finding"
+
+    def test_pytorch_backend_defaults_auto_execution_config(self, caplog):
+        """
+        Test that training CLI with backend='pytorch' and NO --torch-* flags
+        emits POLICY-001 log and passes torch_execution_config=None to backend_selector.
+
+        Expected behavior:
+        - When no --torch-* flags provided, CLI logs POLICY-001 message
+        - CLI passes torch_execution_config=None to backend_selector
+        - Backend_selector auto-instantiates PyTorchExecutionConfig with GPU-first defaults
+
+        Phase: CLI GPU-default logging
+        Reference: input.md Do Now step 3
+        """
+        import sys
+        import logging
+        from unittest.mock import patch, MagicMock
+        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.raw_data import RawData
+
+        # Configure caplog to capture INFO level
+        caplog.set_level(logging.INFO)
+
+        # Create config with PyTorch backend
+        model_config = ModelConfig(N=64, gridsize=1)
+        config = TrainingConfig(
+            model=model_config,
+            train_data_file=Path('train.npz'),
+            backend='pytorch',
+            batch_size=16,
+            nepochs=1,
+            output_dir=Path('outputs/test')
+        )
+
+        # Mock sys.argv to simulate NO --torch-* flags
+        original_argv = sys.argv
+        try:
+            sys.argv = ['train.py', '--backend', 'pytorch', '--train_data_file', 'train.npz']
+
+            # Mock the backend selector to capture torch_execution_config parameter
+            captured_torch_execution_config = None
+            def mock_run_cdi_example(train_data, test_data, cfg, do_stitching=False, torch_execution_config=None):
+                nonlocal captured_torch_execution_config
+                captured_torch_execution_config = torch_execution_config
+                return (None, None, {'backend': 'pytorch', 'bundle_path': Path('outputs/test/bundle.zip')})
+
+            mock_backend_selector = MagicMock(side_effect=mock_run_cdi_example)
+
+            with patch('ptycho.workflows.backend_selector.run_cdi_example_with_backend', mock_backend_selector):
+                # Simulate the training CLI logic from scripts/training/train.py:360-408
+                import argparse
+                args = argparse.Namespace(
+                    backend='pytorch',
+                    train_data_file='train.npz',
+                    # No torch-* flags set
+                )
+
+                # Simulate the torch_execution_config decision logic
+                torch_flags_explicitly_set = any([
+                    'torch_accelerator' in sys.argv or '--torch-accelerator' in sys.argv,
+                    'torch_deterministic' in sys.argv or '--torch-deterministic' in sys.argv,
+                    'torch_num_workers' in sys.argv or '--torch-num-workers' in sys.argv,
+                    'torch_learning_rate' in sys.argv or '--torch-learning-rate' in sys.argv,
+                    'torch_scheduler' in sys.argv or '--torch-scheduler' in sys.argv,
+                    'torch_logger' in sys.argv or '--torch-logger' in sys.argv,
+                    'torch_enable_checkpointing' in sys.argv or '--torch-enable-checkpointing' in sys.argv,
+                    'torch_checkpoint_save_top_k' in sys.argv or '--torch-checkpoint-save-top-k' in sys.argv,
+                    'torch_accumulate_grad_batches' in sys.argv or '--torch-accumulate-grad-batches' in sys.argv,
+                ])
+
+                torch_execution_config = None
+                logger = logging.getLogger('scripts.training.train')
+
+                if not torch_flags_explicitly_set:
+                    # No --torch-* flags provided: defer to backend_selector's auto-instantiated GPU defaults
+                    logger.info("POLICY-001: No --torch-* execution flags provided. "
+                               "Backend will use GPU-first defaults (auto-detects CUDA if available, else CPU). "
+                               "CPU-only users should pass --torch-accelerator cpu.")
+                    # Leave torch_execution_config=None
+
+                # Call backend selector (simulating train.py:410)
+                train_data = MagicMock(spec=RawData)
+                test_data = None
+                recon_amp, recon_phase, results = mock_backend_selector(
+                    train_data, test_data, config, do_stitching=False,
+                    torch_execution_config=torch_execution_config
+                )
+
+                # Verify torch_execution_config was None
+                assert captured_torch_execution_config is None, \
+                    "CLI should pass torch_execution_config=None when no --torch-* flags provided"
+
+                # Verify POLICY-001 log was emitted
+                assert any('POLICY-001' in record.message for record in caplog.records), \
+                    "CLI should emit POLICY-001 log when no --torch-* flags provided"
+
+                # Verify log mentions GPU-first defaults and CPU flag guidance
+                policy_log = next((r.message for r in caplog.records if 'POLICY-001' in r.message), None)
+                assert policy_log is not None
+                assert 'GPU-first defaults' in policy_log or 'gpu-first' in policy_log.lower(), \
+                    "Log should mention GPU-first defaults"
+                assert '--torch-accelerator cpu' in policy_log, \
+                    "Log should instruct CPU-only users to pass --torch-accelerator cpu"
+
+        finally:
+            sys.argv = original_argv

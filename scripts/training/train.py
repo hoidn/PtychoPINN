@@ -355,35 +355,57 @@ def main() -> None:
             test_data = load_data(str(config.test_data_file))
             logger.info(f"Loaded test data from {config.test_data_file}")
 
-        # Build PyTorch execution config if backend is pytorch (similar to inference.py:514-524)
+        # Build PyTorch execution config if backend is pytorch
         torch_execution_config = None
         if config.backend == 'pytorch':
-            from ptycho_torch.cli.shared import build_execution_config_from_args
+            # Determine if user explicitly provided any --torch-* flags
+            # We check against argparse defaults to detect user overrides
+            torch_flags_explicitly_set = any([
+                'torch_accelerator' in sys.argv or '--torch-accelerator' in sys.argv,
+                'torch_deterministic' in sys.argv or '--torch-deterministic' in sys.argv,
+                'torch_num_workers' in sys.argv or '--torch-num-workers' in sys.argv,
+                'torch_learning_rate' in sys.argv or '--torch-learning-rate' in sys.argv,
+                'torch_scheduler' in sys.argv or '--torch-scheduler' in sys.argv,
+                'torch_logger' in sys.argv or '--torch-logger' in sys.argv,
+                'torch_enable_checkpointing' in sys.argv or '--torch-enable-checkpointing' in sys.argv,
+                'torch_checkpoint_save_top_k' in sys.argv or '--torch-checkpoint-save-top-k' in sys.argv,
+                'torch_accumulate_grad_batches' in sys.argv or '--torch-accumulate-grad-batches' in sys.argv,
+            ])
 
-            # Map CLI flags to execution config namespace (see docs/workflows/pytorch.md §12)
-            exec_args = argparse.Namespace(
-                accelerator=getattr(args, 'torch_accelerator', 'auto'),
-                deterministic=getattr(args, 'torch_deterministic', True),
-                num_workers=getattr(args, 'torch_num_workers', 0),
-                learning_rate=getattr(args, 'torch_learning_rate', None),
-                scheduler=getattr(args, 'torch_scheduler', 'Default'),
-                logger_backend=getattr(args, 'torch_logger', 'csv'),
-                enable_checkpointing=getattr(args, 'torch_enable_checkpointing', True),
-                checkpoint_save_top_k=getattr(args, 'torch_checkpoint_save_top_k', 1),
-                accumulate_grad_batches=getattr(args, 'torch_accumulate_grad_batches', 1),
-                checkpoint_monitor_metric='val_loss',  # Default per docs/workflows/pytorch.md
-                checkpoint_mode='min',  # Default
-                early_stop_patience=100,  # Default
-                quiet=getattr(args, 'debug', False) == False,  # Invert debug flag for quiet
-                disable_mlflow=False  # Not applicable for training in this context
-            )
+            if not torch_flags_explicitly_set:
+                # No --torch-* flags provided: defer to backend_selector's auto-instantiated GPU defaults
+                logger.info("POLICY-001: No --torch-* execution flags provided. "
+                           "Backend will use GPU-first defaults (auto-detects CUDA if available, else CPU). "
+                           "CPU-only users should pass --torch-accelerator cpu.")
+                # Leave torch_execution_config=None to signal backend_selector to auto-instantiate
+            else:
+                # User provided at least one --torch-* flag: build execution config explicitly
+                from ptycho_torch.cli.shared import build_execution_config_from_args
 
-            # Build validated execution config from CLI args (POLICY-001, CONFIG-002, CONFIG-LOGGER-001)
-            torch_execution_config = build_execution_config_from_args(exec_args, mode='training')
-            logger.info(f"PyTorch execution config built: accelerator={torch_execution_config.accelerator}, "
-                       f"num_workers={torch_execution_config.num_workers}, "
-                       f"learning_rate={torch_execution_config.learning_rate}, "
-                       f"logger_backend={torch_execution_config.logger_backend}")
+                # Map CLI flags to execution config namespace (see docs/workflows/pytorch.md §12)
+                exec_args = argparse.Namespace(
+                    accelerator=getattr(args, 'torch_accelerator', 'auto'),
+                    deterministic=getattr(args, 'torch_deterministic', True),
+                    num_workers=getattr(args, 'torch_num_workers', 0),
+                    learning_rate=getattr(args, 'torch_learning_rate', None),
+                    scheduler=getattr(args, 'torch_scheduler', 'Default'),
+                    logger_backend=getattr(args, 'torch_logger', 'csv'),
+                    enable_checkpointing=getattr(args, 'torch_enable_checkpointing', True),
+                    checkpoint_save_top_k=getattr(args, 'torch_checkpoint_save_top_k', 1),
+                    accumulate_grad_batches=getattr(args, 'torch_accumulate_grad_batches', 1),
+                    checkpoint_monitor_metric='val_loss',  # Default per docs/workflows/pytorch.md
+                    checkpoint_mode='min',  # Default
+                    early_stop_patience=100,  # Default
+                    quiet=getattr(args, 'debug', False) == False,  # Invert debug flag for quiet
+                    disable_mlflow=False  # Not applicable for training in this context
+                )
+
+                # Build validated execution config from CLI args (POLICY-001, CONFIG-002, CONFIG-LOGGER-001)
+                torch_execution_config = build_execution_config_from_args(exec_args, mode='training')
+                logger.info(f"PyTorch execution config built: accelerator={torch_execution_config.accelerator}, "
+                           f"num_workers={torch_execution_config.num_workers}, "
+                           f"learning_rate={torch_execution_config.learning_rate}, "
+                           f"logger_backend={torch_execution_config.logger_backend}")
 
         recon_amp, recon_phase, results = run_cdi_example_with_backend(
             ptycho_data, test_data, config, do_stitching=args.do_stitching,

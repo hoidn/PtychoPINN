@@ -471,6 +471,20 @@ def main():
 
         # For PyTorch backend, move model to execution device and set to eval mode
         if config.backend == 'pytorch':
+            # Determine if user explicitly provided any --torch-* flags
+            # We check against sys.argv to detect user overrides
+            torch_flags_explicitly_set = any([
+                'torch_accelerator' in sys.argv or '--torch-accelerator' in sys.argv,
+                'torch_num_workers' in sys.argv or '--torch-num-workers' in sys.argv,
+                'torch_inference_batch_size' in sys.argv or '--torch-inference-batch-size' in sys.argv,
+            ])
+
+            if not torch_flags_explicitly_set:
+                # No --torch-* flags provided: emit POLICY-001 info log
+                print("POLICY-001: No --torch-* execution flags provided. "
+                      "Backend will use GPU-first defaults (auto-detects CUDA if available, else CPU). "
+                      "CPU-only users should pass --torch-accelerator cpu.")
+
             # Resolve device before loading data (will be used for tensors and model)
             import argparse as arg_module
             exec_args = arg_module.Namespace(
