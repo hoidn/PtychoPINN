@@ -1,94 +1,96 @@
-# INTEGRATE-PYTORCH-PARITY-001: Phase R Config Defaults Backfill — Artifact Inventory
-# Report Date: 2025-11-12
-# Focus: Backfill spec-mandated config defaults in PyTorch dataclasses and rerun CLI smoke tests
+# Artifact Inventory: DEVICE-MISMATCH-001 Fix (Phase R)
+# Date: 2025-11-12
+# Commit: 85478a67
+# Focus: INTEGRATE-PYTORCH-PARITY-001
 
-## Code Changes (Commit dd0a5b0e)
+## Problem Statement
+Bundle-loaded PyTorch Lightning modules remained on CPU even when --torch-accelerator cuda
+was specified, causing "Input type (torch.cuda.FloatTensor) and weight type (torch.FloatTensor)"
+crashes during CUDA inference. Input tensors were moved to CUDA but model weights stayed on CPU.
 
-### ptycho_torch/config_params.py
-- Added `subsample_seed: Optional[int] = None` to DataConfig (line 29)
-- Added `pad_object: bool = True` to ModelConfig (line 86)
-- Added `gaussian_smoothing_sigma: float = 0.0` to ModelConfig (line 87)
-- Added `train_data_file: Optional[str] = None` to TrainingConfig (line 137)
-- Added `test_data_file: Optional[str] = None` to TrainingConfig (line 138)  
-- Added `output_dir: str = "training_outputs"` to TrainingConfig (line 139)
-- Added `n_groups: Optional[int] = None` to TrainingConfig (line 140)
+## Solution Summary
+Added model.to(device) and model.eval() calls at two levels:
+1. CLI level (scripts/inference/inference.py): After loading bundle, before data loading
+2. Helper level (ptycho_torch/inference.py): Inside _run_inference_and_reconstruct (defensive guard)
 
-### ptycho_torch/config_bridge.py
-- Updated `to_model_config` to use `model.pad_object` and `model.gaussian_smoothing_sigma` instead of hardcoded defaults (lines 174-176)
-- Updated `to_training_config` to propagate train_data_file, test_data_file, output_dir, n_groups from PyTorch configs (lines 247-253)
+## Code Changes
 
-### ptycho_torch/config_factory.py
-- Extended `create_training_payload` constructor to populate new dataclass fields from overrides (lines 201-234)
-- Extended `create_inference_payload` constructor to populate new fields (lines 407-430)
+### scripts/inference/inference.py (lines 470-496)
+- After load_inference_bundle_with_backend, check if backend=='pytorch'
+- Build execution_config from CLI args (torch_accelerator, torch_num_workers, torch_inference_batch_size)
+- Map accelerator to device string ('cuda', 'mps', 'cpu')
+- Call model.to(device_str) and model.eval()
+- Reuse resolved execution_config/device_str in later inference branch (removed duplicate resolution)
 
-### tests/torch/test_config_bridge.py
-- Added `test_training_config_subsample_seed_from_dataconfig` (lines 834-864)
-- Added `test_training_config_subsample_seed_override` (lines 866-897)
+### ptycho_torch/inference.py (lines 318-320)
+- At start of _run_inference_and_reconstruct, add defensive guard:
+  model.to(device) and model.eval()
+- Updated docstring to document DEVICE-MISMATCH-001 fix
+- Ensures model is on correct device even if CLI forgot to move it
+
+## Regression Tests
+
+### tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_backend_moves_model_to_execution_device (lines 483-599)
+- Mocks PyTorch model with tracked .to() and .eval() calls
+- Simulates CLI logic: load bundle → build execution_config → resolve device → call model.to(device)
+- Asserts model.to('cuda') and model.eval() are called
+- Verifies device string derivation from torch_accelerator flag
+
+### tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_accelerator_flag_roundtrip (lines 202-282)
+- Directly calls _run_inference_and_reconstruct with mocked model
+- Tracks model.to() and model.eval() calls
+- Verifies helper honors device parameter and moves model before forward pass
+- Uses 'cuda' device to match production usage
 
 ## Test Evidence
 
-### Config Bridge Parity Tests (GREEN)
-- Selector: `pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity -vv`
-- Log: `green/pytest_config_bridge.log`
-- Result: **47 PASSED, 18 warnings, 3.65s**
-- Coverage: All spec-mandated fields (pad_object, gaussian_smoothing_sigma, subsample_seed, train_data_file, test_data_file, n_groups, output_dir) validated through dataclass→bridge→params.cfg pipeline
+### Green pytest log: green/pytest_pytorch_inference_device.log
+```
+tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_backend_moves_model_to_execution_device PASSED
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_accelerator_flag_roundtrip PASSED
+2 passed in 3.98s
+```
 
-### PyTorch CLI Smoke Test (PARTIAL SUCCESS)
-- Training (existing): `cli/pytorch_cli_smoke_training/train_clean.log` (completed 2025-11-12)
-- Inference (CPU): `cli/pytorch_cli_smoke_training/inference_cpu.log` (completed 2025-11-12T19:31)
-- Command:
-  ```bash
-  python scripts/inference/inference.py \
-    --model_path "$HUB"/cli/pytorch_cli_smoke_training/train_outputs \
-    --test_data tests/fixtures/pytorch_integration/minimal_dataset_v1.npz \
-    --backend pytorch --torch-accelerator cpu --torch-num-workers 0 \
-    --torch-inference-batch-size 2 \
-    --output_dir "$HUB"/cli/pytorch_cli_smoke_training/inference_outputs
-  ```
-- Result: **SUCCESS** on CPU accelerator
-- Outputs:
-  - `inference_outputs/reconstructed_amplitude.png` (24K)
-  - `inference_outputs/reconstructed_phase.png` (18K)
-  - Amplitude range: [0.0000, 128.3294]
-  - Phase range: [-3.1261, 3.1416]
-  - 64 images processed
+Selector:
+pytest tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_backend_moves_model_to_execution_device tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_accelerator_flag_roundtrip -vv
 
-### Known Blocker (CUDA Device Mismatch — DEVICE-MISMATCH-001)
-- Log: `red/blocked_2025-11-13T033117Z_device_mismatch.md`
-- Error: `Input type (torch.cuda.FloatTensor) and weight type (torch.FloatTensor) should be the same`
-- Impact: PyTorch inference with `--torch-accelerator cuda` fails because loaded model weights remain on CPU
-- Workaround: Use `--torch-accelerator cpu` for inference smoke tests until the model-to-device fix lands
-- Root cause: bundle-loaded Lightning modules never call `model.to(device)` when the CLI selects CUDA
-- Next: Move the inference model/tensors to the requested accelerator inside `scripts/inference/inference.py`/`ptycho_torch/inference.py::_run_inference_and_reconstruct`, add a regression test, and rerun the CUDA CLI smoke.
+## CUDA Inference Evidence
 
-## Config Parity Status
+### cli/pytorch_cli_smoke_training/inference_cuda.log
+Command:
+```bash
+CUDA_VISIBLE_DEVICES="0" python scripts/inference/inference.py \
+  --model_path plans/active/.../train_outputs \
+  --test_data tests/fixtures/pytorch_integration/minimal_dataset_v1.npz \
+  --backend pytorch \
+  --torch-accelerator cuda \
+  --torch-num-workers 0 \
+  --torch-inference-batch-size 2 \
+  --output_dir .../inference_outputs_cuda
+```
 
-All spec-mandated fields now flow through PyTorch dataclasses→config_bridge→TensorFlow dataclasses→params.cfg without ad-hoc overrides:
+Key log lines:
+- "PyTorch model moved to device: cuda" (confirms model.to() called at CLI level)
+- "Running inference on 64 images..." (from _run_inference_and_reconstruct)
+- "Inference process completed successfully."
+- Generated: reconstructed_amplitude.png (24K), reconstructed_phase.png (18K)
 
-| Field | PyTorch Source | TensorFlow Target | Status |
-|-------|---------------|------------------|--------|
-| pad_object | ModelConfig.pad_object | ModelConfig.pad_object | ✅ PASS |
-| gaussian_smoothing_sigma | ModelConfig.gaussian_smoothing_sigma | ModelConfig.gaussian_smoothing_sigma | ✅ PASS |
-| subsample_seed | DataConfig.subsample_seed | TrainingConfig.subsample_seed | ✅ PASS |
-| train_data_file | TrainingConfig.train_data_file | TrainingConfig.train_data_file | ✅ PASS |
-| test_data_file | TrainingConfig.test_data_file | TrainingConfig.test_data_file | ✅ PASS |
-| output_dir | TrainingConfig.output_dir | TrainingConfig.output_dir | ✅ PASS |
-| n_groups | TrainingConfig.n_groups | TrainingConfig.n_groups | ✅ PASS |
+No device mismatch errors. Amplitude range: [0.0000, 128.3215], Phase range: [-3.1259, 3.1416]
 
-## Exit Criteria Assessment
+## GPU Environment
+- GPU: NVIDIA GeForce RTX 3090 (24576 MiB)
+- Driver: 570.195.03
+- CUDA: 12.8
+- PyTorch: 2.8.0+cu128
 
-Phase R (Config Defaults Backfill) exit criteria:
-- [x] Spec-mandated defaults exist in `ptycho_torch/config_params.py` dataclasses
-- [x] Config bridge propagates new fields without hardcoded overrides  
-- [x] Config factory constructors support new fields via overrides parameter
-- [x] Parity tests validate complete field flow (47 PASSED)
-- [x] PyTorch CLI smoke test completes inference (CPU workaround for device bug)
-- [x] Hub evidence captured (`green/`, `cli/`, `red/`, `analysis/`)
-
-**Status:** Phase R objectives COMPLETE. Config defaults parity achieved; remaining device mismatch is a separate inference execution issue (not config parity blocker).
+## Policy Compliance
+- POLICY-001: PyTorch ≥2.2 required and installed (2.8.0+cu128)
+- CONFIG-001: update_legacy_dict handled by load_inference_bundle_with_backend
+- CONFIG-LOGGER-001: execution_config built via build_execution_config_from_args
+- DEVICE-MISMATCH-001: Fixed with this commit
 
 ## References
-- Spec: docs/specs/spec-ptycho-config-bridge.md
-- Finding: CONFIG-001 (config bridge flow), POLICY-001 (PyTorch mandatory)
-- Commit: dd0a5b0e
-- Plan: plans/ptychodus_pytorch_integration_plan.md (Phase R section)
+- Finding: docs/findings.md DEVICE-MISMATCH-001
+- Plan: plans/ptychodus_pytorch_integration_plan.md (Phase R)
+- Input brief: input.md Do Now steps 2-6
+- Blocker (pre-fix): plans/active/.../red/blocked_2025-11-13T033117Z_device_mismatch.md

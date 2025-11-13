@@ -1,4 +1,10 @@
 ### Turn Summary
+Fixed DEVICE-MISMATCH-001 by moving bundle-loaded models to execution device in both CLI and helper layers.
+Added regression tests verifying model.to(device) + model.eval() calls; GREEN pytest (2 PASSED in 3.98s).
+CUDA inference now succeeds with logged device placement and generated amplitude/phase PNGs (24K/18K).
+Artifacts: commit 85478a67, green/pytest_pytorch_inference_device.log, cli/pytorch_cli_smoke_training/inference_cuda.log, inference_outputs_cuda/*.png, analysis/artifact_inventory.txt
+
+### Turn Summary
 Documented DEVICE-MISMATCH-001 and pivoted the INTEGRATE-PYTORCH-PARITY-001 plan/fix-plan onto the CUDA device-placement fix.
 Backfilled docs/findings, plan_update, and Do Now so Ralph implements `model.to(device)`, adds regression tests, and reruns the CUDA CLI smoke with the refreshed evidence expectations.
 Next: Ralph updates `scripts/inference/inference.py` + `ptycho_torch/inference.py` for device placement, adds the pytest guard, runs the CUDA CLI command, and refreshes the hub inventory/logs.
