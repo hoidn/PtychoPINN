@@ -53,13 +53,13 @@
   - Phase range: [-3.1261, 3.1416]
   - 64 images processed
 
-### Known Blocker (CUDA Device Mismatch)
-- Log: `red/blocked_20251112T193051Z_device_mismatch.md`
+### Known Blocker (CUDA Device Mismatch — DEVICE-MISMATCH-001)
+- Log: `red/blocked_2025-11-13T033117Z_device_mismatch.md`
 - Error: `Input type (torch.cuda.FloatTensor) and weight type (torch.FloatTensor) should be the same`
 - Impact: PyTorch inference with `--torch-accelerator cuda` fails because loaded model weights remain on CPU
-- Workaround: Use `--torch-accelerator cpu` for inference smoke tests
-- Root cause: `load_torch_bundle` does not move model to requested accelerator device
-- Next: File finding DEVICE-MISMATCH-001 and fix model.to(device) in inference path
+- Workaround: Use `--torch-accelerator cpu` for inference smoke tests until the model-to-device fix lands
+- Root cause: bundle-loaded Lightning modules never call `model.to(device)` when the CLI selects CUDA
+- Next: Move the inference model/tensors to the requested accelerator inside `scripts/inference/inference.py`/`ptycho_torch/inference.py::_run_inference_and_reconstruct`, add a regression test, and rerun the CUDA CLI smoke.
 
 ## Config Parity Status
 

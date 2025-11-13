@@ -1,4 +1,10 @@
 ### Turn Summary
+Documented DEVICE-MISMATCH-001 and pivoted the INTEGRATE-PYTORCH-PARITY-001 plan/fix-plan onto the CUDA device-placement fix.
+Backfilled docs/findings, plan_update, and Do Now so Ralph implements `model.to(device)`, adds regression tests, and reruns the CUDA CLI smoke with the refreshed evidence expectations.
+Next: Ralph updates `scripts/inference/inference.py` + `ptycho_torch/inference.py` for device placement, adds the pytest guard, runs the CUDA CLI command, and refreshes the hub inventory/logs.
+Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/analysis/artifact_inventory.txt
+
+### Turn Summary
 Closed the execution-config Do Now: commit 9daa00b7 adds the manual-optimization guard and supervised-data detection in `_train_with_lightning`, refreshed docs/tests, and landed a clean PINN-mode training CLI log plus artifacts under the active hub.
 Documented the new evidence in the artifact inventory + red blockers (supervised data still missing) and noted that the inference half of the PINN smoke needs to be rerun against `train_outputs/wts.h5.zip`.
 Next: add spec-mandated defaults to `ptycho_torch/config_params.py`, update `config_factory`/`config_bridge` so the TensorFlow bridge no longer relies on ad-hoc overrides, extend `tests/torch/test_config_bridge.py`, rerun the parity selector, and capture a fresh PyTorch inference CLI log with the new bundle.

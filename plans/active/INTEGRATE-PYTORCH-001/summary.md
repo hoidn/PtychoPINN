@@ -1,4 +1,10 @@
 ### Turn Summary
+Documented DEVICE-MISMATCH-001 and pivoted the INTEGRATE-PYTORCH-PARITY-001 plan/fix-plan onto the CUDA device-placement fix.
+Backfilled docs/findings, plan_update, and Do Now so Ralph implements `model.to(device)`, adds regression tests, and reruns the CUDA CLI smoke with the refreshed evidence expectations.
+Next: Ralph updates `scripts/inference/inference.py` + `ptycho_torch/inference.py` for device placement, adds the pytest guard, runs the CUDA CLI command, and refreshes the hub inventory/logs.
+Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/analysis/artifact_inventory.txt
+
+### Turn Summary
 Validated config defaults backfill (commit dd0a5b0e): all spec-mandated fields now flow through PyTorch dataclasses without ad-hoc overrides, proven by 47 PASSED parity tests.
 Reran PyTorch inference CLI against the trained bundle; succeeded on CPU accelerator with amplitude/phase PNGs generated, but CUDA path blocked by device mismatch (model weights on CPU vs inputs on GPU).
 Next: either fix model.to(device) in load_torch_bundle or _run_inference_and_reconstruct, then retest CUDA inference before closing Phase R.
@@ -33,7 +39,7 @@ Added 2 new parity tests validating `subsample_seed` propagation with correct ov
 - Inference (CPU): SUCCESS — generated `reconstructed_amplitude.png` (24K) and `reconstructed_phase.png` (18K)
 - Inference (CUDA): BLOCKED — device mismatch (`torch.cuda.FloatTensor` vs `torch.FloatTensor`)
 - Log: `cli/pytorch_cli_smoke_training/inference_cpu.log`
-- Blocker: `red/blocked_20251112T193051Z_device_mismatch.md`
+- Blocker: `red/blocked_2025-11-13T033117Z_device_mismatch.md`
 
 ### Exit Criteria Assessment
 
@@ -49,7 +55,7 @@ Phase R objectives:
 
 ### Known Issues
 
-**CUDA Device Mismatch (documented in findings TBD):**
+**CUDA Device Mismatch (DEVICE-MISMATCH-001):**
 - Model loaded via `load_torch_bundle` remains on CPU even when `--torch-accelerator cuda` specified
 - Inference code moves input tensors to CUDA but model weights stay on CPU
 - Workaround: Use CPU accelerator for smoke tests
@@ -57,12 +63,9 @@ Phase R objectives:
 
 ### Next Actions
 
-1. File finding DEVICE-MISMATCH-001 in `docs/findings.md`
-2. Fix device placement in either:
-   - `ptycho_torch/model_manager.py::load_torch_bundle` (accept device parameter), OR
-   - `ptycho_torch/workflows/components.py::_run_inference_and_reconstruct` (move model to execution_config.accelerator)
-3. Rerun CUDA inference smoke test
-4. Update ledger to mark Phase R complete and pivot to next Do Now
+1. Reference DEVICE-MISMATCH-001 in `docs/findings.md` for all PyTorch inference work and keep the hub blockers in sync.
+2. Fix device placement by moving bundle-loaded Lightning modules to the execution-config accelerator in `scripts/inference/inference.py`/`ptycho_torch/inference.py::_run_inference_and_reconstruct`, then rerun the CUDA inference smoke test.
+3. Update the plan/fix-plan/input ledger once CUDA inference evidence is green and Phase R is completely closed out.
 
 ### References
 - Commit: dd0a5b0e
