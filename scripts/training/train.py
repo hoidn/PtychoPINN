@@ -22,10 +22,10 @@ from ptycho.workflows.components import (
     parse_arguments,
     setup_configuration,
     load_data,
-    run_cdi_example,
     save_outputs,
     logger
 )
+from ptycho.workflows.backend_selector import run_cdi_example_with_backend
 from ptycho.config.config import TrainingConfig, update_legacy_dict
 from ptycho import model_manager, params
 
@@ -173,9 +173,19 @@ def main() -> None:
             test_data = load_data(str(config.test_data_file))
             logger.info(f"Loaded test data from {config.test_data_file}")
 
-        recon_amp, recon_phase, results = run_cdi_example(ptycho_data, test_data, config, do_stitching=args.do_stitching)
-        model_manager.save(str(config.output_dir))
-        save_outputs(recon_amp, recon_phase, results, str(config.output_dir))
+        recon_amp, recon_phase, results = run_cdi_example_with_backend(ptycho_data, test_data, config, do_stitching=args.do_stitching)
+
+        # TensorFlow-only persistence: only save via model_manager and save_outputs for TensorFlow backend
+        # PyTorch workflows use save_torch_bundle inside the backend workflow
+        if config.backend == 'tensorflow':
+            model_manager.save(str(config.output_dir))
+            save_outputs(recon_amp, recon_phase, results, str(config.output_dir))
+            logger.info("TensorFlow artifacts saved via model_manager and save_outputs")
+        else:
+            # PyTorch backend relies on internal persistence; log manifest location if available
+            logger.info(f"PyTorch backend completed. Check {config.output_dir} for saved bundles.")
+            if 'bundle_path' in results:
+                logger.info(f"PyTorch bundle saved at: {results['bundle_path']}")
     except Exception as e:
         logger.error(f"An error occurred during execution: {e}")
         raise

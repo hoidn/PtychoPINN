@@ -36,7 +36,8 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from ptycho import probe, params
 from ptycho.raw_data import RawData
-from ptycho.workflows.components import load_data, setup_configuration, parse_arguments, load_inference_bundle
+from ptycho.workflows.components import load_data, setup_configuration, parse_arguments
+from ptycho.workflows.backend_selector import load_inference_bundle_with_backend
 from ptycho.config.config import InferenceConfig, ModelConfig, validate_inference_config, update_legacy_dict
 
 # Set up logging
@@ -435,13 +436,13 @@ def main():
                 print(f"WARNING: n_subsample ({n_subsample}) may be too small to create {n_images} "
                      f"groups of size {config.model.gridsize}². Consider increasing n_subsample to at least {min_required}")
         
-        # Note: update_legacy_dict() removed - ModelManager.load_model() will restore
-        # the authoritative configuration from the saved model artifact, making this
-        # initial update redundant. The loaded model's params take precedence.
+        # Note: update_legacy_dict() is called inside load_inference_bundle_with_backend
+        # (via the backend-specific loader) to restore params.cfg from the saved model artifact.
+        # The loaded model's params take precedence per CONFIG-001.
 
-        # Load model using centralized function
+        # Load model using backend selector
         print("Loading model...")
-        model, _ = load_inference_bundle(config.model_path)
+        model, _ = load_inference_bundle_with_backend(config.model_path, config)
 
         # Load test data with new independent sampling parameters
         print("Loading test data...")
