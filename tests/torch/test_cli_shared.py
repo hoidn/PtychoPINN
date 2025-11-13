@@ -120,23 +120,48 @@ class TestResolveAccelerator:
 
     def test_all_accelerator_values_passthrough(self):
         """
-        RED Test: All valid accelerator values pass through unchanged when device=None.
+        RED Test: Valid accelerator values (except 'auto') pass through unchanged when device=None.
 
         Expected RED Failure:
         - ImportError: cannot import name 'resolve_accelerator'
 
         Success Criteria (GREEN):
-        - Each accelerator value returns unchanged
-        - No warnings emitted
+        - Each non-'auto' accelerator value returns unchanged
+        - No warnings emitted for explicit accelerators
         """
         from ptycho_torch.cli.shared import resolve_accelerator
 
-        valid_accelerators = ['auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps']
+        # 'auto' is now special-cased for CUDA detection, so exclude it here
+        explicit_accelerators = ['cpu', 'gpu', 'cuda', 'tpu', 'mps']
 
-        for accel in valid_accelerators:
+        for accel in explicit_accelerators:
             result = resolve_accelerator(accel, None)
             assert result == accel, \
                 f"Expected accelerator='{accel}' to pass through unchanged, got '{result}'"
+
+    def test_resolve_accelerator_auto_defaults(self):
+        """
+        Test: resolve_accelerator('auto', None) auto-detects: CUDA if available, else CPU.
+
+        Success Criteria (GREEN):
+        - When CUDA available: returns 'cuda'
+        - When CUDA unavailable: returns 'cpu' + emits POLICY-001 UserWarning
+        - Auto-detection aligns with GPU baseline policy
+        """
+        from ptycho_torch.cli.shared import resolve_accelerator
+        import torch
+
+        if torch.cuda.is_available():
+            # CUDA available: should resolve to 'cuda' without warnings
+            result = resolve_accelerator('auto', None)
+            assert result == 'cuda', \
+                f"Expected 'auto' to resolve to 'cuda' when CUDA available, got '{result}'"
+        else:
+            # CUDA unavailable: should resolve to 'cpu' with POLICY-001 warning
+            with pytest.warns(UserWarning, match="POLICY-001"):
+                result = resolve_accelerator('auto', None)
+            assert result == 'cpu', \
+                f"Expected 'auto' to resolve to 'cpu' when CUDA unavailable, got '{result}'"
 
 
 class TestBuildExecutionConfig:

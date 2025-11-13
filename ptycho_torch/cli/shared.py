@@ -25,17 +25,18 @@ from typing import Optional
 
 def resolve_accelerator(accelerator: str = 'auto', device: Optional[str] = None) -> str:
     """
-    Resolve accelerator from CLI args, handling --device deprecation.
+    Resolve accelerator from CLI args, handling --device deprecation and auto-detection.
 
     Args:
         accelerator: Value from --accelerator flag (default: 'auto')
         device: Value from --device flag (deprecated, optional)
 
     Returns:
-        Resolved accelerator string ('cpu', 'gpu', 'cuda', 'tpu', 'mps', 'auto')
+        Resolved accelerator string ('cpu', 'gpu', 'cuda', 'tpu', 'mps')
 
     Emits:
         DeprecationWarning if device is specified
+        UserWarning if 'auto' resolves to CPU due to unavailable CUDA (POLICY-001)
 
     Examples:
         >>> resolve_accelerator('cpu', None)
@@ -44,11 +45,15 @@ def resolve_accelerator(accelerator: str = 'auto', device: Optional[str] = None)
         'gpu'
         >>> resolve_accelerator('cpu', 'cuda')  # Conflict: accelerator wins
         'cpu'
+        >>> resolve_accelerator('auto', None)  # Auto-detection: CUDA if available, else CPU with warning
+        'cuda'
 
     Notes:
+        - 'auto' now auto-detects: prefers CUDA if available, falls back to CPU with POLICY-001 warning
         - Legacy --device='cuda' maps to accelerator='gpu' (Lightning convention)
         - If both flags specified, --accelerator takes precedence
-        - Emits DeprecationWarning in both cases for migration guidance
+        - Emits DeprecationWarning for --device usage
+        - POLICY-001 enforcement: GPU baseline is required; CPU fallback emits actionable warning
     """
     resolved = accelerator
 
@@ -69,6 +74,32 @@ def resolve_accelerator(accelerator: str = 'auto', device: Optional[str] = None)
             stacklevel=2
         )
         # resolved = accelerator (no change)
+
+    # Auto-detection: prefer CUDA, fallback to CPU with POLICY-001 warning
+    if resolved == 'auto':
+        try:
+            import torch
+            if torch.cuda.is_available():
+                resolved = 'cuda'
+            else:
+                resolved = 'cpu'
+                warnings.warn(
+                    "POLICY-001: PyTorch GPU baseline is recommended. "
+                    "CUDA is not available; falling back to CPU. "
+                    "Install CUDA-enabled PyTorch for optimal performance: "
+                    "see https://pytorch.org/get-started/locally/",
+                    UserWarning,
+                    stacklevel=2
+                )
+        except ImportError:
+            # torch not available (should not happen with POLICY-001, but handle gracefully)
+            resolved = 'cpu'
+            warnings.warn(
+                "POLICY-001: PyTorch is not available. Falling back to CPU accelerator. "
+                "Install PyTorch with CUDA support: see https://pytorch.org/get-started/locally/",
+                UserWarning,
+                stacklevel=2
+            )
 
     return resolved
 

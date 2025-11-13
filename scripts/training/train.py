@@ -249,9 +249,11 @@ def parse_arguments():
     # PyTorch-only execution flags (see docs/workflows/pytorch.md §12)
     parser.add_argument("--torch-accelerator", type=str,
                        choices=['auto', 'cpu', 'cuda', 'gpu', 'mps', 'tpu'],
-                       default='auto',
+                       default='cuda',
                        help="PyTorch accelerator for training (only applies when --backend pytorch). "
-                            "Options: 'auto' (default, auto-detect), 'cpu', 'cuda'/'gpu', 'mps', 'tpu'. "
+                            "Options: 'cuda' (default GPU baseline), 'auto' (auto-detect with CUDA preference), "
+                            "'cpu' (fallback), 'gpu', 'mps', 'tpu'. "
+                            "Override with '--torch-accelerator cpu' for CPU-only runs. "
                             "See docs/workflows/pytorch.md §12 for details.")
     parser.add_argument("--torch-deterministic", action='store_true',
                        default=True,
