@@ -944,14 +944,13 @@ def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_
                 # (e.g., padded_size=158 becomes 157). We cannot use _flat_to_channel when sizes
                 # don't match because reshape will fail. Instead, align each translated patch to
                 # canvas size, then sum. Shape: batch_translated is (batch_size, H, W, 1)
-                canvas_h = tf.shape(canvas)[1]  # padded_size
-                canvas_w = tf.shape(canvas)[2]  # padded_size
+                # Use static padded_size for graph mode compatibility (shape_invariants requirement)
 
                 # Resize each translated patch to match canvas dimensions before accumulation
                 # This preserves overlap semantics since we're just padding/cropping before
                 # summing, not changing the weights within the translated region
                 def resize_single(img):
-                    return tf.image.resize_with_crop_or_pad(img, canvas_h, canvas_w)
+                    return tf.image.resize_with_crop_or_pad(img, padded_size, padded_size)
 
                 batch_aligned = tf.map_fn(
                     resize_single,
