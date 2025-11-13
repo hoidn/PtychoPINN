@@ -940,18 +940,8 @@ def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_
                 batch_imgs_padded = pad_patches(batch_imgs, padded_size)
                 batch_translated = Translation(jitter_stddev=0.0, use_xla=should_use_xla())([batch_imgs_padded, -batch_offsets])
                 # Sum directly over batch dimension to accumulate onto canvas
-                # Shape: (batch_size_actual, padded_size?, padded_size?, 1) -> (1, padded_size?, padded_size?, 1)
-                # Note: Translation may slightly change dimensions due to interpolation
+                # Shape: (batch_size_actual, padded_size, padded_size, 1) -> (1, padded_size, padded_size, 1)
                 batch_summed = tf.reduce_sum(batch_translated, axis=0, keepdims=True)
-                # Ensure shape matches canvas exactly using resize_with_crop_or_pad
-                # This handles both padding (if result is smaller) and cropping (if result is larger)
-                canvas_h = tf.shape(canvas)[1]
-                canvas_w = tf.shape(canvas)[2]
-                # Remove batch dimension, apply resize, then add it back
-                batch_summed_squeezed = tf.squeeze(batch_summed, axis=0)  # (H, W, 1)
-                batch_summed_resized = tf.image.resize_with_crop_or_pad(
-                    batch_summed_squeezed, canvas_h, canvas_w)  # (canvas_h, canvas_w, 1)
-                batch_summed = tf.expand_dims(batch_summed_resized, axis=0)  # (1, canvas_h, canvas_w, 1)
                 return batch_summed
             
             def skip_batch():
