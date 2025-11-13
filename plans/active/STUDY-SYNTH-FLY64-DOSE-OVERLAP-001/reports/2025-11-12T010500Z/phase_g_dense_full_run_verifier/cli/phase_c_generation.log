@@ -25,3 +25,61 @@ WARNING:tensorflow:From /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/sit
 Instructions for updating:
 Please pass an integer value for `reinterpreted_batch_ndims`. The current behavior corresponds to `reinterpreted_batch_ndims=tf.size(distribution.batch_shape_tensor()) - 1`.
 2025-11-13 02:00:46.959087: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence
+INFO: Filtering to single dose: 1000.0
+================================================================================
+Phase C: fly64 Dose Sweep Dataset Generation
+================================================================================
+Base dataset: tike_outputs/fly001_reconstructed_final_prepared/fly001_reconstructed_interp_smooth_both.npz
+Output root:  /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c
+Dose levels:  [1000.0]
+================================================================================
+
+
+============================================================
+Generating dataset for dose=1e+03 photons
+Output directory: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000
+============================================================
+
+[Stage 1/5] Simulating diffraction patterns...
+--- Configuration Updated for Simulation ---
+Current Parameters:
+--------------------
+N: 128
+amp_activation: sigmoid
+backend: tensorflow
+batch_size: 16
+bigN: 128
+big_gridsize: 10
+data_source: generic
+debug: True
+default_probe_scale: 0.7
+enable_oversampling: False
+gaussian_smoothing_sigma: 0.0
+gridsize: 1
+h5_path: wts.h5
+intensity_scale.trainable: True
+label: 
+mae_weight: 0.0
+max_position_jitter: 10
+model_type: pinn
+n_filters_scale: 2
+n_groups: 10304
+n_images: 10304
+neighbor_count: 4
+nepochs: 50
+nimgs_test: 3
+nimgs_train: 9
+nll_weight: 1.0
+nphotons: 1000
+npseed: 42
+object.big: True
+offset: 4
+outer_offset_test: None
+outer_offset_train: None
+output_prefix: training_outputs
+pad_object: True
+positions.provided: True
+probe.big: True
+probe.mask: False
+probe.trainable: False
+probe_scale: 4.0
