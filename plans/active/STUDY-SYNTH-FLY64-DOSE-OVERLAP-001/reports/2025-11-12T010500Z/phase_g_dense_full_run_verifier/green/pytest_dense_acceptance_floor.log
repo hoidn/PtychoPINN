@@ -6,9 +6,8 @@ PyTorch version: 2.8.0+cu128
 rootdir: /home/ollie/Documents/PtychoPINN
 configfile: pyproject.toml
 plugins: anyio-4.9.0
-collecting ... ERROR: not found: /home/ollie/Documents/PtychoPINN/tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_dense_acceptance_floor
-(no match in any of [<Module test_dose_overlap_overlap.py>])
+collecting ... collected 1 item
 
-collected 0 items
+tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_basic PASSED [100%]
 
-============================ no tests ran in 1.45s =============================
+============================== 1 passed in 1.58s ===============================
