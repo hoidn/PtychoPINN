@@ -111,10 +111,15 @@ def load_pinn_model(model_dir: Path) -> tf.keras.Model:
 
 
 def load_baseline_model(baseline_dir: Path) -> tf.keras.Model:
-    """Load the Keras baseline model."""
+    """Load the baseline model.
+
+    Priority:
+    1) legacy Keras file baseline_model.h5 within baseline_dir
+    2) TF bundle via load_inference_bundle(baseline_dir) (expects wts.h5.zip)
+    """
     logger.info(f"Loading Baseline model from {baseline_dir}...")
-    
-    # Find the baseline model file
+
+    # Try legacy Keras path first
     baseline_model_path = None
     for root, dirs, files in os.walk(baseline_dir):
         for file in files:
@@ -123,12 +128,15 @@ def load_baseline_model(baseline_dir: Path) -> tf.keras.Model:
                 break
         if baseline_model_path:
             break
-    
-    if baseline_model_path is None or not baseline_model_path.exists():
-        raise FileNotFoundError(f"Baseline model not found in: {baseline_dir}")
-    
-    logger.info(f"Found baseline model at: {baseline_model_path}")
-    return tf.keras.models.load_model(baseline_model_path)
+
+    if baseline_model_path and baseline_model_path.exists():
+        logger.info(f"Found baseline model at: {baseline_model_path}")
+        return tf.keras.models.load_model(baseline_model_path)
+
+    # Fallback: treat baseline_dir as a TF bundle directory (wts.h5.zip)
+    logger.info("baseline_model.h5 not found; attempting to load TF bundle (wts.h5.zip)")
+    baseline_model, _ = load_inference_bundle(baseline_dir)
+    return baseline_model
 
 
 def load_tike_reconstruction(tike_path: Path) -> tuple:

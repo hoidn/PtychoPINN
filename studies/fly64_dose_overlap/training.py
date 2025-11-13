@@ -245,6 +245,35 @@ def build_training_jobs(
 BackendLiteral = Literal['tensorflow', 'pytorch']
 
 
+def _infer_patch_size(npz_path: str | Path) -> int:
+    """Infer patch size N from an NPZ file (diffraction or probeGuess).
+
+    Prefers diffraction array shape (N,H,W) → returns H. Falls back to
+    probeGuess.shape[0] when present. Defaults to 64 if inference fails.
+    """
+    from pathlib import Path as _Path
+    import numpy as _np
+
+    try:
+        p = _Path(npz_path)
+        with _np.load(p, allow_pickle=True) as d:
+            if 'diffraction' in d:
+                arr = d['diffraction']
+                if arr.ndim == 3:
+                    return int(arr.shape[1])
+            if 'diff3d' in d:
+                arr = d['diff3d']
+                if arr.ndim == 3:
+                    # diff3d convention is (N,H,W)
+                    return int(arr.shape[1])
+            if 'probeGuess' in d:
+                pg = d['probeGuess']
+                return int(pg.shape[0])
+    except Exception:
+        pass
+    return 64
+
+
 def run_training_job(
     job: TrainingJob,
     runner: Callable,
@@ -338,8 +367,9 @@ def run_training_job(
         return summary
 
     # Step 4: Construct TrainingConfig dataclass for CONFIG-001 bridge
-    # Create ModelConfig with gridsize
-    model_config = ModelConfig(gridsize=job.gridsize)
+    # Create ModelConfig with gridsize and inferred patch size N from dataset
+    inferred_N = _infer_patch_size(job.train_data_path)
+    model_config = ModelConfig(gridsize=job.gridsize, N=inferred_N)
 
     # Create TrainingConfig with essential fields
     config = TrainingConfig(

@@ -22,6 +22,7 @@ class ComparisonJob:
     pinn_checkpoint: Path
     baseline_checkpoint: Path
     phase_f_manifest: Path
+    phase_f_root: Path
     ms_ssim_sigma: float = 1.0
     skip_registration: bool = False
     register_ptychi_only: bool = True
@@ -107,10 +108,12 @@ def build_comparison_jobs(
                 pinn_checkpoint = phase_e_root / dose_suffix / view / 'gs2' / 'wts.h5.zip'
                 baseline_checkpoint = phase_e_root / dose_suffix / 'baseline' / 'gs1' / 'wts.h5.zip'
 
-                # Phase F manifest
+                # Phase F manifest (legacy per-split) — may not exist if Phase F writes
+                # a single reconstruction_manifest.json at artifact root. We'll tolerate
+                # missing per-split manifests and fall back later.
                 phase_f_manifest = phase_f_root / f'dose_{dose}_{view}_{split}' / 'manifest.json'
 
-                # Validate paths exist (fail fast)
+                # Validate required Phase C/E paths (fail fast). Phase F is validated later.
                 if not phase_c_npz.exists():
                     raise FileNotFoundError(
                         f"Phase C dataset not found: {phase_c_npz}\n"
@@ -120,8 +123,6 @@ def build_comparison_jobs(
                     raise FileNotFoundError(f"PINN checkpoint not found: {pinn_checkpoint}")
                 if not baseline_checkpoint.exists():
                     raise FileNotFoundError(f"Baseline checkpoint not found: {baseline_checkpoint}")
-                if not phase_f_manifest.exists():
-                    raise FileNotFoundError(f"Phase F manifest not found: {phase_f_manifest}")
 
                 jobs.append(ComparisonJob(
                     dose=dose,
@@ -131,6 +132,7 @@ def build_comparison_jobs(
                     pinn_checkpoint=pinn_checkpoint,
                     baseline_checkpoint=baseline_checkpoint,
                     phase_f_manifest=phase_f_manifest,
+                    phase_f_root=phase_f_root,
                     ms_ssim_sigma=1.0,
                     skip_registration=False,
                     register_ptychi_only=True,
@@ -177,30 +179,28 @@ def execute_comparison_jobs(
         # Construct log path
         log_path = output_dir / "comparison.log"
 
-        # Parse Phase F manifest to get reconstruction output path (cached to avoid redundant IO)
+        # Resolve Phase F reconstruction path. Prefer legacy per-split manifest if present;
+        # otherwise, fall back to the known output layout used by reconstruction.py.
         phase_f_manifest_path = Path(job.phase_f_manifest)
-        if phase_f_manifest_path not in phase_f_manifest_cache:
-            # Read and parse manifest JSON
-            try:
-                with open(phase_f_manifest_path, 'r') as f:
-                    phase_f_manifest_cache[phase_f_manifest_path] = json.load(f)
-            except (FileNotFoundError, json.JSONDecodeError) as e:
-                raise RuntimeError(
-                    f"Failed to read Phase F manifest at {phase_f_manifest_path}: {e}"
-                )
+        tike_recon_path = None
+        if phase_f_manifest_path.exists():
+            if phase_f_manifest_path not in phase_f_manifest_cache:
+                try:
+                    with open(phase_f_manifest_path, 'r') as f:
+                        phase_f_manifest_cache[phase_f_manifest_path] = json.load(f)
+                except (json.JSONDecodeError,) as e:
+                    # Fall back if manifest cannot be parsed
+                    phase_f_manifest_cache[phase_f_manifest_path] = None
+            phase_f_manifest = phase_f_manifest_cache.get(phase_f_manifest_path)
+            if isinstance(phase_f_manifest, dict) and 'output_dir' in phase_f_manifest:
+                phase_f_output_dir = Path(phase_f_manifest['output_dir'])
+                tike_recon_path = phase_f_output_dir / 'ptychi_reconstruction.npz'
 
-        phase_f_manifest = phase_f_manifest_cache[phase_f_manifest_path]
-
-        # Extract output_dir from manifest and construct ptychi_reconstruction.npz path
-        # TYPE-PATH-001: Use Path objects to avoid string/Path mismatches
-        if 'output_dir' not in phase_f_manifest:
-            raise KeyError(
-                f"Phase F manifest missing 'output_dir' field: {phase_f_manifest_path}\n"
-                f"Manifest keys: {list(phase_f_manifest.keys())}"
-            )
-
-        phase_f_output_dir = Path(phase_f_manifest['output_dir'])
-        tike_recon_path = phase_f_output_dir / 'ptychi_reconstruction.npz'
+        # Fallback: derive expected reconstruction path directly under Phase F root
+        # using the known per-split directory that would contain manifest.json
+        if tike_recon_path is None:
+            # Construct from known Phase F root canonical layout
+            tike_recon_path = Path(job.phase_f_root) / f'dose_{job.dose}' / job.view / job.split / 'ptychi_reconstruction.npz'
 
         # Fail fast if reconstruction file does not exist
         if not tike_recon_path.exists():
