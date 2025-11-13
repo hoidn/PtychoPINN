@@ -22,6 +22,17 @@ Initiative Header
   <status>approved</status>
 </plan_update>
 
+<plan_update version="1.1">
+  <trigger>`plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/reports/pytest_translation_fix.log` shows `test_pinn_reconstruction_reassembles_full_train_split` still failing with `InvalidArgumentError: required broadcastable shapes` inside `tf_helper._reassemble_position_batched` (canvas and batch_result are mismatched when `ReassemblePatchesLayer` runs with B=159, C=4).</trigger>
+  <focus_id>FIX-COMPARE-MODELS-TRANSLATION-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md (REASSEMBLY-BATCH-001 / ACCEPTANCE-001 / TEST-CLI-001 / PREVIEW-PHASE-001 / DATA-001), docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/COMMANDS_REFERENCE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/DEVELOPER_GUIDE.md, docs/architecture.md, docs/GRIDSIZE_N_GROUPS_GUIDE.md, specs/data_contracts.md, specs/ptychodus_api_spec.md, specs/overlap_metrics.md, docs/fix_plan.md, plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/{implementation.md,summary.md,reports/pytest_translation_fix.log}, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/{summary.md,implementation.md}, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train/comparison.log, input.md</documents_read>
+  <current_plan_path>plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/implementation.md</current_plan_path>
+  <proposed_changes>Keep the batching-scope authorization but note the regression test already exists and is RED; refine the checklist/Do Now so Ralph focuses on instrumenting `_reassemble_position_batched`, hardening `ReassemblePatchesLayer`, and rerunning both the targeted pytest selector and the train/test CLI reproductions (logs → `$HUB/cli/phase_g_dense_translation_fix_{split}.log`).</proposed_changes>
+  <impacts>Until the batched reassembly guard works, the counted Phase G rerun and all downstream reports stay blocked, so STUDY-SYNTH cannot exit Tier 2 dwell.</impacts>
+  <ledger_updates>Updated docs/fix_plan.md “Latest Attempt” entry, rewrote input.md, refreshed this implementation plan, and prepended the Turn Summary.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
 ## Goal & Success Criteria
 - Restore `scripts/compare_models.py` so it can reconstruct the entire dense train/test splits (5 088 patches each) without the Translation shape mismatch.
 - Deliver regression coverage (`pytest tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split}`) proving the fix.
@@ -55,7 +66,7 @@ Initiative Header
 - [ ] Document the new behavior (module docstring or short comment) so future contributors understand when batching engages.
 
 ### Phase C — Regression coverage & validation
-- [ ] Extend `tests/study/test_dose_overlap_comparison.py` with `test_pinn_reconstruction_reassembles_full_train_split` (or equivalent) that synthesizes/loads >=5 k patches and confirms the layer returns a stitched tensor without raising.
+- [ ] Ensure `tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split}` both pass (update the existing fixtures/test bodies only if required for the new batching behavior).
 - [ ] Run `pytest tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split} -vv | tee "$HUB"/green/pytest_compare_models_translation_fix.log`.
 - [ ] Re-run the train + test `scripts/compare_models.py` commands; verify exit code 0 and refreshed metrics/plots under `analysis/dose_1000/dense/{train,test}`.
 - [ ] Remove or overwrite `analysis/blocker.log`, update `analysis/verification_report.json` summary snippet, and notify STUDY-SYNTH focus that the counted rerun may resume.
@@ -64,7 +75,7 @@ Initiative Header
 1. `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md HUB="$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier"`
 2. Reproduce the failure for both splits using the commands listed in Phase A; keep the logs (`$HUB/cli/phase_g_dense_translation_fix_{train,test}.log`) and add a `$HUB/red/blocked_<timestamp>.md` note if the ValueError still appears.
 3. Modify `ptycho/custom_layers.py` (and supporting helpers in `ptycho/tf_helper.py`) so `ReassemblePatchesLayer` streams patches in chunks (via `mk_reassemble_position_batched_real` / `_reassemble_position_batched`) whenever `patch_count > batch_size`, guaranteeing `Translation` sees matching shapes. Add shape assertions and brief docstrings explaining the batching behavior.
-4. Add the new regression test in `tests/study/test_dose_overlap_comparison.py` that exercises >=5 k dense patches (reuse existing fixtures; keep runtime reasonable). Update existing tests if necessary to cover the new batching flag.
+4. Keep the ≥5 k patch regression test (`tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split`) RED/ GREEN-focused—update fixtures or assertions only if the batching changes require it, then ensure it passes alongside `test_pinn_reconstruction_reassembles_batched_predictions`.
 5. Run `pytest tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split} -vv | tee "$HUB"/green/pytest_compare_models_translation_fix.log`.
 6. Rerun `scripts/compare_models.py` for train and test splits (same args as Phase A, with updated logs). Success criteria: exit 0, refreshed `comparison_metrics.csv`, and no Translation errors; stash logs under `$HUB/cli/phase_g_dense_translation_fix_{train,test}.log`.
 7. Update `analysis/blocker.log` / `{analysis}` summaries to reflect the fix and ping STUDY-SYNTH so the counted Phase G rerun can resume.

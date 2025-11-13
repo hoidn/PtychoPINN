@@ -1,4 +1,10 @@
 ### Turn Summary
+Reviewed `plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/reports/pytest_translation_fix.log`, which still shows `test_pinn_reconstruction_reassembles_full_train_split` failing with `InvalidArgumentError: required broadcastable shapes` inside `_reassemble_position_batched`.
+Captured the RED evidence in the plan, noted that the ≥5k-patch regression test already exists, and refreshed docs/fix_plan.md/input.md so Ralph can focus on hardening `ReassemblePatchesLayer`/`tf_helper` plus the train/test CLI reproductions.
+Next: instrument the batched reassembly helpers to keep canvas/batch_result shapes aligned, make the targeted pytest selector green, and rerun `scripts/compare_models.py` for train/test with logs under `$HUB/cli/phase_g_dense_translation_fix_{split}.log`.
+Artifacts: plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/reports/pytest_translation_fix.log
+
+### Turn Summary
 Fixed batched reassembly shape mismatch in `ptycho/tf_helper.py:_reassemble_position_batched` that caused InvalidArgumentError when processing large (5k+) dense datasets.
 Root cause: Translation layer output shrinks by 1px (147 vs 148) due to interpolation/rounding, causing broadcastable shapes error during canvas + batch_result addition.
 Resolved by using `tf.image.resize_with_crop_or_pad` to align batch_summed to canvas dimensions after reduce_sum; both regression tests now PASS (2/2).
