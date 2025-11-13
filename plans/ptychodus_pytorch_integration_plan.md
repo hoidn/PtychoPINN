@@ -15,7 +15,7 @@
 
 ### Immediate Focus — Phase R (Bridge Reactivation, 2025-11-13)
 
-1. **Wire the configuration bridge in runtime entry points.** In `ptycho_torch/train.py` and `ptycho_torch/inference.py`, instantiate the canonical dataclasses via `config_bridge`, call `update_legacy_dict(params.cfg, config)` before touching `RawData`/loader modules, and raise actionable errors when required overrides (e.g., `train_data_file`, `n_groups`) are missing.
+1. **Wire the configuration bridge in runtime entry points.** In `ptycho_torch/train.py` and `ptycho_torch/inference.py`, instantiate the canonical dataclasses via `config_bridge`, call `update_legacy_dict(params.cfg, config)` before touching `RawData`/loader modules, and raise actionable errors when required overrides (e.g., `train_data_file`, `n_groups`) are missing. See <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref> for the exact mapping and CONFIG-001 flow requirements.
 2. **Backfill spec-mandated defaults in `ptycho_torch/config_params.py`.** Ensure `n_groups`, `test_data_file`, `gaussian_smoothing_sigma`, and related knobs required by `specs/ptychodus_api_spec.md §§5.1-5.3` exist with TensorFlow-parity defaults so the bridge can populate legacy consumers.
 3. **Provide a native persistence shim.** Until the full `.h5.zip` adapter lands, teach `ptycho_torch/api/base_api.py::PtychoModel.save_pytorch()` to emit a Lightning checkpoint + manifest bundle and document how `load_*` surfaces rehydrate configs; keep the implementation small but spec-compliant (§4.6).
 4. **Regression gate.** Every loop must run `pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity -vv` (or a stricter subset) and upload logs under the active hub `plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/`.
@@ -26,7 +26,7 @@
 - Deliver a PyTorch implementation of the PtychoPINN backend that satisfies every contract defined in `specs/ptychodus_api_spec.md`.
 - Keep the existing TensorFlow path fully operational while allowing runtime backend selection from ptychodus.
 - Ensure configuration, data, training, inference, and persistence semantics remain identical for both backends so that third-party tooling can operate without divergence.
-- **Dual Backend Surface:** The PyTorch implementation provides both a high-level API layer (`ptycho_torch/api/base_api.py`) for orchestration and low-level module access for direct integration. The integration strategy must select between these surfaces based on maintainability and spec alignment.
+- **Dual Backend Surface:** The PyTorch implementation provides both a high-level API layer (`ptycho_torch/api/base_api.py`) for orchestration and low-level module access for direct integration. The integration strategy must select between these surfaces based on maintainability and spec alignment. See <doc-ref type="arch">docs/architecture_tf.md</doc-ref> and <doc-ref type="arch">docs/architecture_torch.md</doc-ref> for backend-specific diagrams and component context.
 - **Configuration Bridge as First Milestone:** Establishing dataclass-driven configuration synchronization with `ptycho.params.cfg` is the critical dependency for all downstream workflows and must be completed in Phase 1 before data pipeline or training integration.
 
 ### 2. Authoritative References
