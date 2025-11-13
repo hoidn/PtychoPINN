@@ -102,6 +102,9 @@ sequenceDiagram
 - `workflows/components.py`: Orchestration entry points (`run_cdi_example`, etc.)
 - `model_manager.py`: Multi-model bundle persistence (`wts.h5.zip`)
 
+Config Bridging:
+- Backends share canonical dataclasses; see the config bridge mapping: <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref>
+
 ## 5. Stable Modules & Config Lifecycle
 
 - Do not modify without an approved plan: `ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`.

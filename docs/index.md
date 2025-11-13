@@ -294,6 +294,11 @@ This index provides a comprehensive overview of all available documentation with
 **Keywords:** data-contracts, HDF5, product, metadata, probe, object  
 **Use this when:** Writing/reading product files or converting datasets to the Ptychodus product format.
 
+#### [Config Bridge (TensorFlow ↔ PyTorch)](specs/spec-ptycho-config-bridge.md)
+**Description:** Normative mapping between TensorFlow dataclass configs and PyTorch config singletons, including field transformations (grid_size→gridsize, epochs→nepochs, mode→model_type), defaults/overrides, update_legacy_dict flow, and validation rules.  
+**Keywords:** config, bridge, translation, params.cfg, dataclasses, pytorch  
+**Use this when:** Translating configuration between backends, ensuring CONFIG‑001 compliance, or verifying field mappings.
+
 #### [Overlap Metrics Spec](specs/overlap_metrics.md)
 **Description:** Overlap-driven sampling and reporting for Phase D. Defines three 2D disc-overlap metrics (group-based, image-based, and group↔group COM-based), explicit controls via `s_img` and `n_groups`, and removes spacing/packing acceptance gates.  
 **Keywords:** overlap, metrics, s_img, n_groups, probe-diameter, gridsize  

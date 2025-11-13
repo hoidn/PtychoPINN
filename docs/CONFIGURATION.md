@@ -17,6 +17,17 @@ For backward compatibility, a legacy global dictionary `ptycho.params.cfg` still
 
 This is a one-way data flow: **dataclass → legacy dict**. New code should always accept a configuration dataclass as an argument and should not rely on the global `params` object.
 
+### Backends and Config Bridging
+
+PtychoPINN uses the same canonical configuration dataclasses for both TensorFlow and PyTorch backends. When operating with the PyTorch stack, configs from `ptycho_torch/config_params.py` are translated to the TensorFlow dataclasses via the bridge adapter and then flowed into the legacy `params.cfg`:
+
+```
+PyTorch config_params → ptycho_torch/config_bridge.py → TF dataclasses → update_legacy_dict(params.cfg, config)
+```
+
+- See the normative mapping: <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref>
+- Critical rule (CONFIG‑001): always call `update_legacy_dict(params.cfg, config)` before data loading or legacy module usage.
+
 ## Usage
 
 You can configure a run in two ways, with the following order of precedence:

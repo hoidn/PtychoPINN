@@ -96,6 +96,9 @@ See details and current status in **<doc-ref type="guide">docs/workflows/pytorch
 - Reassembly: Currently reuses TF helper for parity; native Torch reassembly planned
 - Shared modules: `ptycho/raw_data.py`, `config/config.py`, `docs/specs/spec-ptycho-interfaces.md`
 
+Config Bridging:
+- Normative config mapping and bridge flow: <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref>
+
 ## 5. Function & Container Mapping (PyTorch ↔ TF)
 
 - Orchestration: `ptycho_torch.workflows.components.run_cdi_example_torch` ↔ `ptycho.workflows.components.run_cdi_example`

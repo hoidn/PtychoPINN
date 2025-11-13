@@ -9,7 +9,8 @@ TensorFlow workflows while providing Lightning-based training execution.
 - **Architecture parity**: `ptycho_torch/model.py` mirrors the TensorFlow U-Net +
   physics stack described in <doc-ref type="guide">docs/architecture.md</doc-ref>.
 - **Configuration**: Uses the same TensorFlow dataclass configs (`TrainingConfig`, `ModelConfig`)
-  that are automatically translated to PyTorch equivalents via `ptycho_torch.config_bridge`.
+  bridged from PyTorch config singletons via `ptycho_torch.config_bridge`. See the
+  normative mapping: <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref>.
 - **Execution engine**: Training uses PyTorch Lightning (`PtychoPINN_Lightning`) with
   deterministic settings and checkpoint management.
 - **Data contract**: Identical `.npz` requirements as documented in
@@ -199,7 +200,7 @@ for migration guidance away from the legacy API.
 | Aspect | TensorFlow (`ptycho/workflows/components.py`) | PyTorch (`ptycho_torch/workflows/components.py`) |
 |--------|----------------------------------------------|--------------------------------------------------|
 | Training engine | `ptycho.train_pinn.train()` | `lightning.pytorch.Trainer.fit()` |
-| Configuration | Direct `TrainingConfig` dataclass | Auto-translated via `ptycho_torch.config_bridge` |
+| Configuration | Direct `TrainingConfig` dataclass | Bridged via `ptycho_torch.config_bridge` (see spec) |
 | Determinism | Manual seed management | `deterministic=True` + `seed_everything()` |
 | Progress output | Enabled by default | Controlled by `config.debug` |
 | Checkpoints | Keras `.h5` format | Lightning `.ckpt` + bundled `.h5.zip` |
