@@ -124,7 +124,12 @@ from typing import Tuple, Optional, Union, Callable, Any, List
 physical_devices = tf.config.list_physical_devices('GPU')
 if physical_devices:
     os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
-    tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    try:
+        tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    except RuntimeError as err:
+        # Happens if TF context already initialized; skip reconfiguration.
+        if "Physical devices cannot be modified" not in str(err):
+            raise
 else:
     print("No GPU found, using CPU instead.")
 
