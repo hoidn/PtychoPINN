@@ -1038,19 +1038,44 @@ def main():
     baseline_output = baseline_model.predict([baseline_input, baseline_offsets], batch_size=32, verbose=1)
     baseline_inference_time = time.time() - baseline_start
     logger.info(f"Baseline inference completed in {baseline_inference_time:.2f}s")
-    
+
+    # Log baseline output shape before conversion
+    if isinstance(baseline_output, list):
+        logger.info(f"Baseline output format: list with {len(baseline_output)} elements")
+        for idx, elem in enumerate(baseline_output):
+            logger.info(f"  Element {idx} shape: {np.asarray(elem).shape}, dtype: {np.asarray(elem).dtype}")
+    else:
+        logger.info(f"Baseline output format: single tensor, shape: {np.asarray(baseline_output).shape}, dtype: {np.asarray(baseline_output).dtype}")
+
     # Handle different output formats
     if isinstance(baseline_output, list) and len(baseline_output) == 2:
+        # Legacy format: [amplitude, phase]
+        logger.info("Converting baseline output from [amplitude, phase] list format")
         baseline_patches_I, baseline_patches_phi = baseline_output
+        baseline_patches_I = np.asarray(baseline_patches_I, dtype=np.float32)
+        baseline_patches_phi = np.asarray(baseline_patches_phi, dtype=np.float32)
+        baseline_patches_complex = baseline_patches_I.astype(np.complex64) * \
+                                   np.exp(1j * baseline_patches_phi.astype(np.complex64))
+    elif isinstance(baseline_output, np.ndarray) or hasattr(baseline_output, 'numpy'):
+        # Single complex tensor format
+        logger.info("Converting baseline output from single complex tensor format")
+        baseline_output_np = np.asarray(baseline_output)
+        if np.iscomplexobj(baseline_output_np):
+            # Already complex
+            baseline_patches_complex = baseline_output_np.astype(np.complex64)
+            # Extract amplitude and phase for logging
+            baseline_patches_I = np.abs(baseline_patches_complex).astype(np.float32)
+            baseline_patches_phi = np.angle(baseline_patches_complex).astype(np.float32)
+        else:
+            # Single real tensor - interpret as complex (this shouldn't happen but handle it)
+            logger.warning("Baseline output is single real tensor, cannot convert to amplitude/phase")
+            raise ValueError(f"Unexpected baseline model output: single real tensor with shape {baseline_output_np.shape}")
     else:
-        # Some baseline models might output a single array
-        raise ValueError("Unexpected baseline model output format")
-    
-    # Convert to complex representation
-    baseline_patches_I = np.asarray(baseline_patches_I, dtype=np.float32)
-    baseline_patches_phi = np.asarray(baseline_patches_phi, dtype=np.float32)
-    baseline_patches_complex = baseline_patches_I.astype(np.complex64) * \
-                               np.exp(1j * baseline_patches_phi.astype(np.complex64))
+        raise ValueError(f"Unexpected baseline model output format: {type(baseline_output)}")
+
+    # Log shapes after conversion
+    logger.info(f"After conversion - amplitude shape: {baseline_patches_I.shape}, phase shape: {baseline_patches_phi.shape}")
+    logger.info(f"Complex patches shape: {baseline_patches_complex.shape}, dtype: {baseline_patches_complex.dtype}")
     
     # Reassemble patches
     logger.info("Reassembling baseline patches...")
