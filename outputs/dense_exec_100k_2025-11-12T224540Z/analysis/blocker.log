@@ -1,0 +1,3 @@
+Blocked at: /home/ollie/miniconda3/envs/ptycho311/bin/python -m studies.fly64_dose_overlap.comparison --phase-c-root /home/ollie/Documents/PtychoPINN/outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c --phase-e-root /home/ollie/Documents/PtychoPINN/outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e --phase-f-root /home/ollie/Documents/PtychoPINN/outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_f --artifact-root /home/ollie/Documents/PtychoPINN/outputs/dense_exec_100k_2025-11-12T224540Z/analysis --dose 100000 --view dense --split train
+Return code: 1
+Full log: /home/ollie/Documents/PtychoPINN/outputs/dense_exec_100k_2025-11-12T224540Z/cli/phase_g_dense_train.log

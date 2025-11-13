@@ -1,0 +1,26 @@
+Building comparison jobs...
+  Phase C root: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c
+  Phase E root: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e
+  Phase F root: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_f
+  Filters: dose=100000, view=dense, split=train
+
+Built 1 comparison jobs
+Wrote manifest to: outputs/dense_exec_100k_2025-11-12T224540Z/analysis/comparison_manifest.json
+Wrote summary to: outputs/dense_exec_100k_2025-11-12T224540Z/analysis/comparison_summary.txt
+
+==================================================
+EXECUTING COMPARISON JOBS
+==================================================
+
+Executing comparison for dose=100000, view=dense, split=train
+  Output: outputs/dense_exec_100k_2025-11-12T224540Z/analysis/dose_100000/dense/train
+  Log: outputs/dense_exec_100k_2025-11-12T224540Z/analysis/dose_100000/dense/train/comparison.log
+  FAILED (returncode=1)
+
+Updated manifest with execution results: outputs/dense_exec_100k_2025-11-12T224540Z/analysis/comparison_manifest.json
+
+Execution Summary:
+  Total jobs: 1
+  Executed: 1
+  Success: 0
+  Failed: 1

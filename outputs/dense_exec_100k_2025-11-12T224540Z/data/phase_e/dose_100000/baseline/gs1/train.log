@@ -1,0 +1,121 @@
+
+================================================================================
+Phase E5 Training Execution — baseline (dose=1e+05, gridsize=1, backend=tensorflow)
+================================================================================
+Train dataset: /home/ollie/Documents/PtychoPINN/outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000/patched_train.npz
+Test dataset: /home/ollie/Documents/PtychoPINN/outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000/patched_test.npz
+Output directory: /home/ollie/Documents/PtychoPINN/outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/baseline/gs1
+Gridsize: 1
+nphotons: 100000.0
+Backend: tensorflow
+
+Loading datasets via TensorFlow loader...
+Failed to load datasets via TensorFlow loader: IndexError: index 1 is out of bounds for axis 0 with size 1
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/studies/fly64_dose_overlap/training.py", line 445, in _execute_training_job_tensorflow
+    train_data = tf_components.load_data(str(train_path))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 336, in load_data
+    Y=(Y_patches[selected_indices] if Y_patches is not None else None))
+       ~~~~~~~~~^^^^^^^^^^^^^^^^^^
+IndexError: index 1 is out of bounds for axis 0 with size 1
+
+================================================================================
+Phase E5 Training Execution — baseline (dose=1e+05, gridsize=1, backend=tensorflow)
+================================================================================
+Train dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000/patched_train.npz
+Test dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000/patched_test.npz
+Output directory: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/baseline/gs1
+Gridsize: 1
+nphotons: 100000.0
+Backend: tensorflow
+
+Loading datasets via TensorFlow loader...
+Invoking TensorFlow train_cdi_model...
+Training failed: InvalidArgumentError: {{function_node __wrapped__Mul_device_/job:localhost/replica:0/task:0/device:GPU:0}} required broadcastable shapes [Op:Mul] name: 
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/studies/fly64_dose_overlap/training.py", line 464, in _execute_training_job_tensorflow
+    training_results = tf_components.train_cdi_model(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 637, in train_cdi_model
+    probe.set_probe_guess(None, train_container.probe)
+  File "/home/ollie/Documents/PtychoPINN/ptycho/probe.py", line 91, in set_probe_guess
+    set_probe(t_probe_guess)
+  File "/home/ollie/Documents/PtychoPINN/ptycho/probe.py", line 64, in set_probe
+    tamped_probe = mask * probe
+                   ~~~~~^~~~~~~
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py", line 153, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/framework/ops.py", line 6006, in raise_from_not_ok_status
+    raise core._status_to_exception(e) from None  # pylint: disable=protected-access
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tensorflow.python.framework.errors_impl.InvalidArgumentError: {{function_node __wrapped__Mul_device_/job:localhost/replica:0/task:0/device:GPU:0}} required broadcastable shapes [Op:Mul] name: 
+
+================================================================================
+Phase E5 Training Execution — baseline (dose=1e+05, gridsize=1, backend=tensorflow)
+================================================================================
+Train dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000/patched_train.npz
+Test dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000/patched_test.npz
+Output directory: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/baseline/gs1
+Gridsize: 1
+nphotons: 100000.0
+Backend: tensorflow
+
+Loading datasets via TensorFlow loader...
+Invoking TensorFlow train_cdi_model...
+Training failed: InvalidArgumentError: {{function_node __wrapped__Mul_device_/job:localhost/replica:0/task:0/device:GPU:0}} required broadcastable shapes [Op:Mul] name: 
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/studies/fly64_dose_overlap/training.py", line 464, in _execute_training_job_tensorflow
+    training_results = tf_components.train_cdi_model(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 637, in train_cdi_model
+    probe.set_probe_guess(None, train_container.probe)
+  File "/home/ollie/Documents/PtychoPINN/ptycho/probe.py", line 91, in set_probe_guess
+    set_probe(t_probe_guess)
+  File "/home/ollie/Documents/PtychoPINN/ptycho/probe.py", line 64, in set_probe
+    tamped_probe = mask * probe
+                   ~~~~~^~~~~~~
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py", line 153, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/framework/ops.py", line 6006, in raise_from_not_ok_status
+    raise core._status_to_exception(e) from None  # pylint: disable=protected-access
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tensorflow.python.framework.errors_impl.InvalidArgumentError: {{function_node __wrapped__Mul_device_/job:localhost/replica:0/task:0/device:GPU:0}} required broadcastable shapes [Op:Mul] name: 
+
+================================================================================
+Phase E5 Training Execution — baseline (dose=1e+05, gridsize=1, backend=pytorch)
+================================================================================
+Train dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000/patched_train.npz
+Test dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000/patched_test.npz
+Output directory: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/baseline/gs1
+Gridsize: 1
+nphotons: 100000.0
+Backend: pytorch
+
+Instantiating MemmapDatasetBridge for training dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000/patched_train.npz...
+Instantiating MemmapDatasetBridge for test dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000/patched_test.npz...
+Invoking train_cdi_model_torch with config...
+Persisting model bundle to outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/baseline/gs1/wts.h5.zip...
+Model bundle saved: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/baseline/gs1/wts.h5.zip
+Bundle SHA256: 637c4ea87a6d2a5539d9c28e3d60d72b969024a0de932e3a4060727fa501bbf6
+Bundle size: 17396097 bytes
+Training completed successfully
+Final loss: None
+Epochs completed: 0
+Checkpoint path: None
+Bundle path: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/baseline/gs1/wts.h5.zip
+Bundle SHA256: 637c4ea87a6d2a5539d9c28e3d60d72b969024a0de932e3a4060727fa501bbf6
+Bundle size: 17396097 bytes
+
+================================================================================
+Phase E5 Training Execution — baseline (dose=1e+05, gridsize=1, backend=tensorflow)
+================================================================================
+Train dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000/patched_train.npz
+Test dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000/patched_test.npz
+Output directory: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/baseline/gs1
+Gridsize: 1
+nphotons: 100000.0
+Backend: tensorflow
+
+Loading datasets via TensorFlow loader...
+Invoking TensorFlow train_cdi_model...

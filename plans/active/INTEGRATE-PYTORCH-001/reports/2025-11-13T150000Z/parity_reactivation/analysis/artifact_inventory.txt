@@ -1,0 +1,50 @@
+# Artifact Inventory - Phase R PyTorch Parity Reactivation
+# Date: 2025-11-13
+# Focus: INTEGRATE-PYTORCH-PARITY-001
+
+## Code Changes
+
+### 1. Persistence Shim Implementation
+- File: ptycho_torch/api/base_api.py:612-687
+- Change: Implemented save_pytorch() method with Lightning checkpoint + manifest bundle
+- Purpose: Emit backend provenance per specs/ptychodus_api_spec.md §4.6
+- Validation: CONFIG-001 gate ensures params.cfg populated before save
+
+## Test Evidence
+
+### 1. Config Bridge Parity Tests
+- Selector: pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity -vv
+- Result: 45/45 PASSED (100% pass rate)
+- Log: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_config_bridge.log
+- Duration: 3.66s
+- Warnings: 16 UserWarnings about test_data_file (expected, tests focus on MVP fields)
+
+## Findings
+
+### Configuration Bridge Already Complete
+- train.py: Already uses config_factory.create_training_payload() (line 708)
+- inference.py: Already uses config_factory.create_inference_payload() (line 556)
+- Both factories internally call populate_legacy_params() which wraps update_legacy_dict()
+- CONFIG-001 compliance: ✅ VERIFIED
+
+### Missing Defaults Analysis
+- n_groups: Handled by config_bridge.py:250 (expects override, no PyTorch default needed)
+- test_data_file: Handled by config_bridge.py:249 (expects override, no PyTorch default needed)  
+- gaussian_smoothing_sigma: Hardcoded default 0.0 in config_bridge.py:176 (ModelConfig kwargs)
+- Conclusion: No changes needed to config_params.py
+
+### Persistence Shim
+- Implementation: Minimal viable shim per Phase R scope
+- Features: Manifest bundle (backend='pytorch', checkpoint reference, params.cfg snapshot)
+- Future work: Full .h5.zip adapter (Phase 5 of integration plan)
+
+## Exit Criteria Assessment
+
+Phase R Reactivation Checklist:
+- [✅] update_legacy_dict invoked in CLI entry points (via config_factory)
+- [✅] Config defaults + persistence shim merged (save_pytorch() implemented)
+- [✅] Targeted pytest selector green with evidence (45/45 passed)
+- [✅] Hub analysis/artifact_inventory.txt complete (this file)
+- [✅] Summary.md lists code/test paths touched
+
+Status: READY FOR HANDOFF

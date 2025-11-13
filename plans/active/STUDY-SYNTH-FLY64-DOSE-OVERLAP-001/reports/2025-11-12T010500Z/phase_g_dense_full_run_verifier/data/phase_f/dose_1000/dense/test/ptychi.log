@@ -1,0 +1,15 @@
+# PtyChi LSQML Reconstruction Log
+# Job: dose=1000.0, view=dense, split=test
+# Command: python scripts/reconstruction/ptychi_reconstruct_tike.py --algorithm LSQML --num-epochs 100 --input-npz plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d/dose_1000/dense/test.npz --output-dir plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/test
+# Return code: 1
+#============================================================
+
+=== STDERR ===
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/scripts/reconstruction/ptychi_reconstruct_tike.py", line 10, in <module>
+    import torch
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/torch/__init__.py", line 416, in <module>
+    from torch._C import *  # noqa: F403
+    ^^^^^^^^^^^^^^^^^^^^^^
+ImportError: /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/torch/lib/libtorch_cuda.so: undefined symbol: ncclCommWindowRegister
+

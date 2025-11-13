@@ -1,0 +1,13 @@
+
+================================================================================
+Phase E5 Training Execution — baseline (dose=1e+05, gridsize=1, backend=tensorflow)
+================================================================================
+Train dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000/patched_train.npz
+Test dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000/patched_test.npz
+Output directory: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e_tfdebug/dose_100000/baseline/gs1
+Gridsize: 1
+nphotons: 100000.0
+Backend: tensorflow
+
+Loading datasets via TensorFlow loader...
+Invoking TensorFlow train_cdi_model...

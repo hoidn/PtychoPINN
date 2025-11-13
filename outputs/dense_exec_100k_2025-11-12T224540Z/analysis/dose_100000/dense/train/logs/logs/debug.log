@@ -1,0 +1,228 @@
+2025-11-12 16:35:59,294 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
+2025-11-12 16:35:59,295 - INFO - Registration: enabled
+2025-11-12 16:35:59,295 - INFO - NPZ output: raw=enabled, aligned=enabled
+2025-11-12 16:35:59,295 - INFO - Loading PtychoPINN model to restore configuration...
+2025-11-12 16:35:59,295 - INFO - Loading PtychoPINN model from outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/dense/gs2...
+2025-11-12 16:35:59,295 - INFO - Loading model from: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/dense/gs2
+2025-11-12 16:35:59,295 - DEBUG - Model archive path: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/dense/gs2/wts.h5.zip
+2025-11-12 16:35:59,363 - INFO - Error loading model from /tmp/tmp0rcowygf/diffraction_to_obj: [Errno 2] No such file or directory: '/tmp/tmp0rcowygf/diffraction_to_obj/custom_objects.dill'
+2025-11-12 16:35:59,366 - ERROR - Failed to load model from outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/dense/gs2: [Errno 2] No such file or directory: '/tmp/tmp0rcowygf/diffraction_to_obj/custom_objects.dill'
+2025-11-12 16:35:59,366 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1227, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 796, in main
+    pinn_model = load_pinn_model(args.pinn_dir)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 108, in load_pinn_model
+    model, _ = load_inference_bundle(model_dir)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 160, in load_inference_bundle
+    models_dict = ModelManager.load_multiple_models(str(model_zip))
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/model_manager.py", line 420, in load_multiple_models
+    loaded_models[model_name] = ModelManager.load_model(model_subdir)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/model_manager.py", line 122, in load_model
+    with open(custom_objects_path, 'rb') as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmp0rcowygf/diffraction_to_obj/custom_objects.dill'
+2025-11-12 16:35:59,367 - ERROR - Traceback (most recent call last):
+2025-11-12 16:35:59,367 - ERROR - File "<frozen runpy>", line 198, in _run_module_as_main
+2025-11-12 16:35:59,367 - ERROR - File "<frozen runpy>", line 88, in _run_code
+2025-11-12 16:35:59,367 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1227, in <module>
+2025-11-12 16:35:59,367 - ERROR - main()
+2025-11-12 16:35:59,367 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 796, in main
+2025-11-12 16:35:59,367 - ERROR - pinn_model = load_pinn_model(args.pinn_dir)
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,367 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 108, in load_pinn_model
+2025-11-12 16:35:59,368 - ERROR - model, _ = load_inference_bundle(model_dir)
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 160, in load_inference_bundle
+2025-11-12 16:35:59,368 - ERROR - models_dict = ModelManager.load_multiple_models(str(model_zip))
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,368 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/model_manager.py", line 420, in load_multiple_models
+2025-11-12 16:35:59,369 - ERROR - loaded_models[model_name] = ModelManager.load_model(model_subdir)
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,369 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/model_manager.py", line 122, in load_model
+2025-11-12 16:35:59,370 - ERROR - with open(custom_objects_path, 'rb') as f:
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - ^
+2025-11-12 16:35:59,370 - ERROR - FileNotFoundError
+2025-11-12 16:35:59,370 - ERROR - :
+2025-11-12 16:35:59,370 - ERROR - [Errno 2] No such file or directory: '/tmp/tmp0rcowygf/diffraction_to_obj/custom_objects.dill'

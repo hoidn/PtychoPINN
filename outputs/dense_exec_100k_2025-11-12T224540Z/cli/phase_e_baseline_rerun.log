@@ -1,0 +1,106 @@
+2025-11-12 15:12:42.870446: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1762989162.882377 1574788 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1762989162.886043 1574788 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1762989162.895647 1574788 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762989162.895660 1574788 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762989162.895662 1574788 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762989162.895664 1574788 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-12 15:12:42.898372: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-12 15:12:45,482 - INFO - Skipping sparse view for dose=1e+05: NPZ files not found (train=False, test=False). Checked primary (sparse_train.npz/sparse_test.npz) and fallback (train.npz/test.npz).
+2025-11-12 15:12:50,764 - INFO - Loading data from outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000/patched_train.npz with n_images=None, n_subsample=None
+2025-11-12 15:12:51,253 - WARNING - Ignoring NPZ 'Y' with incompatible shape (1, 128, 128, 1) (expected first axis 5088)
+2025-11-12 15:12:51,254 - INFO - Using full dataset of 5088 images
+2025-11-12 15:12:51,294 - INFO - Loading data from outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000/patched_test.npz with n_images=None, n_subsample=None
+2025-11-12 15:12:51,800 - WARNING - Ignoring NPZ 'Y' with incompatible shape (1, 128, 128, 1) (expected first axis 5216)
+2025-11-12 15:12:51,800 - INFO - Using full dataset of 5216 images
+2025-11-12 15:12:51,844 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=512, n_points=5088, C=1, K=4
+2025-11-12 15:12:51,844 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
+2025-11-12 15:12:51,844 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
+2025-11-12 15:12:51,845 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 512 > 5088 = False
+2025-11-12 15:12:51,845 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+2025-11-12 15:12:51,845 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2025-11-12 15:12:51,845 - INFO - Using efficient random sampling strategy for gridsize=1
+2025-11-12 15:12:51,845 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-11-12 15:12:51,845 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=512, K=4, C=1
+2025-11-12 15:12:51,845 - INFO - Generating 512 groups efficiently from 5088 points (K=4, C=1)
+2025-11-12 15:12:51,845 - INFO - [OVERSAMPLING DEBUG] Standard case: using 512 groups from 5088 points
+2025-11-12 15:12:51,845 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 512 seed points
+2025-11-12 15:12:51,845 - INFO - Sampled 512 seed points from 5088 total points
+2025-11-12 15:12:51,845 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2025-11-12 15:12:51,845 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 512 groups
+2025-11-12 15:12:51,845 - INFO - Successfully generated 512 groups with shape (512, 1)
+2025-11-12 15:12:51,845 - INFO - [OVERSAMPLING DEBUG] Generated 512 groups in total
+2025-11-12 15:12:51,845 - INFO - Generated 512 groups efficiently
+I0000 00:00:1762989171.966636 1574788 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1762989171.967978 1574788 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 21952 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1762989172.718216 1574788 service.cc:152] XLA service 0x41ca28e0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1762989172.718240 1574788 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-11-12 15:12:52.741949: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1762989172.762043 1574788 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1762989172.927234 1574788 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+2025-11-12 15:12:55,630 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=512, n_points=5216, C=1, K=4
+2025-11-12 15:12:55,631 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
+2025-11-12 15:12:55,631 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
+2025-11-12 15:12:55,631 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 512 > 5216 = False
+2025-11-12 15:12:55,631 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+2025-11-12 15:12:55,631 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2025-11-12 15:12:55,631 - INFO - Using efficient random sampling strategy for gridsize=1
+2025-11-12 15:12:55,631 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-11-12 15:12:55,631 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=512, K=4, C=1
+2025-11-12 15:12:55,631 - INFO - Generating 512 groups efficiently from 5216 points (K=4, C=1)
+2025-11-12 15:12:55,631 - INFO - [OVERSAMPLING DEBUG] Standard case: using 512 groups from 5216 points
+2025-11-12 15:12:55,631 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 512 seed points
+2025-11-12 15:12:55,631 - INFO - Sampled 512 seed points from 5216 total points
+2025-11-12 15:12:55,631 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2025-11-12 15:12:55,631 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 512 groups
+2025-11-12 15:12:55,631 - INFO - Successfully generated 512 groups with shape (512, 1)
+2025-11-12 15:12:55,631 - INFO - [OVERSAMPLING DEBUG] Generated 512 groups in total
+2025-11-12 15:12:55,631 - INFO - Generated 512 groups efficiently
+2025-11-12 15:12:57.885541: W tensorflow/core/framework/op_kernel.cc:1844] INVALID_ARGUMENT: required broadcastable shapes
+2025-11-12 15:12:57.885574: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: INVALID_ARGUMENT: required broadcastable shapes
+Enumerating training jobs from Phase C (outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c) and Phase D (outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_d)...
+  → Selected backend: tensorflow
+  → 2 total jobs enumerated
+  ⚠ 1 view(s) skipped due to missing Phase D data:
+    - sparse (dose=1e+05): NPZ files not found (train=False, test=False). Checked primary (sparse_train.npz...
+  → Filtered by dose=100000.0: 2 jobs remain
+  → Filtered by view=baseline: 1 jobs remain
+  → Filtered by gridsize=1: 1 jobs remain
+
+Executing 1 training job(s)...
+  [1/1] baseline (dose=1e+05, gridsize=1, backend=tensorflow)
+diff3d shape: (5088, 128, 128)
+probeGuess shape: (128, 128)
+scan_index shape: (5088,)
+objectGuess shape: (464, 464)
+xcoords shape: (5088,)
+ycoords shape: (5088,)
+xcoords_start shape: (5088,)
+ycoords_start shape: (5088,)
+diff3d shape: (5216, 128, 128)
+probeGuess shape: (128, 128)
+scan_index shape: (5216,)
+objectGuess shape: (464, 464)
+xcoords shape: (5216,)
+ycoords shape: (5216,)
+xcoords_start shape: (5216,)
+ycoords_start shape: (5216,)
+DEBUG: nsamples: 512, gridsize: 1 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (512, 128, 128, 1)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(512, 128, 128, 1) Y_I=(512, 64, 64, 1) Y_phi=(512, 64, 64, 1) norm_Y_I=() coords_nominal=(512, 1, 2, 1) coords_true=(512, 1, 2, 1) nn_indices=(512, 1) mean=2574.605 global_offsets=(512, 1, 2, 1) mean=187.764 local_offsets=(512, 1, 2, 1) mean=0.000 probe=(128, 128) mean_amplitude=0.007>
+DEBUG: nsamples: 512, gridsize: 1 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (512, 128, 128, 1)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(512, 128, 128, 1) Y_I=(512, 64, 64, 1) Y_phi=(512, 64, 64, 1) norm_Y_I=() coords_nominal=(512, 1, 2, 1) coords_true=(512, 1, 2, 1) nn_indices=(512, 1) mean=2551.377 global_offsets=(512, 1, 2, 1) mean=271.163 local_offsets=(512, 1, 2, 1) mean=0.000 probe=(128, 128) mean_amplitude=0.007>
+
+✓ Training manifest written to outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/training_manifest.json
+  → 1 job(s) completed
+  → Skip summary written to outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/skip_summary.json (1 view(s) skipped)

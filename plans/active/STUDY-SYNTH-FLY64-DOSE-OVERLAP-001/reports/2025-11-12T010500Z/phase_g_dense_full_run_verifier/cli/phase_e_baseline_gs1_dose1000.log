@@ -1,0 +1,35 @@
+# Command: /home/ollie/miniconda3/envs/ptycho311/bin/python -m studies.fly64_dose_overlap.training --phase-c-root /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c --phase-d-root /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d --artifact-root /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e --dose 1000 --view baseline --gridsize 1 --backend tensorflow
+# CWD: /home/ollie/Documents/PtychoPINN
+# Log: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/phase_e_baseline_gs1_dose1000.log
+# ==============================================================================
+
+2025-11-12 12:31:13.300009: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1762979473.310615 1557179 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1762979473.314038 1557179 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1762979473.323460 1557179 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762979473.323470 1557179 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762979473.323471 1557179 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762979473.323473 1557179 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-12 12:31:13.326140: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-12 12:31:15,770 - INFO - Skipping dense view for dose=1e+03: NPZ files not found (train=False, test=False). This is expected when Phase D overlap filtering rejected the view due to spacing threshold.
+2025-11-12 12:31:15,770 - INFO - Skipping sparse view for dose=1e+03: NPZ files not found (train=False, test=False). This is expected when Phase D overlap filtering rejected the view due to spacing threshold.
+2025-11-12 12:31:20,870 - INFO - Loading data from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz with n_images=None, n_subsample=None
+2025-11-12 12:31:21,316 - INFO - Using full dataset of 5088 images
+Enumerating training jobs from Phase C (/home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c) and Phase D (/home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d)...
+  → Selected backend: tensorflow
+  → 1 total jobs enumerated
+  ⚠ 2 view(s) skipped due to missing Phase D data:
+    - dense (dose=1e+03): NPZ files not found (train=False, test=False). This is expected when Phase D ove...
+    - sparse (dose=1e+03): NPZ files not found (train=False, test=False). This is expected when Phase D ove...
+  → Filtered by dose=1000.0: 1 jobs remain
+  → Filtered by view=baseline: 1 jobs remain
+  → Filtered by gridsize=1: 1 jobs remain
+
+Executing 1 training job(s)...
+  [1/1] baseline (dose=1e+03, gridsize=1, backend=tensorflow)
+
+✓ Training manifest written to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/training_manifest.json
+  → 1 job(s) completed
+  → Skip summary written to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/skip_summary.json (2 view(s) skipped)

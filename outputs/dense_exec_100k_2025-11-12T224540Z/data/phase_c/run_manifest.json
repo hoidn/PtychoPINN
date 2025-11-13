@@ -1,0 +1,8 @@
+{
+  "dose_100000": {
+    "dose": 100000.0,
+    "train": "/home/ollie/Documents/PtychoPINN/outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000/patched_train.npz",
+    "test": "/home/ollie/Documents/PtychoPINN/outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000/patched_test.npz",
+    "intermediate_dir": "/home/ollie/Documents/PtychoPINN/outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000"
+  }
+}

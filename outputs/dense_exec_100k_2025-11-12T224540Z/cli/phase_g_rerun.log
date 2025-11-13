@@ -1,0 +1,54 @@
+2025-11-12T15:46:42-08:00 Both bundles present. Starting Phase G...
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/ollie/Documents/PtychoPINN/studies/fly64_dose_overlap/comparison.py", line 432, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/studies/fly64_dose_overlap/comparison.py", line 404, in main
+    execution_manifest = execute_comparison_jobs(
+                         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/studies/fly64_dose_overlap/comparison.py", line 203, in execute_comparison_jobs
+    raise FileNotFoundError(
+FileNotFoundError: Phase F reconstruction NPZ not found: outputs/dense_exec_100k_2025-11-12T224540Z/analysis/dose_100000/dense/train/ptychi_reconstruction.npz
+Expected from Phase F LSQML reconstruction (dose=100000, view=dense, split=train)
+Building comparison jobs...
+  Phase C root: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c
+  Phase E root: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e
+  Phase F root: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_f
+  Filters: dose=100000, view=dense, split=train
+
+Built 1 comparison jobs
+Wrote manifest to: outputs/dense_exec_100k_2025-11-12T224540Z/analysis/comparison_manifest.json
+Wrote summary to: outputs/dense_exec_100k_2025-11-12T224540Z/analysis/comparison_summary.txt
+
+==================================================
+EXECUTING COMPARISON JOBS
+==================================================
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/ollie/Documents/PtychoPINN/studies/fly64_dose_overlap/comparison.py", line 432, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/studies/fly64_dose_overlap/comparison.py", line 404, in main
+    execution_manifest = execute_comparison_jobs(
+                         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/studies/fly64_dose_overlap/comparison.py", line 203, in execute_comparison_jobs
+    raise FileNotFoundError(
+FileNotFoundError: Phase F reconstruction NPZ not found: outputs/dense_exec_100k_2025-11-12T224540Z/analysis/dose_100000/dense/test/ptychi_reconstruction.npz
+Expected from Phase F LSQML reconstruction (dose=100000, view=dense, split=test)
+Building comparison jobs...
+  Phase C root: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c
+  Phase E root: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e
+  Phase F root: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_f
+  Filters: dose=100000, view=dense, split=test
+
+Built 1 comparison jobs
+Wrote manifest to: outputs/dense_exec_100k_2025-11-12T224540Z/analysis/comparison_manifest.json
+Wrote summary to: outputs/dense_exec_100k_2025-11-12T224540Z/analysis/comparison_summary.txt
+
+==================================================
+EXECUTING COMPARISON JOBS
+==================================================
+2025-11-12T15:46:42-08:00 Phase G attempts complete

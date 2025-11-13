@@ -1,0 +1,35 @@
+{
+  "timestamp": "2025-11-12T23:46:00.729342Z",
+  "phase_c_root": "outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c",
+  "phase_d_root": "outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_d",
+  "artifact_root": "outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e",
+  "filters": {
+    "dose": 100000.0,
+    "view": "dense",
+    "gridsize": 2
+  },
+  "dry_run": false,
+  "jobs": [
+    {
+      "dose": 100000.0,
+      "view": "dense",
+      "gridsize": 2,
+      "train_data_path": "outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_d/dose_100000/dense/train.npz",
+      "test_data_path": "outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_d/dose_100000/dense/test.npz",
+      "log_path": "outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/dense/gs2/train.log",
+      "artifact_dir": "outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/dense/gs2",
+      "backend": "pytorch",
+      "result": {
+        "status": "success",
+        "final_loss": null,
+        "epochs_completed": 0,
+        "checkpoint_path": null,
+        "bundle_path": "wts.h5.zip",
+        "bundle_sha256": "e800a7e0a2dec2cdd45320020615351afcd4d8af02b647b3f1902433ed1aa336",
+        "bundle_size_bytes": 17406723,
+        "training_results": {
+          "history": {
+            "train_loss": [],
+            "val_loss": []
+          },
+          "train_container": 

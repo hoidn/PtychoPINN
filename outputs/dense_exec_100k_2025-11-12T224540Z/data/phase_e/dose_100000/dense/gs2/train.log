@@ -1,0 +1,118 @@
+
+================================================================================
+Phase E5 Training Execution — dense (dose=1e+05, gridsize=2, backend=tensorflow)
+================================================================================
+Train dataset: /home/ollie/Documents/PtychoPINN/outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_d/dose_100000/dense/train.npz
+Test dataset: /home/ollie/Documents/PtychoPINN/outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_d/dose_100000/dense/test.npz
+Output directory: /home/ollie/Documents/PtychoPINN/outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/dense/gs2
+Gridsize: 2
+nphotons: 100000.0
+Backend: tensorflow
+
+Dataset contract validation failed: ValueError: Minimum inter-position spacing 0.06 px < required threshold 38.40 px for view 'dense'. Expected S ≈ (1 - f_overlap) × N = (1 - 0.7) × 128.
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/studies/fly64_dose_overlap/training.py", line 418, in _execute_training_job_tensorflow
+    validate_dataset_contract(
+  File "/home/ollie/Documents/PtychoPINN/studies/fly64_dose_overlap/validation.py", line 146, in validate_dataset_contract
+    raise ValueError(
+ValueError: Minimum inter-position spacing 0.06 px < required threshold 38.40 px for view 'dense'. Expected S ≈ (1 - f_overlap) × N = (1 - 0.7) × 128.
+
+================================================================================
+Phase E5 Training Execution — dense (dose=1e+05, gridsize=2, backend=tensorflow)
+================================================================================
+Train dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_d/dose_100000/dense/train.npz
+Test dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_d/dose_100000/dense/test.npz
+Output directory: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/dense/gs2
+Gridsize: 2
+nphotons: 100000.0
+Backend: tensorflow
+
+Loading datasets via TensorFlow loader...
+Invoking TensorFlow train_cdi_model...
+Training failed: InvalidArgumentError: {{function_node __wrapped__Mul_device_/job:localhost/replica:0/task:0/device:GPU:0}} required broadcastable shapes [Op:Mul] name: 
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/studies/fly64_dose_overlap/training.py", line 464, in _execute_training_job_tensorflow
+    training_results = tf_components.train_cdi_model(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 637, in train_cdi_model
+    probe.set_probe_guess(None, train_container.probe)
+  File "/home/ollie/Documents/PtychoPINN/ptycho/probe.py", line 91, in set_probe_guess
+    set_probe(t_probe_guess)
+  File "/home/ollie/Documents/PtychoPINN/ptycho/probe.py", line 64, in set_probe
+    tamped_probe = mask * probe
+                   ~~~~~^~~~~~~
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py", line 153, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/framework/ops.py", line 6006, in raise_from_not_ok_status
+    raise core._status_to_exception(e) from None  # pylint: disable=protected-access
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tensorflow.python.framework.errors_impl.InvalidArgumentError: {{function_node __wrapped__Mul_device_/job:localhost/replica:0/task:0/device:GPU:0}} required broadcastable shapes [Op:Mul] name: 
+
+================================================================================
+Phase E5 Training Execution — dense (dose=1e+05, gridsize=2, backend=tensorflow)
+================================================================================
+Train dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_d/dose_100000/dense/train.npz
+Test dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_d/dose_100000/dense/test.npz
+Output directory: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/dense/gs2
+Gridsize: 2
+nphotons: 100000.0
+Backend: tensorflow
+
+Loading datasets via TensorFlow loader...
+Invoking TensorFlow train_cdi_model...
+Training failed: InvalidArgumentError: {{function_node __wrapped__Mul_device_/job:localhost/replica:0/task:0/device:GPU:0}} required broadcastable shapes [Op:Mul] name: 
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/studies/fly64_dose_overlap/training.py", line 464, in _execute_training_job_tensorflow
+    training_results = tf_components.train_cdi_model(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 637, in train_cdi_model
+    probe.set_probe_guess(None, train_container.probe)
+  File "/home/ollie/Documents/PtychoPINN/ptycho/probe.py", line 91, in set_probe_guess
+    set_probe(t_probe_guess)
+  File "/home/ollie/Documents/PtychoPINN/ptycho/probe.py", line 64, in set_probe
+    tamped_probe = mask * probe
+                   ~~~~~^~~~~~~
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py", line 153, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/framework/ops.py", line 6006, in raise_from_not_ok_status
+    raise core._status_to_exception(e) from None  # pylint: disable=protected-access
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tensorflow.python.framework.errors_impl.InvalidArgumentError: {{function_node __wrapped__Mul_device_/job:localhost/replica:0/task:0/device:GPU:0}} required broadcastable shapes [Op:Mul] name: 
+
+================================================================================
+Phase E5 Training Execution — dense (dose=1e+05, gridsize=2, backend=pytorch)
+================================================================================
+Train dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_d/dose_100000/dense/train.npz
+Test dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_d/dose_100000/dense/test.npz
+Output directory: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/dense/gs2
+Gridsize: 2
+nphotons: 100000.0
+Backend: pytorch
+
+Instantiating MemmapDatasetBridge for training dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_d/dose_100000/dense/train.npz...
+Instantiating MemmapDatasetBridge for test dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_d/dose_100000/dense/test.npz...
+Invoking train_cdi_model_torch with config...
+Persisting model bundle to outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/dense/gs2/wts.h5.zip...
+Model bundle saved: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/dense/gs2/wts.h5.zip
+Bundle SHA256: e800a7e0a2dec2cdd45320020615351afcd4d8af02b647b3f1902433ed1aa336
+Bundle size: 17406723 bytes
+Training completed successfully
+Final loss: None
+Epochs completed: 0
+Checkpoint path: None
+Bundle path: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/dense/gs2/wts.h5.zip
+Bundle SHA256: e800a7e0a2dec2cdd45320020615351afcd4d8af02b647b3f1902433ed1aa336
+Bundle size: 17406723 bytes
+
+================================================================================
+Phase E5 Training Execution — dense (dose=1e+05, gridsize=2, backend=tensorflow)
+================================================================================
+Train dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_d/dose_100000/dense/train.npz
+Test dataset: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_d/dose_100000/dense/test.npz
+Output directory: outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/dense/gs2
+Gridsize: 2
+nphotons: 100000.0
+Backend: tensorflow
+
+Loading datasets via TensorFlow loader...
+Invoking TensorFlow train_cdi_model...
