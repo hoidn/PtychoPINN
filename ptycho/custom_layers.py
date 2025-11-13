@@ -146,20 +146,11 @@ class ReassemblePatchesLayer(layers.Layer):
         from . import tf_helper as hh
         patches, positions = inputs
 
-        # Calculate total number of patches (batch * channels)
-        # Use batched reassembly for large patch counts to avoid Translation layer shape mismatches
-        batch_size = tf.shape(patches)[0]
-        num_channels = tf.shape(patches)[-1]
-        total_patches = batch_size * num_channels
-
-        # Threshold for using batched approach (must match _reassemble_position_batched default)
-        batch_threshold = 64
-
-        # Use batched reassembly for large datasets to handle Translation layer shape variations
-        if total_patches > batch_threshold:
-            fn_reassemble = hh.mk_reassemble_position_batched_real(positions, batch_size=batch_threshold)
-        else:
-            fn_reassemble = hh.mk_reassemble_position_real(positions)
+        # Always use batched reassembly with a conservative batch size
+        # This handles Translation layer shape variations robustly
+        # The batched function automatically falls back to non-batched mode for small inputs
+        batch_size = 64
+        fn_reassemble = hh.mk_reassemble_position_batched_real(positions, batch_size=batch_size)
 
         return hh.reassemble_patches(patches, fn_reassemble_real=fn_reassemble)
     
