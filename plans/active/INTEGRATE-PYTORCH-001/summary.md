@@ -1,4 +1,10 @@
 ### Turn Summary
+Backend selector now auto-instantiates PyTorchExecutionConfig when torch_execution_config=None, inheriting GPU-first defaults from POLICY-001.
+Added dispatcher-level tests: test_backend_selector_inherits_gpu_first_defaults (verifies accelerator='cuda' on mocked GPU hosts) and test_backend_selector_cpu_fallback_with_warning (verifies accelerator='cpu' + warning on mocked CPU-only hosts).
+All 7 tests PASSED (1 skipped on CUDA host), confirming Ptychodus callers now get GPU baseline without explicit config.
+Artifacts: commit 83ae55af, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_execution_config_defaults.log
+
+### Turn Summary
 Extended execution_config integration tests with hardware-aware verification: added test_workflow_auto_instantiates_with_hardware_detection (verifies auto='cuda'/'cpu' based on torch.cuda.is_available) and test_backend_selector_warns_on_cpu_only_hosts (verifies POLICY-001 warning on CPU-only hosts, skips on CUDA).
 Updated test_execution_config_defaults_applied to expect GPU-first defaults dynamically instead of hardcoded 'cpu'.
 All new tests PASSED; pre-existing workflow test failures remain (stub module issues unrelated to changes).
