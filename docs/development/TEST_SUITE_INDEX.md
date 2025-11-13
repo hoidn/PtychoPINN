@@ -8,6 +8,13 @@ This document provides a comprehensive index of the automated tests in the `test
 - **Run a specific file:** `python -m unittest tests.image.test_cropping`
 - **Run a specific test class:** `python -m unittest tests.test_integration_workflow.TestFullWorkflow`
 
+### Markers (pytest)
+
+- `integration`: Project‑level end‑to‑end integration smoke tests.
+  - Run: `pytest -v -m integration`
+  - Canonical NodeID (TensorFlow workflow in this repo): `tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle`
+  - Alias: `tf_integration`
+
 ---
 
 ## Test Modules

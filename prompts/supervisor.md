@@ -226,6 +226,7 @@
     - If two consecutive loops were non‑implementation, the Brief must name a <em>production command</em> to run; it is invalid to restate prerequisites without execution.
     - You may not run two Docs loops in a row for the same focus.
     - The Engineer will extract a minimal implementation nucleus from the Brief when no explicit `Implement:` block is present.
+    - Guidance: When production code is being changed, keep the Selector targeted to the smallest valuable check for the current focus. The TF integration test is executed during Ralph’s comprehensive test gate; do not make it the only Selector unless the focus is specifically “end‑to‑end TF workflow”.
   </input_md_requirements>
 
   <evidence_parameter_sourcing>

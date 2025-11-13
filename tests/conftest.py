@@ -46,6 +46,22 @@ def pytest_collection_modifyitems(config, items):
                 # No whitelist exceptions: ALL torch tests skip in TF-only CI
                 item.add_marker(pytest.mark.skip(reason="PyTorch not available (TF-only CI)"))
 
+def pytest_ignore_collect(path, config):
+    """Avoid importing torch test modules when PyTorch is unavailable.
+
+    This prevents import-time errors from modules that import torch at module scope
+    (before pytest can mark/skip them). When torch is missing, ignore collection of
+    files under tests/torch/ entirely.
+    """
+    p = str(path).replace("\\", "/").lower()
+    if "/tests/torch/" in p:
+        try:
+            import torch  # noqa: F401
+            return False
+        except Exception:
+            return True
+    return False
+
 def pytest_runtest_setup(item):
     """
     Setup hook that runs before each test.

@@ -20,6 +20,13 @@ Legacy unittest modules
 Notes
 - Always run from the repo root so imports and relative paths resolve correctly.
 
+### Global Integration Marker
+
+- Use the `integration` marker to run project‑level end‑to‑end integration smoke tests without hardcoding paths:
+  - Run marker: `pytest -v -m integration`
+  - Repository‑specific aliases may exist (e.g., `tf_integration` in this repo). The canonical NodeID for the TensorFlow workflow is: `tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle`.
+- The integration test also runs during the comprehensive full‑suite gate; the marker is useful for a fast, early signal after implementation changes to production code.
+
 ## Test Types
 
 The PtychoPINN test suite includes two main categories of tests:

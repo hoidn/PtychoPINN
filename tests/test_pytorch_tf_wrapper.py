@@ -6,8 +6,11 @@ import hashlib
 import sys
 import pytest
 
-# Import torch unconditionally (torch-required as of Phase F3)
-import torch
+# Import torch; skip module if unavailable in TF-only envs
+try:
+    import torch
+except Exception as e:  # pragma: no cover - environment-dependent
+    pytest.skip(f"PyTorch not available: {e}", allow_module_level=True)
 
 #Define helper functions found in wrapper "output_consistency"
 
@@ -163,8 +166,6 @@ def debug(func):
 #         return output
 
 #     return wrapper
-
-
 
 
 

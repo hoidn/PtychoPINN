@@ -1,6 +1,7 @@
 # file: tests/test_integration_workflow.py
 
 import unittest
+import pytest
 import subprocess
 import sys
 import tempfile
@@ -10,6 +11,8 @@ import os
 # Add project root to path to ensure scripts can find the ptycho module
 project_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(project_root))
+
+pytestmark = [pytest.mark.integration, pytest.mark.tf_integration]
 
 class TestFullWorkflow(unittest.TestCase):
 

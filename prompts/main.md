@@ -112,6 +112,7 @@
          a) All tests must pass (no `FAILED`/`ERROR`).  
          b) **Collection must succeed** (no ImportError, etc.).  
          c) If you added/renamed tests, verify selectors still collect (>0). If not: either author missing tests immediately or temporarily downgrade the selector to “Planned” with rationale and file a follow‑up fix‑plan item.
+       - When implementation (production) code changes, also ensure the project’s integration smoke passes. Use the project‑level integration marker for the early check: `-m integration` (repository docs may define additional backend‑specific markers; in this repo, `tf_integration` is an alias). You may rely on the full‑suite run or invoke the marker/node directly for an earlier signal; do not replace the targeted selector with this marker.
 
     9. **Artifacts**
        - Save `pytest.log`, `summary.md`, metrics JSONs under the loop’s reports directory.
