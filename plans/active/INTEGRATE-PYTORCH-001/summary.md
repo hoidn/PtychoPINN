@@ -1,4 +1,10 @@
 ### Turn Summary
+Captured the supervised-loss fix plus the new manual-optimization (`accumulate_grad_batches`) and unlabeled-data blockers, then rewrote the plan/fix-plan/input.md so the next loop adds guardrails and reruns the PyTorch CLI smoke in PINN mode.
+Filed findings EXEC-ACCUM-001 / DATA-SUP-001, updated the Do Now with the gradient-accumulation guard, supervised data-contract detection, targeted pytest selector, and refreshed CLI commands/log expectations.
+Next: implement the guard in `_train_with_lightning`, add the regression test, fail fast when supervised data lacks labels, rerun the selector, and redo the CLI smoke / hub summaries.
+Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md (2025-11-13T185800Z Do Now), plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/{analysis/artifact_inventory.txt,red/blocked_*.md}
+
+### Turn Summary
 Fixed supervised model_type→MAE loss mapping to prevent loss_name AttributeError in PyTorch Lightning module; added regression test coverage and confirmed fix with GREEN pytest evidence (3 PASSED).
 Supervised CLI smoke revealed two downstream blockers: manual optimization incompatibility with accumulate_grad_batches flag, and supervised mode requiring ground-truth labels (label_amp/label_phase) absent from experimental fly001 dataset.
 Next: either switch smoke test to unsupervised PINN mode for execution-config validation, or defer supervised CLI smoke until labeled synthetic data is available, then refresh hub documentation.

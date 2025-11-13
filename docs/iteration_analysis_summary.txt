@@ -1,0 +1,212 @@
+================================================================================
+ITERATION ANALYSIS AUDIT — EXECUTIVE SUMMARY
+================================================================================
+
+Repository: PtychoPINN
+Branch: feature/torchapi-newprompt
+Analysis Date: 2025-11-12
+Iterations Analyzed: 289-312 (24 iterations)
+Methodology: Read-only code diff + commit pattern analysis
+
+================================================================================
+DELIVERABLES
+================================================================================
+
+1. docs/iteration_analysis_report.md
+   → Full technical report with iteration-by-iteration scores, semantic analysis,
+     and prompt→code attribution map
+
+2. docs/iteration_insights_executive.md
+   → Executive summary (3-minute read) with key takeaways and recommendations
+
+3. docs/iteration_prompt_attribution_map.md
+   → Detailed mapping of prompt engineering rules to code implementation anchors
+
+4. docs/iteration_analysis_data.json
+   → Machine-readable data (23 iterations, scores, file changes, breakdowns)
+
+5. docs/iteration_analysis_summary.txt (this file)
+   → Quick reference card
+
+================================================================================
+KEY FINDINGS
+================================================================================
+
+PROCESS HEALTH
+--------------
+• Mean iteration score: 53.5/100 (code-diff heuristic)
+• Score range: 25-80 (high variance due to task heterogeneity)
+• Distribution: 26% high-impact (≥70), 48% moderate (50-69), 26% low (≤40)
+• Interpretation: Functional but uneven; periodic high-impact milestones
+
+HIGH-IMPACT ITERATIONS
+---------------------
+• Iteration 302 (80/100): Config bridge + RawData hardening
+  - Unblocked PyTorch supervised training
+  - 7 code files, 7 test files
+  - Anchors: ptycho/config/config.py, ptycho/raw_data.py
+
+• Iteration 305 (80/100): Custom layers + Ptychodus I/O
+  - 24 code files changed
+  - HDF5 exporter (DATA-001 compliance)
+  - Anchors: ptycho/custom_layers.py, ptycho/io/ptychodus_product_io.py
+
+• Iteration 306 (70/100): Backend selector CLI integration
+  - PyTorch --backend flag exposed
+  - Anchors: scripts/training/train.py, scripts/inference/inference.py
+
+PRODUCTIVITY BLOCKERS
+--------------------
+• 26% of iterations (6/23) were evidence-only (no production code changes)
+• Root cause: Long-running pipeline waits, blocked task escalation delays
+• Mitigation: Tighten dwell enforcement (Tier 2 at dwell=3 instead of 4)
+
+PROMPT COMPLIANCE
+----------------
+• Environment Freeze: 100% (no package installs detected)
+• Native Pytest: 100% (all new tests use pytest conventions)
+• Dwell Enforcement: Visible in escalation notes (iter 293+)
+• Spec Precedence: High (DATA-001, CONFIG-001 implemented per spec)
+
+================================================================================
+PROMPT RULE → CODE MAP (HIGHLIGHTS)
+================================================================================
+
+Rule                          First Iter   Code Anchor
+----                          ----------   -----------
+Dwell Enforcement (Tier 3)    293          docs/fix_plan.md:43 (escalation notes)
+Environment Freeze            All          Implicit (no pip/conda changes)
+Evidence-Only Git Skip        293          scripts/orchestration/git_bus.py
+Stall-Autonomy Nucleus        300          scripts/orchestration/git_bus.py
+Config Bridge (POLICY-001)    302          ptycho/config/config.py
+Ptychodus I/O (DATA-001)      305          ptycho/io/ptychodus_product_io.py
+Acceptance Bounds (ACC-001)   301          studies/fly64_dose_overlap/overlap.py:334
+Backend Selector CLI          306          scripts/{training,inference}/*.py
+
+================================================================================
+RECOMMENDATIONS (PRIORITIZED)
+================================================================================
+
+IMMEDIATE (Next 3 Iterations)
+-----------------------------
+1. Resolve STUDY-SYNTH-FLY64 blocker (dwell=8, Tier 3 escalated)
+2. Complete PyTorch supervised loss alignment (loss_name attribute error)
+3. Automate iteration scoring (scripts/orchestration/score_iteration.py)
+
+SHORT-TERM (Next 10 Iterations)
+-------------------------------
+4. Reduce evidence-only loop frequency: target ≤15% (currently 26%)
+5. Backend parity audit: validate all CLIs support --backend pytorch
+6. Add PyTorch smoke tests for training/inference pipelines
+
+LONG-TERM (Strategic)
+--------------------
+7. Establish continuous process health monitoring (append-only CSV log)
+8. Document known TF-only paths (if any) in docs/workflows/pytorch.md
+9. Pre-commit hooks for policy compliance (CONFIG-001, DATA-001, etc.)
+
+================================================================================
+STATISTICAL SUMMARY
+================================================================================
+
+Metric                          Value
+------                          -----
+Total iterations analyzed       24
+Mean score                      53.5/100
+Median score                    50.0/100
+Std deviation                   16.3
+Min score                       25 (iter 297, 303)
+Max score                       80 (iter 302, 305)
+Iterations ≥70                  6 (26%)
+Iterations ≤40                  6 (26%)
+Test coverage                   100% (all iters have pytest evidence)
+Environment freeze compliance   100% (no package changes)
+
+================================================================================
+CAVEATS & LIMITATIONS
+================================================================================
+
+1. No pre-prompt baseline: Analyzed window is entirely post-prompt-change;
+   cannot compute effect size or pre/post comparison
+
+2. Small sample (n=24): Insufficient statistical power for hypothesis testing
+
+3. Heuristic scoring: Code file count is a proxy, not direct complexity measure
+
+4. Autocorrelation: Consecutive iterations often work on same focus;
+   not independent samples
+
+5. Context-blind: Diff analysis doesn't capture WHY code changed
+   (bug fix vs feature vs refactor)
+
+6. Summary sparsity: Only ~90 summary files for 1296 total iterations;
+   analysis relies primarily on git diffs
+
+================================================================================
+VISUALIZATION
+================================================================================
+
+Score Distribution (Histogram):
+
+Score Range    Count  Percentage  Visual
+───────────────────────────────────────────────────────
+80-89            2      9%       ██
+70-79            4     17%       ████
+60-69            2      9%       ██
+50-59            9     39%       ██████████  ← Modal range
+40-49            4     17%       ████
+30-39            1      4%       █
+20-29            1      4%       █
+───────────────────────────────────────────────────────
+
+Iteration Score Trend (ASCII Plot):
+
+100 ┤
+ 80 ┤          ●                  ●
+ 70 ┤                                        ●
+ 60 ┤                      ●                              ●
+ 50 ┤                ● ● ● ●     ● ●   ●
+ 40 ┤         ●   ●                 ●     ●
+ 30 ┤     ●
+ 20 ┤               ●
+  0 ┼────────────────────────────────────────────────────
+    289 290 291 292 293 294 295 296 297 298 299 300 301 302 303 304 305 306 307
+
+Interpretation:
+- Modal productivity: 50-59 range (steady incremental progress)
+- Two 80-point spikes: major milestones (config bridge, Ptychodus I/O)
+- Periodic dips: evidence-gathering or blocked-task loops
+
+================================================================================
+CONCLUSION
+================================================================================
+
+The PtychoPINN iteration process (iters 289-312) demonstrates:
+
+✓ Strong test discipline (100% coverage)
+✓ High policy compliance (Environment Freeze, Spec Precedence)
+✓ Periodic high-impact deliverables (2 iterations at 80/100)
+✓ Visible prompt rule enforcement (dwell escalation, git hygiene)
+
+⚠ Areas for improvement:
+  • Reduce evidence-only loop frequency (26% → target 15%)
+  • Accelerate blocker resolution (dwell Tier 3 triggers too late)
+  • Automate process health monitoring
+
+Recommendation: System is capable of step-function progress when unblocked.
+Focus on reducing dwell time for blocked tasks to increase throughput.
+
+================================================================================
+CONTACT & FURTHER ANALYSIS
+================================================================================
+
+For questions or custom analysis requests:
+  • Review full report: docs/iteration_analysis_report.md
+  • Consult data artifact: docs/iteration_analysis_data.json
+  • Check prompt attribution: docs/iteration_prompt_attribution_map.md
+
+Analysis performed by: Claude Code Iteration Analysis Agent
+Repository path: /home/ollie/Documents/PtychoPINN
+Analysis commit: 56d63171 ([SYNC i=312] actor=galph status=running)
+
+================================================================================

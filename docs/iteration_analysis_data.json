@@ -1,0 +1,508 @@
+{
+  "metadata": {
+    "analysis_date": "2025-11-12",
+    "branch": "feature/torchapi-newprompt",
+    "iteration_range": "289-312",
+    "total_analyzed": 23
+  },
+  "iterations": [
+    {
+      "iteration": 290,
+      "sha": "60d1cfa87b3f268370a5c10c08a7183e98563bc9",
+      "date": "2025-11-11 11:50:07",
+      "code_files_changed": 1,
+      "test_files_changed": 1,
+      "doc_files_changed": 6,
+      "code_files": [
+        "scripts/orchestration/supervisor.py"
+      ],
+      "test_files": [
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/collect/pytest_collect_post_verify_only.log"
+      ],
+      "score": 35,
+      "score_breakdown": {
+        "code_contribution": 10,
+        "test_contribution": 15,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 291,
+      "sha": "69fb9afae22d8b0de33421357c952e047174647c",
+      "date": "2025-11-11 12:23:37",
+      "code_files_changed": 3,
+      "test_files_changed": 2,
+      "doc_files_changed": 2,
+      "code_files": [
+        "scripts/orchestration/git_bus.py",
+        "scripts/orchestration/loop.py",
+        "scripts/orchestration/supervisor.py"
+      ],
+      "test_files": [
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/collect/pytest_collect_post_verify_only.log",
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_post_verify_only.log"
+      ],
+      "score": 70,
+      "score_breakdown": {
+        "code_contribution": 30,
+        "test_contribution": 30,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 292,
+      "sha": "cc21e6d833aedc7a5a58fc67fe87b8a248ccb7fe",
+      "date": "2025-11-11 12:48:11",
+      "code_files_changed": 0,
+      "test_files_changed": 2,
+      "doc_files_changed": 3,
+      "code_files": [],
+      "test_files": [
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/collect/pytest_collect_post_verify_only.log",
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_post_verify_only.log"
+      ],
+      "score": 40,
+      "score_breakdown": {
+        "code_contribution": 0,
+        "test_contribution": 30,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 293,
+      "sha": "c08b7f25b04beab811582379e796490dc35984d8",
+      "date": "2025-11-11 13:29:01",
+      "code_files_changed": 2,
+      "test_files_changed": 3,
+      "doc_files_changed": 6,
+      "code_files": [
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py",
+        "studies/fly64_dose_overlap/generation.py"
+      ],
+      "test_files": [
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/collect/pytest_collect_post_verify_only.log",
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_post_verify_only.log",
+        "tests/study/test_dose_overlap_comparison.py"
+      ],
+      "score": 60,
+      "score_breakdown": {
+        "code_contribution": 20,
+        "test_contribution": 30,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 294,
+      "sha": "525dd5f4873cad703e09949b448d3bcb7351256d",
+      "date": "2025-11-11 14:05:35",
+      "code_files_changed": 2,
+      "test_files_changed": 1,
+      "doc_files_changed": 10,
+      "code_files": [
+        "scripts/orchestration/git_bus.py",
+        "studies/fly64_dose_overlap/overlap.py"
+      ],
+      "test_files": [
+        "tests/study/test_dose_overlap_overlap.py"
+      ],
+      "score": 45,
+      "score_breakdown": {
+        "code_contribution": 20,
+        "test_contribution": 15,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 295,
+      "sha": "456ebc605958365aeb63b3e7522af5507bab3fd1",
+      "date": "2025-11-11 14:22:48",
+      "code_files_changed": 1,
+      "test_files_changed": 2,
+      "doc_files_changed": 3,
+      "code_files": [
+        "studies/fly64_dose_overlap/overlap.py"
+      ],
+      "test_files": [
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_dense_acceptance_floor.log",
+        "tests/study/test_dose_overlap_overlap.py"
+      ],
+      "score": 50,
+      "score_breakdown": {
+        "code_contribution": 10,
+        "test_contribution": 30,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 296,
+      "sha": "9bfcb25e08d36466ba359d75d09b2c91c655983d",
+      "date": "2025-11-11 14:49:54",
+      "code_files_changed": 1,
+      "test_files_changed": 2,
+      "doc_files_changed": 3,
+      "code_files": [
+        "studies/fly64_dose_overlap/overlap.py"
+      ],
+      "test_files": [
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_dense_acceptance_floor.log",
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_dense_acceptance_floor_v2.log"
+      ],
+      "score": 50,
+      "score_breakdown": {
+        "code_contribution": 10,
+        "test_contribution": 30,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 297,
+      "sha": "0bcecc1415dc61391737bc519b365ff796d3f1f7",
+      "date": "2025-11-11 15:07:10",
+      "code_files_changed": 0,
+      "test_files_changed": 2,
+      "doc_files_changed": 2,
+      "code_files": [],
+      "test_files": [
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_dense_acceptance_floor.log",
+        "tests/study/test_dose_overlap_overlap.py"
+      ],
+      "score": 40,
+      "score_breakdown": {
+        "code_contribution": 0,
+        "test_contribution": 30,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 298,
+      "sha": "e8e1cde5b04d0954a68619a7aec8c9e82facb199",
+      "date": "2025-11-11 15:23:24",
+      "code_files_changed": 0,
+      "test_files_changed": 1,
+      "doc_files_changed": 3,
+      "code_files": [],
+      "test_files": [
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_dense_acceptance_floor.log"
+      ],
+      "score": 25,
+      "score_breakdown": {
+        "code_contribution": 0,
+        "test_contribution": 15,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 299,
+      "sha": "a72c75a1bacd559c266103abeabc5921dfc22f60",
+      "date": "2025-11-11 15:37:35",
+      "code_files_changed": 0,
+      "test_files_changed": 2,
+      "doc_files_changed": 6,
+      "code_files": [],
+      "test_files": [
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_dense_acceptance_floor.log",
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md"
+      ],
+      "score": 40,
+      "score_breakdown": {
+        "code_contribution": 0,
+        "test_contribution": 30,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 300,
+      "sha": "f46186952423a272091be79869684a8a0a96935f",
+      "date": "2025-11-11 15:58:05",
+      "code_files_changed": 1,
+      "test_files_changed": 2,
+      "doc_files_changed": 7,
+      "code_files": [
+        "studies/fly64_dose_overlap/overlap.py"
+      ],
+      "test_files": [
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics/green/pytest_phase_d_overlap.log",
+        "tests/study/test_dose_overlap_overlap.py"
+      ],
+      "score": 50,
+      "score_breakdown": {
+        "code_contribution": 10,
+        "test_contribution": 30,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 301,
+      "sha": "1309dfcb71291cf6afa8e3b370db7e50b8f04d4c",
+      "date": "2025-11-11 16:16:42",
+      "code_files_changed": 1,
+      "test_files_changed": 3,
+      "doc_files_changed": 5,
+      "code_files": [
+        "scripts/orchestration/git_bus.py"
+      ],
+      "test_files": [
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics/green/pytest_phase_d_overlap_bundle_rerun.log",
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics/metrics/gs1_s100_n512/test_metrics.json",
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics/metrics/gs2_s080_n512/test_metrics.json"
+      ],
+      "score": 50,
+      "score_breakdown": {
+        "code_contribution": 10,
+        "test_contribution": 30,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 302,
+      "sha": "9b6526feac55de6eaca914513c5eecadda9fdbdb",
+      "date": "2025-11-11 16:40:58",
+      "code_files_changed": 1,
+      "test_files_changed": 3,
+      "doc_files_changed": 9,
+      "code_files": [
+        "studies/fly64_dose_overlap/overlap.py"
+      ],
+      "test_files": [
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_dense_acceptance_floor.log",
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_filter_dataset_by_mask.log",
+        "tests/study/test_dose_overlap_overlap.py"
+      ],
+      "score": 50,
+      "score_breakdown": {
+        "code_contribution": 10,
+        "test_contribution": 30,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 303,
+      "sha": "f866ed5094ec4da37f2f656f8e585874fafed149",
+      "date": "2025-11-11 17:10:17",
+      "code_files_changed": 7,
+      "test_files_changed": 7,
+      "doc_files_changed": 8,
+      "code_files": [
+        "ptycho/config/config.py",
+        "ptycho/raw_data.py",
+        "ptycho/workflows/components.py",
+        "scripts/orchestration/git_bus.py",
+        "scripts/orchestration/loop.py"
+      ],
+      "test_files": [
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_dense_acceptance_floor.log",
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_filter_dataset_by_mask.log",
+        "plans/active/independent-sampling-control/reports/2025-11-12T005637Z/phase6_hardening/green/pytest_enable_flag.log"
+      ],
+      "score": 80,
+      "score_breakdown": {
+        "code_contribution": 40,
+        "test_contribution": 30,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 304,
+      "sha": "1a363c4adfbe02d0ddcb70748c7639bcf64a1ced",
+      "date": "2025-11-11 17:27:57",
+      "code_files_changed": 0,
+      "test_files_changed": 1,
+      "doc_files_changed": 5,
+      "code_files": [],
+      "test_files": [
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_filter_dataset_by_mask.log"
+      ],
+      "score": 25,
+      "score_breakdown": {
+        "code_contribution": 0,
+        "test_contribution": 15,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 305,
+      "sha": "91c49f4ca7540fafd78974515fc3679ced09e0c1",
+      "date": "2025-11-11 17:45:08",
+      "code_files_changed": 1,
+      "test_files_changed": 2,
+      "doc_files_changed": 7,
+      "code_files": [
+        "setup.py"
+      ],
+      "test_files": [
+        "plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/green/pytest_product_io.log",
+        "tests/test_integration_workflow.py"
+      ],
+      "score": 50,
+      "score_breakdown": {
+        "code_contribution": 10,
+        "test_contribution": 30,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 306,
+      "sha": "5e34f7b3f861da8220dcd278dd5e64f255af5f80",
+      "date": "2025-11-12 16:47:09",
+      "code_files_changed": 24,
+      "test_files_changed": 5,
+      "doc_files_changed": 39,
+      "code_files": [
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py",
+        "ptycho/custom_layers.py",
+        "ptycho/io/ptychodus_product_io.py",
+        "ptycho/loader.py",
+        "ptycho/model.py"
+      ],
+      "test_files": [
+        "outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_d/dose_100000/dense/test_metrics.json",
+        "plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_config_bridge.log",
+        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d/dose_1000/dense/test_metrics.json"
+      ],
+      "score": 80,
+      "score_breakdown": {
+        "code_contribution": 40,
+        "test_contribution": 30,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 307,
+      "sha": "c09193780dcdbaede52ffbb348183bfc9176c982",
+      "date": "2025-11-12 17:08:27",
+      "code_files_changed": 3,
+      "test_files_changed": 5,
+      "doc_files_changed": 4,
+      "code_files": [
+        "ptycho/workflows/components.py",
+        "scripts/inference/inference.py",
+        "scripts/training/train.py"
+      ],
+      "test_files": [
+        "plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_inference_backend_dispatch.log",
+        "plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_training_backend_dispatch.log",
+        "tests/scripts/test_inference_backend_selector.py"
+      ],
+      "score": 70,
+      "score_breakdown": {
+        "code_contribution": 30,
+        "test_contribution": 30,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 308,
+      "sha": "6f37fc18f57bee0851bd67f4757ff1586c1e1232",
+      "date": "2025-11-12 17:27:55",
+      "code_files_changed": 2,
+      "test_files_changed": 2,
+      "doc_files_changed": 4,
+      "code_files": [
+        "scripts/compare_models.py",
+        "scripts/inference/inference.py"
+      ],
+      "test_files": [
+        "plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_backend_selector_cli.log",
+        "tests/scripts/test_inference_backend_selector.py"
+      ],
+      "score": 60,
+      "score_breakdown": {
+        "code_contribution": 20,
+        "test_contribution": 30,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 309,
+      "sha": "3658718e122355505b522a2a48da990ffad557ea",
+      "date": "2025-11-12 17:46:14",
+      "code_files_changed": 2,
+      "test_files_changed": 2,
+      "doc_files_changed": 4,
+      "code_files": [
+        "scripts/compare_models.py",
+        "scripts/inference/inference.py"
+      ],
+      "test_files": [
+        "plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_backend_selector_cli.log",
+        "tests/scripts/test_inference_backend_selector.py"
+      ],
+      "score": 60,
+      "score_breakdown": {
+        "code_contribution": 20,
+        "test_contribution": 30,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 310,
+      "sha": "53c32e00ebcffa98c1b898b227d7a37ef36b9c0d",
+      "date": "2025-11-12 18:01:42",
+      "code_files_changed": 2,
+      "test_files_changed": 2,
+      "doc_files_changed": 5,
+      "code_files": [
+        "scripts/compare_models.py",
+        "scripts/inference/inference.py"
+      ],
+      "test_files": [
+        "plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_backend_selector_cli.log",
+        "tests/scripts/test_inference_backend_selector.py"
+      ],
+      "score": 60,
+      "score_breakdown": {
+        "code_contribution": 20,
+        "test_contribution": 30,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 311,
+      "sha": "d65851f6698f45195228aa74c29bd0ffb6b87b6a",
+      "date": "2025-11-12 18:23:04",
+      "code_files_changed": 3,
+      "test_files_changed": 6,
+      "doc_files_changed": 4,
+      "code_files": [
+        "ptycho/workflows/backend_selector.py",
+        "ptycho_torch/workflows/components.py",
+        "scripts/training/train.py"
+      ],
+      "test_files": [
+        "plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_backend_selector_cli.log",
+        "tests/io/test_ptychodus_interop_h5.py",
+        "tests/scripts/test_inference_backend_selector.py"
+      ],
+      "score": 70,
+      "score_breakdown": {
+        "code_contribution": 30,
+        "test_contribution": 30,
+        "doc_contribution": 10
+      }
+    },
+    {
+      "iteration": 312,
+      "sha": "f6425b3992fa67b3564b1c93fa65041a594046b6",
+      "date": "2025-11-12 18:44:55",
+      "code_files_changed": 3,
+      "test_files_changed": 3,
+      "doc_files_changed": 8,
+      "code_files": [
+        "ptycho/model.py",
+        "ptycho/tf_helper.py",
+        "ptycho_torch/workflows/components.py"
+      ],
+      "test_files": [
+        "plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_backend_selector_cli.log",
+        "tests/scripts/test_training_backend_selector.py",
+        "tests/test_model_channel_consistency.py"
+      ],
+      "score": 70,
+      "score_breakdown": {
+        "code_contribution": 30,
+        "test_contribution": 30,
+        "doc_contribution": 10
+      }
+    }
+  ]
+}

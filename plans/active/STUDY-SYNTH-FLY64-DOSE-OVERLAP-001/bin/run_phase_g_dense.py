@@ -33,7 +33,6 @@ DEPRECATION NOTICE
   invoking this pipeline. That script forwards to this runner while providing a
   stable, plan‑agnostic path and an `--output-root` alias for `--hub`.
 """
-"""
 
 from __future__ import annotations
 

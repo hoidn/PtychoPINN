@@ -1,5 +1,3 @@
-usage: run_phase_g_dense.py [-h] --hub HUB --dose DOSE --view {dense,sparse}
-                            [--splits SPLITS [SPLITS ...]] [--collect-only]
-                            [--clobber] [--skip-post-verify]
-                            [--post-verify-only]
-run_phase_g_dense.py: error: the following arguments are required: --dose, --view
+  File "/home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py", line 66
+    Execute a subprocess command, tee stdout/stderr to log_path, and halt on non-zero exit.
+IndentationError: unexpected indent

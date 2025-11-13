@@ -65,7 +65,10 @@ def main() -> int:
         forwarded.extend(["--hub", ns.output_root])
 
     # Pass through the remainder unchanged
-    forwarded.extend(ns.args)
+    remainder = ns.args
+    if remainder and remainder[0] == "--":
+        remainder = remainder[1:]
+    forwarded.extend(remainder)
 
     cmd = [sys.executable, str(upstream)] + forwarded
     result = subprocess.run(cmd)
@@ -74,4 +77,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
