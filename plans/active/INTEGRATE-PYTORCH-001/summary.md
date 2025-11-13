@@ -1,4 +1,10 @@
 ### Turn Summary
+Documented completion of the CLI GPU-default logging/tests (commit d3793315 + GREEN `green/pytest_backend_selector_cli.log`) and updated the parity plan/fix-plan/input so Ralph pivots to evidence capture.
+Remaining gap: we still lack CLI smoke logs showing the new POLICY-001 message and have no RED pytest log for the ~15 execution_config regression cases in `tests/torch/test_workflows_components.py -k execution_config`.
+Next: run the training/inference CLI commands with zero `--torch-*` flags to capture `train_gpu_default_log.log`/`inference_gpu_default_log.log`, execute `pytest tests/torch/test_workflows_components.py -k execution_config -vv |& tee "$HUB"/red/pytest_workflows_execution_config.log`, and refresh `analysis/artifact_inventory.txt` + summaries (blockers → `$HUB/red/`).
+Artifacts: docs/fix_plan.md, plans/ptychodus_pytorch_integration_plan.md, input.md
+
+### Turn Summary
 Added POLICY-001 GPU-default logging to training and inference CLIs when users provide no --torch-* execution flags.
 Both CLIs now log GPU-first defaults (CUDA if available, else CPU) with guidance to pass --torch-accelerator cpu for CPU-only runs.
 Created regression tests in test_training_backend_selector.py and test_inference_backend_selector.py that verify log emission and content.

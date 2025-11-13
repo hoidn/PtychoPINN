@@ -1,4 +1,10 @@
 ### Turn Summary
+Documented completion of the CLI GPU-default logging/tests (commit d3793315 + GREEN `green/pytest_backend_selector_cli.log`) and updated the plan/fix-plan/input so the focus can move to evidence capture.
+Remaining gap: no CLI smoke logs yet show the new POLICY-001 message and the execution_config regression suite (`pytest tests/torch/test_workflows_components.py -k execution_config -vv`) still lacks a RED log to quantify the ~15 failing cases.
+Next: run the training/inference CLI commands without `--torch-*` flags (logs → `cli/pytorch_cli_smoke_training/{train,inference}_gpu_default_log.log`), execute the targeted pytest command teeing to `$HUB/red/pytest_workflows_execution_config.log`, and refresh `analysis/artifact_inventory.txt` plus summaries (blockers → `$HUB/red/`).
+Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, input.md
+
+### Turn Summary
 Validated commit 83ae55af plus `green/pytest_execution_config_defaults.log` so backend_selector now has GPU/CPU auto-instantiation tests recorded in `analysis/artifact_inventory.txt`.
 Updated the parity plan + fix plan with a new Do Now that adds POLICY-001 logging in `scripts/training/train.py`/`scripts/inference/inference.py` and CLI-level regression tests proving we pass `torch_execution_config=None` when users omit `--torch-*`.
 Next: implement the CLI logging + pytest additions, rerun the backend-selector selectors, and capture fresh training/inference CLI logs showing the GPU-default message before refreshing summaries.
