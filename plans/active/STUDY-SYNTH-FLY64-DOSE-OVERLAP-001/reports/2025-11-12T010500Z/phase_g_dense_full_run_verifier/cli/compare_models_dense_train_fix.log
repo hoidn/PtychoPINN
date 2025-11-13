@@ -1,0 +1,34 @@
+2025-11-13 00:10:42.088605: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1763021442.099599 2033320 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763021442.103147 2033320 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763021442.112861 2033320 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763021442.112870 2033320 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763021442.112873 2033320 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763021442.112874 2033320 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-13 00:10:42.115534: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+usage: compare_models.py [-h] --pinn_dir PINN_DIR --baseline_dir BASELINE_DIR
+                         --test_data TEST_DATA --output_dir OUTPUT_DIR
+                         [--p_min P_MIN] [--p_max P_MAX]
+                         [--pinn_phase_vmin PINN_PHASE_VMIN]
+                         [--pinn_phase_vmax PINN_PHASE_VMAX]
+                         [--baseline_phase_vmin BASELINE_PHASE_VMIN]
+                         [--baseline_phase_vmax BASELINE_PHASE_VMAX]
+                         [--skip-registration] [--register-ptychi-only]
+                         [--save-npz] [--no-save-npz] [--save-npz-aligned]
+                         [--no-save-npz-aligned]
+                         [--phase-align-method {plane,mean}]
+                         [--frc-sigma FRC_SIGMA] [--save-debug-images]
+                         [--ms-ssim-sigma MS_SSIM_SIGMA]
+                         [--n-test-groups N_TEST_GROUPS]
+                         [--n-test-subsample N_TEST_SUBSAMPLE]
+                         [--test-subsample-seed TEST_SUBSAMPLE_SEED]
+                         [--n-test-images N_TEST_IMAGES]
+                         [--n-subsample N_SUBSAMPLE]
+                         [--subsample-seed SUBSAMPLE_SEED]
+                         [--tike_recon_path TIKE_RECON_PATH]
+                         [--stitch-crop-size STITCH_CROP_SIZE]
+                         [--quiet | --verbose]
+                         [--console-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}]
+compare_models.py: error: unrecognized arguments:     
