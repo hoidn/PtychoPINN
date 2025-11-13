@@ -251,7 +251,7 @@ def parse_arguments():
                        choices=['auto', 'cpu', 'cuda', 'gpu', 'mps', 'tpu'],
                        default='cuda',
                        help="PyTorch accelerator for training (only applies when --backend pytorch). "
-                            "Options: 'cuda' (default GPU baseline), 'auto' (auto-detect with CUDA preference), "
+                            "Options: 'cuda' (default GPU baseline per POLICY-001), 'auto' (auto-detect with CUDA preference), "
                             "'cpu' (fallback), 'gpu', 'mps', 'tpu'. "
                             "Override with '--torch-accelerator cpu' for CPU-only runs. "
                             "See docs/workflows/pytorch.md §12 for details.")

@@ -1,35 +1,35 @@
-2025-11-12 20:19:53.893200: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-11-12 20:25:54.890877: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1763007593.904951 1824023 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1763007593.908583 1824023 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1763007593.918613 1824023 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763007593.918625 1824023 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763007593.918627 1824023 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763007593.918629 1824023 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2025-11-12 20:19:53.921377: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+E0000 00:00:1763007954.901917 1826188 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763007954.905492 1826188 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763007954.915234 1826188 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763007954.915247 1826188 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763007954.915249 1826188 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763007954.915250 1826188 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-12 20:25:54.917934: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
 To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2025-11-12 20:19:56,342 - INFO - Starting ptychography inference script...
-2025-11-12 20:19:56,342 - INFO - Final inference config - gridsize: 1
-2025-11-12 20:19:56,342 - INFO - Using full dataset for inference
-2025-11-12 20:19:56,342 - INFO - Loading model...
-2025-11-12 20:19:56,342 - INFO - Backend dispatcher: loading PyTorch model (ptycho_torch.workflows.components)
-2025-11-12 20:19:57,315 - INFO - Loading PyTorch inference bundle from plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/wts.h5.zip via load_torch_bundle
-2025-11-12 20:19:58,476 - INFO - Inference bundle loaded successfully. Models: ['diffraction_to_obj', 'autoencoder'], Params keys: ['batch_size', 'nepochs', 'mae_weight', 'nll_weight', 'realspace_mae_weight']...
-2025-11-12 20:19:58,476 - INFO - Backend dispatcher: inference bundle loaded (backend=pytorch)
-2025-11-12 20:19:58,614 - INFO - PyTorch model moved to device: cuda
-2025-11-12 20:19:58,614 - INFO - Loading test data...
-2025-11-12 20:19:58,614 - INFO - Loading data from tests/fixtures/pytorch_integration/minimal_dataset_v1.npz with n_images=None, n_subsample=None
-2025-11-12 20:19:58,619 - INFO - Using full dataset of 64 images
-2025-11-12 20:19:58,619 - INFO - Inference config: gridsize=1, using all 64 individual patterns
-2025-11-12 20:19:58,619 - INFO - Performing inference...
-2025-11-12 20:19:58,619 - INFO - PyTorch inference config: accelerator=cuda, num_workers=0, inference_batch_size=2
-2025-11-12 20:19:58,776 - INFO - Saving reconstruction images...
-2025-11-12 20:19:58,776 - INFO - Amplitude array shape: (64, 64)
-2025-11-12 20:19:58,776 - INFO - Phase array shape: (64, 64)
-2025-11-12 20:19:58,924 - INFO - Reconstructed amplitude saved to: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/inference_outputs/reconstructed_amplitude.png
-2025-11-12 20:19:58,924 - INFO - Reconstructed phase saved to: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/inference_outputs/reconstructed_phase.png
-2025-11-12 20:19:58,924 - INFO - Inference process completed successfully.
-2025-11-12 20:19:58,924 - INFO - Cleaning up resources...
+2025-11-12 20:25:57,371 - INFO - Starting ptychography inference script...
+2025-11-12 20:25:57,371 - INFO - Final inference config - gridsize: 1
+2025-11-12 20:25:57,372 - INFO - Using full dataset for inference
+2025-11-12 20:25:57,372 - INFO - Loading model...
+2025-11-12 20:25:57,372 - INFO - Backend dispatcher: loading PyTorch model (ptycho_torch.workflows.components)
+2025-11-12 20:25:58,335 - INFO - Loading PyTorch inference bundle from plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/wts.h5.zip via load_torch_bundle
+2025-11-12 20:25:59,493 - INFO - Inference bundle loaded successfully. Models: ['diffraction_to_obj', 'autoencoder'], Params keys: ['batch_size', 'nepochs', 'mae_weight', 'nll_weight', 'realspace_mae_weight']...
+2025-11-12 20:25:59,493 - INFO - Backend dispatcher: inference bundle loaded (backend=pytorch)
+2025-11-12 20:25:59,643 - INFO - PyTorch model moved to device: cuda
+2025-11-12 20:25:59,643 - INFO - Loading test data...
+2025-11-12 20:25:59,643 - INFO - Loading data from tests/fixtures/pytorch_integration/minimal_dataset_v1.npz with n_images=None, n_subsample=None
+2025-11-12 20:25:59,648 - INFO - Using full dataset of 64 images
+2025-11-12 20:25:59,648 - INFO - Inference config: gridsize=1, using all 64 individual patterns
+2025-11-12 20:25:59,648 - INFO - Performing inference...
+2025-11-12 20:25:59,648 - INFO - PyTorch inference config: accelerator=cuda, num_workers=0, inference_batch_size=2
+2025-11-12 20:25:59,804 - INFO - Saving reconstruction images...
+2025-11-12 20:25:59,804 - INFO - Amplitude array shape: (64, 64)
+2025-11-12 20:25:59,804 - INFO - Phase array shape: (64, 64)
+2025-11-12 20:25:59,952 - INFO - Reconstructed amplitude saved to: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/inference_outputs/reconstructed_amplitude.png
+2025-11-12 20:25:59,952 - INFO - Reconstructed phase saved to: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/inference_outputs/reconstructed_phase.png
+2025-11-12 20:25:59,952 - INFO - Inference process completed successfully.
+2025-11-12 20:25:59,952 - INFO - Cleaning up resources...
 Decoder Block 1: No attention module added.
 Decoder Block 2: No attention module added.
 Decoder Block 1: No attention module added.
@@ -48,5 +48,5 @@ xcoords_start shape: (64,)
 ycoords_start shape: (64,)
 Running inference on 64 images...
 Reconstruction shape: (64, 64)
-Amplitude range: [0.0000, 28.9164]
+Amplitude range: [0.0000, 126.2376]
 Phase range: [-3.1416, 3.1416]
