@@ -1,4 +1,10 @@
 ### Turn Summary
+Extended execution_config integration tests with hardware-aware verification: added test_workflow_auto_instantiates_with_hardware_detection (verifies auto='cuda'/'cpu' based on torch.cuda.is_available) and test_backend_selector_warns_on_cpu_only_hosts (verifies POLICY-001 warning on CPU-only hosts, skips on CUDA).
+Updated test_execution_config_defaults_applied to expect GPU-first defaults dynamically instead of hardcoded 'cpu'.
+All new tests PASSED; pre-existing workflow test failures remain (stub module issues unrelated to changes).
+Artifacts: commit 4e7c343d, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_execution_config_defaults_final.log
+
+### Turn Summary
 Confirmed commit 3efa2dc3 landed GPU-first `PyTorchExecutionConfig` defaults plus GREEN `green/pytest_execution_config_defaults.log`, and captured the evidence in `analysis/artifact_inventory.txt`.
 Updated `plans/ptychodus_pytorch_integration_plan.md`, docs/fix_plan.md, input.md, and the hub instructions so the next increment adds dispatcher-level regression tests proving backend_selector inherits the GPU baseline and emits POLICY-001 warnings on CPU-only hosts.
 Next: implement the backend-selector GPU/CPU tests in `tests/torch/test_execution_config_defaults.py`, rerun `pytest tests/torch/test_execution_config_defaults.py -vv`, and refresh hub summaries/inventory with the new log (blockers → `$HUB/red/`).
