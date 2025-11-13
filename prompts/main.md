@@ -164,6 +164,14 @@
 
     **Turn Summary (required at end of reply):** Append a lightweight Markdown block humans can skim. Format: a single level‑3 heading `### Turn Summary`, followed by 3–5 short single‑line sentences describing: (a) what you shipped/advanced this turn, (b) the main problem and how you handled it (or note it’s still open), and (c) the single next step you intend. Finish with an `Artifacts:` line listing links (if any) to external or `.artifacts/` evidence. Do **not** include focus IDs, branch names, dwell/state, or pytest selectors (those are already captured in `galph_memory.md` and `input.md`). Markdown only — no JSON/YAML/XML.
     **Persistence:** Write the **exact same block** to `plans/active/<initiative-id>/summary.md` for this loop and **prepend** it above earlier notes.
+    **Checklist footer (required immediately after the Turn Summary):** add three literal lines so Galph can confirm execution without rereading the repo:
+    ```
+    Checklist:
+    - Files touched: <comma-separated file paths or `none`>
+    - Tests run: <pytest commands or `none`>
+    - Artifacts updated: <hub paths / doc files or `none`>
+    ```
+    Use repository-relative paths, keep each bullet on one line, and copy this footer verbatim into the initiative summary along with the Turn Summary.
 
     Example:
     ### Turn Summary
