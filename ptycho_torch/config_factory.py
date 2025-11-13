@@ -205,6 +205,7 @@ def create_training_payload(
         nphotons=overrides.get('nphotons', 1e5),  # PyTorch default
         K=overrides.get('neighbor_count', 4),  # Canonical default=4 per specs/ptychodus_api_spec.md §4.6
         probe_scale=overrides.get('probe_scale', 1.0),  # PyTorch default
+        subsample_seed=overrides.get('subsample_seed'),  # Optional field
     )
 
     # ModelConfig: Extract model architecture fields from overrides
@@ -220,6 +221,8 @@ def create_training_payload(
         intensity_scale_trainable=overrides.get('intensity_scale_trainable', False),
         C_forward=C,  # Match data config channel count
         C_model=C,    # Match data config channel count
+        pad_object=overrides.get('pad_object', True),  # Spec default
+        gaussian_smoothing_sigma=overrides.get('gaussian_smoothing_sigma', 0.0),  # Spec default
     )
 
     # TrainingConfig: Extract training-specific fields from overrides
@@ -227,6 +230,10 @@ def create_training_payload(
         epochs=overrides.get('max_epochs', overrides.get('nepochs', 50)),  # Handle both names
         batch_size=overrides.get('batch_size', 16),  # PyTorch default
         nll=overrides.get('nll_weight', 1.0) > 0,  # Convert float → bool
+        train_data_file=str(train_data_file),  # Set from required parameter
+        test_data_file=str(overrides['test_data_file']) if 'test_data_file' in overrides else None,
+        output_dir=str(output_dir),  # Set from required parameter
+        n_groups=overrides['n_groups'],  # Required field (validated above)
     )
 
     # Step 4: Translate to TensorFlow canonical configs via config_bridge
@@ -403,6 +410,7 @@ def create_inference_payload(
         C=C,  # Set C based on grid_size
         K=overrides.get('neighbor_count', 4),  # Canonical default=4 per specs/ptychodus_api_spec.md §4.6
         probe_scale=overrides.get('probe_scale', 1.0),  # PyTorch default
+        subsample_seed=overrides.get('subsample_seed'),  # Optional field
     )
 
     # ModelConfig: Extract model architecture fields from overrides (for config_bridge)
@@ -417,6 +425,8 @@ def create_inference_payload(
         probe_big=overrides.get('probe_big', False),
         C_forward=C,  # Match data config channel count
         C_model=C,    # Match data config channel count
+        pad_object=overrides.get('pad_object', True),  # Spec default
+        gaussian_smoothing_sigma=overrides.get('gaussian_smoothing_sigma', 0.0),  # Spec default
     )
 
     # InferenceConfig: Extract inference-specific fields from overrides

@@ -315,9 +315,10 @@ class TestConfigBridgeParity:
     ])
     def test_model_config_override_fields(self, params_cfg_snapshot, field_name, override_value, expected_value):
         """
-        Test ModelConfig fields missing from PyTorch that use defaults or overrides.
+        Test ModelConfig fields that now have defaults in PyTorch or use overrides.
 
         Spec coverage: §5.1:9 (pad_object), §5.1:11 (gaussian_smoothing_sigma)
+        Phase: Phase C.C3 spec defaults backfill
         """
         from ptycho_torch.config_params import DataConfig, ModelConfig
         from ptycho_torch import config_bridge
@@ -825,6 +826,75 @@ class TestConfigBridgeParity:
             "n_subsample override should be applied successfully"
         assert tf_infer.n_subsample != 7, \
             "Override should replace PyTorch value"
+
+    # ============================================================================
+    # Test Case 5.8: subsample_seed Field Propagation (Phase C.C3)
+    # ============================================================================
+
+    def test_training_config_subsample_seed_from_dataconfig(self, params_cfg_snapshot):
+        """
+        Test that subsample_seed propagates from DataConfig to TrainingConfig.
+
+        Now that subsample_seed exists in PyTorch DataConfig, verify that
+        config_bridge correctly propagates it to TensorFlow TrainingConfig.
+
+        Spec coverage: §5.2:13 (subsample_seed)
+        Phase: Phase C.C3 spec defaults backfill
+        """
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
+        from ptycho_torch import config_bridge
+
+        # Set subsample_seed in DataConfig
+        pt_data = DataConfig(subsample_seed=42)
+        pt_model = ModelConfig()
+        pt_train = TrainingConfig()
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+
+        tf_train = config_bridge.to_training_config(
+            tf_model, pt_data, pt_model, pt_train,
+            overrides=dict(
+                train_data_file=Path('train.npz'),
+                n_groups=512,
+                nphotons=1e9
+            )
+        )
+
+        # Assert subsample_seed is propagated from DataConfig
+        assert tf_train.subsample_seed == 42, \
+            "subsample_seed should propagate from DataConfig to TrainingConfig"
+
+    def test_training_config_subsample_seed_override(self, params_cfg_snapshot):
+        """
+        Test that subsample_seed override takes precedence over DataConfig value.
+
+        Spec coverage: §5.2:13 (subsample_seed override pattern)
+        Phase: Phase C.C3 spec defaults backfill
+        """
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
+        from ptycho_torch import config_bridge
+
+        pt_data = DataConfig(subsample_seed=42)  # DataConfig value
+        pt_model = ModelConfig()
+        pt_train = TrainingConfig()
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+
+        tf_train = config_bridge.to_training_config(
+            tf_model, pt_data, pt_model, pt_train,
+            overrides=dict(
+                train_data_file=Path('train.npz'),
+                n_groups=512,
+                nphotons=1e9,
+                subsample_seed=99  # Override value
+            )
+        )
+
+        # Assert override value is used (not DataConfig value)
+        assert tf_train.subsample_seed == 99, \
+            "subsample_seed override should take precedence"
+        assert tf_train.subsample_seed != 42, \
+            "Override should replace DataConfig value"
 
     # ============================================================================
     # Test Case 5.7: Override Warning Coverage (Phase B.B5.D3)

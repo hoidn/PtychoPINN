@@ -170,10 +170,10 @@ def to_model_config(
         # Translated values
         'probe_mask': probe_mask_value,  # PyTorch Optional[Tensor] → TensorFlow bool
 
-        # Default values for fields missing in PyTorch (spec-required)
-        'pad_object': True,   # Missing in PyTorch, use TensorFlow default
+        # Spec-mandated fields (now available from PyTorch dataclass defaults)
+        'pad_object': model.pad_object,  # From PyTorch ModelConfig (default=True)
         'probe_scale': data.probe_scale,  # PyTorch default=1.0, TensorFlow default=4.0
-        'gaussian_smoothing_sigma': 0.0,  # Missing in PyTorch
+        'gaussian_smoothing_sigma': model.gaussian_smoothing_sigma,  # From PyTorch ModelConfig (default=0.0)
     }
 
     # Apply overrides (allows explicit probe_mask override)
@@ -244,13 +244,13 @@ def to_training_config(
         'probe_trainable': False,
         'sequential_sampling': False,
 
-        # Fields that must come from overrides (not in PyTorch configs)
-        'train_data_file': None,
-        'test_data_file': None,
-        'n_groups': None,
-        'n_subsample': None,
-        'subsample_seed': None,
-        'output_dir': Path('training_outputs'),
+        # Fields from PyTorch TrainingConfig (now with defaults)
+        'train_data_file': training.train_data_file,  # From PyTorch TrainingConfig
+        'test_data_file': training.test_data_file,  # From PyTorch TrainingConfig
+        'n_groups': training.n_groups,  # From PyTorch TrainingConfig
+        'n_subsample': None,  # Not in PyTorch, use override
+        'subsample_seed': data.subsample_seed,  # From DataConfig
+        'output_dir': Path(training.output_dir) if training.output_dir else Path('training_outputs'),
     }
 
     # Apply overrides (critical for MVP fields)
