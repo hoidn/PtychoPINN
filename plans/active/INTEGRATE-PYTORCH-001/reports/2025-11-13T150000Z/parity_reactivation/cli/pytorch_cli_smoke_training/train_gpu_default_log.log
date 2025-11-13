@@ -1,0 +1,163 @@
+2025-11-12 22:02:59.974151: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1763013779.985639 1897975 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763013779.989256 1897975 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763013779.999207 1897975 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763013779.999216 1897975 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763013779.999218 1897975 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763013779.999219 1897975 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-12 22:03:00.001943: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-12 22:03:02,792 - INFO - Configuration setup complete
+2025-11-12 22:03:02,792 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('tests/fixtures/pytorch_integration/minimal_dataset_v1.npz'), test_data_file=PosixPath('tests/fixtures/pytorch_integration/minimal_dataset_v1.npz'), batch_size=4, nepochs=1, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_groups=4, n_images=None, n_subsample=16, subsample_seed=None, neighbor_count=7, enable_oversampling=False, neighbor_pool_size=None, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('/home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs'), sequential_sampling=False, backend='pytorch')
+2025-11-12 22:03:02,792 - INFO - Independent sampling control: subsampling 16 images, creating 4 groups (approx 16 patterns from groups)
+2025-11-12 22:03:02,793 - INFO - Starting training with n_subsample=16, n_groups=4, stitching=disabled
+2025-11-12 22:03:02,793 - INFO - Loading data from tests/fixtures/pytorch_integration/minimal_dataset_v1.npz with n_images=4, n_subsample=16
+2025-11-12 22:03:02,798 - INFO - Independent sampling: subsampling 16 images from 64 total
+2025-11-12 22:03:02,798 - INFO - Randomly subsampled 16 images
+diff3d shape: (16, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (16,)
+objectGuess shape: (227, 226)
+xcoords shape: (16,)
+ycoords shape: (16,)
+xcoords_start shape: (16,)
+ycoords_start shape: (16,)
+2025-11-12 22:03:02,807 - INFO - Loading data from tests/fixtures/pytorch_integration/minimal_dataset_v1.npz with n_images=None, n_subsample=None
+2025-11-12 22:03:02,812 - INFO - Using full dataset of 64 images
+diff3d shape: (64, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (64,)
+objectGuess shape: (227, 226)
+xcoords shape: (64,)
+ycoords shape: (64,)
+xcoords_start shape: (64,)
+ycoords_start shape: (64,)
+2025-11-12 22:03:02,812 - INFO - Loaded test data from tests/fixtures/pytorch_integration/minimal_dataset_v1.npz
+2025-11-12 22:03:02,812 - INFO - POLICY-001: No --torch-* execution flags provided. Backend will use GPU-first defaults (auto-detects CUDA if available, else CPU). CPU-only users should pass --torch-accelerator cpu.
+2025-11-12 22:03:02,812 - INFO - Backend dispatcher: params.cfg synchronized with TrainingConfig (backend=pytorch)
+2025-11-12 22:03:02,812 - INFO - Backend dispatcher: routing to PyTorch workflow (ptycho_torch.workflows.components)
+2025-11-12 22:03:03,773 - INFO - Backend dispatcher: auto-instantiated PyTorchExecutionConfig with accelerator='cuda' (POLICY-001 GPU-first defaults)
+2025-11-12 22:03:03,773 - INFO - PyTorch workflow: params.cfg synchronized with TrainingConfig
+2025-11-12 22:03:03,773 - INFO - Invoking PyTorch training orchestration via train_cdi_model_torch
+2025-11-12 22:03:03,773 - INFO - Normalizing training data via _ensure_container
+diff3d shape: (16, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (16,)
+objectGuess shape: (227, 226)
+xcoords shape: (16,)
+ycoords shape: (16,)
+xcoords_start shape: (16,)
+ycoords_start shape: (16,)
+2025-11-12 22:03:03,774 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=4, n_points=16, C=4, K=7
+2025-11-12 22:03:03,774 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
+2025-11-12 22:03:03,774 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
+2025-11-12 22:03:03,774 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 4 > 16 = False
+2025-11-12 22:03:03,774 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2025-11-12 22:03:03,774 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+DEBUG: nsamples: 4, gridsize: 2 (using efficient random sample-then-group strategy)
+2025-11-12 22:03:03,774 - INFO - Using efficient random sampling strategy for gridsize=2
+2025-11-12 22:03:03,774 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-11-12 22:03:03,774 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=4, K=7, C=4
+2025-11-12 22:03:03,774 - INFO - Generating 4 groups efficiently from 16 points (K=7, C=4)
+2025-11-12 22:03:03,774 - INFO - [OVERSAMPLING DEBUG] Standard case: using 4 groups from 16 points
+2025-11-12 22:03:03,774 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 4 seed points
+2025-11-12 22:03:03,774 - INFO - Sampled 4 seed points from 16 total points
+2025-11-12 22:03:03,774 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 4 groups
+2025-11-12 22:03:03,774 - INFO - Successfully generated 4 groups with shape (4, 4)
+2025-11-12 22:03:03,774 - INFO - [OVERSAMPLING DEBUG] Generated 4 groups in total
+2025-11-12 22:03:03,774 - INFO - Generated 4 groups efficiently
+I0000 00:00:1763013783.897669 1897975 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1763013783.898872 1897975 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1763013784.641002 1897975 service.cc:152] XLA service 0x1405c320 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1763013784.641021 1897975 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-11-12 22:03:04.655687: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1763013784.672728 1897975 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1763013784.797342 1897975 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (4, 64, 64, 4)
+2025-11-12 22:03:04,907 - INFO - Normalizing test data via _ensure_container
+diff3d shape: (64, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (64,)
+objectGuess shape: (227, 226)
+xcoords shape: (64,)
+ycoords shape: (64,)
+xcoords_start shape: (64,)
+ycoords_start shape: (64,)
+2025-11-12 22:03:04,907 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=4, n_points=64, C=4, K=7
+2025-11-12 22:03:04,907 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
+2025-11-12 22:03:04,907 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
+2025-11-12 22:03:04,907 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 4 > 64 = False
+2025-11-12 22:03:04,907 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2025-11-12 22:03:04,907 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+DEBUG: nsamples: 4, gridsize: 2 (using efficient random sample-then-group strategy)
+2025-11-12 22:03:04,907 - INFO - Using efficient random sampling strategy for gridsize=2
+2025-11-12 22:03:04,907 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-11-12 22:03:04,907 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=4, K=7, C=4
+2025-11-12 22:03:04,907 - INFO - Generating 4 groups efficiently from 64 points (K=7, C=4)
+2025-11-12 22:03:04,907 - INFO - [OVERSAMPLING DEBUG] Standard case: using 4 groups from 64 points
+2025-11-12 22:03:04,907 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 4 seed points
+2025-11-12 22:03:04,907 - INFO - Sampled 4 seed points from 64 total points
+2025-11-12 22:03:04,908 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 4 groups
+2025-11-12 22:03:04,908 - INFO - Successfully generated 4 groups with shape (4, 4)
+2025-11-12 22:03:04,908 - INFO - [OVERSAMPLING DEBUG] Generated 4 groups in total
+2025-11-12 22:03:04,908 - INFO - Generated 4 groups efficiently
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (4, 64, 64, 4)
+2025-11-12 22:03:04,965 - INFO - Delegating to Lightning trainer via _train_with_lightning
+2025-11-12 22:03:06,055 - INFO - _train_with_lightning orchestrating Lightning training
+2025-11-12 22:03:06,055 - INFO - Training config: nepochs=1, n_groups=4
+/home/ollie/Documents/PtychoPINN/ptycho_torch/config_factory.py:264: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+  tf_training_config = to_training_config(
+/home/ollie/Documents/PtychoPINN/ptycho_torch/config_factory.py:623: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+  warnings.warn(
+INFO: Seed set to 42
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+2025-11-12 22:03:06,068 - INFO - Seed set to 42
+2025-11-12 22:03:06,071 - INFO - Enabled CSVLogger: metrics saved to /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/
+2025-11-12 22:03:06,098 - INFO - GPU available: True (cuda), used: True
+2025-11-12 22:03:06,098 - INFO - TPU available: False, using: 0 TPU cores
+2025-11-12 22:03:06,098 - INFO - HPU available: False, using: 0 HPUs
+2025-11-12 22:03:06,098 - INFO - Starting Lightning training: 1 epochs
+2025-11-12 22:03:06,101 - INFO - You are using a CUDA device ('NVIDIA GeForce RTX 3090') that has Tensor Cores. To properly utilize them, you should set `torch.set_float32_matmul_precision('medium' | 'high')` which will trade-off precision for performance. For more details, read https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/callbacks/model_checkpoint.py:751: Checkpoint directory /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/checkpoints exists and is not empty.
+INFO: LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+2025-11-12 22:03:06,102 - INFO - LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+INFO: 
+  | Name  | Type        | Params | Mode 
+----------------------------------------------
+0 | model | PtychoPINN  | 2.3 M  | train
+1 | Loss  | PoissonLoss | 0      | train
+----------------------------------------------
+2.3 M     Trainable params
+0         Non-trainable params
+2.3 M     Total params
+9.365     Total estimated model params size (MB)
+73        Modules in train mode
+0         Modules in eval mode
+2025-11-12 22:03:06,117 - INFO - 
+  | Name  | Type        | Params | Mode 
+----------------------------------------------
+0 | model | PtychoPINN  | 2.3 M  | train
+1 | Loss  | PoissonLoss | 0      | train
+----------------------------------------------
+2.3 M     Trainable params
+0         Non-trainable params
+2.3 M     Total params
+9.365     Total estimated model params size (MB)
+73        Modules in train mode
+0         Modules in eval mode
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+2025-11-12 22:03:06,594 - INFO - `Trainer.fit` stopped: `max_epochs=1` reached.
+2025-11-12 22:03:06,611 - INFO - Lightning training complete
+2025-11-12 22:03:06,611 - INFO - Skipping image stitching (do_stitching=False or no test data available)
+2025-11-12 22:03:06,612 - INFO - Saving trained models to /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs via save_torch_bundle
+2025-11-12 22:03:06,885 - INFO - Models saved successfully to /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/wts.h5.zip
+2025-11-12 22:03:06,885 - INFO - Backend dispatcher: workflow complete (backend=pytorch)
+2025-11-12 22:03:06,885 - INFO - PyTorch backend completed. Check /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs for saved bundles.

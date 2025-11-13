@@ -1,0 +1,776 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 33 items / 31 deselected / 2 selected
+
+tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_overrides_trainer FAILED [ 50%]
+tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_controls_determinism FAILED [100%]
+
+=================================== FAILURES ===================================
+_____ TestTrainWithLightningGreen.test_execution_config_overrides_trainer ______
+
+self = <test_workflows_components.TestTrainWithLightningGreen object at 0x767e644532d0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x767e64a97290>
+params_cfg_snapshot = {'N': 64, 'amp_activation': 'sigmoid', 'backend': 'pytorch', 'batch_size': 16, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x767d8f08ca50>
+
+    def test_execution_config_overrides_trainer(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        RED TEST: _train_with_lightning MUST pass execution config knobs to Trainer.
+    
+        Requirement: ADR-003 Phase C3.A3 — thread trainer kwargs from execution config.
+    
+        Expected behavior (after wiring):
+        - When execution_config supplied, Trainer receives accelerator/deterministic/gradient_clip_val
+        - Values override defaults (e.g., accelerator='gpu', deterministic=False, gradient_clip_val=1.0)
+        - When execution_config=None, Trainer uses CPU-safe defaults
+    
+        Test mechanism:
+        - Spy on Trainer.__init__ to capture kwargs
+        - Supply non-default PyTorchExecutionConfig (accelerator='gpu', deterministic=False)
+        - Assert Trainer received those exact values
+        - Expect FAILURE because _train_with_lightning currently ignores execution_config
+        """
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import PyTorchExecutionConfig
+    
+        # Spy to track Trainer.__init__ kwargs
+        trainer_init_kwargs = {"called": False, "kwargs": None}
+    
+        class MockTrainer:
+            """Stub Trainer that records __init__ kwargs."""
+            def __init__(self, **kwargs):
+                trainer_init_kwargs["called"] = True
+                trainer_init_kwargs["kwargs"] = kwargs
+    
+            def fit(self, module, train_dataloaders=None, val_dataloaders=None, **kwargs):
+                pass
+    
+        # Monkeypatch Lightning Trainer
+        monkeypatch.setattr(
+            "lightning.pytorch.Trainer",
+            MockTrainer
+        )
+    
+        # Monkeypatch Lightning module to prevent errors
+        class StubLightningModule:
+            def save_hyperparameters(self):
+                pass
+    
+        monkeypatch.setattr(
+            "ptycho_torch.model.PtychoPINN_Lightning",
+            lambda *args, **kwargs: StubLightningModule()
+        )
+    
+        # Create execution config with non-default values
+        exec_config = PyTorchExecutionConfig(
+            accelerator='gpu',  # Override default 'cpu'
+            deterministic=False,  # Override default True
+            gradient_clip_val=1.0,  # Override default None
+            num_workers=4,  # Override default 0
+        )
+    
+        # Create minimal containers
+        train_container = {"X": np.ones((10, 64, 64))}
+    
+        # Call _train_with_lightning with execution_config
+>       results = torch_components._train_with_lightning(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config,
+            execution_config=exec_config  # CRITICAL: new parameter
+        )
+
+tests/torch/test_workflows_components.py:2535: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_container = {'X': array([[[1., 1., 1., ..., 1., 1., 1.],
+        [1., 1., 1., ..., 1., 1., 1.],
+        [1., 1., 1., ..., 1., 1., ...        [1., 1., 1., ..., 1., 1., 1.],
+        [1., 1., 1., ..., 1., 1., 1.],
+        [1., 1., 1., ..., 1., 1., 1.]]])}
+test_container = None
+config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+execution_config = PyTorchExecutionConfig(accelerator='gpu', strategy='auto', deterministic=False, gradient_clip_val=1.0, accum_steps=1, ...nt_mode='min', early_stop_patience=100, logger_backend='csv', inference_batch_size=None, middle_trim=0, pad_eval=False)
+
+    def _train_with_lightning(
+        train_container: 'PtychoDataContainerTorch',
+        test_container: Optional['PtychoDataContainerTorch'],
+        config: TrainingConfig,
+        execution_config: Optional['PyTorchExecutionConfig'] = None
+    ) -> Dict[str, Any]:
+        """
+        Orchestrate Lightning trainer execution for PyTorch model training.
+    
+        This function implements the Lightning training workflow per Phase D2.B blueprint:
+        1. Derives PyTorch config objects from TensorFlow TrainingConfig
+        2. Instantiates PtychoPINN_Lightning module with all four config dependencies
+        3. Builds train/val dataloaders via _build_lightning_dataloaders helper
+        4. Configures Lightning Trainer with checkpoint/logging settings (ADR-003 Phase C3)
+        5. Executes training via trainer.fit()
+        6. Returns structured results dict with history, containers, and module handle
+    
+        Args:
+            train_container: Normalized training data container
+            test_container: Optional normalized test data container
+            config: TrainingConfig with training hyperparameters
+            execution_config: Optional PyTorchExecutionConfig with runtime knobs (Phase C3.A2)
+    
+        Returns:
+            Dict[str, Any]: Training results including:
+                - history: Dict with train_loss and optional val_loss trajectories
+                - train_container: Original training container
+                - test_container: Original test container
+                - models: Dict with 'diffraction_to_obj' (Lightning module) and 'autoencoder' (sentinel)
+                          for dual-model bundle persistence per spec §4.6
+    
+        Raises:
+            RuntimeError: If torch or lightning packages are not installed (POLICY-001)
+    
+        References:
+            - Blueprint: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T020940Z/phase_d2_completion/phase_b2_implementation.md
+            - Spec: specs/ptychodus_api_spec.md:187 (reconstructor lifecycle contract)
+            - Findings: POLICY-001 (PyTorch mandatory), CONFIG-001 (params.cfg already populated by caller)
+            - ADR-003 Phase C3: execution_config controls Trainer kwargs (accelerator, deterministic, gradient_clip_val)
+        """
+        # B2.2: torch-optional imports with POLICY-001 compliant error messaging
+        try:
+            import torch
+            import lightning.pytorch as L
+            from ptycho_torch.model import PtychoPINN_Lightning
+            from ptycho_torch.config_params import (
+                DataConfig as PTDataConfig,
+                ModelConfig as PTModelConfig,
+                TrainingConfig as PTTrainingConfig,
+                InferenceConfig as PTInferenceConfig
+            )
+        except ImportError as e:
+            raise RuntimeError(
+                "PyTorch backend requires torch>=2.2 and lightning. "
+                "Install with: pip install -e .[torch]\n"
+                "See docs/findings.md#policy-001 for PyTorch requirement policy."
+            ) from e
+    
+        logger.info("_train_with_lightning orchestrating Lightning training")
+        logger.info(f"Training config: nepochs={config.nepochs}, n_groups={config.n_groups}")
+    
+        # B2.1: Use config_factory to derive PyTorch configs with correct channel propagation
+        # CRITICAL (Phase C4.D B2): Factory ensures C = gridsize**2 is propagated to
+        # pt_model_config.C_model and pt_model_config.C_forward, preventing channel mismatch
+        # when gridsize > 1 (see docs/findings.md#BUG-TF-001).
+        from ptycho_torch.config_factory import create_training_payload
+    
+        # Build factory overrides from TrainingConfig fields
+        # Factory requires n_groups in overrides dict; train_data_file and output_dir as positional
+        # Note: Factory expects model_type in PyTorch naming ('Unsupervised'/'Supervised')
+        #       but TrainingConfig uses TensorFlow naming ('pinn'/'supervised')
+        mode_map = {'pinn': 'Unsupervised', 'supervised': 'Supervised'}
+        factory_overrides = {
+            'n_groups': config.n_groups,  # Required by factory validation
+            'gridsize': config.model.gridsize,
+            'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
+            'amp_activation': config.model.amp_activation,
+            'n_filters_scale': config.model.n_filters_scale,
+            'nphotons': config.nphotons,
+            'neighbor_count': config.neighbor_count,
+            'max_epochs': config.nepochs,
+            'batch_size': getattr(config, 'batch_size', 16),
+        }
+    
+        # Create payload with factory-derived PyTorch configs
+        payload = create_training_payload(
+            train_data_file=Path(config.train_data_file),
+            output_dir=Path(getattr(config, 'output_dir', './outputs')),
+            execution_config=execution_config,  # Pass through from caller
+            overrides=factory_overrides
+        )
+    
+        # Extract PyTorch configs from payload (gridsize → C propagation already applied)
+        pt_data_config = payload.pt_data_config
+        pt_model_config = payload.pt_model_config
+        pt_training_config = payload.pt_training_config
+    
+        # CRITICAL: Supervised mode REQUIRES a compatible loss function (MAE)
+        # The Lightning module expects loss_name to be defined, which only happens when:
+        #   1. mode='Unsupervised' AND loss_function='Poisson' → sets loss_name='poisson_train'
+        #   2. mode='Unsupervised' AND loss_function='MAE' → sets loss_name='mae_train'
+        #   3. mode='Supervised' AND loss_function='MAE' → sets loss_name='mae_train'
+        # Without this override, supervised mode with default loss_function='Poisson' causes
+        # AttributeError: 'PtychoPINN_Lightning' object has no attribute 'loss_name'
+        # See: ptycho_torch/model.py:1052-1066
+        if pt_model_config.mode == 'Supervised' and pt_model_config.loss_function != 'MAE':
+            logger.info(
+                f"Backend override: supervised mode requires MAE loss "
+                f"(was {pt_model_config.loss_function}), forcing loss_function='MAE'"
+            )
+            # Create new ModelConfig with corrected loss_function
+            from dataclasses import replace
+            pt_model_config = replace(pt_model_config, loss_function='MAE')
+    
+        # Create minimal InferenceConfig for Lightning module (training payload doesn't include it)
+        pt_inference_config = PTInferenceConfig()
+    
+        # B2.4: Instantiate PtychoPINN_Lightning with factory-derived config objects
+        model = PtychoPINN_Lightning(
+            model_config=pt_model_config,
+            data_config=pt_data_config,
+            training_config=pt_training_config,
+            inference_config=pt_inference_config
+        )
+    
+        # Save hyperparameters so checkpoint can reconstruct module without external state
+        model.save_hyperparameters()
+    
+        # B2.3: Build dataloaders via helper
+        train_loader, val_loader = _build_lightning_dataloaders(
+            train_container, test_container, config
+        )
+    
+        # DATA-SUP-001: Supervised mode requires labeled data
+        # Check if supervised mode is requested but training data lacks required labels
+        if pt_model_config.mode == 'Supervised':
+            # Inspect first batch to verify label keys exist
+            try:
+                first_batch = next(iter(train_loader))
+                batch_dict = first_batch[0]  # Extract tensor dict from batch tuple
+                if 'label_amp' not in batch_dict or 'label_phase' not in batch_dict:
+                    raise RuntimeError(
+                        f"Supervised mode (model_type='supervised') requires labeled datasets with "
+                        f"'label_amp' and 'label_phase' keys, but training data lacks these fields. "
+                        f"Either: (1) Use a labeled NPZ dataset (see ptycho_torch/notebooks/create_supervised_datasets.ipynb), "
+                        f"or (2) Switch to PINN mode (--model_type pinn) for self-supervised physics-based training. "
+                        f"See DATA-SUP-001 in docs/findings.md for details."
+                    )
+            except StopIteration:
+                raise RuntimeError(
+                    f"Training dataloader is empty. Check dataset path and n_groups configuration."
+                )
+    
+        # B2.5: Configure Trainer with settings from config
+        # C3.A3: Thread execution config values to Trainer kwargs
+        output_dir = Path(getattr(config, 'output_dir', './outputs'))
+        debug_mode = getattr(config, 'debug', False)
+    
+        # Import execution config defaults if not provided
+        if execution_config is None:
+            from ptycho.config.config import PyTorchExecutionConfig
+            execution_config = PyTorchExecutionConfig()
+            logger.info(f"PyTorchExecutionConfig auto-instantiated for Lightning training (accelerator resolved to '{execution_config.accelerator}')")
+    
+        # EB1.D: Configure checkpoint/early-stop callbacks (ADR-003 Phase EB1)
+        callbacks = []
+        if execution_config.enable_checkpointing:
+            from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
+    
+            # Determine if we have validation data to use val metrics
+            has_validation = test_container is not None
+    
+            # EB2.B: Derive monitor metric from model.val_loss_name (ADR-003 Phase EB2)
+            # The model's val_loss_name is dynamically constructed based on model_type and loss configuration
+            # (e.g., 'poisson_val_Amp_loss' for PINN with amplitude loss, 'mae_val_Phase_loss' for supervised)
+            # This ensures checkpoint/early-stop callbacks watch the correct logged metric
+            if has_validation and hasattr(model, 'val_loss_name'):
+                # Use the model's dynamic validation loss name
+                monitor_metric = model.val_loss_name
+            else:
+                # Fall back to execution config default or train loss
+                monitor_metric = execution_config.checkpoint_monitor_metric
+                if 'val_' in monitor_metric and not has_validation:
+                    # Fall back to train_loss if val metric requested but no validation data
+                    monitor_metric = monitor_metric.replace('val_', 'train_')
+    
+            # Build checkpoint filename template using dynamic metric name
+            # Format: epoch={epoch:02d}-<metric_short_name>={<full_metric_name>:.4f}
+            if has_validation:
+                # Extract short name for filename (remove '_loss' suffix if present)
+                metric_short_name = monitor_metric.replace('_loss', '')
+                filename_template = f'epoch={{epoch:02d}}-{metric_short_name}={{{monitor_metric}:.4f}}'
+            else:
+                filename_template = 'epoch={epoch:02d}'
+    
+            checkpoint_callback = ModelCheckpoint(
+                dirpath=str(output_dir / "checkpoints"),
+                filename=filename_template,
+                monitor=monitor_metric,
+                mode=execution_config.checkpoint_mode,
+                save_top_k=execution_config.checkpoint_save_top_k,
+                save_last=True,  # Always keep last checkpoint for recovery
+                verbose=False,
+            )
+            callbacks.append(checkpoint_callback)
+    
+            # EarlyStopping callback (ADR-003 Phase EB1.D)
+            # Only add early stopping if validation data is available (otherwise no metric to monitor)
+            if has_validation:
+                early_stop_callback = EarlyStopping(
+                    monitor=monitor_metric,
+                    mode=execution_config.checkpoint_mode,
+                    patience=execution_config.early_stop_patience,
+                    verbose=False,
+                )
+                callbacks.append(early_stop_callback)
+    
+        # Instantiate logger based on execution config (Phase EB3.B - ADR-003)
+        lightning_logger = False  # Default: no logger
+        if execution_config.logger_backend is not None:
+            try:
+                if execution_config.logger_backend == 'csv':
+                    from lightning.pytorch.loggers import CSVLogger
+                    lightning_logger = CSVLogger(
+                        save_dir=str(output_dir),
+                        name='lightning_logs',
+                    )
+                    logger.info(f"Enabled CSVLogger: metrics saved to {output_dir}/lightning_logs/")
+                elif execution_config.logger_backend == 'tensorboard':
+                    from lightning.pytorch.loggers import TensorBoardLogger
+                    lightning_logger = TensorBoardLogger(
+                        save_dir=str(output_dir),
+                        name='lightning_logs',
+                    )
+                    logger.info(f"Enabled TensorBoardLogger: run `tensorboard --logdir={output_dir}/lightning_logs/`")
+                elif execution_config.logger_backend == 'mlflow':
+                    from lightning.pytorch.loggers import MLFlowLogger
+                    lightning_logger = MLFlowLogger(
+                        experiment_name=getattr(config, 'experiment_name', 'PtychoPINN'),
+                        tracking_uri=str(output_dir / 'mlruns'),
+                    )
+                    logger.info(f"Enabled MLFlowLogger: tracking URI={output_dir}/mlruns")
+                else:
+                    logger.warning(
+                        f"Unknown logger_backend '{execution_config.logger_backend}'. "
+                        f"Falling back to logger=False. Supported: 'csv', 'tensorboard', 'mlflow'."
+                    )
+            except ImportError as e:
+                logger.warning(
+                    f"Failed to import Lightning logger '{execution_config.logger_backend}': {e}. "
+                    f"Metrics logging disabled. Install the required package to enable logging."
+                )
+                lightning_logger = False
+        else:
+            logger.info("Logger disabled (logger_backend=None). Loss metrics will not be saved to disk.")
+    
+        # EXEC-ACCUM-001: Guard against manual optimization + gradient accumulation
+        # Lightning's manual optimization (automatic_optimization=False) is incompatible with
+        # Trainer(accumulate_grad_batches>1). The PtychoPINN_Lightning module uses manual optimization
+        # for custom physics loss integration, so gradient accumulation must be disabled.
+>       if not model.automatic_optimization and execution_config.accum_steps > 1:
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'StubLightningModule' object has no attribute 'automatic_optimization'
+
+ptycho_torch/workflows/components.py:831: AttributeError
+---------------------------- Captured stdout setup -----------------------------
+diff3d shape: (10, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (10,)
+xcoords shape: (10,)
+ycoords shape: (10,)
+xcoords_start shape: (10,)
+ycoords_start shape: (10,)
+---------------------------- Captured stderr setup -----------------------------
+2025-11-12 22:04:06.654528: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1763013846.665484 1898470 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763013846.669278 1898470 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763013846.680282 1898470 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763013846.680294 1898470 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763013846.680296 1898470 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763013846.680298 1898470 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-12 22:04:06.682925: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+----------------------------- Captured stderr call -----------------------------
+INFO: Seed set to 42
+------------------------------ Captured log call -------------------------------
+INFO     lightning.fabric.utilities.seed:seed.py:57 Seed set to 42
+____ TestTrainWithLightningGreen.test_execution_config_controls_determinism ____
+
+self = <test_workflows_components.TestTrainWithLightningGreen object at 0x767e644538d0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x767d7b682ad0>
+params_cfg_snapshot = {'N': 64, 'amp_activation': 'sigmoid', 'backend': 'pytorch', 'batch_size': 16, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x767d7b682d50>
+
+    def test_execution_config_controls_determinism(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        RED TEST: execution_config.deterministic MUST trigger Lightning deterministic mode.
+    
+        Requirement: ADR-003 Phase C3.C2 — validate deterministic behaviour.
+    
+        Expected behavior:
+        - When deterministic=True (default), Trainer receives deterministic=True
+        - This triggers torch.use_deterministic_algorithms(True) and seeds
+        - When deterministic=False, Trainer allows non-deterministic ops
+    
+        Test mechanism:
+        - Supply execution_config with deterministic=True
+        - Assert Trainer.__init__ received deterministic=True kwarg
+        - Expect FAILURE because current stub doesn't wire deterministic flag
+        """
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import PyTorchExecutionConfig
+    
+        # Spy to track Trainer.__init__ kwargs
+        trainer_init_kwargs = {"called": False, "kwargs": None}
+    
+        class MockTrainer:
+            def __init__(self, **kwargs):
+                trainer_init_kwargs["called"] = True
+                trainer_init_kwargs["kwargs"] = kwargs
+    
+            def fit(self, module, train_dataloaders=None, val_dataloaders=None, **kwargs):
+                pass
+    
+        monkeypatch.setattr(
+            "lightning.pytorch.Trainer",
+            MockTrainer
+        )
+    
+        # Monkeypatch Lightning module
+        class StubLightningModule:
+            def save_hyperparameters(self):
+                pass
+    
+        monkeypatch.setattr(
+            "ptycho_torch.model.PtychoPINN_Lightning",
+            lambda *args, **kwargs: StubLightningModule()
+        )
+    
+        # Create execution config with deterministic=True (default)
+        exec_config = PyTorchExecutionConfig(
+            deterministic=True,
+            accelerator='cpu'
+        )
+    
+        # Create minimal containers
+        train_container = {"X": np.ones((10, 64, 64))}
+    
+        # Call _train_with_lightning
+>       results = torch_components._train_with_lightning(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config,
+            execution_config=exec_config
+        )
+
+tests/torch/test_workflows_components.py:2629: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_container = {'X': array([[[1., 1., 1., ..., 1., 1., 1.],
+        [1., 1., 1., ..., 1., 1., 1.],
+        [1., 1., 1., ..., 1., 1., ...        [1., 1., 1., ..., 1., 1., 1.],
+        [1., 1., 1., ..., 1., 1., 1.],
+        [1., 1., 1., ..., 1., 1., 1.]]])}
+test_container = None
+config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+execution_config = PyTorchExecutionConfig(accelerator='cpu', strategy='auto', deterministic=True, gradient_clip_val=None, accum_steps=1, ...nt_mode='min', early_stop_patience=100, logger_backend='csv', inference_batch_size=None, middle_trim=0, pad_eval=False)
+
+    def _train_with_lightning(
+        train_container: 'PtychoDataContainerTorch',
+        test_container: Optional['PtychoDataContainerTorch'],
+        config: TrainingConfig,
+        execution_config: Optional['PyTorchExecutionConfig'] = None
+    ) -> Dict[str, Any]:
+        """
+        Orchestrate Lightning trainer execution for PyTorch model training.
+    
+        This function implements the Lightning training workflow per Phase D2.B blueprint:
+        1. Derives PyTorch config objects from TensorFlow TrainingConfig
+        2. Instantiates PtychoPINN_Lightning module with all four config dependencies
+        3. Builds train/val dataloaders via _build_lightning_dataloaders helper
+        4. Configures Lightning Trainer with checkpoint/logging settings (ADR-003 Phase C3)
+        5. Executes training via trainer.fit()
+        6. Returns structured results dict with history, containers, and module handle
+    
+        Args:
+            train_container: Normalized training data container
+            test_container: Optional normalized test data container
+            config: TrainingConfig with training hyperparameters
+            execution_config: Optional PyTorchExecutionConfig with runtime knobs (Phase C3.A2)
+    
+        Returns:
+            Dict[str, Any]: Training results including:
+                - history: Dict with train_loss and optional val_loss trajectories
+                - train_container: Original training container
+                - test_container: Original test container
+                - models: Dict with 'diffraction_to_obj' (Lightning module) and 'autoencoder' (sentinel)
+                          for dual-model bundle persistence per spec §4.6
+    
+        Raises:
+            RuntimeError: If torch or lightning packages are not installed (POLICY-001)
+    
+        References:
+            - Blueprint: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T020940Z/phase_d2_completion/phase_b2_implementation.md
+            - Spec: specs/ptychodus_api_spec.md:187 (reconstructor lifecycle contract)
+            - Findings: POLICY-001 (PyTorch mandatory), CONFIG-001 (params.cfg already populated by caller)
+            - ADR-003 Phase C3: execution_config controls Trainer kwargs (accelerator, deterministic, gradient_clip_val)
+        """
+        # B2.2: torch-optional imports with POLICY-001 compliant error messaging
+        try:
+            import torch
+            import lightning.pytorch as L
+            from ptycho_torch.model import PtychoPINN_Lightning
+            from ptycho_torch.config_params import (
+                DataConfig as PTDataConfig,
+                ModelConfig as PTModelConfig,
+                TrainingConfig as PTTrainingConfig,
+                InferenceConfig as PTInferenceConfig
+            )
+        except ImportError as e:
+            raise RuntimeError(
+                "PyTorch backend requires torch>=2.2 and lightning. "
+                "Install with: pip install -e .[torch]\n"
+                "See docs/findings.md#policy-001 for PyTorch requirement policy."
+            ) from e
+    
+        logger.info("_train_with_lightning orchestrating Lightning training")
+        logger.info(f"Training config: nepochs={config.nepochs}, n_groups={config.n_groups}")
+    
+        # B2.1: Use config_factory to derive PyTorch configs with correct channel propagation
+        # CRITICAL (Phase C4.D B2): Factory ensures C = gridsize**2 is propagated to
+        # pt_model_config.C_model and pt_model_config.C_forward, preventing channel mismatch
+        # when gridsize > 1 (see docs/findings.md#BUG-TF-001).
+        from ptycho_torch.config_factory import create_training_payload
+    
+        # Build factory overrides from TrainingConfig fields
+        # Factory requires n_groups in overrides dict; train_data_file and output_dir as positional
+        # Note: Factory expects model_type in PyTorch naming ('Unsupervised'/'Supervised')
+        #       but TrainingConfig uses TensorFlow naming ('pinn'/'supervised')
+        mode_map = {'pinn': 'Unsupervised', 'supervised': 'Supervised'}
+        factory_overrides = {
+            'n_groups': config.n_groups,  # Required by factory validation
+            'gridsize': config.model.gridsize,
+            'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
+            'amp_activation': config.model.amp_activation,
+            'n_filters_scale': config.model.n_filters_scale,
+            'nphotons': config.nphotons,
+            'neighbor_count': config.neighbor_count,
+            'max_epochs': config.nepochs,
+            'batch_size': getattr(config, 'batch_size', 16),
+        }
+    
+        # Create payload with factory-derived PyTorch configs
+        payload = create_training_payload(
+            train_data_file=Path(config.train_data_file),
+            output_dir=Path(getattr(config, 'output_dir', './outputs')),
+            execution_config=execution_config,  # Pass through from caller
+            overrides=factory_overrides
+        )
+    
+        # Extract PyTorch configs from payload (gridsize → C propagation already applied)
+        pt_data_config = payload.pt_data_config
+        pt_model_config = payload.pt_model_config
+        pt_training_config = payload.pt_training_config
+    
+        # CRITICAL: Supervised mode REQUIRES a compatible loss function (MAE)
+        # The Lightning module expects loss_name to be defined, which only happens when:
+        #   1. mode='Unsupervised' AND loss_function='Poisson' → sets loss_name='poisson_train'
+        #   2. mode='Unsupervised' AND loss_function='MAE' → sets loss_name='mae_train'
+        #   3. mode='Supervised' AND loss_function='MAE' → sets loss_name='mae_train'
+        # Without this override, supervised mode with default loss_function='Poisson' causes
+        # AttributeError: 'PtychoPINN_Lightning' object has no attribute 'loss_name'
+        # See: ptycho_torch/model.py:1052-1066
+        if pt_model_config.mode == 'Supervised' and pt_model_config.loss_function != 'MAE':
+            logger.info(
+                f"Backend override: supervised mode requires MAE loss "
+                f"(was {pt_model_config.loss_function}), forcing loss_function='MAE'"
+            )
+            # Create new ModelConfig with corrected loss_function
+            from dataclasses import replace
+            pt_model_config = replace(pt_model_config, loss_function='MAE')
+    
+        # Create minimal InferenceConfig for Lightning module (training payload doesn't include it)
+        pt_inference_config = PTInferenceConfig()
+    
+        # B2.4: Instantiate PtychoPINN_Lightning with factory-derived config objects
+        model = PtychoPINN_Lightning(
+            model_config=pt_model_config,
+            data_config=pt_data_config,
+            training_config=pt_training_config,
+            inference_config=pt_inference_config
+        )
+    
+        # Save hyperparameters so checkpoint can reconstruct module without external state
+        model.save_hyperparameters()
+    
+        # B2.3: Build dataloaders via helper
+        train_loader, val_loader = _build_lightning_dataloaders(
+            train_container, test_container, config
+        )
+    
+        # DATA-SUP-001: Supervised mode requires labeled data
+        # Check if supervised mode is requested but training data lacks required labels
+        if pt_model_config.mode == 'Supervised':
+            # Inspect first batch to verify label keys exist
+            try:
+                first_batch = next(iter(train_loader))
+                batch_dict = first_batch[0]  # Extract tensor dict from batch tuple
+                if 'label_amp' not in batch_dict or 'label_phase' not in batch_dict:
+                    raise RuntimeError(
+                        f"Supervised mode (model_type='supervised') requires labeled datasets with "
+                        f"'label_amp' and 'label_phase' keys, but training data lacks these fields. "
+                        f"Either: (1) Use a labeled NPZ dataset (see ptycho_torch/notebooks/create_supervised_datasets.ipynb), "
+                        f"or (2) Switch to PINN mode (--model_type pinn) for self-supervised physics-based training. "
+                        f"See DATA-SUP-001 in docs/findings.md for details."
+                    )
+            except StopIteration:
+                raise RuntimeError(
+                    f"Training dataloader is empty. Check dataset path and n_groups configuration."
+                )
+    
+        # B2.5: Configure Trainer with settings from config
+        # C3.A3: Thread execution config values to Trainer kwargs
+        output_dir = Path(getattr(config, 'output_dir', './outputs'))
+        debug_mode = getattr(config, 'debug', False)
+    
+        # Import execution config defaults if not provided
+        if execution_config is None:
+            from ptycho.config.config import PyTorchExecutionConfig
+            execution_config = PyTorchExecutionConfig()
+            logger.info(f"PyTorchExecutionConfig auto-instantiated for Lightning training (accelerator resolved to '{execution_config.accelerator}')")
+    
+        # EB1.D: Configure checkpoint/early-stop callbacks (ADR-003 Phase EB1)
+        callbacks = []
+        if execution_config.enable_checkpointing:
+            from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
+    
+            # Determine if we have validation data to use val metrics
+            has_validation = test_container is not None
+    
+            # EB2.B: Derive monitor metric from model.val_loss_name (ADR-003 Phase EB2)
+            # The model's val_loss_name is dynamically constructed based on model_type and loss configuration
+            # (e.g., 'poisson_val_Amp_loss' for PINN with amplitude loss, 'mae_val_Phase_loss' for supervised)
+            # This ensures checkpoint/early-stop callbacks watch the correct logged metric
+            if has_validation and hasattr(model, 'val_loss_name'):
+                # Use the model's dynamic validation loss name
+                monitor_metric = model.val_loss_name
+            else:
+                # Fall back to execution config default or train loss
+                monitor_metric = execution_config.checkpoint_monitor_metric
+                if 'val_' in monitor_metric and not has_validation:
+                    # Fall back to train_loss if val metric requested but no validation data
+                    monitor_metric = monitor_metric.replace('val_', 'train_')
+    
+            # Build checkpoint filename template using dynamic metric name
+            # Format: epoch={epoch:02d}-<metric_short_name>={<full_metric_name>:.4f}
+            if has_validation:
+                # Extract short name for filename (remove '_loss' suffix if present)
+                metric_short_name = monitor_metric.replace('_loss', '')
+                filename_template = f'epoch={{epoch:02d}}-{metric_short_name}={{{monitor_metric}:.4f}}'
+            else:
+                filename_template = 'epoch={epoch:02d}'
+    
+            checkpoint_callback = ModelCheckpoint(
+                dirpath=str(output_dir / "checkpoints"),
+                filename=filename_template,
+                monitor=monitor_metric,
+                mode=execution_config.checkpoint_mode,
+                save_top_k=execution_config.checkpoint_save_top_k,
+                save_last=True,  # Always keep last checkpoint for recovery
+                verbose=False,
+            )
+            callbacks.append(checkpoint_callback)
+    
+            # EarlyStopping callback (ADR-003 Phase EB1.D)
+            # Only add early stopping if validation data is available (otherwise no metric to monitor)
+            if has_validation:
+                early_stop_callback = EarlyStopping(
+                    monitor=monitor_metric,
+                    mode=execution_config.checkpoint_mode,
+                    patience=execution_config.early_stop_patience,
+                    verbose=False,
+                )
+                callbacks.append(early_stop_callback)
+    
+        # Instantiate logger based on execution config (Phase EB3.B - ADR-003)
+        lightning_logger = False  # Default: no logger
+        if execution_config.logger_backend is not None:
+            try:
+                if execution_config.logger_backend == 'csv':
+                    from lightning.pytorch.loggers import CSVLogger
+                    lightning_logger = CSVLogger(
+                        save_dir=str(output_dir),
+                        name='lightning_logs',
+                    )
+                    logger.info(f"Enabled CSVLogger: metrics saved to {output_dir}/lightning_logs/")
+                elif execution_config.logger_backend == 'tensorboard':
+                    from lightning.pytorch.loggers import TensorBoardLogger
+                    lightning_logger = TensorBoardLogger(
+                        save_dir=str(output_dir),
+                        name='lightning_logs',
+                    )
+                    logger.info(f"Enabled TensorBoardLogger: run `tensorboard --logdir={output_dir}/lightning_logs/`")
+                elif execution_config.logger_backend == 'mlflow':
+                    from lightning.pytorch.loggers import MLFlowLogger
+                    lightning_logger = MLFlowLogger(
+                        experiment_name=getattr(config, 'experiment_name', 'PtychoPINN'),
+                        tracking_uri=str(output_dir / 'mlruns'),
+                    )
+                    logger.info(f"Enabled MLFlowLogger: tracking URI={output_dir}/mlruns")
+                else:
+                    logger.warning(
+                        f"Unknown logger_backend '{execution_config.logger_backend}'. "
+                        f"Falling back to logger=False. Supported: 'csv', 'tensorboard', 'mlflow'."
+                    )
+            except ImportError as e:
+                logger.warning(
+                    f"Failed to import Lightning logger '{execution_config.logger_backend}': {e}. "
+                    f"Metrics logging disabled. Install the required package to enable logging."
+                )
+                lightning_logger = False
+        else:
+            logger.info("Logger disabled (logger_backend=None). Loss metrics will not be saved to disk.")
+    
+        # EXEC-ACCUM-001: Guard against manual optimization + gradient accumulation
+        # Lightning's manual optimization (automatic_optimization=False) is incompatible with
+        # Trainer(accumulate_grad_batches>1). The PtychoPINN_Lightning module uses manual optimization
+        # for custom physics loss integration, so gradient accumulation must be disabled.
+>       if not model.automatic_optimization and execution_config.accum_steps > 1:
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'StubLightningModule' object has no attribute 'automatic_optimization'
+
+ptycho_torch/workflows/components.py:831: AttributeError
+---------------------------- Captured stdout setup -----------------------------
+diff3d shape: (10, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (10,)
+xcoords shape: (10,)
+ycoords shape: (10,)
+xcoords_start shape: (10,)
+ycoords_start shape: (10,)
+----------------------------- Captured stderr call -----------------------------
+INFO: Seed set to 42
+------------------------------ Captured log call -------------------------------
+INFO     lightning.fabric.utilities.seed:seed.py:57 Seed set to 42
+=============================== warnings summary ===============================
+tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_overrides_trainer
+tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_controls_determinism
+  /home/ollie/Documents/PtychoPINN/ptycho_torch/config_factory.py:264: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_training_config = to_training_config(
+
+tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_overrides_trainer
+tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_controls_determinism
+  /home/ollie/Documents/PtychoPINN/ptycho_torch/config_factory.py:623: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_overrides_trainer - AttributeError: 'StubLightningModule' object has no attribute 'automatic_optimization'
+FAILED tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_controls_determinism - AttributeError: 'StubLightningModule' object has no attribute 'automatic_optimization'
+================= 2 failed, 31 deselected, 4 warnings in 5.06s =================

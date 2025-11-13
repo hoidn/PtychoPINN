@@ -1,4 +1,11 @@
 ### Turn Summary
+Captured CLI GPU-default evidence and execution_config regression RED log to complete Phase R evidence collection requirements.
+Training and inference CLIs both emit POLICY-001 warnings and auto-instantiate CUDA execution config when no --torch-* flags provided; both runs succeeded with GPU usage confirmed (RTX 3090).
+Documented 2 execution_config test failures (stub fixture issue, not production bug) under red/blocked_20251113T224500Z_execution_config.md with fix strategy.
+Next: update fix plan status, mark this Do Now complete, and allow supervisor to pivot focus.
+Artifacts: cli/pytorch_cli_smoke_training/{train_gpu_default_log.log,inference_gpu_default_log.log}, red/pytest_workflows_execution_config.log, analysis/artifact_inventory.txt
+
+### Turn Summary
 Documented completion of the CLI GPU-default logging/tests (commit d3793315 + GREEN `green/pytest_backend_selector_cli.log`) and updated the parity plan/fix-plan/input so Ralph pivots to evidence capture.
 Remaining gap: we still lack CLI smoke logs showing the new POLICY-001 message and have no RED pytest log for the ~15 execution_config regression cases in `tests/torch/test_workflows_components.py -k execution_config`.
 Next: run the training/inference CLI commands with zero `--torch-*` flags to capture `train_gpu_default_log.log`/`inference_gpu_default_log.log`, execute `pytest tests/torch/test_workflows_components.py -k execution_config -vv |& tee "$HUB"/red/pytest_workflows_execution_config.log`, and refresh `analysis/artifact_inventory.txt` + summaries (blockers → `$HUB/red/`).
