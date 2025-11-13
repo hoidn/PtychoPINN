@@ -1,4 +1,10 @@
 ### Turn Summary
+Limited compare_models smoke still aborts at align_for_evaluation with `ValueError: too many values to unpack (expected 2)` because the PINN reconstruction stack stays batched `(32, 128, 128)` instead of a single 2D image, so `{analysis}/verification_report.json` remains 0/10 and no SSIM/verification/highlights/metrics/preview artifacts exist.
+Documented a new plan update and Do Now requiring `scripts/compare_models.py` to reassemble/log the PINN output via `reassemble_position`, add a regression test in `tests/study/test_dose_overlap_comparison.py`, rerun the limited smoke to GREEN, and only then execute the Phase D selectors plus the counted Phase G rerun/post-verify/metrics refresh under ACCEPTANCE-001 / TEST-CLI-001 / PREVIEW-PHASE-001 guardrails.
+Updated docs/fix_plan.md, the implementation plan, hub summary, and input.md so Ralph has the exact pytest selectors, CLI commands, and artifact expectations; any failure now routes to `$HUB/red/blocked_<timestamp>.md`.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/compare_models_dense_train_fix.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/verification_report.json
+
+### Turn Summary
 Implemented baseline converter in scripts/compare_models.py:1042-1078 that normalizes single complex tensor and legacy [amplitude, phase] list formats to amplitude/phase/complex representations with pre/post shape logging.
 Limited smoke test GREEN: baseline converter successfully handled single complex tensor (128, 128, 128, 1) dtype=complex64 and the "ValueError: Unexpected baseline model output format" is eliminated (logs in cli/compare_models_dense_train_fix.log:539-543); smoke later failed in cropping module unrelated to baseline conversion.
 All three pytest selectors PASS in full suite: test_baseline_complex_output_converts_to_amplitude_phase (guards 4 format cases), test_baseline_model_predict_receives_both_inputs (guards dual-input call), test_prepare_baseline_inference_data_grouped_flatten_helper (guards grouped flattening).
