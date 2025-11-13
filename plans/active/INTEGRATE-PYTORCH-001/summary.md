@@ -1,4 +1,10 @@
 ### Turn Summary
+Validated commit 83ae55af plus `green/pytest_execution_config_defaults.log` so backend_selector now has GPU/CPU auto-instantiation tests recorded in `analysis/artifact_inventory.txt`.
+Updated the parity plan + fix plan with a new Do Now that adds POLICY-001 logging in `scripts/training/train.py`/`scripts/inference/inference.py` and CLI-level regression tests proving we pass `torch_execution_config=None` when users omit `--torch-*`.
+Next: implement the CLI logging + pytest additions, rerun the backend-selector selectors, and capture fresh training/inference CLI logs showing the GPU-default message before refreshing summaries.
+Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/analysis/artifact_inventory.txt
+
+### Turn Summary
 Backend selector now auto-instantiates PyTorchExecutionConfig when torch_execution_config=None, inheriting GPU-first defaults from POLICY-001.
 Added dispatcher-level tests: test_backend_selector_inherits_gpu_first_defaults (verifies accelerator='cuda' on mocked GPU hosts) and test_backend_selector_cpu_fallback_with_warning (verifies accelerator='cpu' + warning on mocked CPU-only hosts).
 All 7 tests PASSED (1 skipped on CUDA host), confirming Ptychodus callers now get GPU baseline without explicit config.

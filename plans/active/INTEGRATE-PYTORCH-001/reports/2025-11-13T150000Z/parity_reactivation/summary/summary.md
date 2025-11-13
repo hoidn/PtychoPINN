@@ -1,4 +1,10 @@
 ### Turn Summary
+Validated commit 83ae55af plus `green/pytest_execution_config_defaults.log` so backend_selector now has GPU/CPU auto-instantiation tests recorded in `analysis/artifact_inventory.txt`.
+Updated the parity plan + fix plan with a new Do Now that adds POLICY-001 logging in `scripts/training/train.py`/`scripts/inference/inference.py` and CLI-level regression tests proving we pass `torch_execution_config=None` when users omit `--torch-*`.
+Next: implement the CLI logging + pytest additions, rerun the backend-selector selectors, and capture fresh training/inference CLI logs showing the GPU-default message before refreshing summaries.
+Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/analysis/artifact_inventory.txt
+
+### Turn Summary
 Verified commit 420e2f14 plus green logs in `green/pytest_cuda_default_exec_config.log` and `cli/pytorch_cli_smoke_training/{train_cuda_default.log,inference_cuda_default.log}` so the CUDA-default Do Now is complete.
 Documented the remaining gap: `PyTorchExecutionConfig` still defaults to CPU when backend_selector callers omit `torch_execution_config`, so PyTorch silently runs off-policy; updated the plan/fix plan/input to target GPU-first dataclass defaults with regression tests.
 Next: implement the PyTorchExecutionConfig auto→cuda fallback logic, update backend selector call sites, add the new pytest module, and capture `pytest_execution_config_defaults.log` + warning snippets in the hub.

@@ -1,4 +1,10 @@
 ### Turn Summary
+Validated commit 83ae55af plus `green/pytest_execution_config_defaults.log` so backend_selector now has GPU/CPU auto-instantiation tests recorded in `analysis/artifact_inventory.txt`.
+Updated the parity plan + fix plan with a new Do Now that adds POLICY-001 logging in `scripts/training/train.py`/`scripts/inference/inference.py` and CLI-level regression tests proving we pass `torch_execution_config=None` when users omit `--torch-*`.
+Next: implement the CLI logging + pytest additions, rerun the backend-selector selectors, and capture fresh training/inference CLI logs showing the GPU-default message before refreshing summaries.
+Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/analysis/artifact_inventory.txt
+
+### Turn Summary
 Confirmed commit 3efa2dc3 landed GPU-first `PyTorchExecutionConfig` defaults plus GREEN `green/pytest_execution_config_defaults.log`, and captured the evidence in `analysis/artifact_inventory.txt`.
 Updated `plans/ptychodus_pytorch_integration_plan.md`, docs/fix_plan.md, input.md, and this hub plan so the next increment adds dispatcher-level regression tests proving backend_selector inherits the GPU baseline and emits POLICY-001 warnings on CPU-only hosts.
 Next: implement the backend-selector GPU/CPU tests in `tests/torch/test_execution_config_defaults.py`, rerun `pytest tests/torch/test_execution_config_defaults.py -vv`, and refresh hub summaries/inventory with the new log (blockers → `$HUB/red/`).

@@ -262,10 +262,28 @@ Outcome: Training CLI succeeded (bundle at `cli/pytorch_cli_smoke/train_outputs/
 
 #### Next Do Now — Backend selector GPU-default regression tests (2025-11-13T213500Z)
 
-- [ ] **Training dispatcher guard:** Extend `tests/torch/test_execution_config_defaults.py::test_backend_selector_inherits_gpu_first_defaults` (or add a new test) so it captures the `execution_config` passed into `train_cdi_model_torch` when `torch_execution_config=None` and asserts it resolves to `'cuda'` under mocked `torch.cuda.is_available() == True`. Patch the trainer helper or backend selector as needed to make the config observable.
-- [ ] **CPU-only fallback coverage:** Add a companion test that monkeypatches `torch.cuda.is_available` to `False`, asserts the dispatcher falls back to `'cpu'`, and verifies a POLICY-001 warning is emitted. This locks the CPU warning pathway described in docs/workflows/pytorch.md §12.
-- [ ] **Selector run:** Re-run `pytest tests/torch/test_execution_config_defaults.py -vv | tee "$HUB"/green/pytest_execution_config_defaults.log` so the new tests + existing cases are captured in a single GREEN log.
-- [ ] **Hub + ledger refresh:** Update `analysis/artifact_inventory.txt`, initiative summary, and hub summaries with the new tests/log, explicitly citing how the dispatcher coverage enforces POLICY-001 for Ptychodus callers. Blockers or failures go under `$HUB/red/`.
+- [x] **Training dispatcher guard:** Extended `tests/torch/test_execution_config_defaults.py::test_backend_selector_inherits_gpu_first_defaults` to capture the auto-instantiated `execution_config` (mocked CUDA host) and assert it resolves to `'cuda'` (commit `83ae55af`, log: `green/pytest_execution_config_defaults.log`).
+- [x] **CPU-only fallback coverage:** Added companion test forcing `torch.cuda.is_available()` → False and validating `'cpu'` fallback plus POLICY-001 warning text.
+- [x] **Selector run:** Reran `pytest tests/torch/test_execution_config_defaults.py -vv | tee "$HUB"/green/pytest_execution_config_defaults.log` (8 items: 7 PASSED, 1 SKIPPED) and archived the GREEN log.
+- [x] **Hub + ledger refresh:** Updated `analysis/artifact_inventory.txt`, initiative summary, and hub summaries with the dispatcher-test additions and evidence links.
+
+<plan_update version="1.0">
+  <trigger>Dispatcher-level GPU-default tests landed (commit 83ae55af + GREEN `pytest_execution_config_defaults.log`), but the canonical CLIs still lack regression coverage proving they defer to backend_selector GPU defaults when users omit `--torch-*` flags.</trigger>
+  <focus_id>INTEGRATE-PYTORCH-PARITY-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md (POLICY-001 / CONFIG-001 / CONFIG-LOGGER-001), docs/workflows/pytorch.md §12, docs/fix_plan.md, plans/ptychodus_pytorch_integration_plan.md, plans/pytorch_integration_test_plan.md, plans/active/INTEGRATE-PYTORCH-001/summary.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/{analysis/artifact_inventory.txt,green/pytest_execution_config_defaults.log,summary.md}, tests/torch/test_execution_config_defaults.py, tests/scripts/test_training_backend_selector.py, tests/scripts/test_inference_backend_selector.py, input.md, galph_memory.md</documents_read>
+  <current_plan_path>plans/ptychodus_pytorch_integration_plan.md</current_plan_path>
+  <proposed_changes>Document completion of the dispatcher tests, then add a new Do Now targeting CLI-level GPU-default enforcement: (1) log when `scripts/training/train.py` and `scripts/inference/inference.py` defer to backend_selector auto-instantiation, (2) add pytest coverage proving the CLIs pass `torch_execution_config=None` when no PyTorch flags are provided, and (3) rerun the backend-selector selectors + CLI smoke to archive the new logs under the active hub.</proposed_changes>
+  <impacts>Without CLI regression tests, future refactors could silently introduce CPU-first defaults by instantiating `PyTorchExecutionConfig('cpu')` inside the scripts. Logging + tests make the GPU-baseline intent explicit to both users and CI.</impacts>
+  <ledger_updates>Update docs/fix_plan.md status/Do Now, refresh initiative + hub summaries with the new evidence and next steps, and rewrite input.md so Ralph executes the CLI logging + pytest additions.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
+#### Next Do Now — CLI GPU-default handoff coverage (2025-11-13T220500Z)
+
+- [ ] **Training CLI logging + test:** Teach `scripts/training/train.py::main` to log when no `--torch-*` flags are provided and the CLI defers to backend_selector GPU defaults (reference POLICY-001). Add `TestTrainingCliBackendDispatch::test_pytorch_backend_defaults_auto_execution_config` to `tests/scripts/test_training_backend_selector.py` that patches `run_cdi_example_with_backend`, omits PyTorch flags, and asserts the CLI log + `torch_execution_config is None`.
+- [ ] **Inference CLI logging + test:** Mirror the logging/test addition in `scripts/inference/inference.py`, adding `TestInferenceCliBackendDispatch::test_pytorch_backend_defaults_auto_execution_config` that verifies the CLI passes through `torch_execution_config=None` and emits the GPU-baseline log when torch flags are absent.
+- [ ] **Selector run:** Execute `pytest tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_pytorch_backend_defaults_auto_execution_config tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_backend_defaults_auto_execution_config -vv | tee "$HUB"/green/pytest_backend_selector_cli.log` so the new coverage lands in the existing GREEN log.
+- [ ] **Hub + summary refresh:** Append the new log references + CLI logging behavior to `analysis/artifact_inventory.txt`, initiative summary, and hub summaries (blockers → `$HUB/red/`). Ensure CLI docs reference the new log strings where appropriate.
 
 
 ### 1. Scope & Goals
