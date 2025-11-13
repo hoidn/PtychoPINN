@@ -1,4 +1,10 @@
 ### Turn Summary
+Exposed PyTorch execution config flags (--torch-accelerator, --torch-num-workers, --torch-learning-rate, --torch-scheduler, --torch-logger, etc.) in scripts/training/train.py, wired them through backend_selector→run_cdi_example_torch with torch_execution_config parameter.
+Added test_pytorch_execution_config_flags to tests/scripts/test_training_backend_selector.py verifying flag propagation, reran backend selector tests (2 PASSED), and executed PyTorch training CLI smoke test.
+Training smoke confirmed execution config successfully parsed and logged (accelerator=cpu, num_workers=0, learning_rate=0.001, logger_backend=csv), but failed downstream in PyTorch Lightning model initialization (pre-existing 'loss_name' attribute error, not related to execution config flags).
+Artifacts: commit 04a016ad, green/pytest_backend_selector_cli.log, cli/pytorch_cli_smoke_training/SMOKE_TEST_RESULT.txt
+
+### Turn Summary
 Confirmed commit b218696a delivered the inference CLI execution-config flags plus GREEN pytest + CLI smoke evidence (scripts/inference/inference.py, tests/scripts/test_inference_backend_selector.py, hub `green/pytest_backend_selector_cli.log`).
 Pivoted plans/ptychodus_pytorch_integration_plan.md and docs/fix_plan.md to a new Do Now that surfaces the same execution-config knobs on scripts/training/train.py, adds backend-selector tests, and reruns the PyTorch CLI smoke with training flags; refreshed input.md so Ralph can execute it.
 Next: implement the training CLI execution-config flags, add the new pytest case, rerun the selectors + CLI smoke, and update the hub summaries/inventory.
