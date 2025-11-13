@@ -1,25 +1,94 @@
-# Artifact Inventory — Execution-config guardrails + PINN CLI rerun (2025-11-13T190500Z)
+# INTEGRATE-PYTORCH-PARITY-001: Phase R Config Defaults Backfill — Artifact Inventory
+# Report Date: 2025-11-12
+# Focus: Backfill spec-mandated config defaults in PyTorch dataclasses and rerun CLI smoke tests
 
-## Green Evidence (Tests Passing)
-- `green/pytest_backend_selector_cli.log`
-  - 4 PASSED in 5.22s
-  - `tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_pytorch_execution_config_flags`
-  - `tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_manual_accumulation_guard`
-  - `tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_supervised_mode_enforces_mae_loss`
-  - `tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_execution_config_flags`
+## Code Changes (Commit dd0a5b0e)
 
-## CLI Evidence (PINN smoke rerun)
-- Training — `cli/pytorch_cli_smoke_training/train_clean.log`
-  - Command: `python scripts/training/train.py --train_data_file tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz --backend pytorch --model_type pinn --n_images 100 --n_groups 100 --n_subsample 100 --nepochs 2 --output_dir "$HUB"/cli/pytorch_cli_smoke_training/train_outputs --torch-accelerator cpu --torch-num-workers 0 --torch-learning-rate 5e-4 --torch-logger csv --torch-deterministic --torch-enable-checkpointing`
-  - Result: 2 epochs on fly001 subset completed, checkpoints and `wts.h5.zip` archived under `cli/pytorch_cli_smoke_training/train_outputs/`
-  - Logs confirm CSV logger + checkpointing enabled and Lightning run exited cleanly.
-- Inference — `cli/pytorch_cli_smoke/inference.log` (2025-11-12T17:59Z run against minimal fixture) still the latest recorded inference evidence. Need a fresh inference run that consumes the new `train_outputs/wts.h5.zip` bundle; capture stdout + PNGs under `cli/pytorch_cli_smoke_training/` to close the loop.
+### ptycho_torch/config_params.py
+- Added `subsample_seed: Optional[int] = None` to DataConfig (line 29)
+- Added `pad_object: bool = True` to ModelConfig (line 86)
+- Added `gaussian_smoothing_sigma: float = 0.0` to ModelConfig (line 87)
+- Added `train_data_file: Optional[str] = None` to TrainingConfig (line 137)
+- Added `test_data_file: Optional[str] = None` to TrainingConfig (line 138)  
+- Added `output_dir: str = "training_outputs"` to TrainingConfig (line 139)
+- Added `n_groups: Optional[int] = None` to TrainingConfig (line 140)
 
-## Code Changes (commit `9daa00b7`)
-- `ptycho_torch/workflows/components.py`: Added DATA-SUP-001 guard that inspects the first training batch for `label_amp` / `label_phase` before allowing supervised runs, plus EXEC-ACCUM-001 guard that raises a descriptive RuntimeError when manual optimization is combined with `accum_steps>1`.
-- `tests/scripts/test_training_backend_selector.py`: Added `test_manual_accumulation_guard` alongside the existing supervised-loss regression to lock the new guardrails.
-- `docs/workflows/pytorch.md`: Documented the manual-optimization limitation and the supervised data requirement, citing EXEC-ACCUM-001 / DATA-SUP-001.
+### ptycho_torch/config_bridge.py
+- Updated `to_model_config` to use `model.pad_object` and `model.gaussian_smoothing_sigma` instead of hardcoded defaults (lines 174-176)
+- Updated `to_training_config` to propagate train_data_file, test_data_file, output_dir, n_groups from PyTorch configs (lines 247-253)
 
-## Outstanding Follow-ups
-1. Supervised-mode execution remains blocked until we create a labeled synthetic dataset (`label_amp`/`label_phase`). Continue logging attempts under `$HUB/red/blocked_*.md`.
-2. Rerun the PyTorch inference CLI with the newly trained PINN bundle (`cli/pytorch_cli_smoke_training/train_outputs/wts.h5.zip`) using the documented `--torch-*` flags, capture stdout/PNGs under `cli/pytorch_cli_smoke_training/`, and refresh `summary.md` + `analysis/artifact_inventory.txt` once the inference step succeeds.
+### ptycho_torch/config_factory.py
+- Extended `create_training_payload` constructor to populate new dataclass fields from overrides (lines 201-234)
+- Extended `create_inference_payload` constructor to populate new fields (lines 407-430)
+
+### tests/torch/test_config_bridge.py
+- Added `test_training_config_subsample_seed_from_dataconfig` (lines 834-864)
+- Added `test_training_config_subsample_seed_override` (lines 866-897)
+
+## Test Evidence
+
+### Config Bridge Parity Tests (GREEN)
+- Selector: `pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity -vv`
+- Log: `green/pytest_config_bridge.log`
+- Result: **47 PASSED, 18 warnings, 3.65s**
+- Coverage: All spec-mandated fields (pad_object, gaussian_smoothing_sigma, subsample_seed, train_data_file, test_data_file, n_groups, output_dir) validated through dataclass→bridge→params.cfg pipeline
+
+### PyTorch CLI Smoke Test (PARTIAL SUCCESS)
+- Training (existing): `cli/pytorch_cli_smoke_training/train_clean.log` (completed 2025-11-12)
+- Inference (CPU): `cli/pytorch_cli_smoke_training/inference_cpu.log` (completed 2025-11-12T19:31)
+- Command:
+  ```bash
+  python scripts/inference/inference.py \
+    --model_path "$HUB"/cli/pytorch_cli_smoke_training/train_outputs \
+    --test_data tests/fixtures/pytorch_integration/minimal_dataset_v1.npz \
+    --backend pytorch --torch-accelerator cpu --torch-num-workers 0 \
+    --torch-inference-batch-size 2 \
+    --output_dir "$HUB"/cli/pytorch_cli_smoke_training/inference_outputs
+  ```
+- Result: **SUCCESS** on CPU accelerator
+- Outputs:
+  - `inference_outputs/reconstructed_amplitude.png` (24K)
+  - `inference_outputs/reconstructed_phase.png` (18K)
+  - Amplitude range: [0.0000, 128.3294]
+  - Phase range: [-3.1261, 3.1416]
+  - 64 images processed
+
+### Known Blocker (CUDA Device Mismatch)
+- Log: `red/blocked_20251112T193051Z_device_mismatch.md`
+- Error: `Input type (torch.cuda.FloatTensor) and weight type (torch.FloatTensor) should be the same`
+- Impact: PyTorch inference with `--torch-accelerator cuda` fails because loaded model weights remain on CPU
+- Workaround: Use `--torch-accelerator cpu` for inference smoke tests
+- Root cause: `load_torch_bundle` does not move model to requested accelerator device
+- Next: File finding DEVICE-MISMATCH-001 and fix model.to(device) in inference path
+
+## Config Parity Status
+
+All spec-mandated fields now flow through PyTorch dataclasses→config_bridge→TensorFlow dataclasses→params.cfg without ad-hoc overrides:
+
+| Field | PyTorch Source | TensorFlow Target | Status |
+|-------|---------------|------------------|--------|
+| pad_object | ModelConfig.pad_object | ModelConfig.pad_object | ✅ PASS |
+| gaussian_smoothing_sigma | ModelConfig.gaussian_smoothing_sigma | ModelConfig.gaussian_smoothing_sigma | ✅ PASS |
+| subsample_seed | DataConfig.subsample_seed | TrainingConfig.subsample_seed | ✅ PASS |
+| train_data_file | TrainingConfig.train_data_file | TrainingConfig.train_data_file | ✅ PASS |
+| test_data_file | TrainingConfig.test_data_file | TrainingConfig.test_data_file | ✅ PASS |
+| output_dir | TrainingConfig.output_dir | TrainingConfig.output_dir | ✅ PASS |
+| n_groups | TrainingConfig.n_groups | TrainingConfig.n_groups | ✅ PASS |
+
+## Exit Criteria Assessment
+
+Phase R (Config Defaults Backfill) exit criteria:
+- [x] Spec-mandated defaults exist in `ptycho_torch/config_params.py` dataclasses
+- [x] Config bridge propagates new fields without hardcoded overrides  
+- [x] Config factory constructors support new fields via overrides parameter
+- [x] Parity tests validate complete field flow (47 PASSED)
+- [x] PyTorch CLI smoke test completes inference (CPU workaround for device bug)
+- [x] Hub evidence captured (`green/`, `cli/`, `red/`, `analysis/`)
+
+**Status:** Phase R objectives COMPLETE. Config defaults parity achieved; remaining device mismatch is a separate inference execution issue (not config parity blocker).
+
+## References
+- Spec: docs/specs/spec-ptycho-config-bridge.md
+- Finding: CONFIG-001 (config bridge flow), POLICY-001 (PyTorch mandatory)
+- Commit: dd0a5b0e
+- Plan: plans/ptychodus_pytorch_integration_plan.md (Phase R section)

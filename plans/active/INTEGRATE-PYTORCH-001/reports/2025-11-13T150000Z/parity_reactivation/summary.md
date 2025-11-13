@@ -1,11 +1,71 @@
 ### Turn Summary
-Closed the execution-config Do Now: commit 9daa00b7 adds the manual-optimization guard and supervised-data detection in `_train_with_lightning`, refreshed docs/tests, and landed a clean PINN-mode training CLI log plus artifacts under the active hub.
-Documented the new evidence in the artifact inventory + red blockers (supervised data still missing) and noted that the inference half of the PINN smoke needs to be rerun against `train_outputs/wts.h5.zip`.
-Next: add spec-mandated defaults to `ptycho_torch/config_params.py`, update `config_factory`/`config_bridge` so the TensorFlow bridge no longer relies on ad-hoc overrides, extend `tests/torch/test_config_bridge.py`, rerun the parity selector, and capture a fresh PyTorch inference CLI log with the new bundle.
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/{green/pytest_backend_selector_cli.log,cli/pytorch_cli_smoke_training/train_clean.log}
+Validated config defaults backfill (commit dd0a5b0e): all spec-mandated fields now flow through PyTorch dataclasses without ad-hoc overrides, proven by 47 PASSED parity tests.
+Reran PyTorch inference CLI against the trained bundle; succeeded on CPU accelerator with amplitude/phase PNGs generated, but CUDA path blocked by device mismatch (model weights on CPU vs inputs on GPU).
+Next: either fix model.to(device) in load_torch_bundle or _run_inference_and_reconstruct, then retest CUDA inference before closing Phase R.
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/ (green/pytest_config_bridge.log, cli/pytorch_cli_smoke_training/{inference_cpu.log,inference_outputs/*.png}, red/blocked_*_device_mismatch.md, analysis/artifact_inventory.txt)
 
-### Turn Summary
-Fixed supervised model_type→MAE loss mapping to prevent loss_name AttributeError in PyTorch Lightning module; added regression test coverage and confirmed fix with GREEN pytest evidence (3 PASSED).
-Supervised CLI smoke revealed two downstream blockers: manual optimization incompatibility with accumulate_grad_batches flag, and supervised mode requiring ground-truth labels (label_amp/label_phase) absent from experimental fly001 dataset.
-Next: either switch smoke test to unsupervised PINN mode for execution-config validation, or defer supervised CLI smoke until labeled synthetic data is available, then refresh hub documentation.
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/ (green/pytest_backend_selector_cli.log ✅, red/blocked_*.md, analysis/artifact_inventory.txt)
+## Phase R Config Defaults Backfill — Summary
+
+**Date:** 2025-11-12T19:31:00Z  
+**Focus:** INTEGRATE-PYTORCH-PARITY-001 (Phase R)  
+**Objective:** Backfill spec-mandated config defaults in PyTorch dataclasses and validate end-to-end config parity
+
+### Code Changes (Commit dd0a5b0e)
+
+Extended `ptycho_torch/config_params.py` dataclasses with spec-mandated defaults:
+- DataConfig: `subsample_seed`
+- ModelConfig: `pad_object`, `gaussian_smoothing_sigma`  
+- TrainingConfig: `train_data_file`, `test_data_file`, `output_dir`, `n_groups`
+
+Updated `ptycho_torch/config_bridge.py` to prefer dataclass defaults over hardcoded fallbacks, and extended `ptycho_torch/config_factory.py` payload constructors to populate new fields.
+
+Added 2 new parity tests validating `subsample_seed` propagation with correct override precedence.
+
+### Test Evidence
+
+**Config Bridge Parity (GREEN):**
+- Selector: `pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity -vv`
+- Result: 47 PASSED, 18 warnings, 3.65s
+- Log: `green/pytest_config_bridge.log`
+
+**PyTorch CLI Smoke (PARTIAL):**
+- Training: Previously completed (bundle at `cli/pytorch_cli_smoke_training/train_outputs/wts.h5.zip`)
+- Inference (CPU): SUCCESS — generated `reconstructed_amplitude.png` (24K) and `reconstructed_phase.png` (18K)
+- Inference (CUDA): BLOCKED — device mismatch (`torch.cuda.FloatTensor` vs `torch.FloatTensor`)
+- Log: `cli/pytorch_cli_smoke_training/inference_cpu.log`
+- Blocker: `red/blocked_20251112T193051Z_device_mismatch.md`
+
+### Exit Criteria Assessment
+
+Phase R objectives:
+- [x] Spec-mandated defaults exist in PyTorch dataclasses
+- [x] Config bridge propagates fields without ad-hoc overrides
+- [x] Config factory supports new fields
+- [x] Parity tests validate complete flow (47 PASSED)
+- [x] PyTorch CLI smoke completes inference (CPU workaround applied)
+- [x] Hub evidence documented
+
+**Status:** Phase R config defaults parity COMPLETE. Device mismatch is a separate inference execution issue (not a config parity blocker).
+
+### Known Issues
+
+**CUDA Device Mismatch (documented in findings TBD):**
+- Model loaded via `load_torch_bundle` remains on CPU even when `--torch-accelerator cuda` specified
+- Inference code moves input tensors to CUDA but model weights stay on CPU
+- Workaround: Use CPU accelerator for smoke tests
+- Fix: Add `model.to(device)` in `load_torch_bundle` or `_run_inference_and_reconstruct`
+
+### Next Actions
+
+1. File finding DEVICE-MISMATCH-001 in `docs/findings.md`
+2. Fix device placement in either:
+   - `ptycho_torch/model_manager.py::load_torch_bundle` (accept device parameter), OR
+   - `ptycho_torch/workflows/components.py::_run_inference_and_reconstruct` (move model to execution_config.accelerator)
+3. Rerun CUDA inference smoke test
+4. Update ledger to mark Phase R complete and pivot to next Do Now
+
+### References
+- Commit: dd0a5b0e
+- Spec: docs/specs/spec-ptycho-config-bridge.md
+- Plan: plans/ptychodus_pytorch_integration_plan.md (Phase R section)
+- Finding: CONFIG-001 (config bridge flow)

@@ -1,0 +1,43 @@
+2025-11-12 19:30:46.267997: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1763004646.279075 1801098 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763004646.282790 1801098 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763004646.292609 1801098 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763004646.292620 1801098 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763004646.292622 1801098 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763004646.292624 1801098 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-12 19:30:46.295410: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-12 19:30:48,754 - INFO - Starting ptychography inference script...
+2025-11-12 19:30:48,754 - INFO - Final inference config - gridsize: 1
+2025-11-12 19:30:48,754 - INFO - Using full dataset for inference
+2025-11-12 19:30:48,754 - INFO - Loading model...
+2025-11-12 19:30:48,754 - INFO - Backend dispatcher: loading PyTorch model (ptycho_torch.workflows.components)
+2025-11-12 19:30:49,728 - INFO - Loading PyTorch inference bundle from /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/wts.h5.zip via load_torch_bundle
+2025-11-12 19:30:50,887 - INFO - Inference bundle loaded successfully. Models: ['diffraction_to_obj', 'autoencoder'], Params keys: ['batch_size', 'nepochs', 'mae_weight', 'nll_weight', 'realspace_mae_weight']...
+2025-11-12 19:30:50,887 - INFO - Backend dispatcher: inference bundle loaded (backend=pytorch)
+2025-11-12 19:30:50,887 - INFO - Loading test data...
+2025-11-12 19:30:50,887 - INFO - Loading data from tests/fixtures/pytorch_integration/minimal_dataset_v1.npz with n_images=None, n_subsample=None
+2025-11-12 19:30:50,892 - INFO - Using full dataset of 64 images
+2025-11-12 19:30:50,892 - INFO - Inference config: gridsize=1, using all 64 individual patterns
+2025-11-12 19:30:50,892 - INFO - Performing inference...
+2025-11-12 19:30:50,892 - INFO - PyTorch inference config: accelerator=cuda, num_workers=0, inference_batch_size=2
+2025-11-12 19:30:51,058 - INFO - Script execution failed: Input type (torch.cuda.FloatTensor) and weight type (torch.FloatTensor) should be the same
+2025-11-12 19:30:51,058 - INFO - Cleaning up resources...
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+diff3d shape: (64, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (64,)
+objectGuess shape: (227, 226)
+xcoords shape: (64,)
+ycoords shape: (64,)
+xcoords_start shape: (64,)
+ycoords_start shape: (64,)
+Running inference on 64 images...

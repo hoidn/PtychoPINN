@@ -6,50 +6,52 @@ PyTorch version: 2.8.0+cu128
 rootdir: /home/ollie/Documents/PtychoPINN
 configfile: pyproject.toml
 plugins: anyio-4.9.0
-collecting ... collected 45 items
+collecting ... collected 47 items
 
 tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields[N-direct] PASSED [  2%]
 tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields[n_filters_scale-direct] PASSED [  4%]
 tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields[object_big-direct] PASSED [  6%]
 tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields[probe_big-direct] PASSED [  8%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_direct_fields[batch_size-direct] PASSED [ 11%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[gridsize-tuple-to-int] PASSED [ 13%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[model_type-unsupervised] PASSED [ 15%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_direct_fields[batch_size-direct] PASSED [ 10%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[gridsize-tuple-to-int] PASSED [ 12%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[model_type-unsupervised] PASSED [ 14%]
 tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[model_type-supervised] PASSED [ 17%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[amp_activation-silu] PASSED [ 20%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[amp_activation-SiLU] PASSED [ 22%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[amp_activation-passthrough] PASSED [ 24%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nepochs-rename] PASSED [ 26%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nll_weight-true] PASSED [ 28%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nll_weight-false] PASSED [ 31%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields[pad_object-default] PASSED [ 33%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields[pad_object-override] PASSED [ 35%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields[gaussian_smoothing_sigma-default] PASSED [ 37%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields[gaussian_smoothing_sigma-override] PASSED [ 40%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[mae_weight-default] PASSED [ 42%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[mae_weight-override] PASSED [ 44%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[realspace_mae_weight-default] PASSED [ 46%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[realspace_weight-default] PASSED [ 48%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[positions_provided-default] PASSED [ 51%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[probe_trainable-default] PASSED [ 53%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[sequential_sampling-default] PASSED [ 55%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_override_fields[debug-default] PASSED [ 57%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_override_fields[debug-override] PASSED [ 60%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_probe_mask_translation[probe_mask-default] PASSED [ 62%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_probe_mask_override PASSED [ 64%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_default_divergence_detection[nphotons-divergence] PASSED [ 66%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_default_divergence_detection[probe_scale-divergence] PASSED [ 68%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_gridsize_error_handling[gridsize-non-square] PASSED [ 71%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_type_error_handling[model_type-invalid-enum] PASSED [ 73%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_activation_error_handling[amp_activation-unknown] PASSED [ 75%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_train_data_file_required_error PASSED [ 77%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_path_required_error PASSED [ 80%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_nphotons_default_divergence_error PASSED [ 82%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_nphotons_override_passes_validation PASSED [ 84%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_n_subsample_missing_override_uses_none PASSED [ 86%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_n_subsample_explicit_override PASSED [ 88%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_n_subsample_missing_override_uses_none PASSED [ 91%]
-tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_n_subsample_explicit_override PASSED [ 93%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[amp_activation-silu] PASSED [ 19%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[amp_activation-SiLU] PASSED [ 21%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[amp_activation-passthrough] PASSED [ 23%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nepochs-rename] PASSED [ 25%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nll_weight-true] PASSED [ 27%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nll_weight-false] PASSED [ 29%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields[pad_object-default] PASSED [ 31%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields[pad_object-override] PASSED [ 34%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields[gaussian_smoothing_sigma-default] PASSED [ 36%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields[gaussian_smoothing_sigma-override] PASSED [ 38%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[mae_weight-default] PASSED [ 40%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[mae_weight-override] PASSED [ 42%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[realspace_mae_weight-default] PASSED [ 44%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[realspace_weight-default] PASSED [ 46%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[positions_provided-default] PASSED [ 48%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[probe_trainable-default] PASSED [ 51%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[sequential_sampling-default] PASSED [ 53%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_override_fields[debug-default] PASSED [ 55%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_override_fields[debug-override] PASSED [ 57%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_probe_mask_translation[probe_mask-default] PASSED [ 59%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_probe_mask_override PASSED [ 61%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_default_divergence_detection[nphotons-divergence] PASSED [ 63%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_default_divergence_detection[probe_scale-divergence] PASSED [ 65%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_gridsize_error_handling[gridsize-non-square] PASSED [ 68%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_type_error_handling[model_type-invalid-enum] PASSED [ 70%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_activation_error_handling[amp_activation-unknown] PASSED [ 72%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_train_data_file_required_error PASSED [ 74%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_path_required_error PASSED [ 76%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_nphotons_default_divergence_error PASSED [ 78%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_nphotons_override_passes_validation PASSED [ 80%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_n_subsample_missing_override_uses_none PASSED [ 82%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_n_subsample_explicit_override PASSED [ 85%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_n_subsample_missing_override_uses_none PASSED [ 87%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_n_subsample_explicit_override PASSED [ 89%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_subsample_seed_from_dataconfig PASSED [ 91%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_subsample_seed_override PASSED [ 93%]
 tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_n_groups_missing_override_warning PASSED [ 95%]
 tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_test_data_file_training_missing_warning PASSED [ 97%]
 tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_params_cfg_matches_baseline PASSED [100%]
@@ -72,28 +74,36 @@ tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_
 tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[positions_provided-default]
 tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[probe_trainable-default]
 tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[sequential_sampling-default]
-  /home/ollie/Documents/PtychoPINN/tests/torch/test_config_bridge.py:366: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+  /home/ollie/Documents/PtychoPINN/tests/torch/test_config_bridge.py:367: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
     tf_train = config_bridge.to_training_config(
 
 tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_default_divergence_detection[nphotons-divergence]
-  /home/ollie/Documents/PtychoPINN/tests/torch/test_config_bridge.py:493: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+  /home/ollie/Documents/PtychoPINN/tests/torch/test_config_bridge.py:494: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
     tf_train = config_bridge.to_training_config(
 
 tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_train_data_file_required_error
-  /home/ollie/Documents/PtychoPINN/tests/torch/test_config_bridge.py:575: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+  /home/ollie/Documents/PtychoPINN/tests/torch/test_config_bridge.py:576: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
     config_bridge.to_training_config(
 
 tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_nphotons_override_passes_validation
-  /home/ollie/Documents/PtychoPINN/tests/torch/test_config_bridge.py:666: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+  /home/ollie/Documents/PtychoPINN/tests/torch/test_config_bridge.py:667: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
     tf_train = config_bridge.to_training_config(
 
 tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_n_subsample_missing_override_uses_none
-  /home/ollie/Documents/PtychoPINN/tests/torch/test_config_bridge.py:707: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+  /home/ollie/Documents/PtychoPINN/tests/torch/test_config_bridge.py:708: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
     tf_train = config_bridge.to_training_config(
 
 tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_n_subsample_explicit_override
-  /home/ollie/Documents/PtychoPINN/tests/torch/test_config_bridge.py:742: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+  /home/ollie/Documents/PtychoPINN/tests/torch/test_config_bridge.py:743: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_subsample_seed_from_dataconfig
+  /home/ollie/Documents/PtychoPINN/tests/torch/test_config_bridge.py:854: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_subsample_seed_override
+  /home/ollie/Documents/PtychoPINN/tests/torch/test_config_bridge.py:883: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
     tf_train = config_bridge.to_training_config(
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-======================= 45 passed, 16 warnings in 3.66s ========================
+======================= 47 passed, 18 warnings in 3.65s ========================
