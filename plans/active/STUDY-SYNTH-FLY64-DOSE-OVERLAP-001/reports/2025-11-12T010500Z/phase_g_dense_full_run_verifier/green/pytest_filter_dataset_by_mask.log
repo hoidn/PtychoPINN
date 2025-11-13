@@ -10,4 +10,4 @@ collecting ... collected 1 item
 
 tests/study/test_dose_overlap_overlap.py::test_filter_dataset_by_mask_handles_scalar_metadata PASSED [100%]
 
-============================== 1 passed in 1.47s ===============================
+============================== 1 passed in 1.37s ===============================
