@@ -1,4 +1,10 @@
 ### Turn Summary
+Documented that backend-selector wiring (commit a53f897b + green backend-dispatch logs) is complete, marked the Phase R checklist done in the plan, and added the inference backend flag + PyTorch CLI smoke checklist.
+Updated docs/fix_plan.md and input.md so Ralph now implements the new `--backend` inference option, reruns the backend selectors, and executes the minimal-dataset training/inference commands under `$HUB/cli/pytorch_cli_smoke`.
+Next: implement the CLI flag/tests, run the PyTorch smoke commands, and publish the new pytest/CLI logs plus artifact inventory updates.
+Artifacts: docs/fix_plan.md, input.md, plans/ptychodus_pytorch_integration_plan.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/
+
+### Turn Summary
 Wired training and inference CLIs through backend_selector so --backend pytorch becomes reachable from canonical entry points (scripts/training/train.py, scripts/inference/inference.py).
 Guarded TensorFlow-only persistence helpers (model_manager.save, save_outputs) with if config.backend == 'tensorflow' to avoid double-saving when PyTorch workflows emit their own bundles.
 Added 5 unit tests verifying dispatch correctness and TensorFlow backward compatibility; all tests GREEN (2 training + 3 inference passed).

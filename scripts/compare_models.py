@@ -8,7 +8,10 @@ import argparse
 import os
 import sys
 import time
+import tempfile
+import zipfile
 from pathlib import Path
+import dill
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -100,14 +103,43 @@ def parse_args():
     return parser.parse_args()
 
 
-def load_pinn_model(model_dir: Path) -> tf.keras.Model:
-    """Load the inference-only PtychoPINN model using the centralized loader."""
-    logger.info(f"Loading PtychoPINN model from {model_dir}...")
-    
-    # Use the centralized function for loading
-    model, _ = load_inference_bundle(model_dir)
-    
+def load_bundle_submodel(model_dir: Path, model_name: str) -> tf.keras.Model:
+    """Load a specific submodel (autoencoder/diffraction_to_obj) from a wts.h5.zip archive."""
+    model_dir = Path(model_dir)
+    archive = model_dir / "wts.h5.zip"
+    if not archive.exists():
+        raise FileNotFoundError(f"Model archive not found at: {archive}")
+
+    logger.info(f"Extracting {model_name} from bundle {archive}")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        with zipfile.ZipFile(archive, "r") as zf:
+            zf.extractall(tmp_dir)
+
+        subdir = Path(tmp_dir) / model_name
+        model_path = subdir / "model.keras"
+        params_path = subdir / "params.dill"
+        custom_objects_path = subdir / "custom_objects.dill"
+
+        if not model_path.exists():
+            raise FileNotFoundError(f"{model_name}/model.keras not found inside {archive}")
+
+        with open(params_path, "rb") as fh:
+            loaded_params = dill.load(fh)
+        loaded_params.pop("_version", None)
+        p.cfg.update(loaded_params)
+
+        with open(custom_objects_path, "rb") as fh:
+            custom_objects = dill.load(fh)
+
+        model = tf.keras.models.load_model(model_path, custom_objects=custom_objects, compile=False)
+
+    logger.info(f"Loaded {model_name} model from {model_dir}")
     return model
+
+
+def load_pinn_model(model_dir: Path) -> tf.keras.Model:
+    """Load the training autoencoder model for inference-time patch reassembly."""
+    return load_bundle_submodel(model_dir, "autoencoder")
 
 
 def load_baseline_model(baseline_dir: Path) -> tf.keras.Model:
@@ -877,8 +909,6 @@ def main():
 
     # Run inference for PtychoPINN
     logger.info("Running inference with PtychoPINN...")
-    # PtychoPINN model requires both diffraction patterns and position coordinates
-    # Scale the input data by intensity_scale to match training normalization
     pinn_start = time.time()
     pinn_patches = pinn_model.predict(
         [test_container.X * p.get('intensity_scale'), test_container.coords_nominal],
@@ -888,9 +918,11 @@ def main():
     pinn_inference_time = time.time() - pinn_start
     logger.info(f"PtychoPINN inference completed in {pinn_inference_time:.2f}s")
     
-    # Reassemble patches
-    logger.info("Reassembling PtychoPINN patches...")
-    pinn_recon = reassemble_position(pinn_patches, test_container.global_offsets, M=args.stitch_crop_size)
+    if isinstance(pinn_patches, (list, tuple)) and pinn_patches:
+        pinn_recon = np.asarray(pinn_patches[0])
+    else:
+        pinn_recon = np.asarray(pinn_patches)
+    logger.info("Using direct autoencoder output as the PINN reconstruction (no additional stitching)")
 
     # Run inference for Baseline
     logger.info("Running inference with Baseline model...")

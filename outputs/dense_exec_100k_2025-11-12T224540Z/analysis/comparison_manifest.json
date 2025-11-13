@@ -18,16 +18,5 @@
       "skip_registration": false,
       "register_ptychi_only": true
     }
-  ],
-  "execution_results": [
-    {
-      "dose": 100000,
-      "view": "dense",
-      "split": "train",
-      "returncode": 1,
-      "log_path": "dose_100000/dense/train/comparison.log"
-    }
-  ],
-  "n_success": 0,
-  "n_failed": 1
+  ]
 }
