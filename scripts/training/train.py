@@ -19,7 +19,7 @@ logging.getLogger().addHandler(file_handler)
 logging.getLogger().addHandler(console_handler)
 
 from ptycho.workflows.components import (
-    parse_arguments,
+    parse_arguments as base_parse_arguments,
     setup_configuration,
     load_data,
     save_outputs,
@@ -28,6 +28,7 @@ from ptycho.workflows.components import (
 from ptycho.workflows.backend_selector import run_cdi_example_with_backend
 from ptycho.config.config import TrainingConfig, update_legacy_dict
 from ptycho import model_manager, params
+import argparse
 
 def interpret_n_images_parameter(n_images: int, gridsize: int) -> tuple[int, str]:
     """
@@ -106,6 +107,185 @@ def interpret_sampling_parameters(config: TrainingConfig):
                 message += f" [Oversampling enabled: K={K}]"
 
         return n_subsample, n_groups, enable_oversampling, neighbor_pool_size, message
+
+def parse_arguments():
+    """
+    Custom parse_arguments extending base with PyTorch execution config flags.
+
+    This wrapper adds PyTorch-specific execution flags on top of the standard
+    TrainingConfig fields, following the pattern from scripts/inference/inference.py.
+    See docs/workflows/pytorch.md §12 for flag descriptions.
+    """
+    # Start with a parser that has no arguments yet
+    import sys
+    from ptycho.cli_args import add_logging_arguments
+    from ptycho.config.config import TrainingConfig, ModelConfig
+    from dataclasses import fields
+    from typing import get_origin, get_args, Union, Literal
+    from pathlib import Path
+
+    logger_local = logging.getLogger(__name__)
+    parser = argparse.ArgumentParser(description="Non-grid CDI Example Script")
+    parser.add_argument("--config", type=str, help="Path to YAML configuration file")
+    parser.add_argument("--do_stitching", action='store_true', default=False,
+                        help="Perform image stitching after training (default: False)")
+
+    # Add logging arguments
+    add_logging_arguments(parser)
+
+    # Add arguments based on TrainingConfig fields (same as base_parse_arguments)
+    for field in fields(TrainingConfig):
+        if field.name == 'model':
+            # Handle ModelConfig fields
+            for model_field in fields(ModelConfig):
+                # Special handling for Literal types
+                if hasattr(model_field.type, "__origin__") and model_field.type.__origin__ is Literal:
+                    choices = list(model_field.type.__args__)
+                    parser.add_argument(
+                        f"--{model_field.name}",
+                        type=str,
+                        choices=choices,
+                        default=model_field.default,
+                        help=f"Model parameter: {model_field.name}, choices: {choices}"
+                    )
+                else:
+                    parser.add_argument(
+                        f"--{model_field.name}",
+                        type=model_field.type,
+                        default=model_field.default,
+                        help=f"Model parameter: {model_field.name}"
+                    )
+        else:
+            # Handle path fields specially
+            if field.type == Path or str(field.type).startswith("typing.Optional[pathlib.Path"):
+                parser.add_argument(
+                    f"--{field.name}",
+                    type=lambda x: Path(x) if x is not None else None,
+                    default=None if field.default == None else str(field.default),
+                    help=f"Path for {field.name}"
+                )
+            else:
+                # Special handling for specific parameters to provide better help text
+                if field.name == 'n_groups':
+                    parser.add_argument(
+                        f"--{field.name}",
+                        type=field.type if get_origin(field.type) is not Union else get_args(field.type)[0],
+                        default=field.default,
+                        help="Number of groups to generate. Always means groups regardless of gridsize. "
+                             "Can exceed dataset size when using higher --neighbor_count values."
+                    )
+                elif field.name == 'n_images':
+                    # Keep n_images for backward compatibility but mark as deprecated
+                    parser.add_argument(
+                        f"--{field.name}",
+                        type=field.type if get_origin(field.type) is not Union else get_args(field.type)[0],
+                        default=field.default,
+                        help="DEPRECATED: Use --n_groups instead. Number of groups to use from the dataset."
+                    )
+                elif field.name == 'n_subsample':
+                    parser.add_argument(
+                        f"--{field.name}",
+                        type=field.type if get_origin(field.type) is not Union else get_args(field.type)[0],
+                        default=field.default,
+                        help="Number of images to subsample from dataset before grouping (independent control). "
+                             "When provided, controls data selection separately from grouping."
+                    )
+                elif field.name == 'subsample_seed':
+                    parser.add_argument(
+                        f"--{field.name}",
+                        type=field.type if get_origin(field.type) is not Union else get_args(field.type)[0],
+                        default=field.default,
+                        help="Random seed for reproducible subsampling. "
+                             "Use same seed across runs to ensure consistent data selection."
+                    )
+                elif field.name == 'neighbor_count':
+                    parser.add_argument(
+                        f"--{field.name}",
+                        type=field.type,
+                        default=field.default,
+                        help="Number of nearest neighbors (K) for grouping. Use higher values (e.g., 7) "
+                             "to enable more combinations when requesting more groups than available points."
+                    )
+                elif field.name == 'backend':
+                    # Special handling for backend Literal type
+                    if hasattr(field.type, "__origin__") and field.type.__origin__ is Literal:
+                        choices = list(field.type.__args__)
+                        parser.add_argument(
+                            f"--{field.name}",
+                            type=str,
+                            choices=choices,
+                            default=field.default,
+                            help=f"Backend selection: {', '.join(choices)} (default: {field.default}). "
+                                 f"PyTorch backend requires torch>=2.2 (POLICY-001)."
+                        )
+                    else:
+                        # Fallback if not a Literal type
+                        parser.add_argument(
+                            f"--{field.name}",
+                            type=str,
+                            default=field.default,
+                            help="Backend selection for workflow orchestration"
+                        )
+                else:
+                    # Handle Optional types
+                    if get_origin(field.type) is Union:
+                        # This is an Optional type (Union[T, None])
+                        args = get_args(field.type)
+                        actual_type = args[0] if args[0] is not type(None) else args[1]
+                        parser.add_argument(
+                            f"--{field.name}",
+                            type=actual_type,
+                            default=field.default,
+                            help=f"Training parameter: {field.name}"
+                        )
+                    else:
+                        parser.add_argument(
+                            f"--{field.name}",
+                            type=field.type,
+                            default=field.default,
+                            help=f"Training parameter: {field.name}"
+                        )
+
+    # PyTorch-only execution flags (see docs/workflows/pytorch.md §12)
+    parser.add_argument("--torch-accelerator", type=str,
+                       choices=['auto', 'cpu', 'cuda', 'gpu', 'mps', 'tpu'],
+                       default='auto',
+                       help="PyTorch accelerator for training (only applies when --backend pytorch). "
+                            "Options: 'auto' (default, auto-detect), 'cpu', 'cuda'/'gpu', 'mps', 'tpu'. "
+                            "See docs/workflows/pytorch.md §12 for details.")
+    parser.add_argument("--torch-deterministic", action='store_true',
+                       default=True,
+                       help="Enable deterministic training mode for reproducibility (default: True). "
+                            "Only applies when --backend pytorch.")
+    parser.add_argument("--torch-num-workers", type=int, default=0,
+                       help="Number of dataloader worker processes for PyTorch training (default: 0). "
+                            "Set to 0 for main process only (CPU-safe, deterministic). "
+                            "Only applies when --backend pytorch.")
+    parser.add_argument("--torch-accumulate-grad-batches", type=int, default=1,
+                       help="Accumulate gradients over N batches for larger effective batch size (default: 1). "
+                            "Only applies when --backend pytorch.")
+    parser.add_argument("--torch-learning-rate", type=float, default=None,
+                       help="Learning rate for PyTorch training (default: None, uses model default). "
+                            "Only applies when --backend pytorch.")
+    parser.add_argument("--torch-scheduler", type=str, default='Default',
+                       choices=['Default', 'ReduceLROnPlateau', 'CosineAnnealing'],
+                       help="Learning rate scheduler for PyTorch training (default: 'Default'). "
+                            "Only applies when --backend pytorch.")
+    parser.add_argument("--torch-logger", type=str, default='csv',
+                       choices=['csv', 'tensorboard', 'mlflow', 'none'],
+                       help="Logger backend for PyTorch training (default: 'csv'). "
+                            "Options: 'csv' (zero deps), 'tensorboard', 'mlflow' (requires server), 'none' (disable). "
+                            "See CONFIG-LOGGER-001. Only applies when --backend pytorch.")
+    parser.add_argument("--torch-enable-checkpointing", action='store_true',
+                       default=True,
+                       help="Enable checkpoint saving during training (default: True). "
+                            "Only applies when --backend pytorch.")
+    parser.add_argument("--torch-checkpoint-save-top-k", type=int, default=1,
+                       help="Save top K checkpoints (default: 1). "
+                            "Only applies when --backend pytorch.")
+
+    return parser.parse_args()
+
 def main() -> None:
     """Main function to orchestrate the CDI example script execution."""
     args = parse_arguments()
@@ -173,7 +353,40 @@ def main() -> None:
             test_data = load_data(str(config.test_data_file))
             logger.info(f"Loaded test data from {config.test_data_file}")
 
-        recon_amp, recon_phase, results = run_cdi_example_with_backend(ptycho_data, test_data, config, do_stitching=args.do_stitching)
+        # Build PyTorch execution config if backend is pytorch (similar to inference.py:514-524)
+        torch_execution_config = None
+        if config.backend == 'pytorch':
+            from ptycho_torch.cli.shared import build_execution_config_from_args
+
+            # Map CLI flags to execution config namespace (see docs/workflows/pytorch.md §12)
+            exec_args = argparse.Namespace(
+                accelerator=getattr(args, 'torch_accelerator', 'auto'),
+                deterministic=getattr(args, 'torch_deterministic', True),
+                num_workers=getattr(args, 'torch_num_workers', 0),
+                learning_rate=getattr(args, 'torch_learning_rate', None),
+                scheduler=getattr(args, 'torch_scheduler', 'Default'),
+                logger_backend=getattr(args, 'torch_logger', 'csv'),
+                enable_checkpointing=getattr(args, 'torch_enable_checkpointing', True),
+                checkpoint_save_top_k=getattr(args, 'torch_checkpoint_save_top_k', 1),
+                accumulate_grad_batches=getattr(args, 'torch_accumulate_grad_batches', 1),
+                checkpoint_monitor_metric='val_loss',  # Default per docs/workflows/pytorch.md
+                checkpoint_mode='min',  # Default
+                early_stop_patience=100,  # Default
+                quiet=getattr(args, 'debug', False) == False,  # Invert debug flag for quiet
+                disable_mlflow=False  # Not applicable for training in this context
+            )
+
+            # Build validated execution config from CLI args (POLICY-001, CONFIG-002, CONFIG-LOGGER-001)
+            torch_execution_config = build_execution_config_from_args(exec_args, mode='training')
+            logger.info(f"PyTorch execution config built: accelerator={torch_execution_config.accelerator}, "
+                       f"num_workers={torch_execution_config.num_workers}, "
+                       f"learning_rate={torch_execution_config.learning_rate}, "
+                       f"logger_backend={torch_execution_config.logger_backend}")
+
+        recon_amp, recon_phase, results = run_cdi_example_with_backend(
+            ptycho_data, test_data, config, do_stitching=args.do_stitching,
+            torch_execution_config=torch_execution_config
+        )
 
         # TensorFlow-only persistence: only save via model_manager and save_outputs for TensorFlow backend
         # PyTorch workflows use save_torch_bundle inside the backend workflow

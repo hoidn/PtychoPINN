@@ -88,7 +88,8 @@ def run_cdi_example_torch(
     flip_y: bool = False,
     transpose: bool = False,
     M: int = 20,
-    do_stitching: bool = False
+    do_stitching: bool = False,
+    execution_config: Optional[Any] = None
 ) -> Tuple[Optional[Any], Optional[Any], Dict[str, Any]]:
     """
     Run the main CDI example execution flow using PyTorch backend.
@@ -109,6 +110,9 @@ def run_cdi_example_torch(
         transpose: Whether to transpose the image by swapping dimensions
         M: Parameter for reassemble_position function (default: 20)
         do_stitching: Whether to perform image stitching after training
+        execution_config: Optional PyTorchExecutionConfig for runtime control (accelerator,
+                         num_workers, learning_rate, scheduler, logger, checkpointing).
+                         See CONFIG-002, CONFIG-LOGGER-001.
 
     Returns:
         Tuple containing:
@@ -152,7 +156,9 @@ def run_cdi_example_torch(
 
     # Step 1: Train the model (Phase D2.B — delegates to Lightning trainer stub)
     logger.info("Invoking PyTorch training orchestration via train_cdi_model_torch")
-    train_results = train_cdi_model_torch(train_data, test_data, config)
+    # Note: train_cdi_model_torch will need to be updated to accept execution_config
+    # For now, we pass it as a keyword argument for forward compatibility
+    train_results = train_cdi_model_torch(train_data, test_data, config, execution_config=execution_config)
 
     # Step 2: Initialize return values for reconstruction outputs
     recon_amp, recon_phase = None, None
@@ -1000,7 +1006,8 @@ def _reassemble_cdi_image_torch(
 def train_cdi_model_torch(
     train_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
     test_data: Optional[Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch']],
-    config: TrainingConfig
+    config: TrainingConfig,
+    execution_config: Optional[Any] = None
 ) -> Dict[str, Any]:
     """
     Train the CDI model using PyTorch Lightning backend.
@@ -1012,6 +1019,7 @@ def train_cdi_model_torch(
         train_data: Training data (RawData, RawDataTorch, or PtychoDataContainerTorch)
         test_data: Optional test data for validation
         config: TrainingConfig instance (TensorFlow dataclass)
+        execution_config: Optional PyTorchExecutionConfig for runtime control
 
     Returns:
         Dict[str, Any]: Results dictionary containing:
@@ -1052,7 +1060,7 @@ def train_cdi_model_torch(
 
     # Step 4: Delegate to Lightning trainer
     logger.info("Delegating to Lightning trainer via _train_with_lightning")
-    results = _train_with_lightning(train_container, test_container, config)
+    results = _train_with_lightning(train_container, test_container, config, execution_config=execution_config)
 
     return results
 

@@ -83,7 +83,8 @@ def run_cdi_example_with_backend(
     flip_y: bool = False,
     transpose: bool = False,
     M: int = 20,
-    do_stitching: bool = False
+    do_stitching: bool = False,
+    torch_execution_config: Optional[Any] = None
 ) -> Tuple[Optional[Any], Optional[Any], Dict[str, Any]]:
     """
     Run the complete CDI workflow with automatic backend selection.
@@ -102,6 +103,8 @@ def run_cdi_example_with_backend(
         transpose: Whether to transpose the image by swapping dimensions
         M: Parameter for reassemble_position function (default: 20)
         do_stitching: Whether to perform image stitching after training
+        torch_execution_config: Optional PyTorchExecutionConfig for PyTorch backend only
+                               (ignored for TensorFlow). See CONFIG-002, CONFIG-LOGGER-001.
 
     Returns:
         Tuple containing:
@@ -157,7 +160,8 @@ def run_cdi_example_with_backend(
 
         # Delegate to PyTorch run_cdi_example_torch
         recon_amp, recon_phase, results = torch_components.run_cdi_example_torch(
-            train_data, test_data, config, flip_x, flip_y, transpose, M, do_stitching
+            train_data, test_data, config, flip_x, flip_y, transpose, M, do_stitching,
+            execution_config=torch_execution_config
         )
 
     # Inject backend metadata into results for traceability
