@@ -4,8 +4,8 @@
 [run_phase_g_dense] Preparing hub...
 ================================================================================
 
-[prepare_hub] Archiving stale Phase C outputs to: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/archive/phase_c_20251113T064428Z
-[prepare_hub] Archived /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c → /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/archive/phase_c_20251113T064428Z
+[prepare_hub] Archiving stale Phase C outputs to: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/archive/phase_c_20251113T070345Z
+[prepare_hub] Archived /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c → /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/archive/phase_c_20251113T070345Z
 [prepare_hub] Hub is now clean and ready for new pipeline run
 
 [run_phase_g_dense] Starting Phase C→G pipeline for dose=1000, view=dense, splits=['train', 'test']
@@ -19,25 +19,812 @@
 
 [run_phase_g_dense] Executing: /home/ollie/miniconda3/envs/ptycho311/bin/python -m studies.fly64_dose_overlap.generation --base-npz tike_outputs/fly001_reconstructed_final_prepared/fly001_reconstructed_interp_smooth_both.npz --output-root /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c --dose 1000
 [run_phase_g_dense] Logging to: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/phase_c_generation.log
-2025-11-12 22:44:29.116792: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-11-12 23:03:45.687712: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1763016269.128051 1936887 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1763016269.131665 1936887 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1763016269.141468 1936887 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763016269.141477 1936887 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763016269.141479 1936887 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763016269.141480 1936887 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2025-11-12 22:44:29.144177: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+E0000 00:00:1763017425.699262 1958907 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763017425.702890 1958907 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763017425.713131 1958907 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763017425.713141 1958907 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763017425.713142 1958907 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763017425.713143 1958907 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-12 23:03:45.715842: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
 To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-I0000 00:00:1763016272.462792 1936887 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
-I0000 00:00:1763016272.464280 1936887 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+I0000 00:00:1763017428.961980 1958907 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1763017428.963337 1958907 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-I0000 00:00:1763016273.008816 1936887 service.cc:152] XLA service 0x13a5abb0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
-I0000 00:00:1763016273.008837 1936887 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
-2025-11-12 22:44:33.035772: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
-I0000 00:00:1763016273.055292 1936887 cuda_dnn.cc:529] Loaded cuDNN version 91002
-I0000 00:00:1763016273.213439 1936887 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+I0000 00:00:1763017429.511049 1958907 service.cc:152] XLA service 0x2b0df500 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1763017429.511070 1958907 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-11-12 23:03:49.536543: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1763017429.556974 1958907 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1763017429.721867 1958907 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
 WARNING:tensorflow:From /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow_probability/python/distributions/distribution.py:342: calling _Independent.__init__ (from tensorflow_probability.python.distributions.independent) with reinterpreted_batch_ndims=None is deprecated and will be removed after 2022-03-01.
 Instructions for updating:
 Please pass an integer value for `reinterpreted_batch_ndims`. The current behavior corresponds to `reinterpreted_batch_ndims=tf.size(distribution.batch_shape_tensor()) - 1`.
-2025-11-12 22:45:36.232787: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence
+2025-11-12 23:04:52.393640: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence
+INFO: Filtering to single dose: 1000.0
+================================================================================
+Phase C: fly64 Dose Sweep Dataset Generation
+================================================================================
+Base dataset: tike_outputs/fly001_reconstructed_final_prepared/fly001_reconstructed_interp_smooth_both.npz
+Output root:  /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c
+Dose levels:  [1000.0]
+================================================================================
+
+
+============================================================
+Generating dataset for dose=1e+03 photons
+Output directory: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000
+============================================================
+
+[Stage 1/5] Simulating diffraction patterns...
+--- Configuration Updated for Simulation ---
+Current Parameters:
+--------------------
+N: 128
+amp_activation: sigmoid
+backend: tensorflow
+batch_size: 16
+bigN: 128
+big_gridsize: 10
+data_source: generic
+debug: True
+default_probe_scale: 0.7
+enable_oversampling: False
+gaussian_smoothing_sigma: 0.0
+gridsize: 1
+h5_path: wts.h5
+intensity_scale.trainable: True
+label: 
+mae_weight: 0.0
+max_position_jitter: 10
+model_type: pinn
+n_filters_scale: 2
+n_groups: 10304
+n_images: 10304
+neighbor_count: 4
+nepochs: 50
+nimgs_test: 3
+nimgs_train: 9
+nll_weight: 1.0
+nphotons: 1000
+npseed: 42
+object.big: True
+offset: 4
+outer_offset_test: None
+outer_offset_train: None
+output_prefix: training_outputs
+pad_object: True
+positions.provided: True
+probe.big: True
+probe.mask: False
+probe.trainable: False
+probe_scale: 4.0
+realspace_mae_weight: 0.0
+realspace_weight: 0.0
+sequential_sampling: False
+set_phi: False
+sim_jitter_scale: 0.0
+size: 392
+train_data_file_path: tike_outputs/fly001_reconstructed_final_prepared/fly001_reconstructed_interp_smooth_both.npz
+tv_weight: 0.0
+use_xla_translate: True
+------------------------------------------
+
+Loading object and probe from: tike_outputs/fly001_reconstructed_final_prepared/fly001_reconstructed_interp_smooth_both.npz
+  - Object shape: (464, 464)
+  - Probe shape: (128, 128)
+Setting random seed to: 42
+Simulating 10304 diffraction patterns...
+DEBUG: Setting N to 128 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 1000 in params
+input shape (None, 128, 128, 1)
+diff3d shape: (10304, 128, 128)
+probeGuess shape: (128, 128)
+scan_index shape: (10304,)
+objectGuess shape: (464, 464)
+xcoords shape: (10304,)
+ycoords shape: (10304,)
+xcoords_start shape: (10304,)
+ycoords_start shape: (10304,)
+DEBUG: Setting N to 128 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 1000 in params
+Simulation complete.
+Added source 'objectGuess' to the output dataset for ground truth.
+Saving simulated data to: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/simulated_raw.npz
+File saved successfully with metadata (nphotons=1000).
+  ✓ Simulation complete: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/simulated_raw.npz
+
+[Stage 2/5] Canonicalizing to DATA-001 format...
+Loading data from: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/simulated_raw.npz
+Processing 9 arrays...
+  - Renaming 'diff3d' to 'diffraction'
+✔ Saved consistently formatted data to: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/canonical.npz
+  ✓ Canonicalization complete: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/canonical.npz
+
+[Stage 3/5] Generating Y patches...
+--- Generating Patches: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/canonical.npz ---
+  - Output file: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched.npz
+  - Patch size (N): 128
+  - K neighbors: 7
+  - Samples: 1
+  - Loaded 9 arrays from input file
+  - Coordinates: 10304 scan positions
+  - Diffraction shape: (10304, 128, 128)
+  - ProbeGuess shape: (128, 128)
+  - ObjectGuess shape: (464, 464)
+diff3d shape: (10304, 128, 128)
+probeGuess shape: (128, 128)
+scan_index shape: (10304,)
+objectGuess shape: (464, 464)
+xcoords shape: (10304,)
+ycoords shape: (10304,)
+xcoords_start shape: (10304,)
+ycoords_start shape: (10304,)
+  - Created RawData object successfully
+  - Generating Y patches...
+  - Using gridsize=1 for PtychoPINN compatibility
+DEBUG: nsamples: 1, gridsize: 1 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (1, 128, 128, 1)
+  - Generated Y patches with shape: (1, 128, 128, 1)
+  - Y patches are correctly generated with 3D shape for PINN compatibility
+  - Added coords_start_offsets with shape: (1, 1, 2, 1)
+  - Added coords_start_relative with shape: (1, 1, 2, 1)
+Saving prepared dataset with Y patches to: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched.npz
+  - Verified output contains 12 arrays
+  - Y array shape: (1, 128, 128, 1)
+  - Metadata preserved with 2 transformation(s)
+--- Patch Generation Complete ---
+  ✓ Patch generation complete: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched.npz
+
+[Stage 4/5] Splitting train/test on y-axis...
+--- Splitting Dataset: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched.npz ---
+  - Output directory: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000
+  - Split fraction (train): 0.50
+  - Split axis: 'y'
+  - Coordinate range on 'y' axis: [64.05, 399.97]
+  - Calculated split point: 232.01
+  - Total positions: 10304. Train: 5088, Test: 5216
+Saving training set (5088 scans) to: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz
+Saving testing set (5216 scans) to: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_test.npz
+--- Splitting Complete ---
+  ✓ Split complete:
+    Train: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz
+    Test:  /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_test.npz
+
+[Stage 5/5] Validating DATA-001 compliance...
+  Validating train...
+    ✓ train validation passed
+  Validating test...
+    ✓ test validation passed
+
+============================================================
+Dataset generation complete for dose=1e+03
+============================================================
+
+
+================================================================================
+All datasets generated successfully!
+Manifest written to: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/run_manifest.json
+================================================================================
+
+================================================================================
+[run_phase_g_dense] Cleaning up unwanted dose directories (keeping dose_1000 only)...
+================================================================================
+
+
+================================================================================
+[run_phase_g_dense] Validating Phase C metadata...
+================================================================================
+
+[validate_phase_c_metadata] SUCCESS: All Phase C NPZ files contain required _metadata
+
+================================================================================
+[2/8] Phase D: Overlap View Generation
+================================================================================
+
+
+================================================================================
+[3/8] Phase E: Training Baseline (gs1)
+================================================================================
+
+[run_phase_g_dense] Executing: /home/ollie/miniconda3/envs/ptycho311/bin/python -m studies.fly64_dose_overlap.training --phase-c-root /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c --phase-d-root /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d --artifact-root /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e --dose 1000 --view baseline --gridsize 1 --backend tensorflow
+[run_phase_g_dense] Logging to: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/phase_e_baseline_gs1_dose1000.log
+2025-11-12 23:08:59.504265: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1763017739.515421 1960868 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763017739.519065 1960868 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763017739.528940 1960868 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763017739.528952 1960868 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763017739.528954 1960868 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763017739.528956 1960868 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-12 23:08:59.531690: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-12 23:09:01,974 - INFO - Skipping sparse view for dose=1e+03: NPZ files not found (train=False, test=False). Checked primary (sparse_train.npz/sparse_test.npz) and fallback (train.npz/test.npz).
+2025-11-12 23:09:07,465 - INFO - Loading data from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz with n_images=None, n_subsample=None
+2025-11-12 23:09:07,908 - WARNING - Ignoring NPZ 'Y' with incompatible shape (1, 128, 128, 1) (expected first axis 5088)
+2025-11-12 23:09:07,908 - INFO - Using full dataset of 5088 images
+2025-11-12 23:09:07,947 - INFO - Loading data from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_test.npz with n_images=None, n_subsample=None
+2025-11-12 23:09:08,403 - WARNING - Ignoring NPZ 'Y' with incompatible shape (1, 128, 128, 1) (expected first axis 5216)
+2025-11-12 23:09:08,403 - INFO - Using full dataset of 5216 images
+2025-11-12 23:09:08,444 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=512, n_points=5088, C=1, K=4
+2025-11-12 23:09:08,444 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=128, sequential_sampling=False
+2025-11-12 23:09:08,444 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
+2025-11-12 23:09:08,444 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 512 > 5088 = False
+2025-11-12 23:09:08,444 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+2025-11-12 23:09:08,444 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2025-11-12 23:09:08,444 - INFO - Using efficient random sampling strategy for gridsize=1
+2025-11-12 23:09:08,444 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-11-12 23:09:08,444 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=512, K=4, C=1
+2025-11-12 23:09:08,444 - INFO - Generating 512 groups efficiently from 5088 points (K=4, C=1)
+2025-11-12 23:09:08,444 - INFO - [OVERSAMPLING DEBUG] Standard case: using 512 groups from 5088 points
+2025-11-12 23:09:08,445 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 512 seed points
+2025-11-12 23:09:08,445 - INFO - Sampled 512 seed points from 5088 total points
+2025-11-12 23:09:08,445 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2025-11-12 23:09:08,445 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 512 groups
+2025-11-12 23:09:08,445 - INFO - Successfully generated 512 groups with shape (512, 1)
+2025-11-12 23:09:08,445 - INFO - [OVERSAMPLING DEBUG] Generated 512 groups in total
+2025-11-12 23:09:08,445 - INFO - Generated 512 groups efficiently
+I0000 00:00:1763017748.573680 1960868 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1763017748.575218 1960868 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1763017749.291433 1960868 service.cc:152] XLA service 0x103f6060 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1763017749.291452 1960868 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-11-12 23:09:09.317197: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1763017749.337174 1960868 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1763017749.496838 1960868 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+2025-11-12 23:09:12,190 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=512, n_points=5216, C=1, K=4
+2025-11-12 23:09:12,190 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=128, sequential_sampling=False
+2025-11-12 23:09:12,190 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
+2025-11-12 23:09:12,190 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 512 > 5216 = False
+2025-11-12 23:09:12,190 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+2025-11-12 23:09:12,190 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2025-11-12 23:09:12,190 - INFO - Using efficient random sampling strategy for gridsize=1
+2025-11-12 23:09:12,190 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-11-12 23:09:12,190 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=512, K=4, C=1
+2025-11-12 23:09:12,190 - INFO - Generating 512 groups efficiently from 5216 points (K=4, C=1)
+2025-11-12 23:09:12,190 - INFO - [OVERSAMPLING DEBUG] Standard case: using 512 groups from 5216 points
+2025-11-12 23:09:12,190 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 512 seed points
+2025-11-12 23:09:12,190 - INFO - Sampled 512 seed points from 5216 total points
+2025-11-12 23:09:12,190 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2025-11-12 23:09:12,190 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 512 groups
+2025-11-12 23:09:12,190 - INFO - Successfully generated 512 groups with shape (512, 1)
+2025-11-12 23:09:12,190 - INFO - [OVERSAMPLING DEBUG] Generated 512 groups in total
+2025-11-12 23:09:12,190 - INFO - Generated 512 groups efficiently
+Enumerating training jobs from Phase C (/home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c) and Phase D (/home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d)...
+  → Selected backend: tensorflow
+  → 2 total jobs enumerated
+  ⚠ 1 view(s) skipped due to missing Phase D data:
+    - sparse (dose=1e+03): NPZ files not found (train=False, test=False). Checked primary (sparse_train.npz...
+  → Filtered by dose=1000.0: 2 jobs remain
+  → Filtered by view=baseline: 1 jobs remain
+  → Filtered by gridsize=1: 1 jobs remain
+
+Executing 1 training job(s)...
+  [1/1] baseline (dose=1e+03, gridsize=1, backend=tensorflow)
+diff3d shape: (5088, 128, 128)
+probeGuess shape: (128, 128)
+scan_index shape: (5088,)
+objectGuess shape: (464, 464)
+xcoords shape: (5088,)
+ycoords shape: (5088,)
+xcoords_start shape: (5088,)
+ycoords_start shape: (5088,)
+diff3d shape: (5216, 128, 128)
+probeGuess shape: (128, 128)
+scan_index shape: (5216,)
+objectGuess shape: (464, 464)
+xcoords shape: (5216,)
+ycoords shape: (5216,)
+xcoords_start shape: (5216,)
+ycoords_start shape: (5216,)
+DEBUG: nsamples: 512, gridsize: 1 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (512, 128, 128, 1)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(512, 128, 128, 1) Y_I=(512, 128, 128, 1) Y_phi=(512, 128, 128, 1) norm_Y_I=() coords_nominal=(512, 1, 2, 1) coords_true=(512, 1, 2, 1) nn_indices=(512, 1) mean=2515.943 global_offsets=(512, 1, 2, 1) mean=188.387 local_offsets=(512, 1, 2, 1) mean=0.000 probe=(128, 128) mean_amplitude=0.007>
+DEBUG: nsamples: 512, gridsize: 1 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (512, 128, 128, 1)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(512, 128, 128, 1) Y_I=(512, 128, 128, 1) Y_phi=(512, 128, 128, 1) norm_Y_I=() coords_nominal=(512, 1, 2, 1) coords_true=(512, 1, 2, 1) nn_indices=(512, 1) mean=2510.867 global_offsets=(512, 1, 2, 1) mean=271.909 local_offsets=(512, 1, 2, 1) mean=0.000 probe=(128, 128) mean_amplitude=0.007>
+DEBUG: Setting probe to tf.Tensor(
+[[[ 0.28498438-0.09745132j]
+  [ 0.07898823-0.06898231j]
+  [-0.1776128 -0.02413889j]
+  ...
+  [ 0.10659252+0.00086214j]
+  [-0.0585174 -0.0181606j ]
+  [-0.17915702-0.02362471j]]
+
+ [[ 0.07898823-0.06898231j]
+  [ 0.038569  -0.06275462j]
+  [-0.0141969 -0.04730332j]
+  ...
+  [ 0.01960954+0.00739213j]
+  [ 0.00271502-0.0311804j ]
+  [-0.0145774 -0.04700996j]]
+
+ [[-0.1776128 -0.02413889j]
+  [-0.0141969 -0.04730332j]
+  [ 0.18258305-0.06964147j]
+  ...
+  [-0.09195265+0.01901859j]
+  [ 0.07156007-0.03915591j]
+  [ 0.18359068-0.06960618j]]
+
+ ...
+
+ [[ 0.10659252+0.00086214j]
+  [ 0.01960954+0.00739213j]
+  [-0.09195265+0.01901859j]
+  ...
+  [ 0.03286983+0.00071724j]
+  [-0.04599212+0.01944371j]
+  [-0.09270766+0.01917951j]]
+
+ [[-0.0585174 -0.0181606j ]
+  [ 0.00271502-0.0311804j ]
+  [ 0.07156007-0.03915591j]
+  ...
+  [-0.04599212+0.01944371j]
+  [ 0.02061781-0.01389362j]
+  [ 0.07178088-0.03898923j]]
+
+ [[-0.17915702-0.02362471j]
+  [-0.0145774 -0.04700996j]
+  [ 0.18359068-0.06960618j]
+  ...
+  [-0.09270766+0.01917951j]
+  [ 0.07178088-0.03898923j]
+  [ 0.18460508-0.06957199j]]], shape=(128, 128, 1), dtype=complex64) in params
+DEBUG: Setting intensity_scale to 0.49410588 in params
+DEBUG: Setting probe to tf.Tensor(
+[[[ 0.28498438-0.09745132j]
+  [ 0.07898823-0.06898231j]
+  [-0.1776128 -0.02413889j]
+  ...
+  [ 0.10659252+0.00086214j]
+  [-0.0585174 -0.0181606j ]
+  [-0.17915702-0.02362471j]]
+
+ [[ 0.07898823-0.06898231j]
+  [ 0.038569  -0.06275462j]
+  [-0.0141969 -0.04730332j]
+  ...
+  [ 0.01960954+0.00739213j]
+  [ 0.00271502-0.0311804j ]
+  [-0.0145774 -0.04700996j]]
+
+ [[-0.1776128 -0.02413889j]
+  [-0.0141969 -0.04730332j]
+  [ 0.18258305-0.06964147j]
+  ...
+  [-0.09195265+0.01901859j]
+  [ 0.07156007-0.03915591j]
+  [ 0.18359068-0.06960618j]]
+
+ ...
+
+ [[ 0.10659252+0.00086214j]
+  [ 0.01960954+0.00739213j]
+  [-0.09195265+0.01901859j]
+  ...
+  [ 0.03286983+0.00071724j]
+  [-0.04599212+0.01944371j]
+  [-0.09270766+0.01917951j]]
+
+ [[-0.0585174 -0.0181606j ]
+  [ 0.00271502-0.0311804j ]
+  [ 0.07156007-0.03915591j]
+  ...
+  [-0.04599212+0.01944371j]
+  [ 0.02061781-0.01389362j]
+  [ 0.07178088-0.03898923j]]
+
+ [[-0.17915702-0.02362471j]
+  [-0.0145774 -0.04700996j]
+  [ 0.18359068-0.06960618j]
+  ...
+  [-0.09270766+0.01917951j]
+  [ 0.07178088-0.03898923j]
+  [ 0.18460508-0.06957199j]]], shape=(128, 128, 1), dtype=complex64) in params
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
+│ input (InputLayer)  │ (None, 128, 128,  │          0 │ -                 │
+│                     │ 1)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ intensity_scaler    │ (None, 128, 128,  │          0 │ input[0][0]       │
+│ (IntensityScaler)   │ 1)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d (Conv2D)     │ (None, 128, 128,  │        320 │ intensity_scaler… │
+│                     │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_1 (Conv2D)   │ (None, 128, 128,  │      9,248 │ conv2d[0][0]      │
+│                     │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d       │ (None, 64, 64,    │          0 │ conv2d_1[0][0]    │
+│ (MaxPooling2D)      │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_2 (Conv2D)   │ (None, 64, 64,    │     18,496 │ max_pooling2d[0]… │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_3 (Conv2D)   │ (None, 64, 64,    │     36,928 │ conv2d_2[0][0]    │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d_1     │ (None, 32, 32,    │          0 │ conv2d_3[0][0]    │
+│ (MaxPooling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_4 (Conv2D)   │ (None, 32, 32,    │     73,856 │ max_pooling2d_1[… │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_5 (Conv2D)   │ (None, 32, 32,    │    147,584 │ conv2d_4[0][0]    │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d_2     │ (None, 16, 16,    │          0 │ conv2d_5[0][0]    │
+│ (MaxPooling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_6 (Conv2D)   │ (None, 16, 16,    │    295,168 │ max_pooling2d_2[… │
+│                     │ 256)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_7 (Conv2D)   │ (None, 16, 16,    │    590,080 │ conv2d_6[0][0]    │
+│                     │ 256)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d_3     │ (None, 8, 8, 256) │          0 │ conv2d_7[0][0]    │
+│ (MaxPooling2D)      │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_10 (Conv2D)  │ (None, 8, 8, 256) │    590,080 │ max_pooling2d_3[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_20 (Conv2D)  │ (None, 8, 8, 256) │    590,080 │ max_pooling2d_3[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_11 (Conv2D)  │ (None, 8, 8, 256) │    590,080 │ conv2d_10[0][0]   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_21 (Conv2D)  │ (None, 8, 8, 256) │    590,080 │ conv2d_20[0][0]   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d       │ (None, 16, 16,    │          0 │ conv2d_11[0][0]   │
+│ (UpSampling2D)      │ 256)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_4     │ (None, 16, 16,    │          0 │ conv2d_21[0][0]   │
+│ (UpSampling2D)      │ 256)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_12 (Conv2D)  │ (None, 16, 16,    │    295,040 │ up_sampling2d[0]… │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_22 (Conv2D)  │ (None, 16, 16,    │    295,040 │ up_sampling2d_4[… │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_13 (Conv2D)  │ (None, 16, 16,    │    147,584 │ conv2d_12[0][0]   │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_23 (Conv2D)  │ (None, 16, 16,    │    147,584 │ conv2d_22[0][0]   │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_1     │ (None, 32, 32,    │          0 │ conv2d_13[0][0]   │
+│ (UpSampling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_5     │ (None, 32, 32,    │          0 │ conv2d_23[0][0]   │
+│ (UpSampling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_14 (Conv2D)  │ (None, 32, 32,    │     73,792 │ up_sampling2d_1[… │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_24 (Conv2D)  │ (None, 32, 32,    │     73,792 │ up_sampling2d_5[… │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_15 (Conv2D)  │ (None, 32, 32,    │     36,928 │ conv2d_14[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_25 (Conv2D)  │ (None, 32, 32,    │     36,928 │ conv2d_24[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_2     │ (None, 64, 64,    │          0 │ conv2d_15[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_6     │ (None, 64, 64,    │          0 │ conv2d_25[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_1          │ (None, 64, 64, 4) │          0 │ up_sampling2d_2[… │
+│ (GetItem)           │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_3          │ (None, 64, 64, 4) │          0 │ up_sampling2d_6[… │
+│ (GetItem)           │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_16 (Conv2D)  │ (None, 64, 64,    │      1,184 │ get_item_1[0][0]  │
+│                     │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_26 (Conv2D)  │ (None, 64, 64,    │      1,184 │ get_item_3[0][0]  │
+│                     │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_17 (Conv2D)  │ (None, 64, 64,    │      9,248 │ conv2d_16[0][0]   │
+│                     │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_27 (Conv2D)  │ (None, 64, 64,    │      9,248 │ conv2d_26[0][0]   │
+│                     │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_3     │ (None, 128, 128,  │          0 │ conv2d_17[0][0]   │
+│ (UpSampling2D)      │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_7     │ (None, 128, 128,  │          0 │ conv2d_27[0][0]   │
+│ (UpSampling2D)      │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item (GetItem)  │ (None, 64, 64,    │          0 │ up_sampling2d_2[… │
+│                     │ 60)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_9 (Conv2D)   │ (None, 128, 128,  │        289 │ up_sampling2d_3[… │
+│                     │ 1)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_2          │ (None, 64, 64,    │          0 │ up_sampling2d_6[… │
+│ (GetItem)           │ 60)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_19 (Conv2D)  │ (None, 128, 128,  │        289 │ up_sampling2d_7[… │
+│                     │ 1)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_8 (Conv2D)   │ (None, 64, 64, 1) │        541 │ get_item[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ silu (Silu)         │ (None, 128, 128,  │          0 │ conv2d_9[0][0]    │
+│                     │ 1)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_18 (Conv2D)  │ (None, 64, 64, 1) │        541 │ get_item_2[0][0]  │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ silu_1 (Silu)       │ (None, 128, 128,  │          0 │ conv2d_19[0][0]   │
+│                     │ 1)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ amp                 │ (None, 64, 64, 1) │          0 │ conv2d_8[0][0]    │
+│ (ActivationLayer)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ center_mask_layer   │ (None, 128, 128,  │          0 │ silu[0][0]        │
+│ (CenterMaskLayer)   │ 1)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ phi                 │ (None, 64, 64, 1) │          0 │ conv2d_18[0][0]   │
+│ (ActivationLayer)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ center_mask_layer_1 │ (None, 128, 128,  │          0 │ silu_1[0][0]      │
+│ (CenterMaskLayer)   │ 1)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ amp_padded          │ (None, 128, 128,  │          0 │ amp[0][0]         │
+│ (ZeroPadding2D)     │ 1)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ multiply (Multiply) │ (None, 128, 128,  │          0 │ silu[0][0],       │
+│                     │ 1)                │            │ center_mask_laye… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ phase_padded        │ (None, 128, 128,  │          0 │ phi[0][0]         │
+│ (ZeroPadding2D)     │ 1)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ multiply_1          │ (None, 128, 128,  │          0 │ silu_1[0][0],     │
+│ (Multiply)          │ 1)                │            │ center_mask_laye… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ add (Add)           │ (None, 128, 128,  │          0 │ amp_padded[0][0], │
+│                     │ 1)                │            │ multiply[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ add_1 (Add)         │ (None, 128, 128,  │          0 │ phase_padded[0][… │
+│                     │ 1)                │            │ multiply_1[0][0]  │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ obj                 │ (None, 128, 128,  │          0 │ add[0][0],        │
+│ (CombineComplexLay… │ 1)                │            │ add_1[0][0]       │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ input_positions     │ (None, 1, 2, 1)   │          0 │ -                 │
+│ (InputLayer)        │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ padded_obj_2        │ (None, 138, 138,  │          0 │ obj[0][0],        │
+│ (ReassemblePatches… │ 1)                │            │ input_positions[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ padded_objs_with_o… │ (None, 128, 128,  │          0 │ padded_obj_2[0][… │
+│ (ExtractPatchesPos… │ 1)                │            │ input_positions[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ probe_illumination  │ [(None, 128, 128, │          0 │ padded_objs_with… │
+│ (ProbeIllumination) │ 1), (None, 128,   │            │                   │
+│                     │ 128, 1)]          │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_amplitude      │ [(None, 128, 128, │          0 │ probe_illuminati… │
+│ (PadAndDiffractLay… │ 1), (None, 128,   │            │                   │
+│                     │ 128, 1)]          │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_diff_channels  │ (None, 128, 128,  │          0 │ pred_amplitude[0… │
+│ (FlatToChannelLaye… │ 1)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ intensity_scaler_i… │ (None, 128, 128,  │          0 │ pred_diff_channe… │
+│ (IntensityScaler_i… │ 1)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ trimmed_obj         │ (None, 128, 128,  │          0 │ padded_obj_2[0][… │
+│ (TrimReconstructio… │ 1)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_intensity      │ (None, 128, 128,  │          0 │ intensity_scaler… │
+│ (SquareLayer)       │ 1)                │            │                   │
+└─────────────────────┴───────────────────┴────────────┴───────────────────┘
+ Total params: 4,661,212 (17.78 MB)
+ Trainable params: 4,661,212 (17.78 MB)
+ Non-trainable params: 0 (0.00 B)
+2025-11-12 23:09:15.134580: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:103] Profiler session initializing.
+2025-11-12 23:09:15.134590: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:118] Profiler session started.
+I0000 00:00:1763017755.134603 1960868 cupti_tracer.cc:1026] Profiler found 1 GPUs
+W0000 00:00:1763017755.150833 1960868 cupti_tracer.cc:1213] Fail to use per-thread activity buffer, cupti trace overhead may be big. CUPTI ERROR CODE:1
+2025-11-12 23:09:15.150913: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:130] Profiler session tear down.
+I0000 00:00:1763017755.152960 1960868 cupti_tracer.cc:1249] CUPTI activity buffer flushed
+None
+Current Parameters:
+--------------------
+N: 128
+amp_activation: sigmoid
+backend: tensorflow
+batch_size: 16
+bigN: 128
+big_gridsize: 10
+data_source: generic
+debug: True
+default_probe_scale: 0.7
+enable_oversampling: False
+gaussian_smoothing_sigma: 0.0
+gridsize: 1
+h5_path: wts.h5
+intensity_scale: 0.49410587549209595
+intensity_scale.trainable: True
+label: 
+mae_weight: 0.0
+max_position_jitter: 10
+model_type: pinn
+n_filters_scale: 2
+n_groups: 512
+neighbor_count: 4
+nepochs: 50
+nimgs_test: 3
+nimgs_train: 9
+nll_weight: 1.0
+nphotons: 1000.0
+npseed: 42
+object.big: True
+offset: 4
+outer_offset_test: None
+outer_offset_train: None
+output_prefix: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
+pad_object: True
+positions.provided: True
+probe:
+  shape: (128, 128, 1)
+  mean: -0.000-0.000j
+  std: 0.637
+  min: -2.359-0.183j
+  max: 2.272-0.207j
+probe.big: True
+probe.mask: False
+probe.trainable: False
+probe_scale: 4.0
+realspace_mae_weight: 0.0
+realspace_weight: 0.0
+sequential_sampling: False
+set_phi: False
+sim_jitter_scale: 0.0
+size: 392
+test_data_file_path: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_test.npz
+train_data_file_path: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz
+tv_weight: 0.0
+use_xla_translate: True
+Epoch 1/50
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2025-11-12 23:09:16,431 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2025-11-12 23:09:18,916 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2025-11-12 23:09:23.063702: I external/local_xla/xla/stream_executor/cuda/subprocess_compilation.cc:346] ptxas warning : Registers are spilled to local memory in function 'gemm_fusion_dot', 180 bytes spill stores, 180 bytes spill loads
+
+2025-11-12 23:09:23.081834: I external/local_xla/xla/stream_executor/cuda/subprocess_compilation.cc:346] ptxas warning : Registers are spilled to local memory in function 'gemm_fusion_dot_1', 120 bytes spill stores, 120 bytes spill loads
+
+2025-11-12 23:09:23.102770: I external/local_xla/xla/stream_executor/cuda/subprocess_compilation.cc:346] ptxas warning : Registers are spilled to local memory in function 'gemm_fusion_dot', 180 bytes spill stores, 180 bytes spill loads
+
+2025-11-12 23:09:23.325696: I external/local_xla/xla/stream_executor/cuda/subprocess_compilation.cc:346] ptxas warning : Registers are spilled to local memory in function 'gemm_fusion_dot', 3548 bytes spill stores, 3544 bytes spill loads
+
+input shape (None, 128, 128, 1)
+input shape (None, 128, 128, 1)
+
+[1m 1/31[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m4:12[0m 8s/step - intensity_scaler_inv_loss: 0.1041 - loss: 0.1612 - pred_intensity_loss: 0.1612 - trimmed_obj_loss: 0.0000e+00
+[1m 3/31[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 25ms/step - intensity_scaler_inv_loss: 3.6578 - loss: 123.0372 - pred_intensity_loss: 123.0372 - trimmed_obj_loss: 0.0000e+00
+[1m 6/31[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m0s[0m 25ms/step - intensity_scaler_inv_loss: 3.2034 - loss: 107.0644 - pred_intensity_loss: 107.0644 - trimmed_obj_loss: 0.0000e+00
+[1m 9/31[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 2.7185 - loss: 90.0580 - pred_intensity_loss: 90.0580 - trimmed_obj_loss: 0.0000e+00  
+[1m12/31[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 2.3686 - loss: 77.6964 - pred_intensity_loss: 77.6964 - trimmed_obj_loss: 0.0000e+00
+[1m15/31[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 2.1094 - loss: 68.5333 - pred_intensity_loss: 68.5333 - trimmed_obj_loss: 0.0000e+00
+[1m18/31[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 1.9105 - loss: 61.4878 - pred_intensity_loss: 61.4878 - trimmed_obj_loss: 0.0000e+00
+[1m21/31[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 1.7527 - loss: 55.8947 - pred_intensity_loss: 55.8947 - trimmed_obj_loss: 0.0000e+00
+[1m24/31[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 1.6242 - loss: 51.3376 - pred_intensity_loss: 51.3376 - trimmed_obj_loss: 0.0000e+00
+[1m27/31[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 1.5173 - loss: 47.5457 - pred_intensity_loss: 47.5457 - trimmed_obj_loss: 0.0000e+00
+[1m30/31[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 1.4267 - loss: 44.3356 - pred_intensity_loss: 44.3356 - trimmed_obj_loss: 0.0000e+002025-11-12 23:09:26.436285: I external/local_xla/xla/stream_executor/cuda/subprocess_compilation.cc:346] ptxas warning : Registers are spilled to local memory in function 'gemm_fusion_dot', 180 bytes spill stores, 180 bytes spill loads
+
+2025-11-12 23:09:26.454729: I external/local_xla/xla/stream_executor/cuda/subprocess_compilation.cc:346] ptxas warning : Registers are spilled to local memory in function 'gemm_fusion_dot', 180 bytes spill stores, 180 bytes spill loads
+
+2025-11-12 23:09:26.546769: I external/local_xla/xla/stream_executor/cuda/subprocess_compilation.cc:346] ptxas warning : Registers are spilled to local memory in function 'gemm_fusion_dot_1', 120 bytes spill stores, 120 bytes spill loads
+
+2025-11-12 23:09:26.820441: I external/local_xla/xla/stream_executor/cuda/subprocess_compilation.cc:346] ptxas warning : Registers are spilled to local memory in function 'gemm_fusion_dot', 3528 bytes spill stores, 3528 bytes spill loads
+
+
+[1m31/31[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 107ms/step - intensity_scaler_inv_loss: 1.3995 - loss: 43.3809 - pred_intensity_loss: 43.3714 - trimmed_obj_loss: 0.0000e+00WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2025-11-12 23:09:28,149 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+input shape (None, 128, 128, 1)
+
+[1m31/31[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m13s[0m 164ms/step - intensity_scaler_inv_loss: 0.5818 - loss: 14.7404 - pred_intensity_loss: 14.4463 - trimmed_obj_loss: 0.0000e+00 - val_intensity_scaler_inv_loss: 0.1432 - val_loss: 0.1554 - val_pred_intensity_loss: 0.1554 - val_trimmed_obj_loss: 0.0000e+00 - learning_rate: 0.0010
+Epoch 2/50
+
+[1m 1/31[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 47ms/step - intensity_scaler_inv_loss: 0.1426 - loss: 0.1545 - pred_intensity_loss: 0.1545 - trimmed_obj_loss: 0.0000e+00
+[1m 3/31[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 25ms/step - intensity_scaler_inv_loss: 0.1405 - loss: 0.1545 - pred_intensity_loss: 0.1545 - trimmed_obj_loss: 0.0000e+00
+[1m 6/31[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m0s[0m 25ms/step - intensity_scaler_inv_loss: 0.1383 - loss: 0.1532 - pred_intensity_loss: 0.1532 - trimmed_obj_loss: 0.0000e+00
+[1m 9/31[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 25ms/step - intensity_scaler_inv_loss: 0.1378 - loss: 0.1521 - pred_intensity_loss: 0.1521 - trimmed_obj_loss: 0.0000e+00
+[1m12/31[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1377 - loss: 0.1512 - pred_intensity_loss: 0.1512 - trimmed_obj_loss: 0.0000e+00
+[1m15/31[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1378 - loss: 0.1507 - pred_intensity_loss: 0.1507 - trimmed_obj_loss: 0.0000e+00
+[1m18/31[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1378 - loss: 0.1502 - pred_intensity_loss: 0.1502 - trimmed_obj_loss: 0.0000e+00
+[1m21/31[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1378 - loss: 0.1498 - pred_intensity_loss: 0.1498 - trimmed_obj_loss: 0.0000e+00
+[1m24/31[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1378 - loss: 0.1495 - pred_intensity_loss: 0.1495 - trimmed_obj_loss: 0.0000e+00
+[1m27/31[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1377 - loss: 0.1492 - pred_intensity_loss: 0.1492 - trimmed_obj_loss: 0.0000e+00
+[1m30/31[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1376 - loss: 0.1489 - pred_intensity_loss: 0.1489 - trimmed_obj_loss: 0.0000e+00
+[1m31/31[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m1s[0m 26ms/step - intensity_scaler_inv_loss: 0.1363 - loss: 0.1466 - pred_intensity_loss: 0.1466 - trimmed_obj_loss: 0.0000e+00 - val_intensity_scaler_inv_loss: 0.1324 - val_loss: 0.1453 - val_pred_intensity_loss: 0.1453 - val_trimmed_obj_loss: 0.0000e+00 - learning_rate: 0.0010
+Epoch 3/50
+
+[1m 1/31[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 46ms/step - intensity_scaler_inv_loss: 0.1321 - loss: 0.1449 - pred_intensity_loss: 0.1449 - trimmed_obj_loss: 0.0000e+00
+[1m 4/31[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1325 - loss: 0.1454 - pred_intensity_loss: 0.1454 - trimmed_obj_loss: 0.0000e+00
+[1m 7/31[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1329 - loss: 0.1452 - pred_intensity_loss: 0.1452 - trimmed_obj_loss: 0.0000e+00
+[1m10/31[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1332 - loss: 0.1451 - pred_intensity_loss: 0.1451 - trimmed_obj_loss: 0.0000e+00
+[1m13/31[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1334 - loss: 0.1450 - pred_intensity_loss: 0.1450 - trimmed_obj_loss: 0.0000e+00
+[1m16/31[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1336 - loss: 0.1450 - pred_intensity_loss: 0.1450 - trimmed_obj_loss: 0.0000e+00
+[1m19/31[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1337 - loss: 0.1449 - pred_intensity_loss: 0.1449 - trimmed_obj_loss: 0.0000e+00
+[1m22/31[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1338 - loss: 0.1449 - pred_intensity_loss: 0.1449 - trimmed_obj_loss: 0.0000e+00
+[1m25/31[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1339 - loss: 0.1448 - pred_intensity_loss: 0.1448 - trimmed_obj_loss: 0.0000e+00
+[1m28/31[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1339 - loss: 0.1448 - pred_intensity_loss: 0.1448 - trimmed_obj_loss: 0.0000e+00
+[1m31/31[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1339 - loss: 0.1448 - pred_intensity_loss: 0.1447 - trimmed_obj_loss: 0.0000e+00
+[1m31/31[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m1s[0m 26ms/step - intensity_scaler_inv_loss: 0.1341 - loss: 0.1444 - pred_intensity_loss: 0.1443 - trimmed_obj_loss: 0.0000e+00 - val_intensity_scaler_inv_loss: 0.1340 - val_loss: 0.1448 - val_pred_intensity_loss: 0.1448 - val_trimmed_obj_loss: 0.0000e+00 - learning_rate: 0.0010
+Epoch 4/50
+
+[1m 1/31[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 48ms/step - intensity_scaler_inv_loss: 0.1336 - loss: 0.1448 - pred_intensity_loss: 0.1448 - trimmed_obj_loss: 0.0000e+00
+[1m 3/31[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 25ms/step - intensity_scaler_inv_loss: 0.1338 - loss: 0.1446 - pred_intensity_loss: 0.1446 - trimmed_obj_loss: 0.0000e+00
+[1m 6/31[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m0s[0m 25ms/step - intensity_scaler_inv_loss: 0.1338 - loss: 0.1443 - pred_intensity_loss: 0.1443 - trimmed_obj_loss: 0.0000e+00
+[1m 9/31[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1338 - loss: 0.1441 - pred_intensity_loss: 0.1441 - trimmed_obj_loss: 0.0000e+00
+[1m12/31[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1339 - loss: 0.1441 - pred_intensity_loss: 0.1441 - trimmed_obj_loss: 0.0000e+00
+[1m15/31[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1339 - loss: 0.1441 - pred_intensity_loss: 0.1441 - trimmed_obj_loss: 0.0000e+00
+[1m18/31[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1340 - loss: 0.1441 - pred_intensity_loss: 0.1441 - trimmed_obj_loss: 0.0000e+00
+[1m21/31[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1340 - loss: 0.1441 - pred_intensity_loss: 0.1441 - trimmed_obj_loss: 0.0000e+00
+[1m24/31[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1340 - loss: 0.1441 - pred_intensity_loss: 0.1441 - trimmed_obj_loss: 0.0000e+00
+[1m27/31[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1340 - loss: 0.1442 - pred_intensity_loss: 0.1442 - trimmed_obj_loss: 0.0000e+00
+[1m30/31[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1341 - loss: 0.1442 - pred_intensity_loss: 0.1442 - trimmed_obj_loss: 0.0000e+00
+[1m31/31[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m1s[0m 26ms/step - intensity_scaler_inv_loss: 0.1343 - loss: 0.1443 - pred_intensity_loss: 0.1443 - trimmed_obj_loss: 0.0000e+00 - val_intensity_scaler_inv_loss: 0.1345 - val_loss: 0.1447 - val_pred_intensity_loss: 0.1447 - val_trimmed_obj_loss: 0.0000e+00 - learning_rate: 0.0010
+Epoch 5/50
+
+[1m 1/31[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 47ms/step - intensity_scaler_inv_loss: 0.1345 - loss: 0.1448 - pred_intensity_loss: 0.1448 - trimmed_obj_loss: 0.0000e+00
+[1m 4/31[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1345 - loss: 0.1446 - pred_intensity_loss: 0.1446 - trimmed_obj_loss: 0.0000e+00
+[1m 7/31[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1346 - loss: 0.1444 - pred_intensity_loss: 0.1444 - trimmed_obj_loss: 0.0000e+00
+[1m10/31[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1346 - loss: 0.1444 - pred_intensity_loss: 0.1444 - trimmed_obj_loss: 0.0000e+00
+[1m13/31[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1346 - loss: 0.1443 - pred_intensity_loss: 0.1443 - trimmed_obj_loss: 0.0000e+00
+[1m16/31[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1346 - loss: 0.1443 - pred_intensity_loss: 0.1443 - trimmed_obj_loss: 0.0000e+00
+[1m19/31[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1345 - loss: 0.1443 - pred_intensity_loss: 0.1443 - trimmed_obj_loss: 0.0000e+00
+[1m22/31[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1345 - loss: 0.1443 - pred_intensity_loss: 0.1443 - trimmed_obj_loss: 0.0000e+00
+[1m25/31[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1345 - loss: 0.1442 - pred_intensity_loss: 0.1442 - trimmed_obj_loss: 0.0000e+00
+[1m28/31[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1345 - loss: 0.1442 - pred_intensity_loss: 0.1442 - trimmed_obj_loss: 0.0000e+00
+[1m31/31[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1345 - loss: 0.1442 - pred_intensity_loss: 0.1442 - trimmed_obj_loss: 0.0000e+00
+Epoch 5: ReduceLROnPlateau reducing learning rate to 0.0005000000237487257.
+
+[1m31/31[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m1s[0m 26ms/step - intensity_scaler_inv_loss: 0.1344 - loss: 0.1443 - pred_intensity_loss: 0.1443 - trimmed_obj_loss: 0.0000e+00 - val_intensity_scaler_inv_loss: 0.1346 - val_loss: 0.1447 - val_pred_intensity_loss: 0.1447 - val_trimmed_obj_loss: 0.0000e+00 - learning_rate: 0.0010
+Epoch 6/50
+
+[1m 1/31[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 47ms/step - intensity_scaler_inv_loss: 0.1341 - loss: 0.1442 - pred_intensity_loss: 0.1442 - trimmed_obj_loss: 0.0000e+00
+[1m 3/31[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 25ms/step - intensity_scaler_inv_loss: 0.1342 - loss: 0.1445 - pred_intensity_loss: 0.1445 - trimmed_obj_loss: 0.0000e+00
+[1m 6/31[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m0s[0m 25ms/step - intensity_scaler_inv_loss: 0.1342 - loss: 0.1443 - pred_intensity_loss: 0.1443 - trimmed_obj_loss: 0.0000e+00
+[1m 9/31[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 25ms/step - intensity_scaler_inv_loss: 0.1342 - loss: 0.1443 - pred_intensity_loss: 0.1443 - trimmed_obj_loss: 0.0000e+00
+[1m12/31[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1343 - loss: 0.1443 - pred_intensity_loss: 0.1443 - trimmed_obj_loss: 0.0000e+00
+[1m15/31[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1343 - loss: 0.1443 - pred_intensity_loss: 0.1443 - trimmed_obj_loss: 0.0000e+00
+[1m18/31[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1343 - loss: 0.1443 - pred_intensity_loss: 0.1443 - trimmed_obj_loss: 0.0000e+00
+[1m21/31[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1344 - loss: 0.1443 - pred_intensity_loss: 0.1443 - trimmed_obj_loss: 0.0000e+00
+[1m24/31[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1344 - loss: 0.1443 - pred_intensity_loss: 0.1443 - trimmed_obj_loss: 0.0000e+00
+[1m27/31[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1344 - loss: 0.1443 - pred_intensity_loss: 0.1443 - trimmed_obj_loss: 0.0000e+00
+[1m30/31[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1344 - loss: 0.1443 - pred_intensity_loss: 0.1443 - trimmed_obj_loss: 0.0000e+00
+[1m31/31[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m1s[0m 26ms/step - intensity_scaler_inv_loss: 0.1343 - loss: 0.1442 - pred_intensity_loss: 0.1442 - trimmed_obj_loss: 0.0000e+00 - val_intensity_scaler_inv_loss: 0.1345 - val_loss: 0.1447 - val_pred_intensity_loss: 0.1446 - val_trimmed_obj_loss: 0.0000e+00 - learning_rate: 5.0000e-04
+Epoch 7/50
+
+[1m 1/31[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 48ms/step - intensity_scaler_inv_loss: 0.1342 - loss: 0.1461 - pred_intensity_loss: 0.1461 - trimmed_obj_loss: 0.0000e+00
+[1m 3/31[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 25ms/step - intensity_scaler_inv_loss: 0.1344 - loss: 0.1457 - pred_intensity_loss: 0.1457 - trimmed_obj_loss: 0.0000e+00
+[1m 6/31[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m0s[0m 25ms/step - intensity_scaler_inv_loss: 0.1346 - loss: 0.1453 - pred_intensity_loss: 0.1453 - trimmed_obj_loss: 0.0000e+00
+[1m 9/31[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 25ms/step - intensity_scaler_inv_loss: 0.1347 - loss: 0.1450 - pred_intensity_loss: 0.1450 - trimmed_obj_loss: 0.0000e+00
+[1m12/31[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1346 - loss: 0.1448 - pred_intensity_loss: 0.1448 - trimmed_obj_loss: 0.0000e+00
+[1m15/31[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1346 - loss: 0.1447 - pred_intensity_loss: 0.1447 - trimmed_obj_loss: 0.0000e+00
+[1m18/31[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1345 - loss: 0.1446 - pred_intensity_loss: 0.1446 - trimmed_obj_loss: 0.0000e+00
+[1m21/31[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1345 - loss: 0.1445 - pred_intensity_loss: 0.1445 - trimmed_obj_loss: 0.0000e+00
+[1m24/31[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1345 - loss: 0.1445 - pred_intensity_loss: 0.1445 - trimmed_obj_loss: 0.0000e+00
+[1m27/31[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 24ms/step - intensity_scaler_inv_loss: 0.1345 - loss: 0.1445 - pred_intensity_loss: 0.1445 - trimmed_obj_loss: 0.0000e+00

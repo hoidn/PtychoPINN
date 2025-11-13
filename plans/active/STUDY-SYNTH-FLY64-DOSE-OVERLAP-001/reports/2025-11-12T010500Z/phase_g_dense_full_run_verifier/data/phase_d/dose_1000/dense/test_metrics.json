@@ -9,7 +9,7 @@
   "metric_1_group_based_avg": 0.8942481591520092,
   "metric_2_image_based_avg": 0.7634150785371115,
   "metric_3_group_to_group_avg": 0.26725705757217955,
-  "n_images_total": 5216,
+  "n_images_total": 4173,
   "n_images_subsampled": 4173,
   "n_unique_images": 4173,
   "n_groups_actual": 512
