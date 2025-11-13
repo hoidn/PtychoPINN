@@ -205,13 +205,41 @@ def _compute_channel_offsets(container) -> tf.Tensor:
 
 
 def prepare_baseline_inference_data(container):
-    """Flatten grouped diffraction + offsets for baseline stitching when needed."""
+    """Flatten grouped diffraction + offsets for baseline stitching when needed.
+
+    For grouped runs (total_channels > 1), validates that channel count is a perfect
+    square (gridsize²), computes and logs the resolved gridsize, then flattens both
+    diffraction and offset tensors for baseline model inference.
+
+    Returns:
+        tuple: (baseline_input, baseline_offsets) - both as numpy arrays ready for
+               baseline_model.predict([baseline_input, baseline_offsets], ...)
+    """
     total_channels = int(container.X.shape[-1])
     if total_channels > 1:
+        # Assert perfect square channel count for grouped runs
+        import math
+        sqrt_channels = math.sqrt(total_channels)
+        if not sqrt_channels.is_integer():
+            raise ValueError(
+                f"Grouped diffraction channel count ({total_channels}) must be a perfect square "
+                f"(gridsize²). Got non-integer sqrt: {sqrt_channels}"
+            )
+
+        resolved_gridsize = int(sqrt_channels)
         logger.info(
-            "Flattening grouped diffraction for baseline model: X %s → channels merged",
+            "Flattening grouped diffraction for baseline model: X %s → channels merged; "
+            "resolved gridsize=%d (from %d channels)",
             container.X.shape,
+            resolved_gridsize,
+            total_channels,
         )
+
+        # Force params.cfg gridsize sync for downstream Translation/reassembly
+        from ptycho import params as p
+        p.set('gridsize', resolved_gridsize)
+        logger.info(f"Forced params.cfg['gridsize']={resolved_gridsize} for baseline grouped inference")
+
         flattened_input = _channel_to_flat(container.X)
         offsets_channel = _compute_channel_offsets(container)
         flattened_offsets = _channel_to_flat(offsets_channel)
@@ -997,9 +1025,17 @@ def main():
     logger.info("Running inference with Baseline model...")
     baseline_input, baseline_offsets = prepare_baseline_inference_data(test_container)
     logger.info(f"Baseline inference input shape: {baseline_input.shape}")
+    logger.info(f"Baseline inference offsets shape: {baseline_offsets.shape}")
+
+    # Warn if offsets are missing (shouldn't happen after prepare_baseline_inference_data)
+    if baseline_offsets is None or baseline_offsets.size == 0:
+        logger.warning(
+            "Baseline offsets are missing or empty. Baseline model expects both diffraction and offsets."
+        )
 
     baseline_start = time.time()
-    baseline_output = baseline_model.predict(baseline_input, batch_size=32, verbose=1)
+    # Pass BOTH tensors to baseline model - it expects [input, positions] per dual-input architecture
+    baseline_output = baseline_model.predict([baseline_input, baseline_offsets], batch_size=32, verbose=1)
     baseline_inference_time = time.time() - baseline_start
     logger.info(f"Baseline inference completed in {baseline_inference_time:.2f}s")
     
