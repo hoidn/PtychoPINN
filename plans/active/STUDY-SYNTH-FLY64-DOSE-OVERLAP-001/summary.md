@@ -1,4 +1,15 @@
 ### Turn Summary
+Confirmed all 4 compare_models regression tests remain GREEN after prior fixes (baseline dual-input wiring, complex output converter, grouped flattening, PINN patch reassembly).
+Launched the counted Phase C→G dense pipeline execution with `--clobber` for dose=1000; pipeline is currently executing Phase C (Dataset Generation) with CUDA/TensorFlow initialized and will run through 8 phases automatically.
+The pipeline is running in background (ID 50b6ed) and estimated to complete in 30-120 minutes; remaining steps (post-verify helper, metrics regeneration, artifact verification) are blocked pending pipeline completion.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_reassembly.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_stdout.log
+
+Checklist:
+- Files touched: none
+- Tests run: pytest tests/study/test_dose_overlap_comparison.py::{test_baseline_model_predict_receives_both_inputs,test_baseline_complex_output_converts_to_amplitude_phase,test_prepare_baseline_inference_data_grouped_flatten_helper,test_pinn_reconstruction_reassembles_batched_predictions} -vv
+- Artifacts updated: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_reassembly.log; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_stdout.log
+
+### Turn Summary
 Limited compare_models smoke (32-group) now runs end-to-end after the reassembly fix: `cli/compare_models_dense_train_fix.log` shows the PINN patches reassembling to `(344,344,1)` while the baseline still returns zero amplitude/phase so only the PINN metrics are usable.
 Phase D/E artifacts already exist (fresh overlap metrics + gs2 weights), and the GREEN pytest artifacts for the reassembly + Phase D guards live under `$HUB/green/`, so the remaining blocker is purely the counted dense rerun.
 `analysis/verification_report.json` is still `n_valid=0` because `phase_g_dense_train.log` built zero jobs for dose 100000 and the Phase G manifest/metrics/digest files were never refreshed for the 1000-dose rerun.
