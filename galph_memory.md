@@ -846,3 +846,21 @@
 - Next actions for Ralph: instrument `_reassemble_position_batched` to normalize canvas/batch_result sizes, keep both regression tests GREEN, rerun the train/test compare_models commands with logs + metrics refresh, and clear `analysis/blocker.log` so STUDY-SYNTH can resume the counted Phase G rerun.
 - <Action State>: [ready_for_implementation]
 - focus=FIX-COMPARE-MODELS-TRANSLATION-001 state=ready_for_implementation dwell=1 ralph_last_commit=307d3e63 summary=plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/summary.md next_action=fix batched reassembly + rerun targeted pytest and train/test compare_models logs
+
+## 2025-11-13T180500Z: Reverted tf_helper batching semantics to avoid silent reconstruction drift
+- dwell: n/a (supervisor maintenance task outside a focus loop; no dwell change).
+- Focus issue: `_reassemble_position_batched` changes in `da91e466`/`087a9238` altered overlap normalization (by skipping `_flat_to_channel`) and introduced `tf.image.resize_with_crop_or_pad` cropping, risking edge/intensity drift despite green smoke tests.
+- Action type: Maintenance (git revert)
+- Mode: CLI
+- Git actions: `git revert 087a9238`; `git revert da91e466` (restored pre-batching paths). Noted user-managed deletion `data/phase_c/run_manifest.json` stays untracked.
+- Notes: Future batching work must preserve explicit overlap counts and log whenever canvas resizing would crop translated data before re-landing.
+- Next actions: Update FIX-COMPARE-MODELS-TRANSLATION-001 requirements accordingly and add regression tests that assert overlap count/intensity conservation.
+
+## 2025-11-13T180500Z: Reverted tf_helper batching semantics to avoid silent reconstruction drift
+- dwell: n/a (supervisor maintenance task outside a focus loop; no dwell change).
+- Focus issue: `_reassemble_position_batched` changes in `da91e466`/`087a9238` altered overlap normalization (by skipping `_flat_to_channel`) and introduced `tf.image.resize_with_crop_or_pad` cropping, risking edge/intensity drift despite green smoke tests.
+- Action type: Maintenance (git revert)
+- Mode: CLI
+- Git actions: `git revert 087a9238`; `git revert da91e466` (restored pre-batching paths). Noted user-managed deletion `data/phase_c/run_manifest.json` stays untracked.
+- Notes: Future batching work must preserve explicit overlap counts and log whenever canvas resizing would crop translated data before re-landing.
+- Next actions: Update FIX-COMPARE-MODELS-TRANSLATION-001 requirements accordingly and add regression tests that assert overlap count/intensity conservation.
