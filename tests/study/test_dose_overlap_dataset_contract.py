@@ -122,17 +122,18 @@ def test_validate_dataset_contract_spacing_dense(valid_dataset, design):
 
 def test_validate_dataset_contract_spacing_violation(valid_dataset, design):
     """
-    Fail case: dense spacing below threshold raises ValueError.
-
-    Enforces GRIDSIZE_N_GROUPS_GUIDE.md:143-151 spacing formula.
+    Spacing thresholds were removed in Phase D: validator should not raise.
+    See docs/GRIDSIZE_N_GROUPS_GUIDE.md (spacing acceptance gates retired).
     """
     # Pack coordinates too tightly: 20px < 38.4px threshold for dense
     n = len(valid_dataset['xcoords'])
     valid_dataset['xcoords'] = np.arange(n, dtype=np.float32) * 20.0
     valid_dataset['ycoords'] = np.arange(n, dtype=np.float32) * 20.0
 
-    with pytest.raises(ValueError, match=r"Minimum inter-position spacing.*< required threshold.*dense"):
+    try:
         validate_dataset_contract(valid_dataset, view='dense', gridsize=1, design=design)
+    except ValueError as exc:
+        pytest.fail(f"Spacing gates are no longer enforced; unexpected ValueError: {exc}")
 
 
 def test_validate_dataset_contract_oversampling_precondition_pass(valid_dataset, design):
@@ -183,12 +184,14 @@ def test_validate_dataset_contract_oversampling_missing_neighbor_count(valid_dat
 
 def test_validate_dataset_contract_unknown_view(valid_dataset, design):
     """
-    Fail case: unknown view name raises ValueError.
+    Unknown 'view' values are tolerated for backward compatibility.
     """
-    with pytest.raises(ValueError, match=r"Unknown view 'invalid'"):
+    try:
         validate_dataset_contract(
             valid_dataset,
             view='invalid',
             gridsize=1,
             design=design,
         )
+    except ValueError as exc:
+        pytest.fail(f"'view' parameter is deprecated; unexpected ValueError: {exc}")

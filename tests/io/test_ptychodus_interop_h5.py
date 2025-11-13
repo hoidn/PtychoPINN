@@ -46,6 +46,12 @@ def test_interop_h5_reader(tmp_path: Path):
     proj_root = Path(__file__).resolve().parents[2]
     sys.path.insert(0, str(proj_root / "ptychodus" / "src"))
 
+    # Skip gracefully when the optional ptychodus dependency is unavailable.
+    pytest.importorskip(
+        "ptychodus",
+        reason="ptychodus plugins not available; see specs/ptychodus_api_spec.md",
+    )
+
     from ptychodus.plugins.h5_product_file import H5ProductFileIO
 
     product = H5ProductFileIO().read(out)
@@ -71,4 +77,3 @@ def test_interop_h5_reader(tmp_path: Path):
 
     # Losses are empty in current exporter
     assert len(product.losses) == 0
-

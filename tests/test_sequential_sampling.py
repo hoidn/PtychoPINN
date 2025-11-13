@@ -230,15 +230,25 @@ class TestSequentialSampling(unittest.TestCase):
         
         # Case 2: Request more samples than available points with gridsize > 1 (oversampling)
         n_points = len(self.xcoords)
+        K = 7
+        with self.assertRaisesRegex(ValueError, "K choose C oversampling"):
+            self.raw_data.generate_grouped_data(
+                N=64, K=K, nsamples=n_points + 10,  # More than available
+                sequential_sampling=True
+            )
+
+        # Explicitly opt-in to the oversampling path per OVERSAMPLING-001.
         result = self.raw_data.generate_grouped_data(
-            N=64, K=7, nsamples=n_points + 10,  # More than available
-            sequential_sampling=True
+            N=64, K=K, nsamples=n_points + 10,
+            sequential_sampling=True,
+            enable_oversampling=True,
+            neighbor_pool_size=K,
         )
-        
-        # With gridsize=2 (C=4), should use K choose C oversampling to generate the requested number
+
+        # With gridsize=2 (C=4), oversampling should now satisfy the request.
         nn_indices = result['nn_indices']
-        self.assertEqual(len(nn_indices), n_points + 10, 
-                        "K choose C oversampling should generate the exact number of requested groups")
+        self.assertEqual(len(nn_indices), n_points + 10,
+                         "Explicit oversampling should generate the requested number of groups")
         
         # Case 3: Request exactly the number of available points
         result = self.raw_data.generate_grouped_data(

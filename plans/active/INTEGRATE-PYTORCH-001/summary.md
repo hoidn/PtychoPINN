@@ -1,4 +1,10 @@
 ### Turn Summary
+Confirmed commit b218696a delivered the inference CLI execution-config flags plus GREEN pytest + CLI smoke evidence (scripts/inference/inference.py, tests/scripts/test_inference_backend_selector.py, hub `green/pytest_backend_selector_cli.log`).
+Pivoted plans/ptychodus_pytorch_integration_plan.md and docs/fix_plan.md to a new Do Now that surfaces the same execution-config knobs on scripts/training/train.py, adds backend-selector tests, and reruns the PyTorch CLI smoke with training flags; refreshed input.md so Ralph can execute it.
+Next: implement the training CLI execution-config flags, add the new pytest case, rerun the selectors + CLI smoke, and update the hub summaries/inventory.
+Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, input.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_backend_selector_cli.log
+
+### Turn Summary
 Exposed PyTorch execution config flags (--torch-accelerator, --torch-num-workers, --torch-inference-batch-size) in scripts/inference/inference.py and wired them through build_execution_config_from_args for validated configuration.
 Extended test_inference_backend_selector.py with test_pytorch_execution_config_flags to verify flag propagation, reran the backend selector tests (2 PASSED), and executed the PyTorch CLI smoke with explicit execution config knobs (accelerator=cpu, batch_size=2, num_workers=0).
 Inference succeeded with logged execution config values and generated amplitude/phase PNGs (15K each), confirming the new flags are functional and the PyTorch inference path is fully operational with runtime config control.

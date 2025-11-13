@@ -234,7 +234,7 @@ class TestInferenceCliBackendDispatch:
                 from scripts.inference import inference
                 inference.parse_arguments()
 
-    def test_setup_inference_configuration_uses_backend(self):
+    def test_setup_inference_configuration_uses_backend(self, tmp_path: Path):
         """
         Test that setup_inference_configuration properly uses backend from args.
 
@@ -250,13 +250,20 @@ class TestInferenceCliBackendDispatch:
         from pathlib import Path
         import argparse
 
+        model_zip = tmp_path / "model.zip"
+        model_zip.touch()
+        output_dir = tmp_path / "inference_outputs"
+        output_dir.mkdir()
+        test_data = tmp_path / "test.npz"
+        test_data.touch()
+
         for backend_value in ['tensorflow', 'pytorch']:
             # Create mock args
             args = argparse.Namespace(
-                model_path='outputs/test/model.zip',
-                test_data='test.npz',
+                model_path=str(model_zip),
+                test_data=str(test_data),
                 config=None,
-                output_dir='outputs/inference',
+                output_dir=str(output_dir),
                 debug=False,
                 n_images=None,
                 n_subsample=None,
