@@ -171,7 +171,7 @@
     - Tests run: <pytest commands or `none`>
     - Artifacts updated: <hub paths / doc files or `none`>
     ```
-    Use repository-relative paths, keep each bullet on one line, and copy this footer verbatim into the initiative summary along with the Turn Summary.
+    Use repository-relative paths, keep each bullet on one line, separate multiple entries with `; `, and copy this footer verbatim into the initiative summary along with the Turn Summary. Never delete the literal `Checklist:` header even if every entry is `none`.
 
     Example:
     ### Turn Summary
