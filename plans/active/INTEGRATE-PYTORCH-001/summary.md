@@ -1,4 +1,10 @@
 ### Turn Summary
+Recorded DEVICE-MISMATCH-001 completion (commit 85478a67) and validated CUDA inference evidence, then reviewed `docs/workflows/pytorch.md` (§12) + `cli/pytorch_cli_smoke_training/train_clean.log` to confirm the CLIs still default to CPU when `--torch-accelerator` is omitted.
+Updated the initiative plan, fix plan, and hub instructions so the next increment forces CUDA-by-default via argparse defaults + `resolve_accelerator` auto-detection, with refreshed backend-selector/CLI-shared tests and a new pytest log.
+Next: implement the CUDA default change, run the targeted selectors, rerun the training/inference CLIs without explicit accelerator flags to capture GPU logs, and update the hub summaries/artifact inventory.
+Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/{analysis/artifact_inventory.txt,cli/pytorch_cli_smoke_training/train_clean.log}
+
+### Turn Summary
 Fixed DEVICE-MISMATCH-001 by moving bundle-loaded models to execution device in both CLI and helper layers.
 Added regression tests verifying model.to(device) + model.eval() calls; GREEN pytest (2 PASSED in 3.98s).
 CUDA inference now succeeds with logged device placement and generated amplitude/phase PNGs (24K/18K).
