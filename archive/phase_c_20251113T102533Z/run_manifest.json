@@ -1,0 +1,8 @@
+{
+  "dose_1000": {
+    "dose": 1000.0,
+    "train": "/home/ollie/Documents/PtychoPINN/data/phase_c/dose_1000/patched_train.npz",
+    "test": "/home/ollie/Documents/PtychoPINN/data/phase_c/dose_1000/patched_test.npz",
+    "intermediate_dir": "/home/ollie/Documents/PtychoPINN/data/phase_c/dose_1000"
+  }
+}
