@@ -420,3 +420,95 @@ class TestTrainingCliBackendDispatch:
                 "Model should be in Supervised mode"
             assert captured_model_config.loss_function == 'MAE', \
                 "Supervised mode should enforce loss_function='MAE' (prevents missing loss_name AttributeError)"
+
+    def test_manual_accumulation_guard(self):
+        """
+        Test that manual optimization + gradient accumulation raises RuntimeError.
+
+        Background (EXEC-ACCUM-001):
+        The PyTorch Lightning module (PtychoPINN_Lightning) uses manual optimization
+        (automatic_optimization=False) for custom physics loss integration. Lightning's
+        manual optimization mode is incompatible with Trainer(accumulate_grad_batches>1).
+
+        Without this guard, users get a cryptic MisconfigurationException from Lightning.
+        With the guard, they get a clear RuntimeError with actionable advice.
+
+        This test verifies that ptycho_torch/workflows/components.py:_train_with_lightning
+        detects the incompatibility and raises RuntimeError before Trainer instantiation.
+
+        Phase: Execution config guardrails
+        Reference: docs/findings.md#EXEC-ACCUM-001
+        """
+        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+        from pathlib import Path
+
+        # Create training config with PINN mode
+        model_config = ModelConfig(
+            N=64,
+            gridsize=2,
+            model_type='pinn',
+        )
+        config = TrainingConfig(
+            model=model_config,
+            train_data_file=Path('datasets/train.npz'),
+            output_dir=Path('outputs/test_accum'),
+            n_groups=128,
+            nepochs=1,
+            backend='pytorch',
+        )
+
+        # Create execution config with accumulate_grad_batches > 1
+        execution_config = PyTorchExecutionConfig(
+            accum_steps=2,  # This should trigger the guard
+            accelerator='cpu',
+            deterministic=True,
+        )
+
+        # Mock all dependencies
+        mock_train_container = MagicMock()
+        mock_train_container.diffraction = MagicMock()
+        mock_test_container = None
+
+        # Mock Lightning module with manual optimization
+        mock_lightning_module = MagicMock()
+        mock_lightning_module.automatic_optimization = False  # This is the key incompatibility
+        mock_lightning_module.save_hyperparameters = MagicMock()
+
+        # Mock factory payload
+        from ptycho_torch.config_params import (
+            DataConfig as PTDataConfig,
+            ModelConfig as PTModelConfig,
+            TrainingConfig as PTTrainingConfig,
+        )
+        mock_payload = MagicMock()
+        mock_payload.pt_model_config = PTModelConfig(mode='Unsupervised', C_forward=4, C_model=4)
+        mock_payload.pt_data_config = PTDataConfig()
+        mock_payload.pt_training_config = PTTrainingConfig()
+
+        # Mock dataloader builder to return first batch with diffraction
+        mock_train_loader = MagicMock()
+        mock_val_loader = None
+
+        with patch('ptycho_torch.config_factory.create_training_payload', return_value=mock_payload):
+            with patch('ptycho_torch.model.PtychoPINN_Lightning', return_value=mock_lightning_module):
+                with patch('ptycho_torch.workflows.components._build_lightning_dataloaders',
+                          return_value=(mock_train_loader, mock_val_loader)):
+                    from ptycho_torch.workflows.components import _train_with_lightning
+
+                    # Execute and expect RuntimeError with EXEC-ACCUM-001 reference
+                    with pytest.raises(RuntimeError) as exc_info:
+                        _train_with_lightning(
+                            mock_train_container,
+                            mock_test_container,
+                            config,
+                            execution_config=execution_config
+                        )
+
+                    # Verify error message mentions the incompatibility
+                    error_msg = str(exc_info.value)
+                    assert 'manual optimization' in error_msg.lower(), \
+                        "Error should mention manual optimization"
+                    assert 'accumulate_grad_batches' in error_msg.lower() or 'gradient accumulation' in error_msg.lower(), \
+                        "Error should mention gradient accumulation"
+                    assert 'EXEC-ACCUM-001' in error_msg, \
+                        "Error should reference EXEC-ACCUM-001 finding"

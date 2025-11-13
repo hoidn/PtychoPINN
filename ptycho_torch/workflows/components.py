@@ -700,6 +700,26 @@ def _train_with_lightning(
         train_container, test_container, config
     )
 
+    # DATA-SUP-001: Supervised mode requires labeled data
+    # Check if supervised mode is requested but training data lacks required labels
+    if pt_model_config.mode == 'Supervised':
+        # Inspect first batch to verify label keys exist
+        try:
+            first_batch = next(iter(train_loader))
+            batch_dict = first_batch[0]  # Extract tensor dict from batch tuple
+            if 'label_amp' not in batch_dict or 'label_phase' not in batch_dict:
+                raise RuntimeError(
+                    f"Supervised mode (model_type='supervised') requires labeled datasets with "
+                    f"'label_amp' and 'label_phase' keys, but training data lacks these fields. "
+                    f"Either: (1) Use a labeled NPZ dataset (see ptycho_torch/notebooks/create_supervised_datasets.ipynb), "
+                    f"or (2) Switch to PINN mode (--model_type pinn) for self-supervised physics-based training. "
+                    f"See DATA-SUP-001 in docs/findings.md for details."
+                )
+        except StopIteration:
+            raise RuntimeError(
+                f"Training dataloader is empty. Check dataset path and n_groups configuration."
+            )
+
     # B2.5: Configure Trainer with settings from config
     # C3.A3: Thread execution config values to Trainer kwargs
     output_dir = Path(getattr(config, 'output_dir', './outputs'))
@@ -801,6 +821,18 @@ def _train_with_lightning(
             lightning_logger = False
     else:
         logger.info("Logger disabled (logger_backend=None). Loss metrics will not be saved to disk.")
+
+    # EXEC-ACCUM-001: Guard against manual optimization + gradient accumulation
+    # Lightning's manual optimization (automatic_optimization=False) is incompatible with
+    # Trainer(accumulate_grad_batches>1). The PtychoPINN_Lightning module uses manual optimization
+    # for custom physics loss integration, so gradient accumulation must be disabled.
+    if not model.automatic_optimization and execution_config.accum_steps > 1:
+        raise RuntimeError(
+            f"Manual optimization (PtychoPINN_Lightning.automatic_optimization=False) "
+            f"is incompatible with gradient accumulation (accumulate_grad_batches={execution_config.accum_steps}). "
+            f"Remove --torch-accumulate-grad-batches flag or set it to 1. "
+            f"See EXEC-ACCUM-001 in docs/findings.md for details."
+        )
 
     # Build Trainer kwargs from execution config (Phase C3.A3)
     trainer = L.Trainer(
