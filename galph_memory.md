@@ -12,6 +12,15 @@
 - <Action State>: [ready_for_implementation]
 - focus=FIX-COMPARE-MODELS-TRANSLATION-001 state=ready_for_implementation dwell=0 ralph_last_commit=269228d9 summary=plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/summary.md next_action=stream ReassemblePatchesLayer + helpers, add regression test, rerun compare_models train/test with new logs
 
+## 2025-11-13T180500Z: Reverted tf_helper batching semantics to avoid silent reconstruction drift
+- dwell: n/a (supervisor maintenance task outside a focus loop; no dwell change).
+- Focus issue: `_reassemble_position_batched` changes in `da91e466`/`087a9238` altered overlap normalization (by skipping `_flat_to_channel`) and cropped translated patches via `tf.image.resize_with_crop_or_pad`, risking edge/intensity drift despite green smoke tests.
+- Action type: Maintenance (git revert)
+- Mode: CLI
+- Git actions: `git revert 087a9238` followed by `git revert da91e466` (restoring the pre-batching code paths). Noted that user-managed deletion `data/phase_c/run_manifest.json` remains untracked and should stay untouched.
+- Notes: Future batching work must include explicit overlap-count preservation and logging when canvas resizing would crop data before landing again.
+- Next actions: Update FIX-COMPARE-MODELS-TRANSLATION-001 to capture the new requirements (normalization + cropping safeguards) before reintroducing batching, and add regression tests that assert overlap counts/intensity conservation.
+
 
 ## 2025-11-14T123500Z: Phase G dense rerun still missing — manifest filters dose 100000
 - dwell: 4 (another planning/doc loop; Ralph’s latest `10183983` commit only refreshed evidence so dwell increments to 4 while the focus stays ready_for_implementation).
