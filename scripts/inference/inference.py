@@ -97,6 +97,21 @@ def parse_arguments() -> argparse.Namespace:
                        help="Backend to use for inference: 'tensorflow' (default) or 'pytorch'. "
                             "PyTorch backend requires torch>=2.2 (POLICY-001). "
                             "Both backends handle params.cfg restoration via CONFIG-001.")
+
+    # PyTorch-only execution flags (see docs/workflows/pytorch.md §12)
+    parser.add_argument("--torch-accelerator", type=str,
+                       choices=['auto', 'cpu', 'cuda', 'gpu', 'mps', 'tpu'],
+                       default='auto',
+                       help="PyTorch accelerator for inference (only applies when --backend pytorch). "
+                            "Options: 'auto' (default, auto-detect), 'cpu', 'cuda'/'gpu', 'mps', 'tpu'. "
+                            "See docs/workflows/pytorch.md §12 for details.")
+    parser.add_argument("--torch-num-workers", type=int, default=0,
+                       help="Number of dataloader worker processes for PyTorch inference (default: 0). "
+                            "Set to 0 for main process only (CPU-safe). "
+                            "Only applies when --backend pytorch.")
+    parser.add_argument("--torch-inference-batch-size", type=int, default=None,
+                       help="Batch size for PyTorch inference (default: None, uses model default). "
+                            "Only applies when --backend pytorch.")
     return parser.parse_args()
 
 def interpret_sampling_parameters(config: InferenceConfig) -> tuple:
@@ -493,16 +508,35 @@ def main():
         if config.backend == 'pytorch':
             # PyTorch inference path
             from ptycho_torch.inference import _run_inference_and_reconstruct
-            from ptycho_torch.config_factory import PyTorchExecutionConfig
+            from ptycho_torch.cli.shared import build_execution_config_from_args
 
-            # Create execution config with defaults (CPU for now, --device flag can be added later)
-            execution_config = PyTorchExecutionConfig(
-                accelerator='cpu',
-                inference_batch_size=4  # Conservative default for inference
+            # Map CLI args to execution config field names
+            # (--torch-* flags → accelerator, num_workers, inference_batch_size)
+            exec_args = argparse.Namespace(
+                accelerator=getattr(args, 'torch_accelerator', 'auto'),
+                num_workers=getattr(args, 'torch_num_workers', 0),
+                inference_batch_size=getattr(args, 'torch_inference_batch_size', None),
+                quiet=getattr(args, 'debug', False) == False,  # Invert debug flag for quiet
+                disable_mlflow=False  # Not applicable for inference
             )
 
+            # Build validated execution config from CLI args (POLICY-001, CONFIG-LOGGER-001)
+            execution_config = build_execution_config_from_args(exec_args, mode='inference')
+
+            # Resolve device from accelerator for downstream usage
+            # Map Lightning accelerator convention to torch device string
+            if execution_config.accelerator in ('cuda', 'gpu'):
+                device = 'cuda'
+            elif execution_config.accelerator == 'mps':
+                device = 'mps'
+            else:
+                device = 'cpu'  # Default for 'cpu', 'auto', etc.
+
+            print(f"PyTorch inference config: accelerator={execution_config.accelerator}, "
+                  f"num_workers={execution_config.num_workers}, "
+                  f"inference_batch_size={execution_config.inference_batch_size}")
+
             # Call PyTorch-native inference helper
-            device = 'cpu'  # Match execution_config.accelerator
             reconstructed_amplitude, reconstructed_phase = _run_inference_and_reconstruct(
                 model, test_data, config, execution_config, device, quiet=False
             )

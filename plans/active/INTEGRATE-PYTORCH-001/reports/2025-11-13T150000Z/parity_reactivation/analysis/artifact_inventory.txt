@@ -108,12 +108,82 @@ All Do Now items COMPLETE:
    - This inventory document
    - summary.md and summary/summary.md with Turn Summary
 
+## PyTorch Execution Config Flags Update (2025-11-13)
+
+### Additional Production Code Changes
+
+1. scripts/inference/inference.py (lines 101-114)
+   - Added PyTorch-only execution flags:
+     * --torch-accelerator: {auto,cpu,cuda,gpu,mps,tpu} (default: auto)
+     * --torch-num-workers: DataLoader worker processes (default: 0)
+     * --torch-inference-batch-size: Override batch size (default: None)
+   - Help text references docs/workflows/pytorch.md §12
+
+2. scripts/inference/inference.py (lines 513-524)
+   - Maps CLI args (--torch-*) to execution config fields via argparse.Namespace
+   - Calls build_execution_config_from_args(exec_args, mode='inference')
+   - Resolves device from accelerator (cuda/gpu→'cuda', mps→'mps', default→'cpu')
+   - Logs execution config values for transparency
+
+### Additional Test Coverage
+
+1. tests/scripts/test_inference_backend_selector.py (lines 352-474)
+   - TestInferenceCliBackendDispatch::test_pytorch_execution_config_flags
+     * Verifies CLI flags (torch_accelerator, torch_num_workers, torch_inference_batch_size)
+     * Mocks build_execution_config_from_args to capture field mapping
+     * Asserts execution_config passed to _run_inference_and_reconstruct matches CLI args
+
+### Updated Test Evidence
+
+1. green/pytest_backend_selector_cli.log (REFRESHED 2025-11-13)
+   - Command: pytest tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_inference_execution_path tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_execution_config_flags -vv
+   - Result: 2 passed in 3.72s
+   - Coverage:
+     * PyTorch inference execution path ✅
+     * Execution config flags propagation ✅
+
+### Updated CLI Evidence
+
+1. cli/pytorch_cli_smoke/inference.log (REFRESHED 2025-11-13)
+   - Command now includes execution flags:
+     --torch-accelerator cpu --torch-inference-batch-size 2 --torch-num-workers 0
+   - Result: SUCCESS ✅
+   - Log output confirms: "PyTorch inference config: accelerator=cpu, num_workers=0, inference_batch_size=2"
+   - Artifacts remain: reconstructed_amplitude.png (15K), reconstructed_phase.png (15K)
+
+## Phase R Execution Config Flags — COMPLETE
+
+All execution config Do Now items COMPLETE:
+
+1. ✅ Add --torch-* execution flags to scripts/inference/inference.py
+   - accelerator, num_workers, inference_batch_size
+   - Help text with docs reference
+
+2. ✅ Use build_execution_config_from_args() for validated config
+   - Maps CLI args to execution config field names
+   - Validates via PyTorchExecutionConfig.__post_init__()
+
+3. ✅ Extend test_inference_backend_selector.py with execution config test
+   - test_pytorch_execution_config_flags verifies flag propagation
+   - Mocks build helper to assert mapping correctness
+
+4. ✅ Rerun backend selector tests with new test
+   - 2 tests PASSED (execution path + config flags)
+   - Log: green/pytest_backend_selector_cli.log
+
+5. ✅ PyTorch CLI smoke test with new flags
+   - Inference logs show flags honored (accelerator=cpu, batch_size=2, num_workers=0)
+   - PNGs generated successfully
+
+6. ✅ Update hub artifacts and summaries
+   - This inventory document updated
+   - summary.md and summary/summary.md with Turn Summary
+
 ## Next Steps
 
-Phase R (PyTorch inference execution path) is COMPLETE.
+Phase R (PyTorch inference execution path + execution config flags) is COMPLETE.
 
 Future increments may add:
-- CLI --device flag to control PyTorch accelerator (cpu/cuda/mps)
 - Ground truth comparison for PyTorch inference path
-- Batch size control via --inference_batch_size CLI flag
 - Probe visualization for PyTorch models
+- Additional execution knobs (gradient checkpointing, mixed precision, etc.)

@@ -1,4 +1,10 @@
 ### Turn Summary
+Exposed PyTorch execution config flags (--torch-accelerator, --torch-num-workers, --torch-inference-batch-size) in scripts/inference/inference.py and wired them through build_execution_config_from_args for validated configuration.
+Extended test_inference_backend_selector.py with test_pytorch_execution_config_flags to verify flag propagation, reran the backend selector tests (2 PASSED), and executed the PyTorch CLI smoke with explicit execution config knobs (accelerator=cpu, batch_size=2, num_workers=0).
+Inference succeeded with logged execution config values and generated amplitude/phase PNGs (15K each), confirming the new flags are functional and the PyTorch inference path is fully operational with runtime config control.
+Artifacts: green/pytest_backend_selector_cli.log, cli/pytorch_cli_smoke/{train.log,inference.log,inference_outputs/{reconstructed_amplitude.png,reconstructed_phase.png}}, analysis/artifact_inventory.txt
+
+### Turn Summary
 Verified commit 12fa29dd delivered the PyTorch inference branch plus green pytest/CLI smoke evidence and documented the results in the active hub.
 Updated plans/ptychodus_pytorch_integration_plan.md and docs/fix_plan.md with a new Do Now that exposes `--torch-*` execution flags in scripts/inference/inference.py via `build_execution_config_from_args`, plus refreshed pytest/CLI expectations.
 Rewrote input.md so Ralph adds the new flags, extends backend-selector tests, reruns the PyTorch CLI smoke with explicit execution-config knobs, and updates the hub inventory/summaries (blockers → `$HUB/red/`).

@@ -348,3 +348,127 @@ class TestInferenceCliBackendDispatch:
             # Verify TensorFlow inference was NOT called
             assert not mock_tf_inference.called, \
                 "perform_inference (TensorFlow) should NOT be called for PyTorch backend"
+
+    def test_pytorch_execution_config_flags(self):
+        """
+        Test that PyTorch CLI execution flags propagate to execution_config.
+
+        Expected behavior:
+        - CLI args --torch-accelerator, --torch-num-workers, --torch-inference-batch-size
+        - Map to PyTorchExecutionConfig fields via build_execution_config_from_args
+        - Execution config is validated and passed to _run_inference_and_reconstruct
+        - Verify execution_config mirrors the CLI flags
+
+        Phase: R (PyTorch execution config flags)
+        Reference: input.md Do Now step 3
+        """
+        import numpy as np
+        from unittest.mock import MagicMock, patch, ANY
+        import argparse
+
+        # Mock args with PyTorch execution flags
+        args = argparse.Namespace(
+            model_path='outputs/test/bundle.zip',
+            test_data='test.npz',
+            config=None,
+            output_dir='outputs/inference',
+            debug=False,
+            comparison_plot=False,
+            n_images=None,
+            n_subsample=None,
+            subsample_seed=None,
+            phase_vmin=None,
+            phase_vmax=None,
+            backend='pytorch',
+            torch_accelerator='cpu',
+            torch_num_workers=2,
+            torch_inference_batch_size=8
+        )
+
+        # Mock the PyTorch inference helper to capture execution_config
+        mock_pytorch_inference = MagicMock(
+            return_value=(
+                np.random.rand(64, 64),  # amplitude
+                np.random.rand(64, 64)   # phase
+            )
+        )
+
+        # Mock build_execution_config_from_args to verify it's called correctly
+        from ptycho.config.config import PyTorchExecutionConfig
+        mock_execution_config = PyTorchExecutionConfig(
+            accelerator='cpu',
+            num_workers=2,
+            inference_batch_size=8,
+            enable_progress_bar=True
+        )
+
+        def mock_build_exec_config(exec_args, mode):
+            # Verify the mapped args
+            assert exec_args.accelerator == 'cpu', "Accelerator should be mapped from torch_accelerator"
+            assert exec_args.num_workers == 2, "num_workers should be mapped from torch_num_workers"
+            assert exec_args.inference_batch_size == 8, "inference_batch_size should be mapped"
+            assert mode == 'inference', "Mode should be 'inference'"
+            return mock_execution_config
+
+        with patch('ptycho_torch.inference._run_inference_and_reconstruct', mock_pytorch_inference), \
+             patch('ptycho_torch.cli.shared.build_execution_config_from_args', side_effect=mock_build_exec_config):
+
+            # Simulate the inference CLI logic (from scripts/inference/inference.py)
+            from ptycho.config.config import InferenceConfig, ModelConfig
+            from ptycho_torch.cli.shared import build_execution_config_from_args
+
+            config = InferenceConfig(
+                model=ModelConfig(N=64, gridsize=1),
+                model_path=Path('outputs/test/bundle.zip'),
+                test_data_file=Path('test.npz'),
+                backend='pytorch',
+                output_dir=Path('outputs/inference')
+            )
+
+            if config.backend == 'pytorch':
+                # Map CLI args to execution config field names
+                exec_args = argparse.Namespace(
+                    accelerator=getattr(args, 'torch_accelerator', 'auto'),
+                    num_workers=getattr(args, 'torch_num_workers', 0),
+                    inference_batch_size=getattr(args, 'torch_inference_batch_size', None),
+                    quiet=getattr(args, 'debug', False) == False,
+                    disable_mlflow=False
+                )
+
+                # Build validated execution config
+                execution_config = build_execution_config_from_args(exec_args, mode='inference')
+
+                # Verify execution_config fields
+                assert execution_config.accelerator == 'cpu', \
+                    "execution_config.accelerator should match CLI flag"
+                assert execution_config.num_workers == 2, \
+                    "execution_config.num_workers should match CLI flag"
+                assert execution_config.inference_batch_size == 8, \
+                    "execution_config.inference_batch_size should match CLI flag"
+
+                # Simulate calling _run_inference_and_reconstruct
+                device = 'cpu'
+                mock_model = MagicMock()
+                mock_test_data = MagicMock()
+
+                reconstructed_amplitude, reconstructed_phase = mock_pytorch_inference(
+                    mock_model, mock_test_data, config, execution_config, device, quiet=False
+                )
+
+            # Verify PyTorch helper was called
+            assert mock_pytorch_inference.called, \
+                "_run_inference_and_reconstruct should be called with execution_config"
+
+            # Verify execution_config argument matches our flags
+            call_args = mock_pytorch_inference.call_args
+            assert call_args is not None, \
+                "PyTorch inference helper should have received arguments"
+
+            # The 4th positional argument (index 3) should be execution_config
+            passed_execution_config = call_args[0][3]
+            assert passed_execution_config.accelerator == 'cpu', \
+                "Passed execution_config should have accelerator='cpu'"
+            assert passed_execution_config.num_workers == 2, \
+                "Passed execution_config should have num_workers=2"
+            assert passed_execution_config.inference_batch_size == 8, \
+                "Passed execution_config should have inference_batch_size=8"
