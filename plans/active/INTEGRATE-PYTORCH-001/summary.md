@@ -1,4 +1,10 @@
 ### Turn Summary
+Switched canonical CLI defaults to CUDA baseline (commit 7db5df4b): argparse defaults now use 'cuda', and resolve_accelerator auto-detects CUDA with CPU fallback + POLICY-001 warning.
+Updated tests to cover auto-detection logic and reran backend-selector + CLI-shared selectors (3 PASSED in 3.65s).
+Executed PyTorch training/inference CLIs without explicit --torch-accelerator flags; confirmed GPU usage via logs ("GPU available: True (cuda), used: True" + RTX 3090 device).
+Artifacts: commit 7db5df4b, green/pytest_cuda_default_exec_config.log, cli/pytorch_cli_smoke_training/{train_cuda_default.log,inference_cuda_default.log,inference_outputs/*.png}, analysis/artifact_inventory.txt
+
+### Turn Summary
 Recorded DEVICE-MISMATCH-001 completion (commit 85478a67) and validated CUDA inference evidence, then reviewed `docs/workflows/pytorch.md` (§12) + `cli/pytorch_cli_smoke_training/train_clean.log` to confirm the CLIs still default to CPU when `--torch-accelerator` is omitted.
 Updated the initiative plan, fix plan, and hub instructions so the next increment forces CUDA-by-default via argparse defaults + `resolve_accelerator` auto-detection, with refreshed backend-selector/CLI-shared tests and a new pytest log.
 Next: implement the CUDA default change, run the targeted selectors, rerun the training/inference CLIs without explicit accelerator flags to capture GPU logs, and update the hub summaries/artifact inventory.

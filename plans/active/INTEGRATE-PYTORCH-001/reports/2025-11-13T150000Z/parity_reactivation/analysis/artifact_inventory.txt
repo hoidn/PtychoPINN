@@ -1,96 +1,107 @@
-# Artifact Inventory: DEVICE-MISMATCH-001 Fix (Phase R)
-# Date: 2025-11-12
-# Commit: 85478a67
-# Focus: INTEGRATE-PYTORCH-PARITY-001
-
-## Problem Statement
-Bundle-loaded PyTorch Lightning modules remained on CPU even when --torch-accelerator cuda
-was specified, causing "Input type (torch.cuda.FloatTensor) and weight type (torch.FloatTensor)"
-crashes during CUDA inference. Input tensors were moved to CUDA but model weights stayed on CPU.
-
-## Solution Summary
-Added model.to(device) and model.eval() calls at two levels:
-1. CLI level (scripts/inference/inference.py): After loading bundle, before data loading
-2. Helper level (ptycho_torch/inference.py): Inside _run_inference_and_reconstruct (defensive guard)
+# INTEGRATE-PYTORCH-PARITY-001 — CUDA Default Evidence (2025-11-13T20:20:00Z)
 
 ## Code Changes
 
-### scripts/inference/inference.py (lines 470-496)
-- After load_inference_bundle_with_backend, check if backend=='pytorch'
-- Build execution_config from CLI args (torch_accelerator, torch_num_workers, torch_inference_batch_size)
-- Map accelerator to device string ('cuda', 'mps', 'cpu')
-- Call model.to(device_str) and model.eval()
-- Reuse resolved execution_config/device_str in later inference branch (removed duplicate resolution)
+### CLI Defaults Updated
+- scripts/training/train.py:252: --torch-accelerator default changed from 'auto' to 'cuda'
+- scripts/inference/inference.py:104: --torch-accelerator default changed from 'auto' to 'cuda'
+- Help text updated to document CPU override path: --torch-accelerator cpu
 
-### ptycho_torch/inference.py (lines 318-320)
-- At start of _run_inference_and_reconstruct, add defensive guard:
-  model.to(device) and model.eval()
-- Updated docstring to document DEVICE-MISMATCH-001 fix
-- Ensures model is on correct device even if CLI forgot to move it
+### resolve_accelerator Enhancement
+- ptycho_torch/cli/shared.py:26-104: Enhanced resolve_accelerator() function
+  - Added auto-detection logic: 'auto' → 'cuda' when torch.cuda.is_available()
+  - Falls back to 'cpu' with POLICY-001 UserWarning when CUDA unavailable
+  - Emits actionable error message with PyTorch installation URL
 
-## Regression Tests
-
-### tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_backend_moves_model_to_execution_device (lines 483-599)
-- Mocks PyTorch model with tracked .to() and .eval() calls
-- Simulates CLI logic: load bundle → build execution_config → resolve device → call model.to(device)
-- Asserts model.to('cuda') and model.eval() are called
-- Verifies device string derivation from torch_accelerator flag
-
-### tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_accelerator_flag_roundtrip (lines 202-282)
-- Directly calls _run_inference_and_reconstruct with mocked model
-- Tracks model.to() and model.eval() calls
-- Verifies helper honors device parameter and moves model before forward pass
-- Uses 'cuda' device to match production usage
+### Test Updates
+- tests/torch/test_cli_shared.py:121-164: Updated test_all_accelerator_values_passthrough
+  - Excluded 'auto' from passthrough list (now special-cased)
+  - Added new test_resolve_accelerator_auto_defaults covering CUDA detection logic
 
 ## Test Evidence
 
-### Green pytest log: green/pytest_pytorch_inference_device.log
+### Pytest GREEN (3 PASSED in 3.65s)
+- Location: green/pytest_cuda_default_exec_config.log
+- Selector: tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_pytorch_execution_config_flags
+- Selector: tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_backend_moves_model_to_execution_device
+- Selector: tests/torch/test_cli_shared.py::TestResolveAccelerator::test_resolve_accelerator_auto_defaults
+- Result: All execution-config and auto-detection tests pass
+
+## PyTorch Training CLI Smoke (CUDA Default)
+
+### Command
+```bash
+CUDA_VISIBLE_DEVICES="0" python scripts/training/train.py \
+  --train_data_file tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz \
+  --backend pytorch \
+  --n_images 100 \
+  --nepochs 2 \
+  --model_type pinn \
+  --output_dir plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs \
+  --torch-num-workers 0 \
+  --torch-learning-rate 1e-3 \
+  --torch-scheduler Default \
+  --torch-logger csv
 ```
-tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_backend_moves_model_to_execution_device PASSED
-tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_accelerator_flag_roundtrip PASSED
-2 passed in 3.98s
-```
+Note: --torch-accelerator flag OMITTED (defaults to 'cuda')
 
-Selector:
-pytest tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_backend_moves_model_to_execution_device tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_accelerator_flag_roundtrip -vv
+### Evidence
+- Log: cli/pytorch_cli_smoke_training/train_cuda_default.log
+- Key Lines:
+  - "GPU available: True (cuda), used: True"
+  - "CUDA_VISIBLE_DEVICES: [0]"
+  - "NVIDIA GeForce RTX 3090"
+- Bundle: cli/pytorch_cli_smoke_training/train_outputs/wts.h5.zip
+- Status: SUCCESS (2 epochs completed, bundle saved)
 
-## CUDA Inference Evidence
+## PyTorch Inference CLI Smoke (CUDA Default)
 
-### cli/pytorch_cli_smoke_training/inference_cuda.log
-Command:
+### Command
 ```bash
 CUDA_VISIBLE_DEVICES="0" python scripts/inference/inference.py \
-  --model_path plans/active/.../train_outputs \
+  --model_path plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs \
   --test_data tests/fixtures/pytorch_integration/minimal_dataset_v1.npz \
   --backend pytorch \
-  --torch-accelerator cuda \
   --torch-num-workers 0 \
   --torch-inference-batch-size 2 \
-  --output_dir .../inference_outputs_cuda
+  --output_dir plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/inference_outputs
 ```
+Note: --torch-accelerator flag OMITTED (defaults to 'cuda')
 
-Key log lines:
-- "PyTorch model moved to device: cuda" (confirms model.to() called at CLI level)
-- "Running inference on 64 images..." (from _run_inference_and_reconstruct)
-- "Inference process completed successfully."
-- Generated: reconstructed_amplitude.png (24K), reconstructed_phase.png (18K)
+### Evidence
+- Log: cli/pytorch_cli_smoke_training/inference_cuda_default.log
+- Key Lines:
+  - "PyTorch model moved to device: cuda"
+  - "PyTorch inference config: accelerator=cuda, num_workers=0, inference_batch_size=2"
+- Outputs:
+  - reconstructed_amplitude.png (17K)
+  - reconstructed_phase.png (23K)
+- Status: SUCCESS (inference completed, PNGs generated)
 
-No device mismatch errors. Amplitude range: [0.0000, 128.3215], Phase range: [-3.1259, 3.1416]
+## GPU Hardware
 
-## GPU Environment
-- GPU: NVIDIA GeForce RTX 3090 (24576 MiB)
+- Model: NVIDIA GeForce RTX 3090
 - Driver: 570.195.03
-- CUDA: 12.8
-- PyTorch: 2.8.0+cu128
+- CUDA Version: 12.8 (PyTorch 2.8.0+cu128)
 
 ## Policy Compliance
-- POLICY-001: PyTorch ≥2.2 required and installed (2.8.0+cu128)
-- CONFIG-001: update_legacy_dict handled by load_inference_bundle_with_backend
-- CONFIG-LOGGER-001: execution_config built via build_execution_config_from_args
-- DEVICE-MISMATCH-001: Fixed with this commit
 
-## References
-- Finding: docs/findings.md DEVICE-MISMATCH-001
-- Plan: plans/ptychodus_pytorch_integration_plan.md (Phase R)
-- Input brief: input.md Do Now steps 2-6
-- Blocker (pre-fix): plans/active/.../red/blocked_2025-11-13T033117Z_device_mismatch.md
+- POLICY-001: GPU baseline enforced via CUDA default + auto-detection
+- CONFIG-001: update_legacy_dict bridge remains intact
+- CONFIG-LOGGER-001: CSV logger used (zero deps)
+- EXEC-ACCUM-001: accumulate_grad_batches=1 (manual optimization safe)
+- DATA-SUP-001: PINN mode used (no label requirements)
+- DEVICE-MISMATCH-001: Resolved (commit 85478a67)
+
+## Findings References
+
+- POLICY-001: PyTorch GPU baseline mandatory
+- CONFIG-001: Config bridge flow
+- CONFIG-LOGGER-001: CSV logger default
+- DEVICE-MISMATCH-001: Model device placement fix
+
+## Next Actions
+
+- Mark CUDA default work complete in fix_plan.md
+- Update workflows/pytorch.md §12 table to reflect new CUDA default
+- Prepend Turn Summary to initiative summary.md

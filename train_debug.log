@@ -30908,3 +30908,102 @@
 2025-11-12 19:02:27,237 - INFO - Models saved successfully to /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/wts.h5.zip
 2025-11-12 19:02:27,237 - INFO - Backend dispatcher: workflow complete (backend=pytorch)
 2025-11-12 19:02:27,237 - INFO - PyTorch backend completed. Check /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs for saved bundles.
+2025-11-12 20:18:47,654 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
+2025-11-12 20:18:47,832 - DEBUG - Creating converter from 7 to 5
+2025-11-12 20:18:47,832 - DEBUG - Creating converter from 5 to 7
+2025-11-12 20:18:47,832 - DEBUG - Creating converter from 7 to 5
+2025-11-12 20:18:47,832 - DEBUG - Creating converter from 5 to 7
+2025-11-12 20:18:48,434 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/matplotlib/mpl-data
+2025-11-12 20:18:48,441 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
+2025-11-12 20:18:48,441 - DEBUG - interactive is False
+2025-11-12 20:18:48,441 - DEBUG - platform is linux
+2025-11-12 20:18:48,471 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
+2025-11-12 20:18:48,472 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
+2025-11-12 20:18:49,633 - DEBUG - YAML config: {}
+2025-11-12 20:18:49,633 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz'), 'test_data_file': None, 'batch_size': 16, 'nepochs': 2, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_groups': None, 'n_images': 100, 'n_subsample': None, 'subsample_seed': None, 'neighbor_count': 4, 'enable_oversampling': False, 'neighbor_pool_size': None, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs'), 'sequential_sampling': False, 'backend': 'pytorch', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_learning_rate': 0.001, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
+2025-11-12 20:18:49,633 - DEBUG - Merged config: {'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz'), 'batch_size': 16, 'nepochs': 2, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 100, 'neighbor_count': 4, 'enable_oversampling': False, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs'), 'sequential_sampling': False, 'backend': 'pytorch', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_learning_rate': 0.001, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
+2025-11-12 20:18:49,634 - INFO - Configuration setup complete
+2025-11-12 20:18:49,634 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz'), test_data_file=None, batch_size=16, nepochs=2, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_groups=100, n_images=100, n_subsample=None, subsample_seed=None, neighbor_count=4, enable_oversampling=False, neighbor_pool_size=None, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs'), sequential_sampling=False, backend='pytorch')
+2025-11-12 20:18:49,634 - INFO - Legacy mode: using 100 groups (gridsize=1)
+2025-11-12 20:18:49,634 - INFO - Starting training with n_subsample=100, n_groups=100, stitching=disabled
+2025-11-12 20:18:49,634 - INFO - Loading data from tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz with n_images=100, n_subsample=100
+2025-11-12 20:18:49,942 - INFO - Independent sampling: subsampling 100 images from 2000 total
+2025-11-12 20:18:49,942 - INFO - Randomly subsampled 100 images
+2025-11-12 20:18:51,212 - INFO - PyTorch execution config built: accelerator=cuda, num_workers=0, learning_rate=0.001, logger_backend=csv
+2025-11-12 20:18:51,213 - INFO - Backend dispatcher: params.cfg synchronized with TrainingConfig (backend=pytorch)
+2025-11-12 20:18:51,213 - INFO - Backend dispatcher: routing to PyTorch workflow (ptycho_torch.workflows.components)
+2025-11-12 20:18:51,213 - INFO - PyTorch workflow: params.cfg synchronized with TrainingConfig
+2025-11-12 20:18:51,213 - INFO - Invoking PyTorch training orchestration via train_cdi_model_torch
+2025-11-12 20:18:51,213 - INFO - Normalizing training data via _ensure_container
+2025-11-12 20:18:51,213 - DEBUG - Converting RawData → RawDataTorch → PtychoDataContainerTorch
+2025-11-12 20:18:51,213 - DEBUG - Generating grouped data from RawDataTorch
+2025-11-12 20:18:51,213 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=100, n_points=100, C=1, K=4
+2025-11-12 20:18:51,213 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
+2025-11-12 20:18:51,213 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
+2025-11-12 20:18:51,213 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 100 > 100 = False
+2025-11-12 20:18:51,213 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+2025-11-12 20:18:51,213 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2025-11-12 20:18:51,213 - INFO - Using efficient random sampling strategy for gridsize=1
+2025-11-12 20:18:51,213 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-11-12 20:18:51,213 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=100, K=4, C=1
+2025-11-12 20:18:51,213 - INFO - Generating 100 groups efficiently from 100 points (K=4, C=1)
+2025-11-12 20:18:51,213 - INFO - [OVERSAMPLING DEBUG] Standard case: using 100 groups from 100 points
+2025-11-12 20:18:51,213 - INFO - [OVERSAMPLING DEBUG] Using all 100 points as seeds (no sampling needed)
+2025-11-12 20:18:51,213 - INFO - Using all 100 points as seeds
+2025-11-12 20:18:51,213 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2025-11-12 20:18:51,213 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 100 groups
+2025-11-12 20:18:51,213 - INFO - Successfully generated 100 groups with shape (100, 1)
+2025-11-12 20:18:51,213 - INFO - [OVERSAMPLING DEBUG] Generated 100 groups in total
+2025-11-12 20:18:51,213 - INFO - Generated 100 groups efficiently
+2025-11-12 20:18:52,641 - DEBUG - Probe initialization deferred to full Lightning implementation
+2025-11-12 20:18:52,641 - INFO - Delegating to Lightning trainer via _train_with_lightning
+2025-11-12 20:18:53,742 - INFO - _train_with_lightning orchestrating Lightning training
+2025-11-12 20:18:53,742 - INFO - Training config: nepochs=2, n_groups=100
+2025-11-12 20:18:53,755 - INFO - Seed set to 42
+2025-11-12 20:18:53,758 - INFO - Enabled CSVLogger: metrics saved to plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/
+2025-11-12 20:18:53,785 - INFO - GPU available: True (cuda), used: True
+2025-11-12 20:18:53,785 - INFO - TPU available: False, using: 0 TPU cores
+2025-11-12 20:18:53,785 - INFO - HPU available: False, using: 0 HPUs
+2025-11-12 20:18:53,786 - INFO - Starting Lightning training: 2 epochs
+2025-11-12 20:18:53,788 - INFO - You are using a CUDA device ('NVIDIA GeForce RTX 3090') that has Tensor Cores. To properly utilize them, you should set `torch.set_float32_matmul_precision('medium' | 'high')` which will trade-off precision for performance. For more details, read https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+2025-11-12 20:18:53,789 - INFO - LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+2025-11-12 20:18:53,804 - INFO - 
+  | Name  | Type        | Params | Mode 
+----------------------------------------------
+0 | model | PtychoPINN  | 2.3 M  | train
+1 | Loss  | PoissonLoss | 0      | train
+----------------------------------------------
+2.3 M     Trainable params
+0         Non-trainable params
+2.3 M     Total params
+9.345     Total estimated model params size (MB)
+73        Modules in train mode
+0         Modules in eval mode
+2025-11-12 20:18:53,806 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/version_1/hparams.yaml
+2025-11-12 20:18:54,141 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/version_1/metrics.csv
+2025-11-12 20:18:54,153 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/version_1/metrics.csv
+2025-11-12 20:18:54,163 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/version_1/metrics.csv
+2025-11-12 20:18:54,173 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/version_1/metrics.csv
+2025-11-12 20:18:54,184 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/version_1/metrics.csv
+2025-11-12 20:18:54,194 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/version_1/metrics.csv
+2025-11-12 20:18:54,253 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/version_1/metrics.csv
+2025-11-12 20:18:54,287 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/checkpoints/last-v1.ckpt
+2025-11-12 20:18:54,304 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/version_1/metrics.csv
+2025-11-12 20:18:54,304 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/version_1/metrics.csv
+2025-11-12 20:18:54,304 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/version_1/metrics.csv
+2025-11-12 20:18:54,317 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/version_1/metrics.csv
+2025-11-12 20:18:54,327 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/version_1/metrics.csv
+2025-11-12 20:18:54,337 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/version_1/metrics.csv
+2025-11-12 20:18:54,347 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/version_1/metrics.csv
+2025-11-12 20:18:54,358 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/version_1/metrics.csv
+2025-11-12 20:18:54,368 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/version_1/metrics.csv
+2025-11-12 20:18:54,377 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/version_1/metrics.csv
+2025-11-12 20:18:54,400 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/checkpoints/last-v1.ckpt
+2025-11-12 20:18:54,421 - DEBUG - open file: /home/ollie/Documents/PtychoPINN/plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/lightning_logs/version_1/metrics.csv
+2025-11-12 20:18:54,421 - INFO - `Trainer.fit` stopped: `max_epochs=2` reached.
+2025-11-12 20:18:54,441 - INFO - Lightning training complete
+2025-11-12 20:18:54,441 - INFO - Skipping image stitching (do_stitching=False or no test data available)
+2025-11-12 20:18:54,442 - INFO - Saving trained models to plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs via save_torch_bundle
+2025-11-12 20:18:54,711 - INFO - Models saved successfully to plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs/wts.h5.zip
+2025-11-12 20:18:54,711 - INFO - Backend dispatcher: workflow complete (backend=pytorch)
+2025-11-12 20:18:54,711 - INFO - PyTorch backend completed. Check plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke_training/train_outputs for saved bundles.
