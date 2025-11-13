@@ -1,0 +1,5 @@
+### Turn Summary
+Reopened the Phase G dense rerun effort after verifying `analysis/verification_report.json` still reports 0/10 required artifacts (no SSIM/verification/highlights/metrics/preview evidence in the hub).
+Captured a new `<plan_update>` + Do Now that spells out the guarded pytest selectors, counted dense pipeline, `--post-verify-only` helper, and metrics scripts, then refreshed docs/fix_plan.md, the hub summary, and input.md so Ralph executes the commands from `/home/ollie/Documents/PtychoPINN`.
+Next: run the two overlap tests, execute the counted dense pipeline and post-verify helper with the HUB exports, rerun the metrics helpers, and publish the SSIM grid / verification / highlights / metrics / preview bundle (failures → `$HUB/red/` with command + exit code).
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md, docs/fix_plan.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/summary.md, input.md
