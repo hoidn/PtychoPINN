@@ -33,6 +33,23 @@ Initiative Header
   <status>approved</status>
 </plan_update>
 
+<plan_update version="1.2">
+  <trigger>The emergency reverts (`git revert da91e466` / `git revert 087a9238`) restored the pre-batching `_reassemble_position_batched` code so TF integration stays green. The plan now needs a reset so any future batching work reuses the existing helper instead of rewriting the default `tf_helper` path.</trigger>
+  <focus_id>FIX-COMPARE-MODELS-TRANSLATION-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md (REASSEMBLY-BATCH-001 / ACCEPTANCE-001 / TEST-CLI-001 / PREVIEW-PHASE-001 / DATA-001 / POLICY-001), docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/COMMANDS_REFERENCE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/DEVELOPER_GUIDE.md, docs/architecture.md, docs/workflows/pytorch.md, docs/fix_plan.md, galph_memory.md, input.md, plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/{implementation.md,summary.md}, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/{implementation.md,summary.md}</documents_read>
+  <current_plan_path>plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/implementation.md</current_plan_path>
+  <proposed_changes>Record the rollback, add explicit guardrails (“stable `tf_helper` components remain untouched; batching must hook into `_reassemble_position_batched`/`mk_reassemble_position_batched_real`”), and rewrite the Do Now so it requires overlap-count preservation, crop detection logs, and metric comparisons before resuming dense runs.</proposed_changes>
+  <impacts>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 stays blocked until the guarded batching hook lands; any edits to `tf_helper` outside the authorized helper APIs are disallowed.</impacts>
+  <ledger_updates>Updated docs/fix_plan.md, galph_memory.md, and this plan to capture the rollback + new guardrails; refreshed input.md.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
+## Guardrails (Reset 2025-11-13)
+- `ptycho/tf_helper.py` is treated as stable per CLAUDE.md; batching must leverage the existing helpers (`mk_reassemble_position_batched_real`, `_reassemble_position_batched`, `_flat_to_channel`) rather than rewriting default paths.
+- No edits to `reassemble_patches`, `mk_reassemble_position_real`, or other shared helpers unless explicitly authorized here and backed by regression evidence.
+- Every change must include overlap-count preservation (weight map or equivalent) and emit a warning/log whenever resizing would crop translated data.
+- All guard tests (pytest selector + compare_models CLI train/test) must be GREEN before handing the hub back to STUDY-SYNTH.
+
 ## Goal & Success Criteria
 - Restore `scripts/compare_models.py` so it can reconstruct the entire dense train/test splits (5 088 patches each) without the Translation shape mismatch.
 - Deliver regression coverage (`pytest tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split}`) proving the fix.
@@ -71,14 +88,15 @@ Initiative Header
 - [ ] Re-run the train + test `scripts/compare_models.py` commands; verify exit code 0 and refreshed metrics/plots under `analysis/dose_1000/dense/{train,test}`.
 - [ ] Remove or overwrite `analysis/blocker.log`, update `analysis/verification_report.json` summary snippet, and notify STUDY-SYNTH focus that the counted rerun may resume.
 
-## Do Now (hand-off to Ralph)
-1. `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md HUB="$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier"`
-2. Reproduce the failure for both splits using the commands listed in Phase A; keep the logs (`$HUB/cli/phase_g_dense_translation_fix_{train,test}.log`) and add a `$HUB/red/blocked_<timestamp>.md` note if the ValueError still appears.
-3. Modify `ptycho/custom_layers.py` (and supporting helpers in `ptycho/tf_helper.py`) so `ReassemblePatchesLayer` streams patches in chunks (via `mk_reassemble_position_batched_real` / `_reassemble_position_batched`) whenever `patch_count > batch_size`, guaranteeing `Translation` sees matching shapes. Add shape assertions and brief docstrings explaining the batching behavior.
-4. Keep the ≥5 k patch regression test (`tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split`) RED/ GREEN-focused—update fixtures or assertions only if the batching changes require it, then ensure it passes alongside `test_pinn_reconstruction_reassembles_batched_predictions`.
-5. Run `pytest tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split} -vv | tee "$HUB"/green/pytest_compare_models_translation_fix.log`.
-6. Rerun `scripts/compare_models.py` for train and test splits (same args as Phase A, with updated logs). Success criteria: exit 0, refreshed `comparison_metrics.csv`, and no Translation errors; stash logs under `$HUB/cli/phase_g_dense_translation_fix_{train,test}.log`.
-7. Update `analysis/blocker.log` / `{analysis}` summaries to reflect the fix and ping STUDY-SYNTH so the counted Phase G rerun can resume.
+## Do Now (Reset 2025-11-13)
+1. `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md HUB="$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier"`.
+2. Reproduce the failure with the train/test `scripts/compare_models.py` commands (Phase A) to refresh `$HUB/cli/phase_g_dense_translation_fix_{train,test}.log`. Capture blocker notes (`$HUB/red/blocked_<timestamp>.md`) if Translation still aborts.
+3. Implement a guarded batching hook by wiring `ReassemblePatchesLayer` to call `hh.mk_reassemble_position_batched_real` (existing helper) when `patch_count > batch_size`. Do **not** modify `reassemble_patches` or `_flat_to_channel`; add shape assertions and a short comment explaining the trigger.
+4. Enhance `_reassemble_position_batched` to emit overlap weights / crop warnings without changing the legacy normalization path. Any resize that would crop translated data must log a message (and ideally count occurrences) so we can audit future runs.
+5. Extend `tests/study/test_dose_overlap_comparison.py` with an intensity/overlap conservation check (compare streamed vs legacy results) and ensure both regression tests pass:  
+   `pytest tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split} -vv | tee "$HUB"/green/pytest_compare_models_translation_fix.log`
+6. Rerun the train/test `scripts/compare_models.py` commands; success criteria: exit 0, refreshed `analysis/dose_1000/dense/{train,test}` artifacts, no crop warnings. Store logs under `$HUB/cli/phase_g_dense_translation_fix_{split}.log`.
+7. Update `analysis/blocker.log`, `{analysis}/verification_report.json`, and the plan summary; hand control back to STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 once the guard tests and CLI commands are GREEN.
 
 ## Test Strategy
 - Unit/functional: `pytest tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split} -vv`

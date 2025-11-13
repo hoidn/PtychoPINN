@@ -22,3 +22,8 @@ Tier 2 dwell triggered because no new Ralph commit landed while the Phase G reru
 Documented the new plan/Do Now (reproduce the train/test compare_models commands, batch ReassemblePatchesLayer/tf_helper, add a >=5k patch regression test, rerun pytest + both CLI commands) and updated docs/fix_plan.md, the initiative plans, input.md, and galph_memory so Ralph can jump straight into the fix.
 Next: run the specified pytest selector plus the two `scripts/compare_models.py` commands, keep logs under `$HUB/cli/phase_g_dense_translation_fix_{train,test}.log`, and only hand back to STUDY-SYNTH once both exit 0 without Translation errors.
 Artifacts: plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/implementation.md, plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/summary.md, input.md
+
+### Turn Summary (2025-11-13T18:05Z - rollback)
+Reverted commits `da91e466` / `087a9238` to undo the semantic drift in `_reassemble_position_batched` (they broke TF integration and silently altered overlap weighting). Updated the plan/fix-plan to emphasise that batching must reuse the existing helper, added new guardrails + Do Now steps (overlap preservation, crop logging, CLI evidence), and refreshed input.md / galph_memory.
+Next: re-implement batching via `mk_reassemble_position_batched_real`, add conservation tests, rerun the guarded pytest selector, and capture GREEN compare_models train/test logs before unblocking STUDY-SYNTH.
+Artifacts: git reverts 7e446332 & 173217a9, docs/fix_plan.md, galph_memory.md, updated implementation.md / summary.md.
