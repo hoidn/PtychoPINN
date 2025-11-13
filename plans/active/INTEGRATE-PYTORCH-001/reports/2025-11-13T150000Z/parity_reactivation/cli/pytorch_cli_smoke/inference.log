@@ -1,0 +1,78 @@
+2025-11-12 17:25:22.432628: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1762997122.443977 1662675 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1762997122.447842 1662675 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1762997122.457995 1662675 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762997122.458005 1662675 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762997122.458007 1662675 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762997122.458008 1662675 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-12 17:25:22.460743: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-12 17:25:24,908 - INFO - Starting ptychography inference script...
+2025-11-12 17:25:24,909 - INFO - Final inference config - gridsize: 1
+2025-11-12 17:25:24,909 - INFO - Independent sampling control: subsampling 16 images, using 4 for inference
+2025-11-12 17:25:24,909 - INFO - Loading model...
+2025-11-12 17:25:24,909 - INFO - Backend dispatcher: loading PyTorch model (ptycho_torch.workflows.components)
+2025-11-12 17:25:25,889 - INFO - Loading PyTorch inference bundle from plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/cli/pytorch_cli_smoke/train_outputs/wts.h5.zip via load_torch_bundle
+2025-11-12 17:25:27,066 - INFO - Inference bundle loaded successfully. Models: ['diffraction_to_obj', 'autoencoder'], Params keys: ['batch_size', 'nepochs', 'mae_weight', 'nll_weight', 'realspace_mae_weight']...
+2025-11-12 17:25:27,066 - INFO - Backend dispatcher: inference bundle loaded (backend=pytorch)
+2025-11-12 17:25:27,066 - INFO - Loading test data...
+2025-11-12 17:25:27,066 - INFO - Loading data from tests/fixtures/pytorch_integration/minimal_dataset_v1.npz with n_images=4, n_subsample=16
+2025-11-12 17:25:27,071 - INFO - Independent sampling: subsampling 16 images from 64 total
+2025-11-12 17:25:27,071 - INFO - Randomly subsampled 16 images
+2025-11-12 17:25:27,071 - INFO - Inference config: gridsize=2, using 4 groups (≈16 total patterns)
+2025-11-12 17:25:27,071 - INFO - Performing inference...
+2025-11-12 17:25:27,072 - INFO - DEBUG: Using gridsize=2 for data generation
+2025-11-12 17:25:27,072 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=4, n_points=16, C=4, K=4
+2025-11-12 17:25:27,072 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
+2025-11-12 17:25:27,072 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
+2025-11-12 17:25:27,072 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 4 > 16 = False
+2025-11-12 17:25:27,072 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2025-11-12 17:25:27,072 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2025-11-12 17:25:27,072 - INFO - Using efficient random sampling strategy for gridsize=2
+2025-11-12 17:25:27,072 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-11-12 17:25:27,072 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=4, K=4, C=4
+2025-11-12 17:25:27,072 - INFO - Generating 4 groups efficiently from 16 points (K=4, C=4)
+2025-11-12 17:25:27,072 - INFO - [OVERSAMPLING DEBUG] Standard case: using 4 groups from 16 points
+2025-11-12 17:25:27,072 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 4 seed points
+2025-11-12 17:25:27,072 - INFO - Sampled 4 seed points from 16 total points
+2025-11-12 17:25:27,072 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 4 groups
+2025-11-12 17:25:27,072 - INFO - Successfully generated 4 groups with shape (4, 4)
+2025-11-12 17:25:27,072 - INFO - [OVERSAMPLING DEBUG] Generated 4 groups in total
+2025-11-12 17:25:27,072 - INFO - Generated 4 groups efficiently
+I0000 00:00:1762997127.199812 1662675 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1762997127.201036 1662675 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1762997128.006952 1662675 service.cc:152] XLA service 0x39aea4a0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1762997128.006972 1662675 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-11-12 17:25:28.021248: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1762997128.038278 1662675 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1762997128.166851 1662675 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+2025-11-12 17:25:28,276 - INFO - DEBUG: Generated diffraction data shape: (4, 64, 64, 4)
+2025-11-12 17:25:28,276 - INFO - DEBUG: Generated Y data shape: (4, 64, 64, 4)
+2025-11-12 17:25:28,622 - INFO - DEBUG: PtychoDataContainer shapes - X (diffraction): (4, 64, 64, 4), Y: (4, 64, 64, 4)
+2025-11-12 17:25:28,623 - INFO - Error during inference: 'probe'
+2025-11-12 17:25:28,623 - INFO - Script execution failed: Error during inference: 'probe'
+2025-11-12 17:25:28,624 - INFO - Cleaning up resources...
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+diff3d shape: (16, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (16,)
+objectGuess shape: (227, 226)
+xcoords shape: (16,)
+ycoords shape: (16,)
+xcoords_start shape: (16,)
+ycoords_start shape: (16,)
+DEBUG: nsamples: 4, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (4, 64, 64, 4)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(4, 64, 64, 4) Y_I=(4, 64, 64, 4) Y_phi=(4, 64, 64, 4) norm_Y_I=() coords_nominal=(4, 1, 2, 4) coords_true=(4, 1, 2, 4) nn_indices=(4, 4) mean=5.188 global_offsets=(4, 1, 2, 1) mean=59.757 local_offsets=(4, 1, 2, 4) mean=0.000 probe=(64, 64) mean_amplitude=0.322>
