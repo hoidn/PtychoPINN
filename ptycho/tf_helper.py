@@ -818,11 +818,9 @@ class Translation(tf.keras.layers.Layer):
         else:
             raise ValueError("Translation layer expects a list of inputs")
             
-        # Offsets should always be real-valued float32
-        # If they're not, there's a bug upstream that needs fixing
+        # Offsets should always be real-valued float32.
+        # Avoid tf.print in compiled graphs (XLA): just coerce silently.
         if offsets.dtype not in [tf.float32, tf.float64]:
-            tf.print("WARNING: Translation layer received offsets with dtype:", offsets.dtype, 
-                     "Expected float32. This indicates a bug upstream.")
             if offsets.dtype in [tf.complex64, tf.complex128]:
                 offsets = tf.math.real(offsets)
             offsets = tf.cast(offsets, tf.float32)
