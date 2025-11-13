@@ -343,7 +343,7 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     if probe.ndim == 2:
         probe = probe.unsqueeze(0).unsqueeze(0).unsqueeze(0)  # (1, 1, 1, H, W)
 
-    # Prepare dummy positions (needed for forward pass signature)
+    # Prepare positions (API requires it), real offsets computed for reassembly below
     batch_size = diffraction.shape[0]
     positions = torch.zeros((batch_size, 1, 1, 2), device=device)
 
@@ -353,30 +353,44 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     if not quiet:
         print(f"Running inference on {batch_size} images...")
 
-    # Forward pass through model
+    # Forward pass through model to get per-patch complex predictions
     with torch.no_grad():
-        reconstruction = model.forward_predict(
+        patch_complex = model.forward_predict(
             diffraction,
             positions,
             probe,
             input_scale_factor
         )
 
-    # Extract amplitude and phase
-    reconstruction_cpu = reconstruction.cpu().numpy()
+    # Compute pixel offsets relative to center-of-mass (B, 1, 1, 2)
+    x = torch.from_numpy(raw_data.xcoords).to(device=device, dtype=torch.float32)
+    y = torch.from_numpy(raw_data.ycoords).to(device=device, dtype=torch.float32)
+    dx = x - torch.mean(x)
+    dy = y - torch.mean(y)
+    offsets = torch.stack([dx, dy], dim=-1).view(batch_size, 1, 1, 2)
 
-    # Average across batch for single reconstruction
-    reconstruction_avg = np.mean(reconstruction_cpu, axis=0)
+    # Position-aware reassembly using torch helper to produce stitched canvas
+    from ptycho_torch.config_params import DataConfig, ModelConfig
+    from ptycho_torch import helper as hh
 
-    # Remove channel dimension if present
-    if reconstruction_avg.ndim == 3:
-        reconstruction_avg = reconstruction_avg[0]
+    # Minimal configs required for padding and translation
+    N = patch_complex.shape[-1]
+    data_cfg = DataConfig(N=int(N), grid_size=(1, 1))
+    model_cfg = ModelConfig()
+    # Ensure channel consistency for reassembly (C_forward must match predicted channels)
+    model_cfg.C_forward = int(patch_complex.shape[1])
 
-    result_amp = np.abs(reconstruction_avg)
-    result_phase = np.angle(reconstruction_avg)
+    imgs_merged, _, _ = hh.reassemble_patches_position_real(
+        patch_complex, offsets, data_cfg, model_cfg
+    )
+
+    # Convert to numpy amplitude/phase
+    canvas = imgs_merged[0]  # (M, M)
+    result_amp = torch.abs(canvas).cpu().numpy()
+    result_phase = torch.angle(canvas).cpu().numpy()
 
     if not quiet:
-        print(f"Reconstruction shape: {reconstruction_avg.shape}")
+        print(f"Reconstruction shape: {result_amp.shape}")
         print(f"Amplitude range: [{result_amp.min():.4f}, {result_amp.max():.4f}]")
         print(f"Phase range: [{result_phase.min():.4f}, {result_phase.max():.4f}]")
 
