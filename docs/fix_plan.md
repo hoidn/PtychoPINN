@@ -5,6 +5,17 @@
 
 ---
 
+## [FIX-PYTORCH-FORWARD-PARITY-001] Stabilize Torch Forward Patch Parity
+- Depends on: INTEGRATE-PYTORCH-PARITY-001 (PyTorch backend API parity reactivation), FIX-COMPARE-MODELS-TRANSLATION-001 (translation batching guardrails)
+- Priority: High
+- Status: pending — instrumentation and scaling alignment plan prepared; awaiting implementation loops.
+- Owner/Date: Ralph/2025-11-13
+- Working Plan: `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md`
+- Notes: PyTorch inference still emits impulse-like patches even after per-patch normalization; this focus adds structured instrumentation, fixes scaling/object_big defaults, and proves TF vs Torch parity before touching stitching (POLICY-001 / CONFIG-001 enforced).
+- Latest Attempt (2025-11-13T000000Z): planning — Created the implementation plan and Reports Hub skeleton; no code changes yet.
+
+---
+
 Housekeeping: This ledger is intentionally brief. Detailed “Attempts History” entries were moved to archives to keep decision‑making crisp.
 
 - Current archive snapshot: `docs/archive/2025-11-06_fix_plan_archive.md`

@@ -1028,6 +1028,8 @@ class PtychoPINN_Lightning(L.LightningModule):
         self.data_config = data_config
         self.training_config = training_config
         self.inference_config = inference_config
+        self._scaling_debug_logged = False
+        self._patch_stats_logged = False
 
         self.torch_loss_mode = getattr(self.training_config, 'torch_loss_mode', 'poisson')
         if isinstance(self.torch_loss_mode, str):
@@ -1117,6 +1119,46 @@ class PtychoPINN_Lightning(L.LightningModule):
 
         self.loss_name += '_loss'
         self.val_loss_name += '_loss'
+
+    def _log_scaling_debug(self, inputs, pred, input_scale_factor, physics_scale_factor, physics_weight):
+        if self._scaling_debug_logged:
+            return
+        self._scaling_debug_logged = True
+
+        def _mean_abs(tensor):
+            return float(torch.mean(torch.abs(tensor.detach())).cpu())
+
+        def _mean_val(tensor):
+            return float(torch.mean(tensor.detach()).cpu())
+
+        msg = (
+            "Torch scaling debug (training): mean|input|="
+            f"{_mean_abs(inputs):.6f} mean|pred|={_mean_abs(pred):.6f} "
+            f"mean_input_scale={_mean_val(input_scale_factor):.6f} "
+            f"mean_physics_scale={_mean_val(physics_scale_factor):.6f} "
+            f"physics_weight={float(physics_weight):.3f}"
+        )
+        logger.info(msg)
+        print(msg)
+
+    def _log_patch_stats(self, amplitude_tensor):
+        if self._patch_stats_logged:
+            return
+        self._patch_stats_logged = True
+
+        with torch.no_grad():
+            amp_abs = torch.abs(amplitude_tensor.detach())
+            mean_val = float(torch.mean(amp_abs).cpu())
+            std_val = float(torch.std(amp_abs).cpu())
+            zero_mean = amp_abs - torch.mean(amp_abs, dim=(-2, -1), keepdim=True)
+            var_val = float(torch.mean(zero_mean ** 2).cpu())
+
+        msg = (
+            "Torch patch stats (training): mean="
+            f"{mean_val:.6f} std={std_val:.6f} var_zero_mean={var_val:.6f}"
+        )
+        logger.info(msg)
+        print(msg)
     
     def forward(self, x, positions, probe, input_scale_factor, output_scale_factor):
         x_out = self.model(x, positions, probe, input_scale_factor, output_scale_factor)
@@ -1177,6 +1219,8 @@ class PtychoPINN_Lightning(L.LightningModule):
             input_scale_factor=input_scaling_factor,
             output_scale_factor=output_scaling_factor,
         )
+        self._log_scaling_debug(x, pred, input_scaling_factor, physics_scaling_factor, physics_weight)
+        self._log_patch_stats(amp)
         
         #Normalization factor for loss output (just to keep it scaled down)
         intensity_norm_factor = torch.mean(x).detach() + 1e-8

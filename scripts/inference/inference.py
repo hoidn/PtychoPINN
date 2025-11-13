@@ -28,6 +28,8 @@ import logging
 import os
 import sys
 import time
+import math
+import json
 import signal
 from pathlib import Path
 from dataclasses import fields
@@ -91,6 +93,9 @@ def parse_arguments() -> argparse.Namespace:
                        help="Minimum value for phase color scale (default: auto)")
     parser.add_argument("--phase_vmax", type=float, required=False, default=None,
                        help="Maximum value for phase color scale (default: auto)")
+    parser.add_argument("--debug_dump", nargs='?', const='__AUTO__', default=None,
+                       help="Directory to store inference debug artifacts (patch grid, offsets, stats). "
+                            "Defaults to <output_dir>/debug_dump when invoked without a value.")
     # Backend selection (POLICY-001: PyTorch mandatory, CONFIG-001: update_legacy_dict required)
     parser.add_argument("--backend", type=str, choices=['tensorflow', 'pytorch'],
                        default='tensorflow',
@@ -213,7 +218,108 @@ def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[
     return inference_config
 
 
-def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K: int, nsamples: int) -> tuple:
+def _dump_tf_inference_debug_artifacts(
+    debug_path: Path,
+    patch_tensor,
+    global_offsets,
+    canvas,
+    patch_limit: int = 16,
+):
+    """
+    Persist patch-level diagnostics for TensorFlow inference.
+
+    Args:
+        debug_path: Directory where artifacts will be written.
+        patch_tensor: Complex numpy array of predicted patches.
+        global_offsets: Offsets returned by reconstruct_image().
+        canvas: Complex numpy array of the stitched object.
+        patch_limit: Number of flattened patches to visualize.
+    """
+    debug_path = Path(debug_path)
+    debug_path.mkdir(parents=True, exist_ok=True)
+
+    patch_complex = np.asarray(patch_tensor)
+    if patch_complex.ndim >= 4 and patch_complex.shape[-1] == 1:
+        patch_complex = np.squeeze(patch_complex, axis=-1)
+    patch_amp = np.abs(patch_complex)
+    flat_patches = patch_amp.reshape(-1, patch_amp.shape[-2], patch_amp.shape[-1])
+    limit = max(0, min(patch_limit, flat_patches.shape[0]))
+
+    if limit > 0:
+        cols = 4
+        rows = math.ceil(limit / cols)
+        fig, axes = plt.subplots(rows, cols, figsize=(cols * 2.5, rows * 2.5))
+        axes = np.atleast_1d(axes).ravel()
+        for idx, ax in enumerate(axes):
+            ax.axis('off')
+            if idx >= limit:
+                continue
+            ax.imshow(flat_patches[idx], cmap='magma')
+            ax.set_title(f"Patch {idx}", fontsize=8)
+        fig.tight_layout()
+        fig.savefig(debug_path / "pred_patches_amp_grid.png", dpi=200)
+        plt.close(fig)
+
+    offsets_arr = np.asarray(global_offsets)
+    if offsets_arr.size == 0:
+        offsets_vec = np.zeros((0, 2), dtype=np.float32)
+    else:
+        offsets_vec = offsets_arr.reshape(-1, offsets_arr.shape[-1])
+        if offsets_vec.shape[-1] != 2:
+            offsets_vec = offsets_arr.reshape(-1, 2)
+    canvas_complex = np.squeeze(np.asarray(canvas))
+    canvas_amp = np.abs(canvas_complex)
+
+    centered_offsets = offsets_vec - np.mean(offsets_vec, axis=0, keepdims=True) if offsets_vec.size else offsets_vec
+    offsets_payload = {
+        "count": int(offsets_vec.shape[0]),
+        "first_offsets_px": [
+            {"dx": float(offsets_vec[i, 0]), "dy": float(offsets_vec[i, 1])}
+            for i in range(min(limit, offsets_vec.shape[0]))
+        ],
+        "mean_dx": float(np.mean(offsets_vec[:, 0])) if offsets_vec.size else 0.0,
+        "mean_dy": float(np.mean(offsets_vec[:, 1])) if offsets_vec.size else 0.0,
+        "std_dx": float(np.std(offsets_vec[:, 0])) if offsets_vec.size else 0.0,
+        "std_dy": float(np.std(offsets_vec[:, 1])) if offsets_vec.size else 0.0,
+        "centered_std_dx": float(np.std(centered_offsets[:, 0])) if offsets_vec.size else 0.0,
+        "centered_std_dy": float(np.std(centered_offsets[:, 1])) if offsets_vec.size else 0.0,
+    }
+    with open(debug_path / "offsets.json", "w", encoding="utf-8") as fp:
+        json.dump(offsets_payload, fp, indent=2)
+
+    patch_zero_mean = flat_patches - flat_patches.mean(axis=(-2, -1), keepdims=True)
+    patch_variance = float(np.mean(patch_zero_mean ** 2)) if flat_patches.size else 0.0
+    stats_payload = {
+        "patch_amplitude": {
+            "mean": float(np.mean(flat_patches)) if flat_patches.size else 0.0,
+            "std": float(np.std(flat_patches)) if flat_patches.size else 0.0,
+            "min": float(np.min(flat_patches)) if flat_patches.size else 0.0,
+            "max": float(np.max(flat_patches)) if flat_patches.size else 0.0,
+            "var_zero_mean": patch_variance,
+        },
+        "canvas_amplitude": {
+            "mean": float(np.mean(canvas_amp)) if canvas_amp.size else 0.0,
+            "std": float(np.std(canvas_amp)) if canvas_amp.size else 0.0,
+            "min": float(np.min(canvas_amp)) if canvas_amp.size else 0.0,
+            "max": float(np.max(canvas_amp)) if canvas_amp.size else 0.0,
+        },
+    }
+    with open(debug_path / "stats.json", "w", encoding="utf-8") as fp:
+        json.dump(stats_payload, fp, indent=2)
+
+    canvas_payload = {
+        "patch_size": int(flat_patches.shape[-1]) if flat_patches.size else 0,
+        "canvas_size": int(canvas_amp.shape[-1]) if canvas_amp.size else 0,
+        "num_patch_slots": int(flat_patches.shape[0]),
+        "max_abs_dx": float(np.max(np.abs(offsets_vec[:, 0]))) if offsets_vec.size else 0.0,
+        "max_abs_dy": float(np.max(np.abs(offsets_vec[:, 1]))) if offsets_vec.size else 0.0,
+    }
+    with open(debug_path / "canvas.json", "w", encoding="utf-8") as fp:
+        json.dump(canvas_payload, fp, indent=2)
+
+
+def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K: int, nsamples: int,
+                      debug_dump_dir: Path | None = None, debug_patch_limit: int = 16) -> tuple:
     """
     Perform inference using the loaded model and test data.
 
@@ -305,6 +411,15 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
 
         print(f"Reconstructed amplitude shape: {reconstructed_amplitude.shape}")
         print(f"Reconstructed phase shape: {reconstructed_phase.shape}")
+
+        if debug_dump_dir is not None:
+            _dump_tf_inference_debug_artifacts(
+                debug_dump_dir,
+                patch_tensor=obj_tensor_full,
+                global_offsets=global_offsets,
+                canvas=obj_image,
+                patch_limit=debug_patch_limit,
+            )
 
         return reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase
 
@@ -449,6 +564,13 @@ def main():
         print("Starting ptychography inference script...")
         args = parse_arguments()
         config = setup_inference_configuration(args, args.config)
+        debug_dump_dir = None
+        if args.debug_dump is not None:
+            debug_dump_dir = (
+                Path(config.output_dir) / "debug_dump"
+                if args.debug_dump == '__AUTO__'
+                else Path(args.debug_dump)
+            )
         
         # Interpret sampling parameters with new independent control support
         n_subsample, n_images, interpretation_message = interpret_sampling_parameters(config)
@@ -562,7 +684,13 @@ def main():
 
             # Call PyTorch-native inference helper
             reconstructed_amplitude, reconstructed_phase = _run_inference_and_reconstruct(
-                model, test_data, config, execution_config, device_str, quiet=False
+                model,
+                test_data,
+                config,
+                execution_config,
+                device_str,
+                quiet=False,
+                debug_dump_dir=debug_dump_dir,
             )
 
             # PyTorch path doesn't return ground truth comparison data (not in scope for Phase R)
@@ -572,7 +700,13 @@ def main():
         else:
             # TensorFlow inference path (legacy)
             reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase = perform_inference(
-                model, test_data, params.cfg, K=4, nsamples=nsamples)
+                model,
+                test_data,
+                params.cfg,
+                K=4,
+                nsamples=nsamples,
+                debug_dump_dir=debug_dump_dir,
+            )
 
         # Save separate reconstruction images
         print("Saving reconstruction images...")
