@@ -11,6 +11,19 @@
   <status>approved</status>
 </plan_update>
 
+<plan_update version="1.0">
+  <trigger>Phase R quick wins (config bridge invocation, CLI guardrails, persistence shim, parity pytest) are complete; now we must route the supported backend flag through the production training/inference CLIs so PyTorch becomes reachable from the primary workflow entry points.</trigger>
+  <focus_id>INTEGRATE-PYTORCH-PARITY-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md, docs/workflows/pytorch.md, docs/specs/spec-ptycho-config-bridge.md, docs/DEVELOPER_GUIDE.md, docs/fix_plan.md, plans/ptychodus_pytorch_integration_plan.md, plans/pytorch_integration_test_plan.md, plans/active/INTEGRATE-PYTORCH-001/summary.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/analysis/artifact_inventory.txt, scripts/training/train.py, scripts/inference/inference.py, ptycho/workflows/backend_selector.py, ptycho/workflows/components.py, tests/torch/test_backend_selection.py</documents_read>
+  <current_plan_path>plans/ptychodus_pytorch_integration_plan.md</current_plan_path>
+  <proposed_changes>- Record that the Phase R checklist is satisfied with evidence references.
+- Add an immediate-focus subsection that targets backend_selector adoption inside `scripts/training/train.py` and `scripts/inference/inference.py`.
+- Spell out implementation + testing expectations (guard TensorFlow-only persistence paths, add unit tests that spy on backend dispatch, and run the backend-selector pytest node).</proposed_changes>
+  <impacts>Routing the production CLIs through backend_selector touches user-facing scripts and risks regressions in TensorFlow training/inference flows; requires new mocks/tests to prove dispatch correctness and guard double-persistence side effects.</impacts>
+  <ledger_updates>Update docs/fix_plan.md Do Now to describe backend-selector integration, cite the GREEN Phase R log (`green/pytest_config_bridge.log`), and point Ralph at the new CLI work plus pytest selector.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
 ## Ptychodus ↔ PtychoPINN (PyTorch) Integration Plan
 
 ### Immediate Focus — Phase R (Bridge Reactivation, 2025-11-13)
@@ -20,6 +33,19 @@
 3. **Provide a native persistence shim.** Until the full `.h5.zip` adapter lands, teach `ptycho_torch/api/base_api.py::PtychoModel.save_pytorch()` to emit a Lightning checkpoint + manifest bundle and document how `load_*` surfaces rehydrate configs; keep the implementation small but spec-compliant (§4.6).
 4. **Regression gate.** Every loop must run `pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity -vv` (or a stricter subset) and upload logs under the active hub `plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/`.
 5. **Exit criteria for reactivation:** (a) update_legacy_dict invoked in both CLI entry points, (b) config defaults + persistence shim merged, (c) targeted pytest selector green with evidence, (d) hub `analysis/artifact_inventory.txt` + `summary/summary.md` list the code/test paths touched.
+
+#### Phase R status (2025-11-13)
+- Config bridge usage in both PyTorch CLI entry points is already handled by `create_training_payload()` / `create_inference_payload()` → `populate_legacy_params()` (see `analysis/artifact_inventory.txt`).
+- PyTorch persistence shim landed in `ptycho_torch/api/base_api.py::PtychoModel.save_pytorch()` via commit `ccff2f5c` with manifest + params snapshot, and the parity pytest selector (`tests/torch/test_config_bridge.py::TestConfigBridgeParity`) is green with log under `green/pytest_config_bridge.log`.
+- Remaining gap: the primary TensorFlow-oriented CLIs (`scripts/training/train.py`, `scripts/inference/inference.py`) still call TensorFlow workflows directly even when `TrainingConfig.backend='pytorch'`, so PyTorch cannot yet be invoked from the canonical entry points.
+
+#### Next Do Now — Backend selector adoption in production CLIs
+
+- [ ] **Routing layer:** Replace direct `run_cdi_example` / `load_inference_bundle` calls in `scripts/training/train.py` and `scripts/inference/inference.py` with `ptycho.workflows.backend_selector.{run_cdi_example_with_backend, load_inference_bundle_with_backend}` so the existing `--backend` flag actually dispatches PyTorch.
+- [ ] **Persistence guardrails:** Ensure the training script only calls `model_manager.save()` / `save_outputs()` on the TensorFlow path to avoid double-saving when PyTorch workflows already emit bundles (`save_torch_bundle`); for PyTorch runs, rely on the backend workflow’s persistence and surface manifest/log locations via stdout.
+- [ ] **Inference parity:** When backend=`'pytorch'`, skip TensorFlow-specific visualization helpers that assume `tf.keras.Model` objects; instead record the returned amplitude/phase outputs (if any) and log a warning if PyTorch inference does not yet supply visualization artifacts.
+- [ ] **Tests:** Add a lightweight unit test (e.g., under `tests/scripts/test_training_backend_selector.py`) that monkeypatches `backend_selector.run_cdi_example_with_backend` to assert it receives the CLI-produced `TrainingConfig` with `backend='pytorch'` and that TensorFlow-specific helpers are skipped. Mirror the pattern for inference by patching `load_inference_bundle_with_backend`. Update `tests/torch/test_backend_selection.py` if additional coverage is needed.
+- [ ] **Validation command:** `pytest tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_pytorch_backend_dispatch -vv` (plus the companion inference selector once added) with logs stored in the active hub’s `green/` directory.
 
 ### 1. Scope & Goals
 

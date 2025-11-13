@@ -18,6 +18,53 @@ from studies.fly64_dose_overlap.training import build_training_jobs, TrainingJob
 from studies.fly64_dose_overlap.design import get_study_design
 
 
+def test_train_cdi_model_normalizes_history(monkeypatch):
+    """
+    Ensure TensorFlow workflow returns dict-based history even if Keras produces a History object.
+    """
+    from ptycho.workflows import components as workflow_components
+
+    train_raw = object()
+    test_raw = object()
+    container_map = {
+        train_raw: SimpleNamespace(probe='train_probe'),
+        test_raw: SimpleNamespace(probe='test_probe'),
+    }
+
+    def fake_create_container(data, config):
+        return container_map[data]
+
+    class FakeDataset:
+        def __init__(self, train_container, test_container):
+            self.train_data = train_container
+            self.test_data = test_container
+
+    class FakeHistory:
+        def __init__(self):
+            self.history = {'loss': [0.4, 0.2]}
+            self.epoch = [0, 1]
+
+    def fake_train_eval(dataset):
+        return {'history': FakeHistory(), 'model_instance': object()}
+
+    monkeypatch.setattr(workflow_components, 'create_ptycho_data_container', fake_create_container)
+    monkeypatch.setattr(workflow_components.probe, 'set_probe_guess', lambda *args, **kwargs: None)
+    monkeypatch.setattr('ptycho.loader.PtychoDataset', FakeDataset)
+    monkeypatch.setattr('ptycho.train_pinn.train_eval', fake_train_eval)
+
+    config = SimpleNamespace()
+    results = workflow_components.train_cdi_model(train_raw, test_raw, config)
+
+    assert isinstance(results['history'], dict), "History payload must be normalized to a dict"
+    assert 'loss' in results['history'], "Original loss series should be preserved"
+    assert results['history'].get('train_loss') == results['history']['loss'], (
+        "train_loss alias must mirror loss series for legacy consumers"
+    )
+    assert results['history_epochs'] == [0, 1], "Epoch metadata must be captured"
+    assert results['train_container'] is container_map[train_raw]
+    assert results['test_container'] is container_map[test_raw]
+
+
 @pytest.fixture
 def mock_phase_c_datasets(tmp_path):
     """

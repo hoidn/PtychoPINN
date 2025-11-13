@@ -3,17 +3,17 @@
   "filters": {
     "dose": 100000,
     "view": "dense",
-    "split": "test"
+    "split": "train"
   },
   "jobs": [
     {
       "dose": 100000,
       "view": "dense",
-      "split": "test",
-      "phase_c_npz": "outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000/patched_test.npz",
+      "split": "train",
+      "phase_c_npz": "outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_c/dose_100000/patched_train.npz",
       "pinn_checkpoint": "outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/dense/gs2/wts.h5.zip",
       "baseline_checkpoint": "outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_e/dose_100000/baseline/gs1/wts.h5.zip",
-      "phase_f_manifest": "outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_f/dose_100000_dense_test/manifest.json",
+      "phase_f_manifest": "outputs/dense_exec_100k_2025-11-12T224540Z/data/phase_f/dose_100000_dense_train/manifest.json",
       "ms_ssim_sigma": 1.0,
       "skip_registration": false,
       "register_ptychi_only": true
@@ -23,9 +23,9 @@
     {
       "dose": 100000,
       "view": "dense",
-      "split": "test",
+      "split": "train",
       "returncode": 1,
-      "log_path": "dose_100000/dense/test/comparison.log"
+      "log_path": "dose_100000/dense/train/comparison.log"
     }
   ],
   "n_success": 0,

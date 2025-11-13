@@ -641,6 +641,21 @@ def train_cdi_model(
 
     # Train the model
     results = train_pinn.train_eval(PtychoDataset(train_container, test_container))
+
+    # Normalize history payload so downstream consumers always receive a dict.
+    history_payload = results.get('history')
+    normalized_history: Dict[str, Any] = {}
+    if isinstance(history_payload, dict):
+        normalized_history = history_payload
+    elif history_payload is not None and hasattr(history_payload, 'history'):
+        normalized_history = dict(history_payload.history or {})
+    # Maintain legacy key expected by study runners even if Keras only reports "loss".
+    if normalized_history and 'train_loss' not in normalized_history and 'loss' in normalized_history:
+        normalized_history['train_loss'] = normalized_history['loss']
+    results['history'] = normalized_history
+    if history_payload is not None and hasattr(history_payload, 'epoch'):
+        results['history_epochs'] = list(history_payload.epoch)
+
     results['train_container'] = train_container
     results['test_container'] = test_container
     #history = train_pinn.train(train_container)
