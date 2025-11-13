@@ -186,3 +186,87 @@ class TestInferenceCliBackendDispatch:
             # Note: In real implementation, params.cfg restoration happens inside
             # the backend-specific loader (load_inference_bundle or load_inference_bundle_torch)
             # via update_legacy_dict(params.cfg, restored_config)
+
+    def test_cli_backend_argument_parsing(self):
+        """
+        Test that inference CLI correctly parses --backend argument.
+
+        Expected behavior:
+        - scripts/inference/inference.py accepts --backend {tensorflow,pytorch}
+        - Default is 'tensorflow' for backward compatibility
+        - Argument is passed to setup_inference_configuration
+        - InferenceConfig.backend field is populated
+
+        Phase: R (backend selector integration)
+        Reference: input.md Do Now step 2-3
+        """
+        import sys
+        import argparse
+        from pathlib import Path
+
+        # Import the inference script's parse_arguments function
+        # We need to mock sys.argv to test argument parsing
+        test_cases = [
+            # (argv, expected_backend)
+            (['inference.py', '--model_path', 'model.zip', '--test_data', 'test.npz'], 'tensorflow'),  # default
+            (['inference.py', '--model_path', 'model.zip', '--test_data', 'test.npz', '--backend', 'tensorflow'], 'tensorflow'),
+            (['inference.py', '--model_path', 'model.zip', '--test_data', 'test.npz', '--backend', 'pytorch'], 'pytorch'),
+        ]
+
+        for argv, expected_backend in test_cases:
+            with patch.object(sys, 'argv', argv):
+                # Import and call parse_arguments from the inference script
+                # Note: This assumes the script defines parse_arguments at module level
+                from scripts.inference import inference
+
+                args = inference.parse_arguments()
+
+                assert hasattr(args, 'backend'), \
+                    "Parsed args should have 'backend' attribute"
+                assert args.backend == expected_backend, \
+                    f"Expected backend={expected_backend}, got {args.backend}"
+
+        # Test that invalid backend value is rejected
+        with patch.object(sys, 'argv', ['inference.py', '--model_path', 'model.zip',
+                                        '--test_data', 'test.npz', '--backend', 'invalid']):
+            with pytest.raises(SystemExit):
+                # argparse should exit with error for invalid choice
+                from scripts.inference import inference
+                inference.parse_arguments()
+
+    def test_setup_inference_configuration_uses_backend(self):
+        """
+        Test that setup_inference_configuration properly uses backend from args.
+
+        Expected behavior:
+        - args.backend is passed to InferenceConfig constructor
+        - InferenceConfig.backend field matches args.backend
+        - Both 'tensorflow' and 'pytorch' values are supported
+
+        Phase: R (backend selector integration)
+        Reference: input.md Do Now step 2
+        """
+        from scripts.inference.inference import setup_inference_configuration
+        from pathlib import Path
+        import argparse
+
+        for backend_value in ['tensorflow', 'pytorch']:
+            # Create mock args
+            args = argparse.Namespace(
+                model_path='outputs/test/model.zip',
+                test_data='test.npz',
+                config=None,
+                output_dir='outputs/inference',
+                debug=False,
+                n_images=None,
+                n_subsample=None,
+                subsample_seed=None,
+                backend=backend_value
+            )
+
+            # Call setup_inference_configuration
+            config = setup_inference_configuration(args, yaml_path=None)
+
+            # Verify backend field is set correctly
+            assert config.backend == backend_value, \
+                f"InferenceConfig.backend should be '{backend_value}', got '{config.backend}'"

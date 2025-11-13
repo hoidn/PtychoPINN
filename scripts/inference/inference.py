@@ -91,6 +91,12 @@ def parse_arguments() -> argparse.Namespace:
                        help="Minimum value for phase color scale (default: auto)")
     parser.add_argument("--phase_vmax", type=float, required=False, default=None,
                        help="Maximum value for phase color scale (default: auto)")
+    # Backend selection (POLICY-001: PyTorch mandatory, CONFIG-001: update_legacy_dict required)
+    parser.add_argument("--backend", type=str, choices=['tensorflow', 'pytorch'],
+                       default='tensorflow',
+                       help="Backend to use for inference: 'tensorflow' (default) or 'pytorch'. "
+                            "PyTorch backend requires torch>=2.2 (POLICY-001). "
+                            "Both backends handle params.cfg restoration via CONFIG-001.")
     return parser.parse_args()
 
 def interpret_sampling_parameters(config: InferenceConfig) -> tuple:
@@ -172,6 +178,7 @@ def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[
     final_model_config = ModelConfig(**model_defaults)
 
     # Create the InferenceConfig object with n_images and n_subsample support
+    # Backend selection per POLICY-001 (PyTorch >=2.2) and CONFIG-001 (params.cfg restoration)
     inference_config = InferenceConfig(
         model=final_model_config,
         model_path=Path(args.model_path),
@@ -180,7 +187,8 @@ def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[
         n_subsample=args.n_subsample,
         subsample_seed=args.subsample_seed,
         debug=args.debug,
-        output_dir=Path(args.output_dir)
+        output_dir=Path(args.output_dir),
+        backend=args.backend  # Populated from CLI argument
     )
     
     validate_inference_config(inference_config)

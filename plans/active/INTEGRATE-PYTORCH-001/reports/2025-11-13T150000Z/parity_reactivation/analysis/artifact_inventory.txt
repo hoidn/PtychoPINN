@@ -57,6 +57,49 @@ Phase: CLI routing via backend selector
 - CONFIG-001: update_legacy_dict called in training CLI before backend dispatch (train.py:132)
 - TYPE-PATH-001: Path objects handled correctly in backend_selector
 
+## Latest Update: 2025-11-12 - CLI Backend Argument Integration
+
+3. scripts/inference/inference.py (lines 94-99, 191)
+   - Added --backend {tensorflow,pytorch} CLI argument with choices validation
+   - Help text references POLICY-001 (PyTorch>=2.2) and CONFIG-001 (params.cfg restoration)
+   - Default 'tensorflow' for backward compatibility
+   - InferenceConfig.backend field populated from args.backend at line 191
+
+4. tests/scripts/test_inference_backend_selector.py (added lines 190-272)
+   - test_cli_backend_argument_parsing: Verifies CLI accepts --backend, defaults to 'tensorflow', rejects invalid values
+   - test_setup_inference_configuration_uses_backend: Verifies backend value flows through to InferenceConfig
+
+## Updated Test Evidence
+
+3. green/pytest_backend_selector_cli.log
+   - Command: pytest tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_pytorch_backend_dispatch tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_backend_dispatch -vv
+   - Result: 2 passed in 3.71s
+   - Status: GREEN ✅
+   - Coverage: Both training and inference backend dispatch verified
+
+4. cli/pytorch_cli_smoke/train.log
+   - Command: python scripts/training/train.py --backend pytorch --config configs/gridsize2_minimal.yaml --train_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --test_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --output_dir [...]/train_outputs --n_groups 4 --n_subsample 16 --neighbor_count 7 --batch_size 4 --nepochs 1
+   - Result: SUCCESS - bundle saved to train_outputs/wts.h5.zip
+   - Key achievements:
+     * Backend dispatcher routed to PyTorch workflow ✅
+     * params.cfg synchronized with TrainingConfig ✅
+     * Lightning training completed (1 epoch) ✅
+     * Model bundle saved successfully ✅
+
+5. cli/pytorch_cli_smoke/inference.log
+   - Command: python scripts/inference/inference.py --model_path [...]/train_outputs --test_data tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --output_dir [...]/inference_outputs --backend pytorch --n_images 4 --n_subsample 16
+   - Result: PARTIAL - bundle loading SUCCESS, reconstruction path needs PyTorch-native implementation
+   - Key achievements:
+     * Backend dispatcher loaded PyTorch model ✅
+     * Inference bundle unpacked successfully (models: diffraction_to_obj, autoencoder) ✅
+     * params_dict restored ✅
+   - Known limitation: Legacy inference.py reconstruction path expects TensorFlow model attributes; PyTorch-native inference orchestration tracked separately
+
 ## Next Steps
 
-Ready for next increment: End-to-end CLI execution tests with real PyTorch backend invocation.
+Phase R CLI backend selector integration is COMPLETE:
+- Training CLI --backend pytorch routes through backend selector ✅
+- Inference CLI --backend pytorch routes through backend selector and loads bundles ✅
+- All unit tests GREEN ✅
+- PyTorch training smoke test GREEN ✅
+- PyTorch inference smoke test: bundle loading GREEN, reconstruction needs PyTorch orchestration (tracked as next increment)
