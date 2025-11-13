@@ -243,11 +243,29 @@ Outcome: Training CLI succeeded (bundle at `cli/pytorch_cli_smoke/train_outputs/
 
 #### Next Do Now — PyTorchExecutionConfig GPU defaults (2025-11-13)
 
-- [ ] **Promote GPU-first defaults:** Update `ptycho/config/config.py::PyTorchExecutionConfig` so `accelerator` defaults to `'auto'` and `__post_init__` resolves `'auto'` to `'cuda'` when `torch.cuda.is_available()` (fallback to `'cpu'` with a POLICY-001 warning). Document the behavior inline.
-- [ ] **Honor defaults in backend selector:** Ensure `ptycho_torch/workflows/components.py` call sites that synthesize an execution config (`_run_inference_and_reconstruct`, `_train_with_lightning`, etc.) inherit the GPU-first dataclass, log the resolved accelerator, and avoid silently running on CPU when execution_config is `None`.
-- [ ] **Regression tests:** Add a dedicated pytest module (e.g., `tests/torch/test_execution_config_defaults.py`) that monkeypatches `torch.cuda.is_available` to assert auto→CUDA on GPU hosts, warning + auto→CPU on CPU-only hosts, and verifies `backend_selector.run_cdi_example_with_backend(..., torch_execution_config=None)` requests CUDA when available.
-- [ ] **Targeted selector:** `pytest tests/torch/test_execution_config_defaults.py::TestPyTorchExecutionConfigDefaults::test_auto_prefers_cuda tests/torch/test_execution_config_defaults.py::TestPyTorchExecutionConfigDefaults::test_auto_warns_and_falls_back_to_cpu -vv | tee "$HUB"/green/pytest_execution_config_defaults.log`.
-- [ ] **Hub + summary refresh:** Capture the new pytest log + warning output, cite GPU/CPU detection results, and update `analysis/artifact_inventory.txt`, initiative summary, and hub summaries accordingly.
+- [x] **Promote GPU-first defaults:** Update `ptycho/config/config.py::PyTorchExecutionConfig` so `accelerator` defaults to `'auto'` and `__post_init__` resolves `'auto'` to `'cuda'` when `torch.cuda.is_available()` (fallback to `'cpu'` with a POLICY-001 warning). Document the behavior inline. (commit `3efa2dc3` + artifact inventory)
+- [x] **Honor defaults in backend selector:** Ensure `ptycho_torch/workflows/components.py` call sites that synthesize an execution config (`_run_inference_and_reconstruct`, `_train_with_lightning`, etc.) inherit the GPU-first dataclass, log the resolved accelerator, and avoid silently running on CPU when execution_config is `None`. (commit `3efa2dc3`, auto-instantiation logs now emitted in both helpers)
+- [x] **Regression tests:** Add a dedicated pytest module (`tests/torch/test_execution_config_defaults.py`) that monkeypatches `torch.cuda.is_available` to assert auto→CUDA on GPU hosts, warning + auto→CPU on CPU-only hosts, and verifies `backend_selector.run_cdi_example_with_backend(..., torch_execution_config=None)` requests CUDA when available. (GREEN log `green/pytest_execution_config_defaults.log`)
+- [x] **Targeted selector:** `pytest tests/torch/test_execution_config_defaults.py::TestPyTorchExecutionConfigDefaults::test_auto_prefers_cuda tests/torch/test_execution_config_defaults.py::TestPyTorchExecutionConfigDefaults::test_auto_warns_and_falls_back_to_cpu -vv | tee "$HUB"/green/pytest_execution_config_defaults.log`. (2 PASSED in 0.83s)
+- [x] **Hub + summary refresh:** Captured the new pytest log + warning output, cited GPU/CPU detection results, and updated `analysis/artifact_inventory.txt`, initiative summary, and hub summaries accordingly. (reports/2025-11-13T150000Z/parity_reactivation/analysis/artifact_inventory.txt)
+
+<plan_update version="1.0">
+  <trigger>GPU-first dataclass defaults landed (commit 3efa2dc3) with targeted pytest coverage, but we still lack regression tests that prove backend_selector + CLI dispatchers inherit the GPU baseline when callers omit `torch_execution_config` and that CPU-only fallback emits the documented warning.</trigger>
+  <focus_id>INTEGRATE-PYTORCH-PARITY-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md (POLICY-001 / CONFIG-001 / CONFIG-LOGGER-001 / EXEC-ACCUM-001 / DATA-SUP-001), docs/workflows/pytorch.md §§11-12, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/fix_plan.md, plans/ptychodus_pytorch_integration_plan.md, plans/pytorch_integration_test_plan.md, plans/active/INTEGRATE-PYTORCH-001/summary.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/{analysis/artifact_inventory.txt,summary.md}, input.md</documents_read>
+  <current_plan_path>plans/ptychodus_pytorch_integration_plan.md</current_plan_path>
+  <proposed_changes>Close the completed GPU-default checklist, then author a new Do Now that adds backend-selector regression tests capturing the auto-instantiated `PyTorchExecutionConfig` (GPU when CUDA available, CPU+warning otherwise), reuses the execution-config pytest selector, and refreshes hub evidence/log summaries.</proposed_changes>
+  <impacts>Without dispatcher-level tests we could regress back to CPU defaults when Ptychodus omits `torch_execution_config`; adding coverage keeps POLICY-001 enforceable without relying solely on dataclass tests.</impacts>
+  <ledger_updates>Update docs/fix_plan.md Do Now + status, rewrite input.md with the dispatcher-test brief, and prepend today’s Turn Summary to the initiative + hub summaries.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
+#### Next Do Now — Backend selector GPU-default regression tests (2025-11-13T213500Z)
+
+- [ ] **Training dispatcher guard:** Extend `tests/torch/test_execution_config_defaults.py::test_backend_selector_inherits_gpu_first_defaults` (or add a new test) so it captures the `execution_config` passed into `train_cdi_model_torch` when `torch_execution_config=None` and asserts it resolves to `'cuda'` under mocked `torch.cuda.is_available() == True`. Patch the trainer helper or backend selector as needed to make the config observable.
+- [ ] **CPU-only fallback coverage:** Add a companion test that monkeypatches `torch.cuda.is_available` to `False`, asserts the dispatcher falls back to `'cpu'`, and verifies a POLICY-001 warning is emitted. This locks the CPU warning pathway described in docs/workflows/pytorch.md §12.
+- [ ] **Selector run:** Re-run `pytest tests/torch/test_execution_config_defaults.py -vv | tee "$HUB"/green/pytest_execution_config_defaults.log` so the new tests + existing cases are captured in a single GREEN log.
+- [ ] **Hub + ledger refresh:** Update `analysis/artifact_inventory.txt`, initiative summary, and hub summaries with the new tests/log, explicitly citing how the dispatcher coverage enforces POLICY-001 for Ptychodus callers. Blockers or failures go under `$HUB/red/`.
 
 
 ### 1. Scope & Goals

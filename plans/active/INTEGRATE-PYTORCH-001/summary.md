@@ -1,4 +1,10 @@
 ### Turn Summary
+Confirmed commit 3efa2dc3 landed GPU-first `PyTorchExecutionConfig` defaults plus GREEN `green/pytest_execution_config_defaults.log`, and captured the evidence in `analysis/artifact_inventory.txt`.
+Updated `plans/ptychodus_pytorch_integration_plan.md`, docs/fix_plan.md, input.md, and the hub instructions so the next increment adds dispatcher-level regression tests proving backend_selector inherits the GPU baseline and emits POLICY-001 warnings on CPU-only hosts.
+Next: implement the backend-selector GPU/CPU tests in `tests/torch/test_execution_config_defaults.py`, rerun `pytest tests/torch/test_execution_config_defaults.py -vv`, and refresh hub summaries/inventory with the new log (blockers → `$HUB/red/`).
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/{green/pytest_execution_config_defaults.log,analysis/artifact_inventory.txt}, docs/fix_plan.md, plans/ptychodus_pytorch_integration_plan.md
+
+### Turn Summary
 Implemented GPU-first defaults for PyTorchExecutionConfig: changed accelerator default from 'cpu' to 'auto', added __post_init__ resolution logic (auto→cuda when available, auto→cpu with POLICY-001 warning on CPU-only), and logged resolved values in components.py call sites.
 Added regression tests with monkeypatched torch.cuda.is_available; 2 PASSED in 0.83s confirming auto-resolution behavior.
 Next: update fix_plan.md to mark Do Now complete, then consider full PyTorch test suite verification.
