@@ -251,6 +251,7 @@ def to_training_config(
         'n_subsample': None,  # Not in PyTorch, use override
         'subsample_seed': data.subsample_seed,  # From DataConfig
         'output_dir': Path(training.output_dir) if training.output_dir else Path('training_outputs'),
+        'torch_loss_mode': getattr(training, 'torch_loss_mode', 'poisson'),
     }
 
     # Apply overrides (critical for MVP fields)

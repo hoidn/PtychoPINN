@@ -126,7 +126,7 @@ python -m ptycho_torch.inference --model_path training_outputs --test_data datas
 - `--train_data_file` (REQUIRED): Training dataset
 - `--output_dir` (REQUIRED): Checkpoint directory
 - `--max_epochs` (default: 100): Training epochs
-- `--batch_size` (default: 4): Batch size
+- `--batch_size` (default: 16): Batch size
 - `--n_images` (default: 512): Number of diffraction groups
 - `--gridsize` (default: 2): Grid size
 - `--device` (default: cpu): cpu or cuda

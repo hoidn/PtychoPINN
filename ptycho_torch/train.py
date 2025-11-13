@@ -12,7 +12,7 @@ CLI Interface (Phase E2.C1):
         --max_epochs <int>             # Optional: Training epochs (default: 100)
         --n_images <int>               # Optional: Number of diffraction groups (default: 512)
         --gridsize <int>               # Optional: Grid size for grouping (default: 2)
-        --batch_size <int>             # Optional: Training batch size (default: 4)
+        --batch_size <int>             # Optional: Training batch size (default: 16)
         --device <cpu|cuda>            # Optional: Compute device (default: cpu)
         --disable_mlflow               # Optional: Suppress MLflow autologging
 
@@ -257,12 +257,8 @@ def main(ptycho_dir,
         early_stop_callback
     ]
 
-    # Calculate total epochs for both MultiStage and
-    if training_config.stage_2_epochs > 0 or training_config.stage_3_epochs > 0:
-        # Add baseline number of epochs at each stage
-        total_training_epochs = training_config.stage_1_epochs + training_config.stage_2_epochs + training_config.stage_3_epochs
-    else:
-        total_training_epochs = training_config.epochs
+    # All training now runs single-stage
+    total_training_epochs = training_config.epochs
 
     # Phase C4.C3: Apply execution config to Trainer (ADR-003)
     # Use execution_config if provided, otherwise create default
@@ -413,14 +409,25 @@ Examples:
                        help='Number of diffraction groups to process (default: 512)')
     parser.add_argument('--gridsize', type=int, default=2,
                        help='Grid size for spatial grouping (default: 2)')
-    parser.add_argument('--batch_size', type=int, default=4,
-                       help='Training batch size (default: 4)')
+    parser.add_argument('--batch_size', type=int, default=16,
+                       help='Training batch size (default: 16)')
     parser.add_argument('--device', type=str, choices=['cpu', 'cuda'], default='cpu',
                        help='[DEPRECATED] Use --accelerator instead. Compute device: cpu or cuda (default: cpu)')
     parser.add_argument('--disable_mlflow', action='store_true',
                        help='[DEPRECATED] Use --logger none instead. Disable all experiment tracking loggers.')
     parser.add_argument('--quiet', action='store_true',
                        help='Suppress progress bars and verbose output')
+    parser.add_argument(
+        '--torch-loss-mode',
+        type=str,
+        default='poisson',
+        choices=['poisson', 'mae'],
+        help=(
+            "Select the Torch backend loss pipeline. "
+            "'poisson' matches the physics-weighted Poisson NLL used in TensorFlow, "
+            "while 'mae' disables the physics loss and trains purely on amplitude MAE."
+        )
+    )
 
     # Execution config flags (Phase C4.C1 - ADR-003)
     parser.add_argument(
@@ -664,6 +671,7 @@ Examples:
             'batch_size': args.batch_size,
             'gridsize': args.gridsize,
             'max_epochs': args.max_epochs,
+            'torch_loss_mode': args.torch_loss_mode,
         }
         if test_data_file:
             overrides['test_data_file'] = test_data_file

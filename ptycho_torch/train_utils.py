@@ -419,8 +419,12 @@ class AdaptiveLRScheduler(_LRScheduler):
             warnings.warn("To get the last learning rate computed by the scheduler, "
                          "please use `get_last_lr()`.", UserWarning)
         
-        # Get current stage and physics weight from lightning module
-        stage, physics_weight = self.lightning_module.get_current_stage_and_weight()
+        # Get current stage and physics weight from lightning module (fallback to single-stage defaults)
+        if hasattr(self.lightning_module, 'get_current_stage_and_weight'):
+            stage, physics_weight = self.lightning_module.get_current_stage_and_weight()
+        else:
+            stage = 1
+            physics_weight = 1.0 if getattr(self.lightning_module, 'torch_loss_mode', 'poisson') == 'poisson' else 0.0
         
         lrs = []
         for base_lr in self.base_lrs:

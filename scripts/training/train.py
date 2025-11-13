@@ -164,6 +164,15 @@ def parse_arguments():
                     default=None if field.default == None else str(field.default),
                     help=f"Path for {field.name}"
                 )
+            elif hasattr(field.type, "__origin__") and field.type.__origin__ is Literal:
+                choices = list(field.type.__args__)
+                parser.add_argument(
+                    f"--{field.name}",
+                    type=str,
+                    choices=choices,
+                    default=field.default,
+                    help=f"Training parameter: {field.name}, choices: {choices}"
+                )
             else:
                 # Special handling for specific parameters to provide better help text
                 if field.name == 'n_groups':

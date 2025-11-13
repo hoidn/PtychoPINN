@@ -234,6 +234,7 @@ def create_training_payload(
         test_data_file=str(overrides['test_data_file']) if 'test_data_file' in overrides else None,
         output_dir=str(output_dir),  # Set from required parameter
         n_groups=overrides['n_groups'],  # Required field (validated above)
+        torch_loss_mode=overrides.get('torch_loss_mode', 'poisson'),
     )
 
     # Step 4: Translate to TensorFlow canonical configs via config_bridge

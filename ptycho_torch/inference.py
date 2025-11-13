@@ -346,10 +346,30 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
 
     # Prepare positions (API requires it), real offsets computed for reassembly below
     batch_size = diffraction.shape[0]
+    N = diffraction.shape[-1]
     positions = torch.zeros((batch_size, 1, 1, 2), device=device)
 
-    # Prepare scaling factors (simplified for Phase E2.C2)
-    input_scale_factor = torch.ones((batch_size, 1, 1, 1), device=device)
+    # Prepare scaling factors (match training normalization)
+    from ptycho_torch import helper as hh
+    from ptycho_torch.config_params import DataConfig as PTDataConfig
+
+    data_cfg_norm = PTDataConfig(N=int(N), grid_size=(1, 1))
+    rms_scale = hh.get_rms_scaling_factor(diffraction.squeeze(1), data_cfg_norm)
+    physics_scale = hh.get_physics_scaling_factor(diffraction.squeeze(1), data_cfg_norm)
+    if not isinstance(rms_scale, torch.Tensor):
+        rms_scale = torch.from_numpy(rms_scale)
+    if not isinstance(physics_scale, torch.Tensor):
+        physics_scale = torch.from_numpy(physics_scale)
+    rms_scale = rms_scale.to(device=device, dtype=torch.float32)
+    physics_scale = physics_scale.to(device=device, dtype=torch.float32)
+    if rms_scale.ndim == 1:
+        rms_scale = rms_scale.view(-1, 1, 1, 1)
+    if physics_scale.ndim == 1:
+        physics_scale = physics_scale.view(-1, 1, 1, 1)
+
+    physics_weight = 1.0 if getattr(model, 'torch_loss_mode', 'poisson') == 'poisson' else 0.0
+    input_scale_factor = rms_scale
+    output_scale_factor = (1.0 - physics_weight) * rms_scale + physics_weight * physics_scale
 
     if not quiet:
         print(f"Running inference on {batch_size} images...")

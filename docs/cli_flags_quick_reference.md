@@ -21,7 +21,7 @@ Model Configuration:
 
 Training Hyperparameters:
   --max_epochs INT                    (default: 100) Training epochs
-  --batch_size INT                    (default: 4) Training batch size
+  --batch_size INT                    (default: 16) Training batch size
 
 Execution Control:
   --device {cpu|cuda}                 (default: cpu) Compute device

@@ -169,6 +169,8 @@ class RawData:
         self.Y = Y
         self.norm_Y_I = norm_Y_I
         self.metadata = metadata  # Store metadata from NPZ file
+        self.sample_indices = None
+        self.subsample_seed = None
 
     @staticmethod
     #@debug
@@ -579,6 +581,8 @@ class RawData:
             'nn_indices': nn_indices,
             'objectGuess': self.objectGuess
         }
+        if getattr(self, 'sample_indices', None) is not None:
+            dset['sample_indices'] = np.array(self.sample_indices, copy=True)
         
         # Apply normalization
         X_full = normalize_data(dset, N)

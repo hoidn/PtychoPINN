@@ -421,6 +421,21 @@ def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=F
                           # Pass Y only when it is per-image and shape-validated
                           Y=(Y_patches[selected_indices] if Y_patches is not None else None))
 
+    # Persist selected indices for reproducibility
+    ptycho_data.sample_indices = np.array(selected_indices, copy=True)
+    ptycho_data.subsample_seed = subsample_seed
+    if subsample_seed is not None:
+        try:
+            tmp_dir = Path('tmp')
+            tmp_dir.mkdir(parents=True, exist_ok=True)
+            indices_path = tmp_dir / f"subsample_seed{subsample_seed}_indices.txt"
+            with indices_path.open('w', encoding='utf-8') as handle:
+                for idx in ptycho_data.sample_indices:
+                    handle.write(f"{int(idx)}\n")
+            logger.info("Persisted subsample indices to %s", indices_path)
+        except Exception as exc:
+            logger.warning("Failed to persist subsample indices for seed %s: %s", subsample_seed, exc)
+
     return ptycho_data
 
 def parse_arguments():

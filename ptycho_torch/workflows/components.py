@@ -224,6 +224,7 @@ def _ensure_container(
         - PtychoDataContainerTorch → return as-is (already normalized)
     """
     # Phase C adapters are now mandatory (imported at module level)
+    sample_indices = None
 
     # Case 1: Already a container - return as-is
     if hasattr(data, 'X') and hasattr(data, 'Y'):  # Duck-type check for PtychoDataContainerTorch
@@ -235,6 +236,7 @@ def _ensure_container(
         logger.debug("Converting RawData → RawDataTorch → PtychoDataContainerTorch")
         # Wrap with RawDataTorch (Phase C adapter)
         # Note: Y patches are embedded in TF RawData and will be extracted during grouping
+        sample_indices = getattr(data, 'sample_indices', None)
         torch_raw_data = RawDataTorch(
             xcoords=data.xcoords,
             ycoords=data.ycoords,
@@ -244,11 +246,16 @@ def _ensure_container(
             objectGuess=data.objectGuess,
             config=config  # Pass config for update_legacy_dict call
         )
+        if sample_indices is not None:
+            setattr(torch_raw_data, 'sample_indices', sample_indices)
+            setattr(getattr(torch_raw_data, '_tf_raw_data', torch_raw_data), 'sample_indices', sample_indices)
         data = torch_raw_data
 
     # Case 3: RawDataTorch - generate grouped data
     if hasattr(data, 'generate_grouped_data'):
         logger.debug("Generating grouped data from RawDataTorch")
+        if sample_indices is None:
+            sample_indices = getattr(data, 'sample_indices', None)
         grouped_data = data.generate_grouped_data(
             N=config.model.N,
             K=config.neighbor_count,
@@ -256,7 +263,21 @@ def _ensure_container(
             dataset_path=str(config.train_data_file) if config.train_data_file else None,
             sequential_sampling=config.sequential_sampling,
             gridsize=config.model.gridsize,
+            seed=getattr(config, 'subsample_seed', None),
         )
+        actual_sample_indices = grouped_data.get('sample_indices')
+        if sample_indices is not None and actual_sample_indices is not None:
+            import numpy as np
+            if not np.array_equal(np.asarray(sample_indices), np.asarray(actual_sample_indices)):
+                raise RuntimeError(
+                    "Subsample index mismatch between TensorFlow and PyTorch data pipelines. "
+                    "Verify that load_data() and the PyTorch backend share the same subsample_seed."
+                )
+        grouped_data.pop('sample_indices', None)
+        import numpy as np
+        for key in ('X_full', 'diffraction'):
+            if key in grouped_data and grouped_data[key].dtype != np.float32:
+                grouped_data[key] = grouped_data[key].astype(np.float32, copy=False)
         # Create PtychoDataContainerTorch from grouped data
         # Extract probe from RawDataTorch (required by PtychoDataContainerTorch constructor)
         probe = data.probeGuess
@@ -650,6 +671,8 @@ def _train_with_lightning(
         'neighbor_count': config.neighbor_count,
         'max_epochs': config.nepochs,
         'batch_size': getattr(config, 'batch_size', 16),
+        'subsample_seed': getattr(config, 'subsample_seed', None),
+        'torch_loss_mode': getattr(config, 'torch_loss_mode', 'poisson'),
     }
 
     # Create payload with factory-derived PyTorch configs

@@ -26,6 +26,8 @@ Notes
   - Run marker: `pytest -v -m integration`
   - Repository‑specific aliases may exist (e.g., `tf_integration` in this repo). The canonical NodeID for the TensorFlow workflow is: `tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle`.
 - The integration test also runs during the comprehensive full‑suite gate; the marker is useful for a fast, early signal after implementation changes to production code.
+- **Policy:** Every code change that touches production workflows (training, inference, stitching, config plumbing, etc.) must rerun `pytest -m integration` (or the repo alias such as `-m tf_integration`) before landing. Capture the resulting log under the active plan hub per TEST-CLI-001.
+- **Evidence addendum:** Backend-parity changes should additionally capture a patch-grid using `scripts/tools/patch_parity_helper.py` (see `docs/workflows/pytorch.md`). Store the generated `tmp/patch_parity/*.png` artifacts or link them from the plan hub so reviewers can visually confirm amplitude/phase consistency.
 
 ## Test Types
 

@@ -68,6 +68,7 @@ update_legacy_dict(params.cfg, config)
 - `config.output_dir`: Directory for checkpoints and artifacts (required for persistence)
 - `config.subsample_seed`: RNG seed for reproducible sampling (default: deterministic behavior enabled)
 - `config.sequential_sampling`: Use deterministic sequential grouping instead of random (default: `False`)
+- `config.torch_loss_mode`: Selects the active loss head (`'poisson'` for physics-weighted Poisson NLL or `'mae'` for amplitude-only MAE). Exposed via the CLI flag `--torch-loss-mode {poisson,mae}`.
 
 ### Config Mappings (subset)
 
@@ -102,6 +103,7 @@ Data must conform to <doc-ref type="contract">specs/data_contracts.md</doc-ref>:
 - `xcoords`, `ycoords`: Scan position coordinates
 - `probeGuess`: Complex probe (H×W)
 - `objectGuess`: Complex object (M×M, larger than probe)
+- When `load_data(..., subsample_seed=X)` is used, the actual sample indices are stored on the `RawData` object (`raw.sample_indices`) and persisted alongside the run as `tmp/subsample_seed{X}_indices.txt`. PyTorch container creation asserts that these recorded indices match the indices used on the Torch side, preventing silent divergence across backends.
 
 ## 5. Running Complete Training Workflow
 
@@ -606,3 +608,21 @@ implementations without losing architectural context or workflow clarity.
 - <doc-ref type="spec">specs/ptychodus_api_spec.md</doc-ref> — API contracts and reconstructor lifecycle
 - <doc-ref type="contract">specs/data_contracts.md</doc-ref> — NPZ data format requirements
 - <doc-ref type="plan">plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md</doc-ref> — Current implementation status
+- **Loss/metric parity**: Training logs two amplitude metrics:
+  - `amp_inv_mae_epoch`: amplitude MAE in the measurement domain (legacy visibility metric)
+  - `amp_mae_tf_scale_epoch`: new metric computed in the same normalized domain used by TensorFlow (`pred_scaled` vs `target_scaled`). This ensures the Poisson-vs-MAE loss curves can be compared directly to TF’s amplitude MAE.
+- **Physics weighting**: `torch_loss_mode='poisson'` keeps physics weighting pinned at 1.0 for all epochs (single-stage Poisson training). `torch_loss_mode='mae'` rotates the model into MAE-only training with `physics_weight=0`.
+
+### Patch Parity Evidence
+
+Implementation work that touches training/inference pipelines should include a visual parity check. Use the helper script added in this change:
+
+```bash
+python scripts/tools/patch_parity_helper.py \
+    --tf-npz tmp/tf_epoch50_patches.npz \
+    --torch-npz tmp/torch_epoch50_patches.npz \
+    --epoch 50 \
+    --num-patches 6
+```
+
+The script aligns shared sample ids (using the persisted `sample_indices`) and writes grids to `tmp/patch_parity/{tensorflow, pytorch}_epoch50.png`. These grids provide quick qualitative evidence when numeric losses differ.

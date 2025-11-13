@@ -128,6 +128,9 @@ class TrainingConfig:
     # Multi-stage learning rate parameters
     stage_3_lr_factor: float = 0.1    # LR reduction for stage 3 (physics)
 
+    # Backend-specific loss selection
+    torch_loss_mode: Literal['poisson', 'mae'] = 'poisson'
+
     #MLFlow config
     experiment_name: str = "Synthetic_Runs"
     notes: str = ""

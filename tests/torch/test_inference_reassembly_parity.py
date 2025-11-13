@@ -85,7 +85,11 @@ def test_inference_helper_uses_reassembly(tmp_path):
         data_cfg = DataConfig(N=N, grid_size=(1, 1))
         model_cfg = ModelConfig()
         model_cfg.C_forward = 1
-        imgs_merged, _, _ = hh.reassemble_patches_position_real(inputs, offsets, data_cfg, model_cfg)
+        max_shift = torch.max(torch.stack([dx.abs(), dy.abs()], dim=0)).item()
+        padded_size = int(np.ceil(N + 2 * max_shift))
+        imgs_merged, _, _ = hh.reassemble_patches_position_real(
+            inputs, offsets, data_cfg, model_cfg, padded_size=padded_size
+        )
         amp_gt = torch.abs(imgs_merged[0]).cpu().numpy()
 
     # Expect: helper output equals position-aware reassembly (shape + values)
@@ -95,3 +99,64 @@ def test_inference_helper_uses_reassembly(tmp_path):
     # Numeric closeness (allow tiny tolerance from dtype conversions)
     mae = np.mean(np.abs(amp_cli - amp_gt))
     assert mae < 1e-6, f"Reassembled amplitude mismatch: MAE={mae}"
+
+
+@pytest.mark.torch
+def test_reassembly_canvas_padding_invariants(monkeypatch):
+    """
+    Ensures inference reassembly enforces dynamic canvas padding and non-zero offsets.
+    """
+    from ptycho.raw_data import RawData
+    from ptycho_torch.inference import _run_inference_and_reconstruct
+    from ptycho_torch import helper as hh
+
+    B, N = 8, 16
+    xcoords = np.array([0.0, 12.0, -6.0, 4.0, -3.0, 7.0, -8.0, 1.0], dtype=np.float32)
+    ycoords = np.array([5.0, -4.0, 2.0, -6.0, 9.0, -3.0, 1.0, -8.0], dtype=np.float32)
+    scan_index = np.arange(B, dtype=np.int64)
+    diff3d = np.zeros((B, N, N), dtype=np.float32)
+    probe = np.ones((N, N), dtype=np.complex64)
+    raw = RawData(xcoords, ycoords, xcoords, ycoords, diff3d, probe, scan_index)
+
+    class StubModel:
+        def to(self, *_args, **_kwargs):
+            return self
+
+        def eval(self):
+            return self
+
+        @torch.no_grad()
+        def forward_predict(self, x, positions, probe, input_scale_factor):
+            return torch.ones((x.shape[0], 1, x.shape[-1], x.shape[-1]), dtype=torch.complex64, device=x.device)
+
+    model = StubModel()
+    tf_infer_cfg = SimpleNamespace(n_groups=B)
+    exec_cfg = SimpleNamespace(accelerator='cpu')
+
+    captured = {}
+
+    def fake_reassemble(patches, offsets, data_cfg, model_cfg, padded_size):
+        captured['padded_size'] = padded_size
+        captured['offsets'] = offsets.detach().cpu().numpy()
+        canvas = torch.zeros((patches.shape[0], padded_size, padded_size), dtype=torch.complex64, device=patches.device)
+        return canvas, None, None
+
+    monkeypatch.setattr(hh, 'reassemble_patches_position_real', fake_reassemble)
+    _run_inference_and_reconstruct(
+        model=model,
+        raw_data=raw,
+        config=tf_infer_cfg,
+        execution_config=exec_cfg,
+        device='cpu',
+        quiet=True,
+    )
+
+    assert 'padded_size' in captured, "reassemble helper was not invoked"
+    expected_max_shift = max(np.max(np.abs(xcoords - xcoords.mean())), np.max(np.abs(ycoords - ycoords.mean())))
+    expected_canvas = int(np.ceil(N + 2 * expected_max_shift))
+    assert captured['padded_size'] >= expected_canvas
+
+    offsets = captured['offsets'].reshape(B, 2)
+    assert not np.allclose(offsets, 0.0), "Offsets should not collapse to zero"
+    np.testing.assert_allclose(offsets[:, 0], xcoords - xcoords.mean(), rtol=1e-6, atol=1e-6)
+    np.testing.assert_allclose(offsets[:, 1], ycoords - ycoords.mean(), rtol=1e-6, atol=1e-6)

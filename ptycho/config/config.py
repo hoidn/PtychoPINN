@@ -130,7 +130,8 @@ class TrainingConfig:
     output_dir: Path = Path("training_outputs")
     sequential_sampling: bool = False  # Use sequential sampling instead of random
     backend: Literal['tensorflow', 'pytorch'] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility
-    
+    torch_loss_mode: Literal['poisson', 'mae'] = 'poisson'  # Backend-specific loss mode selector
+
     def __post_init__(self):
         """Handle backward compatibility for n_images → n_groups migration."""
         # Handle the deprecated n_images parameter
