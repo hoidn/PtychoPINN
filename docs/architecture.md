@@ -69,6 +69,11 @@ PyTorch — `diffraction_to_obj`
 
 Authoritative details live in `specs/ptychodus_api_spec.md §4.4.1`.
 
+## Backend Parity Requirements (Normative)
+
+- Reassembly contract: Inference MUST stitch predicted patches using global offsets (pixel units) that are zero‑centered (e.g., relative to center‑of‑mass). The stitched canvas size MUST satisfy `M ≥ N + 2·max(|dx|, |dy|)` for the used subset; odd total padding MUST be split across sides without shifting the reconstruction’s center. Averaging patches without offset‑aware translation is prohibited.
+- Forward semantics: When `gridsize > 1`, forward‑path reassembly semantics MUST match across backends. Default is `object.big=True` (reassemble before diffraction). The configuration bridge MUST enforce parity between TensorFlow and PyTorch for this behavior.
+
 ## 2. Workflow Sequences
 
 Backend-specific workflow sequences are documented in:

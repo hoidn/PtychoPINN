@@ -324,7 +324,8 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     probe = torch.from_numpy(raw_data.probeGuess).to(device, dtype=torch.complex64)
 
     # Handle different diffraction shapes (H, W, n) vs (n, H, W)
-    if diffraction.ndim == 3 and diffraction.shape[-1] < diffraction.shape[0]:
+    # Auto-detect legacy (H, W, n) format where the last dim (n) is the largest
+    if diffraction.ndim == 3 and diffraction.shape[-1] > max(diffraction.shape[0], diffraction.shape[1]):
         # Transpose from (H, W, n) to (n, H, W)
         diffraction = diffraction.permute(2, 0, 1)
 
@@ -363,8 +364,8 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
         )
 
     # Compute pixel offsets relative to center-of-mass (B, 1, 1, 2)
-    x = torch.from_numpy(raw_data.xcoords).to(device=device, dtype=torch.float32)
-    y = torch.from_numpy(raw_data.ycoords).to(device=device, dtype=torch.float32)
+    x = torch.from_numpy(raw_data.xcoords[:batch_size]).to(device=device, dtype=torch.float32)
+    y = torch.from_numpy(raw_data.ycoords[:batch_size]).to(device=device, dtype=torch.float32)
     dx = x - torch.mean(x)
     dy = y - torch.mean(y)
     offsets = torch.stack([dx, dy], dim=-1).view(batch_size, 1, 1, 2)
@@ -380,8 +381,11 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     # Ensure channel consistency for reassembly (C_forward must match predicted channels)
     model_cfg.C_forward = int(patch_complex.shape[1])
 
+    # Compute dynamic canvas size to avoid clipping: M >= N + 2*max(|dx|, |dy|)
+    max_shift = torch.max(torch.stack([dx.abs(), dy.abs()], dim=0)).item()
+    M = int(np.ceil(N + 2 * max_shift))
     imgs_merged, _, _ = hh.reassemble_patches_position_real(
-        patch_complex, offsets, data_cfg, model_cfg
+        patch_complex, offsets, data_cfg, model_cfg, padded_size=M
     )
 
     # Convert to numpy amplitude/phase

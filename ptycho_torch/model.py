@@ -1195,13 +1195,19 @@ class PtychoPINN_Lightning(L.LightningModule):
         if self.model_config.mode == 'Unsupervised':
             total_loss += self.Loss(pred, x).mean()
             total_loss /= intensity_norm_factor
-
         elif self.model_config.mode == 'Supervised':
             #Compute loss for phase and amp
             amp_loss = self.Loss(amp, amp_label).sum()
             phase_loss = self.Loss(phase, phase_label).sum()
             #Add to total loss
             total_loss += 0.1*amp_loss + 4 * phase_loss
+        
+        # Log amplitude MAE after inverse scaling (TF 'IntensityScaler_inv' analogue)
+        # pred is pred_scaled_diffraction (amplitude) comparable to x (amplitude)
+        with torch.no_grad():
+            amp_inv_mae = torch.mean(torch.abs(pred - x))
+        self.log('amp_inv_mae_step', amp_inv_mae, on_step=True, on_epoch=False, prog_bar=False, logger=True, sync_dist=True)
+        self.log('amp_inv_mae_epoch', amp_inv_mae, on_step=False, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         
         # Add amplitude and phase regularization losses if specified
         # Use the appropriate amp/phase based on current stage
@@ -1337,5 +1343,3 @@ class PtychoPINN_Lightning(L.LightningModule):
         # Log current learning rate for monitoring
         current_lr = self.optimizers().param_groups[0]['lr']
         self.log('learning_rate', current_lr, on_epoch=True)
-
-

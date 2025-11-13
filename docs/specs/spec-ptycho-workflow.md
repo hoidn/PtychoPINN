@@ -43,6 +43,12 @@ Pipeline (Normative)
 7) Inference
    - Use `diffraction_to_obj` for object prediction given `[diffraction, positions]`; ensure probe is consistent with training.
 
+Reassembly Requirements (Normative)
+- Implementations MUST reassemble predicted patches using global offsets (pixel units). Offsets MUST be relative to the center-of-mass (or an equivalent normalization that zero-centers the scan trajectory) prior to canvas placement.
+- The stitched canvas size MUST satisfy: `M ≥ N + 2·max(|dx|, |dy|)` over the used patches. Implementations SHOULD compute `M` dynamically from offsets to avoid clipping. Odd total padding MUST be split across sides without changing the object’s center.
+- Averaging patches without offset-aware placement is prohibited.
+- Forward reassembly semantics MUST match across backends when `gridsize > 1`. The default is `object.big=True` (reassemble inside the forward path before diffraction), and the configuration bridge MUST enforce parity across TensorFlow and PyTorch.
+
 8) Stitching & Evaluation
    - Stitch predicted patches (numpy) into full object using `image.stitching.reassemble_patches`.
    - Stitching config contract (required keys): `N (int)`, `gridsize (int)`, `offset (int)`, `nimgs_test (int)`; optional `outer_offset_test (int)`.

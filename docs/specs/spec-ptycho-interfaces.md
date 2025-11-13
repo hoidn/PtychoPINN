@@ -46,6 +46,12 @@ Data Formats (Normative)
   - Inputs: `[diffraction (B,N,N,C) float32 · s, positions (B,1,2,C) float32]`.
   - Outputs: `[object (B,N,N,1) complex64, amplitude (B,N,N,C) float32, intensity (B,N,N,C) float32]`.
 
+Reassembly Contract (Normative)
+- Inference pipelines MUST stitch predicted patches with global offsets (pixel units). Offsets MUST be zero‑centered (e.g., relative to center‑of‑mass) prior to placement on the canvas.
+- The stitched canvas MUST be large enough to accommodate all translated patches without clipping: `M ≥ N + 2·max(|dx|, |dy|)` for the used subset. Odd total padding MUST be distributed across borders without shifting the reconstruction’s center.
+- Averaging patches in place without offset‑aware translation is prohibited.
+- Forward‑path reassembly semantics MUST match across backends when `gridsize > 1`. The default is `object.big=True` (reassemble before diffraction), and the configuration bridge MUST carry this behavior between TensorFlow and PyTorch.
+
 Loader Behavior (Normative)
 - When ground truth `Y` is absent, loaders MAY emit a shape‑compatible placeholder `Y (complex64)`; training integrations MUST disable any MAE terms that require real ground truth. NLL and real‑space terms remain valid without `Y`.
 - `coords_nominal` and `coords_true` SHALL be equal when jitter/true positions are not provided by the dataset.
