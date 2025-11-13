@@ -187,3 +187,36 @@ Future increments may add:
 - Ground truth comparison for PyTorch inference path
 - Probe visualization for PyTorch models
 - Additional execution knobs (gradient checkpointing, mixed precision, etc.)
+
+## Training CLI Execution Config Flags (2025-11-13)
+
+### Production Code
+
+1. scripts/training/train.py
+   - Added PyTorch-only CLI flags (`--torch-accelerator`, `--torch-deterministic`, `--torch-num-workers`, `--torch-accumulate-grad-batches`, `--torch-learning-rate`, `--torch-scheduler`, `--torch-logger`, checkpoint toggles).
+   - When `--backend pytorch`, builds a `PyTorchExecutionConfig` via `ptycho_torch.cli.shared.build_execution_config_from_args(..., mode='training')` and passes it through `run_cdi_example_with_backend`.
+   - TensorFlow behavior unchanged; PyTorch persistence handled by backend workflow to avoid double-saving (CONFIG-001 preserved).
+
+2. ptycho/workflows/backend_selector.py / ptycho_torch/workflows/components.py
+   - `run_cdi_example_with_backend` now accepts `torch_execution_config` keyword and forwards it to `_train_with_lightning`.
+   - Ensures canonical TrainingConfig still calls `update_legacy_dict` before dispatch.
+
+3. tests/scripts/test_training_backend_selector.py
+   - Added `test_pytorch_execution_config_flags` verifying CLI args reach `build_execution_config_from_args(mode='training')` exactly once and that backend selector receives the resulting `PyTorchExecutionConfig`.
+
+### Test Evidence
+
+- `green/pytest_backend_selector_cli.log` — `pytest tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_pytorch_execution_config_flags tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_execution_config_flags -vv`
+  - Result: 2 passed in 3.71s (PyTorch available, torch==2.8.0+cu128).
+
+### CLI Attempt & Blocker
+
+- Training CLI smoke command (see `red/blocked_20251113T183500Z_loss_name.md`) runs from repo root with new execution flags.
+- Result: backend selector routes to PyTorch workflow, execution config logs expected values, but Lightning aborts immediately with `AttributeError: 'PtychoPINN_Lightning' object has no attribute 'loss_name'` (captured in `train_debug.log:30621-30623`).
+- Impact: No fresh training bundle/PNG artifacts for this increment; need to fix PyTorch loss configuration (suspect supervised mode defaults to `loss_function='Poisson'` so `self.loss_name` is never assigned).
+
+### Follow-up
+
+1. Teach the PyTorch bridge/factory to set `loss_function='MAE'` (or another supported option) whenever the canonical config requests `model_type='supervised'`, or extend `PtychoPINN_Lightning` to assign `loss_name` for supervised+Poisson combos.
+2. Add pytest coverage ensuring supervised requests propagate the correct loss function into the PyTorch workflow before Lightning starts.
+3. Rerun the targeted pytest selector plus the PyTorch training/inference CLI smoke, capturing logs under `green/` and `cli/pytorch_cli_smoke_training/`.

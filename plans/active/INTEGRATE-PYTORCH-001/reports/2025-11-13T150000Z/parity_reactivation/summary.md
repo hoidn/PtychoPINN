@@ -1,5 +1,13 @@
 # Phase R Backend Selector Integration — Hub Summary
 
+# Phase R Backend Selector Integration — Hub Summary
+
+### Turn Summary
+Recorded that training CLI execution-config work (commit 04a016ad) shipped while the PyTorch training smoke now fails with `AttributeError: 'PtychoPINN_Lightning' object has no attribute 'loss_name'`, and stored the blocker plus artifact inventory updates (`analysis/artifact_inventory.txt`, `red/blocked_20251113T183500Z_loss_name.md`).
+Plans/docs/input were updated so Ralph’s next loop maps supervised configs to a supported PyTorch loss function, adds regression tests for the factory/selector, reruns the targeted pytest selector, and repeats the PyTorch CLI smoke before refreshing the hub summaries and inventory.
+Next: implement the supervised-loss mapping + tests, rerun the specified pytest command, execute the PyTorch training/inference CLI smoke with the documented flags, and update the hub evidence (logs/PNGs/inventory) accordingly.
+Artifacts: analysis/artifact_inventory.txt, red/blocked_20251113T183500Z_loss_name.md
+
 **Date:** 2025-11-13  
 **Focus:** INTEGRATE-PYTORCH-PARITY-001 — PyTorch backend API parity reactivation  
 **Phase:** CLI routing via backend selector  

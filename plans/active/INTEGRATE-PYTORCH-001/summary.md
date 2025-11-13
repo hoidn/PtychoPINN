@@ -1,4 +1,10 @@
 ### Turn Summary
+Documented that the training CLI execution-config flags (commit 04a016ad) are in place but the PyTorch training smoke fails with `AttributeError: 'PtychoPINN_Lightning' object has no attribute 'loss_name'`, and logged the blocker plus artifact inventory updates in the active hub.
+Rewrote plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, and input.md so the next Do Now maps supervised configs to a supported PyTorch loss, adds regression tests, and reruns the filtered pytest selector + CLI smoke before refreshing hub evidence.
+Next: implement the supervised-loss mapping + tests, rerun `pytest tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_pytorch_execution_config_flags tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_execution_config_flags -vv`, then redo the PyTorch training/inference CLI smoke and update the hub summaries/inventory.
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/red/blocked_20251113T183500Z_loss_name.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/analysis/artifact_inventory.txt
+
+### Turn Summary
 Exposed PyTorch execution config flags (--torch-accelerator, --torch-num-workers, --torch-learning-rate, --torch-scheduler, --torch-logger, etc.) in scripts/training/train.py, wired them through backend_selector→run_cdi_example_torch with torch_execution_config parameter.
 Added test_pytorch_execution_config_flags to tests/scripts/test_training_backend_selector.py verifying flag propagation, reran backend selector tests (2 PASSED), and executed PyTorch training CLI smoke test.
 Training smoke confirmed execution config successfully parsed and logged (accelerator=cpu, num_workers=0, learning_rate=0.001, logger_backend=csv), but failed downstream in PyTorch Lightning model initialization (pre-existing 'loss_name' attribute error, not related to execution config flags).
