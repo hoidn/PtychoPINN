@@ -138,8 +138,9 @@ def load_bundle_submodel(model_dir: Path, model_name: str) -> tf.keras.Model:
 
 
 def load_pinn_model(model_dir: Path) -> tf.keras.Model:
-    """Load the training autoencoder model for inference-time patch reassembly."""
-    return load_bundle_submodel(model_dir, "autoencoder")
+    """Load the diffraction_to_obj inference model for PINN comparisons."""
+    model, _ = load_inference_bundle(model_dir)
+    return model
 
 
 def load_baseline_model(baseline_dir: Path) -> tf.keras.Model:
@@ -877,7 +878,7 @@ def main():
     # CRITICAL FIX: Initialize configuration BEFORE loading data
     # This ensures params.cfg is properly set up when load_data() checks gridsize
     # Load models FIRST to restore their saved configuration (including gridsize)
-    logger.info("Loading PtychoPINN model to restore configuration...")
+    logger.info("Loading PtychoPINN inference model (diffraction_to_obj) to restore configuration...")
     pinn_model = load_pinn_model(args.pinn_dir)
     
     # The model loading should have restored the correct gridsize to params.cfg
@@ -961,9 +962,9 @@ def main():
         logger.info("Running two-way comparison (PtychoPINN vs. Baseline)")
 
     # Run inference for PtychoPINN
-    logger.info("Running inference with PtychoPINN...")
+    logger.info("Running inference with PtychoPINN (diffraction_to_obj)...")
     pinn_start = time.time()
-    pinn_patches = pinn_model.predict(
+    pinn_recon = pinn_model.predict(
         [test_container.X * p.get('intensity_scale'), test_container.coords_nominal],
         batch_size=32,
         verbose=1
@@ -971,11 +972,9 @@ def main():
     pinn_inference_time = time.time() - pinn_start
     logger.info(f"PtychoPINN inference completed in {pinn_inference_time:.2f}s")
     
-    if isinstance(pinn_patches, (list, tuple)) and pinn_patches:
-        pinn_recon = np.asarray(pinn_patches[0])
-    else:
-        pinn_recon = np.asarray(pinn_patches)
-    logger.info("Using direct autoencoder output as the PINN reconstruction (no additional stitching)")
+    if isinstance(pinn_recon, (list, tuple)) and pinn_recon:
+        pinn_recon = pinn_recon[0]
+    pinn_recon = np.asarray(pinn_recon)
 
     # Run inference for Baseline
     logger.info("Running inference with Baseline model...")
