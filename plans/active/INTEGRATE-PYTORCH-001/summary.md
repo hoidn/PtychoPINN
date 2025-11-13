@@ -1,4 +1,10 @@
 ### Turn Summary
+Implemented GPU-first defaults for PyTorchExecutionConfig: changed accelerator default from 'cpu' to 'auto', added __post_init__ resolution logic (auto→cuda when available, auto→cpu with POLICY-001 warning on CPU-only), and logged resolved values in components.py call sites.
+Added regression tests with monkeypatched torch.cuda.is_available; 2 PASSED in 0.83s confirming auto-resolution behavior.
+Next: update fix_plan.md to mark Do Now complete, then consider full PyTorch test suite verification.
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/ (green/pytest_execution_config_defaults.log, analysis/artifact_inventory.txt), commit 3efa2dc3
+
+### Turn Summary
 Verified commit 420e2f14 plus green logs in `green/pytest_cuda_default_exec_config.log` and `cli/pytorch_cli_smoke_training/{train_cuda_default.log,inference_cuda_default.log}` so the CUDA-default Do Now is complete.
 Documented the remaining gap: `PyTorchExecutionConfig` still defaults to CPU when backend_selector callers omit `torch_execution_config`, so PyTorch silently runs off-policy; updated the plan/fix plan/input to target GPU-first dataclass defaults with regression tests.
 Next: implement the PyTorchExecutionConfig auto→cuda fallback logic, update backend selector call sites, add the new pytest module, and capture `pytest_execution_config_defaults.log` + warning snippets in the hub.
