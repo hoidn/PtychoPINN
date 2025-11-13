@@ -487,20 +487,44 @@ def main():
                     nsamples = 1  # Minimum of 1 group
                 print(f"Inference config: gridsize={gridsize}, using {nsamples} groups (≈{nsamples * gridsize**2} total patterns)")
 
-        # Perform inference
+        # Perform inference - branch based on backend
         print("Performing inference...")
-        reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase = perform_inference(
-            model, test_data, params.cfg, K=4, nsamples=nsamples)
+
+        if config.backend == 'pytorch':
+            # PyTorch inference path
+            from ptycho_torch.inference import _run_inference_and_reconstruct
+            from ptycho_torch.config_factory import PyTorchExecutionConfig
+
+            # Create execution config with defaults (CPU for now, --device flag can be added later)
+            execution_config = PyTorchExecutionConfig(
+                accelerator='cpu',
+                inference_batch_size=4  # Conservative default for inference
+            )
+
+            # Call PyTorch-native inference helper
+            device = 'cpu'  # Match execution_config.accelerator
+            reconstructed_amplitude, reconstructed_phase = _run_inference_and_reconstruct(
+                model, test_data, config, execution_config, device, quiet=False
+            )
+
+            # PyTorch path doesn't return ground truth comparison data (not in scope for Phase R)
+            epie_amplitude = None
+            epie_phase = None
+
+        else:
+            # TensorFlow inference path (legacy)
+            reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase = perform_inference(
+                model, test_data, params.cfg, K=4, nsamples=nsamples)
 
         # Save separate reconstruction images
         print("Saving reconstruction images...")
-        save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, config.output_dir, 
+        save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, config.output_dir,
                                   phase_vmin=args.phase_vmin, phase_vmax=args.phase_vmax)
-        
+
         # Generate comparison plot if requested and ground truth is available
         if args.comparison_plot and epie_amplitude is not None and epie_phase is not None:
             print("Generating comparison plot...")
-            save_comparison_plot(reconstructed_amplitude, reconstructed_phase, 
+            save_comparison_plot(reconstructed_amplitude, reconstructed_phase,
                                 epie_amplitude, epie_phase, config.output_dir,
                                 phase_vmin=args.phase_vmin, phase_vmax=args.phase_vmax)
         elif args.comparison_plot:
@@ -513,7 +537,9 @@ def main():
         sys.exit(1)
     finally:
         print("Cleaning up resources...")
-        tf.keras.backend.clear_session()
+        # Only call TensorFlow cleanup if we used TensorFlow backend
+        if config.backend == 'tensorflow':
+            tf.keras.backend.clear_session()
 
 if __name__ == "__main__":
     main()

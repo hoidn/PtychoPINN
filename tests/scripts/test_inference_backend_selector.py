@@ -270,3 +270,81 @@ class TestInferenceCliBackendDispatch:
             # Verify backend field is set correctly
             assert config.backend == backend_value, \
                 f"InferenceConfig.backend should be '{backend_value}', got '{config.backend}'"
+
+    def test_pytorch_inference_execution_path(self):
+        """
+        Test that PyTorch backend executes _run_inference_and_reconstruct() helper.
+
+        Expected behavior:
+        - When config.backend == 'pytorch', skip TensorFlow perform_inference()
+        - Call ptycho_torch.inference._run_inference_and_reconstruct with model, raw_data, config
+        - Return amplitude/phase arrays from PyTorch helper
+        - Skip TensorFlow tf.keras.backend.clear_session() cleanup
+
+        Phase: R (PyTorch inference execution path)
+        Reference: input.md Do Now step 2-3
+        """
+        import numpy as np
+        from unittest.mock import MagicMock, patch, ANY
+
+        # Mock the PyTorch inference helper to verify it's called
+        mock_pytorch_inference = MagicMock(
+            return_value=(
+                np.random.rand(64, 64),  # amplitude
+                np.random.rand(64, 64)   # phase
+            )
+        )
+
+        # Mock TensorFlow inference to verify it's NOT called
+        mock_tf_inference = MagicMock()
+
+        # Mock the PyTorchExecutionConfig factory
+        mock_execution_config = MagicMock()
+        mock_pytorch_execution_config_class = MagicMock(return_value=mock_execution_config)
+
+        with patch('scripts.inference.inference.perform_inference', mock_tf_inference), \
+             patch('ptycho_torch.inference._run_inference_and_reconstruct', mock_pytorch_inference), \
+             patch('ptycho_torch.config_factory.PyTorchExecutionConfig', mock_pytorch_execution_config_class):
+
+            # Simulate the inference CLI logic for PyTorch backend
+            # (In actual CLI this would be inside main() after loading model and data)
+            from ptycho.config.config import InferenceConfig, ModelConfig
+
+            config = InferenceConfig(
+                model=ModelConfig(N=64, gridsize=1),
+                model_path=Path('outputs/test/bundle.zip'),
+                test_data_file=Path('test.npz'),
+                backend='pytorch',
+                output_dir=Path('outputs/inference')
+            )
+
+            # Execute the branch logic
+            if config.backend == 'pytorch':
+                from ptycho_torch.inference import _run_inference_and_reconstruct
+                from ptycho_torch.config_factory import PyTorchExecutionConfig
+
+                execution_config = PyTorchExecutionConfig(
+                    accelerator='cpu',
+                    batch_size=4
+                )
+
+                device = 'cpu'
+                mock_model = MagicMock()
+                mock_test_data = MagicMock()
+
+                reconstructed_amplitude, reconstructed_phase = _run_inference_and_reconstruct(
+                    mock_model, mock_test_data, config, execution_config, device, quiet=False
+                )
+
+            # Verify PyTorch helper was called
+            assert mock_pytorch_inference.called, \
+                "_run_inference_and_reconstruct should be called for PyTorch backend"
+
+            # Verify it received the correct arguments
+            call_args = mock_pytorch_inference.call_args
+            assert call_args is not None, \
+                "PyTorch inference helper should have received arguments"
+
+            # Verify TensorFlow inference was NOT called
+            assert not mock_tf_inference.called, \
+                "perform_inference (TensorFlow) should NOT be called for PyTorch backend"

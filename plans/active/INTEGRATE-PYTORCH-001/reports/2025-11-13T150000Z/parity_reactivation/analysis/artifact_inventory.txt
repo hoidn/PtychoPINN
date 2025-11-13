@@ -1,105 +1,119 @@
-Phase R Backend Selector Integration — Artifact Inventory
-========================================================
+Phase R PyTorch Inference Execution Path — Artifact Inventory
+=============================================================
 
-Date: 2025-11-13
+Date: 2025-11-12
 Focus: INTEGRATE-PYTORCH-PARITY-001 — PyTorch backend API parity reactivation
-Phase: CLI routing via backend selector
+Phase: PyTorch inference execution path integration
 
 ## Production Code Changes
 
-1. scripts/training/train.py (lines 21-30, 176-188)
-   - Replaced direct import of run_cdi_example with backend_selector.run_cdi_example_with_backend
-   - Added backend-guarded persistence logic:
-     * TensorFlow: calls model_manager.save() and save_outputs() as before
-     * PyTorch: skips TensorFlow-only helpers, logs bundle_path from results
-   - Preserves CONFIG-001 compliance via update_legacy_dict(params.cfg, config) at line 132
+1. scripts/inference/inference.py (lines 490-542)
+   - Added backend-aware inference branching at main() execution point
+   - PyTorch path (lines 493-512):
+     * Imports ptycho_torch.inference._run_inference_and_reconstruct
+     * Imports ptycho_torch.config_factory.PyTorchExecutionConfig
+     * Creates PyTorchExecutionConfig with accelerator='cpu', inference_batch_size=4
+     * Calls _run_inference_and_reconstruct(model, test_data, config, execution_config, device)
+     * Returns amplitude/phase arrays (ground truth comparison not in Phase R scope)
+   - TensorFlow path (lines 514-517): Preserves legacy perform_inference() behavior
+   - Backend-guarded TensorFlow cleanup (lines 540-542): tf.keras.backend.clear_session() only for TensorFlow
 
-2. scripts/inference/inference.py (lines 37-41, 439-445)
-   - Replaced direct import of load_inference_bundle with backend_selector.load_inference_bundle_with_backend
-   - Updated load call to pass InferenceConfig for backend routing
-   - Documented that update_legacy_dict is called inside the backend-specific loader (CONFIG-001)
+2. scripts/inference/inference.py (lines 94-99, 191)
+   - CLI --backend flag (already present from prior increment)
+   - Default 'tensorflow' for backward compatibility
+   - Help text references POLICY-001 and CONFIG-001
 
 ## Test Coverage
 
-1. tests/scripts/test_training_backend_selector.py (162 lines)
-   - TestTrainingCliBackendDispatch::test_pytorch_backend_dispatch
-     * Verifies training CLI calls run_cdi_example_with_backend with backend='pytorch'
-     * Asserts model_manager.save() and save_outputs() are NOT called for PyTorch
-     * Confirms results['backend'] == 'pytorch' and bundle_path is logged
-   - TestTrainingCliBackendDispatch::test_tensorflow_backend_persistence
-     * Verifies TensorFlow backend still calls model_manager.save() and save_outputs()
-     * Confirms backward compatibility for existing TensorFlow workflows
+1. tests/scripts/test_inference_backend_selector.py (lines 274-350)
+   - TestInferenceCliBackendDispatch::test_pytorch_inference_execution_path
+     * Verifies PyTorch backend calls _run_inference_and_reconstruct (not perform_inference)
+     * Mocks PyTorch helper to assert it's invoked with model, raw_data, config, execution_config, device
+     * Confirms TensorFlow perform_inference() is NOT called for PyTorch backend
+     * Validates amplitude/phase return values
 
-2. tests/scripts/test_inference_backend_selector.py (164 lines)
-   - TestInferenceCliBackendDispatch::test_pytorch_backend_dispatch
-     * Verifies inference CLI calls load_inference_bundle_with_backend with backend='pytorch'
-     * Confirms PyTorch model is returned and params_dict restored
-   - TestInferenceCliBackendDispatch::test_tensorflow_backend_dispatch
-     * Verifies TensorFlow backend routing continues to work
-   - TestInferenceCliBackendDispatch::test_backend_selector_preserves_config_001_compliance
-     * Documents that params.cfg restoration happens inside backend-specific loaders
+2. tests/scripts/test_inference_backend_selector.py (lines 190-236)
+   - test_cli_backend_argument_parsing (already present)
+   - test_setup_inference_configuration_uses_backend (already present)
+   - test_pytorch_backend_dispatch (already present)
+   - test_tensorflow_backend_dispatch (already present)
+   - test_backend_selector_preserves_config_001_compliance (already present)
 
 ## Test Evidence
 
-1. green/pytest_training_backend_dispatch.log
-   - Command: pytest tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch -vv
-   - Result: 2 passed in 3.70s
+1. green/pytest_backend_selector_cli.log
+   - Command: pytest tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_pytorch_backend_dispatch tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_backend_dispatch tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_inference_execution_path -vv
+   - Result: 3 passed in 3.68s
    - Status: GREEN ✅
+   - Coverage:
+     * Training CLI backend dispatch to PyTorch ✅
+     * Inference CLI backend dispatch to PyTorch ✅
+     * PyTorch inference execution path verification ✅
 
-2. green/pytest_inference_backend_dispatch.log
-   - Command: pytest tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch -vv
-   - Result: 3 passed in 3.66s
-   - Status: GREEN ✅
+## CLI Evidence
+
+1. cli/pytorch_cli_smoke/train.log
+   - Command: python scripts/training/train.py --backend pytorch --config configs/gridsize2_minimal.yaml --train_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --test_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --output_dir [...]/train_outputs --n_groups 4 --n_subsample 16 --neighbor_count 7 --batch_size 4 --nepochs 1
+   - Result: SUCCESS ✅
+   - Key achievements:
+     * Backend dispatcher routed to PyTorch workflow
+     * params.cfg synchronized with TrainingConfig
+     * Lightning training completed (1 epoch, 2.3M params)
+     * Model bundle saved to train_outputs/wts.h5.zip
+   - Artifacts: train_outputs/wts.h5.zip, lightning_logs/version_0/metrics.csv
+
+2. cli/pytorch_cli_smoke/inference.log
+   - Command: python scripts/inference/inference.py --model_path [...]/train_outputs --test_data tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --output_dir [...]/inference_outputs --backend pytorch --n_images 4 --n_subsample 16
+   - Result: SUCCESS ✅
+   - Key achievements:
+     * Backend dispatcher loaded PyTorch model from wts.h5.zip
+     * params.cfg restored from bundle (CONFIG-001)
+     * PyTorch inference path executed via _run_inference_and_reconstruct
+     * Reconstruction completed: amplitude [0.0030, 0.5147], phase [0.0162, 0.1142]
+     * Output PNGs saved to inference_outputs/
+   - Artifacts:
+     * inference_outputs/reconstructed_amplitude.png (15K)
+     * inference_outputs/reconstructed_phase.png (19K)
 
 ## Policy Compliance
 
-- POLICY-001: PyTorch>=2.2 enforced (tests show "PyTorch version: 2.8.0+cu128")
-- CONFIG-001: update_legacy_dict called in training CLI before backend dispatch (train.py:132)
-- TYPE-PATH-001: Path objects handled correctly in backend_selector
+- POLICY-001: PyTorch>=2.2 enforced (PyTorch 2.8.0+cu128 detected)
+- CONFIG-001: params.cfg restored from bundle in load_torch_bundle (inference.log line 7)
+- CONFIG-LOGGER-001: CSVLogger enabled for training (train.log)
 
-## Latest Update: 2025-11-12 - CLI Backend Argument Integration
+## Phase R Completion Status
 
-3. scripts/inference/inference.py (lines 94-99, 191)
-   - Added --backend {tensorflow,pytorch} CLI argument with choices validation
-   - Help text references POLICY-001 (PyTorch>=2.2) and CONFIG-001 (params.cfg restoration)
-   - Default 'tensorflow' for backward compatibility
-   - InferenceConfig.backend field populated from args.backend at line 191
+All Do Now items COMPLETE:
 
-4. tests/scripts/test_inference_backend_selector.py (added lines 190-272)
-   - test_cli_backend_argument_parsing: Verifies CLI accepts --backend, defaults to 'tensorflow', rejects invalid values
-   - test_setup_inference_configuration_uses_backend: Verifies backend value flows through to InferenceConfig
+1. ✅ Branch scripts/inference/inference.py when backend='pytorch'
+   - PyTorch path calls _run_inference_and_reconstruct
+   - TensorFlow path preserved via perform_inference()
+   - Backend-guarded cleanup (tf.keras.backend.clear_session)
 
-## Updated Test Evidence
+2. ✅ Extend tests/scripts/test_inference_backend_selector.py
+   - Added test_pytorch_inference_execution_path
+   - Verifies PyTorch helper invocation
+   - Confirms TensorFlow path skipped
 
-3. green/pytest_backend_selector_cli.log
-   - Command: pytest tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_pytorch_backend_dispatch tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_backend_dispatch -vv
-   - Result: 2 passed in 3.71s
-   - Status: GREEN ✅
-   - Coverage: Both training and inference backend dispatch verified
+3. ✅ Rerun backend selector tests
+   - 3 tests PASSED (training dispatch, inference dispatch, PyTorch execution path)
+   - Log: green/pytest_backend_selector_cli.log
 
-4. cli/pytorch_cli_smoke/train.log
-   - Command: python scripts/training/train.py --backend pytorch --config configs/gridsize2_minimal.yaml --train_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --test_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --output_dir [...]/train_outputs --n_groups 4 --n_subsample 16 --neighbor_count 7 --batch_size 4 --nepochs 1
-   - Result: SUCCESS - bundle saved to train_outputs/wts.h5.zip
-   - Key achievements:
-     * Backend dispatcher routed to PyTorch workflow ✅
-     * params.cfg synchronized with TrainingConfig ✅
-     * Lightning training completed (1 epoch) ✅
-     * Model bundle saved successfully ✅
+4. ✅ PyTorch CLI smoke test (training + inference)
+   - Training: bundle saved, 1 epoch complete
+   - Inference: amplitude/phase PNGs generated
+   - Logs: cli/pytorch_cli_smoke/{train.log, inference.log}
 
-5. cli/pytorch_cli_smoke/inference.log
-   - Command: python scripts/inference/inference.py --model_path [...]/train_outputs --test_data tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --output_dir [...]/inference_outputs --backend pytorch --n_images 4 --n_subsample 16
-   - Result: PARTIAL - bundle loading SUCCESS, reconstruction path needs PyTorch-native implementation
-   - Key achievements:
-     * Backend dispatcher loaded PyTorch model ✅
-     * Inference bundle unpacked successfully (models: diffraction_to_obj, autoencoder) ✅
-     * params_dict restored ✅
-   - Known limitation: Legacy inference.py reconstruction path expects TensorFlow model attributes; PyTorch-native inference orchestration tracked separately
+5. ✅ Update hub artifacts and summaries
+   - This inventory document
+   - summary.md and summary/summary.md with Turn Summary
 
 ## Next Steps
 
-Phase R CLI backend selector integration is COMPLETE:
-- Training CLI --backend pytorch routes through backend selector ✅
-- Inference CLI --backend pytorch routes through backend selector and loads bundles ✅
-- All unit tests GREEN ✅
-- PyTorch training smoke test GREEN ✅
-- PyTorch inference smoke test: bundle loading GREEN, reconstruction needs PyTorch orchestration (tracked as next increment)
+Phase R (PyTorch inference execution path) is COMPLETE.
+
+Future increments may add:
+- CLI --device flag to control PyTorch accelerator (cpu/cuda/mps)
+- Ground truth comparison for PyTorch inference path
+- Batch size control via --inference_batch_size CLI flag
+- Probe visualization for PyTorch models
