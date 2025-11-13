@@ -522,6 +522,7 @@ class TestExecutionConfigOverrides:
 
     def test_execution_config_defaults_applied(self, mock_train_npz, temp_output_dir):
         """Execution config uses dataclass defaults when not overridden."""
+        import torch
         from ptycho.config.config import PyTorchExecutionConfig
 
         payload = create_training_payload(
@@ -531,7 +532,12 @@ class TestExecutionConfigOverrides:
         )
         # GREEN phase assertions (verify defaults from PyTorchExecutionConfig):
         exec_cfg = payload.execution_config
-        assert exec_cfg.accelerator == 'cpu'  # Default per design_delta.md
+        # POLICY-001: GPU-first defaults (auto='cuda' if available, else 'cpu')
+        expected_accelerator = 'cuda' if torch.cuda.is_available() else 'cpu'
+        assert exec_cfg.accelerator == expected_accelerator, (
+            f"Expected GPU-first default accelerator='{expected_accelerator}' per POLICY-001, "
+            f"got '{exec_cfg.accelerator}'"
+        )
         assert exec_cfg.deterministic is True  # Default for reproducibility
         assert exec_cfg.num_workers == 0  # CPU-safe default
 
