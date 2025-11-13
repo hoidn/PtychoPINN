@@ -1,4 +1,11 @@
 ### Turn Summary
+Added POLICY-001 GPU-default logging to training and inference CLIs when users provide no --torch-* execution flags.
+Both CLIs now log GPU-first defaults (CUDA if available, else CPU) with guidance to pass --torch-accelerator cpu for CPU-only runs.
+Created regression tests in test_training_backend_selector.py and test_inference_backend_selector.py that verify log emission and content.
+Next: document remaining pre-existing test failures (15 failures in test_workflows_components.py related to execution_config mocking).
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_backend_selector_cli.log (2 PASSED)
+
+### Turn Summary
 Validated commit 83ae55af plus `green/pytest_execution_config_defaults.log` so backend_selector now has GPU/CPU auto-instantiation tests recorded in `analysis/artifact_inventory.txt`.
 Updated the parity plan + fix plan with a new Do Now that adds POLICY-001 logging in `scripts/training/train.py`/`scripts/inference/inference.py` and CLI-level regression tests proving we pass `torch_execution_config=None` when users omit `--torch-*`.
 Next: implement the CLI logging + pytest additions, rerun the backend-selector selectors, and capture fresh training/inference CLI logs showing the GPU-default message before refreshing summaries.
