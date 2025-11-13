@@ -1,4 +1,25 @@
+<plan_update version="1.0">
+  <trigger>Resume the paused PyTorch↔Ptychodus parity initiative so Ralph can work the Phase 1 bridge/persistence gaps again.</trigger>
+  <focus_id>INTEGRATE-PYTORCH-PARITY-001</focus_id>
+  <documents_read>docs/index.md, docs/specs/spec-ptychopinn.md, docs/specs/spec-ptycho-core.md, docs/specs/spec-ptycho-runtime.md, docs/specs/spec-ptycho-interfaces.md, docs/specs/spec-ptycho-workflow.md, docs/specs/spec-ptycho-tracing.md, docs/specs/spec-ptycho-config-bridge.md, docs/specs/spec-ptycho-conformance.md, docs/specs/overlap_metrics.md, docs/architecture.md, docs/workflows/pytorch.md, docs/findings.md, plans/ptychodus_pytorch_integration_plan.md, plans/pytorch_integration_test_plan.md, PYTORCH_INVENTORY_SUMMARY.txt, docs/fix_plan.md</documents_read>
+  <current_plan_path>plans/ptychodus_pytorch_integration_plan.md</current_plan_path>
+  <proposed_changes>- Document the reactivation scope with a Phase R immediate-focus checklist (config bridge invocation + persistence shim + regression test gate).
+- Record the new reports hub path and testing guard so downstream loops land evidence consistently.
+- Align the Do Now with the inventory quick wins (update_legacy_dict wiring, n_groups default, targeted pytest).</proposed_changes>
+  <impacts>Re-enabling parity work pulls Ralph away from export/docs tasks and reintroduces PyTorch regression risk; requires pytest parity guard and hub evidence on every loop; future attempts must honor POLICY-001 torch requirements.</impacts>
+  <ledger_updates>Add a high-priority focus row to docs/fix_plan.md plus a matching input.md brief and galph_memory entry pointing at this plan + hub.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
 ## Ptychodus ↔ PtychoPINN (PyTorch) Integration Plan
+
+### Immediate Focus — Phase R (Bridge Reactivation, 2025-11-13)
+
+1. **Wire the configuration bridge in runtime entry points.** In `ptycho_torch/train.py` and `ptycho_torch/inference.py`, instantiate the canonical dataclasses via `config_bridge`, call `update_legacy_dict(params.cfg, config)` before touching `RawData`/loader modules, and raise actionable errors when required overrides (e.g., `train_data_file`, `n_groups`) are missing.
+2. **Backfill spec-mandated defaults in `ptycho_torch/config_params.py`.** Ensure `n_groups`, `test_data_file`, `gaussian_smoothing_sigma`, and related knobs required by `specs/ptychodus_api_spec.md §§5.1-5.3` exist with TensorFlow-parity defaults so the bridge can populate legacy consumers.
+3. **Provide a native persistence shim.** Until the full `.h5.zip` adapter lands, teach `ptycho_torch/api/base_api.py::PtychoModel.save_pytorch()` to emit a Lightning checkpoint + manifest bundle and document how `load_*` surfaces rehydrate configs; keep the implementation small but spec-compliant (§4.6).
+4. **Regression gate.** Every loop must run `pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity -vv` (or a stricter subset) and upload logs under the active hub `plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/`.
+5. **Exit criteria for reactivation:** (a) update_legacy_dict invoked in both CLI entry points, (b) config defaults + persistence shim merged, (c) targeted pytest selector green with evidence, (d) hub `analysis/artifact_inventory.txt` + `summary/summary.md` list the code/test paths touched.
 
 ### 1. Scope & Goals
 
