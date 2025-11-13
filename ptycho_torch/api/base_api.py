@@ -609,8 +609,82 @@ class PtychoModel:
         
         return dest_uri
 
-    def save_pytorch(self, destination_path = str):
-        pass
+    def save_pytorch(self, destination_path: str, checkpoint_path: Optional[str] = None) -> Path:
+        """
+        Minimal persistence shim for PyTorch backend (Phase R reactivation).
+
+        Emits a Lightning checkpoint + manifest bundle referencing params.cfg so
+        ptychodus loaders can track backend provenance per specs/ptychodus_api_spec.md §4.6.
+
+        This is a transitional implementation until full .h5.zip adapter lands in Phase 5.
+
+        Args:
+            destination_path: Output directory for the bundle
+            checkpoint_path: Optional path to Lightning .ckpt file (if None, searches default locations)
+
+        Returns:
+            Path to the created manifest file
+
+        Raises:
+            FileNotFoundError: If checkpoint_path not provided and can't find .ckpt in destination
+            ValueError: If params.cfg is empty (CONFIG-001 violation)
+
+        Example:
+            >>> model = PtychoModel(...)
+            >>> manifest_path = model.save_pytorch('outputs/exp001')
+            >>> # Creates: outputs/exp001/checkpoint.ckpt + manifest.json
+
+        See also:
+            - TensorFlow persistence: ptycho/model_manager.py (save_model, save_multiple_models)
+            - Spec contract: specs/ptychodus_api_spec.md §4.6
+        """
+        import json
+        from pathlib import Path
+        import ptycho.params as params
+
+        dest = Path(destination_path)
+        dest.mkdir(parents=True, exist_ok=True)
+
+        # Validate params.cfg populated (CONFIG-001 gate)
+        if not params.cfg:
+            raise ValueError(
+                "params.cfg is empty. Must call update_legacy_dict(params.cfg, config) "
+                "before save_pytorch(). See CONFIG-001 in docs/findings.md."
+            )
+
+        # Locate Lightning checkpoint
+        if checkpoint_path is None:
+            # Search for .ckpt in destination directory
+            ckpt_candidates = list(dest.glob('**/*.ckpt'))
+            if not ckpt_candidates:
+                raise FileNotFoundError(
+                    f"No Lightning checkpoint (.ckpt) found in {dest}. "
+                    "Provide checkpoint_path explicitly or ensure training saved a checkpoint."
+                )
+            checkpoint_path = str(ckpt_candidates[0])
+
+        ckpt_path = Path(checkpoint_path)
+        if not ckpt_path.exists():
+            raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
+
+        # Create manifest bundle
+        manifest = {
+            'backend': 'pytorch',
+            'checkpoint': str(ckpt_path.name),  # Relative to destination_path
+            'params_cfg_snapshot': dict(params.cfg),  # Serialize params.cfg for provenance
+            'version': '1.0',
+            'notes': 'Minimal PyTorch persistence shim (Phase R reactivation)'
+        }
+
+        manifest_path = dest / 'pytorch_manifest.json'
+        with open(manifest_path, 'w') as f:
+            json.dump(manifest, f, indent=2, default=str)  # default=str handles Path objects
+
+        print(f"✓ PyTorch bundle saved to {dest}")
+        print(f"  - Checkpoint: {ckpt_path.name}")
+        print(f"  - Manifest: {manifest_path.name}")
+
+        return manifest_path
 
     def save_checkpoint(self, destination_path=str):
         pass
