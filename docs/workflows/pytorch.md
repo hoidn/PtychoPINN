@@ -69,6 +69,20 @@ update_legacy_dict(params.cfg, config)
 - `config.subsample_seed`: RNG seed for reproducible sampling (default: deterministic behavior enabled)
 - `config.sequential_sampling`: Use deterministic sequential grouping instead of random (default: `False`)
 
+### Config Mappings (subset)
+
+Small subset of the TF ↔ PyTorch configuration mapping. See the full spec for all fields and rules: <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref>
+
+| PyTorch (config_params) | TensorFlow (dataclass) | Transform / Notes |
+|---|---|---|
+| `DataConfig.grid_size: (h,w)` | `ModelConfig.gridsize: int` | Require square; use `h` (error if `h!=w`). |
+| `ModelConfig.mode: 'Unsupervised'|'Supervised'` | `ModelConfig.model_type: 'pinn'|'supervised'` | Map: Unsupervised→pinn, Supervised→supervised. |
+| `TrainingConfig.epochs: int` | `TrainingConfig.nepochs: int` | Rename field. |
+| `DataConfig.K: int` | `TrainingConfig.neighbor_count: int` | Semantic rename (K=neighbors). |
+| `DataConfig.N: int` | `ModelConfig.N: {64,128,256}` | Validate against allowed set. |
+| `ModelConfig.amp_activation: 'silu'|'SiLU'|...` | `ModelConfig.amp_activation` | Map silu/SiLU→swish; others must be supported by TF enum. |
+
+
 ## 4. Loading Data
 
 Use the same `RawData` loading utilities as TensorFlow:
