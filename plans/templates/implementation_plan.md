@@ -14,6 +14,12 @@
 - Working Plan: this file
 - Reports Hub (primary): `plans/active/<initiative-id>/reports/<ISO8601Z>/<slug>/`
 
+## Context Priming (read before edits)
+> Replace the example entries below with the documentation that is actually relevant to this initiative—do **not** copy these paths verbatim.
+- [ ] docs/specs/spec-ptycho-core.md — Core physics/data contracts (example)
+- [ ] docs/specs/spec-ptycho-workflow.md — Pipeline semantics (example)
+- [ ] docs/architecture_torch.md — Backend-specific architecture notes (example)
+
 ## Problem Statement
 <1–3 sentences framing the problem and constraints>
 
@@ -80,19 +86,3 @@
 ## Open Questions & Follow-ups
 - <decision pending>
 - <follow‑up validation>
-
-## Plan‑Update Protocol (reminder)
-Paste a small XML block immediately above a major plan edit to preserve audit history (keep XML inside the plan only):
-
-```xml
-<plan_update version="1.0">
-  <trigger>why the change is needed</trigger>
-  <focus_id><initiative-id></focus_id>
-  <documents_read>docs/index.md, docs/TESTING_GUIDE.md, docs/fix_plan.md, …</documents_read>
-  <current_plan_path>plans/active/<initiative-id>/implementation.md</current_plan_path>
-  <proposed_changes>bullet summary of concrete edits</proposed_changes>
-  <impacts>risks or required test reruns</impacts>
-  <ledger_updates>what to add in docs/fix_plan.md Attempts History</ledger_updates>
-  <status>draft|approved|blocked</status>
-</plan_update>
-```
