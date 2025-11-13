@@ -1,0 +1,24 @@
+
+================================================================================
+Phase E5 Training Execution — baseline (dose=1e+03, gridsize=1, backend=tensorflow)
+================================================================================
+Train dataset: /home/ollie/Documents/PtychoPINN/data/phase_c/dose_1000/patched_train.npz
+Test dataset: /home/ollie/Documents/PtychoPINN/data/phase_c/dose_1000/patched_test.npz
+Output directory: /home/ollie/Documents/PtychoPINN/data/phase_e/dose_1000/baseline/gs1
+Gridsize: 1
+nphotons: 1000.0
+Backend: tensorflow
+
+Loading datasets via TensorFlow loader...
+Invoking TensorFlow train_cdi_model...
+Persisting model bundle via TensorFlow ModelManager...
+Bundle saved: /home/ollie/Documents/PtychoPINN/data/phase_e/dose_1000/baseline/gs1/wts.h5.zip
+Bundle SHA256: 1c852a35c7d8e39fd7744cb585ae8321c4b32ee0635559bb49ba79da123cdd27
+Bundle size: 67862247 bytes
+Training completed successfully
+Final loss: 0.14371365308761597
+Epochs completed: 44
+Checkpoint path: None
+Bundle path: /home/ollie/Documents/PtychoPINN/data/phase_e/dose_1000/baseline/gs1/wts.h5.zip
+Bundle SHA256: 1c852a35c7d8e39fd7744cb585ae8321c4b32ee0635559bb49ba79da123cdd27
+Bundle size: 67862247 bytes

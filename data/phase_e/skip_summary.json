@@ -1,0 +1,11 @@
+{
+  "timestamp": "2025-11-13T07:37:55.041249Z",
+  "skipped_views": [
+    {
+      "dose": 1000.0,
+      "view": "sparse",
+      "reason": "NPZ files not found (train=False, test=False). Checked primary (sparse_train.npz/sparse_test.npz) and fallback (train.npz/test.npz)."
+    }
+  ],
+  "skipped_count": 1
+}
