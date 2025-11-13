@@ -199,6 +199,88 @@ class TestInferenceCLI:
         assert exec_config.num_workers == 8
         assert exec_config.inference_batch_size == 64
 
+    def test_accelerator_flag_roundtrip(self, minimal_inference_args, monkeypatch):
+        """
+        Test that accelerator flag is properly handled by _run_inference_and_reconstruct (DEVICE-MISMATCH-001).
+
+        Expected behavior:
+        - CLI parses --accelerator flag and builds execution_config
+        - execution_config accelerator maps to device string ('cuda', 'mps', 'cpu')
+        - _run_inference_and_reconstruct receives device and moves model to it
+        - Model.to(device) and model.eval() are called inside helper
+
+        Phase: R (DEVICE-MISMATCH-001 fix)
+        Reference: input.md Do Now step 3, DEVICE-MISMATCH-001 finding
+        """
+        import numpy as np
+        from unittest.mock import MagicMock, patch
+
+        # Mock RawData with minimal required fields
+        mock_raw_data = MagicMock()
+        mock_raw_data.diff3d = np.random.rand(10, 64, 64).astype(np.float32)
+        mock_raw_data.probeGuess = np.random.rand(64, 64).astype(np.complex64)
+        mock_raw_data.xcoords = np.random.rand(10)
+        mock_raw_data.ycoords = np.random.rand(10)
+
+        # Mock model with .to() and .eval() tracking
+        mock_model = MagicMock()
+        device_calls = []
+        eval_calls = []
+
+        def track_to_call(device):
+            device_calls.append(device)
+            return mock_model
+
+        def track_eval_call():
+            eval_calls.append(True)
+            return mock_model
+
+        mock_model.to = MagicMock(side_effect=track_to_call)
+        mock_model.eval = MagicMock(side_effect=track_eval_call)
+        mock_model.forward_predict = MagicMock(
+            return_value=MagicMock(
+                cpu=MagicMock(
+                    return_value=MagicMock(
+                        numpy=MagicMock(return_value=np.random.rand(1, 1, 64, 64).astype(np.complex64))
+                    )
+                )
+            )
+        )
+
+        # Import and call _run_inference_and_reconstruct directly
+        from ptycho_torch.inference import _run_inference_and_reconstruct
+        from ptycho.config.config import InferenceConfig, ModelConfig, PyTorchExecutionConfig
+
+        config = InferenceConfig(
+            model=ModelConfig(N=64, gridsize=1),
+            model_path=Path('outputs/test/bundle.zip'),
+            test_data_file=Path('test.npz'),
+            backend='pytorch',
+            output_dir=Path('outputs/inference'),
+            n_groups=10
+        )
+
+        execution_config = PyTorchExecutionConfig(
+            accelerator='cuda',  # Request CUDA device
+            num_workers=0,
+            inference_batch_size=None
+        )
+
+        # Call helper with 'cuda' device
+        _run_inference_and_reconstruct(
+            mock_model, mock_raw_data, config, execution_config, 'cuda', quiet=True
+        )
+
+        # Verify model.to('cuda') was called
+        assert len(device_calls) > 0, \
+            "_run_inference_and_reconstruct should call model.to(device)"
+        assert device_calls[0] == 'cuda', \
+            f"model.to() should be called with 'cuda', got {device_calls[0]}"
+
+        # Verify model.eval() was called
+        assert len(eval_calls) > 0, \
+            "_run_inference_and_reconstruct should call model.eval()"
+
 
 class TestInferenceCLIThinWrapper:
     """

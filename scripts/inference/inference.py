@@ -467,6 +467,34 @@ def main():
         print("Loading model...")
         model, _ = load_inference_bundle_with_backend(config.model_path, config)
 
+        # For PyTorch backend, move model to execution device and set to eval mode
+        if config.backend == 'pytorch':
+            # Resolve device before loading data (will be used for tensors and model)
+            import argparse as arg_module
+            exec_args = arg_module.Namespace(
+                accelerator=getattr(args, 'torch_accelerator', 'auto'),
+                num_workers=getattr(args, 'torch_num_workers', 0),
+                inference_batch_size=getattr(args, 'torch_inference_batch_size', None),
+                quiet=getattr(args, 'debug', False) == False,
+                disable_mlflow=False
+            )
+
+            from ptycho_torch.cli.shared import build_execution_config_from_args
+            execution_config = build_execution_config_from_args(exec_args, mode='inference')
+
+            # Map Lightning accelerator convention to torch device string
+            if execution_config.accelerator in ('cuda', 'gpu'):
+                device_str = 'cuda'
+            elif execution_config.accelerator == 'mps':
+                device_str = 'mps'
+            else:
+                device_str = 'cpu'
+
+            # Move model to execution device and ensure eval mode (DEVICE-MISMATCH-001 fix)
+            model.to(device_str)
+            model.eval()
+            print(f"PyTorch model moved to device: {device_str}")
+
         # Load test data with new independent sampling parameters
         print("Loading test data...")
         test_data = load_data(
@@ -508,29 +536,9 @@ def main():
         if config.backend == 'pytorch':
             # PyTorch inference path
             from ptycho_torch.inference import _run_inference_and_reconstruct
-            from ptycho_torch.cli.shared import build_execution_config_from_args
 
-            # Map CLI args to execution config field names
-            # (--torch-* flags → accelerator, num_workers, inference_batch_size)
-            exec_args = argparse.Namespace(
-                accelerator=getattr(args, 'torch_accelerator', 'auto'),
-                num_workers=getattr(args, 'torch_num_workers', 0),
-                inference_batch_size=getattr(args, 'torch_inference_batch_size', None),
-                quiet=getattr(args, 'debug', False) == False,  # Invert debug flag for quiet
-                disable_mlflow=False  # Not applicable for inference
-            )
-
-            # Build validated execution config from CLI args (POLICY-001, CONFIG-LOGGER-001)
-            execution_config = build_execution_config_from_args(exec_args, mode='inference')
-
-            # Resolve device from accelerator for downstream usage
-            # Map Lightning accelerator convention to torch device string
-            if execution_config.accelerator in ('cuda', 'gpu'):
-                device = 'cuda'
-            elif execution_config.accelerator == 'mps':
-                device = 'mps'
-            else:
-                device = 'cpu'  # Default for 'cpu', 'auto', etc.
+            # execution_config and device_str already resolved above after model loading
+            # to ensure model.to(device) happens before inference
 
             print(f"PyTorch inference config: accelerator={execution_config.accelerator}, "
                   f"num_workers={execution_config.num_workers}, "
@@ -538,7 +546,7 @@ def main():
 
             # Call PyTorch-native inference helper
             reconstructed_amplitude, reconstructed_phase = _run_inference_and_reconstruct(
-                model, test_data, config, execution_config, device, quiet=False
+                model, test_data, config, execution_config, device_str, quiet=False
             )
 
             # PyTorch path doesn't return ground truth comparison data (not in scope for Phase R)

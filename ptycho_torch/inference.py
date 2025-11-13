@@ -295,7 +295,7 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     Extract inference logic into testable helper function (Phase D.C C3).
 
     Args:
-        model: Loaded Lightning module (eval mode)
+        model: Loaded Lightning module (should be in eval mode)
         raw_data: RawData instance with test data
         config: TFInferenceConfig with n_groups, etc.
         execution_config: PyTorchExecutionConfig with device, batch size, etc.
@@ -310,9 +310,14 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
         - Enforces DTYPE-001 (float32 for diffraction, complex64 for probe)
         - Handles shape permutations (H,W,N → N,H,W)
         - Averages across batch for single reconstruction
+        - DEVICE-MISMATCH-001: Ensures model is on the correct device
     """
     import torch
     import numpy as np
+
+    # DEVICE-MISMATCH-001 fix: Ensure model is on the requested device and in eval mode
+    model.to(device)
+    model.eval()
 
     # DTYPE ENFORCEMENT (Phase D1d): Cast to float32 per DATA-001
     diffraction = torch.from_numpy(raw_data.diff3d).to(device, dtype=torch.float32)
