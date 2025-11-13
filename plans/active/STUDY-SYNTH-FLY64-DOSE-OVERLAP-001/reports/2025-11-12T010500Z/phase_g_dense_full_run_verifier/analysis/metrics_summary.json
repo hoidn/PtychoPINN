@@ -1,0 +1,172 @@
+{
+  "n_jobs": 1,
+  "n_success": 1,
+  "n_failed": 0,
+  "jobs": [
+    {
+      "dose": 1000,
+      "view": "dense",
+      "split": "test",
+      "metrics": [
+        {
+          "model": "PtychoPINN",
+          "metric": "mae",
+          "amplitude": 0.041413,
+          "phase": 0.242237
+        },
+        {
+          "model": "PtychoPINN",
+          "metric": "mse",
+          "amplitude": 0.002674,
+          "phase": 0.074945
+        },
+        {
+          "model": "PtychoPINN",
+          "metric": "psnr",
+          "amplitude": 73.859807,
+          "phase": 59.383374
+        },
+        {
+          "model": "PtychoPINN",
+          "metric": "ssim",
+          "amplitude": 0.221598,
+          "phase": 0.73025
+        },
+        {
+          "model": "PtychoPINN",
+          "metric": "ms_ssim",
+          "amplitude": 0.19021,
+          "phase": 0.039176
+        },
+        {
+          "model": "PtychoPINN",
+          "metric": "frc50",
+          "amplitude": 1.0,
+          "phase": 1.0
+        },
+        {
+          "model": "Baseline",
+          "metric": "mae"
+        },
+        {
+          "model": "Baseline",
+          "metric": "mse"
+        },
+        {
+          "model": "Baseline",
+          "metric": "psnr"
+        },
+        {
+          "model": "Baseline",
+          "metric": "ssim"
+        },
+        {
+          "model": "Baseline",
+          "metric": "ms_ssim"
+        },
+        {
+          "model": "Baseline",
+          "metric": "frc50"
+        },
+        {
+          "model": "Pty-chi (pty-chi)",
+          "metric": "mae",
+          "amplitude": 0.069598,
+          "phase": 0.128297
+        },
+        {
+          "model": "Pty-chi (pty-chi)",
+          "metric": "mse",
+          "amplitude": 0.007253,
+          "phase": 0.027517
+        },
+        {
+          "model": "Pty-chi (pty-chi)",
+          "metric": "psnr",
+          "amplitude": 69.52562,
+          "phase": 63.734735
+        },
+        {
+          "model": "Pty-chi (pty-chi)",
+          "metric": "ssim",
+          "amplitude": 0.300585,
+          "phase": 0.848341
+        },
+        {
+          "model": "Pty-chi (pty-chi)",
+          "metric": "ms_ssim",
+          "amplitude": 0.616761,
+          "phase": 0.82938
+        },
+        {
+          "model": "Pty-chi (pty-chi)",
+          "metric": "frc50",
+          "amplitude": 1.0,
+          "phase": 1.0
+        },
+        {
+          "model": "Pty-chi (pty-chi)",
+          "metric": "registration_offset_dy",
+          "value": 0.1
+        },
+        {
+          "model": "Pty-chi (pty-chi)",
+          "metric": "registration_offset_dx",
+          "value": -1.22
+        },
+        {
+          "model": "PtychoPINN",
+          "metric": "computation_time_s",
+          "value": 7.107684
+        },
+        {
+          "model": "Baseline",
+          "metric": "computation_time_s",
+          "value": 12.659365
+        }
+      ]
+    }
+  ],
+  "aggregate_metrics": {
+    "Pty-chi (pty-chi)": {
+      "mae": {
+        "mean_amplitude": 0.069598,
+        "mean_phase": 0.128297
+      },
+      "ms_ssim": {
+        "mean_amplitude": 0.616761,
+        "best_amplitude": 0.616761,
+        "mean_phase": 0.82938,
+        "best_phase": 0.82938
+      }
+    },
+    "PtychoPINN": {
+      "mae": {
+        "mean_amplitude": 0.041413,
+        "mean_phase": 0.242237
+      },
+      "ms_ssim": {
+        "mean_amplitude": 0.19021,
+        "best_amplitude": 0.19021,
+        "mean_phase": 0.039176,
+        "best_phase": 0.039176
+      }
+    }
+  },
+  "phase_c_metadata_compliance": {
+    "dose_1000": {
+      "train": {
+        "npz_path": "data/phase_c/dose_1000/patched_train.npz",
+        "has_metadata": true,
+        "has_canonical_transform": true,
+        "compliant": true
+      },
+      "test": {
+        "npz_path": "data/phase_c/dose_1000/patched_test.npz",
+        "has_metadata": true,
+        "has_canonical_transform": true,
+        "compliant": true
+      }
+    }
+  }
+}

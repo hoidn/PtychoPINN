@@ -1,14 +1,14 @@
 Command: /home/ollie/miniconda3/envs/ptycho311/bin/python -m scripts.compare_models --pinn_dir /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2 --baseline_dir /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1 --test_data /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz --output_dir /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train --ms-ssim-sigma 1.0 --tike_recon_path /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/train/ptychi_reconstruction.npz --register-ptychi-only
-Return code: 1
+Return code: 0
 
 === STDOUT ===
-2025-11-12 23:13:06,969 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
-2025-11-12 23:13:06,969 - INFO - Registration: enabled
-2025-11-12 23:13:06,969 - INFO - NPZ output: raw=enabled, aligned=enabled
-2025-11-12 23:13:06,969 - INFO - Loading PtychoPINN inference model (diffraction_to_obj) to restore configuration...
-2025-11-12 23:13:06,969 - INFO - Loading model from: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
+2025-11-13 02:35:20,463 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
+2025-11-13 02:35:20,463 - INFO - Registration: enabled
+2025-11-13 02:35:20,463 - INFO - NPZ output: raw=enabled, aligned=enabled
+2025-11-13 02:35:20,463 - INFO - Loading PtychoPINN inference model (diffraction_to_obj) to restore configuration...
+2025-11-13 02:35:20,463 - INFO - Loading model from: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
 Model: "functional"
-2025-11-12 23:13:08,045 - INFO - Model: "functional"
+2025-11-13 02:35:21,531 - INFO - Model: "functional"
 ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
 ┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
 ┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
@@ -212,7 +212,7 @@ Model: "functional"
 │ pred_intensity      │ (None, 128, 128,  │          0 │ intensity_scaler… │
 │ (SquareLayer)       │ 4)                │            │                   │
 └─────────────────────┴───────────────────┴────────────┴───────────────────┘
-2025-11-12 23:13:08,069 - INFO - ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
+2025-11-13 02:35:21,555 - INFO - ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
 ┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
 ┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
 │ input (InputLayer)  │ (None, 128, 128,  │          0 │ -                 │
@@ -416,952 +416,797 @@ Model: "functional"
 │ (SquareLayer)       │ 4)                │            │                   │
 └─────────────────────┴───────────────────┴────────────┴───────────────────┘
  Total params: 4,667,056 (17.80 MB)
-2025-11-12 23:13:08,070 - INFO - Total params: 4,667,056 (17.80 MB)
+2025-11-13 02:35:21,556 - INFO - Total params: 4,667,056 (17.80 MB)
  Trainable params: 4,667,056 (17.80 MB)
-2025-11-12 23:13:08,070 - INFO - Trainable params: 4,667,056 (17.80 MB)
+2025-11-13 02:35:21,556 - INFO - Trainable params: 4,667,056 (17.80 MB)
  Non-trainable params: 0 (0.00 B)
-2025-11-12 23:13:08,070 - INFO - Non-trainable params: 0 (0.00 B)
-None2025-11-12 23:13:08,070 - INFO - None
+2025-11-13 02:35:21,556 - INFO - Non-trainable params: 0 (0.00 B)
+None2025-11-13 02:35:21,556 - INFO - None
 
-2025-11-12 23:13:08,261 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+2025-11-13 02:35:21,751 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
   warnings.warn(
-2025-11-12 23:13:08,262 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+2025-11-13 02:35:21,752 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
   warnings.warn(
-2025-11-12 23:13:08,913 - INFO - Successfully loaded model from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
-2025-11-12 23:13:08,914 - INFO - Restored configuration from model: gridsize=2, N=128
-2025-11-12 23:13:08,914 - INFO - Loading test data from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz with restored gridsize=2...
-2025-11-12 23:13:08,914 - INFO - Using all test data (no subsampling or grouping limit)
-2025-11-12 23:13:08,914 - INFO - Loading data from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz with n_images=None, n_subsample=None
-2025-11-12 23:13:09,362 - WARNING - Ignoring NPZ 'Y' with incompatible shape (1, 128, 128, 1) (expected first axis 5088)
-2025-11-12 23:13:09,362 - INFO - Using full dataset of 5088 images
-diff3d shape: (5088, 128, 128)2025-11-12 23:13:09,400 - INFO - diff3d shape: (5088, 128, 128)
+2025-11-13 02:35:22,392 - INFO - Successfully loaded model from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
+2025-11-13 02:35:22,393 - INFO - Restored configuration from model: gridsize=2, N=128
+2025-11-13 02:35:22,393 - INFO - Loading test data from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz with restored gridsize=2...
+2025-11-13 02:35:22,393 - INFO - Using all test data (no subsampling or grouping limit)
+2025-11-13 02:35:22,393 - INFO - Loading data from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz with n_images=None, n_subsample=None
+2025-11-13 02:35:22,838 - WARNING - Ignoring NPZ 'Y' with incompatible shape (1, 128, 128, 1) (expected first axis 5088)
+2025-11-13 02:35:22,838 - INFO - Using full dataset of 5088 images
+diff3d shape: (5088, 128, 128)2025-11-13 02:35:22,876 - INFO - diff3d shape: (5088, 128, 128)
 
-probeGuess shape: (128, 128)2025-11-12 23:13:09,400 - INFO - probeGuess shape: (128, 128)
+probeGuess shape: (128, 128)2025-11-13 02:35:22,876 - INFO - probeGuess shape: (128, 128)
 
-scan_index shape: (5088,)2025-11-12 23:13:09,400 - INFO - scan_index shape: (5088,)
+scan_index shape: (5088,)2025-11-13 02:35:22,876 - INFO - scan_index shape: (5088,)
 
-objectGuess shape: (464, 464)2025-11-12 23:13:09,400 - INFO - objectGuess shape: (464, 464)
+objectGuess shape: (464, 464)2025-11-13 02:35:22,876 - INFO - objectGuess shape: (464, 464)
 
-xcoords shape: (5088,)2025-11-12 23:13:09,400 - INFO - xcoords shape: (5088,)
+xcoords shape: (5088,)2025-11-13 02:35:22,876 - INFO - xcoords shape: (5088,)
 
-ycoords shape: (5088,)2025-11-12 23:13:09,400 - INFO - ycoords shape: (5088,)
+ycoords shape: (5088,)2025-11-13 02:35:22,876 - INFO - ycoords shape: (5088,)
 
-xcoords_start shape: (5088,)2025-11-12 23:13:09,400 - INFO - xcoords_start shape: (5088,)
+xcoords_start shape: (5088,)2025-11-13 02:35:22,876 - INFO - xcoords_start shape: (5088,)
 
-ycoords_start shape: (5088,)2025-11-12 23:13:09,400 - INFO - ycoords_start shape: (5088,)
+ycoords_start shape: (5088,)2025-11-13 02:35:22,876 - INFO - ycoords_start shape: (5088,)
 
-2025-11-12 23:13:09,401 - INFO - Final configuration: gridsize=2, N=128, n_images=5088
-2025-11-12 23:13:09,401 - INFO - Using stitch_crop_size M=20 (N=128)
-2025-11-12 23:13:09,401 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=5088, n_points=5088, C=4, K=7
-2025-11-12 23:13:09,401 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=128, sequential_sampling=False
-2025-11-12 23:13:09,401 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
-2025-11-12 23:13:09,401 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 5088 > 5088 = False
-2025-11-12 23:13:09,402 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
-2025-11-12 23:13:09,402 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
-DEBUG:2025-11-12 23:13:09,402 - INFO - DEBUG:
- nsamples: 5088, gridsize: 2 (using efficient random sample-then-group strategy)2025-11-12 23:13:09,402 - INFO - nsamples: 5088, gridsize: 2 (using efficient random sample-then-group strategy)
+2025-11-13 02:35:22,877 - INFO - Final configuration: gridsize=2, N=128, n_images=5088
+2025-11-13 02:35:22,877 - INFO - Using stitch_crop_size M=20 (N=128)
+2025-11-13 02:35:22,878 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=5088, n_points=5088, C=4, K=7
+2025-11-13 02:35:22,878 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=128, sequential_sampling=False
+2025-11-13 02:35:22,878 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
+2025-11-13 02:35:22,878 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 5088 > 5088 = False
+2025-11-13 02:35:22,878 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2025-11-13 02:35:22,878 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+DEBUG:2025-11-13 02:35:22,878 - INFO - DEBUG:
+ nsamples: 5088, gridsize: 2 (using efficient random sample-then-group strategy)2025-11-13 02:35:22,878 - INFO - nsamples: 5088, gridsize: 2 (using efficient random sample-then-group strategy)
 
-2025-11-12 23:13:09,402 - INFO - Using efficient random sampling strategy for gridsize=2
-2025-11-12 23:13:09,402 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
-2025-11-12 23:13:09,402 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=5088, K=7, C=4
-2025-11-12 23:13:09,402 - INFO - Generating 5088 groups efficiently from 5088 points (K=7, C=4)
-2025-11-12 23:13:09,402 - INFO - [OVERSAMPLING DEBUG] Standard case: using 5088 groups from 5088 points
-2025-11-12 23:13:09,402 - INFO - [OVERSAMPLING DEBUG] Using all 5088 points as seeds (no sampling needed)
-2025-11-12 23:13:09,402 - INFO - Using all 5088 points as seeds
-2025-11-12 23:13:09,434 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 5088 groups
-2025-11-12 23:13:09,434 - INFO - Successfully generated 5088 groups with shape (5088, 4)
-2025-11-12 23:13:09,434 - INFO - [OVERSAMPLING DEBUG] Generated 5088 groups in total
-2025-11-12 23:13:09,434 - INFO - Generated 5088 groups efficiently
-INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.2025-11-12 23:13:09,590 - INFO - INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+2025-11-13 02:35:22,878 - INFO - Using efficient random sampling strategy for gridsize=2
+2025-11-13 02:35:22,878 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-11-13 02:35:22,878 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=5088, K=7, C=4
+2025-11-13 02:35:22,878 - INFO - Generating 5088 groups efficiently from 5088 points (K=7, C=4)
+2025-11-13 02:35:22,878 - INFO - [OVERSAMPLING DEBUG] Standard case: using 5088 groups from 5088 points
+2025-11-13 02:35:22,878 - INFO - [OVERSAMPLING DEBUG] Using all 5088 points as seeds (no sampling needed)
+2025-11-13 02:35:22,878 - INFO - Using all 5088 points as seeds
+2025-11-13 02:35:22,911 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 5088 groups
+2025-11-13 02:35:22,911 - INFO - Successfully generated 5088 groups with shape (5088, 4)
+2025-11-13 02:35:22,912 - INFO - [OVERSAMPLING DEBUG] Generated 5088 groups in total
+2025-11-13 02:35:22,912 - INFO - Generated 5088 groups efficiently
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.2025-11-13 02:35:23,062 - INFO - INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
 
-neighbor-sampled diffraction shape2025-11-12 23:14:37,480 - INFO - neighbor-sampled diffraction shape
- (5088, 128, 128, 4)2025-11-12 23:14:37,480 - INFO - (5088, 128, 128, 4)
+neighbor-sampled diffraction shape2025-11-13 02:36:52,794 - INFO - neighbor-sampled diffraction shape
+ (5088, 128, 128, 4)2025-11-13 02:36:52,794 - INFO - (5088, 128, 128, 4)
 
-loader: using provided ground truth patches.2025-11-12 23:14:39,513 - INFO - loader: using provided ground truth patches.
+loader: using provided ground truth patches.2025-11-13 02:36:54,832 - INFO - loader: using provided ground truth patches.
 
-INFO:2025-11-12 23:14:39,937 - INFO - INFO:
- None2025-11-12 23:14:39,937 - INFO - None
+INFO:2025-11-13 02:36:55,252 - INFO - INFO:
+ None2025-11-13 02:36:55,252 - INFO - None
 
-<PtychoDataContainer X=(5088, 128, 128, 4) Y_I=(5088, 128, 128, 4) Y_phi=(5088, 128, 128, 4) norm_Y_I=() coords_nominal=(5088, 1, 2, 4) coords_true=(5088, 1, 2, 4) nn_indices=(5088, 4) mean=2550.773 global_offsets=(5088, 1, 2, 1) mean=188.719 local_offsets=(5088, 1, 2, 4) mean=0.000 probe=(128, 128) mean_amplitude=0.007>2025-11-12 23:14:39,937 - INFO - <PtychoDataContainer X=(5088, 128, 128, 4) Y_I=(5088, 128, 128, 4) Y_phi=(5088, 128, 128, 4) norm_Y_I=() coords_nominal=(5088, 1, 2, 4) coords_true=(5088, 1, 2, 4) nn_indices=(5088, 4) mean=2550.773 global_offsets=(5088, 1, 2, 1) mean=188.719 local_offsets=(5088, 1, 2, 4) mean=0.000 probe=(128, 128) mean_amplitude=0.007>
+<PtychoDataContainer X=(5088, 128, 128, 4) Y_I=(5088, 128, 128, 4) Y_phi=(5088, 128, 128, 4) norm_Y_I=() coords_nominal=(5088, 1, 2, 4) coords_true=(5088, 1, 2, 4) nn_indices=(5088, 4) mean=2550.773 global_offsets=(5088, 1, 2, 1) mean=188.719 local_offsets=(5088, 1, 2, 4) mean=0.000 probe=(128, 128) mean_amplitude=0.007>2025-11-13 02:36:55,252 - INFO - <PtychoDataContainer X=(5088, 128, 128, 4) Y_I=(5088, 128, 128, 4) Y_phi=(5088, 128, 128, 4) norm_Y_I=() coords_nominal=(5088, 1, 2, 4) coords_true=(5088, 1, 2, 4) nn_indices=(5088, 4) mean=2550.773 global_offsets=(5088, 1, 2, 1) mean=188.719 local_offsets=(5088, 1, 2, 4) mean=0.000 probe=(128, 128) mean_amplitude=0.007>
 
-2025-11-12 23:14:39,945 - INFO - Loading Baseline model from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1...
-2025-11-12 23:14:39,945 - INFO - baseline_model.h5 not found; attempting to load TF bundle (wts.h5.zip)
-2025-11-12 23:14:39,945 - INFO - Loading model from: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
-2025-11-12 23:14:40,970 - INFO - Successfully loaded model from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
-2025-11-12 23:14:40,971 - INFO - Loading iterative reconstruction from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/train/ptychi_reconstruction.npz...
-2025-11-12 23:14:40,976 - INFO - Loaded Pty-chi (pty-chi) reconstruction: (346, 514) (complex64)
-2025-11-12 23:14:40,976 - INFO - Pty-chi (pty-chi) reconstruction loaded for three-way comparison
-2025-11-12 23:14:40,976 - INFO - Running inference with PtychoPINN (diffraction_to_obj)...
-2025-11-12 23:14:42,042 - CRITICAL - Uncaught exception
-Traceback (most recent call last):
-  File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1290, in <module>
-    main()
-  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 967, in main
-    pinn_recon = pinn_model.predict(
-                 ^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 122, in error_handler
-    raise e.with_traceback(filtered_tb) from None
-  File "/home/ollie/Documents/PtychoPINN/ptycho/custom_layers.py", line 148, in call
-    return hh.reassemble_patches(patches,
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 1043, in reassemble_patches
-    assembled_real = fn_reassemble_real(real, average = average, **kwargs) / mk_norm(real,
-                                                                             ^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 1020, in mk_norm
-    assembled_ones = fn_reassemble_real(ones, average = False)
-                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 1267, in reassemble_patches_position_real
-    return _reassemble_patches_position_real(imgs, input_positions,
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 865, in _reassemble_patches_position_real
-    imgs_flat_bigN_translated = Translation(jitter_stddev=0.0, use_xla=should_use_xla())([imgs_flat_bigN, -offsets_flat])
-                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 836, in call
-    return translate(imgs, offsets + jitter, interpolation='bilinear', use_xla_workaround=self.use_xla)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 678, in newf
-    return fn(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 798, in translate
-    return translate_core(imgs, offsets, interpolation=interpolation, use_xla_workaround=use_xla_workaround)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 722, in translate_core
-    return translate_xla(images, translations, interpolation=interpolation, use_jit=True)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 279, in translate_xla
-    return projective_warp_xla_jit(images, M,
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/tmp/__autograph_generated_filev77kq8fu.py", line 19, in tf__projective_warp_xla_jit
-    raise
-  File "/tmp/__autograph_generated_filem3wg3qhe.py", line 131, in tf__projective_warp_xla
-    src = ag__.converted_call(ag__.ld(tf).einsum, ('bij,bhwj->bhwi', ag__.ld(M), ag__.ld(grid)), None, fscope)
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-ValueError: Exception encountered when calling Translation.call().
+2025-11-13 02:36:55,259 - INFO - Loading Baseline model from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1...
+2025-11-13 02:36:55,260 - INFO - baseline_model.h5 not found; attempting to load TF bundle (wts.h5.zip)
+2025-11-13 02:36:55,260 - INFO - Loading model from: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
+2025-11-13 02:36:56,296 - INFO - Successfully loaded model from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
+2025-11-13 02:36:56,297 - INFO - Loading iterative reconstruction from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/train/ptychi_reconstruction.npz...
+2025-11-13 02:36:56,301 - INFO - Loaded Pty-chi (pty-chi) reconstruction: (346, 514) (complex64)
+2025-11-13 02:36:56,301 - INFO - Pty-chi (pty-chi) reconstruction loaded for three-way comparison
+2025-11-13 02:36:56,301 - INFO - Running inference with PtychoPINN (diffraction_to_obj)...
+2025-11-13 02:36:56,302 - WARNING - GRIDSIZE MISMATCH: params.cfg['gridsize']=1 but diffraction has 4 channels (requires gridsize=2)
+2025-11-13 02:36:56,302 - WARNING - Forcing params.cfg['gridsize']=2 before inference to prevent Translation layer crash
 
-[1min user code:
+[1m  1/159[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m9:22[0m 4s/step2025-11-13 02:37:00,530 - INFO - [1m  1/159[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m9:22[0m 4s/step
+
+[1m  5/159[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 14ms/step2025-11-13 02:37:00,588 - INFO - 
+[1m  5/159[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 14ms/step
+
+[1m  9/159[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 14ms/step2025-11-13 02:37:00,644 - INFO - 
+[1m  9/159[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 14ms/step
+
+[1m 13/159[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 14ms/step2025-11-13 02:37:00,698 - INFO - 
+[1m 13/159[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 14ms/step
+
+[1m 17/159[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step2025-11-13 02:37:00,753 - INFO - 
+[1m 17/159[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step
+
+[1m 21/159[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step2025-11-13 02:37:00,806 - INFO - 
+[1m 21/159[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step
+
+[1m 25/159[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step2025-11-13 02:37:00,860 - INFO - 
+[1m 25/159[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step
+
+[1m 29/159[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step2025-11-13 02:37:00,914 - INFO - 
+[1m 29/159[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step
+
+[1m 33/159[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step2025-11-13 02:37:00,971 - INFO - 
+[1m 33/159[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step
+
+[1m 37/159[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step2025-11-13 02:37:01,027 - INFO - 
+[1m 37/159[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step
+
+[1m 41/159[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step2025-11-13 02:37:01,081 - INFO - 
+[1m 41/159[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step
+
+[1m 45/159[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step2025-11-13 02:37:01,135 - INFO - 
+[1m 45/159[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step
+
+[1m 49/159[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step2025-11-13 02:37:01,191 - INFO - 
+[1m 49/159[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step
+
+[1m 53/159[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step2025-11-13 02:37:01,246 - INFO - 
+[1m 53/159[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step
+
+[1m 57/159[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step2025-11-13 02:37:01,302 - INFO - 
+[1m 57/159[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step
+
+[1m 61/159[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step2025-11-13 02:37:01,356 - INFO - 
+[1m 61/159[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m1s[0m 14ms/step
+
+[1m 65/159[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 14ms/step2025-11-13 02:37:01,411 - INFO - 
+[1m 65/159[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 14ms/step
+
+[1m 69/159[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 14ms/step2025-11-13 02:37:01,465 - INFO - 
+[1m 69/159[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 14ms/step
+
+[1m 73/159[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m1s[0m 14ms/step2025-11-13 02:37:01,520 - INFO - 
+[1m 73/159[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m1s[0m 14ms/step
+
+[1m 77/159[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m1s[0m 14ms/step2025-11-13 02:37:01,574 - INFO - 
+[1m 77/159[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m1s[0m 14ms/step
+
+[1m 81/159[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m1s[0m 14ms/step2025-11-13 02:37:01,628 - INFO - 
+[1m 81/159[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m1s[0m 14ms/step
+
+[1m 85/159[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m1s[0m 14ms/step2025-11-13 02:37:01,681 - INFO - 
+[1m 85/159[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m1s[0m 14ms/step
+
+[1m 89/159[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 14ms/step2025-11-13 02:37:01,738 - INFO - 
+[1m 89/159[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 14ms/step
+
+[1m 93/159[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 14ms/step2025-11-13 02:37:01,793 - INFO - 
+[1m 93/159[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 14ms/step
+
+[1m 97/159[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 14ms/step2025-11-13 02:37:01,848 - INFO - 
+[1m 97/159[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 14ms/step
+
+[1m101/159[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 14ms/step2025-11-13 02:37:01,902 - INFO - 
+[1m101/159[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 14ms/step
+
+[1m105/159[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 14ms/step2025-11-13 02:37:01,957 - INFO - 
+[1m105/159[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 14ms/step
+
+[1m109/159[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 14ms/step2025-11-13 02:37:02,014 - INFO - 
+[1m109/159[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 14ms/step
+
+[1m113/159[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 14ms/step2025-11-13 02:37:02,069 - INFO - 
+[1m113/159[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 14ms/step
+
+[1m117/159[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 14ms/step2025-11-13 02:37:02,125 - INFO - 
+[1m117/159[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 14ms/step
+
+[1m121/159[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 14ms/step2025-11-13 02:37:02,182 - INFO - 
+[1m121/159[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 14ms/step
+
+[1m125/159[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 14ms/step2025-11-13 02:37:02,237 - INFO - 
+[1m125/159[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 14ms/step
+
+[1m129/159[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 14ms/step2025-11-13 02:37:02,291 - INFO - 
+[1m129/159[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 14ms/step
+
+[1m133/159[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 14ms/step2025-11-13 02:37:02,344 - INFO - 
+[1m133/159[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 14ms/step
+
+[1m137/159[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 14ms/step2025-11-13 02:37:02,397 - INFO - 
+[1m137/159[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 14ms/step
+
+[1m141/159[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 14ms/step2025-11-13 02:37:02,451 - INFO - 
+[1m141/159[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 14ms/step
+
+[1m145/159[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 14ms/step2025-11-13 02:37:02,504 - INFO - 
+[1m145/159[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 14ms/step
+
+[1m149/159[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 14ms/step2025-11-13 02:37:02,558 - INFO - 
+[1m149/159[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 14ms/step
+
+[1m153/159[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 14ms/step2025-11-13 02:37:02,611 - INFO - 
+[1m153/159[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 14ms/step
+
+[1m157/159[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 14ms/step2025-11-13 02:37:02,668 - INFO - 
+[1m157/159[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 14ms/step
+
+[1m159/159[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m6s[0m 14ms/step
+2025-11-13 02:37:02,715 - INFO - 
+[1m159/159[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m6s[0m 14ms/step
+2025-11-13 02:37:03,285 - INFO - PtychoPINN inference completed in 6.98s
+2025-11-13 02:37:03,285 - INFO - PINN patches shape before reassembly: (5088, 128, 128, 1), dtype: complex64
+2025-11-13 02:37:03,285 - INFO - Reassembling PINN patches...
+2025-11-13 02:37:03,285 - INFO - PINN offsets shape before reassembly: (5088, 1, 2, 1), dtype: float64
+2025-11-13 02:37:07,799 - INFO - PINN reconstruction shape after reassembly: (364, 364, 1), dtype: <dtype: 'complex64'>
+2025-11-13 02:37:07,799 - INFO - Running inference with Baseline model...
+2025-11-13 02:37:07,799 - INFO - Flattening grouped diffraction for baseline model: X (5088, 128, 128, 4) → channels merged; resolved gridsize=2 (from 4 channels)
+DEBUG: Setting2025-11-13 02:37:07,799 - INFO - DEBUG: Setting
+ gridsize2025-11-13 02:37:07,799 - INFO - gridsize
+ to2025-11-13 02:37:07,799 - INFO - to
+ 22025-11-13 02:37:07,799 - INFO - 2
+ in params2025-11-13 02:37:07,799 - INFO - in params
 
-    File "/home/ollie/Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 194, in projective_warp_xla_jit  *
-        return projective_warp_xla(images, transforms,
-    File "/home/ollie/Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 97, in projective_warp_xla  *
-        src = tf.einsum("bij,bhwj->bhwi", M, grid)  # [B,H,W,3]
+2025-11-13 02:37:07,799 - INFO - Forced params.cfg['gridsize']=2 for baseline grouped inference
+2025-11-13 02:37:08,676 - INFO - Baseline inference input shape: (20352, 128, 128, 1)
+2025-11-13 02:37:08,677 - INFO - Baseline inference offsets shape: (20352, 1, 2, 1)
 
-    ValueError: Dimensions must be equal, but are 128 and 32 for '{{node einsum/Einsum}} = Einsum[N=2, T=DT_FLOAT, equation="bij,bhwj->bhwi"](transforms, Tile)' with input shapes: [128,3,3], [32,138,138,3].
-[0m
+[1m  1/636[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m19:28[0m 2s/step2025-11-13 02:37:12,959 - INFO - [1m  1/636[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m19:28[0m 2s/step
+
+[1m  6/636[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step 2025-11-13 02:37:13,009 - INFO - 
+[1m  6/636[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step
+
+[1m 12/636[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 02:37:13,068 - INFO - 
+[1m 12/636[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step
+
+[1m 18/636[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 02:37:13,127 - INFO - 
+[1m 18/636[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step
+
+[1m 24/636[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 02:37:13,187 - INFO - 
+[1m 24/636[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step
+
+[1m 30/636[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 02:37:13,245 - INFO - 
+[1m 30/636[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+
+[1m 36/636[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 02:37:13,304 - INFO - 
+[1m 36/636[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+
+[1m 42/636[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 02:37:13,362 - INFO - 
+[1m 42/636[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+
+[1m 48/636[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 02:37:13,421 - INFO - 
+[1m 48/636[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+
+[1m 54/636[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 02:37:13,479 - INFO - 
+[1m 54/636[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+
+[1m 60/636[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 02:37:13,537 - INFO - 
+[1m 60/636[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+
+[1m 66/636[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 02:37:13,595 - INFO - 
+[1m 66/636[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+
+[1m 72/636[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 02:37:13,654 - INFO - 
+[1m 72/636[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+
+[1m 78/636[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 02:37:13,712 - INFO - 
+[1m 78/636[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+
+[1m 84/636[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 02:37:13,771 - INFO - 
+[1m 84/636[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+
+[1m 89/636[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 02:37:13,822 - INFO - 
+[1m 89/636[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+
+[1m 95/636[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 02:37:13,882 - INFO - 
+[1m 95/636[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+
+[1m101/636[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 02:37:13,941 - INFO - 
+[1m101/636[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+
+[1m107/636[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 02:37:14,000 - INFO - 
+[1m107/636[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+
+[1m113/636[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 02:37:14,059 - INFO - 
+[1m113/636[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+
+[1m119/636[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 02:37:14,117 - INFO - 
+[1m119/636[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+
+[1m125/636[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 02:37:14,175 - INFO - 
+[1m125/636[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+
+[1m131/636[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 02:37:14,234 - INFO - 
+[1m131/636[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+
+[1m137/636[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 02:37:14,294 - INFO - 
+[1m137/636[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+
+[1m143/636[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 02:37:14,354 - INFO - 
+[1m143/636[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+
+[1m149/636[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 02:37:14,414 - INFO - 
+[1m149/636[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+
+[1m155/636[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 02:37:14,473 - INFO - 
+[1m155/636[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+
+[1m161/636[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 02:37:14,532 - INFO - 
+[1m161/636[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+
+[1m167/636[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 02:37:14,590 - INFO - 
+[1m167/636[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+
+[1m173/636[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 02:37:14,649 - INFO - 
+[1m173/636[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+
+[1m179/636[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 02:37:14,707 - INFO - 
+[1m179/636[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+
+[1m185/636[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 02:37:14,767 - INFO - 
+[1m185/636[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+
+[1m191/636[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 02:37:14,826 - INFO - 
+[1m191/636[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+
+[1m197/636[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 02:37:14,886 - INFO - 
+[1m197/636[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+
+[1m203/636[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 02:37:14,946 - INFO - 
+[1m203/636[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+
+[1m209/636[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 02:37:15,005 - INFO - 
+[1m209/636[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+
+[1m215/636[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 02:37:15,063 - INFO - 
+[1m215/636[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+
+[1m221/636[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 02:37:15,122 - INFO - 
+[1m221/636[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+
+[1m227/636[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 02:37:15,181 - INFO - 
+[1m227/636[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+
+[1m233/636[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 02:37:15,239 - INFO - 
+[1m233/636[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+
+[1m239/636[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 02:37:15,298 - INFO - 
+[1m239/636[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+
+[1m245/636[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 02:37:15,357 - INFO - 
+[1m245/636[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+
+[1m250/636[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 02:37:15,408 - INFO - 
+[1m250/636[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+
+[1m256/636[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 02:37:15,467 - INFO - 
+[1m256/636[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+
+[1m262/636[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 02:37:15,526 - INFO - 
+[1m262/636[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+
+[1m268/636[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 02:37:15,585 - INFO - 
+[1m268/636[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+
+[1m274/636[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 02:37:15,643 - INFO - 
+[1m274/636[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+
+[1m280/636[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 02:37:15,701 - INFO - 
+[1m280/636[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+
+[1m286/636[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 02:37:15,759 - INFO - 
+[1m286/636[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+
+[1m292/636[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 02:37:15,817 - INFO - 
+[1m292/636[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+
+[1m298/636[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 02:37:15,875 - INFO - 
+[1m298/636[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+
+[1m304/636[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 02:37:15,933 - INFO - 
+[1m304/636[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+
+[1m310/636[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 02:37:15,991 - INFO - 
+[1m310/636[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+
+[1m316/636[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 02:37:16,050 - INFO - 
+[1m316/636[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+
+[1m322/636[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 02:37:16,107 - INFO - 
+[1m322/636[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step
+
+[1m328/636[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 02:37:16,165 - INFO - 
+[1m328/636[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step
+
+[1m334/636[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 02:37:16,223 - INFO - 
+[1m334/636[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m2s[0m 10ms/step
+
+[1m340/636[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 02:37:16,282 - INFO - 
+[1m340/636[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m2s[0m 10ms/step
+
+[1m346/636[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 02:37:16,340 - INFO - 
+[1m346/636[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m2s[0m 10ms/step
+
+[1m352/636[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 02:37:16,398 - INFO - 
+[1m352/636[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step
+
+[1m358/636[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 02:37:16,456 - INFO - 
+[1m358/636[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step
+
+[1m364/636[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 02:37:16,514 - INFO - 
+[1m364/636[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step
+
+[1m370/636[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 02:37:16,572 - INFO - 
+[1m370/636[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step
+
+[1m376/636[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 02:37:16,630 - INFO - 
+[1m376/636[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step
+
+[1m382/636[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 02:37:16,689 - INFO - 
+[1m382/636[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step
+
+[1m388/636[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 02:37:16,747 - INFO - 
+[1m388/636[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step
+
+[1m394/636[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 02:37:16,806 - INFO - 
+[1m394/636[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step
+
+[1m400/636[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 02:37:16,865 - INFO - 
+[1m400/636[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step
+
+[1m406/636[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 02:37:16,924 - INFO - 
+[1m406/636[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step
+
+[1m412/636[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 02:37:16,983 - INFO - 
+[1m412/636[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step
+
+[1m418/636[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 02:37:17,041 - INFO - 
+[1m418/636[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step
+
+[1m424/636[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 02:37:17,099 - INFO - 
+[1m424/636[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step
+
+[1m430/636[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 02:37:17,157 - INFO - 
+[1m430/636[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step
+
+[1m436/636[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 02:37:17,215 - INFO - 
+[1m436/636[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m1s[0m 10ms/step
+
+[1m442/636[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 02:37:17,274 - INFO - 
+[1m442/636[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m1s[0m 10ms/step
+
+[1m448/636[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 02:37:17,332 - INFO - 
+[1m448/636[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
+
+[1m454/636[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 02:37:17,390 - INFO - 
+[1m454/636[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
+
+[1m460/636[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 02:37:17,448 - INFO - 
+[1m460/636[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
+
+[1m466/636[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 02:37:17,506 - INFO - 
+[1m466/636[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
+
+[1m472/636[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 02:37:17,565 - INFO - 
+[1m472/636[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
+
+[1m478/636[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 02:37:17,623 - INFO - 
+[1m478/636[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
+
+[1m484/636[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 02:37:17,682 - INFO - 
+[1m484/636[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
+
+[1m490/636[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 02:37:17,740 - INFO - 
+[1m490/636[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
+
+[1m496/636[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 02:37:17,798 - INFO - 
+[1m496/636[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
+
+[1m502/636[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 02:37:17,856 - INFO - 
+[1m502/636[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
+
+[1m508/636[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 02:37:17,913 - INFO - 
+[1m508/636[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
+
+[1m514/636[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step2025-11-13 02:37:17,971 - INFO - 
+[1m514/636[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step
+
+[1m520/636[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step2025-11-13 02:37:18,030 - INFO - 
+[1m520/636[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step
+
+[1m526/636[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step2025-11-13 02:37:18,089 - INFO - 
+[1m526/636[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step
+
+[1m532/636[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step2025-11-13 02:37:18,146 - INFO - 
+[1m532/636[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step
+
+[1m538/636[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 10ms/step2025-11-13 02:37:18,204 - INFO - 
+[1m538/636[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 10ms/step
+
+[1m544/636[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 02:37:18,262 - INFO - 
+[1m544/636[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
+
+[1m550/636[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 02:37:18,319 - INFO - 
+[1m550/636[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
+
+[1m556/636[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 02:37:18,378 - INFO - 
+[1m556/636[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
+
+[1m562/636[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 02:37:18,436 - INFO - 
+[1m562/636[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
+
+[1m568/636[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 02:37:18,495 - INFO - 
+[1m568/636[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
+
+[1m574/636[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 02:37:18,554 - INFO - 
+[1m574/636[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
+
+[1m580/636[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 02:37:18,612 - INFO - 
+[1m580/636[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
+
+[1m586/636[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 02:37:18,671 - INFO - 
+[1m586/636[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
+
+[1m592/636[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 02:37:18,729 - INFO - 
+[1m592/636[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
+
+[1m598/636[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 02:37:18,788 - INFO - 
+[1m598/636[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
+
+[1m604/636[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 02:37:18,847 - INFO - 
+[1m604/636[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
+
+[1m610/636[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 02:37:18,905 - INFO - 
+[1m610/636[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step
+
+[1m616/636[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 02:37:18,963 - INFO - 
+[1m616/636[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step
+
+[1m622/636[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 02:37:19,020 - INFO - 
+[1m622/636[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step
+
+[1m628/636[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 02:37:19,079 - INFO - 
+[1m628/636[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step
+
+[1m633/636[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 02:37:19,131 - INFO - 
+[1m633/636[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step
+
+[1m636/636[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m8s[0m 10ms/step
+2025-11-13 02:37:19,172 - INFO - 
+[1m636/636[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m8s[0m 10ms/step
+2025-11-13 02:37:23,389 - INFO - Baseline inference completed in 14.71s
+2025-11-13 02:37:23,389 - INFO - Baseline output format: single tensor, shape: (20352, 128, 128, 1), dtype: complex64
+2025-11-13 02:37:23,389 - INFO - Converting baseline output from single complex tensor format
+2025-11-13 02:37:28,622 - INFO - After conversion - amplitude shape: (20352, 128, 128, 1), phase shape: (20352, 128, 128, 1)
+2025-11-13 02:37:28,623 - INFO - Complex patches shape: (20352, 128, 128, 1), dtype: complex64
+2025-11-13 02:37:28,623 - INFO - Reassembling baseline patches...
+2025-11-13 02:37:39,486 - INFO - Saving NPZ files of raw reconstructions...
+2025-11-13 02:37:40,444 - INFO - Unified reconstructions saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train/reconstructions.npz
+2025-11-13 02:37:40,444 - INFO - Metadata saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train/reconstructions_metadata.txt
+2025-11-13 02:37:40,444 - INFO - Unified NPZ reconstruction file saved successfully!
+2025-11-13 02:37:40,444 - INFO - Performing coordinate-based alignment of ground truth...
+2025-11-13 02:37:40,444 - INFO - Ground truth original shape: (464, 464)
+2025-11-13 02:37:40,444 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
+2025-11-13 02:37:40,444 - INFO - Calculated ground truth crop region: rows [55:240], cols [54:408]
+2025-11-13 02:37:40,444 - INFO - Initial shapes: Recon=(364, 364), Cropped GT=(185, 354)
+2025-11-13 02:37:40,444 - INFO - Center-cropping from (364, 364) to (185, 354)
+2025-11-13 02:37:40,444 - INFO - Final aligned shape: (185, 354)
+2025-11-13 02:37:40,445 - INFO - --- Alignment complete ---
+2025-11-13 02:37:40,445 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
+2025-11-13 02:37:40,445 - INFO - Calculated ground truth crop region: rows [55:240], cols [54:408]
+2025-11-13 02:37:40,445 - INFO - Initial shapes: Recon=(368, 368), Cropped GT=(185, 354)
+2025-11-13 02:37:40,445 - INFO - Center-cropping from (368, 368) to (185, 354)
+2025-11-13 02:37:40,445 - INFO - Final aligned shape: (185, 354)
+2025-11-13 02:37:40,445 - INFO - --- Alignment complete ---
+2025-11-13 02:37:40,445 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
+2025-11-13 02:37:40,445 - INFO - Calculated ground truth crop region: rows [55:240], cols [54:408]
+2025-11-13 02:37:40,445 - INFO - Initial shapes: Recon=(346, 514), Cropped GT=(185, 354)
+2025-11-13 02:37:40,445 - INFO - Center-cropping from (346, 514) to (185, 354)
+2025-11-13 02:37:40,445 - INFO - Final aligned shape: (185, 354)
+2025-11-13 02:37:40,445 - INFO - --- Alignment complete ---
+2025-11-13 02:37:40,445 - INFO - Performing selective registration (ONLY for pty-chi/tike)...
+2025-11-13 02:37:40,445 - INFO - PtychoPINN and Baseline: skipping registration (as intended)
+2025-11-13 02:37:40,449 - INFO - Pty-chi (pty-chi) detected offset: (7.020, 0.020)
+2025-11-13 02:37:40,452 - INFO - Final evaluation shapes: PINN (185, 354), Baseline (185, 354), Pty-chi (pty-chi) (181, 350), GT (185, 354)
+Amplitude normalization scale factor: 0.7339642025-11-13 02:37:40,458 - INFO - Amplitude normalization scale factor: 0.733964
 
-Arguments received by Translation.call():
-  • inputs=['tf.Tensor(shape=(32, 138, 138, 1), dtype=float32)', 'tf.Tensor(shape=(128, 2), dtype=float32)']
-2025-11-12 23:14:42,043 - ERROR - Traceback (most recent call last):
-2025-11-12 23:14:42,043 - ERROR - File "<frozen runpy>", line 198, in _run_module_as_main
-2025-11-12 23:14:42,043 - ERROR - File "<frozen runpy>", line 88, in _run_code
-2025-11-12 23:14:42,043 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1290, in <module>
-2025-11-12 23:14:42,043 - ERROR - main()
-2025-11-12 23:14:42,044 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 967, in main
-2025-11-12 23:14:42,044 - ERROR - pinn_recon = pinn_model.predict(
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 122, in error_handler
-2025-11-12 23:14:42,044 - ERROR - raise e.with_traceback(filtered_tb) from None
-2025-11-12 23:14:42,044 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/custom_layers.py", line 148, in call
-2025-11-12 23:14:42,044 - ERROR - return hh.reassemble_patches(patches,
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,044 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 1043, in reassemble_patches
-2025-11-12 23:14:42,045 - ERROR - assembled_real = fn_reassemble_real(real, average = average, **kwargs) / mk_norm(real,
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 1020, in mk_norm
-2025-11-12 23:14:42,045 - ERROR - assembled_ones = fn_reassemble_real(ones, average = False)
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,045 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 1267, in reassemble_patches_position_real
-2025-11-12 23:14:42,046 - ERROR - return _reassemble_patches_position_real(imgs, input_positions,
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,046 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 865, in _reassemble_patches_position_real
-2025-11-12 23:14:42,047 - ERROR - imgs_flat_bigN_translated = Translation(jitter_stddev=0.0, use_xla=should_use_xla())([imgs_flat_bigN, -offsets_flat])
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,047 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,048 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 836, in call
-2025-11-12 23:14:42,049 - ERROR - return translate(imgs, offsets + jitter, interpolation='bilinear', use_xla_workaround=self.use_xla)
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,049 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 678, in newf
-2025-11-12 23:14:42,050 - ERROR - return fn(*args, **kwargs)
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,050 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 798, in translate
-2025-11-12 23:14:42,051 - ERROR - return translate_core(imgs, offsets, interpolation=interpolation, use_xla_workaround=use_xla_workaround)
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,051 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - ^
-2025-11-12 23:14:42,052 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 722, in translate_core
-2025-11-12 23:14:42,052 - ERROR - return translate_xla(images, translations, interpolation=interpolation, use_jit=True)
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,053 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 279, in translate_xla
-2025-11-12 23:14:42,054 - ERROR - return projective_warp_xla_jit(images, M,
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - File "/tmp/__autograph_generated_filev77kq8fu.py", line 16, in tf__projective_warp_xla_jit
-2025-11-12 23:14:42,054 - ERROR - retval_ = ag__.converted_call(ag__.ld(projective_warp_xla), (ag__.ld(images), ag__.ld(transforms)), dict(interpolation=ag__.ld(interpolation), fill_mode=ag__.ld(fill_mode)), fscope)
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,054 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - File "/tmp/__autograph_generated_filem3wg3qhe.py", line 131, in tf__projective_warp_xla
-2025-11-12 23:14:42,055 - ERROR - src = ag__.converted_call(ag__.ld(tf).einsum, ('bij,bhwj->bhwi', ag__.ld(M), ag__.ld(grid)), None, fscope)
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,055 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ^
-2025-11-12 23:14:42,056 - ERROR - ValueError
-2025-11-12 23:14:42,056 - ERROR - :
-2025-11-12 23:14:42,056 - ERROR - Exception encountered when calling Translation.call().
+mean scale adjustment:2025-11-13 02:37:40,458 - INFO - mean scale adjustment:
+ 12025-11-13 02:37:40,458 - INFO - 1
 
-[1min user code:
+mean scale adjustment:2025-11-13 02:37:40,458 - INFO - mean scale adjustment:
+ 12025-11-13 02:37:40,458 - INFO - 1
 
-    File "/home/ollie/Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 194, in projective_warp_xla_jit  *
-        return projective_warp_xla(images, transforms,
-    File "/home/ollie/Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 97, in projective_warp_xla  *
-        src = tf.einsum("bij,bhwj->bhwi", M, grid)  # [B,H,W,3]
+DEBUG eval_reconstruction [PtychoPINN]: amp_target stats: mean=0.565780, std=0.045193, shape=(181, 350, 1)2025-11-13 02:37:40,461 - INFO - DEBUG eval_reconstruction [PtychoPINN]: amp_target stats: mean=0.565780, std=0.045193, shape=(181, 350, 1)
 
-    ValueError: Dimensions must be equal, but are 128 and 32 for '{{node einsum/Einsum}} = Einsum[N=2, T=DT_FLOAT, equation="bij,bhwj->bhwi"](transforms, Tile)' with input shapes: [128,3,3], [32,138,138,3].
-[0m
+DEBUG eval_reconstruction [PtychoPINN]: amp_pred stats: mean=0.770854, std=0.070129, shape=(181, 350, 1)2025-11-13 02:37:40,461 - INFO - DEBUG eval_reconstruction [PtychoPINN]: amp_pred stats: mean=0.770854, std=0.070129, shape=(181, 350, 1)
 
-Arguments received by Translation.call():
-  • inputs=['tf.Tensor(shape=(32, 138, 138, 1), dtype=float32)', 'tf.Tensor(shape=(128, 2), dtype=float32)']
+DEBUG eval_reconstruction [PtychoPINN]: phi_target stats: mean=-0.000000, std=0.267682, shape=(181, 350)2025-11-13 02:37:40,461 - INFO - DEBUG eval_reconstruction [PtychoPINN]: phi_target stats: mean=-0.000000, std=0.267682, shape=(181, 350)
+
+DEBUG eval_reconstruction [PtychoPINN]: phi_pred stats: mean=-0.000000, std=0.008589, shape=(181, 350)2025-11-13 02:37:40,461 - INFO - DEBUG eval_reconstruction [PtychoPINN]: phi_pred stats: mean=-0.000000, std=0.008589, shape=(181, 350)
+
+performed by index method2025-11-13 02:37:40,464 - INFO - performed by index method
+
+performed by index method2025-11-13 02:37:40,473 - INFO - performed by index method
+
+performed by index method2025-11-13 02:37:40,482 - INFO - performed by index method
+
+mean scale adjustment:2025-11-13 02:37:40,490 - INFO - mean scale adjustment:
+ 12025-11-13 02:37:40,490 - INFO - 1
+
+mean scale adjustment:2025-11-13 02:37:40,490 - INFO - mean scale adjustment:
+ 12025-11-13 02:37:40,490 - INFO - 1
+
+Phase preprocessing: plane-fitted range [-0.655, 0.372] -> scaled range [0.396, 0.559]2025-11-13 02:37:40,491 - INFO - Phase preprocessing: plane-fitted range [-0.655, 0.372] -> scaled range [0.396, 0.559]
+
+performed by index method2025-11-13 02:37:40,501 - INFO - performed by index method
+
+performed by index method2025-11-13 02:37:40,510 - INFO - performed by index method
+
+performed by index method2025-11-13 02:37:40,519 - INFO - performed by index method
+
+2025-11-13 02:37:40,528 - INFO - PtychoPINN evaluation complete. SSIM: amp=0.219, phase=0.746, MS-SSIM: amp=0.213, phase=0.054
+Amplitude normalization scale factor: 1048.6717532025-11-13 02:37:40,532 - INFO - Amplitude normalization scale factor: 1048.671753
+
+mean scale adjustment:2025-11-13 02:37:40,532 - INFO - mean scale adjustment:
+ 12025-11-13 02:37:40,532 - INFO - 1
+
+mean scale adjustment:2025-11-13 02:37:40,532 - INFO - mean scale adjustment:
+ 12025-11-13 02:37:40,532 - INFO - 1
+
+DEBUG eval_reconstruction [Baseline]: amp_target stats: mean=0.565780, std=0.045193, shape=(181, 350, 1)2025-11-13 02:37:40,534 - INFO - DEBUG eval_reconstruction [Baseline]: amp_target stats: mean=0.565780, std=0.045193, shape=(181, 350, 1)
+
+DEBUG eval_reconstruction [Baseline]: amp_pred stats: mean=0.000540, std=0.017727, shape=(181, 350, 1)2025-11-13 02:37:40,534 - INFO - DEBUG eval_reconstruction [Baseline]: amp_pred stats: mean=0.000540, std=0.017727, shape=(181, 350, 1)
+
+DEBUG eval_reconstruction [Baseline]: phi_target stats: mean=-0.000000, std=0.267682, shape=(181, 350)2025-11-13 02:37:40,534 - INFO - DEBUG eval_reconstruction [Baseline]: phi_target stats: mean=-0.000000, std=0.267682, shape=(181, 350)
+
+DEBUG eval_reconstruction [Baseline]: phi_pred stats: mean=0.000000, std=0.051568, shape=(181, 350)2025-11-13 02:37:40,535 - INFO - DEBUG eval_reconstruction [Baseline]: phi_pred stats: mean=0.000000, std=0.051568, shape=(181, 350)
+
+performed by index method2025-11-13 02:37:40,537 - INFO - performed by index method
+
+performed by index method2025-11-13 02:37:40,546 - INFO - performed by index method
+
+performed by index method2025-11-13 02:37:40,554 - INFO - performed by index method
+
+2025-11-13 02:37:40,562 - ERROR - /home/ollie/Documents/PtychoPINN/ptycho/FRC/fourier_ring_corr.py:38: RuntimeWarning: invalid value encountered in divide
+  FSC = abs(C)/np.sqrt(abs(np.multiply(C1,C2)))
+mean scale adjustment:2025-11-13 02:37:40,562 - INFO - mean scale adjustment:
+ 12025-11-13 02:37:40,563 - INFO - 1
+
+mean scale adjustment:2025-11-13 02:37:40,563 - INFO - mean scale adjustment:
+ 12025-11-13 02:37:40,563 - INFO - 1
+
+Phase preprocessing: plane-fitted range [-0.655, 0.372] -> scaled range [0.396, 0.559]2025-11-13 02:37:40,563 - INFO - Phase preprocessing: plane-fitted range [-0.655, 0.372] -> scaled range [0.396, 0.559]
+
+performed by index method2025-11-13 02:37:40,573 - INFO - performed by index method
+
+performed by index method2025-11-13 02:37:40,581 - INFO - performed by index method
+
+performed by index method2025-11-13 02:37:40,590 - INFO - performed by index method
+
+2025-11-13 02:37:40,598 - INFO - Baseline evaluation complete. SSIM: amp=0.000, phase=0.745, MS-SSIM: amp=0.992, phase=0.181
+Amplitude normalization scale factor: 1.1193162025-11-13 02:37:40,603 - INFO - Amplitude normalization scale factor: 1.119316
+
+mean scale adjustment:2025-11-13 02:37:40,603 - INFO - mean scale adjustment:
+ 12025-11-13 02:37:40,603 - INFO - 1
+
+mean scale adjustment:2025-11-13 02:37:40,603 - INFO - mean scale adjustment:
+ 12025-11-13 02:37:40,603 - INFO - 1
+
+DEBUG eval_reconstruction [Pty-chi (pty-chi)]: amp_target stats: mean=0.565883, std=0.045348, shape=(177, 346, 1)2025-11-13 02:37:40,605 - INFO - DEBUG eval_reconstruction [Pty-chi (pty-chi)]: amp_target stats: mean=0.565883, std=0.045348, shape=(177, 346, 1)
+
+DEBUG eval_reconstruction [Pty-chi (pty-chi)]: amp_pred stats: mean=0.505562, std=0.101868, shape=(177, 346, 1)2025-11-13 02:37:40,605 - INFO - DEBUG eval_reconstruction [Pty-chi (pty-chi)]: amp_pred stats: mean=0.505562, std=0.101868, shape=(177, 346, 1)
+
+DEBUG eval_reconstruction [Pty-chi (pty-chi)]: phi_target stats: mean=-0.000000, std=0.267424, shape=(177, 346)2025-11-13 02:37:40,606 - INFO - DEBUG eval_reconstruction [Pty-chi (pty-chi)]: phi_target stats: mean=-0.000000, std=0.267424, shape=(177, 346)
+
+DEBUG eval_reconstruction [Pty-chi (pty-chi)]: phi_pred stats: mean=-0.000000, std=0.351331, shape=(177, 346)2025-11-13 02:37:40,606 - INFO - DEBUG eval_reconstruction [Pty-chi (pty-chi)]: phi_pred stats: mean=-0.000000, std=0.351331, shape=(177, 346)
+
+performed by index method2025-11-13 02:37:40,607 - INFO - performed by index method
+
+performed by index method2025-11-13 02:37:40,615 - INFO - performed by index method
+
+performed by index method2025-11-13 02:37:40,623 - INFO - performed by index method
+
+mean scale adjustment:2025-11-13 02:37:40,631 - INFO - mean scale adjustment:
+ 12025-11-13 02:37:40,631 - INFO - 1
+
+mean scale adjustment:2025-11-13 02:37:40,631 - INFO - mean scale adjustment:
+ 12025-11-13 02:37:40,631 - INFO - 1
+
+Phase preprocessing: plane-fitted range [-0.657, 0.369] -> scaled range [0.396, 0.559]2025-11-13 02:37:40,631 - INFO - Phase preprocessing: plane-fitted range [-0.657, 0.369] -> scaled range [0.396, 0.559]
+
+performed by index method2025-11-13 02:37:40,640 - INFO - performed by index method
+
+performed by index method2025-11-13 02:37:40,648 - INFO - performed by index method
+
+performed by index method2025-11-13 02:37:40,656 - INFO - performed by index method
+
+2025-11-13 02:37:40,664 - INFO - Pty-chi (pty-chi) evaluation complete. SSIM: amp=0.032, phase=0.473, MS-SSIM: amp=0.111, phase=0.159
+2025-11-13 02:37:40,666 - INFO - Metrics saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train/comparison_metrics.csv
+
+--- Comparison Metrics ---2025-11-13 02:37:40,666 - INFO - --- Comparison Metrics ---
+
+            model                 metric  amplitude     phase     value
+       PtychoPINN                    mae   0.043046  0.234135       NaN
+       PtychoPINN                    mse   0.004647  0.071737       NaN
+       PtychoPINN                   psnr  71.459165 59.573388       NaN
+       PtychoPINN                   ssim   0.218527  0.745628       NaN
+       PtychoPINN                ms_ssim   0.213214  0.054154       NaN
+       PtychoPINN                  frc50   1.000000  1.000000       NaN
+         Baseline                    mae   1.129918  0.235224       NaN
+         Baseline                    mse 345.566833  0.073458       NaN
+         Baseline                   psnr  22.745483 59.470388       NaN
+         Baseline                   ssim   0.000003  0.744581       NaN
+         Baseline                ms_ssim   0.991847  0.180636       NaN
+         Baseline                  frc50 128.000000  1.000000       NaN
+Pty-chi (pty-chi)                    mae   0.097204  0.337668       NaN
+Pty-chi (pty-chi)                    mse   0.014837  0.195088       NaN
+Pty-chi (pty-chi)                   psnr  66.417485 55.228496       NaN
+Pty-chi (pty-chi)                   ssim   0.031628  0.473377       NaN
+Pty-chi (pty-chi)                ms_ssim   0.111092  0.159243       NaN
+Pty-chi (pty-chi)                  frc50   1.000000  2.000000       NaN
+Pty-chi (pty-chi) registration_offset_dy        NaN       NaN  7.020000
+Pty-chi (pty-chi) registration_offset_dx        NaN       NaN  0.020000
+       PtychoPINN     computation_time_s        NaN       NaN  6.982996
+         Baseline     computation_time_s        NaN       NaN 14.7125832025-11-13 02:37:40,668 - INFO - model                 metric  amplitude     phase     value
+       PtychoPINN                    mae   0.043046  0.234135       NaN
+       PtychoPINN                    mse   0.004647  0.071737       NaN
+       PtychoPINN                   psnr  71.459165 59.573388       NaN
+       PtychoPINN                   ssim   0.218527  0.745628       NaN
+       PtychoPINN                ms_ssim   0.213214  0.054154       NaN
+       PtychoPINN                  frc50   1.000000  1.000000       NaN
+         Baseline                    mae   1.129918  0.235224       NaN
+         Baseline                    mse 345.566833  0.073458       NaN
+         Baseline                   psnr  22.745483 59.470388       NaN
+         Baseline                   ssim   0.000003  0.744581       NaN
+         Baseline                ms_ssim   0.991847  0.180636       NaN
+         Baseline                  frc50 128.000000  1.000000       NaN
+Pty-chi (pty-chi)                    mae   0.097204  0.337668       NaN
+Pty-chi (pty-chi)                    mse   0.014837  0.195088       NaN
+Pty-chi (pty-chi)                   psnr  66.417485 55.228496       NaN
+Pty-chi (pty-chi)                   ssim   0.031628  0.473377       NaN
+Pty-chi (pty-chi)                ms_ssim   0.111092  0.159243       NaN
+Pty-chi (pty-chi)                  frc50   1.000000  2.000000       NaN
+Pty-chi (pty-chi) registration_offset_dy        NaN       NaN  7.020000
+Pty-chi (pty-chi) registration_offset_dx        NaN       NaN  0.020000
+       PtychoPINN     computation_time_s        NaN       NaN  6.982996
+         Baseline     computation_time_s        NaN       NaN 14.712583
+
+2025-11-13 02:37:40,668 - INFO - FRC curves saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train/pinn_frc_curves.csv
+2025-11-13 02:37:40,669 - INFO - FRC curves saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train/baseline_frc_curves.csv
+2025-11-13 02:37:40,669 - INFO - Saving NPZ files of aligned reconstructions...
+2025-11-13 02:37:40,764 - INFO - Unified aligned reconstructions saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train/reconstructions_aligned.npz
+2025-11-13 02:37:40,764 - INFO - Aligned metadata saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train/reconstructions_aligned_metadata.txt
+2025-11-13 02:37:40,764 - INFO - Unified aligned NPZ reconstruction file saved successfully!
+2025-11-13 02:37:40,801 - INFO - PtychoPINN amplitude color scale (vmin, vmax) set to: (0.777, 0.778) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 02:37:40,802 - INFO - Baseline amplitude color scale (vmin, vmax) set to: (0.000, 0.000) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 02:37:40,803 - INFO - PtychoPINN phase color scale (vmin, vmax) set to: (-0.069, -0.053) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 02:37:40,804 - INFO - Baseline phase color scale (vmin, vmax) set to: (0.000, 0.000) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 02:37:40,804 - INFO - Pty-chi (pty-chi) amplitude color scale (vmin, vmax) set to: (0.365, 0.634) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 02:37:40,806 - INFO - Pty-chi (pty-chi) phase color scale (vmin, vmax) set to: (-0.603, 0.310) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 02:37:40,816 - INFO - Ground Truth amplitude color scale (vmin, vmax) set to: (0.500, 0.619) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 02:37:40,817 - INFO - Ground Truth phase color scale (vmin, vmax) set to: (-0.491, 0.218) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 02:37:41,566 - INFO - Visual comparison saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train/comparison_plot.png
+2025-11-13 02:37:41,566 - INFO - 
+Comparison complete!
+2025-11-13 02:37:41,566 - INFO - Results saved to: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train
 
 
 === STDERR ===
-2025-11-12 23:13:04.636974: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-11-13 02:35:18.139221: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1763017984.648274 1979278 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1763017984.652136 1979278 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1763017984.662407 1979278 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763017984.662416 1979278 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763017984.662418 1979278 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763017984.662419 1979278 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2025-11-12 23:13:04.665133: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+E0000 00:00:1763030118.150275 2159030 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763030118.153986 2159030 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763030118.163755 2159030 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763030118.163765 2159030 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763030118.163766 2159030 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763030118.163767 2159030 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-13 02:35:18.166455: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
 To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-I0000 00:00:1763017987.351586 1979278 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
-I0000 00:00:1763017987.352899 1979278 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
-2025-11-12 23:13:08.070766: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:103] Profiler session initializing.
-2025-11-12 23:13:08.070782: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:118] Profiler session started.
+I0000 00:00:1763030120.844270 2159030 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1763030120.845484 2159030 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+2025-11-13 02:35:21.556646: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:103] Profiler session initializing.
+2025-11-13 02:35:21.556656: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:118] Profiler session started.
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-I0000 00:00:1763017988.070795 1979278 cupti_tracer.cc:1026] Profiler found 1 GPUs
-W0000 00:00:1763017988.088114 1979278 cupti_tracer.cc:1213] Fail to use per-thread activity buffer, cupti trace overhead may be big. CUPTI ERROR CODE:1
-2025-11-12 23:13:08.088183: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:130] Profiler session tear down.
-I0000 00:00:1763017988.088254 1979278 cupti_tracer.cc:1249] CUPTI activity buffer flushed
+I0000 00:00:1763030121.556670 2159030 cupti_tracer.cc:1026] Profiler found 1 GPUs
+W0000 00:00:1763030121.573449 2159030 cupti_tracer.cc:1213] Fail to use per-thread activity buffer, cupti trace overhead may be big. CUPTI ERROR CODE:1
+2025-11-13 02:35:21.573522: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:130] Profiler session tear down.
+I0000 00:00:1763030121.573591 2159030 cupti_tracer.cc:1249] CUPTI activity buffer flushed
 /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
   warnings.warn(
 /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
   warnings.warn(
-I0000 00:00:1763017990.269705 1979278 service.cc:152] XLA service 0x2d428a40 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
-I0000 00:00:1763017990.269722 1979278 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
-2025-11-12 23:13:10.294411: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
-I0000 00:00:1763017990.312678 1979278 cuda_dnn.cc:529] Loaded cuDNN version 91002
-I0000 00:00:1763017990.470142 1979278 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
-Traceback (most recent call last):
-  File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1290, in <module>
-    main()
-  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 967, in main
-    pinn_recon = pinn_model.predict(
-                 ^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 122, in error_handler
-    raise e.with_traceback(filtered_tb) from None
-  File "/home/ollie/Documents/PtychoPINN/ptycho/custom_layers.py", line 148, in call
-    return hh.reassemble_patches(patches, 
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 1043, in reassemble_patches
-    assembled_real = fn_reassemble_real(real, average = average, **kwargs) / mk_norm(real,
-                                                                             ^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 1020, in mk_norm
-    assembled_ones = fn_reassemble_real(ones, average = False)
-                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 1267, in reassemble_patches_position_real
-    return _reassemble_patches_position_real(imgs, input_positions,
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 865, in _reassemble_patches_position_real
-    imgs_flat_bigN_translated = Translation(jitter_stddev=0.0, use_xla=should_use_xla())([imgs_flat_bigN, -offsets_flat])
-                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 836, in call
-    return translate(imgs, offsets + jitter, interpolation='bilinear', use_xla_workaround=self.use_xla)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 678, in newf
-    return fn(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 798, in translate
-    return translate_core(imgs, offsets, interpolation=interpolation, use_xla_workaround=use_xla_workaround)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 722, in translate_core
-    return translate_xla(images, translations, interpolation=interpolation, use_jit=True)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 279, in translate_xla
-    return projective_warp_xla_jit(images, M, 
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/tmp/__autograph_generated_filev77kq8fu.py", line 16, in tf__projective_warp_xla_jit
-    retval_ = ag__.converted_call(ag__.ld(projective_warp_xla), (ag__.ld(images), ag__.ld(transforms)), dict(interpolation=ag__.ld(interpolation), fill_mode=ag__.ld(fill_mode)), fscope)
-    ^^^^^
-  File "/tmp/__autograph_generated_filem3wg3qhe.py", line 131, in tf__projective_warp_xla
-    src = ag__.converted_call(ag__.ld(tf).einsum, ('bij,bhwj->bhwi', ag__.ld(M), ag__.ld(grid)), None, fscope)
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-ValueError: Exception encountered when calling Translation.call().
-
-[1min user code:
-
-    File "/home/ollie/Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 194, in projective_warp_xla_jit  *
-        return projective_warp_xla(images, transforms,
-    File "/home/ollie/Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 97, in projective_warp_xla  *
-        src = tf.einsum("bij,bhwj->bhwi", M, grid)  # [B,H,W,3]
-
-    ValueError: Dimensions must be equal, but are 128 and 32 for '{{node einsum/Einsum}} = Einsum[N=2, T=DT_FLOAT, equation="bij,bhwj->bhwi"](transforms, Tile)' with input shapes: [128,3,3], [32,138,138,3].
-[0m
-
-Arguments received by Translation.call():
-  • inputs=['tf.Tensor(shape=(32, 138, 138, 1), dtype=float32)', 'tf.Tensor(shape=(128, 2), dtype=float32)']
+I0000 00:00:1763030123.733186 2159030 service.cc:152] XLA service 0x18791a00 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1763030123.733203 2159030 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-11-13 02:35:23.757401: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1763030123.774831 2159030 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1763030123.935340 2159030 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+2025-11-13 02:36:47.068493: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 2667577344 exceeds 10% of free system memory.
+2025-11-13 02:36:51.041724: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 1333788672 exceeds 10% of free system memory.
+2025-11-13 02:36:53.217644: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 1333788672 exceeds 10% of free system memory.
+2025-11-13 02:36:56.317759: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 1333788672 exceeds 10% of free system memory.
+2025-11-13 02:37:02.760318: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 666894336 exceeds 10% of free system memory.
+/home/ollie/Documents/PtychoPINN/ptycho/FRC/fourier_ring_corr.py:38: RuntimeWarning: invalid value encountered in divide
+  FSC = abs(C)/np.sqrt(abs(np.multiply(C1,C2)))

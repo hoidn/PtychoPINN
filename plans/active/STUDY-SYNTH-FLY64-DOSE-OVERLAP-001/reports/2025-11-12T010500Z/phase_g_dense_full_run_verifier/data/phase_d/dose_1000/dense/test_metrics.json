@@ -12,5 +12,7 @@
   "n_images_total": 4173,
   "n_images_subsampled": 4173,
   "n_unique_images": 4173,
-  "n_groups_actual": 512
+  "n_groups_actual": 512,
+  "geometry_acceptance_bound": 0.011667613696020715,
+  "effective_min_acceptance": 0.011667613696020715
 }

@@ -4,3 +4,36 @@
 # ==============================================================================
 
 <frozen runpy>:128: RuntimeWarning: 'studies.fly64_dose_overlap.reconstruction' found in sys.modules after import of package 'studies.fly64_dose_overlap', but prior to execution of 'studies.fly64_dose_overlap.reconstruction'; this may result in unpredictable behaviour
+Building job manifest from Phase C: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c
+                      and Phase D: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d
+Total jobs enumerated: 4
+Skipped 6 missing Phase D files
+Filter --dose=1000.0: 4 → 4 jobs
+Filter --view=dense: 4 → 2 jobs
+Filter --split=train: 2 → 1 jobs
+
+Filtered jobs: 1 selected, 3 skipped
+
+[1/1] Job: dose=1000.0, view=dense, split=train
+  Return code: 0
+  Log: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/train/ptychi.log
+
+Manifest written to: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/reconstruction_manifest.json
+Skip summary written to: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/skip_summary.json
+  - Missing Phase D files: 6
+    1000.0/sparse/train
+    1000.0/sparse/test
+    10000.0/baseline/train
+    10000.0/baseline/test
+    100000.0/baseline/train
+    100000.0/baseline/test
+
+============================================================
+Phase F Reconstruction Orchestrator Summary
+============================================================
+Total jobs:     4
+Filtered jobs:  1
+Skipped jobs:   3
+Dry run:        False
+Artifacts:      /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f
+============================================================
