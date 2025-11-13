@@ -8,7 +8,7 @@ configfile: pyproject.toml
 plugins: anyio-4.9.0
 collecting ... collected 2 items
 
-tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_inference_execution_path PASSED [ 50%]
+tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_pytorch_execution_config_flags PASSED [ 50%]
 tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_execution_config_flags PASSED [100%]
 
-============================== 2 passed in 3.72s ===============================
+============================== 2 passed in 3.71s ===============================
