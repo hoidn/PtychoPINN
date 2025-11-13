@@ -70,6 +70,7 @@ Notes:
 """
 
 import argparse
+import math
 import yaml
 import os
 import numpy as np
@@ -98,6 +99,73 @@ logger = logging.getLogger(__name__)
 
 from dataclasses import fields
 from ptycho.config.config import ModelConfig, TrainingConfig
+
+
+class DiffractionToObjectAdapter(tf.keras.Model):
+    """
+    Wrapper that keeps params.cfg['gridsize'] aligned with grouped inference inputs.
+
+    Some exported bundles were trained with grouped data but load with lingering
+    gridsize=1 in params.cfg, causing Translation to see B vs B*C tensors.
+    By inspecting the diffraction input just before execution we can set the
+    legacy gridsize to sqrt(channel_count) and avoid Translation crashes.
+    """
+
+    def __init__(self, base_model: tf.keras.Model):
+        super().__init__(name=getattr(base_model, "name", "diffraction_to_obj"))
+        self._model = base_model
+
+    def _infer_channel_count(self, diffraction_input) -> Optional[int]:
+        if diffraction_input is None:
+            return None
+
+        # Try static shape first
+        shape = getattr(diffraction_input, "shape", None)
+        if shape is not None and shape[-1] not in (None, -1):
+            return int(shape[-1])
+
+        try:
+            array_view = np.asarray(diffraction_input)
+        except Exception:
+            return None
+
+        if array_view.size == 0 or array_view.ndim < 1:
+            return None
+        return int(array_view.shape[-1])
+
+    def _sync_gridsize(self, maybe_inputs) -> None:
+        if maybe_inputs is None:
+            return
+
+        if isinstance(maybe_inputs, (list, tuple)):
+            diffraction = maybe_inputs[0]
+        else:
+            diffraction = maybe_inputs
+
+        channels = self._infer_channel_count(diffraction)
+        if channels is None or channels <= 0:
+            return
+
+        gridsize = int(round(math.sqrt(channels)))
+        if gridsize * gridsize != channels or gridsize <= 0:
+            return
+
+        if p.cfg.get('gridsize') != gridsize:
+            p.cfg['gridsize'] = gridsize
+
+    def call(self, inputs, training=False, **kwargs):
+        self._sync_gridsize(inputs)
+        return self._model(inputs, training=training, **kwargs)
+
+    def predict(self, *args, **kwargs):
+        input_arg = args[0] if args else kwargs.get('x')
+        self._sync_gridsize(input_arg)
+        return self._model.predict(*args, **kwargs)
+
+    def __getattr__(self, item):
+        underlying = super().__getattribute__("_model")
+        return getattr(underlying, item)
+
 
 def load_inference_bundle(model_dir: Path) -> Tuple[tf.keras.Model, dict]:
     """Load a trained model bundle for inference from a directory.
@@ -168,7 +236,7 @@ def load_inference_bundle(model_dir: Path) -> Tuple[tf.keras.Model, dict]:
                 f"The 'diffraction_to_obj' model should be created during training."
             )
         
-        model = models_dict['diffraction_to_obj']
+        model = DiffractionToObjectAdapter(models_dict['diffraction_to_obj'])
         
         # ModelManager updates the global params.cfg when loading
         # Return a copy to avoid unintended modifications

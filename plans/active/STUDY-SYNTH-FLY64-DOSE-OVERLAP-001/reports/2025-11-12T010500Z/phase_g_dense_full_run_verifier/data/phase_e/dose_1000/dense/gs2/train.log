@@ -1,3 +1,27 @@
 DRY RUN: dense dose=1000.0 gridsize=2
 Train: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d/dose_1000/dense/train.npz
 Test: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d/dose_1000/dense/test.npz
+
+================================================================================
+Phase E5 Training Execution — dense (dose=1e+03, gridsize=2, backend=tensorflow)
+================================================================================
+Train dataset: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d/dose_1000/dense/train.npz
+Test dataset: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d/dose_1000/dense/test.npz
+Output directory: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
+Gridsize: 2
+nphotons: 1000.0
+Backend: tensorflow
+
+Loading datasets via TensorFlow loader...
+Invoking TensorFlow train_cdi_model...
+Persisting model bundle via TensorFlow ModelManager...
+Bundle saved: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2/wts.h5.zip
+Bundle SHA256: e1457b44115f57dda5b0a051e6b3dd17bb73be9b742c5344140d76c176cf16fc
+Bundle size: 68806704 bytes
+Training completed successfully
+Final loss: 0.14170365035533905
+Epochs completed: 50
+Checkpoint path: None
+Bundle path: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2/wts.h5.zip
+Bundle SHA256: e1457b44115f57dda5b0a051e6b3dd17bb73be9b742c5344140d76c176cf16fc
+Bundle size: 68806704 bytes

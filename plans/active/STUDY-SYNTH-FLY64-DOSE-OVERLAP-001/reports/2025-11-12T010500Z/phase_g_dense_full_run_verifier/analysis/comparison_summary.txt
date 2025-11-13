@@ -1,8 +1,7 @@
 Phase G Comparison Jobs Summary
 ==================================================
 
-Total jobs: 1
+Total jobs: 0
 Filters: dose=100000, view=dense, split=train
 
 Job Enumeration:
-   1. dose=100000 view=dense  split=train

@@ -28,7 +28,8 @@ import numpy as np
 from scipy.spatial.distance import cdist
 from sklearn.neighbors import NearestNeighbors
 
-from studies.fly64_dose_overlap.design import get_study_design, StudyDesign
+GEOMETRY_ACCEPTANCE_CAP = 0.10
+GEOMETRY_ACCEPTANCE_EPS = 1e-6
 
 
 @dataclass
@@ -51,6 +52,8 @@ class OverlapMetrics:
         n_images_subsampled: Images after s_img subsampling
         n_unique_images: Unique images by exact (x,y) equality
         n_groups_actual: Actual number of groups produced
+        geometry_acceptance_bound: Bounding-box-limited max acceptance (≤10%)
+        effective_min_acceptance: Guarded acceptance floor (ε ≤ value ≤ 10%)
     """
     metrics_version: str
     gridsize: int
@@ -66,12 +69,78 @@ class OverlapMetrics:
     n_images_subsampled: int
     n_unique_images: int
     n_groups_actual: int
+    geometry_acceptance_bound: float
+    effective_min_acceptance: float
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to JSON-serializable dict."""
         d = asdict(self)
         # Omit None values for cleanliness
         return {k: v for k, v in d.items() if v is not None}
+
+
+@dataclass
+class GeometryAcceptance:
+    """Diagnostics for geometry-based acceptance bounds."""
+
+    bounding_box_area: float
+    disc_area: float
+    theoretical_bound: float
+    geometry_acceptance_bound: float
+    effective_min_acceptance: float
+    span_x: float
+    span_y: float
+    n_positions: int
+
+
+def compute_geometry_acceptance(
+    coords: np.ndarray,
+    probe_diameter_px: float,
+    *,
+    acceptance_cap: float = GEOMETRY_ACCEPTANCE_CAP,
+    epsilon: float = GEOMETRY_ACCEPTANCE_EPS,
+) -> GeometryAcceptance:
+    """
+    Compute the theoretical geometry acceptance bound for a set of coordinates.
+
+    The bound is defined as:
+        bound = min((bounding_box_area / (n_positions * disc_area)), acceptance_cap)
+    where disc_area is derived from the probe diameter. The effective minimum acceptance
+    guards against zero by clamping the bound to >= epsilon.
+    """
+    n_positions = int(len(coords))
+    if n_positions == 0:
+        disc_area = np.pi * (max(probe_diameter_px, epsilon) / 2.0) ** 2
+        return GeometryAcceptance(
+            bounding_box_area=0.0,
+            disc_area=disc_area,
+            theoretical_bound=0.0,
+            geometry_acceptance_bound=0.0,
+            effective_min_acceptance=epsilon,
+            span_x=0.0,
+            span_y=0.0,
+            n_positions=0,
+        )
+
+    span_x = float(np.max(coords[:, 0]) - np.min(coords[:, 0]))
+    span_y = float(np.max(coords[:, 1]) - np.min(coords[:, 1]))
+    bounding_box_area = max(span_x * span_y, epsilon)
+    disc_area = np.pi * (max(probe_diameter_px, epsilon) / 2.0) ** 2
+
+    theoretical_bound = bounding_box_area / max(n_positions * disc_area, epsilon)
+    geometry_acceptance_bound = float(min(theoretical_bound, acceptance_cap))
+    effective_min_acceptance = float(max(geometry_acceptance_bound, epsilon))
+
+    return GeometryAcceptance(
+        bounding_box_area=bounding_box_area,
+        disc_area=disc_area,
+        theoretical_bound=theoretical_bound,
+        geometry_acceptance_bound=geometry_acceptance_bound,
+        effective_min_acceptance=effective_min_acceptance,
+        span_x=span_x,
+        span_y=span_y,
+        n_positions=n_positions,
+    )
 
 
 def disc_overlap_area(d: float, diameter: float) -> float:
@@ -588,6 +657,13 @@ def compute_overlap_metrics(
         coords_with_groups, group_assignments, probe_diameter_px
     )
 
+    geometry_stats = compute_geometry_acceptance(
+        coords_sub,
+        probe_diameter_px,
+        acceptance_cap=GEOMETRY_ACCEPTANCE_CAP,
+        epsilon=GEOMETRY_ACCEPTANCE_EPS,
+    )
+
     return OverlapMetrics(
         metrics_version="1.0",
         gridsize=gridsize,
@@ -603,6 +679,8 @@ def compute_overlap_metrics(
         n_images_subsampled=n_images_subsampled,
         n_unique_images=n_unique_images,
         n_groups_actual=n_groups_actual,
+        geometry_acceptance_bound=geometry_stats.geometry_acceptance_bound,
+        effective_min_acceptance=geometry_stats.effective_min_acceptance,
     )
 
 
@@ -703,6 +781,11 @@ def generate_overlap_views(
         print(f"    Metric 3 (group↔group): {metrics.metric_3_group_to_group_avg:.4f}")
         print(f"    Images: {metrics.n_images_subsampled}/{metrics.n_images_total} (unique: {metrics.n_unique_images})")
         print(f"    Groups: {metrics.n_groups_actual}")
+        print(
+            "    Geometry acceptance: "
+            f"bound={metrics.geometry_acceptance_bound:.4f}, "
+            f"effective_floor={metrics.effective_min_acceptance:.4f}"
+        )
 
         # Write the filtered dataset NPZ for this split
         output_path = output_dir / f"{split_name}.npz"
@@ -717,6 +800,8 @@ def generate_overlap_views(
             'probe_diameter_px': probe_diameter_px,
             'rng_seed_subsample': rng_seed_subsample,
             'metrics_version': metrics.metrics_version,
+            'geometry_acceptance_bound': metrics.geometry_acceptance_bound,
+            'effective_min_acceptance': metrics.effective_min_acceptance,
         })
 
         np.savez_compressed(output_path, **filtered_dict)

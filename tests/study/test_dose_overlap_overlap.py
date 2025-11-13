@@ -35,6 +35,7 @@ from studies.fly64_dose_overlap.overlap import (
     compute_metric_3_group_to_group,
     compute_overlap_metrics,
     generate_overlap_views,
+    GEOMETRY_ACCEPTANCE_EPS,
 )
 
 
@@ -540,3 +541,69 @@ def test_overlap_metrics_bundle(phase_c_npzs, tmp_path):
         assert 'n_images_subsampled' in metrics
         assert 'n_unique_images' in metrics
         assert 'n_groups_actual' in metrics
+        assert 'geometry_acceptance_bound' in metrics
+        assert 'effective_min_acceptance' in metrics
+        assert 0.0 <= metrics['geometry_acceptance_bound'] <= 0.10
+        assert metrics['effective_min_acceptance'] >= 0.0
+
+
+def test_generate_overlap_views_dense_acceptance_floor(tmp_path):
+    """Dense view should record geometry acceptance bound + effective floor."""
+    num_points = 50
+    span = 50.0  # pixels
+    xcoords = np.linspace(0.0, span, num_points).astype(np.float32)
+    ycoords = np.linspace(0.0, span, num_points).astype(np.float32)
+    diffraction = np.random.randn(num_points, 64, 64).astype(np.float32)
+    object_guess = np.random.randn(128, 128).astype(np.complex64)
+    probe_guess = np.random.randn(64, 64).astype(np.complex64)
+
+    payload = {
+        'diffraction': diffraction,
+        'objectGuess': object_guess,
+        'probeGuess': probe_guess,
+        'xcoords': xcoords,
+        'ycoords': ycoords,
+    }
+
+    train_path = tmp_path / "train_dense.npz"
+    test_path = tmp_path / "test_dense.npz"
+    np.savez_compressed(train_path, **payload)
+    np.savez_compressed(test_path, **payload)
+
+    probe_diameter = 38.4
+    output_dir = tmp_path / "dense_acceptance"
+
+    results = generate_overlap_views(
+        train_path=train_path,
+        test_path=test_path,
+        output_dir=output_dir,
+        gridsize=1,
+        s_img=1.0,
+        n_groups=num_points,
+        neighbor_count=3,
+        probe_diameter_px=probe_diameter,
+        rng_seed_subsample=777,
+    )
+
+    with open(results['train_metrics_path']) as f:
+        train_metrics = json.load(f)
+
+    span_x = float(xcoords.max() - xcoords.min())
+    span_y = float(ycoords.max() - ycoords.min())
+    bounding_area = span_x * span_y
+    disc_area = np.pi * (probe_diameter / 2.0) ** 2
+    theoretical = bounding_area / (num_points * disc_area)
+    expected_bound = min(theoretical, 0.10)
+
+    assert train_metrics['geometry_acceptance_bound'] == pytest.approx(expected_bound, rel=1e-6)
+    assert train_metrics['effective_min_acceptance'] == pytest.approx(
+        max(expected_bound, GEOMETRY_ACCEPTANCE_EPS), rel=1e-6
+    )
+
+    with np.load(results['train_output'], allow_pickle=True) as data:
+        metadata = json.loads(data['_metadata'].item())
+
+    assert metadata['geometry_acceptance_bound'] == pytest.approx(expected_bound, rel=1e-6)
+    assert metadata['effective_min_acceptance'] == pytest.approx(
+        max(expected_bound, GEOMETRY_ACCEPTANCE_EPS), rel=1e-6
+    )

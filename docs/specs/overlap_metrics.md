@@ -38,9 +38,12 @@ Outputs (Normative)
 - Per‑split metrics JSON:
   - Fields: `metrics_version`, `gridsize`, `s_img`, `n_groups`, `neighbor_count`, `probe_diameter_px`, `rng_seed_subsample`,
     `metric_1_group_based_avg|null`, `metric_2_image_based_avg`, `metric_3_group_to_group_avg`,
-    `n_images_total`, `n_images_subsampled`, `n_unique_images`, `n_groups_actual`.
+    `n_images_total`, `n_images_subsampled`, `n_unique_images`, `n_groups_actual`,
+    `geometry_acceptance_bound`, `effective_min_acceptance`.
 - Bundle JSON (train/test): `{ "train": <metrics JSON>, "test": <metrics JSON> }`.
 - NPZ augmentation (optional): When writing filtered or baseline NPZs, `_metadata` SHOULD include the parameters above plus `metrics_version`. Implementations MAY preserve original arrays and attach metadata only (metrics still reflect subsampling/grouping applied internally).
+    - `geometry_acceptance_bound` is the theoretical acceptance limit computed as `(bounding_box_area / (n_positions · disc_area))` capped at 10 %.
+    - `effective_min_acceptance` clamps the bound to a small positive epsilon to avoid zero-floor downstream logic.
 
 Error Conditions (Normative)
 - Invalid parameters: `gridsize ∉ {1,2}`, `s_img ∉ (0,1]`, `n_groups < 1`, or `probe_diameter_px ≤ 0` SHALL raise.

@@ -1,15 +1,157 @@
 # PtyChi LSQML Reconstruction Log
 # Job: dose=1000.0, view=dense, split=test
-# Command: python scripts/reconstruction/ptychi_reconstruct_tike.py --algorithm LSQML --num-epochs 100 --input-npz plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d/dose_1000/dense/test.npz --output-dir plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/test
-# Return code: 1
+# Command: python scripts/reconstruction/ptychi_reconstruct_tike.py --algorithm LSQML --num-epochs 100 --input-npz /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d/dose_1000/dense/test.npz --output-dir /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/test
+# Return code: 0
 #============================================================
 
+=== STDOUT ===
+=== PTY-CHI Reconstruction of TIKE Dataset ===
+Dataset: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d/dose_1000/dense/test.npz
+Algorithm: LSQML
+Epochs: 100
+Images: 2000
+Loading TIKE dataset from: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d/dose_1000/dense/test.npz
+Using first 2000 images for testing
+
+Converting amplitude to intensity...
+  Original amplitude: min=0.000000, max=0.082486, mean=0.001735
+  Converted intensity: min=0.00000000, max=0.00680390, mean=0.00005923
+
+Positions shape: (2000, 2) (n_images, 2)
+  Original X range: [64.00, 399.91]
+  Original Y range: [232.03, 399.89]
+  Centered X range: [-168.58, 167.33]
+  Centered Y range: [-85.22, 82.64]
+
+Configuring LSQML reconstruction...
+  Object size: (346, 514)
+  Probe power constraint: 0.970041
+  Using GPU acceleration
+
+=== Starting Reconstruction ===
+Running 100 epochs...
+Reconstruction complete!
+
+=== Saving Results to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/test ===
+Saved NPZ: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/test/ptychi_reconstruction.npz
+Saved visualization: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/test/reconstruction_visualization.png
+
+Reconstruction Statistics:
+  Object shape: (346, 514)
+  Object amplitude range: [0.000000, 1.342429]
+  Probe shape: (128, 128)
+  Probe amplitude range: [0.000000, 0.000235]
+
+✓ Reconstruction complete! Results saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/test/
+
+
 === STDERR ===
-Traceback (most recent call last):
-  File "/home/ollie/Documents/PtychoPINN/scripts/reconstruction/ptychi_reconstruct_tike.py", line 10, in <module>
-    import torch
-  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/torch/__init__.py", line 416, in <module>
-    from torch._C import *  # noqa: F403
-    ^^^^^^^^^^^^^^^^^^^^^^
-ImportError: /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/torch/lib/libtorch_cuda.so: undefined symbol: ncclCommWindowRegister
+`rescale_probe_intensity_in_first_epoch` and `ProbeOptions.power_constraint` are both enabled, which may lead to unexpected results.
+`ObjectOptions.remove_object_probe_ambiguity` and `ProbeOptions.power_constraint` are both enabled, which may lead to unexpected results.
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/torch/utils/_device.py:103: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:835.)
+  return func(*args, **kwargs)
+
+  0%|          | 0/100 [00:00<?, ?it/s]
+  1%|          | 1/100 [00:00<00:38,  2.54it/s]
+  2%|▏         | 2/100 [00:00<00:35,  2.77it/s]
+  3%|▎         | 3/100 [00:01<00:31,  3.07it/s]
+  4%|▍         | 4/100 [00:01<00:29,  3.22it/s]
+  5%|▌         | 5/100 [00:01<00:28,  3.30it/s]
+  6%|▌         | 6/100 [00:01<00:27,  3.36it/s]
+  7%|▋         | 7/100 [00:02<00:27,  3.39it/s]
+  8%|▊         | 8/100 [00:02<00:26,  3.41it/s]
+  9%|▉         | 9/100 [00:02<00:26,  3.44it/s]
+ 10%|█         | 10/100 [00:03<00:26,  3.45it/s]
+ 11%|█         | 11/100 [00:03<00:25,  3.46it/s]
+ 12%|█▏        | 12/100 [00:03<00:24,  3.54it/s]
+ 13%|█▎        | 13/100 [00:03<00:24,  3.60it/s]
+ 14%|█▍        | 14/100 [00:04<00:23,  3.64it/s]
+ 15%|█▌        | 15/100 [00:04<00:23,  3.67it/s]
+ 16%|█▌        | 16/100 [00:04<00:22,  3.69it/s]
+ 17%|█▋        | 17/100 [00:04<00:22,  3.70it/s]
+ 18%|█▊        | 18/100 [00:05<00:22,  3.71it/s]
+ 19%|█▉        | 19/100 [00:05<00:21,  3.71it/s]
+ 20%|██        | 20/100 [00:05<00:21,  3.72it/s]
+ 21%|██        | 21/100 [00:06<00:21,  3.64it/s]
+ 22%|██▏       | 22/100 [00:06<00:21,  3.67it/s]
+ 23%|██▎       | 23/100 [00:06<00:20,  3.69it/s]
+ 24%|██▍       | 24/100 [00:06<00:20,  3.70it/s]
+ 25%|██▌       | 25/100 [00:07<00:20,  3.71it/s]
+ 26%|██▌       | 26/100 [00:07<00:19,  3.70it/s]
+ 27%|██▋       | 27/100 [00:07<00:19,  3.70it/s]
+ 28%|██▊       | 28/100 [00:07<00:19,  3.71it/s]
+ 29%|██▉       | 29/100 [00:08<00:19,  3.71it/s]
+ 30%|███       | 30/100 [00:08<00:18,  3.70it/s]
+ 31%|███       | 31/100 [00:08<00:19,  3.63it/s]
+ 32%|███▏      | 32/100 [00:08<00:18,  3.66it/s]
+ 33%|███▎      | 33/100 [00:09<00:18,  3.68it/s]
+ 34%|███▍      | 34/100 [00:09<00:17,  3.69it/s]
+ 35%|███▌      | 35/100 [00:09<00:17,  3.70it/s]
+ 36%|███▌      | 36/100 [00:10<00:17,  3.71it/s]
+ 37%|███▋      | 37/100 [00:10<00:16,  3.72it/s]
+ 38%|███▊      | 38/100 [00:10<00:16,  3.72it/s]
+ 39%|███▉      | 39/100 [00:10<00:16,  3.72it/s]
+ 40%|████      | 40/100 [00:11<00:16,  3.73it/s]
+ 41%|████      | 41/100 [00:11<00:16,  3.65it/s]
+ 42%|████▏     | 42/100 [00:11<00:15,  3.68it/s]
+ 43%|████▎     | 43/100 [00:11<00:15,  3.69it/s]
+ 44%|████▍     | 44/100 [00:12<00:15,  3.70it/s]
+ 45%|████▌     | 45/100 [00:12<00:14,  3.71it/s]
+ 46%|████▌     | 46/100 [00:12<00:14,  3.72it/s]
+ 47%|████▋     | 47/100 [00:13<00:14,  3.72it/s]
+ 48%|████▊     | 48/100 [00:13<00:13,  3.73it/s]
+ 49%|████▉     | 49/100 [00:13<00:13,  3.72it/s]
+ 50%|█████     | 50/100 [00:13<00:13,  3.72it/s]
+ 51%|█████     | 51/100 [00:14<00:13,  3.64it/s]
+ 52%|█████▏    | 52/100 [00:14<00:13,  3.66it/s]
+ 53%|█████▎    | 53/100 [00:14<00:12,  3.67it/s]
+ 54%|█████▍    | 54/100 [00:14<00:12,  3.68it/s]
+ 55%|█████▌    | 55/100 [00:15<00:12,  3.69it/s]
+ 56%|█████▌    | 56/100 [00:15<00:11,  3.70it/s]
+ 57%|█████▋    | 57/100 [00:15<00:11,  3.71it/s]
+ 58%|█████▊    | 58/100 [00:16<00:11,  3.72it/s]
+ 59%|█████▉    | 59/100 [00:16<00:11,  3.72it/s]
+ 60%|██████    | 60/100 [00:16<00:10,  3.72it/s]
+ 61%|██████    | 61/100 [00:16<00:10,  3.65it/s]
+ 62%|██████▏   | 62/100 [00:17<00:10,  3.67it/s]
+ 63%|██████▎   | 63/100 [00:17<00:10,  3.69it/s]
+ 64%|██████▍   | 64/100 [00:17<00:09,  3.70it/s]
+ 65%|██████▌   | 65/100 [00:17<00:09,  3.70it/s]
+ 66%|██████▌   | 66/100 [00:18<00:09,  3.70it/s]
+ 67%|██████▋   | 67/100 [00:18<00:08,  3.71it/s]
+ 68%|██████▊   | 68/100 [00:18<00:08,  3.71it/s]
+ 69%|██████▉   | 69/100 [00:18<00:08,  3.72it/s]
+ 70%|███████   | 70/100 [00:19<00:08,  3.72it/s]
+ 71%|███████   | 71/100 [00:19<00:07,  3.64it/s]
+ 72%|███████▏  | 72/100 [00:19<00:07,  3.65it/s]
+ 73%|███████▎  | 73/100 [00:20<00:07,  3.66it/s]
+ 74%|███████▍  | 74/100 [00:20<00:07,  3.68it/s]
+ 75%|███████▌  | 75/100 [00:20<00:06,  3.69it/s]
+ 76%|███████▌  | 76/100 [00:20<00:06,  3.68it/s]
+ 77%|███████▋  | 77/100 [00:21<00:06,  3.69it/s]
+ 78%|███████▊  | 78/100 [00:21<00:05,  3.70it/s]
+ 79%|███████▉  | 79/100 [00:21<00:05,  3.70it/s]
+ 80%|████████  | 80/100 [00:21<00:05,  3.71it/s]
+ 81%|████████  | 81/100 [00:22<00:05,  3.63it/s]
+ 82%|████████▏ | 82/100 [00:22<00:04,  3.66it/s]
+ 83%|████████▎ | 83/100 [00:22<00:04,  3.68it/s]
+ 84%|████████▍ | 84/100 [00:23<00:04,  3.69it/s]
+ 85%|████████▌ | 85/100 [00:23<00:04,  3.69it/s]
+ 86%|████████▌ | 86/100 [00:23<00:03,  3.70it/s]
+ 87%|████████▋ | 87/100 [00:23<00:03,  3.70it/s]
+ 88%|████████▊ | 88/100 [00:24<00:03,  3.71it/s]
+ 89%|████████▉ | 89/100 [00:24<00:02,  3.72it/s]
+ 90%|█████████ | 90/100 [00:24<00:02,  3.72it/s]
+ 91%|█████████ | 91/100 [00:24<00:02,  3.64it/s]
+ 92%|█████████▏| 92/100 [00:25<00:02,  3.67it/s]
+ 93%|█████████▎| 93/100 [00:25<00:01,  3.69it/s]
+ 94%|█████████▍| 94/100 [00:25<00:01,  3.70it/s]
+ 95%|█████████▌| 95/100 [00:26<00:01,  3.69it/s]
+ 96%|█████████▌| 96/100 [00:26<00:01,  3.70it/s]
+ 97%|█████████▋| 97/100 [00:26<00:00,  3.70it/s]
+ 98%|█████████▊| 98/100 [00:26<00:00,  3.71it/s]
+ 99%|█████████▉| 99/100 [00:27<00:00,  3.70it/s]
+100%|██████████| 100/100 [00:27<00:00,  3.70it/s]
+                                                 
 

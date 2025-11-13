@@ -1,10 +1,10 @@
 {
-  "timestamp": "2025-11-12T19:15:19.541523",
+  "timestamp": "2025-11-12T23:13:04.185953",
   "phase_c_root": "/home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c",
   "phase_d_root": "/home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d",
   "artifact_root": "/home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f",
   "filters": {
-    "dose": 100000.0,
+    "dose": 1000.0,
     "view": "dense",
     "split": "test",
     "gridsize": null
@@ -14,15 +14,15 @@
   "missing_jobs": [
     {
       "dose": 1000.0,
-      "view": "baseline",
+      "view": "sparse",
       "split": "train",
-      "reason": "Phase C baseline NPZ not found: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz"
+      "reason": "Phase D overlap NPZ not found (checked sparse_train.npz and train.npz)"
     },
     {
       "dose": 1000.0,
-      "view": "baseline",
+      "view": "sparse",
       "split": "test",
-      "reason": "Phase C baseline NPZ not found: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_test.npz"
+      "reason": "Phase D overlap NPZ not found (checked sparse_test.npz and test.npz)"
     },
     {
       "dose": 10000.0,
@@ -38,35 +38,35 @@
     },
     {
       "dose": 100000.0,
-      "view": "sparse",
+      "view": "baseline",
       "split": "train",
-      "reason": "Phase D overlap NPZ not found (checked sparse_train.npz and train.npz)"
+      "reason": "Phase C baseline NPZ not found: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_100000/patched_train.npz"
     },
     {
       "dose": 100000.0,
-      "view": "sparse",
+      "view": "baseline",
       "split": "test",
-      "reason": "Phase D overlap NPZ not found (checked sparse_test.npz and test.npz)"
+      "reason": "Phase C baseline NPZ not found: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_100000/patched_test.npz"
     }
   ],
   "jobs": [
     {
-      "dose": 100000.0,
+      "dose": 1000.0,
       "view": "dense",
       "split": "test",
-      "input_npz": "/home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d/dose_100000/dense/test.npz",
-      "output_dir": "/home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_100000/dense/test",
+      "input_npz": "/home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d/dose_1000/dense/test.npz",
+      "output_dir": "/home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/test",
       "algorithm": "LSQML",
       "num_epochs": 100
     }
   ],
   "execution_results": [
     {
-      "dose": 100000.0,
+      "dose": 1000.0,
       "view": "dense",
       "split": "test",
       "returncode": 0,
-      "log_path": "/home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_100000/dense/test/ptychi.log",
+      "log_path": "/home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/test/ptychi.log",
       "stdout_preview": "=== PTY-CHI Reconstruction of TIKE Dataset ===\nDataset: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data",
       "selection_strategy": "unknown",
       "acceptance_rate": 0.0,

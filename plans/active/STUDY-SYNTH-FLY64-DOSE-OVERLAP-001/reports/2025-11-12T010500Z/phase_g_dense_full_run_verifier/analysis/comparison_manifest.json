@@ -1,33 +1,12 @@
 {
-  "n_jobs": 1,
+  "n_jobs": 0,
   "filters": {
     "dose": 100000,
     "view": "dense",
     "split": "train"
   },
-  "jobs": [
-    {
-      "dose": 100000,
-      "view": "dense",
-      "split": "train",
-      "phase_c_npz": "/home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_100000/patched_train.npz",
-      "pinn_checkpoint": "/home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_100000/dense/gs2/wts.h5.zip",
-      "baseline_checkpoint": "/home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_100000/baseline/gs1/wts.h5.zip",
-      "phase_f_manifest": "/home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_100000_dense_train/manifest.json",
-      "ms_ssim_sigma": 1.0,
-      "skip_registration": false,
-      "register_ptychi_only": true
-    }
-  ],
-  "execution_results": [
-    {
-      "dose": 100000,
-      "view": "dense",
-      "split": "train",
-      "returncode": 1,
-      "log_path": "dose_100000/dense/train/comparison.log"
-    }
-  ],
+  "jobs": [],
+  "execution_results": [],
   "n_success": 0,
-  "n_failed": 1
+  "n_failed": 0
 }

@@ -14,3 +14,14 @@ Backend: tensorflow
 
 Loading datasets via TensorFlow loader...
 Invoking TensorFlow train_cdi_model...
+Persisting model bundle via TensorFlow ModelManager...
+Bundle saved: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1/wts.h5.zip
+Bundle SHA256: 85edbfc38cfa7bd0d93dbf29994479bf5f1546348d923cff181d8814f22af228
+Bundle size: 68062429 bytes
+Training completed successfully
+Final loss: 0.14270779490470886
+Epochs completed: 50
+Checkpoint path: None
+Bundle path: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1/wts.h5.zip
+Bundle SHA256: 85edbfc38cfa7bd0d93dbf29994479bf5f1546348d923cff181d8814f22af228
+Bundle size: 68062429 bytes
