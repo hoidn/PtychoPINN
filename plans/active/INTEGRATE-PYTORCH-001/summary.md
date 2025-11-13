@@ -1,4 +1,10 @@
 ### Turn Summary
+Fixed supervised model_type→MAE loss mapping to prevent loss_name AttributeError in PyTorch Lightning module; added regression test coverage and confirmed fix with GREEN pytest evidence (3 PASSED).
+Supervised CLI smoke revealed two downstream blockers: manual optimization incompatibility with accumulate_grad_batches flag, and supervised mode requiring ground-truth labels (label_amp/label_phase) absent from experimental fly001 dataset.
+Next: either switch smoke test to unsupervised PINN mode for execution-config validation, or defer supervised CLI smoke until labeled synthetic data is available, then refresh hub documentation.
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/ (green/pytest_backend_selector_cli.log ✅, red/blocked_*.md, analysis/artifact_inventory.txt)
+
+### Turn Summary
 Documented that the training CLI execution-config flags (commit 04a016ad) are in place but the PyTorch training smoke fails with `AttributeError: 'PtychoPINN_Lightning' object has no attribute 'loss_name'`, and logged the blocker plus artifact inventory updates in the active hub.
 Rewrote plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, and input.md so the next Do Now maps supervised configs to a supported PyTorch loss, adds regression tests, and reruns the filtered pytest selector + CLI smoke before refreshing hub evidence.
 Next: implement the supervised-loss mapping + tests, rerun `pytest tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_pytorch_execution_config_flags tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_execution_config_flags -vv`, then redo the PyTorch training/inference CLI smoke and update the hub summaries/inventory.

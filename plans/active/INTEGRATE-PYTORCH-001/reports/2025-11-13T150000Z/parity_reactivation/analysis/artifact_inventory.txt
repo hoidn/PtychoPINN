@@ -1,222 +1,45 @@
-Phase R PyTorch Inference Execution Path — Artifact Inventory
-=============================================================
+# Artifact Inventory — Supervised Loss Mapping Fix (2025-11-13T184500Z)
 
-Date: 2025-11-12
-Focus: INTEGRATE-PYTORCH-PARITY-001 — PyTorch backend API parity reactivation
-Phase: PyTorch inference execution path integration
+## Green Evidence (Tests Passing)
+- green/pytest_backend_selector_cli.log
+  - 3 PASSED in 5.25s
+  - test_pytorch_execution_config_flags (training + inference)
+  - test_supervised_mode_enforces_mae_loss (new regression coverage)
+  - Verifies supervised mode forces loss_function='MAE' before Lightning instantiation
 
-## Production Code Changes
+## CLI Attempts (Blocked by Downstream Issues)
+- cli/pytorch_cli_smoke_training/train.log
+  - Original attempt with --torch-accumulate-grad-batches 2
+  - Blocked: manual optimization incompatible with automatic accumulation
+  - Evidence: red/blocked_20251113T184100Z_manual_optim_accum.md
+  
+- cli/pytorch_cli_smoke_training/train_clean.log
+  - Retry without accumulate flag
+  - SUCCESS: Loss mapping fixed - no loss_name AttributeError
+  - Blocked: KeyError 'label_amp' (supervised requires ground-truth labels)
+  - Evidence: red/blocked_20251113T184300Z_supervised_data_contract.md
 
-1. scripts/inference/inference.py (lines 490-542)
-   - Added backend-aware inference branching at main() execution point
-   - PyTorch path (lines 493-512):
-     * Imports ptycho_torch.inference._run_inference_and_reconstruct
-     * Imports ptycho_torch.config_factory.PyTorchExecutionConfig
-     * Creates PyTorchExecutionConfig with accelerator='cpu', inference_batch_size=4
-     * Calls _run_inference_and_reconstruct(model, test_data, config, execution_config, device)
-     * Returns amplitude/phase arrays (ground truth comparison not in Phase R scope)
-   - TensorFlow path (lines 514-517): Preserves legacy perform_inference() behavior
-   - Backend-guarded TensorFlow cleanup (lines 540-542): tf.keras.backend.clear_session() only for TensorFlow
+## Code Changes
+- ptycho_torch/workflows/components.py:667-682
+  - Added supervised→MAE loss enforcement in _train_with_lightning
+  - Detects mode='Supervised' and overrides loss_function='MAE'
+  - Prevents AttributeError: 'loss_name' missing
+  
+- tests/scripts/test_training_backend_selector.py:312-422
+  - New test: test_supervised_mode_enforces_mae_loss
+  - Regression coverage for supervised loss mapping
 
-2. scripts/inference/inference.py (lines 94-99, 191)
-   - CLI --backend flag (already present from prior increment)
-   - Default 'tensorflow' for backward compatibility
-   - Help text references POLICY-001 and CONFIG-001
+## Commit
+- 2f36b6c6 "INTEGRATE-PYTORCH-PARITY-001 ptycho_torch: enforce loss_function='MAE' for supervised mode"
+- Phase: R (supervised loss mapping)
+- Tests: pytest_backend_selector_cli (3 PASSED)
 
-## Test Coverage
+## Outstanding Blockers
+1. Manual optimization + accumulate_grad_batches incompatibility (defer)
+2. Supervised mode requires labeled data (label_amp/label_phase keys) (defer)
 
-1. tests/scripts/test_inference_backend_selector.py (lines 274-350)
-   - TestInferenceCliBackendDispatch::test_pytorch_inference_execution_path
-     * Verifies PyTorch backend calls _run_inference_and_reconstruct (not perform_inference)
-     * Mocks PyTorch helper to assert it's invoked with model, raw_data, config, execution_config, device
-     * Confirms TensorFlow perform_inference() is NOT called for PyTorch backend
-     * Validates amplitude/phase return values
-
-2. tests/scripts/test_inference_backend_selector.py (lines 190-236)
-   - test_cli_backend_argument_parsing (already present)
-   - test_setup_inference_configuration_uses_backend (already present)
-   - test_pytorch_backend_dispatch (already present)
-   - test_tensorflow_backend_dispatch (already present)
-   - test_backend_selector_preserves_config_001_compliance (already present)
-
-## Test Evidence
-
-1. green/pytest_backend_selector_cli.log
-   - Command: pytest tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_pytorch_backend_dispatch tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_backend_dispatch tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_inference_execution_path -vv
-   - Result: 3 passed in 3.68s
-   - Status: GREEN ✅
-   - Coverage:
-     * Training CLI backend dispatch to PyTorch ✅
-     * Inference CLI backend dispatch to PyTorch ✅
-     * PyTorch inference execution path verification ✅
-
-## CLI Evidence
-
-1. cli/pytorch_cli_smoke/train.log
-   - Command: python scripts/training/train.py --backend pytorch --config configs/gridsize2_minimal.yaml --train_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --test_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --output_dir [...]/train_outputs --n_groups 4 --n_subsample 16 --neighbor_count 7 --batch_size 4 --nepochs 1
-   - Result: SUCCESS ✅
-   - Key achievements:
-     * Backend dispatcher routed to PyTorch workflow
-     * params.cfg synchronized with TrainingConfig
-     * Lightning training completed (1 epoch, 2.3M params)
-     * Model bundle saved to train_outputs/wts.h5.zip
-   - Artifacts: train_outputs/wts.h5.zip, lightning_logs/version_0/metrics.csv
-
-2. cli/pytorch_cli_smoke/inference.log
-   - Command: python scripts/inference/inference.py --model_path [...]/train_outputs --test_data tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --output_dir [...]/inference_outputs --backend pytorch --n_images 4 --n_subsample 16
-   - Result: SUCCESS ✅
-   - Key achievements:
-     * Backend dispatcher loaded PyTorch model from wts.h5.zip
-     * params.cfg restored from bundle (CONFIG-001)
-     * PyTorch inference path executed via _run_inference_and_reconstruct
-     * Reconstruction completed: amplitude [0.0030, 0.5147], phase [0.0162, 0.1142]
-     * Output PNGs saved to inference_outputs/
-   - Artifacts:
-     * inference_outputs/reconstructed_amplitude.png (15K)
-     * inference_outputs/reconstructed_phase.png (19K)
-
-## Policy Compliance
-
-- POLICY-001: PyTorch>=2.2 enforced (PyTorch 2.8.0+cu128 detected)
-- CONFIG-001: params.cfg restored from bundle in load_torch_bundle (inference.log line 7)
-- CONFIG-LOGGER-001: CSVLogger enabled for training (train.log)
-
-## Phase R Completion Status
-
-All Do Now items COMPLETE:
-
-1. ✅ Branch scripts/inference/inference.py when backend='pytorch'
-   - PyTorch path calls _run_inference_and_reconstruct
-   - TensorFlow path preserved via perform_inference()
-   - Backend-guarded cleanup (tf.keras.backend.clear_session)
-
-2. ✅ Extend tests/scripts/test_inference_backend_selector.py
-   - Added test_pytorch_inference_execution_path
-   - Verifies PyTorch helper invocation
-   - Confirms TensorFlow path skipped
-
-3. ✅ Rerun backend selector tests
-   - 3 tests PASSED (training dispatch, inference dispatch, PyTorch execution path)
-   - Log: green/pytest_backend_selector_cli.log
-
-4. ✅ PyTorch CLI smoke test (training + inference)
-   - Training: bundle saved, 1 epoch complete
-   - Inference: amplitude/phase PNGs generated
-   - Logs: cli/pytorch_cli_smoke/{train.log, inference.log}
-
-5. ✅ Update hub artifacts and summaries
-   - This inventory document
-   - summary.md and summary/summary.md with Turn Summary
-
-## PyTorch Execution Config Flags Update (2025-11-13)
-
-### Additional Production Code Changes
-
-1. scripts/inference/inference.py (lines 101-114)
-   - Added PyTorch-only execution flags:
-     * --torch-accelerator: {auto,cpu,cuda,gpu,mps,tpu} (default: auto)
-     * --torch-num-workers: DataLoader worker processes (default: 0)
-     * --torch-inference-batch-size: Override batch size (default: None)
-   - Help text references docs/workflows/pytorch.md §12
-
-2. scripts/inference/inference.py (lines 513-524)
-   - Maps CLI args (--torch-*) to execution config fields via argparse.Namespace
-   - Calls build_execution_config_from_args(exec_args, mode='inference')
-   - Resolves device from accelerator (cuda/gpu→'cuda', mps→'mps', default→'cpu')
-   - Logs execution config values for transparency
-
-### Additional Test Coverage
-
-1. tests/scripts/test_inference_backend_selector.py (lines 352-474)
-   - TestInferenceCliBackendDispatch::test_pytorch_execution_config_flags
-     * Verifies CLI flags (torch_accelerator, torch_num_workers, torch_inference_batch_size)
-     * Mocks build_execution_config_from_args to capture field mapping
-     * Asserts execution_config passed to _run_inference_and_reconstruct matches CLI args
-
-### Updated Test Evidence
-
-1. green/pytest_backend_selector_cli.log (REFRESHED 2025-11-13)
-   - Command: pytest tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_inference_execution_path tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_execution_config_flags -vv
-   - Result: 2 passed in 3.72s
-   - Coverage:
-     * PyTorch inference execution path ✅
-     * Execution config flags propagation ✅
-
-### Updated CLI Evidence
-
-1. cli/pytorch_cli_smoke/inference.log (REFRESHED 2025-11-13)
-   - Command now includes execution flags:
-     --torch-accelerator cpu --torch-inference-batch-size 2 --torch-num-workers 0
-   - Result: SUCCESS ✅
-   - Log output confirms: "PyTorch inference config: accelerator=cpu, num_workers=0, inference_batch_size=2"
-   - Artifacts remain: reconstructed_amplitude.png (15K), reconstructed_phase.png (15K)
-
-## Phase R Execution Config Flags — COMPLETE
-
-All execution config Do Now items COMPLETE:
-
-1. ✅ Add --torch-* execution flags to scripts/inference/inference.py
-   - accelerator, num_workers, inference_batch_size
-   - Help text with docs reference
-
-2. ✅ Use build_execution_config_from_args() for validated config
-   - Maps CLI args to execution config field names
-   - Validates via PyTorchExecutionConfig.__post_init__()
-
-3. ✅ Extend test_inference_backend_selector.py with execution config test
-   - test_pytorch_execution_config_flags verifies flag propagation
-   - Mocks build helper to assert mapping correctness
-
-4. ✅ Rerun backend selector tests with new test
-   - 2 tests PASSED (execution path + config flags)
-   - Log: green/pytest_backend_selector_cli.log
-
-5. ✅ PyTorch CLI smoke test with new flags
-   - Inference logs show flags honored (accelerator=cpu, batch_size=2, num_workers=0)
-   - PNGs generated successfully
-
-6. ✅ Update hub artifacts and summaries
-   - This inventory document updated
-   - summary.md and summary/summary.md with Turn Summary
-
-## Next Steps
-
-Phase R (PyTorch inference execution path + execution config flags) is COMPLETE.
-
-Future increments may add:
-- Ground truth comparison for PyTorch inference path
-- Probe visualization for PyTorch models
-- Additional execution knobs (gradient checkpointing, mixed precision, etc.)
-
-## Training CLI Execution Config Flags (2025-11-13)
-
-### Production Code
-
-1. scripts/training/train.py
-   - Added PyTorch-only CLI flags (`--torch-accelerator`, `--torch-deterministic`, `--torch-num-workers`, `--torch-accumulate-grad-batches`, `--torch-learning-rate`, `--torch-scheduler`, `--torch-logger`, checkpoint toggles).
-   - When `--backend pytorch`, builds a `PyTorchExecutionConfig` via `ptycho_torch.cli.shared.build_execution_config_from_args(..., mode='training')` and passes it through `run_cdi_example_with_backend`.
-   - TensorFlow behavior unchanged; PyTorch persistence handled by backend workflow to avoid double-saving (CONFIG-001 preserved).
-
-2. ptycho/workflows/backend_selector.py / ptycho_torch/workflows/components.py
-   - `run_cdi_example_with_backend` now accepts `torch_execution_config` keyword and forwards it to `_train_with_lightning`.
-   - Ensures canonical TrainingConfig still calls `update_legacy_dict` before dispatch.
-
-3. tests/scripts/test_training_backend_selector.py
-   - Added `test_pytorch_execution_config_flags` verifying CLI args reach `build_execution_config_from_args(mode='training')` exactly once and that backend selector receives the resulting `PyTorchExecutionConfig`.
-
-### Test Evidence
-
-- `green/pytest_backend_selector_cli.log` — `pytest tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_pytorch_execution_config_flags tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_execution_config_flags -vv`
-  - Result: 2 passed in 3.71s (PyTorch available, torch==2.8.0+cu128).
-
-### CLI Attempt & Blocker
-
-- Training CLI smoke command (see `red/blocked_20251113T183500Z_loss_name.md`) runs from repo root with new execution flags.
-- Result: backend selector routes to PyTorch workflow, execution config logs expected values, but Lightning aborts immediately with `AttributeError: 'PtychoPINN_Lightning' object has no attribute 'loss_name'` (captured in `train_debug.log:30621-30623`).
-- Impact: No fresh training bundle/PNG artifacts for this increment; need to fix PyTorch loss configuration (suspect supervised mode defaults to `loss_function='Poisson'` so `self.loss_name` is never assigned).
-
-### Follow-up
-
-1. Teach the PyTorch bridge/factory to set `loss_function='MAE'` (or another supported option) whenever the canonical config requests `model_type='supervised'`, or extend `PtychoPINN_Lightning` to assign `loss_name` for supervised+Poisson combos.
-2. Add pytest coverage ensuring supervised requests propagate the correct loss function into the PyTorch workflow before Lightning starts.
-3. Rerun the targeted pytest selector plus the PyTorch training/inference CLI smoke, capturing logs under `green/` and `cli/pytorch_cli_smoke_training/`.
+## Next Actions
+Per input.md Do Now steps 5-6:
+- Switch to unsupervised (PINN) mode for CLI smoke validation
+- OR defer supervised CLI smoke until labeled synthetic dataset available
+- Document current progress in hub summaries
