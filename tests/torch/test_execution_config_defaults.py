@@ -182,6 +182,149 @@ class TestPyTorchExecutionConfigDefaults:
                 f"Expected 'No CUDA device detected' in warning, got: {policy_warnings[0].message}"
             )
 
+    def test_backend_selector_inherits_gpu_first_defaults(self, monkeypatch):
+        """
+        Verify backend_selector inherits GPU-first defaults when torch_execution_config=None.
+
+        This test captures the dispatcher-level behavior where train_cdi_model_torch is
+        called without explicit execution config (torch_execution_config=None), ensuring
+        the auto-instantiated config resolves to 'cuda' on CUDA-capable hosts.
+
+        POLICY-001: Backend selectors must inherit GPU-first defaults from PyTorchExecutionConfig.
+
+        Implementation notes:
+            - Monkeypatches torch.cuda.is_available() to return True
+            - Patches train_cdi_model_torch to capture its execution_config argument
+            - Verifies auto-instantiated config has accelerator='cuda'
+        """
+        from unittest.mock import patch
+
+        # Mock torch.cuda.is_available to return True
+        mock_torch = MagicMock()
+        mock_torch.cuda.is_available.return_value = True
+        monkeypatch.setitem(__import__('sys').modules, 'torch', mock_torch)
+
+        # Import after monkeypatch
+        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+        from ptycho.workflows.backend_selector import run_cdi_example_with_backend
+
+        # Create minimal training config with pytorch backend
+        config = TrainingConfig(model=ModelConfig(N=64), backend='pytorch')
+
+        # Patch run_cdi_example_torch to capture execution_config argument
+        with patch('ptycho_torch.workflows.components.run_cdi_example_torch') as mock_run:
+            mock_run.return_value = (None, None, {'history': {}, 'train_container': None})
+
+            # Call dispatcher with torch_execution_config=None (typical Ptychodus usage)
+            try:
+                run_cdi_example_with_backend(
+                    train_data=MagicMock(),
+                    test_data=None,
+                    config=config,
+                    torch_execution_config=None  # Force default instantiation
+                )
+            except Exception:
+                # Ignore downstream errors; we only care about execution_config capture
+                pass
+
+            # Verify run_cdi_example_torch was called
+            assert mock_run.called, (
+                "Expected run_cdi_example_torch to be called for backend='pytorch'"
+            )
+
+            # Extract execution_config argument from the call
+            call_kwargs = mock_run.call_args.kwargs if mock_run.call_args else {}
+            execution_config = call_kwargs.get('execution_config')
+
+            # Verify execution_config was auto-instantiated (not None)
+            assert execution_config is not None, (
+                "Expected backend_selector to auto-instantiate PyTorchExecutionConfig when "
+                "torch_execution_config=None, got None"
+            )
+
+            # Verify accelerator resolved to 'cuda' (GPU-first policy)
+            assert hasattr(execution_config, 'accelerator'), (
+                f"Expected execution_config to have 'accelerator' attribute, got: {type(execution_config)}"
+            )
+            assert execution_config.accelerator == 'cuda', (
+                f"Expected auto-instantiated execution_config to resolve to 'cuda' when CUDA available, "
+                f"got '{execution_config.accelerator}'"
+            )
+
+    def test_backend_selector_cpu_fallback_with_warning(self, monkeypatch):
+        """
+        Verify backend_selector falls back to CPU with POLICY-001 warning when CUDA unavailable.
+
+        Companion to test_backend_selector_inherits_gpu_first_defaults, verifying that
+        when torch_execution_config=None and torch.cuda.is_available() returns False,
+        the auto-instantiated config falls back to 'cpu' and emits a POLICY-001 warning.
+
+        POLICY-001: CPU fallback must emit actionable warning about GPU-first policy.
+
+        Implementation notes:
+            - Monkeypatches torch.cuda.is_available() to return False
+            - Captures warnings during backend_selector execution
+            - Verifies execution_config.accelerator='cpu'
+            - Verifies POLICY-001 warning text is present
+        """
+        from unittest.mock import patch
+
+        # Mock torch.cuda.is_available to return False
+        mock_torch = MagicMock()
+        mock_torch.cuda.is_available.return_value = False
+        monkeypatch.setitem(__import__('sys').modules, 'torch', mock_torch)
+
+        # Import after monkeypatch
+        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+        from ptycho.workflows.backend_selector import run_cdi_example_with_backend
+
+        # Create minimal training config with pytorch backend
+        config = TrainingConfig(model=ModelConfig(N=64), backend='pytorch')
+
+        # Capture warnings and patch run_cdi_example_torch
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+
+            with patch('ptycho_torch.workflows.components.run_cdi_example_torch') as mock_run:
+                mock_run.return_value = (None, None, {'history': {}, 'train_container': None})
+
+                # Call dispatcher with torch_execution_config=None
+                try:
+                    run_cdi_example_with_backend(
+                        train_data=MagicMock(),
+                        test_data=None,
+                        config=config,
+                        torch_execution_config=None  # Force default instantiation
+                    )
+                except Exception:
+                    # Ignore downstream errors; we only care about warning capture
+                    pass
+
+                # Extract execution_config argument
+                call_kwargs = mock_run.call_args.kwargs if mock_run.call_args else {}
+                execution_config = call_kwargs.get('execution_config')
+
+                # Verify execution_config was auto-instantiated
+                assert execution_config is not None, (
+                    "Expected backend_selector to auto-instantiate PyTorchExecutionConfig when "
+                    "torch_execution_config=None, got None"
+                )
+
+                # Verify CPU fallback
+                assert execution_config.accelerator == 'cpu', (
+                    f"Expected auto-instantiated execution_config to fall back to 'cpu' when CUDA unavailable, "
+                    f"got '{execution_config.accelerator}'"
+                )
+
+            # Verify POLICY-001 warning was emitted
+            policy_warnings = [warning for warning in w if "POLICY-001" in str(warning.message)]
+            assert len(policy_warnings) >= 1, (
+                f"Expected POLICY-001 warning when falling back to CPU, got {len(policy_warnings)} warnings"
+            )
+            assert "No CUDA device detected" in str(policy_warnings[0].message), (
+                f"Expected 'No CUDA device detected' in warning, got: {policy_warnings[0].message}"
+            )
+
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

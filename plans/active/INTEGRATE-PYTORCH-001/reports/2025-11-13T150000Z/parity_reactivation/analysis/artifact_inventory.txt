@@ -1,80 +1,114 @@
-Artifact Inventory — PyTorchExecutionConfig GPU-First Defaults
-===============================================================
+# Artifact Inventory - GPU-First Execution Config Defaults (2025-11-13)
 
-Date: 2025-11-13T210000Z
-Focus: INTEGRATE-PYTORCH-PARITY-001
-Objective: Make PyTorchExecutionConfig GPU-first by default (auto→cuda resolution)
+## Overview
+Extended PyTorch execution config defaults with dispatcher-level GPU-first auto-instantiation.
+When torch_execution_config=None, backend_selector now creates a PyTorchExecutionConfig() with
+auto-resolution to 'cuda' (if available) or 'cpu' (with POLICY-001 warning).
 
-Code Changes
-------------
-1. ptycho/config/config.py:221
-   - Changed accelerator default from 'cpu' to 'auto'
-   - Updated field comment to document auto→cuda/cpu behavior
+## Code Changes
 
-2. ptycho/config/config.py:253-312
-   - Extended __post_init__ with auto-resolution logic
-   - Import torch and check torch.cuda.is_available()
-   - Resolve 'auto' → 'cuda' when GPU available
-   - Resolve 'auto' → 'cpu' with POLICY-001 warning when CPU-only
-   - Handle ImportError gracefully (should not occur per POLICY-001)
+### Backend Selector Auto-Instantiation
+**File:** ptycho/workflows/backend_selector.py:161-168
+**Purpose:** Auto-instantiate PyTorchExecutionConfig when torch_execution_config=None
+**Changes:**
+- Added conditional check: if torch_execution_config is None
+- Instantiates PyTorchExecutionConfig() which triggers auto-resolution in __post_init__
+- Logs resolved accelerator with POLICY-001 compliance message
+- Ensures Ptychodus callers inherit GPU-first defaults without explicit config
 
-3. ptycho_torch/workflows/components.py:552-555
-   - Added logger.info() after PyTorchExecutionConfig() auto-instantiation in _build_inference_dataloader
-   - Logs resolved accelerator value for visibility
+### Test Coverage Extensions
+**File:** tests/torch/test_execution_config_defaults.py:185-252
+**Purpose:** test_backend_selector_inherits_gpu_first_defaults
+**Coverage:**
+- Mocks torch.cuda.is_available() to return True
+- Patches ptycho_torch.workflows.components.run_cdi_example_torch
+- Calls run_cdi_example_with_backend with torch_execution_config=None
+- Verifies execution_config.accelerator == 'cuda'
 
-4. ptycho_torch/workflows/components.py:730-733
-   - Added logger.info() after PyTorchExecutionConfig() auto-instantiation in _train_with_lightning
-   - Logs resolved accelerator value for visibility
+**File:** tests/torch/test_execution_config_defaults.py:254-326
+**Purpose:** test_backend_selector_cpu_fallback_with_warning
+**Coverage:**
+- Mocks torch.cuda.is_available() to return False
+- Patches run_cdi_example_torch to capture execution_config
+- Verifies execution_config.accelerator == 'cpu'
+- Verifies POLICY-001 warning is emitted with "No CUDA device detected"
 
-5. tests/torch/test_execution_config_defaults.py (NEW)
-   - Test class TestPyTorchExecutionConfigDefaults with 5 test methods
-   - test_auto_prefers_cuda: Monkeypatch torch.cuda.is_available=True → assert 'cuda'
-   - test_auto_warns_and_falls_back_to_cpu: Monkeypatch torch.cuda.is_available=False → assert 'cpu' + POLICY-001 warning
-   - test_explicit_cpu_bypasses_auto_resolution: Explicit accelerator='cpu' → assert 'cpu'
-   - test_explicit_cuda_bypasses_auto_resolution: Explicit accelerator='cuda' → assert 'cuda'
-   - test_backend_selector_inherits_gpu_first_defaults: Mock backend_selector call with execution_config=None
+## Test Evidence
 
-Test Evidence
--------------
-Selector: pytest tests/torch/test_execution_config_defaults.py::TestPyTorchExecutionConfigDefaults::test_auto_prefers_cuda tests/torch/test_execution_config_defaults.py::TestPyTorchExecutionConfigDefaults::test_auto_warns_and_falls_back_to_cpu -vv
+### Pytest Execution (GREEN)
+**Selector:** pytest tests/torch/test_execution_config_defaults.py -vv
+**Result:** 7 PASSED, 1 SKIPPED in 3.60s
+**Log:** plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_execution_config_defaults.log
 
-Result: 2 PASSED in 0.83s
+**Test Breakdown:**
+1. test_auto_prefers_cuda: PASSED (existing)
+2. test_auto_warns_and_falls_back_to_cpu: PASSED (existing)
+3. test_explicit_cpu_bypasses_auto_resolution: PASSED (existing)
+4. test_explicit_cuda_bypasses_auto_resolution: PASSED (existing)
+5. test_workflow_auto_instantiates_with_hardware_detection: PASSED (existing)
+6. test_backend_selector_warns_on_cpu_only_hosts: SKIPPED (CUDA available on host)
+7. test_backend_selector_inherits_gpu_first_defaults: PASSED (NEW)
+8. test_backend_selector_cpu_fallback_with_warning: PASSED (NEW)
 
-Log: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_execution_config_defaults.log
+## Policy Compliance
 
-Key Assertions:
-- test_auto_prefers_cuda: PASSED (auto→cuda when CUDA available)
-- test_auto_warns_and_falls_back_to_cpu: PASSED (auto→cpu with POLICY-001 warning when no CUDA)
+### POLICY-001 (PyTorch GPU-First)
+**Compliance:** FULL
+- Backend selector auto-instantiates PyTorchExecutionConfig when torch_execution_config=None
+- Auto-resolution prefers 'cuda' on CUDA-capable hosts
+- Falls back to 'cpu' with POLICY-001 warning on CPU-only hosts
+- Ptychodus callers inherit GPU baseline without explicit configuration
 
-Policy Compliance
------------------
-POLICY-001: PyTorch (torch>=2.2) is mandatory. Auto-resolution ensures GPU-first execution when hardware available.
+### CONFIG-001 (Legacy Params Bridge)
+**Status:** PRESERVED
+- No changes to update_legacy_dict calls
+- Backend selector still synchronizes params.cfg before dispatch
 
-CONFIG-001: PyTorchExecutionConfig is execution-only; does NOT populate params.cfg via update_legacy_dict.
+### CONFIG-002 (Execution Config Scope)
+**Status:** PRESERVED
+- torch_execution_config remains optional parameter
+- Auto-instantiation only occurs when explicitly None
+- Explicit configs bypass auto-resolution
 
-CONFIG-LOGGER-001: Logging infrastructure already in place; added logger.info() calls to surface resolved accelerator.
+### CONFIG-LOGGER-001 (Logger Backend)
+**Status:** PRESERVED
+- Default logger_backend='csv' inherited via PyTorchExecutionConfig()
+- No changes to logging configuration
 
-EXEC-ACCUM-001: Not affected by this change (gradient accumulation guard remains separate).
+## Integration Points
 
-DATA-SUP-001: Not affected by this change (supervised data contract detection remains separate).
+### Backend Selector Flow (Updated)
+1. Client calls run_cdi_example_with_backend(..., torch_execution_config=None)
+2. Dispatcher calls update_legacy_dict (CONFIG-001 gate)
+3. **NEW:** If torch_execution_config is None, instantiate PyTorchExecutionConfig()
+4. __post_init__ auto-resolves accelerator: 'auto' → 'cuda'/'cpu'
+5. Dispatcher delegates to torch_components.run_cdi_example_torch(..., execution_config=torch_execution_config)
+6. PyTorch workflow receives fully-resolved execution config
 
-DEVICE-MISMATCH-001: RESOLVED (commit 85478a67; separate from this work).
+### Backward Compatibility
+- Existing callers passing explicit torch_execution_config: UNCHANGED
+- TensorFlow backend (config.backend='tensorflow'): UNCHANGED
+- PyTorch workflows with execution_config=None: NOW GPU-FIRST
 
-Exit Criteria Assessment
--------------------------
-[x] PyTorchExecutionConfig.accelerator defaults to 'auto'
-[x] __post_init__ resolves 'auto' → 'cuda' when torch.cuda.is_available() == True
-[x] __post_init__ resolves 'auto' → 'cpu' with POLICY-001 warning when CUDA unavailable
-[x] ptycho_torch/workflows/components.py logs resolved accelerator at execution_config=None sites
-[x] Regression tests verify auto-resolution behavior (monkeypatch torch.cuda.is_available)
-[x] GREEN pytest log captured
-[x] Explicit accelerator values (cpu, cuda) bypass auto-resolution
+## Known Limitations
 
-Status: COMPLETE
+### CPU-Only Host Warning Test
+- test_backend_selector_warns_on_cpu_only_hosts: SKIPPED on CUDA hosts
+- Cannot verify CPU fallback warning on GPU-capable test machines
+- Test design allows manual verification on CPU-only CI runners
 
-Next Actions
-------------
-1. Commit changes with message referencing POLICY-001 and auto→cuda defaults
-2. Update docs/fix_plan.md to mark this Do Now complete
-3. Update plans/active/INTEGRATE-PYTORCH-001/summary.md with Turn Summary
-4. Rerun full PyTorch test suite to ensure no regressions
+## References
+
+- POLICY-001: docs/findings.md:7 (PyTorch GPU-first policy)
+- CONFIG-001: docs/findings.md:9 (params.cfg bridge)
+- CONFIG-002: docs/findings.md:10 (execution config scope)
+- CONFIG-LOGGER-001: docs/findings.md:11 (logger backend defaults)
+- Backend Selector: ptycho/workflows/backend_selector.py
+- Execution Config: ptycho/config/config.py:PyTorchExecutionConfig
+
+## Next Steps
+
+None - dispatcher-level GPU-first defaults complete. Focus can shift to:
+- CLI smoke testing with auto-instantiated configs
+- Ptychodus integration verification
+- Documentation updates in docs/workflows/pytorch.md

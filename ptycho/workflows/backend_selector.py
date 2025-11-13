@@ -158,6 +158,15 @@ def run_cdi_example_with_backend(
                 f"Original error: {e}"
             ) from e
 
+        # Auto-instantiate execution_config if None (GPU-first defaults per POLICY-001)
+        if torch_execution_config is None:
+            from ptycho.config.config import PyTorchExecutionConfig
+            torch_execution_config = PyTorchExecutionConfig()  # Triggers auto-resolution to cuda/cpu
+            logger.info(
+                f"Backend dispatcher: auto-instantiated PyTorchExecutionConfig with "
+                f"accelerator='{torch_execution_config.accelerator}' (POLICY-001 GPU-first defaults)"
+            )
+
         # Delegate to PyTorch run_cdi_example_torch
         recon_amp, recon_phase, results = torch_components.run_cdi_example_torch(
             train_data, test_data, config, flip_x, flip_y, transpose, M, do_stitching,
