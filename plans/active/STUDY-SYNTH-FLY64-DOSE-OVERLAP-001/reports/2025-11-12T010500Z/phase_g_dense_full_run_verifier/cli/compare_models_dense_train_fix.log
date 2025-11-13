@@ -1,22 +1,22 @@
-2025-11-13 00:57:54.367872: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-11-13 01:28:21.299798: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1763024274.378677 2060851 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1763024274.382271 2060851 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1763024274.391827 2060851 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763024274.391838 2060851 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763024274.391839 2060851 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763024274.391841 2060851 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2025-11-13 00:57:54.394452: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+E0000 00:00:1763026101.310955 2091325 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763026101.314756 2091325 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763026101.324418 2091325 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763026101.324427 2091325 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763026101.324429 2091325 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763026101.324430 2091325 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-13 01:28:21.327333: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
 To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2025-11-13 00:57:56,682 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
-2025-11-13 00:57:56,682 - INFO - Registration: enabled
-2025-11-13 00:57:56,682 - INFO - NPZ output: raw=enabled, aligned=enabled
-2025-11-13 00:57:56,682 - INFO - Loading PtychoPINN inference model (diffraction_to_obj) to restore configuration...
-2025-11-13 00:57:56,682 - INFO - Loading model from: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
-I0000 00:00:1763024277.064217 2060851 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
-I0000 00:00:1763024277.065450 2060851 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+2025-11-13 01:28:23,619 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
+2025-11-13 01:28:23,619 - INFO - Registration: enabled
+2025-11-13 01:28:23,619 - INFO - NPZ output: raw=enabled, aligned=enabled
+2025-11-13 01:28:23,619 - INFO - Loading PtychoPINN inference model (diffraction_to_obj) to restore configuration...
+2025-11-13 01:28:23,619 - INFO - Loading model from: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
+I0000 00:00:1763026104.003520 2091325 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1763026104.004855 2091325 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
 Model: "functional"
-2025-11-13 00:57:57,756 - INFO - Model: "functional"
+2025-11-13 01:28:24,692 - INFO - Model: "functional"
 ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
 ┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
 ┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
@@ -220,7 +220,7 @@ Model: "functional"
 │ pred_intensity      │ (None, 128, 128,  │          0 │ intensity_scaler… │
 │ (SquareLayer)       │ 4)                │            │                   │
 └─────────────────────┴───────────────────┴────────────┴───────────────────┘
-2025-11-13 00:57:57,780 - INFO - ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
+2025-11-13 01:28:24,717 - INFO - ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
 ┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
 ┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
 │ input (InputLayer)  │ (None, 128, 128,  │          0 │ -                 │
@@ -424,235 +424,264 @@ Model: "functional"
 │ (SquareLayer)       │ 4)                │            │                   │
 └─────────────────────┴───────────────────┴────────────┴───────────────────┘
  Total params: 4,667,056 (17.80 MB)
-2025-11-13 00:57:57,781 - INFO - Total params: 4,667,056 (17.80 MB)
+2025-11-13 01:28:24,717 - INFO - Total params: 4,667,056 (17.80 MB)
  Trainable params: 4,667,056 (17.80 MB)
-2025-11-13 00:57:57,781 - INFO - Trainable params: 4,667,056 (17.80 MB)
+2025-11-13 01:28:24,717 - INFO - Trainable params: 4,667,056 (17.80 MB)
  Non-trainable params: 0 (0.00 B)
-2025-11-13 00:57:57,781 - INFO - Non-trainable params: 0 (0.00 B)
-None2025-11-13 00:57:57,781 - INFO - None
+2025-11-13 01:28:24,717 - INFO - Non-trainable params: 0 (0.00 B)
+None2025-11-13 01:28:24,717 - INFO - None
 
-2025-11-13 00:57:57.781585: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:103] Profiler session initializing.
-2025-11-13 00:57:57.781601: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:118] Profiler session started.
+2025-11-13 01:28:24.717849: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:103] Profiler session initializing.
+2025-11-13 01:28:24.717858: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:118] Profiler session started.
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-I0000 00:00:1763024277.781614 2060851 cupti_tracer.cc:1026] Profiler found 1 GPUs
-W0000 00:00:1763024277.798546 2060851 cupti_tracer.cc:1213] Fail to use per-thread activity buffer, cupti trace overhead may be big. CUPTI ERROR CODE:1
-2025-11-13 00:57:57.798616: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:130] Profiler session tear down.
-I0000 00:00:1763024277.798752 2060851 cupti_tracer.cc:1249] CUPTI activity buffer flushed
+I0000 00:00:1763026104.717870 2091325 cupti_tracer.cc:1026] Profiler found 1 GPUs
+W0000 00:00:1763026104.735047 2091325 cupti_tracer.cc:1213] Fail to use per-thread activity buffer, cupti trace overhead may be big. CUPTI ERROR CODE:1
+2025-11-13 01:28:24.735116: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:130] Profiler session tear down.
+I0000 00:00:1763026104.735227 2091325 cupti_tracer.cc:1249] CUPTI activity buffer flushed
 /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
   warnings.warn(
-2025-11-13 00:57:57,972 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+2025-11-13 01:28:24,911 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
   warnings.warn(
 /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
   warnings.warn(
-2025-11-13 00:57:57,973 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+2025-11-13 01:28:24,912 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
   warnings.warn(
-2025-11-13 00:57:58,610 - INFO - Successfully loaded model from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
-2025-11-13 00:57:58,611 - INFO - Restored configuration from model: gridsize=2, N=128
-2025-11-13 00:57:58,611 - INFO - Loading test data from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz with restored gridsize=2...
-2025-11-13 00:57:58,611 - INFO - Using n_test_groups=32 (controls grouping)
-2025-11-13 00:57:58,611 - INFO - Loading data from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz with n_images=32, n_subsample=None
-2025-11-13 00:57:59,054 - WARNING - Ignoring NPZ 'Y' with incompatible shape (1, 128, 128, 1) (expected first axis 5088)
-2025-11-13 00:57:59,054 - INFO - Legacy sampling: using 32 images from 5088 total
-2025-11-13 00:57:59,054 - INFO - Randomly subsampled 32 images
-diff3d shape: (32, 128, 128)2025-11-13 00:57:59,055 - INFO - diff3d shape: (32, 128, 128)
+2025-11-13 01:28:25,568 - INFO - Successfully loaded model from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
+2025-11-13 01:28:25,569 - INFO - Restored configuration from model: gridsize=2, N=128
+2025-11-13 01:28:25,569 - INFO - Loading test data from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz with restored gridsize=2...
+2025-11-13 01:28:25,569 - INFO - Using n_test_groups=32 (controls grouping)
+2025-11-13 01:28:25,569 - INFO - Loading data from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz with n_images=32, n_subsample=None
+2025-11-13 01:28:26,014 - WARNING - Ignoring NPZ 'Y' with incompatible shape (1, 128, 128, 1) (expected first axis 5088)
+2025-11-13 01:28:26,014 - INFO - Legacy sampling: using 32 images from 5088 total
+2025-11-13 01:28:26,014 - INFO - Randomly subsampled 32 images
+diff3d shape: (32, 128, 128)2025-11-13 01:28:26,014 - INFO - diff3d shape: (32, 128, 128)
 
-probeGuess shape: (128, 128)2025-11-13 00:57:59,055 - INFO - probeGuess shape: (128, 128)
+probeGuess shape: (128, 128)2025-11-13 01:28:26,014 - INFO - probeGuess shape: (128, 128)
 
-scan_index shape: (32,)2025-11-13 00:57:59,055 - INFO - scan_index shape: (32,)
+scan_index shape: (32,)2025-11-13 01:28:26,014 - INFO - scan_index shape: (32,)
 
-objectGuess shape: (464, 464)2025-11-13 00:57:59,055 - INFO - objectGuess shape: (464, 464)
+objectGuess shape: (464, 464)2025-11-13 01:28:26,014 - INFO - objectGuess shape: (464, 464)
 
-xcoords shape: (32,)2025-11-13 00:57:59,055 - INFO - xcoords shape: (32,)
+xcoords shape: (32,)2025-11-13 01:28:26,014 - INFO - xcoords shape: (32,)
 
-ycoords shape: (32,)2025-11-13 00:57:59,055 - INFO - ycoords shape: (32,)
+ycoords shape: (32,)2025-11-13 01:28:26,014 - INFO - ycoords shape: (32,)
 
-xcoords_start shape: (32,)2025-11-13 00:57:59,055 - INFO - xcoords_start shape: (32,)
+xcoords_start shape: (32,)2025-11-13 01:28:26,014 - INFO - xcoords_start shape: (32,)
 
-ycoords_start shape: (32,)2025-11-13 00:57:59,055 - INFO - ycoords_start shape: (32,)
+ycoords_start shape: (32,)2025-11-13 01:28:26,014 - INFO - ycoords_start shape: (32,)
 
-2025-11-13 00:57:59,056 - INFO - Final configuration: gridsize=2, N=128, n_images=32
-2025-11-13 00:57:59,057 - INFO - Using stitch_crop_size M=20 (N=128)
-2025-11-13 00:57:59,057 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=32, n_points=32, C=4, K=7
-2025-11-13 00:57:59,057 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=128, sequential_sampling=False
-2025-11-13 00:57:59,057 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
-2025-11-13 00:57:59,057 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 32 > 32 = False
-2025-11-13 00:57:59,057 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
-2025-11-13 00:57:59,057 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
-DEBUG:2025-11-13 00:57:59,057 - INFO - DEBUG:
- nsamples: 32, gridsize: 2 (using efficient random sample-then-group strategy)2025-11-13 00:57:59,057 - INFO - nsamples: 32, gridsize: 2 (using efficient random sample-then-group strategy)
+2025-11-13 01:28:26,015 - INFO - Final configuration: gridsize=2, N=128, n_images=32
+2025-11-13 01:28:26,015 - INFO - Using stitch_crop_size M=20 (N=128)
+2025-11-13 01:28:26,015 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=32, n_points=32, C=4, K=7
+2025-11-13 01:28:26,015 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=128, sequential_sampling=False
+2025-11-13 01:28:26,016 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
+2025-11-13 01:28:26,016 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 32 > 32 = False
+2025-11-13 01:28:26,016 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2025-11-13 01:28:26,016 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+DEBUG:2025-11-13 01:28:26,016 - INFO - DEBUG:
+ nsamples: 32, gridsize: 2 (using efficient random sample-then-group strategy)2025-11-13 01:28:26,016 - INFO - nsamples: 32, gridsize: 2 (using efficient random sample-then-group strategy)
 
-2025-11-13 00:57:59,057 - INFO - Using efficient random sampling strategy for gridsize=2
-2025-11-13 00:57:59,057 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
-2025-11-13 00:57:59,057 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=32, K=7, C=4
-2025-11-13 00:57:59,057 - INFO - Generating 32 groups efficiently from 32 points (K=7, C=4)
-2025-11-13 00:57:59,057 - INFO - [OVERSAMPLING DEBUG] Standard case: using 32 groups from 32 points
-2025-11-13 00:57:59,057 - INFO - [OVERSAMPLING DEBUG] Using all 32 points as seeds (no sampling needed)
-2025-11-13 00:57:59,057 - INFO - Using all 32 points as seeds
-2025-11-13 00:57:59,057 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 32 groups
-2025-11-13 00:57:59,057 - INFO - Successfully generated 32 groups with shape (32, 4)
-2025-11-13 00:57:59,057 - INFO - [OVERSAMPLING DEBUG] Generated 32 groups in total
-2025-11-13 00:57:59,057 - INFO - Generated 32 groups efficiently
-INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.2025-11-13 00:57:59,059 - INFO - INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+2025-11-13 01:28:26,016 - INFO - Using efficient random sampling strategy for gridsize=2
+2025-11-13 01:28:26,016 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-11-13 01:28:26,016 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=32, K=7, C=4
+2025-11-13 01:28:26,016 - INFO - Generating 32 groups efficiently from 32 points (K=7, C=4)
+2025-11-13 01:28:26,016 - INFO - [OVERSAMPLING DEBUG] Standard case: using 32 groups from 32 points
+2025-11-13 01:28:26,016 - INFO - [OVERSAMPLING DEBUG] Using all 32 points as seeds (no sampling needed)
+2025-11-13 01:28:26,016 - INFO - Using all 32 points as seeds
+2025-11-13 01:28:26,016 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 32 groups
+2025-11-13 01:28:26,016 - INFO - Successfully generated 32 groups with shape (32, 4)
+2025-11-13 01:28:26,016 - INFO - [OVERSAMPLING DEBUG] Generated 32 groups in total
+2025-11-13 01:28:26,016 - INFO - Generated 32 groups efficiently
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.2025-11-13 01:28:26,017 - INFO - INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
 
-I0000 00:00:1763024279.711191 2060851 service.cc:152] XLA service 0x413f5000 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
-I0000 00:00:1763024279.711209 2060851 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
-2025-11-13 00:57:59.735635: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
-I0000 00:00:1763024279.753329 2060851 cuda_dnn.cc:529] Loaded cuDNN version 91002
-I0000 00:00:1763024279.913207 2060851 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
-neighbor-sampled diffraction shape2025-11-13 00:58:00,493 - INFO - neighbor-sampled diffraction shape
- (32, 128, 128, 4)2025-11-13 00:58:00,493 - INFO - (32, 128, 128, 4)
+I0000 00:00:1763026106.682401 2091325 service.cc:152] XLA service 0x1e7a9ba0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1763026106.682419 2091325 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-11-13 01:28:26.706528: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1763026106.723855 2091325 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1763026106.883169 2091325 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+neighbor-sampled diffraction shape2025-11-13 01:28:27,460 - INFO - neighbor-sampled diffraction shape
+ (32, 128, 128, 4)2025-11-13 01:28:27,460 - INFO - (32, 128, 128, 4)
 
-loader: using provided ground truth patches.2025-11-13 00:58:00,499 - INFO - loader: using provided ground truth patches.
+loader: using provided ground truth patches.2025-11-13 01:28:27,465 - INFO - loader: using provided ground truth patches.
 
-INFO:2025-11-13 00:58:00,864 - INFO - INFO:
- None2025-11-13 00:58:00,865 - INFO - None
+INFO:2025-11-13 01:28:27,816 - INFO - INFO:
+ None2025-11-13 01:28:27,816 - INFO - None
 
-<PtychoDataContainer X=(32, 128, 128, 4) Y_I=(32, 128, 128, 4) Y_phi=(32, 128, 128, 4) norm_Y_I=() coords_nominal=(32, 1, 2, 4) coords_true=(32, 1, 2, 4) nn_indices=(32, 4) mean=15.086 global_offsets=(32, 1, 2, 1) mean=159.764 local_offsets=(32, 1, 2, 4) mean=0.000 probe=(128, 128) mean_amplitude=0.007>2025-11-13 00:58:00,865 - INFO - <PtychoDataContainer X=(32, 128, 128, 4) Y_I=(32, 128, 128, 4) Y_phi=(32, 128, 128, 4) norm_Y_I=() coords_nominal=(32, 1, 2, 4) coords_true=(32, 1, 2, 4) nn_indices=(32, 4) mean=15.086 global_offsets=(32, 1, 2, 1) mean=159.764 local_offsets=(32, 1, 2, 4) mean=0.000 probe=(128, 128) mean_amplitude=0.007>
+<PtychoDataContainer X=(32, 128, 128, 4) Y_I=(32, 128, 128, 4) Y_phi=(32, 128, 128, 4) norm_Y_I=() coords_nominal=(32, 1, 2, 4) coords_true=(32, 1, 2, 4) nn_indices=(32, 4) mean=15.086 global_offsets=(32, 1, 2, 1) mean=159.764 local_offsets=(32, 1, 2, 4) mean=0.000 probe=(128, 128) mean_amplitude=0.007>2025-11-13 01:28:27,816 - INFO - <PtychoDataContainer X=(32, 128, 128, 4) Y_I=(32, 128, 128, 4) Y_phi=(32, 128, 128, 4) norm_Y_I=() coords_nominal=(32, 1, 2, 4) coords_true=(32, 1, 2, 4) nn_indices=(32, 4) mean=15.086 global_offsets=(32, 1, 2, 1) mean=159.764 local_offsets=(32, 1, 2, 4) mean=0.000 probe=(128, 128) mean_amplitude=0.007>
 
-2025-11-13 00:58:00,865 - INFO - Loading Baseline model from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1...
-2025-11-13 00:58:00,865 - INFO - baseline_model.h5 not found; attempting to load TF bundle (wts.h5.zip)
-2025-11-13 00:58:00,865 - INFO - Loading model from: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
-2025-11-13 00:58:01,892 - INFO - Successfully loaded model from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
-2025-11-13 00:58:01,892 - INFO - Running two-way comparison (PtychoPINN vs. Baseline)
-2025-11-13 00:58:01,892 - INFO - Running inference with PtychoPINN (diffraction_to_obj)...
-2025-11-13 00:58:01,892 - WARNING - GRIDSIZE MISMATCH: params.cfg['gridsize']=1 but diffraction has 4 channels (requires gridsize=2)
-2025-11-13 00:58:01,892 - WARNING - Forcing params.cfg['gridsize']=2 before inference to prevent Translation layer crash
-[1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 3s/step2025-11-13 00:58:05,357 - INFO - [1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 3s/step
+2025-11-13 01:28:27,816 - INFO - Loading Baseline model from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1...
+2025-11-13 01:28:27,816 - INFO - baseline_model.h5 not found; attempting to load TF bundle (wts.h5.zip)
+2025-11-13 01:28:27,816 - INFO - Loading model from: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
+2025-11-13 01:28:28,835 - INFO - Successfully loaded model from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
+2025-11-13 01:28:28,836 - INFO - Running two-way comparison (PtychoPINN vs. Baseline)
+2025-11-13 01:28:28,836 - INFO - Running inference with PtychoPINN (diffraction_to_obj)...
+2025-11-13 01:28:28,836 - WARNING - GRIDSIZE MISMATCH: params.cfg['gridsize']=1 but diffraction has 4 channels (requires gridsize=2)
+2025-11-13 01:28:28,836 - WARNING - Forcing params.cfg['gridsize']=2 before inference to prevent Translation layer crash
+[1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 3s/step2025-11-13 01:28:32,321 - INFO - [1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 3s/step
 [1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m3s[0m 3s/step
-2025-11-13 00:58:05,369 - INFO - [1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m3s[0m 3s/step
-2025-11-13 00:58:05,373 - INFO - PtychoPINN inference completed in 3.48s
-2025-11-13 00:58:05,374 - INFO - Running inference with Baseline model...
-2025-11-13 00:58:05,374 - INFO - Flattening grouped diffraction for baseline model: X (32, 128, 128, 4) → channels merged; resolved gridsize=2 (from 4 channels)
-DEBUG: Setting2025-11-13 00:58:05,374 - INFO - DEBUG: Setting
- gridsize2025-11-13 00:58:05,374 - INFO - gridsize
- to2025-11-13 00:58:05,374 - INFO - to
- 22025-11-13 00:58:05,374 - INFO - 2
- in params2025-11-13 00:58:05,374 - INFO - in params
+2025-11-13 01:28:32,333 - INFO - [1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m3s[0m 3s/step
+2025-11-13 01:28:32,337 - INFO - PtychoPINN inference completed in 3.50s
+2025-11-13 01:28:32,337 - INFO - PINN patches shape before reassembly: (32, 128, 128, 1), dtype: complex64
+2025-11-13 01:28:32,337 - INFO - Reassembling PINN patches...
+2025-11-13 01:28:32,337 - INFO - PINN offsets shape before reassembly: (32, 1, 2, 1), dtype: float64
+2025-11-13 01:28:33,717 - INFO - PINN reconstruction shape after reassembly: (344, 344, 1), dtype: <dtype: 'complex64'>
+2025-11-13 01:28:33,717 - INFO - Running inference with Baseline model...
+2025-11-13 01:28:33,717 - INFO - Flattening grouped diffraction for baseline model: X (32, 128, 128, 4) → channels merged; resolved gridsize=2 (from 4 channels)
+DEBUG: Setting2025-11-13 01:28:33,717 - INFO - DEBUG: Setting
+ gridsize2025-11-13 01:28:33,717 - INFO - gridsize
+ to2025-11-13 01:28:33,717 - INFO - to
+ 22025-11-13 01:28:33,717 - INFO - 2
+ in params2025-11-13 01:28:33,717 - INFO - in params
 
-2025-11-13 00:58:05,374 - INFO - Forced params.cfg['gridsize']=2 for baseline grouped inference
-2025-11-13 00:58:05,382 - INFO - Baseline inference input shape: (128, 128, 128, 1)
-2025-11-13 00:58:05,382 - INFO - Baseline inference offsets shape: (128, 1, 2, 1)
-[1m1/4[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m5s[0m 2s/step2025-11-13 00:58:07,287 - INFO - [1m1/4[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m5s[0m 2s/step
+2025-11-13 01:28:33,718 - INFO - Forced params.cfg['gridsize']=2 for baseline grouped inference
+2025-11-13 01:28:33,726 - INFO - Baseline inference input shape: (128, 128, 128, 1)
+2025-11-13 01:28:33,726 - INFO - Baseline inference offsets shape: (128, 1, 2, 1)
+[1m1/4[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m5s[0m 2s/step2025-11-13 01:28:35,498 - INFO - [1m1/4[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m5s[0m 2s/step
 [1m4/4[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m2s[0m 14ms/step
-2025-11-13 00:58:07,328 - INFO - [1m4/4[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m2s[0m 14ms/step
-2025-11-13 00:58:07,347 - INFO - Baseline inference completed in 1.96s
-2025-11-13 00:58:07,347 - INFO - Baseline output format: single tensor, shape: (128, 128, 128, 1), dtype: complex64
-2025-11-13 00:58:07,347 - INFO - Converting baseline output from single complex tensor format
-2025-11-13 00:58:07,358 - INFO - After conversion - amplitude shape: (128, 128, 128, 1), phase shape: (128, 128, 128, 1)
-2025-11-13 00:58:07,358 - INFO - Complex patches shape: (128, 128, 128, 1), dtype: complex64
-2025-11-13 00:58:07,358 - INFO - Reassembling baseline patches...
-2025-11-13 00:58:09,012 - INFO - Saving NPZ files of raw reconstructions...
-2025-11-13 00:58:09,296 - INFO - Unified reconstructions saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train/reconstructions.npz
-2025-11-13 00:58:09,296 - INFO - Metadata saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train/reconstructions_metadata.txt
-2025-11-13 00:58:09,296 - INFO - Unified NPZ reconstruction file saved successfully!
-2025-11-13 00:58:09,296 - INFO - Performing coordinate-based alignment of ground truth...
-2025-11-13 00:58:09,296 - INFO - Ground truth original shape: (464, 464)
-2025-11-13 00:58:09,296 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
-2025-11-13 00:58:09,296 - INFO - Calculated ground truth crop region: rows [76:216], cols [83:357]
-2025-11-13 00:58:09,296 - INFO - Initial shapes: Recon=(32, 128, 128), Cropped GT=(140, 274)
-2025-11-13 00:58:09,296 - CRITICAL - Uncaught exception
-Traceback (most recent call last):
-  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1368, in <module>
-    main()
-  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1121, in main
-    pinn_recon_cropped, gt_cropped_for_pinn = align_for_evaluation(
-                                              ^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/ptycho/image/cropping.py", line 125, in align_for_evaluation
-    aligned_recon = _center_crop(recon_2d, target_h, target_w)
-                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/ptycho/image/cropping.py", line 55, in _center_crop
-    h, w = img.shape
-    ^^^^
-ValueError: too many values to unpack (expected 2)
-Traceback (most recent call last):
-2025-11-13 00:58:09,297 - ERROR - Traceback (most recent call last):
-  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1368, in <module>
-2025-11-13 00:58:09,297 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1368, in <module>
-    main()2025-11-13 00:58:09,297 - ERROR - main()
+2025-11-13 01:28:35,540 - INFO - [1m4/4[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m2s[0m 14ms/step
+2025-11-13 01:28:35,559 - INFO - Baseline inference completed in 1.83s
+2025-11-13 01:28:35,560 - INFO - Baseline output format: single tensor, shape: (128, 128, 128, 1), dtype: complex64
+2025-11-13 01:28:35,560 - INFO - Converting baseline output from single complex tensor format
+2025-11-13 01:28:35,571 - INFO - After conversion - amplitude shape: (128, 128, 128, 1), phase shape: (128, 128, 128, 1)
+2025-11-13 01:28:35,571 - INFO - Complex patches shape: (128, 128, 128, 1), dtype: complex64
+2025-11-13 01:28:35,571 - INFO - Reassembling baseline patches...
+2025-11-13 01:28:36,286 - INFO - Saving NPZ files of raw reconstructions...
+2025-11-13 01:28:36,412 - INFO - Unified reconstructions saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_smoke/reconstructions.npz
+2025-11-13 01:28:36,413 - INFO - Metadata saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_smoke/reconstructions_metadata.txt
+2025-11-13 01:28:36,413 - INFO - Unified NPZ reconstruction file saved successfully!
+2025-11-13 01:28:36,413 - INFO - Performing coordinate-based alignment of ground truth...
+2025-11-13 01:28:36,413 - INFO - Ground truth original shape: (464, 464)
+2025-11-13 01:28:36,413 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
+2025-11-13 01:28:36,413 - INFO - Calculated ground truth crop region: rows [76:216], cols [83:357]
+2025-11-13 01:28:36,413 - INFO - Initial shapes: Recon=(344, 344), Cropped GT=(140, 274)
+2025-11-13 01:28:36,413 - INFO - Center-cropping from (344, 344) to (140, 274)
+2025-11-13 01:28:36,413 - INFO - Final aligned shape: (140, 274)
+2025-11-13 01:28:36,413 - INFO - --- Alignment complete ---
+2025-11-13 01:28:36,413 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
+2025-11-13 01:28:36,413 - INFO - Calculated ground truth crop region: rows [76:216], cols [83:357]
+2025-11-13 01:28:36,413 - INFO - Initial shapes: Recon=(420, 420), Cropped GT=(140, 274)
+2025-11-13 01:28:36,413 - INFO - Center-cropping from (420, 420) to (140, 274)
+2025-11-13 01:28:36,413 - INFO - Final aligned shape: (140, 274)
+2025-11-13 01:28:36,413 - INFO - --- Alignment complete ---
+2025-11-13 01:28:36,413 - INFO - Performing selective registration (ONLY for pty-chi/tike)...
+2025-11-13 01:28:36,413 - INFO - PtychoPINN and Baseline: skipping registration (as intended)
+2025-11-13 01:28:36,413 - INFO - Final evaluation shapes: PINN (140, 274), Baseline (140, 274), GT (140, 274)
+Amplitude normalization scale factor: 3.3329272025-11-13 01:28:36,417 - INFO - Amplitude normalization scale factor: 3.332927
 
-  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1121, in main
-2025-11-13 00:58:09,297 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1121, in main
-    pinn_recon_cropped, gt_cropped_for_pinn = align_for_evaluation(2025-11-13 00:58:09,297 - ERROR - pinn_recon_cropped, gt_cropped_for_pinn = align_for_evaluation(
+mean scale adjustment:2025-11-13 01:28:36,417 - INFO - mean scale adjustment:
+ 12025-11-13 01:28:36,417 - INFO - 1
 
-                                              ^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
+mean scale adjustment:2025-11-13 01:28:36,417 - INFO - mean scale adjustment:
+ 12025-11-13 01:28:36,417 - INFO - 1
 
-  File "/home/ollie/Documents/PtychoPINN/ptycho/image/cropping.py", line 125, in align_for_evaluation
-2025-11-13 00:58:09,298 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/image/cropping.py", line 125, in align_for_evaluation
-    aligned_recon = _center_crop(recon_2d, target_h, target_w)2025-11-13 00:58:09,298 - ERROR - aligned_recon = _center_crop(recon_2d, target_h, target_w)
+DEBUG eval_reconstruction [PtychoPINN]: amp_target stats: mean=0.565471, std=0.047517, shape=(136, 270, 1)2025-11-13 01:28:36,419 - INFO - DEBUG eval_reconstruction [PtychoPINN]: amp_target stats: mean=0.565471, std=0.047517, shape=(136, 270, 1)
 
-                    ^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,298 - ERROR - ^
-^2025-11-13 00:58:09,299 - ERROR - ^
-^2025-11-13 00:58:09,299 - ERROR - ^
-^2025-11-13 00:58:09,299 - ERROR - ^
-^2025-11-13 00:58:09,299 - ERROR - ^
-^2025-11-13 00:58:09,299 - ERROR - ^
-^2025-11-13 00:58:09,299 - ERROR - ^
-^2025-11-13 00:58:09,299 - ERROR - ^
-^2025-11-13 00:58:09,299 - ERROR - ^
+DEBUG eval_reconstruction [PtychoPINN]: amp_pred stats: mean=0.169662, std=0.323603, shape=(136, 270, 1)2025-11-13 01:28:36,419 - INFO - DEBUG eval_reconstruction [PtychoPINN]: amp_pred stats: mean=0.169662, std=0.323603, shape=(136, 270, 1)
 
-  File "/home/ollie/Documents/PtychoPINN/ptycho/image/cropping.py", line 55, in _center_crop
-2025-11-13 00:58:09,299 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/image/cropping.py", line 55, in _center_crop
-    h, w = img.shape2025-11-13 00:58:09,299 - ERROR - h, w = img.shape
+DEBUG eval_reconstruction [PtychoPINN]: phi_target stats: mean=-0.000000, std=0.269595, shape=(136, 270)2025-11-13 01:28:36,419 - INFO - DEBUG eval_reconstruction [PtychoPINN]: phi_target stats: mean=-0.000000, std=0.269595, shape=(136, 270)
 
-    ^2025-11-13 00:58:09,299 - ERROR - ^
-^2025-11-13 00:58:09,299 - ERROR - ^
-^2025-11-13 00:58:09,299 - ERROR - ^
-^2025-11-13 00:58:09,299 - ERROR - ^
+DEBUG eval_reconstruction [PtychoPINN]: phi_pred stats: mean=-0.000000, std=0.165761, shape=(136, 270)2025-11-13 01:28:36,419 - INFO - DEBUG eval_reconstruction [PtychoPINN]: phi_pred stats: mean=-0.000000, std=0.165761, shape=(136, 270)
 
-ValueError2025-11-13 00:58:09,299 - ERROR - ValueError
-: 2025-11-13 00:58:09,299 - ERROR - :
-too many values to unpack (expected 2)2025-11-13 00:58:09,299 - ERROR - too many values to unpack (expected 2)
+performed by index method2025-11-13 01:28:36,420 - INFO - performed by index method
 
+performed by index method2025-11-13 01:28:36,424 - INFO - performed by index method
+
+performed by index method2025-11-13 01:28:36,428 - INFO - performed by index method
+
+mean scale adjustment:2025-11-13 01:28:36,432 - INFO - mean scale adjustment:
+ 12025-11-13 01:28:36,432 - INFO - 1
+
+mean scale adjustment:2025-11-13 01:28:36,432 - INFO - mean scale adjustment:
+ 12025-11-13 01:28:36,432 - INFO - 1
+
+Phase preprocessing: plane-fitted range [-0.650, 0.377] -> scaled range [0.397, 0.560]2025-11-13 01:28:36,433 - INFO - Phase preprocessing: plane-fitted range [-0.650, 0.377] -> scaled range [0.397, 0.560]
+
+/home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:168: RuntimeWarning: Negative SSIM value (-0.0031) encountered in MS-SSIM calculation. Clamping to 0.0001 to avoid NaN.
+  warnings.warn(f"Negative SSIM value ({ssim_val:.4f}) encountered in MS-SSIM calculation. "
+2025-11-13 01:28:36,438 - ERROR - /home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:168: RuntimeWarning: Negative SSIM value (-0.0031) encountered in MS-SSIM calculation. Clamping to 0.0001 to avoid NaN.
+  warnings.warn(f"Negative SSIM value ({ssim_val:.4f}) encountered in MS-SSIM calculation. "
+/home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:168: RuntimeWarning: Negative SSIM value (-0.0008) encountered in MS-SSIM calculation. Clamping to 0.0001 to avoid NaN.
+  warnings.warn(f"Negative SSIM value ({ssim_val:.4f}) encountered in MS-SSIM calculation. "
+2025-11-13 01:28:36,438 - ERROR - /home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:168: RuntimeWarning: Negative SSIM value (-0.0008) encountered in MS-SSIM calculation. Clamping to 0.0001 to avoid NaN.
+  warnings.warn(f"Negative SSIM value ({ssim_val:.4f}) encountered in MS-SSIM calculation. "
+performed by index method2025-11-13 01:28:36,439 - INFO - performed by index method
+
+performed by index method2025-11-13 01:28:36,443 - INFO - performed by index method
+
+performed by index method2025-11-13 01:28:36,447 - INFO - performed by index method
+
+2025-11-13 01:28:36,450 - INFO - PtychoPINN evaluation complete. SSIM: amp=0.001, phase=0.654, MS-SSIM: amp=0.012, phase=0.002
+/home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:543: RuntimeWarning: divide by zero encountered in scalar divide
+  scale_factor = np.mean(amp_target_np) / np.mean(amp_pred_np)
+2025-11-13 01:28:36,453 - ERROR - /home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:543: RuntimeWarning: divide by zero encountered in scalar divide
+  scale_factor = np.mean(amp_target_np) / np.mean(amp_pred_np)
+/home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:544: RuntimeWarning: invalid value encountered in multiply
+  amp_pred_normalized = amp_pred_np * scale_factor
+2025-11-13 01:28:36,454 - ERROR - /home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:544: RuntimeWarning: invalid value encountered in multiply
+  amp_pred_normalized = amp_pred_np * scale_factor
+Amplitude normalization scale factor: inf2025-11-13 01:28:36,454 - INFO - Amplitude normalization scale factor: inf
+
+mean scale adjustment:2025-11-13 01:28:36,454 - INFO - mean scale adjustment:
+ 12025-11-13 01:28:36,454 - INFO - 1
+
+mean scale adjustment:2025-11-13 01:28:36,454 - INFO - mean scale adjustment:
+ 12025-11-13 01:28:36,454 - INFO - 1
+
+DEBUG eval_reconstruction [Baseline]: amp_target stats: mean=0.565471, std=0.047517, shape=(136, 270, 1)2025-11-13 01:28:36,455 - INFO - DEBUG eval_reconstruction [Baseline]: amp_target stats: mean=0.565471, std=0.047517, shape=(136, 270, 1)
+
+DEBUG eval_reconstruction [Baseline]: amp_pred stats: mean=0.000000, std=0.000000, shape=(136, 270, 1)2025-11-13 01:28:36,455 - INFO - DEBUG eval_reconstruction [Baseline]: amp_pred stats: mean=0.000000, std=0.000000, shape=(136, 270, 1)
+
+DEBUG eval_reconstruction [Baseline]: phi_target stats: mean=-0.000000, std=0.269595, shape=(136, 270)2025-11-13 01:28:36,455 - INFO - DEBUG eval_reconstruction [Baseline]: phi_target stats: mean=-0.000000, std=0.269595, shape=(136, 270)
+
+DEBUG eval_reconstruction [Baseline]: phi_pred stats: mean=0.000000, std=0.000000, shape=(136, 270)2025-11-13 01:28:36,455 - INFO - DEBUG eval_reconstruction [Baseline]: phi_pred stats: mean=0.000000, std=0.000000, shape=(136, 270)
+
+2025-11-13 01:28:36,455 - ERROR - Baseline evaluation failed: 
+2025-11-13 01:28:36,457 - INFO - Metrics saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_smoke/comparison_metrics.csv
+
+--- Comparison Metrics ---2025-11-13 01:28:36,457 - INFO - --- Comparison Metrics ---
+
+     model             metric  amplitude     phase    value
+PtychoPINN                mae   0.883597  0.256563      NaN
+PtychoPINN                mse   1.162939  0.101955      NaN
+PtychoPINN               psnr  47.475233 58.046718      NaN
+PtychoPINN               ssim   0.000832  0.654098      NaN
+PtychoPINN            ms_ssim   0.012134  0.001583      NaN
+PtychoPINN              frc50   1.000000  1.000000      NaN
+  Baseline                mae        NaN       NaN      NaN
+  Baseline                mse        NaN       NaN      NaN
+  Baseline               psnr        NaN       NaN      NaN
+  Baseline               ssim        NaN       NaN      NaN
+  Baseline            ms_ssim        NaN       NaN      NaN
+  Baseline              frc50        NaN       NaN      NaN
+PtychoPINN computation_time_s        NaN       NaN 3.501102
+  Baseline computation_time_s        NaN       NaN 1.8328632025-11-13 01:28:36,458 - INFO - model             metric  amplitude     phase    value
+PtychoPINN                mae   0.883597  0.256563      NaN
+PtychoPINN                mse   1.162939  0.101955      NaN
+PtychoPINN               psnr  47.475233 58.046718      NaN
+PtychoPINN               ssim   0.000832  0.654098      NaN
+PtychoPINN            ms_ssim   0.012134  0.001583      NaN
+PtychoPINN              frc50   1.000000  1.000000      NaN
+  Baseline                mae        NaN       NaN      NaN
+  Baseline                mse        NaN       NaN      NaN
+  Baseline               psnr        NaN       NaN      NaN
+  Baseline               ssim        NaN       NaN      NaN
+  Baseline            ms_ssim        NaN       NaN      NaN
+  Baseline              frc50        NaN       NaN      NaN
+PtychoPINN computation_time_s        NaN       NaN 3.501102
+  Baseline computation_time_s        NaN       NaN 1.832863
+
+2025-11-13 01:28:36,459 - INFO - FRC curves saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_smoke/pinn_frc_curves.csv
+2025-11-13 01:28:36,459 - INFO - Saving NPZ files of aligned reconstructions...
+2025-11-13 01:28:36,483 - INFO - Unified aligned reconstructions saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_smoke/reconstructions_aligned.npz
+2025-11-13 01:28:36,483 - INFO - Aligned metadata saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_smoke/reconstructions_aligned_metadata.txt
+2025-11-13 01:28:36,483 - INFO - Unified aligned NPZ reconstruction file saved successfully!
+2025-11-13 01:28:36,513 - INFO - PtychoPINN amplitude color scale (vmin, vmax) set to: (0.000, 0.787) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 01:28:36,513 - INFO - Baseline amplitude color scale (vmin, vmax) set to: (0.000, 0.000) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 01:28:36,514 - INFO - PtychoPINN phase color scale (vmin, vmax) set to: (-0.395, 0.000) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 01:28:36,514 - INFO - Baseline phase color scale (vmin, vmax) set to: (0.000, 0.000) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 01:28:36,519 - INFO - Ground Truth amplitude color scale (vmin, vmax) set to: (0.497, 0.622) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 01:28:36,519 - INFO - Ground Truth phase color scale (vmin, vmax) set to: (-0.504, 0.215) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 01:28:37,042 - INFO - Visual comparison saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_smoke/comparison_plot.png
+2025-11-13 01:28:37,042 - INFO - 
+Comparison complete!
+2025-11-13 01:28:37,042 - INFO - Results saved to: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_smoke

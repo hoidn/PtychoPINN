@@ -1009,17 +1009,28 @@ def main():
         logger.info(f"Gridsize validated: params.cfg['gridsize']={current_gridsize} matches {diffraction_channels} channels")
 
     pinn_start = time.time()
-    pinn_recon = pinn_model.predict(
+    pinn_patches = pinn_model.predict(
         [test_container.X * p.get('intensity_scale'), test_container.coords_nominal],
         batch_size=32,
         verbose=1
     )
     pinn_inference_time = time.time() - pinn_start
     logger.info(f"PtychoPINN inference completed in {pinn_inference_time:.2f}s")
-    
-    if isinstance(pinn_recon, (list, tuple)) and pinn_recon:
-        pinn_recon = pinn_recon[0]
-    pinn_recon = np.asarray(pinn_recon)
+
+    if isinstance(pinn_patches, (list, tuple)) and pinn_patches:
+        pinn_patches = pinn_patches[0]
+    pinn_patches = np.asarray(pinn_patches)
+
+    # Log PINN patches shape before reassembly
+    logger.info(f"PINN patches shape before reassembly: {pinn_patches.shape}, dtype: {pinn_patches.dtype}")
+
+    # Reassemble PINN patches using global offsets (not coords_nominal which is channel-formatted)
+    logger.info("Reassembling PINN patches...")
+    # Use global_offsets for reassembly - expects shape (B, 1, 2, 1)
+    pinn_offsets = np.asarray(test_container.global_offsets, dtype=np.float64)
+    logger.info(f"PINN offsets shape before reassembly: {pinn_offsets.shape}, dtype: {pinn_offsets.dtype}")
+    pinn_recon = reassemble_position(pinn_patches, pinn_offsets, M=args.stitch_crop_size)
+    logger.info(f"PINN reconstruction shape after reassembly: {pinn_recon.shape}, dtype: {pinn_recon.dtype}")
 
     # Run inference for Baseline
     logger.info("Running inference with Baseline model...")
