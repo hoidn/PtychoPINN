@@ -10,4 +10,4 @@ collecting ... collected 1 item
 
 tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_dense_acceptance_floor PASSED [100%]
 
-============================== 1 passed in 1.52s ===============================
+============================== 1 passed in 1.53s ===============================

@@ -2,9 +2,9 @@ NPZ File Contents:
 ==================
 
 Arrays saved in reconstructions.npz:
-- ptychopinn_amplitude: (32, 128, 128) float32
-- ptychopinn_phase: (32, 128, 128) float32
-- ptychopinn_complex: (32, 128, 128) complex64
+- ptychopinn_amplitude: (344, 344) float32
+- ptychopinn_phase: (344, 344) float32
+- ptychopinn_complex: (344, 344) complex64
 - baseline_amplitude: (420, 420) float32
 - baseline_phase: (420, 420) float32
 - baseline_complex: (420, 420) complex64
