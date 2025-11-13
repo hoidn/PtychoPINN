@@ -13,4 +13,4 @@ tests/study/test_dose_overlap_comparison.py::test_baseline_complex_output_conver
 tests/study/test_dose_overlap_comparison.py::test_prepare_baseline_inference_data_grouped_flatten_helper PASSED [ 75%]
 tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_batched_predictions PASSED [100%]
 
-============================== 4 passed in 3.86s ===============================
+============================== 4 passed in 3.81s ===============================
