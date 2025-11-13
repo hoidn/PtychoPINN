@@ -1,0 +1,24 @@
+
+================================================================================
+Phase E5 Training Execution — baseline (dose=1e+05, gridsize=1, backend=tensorflow)
+================================================================================
+Train dataset: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_100000/patched_train.npz
+Test dataset: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_100000/patched_test.npz
+Output directory: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_100000/baseline/gs1
+Gridsize: 1
+nphotons: 100000.0
+Backend: tensorflow
+
+Loading datasets via TensorFlow loader...
+Invoking TensorFlow train_cdi_model...
+Persisting model bundle via TensorFlow ModelManager...
+Bundle saved: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_100000/baseline/gs1/wts.h5.zip
+Bundle SHA256: 848f1afa82ddb10b9a9233535331a5bf189836c44159803fffd9d872da73ae83
+Bundle size: 67774994 bytes
+Training completed successfully
+Final loss: -13.732037544250488
+Epochs completed: 50
+Checkpoint path: None
+Bundle path: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_100000/baseline/gs1/wts.h5.zip
+Bundle SHA256: 848f1afa82ddb10b9a9233535331a5bf189836c44159803fffd9d872da73ae83
+Bundle size: 67774994 bytes
