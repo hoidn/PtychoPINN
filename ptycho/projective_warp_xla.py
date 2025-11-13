@@ -94,9 +94,24 @@ def projective_warp_xla(
     grid = tf.tile(grid, [B, 1, 1, 1])         # [B,H,W,3]
 
     # Apply homography: src = M @ [x, y, 1]^T
-    src = tf.einsum("bij,bhwj->bhwi", M, grid)  # [B,H,W,3]
-    sx = src[..., 0] / src[..., 2]
-    sy = src[..., 1] / src[..., 2]
+    # Avoid einsum/dot to keep XLA happy with dynamic H/W; use explicit broadcasts.
+    m00 = tf.reshape(M[:, 0, 0], [-1, 1, 1])
+    m01 = tf.reshape(M[:, 0, 1], [-1, 1, 1])
+    m02 = tf.reshape(M[:, 0, 2], [-1, 1, 1])
+    m10 = tf.reshape(M[:, 1, 0], [-1, 1, 1])
+    m11 = tf.reshape(M[:, 1, 1], [-1, 1, 1])
+    m12 = tf.reshape(M[:, 1, 2], [-1, 1, 1])
+    m20 = tf.reshape(M[:, 2, 0], [-1, 1, 1])
+    m21 = tf.reshape(M[:, 2, 1], [-1, 1, 1])
+    m22 = tf.reshape(M[:, 2, 2], [-1, 1, 1])
+
+    # Numerators and homogeneous w
+    sx_num = m00 * xx + m01 * yy + m02 * 1.0
+    sy_num = m10 * xx + m11 * yy + m12 * 1.0
+    sw = m20 * xx + m21 * yy + m22 * 1.0
+
+    sx = sx_num / sw
+    sy = sy_num / sw
 
     if interpolation not in ("nearest", "bilinear"):
         raise ValueError("interpolation must be 'nearest' or 'bilinear'")

@@ -54,7 +54,17 @@ class CombineComplexLayer(layers.Layer):
 
 @tf.keras.utils.register_keras_serializable(package='ptycho')
 class ExtractPatchesPositionLayer(layers.Layer):
-    """Extract patches from object based on positions."""
+    """Extract patches from object based on positions.
+
+    Inputs
+    ------
+    - padded_obj: tf.complex64 or tf.float32, shape (B, M, M, 1)
+    - positions: tf.float32, shape (B, 1, 2, C)  # channel-format offsets
+
+    Output
+    ------
+    - patches: same dtype as input, shape (B, N, N, C)
+    """
     
     def __init__(self, jitter: float = 0.0, **kwargs):
         super().__init__(**kwargs)
@@ -62,12 +72,10 @@ class ExtractPatchesPositionLayer(layers.Layer):
     
     def call(self, inputs: List[tf.Tensor]) -> tf.Tensor:
         """Extract patches at specified positions.
-        
         Args:
-            inputs: List of [padded_obj, positions] tensors
-            
+            inputs: [padded_obj (B,M,M,1), positions (B,1,2,C)]
         Returns:
-            Extracted patches
+            patches (B,N,N,C)
         """
         from . import tf_helper as hh
         padded_obj, positions = inputs
@@ -117,7 +125,11 @@ class PadReconstructionLayer(layers.Layer):
 
 @tf.keras.utils.register_keras_serializable(package='ptycho')
 class ReassemblePatchesLayer(layers.Layer):
-    """Reassemble patches into full object."""
+    """Reassemble patches into full object.
+
+    Inputs: [patches (B, N, N, C), positions (B, 1, 2, C)]
+    Output: (B, padded_size, padded_size, 1)
+    """
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -182,7 +194,11 @@ class TrimReconstructionLayer(layers.Layer):
 
 @tf.keras.utils.register_keras_serializable(package='ptycho')
 class PadAndDiffractLayer(layers.Layer):
-    """Apply padding and diffraction operation."""
+    """Apply padding and diffraction operation.
+
+    Input: images (B, N, N, C)
+    Output: (padded, amplitude) both with shape (B, h, w, C)
+    """
     
     def __init__(self, h: int, w: int, pad: bool = False, **kwargs):
         super().__init__(**kwargs)

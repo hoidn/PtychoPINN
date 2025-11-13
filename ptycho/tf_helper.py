@@ -41,7 +41,7 @@ Public Interface:
         - **Purpose:** Assembles individual reconstruction patches into full object image
         - **Physics Context:** Inverts the ptychographic scanning process by combining overlapping regions
         - **Tensor Contracts:**
-            - Input: `(B, N, N, gridsize²)` - Reconstruction patches in channel format
+            - Input: `patches (B, N, N, C)` channel format; `offsets (B, 1, 2, C)` scan positions
             - Output: `(1, size, size, 1)` - Full reconstructed object image
         - **Critical Parameters:**
             - `batch_size`: Memory management for large datasets (None=auto)
@@ -50,7 +50,7 @@ Public Interface:
         - **Purpose:** Extracts patches from full images at specified scan positions
         - **Physics Context:** Simulates ptychographic probe scanning with positional accuracy
         - **Tensor Contracts:**
-            - Input: `(B, M, M, 1)` - Full object images, `(B, N, N, 2)` - scan coordinates
+            - Input: `(B, M, M, 1)` full images; `offsets_xy (B, 1, 2, C)` scan coordinates in channel format
             - Output: `(B, N, N, gridsize²)` - Extracted patches in channel format
         - **Critical Parameters:**
             - `jitter`: Random positioning noise for data augmentation
@@ -124,7 +124,12 @@ from typing import Tuple, Optional, Union, Callable, Any, List
 physical_devices = tf.config.list_physical_devices('GPU')
 if physical_devices:
     os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
-    tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    try:
+        tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    except RuntimeError as err:
+        # Happens if TF context already initialized; skip reconfiguration.
+        if "Physical devices cannot be modified" not in str(err):
+            raise
 else:
     print("No GPU found, using CPU instead.")
 
@@ -813,11 +818,9 @@ class Translation(tf.keras.layers.Layer):
         else:
             raise ValueError("Translation layer expects a list of inputs")
             
-        # Offsets should always be real-valued float32
-        # If they're not, there's a bug upstream that needs fixing
+        # Offsets should always be real-valued float32.
+        # Avoid tf.print in compiled graphs (XLA): just coerce silently.
         if offsets.dtype not in [tf.float32, tf.float64]:
-            tf.print("WARNING: Translation layer received offsets with dtype:", offsets.dtype, 
-                     "Expected float32. This indicates a bug upstream.")
             if offsets.dtype in [tf.complex64, tf.complex128]:
                 offsets = tf.math.real(offsets)
             offsets = tf.cast(offsets, tf.float32)
@@ -878,7 +881,7 @@ def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_
     
     Args:
         imgs: Input patches in channel format (B, N, N, C)
-        offsets_xy: Position offsets in channel format (B, N, N, 2)
+        offsets_xy: Position offsets in channel format (B, 1, 2, C)
         padded_size: Size of the final canvas
         batch_size: Number of patches to process per batch. Smaller values use less
                    GPU memory but may be slower. Default: 64
@@ -1194,8 +1197,8 @@ def reassemble_whole_object(patches: tf.Tensor, offsets: tf.Tensor, size: int = 
     This function inverts the offsets, so it's not necessary to multiply by -1
     
     Args:
-        patches: Input patches tensor
-        offsets: Position offsets
+        patches: Input patches tensor `(B, N, N, C)` in channel format
+        offsets: Position offsets `(B, 1, 2, C)` in channel format (axis order [x, y])
         size: Output canvas size
         norm: Whether to normalize by overlap counts
         batch_size: Number of patches to process per batch to manage GPU memory usage.

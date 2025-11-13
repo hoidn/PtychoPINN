@@ -36,7 +36,8 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from ptycho import probe, params
 from ptycho.raw_data import RawData
-from ptycho.workflows.components import load_data, setup_configuration, parse_arguments, load_inference_bundle
+from ptycho.workflows.components import load_data, setup_configuration, parse_arguments
+from ptycho.workflows.backend_selector import load_inference_bundle_with_backend
 from ptycho.config.config import InferenceConfig, ModelConfig, validate_inference_config, update_legacy_dict
 
 # Set up logging
@@ -90,6 +91,29 @@ def parse_arguments() -> argparse.Namespace:
                        help="Minimum value for phase color scale (default: auto)")
     parser.add_argument("--phase_vmax", type=float, required=False, default=None,
                        help="Maximum value for phase color scale (default: auto)")
+    # Backend selection (POLICY-001: PyTorch mandatory, CONFIG-001: update_legacy_dict required)
+    parser.add_argument("--backend", type=str, choices=['tensorflow', 'pytorch'],
+                       default='tensorflow',
+                       help="Backend to use for inference: 'tensorflow' (default) or 'pytorch'. "
+                            "PyTorch backend requires torch>=2.2 (POLICY-001). "
+                            "Both backends handle params.cfg restoration via CONFIG-001.")
+
+    # PyTorch-only execution flags (see docs/workflows/pytorch.md §12)
+    parser.add_argument("--torch-accelerator", type=str,
+                       choices=['auto', 'cpu', 'cuda', 'gpu', 'mps', 'tpu'],
+                       default='cuda',
+                       help="PyTorch accelerator for inference (only applies when --backend pytorch). "
+                            "Options: 'cuda' (default GPU baseline per POLICY-001), 'auto' (auto-detect with CUDA preference), "
+                            "'cpu' (fallback), 'gpu', 'mps', 'tpu'. "
+                            "Override with '--torch-accelerator cpu' for CPU-only runs. "
+                            "See docs/workflows/pytorch.md §12 for details.")
+    parser.add_argument("--torch-num-workers", type=int, default=0,
+                       help="Number of dataloader worker processes for PyTorch inference (default: 0). "
+                            "Set to 0 for main process only (CPU-safe). "
+                            "Only applies when --backend pytorch.")
+    parser.add_argument("--torch-inference-batch-size", type=int, default=None,
+                       help="Batch size for PyTorch inference (default: None, uses model default). "
+                            "Only applies when --backend pytorch.")
     return parser.parse_args()
 
 def interpret_sampling_parameters(config: InferenceConfig) -> tuple:
@@ -171,6 +195,7 @@ def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[
     final_model_config = ModelConfig(**model_defaults)
 
     # Create the InferenceConfig object with n_images and n_subsample support
+    # Backend selection per POLICY-001 (PyTorch >=2.2) and CONFIG-001 (params.cfg restoration)
     inference_config = InferenceConfig(
         model=final_model_config,
         model_path=Path(args.model_path),
@@ -179,7 +204,8 @@ def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[
         n_subsample=args.n_subsample,
         subsample_seed=args.subsample_seed,
         debug=args.debug,
-        output_dir=Path(args.output_dir)
+        output_dir=Path(args.output_dir),
+        backend=args.backend  # Populated from CLI argument
     )
     
     validate_inference_config(inference_config)
@@ -423,25 +449,67 @@ def main():
         print("Starting ptychography inference script...")
         args = parse_arguments()
         config = setup_inference_configuration(args, args.config)
-
+        
         # Interpret sampling parameters with new independent control support
         n_subsample, n_images, interpretation_message = interpret_sampling_parameters(config)
         print(interpretation_message)
-
+        
         # Log warning if potentially problematic configuration
         if config.n_subsample is not None and config.model.gridsize > 1 and n_images is not None:
             min_required = n_images * config.model.gridsize * config.model.gridsize
             if n_subsample < min_required:
                 print(f"WARNING: n_subsample ({n_subsample}) may be too small to create {n_images} "
                      f"groups of size {config.model.gridsize}². Consider increasing n_subsample to at least {min_required}")
+        
+        # Note: update_legacy_dict() is called inside load_inference_bundle_with_backend
+        # (via the backend-specific loader) to restore params.cfg from the saved model artifact.
+        # The loaded model's params take precedence per CONFIG-001.
 
-        # Note: update_legacy_dict() removed - ModelManager.load_model() will restore
-        # the authoritative configuration from the saved model artifact, making this
-        # initial update redundant. The loaded model's params take precedence.
-
-        # Load model using centralized function
+        # Load model using backend selector
         print("Loading model...")
-        model, _ = load_inference_bundle(config.model_path)
+        model, _ = load_inference_bundle_with_backend(config.model_path, config)
+
+        # For PyTorch backend, move model to execution device and set to eval mode
+        if config.backend == 'pytorch':
+            # Determine if user explicitly provided any --torch-* flags
+            # We check against sys.argv to detect user overrides
+            torch_flags_explicitly_set = any([
+                'torch_accelerator' in sys.argv or '--torch-accelerator' in sys.argv,
+                'torch_num_workers' in sys.argv or '--torch-num-workers' in sys.argv,
+                'torch_inference_batch_size' in sys.argv or '--torch-inference-batch-size' in sys.argv,
+            ])
+
+            if not torch_flags_explicitly_set:
+                # No --torch-* flags provided: emit POLICY-001 info log
+                print("POLICY-001: No --torch-* execution flags provided. "
+                      "Backend will use GPU-first defaults (auto-detects CUDA if available, else CPU). "
+                      "CPU-only users should pass --torch-accelerator cpu.")
+
+            # Resolve device before loading data (will be used for tensors and model)
+            import argparse as arg_module
+            exec_args = arg_module.Namespace(
+                accelerator=getattr(args, 'torch_accelerator', 'auto'),
+                num_workers=getattr(args, 'torch_num_workers', 0),
+                inference_batch_size=getattr(args, 'torch_inference_batch_size', None),
+                quiet=getattr(args, 'debug', False) == False,
+                disable_mlflow=False
+            )
+
+            from ptycho_torch.cli.shared import build_execution_config_from_args
+            execution_config = build_execution_config_from_args(exec_args, mode='inference')
+
+            # Map Lightning accelerator convention to torch device string
+            if execution_config.accelerator in ('cuda', 'gpu'):
+                device_str = 'cuda'
+            elif execution_config.accelerator == 'mps':
+                device_str = 'mps'
+            else:
+                device_str = 'cpu'
+
+            # Move model to execution device and ensure eval mode (DEVICE-MISMATCH-001 fix)
+            model.to(device_str)
+            model.eval()
+            print(f"PyTorch model moved to device: {device_str}")
 
         # Load test data with new independent sampling parameters
         print("Loading test data...")
@@ -478,20 +546,43 @@ def main():
                     nsamples = 1  # Minimum of 1 group
                 print(f"Inference config: gridsize={gridsize}, using {nsamples} groups (≈{nsamples * gridsize**2} total patterns)")
 
-        # Perform inference
+        # Perform inference - branch based on backend
         print("Performing inference...")
-        reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase = perform_inference(
-            model, test_data, params.cfg, K=4, nsamples=nsamples)
+
+        if config.backend == 'pytorch':
+            # PyTorch inference path
+            from ptycho_torch.inference import _run_inference_and_reconstruct
+
+            # execution_config and device_str already resolved above after model loading
+            # to ensure model.to(device) happens before inference
+
+            print(f"PyTorch inference config: accelerator={execution_config.accelerator}, "
+                  f"num_workers={execution_config.num_workers}, "
+                  f"inference_batch_size={execution_config.inference_batch_size}")
+
+            # Call PyTorch-native inference helper
+            reconstructed_amplitude, reconstructed_phase = _run_inference_and_reconstruct(
+                model, test_data, config, execution_config, device_str, quiet=False
+            )
+
+            # PyTorch path doesn't return ground truth comparison data (not in scope for Phase R)
+            epie_amplitude = None
+            epie_phase = None
+
+        else:
+            # TensorFlow inference path (legacy)
+            reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase = perform_inference(
+                model, test_data, params.cfg, K=4, nsamples=nsamples)
 
         # Save separate reconstruction images
         print("Saving reconstruction images...")
-        save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, config.output_dir, 
+        save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, config.output_dir,
                                   phase_vmin=args.phase_vmin, phase_vmax=args.phase_vmax)
-        
+
         # Generate comparison plot if requested and ground truth is available
         if args.comparison_plot and epie_amplitude is not None and epie_phase is not None:
             print("Generating comparison plot...")
-            save_comparison_plot(reconstructed_amplitude, reconstructed_phase, 
+            save_comparison_plot(reconstructed_amplitude, reconstructed_phase,
                                 epie_amplitude, epie_phase, config.output_dir,
                                 phase_vmin=args.phase_vmin, phase_vmax=args.phase_vmax)
         elif args.comparison_plot:
@@ -504,7 +595,9 @@ def main():
         sys.exit(1)
     finally:
         print("Cleaning up resources...")
-        tf.keras.backend.clear_session()
+        # Only call TensorFlow cleanup if we used TensorFlow backend
+        if config.backend == 'tensorflow':
+            tf.keras.backend.clear_session()
 
 if __name__ == "__main__":
     main()

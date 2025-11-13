@@ -1,6 +1,16 @@
 from dataclasses import dataclass, field
-from typing import Tuple, Optional, Literal, Dict, Union, List
-import torch
+from typing import Tuple, Optional, Literal, Dict, Union, List, TYPE_CHECKING
+
+# PyTorch is now a mandatory dependency (Phase F3.1 gate)
+# Per plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md F3.2
+try:
+    import torch
+    TensorType = torch.Tensor
+except ImportError as e:
+    raise RuntimeError(
+        "PyTorch is required for ptycho_torch modules. "
+        "Install PyTorch >= 2.2 with: pip install torch>=2.2"
+    ) from e
 
 # Configuration dataclasses for PtychoNN (PyTorch version)
 
@@ -16,19 +26,20 @@ class DataConfig:
     #Grid parameters specifically for overlap constraint
     K_quadrant: int = 30 # Number of nearest neighbors for quadrant lookup
     n_subsample: int = 7 # Subsampling factor for coordinates (if applicable)
+    subsample_seed: Optional[int] = None # Random seed for reproducible subsampling
     grid_size: Tuple[int, int] = (2, 2) # Grid size for scanning positions
     neighbor_function: Literal['Nearest','Min_dist','4_quadrant'] = 'Nearest'
     min_neighbor_distance: float = 0.0
     max_neighbor_distance: float = 3.0
     scan_pattern: Literal['Isotropic', 'Rectangular'] = 'Isotropic' # Scan pattern, used for 4_quadrant neighbor function
-    
+
     #Miscellaneous
     normalize: Literal['Group', 'Batch'] = 'Batch' # Whether to normalize the data
     probe_scale: float = 1.0
     probe_normalize: bool = True
     data_scaling: Literal['Parseval','Max'] = 'Parseval'
     phase_subtraction: bool = True #Only useful for supervised training dataset
-    
+
     #Bounding parameters for scan positions
     x_bounds: Tuple[float, float] = (0.1,0.9)
     y_bounds: Tuple[float, float] = (0.1,0.9)
@@ -43,14 +54,14 @@ class ModelConfig:
     intensity_scale_trainable: bool = False
     intensity_scale: float = 10000.0 # General intensity scale guess
     max_position_jitter: int = 10 # Random jitter for translation (robustness)
-    
+
     #Model architecture parameters
     C_model: int = 1
     n_filters_scale: int = 2 # Shrinking factor for channels in network layers
     amp_activation: str = 'silu' # Activation function for amplitude part
     batch_norm: bool = False # Whether to use batch normalization
-    probe_mask: Optional[torch.Tensor] = None # Optional probe mask tensor
-    
+    probe_mask: Optional[TensorType] = None # Optional probe mask tensor
+
     #Module-specific
     edge_pad: int = 10 #For padding the decoder_last reconstruction
     decoder_last_c_outer_fraction: float = 0.125 #Amount of channels going to higher frequency components in decoder_last
@@ -64,13 +75,17 @@ class ModelConfig:
     eca_decoder: bool = False #ECA for decoder
     spatial_decoder: bool = False #Spatial attention for decoder
     decoder_spatial_kernel: int = 7 #Spatial attention kernel for decoder
-    
+
     #Forward model parameters
     object_big: bool = False # True if object requires patch reassembly
     probe_big: bool = True # True if probe requires patch reassembly
     offset: int = 6 # Offset parameter (for nearest neighbor patches)
     C_forward: int = DataConfig.C # Number of channels
-    
+
+    # Spec-mandated defaults (align with TensorFlow backend)
+    pad_object: bool = True # Pad object during forward model
+    gaussian_smoothing_sigma: float = 0.0 # Gaussian smoothing sigma for probe
+
     #Loss
     loss_function: Literal['MAE', 'Poisson'] = 'Poisson' # Loss function to use ('MAE', 'MSE', etc.)
     amp_loss: Literal['Total_Variation', "Mean_Deviation", None] = None
@@ -85,7 +100,7 @@ class TrainingConfig:
     """Configuration parameters related to the training process."""
     # Directories (only used in train_full)
     training_directories: List[str] = field(default_factory=list)
- 
+
     # Device/Loss
     nll: bool = True # Use Negative Log Likelihood loss component
     device: str = 'cuda' # Device to train on ('cuda', 'cpu')
@@ -109,14 +124,23 @@ class TrainingConfig:
     stage_2_epochs: int = 0        # Weighted transition (0 = disabled)
     stage_3_epochs: int = 0        # Physics only (0 = disabled)
     physics_weight_schedule: str = 'cosine'  # 'linear', 'cosine', 'exponential'
-    
+
     # Multi-stage learning rate parameters
     stage_3_lr_factor: float = 0.1    # LR reduction for stage 3 (physics)
-    
+
+    # Backend-specific loss selection
+    torch_loss_mode: Literal['poisson', 'mae'] = 'poisson'
+
     #MLFlow config
     experiment_name: str = "Synthetic_Runs"
     notes: str = ""
     model_name: str = "PtychoPINNv2"
+
+    # Spec-mandated lifecycle fields (align with TensorFlow backend)
+    train_data_file: Optional[str] = None # Path to training NPZ dataset
+    test_data_file: Optional[str] = None # Path to test NPZ dataset
+    output_dir: str = "training_outputs" # Output directory for checkpoints/logs
+    n_groups: Optional[int] = None # Number of grouped samples
 
 @dataclass
 class InferenceConfig:
@@ -132,7 +156,7 @@ class DatagenConfig:
     """Configuration parameters for data generation class"""
     objects_per_probe: int = 4 #Number of unique synthetic objects per probe function
     diff_per_object: int = 7000 #Number of diffraction images per unique object
-    object_class: Literal['dead_leaves', 'procedural', 'polyhedra', 'white_noise','simplex_noise','blurred_white_noise'] = 'dead_leaves'
+    object_class: str = 'dead_leaves'
     image_size: Tuple[int, int] = (250,250)
     probe_paths: List[str] = field(default_factory=list) # List of all probe files used
     beamstop_diameter: int = 4 # For simulating beamstop in forward model

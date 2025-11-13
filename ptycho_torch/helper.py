@@ -81,8 +81,13 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
     # --- 2. Pad Images ---
     # Pad flat images to the target size M
     # (B*C, N, N) -> (B*C, M, M)
-    pad_dim = (M - N) // 2
-    imgs_flat_bigN = F.pad(imgs_flat, (pad_dim, pad_dim, pad_dim, pad_dim), "constant", 0.)
+    # Support odd total padding by splitting remainder across sides
+    total_pad = M - N
+    left_pad = total_pad // 2
+    right_pad = total_pad - left_pad
+    top_pad = total_pad // 2
+    bottom_pad = total_pad - top_pad
+    imgs_flat_bigN = F.pad(imgs_flat, (left_pad, right_pad, top_pad, bottom_pad), "constant", 0.)
 
 
     # --- 3. Translate Images ---
@@ -99,7 +104,7 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
             prototype_mask_N[center_slice, center_slice] = 1.0
 
             # Pad the SINGLE prototype mask to (M, M)
-            prototype_mask_M = F.pad(prototype_mask_N, (pad_dim, pad_dim, pad_dim, pad_dim), "constant", 0.)
+            prototype_mask_M = F.pad(prototype_mask_N, (left_pad, right_pad, top_pad, bottom_pad), "constant", 0.)
 
             # Expand the single (M, M) mask to (B*C, M, M) without copying memory (views)
             # This is the input to the Translation function for the counts

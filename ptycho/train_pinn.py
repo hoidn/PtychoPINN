@@ -38,24 +38,29 @@ Key Functions:
     calculate_intensity_scale(): Computes physics-consistent intensity normalization
 
 Example:
-    # Complete PINN training workflow with physics constraints
-    from ptycho.loader import PtychoDataContainer
-    
-    # Load experimental diffraction data (no ground truth needed)
-    train_data = PtychoDataContainer.from_file('experimental_data.npz')
-    
-    # Configure physics parameters for PINN training
+    # Complete PINN training workflow with physics constraints (no ground truth required)
+    from ptycho.raw_data import RawData
+    from ptycho.loader import load
     from ptycho import params
-    params.set('nll_weight', 1.0)      # Poisson NLL physics constraint weight
+
+    # Load experimental dataset (NPZ with xcoords/ycoords/diff3d/probeGuess)
+    raw = RawData.from_file('experimental_data.npz')
+
+    # Group and convert to tensors via callback
+    def cb():
+        return raw.generate_grouped_data(N=params.get('N'), K=7, nsamples=1024, gridsize=params.get('gridsize'))
+    train_data = load(cb, raw.probeGuess, which='train', create_split=False)
+
+    # Configure physics parameters
+    params.set('nll_weight', 1.0)       # Poisson NLL physics constraint weight
     params.set('realspace_weight', 0.1) # Real-space consistency weight
-    params.set('nphotons', 1e6)        # Expected photon count for Poisson model
-    
+    params.set('nphotons', 1e6)         # Expected photon count for Poisson model
+
     # Train with physics-informed loss functions
-    model, history = train(train_data)
-    
-    # Evaluate reconstruction quality
-    results = eval(test_data, trained_model=model)
-    reconstructed_object = results['reconstructed_obj']
+    model_instance, history = train(train_data)
+
+    # Evaluate reconstruction quality (optional test split)
+    # results = eval(test_data, trained_model=model_instance)
 """
 
 from ptycho import params

@@ -1,3 +1,6 @@
+#Standard libs
+import logging
+
 #Torch
 import torch
 from torch import nn
@@ -13,8 +16,9 @@ from typing import Optional
 from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig, update_existing_config
 import ptycho_torch.helper as hh
 from ptycho_torch.model_attention import CBAM, ECALayer, BasicSpatialAttention
-from ptycho_torch.train_utils import MultiStageLRScheduler, AdaptiveLRScheduler
 import copy
+
+logger = logging.getLogger(__name__)
 
 #Lightning
 import lightning as L
@@ -363,6 +367,23 @@ class Decoder_last(nn.Module):
 
         x2 = F.silu(x2) #05-20-2025 for now
 
+        # Center-crop x2 to match x1 spatial dimensions (Phase D1e.B2 fix)
+        # x1 shape: (batch, channels, height, width_padded)
+        # x2 shape: (batch, channels, height_upsampled, width_upsampled)
+        # After upsampling, x2 may be larger than x1 due to 2× scale factor
+        # Apply center crop to align spatial dims before addition
+        if x1.shape[2] != x2.shape[2] or x1.shape[3] != x2.shape[3]:
+            # Compute crop offsets for center alignment
+            h_diff = x2.shape[2] - x1.shape[2]
+            w_diff = x2.shape[3] - x1.shape[3]
+            h_start = h_diff // 2
+            w_start = w_diff // 2
+            h_end = h_start + x1.shape[2]
+            w_end = w_start + x1.shape[3]
+
+            # Center-crop x2 to match x1
+            x2 = x2[:, :, h_start:h_end, w_start:w_end]
+
         outputs = x1 + x2
 
         # outputs = hh.trim_and_pad_output(outputs, self.data_config, self.model_config)
@@ -587,19 +608,45 @@ class PoissonIntensityLayer(nn.Module):
     '''
     Applies poisson intensity scaling using torch.distributions
     Calculates the negative log likelihood of observing the raw data given the predicted intensities
+
+    CRITICAL: Both predictions and observations must be converted from amplitudes to
+    intensities (squared) before computing Poisson log-likelihood, to match TensorFlow
+    behavior (ptycho/model.py:497-511) and satisfy Poisson distribution support constraints.
     '''
     def __init__(self, amplitudes):
 
         super(PoissonIntensityLayer, self).__init__()
-        #Poisson rate parameter (lambda)
+        # Poisson rate parameter (lambda) - square predicted amplitudes to get intensities
         Lambda = amplitudes ** 2
-        #Create Poisson distribution
-        #Second parameter (batch size) controls how many dimensions are summed over starting from the last
-        self.poisson_dist = dist.Independent(dist.Poisson(Lambda), 3)
+        # Create Poisson distribution with validate_args=False to accept float observations
+        # (TensorFlow's tf.nn.log_poisson_loss also accepts floats, not just integers)
+        # Second parameter (batch size) controls how many dimensions are summed over starting from the last
+        self.poisson_dist = dist.Independent(dist.Poisson(Lambda, validate_args=False), 3)
 
     def forward(self, x):
-        #Apply poisson distribution
-        return -self.poisson_dist.log_prob(x)
+        '''
+        Compute Poisson negative log-likelihood.
+
+        Args:
+            x: Observed diffraction amplitudes (NOT intensities)
+
+        Returns:
+            Negative log-likelihood
+
+        CRITICAL FIX (ADR-003-BACKEND-API Phase C4.D3):
+        The input x contains amplitude values (sqrt of intensity), but Poisson
+        distribution expects photon counts (intensities). We must square x before
+        computing log_prob to match TensorFlow behavior and satisfy the Poisson
+        distribution's IntegerGreaterThan(0) support constraint.
+
+        TensorFlow reference: ptycho/model.py:506-511 (negloglik function)
+        - Both y_true and y_pred are squared before Poisson loss computation
+        '''
+        # Convert observed amplitudes to intensities (photon counts)
+        x_intensity = x ** 2
+
+        # Apply poisson distribution to intensities
+        return -self.poisson_dist.log_prob(x_intensity)
     
 class ForwardModel(nn.Module):
     '''
@@ -644,6 +691,7 @@ class ForwardModel(nn.Module):
 
         #Scaling
         self.scaler = IntensityScalerModule(model_config)
+        self._reassembly_logged = False
 
     def forward(self, x, positions, probe, output_scale_factor):
         #Reassemble patches
@@ -653,6 +701,12 @@ class ForwardModel(nn.Module):
             reassembled_obj, _, _ = hh.reassemble_patches_position_real(x, positions,
                                                                   data_config=self.data_config,
                                                                   model_config=self.model_config)
+            if not self._reassembly_logged:
+                logger.info(
+                    "ForwardModel: reassembly enabled (object_big=True, gridsize=%s)",
+                    self.data_config.grid_size
+                )
+                self._reassembly_logged = True
 
             #Extract patches - Pass config objects to helper function
             extracted_patch_objs = hh.extract_channels_from_region(reassembled_obj[:,None,:,:], positions,
@@ -837,8 +891,16 @@ class PtychoPINN(nn.Module):
 
     def forward(self, x, positions, probe, input_scale_factor, output_scale_factor):
 
+        # Reshape scale factors for broadcasting with 4D tensors (batch, C, H, W)
+        # DataLoader collates scalars into (batch,), need (batch, 1, 1, 1) for element-wise multiply
+        if input_scale_factor.ndim == 1:
+            input_scale_factor = input_scale_factor.view(-1, 1, 1, 1)
+        if output_scale_factor.ndim == 1:
+            output_scale_factor = output_scale_factor.view(-1, 1, 1, 1)
+
         #Scaling down (normalizing to 1)
         x = self.scaler.scale(x, input_scale_factor)
+
         #Autoencoder result
         x_amp, x_phase = self.autoencoder(x)
         #Combine amp and phase
@@ -936,6 +998,28 @@ class PtychoPINN_Lightning(L.LightningModule):
                        training_config: TrainingConfig,
                        inference_config: InferenceConfig):
         super().__init__()
+
+        # Handle checkpoint loading: convert dict kwargs back to dataclass instances
+        # (Lightning passes saved hyperparameters as dicts during load_from_checkpoint)
+        if isinstance(model_config, dict):
+            model_config = ModelConfig(**model_config)
+        if isinstance(data_config, dict):
+            data_config = DataConfig(**data_config)
+        if isinstance(training_config, dict):
+            training_config = TrainingConfig(**training_config)
+        if isinstance(inference_config, dict):
+            inference_config = InferenceConfig(**inference_config)
+
+        # Save hyperparameters for checkpoint serialization (Phase D1c requirement)
+        # Convert dataclass instances to dicts to ensure serializability
+        from dataclasses import asdict
+        self.save_hyperparameters({
+            'model_config': asdict(model_config),
+            'data_config': asdict(data_config),
+            'training_config': asdict(training_config),
+            'inference_config': asdict(inference_config),
+        })
+
         self.n_filters_scale = model_config.n_filters_scale
         self.predict = False
 
@@ -944,6 +1028,14 @@ class PtychoPINN_Lightning(L.LightningModule):
         self.data_config = data_config
         self.training_config = training_config
         self.inference_config = inference_config
+
+        self.torch_loss_mode = getattr(self.training_config, 'torch_loss_mode', 'poisson')
+        if isinstance(self.torch_loss_mode, str):
+            self.torch_loss_mode = self.torch_loss_mode.lower()
+        if self.torch_loss_mode not in ('poisson', 'mae'):
+            raise ValueError(
+                f"Invalid torch_loss_mode='{self.torch_loss_mode}'. Expected 'poisson' or 'mae'."
+            )
 
         #Scaling module specifically for multi-scaling
         self.scaler = IntensityScalerModule(model_config)
@@ -962,18 +1054,32 @@ class PtychoPINN_Lightning(L.LightningModule):
         elif model_config.mode == 'Supervised':
             self.model = Ptycho_Supervised(model_config, data_config, training_config)
 
-        # Multi-stage training parameters with backwards compatibility
-        # Default to current behavior: all epochs in stage 1 (RMS only)
-        self.stage_1_epochs = getattr(training_config, 'stage_1_epochs', training_config.epochs)
-        self.stage_2_epochs = getattr(training_config, 'stage_2_epochs', 0)
-        self.stage_3_epochs = getattr(training_config, 'stage_3_epochs', 0)
-        # Stage 4 is the existing fine-tuning (epochs_fine_tune)
-        
-        self.physics_weight_schedule = getattr(training_config, 'physics_weight_schedule', 'cosine')  # 'linear', 'cosine', 'exponential'
-        
-        # Track current stage and epoch for scheduling
-        self.current_stage = 1
-        self.stage_start_epoch = 0
+        # Enforce single-stage training (legacy stage_* knobs are ignored)
+        self.total_epochs = training_config.epochs
+        if getattr(training_config, 'stage_2_epochs', 0) or getattr(training_config, 'stage_3_epochs', 0):
+            logger.warning(
+                "Multi-stage scheduler settings are ignored. "
+                "torch_loss_mode enforces single-stage training."
+            )
+        self.stage_1_epochs = self.total_epochs
+        self.stage_2_epochs = 0
+        self.stage_3_epochs = 0
+
+        if self.model_config.mode == 'Supervised':
+            if self.torch_loss_mode != 'mae':
+                raise ValueError(
+                    "Supervised mode requires torch_loss_mode='mae' so amplitude labels remain consistent."
+                )
+        else:
+            desired_loss = 'Poisson' if self.torch_loss_mode == 'poisson' else 'MAE'
+            if self.model_config.loss_function != desired_loss:
+                logger.info(
+                    "Overriding model_config.loss_function=%s to %s to match torch_loss_mode=%s",
+                    self.model_config.loss_function,
+                    desired_loss,
+                    self.torch_loss_mode,
+                )
+                self.model_config.loss_function = desired_loss
 
         #Choose loss function and logging
         #Poisson Loss only works with Unsupervised
@@ -1012,61 +1118,6 @@ class PtychoPINN_Lightning(L.LightningModule):
         self.loss_name += '_loss'
         self.val_loss_name += '_loss'
     
-    def get_current_stage_and_weight(self):
-        """
-        Determine current training stage and physics weight based on current epoch
-        Handles cases where stage 2 or 3 have 0 epochs (backwards compatibility)
-        """
-        # Override for fine-tuning mode
-        # This only occurs if fine-tuning mode happens after multi-stage, multi-normalization training
-        if hasattr(self, '_fine_tuning_mode') and self._fine_tuning_mode and self.stage_2_epochs > 0:
-            return 4, 1.0  # Stage 4 (fine-tuning), physics weight = 1.0
-        
-        current_epoch = self.current_epoch
-        
-        if current_epoch < self.stage_1_epochs:
-            stage = 1
-            physics_weight = 0.0
-        elif self.stage_2_epochs > 0 and current_epoch < self.stage_1_epochs + self.stage_2_epochs:
-            stage = 2
-            # Calculate progress through stage 2
-            stage_2_progress = (current_epoch - self.stage_1_epochs) / self.stage_2_epochs
-            physics_weight = self._get_physics_weight(stage_2_progress)
-        elif self.stage_3_epochs > 0 and current_epoch < self.stage_1_epochs + self.stage_2_epochs + self.stage_3_epochs:
-            stage = 3
-            physics_weight = 1.0
-        else:
-            # Handle cases where stages are skipped
-            if self.stage_3_epochs > 0:
-                stage = 3
-                physics_weight = 1.0
-            elif self.stage_2_epochs > 0:
-                # If we're past stage 2 but no stage 3, stay at end of stage 2
-                stage = 2
-                physics_weight = 1.0
-            else:
-                # Only stage 1 exists (backwards compatibility)
-                stage = 1
-                physics_weight = 0.0
-            
-        return stage, physics_weight
-    
-    def _get_physics_weight(self, progress):
-        """
-        Calculate physics weight based on progress through stage 2 (0 to 1)
-        """
-        if self.physics_weight_schedule == 'linear':
-            return progress
-        elif self.physics_weight_schedule == 'cosine':
-            # Smooth cosine transition
-            return 0.5 * (1 - math.cos(math.pi * progress))
-        
-        elif self.physics_weight_schedule == 'exponential':
-            # Exponential ramp-up
-            return progress ** 2
-        else:
-            return progress  # Default to linear
-    
     def forward(self, x, positions, probe, input_scale_factor, output_scale_factor):
         x_out = self.model(x, positions, probe, input_scale_factor, output_scale_factor)
         return x_out
@@ -1076,6 +1127,24 @@ class PtychoPINN_Lightning(L.LightningModule):
         x_combined = self.model.forward_predict(x, positions, probe, input_scale_factor)
         return x_combined
     
+    def _reshape_scale_tensor(self, scale_value, reference_tensor):
+        """
+        Convert scalar or 1D scaling factors into broadcastable tensors on the correct device/dtype.
+        """
+        device = reference_tensor.device
+        dtype = reference_tensor.dtype
+        if scale_value is None:
+            return torch.ones((reference_tensor.shape[0], 1, 1, 1), device=device, dtype=dtype)
+        if not isinstance(scale_value, torch.Tensor):
+            scale_tensor = torch.tensor(scale_value, device=device, dtype=dtype)
+        else:
+            scale_tensor = scale_value.to(device=device, dtype=dtype)
+        if scale_tensor.ndim == 0:
+            scale_tensor = scale_tensor.view(1, 1, 1, 1)
+        elif scale_tensor.ndim == 1:
+            scale_tensor = scale_tensor.view(-1, 1, 1, 1)
+        return scale_tensor
+
     def compute_loss(self, batch):
         """
         Enhanced loss computation supporting multi-stage training
@@ -1086,49 +1155,60 @@ class PtychoPINN_Lightning(L.LightningModule):
         probe = batch[1]
         rms_scale = batch[0]['rms_scaling_constant']  # RMS scaling
         physics_scale = batch[0]['physics_scaling_constant']
-        scale = batch[2]
-        # old_scaling = batch[2]
-        
-        # Get current stage and physics weight
-        stage, physics_weight = self.get_current_stage_and_weight()
+        physics_weight = 1.0 if self.torch_loss_mode == 'poisson' else 0.0
         rms_weight = 1.0 - physics_weight
 
-        #Custom stuff (TEMPORARY)
-        rms_weight = 1.0
-        physics_weight = 0.0
-        
-        # Log current stage info
-        self.log('training_stage', float(stage), on_step=True, on_epoch=True)
-        self.log('physics_weight', physics_weight, on_step=True, on_epoch=True)
-        
+        input_scaling_factor = self._reshape_scale_tensor(rms_scale, x)
+        physics_scaling_factor = self._reshape_scale_tensor(physics_scale, x)
+        output_scaling_factor = rms_weight * input_scaling_factor + physics_weight * physics_scaling_factor
+
         #If supervised, also need to get the amp/phase labels
         if self.model_config.mode == 'Supervised':
             amp_label = batch[0]['label_amp']
             phase_label = batch[0]['label_phase']
 
-        #Calc loss
         total_loss = 0.0
-        
-        output_scaling_factor = rms_weight * rms_scale + physics_weight * physics_scale
+
         # Perform forward pass up and scale
-        pred, amp, phase = self(x, positions, probe,
-                                            input_scale_factor = rms_scale,
-                                            output_scale_factor = rms_scale,
-                                            )
+        pred, amp, phase = self(
+            x,
+            positions,
+            probe,
+            input_scale_factor=input_scaling_factor,
+            output_scale_factor=output_scaling_factor,
+        )
         
         #Normalization factor for loss output (just to keep it scaled down)
         intensity_norm_factor = torch.mean(x).detach() + 1e-8
 
         if self.model_config.mode == 'Unsupervised':
-            total_loss += self.Loss(pred, x).mean()
-            total_loss /= intensity_norm_factor
-
+            loss_value = self.Loss(pred, x).mean()
+            if self.torch_loss_mode == 'poisson':
+                total_loss += loss_value / intensity_norm_factor
+                self.log('poisson_train_loss_step', loss_value.detach(), on_step=True, on_epoch=False, prog_bar=False, logger=True, sync_dist=True)
+                self.log('poisson_train_loss_epoch', loss_value.detach(), on_step=False, on_epoch=True, prog_bar=False, logger=True, sync_dist=True)
+            else:
+                total_loss += loss_value
+                self.log('mae_train_loss_step', loss_value.detach(), on_step=True, on_epoch=False, prog_bar=False, logger=True, sync_dist=True)
+                self.log('mae_train_loss_epoch', loss_value.detach(), on_step=False, on_epoch=True, prog_bar=False, logger=True, sync_dist=True)
         elif self.model_config.mode == 'Supervised':
             #Compute loss for phase and amp
             amp_loss = self.Loss(amp, amp_label).sum()
             phase_loss = self.Loss(phase, phase_label).sum()
             #Add to total loss
             total_loss += 0.1*amp_loss + 4 * phase_loss
+        
+        # Log amplitude MAE after inverse scaling (TF 'IntensityScaler_inv' analogue)
+        # pred is pred_scaled_diffraction (amplitude) comparable to x (amplitude)
+        with torch.no_grad():
+            amp_inv_mae = torch.mean(torch.abs(pred - x))
+        self.log('amp_inv_mae_step', amp_inv_mae, on_step=True, on_epoch=False, prog_bar=False, logger=True, sync_dist=True)
+        self.log('amp_inv_mae_epoch', amp_inv_mae, on_step=False, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        with torch.no_grad():
+            target_scaled = x * input_scaling_factor
+            pred_scaled = pred * output_scaling_factor
+            amp_scaled_mae = torch.mean(torch.abs(pred_scaled - target_scaled))
+        self.log('amp_mae_tf_scale_epoch', amp_scaled_mae, on_step=False, on_epoch=True, prog_bar=False, logger=True, sync_dist=True)
         
         # Add amplitude and phase regularization losses if specified
         # Use the appropriate amp/phase based on current stage
@@ -1195,42 +1275,15 @@ class PtychoPINN_Lightning(L.LightningModule):
         result = {"optimizer": optimizer}
         
         # Configure scheduler based on training type
-        if self.stage_2_epochs > 0 or self.stage_3_epochs > 0:
-            # Multi-stage training: use specialized scheduler
-            if self.training_config.scheduler == 'MultiStage':
-                scheduler = MultiStageLRScheduler(
-                    optimizer,
-                    stage_1_epochs=self.stage_1_epochs,
-                    stage_2_epochs=self.stage_2_epochs,
-                    stage_3_epochs=self.stage_3_epochs,
-                    stage_3_lr_factor=self.training_config.stage_3_lr_factor
-                )
-                result['lr_scheduler'] = {
-                    'scheduler': scheduler,
-                    'interval': 'epoch',
-                    'frequency': 1
-                }
-            elif self.training_config.scheduler == 'Adaptive':
-                scheduler = AdaptiveLRScheduler(
-                    optimizer,
-                    lightning_module=self,
-                    base_stage_2_lr_factor=self.training_config.stage_2_lr_factor,
-                    min_stage_2_lr_factor=self.training_config.stage_3_lr_factor
-                )
-                result['lr_scheduler'] = {
-                    'scheduler': scheduler,
-                    'interval': 'epoch',
-                    'frequency': 1
-                }
-            elif self.training_config.scheduler == 'Exponential':
-                # Fallback to exponential for multi-stage
-                scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
-                result['lr_scheduler'] = scheduler
-        else:
-            # Single-stage training: use traditional schedulers
-            if self.training_config.scheduler == 'Exponential':
-                scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
-                result['lr_scheduler'] = scheduler
+        scheduler_choice = getattr(self.training_config, 'scheduler', 'Default')
+        if scheduler_choice == 'Exponential':
+            result['lr_scheduler'] = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+        elif scheduler_choice in ('MultiStage', 'Adaptive'):
+            logger.warning(
+                "Scheduler '%s' is no longer supported in single-loss mode. "
+                "Falling back to constant learning rate.",
+                scheduler_choice,
+            )
 
         return result
     
@@ -1253,16 +1306,6 @@ class PtychoPINN_Lightning(L.LightningModule):
         """
         Called at the start of each training epoch
         """
-        stage, _ = self.get_current_stage_and_weight()
-        
-        # Log stage transitions
-        if hasattr(self, '_last_stage') and self._last_stage != stage:
-            print(f"Transitioning from Stage {self._last_stage} to Stage {stage}")
-            
-        self._last_stage = stage
-        
         # Log current learning rate for monitoring
         current_lr = self.optimizers().param_groups[0]['lr']
         self.log('learning_rate', current_lr, on_epoch=True)
-
-

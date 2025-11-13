@@ -8,7 +8,10 @@ import argparse
 import os
 import sys
 import time
+import tempfile
+import zipfile
 from pathlib import Path
+import dill
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -23,7 +26,7 @@ if project_root not in sys.path:
 from ptycho.workflows.components import load_data, create_ptycho_data_container, logger, load_inference_bundle
 from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
 from ptycho import params as p
-from ptycho.tf_helper import reassemble_position
+from ptycho.tf_helper import reassemble_position, _channel_to_flat
 from ptycho.evaluation import eval_reconstruction
 from ptycho.image.cropping import align_for_evaluation
 from ptycho.image.registration import find_translation_offset, apply_shift_and_crop, register_and_align
@@ -100,21 +103,56 @@ def parse_args():
     return parser.parse_args()
 
 
+def load_bundle_submodel(model_dir: Path, model_name: str) -> tf.keras.Model:
+    """Load a specific submodel (autoencoder/diffraction_to_obj) from a wts.h5.zip archive."""
+    model_dir = Path(model_dir)
+    archive = model_dir / "wts.h5.zip"
+    if not archive.exists():
+        raise FileNotFoundError(f"Model archive not found at: {archive}")
+
+    logger.info(f"Extracting {model_name} from bundle {archive}")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        with zipfile.ZipFile(archive, "r") as zf:
+            zf.extractall(tmp_dir)
+
+        subdir = Path(tmp_dir) / model_name
+        model_path = subdir / "model.keras"
+        params_path = subdir / "params.dill"
+        custom_objects_path = subdir / "custom_objects.dill"
+
+        if not model_path.exists():
+            raise FileNotFoundError(f"{model_name}/model.keras not found inside {archive}")
+
+        with open(params_path, "rb") as fh:
+            loaded_params = dill.load(fh)
+        loaded_params.pop("_version", None)
+        p.cfg.update(loaded_params)
+
+        with open(custom_objects_path, "rb") as fh:
+            custom_objects = dill.load(fh)
+
+        model = tf.keras.models.load_model(model_path, custom_objects=custom_objects, compile=False)
+
+    logger.info(f"Loaded {model_name} model from {model_dir}")
+    return model
+
+
 def load_pinn_model(model_dir: Path) -> tf.keras.Model:
-    """Load the inference-only PtychoPINN model using the centralized loader."""
-    logger.info(f"Loading PtychoPINN model from {model_dir}...")
-    
-    # Use the centralized function for loading
+    """Load the diffraction_to_obj inference model for PINN comparisons."""
     model, _ = load_inference_bundle(model_dir)
-    
     return model
 
 
 def load_baseline_model(baseline_dir: Path) -> tf.keras.Model:
-    """Load the Keras baseline model."""
+    """Load the baseline model.
+
+    Priority:
+    1) legacy Keras file baseline_model.h5 within baseline_dir
+    2) TF bundle via load_inference_bundle(baseline_dir) (expects wts.h5.zip)
+    """
     logger.info(f"Loading Baseline model from {baseline_dir}...")
-    
-    # Find the baseline model file
+
+    # Try legacy Keras path first
     baseline_model_path = None
     for root, dirs, files in os.walk(baseline_dir):
         for file in files:
@@ -123,12 +161,96 @@ def load_baseline_model(baseline_dir: Path) -> tf.keras.Model:
                 break
         if baseline_model_path:
             break
-    
-    if baseline_model_path is None or not baseline_model_path.exists():
-        raise FileNotFoundError(f"Baseline model not found in: {baseline_dir}")
-    
-    logger.info(f"Found baseline model at: {baseline_model_path}")
-    return tf.keras.models.load_model(baseline_model_path)
+
+    if baseline_model_path and baseline_model_path.exists():
+        logger.info(f"Found baseline model at: {baseline_model_path}")
+        return tf.keras.models.load_model(baseline_model_path)
+
+    # Fallback: treat baseline_dir as a TF bundle directory (wts.h5.zip)
+    logger.info("baseline_model.h5 not found; attempting to load TF bundle (wts.h5.zip)")
+    baseline_model, _ = load_inference_bundle(baseline_dir)
+    return baseline_model
+
+
+def tensor_to_numpy(value, dtype=None):
+    """Convert TensorFlow tensors or arrays to NumPy with optional dtype casting."""
+    if tf.is_tensor(value):
+        array = value.numpy()
+    else:
+        array = np.asarray(value)
+    if dtype is not None and array.dtype != dtype:
+        array = array.astype(dtype, copy=False)
+    return array
+
+
+def _compute_channel_offsets(container) -> tf.Tensor:
+    """Return combined offsets (global + local) in channel format."""
+    total_channels = int(container.X.shape[-1])
+    global_offsets = tf.convert_to_tensor(container.global_offsets, dtype=tf.float32)
+    if total_channels == 1:
+        return global_offsets
+    local_offsets = getattr(container, "local_offsets", None)
+    if local_offsets is None:
+        return tf.tile(global_offsets, [1, 1, 1, total_channels])
+    local_offsets = tf.convert_to_tensor(local_offsets, dtype=tf.float32)
+    if local_offsets.shape[-1] != total_channels:
+        divisor = int(local_offsets.shape[-1])
+        if divisor == 0 or total_channels % divisor != 0:
+            raise ValueError(
+                f"Incompatible local offset channels (got {divisor}) for total_channels={total_channels}"
+            )
+        repeats = total_channels // divisor
+        local_offsets = tf.tile(local_offsets, [1, 1, 1, repeats])
+    return global_offsets + local_offsets
+
+
+def prepare_baseline_inference_data(container):
+    """Flatten grouped diffraction + offsets for baseline stitching when needed.
+
+    For grouped runs (total_channels > 1), validates that channel count is a perfect
+    square (gridsize²), computes and logs the resolved gridsize, then flattens both
+    diffraction and offset tensors for baseline model inference.
+
+    Returns:
+        tuple: (baseline_input, baseline_offsets) - both as numpy arrays ready for
+               baseline_model.predict([baseline_input, baseline_offsets], ...)
+    """
+    total_channels = int(container.X.shape[-1])
+    if total_channels > 1:
+        # Assert perfect square channel count for grouped runs
+        import math
+        sqrt_channels = math.sqrt(total_channels)
+        if not sqrt_channels.is_integer():
+            raise ValueError(
+                f"Grouped diffraction channel count ({total_channels}) must be a perfect square "
+                f"(gridsize²). Got non-integer sqrt: {sqrt_channels}"
+            )
+
+        resolved_gridsize = int(sqrt_channels)
+        logger.info(
+            "Flattening grouped diffraction for baseline model: X %s → channels merged; "
+            "resolved gridsize=%d (from %d channels)",
+            container.X.shape,
+            resolved_gridsize,
+            total_channels,
+        )
+
+        # Force params.cfg gridsize sync for downstream Translation/reassembly
+        from ptycho import params as p
+        p.set('gridsize', resolved_gridsize)
+        logger.info(f"Forced params.cfg['gridsize']={resolved_gridsize} for baseline grouped inference")
+
+        flattened_input = _channel_to_flat(container.X)
+        offsets_channel = _compute_channel_offsets(container)
+        flattened_offsets = _channel_to_flat(offsets_channel)
+        return (
+            tensor_to_numpy(flattened_input, dtype=np.float32),
+            tensor_to_numpy(flattened_offsets, dtype=np.float64),
+        )
+    return (
+        tensor_to_numpy(container.X, dtype=np.float32),
+        tensor_to_numpy(container.global_offsets, dtype=np.float64),
+    )
 
 
 def load_tike_reconstruction(tike_path: Path) -> tuple:
@@ -784,7 +906,7 @@ def main():
     # CRITICAL FIX: Initialize configuration BEFORE loading data
     # This ensures params.cfg is properly set up when load_data() checks gridsize
     # Load models FIRST to restore their saved configuration (including gridsize)
-    logger.info("Loading PtychoPINN model to restore configuration...")
+    logger.info("Loading PtychoPINN inference model (diffraction_to_obj) to restore configuration...")
     pinn_model = load_pinn_model(args.pinn_dir)
     
     # The model loading should have restored the correct gridsize to params.cfg
@@ -868,9 +990,24 @@ def main():
         logger.info("Running two-way comparison (PtychoPINN vs. Baseline)")
 
     # Run inference for PtychoPINN
-    logger.info("Running inference with PtychoPINN...")
-    # PtychoPINN model requires both diffraction patterns and position coordinates
-    # Scale the input data by intensity_scale to match training normalization
+    logger.info("Running inference with PtychoPINN (diffraction_to_obj)...")
+
+    # CRITICAL FIX: Force gridsize from channel count before inference
+    # When test data has grouped diffraction (e.g., 4 channels from gs=2),
+    # params.cfg['gridsize'] must match sqrt(channel_count) to prevent
+    # Translation layer batch dimension mismatch (B vs B·C crash)
+    import math
+    diffraction_channels = int(test_container.X.shape[-1])
+    required_gridsize = int(math.isqrt(diffraction_channels))
+    current_gridsize = p.cfg.get('gridsize', 1)
+
+    if current_gridsize != required_gridsize:
+        logger.warning(f"GRIDSIZE MISMATCH: params.cfg['gridsize']={current_gridsize} but diffraction has {diffraction_channels} channels (requires gridsize={required_gridsize})")
+        logger.warning(f"Forcing params.cfg['gridsize']={required_gridsize} before inference to prevent Translation layer crash")
+        p.cfg['gridsize'] = required_gridsize
+    else:
+        logger.info(f"Gridsize validated: params.cfg['gridsize']={current_gridsize} matches {diffraction_channels} channels")
+
     pinn_start = time.time()
     pinn_patches = pinn_model.predict(
         [test_container.X * p.get('intensity_scale'), test_container.coords_nominal],
@@ -879,59 +1016,82 @@ def main():
     )
     pinn_inference_time = time.time() - pinn_start
     logger.info(f"PtychoPINN inference completed in {pinn_inference_time:.2f}s")
-    
-    # Reassemble patches
-    logger.info("Reassembling PtychoPINN patches...")
-    pinn_recon = reassemble_position(pinn_patches, test_container.global_offsets, M=args.stitch_crop_size)
+
+    if isinstance(pinn_patches, (list, tuple)) and pinn_patches:
+        pinn_patches = pinn_patches[0]
+    pinn_patches = np.asarray(pinn_patches)
+
+    # Log PINN patches shape before reassembly
+    logger.info(f"PINN patches shape before reassembly: {pinn_patches.shape}, dtype: {pinn_patches.dtype}")
+
+    # Reassemble PINN patches using global offsets (not coords_nominal which is channel-formatted)
+    logger.info("Reassembling PINN patches...")
+    # Use global_offsets for reassembly - expects shape (B, 1, 2, 1)
+    pinn_offsets = np.asarray(test_container.global_offsets, dtype=np.float64)
+    logger.info(f"PINN offsets shape before reassembly: {pinn_offsets.shape}, dtype: {pinn_offsets.dtype}")
+    pinn_recon = reassemble_position(pinn_patches, pinn_offsets, M=args.stitch_crop_size)
+    logger.info(f"PINN reconstruction shape after reassembly: {pinn_recon.shape}, dtype: {pinn_recon.dtype}")
 
     # Run inference for Baseline
     logger.info("Running inference with Baseline model...")
-    # Baseline model outputs amplitude and phase separately
-    
-    # CRITICAL FIX: Prepare baseline-specific input data
-    # Baseline models always expect single-channel input (batch, N, N, 1)
-    # When PINN uses gridsize > 1, test data is grouped into multiple channels
-    gridsize = p.cfg.get('gridsize', 1)
-    if gridsize > 1:
-        logger.info(f"Adapting grouped data (gridsize={gridsize}) for baseline model")
-        logger.info(f"Original test data shape: {test_container.X.shape}")
-        # Extract only the first channel for baseline inference
-        baseline_input = test_container.X[..., :1]
-        logger.info(f"Baseline input shape: {baseline_input.shape}")
-    else:
-        logger.info("Using original test data for baseline model (gridsize=1)")
-        baseline_input = test_container.X
-    
+    baseline_input, baseline_offsets = prepare_baseline_inference_data(test_container)
+    logger.info(f"Baseline inference input shape: {baseline_input.shape}")
+    logger.info(f"Baseline inference offsets shape: {baseline_offsets.shape}")
+
+    # Warn if offsets are missing (shouldn't happen after prepare_baseline_inference_data)
+    if baseline_offsets is None or baseline_offsets.size == 0:
+        logger.warning(
+            "Baseline offsets are missing or empty. Baseline model expects both diffraction and offsets."
+        )
+
     baseline_start = time.time()
-    baseline_output = baseline_model.predict(baseline_input, batch_size=32, verbose=1)
+    # Pass BOTH tensors to baseline model - it expects [input, positions] per dual-input architecture
+    baseline_output = baseline_model.predict([baseline_input, baseline_offsets], batch_size=32, verbose=1)
     baseline_inference_time = time.time() - baseline_start
     logger.info(f"Baseline inference completed in {baseline_inference_time:.2f}s")
-    
+
+    # Log baseline output shape before conversion
+    if isinstance(baseline_output, list):
+        logger.info(f"Baseline output format: list with {len(baseline_output)} elements")
+        for idx, elem in enumerate(baseline_output):
+            logger.info(f"  Element {idx} shape: {np.asarray(elem).shape}, dtype: {np.asarray(elem).dtype}")
+    else:
+        logger.info(f"Baseline output format: single tensor, shape: {np.asarray(baseline_output).shape}, dtype: {np.asarray(baseline_output).dtype}")
+
     # Handle different output formats
     if isinstance(baseline_output, list) and len(baseline_output) == 2:
+        # Legacy format: [amplitude, phase]
+        logger.info("Converting baseline output from [amplitude, phase] list format")
         baseline_patches_I, baseline_patches_phi = baseline_output
+        baseline_patches_I = np.asarray(baseline_patches_I, dtype=np.float32)
+        baseline_patches_phi = np.asarray(baseline_patches_phi, dtype=np.float32)
+        baseline_patches_complex = baseline_patches_I.astype(np.complex64) * \
+                                   np.exp(1j * baseline_patches_phi.astype(np.complex64))
+    elif isinstance(baseline_output, np.ndarray) or hasattr(baseline_output, 'numpy'):
+        # Single complex tensor format
+        logger.info("Converting baseline output from single complex tensor format")
+        baseline_output_np = np.asarray(baseline_output)
+        if np.iscomplexobj(baseline_output_np):
+            # Already complex
+            baseline_patches_complex = baseline_output_np.astype(np.complex64)
+            # Extract amplitude and phase for logging
+            baseline_patches_I = np.abs(baseline_patches_complex).astype(np.float32)
+            baseline_patches_phi = np.angle(baseline_patches_complex).astype(np.float32)
+        else:
+            # Single real tensor - interpret as complex (this shouldn't happen but handle it)
+            logger.warning("Baseline output is single real tensor, cannot convert to amplitude/phase")
+            raise ValueError(f"Unexpected baseline model output: single real tensor with shape {baseline_output_np.shape}")
     else:
-        # Some baseline models might output a single array
-        raise ValueError("Unexpected baseline model output format")
-    
-    # Convert to complex representation
-    baseline_patches_complex = tf.cast(baseline_patches_I, tf.complex64) * \
-                               tf.exp(1j * tf.cast(baseline_patches_phi, tf.complex64))
+        raise ValueError(f"Unexpected baseline model output format: {type(baseline_output)}")
+
+    # Log shapes after conversion
+    logger.info(f"After conversion - amplitude shape: {baseline_patches_I.shape}, phase shape: {baseline_patches_phi.shape}")
+    logger.info(f"Complex patches shape: {baseline_patches_complex.shape}, dtype: {baseline_patches_complex.dtype}")
     
     # Reassemble patches
     logger.info("Reassembling baseline patches...")
     
-    # CRITICAL FIX: Handle baseline reconstruction reassembly based on gridsize
-    # When gridsize > 1: baseline processes single-channel data, so patches are already reconstructed
-    # When gridsize = 1: normal reassembly is needed
-    if gridsize > 1:
-        logger.info(f"Baseline used single-channel input with gridsize={gridsize} - patches are already individual reconstructions")
-        # For gridsize > 1, baseline sees individual diffraction patterns, so its output 
-        # represents individual patch reconstructions that need normal reassembly
-        baseline_recon = reassemble_position(baseline_patches_complex, test_container.global_offsets, M=args.stitch_crop_size)
-    else:
-        logger.info("Normal baseline patch reassembly (gridsize=1)")
-        baseline_recon = reassemble_position(baseline_patches_complex, test_container.global_offsets, M=args.stitch_crop_size)
+    baseline_recon = reassemble_position(baseline_patches_complex, baseline_offsets, M=args.stitch_crop_size)
 
     # Save NPZ files of reconstructions (before any alignment/registration) if requested
     if args.save_npz:

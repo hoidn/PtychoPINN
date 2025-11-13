@@ -25,16 +25,8 @@ def setup_lightning_trainer(ptycho_model: PtychoModel,
         strict = True
     )
 
-    #Calculate total epochs
-    if training_config.stage_2_epochs > 0 or training_config.stage_3_epochs > 0:
-        total_epochs = (
-            training_config.stage_1_epochs +
-            training_config.stage_2_epochs + 
-            training_config.stage_3_epochs
-        )
-    else:
-        total_epochs = training_config.epochs
-    
+    total_epochs = training_config.epochs
+
     #Instantiate lightning trainer
     trainer = L.Trainer(
         max_epochs = total_epochs,

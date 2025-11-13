@@ -237,7 +237,7 @@ The study tracks comprehensive metrics across training set sizes with statistica
 ### For Experimental Datasets:
 1. **Preprocessing Required**: Use `transpose_rename_convert_tool.py` for raw experimental data
 2. **Shuffling Critical**: For gridsize=1 studies, shuffle datasets with `shuffle_dataset_tool.py`
-3. **Format Compliance**: Must follow [Data Contracts](../../docs/data_contracts.md) specification
+3. **Format Compliance**: Must follow [Data Contracts](../../specs/data_contracts.md) specification
 4. **Sufficient Size**: Ensure dataset has enough images for largest training size requested
 
 ### Recommended Experimental Datasets:
@@ -273,5 +273,5 @@ The study tracks comprehensive metrics across training set sizes with statistica
 ## Requirements
 
 - All scripts in this directory require the main PtychoPINN environment to be activated
-- Input datasets must conform to the [Data Contracts](../../docs/data_contracts.md) specification
+- Input datasets must conform to the [Data Contracts](../../specs/data_contracts.md) specification
 - Sufficient disk space for multiple model checkpoints and intermediate results

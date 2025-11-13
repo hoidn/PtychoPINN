@@ -69,6 +69,26 @@ from typing import Dict, Any, Optional, Literal
 import yaml
 import warnings
 
+# Export list for public API (ADR-003 Phase C3.A1)
+# Restores exports removed during Phase C2; ensures PyTorchExecutionConfig is discoverable
+__all__ = [
+    # Dataclass configurations
+    'ModelConfig',
+    'TrainingConfig',
+    'InferenceConfig',
+    'PyTorchExecutionConfig',
+    # Core compatibility bridge
+    'update_legacy_dict',
+    # Validation functions
+    'validate_model_config',
+    'validate_training_config',
+    'validate_inference_config',
+    # YAML loading
+    'load_yaml_config',
+    # Internal translation (exposed for advanced use)
+    'dataclass_to_legacy_dict',
+]
+
 @dataclass(frozen=True)
 class ModelConfig:
     """Core model architecture parameters."""
@@ -102,11 +122,15 @@ class TrainingConfig:
     n_subsample: Optional[int] = None  # Number of images to subsample before grouping (independent control)
     subsample_seed: Optional[int] = None  # Random seed for reproducible subsampling
     neighbor_count: int = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
-    positions_provided: bool = True  
+    enable_oversampling: bool = False  # Explicit opt-in for K choose C oversampling (requires gridsize>1 and neighbor_pool_size>=C)
+    neighbor_pool_size: Optional[int] = None  # Pool size for K choose C oversampling (if None, defaults to neighbor_count)
+    positions_provided: bool = True
     probe_trainable: bool = False
     intensity_scale_trainable: bool = True  # Changed default
     output_dir: Path = Path("training_outputs")
     sequential_sampling: bool = False  # Use sequential sampling instead of random
+    backend: Literal['tensorflow', 'pytorch'] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility
+    torch_loss_mode: Literal['poisson', 'mae'] = 'poisson'  # Backend-specific loss mode selector
 
     def __post_init__(self):
         """Handle backward compatibility for n_images → n_groups migration."""
@@ -120,7 +144,7 @@ class TrainingConfig:
             )
             # Use object.__setattr__ to modify dataclass (not frozen anymore)
             object.__setattr__(self, 'n_groups', self.n_images)
-
+        
         # Set default if neither was provided
         if self.n_groups is None:
             object.__setattr__(self, 'n_groups', 512)
@@ -136,8 +160,11 @@ class InferenceConfig:
     n_subsample: Optional[int] = None  # Number of images to subsample for inference (independent control)
     subsample_seed: Optional[int] = None  # Random seed for reproducible subsampling
     neighbor_count: int = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
+    enable_oversampling: bool = False  # Explicit opt-in for K choose C oversampling (requires gridsize>1 and neighbor_pool_size>=C)
+    neighbor_pool_size: Optional[int] = None  # Pool size for K choose C oversampling (if None, defaults to neighbor_count)
     debug: bool = False
     output_dir: Path = Path("inference_outputs")
+    backend: Literal['tensorflow', 'pytorch'] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility
     
     def __post_init__(self):
         """Handle backward compatibility for n_images → n_groups migration."""
@@ -151,6 +178,184 @@ class InferenceConfig:
             )
             # Use object.__setattr__ to modify dataclass
             object.__setattr__(self, 'n_groups', self.n_images)
+
+@dataclass
+class PyTorchExecutionConfig:
+    """
+    PyTorch-specific execution configuration for runtime behavior control.
+
+    This configuration controls PyTorch Lightning execution knobs, dataloader settings,
+    and optimization parameters that do NOT exist in TensorFlow canonical configs.
+    These fields are backend-specific and should not be bridged to params.cfg via
+    update_legacy_dict (CONFIG-001 applies only to canonical configs).
+
+    Design Context:
+        - Introduced in ADR-003 Phase C1 to centralize execution-only parameters
+        - Fields sourced from override_matrix.md §5 (PyTorch Execution Configuration)
+        - Priority level 2 in override precedence (between explicit overrides and CLI defaults)
+        - Referenced by: ptycho_torch/config_factory.py (factory payload construction)
+        - Consumed by: ptycho_torch/workflows/components.py (Lightning Trainer + DataLoader)
+
+    Usage:
+        >>> from ptycho.config.config import PyTorchExecutionConfig
+        >>> exec_cfg = PyTorchExecutionConfig(
+        ...     accelerator='cpu',
+        ...     deterministic=True,
+        ...     num_workers=4,
+        ...     enable_progress_bar=False,
+        ... )
+        >>> # Pass to factory:
+        >>> payload = create_training_payload(..., execution_config=exec_cfg)
+
+    Policy Compliance:
+        - POLICY-001: PyTorch >=2.2 required for all ptycho_torch/ code
+        - CONFIG-001: This config is execution-only; does NOT populate params.cfg
+
+    Field Categories:
+        1. Lightning Trainer knobs: accelerator, strategy, deterministic, gradient_clip_val
+        2. DataLoader knobs: num_workers, pin_memory, persistent_workers, prefetch_factor
+        3. Optimization knobs: learning_rate, scheduler, accum_steps
+        4. Checkpoint/logging knobs: enable_progress_bar, enable_checkpointing, checkpoint_save_top_k, checkpoint_monitor_metric, checkpoint_mode, early_stop_patience
+        5. Inference knobs: inference_batch_size, middle_trim, pad_eval
+    """
+    # Lightning Trainer knobs
+    accelerator: str = 'auto'  # Options: 'cpu', 'gpu', 'tpu', 'mps', 'auto' (default 'auto' → 'cuda' if available, else 'cpu')
+    strategy: str = 'auto'  # Options: 'auto', 'ddp', 'fsdp', 'deepspeed'
+    deterministic: bool = True  # Enforce reproducibility (seed_everything + deterministic mode)
+    gradient_clip_val: Optional[float] = None  # Gradient clipping threshold (None = disabled)
+    accum_steps: int = 1  # Gradient accumulation steps (simulate larger batch size)
+
+    # DataLoader knobs
+    num_workers: int = 0  # Number of dataloader worker processes (0 = main process only; CPU-safe)
+    pin_memory: bool = False  # Pin memory for faster CPU→GPU transfer (GPU-only; False for CPU safety)
+    persistent_workers: bool = False  # Keep workers alive between epochs (requires num_workers > 0)
+    prefetch_factor: Optional[int] = None  # Batches to prefetch per worker (None = default 2)
+
+    # Optimization knobs
+    learning_rate: float = 1e-3  # Optimizer learning rate (hardcoded in legacy code)
+    scheduler: str = 'Default'  # LR scheduler type: 'Default', 'Exponential', 'MultiStage'
+
+    # Checkpoint/logging knobs
+    enable_progress_bar: bool = False  # Show training progress bar (derived from config.debug in legacy code)
+    enable_checkpointing: bool = True  # Enable Lightning automatic checkpointing
+    checkpoint_save_top_k: int = 1  # How many best checkpoints to keep
+    checkpoint_monitor_metric: str = 'val_loss'  # Metric for best checkpoint selection
+    checkpoint_mode: str = 'min'  # Mode for checkpoint monitoring: 'min' (lower is better) or 'max' (higher is better)
+    early_stop_patience: int = 100  # Early stopping patience epochs (hardcoded in legacy code)
+
+    # Logging knobs (Phase EB3.B - ADR-003)
+    logger_backend: Optional[str] = 'csv'  # Experiment tracking backend: 'csv' (default), 'tensorboard', 'mlflow', or None
+
+    # Inference-specific knobs
+    inference_batch_size: Optional[int] = None  # Override batch_size for inference (None = use training batch_size)
+    middle_trim: int = 0  # Inference trimming parameter (not yet implemented)
+    pad_eval: bool = False  # Padding for evaluation (not yet implemented)
+
+    def __post_init__(self):
+        """
+        Validate PyTorchExecutionConfig fields and resolve 'auto' accelerator (ADR-003 Phase D.B).
+
+        Auto-Resolution Logic (POLICY-001 compliance):
+            When accelerator='auto':
+            - Resolves to 'cuda' if torch.cuda.is_available() == True
+            - Falls back to 'cpu' with POLICY-001 warning if no CUDA device found
+            - Ensures GPU-first behavior per docs/workflows/pytorch.md §12
+
+        Raises:
+            ValueError: If validation fails with descriptive message
+
+        Validation Rules (from training_refactor.md §Component 2 + EB1.A):
+            1. accelerator must be in whitelist {'auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps'}
+            2. num_workers must be non-negative
+            3. learning_rate must be positive
+            4. inference_batch_size (if provided) must be positive
+            5. accum_steps must be positive
+            6. checkpoint_save_top_k must be non-negative
+            7. early_stop_patience must be positive
+            8. checkpoint_mode must be in whitelist {'min', 'max'}
+
+        Notes:
+            - Warnings for deterministic+num_workers handled in CLI helper (build_execution_config_from_args)
+            - Field defaults are safe; validation catches programmatic misuse
+            - Auto-resolution modifies the accelerator field in-place via object.__setattr__
+        """
+        # Accelerator whitelist (Lightning supported values)
+        valid_accelerators = {'auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps'}
+        if self.accelerator not in valid_accelerators:
+            raise ValueError(
+                f"Invalid accelerator: '{self.accelerator}'. "
+                f"Expected one of {sorted(valid_accelerators)}."
+            )
+
+        # Auto-resolution: 'auto' → 'cuda' if available, else 'cpu' with POLICY-001 warning
+        if self.accelerator == 'auto':
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    object.__setattr__(self, 'accelerator', 'cuda')
+                else:
+                    object.__setattr__(self, 'accelerator', 'cpu')
+                    warnings.warn(
+                        "POLICY-001: PyTorch backend defaults to GPU execution. "
+                        "No CUDA device detected; falling back to CPU. "
+                        "For production workloads, ensure CUDA is available or explicitly set accelerator='cpu'.",
+                        UserWarning,
+                        stacklevel=3
+                    )
+            except ImportError:
+                # Should not happen given POLICY-001 (torch is mandatory), but handle gracefully
+                object.__setattr__(self, 'accelerator', 'cpu')
+                warnings.warn(
+                    "POLICY-001: PyTorch not available. Falling back to CPU accelerator. "
+                    "Install PyTorch (torch>=2.2) for GPU acceleration.",
+                    UserWarning,
+                    stacklevel=3
+                )
+
+        # Non-negative workers
+        if self.num_workers < 0:
+            raise ValueError(
+                f"num_workers must be non-negative, got {self.num_workers}"
+            )
+
+        # Positive learning rate
+        if self.learning_rate <= 0:
+            raise ValueError(
+                f"learning_rate must be positive, got {self.learning_rate}"
+            )
+
+        # Positive inference batch size (if provided)
+        if self.inference_batch_size is not None and self.inference_batch_size <= 0:
+            raise ValueError(
+                f"inference_batch_size must be positive, got {self.inference_batch_size}"
+            )
+
+        # Positive accumulation steps
+        if self.accum_steps <= 0:
+            raise ValueError(
+                f"accum_steps must be positive, got {self.accum_steps}"
+            )
+
+        # Non-negative checkpoint save count
+        if self.checkpoint_save_top_k < 0:
+            raise ValueError(
+                f"checkpoint_save_top_k must be non-negative, got {self.checkpoint_save_top_k}"
+            )
+
+        # Positive early stopping patience
+        if self.early_stop_patience <= 0:
+            raise ValueError(
+                f"early_stop_patience must be positive, got {self.early_stop_patience}"
+            )
+
+        # Checkpoint mode whitelist
+        valid_checkpoint_modes = {'min', 'max'}
+        if self.checkpoint_mode not in valid_checkpoint_modes:
+            raise ValueError(
+                f"Invalid checkpoint_mode: '{self.checkpoint_mode}'. "
+                f"Expected one of {sorted(valid_checkpoint_modes)}."
+            )
+
 
 def validate_model_config(config: ModelConfig) -> None:
     """Validate model configuration."""
@@ -266,24 +471,29 @@ def dataclass_to_legacy_dict(obj: Any) -> Dict[str, Any]:
 
 def update_legacy_dict(cfg: Dict[str, Any], dataclass_obj: Any) -> None:
     """Update legacy dictionary with dataclass values.
-    
+
     ⚠️ CRITICAL: Call this BEFORE any data loading operations!
-    
+
     Common failure scenario:
-    - Symptom: Shape (*, 64, 64, 1) instead of (*, 64, 64, 4) with gridsize=2  
+    - Symptom: Shape (*, 64, 64, 1) instead of (*, 64, 64, 4) with gridsize=2
     - Cause: This function wasn't called before generate_grouped_data()
     - Fix: Call immediately after config setup, before load_data()
-    
+
     Updates values from the dataclass, but skips None values to preserve
     existing parameter values when new configuration doesn't specify them.
-    
+
     Args:
         cfg: Legacy dictionary to update
         dataclass_obj: Dataclass instance containing new values
     """
     new_values = dataclass_to_legacy_dict(dataclass_obj)
-    
+
     # Update values from dataclass, but skip None values to preserve existing params
+    # Convert any remaining Path objects to strings for legacy compatibility
     for key, value in new_values.items():
         if value is not None:
-            cfg[key] = value
+            # Convert Path to string if not already done by KEY_MAPPINGS
+            if isinstance(value, Path):
+                cfg[key] = str(value)
+            else:
+                cfg[key] = value

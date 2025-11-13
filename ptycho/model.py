@@ -397,7 +397,7 @@ def create_decoder_phase(input_tensor, n_filters_scale, gridsize, big):
 
 def create_autoencoder(input_tensor, n_filters_scale, gridsize, big):
     encoded = create_encoder(input_tensor, n_filters_scale)
-    decoded_amp = create_decoder_amp(encoded, n_filters_scale)
+    decoded_amp = create_decoder_amp(encoded, n_filters_scale, gridsize, big)
     decoded_phase = create_decoder_phase(encoded, n_filters_scale, gridsize, big)
     
     return decoded_amp, decoded_phase
@@ -415,10 +415,18 @@ def get_amp_activation():
     else:
         return ValueError
 
-def create_decoder_amp(input_tensor, n_filters_scale):
+def create_decoder_amp(input_tensor, n_filters_scale, gridsize, big):
+    """
+    Decoder head that predicts object-space amplitudes.
+
+    When object.big=True we must emit one channel per patch (C=gridsize**2)
+    so the subsequent ReassemblePatchesLayer receives matching patch counts.
+    """
+    num_filters = gridsize**2 if big else 1
+
     # Placeholder convolution layers and activation as defined in the original DecoderAmp class
-    conv1 = tf.keras.layers.Conv2D(1, (3, 3), padding='same')
-    conv2 = tf.keras.layers.Conv2D(1, (3, 3), padding='same')
+    conv1 = tf.keras.layers.Conv2D(num_filters, (3, 3), padding='same')
+    conv2 = tf.keras.layers.Conv2D(num_filters, (3, 3), padding='same')
     # Use custom activation layer for amplitude
     try:
         amp_activation_name = p.get('amp_activation')
@@ -504,7 +512,15 @@ dist_poisson_intensity = create_poisson_distribution_for_loss
 # Poisson distribution over expected diffraction intensity (i.e. photons per
 # pixel)
 def negloglik(y_true, y_pred):
-    """Compute Poisson negative log-likelihood using TensorFlow's built-in function"""
+    """Compute Poisson negative log-likelihood.
+
+    Contract
+    --------
+    - y_true: target intensity (counts), strictly positive
+    - y_pred: predicted intensity (counts), strictly positive
+    - Implementations MUST ensure y_pred > 0 prior to the log operation
+      (e.g., strictly-positive activation on amplitude head or epsilon ≥ 1e-12).
+    """
     # y_true is the target intensity (already squared)
     # y_pred is the predicted intensity (already squared)
     # Use TensorFlow's Poisson loss which computes: y_pred - y_true * log(y_pred)
