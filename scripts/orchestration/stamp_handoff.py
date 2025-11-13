@@ -7,6 +7,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from subprocess import run, PIPE
+from typing import Any, Dict, Optional
 
 
 def sh(cmd: list[str], check: bool = False) -> tuple[int, str, str]:
@@ -32,6 +33,89 @@ def safe_pull() -> bool:
         rc2, out2, err2 = sh(["git", "pull", "--no-rebase"])
         return rc2 == 0
     return True
+
+
+def _parse_state(raw: str, ctx: str) -> Dict[str, Any]:
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"ERROR: state data for {ctx} is not valid JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise SystemExit(f"ERROR: state data for {ctx} must contain a JSON object")
+    return data
+
+
+def _default_state() -> Dict[str, Any]:
+    return {
+        "iteration": 1,
+        "expected_actor": "galph",
+        "status": "idle",
+        "galph_commit": None,
+        "ralph_commit": None,
+    }
+
+
+def _load_state_from_history(path: Path) -> Optional[Dict[str, Any]]:
+    rel = path.as_posix()
+    rc, log_out, _ = sh(["git", "log", "--format=%H", "--", rel])
+    if rc != 0:
+        return None
+    revs = [sha.strip() for sha in log_out.splitlines() if sha.strip()]
+    if not revs:
+        return None
+
+    best_state: Optional[Dict[str, Any]] = None
+    best_iteration = -1
+    for sha in revs:
+        rc_blob, blob, _ = sh(["git", "show", f"{sha}:{rel}"])
+        if rc_blob != 0:
+            continue
+        raw = blob.strip()
+        if not raw:
+            continue
+        try:
+            data = _parse_state(raw, f"{sha}:{rel}")
+        except SystemExit as exc:
+            print(f"WARNING: {exc}", file=sys.stderr)
+            continue
+        try:
+            iter_val = int(data.get("iteration", 0))
+        except (TypeError, ValueError):
+            iter_val = 0
+        if iter_val > best_iteration:
+            best_iteration = iter_val
+            best_state = data
+    return best_state
+
+
+def _load_state(path: Path) -> Dict[str, Any]:
+    raw = path.read_text(encoding="utf-8")
+    stripped = raw.strip()
+    state: Optional[Dict[str, Any]] = None
+    if stripped:
+        state = _parse_state(stripped, str(path))
+
+    history = _load_state_from_history(path)
+    if state is None:
+        if history is not None:
+            return history
+        return _default_state()
+
+    if history is not None:
+        try:
+            cur_iter = int(state.get("iteration", 0))
+        except (TypeError, ValueError):
+            cur_iter = 0
+        try:
+            hist_iter = int(history.get("iteration", 0))
+        except (TypeError, ValueError):
+            hist_iter = 0
+        if hist_iter > cur_iter:
+            print(f"WARNING: local {path} iteration={cur_iter} is behind git history iteration={hist_iter}; using history snapshot",
+                  file=sys.stderr)
+            return history
+
+    return state
 
 
 def main() -> int:
@@ -65,7 +149,7 @@ def main() -> int:
     # Load state
     if not args.state_file.exists():
         raise SystemExit(f"ERROR: state file not found: {args.state_file}")
-    state = json.loads(args.state_file.read_text(encoding="utf-8"))
+    state = _load_state(args.state_file)
     iter_no = int(state.get("iteration", 1))
 
     now = datetime.now(timezone.utc)
@@ -121,4 +205,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
