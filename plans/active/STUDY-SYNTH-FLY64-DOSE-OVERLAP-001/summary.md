@@ -1,4 +1,11 @@
 ### Turn Summary
+Limited compare_models smoke (32-group) now runs end-to-end after the reassembly fix: `cli/compare_models_dense_train_fix.log` shows the PINN patches reassembling to `(344,344,1)` while the baseline still returns zero amplitude/phase so only the PINN metrics are usable.
+Phase D/E artifacts already exist (fresh overlap metrics + gs2 weights), and the GREEN pytest artifacts for the reassembly + Phase D guards live under `$HUB/green/`, so the remaining blocker is purely the counted dense rerun.
+`analysis/verification_report.json` is still `n_valid=0` because `phase_g_dense_train.log` built zero jobs for dose 100000 and the Phase G manifest/metrics/digest files were never refreshed for the 1000-dose rerun.
+Next: rerun `plans/active/.../bin/run_phase_g_dense.py --clobber --dose 1000 --view dense --splits train test`, immediately run the fully parameterized `--post-verify-only` helper, and regenerate the metrics/digest/preview + verification bundle (record blockers under `$HUB/red/` if any command fails).
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/compare_models_dense_train_fix.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/verification_report.json, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/phase_g_dense_train.log
+
+### Turn Summary
 Verified compare_models PINN reassembly fix (commit ce6dd436) is GREEN: reran 4 targeted pytest selectors (all PASS) and limited smoke test completed successfully with PINN reconstruction properly assembling from batched patches (32,128,128,1) to full 2D image (344,344,1).
 Phase D overlap guards GREEN: both test_filter_dataset_by_mask_handles_scalar_metadata and test_generate_overlap_views_dense_acceptance_floor PASS, confirming geometry acceptance floor and metadata handling are solid.
 Limited smoke metrics show PINN inference working correctly (MAE amp=0.884, SSIM phase=0.654, MS-SSIM phase=0.002); baseline evaluation failed with all NaN (known issue unrelated to PINN reassembly fix).
