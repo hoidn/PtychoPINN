@@ -963,6 +963,23 @@ def main():
 
     # Run inference for PtychoPINN
     logger.info("Running inference with PtychoPINN (diffraction_to_obj)...")
+
+    # CRITICAL FIX: Force gridsize from channel count before inference
+    # When test data has grouped diffraction (e.g., 4 channels from gs=2),
+    # params.cfg['gridsize'] must match sqrt(channel_count) to prevent
+    # Translation layer batch dimension mismatch (B vs B·C crash)
+    import math
+    diffraction_channels = int(test_container.X.shape[-1])
+    required_gridsize = int(math.isqrt(diffraction_channels))
+    current_gridsize = p.cfg.get('gridsize', 1)
+
+    if current_gridsize != required_gridsize:
+        logger.warning(f"GRIDSIZE MISMATCH: params.cfg['gridsize']={current_gridsize} but diffraction has {diffraction_channels} channels (requires gridsize={required_gridsize})")
+        logger.warning(f"Forcing params.cfg['gridsize']={required_gridsize} before inference to prevent Translation layer crash")
+        p.cfg['gridsize'] = required_gridsize
+    else:
+        logger.info(f"Gridsize validated: params.cfg['gridsize']={current_gridsize} matches {diffraction_channels} channels")
+
     pinn_start = time.time()
     pinn_recon = pinn_model.predict(
         [test_container.X * p.get('intensity_scale'), test_container.coords_nominal],
