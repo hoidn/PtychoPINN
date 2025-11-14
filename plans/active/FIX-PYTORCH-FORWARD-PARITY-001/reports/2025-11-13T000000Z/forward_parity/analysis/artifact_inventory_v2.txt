@@ -1,0 +1,54 @@
+# Phase A Forward Parity Evidence — Post-TrainingPayload Fix (2025-11-14)
+
+## Rerun v2 (2025-11-14T0529Z)
+
+This rerun confirms the TrainingPayload threading from commit dc5415ba works correctly.
+Instrumentation produces patch stats during training, but inference still shows near-zero patches.
+
+### Pytest Selector Results
+- File: `green/pytest_patch_stats_rerun_v2.log`
+- Status: PASSED (1/1, 7.13s)
+- Test: `tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump`
+
+### Training Run (10 epochs, 256 images, gridsize=2, batch=4)
+- CLI log: `cli/train_patch_stats_rerun_v2.log`
+- Command: `python -m ptycho_torch.train --train_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz --test_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz --output_dir outputs/torch_forward_parity_baseline --n_images 256 --gridsize 2 --batch_size 4 --max_epochs 10 --torch-loss-mode poisson --accelerator gpu --deterministic --quiet --log-patch-stats --patch-stats-limit 2`
+- Status: Completed successfully
+- Model artifact: `outputs/torch_forward_parity_baseline/wts.h5.zip`
+
+Training patch statistics (from batch 0, 2 logged):
+- global_mean: 0.002228
+- global_std: 0.003905
+- var_zero_mean: 1.525e-05
+- Artifacts: `torch_patch_stats_train_v2.json`, `torch_patch_grid_train_v2.png`
+
+### Inference Run (128 images)
+- CLI log: `cli/inference_patch_stats_rerun_v2.log`
+- Command: `python -m ptycho_torch.inference --model_path outputs/torch_forward_parity_baseline --test_data datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz --output_dir outputs/torch_forward_parity_baseline/inference --n_images 128 --accelerator gpu --debug-dump forward_parity_debug_v2 --log-patch-stats --patch-stats-limit 2`
+- Status: Completed successfully
+- Outputs: `outputs/torch_forward_parity_baseline/inference/reconstructed_{amplitude,phase}.png`
+
+Inference patch statistics (from batch 0, 2 logged):
+- global_mean: 1.686e-12 (essentially zero)
+- global_std: 3.085e-10 (essentially zero)
+- var_zero_mean: 9.512e-20 (essentially zero)
+- Artifacts: `torch_patch_stats_inference_v2.json`, `torch_patch_grid_inference_v2.png`
+- Amplitude range: [0.0000, 0.0000]
+- Phase range: [-2.8887, 3.0278]
+
+### Debug Dumps
+- Directory: `forward_parity_debug_v2/`
+- Files:
+  - canvas.json (140 bytes)
+  - offsets.json (1377 bytes)
+  - pred_patches_amp_grid_normalized.png (38206 bytes)
+  - pred_patches_amp_grid.png (33606 bytes)
+  - stats.json (341 bytes)
+
+## Key Finding
+Training produces healthy non-zero variance (1.525e-05) but inference patches are essentially zero (9.512e-20).
+This confirms the forward parity issue: patches are collapsed before stitching occurs.
+Phase B must address scaling/config alignment (object_big defaults, intensity_scale persistence).
+
+## Next Steps
+See Phase B checklist in `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md`

@@ -1,0 +1,35 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump PASSED [100%]
+
+=============================== warnings summary ===============================
+tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump
+  /home/ollie/Documents/PtychoPINN/ptycho_torch/config_factory.py:272: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_training_config = to_training_config(
+
+tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump
+  /home/ollie/Documents/PtychoPINN/ptycho_torch/config_factory.py:632: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+    warnings.warn(
+
+tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/setup.py:177: GPU available but not used. You can set it by doing `Trainer(accelerator='gpu')`.
+
+tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/configuration_validator.py:70: You defined a `validation_step` but have no `val_dataloader`. Skipping val loop.
+
+tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+
+tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/callbacks/model_checkpoint.py:467: `ModelCheckpoint(monitor='train_loss')` could not find the monitored key in the returned metrics: ['poisson_train_loss_step', 'amp_inv_mae_step', 'poisson_train_loss', 'learning_rate', 'poisson_train_loss_epoch', 'amp_inv_mae_epoch', 'amp_mae_tf_scale_epoch', 'epoch', 'step']. HINT: Did you call `log('train_loss', value)` in the `LightningModule`?
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 1 passed, 6 warnings in 7.13s =========================
