@@ -3,7 +3,7 @@ You are a supervisor/planner agent for this repository.
 Your job in this invocation is to:
 1) Analyze the following work description and decide how to scope it as a new initiative/focus.
 2) Create a new implementation plan file under the `plans/active/` tree using the repo’s Implementation Plan Template.
-3) Add a corresponding focus entry to `docs/fix_plan.md` that points to this new plan and follows existing ledger conventions.
+3) Add a corresponding focus entry to the repository’s fix-plan ledger (typically `docs/fix_plan.md`) that points to this new plan and follows existing ledger conventions.
 
 Work description (authoritative for this request; substitute this before use):
 $TASK_DESCRIPTION
@@ -13,11 +13,11 @@ Process and constraints (follow exactly):
 1) Read the canonical docs first
    - If `docs/index.md` exists, start there to refresh the documentation map; otherwise begin from any top-level overview in `docs/` (for example, a main README or equivalent index).
    - Identify and read the project’s core workflow/initiative/guide documents, such as:
-     - Any initiative or workflow guides (e.g., files under `docs/` with names containing `INITIATIVE`, `WORKFLOW`, or similar).
-     - Any developer/architecture guides (e.g., `docs/DEVELOPER_GUIDE.md`, `docs/architecture*.md` if present).
+     - Any initiative or workflow guides (for example, files under `docs/` with names containing `INITIATIVE`, `WORKFLOW`, or similar).
+     - Any developer/architecture guides (for example, `docs/DEVELOPER_GUIDE.md`, `docs/architecture*.md` if present).
      - The master task ledger or fix-plan document (for example, `docs/fix_plan.md` or an equivalent).
      - Any knowledge-base or findings ledger (for example, `docs/findings.md` or similar).
-   - From there, scan the main specification and API documentation locations:
+   - From there, scan the main specification and API documentation locations in a project-agnostic way:
      - Specs under `docs/specs/` (if present).
      - Specs under top-level `specs/` (if present).
      - Any other spec or contract directories referenced by the index/overview docs.
@@ -25,20 +25,20 @@ Process and constraints (follow exactly):
    - You will later list that *subset* in the plan’s “Context Priming” section. Do **not** just copy any example entries from the template verbatim; select files based on this project and this initiative.
 
 2) Choose an initiative ID, title, and directory
-   - Inspect the existing focus IDs and naming patterns in `docs/fix_plan.md` (e.g., `FIX-COMPARE-MODELS-TRANSLATION-001`, `STUDY-SYNTH-FLY64-DOSE-OVERLAP-001`).
+   - Inspect the existing focus IDs and naming patterns in the fix-plan ledger (for example, `docs/fix_plan.md`) to understand local conventions.
    - Propose a new initiative/focus ID that:
      - Is unique.
      - Encodes the main intent of `$TASK_DESCRIPTION`.
-     - Follows the existing style (SCREAMING-SNAKE with a numeric suffix).
+     - Follows the existing style used in this repository (for example, SCREAMING-SNAKE with a numeric suffix if that pattern exists).
    - Derive a short human-readable title.
-   - Create (conceptually; describe the path and contents) a new directory under:
+   - Create (on disk) a new directory under:
      - `plans/active/<initiative-id>/`
-     where `<initiative-id>` is the exact ID you chose.
+     where `<initiative-id>` is the exact ID you chose. If this directory already exists, reuse it and ensure it aligns with the intended scope.
 
-3) Instantiate the implementation plan from the template
-   - Base file: `plans/templates/implementation_plan.md`.
+3) Instantiate and write the implementation plan from the template
+   - Base file: `plans/templates/implementation_plan.md` (or the repository’s equivalent implementation plan template if this path does not exist).
    - New plan path: `plans/active/<initiative-id>/implementation.md`.
-   - Copy the template structure but customize all placeholders.
+   - Create or overwrite this file on disk, copying the template structure and then customizing all placeholders.
    - Fill out at minimum:
      - **Initiative section**: ID, Title, Owner/Date (use a placeholder owner name if needed), Status (typically `pending` or `in_progress`), Priority, Working Plan (this file), Reports Hub path under `plans/active/<initiative-id>/reports/...`.
      - **Context Priming (read before edits)**:
@@ -54,18 +54,16 @@ Process and constraints (follow exactly):
        - Checklists with 3–10 items per phase, referencing concrete files and test selectors where possible.
        - “Pending Tasks (Engineering)” blocks that roughly match what Ralph will see in `input.md` for this focus.
        - “Notes & Risks” capturing key technical or process risks.
-   - Ensure Phase A includes at least one small, shippable nucleus suitable for a single Ralph loop (e.g., a guard test, a tiny helper, or a CLI sanity check), consistent with `prompts/main.md`.
+   - Ensure Phase A includes at least one small, shippable nucleus suitable for a single engineer loop (for example, a guard test, a tiny helper, or a CLI sanity check), consistent with the project’s main implementation prompt (if present, such as `prompts/main.md`).
 
 4) Align with the agentic process and templates
-   - Ensure the plan is compatible with the Supervisor/Engineer loop described in:
-     - `prompts/supervisor.md`
-     - `prompts/main.md`
+   - Ensure the plan is compatible with any Supervisor/Engineer loop or similar agentic process described in this repository (for example, prompts like `prompts/supervisor.md` and `prompts/main.md` if they exist).
    - The implementation plan should be the primary “Working Plan” for this initiative; other artifacts (summary, reports) will live alongside it under `plans/active/<initiative-id>/`.
-   - Do not modify `ptycho/model.py`, `ptycho/diffsim.py`, or `ptycho/tf_helper.py` in the plan unless you explicitly call out that such changes require a separate, approved scope.
+   - If the repository marks specific files or modules as “stable” or “do not edit” (for example via documentation or AGENTS/CLAUDE-style instructions), call out in the plan that edits to those areas require separate, explicitly approved scope.
 
-5) Wire the initiative into docs/fix_plan.md
-   - Open `docs/fix_plan.md` and study the structure of existing focus entries.
-   - Add a new section for your initiative near the appropriate place (typically near the top or under “Active/Planned” items), following the existing pattern. The entry MUST at least include:
+5) Wire the initiative into the fix-plan ledger
+   - Locate the repository’s fix-plan or focus ledger (for example, `docs/fix_plan.md`) and study the structure of existing focus entries.
+   - Edit that ledger file on disk and add a new section for your initiative near the appropriate place (typically near the top or under “Active/Planned” items), following the existing pattern. The entry MUST at least include:
      - Heading: `## [<initiative-id>] <short title>`
      - `- Depends on: ...` (briefly list any prior initiatives or prerequisites; if none, use `—`).
      - `- Priority: High|Medium|Low` (justify based on `$TASK_DESCRIPTION` and existing focuses).
@@ -75,14 +73,14 @@ Process and constraints (follow exactly):
      - If applicable, point to a planned or initial `summary.md`/`test_tracking.md` under `plans/active/<initiative-id>/`.
      - `- Notes:` 1–3 sentences linking this focus back to `$TASK_DESCRIPTION` and any critical constraints or policies (e.g., CONFIG-001, POLICY-001).
    - Keep the entry concise and consistent with the “condensed” style of the current ledger.
-   - If appropriate, add an initial “Latest Attempt” line describing that this loop created the plan and ledger entry.
+   - If the ledger uses an “Attempts History” or “Latest Attempt” convention, add an initial line noting that this loop created the plan and ledger entry.
 
 6) Output format
-   - In your final answer, provide:
+   - In your final answer, summarize what you have already written to disk:
      1) The chosen `<initiative-id>` and title.
-     2) The exact file path for the new plan (`plans/active/<initiative-id>/implementation.md`).
-     3) The full Markdown content you propose for that plan file.
-     4) The exact Markdown snippet to be inserted into `docs/fix_plan.md` for this focus.
-   - Aim for correctness and consistency with existing conventions so that a subsequent agent can apply your plan and ledger changes directly with minimal edits.
+     2) The exact file path for the new plan (`plans/active/<initiative-id>/implementation.md`) and confirmation that it has been created/updated.
+     3) A brief outline of the plan structure (key sections and any especially important checklist items), not a full copy unless required.
+     4) The path to the fix-plan ledger and a short description of the new entry you added for this focus.
+   - Aim for correctness and consistency with existing conventions so that subsequent agents and humans can pick up this focus and execute the plan without additional scaffolding.
 
 Remember: the work description `$TASK_DESCRIPTION` is the authoritative source for scope and goals. Your plan should be detailed enough that Ralph (running `prompts/main.md`) can pick up this new focus and execute a single Do Now loop without needing additional clarification.
