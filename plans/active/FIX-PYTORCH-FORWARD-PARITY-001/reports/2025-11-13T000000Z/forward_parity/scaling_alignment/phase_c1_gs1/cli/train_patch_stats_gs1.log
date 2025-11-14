@@ -1,0 +1,93 @@
+2025-11-14 07:57:10.532899: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1763135830.545284 3084192 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763135830.549217 3084192 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763135830.560547 3084192 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763135830.560561 3084192 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763135830.560563 3084192 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763135830.560564 3084192 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-14 07:57:10.563287: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+/home/ollie/Documents/PtychoPINN/ptycho_torch/config_factory.py:632: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+  warnings.warn(
+I0000 00:00:1763135836.762404 3084192 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1763135836.763756 3084192 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1763135837.633365 3084192 service.cc:152] XLA service 0x534fb5c0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1763135837.633383 3084192 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-11-14 07:57:17.650870: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1763135837.667928 3084192 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1763135837.797525 3084192 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+INFO:pytorch_lightning.utilities.rank_zero:You are using a CUDA device ('NVIDIA GeForce RTX 3090') that has Tensor Cores. To properly utilize them, you should set `torch.set_float32_matmul_precision('medium' | 'high')` which will trade-off precision for performance. For more details, read https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type        | Params | Mode 
+----------------------------------------------
+0 | model | PtychoPINN  | 2.3 M  | train
+1 | Loss  | PoissonLoss | 0      | train
+----------------------------------------------
+2.3 M     Trainable params
+0         Non-trainable params
+2.3 M     Total params
+9.345     Total estimated model params size (MB)
+73        Modules in train mode
+0         Modules in eval mode
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+INFO:pytorch_lightning.utilities.rank_zero:`Trainer.fit` stopped: `max_epochs=10` reached.
+Using new CLI interface with factory-based config (ADR-003)
+Creating configuration via factory (CONFIG-001 compliance)...
+✓ Factory created configs: N=64, gridsize=(1, 1), epochs=10
+✓ Execution config: accelerator=gpu, deterministic=True, learning_rate=0.001
+Starting training with 10 epochs...
+diff3d shape: (7403, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (7403,)
+objectGuess shape: (232, 232)
+xcoords shape: (7403,)
+ycoords shape: (7403,)
+xcoords_start shape: (7403,)
+ycoords_start shape: (7403,)
+diff3d shape: (7597, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (7597,)
+objectGuess shape: (232, 232)
+xcoords shape: (7597,)
+ycoords shape: (7597,)
+xcoords_start shape: (7597,)
+ycoords_start shape: (7597,)
+diff3d shape: (7403, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (7403,)
+objectGuess shape: (232, 232)
+xcoords shape: (7403,)
+ycoords shape: (7403,)
+xcoords_start shape: (7403,)
+ycoords_start shape: (7403,)
+DEBUG: nsamples: 256, gridsize: 1 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (256, 64, 64, 1)
+diff3d shape: (7597, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (7597,)
+objectGuess shape: (232, 232)
+xcoords shape: (7597,)
+ycoords shape: (7597,)
+xcoords_start shape: (7597,)
+ycoords_start shape: (7597,)
+DEBUG: nsamples: 256, gridsize: 1 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (256, 64, 64, 1)
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Torch scaling debug (training): mean|input|=0.450151 mean|pred|=0.000553 mean_input_scale=1.000000 mean_physics_scale=1.000000 physics_weight=1.000
+Torch patch stats (train batch 0): mean=0.003294 std=0.005738 var_zero_mean=0.000033
+Torch patch stats (train batch 0): mean=0.003294 std=0.005738 var_zero_mean=0.000033
+✓ Training completed successfully. Outputs saved to outputs/torch_forward_parity_baseline/gs1_phase_c1
+✓ Model bundle saved to outputs/torch_forward_parity_baseline/gs1_phase_c1/wts.h5.zip

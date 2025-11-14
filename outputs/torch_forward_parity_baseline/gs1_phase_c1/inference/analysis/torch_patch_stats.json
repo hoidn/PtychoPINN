@@ -1,0 +1,40 @@
+[
+  {
+    "phase": "inference",
+    "batch_idx": 0,
+    "batch_size": 128,
+    "global_mean": 0.0,
+    "global_std": 0.0,
+    "var_zero_mean": 0.0,
+    "per_patch": [
+      {
+        "patch_idx": 0,
+        "mean": 0.0,
+        "std": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      {
+        "patch_idx": 1,
+        "mean": 0.0,
+        "std": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      {
+        "patch_idx": 2,
+        "mean": 0.0,
+        "std": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      {
+        "patch_idx": 3,
+        "mean": 0.0,
+        "std": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      }
+    ]
+  }
+]

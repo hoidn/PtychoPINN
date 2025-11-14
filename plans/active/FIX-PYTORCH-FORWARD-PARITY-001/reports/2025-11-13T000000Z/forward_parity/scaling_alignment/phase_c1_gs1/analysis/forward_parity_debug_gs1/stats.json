@@ -1,0 +1,15 @@
+{
+  "patch_amplitude": {
+    "mean": 0.0,
+    "std": 0.0,
+    "min": 0.0,
+    "max": 0.0,
+    "var_zero_mean": 0.0
+  },
+  "canvas_amplitude": {
+    "mean": 0.0,
+    "std": 0.0,
+    "min": 0.0,
+    "max": 0.0
+  }
+}

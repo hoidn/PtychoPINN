@@ -1,0 +1,65 @@
+# Phase C1 — GS1 Fallback Artifact Inventory
+
+## PyTorch GS1 Baseline (gridsize=1)
+
+### Training
+- **Command**: `python -m ptycho_torch.train --gridsize 1 --n_images 256 --max_epochs 10`
+- **Log**: `scaling_alignment/phase_c1_gs1/cli/train_patch_stats_gs1.log`
+- **Status**: ✅ COMPLETED
+- **Key Observations**:
+  - Training completed successfully (10 epochs)
+  - Patch stats: mean=0.003294, std=0.005738, var_zero_mean=0.000033
+  - Bundle saved: `outputs/torch_forward_parity_baseline/gs1_phase_c1/wts.h5.zip`
+  - Digest: c3124f2dcfc73280560746c7ff47cea54152d2bd
+
+### Inference
+- **Command**: `python -m ptycho_torch.inference --n_images 128 --debug-dump`
+- **Log**: `scaling_alignment/phase_c1_gs1/cli/inference_patch_stats_gs1.log`
+- **Status**: ✅ COMPLETED
+- **Key Observations**:
+  - Loaded intensity_scale from bundle: 9.882118
+  - Inference variance: var_zero_mean=0.000000 (expected for gridsize=1)
+  - Debug dump: `scaling_alignment/phase_c1_gs1/analysis/forward_parity_debug_gs1/`
+
+### Artifacts
+- Bundle digest: `analysis/bundle_digest_torch_gs1.txt`
+- Patch stats: `analysis/torch_patch_stats_gs1.json`
+- Patch grid: `analysis/torch_patch_grid_gs1.png`
+
+## TensorFlow GS1 Baseline (gridsize=1)
+
+### Integration Test
+- **Command**: `pytest tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle`
+- **Log**: `tf_baseline/phase_c1_gs1/green/pytest_tf_integration_gs1.log`
+- **Status**: ❌ FAILED (subprocess env inheritance)
+- **Blocker**: `tf_baseline/phase_c1_gs1/red/blocked_*_tf_integration_gs1_env.md`
+
+### Training
+- **Command**: `python scripts/training/train.py --backend tensorflow --gridsize 1 --n_groups 256 --nepochs 10 --do_stitching`
+- **Log**: `tf_baseline/phase_c1_gs1/cli/train_tf_phase_c1_gs1.log`
+- **Status**: ❌ FAILED (XLA translation error during stitching)
+- **Blocker**: `tf_baseline/phase_c1_gs1/red/blocked_*_tf_gs1_xla_still_fails.md`
+- **Key Observations**:
+  - Training completed all 10 epochs
+  - Failed during post-training stitching phase with XLA `ImageProjectiveTransformV3` error
+  - Stitching invokes translation layer even at gridsize=1
+  - `use_xla_translate: True` in params (env vars not effective)
+
+## Dataset Note
+
+Both PyTorch and TensorFlow GS1 runs used the same dataset:
+- **Train**: `datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz`
+- **Test**: `datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz`
+
+The gridsize=1 fallback was necessary due to TensorFlow translation layer bugs (XLA-DYN-DOT-001 and non-XLA shape errors documented in `tf_baseline/phase_c1/red/`).
+
+## POLICY-001 Parity Decision
+
+Per POLICY-001 (PyTorch is mandatory; TensorFlow parity is nice-to-have):
+- PyTorch GS1 baseline provides complete evidence for forward parity validation
+- TensorFlow remains blocked by multiple translation layer issues (XLA + non-XLA + stitching)
+- Phase C proceeds with PyTorch-only evidence; TensorFlow debugging deferred
+
+## Next Steps
+
+Phase C2: Compare PyTorch GS1 vs Phase B3 (gridsize=2) metrics to quantify gridsize impact on forward parity.
