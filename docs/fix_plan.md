@@ -16,6 +16,17 @@
 
 ---
 
+## [FIX-PYTEST-SUITE-REALIGN-001] Pytest Suite Realignment & CLI Guardrails
+- Depends on: —
+- Priority: High (unblocks the guarded baseline integration test, Phase G dense orchestrator suite, and PyTorch workflow regressions)
+- Status: pending — implementation plan drafted; awaiting first Do Now loop
+- Owner/Date: Ralph/2025-11-14
+- Working Plan: `plans/active/FIX-PYTEST-SUITE-REALIGN-001/implementation.md`
+- Notes: Fixes the Literal CLI parsing regression in `parse_arguments`, updates Phase G orchestrator tests for the programmatic Phase D path, and refreshes PyTorch CLI/workflow tests so they match the new execution-config plumbing (CONFIG-001 / POLICY-001 / DEVICE-MISMATCH-001). Avoid modifying `ptycho/model.py`, `ptycho/diffsim.py`, or `ptycho/tf_helper.py` without explicit scope.
+- Latest Attempt (2025-11-14T000000Z): planning — Created the implementation plan and Reports Hub skeleton per prompts/plan_generation.md.
+
+---
+
 Housekeeping: This ledger is intentionally brief. Detailed “Attempts History” entries were moved to archives to keep decision‑making crisp.
 
 - Current archive snapshot: `docs/archive/2025-11-06_fix_plan_archive.md`
