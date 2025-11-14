@@ -1,3 +1,17 @@
+## 2025-11-14T030908Z: Phase G baseline diagnostics gate refresh
+- dwell: 4 (Tier 2 planning loop; translation fix is landed but verification remains 0/10 until Baseline metrics exist)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G dense comparison bundle still missing SSIM/verification/highlights/metrics/preview artifacts because Baseline predictions stay zero (see analysis/verification_report.json:1-80, analysis/dose_1000/dense/test/comparison_metrics.csv:1-23, analysis/dose_1000/dense/test/comparison.log:1015-1030).
+- Action type: Planning (Perf mode)
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md
+- Notes:
+  - `run_phase_g_dense.py --post-verify-only` still fails PREVIEW-PHASE-001 because metrics_delta_highlights_preview.txt never existed (cli/run_phase_g_dense_post_verify_only.log:1-23).
+  - Recorded a one-off NPZ probe in summary.md showing dense train Baseline has only 104 non-zero pixels while dense test is entirely zeros, so new compare_models diagnostics must be green before running any heavy pipelines.
+  - Updated plan Do Now + docs/fix_plan.md/input.md so Ralph reruns the translation guard, replays both compare_models commands, confirms the `DIAGNOSTIC baseline_input/baseline_output` stats show non-zero mean/max/nonzero_count, and files `$HUB/red/blocked_<timestamp>.md` instead of touching Phase D/Phase G when Baseline remains zero.
+- Next actions for Ralph: follow the refreshed How-To Map (env/HUB exports → translation pytest guard → compare_models train/test with diagnostics gate → Phase D selectors → counted `run_phase_g_dense.py --clobber` → metrics helpers → `run_phase_g_dense.py --post-verify-only`), and stop immediately with a RED note if any Baseline diagnostic is still zero.
+- <Action State>: [ready_for_implementation]
+- focus=STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 state=ready_for_implementation dwell=4 ralph_last_commit=b427f33d summary=plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md next_action=rerun translation guard + compare_models diagnostics before repeating the counted Phase G pipeline
+
 ## 2025-11-14T235900Z: Baseline inference guard + verification refresh
 - dwell: 3 (third consecutive planning loop on this focus; dwell stays in Tier 1 and the next handoff must remain runnable)
 - Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G dense comparison + verification bundle (Baselines still zero so verification cannot pass)

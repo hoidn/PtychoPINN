@@ -1,4 +1,33 @@
 ### Turn Summary
+Verification guard is still 0/10 and the SSIM/preview hooks abort immediately because the hub never produced the metrics bundle or artifact inventory (`analysis/verification_report.json:1-80`, `cli/run_phase_g_dense_post_verify_only.log:1-24`).
+Dense test Baseline reconstructions remain all zeros so the metrics reporter skips every Baseline row and Phase G deltas never materialize (`analysis/dose_1000/dense/test/comparison_metrics.csv:1-23`, `analysis/dose_1000/dense/test/comparison.log:1015-1030`).
+Next: capture the new compare_models diagnostics for both train/test splits, stop immediately if the `baseline_input`/`baseline_output` stats are still zero, and only proceed to the guarded pytest selectors + counted rerun once Baseline predictions contain signal.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier
+
+#### One-off analysis — baseline NPZ stats
+```python
+python - <<'PY'
+import numpy as np
+from pathlib import Path
+base = Path('plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense')
+for split in ['train','test']:
+    npz = base / split / 'reconstructions_aligned.npz'
+    with np.load(npz, allow_pickle=True) as data:
+        arr = data['baseline_complex']
+        amp = np.abs(arr)
+        print(split, 'baseline_complex shape', arr.shape, 'mean', arr.mean(), 'max', arr.max(), 'nonzero', np.count_nonzero(arr))
+        print(split, 'baseline_amp range', amp.min(), amp.max())
+PY
+```
+Output:
+```
+train baseline_complex shape (185, 354) mean (0.00022677403+0.0005013436j) max (0.662244+0.46133828j) nonzero 104
+train baseline_amp range 0.0 0.8070936
+test baseline_complex shape (186, 353) mean 0j max 0j nonzero 0
+test baseline_amp range 0.0 0.0
+```
+
+### Turn Summary
 Instrumented scripts/compare_models.py with diagnostic logging to track down all-zero baseline reconstructions on test split; added input/output statistics logging (mean/max/nonzero_count) before and after baseline model inference with CRITICAL errors when values are zero.
 Confirmed the issue: baseline model returns valid non-zero predictions for train split but all zeros for test split (verified via existing artifacts in dose_1000/dense/{train,test}/reconstructions_aligned.npz), causing downstream metrics/reporting failures.
 Next: wait for full pytest suite completion, then analyze diagnostic output from instrumented compare_models to determine root cause (likely TensorFlow/XLA runtime issue specific to test data characteristics or batch size).

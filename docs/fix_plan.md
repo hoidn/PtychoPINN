@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
 **Last Updated:** 2025-11-14 (Galph s=277)
-**Active Focus:** STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Synthetic fly64 dose/overlap study [ready_for_implementation] (Translation fix landed, but the dense-test Baseline reconstructions are still all zeros so the metrics reporters and `--post-verify-only` sweep keep failing; instrument/repair `scripts/compare_models.py`, rerun the guarded compare_models/pytest steps, then rerun the counted Phase G pipeline + metrics/verifier until `{analysis}` reports 10/10 with SSIM/verification/highlights/metrics/preview/inventory evidence.)
+**Active Focus:** STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Synthetic fly64 dose/overlap study [ready_for_implementation] (Translation fix landed, but the dense-test Baseline reconstructions are still all zeros so the metrics reporters and `--post-verify-only` sweep keep failing; rerun the instrumented `scripts/compare_models.py` commands for both splits until the new `DIAGNOSTIC baseline_input`/`baseline_output` stats show non-zero mean/max/nonzero counts and the NPZ probes confirm Baseline signal, file a `$HUB/red/blocked_<timestamp>.md` if they remain zero, then rerun the guarded pytest selectors and the counted Phase G pipeline + metrics/verifier until `{analysis}` reports 10/10 with SSIM/verification/highlights/metrics/preview/inventory evidence.)
 
 ---
 

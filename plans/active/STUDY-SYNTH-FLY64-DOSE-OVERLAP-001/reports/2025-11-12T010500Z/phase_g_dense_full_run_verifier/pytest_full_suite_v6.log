@@ -207,4 +207,5 @@ tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::te
 tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_metadata_backward_compatibility PASSED [ 38%]
 tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_metadata_persistence_single_nphotons PASSED [ 38%]
 tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_multiple_nphotons_metadata_consistency PASSED [ 38%]
-tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_training_with_mismatched_config_warns_but_continues 
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_training_with_mismatched_config_warns_but_continues PASSED [ 38%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_automatic_oversampling_triggers 
