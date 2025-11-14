@@ -1,3 +1,16 @@
+### Turn Summary (2025-11-14T2331Z)
+Ran the Phase C1d guard selector (GREEN, 1 passed in 5.03s) and attempted the scaled TF baseline rerun with XLA disabled.
+Training epoch 1 completed successfully but inference/stitching failed with a reshape error in _translate_images_simple when trying to reshape a 0-element tensor.
+Next: investigate the inference path reshape bug and consider adding a separate guard test for the eval/inference code path.
+Artifacts: green/pytest_tf_translation_guard.log; tf_baseline/phase_c1_scaled/cli/train_tf_phase_c1_scaled.log; tf_baseline/phase_c1_scaled/red/blocked_20251114T233123Z_tf_translation_guard.md
+
+Checklist:
+- Files touched: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/green/pytest_tf_translation_guard.log; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1_scaled/cli/train_tf_phase_c1_scaled.log; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1_scaled/red/blocked_20251114T233123Z_tf_translation_guard.md
+- Tests run: pytest tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_guard -vv
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/analysis/artifact_inventory.txt
+
+---
+
 ### Phase C3c/C3d Inference Path Variance Guard — 2025-11-14T0917Z
 
 Extended the Phase C3 regression guard to verify inference forward-path parity by invoking the inference CLI after training and asserting the same variance/global-mean thresholds on inference patch statistics.

@@ -1,20 +1,20 @@
-2025-11-14 15:24:52.601429: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-11-14 15:30:30.723663: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1763162692.612887 3299808 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1763162692.616508 3299808 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1763162692.626564 3299808 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763162692.626574 3299808 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763162692.626576 3299808 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763162692.626577 3299808 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2025-11-14 15:24:52.629305: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+E0000 00:00:1763163030.735545 3302566 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763163030.739515 3302566 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763163030.749957 3302566 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763163030.749973 3302566 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763163030.749975 3302566 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763163030.749977 3302566 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-14 15:30:30.752696: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
 To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2025-11-14 15:24:55,429 - INFO - Configuration setup complete
-2025-11-14 15:24:55,429 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz'), test_data_file=PosixPath('datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz'), batch_size=4, nepochs=1, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_groups=32, n_images=64, n_subsample=None, subsample_seed=None, neighbor_count=7, enable_oversampling=False, neighbor_pool_size=None, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1_scaled/run_scaled'), sequential_sampling=False, backend='tensorflow', torch_loss_mode='poisson')
-2025-11-14 15:24:55,429 - INFO - Legacy mode: --n-groups=32 refers to neighbor groups (gridsize=2, approx 128 patterns)
-2025-11-14 15:24:55,429 - INFO - Starting training with n_subsample=32, n_groups=32, stitching=enabled
-2025-11-14 15:24:55,429 - INFO - Loading data from datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz with n_images=32, n_subsample=32
-2025-11-14 15:24:56,544 - INFO - Independent sampling: subsampling 32 images from 7403 total
-2025-11-14 15:24:56,544 - INFO - Randomly subsampled 32 images
+2025-11-14 15:30:33,496 - INFO - Configuration setup complete
+2025-11-14 15:30:33,496 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz'), test_data_file=PosixPath('datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz'), batch_size=4, nepochs=1, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_groups=32, n_images=64, n_subsample=None, subsample_seed=None, neighbor_count=7, enable_oversampling=False, neighbor_pool_size=None, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1_scaled/run_scaled'), sequential_sampling=False, backend='tensorflow', torch_loss_mode='poisson')
+2025-11-14 15:30:33,496 - INFO - Legacy mode: --n-groups=32 refers to neighbor groups (gridsize=2, approx 128 patterns)
+2025-11-14 15:30:33,497 - INFO - Starting training with n_subsample=32, n_groups=32, stitching=enabled
+2025-11-14 15:30:33,497 - INFO - Loading data from datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz with n_images=32, n_subsample=32
+2025-11-14 15:30:34,615 - INFO - Independent sampling: subsampling 32 images from 7403 total
+2025-11-14 15:30:34,615 - INFO - Randomly subsampled 32 images
 diff3d shape: (32, 64, 64)
 probeGuess shape: (64, 64)
 scan_index shape: (32,)
@@ -23,8 +23,8 @@ xcoords shape: (32,)
 ycoords shape: (32,)
 xcoords_start shape: (32,)
 ycoords_start shape: (32,)
-2025-11-14 15:24:57,663 - INFO - Loading data from datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz with n_images=None, n_subsample=None
-2025-11-14 15:24:58,806 - INFO - Using full dataset of 7597 images
+2025-11-14 15:30:35,733 - INFO - Loading data from datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz with n_images=None, n_subsample=None
+2025-11-14 15:30:36,875 - INFO - Using full dataset of 7597 images
 diff3d shape: (7597, 64, 64)
 probeGuess shape: (64, 64)
 scan_index shape: (7597,)
@@ -33,57 +33,57 @@ xcoords shape: (7597,)
 ycoords shape: (7597,)
 xcoords_start shape: (7597,)
 ycoords_start shape: (7597,)
-2025-11-14 15:24:58,851 - INFO - Loaded test data from datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz
-2025-11-14 15:24:58,851 - INFO - Backend dispatcher: params.cfg synchronized with TrainingConfig (backend=tensorflow)
-2025-11-14 15:24:58,851 - INFO - Backend dispatcher: routing to TensorFlow workflow (ptycho.workflows.components)
-2025-11-14 15:24:58,852 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=32, n_points=32, C=4, K=7
-2025-11-14 15:24:58,852 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
-2025-11-14 15:24:58,852 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
-2025-11-14 15:24:58,852 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 32 > 32 = False
-2025-11-14 15:24:58,852 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
-2025-11-14 15:24:58,852 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2025-11-14 15:30:36,920 - INFO - Loaded test data from datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz
+2025-11-14 15:30:36,920 - INFO - Backend dispatcher: params.cfg synchronized with TrainingConfig (backend=tensorflow)
+2025-11-14 15:30:36,920 - INFO - Backend dispatcher: routing to TensorFlow workflow (ptycho.workflows.components)
+2025-11-14 15:30:36,920 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=32, n_points=32, C=4, K=7
+2025-11-14 15:30:36,920 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
+2025-11-14 15:30:36,920 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
+2025-11-14 15:30:36,920 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 32 > 32 = False
+2025-11-14 15:30:36,920 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2025-11-14 15:30:36,920 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
 DEBUG: nsamples: 32, gridsize: 2 (using efficient random sample-then-group strategy)
-2025-11-14 15:24:58,852 - INFO - Using efficient random sampling strategy for gridsize=2
-2025-11-14 15:24:58,852 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
-2025-11-14 15:24:58,852 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=32, K=7, C=4
-2025-11-14 15:24:58,852 - INFO - Generating 32 groups efficiently from 32 points (K=7, C=4)
-2025-11-14 15:24:58,852 - INFO - [OVERSAMPLING DEBUG] Standard case: using 32 groups from 32 points
-2025-11-14 15:24:58,852 - INFO - [OVERSAMPLING DEBUG] Using all 32 points as seeds (no sampling needed)
-2025-11-14 15:24:58,852 - INFO - Using all 32 points as seeds
-2025-11-14 15:24:58,852 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 32 groups
-2025-11-14 15:24:58,853 - INFO - Successfully generated 32 groups with shape (32, 4)
-2025-11-14 15:24:58,853 - INFO - [OVERSAMPLING DEBUG] Generated 32 groups in total
-2025-11-14 15:24:58,853 - INFO - Generated 32 groups efficiently
-I0000 00:00:1763162698.986384 3299808 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
-I0000 00:00:1763162698.987739 3299808 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+2025-11-14 15:30:36,920 - INFO - Using efficient random sampling strategy for gridsize=2
+2025-11-14 15:30:36,920 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-11-14 15:30:36,920 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=32, K=7, C=4
+2025-11-14 15:30:36,920 - INFO - Generating 32 groups efficiently from 32 points (K=7, C=4)
+2025-11-14 15:30:36,920 - INFO - [OVERSAMPLING DEBUG] Standard case: using 32 groups from 32 points
+2025-11-14 15:30:36,921 - INFO - [OVERSAMPLING DEBUG] Using all 32 points as seeds (no sampling needed)
+2025-11-14 15:30:36,921 - INFO - Using all 32 points as seeds
+2025-11-14 15:30:36,921 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 32 groups
+2025-11-14 15:30:36,921 - INFO - Successfully generated 32 groups with shape (32, 4)
+2025-11-14 15:30:36,921 - INFO - [OVERSAMPLING DEBUG] Generated 32 groups in total
+2025-11-14 15:30:36,921 - INFO - Generated 32 groups efficiently
+I0000 00:00:1763163037.053263 3302566 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1763163037.054485 3302566 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
 INFO: Using pre-computed 'Y' array from the input file.
 neighbor-sampled diffraction shape (32, 64, 64, 4)
 loader: using provided ground truth patches.
 INFO: None
-<PtychoDataContainer X=(32, 64, 64, 4) Y_I=(32, 64, 64, 4) Y_phi=(32, 64, 64, 4) norm_Y_I=() coords_nominal=(32, 1, 2, 4) coords_true=(32, 1, 2, 4) nn_indices=(32, 4) mean=16.352 global_offsets=(32, 1, 2, 1) mean=98.607 local_offsets=(32, 1, 2, 4) mean=-0.000 probe=(64, 64) mean_amplitude=0.006>
-2025-11-14 15:24:59,415 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=32, n_points=7597, C=4, K=7
-2025-11-14 15:24:59,415 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
-2025-11-14 15:24:59,416 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
-2025-11-14 15:24:59,416 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 32 > 7597 = False
-2025-11-14 15:24:59,416 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
-2025-11-14 15:24:59,416 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+<PtychoDataContainer X=(32, 64, 64, 4) Y_I=(32, 64, 64, 4) Y_phi=(32, 64, 64, 4) norm_Y_I=() coords_nominal=(32, 1, 2, 4) coords_true=(32, 1, 2, 4) nn_indices=(32, 4) mean=15.898 global_offsets=(32, 1, 2, 1) mean=86.599 local_offsets=(32, 1, 2, 4) mean=0.000 probe=(64, 64) mean_amplitude=0.006>
+2025-11-14 15:30:37,474 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=32, n_points=7597, C=4, K=7
+2025-11-14 15:30:37,474 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
+2025-11-14 15:30:37,474 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
+2025-11-14 15:30:37,474 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 32 > 7597 = False
+2025-11-14 15:30:37,474 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2025-11-14 15:30:37,474 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
 DEBUG: nsamples: 32, gridsize: 2 (using efficient random sample-then-group strategy)
-2025-11-14 15:24:59,416 - INFO - Using efficient random sampling strategy for gridsize=2
-2025-11-14 15:24:59,416 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
-2025-11-14 15:24:59,416 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=32, K=7, C=4
-2025-11-14 15:24:59,416 - INFO - Generating 32 groups efficiently from 7597 points (K=7, C=4)
-2025-11-14 15:24:59,416 - INFO - [OVERSAMPLING DEBUG] Standard case: using 32 groups from 7597 points
-2025-11-14 15:24:59,416 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 32 seed points
-2025-11-14 15:24:59,416 - INFO - Sampled 32 seed points from 7597 total points
-2025-11-14 15:24:59,417 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 32 groups
-2025-11-14 15:24:59,417 - INFO - Successfully generated 32 groups with shape (32, 4)
-2025-11-14 15:24:59,418 - INFO - [OVERSAMPLING DEBUG] Generated 32 groups in total
-2025-11-14 15:24:59,418 - INFO - Generated 32 groups efficiently
+2025-11-14 15:30:37,474 - INFO - Using efficient random sampling strategy for gridsize=2
+2025-11-14 15:30:37,474 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-11-14 15:30:37,474 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=32, K=7, C=4
+2025-11-14 15:30:37,475 - INFO - Generating 32 groups efficiently from 7597 points (K=7, C=4)
+2025-11-14 15:30:37,475 - INFO - [OVERSAMPLING DEBUG] Standard case: using 32 groups from 7597 points
+2025-11-14 15:30:37,475 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 32 seed points
+2025-11-14 15:30:37,475 - INFO - Sampled 32 seed points from 7597 total points
+2025-11-14 15:30:37,476 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 32 groups
+2025-11-14 15:30:37,476 - INFO - Successfully generated 32 groups with shape (32, 4)
+2025-11-14 15:30:37,476 - INFO - [OVERSAMPLING DEBUG] Generated 32 groups in total
+2025-11-14 15:30:37,476 - INFO - Generated 32 groups efficiently
 INFO: Using pre-computed 'Y' array from the input file.
 neighbor-sampled diffraction shape (32, 64, 64, 4)
 loader: using provided ground truth patches.
 INFO: None
-<PtychoDataContainer X=(32, 64, 64, 4) Y_I=(32, 64, 64, 4) Y_phi=(32, 64, 64, 4) norm_Y_I=() coords_nominal=(32, 1, 2, 4) coords_true=(32, 1, 2, 4) nn_indices=(32, 4) mean=4418.117 global_offsets=(32, 1, 2, 1) mean=138.875 local_offsets=(32, 1, 2, 4) mean=-0.000 probe=(64, 64) mean_amplitude=0.006>
+<PtychoDataContainer X=(32, 64, 64, 4) Y_I=(32, 64, 64, 4) Y_phi=(32, 64, 64, 4) norm_Y_I=() coords_nominal=(32, 1, 2, 4) coords_true=(32, 1, 2, 4) nn_indices=(32, 4) mean=3791.500 global_offsets=(32, 1, 2, 1) mean=135.739 local_offsets=(32, 1, 2, 4) mean=-0.000 probe=(64, 64) mean_amplitude=0.006>
 DEBUG: Setting probe to tf.Tensor(
 [[[ 0.13510734-0.08366051j]
   [-0.08103182-0.0294797j ]
@@ -360,13 +360,13 @@ Model: "functional"
  Total params: 2,340,208 (8.93 MB)
  Trainable params: 2,340,208 (8.93 MB)
  Non-trainable params: 0 (0.00 B)
-2025-11-14 15:25:00.092587: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:103] Profiler session initializing.
-2025-11-14 15:25:00.092596: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:118] Profiler session started.
+2025-11-14 15:30:38.145462: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:103] Profiler session initializing.
+2025-11-14 15:30:38.145470: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:118] Profiler session started.
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-I0000 00:00:1763162700.092609 3299808 cupti_tracer.cc:1026] Profiler found 1 GPUs
-W0000 00:00:1763162700.109295 3299808 cupti_tracer.cc:1213] Fail to use per-thread activity buffer, cupti trace overhead may be big. CUPTI ERROR CODE:1
-2025-11-14 15:25:00.109378: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:130] Profiler session tear down.
-I0000 00:00:1763162700.109654 3299808 cupti_tracer.cc:1249] CUPTI activity buffer flushed
+I0000 00:00:1763163038.145484 3302566 cupti_tracer.cc:1026] Profiler found 1 GPUs
+W0000 00:00:1763163038.162408 3302566 cupti_tracer.cc:1213] Fail to use per-thread activity buffer, cupti trace overhead may be big. CUPTI ERROR CODE:1
+2025-11-14 15:30:38.162484: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:130] Profiler session tear down.
+I0000 00:00:1763163038.162553 3302566 cupti_tracer.cc:1249] CUPTI activity buffer flushed
 None
 Current Parameters:
 --------------------
@@ -428,10 +428,10 @@ train_data_file_path: datasets/fly001_reconstructed_prepared/fly001_reconstructe
 tv_weight: 0.0
 use_xla_translate: True
 input shape (None, 64, 64, 1)
-2025-11-14 15:25:02,402 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2025-11-14 15:30:40,440 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
 input shape (None, 64, 64, 1)
-2025-11-14 15:25:06,130 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
-2025-11-14 15:25:08.256293: W tensorflow/core/common_runtime/type_inference.cc:340] Type inference failed. This indicates an invalid graph that escaped type checking. Error message: INVALID_ARGUMENT: expected compatible input types, but input 1:
+2025-11-14 15:30:44,169 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2025-11-14 15:30:46.283464: W tensorflow/core/common_runtime/type_inference.cc:340] Type inference failed. This indicates an invalid graph that escaped type checking. Error message: INVALID_ARGUMENT: expected compatible input types, but input 1:
 type_id: TFT_OPTIONAL
 args {
   type_id: TFT_PRODUCT
@@ -456,14 +456,15 @@ args {
 
 	for Tuple type infernce function 0
 	while inferring type of node 'StatefulPartitionedCall/functional_1/padded_obj_2_1/cond/output/_165'
-I0000 00:00:1763162710.148312 3299954 cuda_dnn.cc:529] Loaded cuDNN version 91002
-[1m1/8[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m1:09[0m 10s/step - intensity_scaler_inv_loss: 171.9939 - loss: -2744334.7500 - pred_intensity_loss: -2744334.7500 - trimmed_obj_loss: 0.0000e+00[1m3/8[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m0s[0m 28ms/step - intensity_scaler_inv_loss: 213.4099 - loss: -2693874.2500 - pred_intensity_loss: -2693874.2500 - trimmed_obj_loss: 0.0000e+00 [1m5/8[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 27ms/step - intensity_scaler_inv_loss: 223.8432 - loss: -2678314.0000 - pred_intensity_loss: -2678314.0000 - trimmed_obj_loss: 0.0000e+00[1m7/8[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 26ms/step - intensity_scaler_inv_loss: 222.1489 - loss: -2677759.0000 - pred_intensity_loss: -2677759.0000 - trimmed_obj_loss: 0.0000e+00[1m8/8[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 82ms/step - intensity_scaler_inv_loss: 220.8021 - loss: -2677997.0000 - pred_intensity_loss: -2678101.2500 - trimmed_obj_loss: 0.0000e+00input shape (None, 64, 64, 1)
-2025-11-14 15:25:12,858 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
-[1m8/8[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m12s[0m 344ms/step - intensity_scaler_inv_loss: 211.3751 - loss: -2679663.0000 - pred_intensity_loss: -2680497.0000 - trimmed_obj_loss: 0.0000e+00 - val_intensity_scaler_inv_loss: 158.7942 - val_loss: -2774791.7500 - val_pred_intensity_loss: -2774791.7500 - val_trimmed_obj_loss: 0.0000e+00 - learning_rate: 0.0010
-W0000 00:00:1763162715.215167 3299808 loop_optimizer.cc:934] Skipping loop optimization for Merge node with control input: functional_1/padded_obj_2_1/cond_2/branch_executed/_29
-2025-11-14 15:25:15.764536: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: INVALID_ARGUMENT: Input to reshape is a tensor with 0 values, but the requested shape has 4
+I0000 00:00:1763163048.183676 3302709 cuda_dnn.cc:529] Loaded cuDNN version 91002
+[1m1/8[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m1:09[0m 10s/step - intensity_scaler_inv_loss: 205.1830 - loss: -2595025.2500 - pred_intensity_loss: -2595025.2500 - trimmed_obj_loss: 0.0000e+00[1m3/8[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m0s[0m 27ms/step - intensity_scaler_inv_loss: 1263.9739 - loss: 7974098.5000 - pred_intensity_loss: 7974098.5000 - trimmed_obj_loss: 0.0000e+00  [1m5/8[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 27ms/step - intensity_scaler_inv_loss: 1183.4790 - loss: 7154214.5000 - pred_intensity_loss: 7154214.5000 - trimmed_obj_loss: 0.0000e+00[1m7/8[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 26ms/step - intensity_scaler_inv_loss: 1073.7125 - loss: 6034783.5000 - pred_intensity_loss: 6034783.5000 - trimmed_obj_loss: 0.0000e+00[1m8/8[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 81ms/step - intensity_scaler_inv_loss: 1024.9540 - loss: 5581350.0000 - pred_intensity_loss: 5540923.0000 - trimmed_obj_loss: 0.0000e+00input shape (None, 64, 64, 1)
+2025-11-14 15:30:50,891 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+[1m8/8[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m12s[0m 342ms/step - intensity_scaler_inv_loss: 683.6442 - loss: 2407313.0000 - pred_intensity_loss: 2083899.5000 - trimmed_obj_loss: 0.0000e+00 - val_intensity_scaler_inv_loss: 159.9035 - val_loss: -2766162.2500 - val_pred_intensity_loss: -2766162.2500 - val_trimmed_obj_loss: 0.0000e+00 - learning_rate: 0.0010
+W0000 00:00:1763163053.237899 3302566 loop_optimizer.cc:934] Skipping loop optimization for Merge node with control input: functional_1/padded_obj_2_1/cond_3/branch_executed/_39
+2025-11-14 15:30:53.790421: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: INVALID_ARGUMENT: Input to reshape is a tensor with 0 values, but the requested shape has 4
 	 [[{{node functional_1/padded_objs_with_offsets_1/translation_36_1/Reshape_4}}]]
-2025-11-14 15:25:15.764556: I tensorflow/core/framework/local_rendezvous.cc:430] Local rendezvous send item cancelled. Key hash: 2625801110836810405
+2025-11-14 15:30:53.790454: I tensorflow/core/framework/local_rendezvous.cc:430] Local rendezvous send item cancelled. Key hash: 13498197486316225820
+2025-11-14 15:30:53.790459: I tensorflow/core/framework/local_rendezvous.cc:430] Local rendezvous send item cancelled. Key hash: 3812708954152536799
 DEBUG: Setting probe to tf.Tensor(
 [[[ 0.13510734-0.08366051j]
   [-0.08103182-0.0294797j ]
@@ -516,7 +517,7 @@ DEBUG: Setting probe to tf.Tensor(
   [ 0.09786177-0.04529788j]]], shape=(64, 64, 1), dtype=complex64) in params
 INFO: setting probe from test data container. It MUST be consistent with the training probe
 input shape (None, 64, 64, 1)
-2025-11-14 15:25:15,805 - ERROR - An error occurred during execution: Graph execution error:
+2025-11-14 15:30:53,829 - ERROR - An error occurred during execution: Graph execution error:
 
 Detected at node functional_1/padded_objs_with_offsets_1/translation_36_1/Reshape_4 defined at (most recent call last):
   File "/home/ollie/Documents/PtychoPINN/scripts/training/train.py", line 440, in <module>

@@ -1,4 +1,15 @@
 ### Turn Summary
+Ran the Phase C1d guard selector (GREEN, 1 passed in 5.03s) and attempted the scaled TF baseline rerun with XLA disabled.
+Training epoch 1 completed successfully but inference/stitching failed with a reshape error in _translate_images_simple when trying to reshape a 0-element tensor.
+Next: investigate the inference path reshape bug and consider adding a separate guard test for the eval/inference code path.
+Artifacts: green/pytest_tf_translation_guard.log; tf_baseline/phase_c1_scaled/cli/train_tf_phase_c1_scaled.log; tf_baseline/phase_c1_scaled/red/blocked_20251114T233123Z_tf_translation_guard.md
+
+Checklist:
+- Files touched: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/green/pytest_tf_translation_guard.log; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1_scaled/cli/train_tf_phase_c1_scaled.log; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1_scaled/red/blocked_20251114T233123Z_tf_translation_guard.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
+- Tests run: pytest tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_guard -vv
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/analysis/artifact_inventory.txt
+
+### Turn Summary
 Executed the guard selector (GREEN: 1 passed in 5.03s) and the scaled TF CLI with XLA disabled, but training failed during evaluation with the same inference reshape error (0-element tensor → shape 4) documented in prior summaries.
 Guard test confirms training-time translation fix is working, but inference/eval has a distinct reshape bug not covered by the guard that prevents artifact generation.
 Next: the blocker document at `tf_baseline/phase_c1_scaled/red/blocked_20251114T232542Z_tf_translation_guard.md` and updated inventory explain the failure; supervisor should decide whether to investigate the inference reshape issue or defer TF parity pending a broader inference fix.
