@@ -1,4 +1,10 @@
 ### Turn Summary
+Re-read POLICY-001/CONFIG-001 guardrails plus the hub artifacts and confirmed the TF scaled baseline slot still has no stats bundle—`tf_baseline/phase_c1_scaled/analysis/` is empty and `cli/train_tf_phase_c1_scaled.log` remains 0 bytes—so Phase C1d still lacks TF evidence.
+Guard + regression tests already exist for the non-XLA translation fix, leaving the actionable work to run the guard selector, rerun the scaled TF CLI with `TF_XLA_FLAGS="--tf_xla_auto_jit=0"` / `USE_XLA_TRANSLATE=0`, and capture `forward_parity_debug_tf` plus inventory updates (or a new blocker) once the run finishes.
+Next: execute the guard pytest selector, rerun the scaled TF command with the recorded env vars, and update `$HUB/analysis/artifact_inventory.txt` (or log `$HUB/tf_baseline/phase_c1_scaled/red/blocked_<timestamp>.md`) as soon as the CLI exits.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1_scaled/cli/train_tf_phase_c1_scaled.log
+
+### Turn Summary
 Confirmed the non-XLA translation guard and its regression tests already exist in tree (`ptycho/tf_helper.py` and `tests/tf_helper/test_translation_shape_guard.py`), so the code side of Phase C1d is complete.
 Found the scaled TF baseline slot empty (`tf_baseline/phase_c1_scaled/analysis/` has no stats and the CLI log is 0 bytes), so we still lack the TF debug bundle that unblocks parity.
 Next: rerun the scaled TF training command with XLA disabled, capture the guard pytest log, and either archive the new artifacts plus inventory update or log a fresh blocker with the stack trace.
