@@ -68,6 +68,7 @@
        - Extract the **smallest** viable code change from the brief that advances the acceptance criterion and choose a **validating pytest node**.
       - <strong>Allowed nucleus surfaces (in order):</strong> initiative `bin/` scripts under `plans/active/<initiative>/bin/**`, `tests/**` (targeted guard or minimal test), `scripts/tools/**`. Touch production modules only with explicit supervisor authorization.
        - If prerequisites (e.g., git hygiene, long‑running artifacts) block the main task, still land a micro nucleus on the allowed surfaces (e.g., add a workspace guard, selector, or CLI check) and run its targeted test.
+       - Never start a long‑running job, leave it in the background, and exit the loop. If a required command cannot finish inside the loop, stop immediately, record its status (command, PID/log path, expected completion signal) in `docs/fix_plan.md` + `input.md`, mark the focus `blocked`, and switch per supervisor direction.
        - Execute this nucleus first. If time runs short, ship the nucleus rather than expanding scope.
 
     -1. **Evidence Parameter Validation (pre‑execution)**
