@@ -147,6 +147,7 @@
     - Storing bulky artifacts in‑repo instead of linking externally or using `.artifacts/`.
     - Skipping ledger updates or `docs/findings.md` when new knowledge appears.
     - Completing two consecutive loops without code for the same focus (stall‑autonomy must trigger).
+    - Misclassifying loops as `Mode: Docs` when they involved code or command execution. A loop is legitimately Docs‑only only if the `Checklist:` footer shows `Tests run: none` and `Files touched` is limited to documentation/plan/prompt files; any loop that touches production or test code, or runs shell/pytest commands, is implementation (even if the change is small).
     - Treating a loop as “progress” when the `Checklist:` footer shows both `Tests run: none` and `Artifacts updated: none`. This is only acceptable in `Mode: Docs` or when explicitly authorized by the Brief; otherwise, ensure you attempt the Do Now’s concrete commands and report any blockers.
     - When the Do Now includes concrete shell/pytest commands, you are expected to attempt those commands (or a clearly equivalent variant) in this loop unless blocked by an import/environment error documented in the Turn Summary. If you skip them, your `Checklist:` must accurately reflect `Tests run: none` and explain why in the Turn Summary.
     - Finishing with an “Active” selector collecting 0 tests after your changes (fix or downgrade with rationale).
