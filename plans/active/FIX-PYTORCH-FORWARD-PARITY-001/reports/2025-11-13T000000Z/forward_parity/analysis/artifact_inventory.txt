@@ -208,3 +208,30 @@ Phase C2 remains PyTorch-only due to three outstanding TensorFlow blockers:
 
 **Next Steps**:
 When TensorFlow baseline artifacts become available, rerun the comparison script with `--candidate-stats` pointing at `tf_baseline/.../stats.json` to enable cross-backend parity validation. For now, Phase C2 establishes PyTorch-only gridsize variance behavior.
+## Phase C3 — Patch Variance Regression Guard (2025-11-14T0849Z)
+**Status**: COMPLETE - Selector GREEN (1/1 PASSED)
+
+**Summary**:
+Hardened the existing patch-stats instrumentation test (`TestPatchStatsCLI::test_patch_stats_dump`) to guard against zero-variance regressions by adding explicit assertions on patch variance and global mean. Threshold rationale cites Phase C2 metrics showing gridsize=2 baseline variance of 8.97e9 vs gridsize=1 collapse to 0.0.
+
+**Test Updates**:
+- tests/torch/test_cli_train_torch.py:807 — Seeded minimal_train_args fixture with `np.random.seed(12345)` to ensure deterministic non-zero variance in generated NPZ test data
+- tests/torch/test_cli_train_torch.py:881-898 — Added Phase C3 regression guard assertions:
+  - Assert `var_zero_mean > 1e-6` (guards against zero-variance regression)
+  - Assert `abs(global_mean) > 1e-9` (guards against output collapse)
+  - Inline comments cite analysis/phase_c2_pytorch_only_metrics.txt, POLICY-001, CONFIG-001
+
+**Test Results**:
+- green/pytest_patch_variance_guard.log — Selector GREEN (1/1 PASSED, 7.07s)
+  - Test confirms seeded fixture produces var_zero_mean=1.44e-05 (> 1e-6 threshold)
+  - Global mean=2.18e-03 (non-zero, indicates healthy output)
+  - Test timestamp: 2025-11-14 08:49:33
+
+**Guard Rationale**:
+Threshold of 1e-6 chosen based on Phase C2 comparison showing gridsize=2 baseline has patch variance ~8.97e9, while gridsize=1 collapsed to 0.0. Guard applies only to gridsize≥2 configurations (test fixture uses gridsize=2). References POLICY-001 (PyTorch mandatory) and CONFIG-001 (config bridge) for context.
+
+**Selector Name**: (unchanged from Phase A)
+`pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump`
+
+**Documentation Impact**:
+No doc/test registry updates required - existing selector name unchanged, just assertions added.

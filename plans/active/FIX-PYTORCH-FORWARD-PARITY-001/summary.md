@@ -1,4 +1,16 @@
 ### Turn Summary
+Implemented Phase C3 variance regression guard by seeding the minimal_train_args fixture (np.random.seed(12345)) and adding assertions to test_patch_stats_dump: var_zero_mean > 1e-6 and abs(global_mean) > 1e-9.
+Pytest selector GREEN (1/1 PASSED, 7.07s), confirming seeded fixture produces healthy variance (1.44e-05) and non-zero mean (2.18e-03).
+Updated HUB artifact_inventory.txt and summary.md with Phase C3 section citing phase_c2_pytorch_only_metrics.txt rationale for 1e-6 threshold (guards gridsize≥2 only).
+Next: Phase C complete; ready for broader integration testing or additional parity work if TensorFlow translation layer unblocks.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_variance_guard.log, analysis/artifact_inventory.txt, summary.md}
+
+Checklist:
+- Files touched: tests/torch/test_cli_train_torch.py, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_variance_guard.log, analysis/artifact_inventory.txt, summary.md}, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
+- Tests run: pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_variance_guard.log, analysis/artifact_inventory.txt, summary.md}
+
+### Turn Summary
 Verified Phase C2 artifacts (compare_stats script, metrics, hub summaries) are complete and pivoted the initiative to Phase C3’s regression guard against zero patch variance.
 Expanded the implementation plan with a concrete Action Plan for seeding the CLI test fixture, asserting `patch_amplitude.var_zero_mean > 1e-6`, and capturing the regression selector log under `$HUB/green/pytest_patch_variance_guard.log`, then refreshed docs/fix_plan.md and input.md accordingly.
 Next: Ralph updates `tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump` per the new plan, runs the selector with tee’d logging, and records the pass/fail evidence in the hub summaries.

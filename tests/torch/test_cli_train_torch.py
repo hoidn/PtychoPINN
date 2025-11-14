@@ -803,6 +803,9 @@ class TestPatchStatsCLI:
         """Minimal required training CLI arguments for testing."""
         import numpy as np
 
+        # Seed for deterministic non-zero variance (Phase C3 regression guard)
+        np.random.seed(12345)
+
         train_file = tmp_path / "train.npz"
         np.savez(
             train_file,
@@ -867,12 +870,29 @@ class TestPatchStatsCLI:
         assert png_path.exists(), \
             f"Missing torch_patch_grid.png at {png_path}"
 
-        # Verify JSON structure
+        # Verify JSON structure and variance guard (Phase C3)
         import json
         with open(json_path) as f:
             stats = json.load(f)
 
         assert isinstance(stats, list), "Expected list of batch stats"
         assert len(stats) > 0, "Expected at least one batch logged"
-        assert 'global_mean' in stats[0], "Missing global_mean in stats"
-        assert 'var_zero_mean' in stats[0], "Missing var_zero_mean in stats"
+
+        # Phase C3 regression guard: assert non-zero variance for gridsize>=2
+        # Threshold rationale: analysis/phase_c2_pytorch_only_metrics.txt shows
+        # gridsize=2 baseline has patch.var_zero_mean=8.97e9, while gridsize=1
+        # collapsed to 0.0. Guard only applies to gridsize>=2 configurations.
+        # References: POLICY-001 (PyTorch mandatory), CONFIG-001 (config bridge)
+        first_batch = stats[0]
+
+        # Assert patch variance is non-zero (guards against zero-variance regression)
+        assert 'var_zero_mean' in first_batch, "Missing var_zero_mean in batch stats"
+        patch_var = first_batch['var_zero_mean']
+        assert patch_var > 1e-6, \
+            f"Patch variance too low (var_zero_mean={patch_var:.2e}), expected > 1e-6 for gridsize>=2"
+
+        # Assert global mean is non-zero (guards against output collapse)
+        assert 'global_mean' in first_batch, "Missing global_mean in batch stats"
+        global_mean = first_batch['global_mean']
+        assert abs(global_mean) > 1e-9, \
+            f"Global mean is zero (global_mean={global_mean:.2e}), indicates output collapse"

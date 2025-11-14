@@ -1,3 +1,21 @@
+### Phase C3 Patch Variance Regression Guard — 2025-11-14T0849Z
+
+Added deterministic variance assertions to the existing patch-stats test selector, guarding against zero-variance regressions observed in gridsize=1 fallback.
+
+**Test Updates**:
+- Seeded minimal_train_args fixture (`np.random.seed(12345)`) for deterministic non-zero variance
+- Added variance/mean assertions: `var_zero_mean > 1e-6`, `abs(global_mean) > 1e-9`
+- Threshold rationale cites analysis/phase_c2_pytorch_only_metrics.txt (gridsize=2 baseline=8.97e9, gridsize=1 collapse=0.0)
+
+**Test Results**: green/pytest_patch_variance_guard.log — Selector GREEN (1/1 PASSED, 7.07s)
+- Seeded fixture produces var_zero_mean=1.44e-05 (> threshold), global_mean=2.18e-03 (non-zero)
+
+**Guard Scope**: Applies only to gridsize≥2 configurations (test fixture uses gridsize=2).
+
+**Documentation**: No registry updates required (selector name unchanged, only assertions added).
+
+---
+
 ### Phase C2 PyTorch-only Comparison — 2025-11-14T0835Z
 
 Executed Tier-2 comparison script quantifying variance collapse from gridsize=2 (Phase B3) to gridsize=1 (Phase C1 GS1 fallback). Results show complete patch variance collapse at gridsize=1 (all metrics zero), consistent with architectural expectations for single-patch groups.
