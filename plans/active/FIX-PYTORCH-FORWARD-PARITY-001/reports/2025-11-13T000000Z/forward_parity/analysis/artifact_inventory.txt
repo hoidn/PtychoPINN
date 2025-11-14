@@ -1,26 +1,19 @@
-Artifact Inventory — FIX-PYTORCH-FORWARD-PARITY-001 Phase A
-============================================================
+# Artifact Inventory — FIX-PYTORCH-FORWARD-PARITY-001/forward_parity
 
-## Phase A: CLI Instrumentation & Testing (2025-11-16)
+## Phase A — Instrumentation Nucleus (2025-11-16)
 
-### Production Changes
-- ptycho_torch/patch_stats_instrumentation.py: New module with PatchStatsLogger class for JSON+PNG dumps
-- ptycho_torch/config_params.py: Added log_patch_stats and patch_stats_limit fields to InferenceConfig
-- ptycho_torch/train.py: Added --log-patch-stats and --patch-stats-limit CLI flags
+### Green Evidence (Tests Passing)
+- green/pytest_patch_stats_payload_handoff.log — Selector GREEN after payload handoff fix (1/1 PASSED, 7.14s)
+  - Artifacts created: torch_patch_stats.json (2 batches with var_zero_mean), torch_patch_grid.png (390×290 PNG)
+  - Confirms CLI TrainingPayload now threads through to _train_with_lightning
+  - log_patch_stats/patch_stats_limit flags preserved via payload reuse
 
-### Test Coverage
-- tests/torch/test_patch_stats_cli.py: New test module with TestPatchStatsCLI class
-  - test_patch_stats_flags_accepted: Proves CLI flags are accepted and forwarded to overrides
-  - test_patch_stats_default_disabled: Verifies default behavior (disabled)
+### Code Changes (Commit dc5415ba)
+- ptycho_torch/workflows/components.py — Added training_payload parameter to run_cdi_example_torch, train_cdi_model_torch, _train_with_lightning
+  - Conditional logic: reuse payload when provided, otherwise rebuild via factory (backward compat)
+- ptycho_torch/train.py — Pass payload to run_cdi_example_torch at line 756
 
-### Test Evidence
-- green/pytest_patch_stats_flags.log: PASSED (1/1) - CLI flags correctly wired through config stack
-
-### Notes
-- Instrumentation module provides skeleton implementation with placeholder PNG generation
-- Full JSON statistics collection implemented; PNG grid rendering stubbed for future work
-- CLI flags integrated but not yet connected to model forward pass (requires config bridge update)
-- Tests prove flags are parsed and forwarded; full integration deferred to avoid expanding scope
-
-## Blockers / Open Items
-None - Phase A CLI plumbing complete; model integration requires config_factory updates (Phase B scope)
+### Next Steps
+- Execute short baseline training + inference commands with instrumentation flags
+- Capture CLI logs and artifacts under hub/cli/ and hub/analysis/
+- Verify JSON/PNG artifacts appear in output_dir/analysis/

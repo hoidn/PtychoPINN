@@ -1,3 +1,14 @@
+### Turn Summary (2025-11-16T201500Z)
+Fixed the CLI→workflow payload discard blocker by threading TrainingPayload through run_cdi_example_torch→train_cdi_model_torch→_train_with_lightning so instrumentation flags (log_patch_stats/patch_stats_limit) are preserved instead of being dropped during config rebuild.
+Root cause was that train.py built a payload with CLI overrides but discarded it before calling run_cdi_example_torch, so _train_with_lightning re-ran create_training_payload without the flags.
+Implemented conditional logic: reuse payload when provided (CLI path), otherwise rebuild via factory (backward compat for programmatic callers); pytest selector GREEN with torch_patch_stats.json (2 batches, var_zero_mean metrics) + torch_patch_grid.png (390×290) now appearing in test outputs.
+Next: run short baseline train+inference commands with --log-patch-stats --patch-stats-limit 2, capture logs under hub/cli/, and update hub inventory.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/green/pytest_patch_stats_payload_handoff.log
+
+Checklist:
+- Files touched: ptycho_torch/workflows/components.py, ptycho_torch/train.py
+- Tests run: pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/analysis/artifact_inventory.txt
 ### Turn Summary (2025-11-16T191500Z)
 Confirmed the patch-stats pytest failure occurs because the new CLI builds a TrainingPayload with the instrumentation flags but then calls `run_cdi_example_torch` without reusing it, so `_train_with_lightning` re-derives configs that drop `log_patch_stats`/`patch_stats_limit` and no JSON/PNG artifacts are written (`plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/green/pytest_patch_stats.log:125`, `ptycho_torch/train.py:720-758`, `ptycho_torch/workflows/components.py:664-690`).
 Added checklist item A0 plus a new Do Now step so Phase A now starts by threading the CLI TrainingPayload (or an equivalent override hook) through `run_cdi_example_torch → train_cdi_model_torch → _train_with_lightning` before rerunning the short Torch baseline and inference commands.
