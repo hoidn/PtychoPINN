@@ -332,9 +332,9 @@ PyTorch forward inference currently produces impulse-like patches with extremely
    - If TF blockers change (new env capture, different stack), add the file path to the inventory entry and summarize the delta in the Turn Summary.
 
 ### Action Plan — C1d (Non-XLA translation guardrail to unblock TF baseline)
-TensorFlow training still crashes with `values[0].shape=[4] != values[2].shape=[128]` once XLA is disabled (`tf_baseline/phase_c1/red/blocked_20251114T074039Z_tf_non_xla_shape_error.md`). We need a guarded non-XLA translation path so Phase C1 evidence can land without re-enabling XLA.
+TensorFlow training previously crashed with `values[0].shape=[4] != values[2].shape=[128]` once XLA was disabled (`tf_baseline/phase_c1/red/blocked_20251114T074039Z_tf_non_xla_shape_error.md`). Commit `801780b6` already shipped the guard + tests (`ptycho/tf_helper.py:702-790`, `tests/tf_helper/test_translation_shape_guard.py`) and the Phase C1 slot now needs the rerun + artifacts. The inference reshape blocker (`_translate_images_simple` 0→4) remains tracked separately, so this sub-phase focuses on proving the guard in a scaled TF run and capturing the evidence or logging an updated blocker.
 
-1. **Reproduce on a scaled configuration.**
+1. **Reproduce on a scaled configuration (env + command).**
    ```bash
    export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
    export TF_XLA_FLAGS="--tf_xla_auto_jit=0"
@@ -358,16 +358,13 @@ TensorFlow training still crashes with `values[0].shape=[4] != values[2].shape=[
      |& tee "$TF_BASE/cli/train_tf_phase_c1_scaled.log"
    ```
    - Scaling `n_images/n_groups` keeps memory bounded per the supervisor directive (“deal with OOM errors by decreasing dataset size, not architecture refactors”) while still exercising gridsize 2.
-   - Expect the existing build to crash in `Translation`; keep the log for regression comparison.
+   - `tf_baseline/phase_c1_scaled/analysis/` is currently empty and the CLI log is 0 bytes, so the rerun must capture `stats.json`, `offsets.json`, PNG grids, and env captures under this hub.
 
 2. **Authorized code change (`ptycho/tf_helper.py`).**
-   - In `translate_core`/`Translation.call`, detect when the batch dimension of `images` disagrees with `translations`. In that case, reshape/tile the tensors so the `tf.raw_ops.ImageProjectiveTransformV3` call receives matching lengths, or fall back to `_translate_images_simple` instead of throwing.
-   - Add assertions with actionable error text (include both shapes) before the raw-op path so future regressions fail fast.
-   - Cite `docs/specs/spec-ptycho-workflow.md` §Reassembly Requirements plus the blocker filename in inline comments to justify the guard.
+   - ✅ Already complete (commit `801780b6`); do not re-edit `ptycho/tf_helper.py` unless the rerun surfaces a new failure signature. The current guard broadcasts translations when the batches disagree and falls back to `_translate_images_simple`. Cite `docs/specs/spec-ptycho-workflow.md` §Reassembly Requirements + the original blocker if future edits are required.
 
 3. **Regression test (fast CPU).**
-   - Add `tests/tf_helper/test_translation_shape_guard.py` (or extend an existing tf_helper module) with a minimal reproduction: construct fake `(batch=1, gridsize=2)` tensors, flatten offsets via `_channel_to_flat`, monkeypatch `should_use_xla()` to return `False`, and confirm `_reassemble_patches_position_real` no longer raises.
-   - Mention POLICY-001 / CONFIG-001 in the docstring so reviewers know why PyTorch-focused work is touching TensorFlow internals.
+   - ✅ `tests/tf_helper/test_translation_shape_guard.py` already exists with three selectors that cover the guard. Re-run `pytest tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_guard -vv` before the TF CLI to prove the guard is still GREEN (log to `$HUB/green/pytest_tf_translation_guard.log`).
 
 4. **Rerun the scaled TF baseline.**
    - Repeat the command from step 1 after the code/test changes. Success criteria: `train_tf_phase_c1_scaled.log` reaches epoch completion and `$TF_BASE/analysis/forward_parity_debug_tf` contains `stats.json`, `offsets.json`, and PNGs.
@@ -447,7 +444,8 @@ _Status recap_: C3a/C3b (training guard) landed in commit `392a44ea` — keep th
 ### Checklist
 - [ ] C1: Run the matched TF baseline (`scripts/training/train.py --backend tensorflow` + `scripts/inference/inference.py --backend tensorflow --debug_dump`) and archive artifacts (`.../reports/.../tf_baseline/`).
 - [x] C1c: Consolidate GS1 fallback evidence (stats delta artifact, inventory/summary update, TF blocker cross-links).
-- [ ] C1d: Implement the non-XLA translation shape guard (authorized edit of `ptycho/tf_helper.py`), add a regression test, and rerun the scaled TF baseline to unblock the TF debug bundle.
+- [x] C1d.1: Implement the non-XLA translation shape guard + regression tests (commit `801780b6`, `tests/tf_helper/test_translation_shape_guard.py` GREEN).
+- [ ] C1d.2: Rerun the scaled TF baseline with XLA disabled, emit `forward_parity_debug_tf`, and update hub inventory/summary or log the new blocker.
 - [x] C2: Build a comparison script/notebook that ingests Torch/TF dumps, reports variance ratios and stitched MAE/SSIM, and summarize findings in `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md`.
 - [x] C3a: Harden `TestPatchStatsCLI::test_patch_stats_dump` by seeding its fixture and asserting `patch_amplitude.var_zero_mean > 1e-6` plus non-zero canvas means in the generated `torch_patch_stats.json`.
 - [x] C3b: Capture the updated selector via `pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv | tee "$HUB"/green/pytest_patch_variance_guard.log`, updating hub inventories/summaries or filing a blocker if the guard fails.
