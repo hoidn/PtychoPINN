@@ -1,4 +1,15 @@
 ### Turn Summary
+Instrumented scripts/compare_models.py with diagnostic logging to track down all-zero baseline reconstructions on test split; added input/output statistics logging (mean/max/nonzero_count) before and after baseline model inference with CRITICAL errors when values are zero.
+Confirmed the issue: baseline model returns valid non-zero predictions for train split but all zeros for test split (verified via existing artifacts in dose_1000/dense/{train,test}/reconstructions_aligned.npz), causing downstream metrics/reporting failures.
+Next: wait for full pytest suite completion, then analyze diagnostic output from instrumented compare_models to determine root cause (likely TensorFlow/XLA runtime issue specific to test data characteristics or batch size).
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix_v6.log (translation guards GREEN)
+
+Checklist:
+- Files touched: scripts/compare_models.py
+- Tests run: pytest tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_batched_predictions tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split -vv; pytest -v tests/ (background)
+- Artifacts updated: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix_v6.log
+
+### Turn Summary
 Baseline dense-test reconstructions still collapse to zeros (`analysis/dose_1000/dense/test/reconstructions_aligned.npz` and the raw `reconstructions.npz`), so `analysis/metrics_summary.json` never captures `Baseline` rows and `report_phase_g_dense_metrics.py` continues to fail with “Required models missing” (`cli/aggregate_report_cli.log`).
 `run_phase_g_dense.py --post-verify-only` still aborts immediately because the preview file never materializes (`cli/run_phase_g_dense_post_verify_only.log` ↔ `cli/ssim_grid_cli.log`), leaving `analysis/verification_report.json` locked at 0/10.
 Updated the plan, ledger, and input to require instrumentation/fixes inside `scripts/compare_models.py` so both train/test compare_models runs produce non-zero Baseline stats before replaying the Phase D guards, counted rerun, metrics helpers, and full verification sweep.
