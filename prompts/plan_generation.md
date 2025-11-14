@@ -17,16 +17,15 @@ Process and constraints (follow exactly):
      - Any developer/architecture guides (for example, `docs/DEVELOPER_GUIDE.md`, `docs/architecture*.md` if present).
      - The master task ledger or fix-plan document (for example, `docs/fix_plan.md` or an equivalent).
      - Any knowledge-base or findings ledger (for example, `docs/findings.md` or similar).
-   - From there, use the index/overview docs to scan the main specification and architecture/documentation locations in a project-agnostic way:
+   - From there, scan the main specification and API documentation locations:
      - Specs under `docs/specs/` (if present).
      - Specs under top-level `specs/` (if present).
-     - Architecture and design docs (for example, any `docs/architecture*.md` or similar design overviews).
-     - Any other spec, API, testing, or workflow documentation categories referenced by `docs/index.md` or the primary overview file.
+     - Any other spec or contract directories referenced by the index/overview docs.
    - Using the work description and the index/overview, identify the minimal subset of documentation files that are actually relevant to this initiative (for example, specific spec shards, workflow docs, or architecture descriptions).
    - You will later list that *subset* in the plan’s “Context Priming” section. Do **not** just copy any example entries from the template verbatim; select files based on this project and this initiative.
 
 2) Choose an initiative ID, title, and directory
-   - Inspect the existing focus IDs and naming patterns in the fix-plan ledger (for example, `docs/fix_plan.md`) to understand local conventions.
+   - Inspect the existing focus IDs and naming patterns in `docs/fix_plan.md` (e.g., `FIX-COMPARE-MODELS-TRANSLATION-001`, `STUDY-SYNTH-FLY64-DOSE-OVERLAP-001`).
    - Propose a new initiative/focus ID that:
      - Is unique.
      - Encodes the main intent of `$TASK_DESCRIPTION`.
@@ -55,7 +54,7 @@ Process and constraints (follow exactly):
        - Checklists with 3–10 items per phase, referencing concrete files and test selectors where possible.
        - “Pending Tasks (Engineering)” blocks that roughly match what Ralph will see in `input.md` for this focus.
        - “Notes & Risks” capturing key technical or process risks.
-   - Ensure Phase A includes at least one small, shippable nucleus suitable for a single engineer loop (for example, a guard test, a tiny helper, or a CLI sanity check), consistent with the project’s main implementation prompt (if present, such as `prompts/main.md`).
+   - Ensure Phase A includes at least one small, shippable nucleus suitable for a single Ralph loop (e.g., a guard test, a tiny helper, or a CLI sanity check), consistent with `prompts/main.md`.
 
 4) Align with the agentic process and templates
    - Ensure the plan is compatible with the Supervisor/Engineer loop described in:
@@ -64,9 +63,9 @@ Process and constraints (follow exactly):
    - The implementation plan should be the primary “Working Plan” for this initiative; other artifacts (summary, reports) will live alongside it under `plans/active/<initiative-id>/`.
    - If the repository marks specific files or modules as “stable” or “do not edit” (for example via documentation or AGENTS/CLAUDE-style instructions), call out in the plan that edits to those areas require separate, explicitly approved scope.
 
-5) Wire the initiative into the fix-plan ledger
-   - Locate the repository’s fix-plan or focus ledger (for example, `docs/fix_plan.md`) and study the structure of existing focus entries.
-   - Edit that ledger file on disk and add a new section for your initiative near the appropriate place (typically near the top or under “Active/Planned” items), following the existing pattern. The entry MUST at least include:
+5) Wire the initiative into docs/fix_plan.md
+   - Open `docs/fix_plan.md` and study the structure of existing focus entries.
+   - Add a new section for your initiative near the appropriate place (typically near the top or under “Active/Planned” items), following the existing pattern. The entry MUST at least include:
      - Heading: `## [<initiative-id>] <short title>`
      - `- Depends on: ...` (briefly list any prior initiatives or prerequisites; if none, use `—`).
      - `- Priority: High|Medium|Low` (justify based on `$TASK_DESCRIPTION` and existing focuses).
