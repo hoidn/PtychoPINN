@@ -1,4 +1,16 @@
 ### Turn Summary
+Refactored chunked Baseline mode in `scripts/compare_models.py` to slice RawData per chunk and create chunk-scoped `PtychoDataContainer`s, eliminating the full-container OOM blocker documented in BASELINE-CHUNKED-002.
+Chunked path now calls `slice_raw_data(test_data_raw, chunk_start, chunk_end)` + `dataclasses.replace(final_config, n_groups=n_chunk)` for each 160-group slice, and alignment uses concatenated `pinn_offsets` instead of the never-created `test_container.global_offsets`.
+Translation guard tests remain GREEN (2/2 passed, 6.20s); dense-test debug command started successfully and logs show healthy chunk preparation (chunk 19/33, 20/33, 21/33 with correct shapes: input=(640, 128, 128, 1), offsets=(640, 1, 2, 1)), but the full 320-group debug run requires >180s so execution evidence will complete outside this loop.
+Next: await debug+full dense compare_models completion, verify Baseline rows appear in CSV/JSON, then execute Phase D selectors → counted `run_phase_g_dense.py` pipeline per the plan.
+Artifacts: scripts/compare_models.py:1152-1197,1431-1442; docs/findings.md (BASELINE-CHUNKED-002 resolved); green/pytest_compare_models_translation_fix_v17.log; cli/compare_models_dense_test_debug_v2.log (in progress)
+
+Checklist:
+- Files touched: scripts/compare_models.py, docs/findings.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md
+- Tests run: pytest tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_batched_predictions tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split -vv
+- Artifacts updated: green/pytest_compare_models_translation_fix_v17.log; cli/compare_models_dense_test_debug_v2.log (partial, still running)
+
+### Turn Summary
 Dense-test compare_models still fails with `ResourceExhaustedError` while building the Baseline `PtychoDataContainer`, so `analysis/dose_1000/dense/test/comparison_metrics.csv` and `analysis/metrics_summary.json` remain blank despite healthy debug slices (`analysis/dose_1000/dense/test/logs/logs/debug.log:299-360`, `red/blocked_20251116T010000Z_test_baseline_oom.md`).
 Updated docs/fix_plan.md, the implementation plan, and this summary so the next Do Now focuses on refactoring `scripts/compare_models.py` chunked mode to slice RawData per chunk (no more full test containers), reuse concatenated `pinn_offsets` for alignment, and rerun the guarded translation selector plus dense-test compare_models commands until Baseline rows appear.
 Next: Ralph lands the chunked container fix, captures GREEN `pytest_compare_models_translation_fix_v17.log`, runs the debug + full dense-test compare_models commands with the documented chunk sizes, and only then resumes the Phase D selectors → `run_phase_g_dense.py` pipeline captured in the follow-on Do Now.
