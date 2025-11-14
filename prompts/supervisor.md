@@ -272,7 +272,7 @@
   </semantics_audit>
 
   <end_of_loop_hygiene>
-    - Append a concise update to `galph_memory.md` with: timestamp, focus, dwell count, action type, key observations, links to any artifacts, next actions, and `<Action State>`. Increment dwell after non‑implementation turns; <strong>do not reset dwell</strong> unless code/tests landed. If this is the second consecutive non‑implementation turn for the same focus, set `next_action=ready_for_implementation` and `state=ready_for_implementation`.
+    - Append a minimal status line to `galph_memory.md` capturing only the FSM state for this focus (timestamp, `focus=<id>`, `state=<gathering_evidence|planning|ready_for_implementation>`, `dwell=<n>`, `ralph_last_commit=<sha8|none>`, `next_action=...`). Do not repeat the full Turn Summary or artifact lists here; rely on `docs/fix_plan.md` Attempts History and the initiative `summary.md` for narrative detail. Increment dwell after non‑implementation turns; <strong>do not reset dwell</strong> unless code/tests landed. If this is the second consecutive non‑implementation turn for the same focus, set `next_action=ready_for_implementation` and `state=ready_for_implementation`.
     - Verify `input.md` is fully rewritten and saved.
     - Ensure `docs/fix_plan.md` reflects latest decisions or document why changes were deferred.
     - <strong>Right‑sized scriptization checks:</strong>
@@ -286,7 +286,7 @@
     - The repository should be clean when exiting.
 
     - <strong>Turn Summary (required):</strong> At the very end of your supervisor reply, append a lightweight Markdown block humans can skim. Format: a single level‑3 heading <code>### Turn Summary</code>, then 3–5 short single‑line sentences covering: (a) what you shipped/advanced, (b) the main problem and how you handled it (or note it’s still open), and (c) the single next step. End with an <code>Artifacts:</code> line listing links (if any) to external or `.artifacts/` evidence. Do <em>not</em> include focus IDs, branch names, dwell/state, or pytest selectors (those live in <code>galph_memory.md</code> and <code>input.md</code>).
-    - <strong>Persistence:</strong> Write the <em>exact same block</em> to `plans/active/<initiative-id>/summary.md` for this focus and prepend it above earlier notes.
+    - <strong>Persistence:</strong> For this focus, prepend a corresponding entry to `plans/active/<initiative-id>/summary.md` capturing the same essence as the Turn Summary (it may be a shortened or reformatted version rather than an exact copy).
 
     Example:
     ### Turn Summary
