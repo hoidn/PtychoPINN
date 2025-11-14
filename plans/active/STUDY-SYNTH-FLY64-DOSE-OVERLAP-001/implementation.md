@@ -602,6 +602,19 @@ Checklist
 - [ ] Rerun the counted dense pipeline (after the fix/test above) with logs under the hub: `python plans/active/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense_stdout.log`, then immediately invoke `python plans/active/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --post-verify-only |& tee "$HUB"/cli/run_phase_g_dense_post_verify_only.log` before rerunning the metrics helpers if `analysis/metrics_summary.json` is stale so `{analysis}` gains SSIM grid summary/log, verification report/log, highlights log, metrics summary/digest, preview text, and `artifact_inventory.txt`. (docs/TESTING_GUIDE.md §§Phase G orchestrator + metrics; docs/findings.md: PREVIEW-PHASE-001, TEST-CLI-001.)
 
 
+<plan_update version="1.10">
+  <trigger>Dense-train compare_models now records healthy Baseline outputs (mean=0.003092, nonzero=1,387,120) while dense-test still reports mean/max=0 with zero nonzero pixels (`plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/{train,test}/logs/logs/debug.log:425-540`). Consequently `analysis/metrics_summary.json` and `analysis/dose_1000/dense/test/comparison_metrics.csv` lack Baseline rows, `cli/aggregate_report_cli.log:1-9` keeps failing with “Required models missing: Baseline”, and PREVIEW-PHASE-001 continues to block the SSIM helper because `analysis/metrics_delta_highlights_preview.txt` never materializes (`cli/run_phase_g_dense_post_verify_only.log:1-19`, `analysis/verification_report.json:1-14`).</trigger>
+  <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md, docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/DEVELOPER_GUIDE.md, docs/COMMANDS_REFERENCE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/architecture.md, specs/data_contracts.md, specs/overlap_metrics.md, docs/fix_plan.md, galph_memory.md, input.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/summary/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train/logs/logs/debug.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/logs/logs/debug.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/metrics_summary.json, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/comparison_metrics.csv, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/aggregate_report_cli.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_post_verify_only.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/verification_report.json</documents_read>
+  <current_plan_path>plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md</current_plan_path>
+  <proposed_changes>- Elevate Baseline instrumentation/repair before any new pipeline work: require engineers to add a fast-repro flag (e.g., `--baseline-debug-limit` or reuse `--n-test-groups`) plus first-patch logging inside `scripts/compare_models.py` so they can inspect prediction tensors and stop immediately when outputs stay zero.
+- Gate the rerun on verified DIAGNOSTIC stats: both train/test `analysis/dose_1000/dense/{split}/logs/logs/debug.log` must show non-zero `baseline_output` mean/max/nonzero counts and the regenerated CSV/JSON must contain canonical `Baseline`/`PtyChi` rows before moving on.
+- Keep the downstream ordering (Phase D pytest guards → counted `run_phase_g_dense.py --clobber` → metrics helpers → fully parameterized `--post-verify-only`) but annotate each step with the required artifact checks and `$HUB/red/blocked_<timestamp>.md` logging so ACCEPTANCE-001 / TEST-CLI-001 / PREVIEW-PHASE-001 cannot be bypassed.</proposed_changes>
+  <impacts>As long as Baseline inference stays zero the metrics reporter, preview text, SSIM grid, and verification bundle will never generate, leaving the dense comparison study stuck at 0/10 evidence.</impacts>
+  <ledger_updates>Update this plan, the initiative summary, docs/fix_plan.md, galph_memory.md, and input.md with the Baseline-debug-first Do Now while keeping the focus ready_for_implementation so Ralph executes the instrumentation + rerun immediately.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
 - **Do Now — Counted Phase G rerun + verification bundle (ready_for_implementation):**
   1. Guard the working directory and env vars so PREVIEW-PHASE-001 / TEST-CLI-001 evidence lands in the canonical hub:
      ```bash
@@ -612,9 +625,9 @@ Checklist
   2. Keep the translation regression guard GREEN before touching the hub:
      ```bash
      pytest tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split} -vv \
-       | tee "$HUB"/green/pytest_compare_models_translation_fix_v7.log
+       | tee "$HUB"/green/pytest_compare_models_translation_fix_v11.log
      ```
-  3. Regenerate the compare_models bundles **for both splits** so Baseline/PtyChi metrics exist and use canonical IDs per METRICS-NAMING-001. Capture the commands + logs under `$HUB/cli/`:
+  3. Instrument/repair `scripts/compare_models.py` so Baseline inference logs the first patch amplitude/phase, per-split DIAGNOSTIC stats, and optionally supports a fast-repro flag (e.g., `--baseline-debug-limit` or reuse `--n-test-groups`) for running the first ~32 groups before committing to the full dataset. Re-run both splits (stop immediately and iterate if the test split still reports zero output):
      ```bash
      python -m scripts.compare_models \
        --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 \
@@ -622,16 +635,16 @@ Checklist
        --test_data "$HUB"/data/phase_c/dose_1000/patched_train.npz \
        --output_dir "$HUB"/analysis/dose_1000/dense/train \
        --ms-ssim-sigma 1.0 --register-ptychi-only \
-       |& tee "$HUB"/cli/compare_models_dense_train_rerun.log
+       |& tee "$HUB"/cli/compare_models_dense_train_debug.log
      python -m scripts.compare_models \
        --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 \
        --baseline_dir "$HUB"/data/phase_e/dose_1000/baseline/gs1 \
        --test_data "$HUB"/data/phase_c/dose_1000/patched_test.npz \
        --output_dir "$HUB"/analysis/dose_1000/dense/test \
        --ms-ssim-sigma 1.0 --register-ptychi-only \
-       |& tee "$HUB"/cli/compare_models_dense_test_rerun.log
+       |& tee "$HUB"/cli/compare_models_dense_test_debug.log
      ```
-    After each run, inspect `$HUB/analysis/dose_1000/dense/{train,test}/logs/logs/debug.log` and open `$HUB/analysis/dose_1000/dense/{train,test}/{reconstructions,reconstructions_aligned}.npz` to log mean/std for `baseline_complex`. The rerun is not allowed to proceed unless the freshly written `$HUB/cli/compare_models_dense_{train,test}_rerun.log` files contain the new `DIAGNOSTIC baseline_input` and `baseline_output` stats with non-zero mean/max/nonzero_count. If either split still produces all-zero amplitude/phase, stop immediately: add tf.debugging assertions/logs to `scripts/compare_models.py`, force canonical `Baseline`/`PtyChi` labels per METRICS-NAMING-001, raise before returning zeros, and record `$HUB/red/blocked_<timestamp>.md` with the failing command + stack trace instead of continuing to the pytest/Phase D/run_phase_g steps.
+    After each run, inspect `$HUB/analysis/dose_1000/dense/{train,test}/logs/logs/debug.log` for non-zero `DIAGNOSTIC baseline_output` mean/max/nonzero_count, dump the first patch amplitude/phase (or NPZ) when debugging, and confirm `analysis/dose_1000/dense/{split}/comparison_metrics.csv` plus `analysis/metrics_summary.json` contain canonical `Baseline` and `PtyChi` rows (METRICS-NAMING-001). If either split still produces zero-valued outputs or aliases, stop immediately, capture the failing command + log excerpt in `$HUB/red/blocked_<timestamp>.md`, and keep iterating on the instrumentation before touching the pytest/Phase D/Phase G steps.
   4. Re-run the Phase D acceptance guards so ACCEPTANCE-001 / DATA-001 stay enforced on the regenerated NPZs:
      ```bash
      pytest tests/study/test_dose_overlap_overlap.py::test_filter_dataset_by_mask_handles_scalar_metadata -vv \
