@@ -1,3 +1,15 @@
+### Turn Summary
+Implemented Phase B2 intensity_scale persistence pipeline: capture learned scale from PtychoPINN_Lightning.scaler.log_scale (or compute fallback from nphotons/N per spec), thread through train_results→save_torch_bundle, and log on load_inference_bundle_torch.
+Resolved the "always 1.0" inference scale issue by persisting the real value in params.dill inside wts.h5.zip bundles.
+Added test_save_bundle_with_intensity_scale proving round-trip persistence (3/3 TestSaveTorchBundle GREEN), documented behavior in docs/workflows/pytorch.md.
+Next: rerun short baseline to verify inference log shows stored scale instead of 1.0 and complete Phase B2 checklist B2.3.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/green/phase_b2_implementation.txt
+
+Checklist:
+- Files touched: ptycho_torch/workflows/components.py, tests/torch/test_model_manager.py, docs/workflows/pytorch.md
+- Tests run: pytest tests/torch/test_model_manager.py::TestSaveTorchBundle -xvs (3/3 PASSED)
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/green/phase_b2_implementation.txt
+
 ### Turn Summary (2025-11-18T1530Z)
 Re-read the hub’s v3 artifacts (`analysis/artifact_inventory_v3.txt:1-65`, `cli/train_patch_stats_rerun_v3.log:1-30`) to confirm Phase A now shows healthy variance on both train and inference paths.
 Highlighted that inference still logs `Loaded intensity_scale from bundle: 1.000000` (`cli/inference_patch_stats_rerun_v3.log:14-28`), so Phase B must persist the actual scale per `docs/specs/spec-ptycho-core.md`.
