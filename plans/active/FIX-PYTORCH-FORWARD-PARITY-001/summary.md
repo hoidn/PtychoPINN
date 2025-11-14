@@ -1,3 +1,10 @@
+### Turn Summary (2025-11-18T1530Z)
+Re-read the hub’s v3 artifacts (`analysis/artifact_inventory_v3.txt:1-65`, `cli/train_patch_stats_rerun_v3.log:1-30`) to confirm Phase A now shows healthy variance on both train and inference paths.
+Highlighted that inference still logs `Loaded intensity_scale from bundle: 1.000000` (`cli/inference_patch_stats_rerun_v3.log:14-28`), so Phase B must persist the actual scale per `docs/specs/spec-ptycho-core.md`.
+Updated the working plan, fix_plan Do Now, initiative summary, and `input.md` so the next engineer loop captures the learned scale from Lightning, threads it through `save_torch_bundle`/`load_inference_bundle_torch`, and adds pytest coverage before re-running the short baseline.
+Next: implement the intensity_scale persistence pipeline, extend `tests/torch/test_model_manager.py` (or a new workflow test), and rerun the short baseline so the inference log reports the stored scale.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{analysis/artifact_inventory_v3.txt,cli/train_patch_stats_rerun_v3.log,cli/inference_patch_stats_rerun_v3.log}
+
 ### Turn Summary (2025-11-14T0547Z)
 Executed Phase A evidence refresh v3: pytest selector GREEN (1/1, 7.17s), 10-epoch training completed with patch-stat instrumentation, and inference generated debug dumps with healthy variance.
 Training patch stats show var_zero_mean=6.09e-05 (healthy), and crucially, inference patches now show var_zero_mean=5.19e+06 (NOT zero!), resolving the "essentially zero" inference issue from v2 run.

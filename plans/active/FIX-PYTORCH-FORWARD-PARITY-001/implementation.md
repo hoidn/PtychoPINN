@@ -103,12 +103,27 @@ PyTorch forward inference currently produces impulse-like patches with extremely
 
 ## Phase B — Scaling & Config Alignment
 ### Checklist
-- [ ] B1: Enforce `object_big=True` and physics weighting through `ptycho_torch/config_factory.py`, CLI wrappers, and inference payloads; document behavior in `docs/workflows/pytorch.md`.
-- [ ] B2: Persist bundle `intensity_scale` during training export and reuse it in inference; add tests (e.g., `tests/torch/test_workflows_components.py`) to ensure the scale is stored/restored.
+- [x] B1: Enforce `object_big=True` and physics weighting through `ptycho_torch/config_factory.py`, CLI wrappers, and inference payloads; document behavior in `docs/workflows/pytorch.md`. (Object defaults verified in `config_factory.py:205-234`.)
+- [ ] B2: Persist bundle `intensity_scale` during training export and reuse it in inference; add tests (e.g., `tests/torch/test_model_manager.py`) to ensure the scale is stored/restored.
 - [ ] B3: Validate scaling by re-running the short baseline and `pytest tests/torch/test_inference_reassembly_parity.py -vv`, capturing logs under `.../reports/.../scaling_alignment/`.
 
+### Action Plan — B2 (Intensity Scale Persistence)
+1. **Capture the real scale during training.**
+   - Inspect `PtychoPINN_Lightning` and `PtychoPINN` (`ptycho_torch/model.py`) to read the learned value from `model.scaler.log_scale` after `trainer.fit`.
+   - When `intensity_scale_trainable` is false or the parameter is missing, compute a fallback using the spec formula (`s ≈ sqrt(config.nphotons) / (config.model.N / 2)`, see `docs/specs/spec-ptycho-core.md:80-110`).
+   - Expose the resolved scalar through `_train_with_lightning` (e.g., stash under `train_results['intensity_scale']`).
+2. **Persist the value inside bundles.**
+   - Thread the captured scalar into `save_torch_bundle(...)` via the existing `intensity_scale` argument so that `params_snapshot['intensity_scale']` holds the real value instead of `1.0`.
+   - Update `load_inference_bundle_torch` / CLI inference wiring to prefer the stored value and log it (selector already prints `bundle_intensity_scale`, so the log should show the new number instead of `1.0`).
+3. **Guard with tests.**
+   - Extend `tests/torch/test_model_manager.py` (or add a new test in `tests/torch/test_workflows_components.py`) to assert that passing a non-default scale ends up in `diffraction_to_obj/params.dill` and that `load_inference_bundle_torch` returns it.
+   - Cover the fallback path (no learned parameter) and the learned-parameter path by injecting a sentinel Lightning module with a mocked scaler.
+4. **Docs + evidence.**
+   - Document the persistence rule in `docs/workflows/pytorch.md` (short subsection under bundle persistence).
+   - After code/test updates, rerun the short baseline to regenerate `cli/inference_patch_stats_rerun*.log` so the log line `Loaded intensity_scale …` reports the stored float; archive the new bundle params diff in the hub.
+
 ### Pending Tasks (Engineering)
-- Update config bridge/factory code, rerun baselines, and ensure logs show consistent scaling.
+- Implement the four-step B2 plan above, re-run the short baseline, and ensure logs show consistent scaling.
 - Record diffs/commands in the Reports Hub summary and `analysis/artifact_inventory.txt`.
 
 ### Notes & Risks

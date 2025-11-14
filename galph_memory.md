@@ -1360,3 +1360,16 @@
 - Next actions for Ralph: follow the refreshed brief—guard env vars, capture the existing 2025-11-14 log headers, rerun the selector and both CLI commands, copy the regenerated `torch_patch_stats*_v2.{json,png}` + `forward_parity_debug_v2/` into the hub, update inventories/summaries, and record blockers if GPUs/OOM fail.
 - <Action State>: [ready_for_implementation]
 - focus=FIX-PYTORCH-FORWARD-PARITY-001 state=ready_for_implementation dwell=4 ralph_last_commit=cdecf3fd summary=plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md next_action=rerun selector + 10-epoch Torch train/infer, copy patch stats into $HUB, refresh inventories, log blockers if CUDA/memory fails
+
+## 2025-11-18T1530Z: Phase B2 handoff (intensity_scale persistence)
+- dwell: 1 (Ralph landed artifact-only commit `56287400` since the last supervisor loop; this turn updates the plan/input with a runnable implementation brief for Phase B2.)
+- Focus issue: FIX-PYTORCH-FORWARD-PARITY-001 — Phase A v3 evidence is archived (`analysis/artifact_inventory_v3.txt`, `_rerun_v3.log`), but inference still reports `Loaded intensity_scale from bundle: 1.000000`, so Phase B2 must persist the learned scale end-to-end per spec.
+- Action type: Planning (perf/config alignment)
+- Mode: Perf
+- Git sync: repo clean; `timeout 30 git pull --rebase` → Already up to date; `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` exported for downstream commands.
+- Documents/artifacts reviewed: docs/index.md; docs/INITIATIVE_WORKFLOW_GUIDE.md; docs/DEVELOPER_GUIDE.md; docs/workflows/pytorch.md; docs/COMMANDS_REFERENCE.md; docs/TESTING_GUIDE.md; docs/development/TEST_SUITE_INDEX.md; docs/DATA_NORMALIZATION_GUIDE.md; docs/specs/spec-ptycho-core.md; docs/findings.md (POLICY-001 / CONFIG-001 / ANTIPATTERN-001); docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md}; reports hub `analysis/artifact_inventory_v3.txt`, `cli/train_patch_stats_rerun_v3.log`, `cli/inference_patch_stats_rerun_v3.log`; input.md; galph_memory.md.
+- Findings: Train/inference patch stats now show healthy variance, but `cli/inference_patch_stats_rerun_v3.log:14-28` still logs `Loaded intensity_scale from bundle: 1.000000`, meaning bundles ignore the learned scaler despite specs requiring persistence; no pytest coverage currently enforces this behavior.
+- Steering: Updated the Phase B section of the plan (Action Plan B2), refreshed docs/fix_plan.md Do Now + Latest Attempt, prepended the initiative summary with today’s Turn Summary, and rewrote input.md so the next loop captures the scaler value in `_train_with_lightning`, threads it through `save_torch_bundle`/`load_inference_bundle_torch`, adds regression tests, updates docs, and reruns the short baseline.
+- Next actions for Ralph: Implement intensity_scale persistence + pytest guard + baseline rerun as described in the Do Now; log blockers immediately if CUDA/memory issues recur.
+- <Action State>: [ready_for_implementation]
+- focus=FIX-PYTORCH-FORWARD-PARITY-001 state=ready_for_implementation dwell=1 ralph_last_commit=56287400 summary=plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md next_action=implement B2 intensity_scale persistence + pytest guard + short-baseline refresh
