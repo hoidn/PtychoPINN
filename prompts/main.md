@@ -124,7 +124,6 @@
         - Update `docs/findings.md` with new durable lessons (with `path:line`).
         - Update `docs/fix_plan.md` Attempts History: timestamp, action summary, `Metrics:`, `Artifacts:`, `First Divergence:` (if debugging), `Next Actions`. Set `done` only when exit criteria are met.
         - If `docs/fix_plan.md` grows unwieldy, move fully complete sections to `archive/<YYYY-MM-DD>_fix_plan_archive.md` (summary + cross‑refs).
-
     11. **Version control hygiene**
         - Stage only intended files.
         - Commit with: `<plan-id> <module>: <concise summary> (tests: <selector>)`
