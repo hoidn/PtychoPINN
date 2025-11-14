@@ -91,6 +91,7 @@ PyTorch forward inference currently produces impulse-like patches with extremely
    ```
 5. Copy `torch_patch_stats*.json`, `torch_patch_grid*.png`, and the refreshed `forward_parity_debug/` bundle from `\"$OUT\"/analysis/` into `$HUB/analysis/`, then update `$HUB/analysis/artifact_inventory.txt`, `$HUB/summary.md`, and `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md` so Phase A evidence clearly post-dates dc5415ba.
 6. If CUDA/memory blocks any command, capture the minimal error signature and create `$HUB/red/blocked_<timestamp>.md` referencing POLICY-001 / CONFIG-001 before handing the focus back.
+- 2025-11-17 audit: `$HUB/cli/train_patch_stats_rerun.log`, `$HUB/cli/inference_patch_stats_rerun.log`, and `analysis/artifact_inventory.txt` are still stamped 2025-11-14, so commit 876eeb12’s patch-stat outputs only exist under `outputs/torch_forward_parity_baseline/`; rerun steps 1–6 and overwrite the hub before starting Phase B (KB: POLICY-001 / CONFIG-001 / ANTIPATTERN-001).
 
 ### Notes & Risks
 - Keep instrumentation gated (first batch or debug flag) to avoid log spam during full training.

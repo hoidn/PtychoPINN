@@ -1,3 +1,9 @@
+### Turn Summary (2025-11-17T210700Z)
+Performed the dwell-triggered retrospective plus evidence audit: every CLI log and `analysis/artifact_inventory.txt` entry in the hub still carries 2025-11-14 timestamps, and `git log --oneline` shows no Ralph commits after `b3a4a562`, so the TrainingPayload-threaded rerun never landed inside `$HUB`.
+Aligned the working plan, fix_plan row, and engineer brief with the explicit rerun steps (env exports, pytest selector, 10-epoch train/infer commands, artifact copy + inventory refresh, POLICY-001/CONFIG-001 blocker logging) to unblock the next implementation loop.
+Next: Export HUB/AUTHORITATIVE_CMDS_DOC, confirm `$HUB` is clean, rerun the selector and both CLI commands with --log-patch-stats/--patch-stats-limit 2, copy torch_patch_stats*.json, torch_patch_grid*.png, and forward_parity_debug into `$HUB/analysis/`, refresh artifact_inventory + summaries, or log `$HUB/red/blocked_<timestamp>.md` on CUDA/memory failures.
+Artifacts: docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md}; input.md
+
 ### Turn Summary (2025-11-14T042100Z)
 Completed Phase A evidence refresh post-dc5415ba: reran pytest selector (GREEN 1/1, 7.16s), executed 10-epoch training with instrumentation, ran inference with debug dumps, and captured fresh torch_patch_stats.json + torch_patch_grid.png artifacts under the hub.
 Training stats show non-zero variance (var_zero_mean=7.21e-06, mean=0.001482, std=0.002686), inference shows much higher variance (var_zero_mean=33463704.0, mean=3018.192, std=5785.084) as expected for unnormalized outputs, and all debug dumps materialized correctly (canvas.json, offsets.json, pred_patches grids).

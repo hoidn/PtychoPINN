@@ -1,3 +1,9 @@
+### Turn Summary (2025-11-17T210700Z)
+Re-ran the forward parity evidence audit plus the mandatory retrospective: the hub still only contains Nov-14 patch-stat logs and `artifact_inventory.txt` entries, and `git log --oneline` shows no Ralph commits touching this initiative after `b3a4a562`, so the TrainingPayload proof remains stale.
+Updated the working plan, fix_plan ledger, and engineer brief with the exact rerun steps (env exports, pytest selector, 10-epoch train/infer commands, artifact copy + inventory refresh, POLICY-001/CONFIG-001 blocker logging) so the next loop can capture fresh torch_patch_stats*, grid PNGs, and forward_parity_debug dumps under the hub.
+Next: Ralph exports HUB/AUTHORITATIVE_CMDS_DOC, verifies the hub tree is clean, reruns the selector and both CLI commands with --log-patch-stats/--patch-stats-limit 2, copies artifacts into $HUB/analysis/, refreshes artifact_inventory + summaries, or records $HUB/red/blocked_<timestamp>.md if CUDA/memory resurfaces.
+Artifacts: docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md}; input.md
+
 ### Turn Summary (2025-11-14T050250Z)
 Created automation nucleus proving Phase A completion after resolving supervisor state desync: all 9 required artifacts exist with verified timestamps 2.3hr post-dc5415ba.
 The supervisor loops 2025-11-16/17 incorrectly claimed evidence was missing, but commit 9cc7e6a9 had already completed Phase A with pytest GREEN, non-zero training variance, and expected inference outputs.
