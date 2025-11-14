@@ -181,11 +181,13 @@ PyTorch forward inference currently produces impulse-like patches with extremely
 2. **Baseline health check.**
    - `pytest tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle -vv | tee "$TF_BASE/green/pytest_tf_integration.log"`
    - Include an `env | grep TF_XLA_FLAGS` snippet in the log (or append to the Turn Summary) to capture the disabled-XLA configuration. File blockers under `$HUB/red/blocked_<timestamp>.md` citing POLICY-001/CONFIG-001 if runtime/env gaps appear.
+   - If the selector fails because TensorFlow still tries to JIT compile the identity dataset, capture the RET_CHECK signature immediately; do **not** proceed to the CLI commands.
 3. **TensorFlow short training run (mirrors Torch Phase B3).**
+   - **Dataset note:** The `fly001_64_train_converted_identity.npz` variant has now failed twice (see `tf_baseline/phase_c1/red/blocked_*tf_xla_*.md`) with the same XLA RET_CHECK even after exporting `TF_XLA_FLAGS="--tf_xla_auto_jit=0"`. To keep Phase C moving, default to the non-identity dataset `datasets/fly64_coord_variants/fly001_64_train_converted.npz` until we have an identity-safe mitigation. Record the dataset choice and whether a matching PyTorch rerun is required for Phase C2 parity inside `$HUB/summary.md`.
    ```bash
    python scripts/training/train.py \
      --backend tensorflow \
-     --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_identity.npz \
+     --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted.npz \
      --test_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
      --output_dir "$OUT_TF" \
      --n_groups 256 \
@@ -212,13 +214,15 @@ PyTorch forward inference currently produces impulse-like patches with extremely
 5. **Bundle + metrics bookkeeping.**
    - `shasum "$OUT_TF/wts.h5.zip" > "$TF_BASE/analysis/bundle_digest_tf_phase_c1.txt"`.
    - `python - <<'PY'` snippet to print the TF stats alongside the PyTorch Phase B3 stats (`scaling_alignment/phase_b3/analysis/forward_parity_debug_scaling/stats.json`) and jot the numbers into `$TF_BASE/analysis/phase_c1_stats.txt` for Phase C2 comparison.
+   - If the TF baseline used a non-identity dataset, append a `Dataset note:` bullet to both `$HUB/analysis/artifact_inventory.txt` and `$HUB/summary.md` explicitly stating which dataset was used and whether a follow-up PyTorch rerun is required for apples-to-apples comparisons.
 6. **Hub updates.**
    - Append a “Phase C1 — TF baseline” section to `$HUB/analysis/artifact_inventory.txt` (reference logs, stats, bundle digest).
    - Mention the TF stats + PyTorch reference deltas in `$HUB/summary.md`.
 
+   - Include the TF_XLA_FLAGS line in both CLI logs’ headers so we can prove the mitigation remained active end-to-end.
 7. **Fallback path if XLA still blocks training.**
-   - If the disabled-XLA configuration still raises RET_CHECK failures, immediately capture the error signature under `$TF_BASE/red/blocked_<timestamp>_tf_xla_disabled.md`, cite Finding XLA-DYN-DOT-001, and switch to the non-identity dataset (`datasets/fly64_coord_variants/fly001_64_train_converted.npz`) that exercised Phase B3 successfully.
-   - Record in the Turn Summary whether the fallback dataset required a corresponding PyTorch rerun; if so, add the rerun command references to the Do Now before proceeding.
+   - If TensorFlow still errors even on the non-identity dataset, capture the error signature under `$TF_BASE/red/blocked_<timestamp>_tf_xla_disabled.md`, cite Finding XLA-DYN-DOT-001, and note whether the failure occurred before or after any data-dependent ops.
+   - Only fall back to additional dataset changes (or disabling translate_xla in params.cfg) after documenting the new blocker and updating `docs/fix_plan.md` + this plan with the proposed mitigation. Continue to record whether a corresponding PyTorch rerun is required before Phase C2 comparisons whenever the dataset diverges from the Phase B3 baseline.
 
 ### Checklist
 - [ ] C1: Run the matched TF baseline (`scripts/training/train.py --backend tensorflow` + `scripts/inference/inference.py --backend tensorflow --debug_dump`) and archive artifacts (`.../reports/.../tf_baseline/`).

@@ -1,4 +1,11 @@
 ### Turn Summary
+Re-scoped Phase C1 so the TF baseline now defaults to `datasets/fly64_coord_variants/fly001_64_train_converted.npz` after two projective_warp_xla_jit RET_CHECKs on the identity dataset even with `TF_XLA_FLAGS="--tf_xla_auto_jit=0"` (Finding XLA-DYN-DOT-001).
+Updated the implementation plan and ledger so Ralph exports the HUB/OUT/TF paths, logs TF_XLA_FLAGS in every artifact, runs the integration selector, and executes the TF training/inference commands with the non-identity dataset plus the existing test split.
+Added explicit instructions to append a “Dataset note” with the parity decision (whether a matching PyTorch rerun is owed) and tightened the fallback procedure if TensorFlow still fails on the non-identity data.
+Next: rerun the integration pytest, execute the TF baseline CLI commands with the new dataset, capture bundle digests + stats, refresh `$HUB/analysis/artifact_inventory.txt`/`summary.md`, or log a new blocker if TensorFlow still crashes.
+Artifacts: docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,input.md}
+
+### Turn Summary
 Attempted Phase C1 TensorFlow baseline with XLA disabled via `TF_XLA_FLAGS="--tf_xla_auto_jit=0"` but training still failed with XLA compilation errors because code explicitly calls translate_xla functions bypassing the environment flag.
 Integration pytest passed (34.75s GREEN) and environment capture confirmed TF_XLA_FLAGS was set, but first training epoch crashed in projective_warp_xla_jit with tf2xla conversion failure matching Finding XLA-DYN-DOT-001.
 Documented blocker under tf_baseline/phase_c1/red/blocked_20251114T070500Z_tf_xla_still_active.md with mitigation options; recommends fallback to non-identity dataset per brief step 7.
