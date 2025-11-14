@@ -1107,7 +1107,16 @@ def main():
     # Log shapes after conversion
     logger.info(f"After conversion - amplitude shape: {baseline_patches_I.shape}, phase shape: {baseline_patches_phi.shape}")
     logger.info(f"Complex patches shape: {baseline_patches_complex.shape}, dtype: {baseline_patches_complex.dtype}")
-    
+
+    # DIAGNOSTIC: Log first patch statistics to help diagnose zero-output issues
+    if baseline_patches_I.size > 0:
+        first_patch_amp = baseline_patches_I[0]
+        first_patch_phase = baseline_patches_phi[0]
+        logger.info(f"DIAGNOSTIC first patch amplitude: shape={first_patch_amp.shape}, mean={first_patch_amp.mean():.6f}, "
+                   f"max={first_patch_amp.max():.6f}, nonzero={np.count_nonzero(first_patch_amp)}/{first_patch_amp.size}")
+        logger.info(f"DIAGNOSTIC first patch phase: shape={first_patch_phase.shape}, mean={first_patch_phase.mean():.6f}, "
+                   f"std={first_patch_phase.std():.6f}, min={first_patch_phase.min():.6f}, max={first_patch_phase.max():.6f}")
+
     # Reassemble patches
     logger.info("Reassembling baseline patches...")
     
