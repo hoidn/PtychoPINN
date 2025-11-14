@@ -1,3 +1,10 @@
+### Turn Summary (2025-11-17T200500Z)
+Re-audited the forward_parity hub and confirmed `analysis/artifact_inventory.txt` plus both CLI logs in `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/cli/` still carry the 2025-11-14 timestamps, so the TrainingPayload fix has no post-fix evidence inside `$HUB`.
+Reworded the implementation plan and fix_plan ledger so Ralph knows 876eeb12 only refreshed `outputs/torch_forward_parity_baseline/analysis/` + `train_debug.log` and that he must rerun the pytest selector plus the 10-epoch train/infer commands with `--log-patch-stats --patch-stats-limit 2`, tee the logs into `$HUB`, copy the JSON/PNG/debug dumps into `$HUB/analysis/`, and refresh the hub summaries.
+Updated input.md with those exact steps (env vars, selector, CLI, artifact copy, blocker logging) so Phase A can close once the hub reflects the dc5415ba payload fix.
+Next: Ralph reruns the selector and short Torch baseline/inference, updates `$HUB/analysis/artifact_inventory.txt` + `$HUB/summary.md`, and files `$HUB/red/blocked_<timestamp>.md` immediately if CUDA/memory interrupts any command.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/analysis/artifact_inventory.txt; docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md; input.md
+
 ### Turn Summary (2025-11-14T042100Z)
 Completed Phase A evidence refresh post-dc5415ba: reran pytest selector (GREEN 1/1, 7.16s), executed 10-epoch training with instrumentation, ran inference with debug dumps, and captured fresh torch_patch_stats.json + torch_patch_grid.png artifacts under the hub.
 Training stats show non-zero variance (var_zero_mean=7.21e-06, mean=0.001482, std=0.002686), inference shows much higher variance (var_zero_mean=33463704.0, mean=3018.192, std=5785.084) as expected for unnormalized outputs, and all debug dumps materialized correctly (canvas.json, offsets.json, pred_patches grids).
