@@ -1,4 +1,16 @@
 ### Turn Summary
+Exported both `TF_XLA_FLAGS="--tf_xla_auto_jit=0"` and `USE_XLA_TRANSLATE=0` per the brief, successfully disabled XLA compilation (no tf2xla errors), but revealed a latent bug in the non-XLA translation path: shape mismatch at first epoch (`values[0].shape = [4] != values[2].shape = [128]` in translate_core stack operation).
+Integration pytest still failed (subprocess doesn't inherit env vars), but direct training execution progressed further than previous attempts before hitting the non-XLA bug.
+Documented two distinct TF blockers (XLA path per XLA-DYN-DOT-001, non-XLA path shape error) under `tf_baseline/phase_c1/red/` and recommend proceeding with PyTorch-only Phase C evidence per POLICY-001 given multiple TF translation layer bugs.
+Next: escalate blocker summary to supervisor for Phase C direction decision (PyTorch-only vs gridsize=1 TF fallback vs deferred TF debug).
+Artifacts: tf_baseline/phase_c1/{cli/train_tf_phase_c1.log,green/pytest_tf_integration.log,red/env_mitigation_summary.md,red/blocked_20251114T074039Z_tf_non_xla_shape_error.md}
+
+Checklist:
+- Files touched: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1/{cli/train_tf_phase_c1.log,green/pytest_tf_integration.log,red/env_mitigation_summary.md,red/blocked_20251114T074039Z_tf_non_xla_shape_error.md}, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
+- Tests run: pytest tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle -vv (via subprocess, failed due to env inheritance)
+- Artifacts updated: tf_baseline/phase_c1/red/{env_mitigation_summary.md,blocked_20251114T074039Z_tf_non_xla_shape_error.md}
+
+### Turn Summary
 Confirmed via `tf_baseline/phase_c1/cli/train_tf_phase_c1.log:11-58` that the fallback dataset is actually `datasets/fly64/fly001_64_train_converted.npz`, and the new blocker (`red/blocked_20251114T071940Z_tf_xla_code_level.md:1-85`) shows we still hit `translate_xla()` even with `TF_XLA_FLAGS="--tf_xla_auto_jit=0"` because `use_xla_translate` remained True.
 Updated the working plan, ledger, and input brief so Ralph must also export `USE_XLA_TRANSLATE=0`, capture both env values inside each CLI log, keep the corrected dataset path, and record a Dataset note before collecting bundle digests/stats.
 Next: rerun the integration selector plus the TF training/inference commands with both env toggles; if it still fails, log `$TF_BASE/red/blocked_<timestamp>_tf_xla_disabled.md` proving both env values were set and propose PyTorch-only Phase C evidence.

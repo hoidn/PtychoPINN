@@ -8,7 +8,974 @@ configfile: pyproject.toml
 plugins: anyio-4.9.0
 collecting ... collected 1 item
 
-tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle PASSED [100%]
+tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle FAILED [100%]
 
-============================== 1 passed in 34.86s ==============================
---- Environment Capture ---
+=================================== FAILURES ===================================
+______________ TestFullWorkflow.test_train_save_load_infer_cycle _______________
+
+self = <tests.test_integration_workflow.TestFullWorkflow testMethod=test_train_save_load_infer_cycle>
+
+    def test_train_save_load_infer_cycle(self):
+        """
+        Tests the complete train -> save -> load -> infer workflow.
+        This is the ultimate validation of the model save/restore cycle as it
+        simulates a real user workflow across separate processes.
+        """
+        # --- 1. Define Paths ---
+        data_file = project_root / "ptycho" / "datasets" / "Run1084_recon3_postPC_shrunk_3.npz"
+        training_output_dir = self.output_path / "training_outputs"
+        inference_output_dir = self.output_path / "lcls_output"
+    
+        # --- 2. Training Step ---
+        print("--- Running Training Step (subprocess) ---")
+        train_command = [
+            sys.executable, str(project_root / "scripts" / "training" / "train.py"),
+            "--train_data_file", str(data_file),
+            "--test_data_file", str(data_file),
+            "--output_dir", str(training_output_dir),
+            "--nepochs", "2",
+            "--n_images", "64",
+            "--gridsize", "1", # Explicitly set for clarity
+            "--quiet"
+        ]
+    
+        train_result = subprocess.run(train_command, capture_output=True, text=True)
+    
+        self.assertEqual(train_result.returncode, 0,
+                         f"Training script failed with stdout:\n{train_result.stdout}\nstderr:\n{train_result.stderr}")
+    
+        model_artifact_path = training_output_dir / "wts.h5.zip"
+        self.assertTrue(model_artifact_path.exists(), "Model artifact was not saved after training.")
+    
+        # --- 3. Inference Step ---
+        print("--- Running Inference Step (subprocess) ---")
+        inference_command = [
+            sys.executable, str(project_root / "scripts" / "inference" / "inference.py"),
+            "--model_path", str(training_output_dir),
+            "--test_data", str(data_file),
+            "--output_dir", str(inference_output_dir),
+            "--n_images", "32"
+        ]
+    
+        infer_result = subprocess.run(inference_command, capture_output=True, text=True)
+    
+>       self.assertEqual(infer_result.returncode, 0,
+                         f"Inference script failed with stdout:\n{infer_result.stdout}\nstderr:\n{infer_result.stderr}")
+E       AssertionError: 1 != 0 : Inference script failed with stdout:
+E       Model: "functional"
+E       ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
+E       ┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
+E       ┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
+E       │ input (InputLayer)  │ (None, 64, 64, 1) │          0 │ -                 │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ intensity_scaler    │ (None, 64, 64, 1) │          0 │ input[0][0]       │
+E       │ (IntensityScaler)   │                   │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d (Conv2D)     │ (None, 64, 64,    │        640 │ intensity_scaler… │
+E       │                     │ 64)               │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_1 (Conv2D)   │ (None, 64, 64,    │     36,928 │ conv2d[0][0]      │
+E       │                     │ 64)               │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ max_pooling2d       │ (None, 32, 32,    │          0 │ conv2d_1[0][0]    │
+E       │ (MaxPooling2D)      │ 64)               │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_2 (Conv2D)   │ (None, 32, 32,    │     73,856 │ max_pooling2d[0]… │
+E       │                     │ 128)              │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_3 (Conv2D)   │ (None, 32, 32,    │    147,584 │ conv2d_2[0][0]    │
+E       │                     │ 128)              │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ max_pooling2d_1     │ (None, 16, 16,    │          0 │ conv2d_3[0][0]    │
+E       │ (MaxPooling2D)      │ 128)              │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_4 (Conv2D)   │ (None, 16, 16,    │    295,168 │ max_pooling2d_1[… │
+E       │                     │ 256)              │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_5 (Conv2D)   │ (None, 16, 16,    │    590,080 │ conv2d_4[0][0]    │
+E       │                     │ 256)              │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ max_pooling2d_2     │ (None, 8, 8, 256) │          0 │ conv2d_5[0][0]    │
+E       │ (MaxPooling2D)      │                   │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_8 (Conv2D)   │ (None, 8, 8, 128) │    295,040 │ max_pooling2d_2[… │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_16 (Conv2D)  │ (None, 8, 8, 128) │    295,040 │ max_pooling2d_2[… │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_9 (Conv2D)   │ (None, 8, 8, 128) │    147,584 │ conv2d_8[0][0]    │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_17 (Conv2D)  │ (None, 8, 8, 128) │    147,584 │ conv2d_16[0][0]   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ up_sampling2d       │ (None, 16, 16,    │          0 │ conv2d_9[0][0]    │
+E       │ (UpSampling2D)      │ 128)              │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ up_sampling2d_3     │ (None, 16, 16,    │          0 │ conv2d_17[0][0]   │
+E       │ (UpSampling2D)      │ 128)              │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_10 (Conv2D)  │ (None, 16, 16,    │     73,792 │ up_sampling2d[0]… │
+E       │                     │ 64)               │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_18 (Conv2D)  │ (None, 16, 16,    │     73,792 │ up_sampling2d_3[… │
+E       │                     │ 64)               │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_11 (Conv2D)  │ (None, 16, 16,    │     36,928 │ conv2d_10[0][0]   │
+E       │                     │ 64)               │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_19 (Conv2D)  │ (None, 16, 16,    │     36,928 │ conv2d_18[0][0]   │
+E       │                     │ 64)               │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ up_sampling2d_1     │ (None, 32, 32,    │          0 │ conv2d_11[0][0]   │
+E       │ (UpSampling2D)      │ 64)               │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ up_sampling2d_4     │ (None, 32, 32,    │          0 │ conv2d_19[0][0]   │
+E       │ (UpSampling2D)      │ 64)               │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ get_item_1          │ (None, 32, 32, 4) │          0 │ up_sampling2d_1[… │
+E       │ (GetItem)           │                   │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ get_item_3          │ (None, 32, 32, 4) │          0 │ up_sampling2d_4[… │
+E       │ (GetItem)           │                   │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_12 (Conv2D)  │ (None, 32, 32,    │      2,368 │ get_item_1[0][0]  │
+E       │                     │ 64)               │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_20 (Conv2D)  │ (None, 32, 32,    │      2,368 │ get_item_3[0][0]  │
+E       │                     │ 64)               │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_13 (Conv2D)  │ (None, 32, 32,    │     36,928 │ conv2d_12[0][0]   │
+E       │                     │ 64)               │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_21 (Conv2D)  │ (None, 32, 32,    │     36,928 │ conv2d_20[0][0]   │
+E       │                     │ 64)               │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ up_sampling2d_2     │ (None, 64, 64,    │          0 │ conv2d_13[0][0]   │
+E       │ (UpSampling2D)      │ 64)               │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ up_sampling2d_5     │ (None, 64, 64,    │          0 │ conv2d_21[0][0]   │
+E       │ (UpSampling2D)      │ 64)               │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ get_item (GetItem)  │ (None, 32, 32,    │          0 │ up_sampling2d_1[… │
+E       │                     │ 60)               │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_7 (Conv2D)   │ (None, 64, 64, 1) │        577 │ up_sampling2d_2[… │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ get_item_2          │ (None, 32, 32,    │          0 │ up_sampling2d_4[… │
+E       │ (GetItem)           │ 60)               │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_15 (Conv2D)  │ (None, 64, 64, 1) │        577 │ up_sampling2d_5[… │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_6 (Conv2D)   │ (None, 32, 32, 1) │        541 │ get_item[0][0]    │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ silu (Silu)         │ (None, 64, 64, 1) │          0 │ conv2d_7[0][0]    │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ conv2d_14 (Conv2D)  │ (None, 32, 32, 1) │        541 │ get_item_2[0][0]  │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ silu_1 (Silu)       │ (None, 64, 64, 1) │          0 │ conv2d_15[0][0]   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ amp                 │ (None, 32, 32, 1) │          0 │ conv2d_6[0][0]    │
+E       │ (ActivationLayer)   │                   │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ center_mask_layer   │ (None, 64, 64, 1) │          0 │ silu[0][0]        │
+E       │ (CenterMaskLayer)   │                   │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ phi                 │ (None, 32, 32, 1) │          0 │ conv2d_14[0][0]   │
+E       │ (ActivationLayer)   │                   │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ center_mask_layer_1 │ (None, 64, 64, 1) │          0 │ silu_1[0][0]      │
+E       │ (CenterMaskLayer)   │                   │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ amp_padded          │ (None, 64, 64, 1) │          0 │ amp[0][0]         │
+E       │ (ZeroPadding2D)     │                   │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ multiply (Multiply) │ (None, 64, 64, 1) │          0 │ silu[0][0],       │
+E       │                     │                   │            │ center_mask_laye… │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ phase_padded        │ (None, 64, 64, 1) │          0 │ phi[0][0]         │
+E       │ (ZeroPadding2D)     │                   │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ multiply_1          │ (None, 64, 64, 1) │          0 │ silu_1[0][0],     │
+E       │ (Multiply)          │                   │            │ center_mask_laye… │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ add (Add)           │ (None, 64, 64, 1) │          0 │ amp_padded[0][0], │
+E       │                     │                   │            │ multiply[0][0]    │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ add_1 (Add)         │ (None, 64, 64, 1) │          0 │ phase_padded[0][… │
+E       │                     │                   │            │ multiply_1[0][0]  │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ obj                 │ (None, 64, 64, 1) │          0 │ add[0][0],        │
+E       │ (CombineComplexLay… │                   │            │ add_1[0][0]       │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ input_positions     │ (None, 1, 2, 1)   │          0 │ -                 │
+E       │ (InputLayer)        │                   │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ padded_obj_2        │ (None, 74, 74, 1) │          0 │ obj[0][0],        │
+E       │ (ReassemblePatches… │                   │            │ input_positions[… │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ padded_objs_with_o… │ (None, 64, 64, 1) │          0 │ padded_obj_2[0][… │
+E       │ (ExtractPatchesPos… │                   │            │ input_positions[… │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ probe_illumination  │ [(None, 64, 64,   │          0 │ padded_objs_with… │
+E       │ (ProbeIllumination) │ 1), (None, 64,    │            │                   │
+E       │                     │ 64, 1)]           │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ pred_amplitude      │ [(None, 64, 64,   │          0 │ probe_illuminati… │
+E       │ (PadAndDiffractLay… │ 1), (None, 64,    │            │                   │
+E       │                     │ 64, 1)]           │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ pred_diff_channels  │ (None, 64, 64, 1) │          0 │ pred_amplitude[0… │
+E       │ (FlatToChannelLaye… │                   │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ intensity_scaler_i… │ (None, 64, 64, 1) │          0 │ pred_diff_channe… │
+E       │ (IntensityScaler_i… │                   │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ trimmed_obj         │ (None, 64, 64, 1) │          0 │ padded_obj_2[0][… │
+E       │ (TrimReconstructio… │                   │            │                   │
+E       ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+E       │ pred_intensity      │ (None, 64, 64, 1) │          0 │ intensity_scaler… │
+E       │ (SquareLayer)       │                   │            │                   │
+E       └─────────────────────┴───────────────────┴────────────┴───────────────────┘
+E        Total params: 2,331,772 (8.90 MB)
+E        Trainable params: 2,331,772 (8.90 MB)
+E        Non-trainable params: 0 (0.00 B)
+E       None
+E       diff3d shape: (32, 64, 64)
+E       probeGuess shape: (64, 64)
+E       scan_index shape: (32,)
+E       objectGuess shape: (227, 226)
+E       xcoords shape: (32,)
+E       ycoords shape: (32,)
+E       xcoords_start shape: (32,)
+E       ycoords_start shape: (32,)
+E       DEBUG: nsamples: 32, gridsize: 1 (using efficient random sample-then-group strategy)
+E       INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+E       neighbor-sampled diffraction shape (32, 64, 64, 1)
+E       loader: using provided ground truth patches.
+E       INFO: None
+E       <PtychoDataContainer X=(32, 64, 64, 1) Y_I=(32, 64, 64, 1) Y_phi=(32, 64, 64, 1) norm_Y_I=() coords_nominal=(32, 1, 2, 1) coords_true=(32, 1, 2, 1) nn_indices=(32, 1) mean=15.500 global_offsets=(32, 1, 2, 1) mean=58.246 local_offsets=(32, 1, 2, 1) mean=0.000 probe=(64, 64) mean_amplitude=0.322>
+E       
+E       stderr:
+E       2025-11-14 07:38:38.767162: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+E       WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E       E0000 00:00:1763134718.778907 3071964 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E       E0000 00:00:1763134718.782585 3071964 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+E       W0000 00:00:1763134718.792353 3071964 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E       W0000 00:00:1763134718.792362 3071964 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E       W0000 00:00:1763134718.792364 3071964 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E       W0000 00:00:1763134718.792365 3071964 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E       2025-11-14 07:38:38.795092: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+E       To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+E       2025-11-14 07:38:41,199 - INFO - Starting ptychography inference script...
+E       2025-11-14 07:38:41,200 - INFO - Final inference config - gridsize: 1
+E       2025-11-14 07:38:41,200 - INFO - Legacy mode: using 32 individual images (gridsize=1)
+E       2025-11-14 07:38:41,200 - INFO - Loading model...
+E       2025-11-14 07:38:41,200 - INFO - Backend dispatcher: loading TensorFlow model (ptycho.workflows.components)
+E       2025-11-14 07:38:41,200 - INFO - Loading model from: /tmp/tmp3s0imz7z/training_outputs
+E       I0000 00:00:1763134721.443552 3071964 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+E       I0000 00:00:1763134721.444760 3071964 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+E       2025-11-14 07:38:42.133696: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:103] Profiler session initializing.
+E       2025-11-14 07:38:42.133708: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:118] Profiler session started.
+E       WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E       I0000 00:00:1763134722.133721 3071964 cupti_tracer.cc:1026] Profiler found 1 GPUs
+E       W0000 00:00:1763134722.150766 3071964 cupti_tracer.cc:1213] Fail to use per-thread activity buffer, cupti trace overhead may be big. CUPTI ERROR CODE:1
+E       2025-11-14 07:38:42.150843: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:130] Profiler session tear down.
+E       I0000 00:00:1763134722.151169 3071964 cupti_tracer.cc:1249] CUPTI activity buffer flushed
+E       /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+E         warnings.warn(
+E       /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+E         warnings.warn(
+E       2025-11-14 07:38:42,774 - INFO - Successfully loaded model from /tmp/tmp3s0imz7z/training_outputs
+E       2025-11-14 07:38:42,775 - INFO - Backend dispatcher: inference bundle loaded (backend=tensorflow)
+E       2025-11-14 07:38:42,775 - INFO - Loading test data...
+E       2025-11-14 07:38:42,775 - INFO - Loading data from /home/ollie/Documents/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=32, n_subsample=32
+E       2025-11-14 07:38:42,790 - INFO - Independent sampling: subsampling 32 images from 1087 total
+E       2025-11-14 07:38:42,790 - INFO - Randomly subsampled 32 images
+E       2025-11-14 07:38:42,792 - INFO - Inference config: gridsize=1, using 32 individual patterns
+E       2025-11-14 07:38:42,792 - INFO - Performing inference...
+E       2025-11-14 07:38:42,796 - INFO - DEBUG: Using gridsize=1 for data generation
+E       2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=32, n_points=32, C=1, K=4
+E       2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
+E       2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
+E       2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 32 > 32 = False
+E       2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+E       2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+E       2025-11-14 07:38:42,797 - INFO - Using efficient random sampling strategy for gridsize=1
+E       2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+E       2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=32, K=4, C=1
+E       2025-11-14 07:38:42,797 - INFO - Generating 32 groups efficiently from 32 points (K=4, C=1)
+E       2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] Standard case: using 32 groups from 32 points
+E       2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] Using all 32 points as seeds (no sampling needed)
+E       2025-11-14 07:38:42,797 - INFO - Using all 32 points as seeds
+E       2025-11-14 07:38:42,797 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+E       2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 32 groups
+E       2025-11-14 07:38:42,797 - INFO - Successfully generated 32 groups with shape (32, 1)
+E       2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] Generated 32 groups in total
+E       2025-11-14 07:38:42,797 - INFO - Generated 32 groups efficiently
+E       2025-11-14 07:38:42,998 - INFO - DEBUG: Generated diffraction data shape: (32, 64, 64, 1)
+E       2025-11-14 07:38:42,998 - INFO - DEBUG: Generated Y data shape: (32, 64, 64, 1)
+E       2025-11-14 07:38:43,346 - INFO - DEBUG: PtychoDataContainer shapes - X (diffraction): (32, 64, 64, 1), Y: (32, 64, 64, 1)
+E       I0000 00:00:1763134724.048134 3072097 service.cc:152] XLA service 0x36334e40 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+E       I0000 00:00:1763134724.048153 3072097 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+E       2025-11-14 07:38:44.094663: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+E       2025-11-14 07:38:44.162323: W tensorflow/core/framework/op_kernel.cc:1857] OP_REQUIRES failed at if_op.cc:285 : INVALID_ARGUMENT: Detected unsupported operations when trying to compile graph functional_6_1_padded_obj_2_1_cond_true_7166_tfg_region_specialized_functional_6_1_padded_obj_2_1_cond_0_const_0[] on XLA_GPU_JIT: ImageProjectiveTransformV3 (No registered 'ImageProjectiveTransformV3' OpKernel for XLA_GPU_JIT devices compatible with node {{node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0}}){{node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0}}
+E       The op is created at: 
+E       dummy_file_name:10:dummy_function_name
+E       	tf2xla conversion failed while converting functional_6_1_padded_obj_2_1_cond_true_7166_tfg_region_specialized_functional_6_1_padded_obj_2_1_cond_0_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+E       
+E       Stack trace for op definition: 
+E       File "Documents/PtychoPINN/scripts/inference/inference.py", line 737, in <module>
+E       File "Documents/PtychoPINN/scripts/inference/inference.py", line 702, in main
+E       File "Documents/PtychoPINN/scripts/inference/inference.py", line 371, in perform_inference
+E       File "Documents/PtychoPINN/ptycho/nbutils.py", line 186, in reconstruct_image
+E       File "Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 566, in predict
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 260, in one_step_on_data_distributed
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 250, in one_step_on_data
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 105, in predict_step
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+E       File "Documents/PtychoPINN/ptycho/custom_layers.py", line 155, in call
+E       File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1070, in reassemble_patches
+E       File "Documents/PtychoPINN/ptycho/tf_helper.py", line 678, in newf
+E       File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1318, in reassemble_patches_position_batched_real
+E       File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1001, in _reassemble_position_batched
+E       
+E       2025-11-14 07:38:44.164031: W tensorflow/core/framework/op_kernel.cc:1857] OP_REQUIRES failed at xla_ops.cc:591 : INVALID_ARGUMENT: Detected unsupported operations when trying to compile graph functional_6_1_padded_obj_2_1_cond_true_7166_tfg_region_specialized_functional_6_1_padded_obj_2_1_cond_0_const_0[] on XLA_GPU_JIT: ImageProjectiveTransformV3 (No registered 'ImageProjectiveTransformV3' OpKernel for XLA_GPU_JIT devices compatible with node {{node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0}}){{node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0}}
+E       The op is created at: 
+E       dummy_file_name:10:dummy_function_name
+E       	tf2xla conversion failed while converting functional_6_1_padded_obj_2_1_cond_true_7166_tfg_region_specialized_functional_6_1_padded_obj_2_1_cond_0_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+E       
+E       Stack trace for op definition: 
+E       File "Documents/PtychoPINN/scripts/inference/inference.py", line 737, in <module>
+E       File "Documents/PtychoPINN/scripts/inference/inference.py", line 702, in main
+E       File "Documents/PtychoPINN/scripts/inference/inference.py", line 371, in perform_inference
+E       File "Documents/PtychoPINN/ptycho/nbutils.py", line 186, in reconstruct_image
+E       File "Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 566, in predict
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 260, in one_step_on_data_distributed
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 250, in one_step_on_data
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 105, in predict_step
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+E       File "Documents/PtychoPINN/ptycho/custom_layers.py", line 155, in call
+E       File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1070, in reassemble_patches
+E       File "Documents/PtychoPINN/ptycho/tf_helper.py", line 678, in newf
+E       File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1318, in reassemble_patches_position_batched_real
+E       File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1001, in _reassemble_position_batched
+E       
+E       	 [[functional_6_1/padded_obj_2_1/cond]]
+E       	tf2xla conversion failed while converting __inference_one_step_on_data_8255[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+E       2025-11-14 07:38:44.164064: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: INVALID_ARGUMENT: Detected unsupported operations when trying to compile graph functional_6_1_padded_obj_2_1_cond_true_7166_tfg_region_specialized_functional_6_1_padded_obj_2_1_cond_0_const_0[] on XLA_GPU_JIT: ImageProjectiveTransformV3 (No registered 'ImageProjectiveTransformV3' OpKernel for XLA_GPU_JIT devices compatible with node {{node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0}}){{node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0}}
+E       The op is created at: 
+E       dummy_file_name:10:dummy_function_name
+E       	tf2xla conversion failed while converting functional_6_1_padded_obj_2_1_cond_true_7166_tfg_region_specialized_functional_6_1_padded_obj_2_1_cond_0_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+E       
+E       Stack trace for op definition: 
+E       File "Documents/PtychoPINN/scripts/inference/inference.py", line 737, in <module>
+E       File "Documents/PtychoPINN/scripts/inference/inference.py", line 702, in main
+E       File "Documents/PtychoPINN/scripts/inference/inference.py", line 371, in perform_inference
+E       File "Documents/PtychoPINN/ptycho/nbutils.py", line 186, in reconstruct_image
+E       File "Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 566, in predict
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 260, in one_step_on_data_distributed
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 250, in one_step_on_data
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 105, in predict_step
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+E       File "Documents/PtychoPINN/ptycho/custom_layers.py", line 155, in call
+E       File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1070, in reassemble_patches
+E       File "Documents/PtychoPINN/ptycho/tf_helper.py", line 678, in newf
+E       File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1318, in reassemble_patches_position_batched_real
+E       File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1001, in _reassemble_position_batched
+E       
+E       	 [[functional_6_1/padded_obj_2_1/cond]]
+E       	tf2xla conversion failed while converting __inference_one_step_on_data_8255[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+E       	 [[StatefulPartitionedCall]]
+E       2025-11-14 07:38:44,212 - INFO - Error during inference: Graph execution error:
+E       
+E       Detected at node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0 defined at (most recent call last):
+E       <stack traces unavailable>
+E       Detected at node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0 defined at (most recent call last):
+E       <stack traces unavailable>
+E       Detected unsupported operations when trying to compile graph functional_6_1_padded_obj_2_1_cond_true_7166_tfg_region_specialized_functional_6_1_padded_obj_2_1_cond_0_const_0[] on XLA_GPU_JIT: ImageProjectiveTransformV3 (No registered 'ImageProjectiveTransformV3' OpKernel for XLA_GPU_JIT devices compatible with node {{node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0}}){{node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0}}
+E       The op is created at: 
+E       dummy_file_name:10:dummy_function_name
+E       	tf2xla conversion failed while converting functional_6_1_padded_obj_2_1_cond_true_7166_tfg_region_specialized_functional_6_1_padded_obj_2_1_cond_0_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+E       
+E       Stack trace for op definition: 
+E       File "Documents/PtychoPINN/scripts/inference/inference.py", line 737, in <module>
+E       File "Documents/PtychoPINN/scripts/inference/inference.py", line 702, in main
+E       File "Documents/PtychoPINN/scripts/inference/inference.py", line 371, in perform_inference
+E       File "Documents/PtychoPINN/ptycho/nbutils.py", line 186, in reconstruct_image
+E       File "Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 566, in predict
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 260, in one_step_on_data_distributed
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 250, in one_step_on_data
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 105, in predict_step
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+E       File "Documents/PtychoPINN/ptycho/custom_layers.py", line 155, in call
+E       File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1070, in reassemble_patches
+E       File "Documents/PtychoPINN/ptycho/tf_helper.py", line 678, in newf
+E       File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1318, in reassemble_patches_position_batched_real
+E       File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1001, in _reassemble_position_batched
+E       
+E       	 [[functional_6_1/padded_obj_2_1/cond]]
+E       	tf2xla conversion failed while converting __inference_one_step_on_data_8255[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+E       	 [[StatefulPartitionedCall]] [Op:__inference_one_step_on_data_distributed_8348]
+E       2025-11-14 07:38:44,212 - INFO - Script execution failed: Error during inference: Graph execution error:
+E       
+E       Detected at node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0 defined at (most recent call last):
+E       <stack traces unavailable>
+E       Detected at node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0 defined at (most recent call last):
+E       <stack traces unavailable>
+E       Detected unsupported operations when trying to compile graph functional_6_1_padded_obj_2_1_cond_true_7166_tfg_region_specialized_functional_6_1_padded_obj_2_1_cond_0_const_0[] on XLA_GPU_JIT: ImageProjectiveTransformV3 (No registered 'ImageProjectiveTransformV3' OpKernel for XLA_GPU_JIT devices compatible with node {{node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0}}){{node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0}}
+E       The op is created at: 
+E       dummy_file_name:10:dummy_function_name
+E       	tf2xla conversion failed while converting functional_6_1_padded_obj_2_1_cond_true_7166_tfg_region_specialized_functional_6_1_padded_obj_2_1_cond_0_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+E       
+E       Stack trace for op definition: 
+E       File "Documents/PtychoPINN/scripts/inference/inference.py", line 737, in <module>
+E       File "Documents/PtychoPINN/scripts/inference/inference.py", line 702, in main
+E       File "Documents/PtychoPINN/scripts/inference/inference.py", line 371, in perform_inference
+E       File "Documents/PtychoPINN/ptycho/nbutils.py", line 186, in reconstruct_image
+E       File "Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 566, in predict
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 260, in one_step_on_data_distributed
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 250, in one_step_on_data
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 105, in predict_step
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+E       File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+E       File "Documents/PtychoPINN/ptycho/custom_layers.py", line 155, in call
+E       File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1070, in reassemble_patches
+E       File "Documents/PtychoPINN/ptycho/tf_helper.py", line 678, in newf
+E       File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1318, in reassemble_patches_position_batched_real
+E       File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1001, in _reassemble_position_batched
+E       
+E       	 [[functional_6_1/padded_obj_2_1/cond]]
+E       	tf2xla conversion failed while converting __inference_one_step_on_data_8255[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+E       	 [[StatefulPartitionedCall]] [Op:__inference_one_step_on_data_distributed_8348]
+E       2025-11-14 07:38:44,212 - INFO - Cleaning up resources...
+
+tests/test_integration_workflow.py:74: AssertionError
+----------------------------- Captured stdout call -----------------------------
+
+Created temporary directory for test run: /tmp/tmp3s0imz7z
+--- Running Training Step (subprocess) ---
+--- Running Inference Step (subprocess) ---
+Cleaned up temporary directory: /tmp/tmp3s0imz7z
+=========================== short test summary info ============================
+FAILED tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle - AssertionError: 1 != 0 : Inference script failed with stdout:
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
+│ input (InputLayer)  │ (None, 64, 64, 1) │          0 │ -                 │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ intensity_scaler    │ (None, 64, 64, 1) │          0 │ input[0][0]       │
+│ (IntensityScaler)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d (Conv2D)     │ (None, 64, 64,    │        640 │ intensity_scaler… │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_1 (Conv2D)   │ (None, 64, 64,    │     36,928 │ conv2d[0][0]      │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d       │ (None, 32, 32,    │          0 │ conv2d_1[0][0]    │
+│ (MaxPooling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_2 (Conv2D)   │ (None, 32, 32,    │     73,856 │ max_pooling2d[0]… │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_3 (Conv2D)   │ (None, 32, 32,    │    147,584 │ conv2d_2[0][0]    │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d_1     │ (None, 16, 16,    │          0 │ conv2d_3[0][0]    │
+│ (MaxPooling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_4 (Conv2D)   │ (None, 16, 16,    │    295,168 │ max_pooling2d_1[… │
+│                     │ 256)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_5 (Conv2D)   │ (None, 16, 16,    │    590,080 │ conv2d_4[0][0]    │
+│                     │ 256)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d_2     │ (None, 8, 8, 256) │          0 │ conv2d_5[0][0]    │
+│ (MaxPooling2D)      │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_8 (Conv2D)   │ (None, 8, 8, 128) │    295,040 │ max_pooling2d_2[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_16 (Conv2D)  │ (None, 8, 8, 128) │    295,040 │ max_pooling2d_2[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_9 (Conv2D)   │ (None, 8, 8, 128) │    147,584 │ conv2d_8[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_17 (Conv2D)  │ (None, 8, 8, 128) │    147,584 │ conv2d_16[0][0]   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d       │ (None, 16, 16,    │          0 │ conv2d_9[0][0]    │
+│ (UpSampling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_3     │ (None, 16, 16,    │          0 │ conv2d_17[0][0]   │
+│ (UpSampling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_10 (Conv2D)  │ (None, 16, 16,    │     73,792 │ up_sampling2d[0]… │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_18 (Conv2D)  │ (None, 16, 16,    │     73,792 │ up_sampling2d_3[… │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_11 (Conv2D)  │ (None, 16, 16,    │     36,928 │ conv2d_10[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_19 (Conv2D)  │ (None, 16, 16,    │     36,928 │ conv2d_18[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_1     │ (None, 32, 32,    │          0 │ conv2d_11[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_4     │ (None, 32, 32,    │          0 │ conv2d_19[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_1          │ (None, 32, 32, 4) │          0 │ up_sampling2d_1[… │
+│ (GetItem)           │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_3          │ (None, 32, 32, 4) │          0 │ up_sampling2d_4[… │
+│ (GetItem)           │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_12 (Conv2D)  │ (None, 32, 32,    │      2,368 │ get_item_1[0][0]  │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_20 (Conv2D)  │ (None, 32, 32,    │      2,368 │ get_item_3[0][0]  │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_13 (Conv2D)  │ (None, 32, 32,    │     36,928 │ conv2d_12[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_21 (Conv2D)  │ (None, 32, 32,    │     36,928 │ conv2d_20[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_2     │ (None, 64, 64,    │          0 │ conv2d_13[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_5     │ (None, 64, 64,    │          0 │ conv2d_21[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item (GetItem)  │ (None, 32, 32,    │          0 │ up_sampling2d_1[… │
+│                     │ 60)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_7 (Conv2D)   │ (None, 64, 64, 1) │        577 │ up_sampling2d_2[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_2          │ (None, 32, 32,    │          0 │ up_sampling2d_4[… │
+│ (GetItem)           │ 60)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_15 (Conv2D)  │ (None, 64, 64, 1) │        577 │ up_sampling2d_5[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_6 (Conv2D)   │ (None, 32, 32, 1) │        541 │ get_item[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ silu (Silu)         │ (None, 64, 64, 1) │          0 │ conv2d_7[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_14 (Conv2D)  │ (None, 32, 32, 1) │        541 │ get_item_2[0][0]  │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ silu_1 (Silu)       │ (None, 64, 64, 1) │          0 │ conv2d_15[0][0]   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ amp                 │ (None, 32, 32, 1) │          0 │ conv2d_6[0][0]    │
+│ (ActivationLayer)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ center_mask_layer   │ (None, 64, 64, 1) │          0 │ silu[0][0]        │
+│ (CenterMaskLayer)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ phi                 │ (None, 32, 32, 1) │          0 │ conv2d_14[0][0]   │
+│ (ActivationLayer)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ center_mask_layer_1 │ (None, 64, 64, 1) │          0 │ silu_1[0][0]      │
+│ (CenterMaskLayer)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ amp_padded          │ (None, 64, 64, 1) │          0 │ amp[0][0]         │
+│ (ZeroPadding2D)     │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ multiply (Multiply) │ (None, 64, 64, 1) │          0 │ silu[0][0],       │
+│                     │                   │            │ center_mask_laye… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ phase_padded        │ (None, 64, 64, 1) │          0 │ phi[0][0]         │
+│ (ZeroPadding2D)     │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ multiply_1          │ (None, 64, 64, 1) │          0 │ silu_1[0][0],     │
+│ (Multiply)          │                   │            │ center_mask_laye… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ add (Add)           │ (None, 64, 64, 1) │          0 │ amp_padded[0][0], │
+│                     │                   │            │ multiply[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ add_1 (Add)         │ (None, 64, 64, 1) │          0 │ phase_padded[0][… │
+│                     │                   │            │ multiply_1[0][0]  │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ obj                 │ (None, 64, 64, 1) │          0 │ add[0][0],        │
+│ (CombineComplexLay… │                   │            │ add_1[0][0]       │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ input_positions     │ (None, 1, 2, 1)   │          0 │ -                 │
+│ (InputLayer)        │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ padded_obj_2        │ (None, 74, 74, 1) │          0 │ obj[0][0],        │
+│ (ReassemblePatches… │                   │            │ input_positions[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ padded_objs_with_o… │ (None, 64, 64, 1) │          0 │ padded_obj_2[0][… │
+│ (ExtractPatchesPos… │                   │            │ input_positions[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ probe_illumination  │ [(None, 64, 64,   │          0 │ padded_objs_with… │
+│ (ProbeIllumination) │ 1), (None, 64,    │            │                   │
+│                     │ 64, 1)]           │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_amplitude      │ [(None, 64, 64,   │          0 │ probe_illuminati… │
+│ (PadAndDiffractLay… │ 1), (None, 64,    │            │                   │
+│                     │ 64, 1)]           │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_diff_channels  │ (None, 64, 64, 1) │          0 │ pred_amplitude[0… │
+│ (FlatToChannelLaye… │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ intensity_scaler_i… │ (None, 64, 64, 1) │          0 │ pred_diff_channe… │
+│ (IntensityScaler_i… │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ trimmed_obj         │ (None, 64, 64, 1) │          0 │ padded_obj_2[0][… │
+│ (TrimReconstructio… │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_intensity      │ (None, 64, 64, 1) │          0 │ intensity_scaler… │
+│ (SquareLayer)       │                   │            │                   │
+└─────────────────────┴───────────────────┴────────────┴───────────────────┘
+ Total params: 2,331,772 (8.90 MB)
+ Trainable params: 2,331,772 (8.90 MB)
+ Non-trainable params: 0 (0.00 B)
+None
+diff3d shape: (32, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (32,)
+objectGuess shape: (227, 226)
+xcoords shape: (32,)
+ycoords shape: (32,)
+xcoords_start shape: (32,)
+ycoords_start shape: (32,)
+DEBUG: nsamples: 32, gridsize: 1 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (32, 64, 64, 1)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(32, 64, 64, 1) Y_I=(32, 64, 64, 1) Y_phi=(32, 64, 64, 1) norm_Y_I=() coords_nominal=(32, 1, 2, 1) coords_true=(32, 1, 2, 1) nn_indices=(32, 1) mean=15.500 global_offsets=(32, 1, 2, 1) mean=58.246 local_offsets=(32, 1, 2, 1) mean=0.000 probe=(64, 64) mean_amplitude=0.322>
+
+stderr:
+2025-11-14 07:38:38.767162: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1763134718.778907 3071964 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763134718.782585 3071964 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763134718.792353 3071964 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763134718.792362 3071964 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763134718.792364 3071964 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763134718.792365 3071964 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-14 07:38:38.795092: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-14 07:38:41,199 - INFO - Starting ptychography inference script...
+2025-11-14 07:38:41,200 - INFO - Final inference config - gridsize: 1
+2025-11-14 07:38:41,200 - INFO - Legacy mode: using 32 individual images (gridsize=1)
+2025-11-14 07:38:41,200 - INFO - Loading model...
+2025-11-14 07:38:41,200 - INFO - Backend dispatcher: loading TensorFlow model (ptycho.workflows.components)
+2025-11-14 07:38:41,200 - INFO - Loading model from: /tmp/tmp3s0imz7z/training_outputs
+I0000 00:00:1763134721.443552 3071964 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1763134721.444760 3071964 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+2025-11-14 07:38:42.133696: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:103] Profiler session initializing.
+2025-11-14 07:38:42.133708: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:118] Profiler session started.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1763134722.133721 3071964 cupti_tracer.cc:1026] Profiler found 1 GPUs
+W0000 00:00:1763134722.150766 3071964 cupti_tracer.cc:1213] Fail to use per-thread activity buffer, cupti trace overhead may be big. CUPTI ERROR CODE:1
+2025-11-14 07:38:42.150843: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:130] Profiler session tear down.
+I0000 00:00:1763134722.151169 3071964 cupti_tracer.cc:1249] CUPTI activity buffer flushed
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+2025-11-14 07:38:42,774 - INFO - Successfully loaded model from /tmp/tmp3s0imz7z/training_outputs
+2025-11-14 07:38:42,775 - INFO - Backend dispatcher: inference bundle loaded (backend=tensorflow)
+2025-11-14 07:38:42,775 - INFO - Loading test data...
+2025-11-14 07:38:42,775 - INFO - Loading data from /home/ollie/Documents/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=32, n_subsample=32
+2025-11-14 07:38:42,790 - INFO - Independent sampling: subsampling 32 images from 1087 total
+2025-11-14 07:38:42,790 - INFO - Randomly subsampled 32 images
+2025-11-14 07:38:42,792 - INFO - Inference config: gridsize=1, using 32 individual patterns
+2025-11-14 07:38:42,792 - INFO - Performing inference...
+2025-11-14 07:38:42,796 - INFO - DEBUG: Using gridsize=1 for data generation
+2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=32, n_points=32, C=1, K=4
+2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
+2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
+2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 32 > 32 = False
+2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2025-11-14 07:38:42,797 - INFO - Using efficient random sampling strategy for gridsize=1
+2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=32, K=4, C=1
+2025-11-14 07:38:42,797 - INFO - Generating 32 groups efficiently from 32 points (K=4, C=1)
+2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] Standard case: using 32 groups from 32 points
+2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] Using all 32 points as seeds (no sampling needed)
+2025-11-14 07:38:42,797 - INFO - Using all 32 points as seeds
+2025-11-14 07:38:42,797 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 32 groups
+2025-11-14 07:38:42,797 - INFO - Successfully generated 32 groups with shape (32, 1)
+2025-11-14 07:38:42,797 - INFO - [OVERSAMPLING DEBUG] Generated 32 groups in total
+2025-11-14 07:38:42,797 - INFO - Generated 32 groups efficiently
+2025-11-14 07:38:42,998 - INFO - DEBUG: Generated diffraction data shape: (32, 64, 64, 1)
+2025-11-14 07:38:42,998 - INFO - DEBUG: Generated Y data shape: (32, 64, 64, 1)
+2025-11-14 07:38:43,346 - INFO - DEBUG: PtychoDataContainer shapes - X (diffraction): (32, 64, 64, 1), Y: (32, 64, 64, 1)
+I0000 00:00:1763134724.048134 3072097 service.cc:152] XLA service 0x36334e40 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1763134724.048153 3072097 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-11-14 07:38:44.094663: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+2025-11-14 07:38:44.162323: W tensorflow/core/framework/op_kernel.cc:1857] OP_REQUIRES failed at if_op.cc:285 : INVALID_ARGUMENT: Detected unsupported operations when trying to compile graph functional_6_1_padded_obj_2_1_cond_true_7166_tfg_region_specialized_functional_6_1_padded_obj_2_1_cond_0_const_0[] on XLA_GPU_JIT: ImageProjectiveTransformV3 (No registered 'ImageProjectiveTransformV3' OpKernel for XLA_GPU_JIT devices compatible with node {{node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0}}){{node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0}}
+The op is created at: 
+dummy_file_name:10:dummy_function_name
+	tf2xla conversion failed while converting functional_6_1_padded_obj_2_1_cond_true_7166_tfg_region_specialized_functional_6_1_padded_obj_2_1_cond_0_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/inference/inference.py", line 737, in <module>
+File "Documents/PtychoPINN/scripts/inference/inference.py", line 702, in main
+File "Documents/PtychoPINN/scripts/inference/inference.py", line 371, in perform_inference
+File "Documents/PtychoPINN/ptycho/nbutils.py", line 186, in reconstruct_image
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 566, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 260, in one_step_on_data_distributed
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 250, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 105, in predict_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 155, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1070, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 678, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1318, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1001, in _reassemble_position_batched
+
+2025-11-14 07:38:44.164031: W tensorflow/core/framework/op_kernel.cc:1857] OP_REQUIRES failed at xla_ops.cc:591 : INVALID_ARGUMENT: Detected unsupported operations when trying to compile graph functional_6_1_padded_obj_2_1_cond_true_7166_tfg_region_specialized_functional_6_1_padded_obj_2_1_cond_0_const_0[] on XLA_GPU_JIT: ImageProjectiveTransformV3 (No registered 'ImageProjectiveTransformV3' OpKernel for XLA_GPU_JIT devices compatible with node {{node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0}}){{node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0}}
+The op is created at: 
+dummy_file_name:10:dummy_function_name
+	tf2xla conversion failed while converting functional_6_1_padded_obj_2_1_cond_true_7166_tfg_region_specialized_functional_6_1_padded_obj_2_1_cond_0_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/inference/inference.py", line 737, in <module>
+File "Documents/PtychoPINN/scripts/inference/inference.py", line 702, in main
+File "Documents/PtychoPINN/scripts/inference/inference.py", line 371, in perform_inference
+File "Documents/PtychoPINN/ptycho/nbutils.py", line 186, in reconstruct_image
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 566, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 260, in one_step_on_data_distributed
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 250, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 105, in predict_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 155, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1070, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 678, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1318, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1001, in _reassemble_position_batched
+
+	 [[functional_6_1/padded_obj_2_1/cond]]
+	tf2xla conversion failed while converting __inference_one_step_on_data_8255[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+2025-11-14 07:38:44.164064: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: INVALID_ARGUMENT: Detected unsupported operations when trying to compile graph functional_6_1_padded_obj_2_1_cond_true_7166_tfg_region_specialized_functional_6_1_padded_obj_2_1_cond_0_const_0[] on XLA_GPU_JIT: ImageProjectiveTransformV3 (No registered 'ImageProjectiveTransformV3' OpKernel for XLA_GPU_JIT devices compatible with node {{node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0}}){{node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0}}
+The op is created at: 
+dummy_file_name:10:dummy_function_name
+	tf2xla conversion failed while converting functional_6_1_padded_obj_2_1_cond_true_7166_tfg_region_specialized_functional_6_1_padded_obj_2_1_cond_0_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/inference/inference.py", line 737, in <module>
+File "Documents/PtychoPINN/scripts/inference/inference.py", line 702, in main
+File "Documents/PtychoPINN/scripts/inference/inference.py", line 371, in perform_inference
+File "Documents/PtychoPINN/ptycho/nbutils.py", line 186, in reconstruct_image
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 566, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 260, in one_step_on_data_distributed
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 250, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 105, in predict_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 155, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1070, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 678, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1318, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1001, in _reassemble_position_batched
+
+	 [[functional_6_1/padded_obj_2_1/cond]]
+	tf2xla conversion failed while converting __inference_one_step_on_data_8255[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall]]
+2025-11-14 07:38:44,212 - INFO - Error during inference: Graph execution error:
+
+Detected at node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0 defined at (most recent call last):
+<stack traces unavailable>
+Detected at node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0 defined at (most recent call last):
+<stack traces unavailable>
+Detected unsupported operations when trying to compile graph functional_6_1_padded_obj_2_1_cond_true_7166_tfg_region_specialized_functional_6_1_padded_obj_2_1_cond_0_const_0[] on XLA_GPU_JIT: ImageProjectiveTransformV3 (No registered 'ImageProjectiveTransformV3' OpKernel for XLA_GPU_JIT devices compatible with node {{node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0}}){{node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0}}
+The op is created at: 
+dummy_file_name:10:dummy_function_name
+	tf2xla conversion failed while converting functional_6_1_padded_obj_2_1_cond_true_7166_tfg_region_specialized_functional_6_1_padded_obj_2_1_cond_0_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/inference/inference.py", line 737, in <module>
+File "Documents/PtychoPINN/scripts/inference/inference.py", line 702, in main
+File "Documents/PtychoPINN/scripts/inference/inference.py", line 371, in perform_inference
+File "Documents/PtychoPINN/ptycho/nbutils.py", line 186, in reconstruct_image
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 566, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 260, in one_step_on_data_distributed
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 250, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 105, in predict_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 155, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1070, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 678, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1318, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1001, in _reassemble_position_batched
+
+	 [[functional_6_1/padded_obj_2_1/cond]]
+	tf2xla conversion failed while converting __inference_one_step_on_data_8255[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall]] [Op:__inference_one_step_on_data_distributed_8348]
+2025-11-14 07:38:44,212 - INFO - Script execution failed: Error during inference: Graph execution error:
+
+Detected at node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0 defined at (most recent call last):
+<stack traces unavailable>
+Detected at node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0 defined at (most recent call last):
+<stack traces unavailable>
+Detected unsupported operations when trying to compile graph functional_6_1_padded_obj_2_1_cond_true_7166_tfg_region_specialized_functional_6_1_padded_obj_2_1_cond_0_const_0[] on XLA_GPU_JIT: ImageProjectiveTransformV3 (No registered 'ImageProjectiveTransformV3' OpKernel for XLA_GPU_JIT devices compatible with node {{node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0}}){{node functional_6_1/padded_obj_2_1/cond/translation_1/ImageProjectiveTransformV3_tfg_inlined_functional_6_1/padded_obj_2_1/cond_0}}
+The op is created at: 
+dummy_file_name:10:dummy_function_name
+	tf2xla conversion failed while converting functional_6_1_padded_obj_2_1_cond_true_7166_tfg_region_specialized_functional_6_1_padded_obj_2_1_cond_0_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/inference/inference.py", line 737, in <module>
+File "Documents/PtychoPINN/scripts/inference/inference.py", line 702, in main
+File "Documents/PtychoPINN/scripts/inference/inference.py", line 371, in perform_inference
+File "Documents/PtychoPINN/ptycho/nbutils.py", line 186, in reconstruct_image
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 566, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 260, in one_step_on_data_distributed
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 250, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 105, in predict_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 155, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1070, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 678, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1318, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1001, in _reassemble_position_batched
+
+	 [[functional_6_1/padded_obj_2_1/cond]]
+	tf2xla conversion failed while converting __inference_one_step_on_data_8255[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall]] [Op:__inference_one_step_on_data_distributed_8348]
+2025-11-14 07:38:44,212 - INFO - Cleaning up resources...
+============================== 1 failed in 23.86s ==============================
