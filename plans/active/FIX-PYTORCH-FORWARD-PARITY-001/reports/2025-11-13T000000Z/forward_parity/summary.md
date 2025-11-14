@@ -1,3 +1,14 @@
+### Turn Summary (2025-11-14T0529Z)
+Executed Phase A evidence rerun v2 proving TrainingPayload threading works: pytest selector GREEN (1/1, 7.13s), 10-epoch training completed with patch-stat instrumentation, and inference generated debug dumps.
+Training patch stats show healthy variance (var_zero_mean=1.525e-05, mean=0.002228, std=0.003905), but inference patches are essentially zero (var_zero_mean=9.512e-20, mean=1.686e-12), confirming the forward parity issue.
+Next: Phase A checklist A0/A1/A2/A3 complete; ready for Phase B scaling/config alignment (object_big defaults, intensity_scale persistence per CONFIG-001/POLICY-001).
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_stats_rerun_v2.log, cli/train_patch_stats_rerun_v2.log, cli/inference_patch_stats_rerun_v2.log, analysis/torch_patch_stats_train_v2.json, analysis/torch_patch_grid_train_v2.png, analysis/torch_patch_stats_inference_v2.json, analysis/torch_patch_grid_inference_v2.png, analysis/forward_parity_debug_v2/, analysis/artifact_inventory_v2.txt}
+
+Checklist:
+- Files touched: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_stats_rerun_v2.log, cli/train_patch_stats_rerun_v2.log, cli/inference_patch_stats_rerun_v2.log, analysis/torch_patch_stats_train_v2.json, analysis/torch_patch_grid_train_v2.png, analysis/torch_patch_stats_inference_v2.json, analysis/torch_patch_grid_inference_v2.png, analysis/forward_parity_debug_v2/, analysis/artifact_inventory_v2.txt}, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{summary.md, implementation.md}, docs/fix_plan.md
+- Tests run: pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_stats_rerun_v2.log, cli/train_patch_stats_rerun_v2.log, cli/inference_patch_stats_rerun_v2.log, analysis/torch_patch_stats_train_v2.json, analysis/torch_patch_grid_train_v2.png, analysis/torch_patch_stats_inference_v2.json, analysis/torch_patch_grid_inference_v2.png, analysis/forward_parity_debug_v2/, analysis/artifact_inventory_v2.txt}
+
 ### Turn Summary (2025-11-17T210700Z)
 Performed the dwell-triggered retrospective plus evidence audit: every CLI log and `analysis/artifact_inventory.txt` entry in the hub still carries 2025-11-14 timestamps, and `git log --oneline` shows no Ralph commits after `b3a4a562`, so the TrainingPayload-threaded rerun never landed inside `$HUB`.
 Aligned the working plan, fix_plan row, and engineer brief with the explicit rerun steps (env exports, pytest selector, 10-epoch train/infer commands, artifact copy + inventory refresh, POLICY-001/CONFIG-001 blocker logging) to unblock the next implementation loop.

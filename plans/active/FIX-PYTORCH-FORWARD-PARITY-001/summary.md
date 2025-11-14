@@ -1,3 +1,14 @@
+### Turn Summary (2025-11-14T0529Z)
+Executed Phase A evidence rerun v2 proving TrainingPayload threading works: pytest selector GREEN (1/1, 7.13s), 10-epoch training completed with patch-stat instrumentation, and inference generated debug dumps.
+Training patch stats show healthy variance (var_zero_mean=1.525e-05, mean=0.002228, std=0.003905), but inference patches are essentially zero (var_zero_mean=9.512e-20, mean=1.686e-12), confirming the forward parity issue.
+Next: Phase A checklist A0/A1/A2/A3 complete; ready for Phase B scaling/config alignment (object_big defaults, intensity_scale persistence per CONFIG-001/POLICY-001).
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_stats_rerun_v2.log, cli/train_patch_stats_rerun_v2.log, cli/inference_patch_stats_rerun_v2.log, analysis/torch_patch_stats_train_v2.json, analysis/torch_patch_grid_train_v2.png, analysis/torch_patch_stats_inference_v2.json, analysis/torch_patch_grid_inference_v2.png, analysis/forward_parity_debug_v2/, analysis/artifact_inventory_v2.txt}
+
+Checklist:
+- Files touched: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_stats_rerun_v2.log, cli/train_patch_stats_rerun_v2.log, cli/inference_patch_stats_rerun_v2.log, analysis/torch_patch_stats_train_v2.json, analysis/torch_patch_grid_train_v2.png, analysis/torch_patch_stats_inference_v2.json, analysis/torch_patch_grid_inference_v2.png, analysis/forward_parity_debug_v2/, analysis/artifact_inventory_v2.txt}, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{summary.md, implementation.md}, docs/fix_plan.md
+- Tests run: pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_stats_rerun_v2.log, cli/train_patch_stats_rerun_v2.log, cli/inference_patch_stats_rerun_v2.log, analysis/torch_patch_stats_train_v2.json, analysis/torch_patch_grid_train_v2.png, analysis/torch_patch_stats_inference_v2.json, analysis/torch_patch_grid_inference_v2.png, analysis/forward_parity_debug_v2/, analysis/artifact_inventory_v2.txt}
+
 ### Turn Summary (2025-11-14T132300Z)
 Re-checked the Reports Hub inventory and CLI logs and confirmed every artifact still carries the original 2025-11-14 timestamps, so no post-876eeb12 rerun evidence exists yet.
 Documented the `_v2` rerun requirement inside the working plan and fix_plan so the next engineer loop must refresh the pytest selector plus 10-epoch train/infer commands and overwrite the hub artifacts before touching Phase B.
