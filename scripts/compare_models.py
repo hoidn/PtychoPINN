@@ -297,20 +297,17 @@ def load_tike_reconstruction(tike_path: Path) -> tuple:
         if 'algorithm' in data:
             try:
                 algorithm_str = str(data['algorithm'].item() if hasattr(data['algorithm'], 'item') else data['algorithm'])
-                # Map algorithm names to display format
-                if algorithm_str.lower() in ['epie', 'pie']:
-                    algorithm_name = f"Pty-chi (ePIE)"
-                elif algorithm_str.lower() == 'dm':
-                    algorithm_name = f"Pty-chi (DM)"
-                elif algorithm_str.lower() == 'ml':
-                    algorithm_name = f"Pty-chi (ML)"
-                elif algorithm_str.lower().startswith('ptychi'):
-                    algorithm_name = f"Pty-chi ({algorithm_str})"
+                # Map algorithm names to canonical IDs for metrics reporting (METRICS-NAMING-001)
+                # Use "PtyChi" as canonical ID, not "Pty-chi (algorithm)"
+                if algorithm_str.lower() in ['epie', 'pie', 'dm', 'ml'] or algorithm_str.lower().startswith('ptychi'):
+                    algorithm_name = "PtyChi"
+                    logger.debug(f"Detected pty-chi algorithm '{algorithm_str}', using canonical ID: PtyChi")
                 elif algorithm_str.lower() == 'tike':
                     algorithm_name = "Tike"
                 else:
-                    # Unknown algorithm, use as-is with Pty-chi prefix
-                    algorithm_name = f"Pty-chi ({algorithm_str})"
+                    # Unknown algorithm, default to PtyChi for pty-chi namespace
+                    algorithm_name = "PtyChi"
+                    logger.debug(f"Unknown algorithm '{algorithm_str}', defaulting to canonical ID: PtyChi")
                 logger.debug(f"Detected algorithm from 'algorithm' field: {algorithm_name}")
             except Exception as e:
                 logger.debug(f"Could not extract algorithm field: {e}")
@@ -325,19 +322,14 @@ def load_tike_reconstruction(tike_path: Path) -> tuple:
                 # Detect algorithm type from metadata (overrides direct algorithm field if present)
                 if 'algorithm' in metadata:
                     algorithm = metadata.get('algorithm', 'tike')
-                    if algorithm.startswith('ptychi'):
-                        # Extract specific pty-chi algorithm variant if available
-                        variant = metadata.get('parameters', {}).get('algorithm_variant', 'ePIE')
-                        algorithm_name = f"Pty-chi ({variant})"
+                    # Use canonical IDs for metrics reporting (METRICS-NAMING-001)
+                    if algorithm.startswith('ptychi') or 'ptychi' in algorithm.lower():
+                        algorithm_name = "PtyChi"
                     elif algorithm == 'tike':
                         algorithm_name = "Tike"
-                    elif '_' in algorithm and 'ptychi' in algorithm.lower():
-                        # Handle formats like 'ptychi_ePIE'
-                        parts = algorithm.split('_')
-                        if len(parts) > 1:
-                            algorithm_name = f"Pty-chi ({parts[-1]})"
-                        else:
-                            algorithm_name = f"Pty-chi ({algorithm})"
+                    else:
+                        # Default to PtyChi for unknown algorithms in pty-chi namespace
+                        algorithm_name = "PtyChi"
                 
                 if computation_time is not None:
                     logger.debug(f"Extracted {algorithm_name} computation time: {computation_time:.2f}s")
@@ -1064,8 +1056,19 @@ def main():
     baseline_output_max = np.abs(baseline_output_np_check).max()
     baseline_output_nonzero = np.count_nonzero(baseline_output_np_check)
     logger.info(f"DIAGNOSTIC baseline_output stats: mean={baseline_output_mean:.6f}, max={baseline_output_max:.6f}, nonzero_count={baseline_output_nonzero}/{baseline_output_np_check.size}")
-    if baseline_output_mean == 0.0:
+
+    # CRITICAL ASSERTION: Halt execution if Baseline outputs are all zeros
+    if baseline_output_mean == 0.0 or baseline_output_nonzero == 0:
         logger.error("CRITICAL: Baseline model returned all-zero predictions! Check model weights and input data.")
+        logger.error(f"Baseline input stats: mean={baseline_input_mean:.6f}, max={baseline_input_max:.6f}, nonzero={baseline_input_nonzero}")
+        logger.error(f"Baseline output stats: mean={baseline_output_mean:.6f}, max={baseline_output_max:.6f}, nonzero={baseline_output_nonzero}")
+        raise RuntimeError(
+            f"Baseline model inference failed: outputs are all zeros (mean={baseline_output_mean:.6f}, "
+            f"nonzero={baseline_output_nonzero}/{baseline_output_np_check.size}). "
+            f"This indicates a TensorFlow/model runtime issue. "
+            f"Inputs were valid (mean={baseline_input_mean:.6f}, nonzero={baseline_input_nonzero}). "
+            f"Investigation required before Phase G can proceed."
+        )
 
     # Log baseline output shape before conversion
     if isinstance(baseline_output, list):
