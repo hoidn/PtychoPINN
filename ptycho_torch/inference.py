@@ -433,6 +433,9 @@ def _run_inference_and_reconstruct(
     debug_dump_dir=None,
     debug_patch_limit=16,
     intensity_scale_override: Optional[float] = None,
+    log_patch_stats: bool = False,
+    patch_stats_limit: int = 1,
+    output_dir: Optional[Path] = None,
 ):
     """
     Extract inference logic into testable helper function (Phase D.C C3).
@@ -444,6 +447,9 @@ def _run_inference_and_reconstruct(
         execution_config: PyTorchExecutionConfig with device, batch size, etc.
         device: Torch device string ('cpu', 'cuda', 'mps')
         quiet: Suppress progress output (default: False)
+        log_patch_stats: Enable patch statistics logging (Phase A instrumentation)
+        patch_stats_limit: Number of batches to instrument when log_patch_stats is True
+        output_dir: Output directory for patch stats artifacts (analysis/ subdir)
 
     Returns:
         Tuple of (amplitude, phase) numpy arrays
@@ -455,6 +461,7 @@ def _run_inference_and_reconstruct(
         - Averages across batch for single reconstruction
         - DEVICE-MISMATCH-001: Ensures model is on the correct device
         - Optional debug instrumentation dumps patch/canvas stats when debug_dump_dir is set
+        - Optional patch stats logging via PatchStatsLogger when log_patch_stats is True
     """
     import torch
     import numpy as np
@@ -547,6 +554,19 @@ def _run_inference_and_reconstruct(
             probe,
             input_scale_factor
         )
+
+    # Patch stats instrumentation (Phase A - FIX-PYTORCH-FORWARD-PARITY-001)
+    if log_patch_stats and output_dir:
+        from ptycho_torch.patch_stats_instrumentation import PatchStatsLogger
+        patch_stats_logger = PatchStatsLogger(
+            output_dir=output_dir / "analysis",
+            enabled=True,
+            limit=patch_stats_limit
+        )
+        # Log amplitude tensor (extract from complex patches)
+        patch_amplitude = torch.abs(patch_complex)
+        patch_stats_logger.log_batch(patch_amplitude, phase="inference", batch_idx=0)
+        patch_stats_logger.finalize()
 
     if scaling_debug:
         def _mean_abs(tensor):
@@ -740,6 +760,24 @@ Examples:
             'Optionally pass a directory; defaults to <output_dir>/debug_dump when omitted.'
         ),
     )
+    parser.add_argument(
+        '--log-patch-stats',
+        action='store_true',
+        dest='log_patch_stats',
+        help=(
+            'Enable per-patch statistics logging during inference (Phase A instrumentation). '
+            'Emits JSON summary and normalized PNG grid to <output_dir>/analysis/.'
+        ),
+    )
+    parser.add_argument(
+        '--patch-stats-limit',
+        type=int,
+        default=1,
+        dest='patch_stats_limit',
+        help=(
+            'Number of batches to instrument when --log-patch-stats is enabled (default: 1).'
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -905,12 +943,15 @@ Examples:
         amplitude, phase = _run_inference_and_reconstruct(
             model=model,
             raw_data=raw_data,
-    config=tf_inference_config,
-    execution_config=execution_config,
-    device=device,
-    quiet=args.quiet,
-    debug_dump_dir=debug_dump_dir,
-    intensity_scale_override=bundle_intensity_scale,
+            config=tf_inference_config,
+            execution_config=execution_config,
+            device=device,
+            quiet=args.quiet,
+            debug_dump_dir=debug_dump_dir,
+            intensity_scale_override=bundle_intensity_scale,
+            log_patch_stats=args.log_patch_stats,
+            patch_stats_limit=args.patch_stats_limit,
+            output_dir=output_dir,
         )
 
         # Save individual reconstructions (required by test contract)

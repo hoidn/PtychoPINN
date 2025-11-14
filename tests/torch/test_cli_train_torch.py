@@ -791,3 +791,88 @@ class TestExecutionConfigCLI:
 # 2. Instantiate PyTorchExecutionConfig from args
 # 3. Pass execution_config to factory
 # 4. Turn these RED tests GREEN
+
+
+class TestPatchStatsCLI:
+    """
+    Test patch stats instrumentation CLI integration (FIX-PYTORCH-FORWARD-PARITY-001 Phase A).
+    """
+
+    @pytest.fixture
+    def minimal_train_args(self, tmp_path):
+        """Minimal required training CLI arguments for testing."""
+        import numpy as np
+
+        train_file = tmp_path / "train.npz"
+        np.savez(
+            train_file,
+            diff3d=np.random.rand(10, 64, 64).astype(np.float32),
+            xcoords=np.random.rand(10).astype(np.float32),
+            ycoords=np.random.rand(10).astype(np.float32),
+            probeGuess=np.random.rand(64, 64).astype(np.complex64),
+            objectGuess=np.random.rand(200, 200).astype(np.complex64),
+        )
+
+        return [
+            '--train_data_file', str(train_file),
+            '--output_dir', str(tmp_path / 'outputs'),
+            '--n_images', '8',
+            '--max_epochs', '1',
+            '--batch_size', '4',
+            '--gridsize', '2',
+        ]
+
+    def test_patch_stats_dump(self, minimal_train_args, monkeypatch, tmp_path):
+        """
+        Test that --log-patch-stats produces JSON and PNG artifacts.
+
+        This is the selector required by input.md Phase A Do Now:
+        pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump
+
+        Expected behavior:
+        - CLI accepts --log-patch-stats and --patch-stats-limit flags
+        - After training, <output_dir>/analysis/ contains:
+          - torch_patch_stats.json
+          - torch_patch_grid.png
+        """
+        from ptycho_torch.train import cli_main
+
+        output_dir = tmp_path / 'outputs'
+        test_args = minimal_train_args + [
+            '--log-patch-stats',
+            '--patch-stats-limit', '2',
+            '--accelerator', 'cpu',
+            '--quiet',
+        ]
+
+        monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+
+        # Run training
+        try:
+            exit_code = cli_main()
+        except SystemExit as e:
+            exit_code = e.code
+
+        # Assert training completed
+        assert exit_code == 0 or exit_code is None, \
+            f"Training CLI failed with exit code {exit_code}"
+
+        # Assert artifacts exist
+        analysis_dir = output_dir / 'analysis'
+        json_path = analysis_dir / 'torch_patch_stats.json'
+        png_path = analysis_dir / 'torch_patch_grid.png'
+
+        assert json_path.exists(), \
+            f"Missing torch_patch_stats.json at {json_path}"
+        assert png_path.exists(), \
+            f"Missing torch_patch_grid.png at {png_path}"
+
+        # Verify JSON structure
+        import json
+        with open(json_path) as f:
+            stats = json.load(f)
+
+        assert isinstance(stats, list), "Expected list of batch stats"
+        assert len(stats) > 0, "Expected at least one batch logged"
+        assert 'global_mean' in stats[0], "Missing global_mean in stats"
+        assert 'var_zero_mean' in stats[0], "Missing var_zero_mean in stats"
