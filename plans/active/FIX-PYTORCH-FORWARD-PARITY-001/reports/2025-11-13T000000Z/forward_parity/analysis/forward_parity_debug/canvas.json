@@ -1,0 +1,7 @@
+{
+  "patch_size": 64,
+  "canvas_size": 247,
+  "num_patch_slots": 128,
+  "max_abs_dx": 91.17556762695312,
+  "max_abs_dy": 43.94439697265625
+}
