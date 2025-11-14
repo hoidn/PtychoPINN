@@ -1,3 +1,9 @@
+### Turn Summary (2025-11-17T033500Z)
+Audited the forward_parity hub and confirmed every CLI/log artifact is still stamped 2025-11-14 (e.g., `cli/train_patch_stats_rerun.log` line 1), so Phase A evidence predates the TrainingPayload fix and must be rerun.
+Updated the implementation plan, fix_plan ledger, and input.md to restate the Do Now: guard the repo/HUB, rerun the pytest selector, execute the 10-epoch training + inference pair with `--log-patch-stats --patch-stats-limit 2`, copy the resulting torch_patch_stats.json/torch_patch_grid.png + debug dumps into `$HUB/analysis/`, then refresh the hub summary/inventory (log blockers under `$HUB/red/`).
+Next: Ralph runs the selector plus both CLI commands with instrumentation, ensures new JSON/PNG artifacts land under `$HUB/analysis/forward_parity_debug`, and updates `$HUB/analysis/artifact_inventory.txt` + `$HUB/summary.md` (file `$HUB/red/blocked_<timestamp>.md` if CUDA/memory resurfaces).
+Artifacts: docs/fix_plan.md, input.md, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md
+
 ### Turn Summary (2025-11-14T030900Z)
 Executed Phase A baseline rerun post-payload-handoff: ran pytest selector GREEN (1/1 PASSED, 7.14s), trained 10-epoch Torch baseline with fly001_reconstructed datasets (256 images, gridsize=2, batch=4), ran inference with debug dumps, and captured fresh torch_patch_stats.json showing non-zero variance (var_zero_mean~6.15e-05).
 Training completed successfully producing wts.h5.zip, inference generated debug dumps (canvas.json, offsets.json, pred_patches grids), and patch stats show healthy mean/std values across both training batches logged.

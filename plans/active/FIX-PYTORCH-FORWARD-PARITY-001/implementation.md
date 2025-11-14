@@ -54,6 +54,7 @@ PyTorch forward inference currently produces impulse-like patches with extremely
 
 ### Pending Tasks (Engineering)
 - The CLI/workflow bridge now threads the TrainingPayload from commit `dc5415ba`, and instrumentation hooks already emit stats under the pytest selector.
+- Evidence audit (2025-11-17): both `$HUB/cli/train_patch_stats_rerun.log` and `.../cli/inference_patch_stats_rerun.log` still begin with `2025-11-14`, and `analysis/artifact_inventory.txt` is stamped “Phase A … (2025-11-14)”, so we still need a post-fix rerun.
 - Existing hub evidence (`analysis/artifact_inventory.txt`) still reflects the Nov 14 pre-fix rerun, so repeat the short baseline + inference commands with `--log-patch-stats --patch-stats-limit 2`, capture the emitted JSON/PNG artifacts, and copy them into the Reports Hub alongside the CLI logs.
 - Refresh `$HUB/analysis/artifact_inventory.txt`, `$HUB/summary.md`, and the initiative summary once artifacts land; log blockers in `$HUB/red/blocked_<timestamp>.md`.
 
