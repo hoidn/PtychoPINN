@@ -2,13 +2,13 @@ Command: /home/ollie/miniconda3/envs/ptycho311/bin/python -m scripts.compare_mod
 Return code: 0
 
 === STDOUT ===
-2025-11-13 17:53:50,043 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
-2025-11-13 17:53:50,043 - INFO - Registration: enabled
-2025-11-13 17:53:50,043 - INFO - NPZ output: raw=enabled, aligned=enabled
-2025-11-13 17:53:50,043 - INFO - Loading PtychoPINN inference model (diffraction_to_obj) to restore configuration...
-2025-11-13 17:53:50,043 - INFO - Loading model from: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
+2025-11-13 18:22:17,553 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
+2025-11-13 18:22:17,553 - INFO - Registration: enabled
+2025-11-13 18:22:17,553 - INFO - NPZ output: raw=enabled, aligned=enabled
+2025-11-13 18:22:17,553 - INFO - Loading PtychoPINN inference model (diffraction_to_obj) to restore configuration...
+2025-11-13 18:22:17,553 - INFO - Loading model from: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
 Model: "functional"
-2025-11-13 17:53:51,124 - INFO - Model: "functional"
+2025-11-13 18:22:18,637 - INFO - Model: "functional"
 ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
 ┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
 ┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
@@ -212,7 +212,7 @@ Model: "functional"
 │ pred_intensity      │ (None, 128, 128,  │          0 │ intensity_scaler… │
 │ (SquareLayer)       │ 4)                │            │                   │
 └─────────────────────┴───────────────────┴────────────┴───────────────────┘
-2025-11-13 17:53:51,149 - INFO - ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
+2025-11-13 18:22:18,663 - INFO - ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
 ┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
 ┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
 │ input (InputLayer)  │ (None, 128, 128,  │          0 │ -                 │
@@ -416,687 +416,681 @@ Model: "functional"
 │ (SquareLayer)       │ 4)                │            │                   │
 └─────────────────────┴───────────────────┴────────────┴───────────────────┘
  Total params: 4,667,056 (17.80 MB)
-2025-11-13 17:53:51,149 - INFO - Total params: 4,667,056 (17.80 MB)
+2025-11-13 18:22:18,663 - INFO - Total params: 4,667,056 (17.80 MB)
  Trainable params: 4,667,056 (17.80 MB)
-2025-11-13 17:53:51,149 - INFO - Trainable params: 4,667,056 (17.80 MB)
+2025-11-13 18:22:18,663 - INFO - Trainable params: 4,667,056 (17.80 MB)
  Non-trainable params: 0 (0.00 B)
-2025-11-13 17:53:51,150 - INFO - Non-trainable params: 0 (0.00 B)
-None2025-11-13 17:53:51,150 - INFO - None
+2025-11-13 18:22:18,664 - INFO - Non-trainable params: 0 (0.00 B)
+None2025-11-13 18:22:18,664 - INFO - None
 
-2025-11-13 17:53:51,346 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+2025-11-13 18:22:18,859 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
   warnings.warn(
-2025-11-13 17:53:51,347 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+2025-11-13 18:22:18,860 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
   warnings.warn(
-2025-11-13 17:53:52,003 - INFO - Successfully loaded model from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
-2025-11-13 17:53:52,004 - INFO - Restored configuration from model: gridsize=2, N=128
-2025-11-13 17:53:52,004 - INFO - Loading test data from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_test.npz with restored gridsize=2...
-2025-11-13 17:53:52,004 - INFO - Using all test data (no subsampling or grouping limit)
-2025-11-13 17:53:52,004 - INFO - Loading data from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_test.npz with n_images=None, n_subsample=None
-2025-11-13 17:53:52,460 - WARNING - Ignoring NPZ 'Y' with incompatible shape (1, 128, 128, 1) (expected first axis 5216)
-2025-11-13 17:53:52,460 - INFO - Using full dataset of 5216 images
-diff3d shape: (5216, 128, 128)2025-11-13 17:53:52,499 - INFO - diff3d shape: (5216, 128, 128)
+2025-11-13 18:22:19,522 - INFO - Successfully loaded model from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
+2025-11-13 18:22:19,523 - INFO - Restored configuration from model: gridsize=2, N=128
+2025-11-13 18:22:19,523 - INFO - Loading test data from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_test.npz with restored gridsize=2...
+2025-11-13 18:22:19,523 - INFO - Using all test data (no subsampling or grouping limit)
+2025-11-13 18:22:19,523 - INFO - Loading data from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_test.npz with n_images=None, n_subsample=None
+2025-11-13 18:22:19,981 - WARNING - Ignoring NPZ 'Y' with incompatible shape (1, 128, 128, 1) (expected first axis 5216)
+2025-11-13 18:22:19,981 - INFO - Using full dataset of 5216 images
+diff3d shape: (5216, 128, 128)2025-11-13 18:22:20,020 - INFO - diff3d shape: (5216, 128, 128)
 
-probeGuess shape: (128, 128)2025-11-13 17:53:52,499 - INFO - probeGuess shape: (128, 128)
+probeGuess shape: (128, 128)2025-11-13 18:22:20,020 - INFO - probeGuess shape: (128, 128)
 
-scan_index shape: (5216,)2025-11-13 17:53:52,499 - INFO - scan_index shape: (5216,)
+scan_index shape: (5216,)2025-11-13 18:22:20,020 - INFO - scan_index shape: (5216,)
 
-objectGuess shape: (464, 464)2025-11-13 17:53:52,499 - INFO - objectGuess shape: (464, 464)
+objectGuess shape: (464, 464)2025-11-13 18:22:20,020 - INFO - objectGuess shape: (464, 464)
 
-xcoords shape: (5216,)2025-11-13 17:53:52,499 - INFO - xcoords shape: (5216,)
+xcoords shape: (5216,)2025-11-13 18:22:20,020 - INFO - xcoords shape: (5216,)
 
-ycoords shape: (5216,)2025-11-13 17:53:52,499 - INFO - ycoords shape: (5216,)
+ycoords shape: (5216,)2025-11-13 18:22:20,020 - INFO - ycoords shape: (5216,)
 
-xcoords_start shape: (5216,)2025-11-13 17:53:52,499 - INFO - xcoords_start shape: (5216,)
+xcoords_start shape: (5216,)2025-11-13 18:22:20,020 - INFO - xcoords_start shape: (5216,)
 
-ycoords_start shape: (5216,)2025-11-13 17:53:52,499 - INFO - ycoords_start shape: (5216,)
+ycoords_start shape: (5216,)2025-11-13 18:22:20,020 - INFO - ycoords_start shape: (5216,)
 
-2025-11-13 17:53:52,500 - INFO - Final configuration: gridsize=2, N=128, n_images=5216
-2025-11-13 17:53:52,500 - INFO - Using stitch_crop_size M=20 (N=128)
-2025-11-13 17:53:52,500 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=5216, n_points=5216, C=4, K=7
-2025-11-13 17:53:52,500 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=128, sequential_sampling=False
-2025-11-13 17:53:52,501 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
-2025-11-13 17:53:52,501 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 5216 > 5216 = False
-2025-11-13 17:53:52,501 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
-2025-11-13 17:53:52,501 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
-DEBUG:2025-11-13 17:53:52,501 - INFO - DEBUG:
- nsamples: 5216, gridsize: 2 (using efficient random sample-then-group strategy)2025-11-13 17:53:52,501 - INFO - nsamples: 5216, gridsize: 2 (using efficient random sample-then-group strategy)
+2025-11-13 18:22:20,021 - INFO - Final configuration: gridsize=2, N=128, n_images=5216
+2025-11-13 18:22:20,021 - INFO - Using stitch_crop_size M=20 (N=128)
+2025-11-13 18:22:20,021 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=5216, n_points=5216, C=4, K=7
+2025-11-13 18:22:20,021 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=128, sequential_sampling=False
+2025-11-13 18:22:20,021 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
+2025-11-13 18:22:20,021 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 5216 > 5216 = False
+2025-11-13 18:22:20,021 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2025-11-13 18:22:20,021 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+DEBUG:2025-11-13 18:22:20,021 - INFO - DEBUG:
+ nsamples: 5216, gridsize: 2 (using efficient random sample-then-group strategy)2025-11-13 18:22:20,021 - INFO - nsamples: 5216, gridsize: 2 (using efficient random sample-then-group strategy)
 
-2025-11-13 17:53:52,501 - INFO - Using efficient random sampling strategy for gridsize=2
-2025-11-13 17:53:52,501 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
-2025-11-13 17:53:52,501 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=5216, K=7, C=4
-2025-11-13 17:53:52,501 - INFO - Generating 5216 groups efficiently from 5216 points (K=7, C=4)
-2025-11-13 17:53:52,501 - INFO - [OVERSAMPLING DEBUG] Standard case: using 5216 groups from 5216 points
-2025-11-13 17:53:52,501 - INFO - [OVERSAMPLING DEBUG] Using all 5216 points as seeds (no sampling needed)
-2025-11-13 17:53:52,501 - INFO - Using all 5216 points as seeds
-2025-11-13 17:53:52,534 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 5216 groups
-2025-11-13 17:53:52,534 - INFO - Successfully generated 5216 groups with shape (5216, 4)
-2025-11-13 17:53:52,534 - INFO - [OVERSAMPLING DEBUG] Generated 5216 groups in total
-2025-11-13 17:53:52,534 - INFO - Generated 5216 groups efficiently
-INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.2025-11-13 17:53:52,689 - INFO - INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+2025-11-13 18:22:20,021 - INFO - Using efficient random sampling strategy for gridsize=2
+2025-11-13 18:22:20,021 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-11-13 18:22:20,021 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=5216, K=7, C=4
+2025-11-13 18:22:20,021 - INFO - Generating 5216 groups efficiently from 5216 points (K=7, C=4)
+2025-11-13 18:22:20,021 - INFO - [OVERSAMPLING DEBUG] Standard case: using 5216 groups from 5216 points
+2025-11-13 18:22:20,021 - INFO - [OVERSAMPLING DEBUG] Using all 5216 points as seeds (no sampling needed)
+2025-11-13 18:22:20,021 - INFO - Using all 5216 points as seeds
+2025-11-13 18:22:20,056 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 5216 groups
+2025-11-13 18:22:20,056 - INFO - Successfully generated 5216 groups with shape (5216, 4)
+2025-11-13 18:22:20,056 - INFO - [OVERSAMPLING DEBUG] Generated 5216 groups in total
+2025-11-13 18:22:20,056 - INFO - Generated 5216 groups efficiently
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.2025-11-13 18:22:20,216 - INFO - INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
 
-neighbor-sampled diffraction shape2025-11-13 17:55:22,223 - INFO - neighbor-sampled diffraction shape
- (5216, 128, 128, 4)2025-11-13 17:55:22,223 - INFO - (5216, 128, 128, 4)
+neighbor-sampled diffraction shape2025-11-13 18:23:50,475 - INFO - neighbor-sampled diffraction shape
+ (5216, 128, 128, 4)2025-11-13 18:23:50,475 - INFO - (5216, 128, 128, 4)
 
-loader: using provided ground truth patches.2025-11-13 17:55:24,313 - INFO - loader: using provided ground truth patches.
+loader: using provided ground truth patches.2025-11-13 18:23:52,575 - INFO - loader: using provided ground truth patches.
 
-INFO:2025-11-13 17:55:24,737 - INFO - INFO:
- None2025-11-13 17:55:24,737 - INFO - None
+INFO:2025-11-13 18:23:52,971 - INFO - INFO:
+ None2025-11-13 18:23:52,971 - INFO - None
 
-<PtychoDataContainer X=(5216, 128, 128, 4) Y_I=(5216, 128, 128, 4) Y_phi=(5216, 128, 128, 4) norm_Y_I=() coords_nominal=(5216, 1, 2, 4) coords_true=(5216, 1, 2, 4) nn_indices=(5216, 4) mean=2619.745 global_offsets=(5216, 1, 2, 1) mean=273.808 local_offsets=(5216, 1, 2, 4) mean=0.000 probe=(128, 128) mean_amplitude=0.007>2025-11-13 17:55:24,738 - INFO - <PtychoDataContainer X=(5216, 128, 128, 4) Y_I=(5216, 128, 128, 4) Y_phi=(5216, 128, 128, 4) norm_Y_I=() coords_nominal=(5216, 1, 2, 4) coords_true=(5216, 1, 2, 4) nn_indices=(5216, 4) mean=2619.745 global_offsets=(5216, 1, 2, 1) mean=273.808 local_offsets=(5216, 1, 2, 4) mean=0.000 probe=(128, 128) mean_amplitude=0.007>
+<PtychoDataContainer X=(5216, 128, 128, 4) Y_I=(5216, 128, 128, 4) Y_phi=(5216, 128, 128, 4) norm_Y_I=() coords_nominal=(5216, 1, 2, 4) coords_true=(5216, 1, 2, 4) nn_indices=(5216, 4) mean=2619.745 global_offsets=(5216, 1, 2, 1) mean=273.808 local_offsets=(5216, 1, 2, 4) mean=0.000 probe=(128, 128) mean_amplitude=0.007>2025-11-13 18:23:52,971 - INFO - <PtychoDataContainer X=(5216, 128, 128, 4) Y_I=(5216, 128, 128, 4) Y_phi=(5216, 128, 128, 4) norm_Y_I=() coords_nominal=(5216, 1, 2, 4) coords_true=(5216, 1, 2, 4) nn_indices=(5216, 4) mean=2619.745 global_offsets=(5216, 1, 2, 1) mean=273.808 local_offsets=(5216, 1, 2, 4) mean=0.000 probe=(128, 128) mean_amplitude=0.007>
 
-2025-11-13 17:55:24,746 - INFO - Loading Baseline model from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1...
-2025-11-13 17:55:24,746 - INFO - baseline_model.h5 not found; attempting to load TF bundle (wts.h5.zip)
-2025-11-13 17:55:24,746 - INFO - Loading model from: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
-2025-11-13 17:55:25,777 - INFO - Successfully loaded model from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
-2025-11-13 17:55:25,777 - INFO - Loading iterative reconstruction from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/test/ptychi_reconstruction.npz...
-2025-11-13 17:55:25,782 - INFO - Loaded Pty-chi (pty-chi) reconstruction: (346, 514) (complex64)
-2025-11-13 17:55:25,782 - INFO - Pty-chi (pty-chi) reconstruction loaded for three-way comparison
-2025-11-13 17:55:25,782 - INFO - Running inference with PtychoPINN (diffraction_to_obj)...
-2025-11-13 17:55:25,782 - WARNING - GRIDSIZE MISMATCH: params.cfg['gridsize']=1 but diffraction has 4 channels (requires gridsize=2)
-2025-11-13 17:55:25,782 - WARNING - Forcing params.cfg['gridsize']=2 before inference to prevent Translation layer crash
+2025-11-13 18:23:52,979 - INFO - Loading Baseline model from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1...
+2025-11-13 18:23:52,979 - INFO - baseline_model.h5 not found; attempting to load TF bundle (wts.h5.zip)
+2025-11-13 18:23:52,979 - INFO - Loading model from: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
+2025-11-13 18:23:54,019 - INFO - Successfully loaded model from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
+2025-11-13 18:23:54,019 - INFO - Loading iterative reconstruction from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/test/ptychi_reconstruction.npz...
+2025-11-13 18:23:54,024 - INFO - Loaded Pty-chi (pty-chi) reconstruction: (346, 514) (complex64)
+2025-11-13 18:23:54,024 - INFO - Pty-chi (pty-chi) reconstruction loaded for three-way comparison
+2025-11-13 18:23:54,024 - INFO - Running inference with PtychoPINN (diffraction_to_obj)...
+2025-11-13 18:23:54,024 - WARNING - GRIDSIZE MISMATCH: params.cfg['gridsize']=1 but diffraction has 4 channels (requires gridsize=2)
+2025-11-13 18:23:54,024 - WARNING - Forcing params.cfg['gridsize']=2 before inference to prevent Translation layer crash
 
-[1m  1/163[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m47:52[0m 18s/step2025-11-13 17:55:44,205 - INFO - [1m  1/163[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m47:52[0m 18s/step
+[1m  1/163[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m47:30[0m 18s/step2025-11-13 18:24:12,306 - INFO - [1m  1/163[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m47:30[0m 18s/step
 
-[1m  5/163[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 13ms/step  2025-11-13 17:55:44,257 - INFO - 
-[1m  5/163[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 13ms/step
+[1m  5/163[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 13ms/step  2025-11-13 18:24:12,357 - INFO - 
+[1m  5/163[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 13ms/step
 
-[1m  9/163[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 13ms/step2025-11-13 17:55:44,307 - INFO - 
+[1m  9/163[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 13ms/step2025-11-13 18:24:12,407 - INFO - 
 [1m  9/163[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 13ms/step
 
-[1m 14/163[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 17:55:44,368 - INFO - 
+[1m 14/163[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 18:24:12,468 - INFO - 
 [1m 14/163[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
 
-[1m 19/163[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 17:55:44,428 - INFO - 
+[1m 19/163[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 18:24:12,529 - INFO - 
 [1m 19/163[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
 
-[1m 24/163[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 17:55:44,488 - INFO - 
+[1m 24/163[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 18:24:12,590 - INFO - 
 [1m 24/163[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
 
-[1m 29/163[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 17:55:44,548 - INFO - 
+[1m 29/163[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 18:24:12,650 - INFO - 
 [1m 29/163[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
 
-[1m 34/163[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 17:55:44,609 - INFO - 
+[1m 34/163[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 18:24:12,710 - INFO - 
 [1m 34/163[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
 
-[1m 39/163[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 17:55:44,669 - INFO - 
+[1m 39/163[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 18:24:12,771 - INFO - 
 [1m 39/163[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
 
-[1m 43/163[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 17:55:44,720 - INFO - 
-[1m 43/163[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 44/163[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 18:24:12,831 - INFO - 
+[1m 44/163[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
 
-[1m 48/163[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 17:55:44,782 - INFO - 
-[1m 48/163[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 49/163[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 18:24:12,893 - INFO - 
+[1m 49/163[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
 
-[1m 53/163[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 17:55:44,842 - INFO - 
-[1m 53/163[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 54/163[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 18:24:12,954 - INFO - 
+[1m 54/163[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
 
-[1m 58/163[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 17:55:44,902 - INFO - 
-[1m 58/163[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 59/163[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 18:24:13,014 - INFO - 
+[1m 59/163[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
 
-[1m 63/163[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 17:55:44,961 - INFO - 
-[1m 63/163[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 64/163[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 18:24:13,074 - INFO - 
+[1m 64/163[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
 
-[1m 68/163[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 17:55:45,021 - INFO - 
-[1m 68/163[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 69/163[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 18:24:13,135 - INFO - 
+[1m 69/163[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
 
-[1m 72/163[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 17:55:45,071 - INFO - 
-[1m 72/163[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 74/163[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 18:24:13,196 - INFO - 
+[1m 74/163[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m1s[0m 12ms/step
 
-[1m 77/163[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 17:55:45,132 - INFO - 
-[1m 77/163[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 79/163[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 18:24:13,258 - INFO - 
+[1m 79/163[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m1s[0m 12ms/step
 
-[1m 82/163[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 17:55:45,192 - INFO - 
-[1m 82/163[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 12ms/step
+[1m 83/163[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 18:24:13,308 - INFO - 
+[1m 83/163[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 12ms/step
 
-[1m 87/163[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 17:55:45,253 - INFO - 
+[1m 87/163[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 18:24:13,361 - INFO - 
 [1m 87/163[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 12ms/step
 
-[1m 91/163[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 17:55:45,310 - INFO - 
-[1m 91/163[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 12ms/step
+[1m 92/163[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 18:24:13,422 - INFO - 
+[1m 92/163[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 12ms/step
 
-[1m 96/163[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 17:55:45,372 - INFO - 
-[1m 96/163[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 12ms/step
+[1m 97/163[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 18:24:13,483 - INFO - 
+[1m 97/163[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 12ms/step
 
-[1m101/163[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 17:55:45,432 - INFO - 
-[1m101/163[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 12ms/step
+[1m102/163[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 18:24:13,544 - INFO - 
+[1m102/163[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 12ms/step
 
-[1m106/163[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 17:55:45,492 - INFO - 
-[1m106/163[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 12ms/step
+[1m107/163[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 18:24:13,606 - INFO - 
+[1m107/163[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 12ms/step
 
-[1m111/163[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 17:55:45,554 - INFO - 
-[1m111/163[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 12ms/step
+[1m112/163[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 18:24:13,669 - INFO - 
+[1m112/163[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 12ms/step
 
-[1m116/163[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 17:55:45,616 - INFO - 
-[1m116/163[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 12ms/step
+[1m117/163[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 18:24:13,730 - INFO - 
+[1m117/163[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 12ms/step
 
-[1m121/163[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 17:55:45,677 - INFO - 
-[1m121/163[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 12ms/step
+[1m122/163[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 18:24:13,793 - INFO - 
+[1m122/163[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 12ms/step
 
-[1m126/163[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 12ms/step2025-11-13 17:55:45,738 - INFO - 
-[1m126/163[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 12ms/step
+[1m127/163[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 12ms/step2025-11-13 18:24:13,854 - INFO - 
+[1m127/163[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 12ms/step
 
-[1m131/163[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 12ms/step2025-11-13 17:55:45,799 - INFO - 
-[1m131/163[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 12ms/step
+[1m132/163[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 12ms/step2025-11-13 18:24:13,916 - INFO - 
+[1m132/163[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 12ms/step
 
-[1m136/163[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 12ms/step2025-11-13 17:55:45,858 - INFO - 
-[1m136/163[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 12ms/step
+[1m137/163[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 12ms/step2025-11-13 18:24:13,975 - INFO - 
+[1m137/163[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 12ms/step
 
-[1m141/163[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 12ms/step2025-11-13 17:55:45,917 - INFO - 
+[1m141/163[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 12ms/step2025-11-13 18:24:14,027 - INFO - 
 [1m141/163[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 12ms/step
 
-[1m146/163[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 12ms/step2025-11-13 17:55:45,978 - INFO - 
+[1m146/163[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 12ms/step2025-11-13 18:24:14,086 - INFO - 
 [1m146/163[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 12ms/step
 
-[1m151/163[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 12ms/step2025-11-13 17:55:46,038 - INFO - 
+[1m151/163[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 12ms/step2025-11-13 18:24:14,145 - INFO - 
 [1m151/163[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 12ms/step
 
-[1m156/163[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 12ms/step2025-11-13 17:55:46,097 - INFO - 
-[1m156/163[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 12ms/step
+[1m155/163[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 12ms/step2025-11-13 18:24:14,201 - INFO - 
+[1m155/163[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 12ms/step
 
-[1m160/163[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 12ms/step2025-11-13 17:55:46,151 - INFO - 
-[1m160/163[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 12ms/step
-
-[1m163/163[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 12ms/step2025-11-13 17:55:46,201 - INFO - 
-[1m163/163[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 12ms/step
+[1m159/163[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 12ms/step2025-11-13 18:24:14,256 - INFO - 
+[1m159/163[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 12ms/step
 
 [1m163/163[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m20s[0m 12ms/step
-2025-11-13 17:55:46,215 - INFO - 
+2025-11-13 18:24:14,316 - INFO - 
 [1m163/163[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m20s[0m 12ms/step
-2025-11-13 17:55:46,388 - INFO - PtychoPINN inference completed in 20.61s
-2025-11-13 17:55:46,388 - INFO - PINN patches shape before reassembly: (163, 128, 128, 1), dtype: complex64
-2025-11-13 17:55:46,388 - INFO - Reassembling PINN patches...
-2025-11-13 17:55:46,388 - INFO - PINN offsets shape before reassembly: (5216, 1, 2, 1), dtype: float64
-2025-11-13 17:55:47,568 - INFO - PINN reconstruction shape after reassembly: (356, 356, 1), dtype: <dtype: 'complex64'>
-2025-11-13 17:55:47,568 - INFO - Running inference with Baseline model...
-2025-11-13 17:55:47,568 - INFO - Flattening grouped diffraction for baseline model: X (5216, 128, 128, 4) → channels merged; resolved gridsize=2 (from 4 channels)
-DEBUG: Setting2025-11-13 17:55:47,569 - INFO - DEBUG: Setting
- gridsize2025-11-13 17:55:47,569 - INFO - gridsize
- to2025-11-13 17:55:47,569 - INFO - to
- 22025-11-13 17:55:47,569 - INFO - 2
- in params2025-11-13 17:55:47,569 - INFO - in params
+2025-11-13 18:24:14,494 - INFO - PtychoPINN inference completed in 20.47s
+2025-11-13 18:24:14,495 - INFO - PINN patches shape before reassembly: (163, 128, 128, 1), dtype: complex64
+2025-11-13 18:24:14,495 - INFO - Reassembling PINN patches...
+2025-11-13 18:24:14,495 - INFO - PINN offsets shape before reassembly: (5216, 1, 2, 1), dtype: float64
+2025-11-13 18:24:15,675 - INFO - PINN reconstruction shape after reassembly: (356, 356, 1), dtype: <dtype: 'complex64'>
+2025-11-13 18:24:15,676 - INFO - Running inference with Baseline model...
+2025-11-13 18:24:15,676 - INFO - Flattening grouped diffraction for baseline model: X (5216, 128, 128, 4) → channels merged; resolved gridsize=2 (from 4 channels)
+DEBUG: Setting2025-11-13 18:24:15,676 - INFO - DEBUG: Setting
+ gridsize2025-11-13 18:24:15,676 - INFO - gridsize
+ to2025-11-13 18:24:15,676 - INFO - to
+ 22025-11-13 18:24:15,676 - INFO - 2
+ in params2025-11-13 18:24:15,676 - INFO - in params
 
-2025-11-13 17:55:47,569 - INFO - Forced params.cfg['gridsize']=2 for baseline grouped inference
-2025-11-13 17:55:48,500 - INFO - Baseline inference input shape: (20864, 128, 128, 1)
-2025-11-13 17:55:48,500 - INFO - Baseline inference offsets shape: (20864, 1, 2, 1)
+2025-11-13 18:24:15,676 - INFO - Forced params.cfg['gridsize']=2 for baseline grouped inference
+2025-11-13 18:24:16,617 - INFO - Baseline inference input shape: (20864, 128, 128, 1)
+2025-11-13 18:24:16,617 - INFO - Baseline inference offsets shape: (20864, 1, 2, 1)
 
-[1m  1/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m58:45[0m 5s/step2025-11-13 17:55:56,401 - INFO - [1m  1/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m58:45[0m 5s/step
+[1m  1/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m57:57[0m 5s/step2025-11-13 18:24:24,472 - INFO - [1m  1/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m57:57[0m 5s/step
 
-[1m  6/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m7s[0m 11ms/step 2025-11-13 17:55:56,456 - INFO - 
+[1m  6/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m7s[0m 11ms/step 2025-11-13 18:24:24,527 - INFO - 
 [1m  6/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m7s[0m 11ms/step
 
-[1m 12/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 17:55:56,515 - INFO - 
+[1m 12/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 18:24:24,587 - INFO - 
 [1m 12/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step
 
-[1m 18/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 17:55:56,573 - INFO - 
+[1m 18/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 18:24:24,646 - INFO - 
 [1m 18/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step
 
-[1m 24/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 17:55:56,632 - INFO - 
+[1m 24/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 18:24:24,706 - INFO - 
 [1m 24/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step
 
-[1m 30/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 17:55:56,691 - INFO - 
+[1m 30/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 18:24:24,765 - INFO - 
 [1m 30/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step
 
-[1m 36/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 17:55:56,750 - INFO - 
+[1m 36/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 18:24:24,824 - INFO - 
 [1m 36/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step
 
-[1m 42/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 17:55:56,809 - INFO - 
+[1m 42/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 18:24:24,883 - INFO - 
 [1m 42/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step
 
-[1m 48/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 17:55:56,869 - INFO - 
+[1m 48/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 18:24:24,941 - INFO - 
 [1m 48/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step
 
-[1m 54/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 17:55:56,928 - INFO - 
+[1m 54/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 18:24:25,000 - INFO - 
 [1m 54/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
 
-[1m 60/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 17:55:56,986 - INFO - 
+[1m 60/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 18:24:25,059 - INFO - 
 [1m 60/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
 
-[1m 66/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 17:55:57,045 - INFO - 
+[1m 66/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 18:24:25,118 - INFO - 
 [1m 66/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
 
-[1m 72/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 17:55:57,104 - INFO - 
+[1m 72/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 18:24:25,177 - INFO - 
 [1m 72/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
 
-[1m 78/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 17:55:57,163 - INFO - 
+[1m 78/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 18:24:25,236 - INFO - 
 [1m 78/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
 
-[1m 84/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 17:55:57,221 - INFO - 
+[1m 84/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 18:24:25,295 - INFO - 
 [1m 84/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
 
-[1m 90/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 17:55:57,279 - INFO - 
+[1m 90/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 18:24:25,354 - INFO - 
 [1m 90/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
 
-[1m 96/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 17:55:57,339 - INFO - 
+[1m 96/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 18:24:25,413 - INFO - 
 [1m 96/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
 
-[1m102/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 17:55:57,398 - INFO - 
+[1m102/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 18:24:25,472 - INFO - 
 [1m102/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
 
-[1m108/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 17:55:57,456 - INFO - 
+[1m108/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 18:24:25,531 - INFO - 
 [1m108/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
 
-[1m114/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 17:55:57,515 - INFO - 
+[1m114/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 18:24:25,590 - INFO - 
 [1m114/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
 
-[1m120/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 17:55:57,574 - INFO - 
+[1m120/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 18:24:25,649 - INFO - 
 [1m120/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
 
-[1m125/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 17:55:57,624 - INFO - 
-[1m125/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+[1m126/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 18:24:25,708 - INFO - 
+[1m126/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
 
-[1m131/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 17:55:57,683 - INFO - 
-[1m131/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+[1m132/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 18:24:25,771 - INFO - 
+[1m132/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
 
-[1m137/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 17:55:57,742 - INFO - 
-[1m137/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+[1m138/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 18:24:25,830 - INFO - 
+[1m138/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
 
-[1m143/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 17:55:57,801 - INFO - 
-[1m143/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
+[1m144/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 18:24:25,889 - INFO - 
+[1m144/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
 
-[1m149/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 17:55:57,859 - INFO - 
-[1m149/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+[1m150/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 18:24:25,948 - INFO - 
+[1m150/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
 
-[1m155/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 17:55:57,917 - INFO - 
-[1m155/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+[1m156/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 18:24:26,007 - INFO - 
+[1m156/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
 
-[1m161/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 17:55:57,977 - INFO - 
-[1m161/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+[1m162/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 18:24:26,066 - INFO - 
+[1m162/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
 
-[1m167/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 17:55:58,035 - INFO - 
-[1m167/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+[1m168/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 18:24:26,125 - INFO - 
+[1m168/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
 
-[1m173/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 17:55:58,094 - INFO - 
-[1m173/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+[1m174/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 18:24:26,185 - INFO - 
+[1m174/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
 
-[1m179/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 17:55:58,153 - INFO - 
-[1m179/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+[1m180/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 18:24:26,244 - INFO - 
+[1m180/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
 
-[1m185/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 17:55:58,213 - INFO - 
-[1m185/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+[1m186/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 18:24:26,303 - INFO - 
+[1m186/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
 
-[1m191/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 17:55:58,272 - INFO - 
-[1m191/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+[1m192/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 18:24:26,362 - INFO - 
+[1m192/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
 
-[1m197/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 17:55:58,330 - INFO - 
-[1m197/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+[1m198/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 18:24:26,421 - INFO - 
+[1m198/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
 
-[1m203/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 17:55:58,389 - INFO - 
-[1m203/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+[1m204/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 18:24:26,480 - INFO - 
+[1m204/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
 
-[1m209/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 17:55:58,448 - INFO - 
-[1m209/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+[1m210/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 18:24:26,539 - INFO - 
+[1m210/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
 
-[1m215/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 17:55:58,506 - INFO - 
-[1m215/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+[1m216/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 18:24:26,598 - INFO - 
+[1m216/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
 
-[1m221/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 17:55:58,565 - INFO - 
+[1m221/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 18:24:26,648 - INFO - 
 [1m221/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
 
-[1m227/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 17:55:58,623 - INFO - 
+[1m227/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 18:24:26,707 - INFO - 
 [1m227/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
 
-[1m233/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 17:55:58,682 - INFO - 
-[1m233/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+[1m232/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 18:24:26,761 - INFO - 
+[1m232/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
 
-[1m239/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 17:55:58,741 - INFO - 
-[1m239/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+[1m238/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 18:24:26,820 - INFO - 
+[1m238/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
 
-[1m245/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 17:55:58,801 - INFO - 
-[1m245/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
+[1m244/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 18:24:26,879 - INFO - 
+[1m244/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
 
-[1m251/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 17:55:58,860 - INFO - 
-[1m251/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+[1m250/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 18:24:26,938 - INFO - 
+[1m250/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
 
-[1m256/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 17:55:58,912 - INFO - 
+[1m256/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 18:24:26,997 - INFO - 
 [1m256/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
 
-[1m261/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 17:55:58,962 - INFO - 
-[1m261/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+[1m262/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 18:24:27,059 - INFO - 
+[1m262/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
 
-[1m267/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 17:55:59,021 - INFO - 
-[1m267/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+[1m268/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 18:24:27,118 - INFO - 
+[1m268/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
 
-[1m273/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 17:55:59,080 - INFO - 
-[1m273/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+[1m274/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 18:24:27,177 - INFO - 
+[1m274/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
 
-[1m278/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 17:55:59,130 - INFO - 
-[1m278/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+[1m280/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 18:24:27,236 - INFO - 
+[1m280/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
 
-[1m284/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 17:55:59,189 - INFO - 
-[1m284/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+[1m286/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 18:24:27,296 - INFO - 
+[1m286/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
 
-[1m289/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 17:55:59,240 - INFO - 
-[1m289/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+[1m292/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 18:24:27,355 - INFO - 
+[1m292/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
 
-[1m295/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 17:55:59,299 - INFO - 
-[1m295/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+[1m298/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 18:24:27,413 - INFO - 
+[1m298/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
 
-[1m300/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 17:55:59,349 - INFO - 
-[1m300/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+[1m304/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 18:24:27,472 - INFO - 
+[1m304/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
 
-[1m306/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 17:55:59,408 - INFO - 
-[1m306/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+[1m310/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 18:24:27,531 - INFO - 
+[1m310/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
 
-[1m312/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 17:55:59,468 - INFO - 
-[1m312/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+[1m316/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 18:24:27,590 - INFO - 
+[1m316/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
 
-[1m318/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 17:55:59,526 - INFO - 
-[1m318/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+[1m322/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 18:24:27,650 - INFO - 
+[1m322/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
 
-[1m324/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 17:55:59,584 - INFO - 
-[1m324/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
+[1m328/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 18:24:27,709 - INFO - 
+[1m328/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step
 
-[1m330/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 17:55:59,642 - INFO - 
-[1m330/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step
+[1m334/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 18:24:27,767 - INFO - 
+[1m334/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step
 
-[1m336/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 17:55:59,700 - INFO - 
-[1m336/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step
+[1m340/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 18:24:27,827 - INFO - 
+[1m340/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step
 
-[1m342/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 17:55:59,760 - INFO - 
-[1m342/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step
+[1m346/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 18:24:27,886 - INFO - 
+[1m346/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step
 
-[1m348/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 17:55:59,818 - INFO - 
-[1m348/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m2s[0m 10ms/step
+[1m352/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 18:24:27,945 - INFO - 
+[1m352/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m2s[0m 10ms/step
 
-[1m354/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 17:55:59,877 - INFO - 
-[1m354/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m2s[0m 10ms/step
+[1m358/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 18:24:28,004 - INFO - 
+[1m358/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m2s[0m 10ms/step
 
-[1m360/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 17:55:59,936 - INFO - 
-[1m360/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step
+[1m364/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 18:24:28,063 - INFO - 
+[1m364/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step
 
-[1m365/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 17:55:59,988 - INFO - 
-[1m365/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step
-
-[1m370/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 17:56:00,038 - INFO - 
+[1m370/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 18:24:28,122 - INFO - 
 [1m370/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step
 
-[1m376/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 17:56:00,097 - INFO - 
+[1m376/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 18:24:28,181 - INFO - 
 [1m376/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step
 
-[1m382/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 17:56:00,157 - INFO - 
+[1m382/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 18:24:28,240 - INFO - 
 [1m382/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step
 
-[1m388/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 17:56:00,216 - INFO - 
+[1m388/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 18:24:28,299 - INFO - 
 [1m388/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step
 
-[1m394/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 17:56:00,276 - INFO - 
+[1m394/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 18:24:28,358 - INFO - 
 [1m394/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step
 
-[1m400/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 17:56:00,336 - INFO - 
+[1m400/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 18:24:28,417 - INFO - 
 [1m400/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step
 
-[1m406/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 17:56:00,395 - INFO - 
+[1m406/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 18:24:28,476 - INFO - 
 [1m406/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step
 
-[1m411/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 17:56:00,445 - INFO - 
-[1m411/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step
+[1m412/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 18:24:28,535 - INFO - 
+[1m412/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step
 
-[1m417/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 17:56:00,504 - INFO - 
-[1m417/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step
+[1m418/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 18:24:28,594 - INFO - 
+[1m418/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step
 
-[1m423/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 17:56:00,564 - INFO - 
+[1m423/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 18:24:28,644 - INFO - 
 [1m423/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step
 
-[1m429/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 17:56:00,622 - INFO - 
+[1m429/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 18:24:28,704 - INFO - 
 [1m429/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step
 
-[1m435/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 17:56:00,681 - INFO - 
+[1m435/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 18:24:28,763 - INFO - 
 [1m435/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step
 
-[1m441/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 17:56:00,740 - INFO - 
+[1m441/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 18:24:28,822 - INFO - 
 [1m441/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step
 
-[1m447/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 17:56:00,799 - INFO - 
+[1m447/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 18:24:28,881 - INFO - 
 [1m447/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step
 
-[1m453/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 17:56:00,859 - INFO - 
+[1m453/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 18:24:28,941 - INFO - 
 [1m453/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m1s[0m 10ms/step
 
-[1m458/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 17:56:00,909 - INFO - 
-[1m458/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
+[1m459/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 18:24:28,999 - INFO - 
+[1m459/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
 
-[1m464/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 17:56:00,968 - INFO - 
-[1m464/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
+[1m465/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 18:24:29,058 - INFO - 
+[1m465/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
 
-[1m470/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 17:56:01,027 - INFO - 
-[1m470/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
+[1m471/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 18:24:29,117 - INFO - 
+[1m471/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
 
-[1m476/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 17:56:01,085 - INFO - 
-[1m476/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
+[1m477/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 18:24:29,176 - INFO - 
+[1m477/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
 
-[1m482/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 17:56:01,144 - INFO - 
-[1m482/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
+[1m483/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 18:24:29,236 - INFO - 
+[1m483/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
 
-[1m488/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 17:56:01,203 - INFO - 
-[1m488/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
+[1m489/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 18:24:29,295 - INFO - 
+[1m489/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
 
-[1m494/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 17:56:01,262 - INFO - 
-[1m494/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
+[1m495/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 18:24:29,355 - INFO - 
+[1m495/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
 
-[1m500/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 17:56:01,321 - INFO - 
-[1m500/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
+[1m501/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 18:24:29,414 - INFO - 
+[1m501/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
 
-[1m506/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 17:56:01,380 - INFO - 
-[1m506/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
+[1m507/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 18:24:29,473 - INFO - 
+[1m507/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
 
-[1m512/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 17:56:01,439 - INFO - 
-[1m512/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
+[1m513/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 18:24:29,531 - INFO - 
+[1m513/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
 
-[1m518/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 17:56:01,498 - INFO - 
-[1m518/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
+[1m519/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 18:24:29,590 - INFO - 
+[1m519/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
 
-[1m524/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step2025-11-13 17:56:01,557 - INFO - 
-[1m524/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step
+[1m525/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step2025-11-13 18:24:29,649 - INFO - 
+[1m525/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step
 
-[1m530/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step2025-11-13 17:56:01,616 - INFO - 
-[1m530/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step
+[1m531/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step2025-11-13 18:24:29,707 - INFO - 
+[1m531/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step
 
-[1m536/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step2025-11-13 17:56:01,674 - INFO - 
-[1m536/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step
+[1m537/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step2025-11-13 18:24:29,766 - INFO - 
+[1m537/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step
 
-[1m542/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step2025-11-13 17:56:01,733 - INFO - 
-[1m542/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step
+[1m543/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step2025-11-13 18:24:29,825 - INFO - 
+[1m543/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step
 
-[1m548/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step2025-11-13 17:56:01,792 - INFO - 
-[1m548/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step
+[1m549/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step2025-11-13 18:24:29,885 - INFO - 
+[1m549/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step
 
-[1m553/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 10ms/step2025-11-13 17:56:01,845 - INFO - 
-[1m553/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 10ms/step
+[1m555/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 18:24:29,944 - INFO - 
+[1m555/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
 
-[1m559/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 17:56:01,904 - INFO - 
-[1m559/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
+[1m561/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 18:24:30,003 - INFO - 
+[1m561/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
 
-[1m565/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 17:56:01,963 - INFO - 
-[1m565/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
+[1m567/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 18:24:30,062 - INFO - 
+[1m567/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
 
-[1m571/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 17:56:02,022 - INFO - 
-[1m571/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
+[1m573/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 18:24:30,120 - INFO - 
+[1m573/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
 
-[1m577/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 17:56:02,081 - INFO - 
-[1m577/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
+[1m579/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 18:24:30,179 - INFO - 
+[1m579/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
 
-[1m583/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 17:56:02,140 - INFO - 
-[1m583/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
+[1m585/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 18:24:30,239 - INFO - 
+[1m585/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
 
-[1m589/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 17:56:02,200 - INFO - 
-[1m589/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
+[1m591/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 18:24:30,298 - INFO - 
+[1m591/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
 
-[1m595/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 17:56:02,258 - INFO - 
-[1m595/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
+[1m597/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 18:24:30,357 - INFO - 
+[1m597/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
 
-[1m601/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 17:56:02,317 - INFO - 
-[1m601/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
+[1m603/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 18:24:30,417 - INFO - 
+[1m603/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
 
-[1m607/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 17:56:02,376 - INFO - 
-[1m607/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
+[1m609/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 18:24:30,476 - INFO - 
+[1m609/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
 
-[1m613/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 17:56:02,435 - INFO - 
-[1m613/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
+[1m614/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 18:24:30,526 - INFO - 
+[1m614/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
 
-[1m619/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 17:56:02,493 - INFO - 
-[1m619/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
+[1m620/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 18:24:30,585 - INFO - 
+[1m620/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step
 
-[1m625/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 17:56:02,552 - INFO - 
-[1m625/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step
+[1m626/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 18:24:30,645 - INFO - 
+[1m626/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step
 
-[1m631/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 17:56:02,611 - INFO - 
-[1m631/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step
+[1m632/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 18:24:30,704 - INFO - 
+[1m632/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step
 
-[1m637/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 17:56:02,669 - INFO - 
+[1m637/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 18:24:30,757 - INFO - 
 [1m637/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step
 
-[1m643/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 17:56:02,728 - INFO - 
+[1m643/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 18:24:30,817 - INFO - 
 [1m643/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step
 
-[1m648/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 17:56:02,778 - INFO - 
-[1m648/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step
+[1m649/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 18:24:30,875 - INFO - 
+[1m649/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step
 
 [1m652/652[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m12s[0m 10ms/step
-2025-11-13 17:56:02,829 - INFO - 
+2025-11-13 18:24:30,916 - INFO - 
 [1m652/652[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m12s[0m 10ms/step
-2025-11-13 17:56:04,822 - INFO - Baseline inference completed in 16.32s
-2025-11-13 17:56:04,822 - INFO - Baseline output format: single tensor, shape: (20864, 128, 128, 1), dtype: complex64
-2025-11-13 17:56:04,822 - INFO - Converting baseline output from single complex tensor format
-2025-11-13 17:56:06,611 - INFO - After conversion - amplitude shape: (20864, 128, 128, 1), phase shape: (20864, 128, 128, 1)
-2025-11-13 17:56:06,612 - INFO - Complex patches shape: (20864, 128, 128, 1), dtype: complex64
-2025-11-13 17:56:06,612 - INFO - Reassembling baseline patches...
-2025-11-13 17:56:14,430 - INFO - Saving NPZ files of raw reconstructions...
-2025-11-13 17:56:14,994 - INFO - Unified reconstructions saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/reconstructions.npz
-2025-11-13 17:56:14,995 - INFO - Metadata saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/reconstructions_metadata.txt
-2025-11-13 17:56:14,995 - INFO - Unified NPZ reconstruction file saved successfully!
-2025-11-13 17:56:14,995 - INFO - Performing coordinate-based alignment of ground truth...
-2025-11-13 17:56:14,995 - INFO - Ground truth original shape: (464, 464)
-2025-11-13 17:56:14,995 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
-2025-11-13 17:56:14,995 - INFO - Calculated ground truth crop region: rows [222:408], cols [55:408]
-2025-11-13 17:56:14,995 - INFO - Initial shapes: Recon=(356, 356), Cropped GT=(186, 353)
-2025-11-13 17:56:14,995 - INFO - Center-cropping from (356, 356) to (186, 353)
-2025-11-13 17:56:14,995 - INFO - Final aligned shape: (186, 353)
-2025-11-13 17:56:14,995 - INFO - --- Alignment complete ---
-2025-11-13 17:56:14,995 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
-2025-11-13 17:56:14,995 - INFO - Calculated ground truth crop region: rows [222:408], cols [55:408]
-2025-11-13 17:56:14,995 - INFO - Initial shapes: Recon=(360, 360), Cropped GT=(186, 353)
-2025-11-13 17:56:14,995 - INFO - Center-cropping from (360, 360) to (186, 353)
-2025-11-13 17:56:14,995 - INFO - Final aligned shape: (186, 353)
-2025-11-13 17:56:14,995 - INFO - --- Alignment complete ---
-2025-11-13 17:56:14,995 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
-2025-11-13 17:56:14,995 - INFO - Calculated ground truth crop region: rows [222:408], cols [55:408]
-2025-11-13 17:56:14,995 - INFO - Initial shapes: Recon=(346, 514), Cropped GT=(186, 353)
-2025-11-13 17:56:14,995 - INFO - Center-cropping from (346, 514) to (186, 353)
-2025-11-13 17:56:14,995 - INFO - Final aligned shape: (186, 353)
-2025-11-13 17:56:14,995 - INFO - --- Alignment complete ---
-2025-11-13 17:56:14,995 - INFO - Performing selective registration (ONLY for pty-chi/tike)...
-2025-11-13 17:56:14,995 - INFO - PtychoPINN and Baseline: skipping registration (as intended)
-2025-11-13 17:56:15,000 - INFO - Pty-chi (pty-chi) detected offset: (0.180, -0.280)
-2025-11-13 17:56:15,003 - INFO - Final evaluation shapes: PINN (186, 353), Baseline (186, 353), Pty-chi (pty-chi) (182, 349), GT (186, 353)
-Amplitude normalization scale factor: 1.1238992025-11-13 17:56:15,009 - INFO - Amplitude normalization scale factor: 1.123899
+2025-11-13 18:24:32,916 - INFO - Baseline inference completed in 16.30s
+2025-11-13 18:24:32,916 - INFO - Baseline output format: single tensor, shape: (20864, 128, 128, 1), dtype: complex64
+2025-11-13 18:24:32,916 - INFO - Converting baseline output from single complex tensor format
+2025-11-13 18:24:34,713 - INFO - After conversion - amplitude shape: (20864, 128, 128, 1), phase shape: (20864, 128, 128, 1)
+2025-11-13 18:24:34,713 - INFO - Complex patches shape: (20864, 128, 128, 1), dtype: complex64
+2025-11-13 18:24:34,713 - INFO - Reassembling baseline patches...
+2025-11-13 18:24:42,620 - INFO - Saving NPZ files of raw reconstructions...
+2025-11-13 18:24:43,187 - INFO - Unified reconstructions saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/reconstructions.npz
+2025-11-13 18:24:43,187 - INFO - Metadata saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/reconstructions_metadata.txt
+2025-11-13 18:24:43,187 - INFO - Unified NPZ reconstruction file saved successfully!
+2025-11-13 18:24:43,187 - INFO - Performing coordinate-based alignment of ground truth...
+2025-11-13 18:24:43,187 - INFO - Ground truth original shape: (464, 464)
+2025-11-13 18:24:43,187 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
+2025-11-13 18:24:43,187 - INFO - Calculated ground truth crop region: rows [222:408], cols [55:408]
+2025-11-13 18:24:43,187 - INFO - Initial shapes: Recon=(356, 356), Cropped GT=(186, 353)
+2025-11-13 18:24:43,187 - INFO - Center-cropping from (356, 356) to (186, 353)
+2025-11-13 18:24:43,187 - INFO - Final aligned shape: (186, 353)
+2025-11-13 18:24:43,187 - INFO - --- Alignment complete ---
+2025-11-13 18:24:43,187 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
+2025-11-13 18:24:43,187 - INFO - Calculated ground truth crop region: rows [222:408], cols [55:408]
+2025-11-13 18:24:43,187 - INFO - Initial shapes: Recon=(360, 360), Cropped GT=(186, 353)
+2025-11-13 18:24:43,187 - INFO - Center-cropping from (360, 360) to (186, 353)
+2025-11-13 18:24:43,188 - INFO - Final aligned shape: (186, 353)
+2025-11-13 18:24:43,188 - INFO - --- Alignment complete ---
+2025-11-13 18:24:43,188 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
+2025-11-13 18:24:43,188 - INFO - Calculated ground truth crop region: rows [222:408], cols [55:408]
+2025-11-13 18:24:43,188 - INFO - Initial shapes: Recon=(346, 514), Cropped GT=(186, 353)
+2025-11-13 18:24:43,188 - INFO - Center-cropping from (346, 514) to (186, 353)
+2025-11-13 18:24:43,188 - INFO - Final aligned shape: (186, 353)
+2025-11-13 18:24:43,188 - INFO - --- Alignment complete ---
+2025-11-13 18:24:43,188 - INFO - Performing selective registration (ONLY for pty-chi/tike)...
+2025-11-13 18:24:43,188 - INFO - PtychoPINN and Baseline: skipping registration (as intended)
+2025-11-13 18:24:43,192 - INFO - Pty-chi (pty-chi) detected offset: (1.440, 0.100)
+2025-11-13 18:24:43,196 - INFO - Final evaluation shapes: PINN (186, 353), Baseline (186, 353), Pty-chi (pty-chi) (182, 349), GT (186, 353)
+Amplitude normalization scale factor: 1.1239052025-11-13 18:24:43,203 - INFO - Amplitude normalization scale factor: 1.123905
 
-mean scale adjustment:2025-11-13 17:56:15,009 - INFO - mean scale adjustment:
- 12025-11-13 17:56:15,009 - INFO - 1
+mean scale adjustment:2025-11-13 18:24:43,203 - INFO - mean scale adjustment:
+ 12025-11-13 18:24:43,203 - INFO - 1
 
-mean scale adjustment:2025-11-13 17:56:15,010 - INFO - mean scale adjustment:
- 12025-11-13 17:56:15,010 - INFO - 1
+mean scale adjustment:2025-11-13 18:24:43,203 - INFO - mean scale adjustment:
+ 12025-11-13 18:24:43,203 - INFO - 1
 
-DEBUG eval_reconstruction [PtychoPINN]: amp_target stats: mean=0.564070, std=0.046069, shape=(182, 349, 1)2025-11-13 17:56:15,012 - INFO - DEBUG eval_reconstruction [PtychoPINN]: amp_target stats: mean=0.564070, std=0.046069, shape=(182, 349, 1)
+DEBUG eval_reconstruction [PtychoPINN]: amp_target stats: mean=0.564070, std=0.046069, shape=(182, 349, 1)2025-11-13 18:24:43,205 - INFO - DEBUG eval_reconstruction [PtychoPINN]: amp_target stats: mean=0.564070, std=0.046069, shape=(182, 349, 1)
 
-DEBUG eval_reconstruction [PtychoPINN]: amp_pred stats: mean=0.501887, std=0.371933, shape=(182, 349, 1)2025-11-13 17:56:15,012 - INFO - DEBUG eval_reconstruction [PtychoPINN]: amp_pred stats: mean=0.501887, std=0.371933, shape=(182, 349, 1)
+DEBUG eval_reconstruction [PtychoPINN]: amp_pred stats: mean=0.501884, std=0.371931, shape=(182, 349, 1)2025-11-13 18:24:43,205 - INFO - DEBUG eval_reconstruction [PtychoPINN]: amp_pred stats: mean=0.501884, std=0.371931, shape=(182, 349, 1)
 
-DEBUG eval_reconstruction [PtychoPINN]: phi_target stats: mean=0.000000, std=0.274321, shape=(182, 349)2025-11-13 17:56:15,012 - INFO - DEBUG eval_reconstruction [PtychoPINN]: phi_target stats: mean=0.000000, std=0.274321, shape=(182, 349)
+DEBUG eval_reconstruction [PtychoPINN]: phi_target stats: mean=0.000000, std=0.274321, shape=(182, 349)2025-11-13 18:24:43,205 - INFO - DEBUG eval_reconstruction [PtychoPINN]: phi_target stats: mean=0.000000, std=0.274321, shape=(182, 349)
 
-DEBUG eval_reconstruction [PtychoPINN]: phi_pred stats: mean=-0.000000, std=0.032104, shape=(182, 349)2025-11-13 17:56:15,012 - INFO - DEBUG eval_reconstruction [PtychoPINN]: phi_pred stats: mean=-0.000000, std=0.032104, shape=(182, 349)
+DEBUG eval_reconstruction [PtychoPINN]: phi_pred stats: mean=-0.000000, std=0.032098, shape=(182, 349)2025-11-13 18:24:43,205 - INFO - DEBUG eval_reconstruction [PtychoPINN]: phi_pred stats: mean=-0.000000, std=0.032098, shape=(182, 349)
 
-performed by index method2025-11-13 17:56:15,013 - INFO - performed by index method
+performed by index method2025-11-13 18:24:43,207 - INFO - performed by index method
 
-performed by index method2025-11-13 17:56:15,022 - INFO - performed by index method
+performed by index method2025-11-13 18:24:43,216 - INFO - performed by index method
 
-performed by index method2025-11-13 17:56:15,031 - INFO - performed by index method
+performed by index method2025-11-13 18:24:43,225 - INFO - performed by index method
 
-mean scale adjustment:2025-11-13 17:56:15,040 - INFO - mean scale adjustment:
- 12025-11-13 17:56:15,040 - INFO - 1
+mean scale adjustment:2025-11-13 18:24:43,234 - INFO - mean scale adjustment:
+ 12025-11-13 18:24:43,234 - INFO - 1
 
-mean scale adjustment:2025-11-13 17:56:15,040 - INFO - mean scale adjustment:
- 12025-11-13 17:56:15,040 - INFO - 1
+mean scale adjustment:2025-11-13 18:24:43,234 - INFO - mean scale adjustment:
+ 12025-11-13 18:24:43,234 - INFO - 1
 
-Phase preprocessing: plane-fitted range [-0.696, 0.419] -> scaled range [0.389, 0.567]2025-11-13 17:56:15,040 - INFO - Phase preprocessing: plane-fitted range [-0.696, 0.419] -> scaled range [0.389, 0.567]
+Phase preprocessing: plane-fitted range [-0.696, 0.419] -> scaled range [0.389, 0.567]2025-11-13 18:24:43,234 - INFO - Phase preprocessing: plane-fitted range [-0.696, 0.419] -> scaled range [0.389, 0.567]
 
-2025-11-13 17:56:15,046 - ERROR - /home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:168: RuntimeWarning: Negative SSIM value (-0.0024) encountered in MS-SSIM calculation. Clamping to 0.0001 to avoid NaN.
+2025-11-13 18:24:43,239 - ERROR - /home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:168: RuntimeWarning: Negative SSIM value (-0.0024) encountered in MS-SSIM calculation. Clamping to 0.0001 to avoid NaN.
   warnings.warn(f"Negative SSIM value ({ssim_val:.4f}) encountered in MS-SSIM calculation. "
-2025-11-13 17:56:15,046 - ERROR - /home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:168: RuntimeWarning: Negative SSIM value (-0.0082) encountered in MS-SSIM calculation. Clamping to 0.0001 to avoid NaN.
+2025-11-13 18:24:43,240 - ERROR - /home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:168: RuntimeWarning: Negative SSIM value (-0.0082) encountered in MS-SSIM calculation. Clamping to 0.0001 to avoid NaN.
   warnings.warn(f"Negative SSIM value ({ssim_val:.4f}) encountered in MS-SSIM calculation. "
-performed by index method2025-11-13 17:56:15,050 - INFO - performed by index method
+performed by index method2025-11-13 18:24:43,243 - INFO - performed by index method
 
-performed by index method2025-11-13 17:56:15,059 - INFO - performed by index method
+performed by index method2025-11-13 18:24:43,252 - INFO - performed by index method
 
-performed by index method2025-11-13 17:56:15,068 - INFO - performed by index method
+performed by index method2025-11-13 18:24:43,262 - INFO - performed by index method
 
-2025-11-13 17:56:15,077 - INFO - PtychoPINN evaluation complete. SSIM: amp=0.093, phase=0.727, MS-SSIM: amp=0.004, phase=0.048
-2025-11-13 17:56:15,082 - ERROR - /home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:543: RuntimeWarning: divide by zero encountered in scalar divide
+2025-11-13 18:24:43,270 - INFO - PtychoPINN evaluation complete. SSIM: amp=0.093, phase=0.727, MS-SSIM: amp=0.004, phase=0.048
+2025-11-13 18:24:43,275 - ERROR - /home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:543: RuntimeWarning: divide by zero encountered in scalar divide
   scale_factor = np.mean(amp_target_np) / np.mean(amp_pred_np)
-2025-11-13 17:56:15,082 - ERROR - /home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:544: RuntimeWarning: invalid value encountered in multiply
+2025-11-13 18:24:43,275 - ERROR - /home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:544: RuntimeWarning: invalid value encountered in multiply
   amp_pred_normalized = amp_pred_np * scale_factor
-Amplitude normalization scale factor: inf2025-11-13 17:56:15,082 - INFO - Amplitude normalization scale factor: inf
+Amplitude normalization scale factor: inf2025-11-13 18:24:43,275 - INFO - Amplitude normalization scale factor: inf
 
-mean scale adjustment:2025-11-13 17:56:15,082 - INFO - mean scale adjustment:
- 12025-11-13 17:56:15,082 - INFO - 1
+mean scale adjustment:2025-11-13 18:24:43,275 - INFO - mean scale adjustment:
+ 12025-11-13 18:24:43,275 - INFO - 1
 
-mean scale adjustment:2025-11-13 17:56:15,082 - INFO - mean scale adjustment:
- 12025-11-13 17:56:15,082 - INFO - 1
+mean scale adjustment:2025-11-13 18:24:43,276 - INFO - mean scale adjustment:
+ 12025-11-13 18:24:43,276 - INFO - 1
 
-DEBUG eval_reconstruction [Baseline]: amp_target stats: mean=0.564070, std=0.046069, shape=(182, 349, 1)2025-11-13 17:56:15,084 - INFO - DEBUG eval_reconstruction [Baseline]: amp_target stats: mean=0.564070, std=0.046069, shape=(182, 349, 1)
+DEBUG eval_reconstruction [Baseline]: amp_target stats: mean=0.564070, std=0.046069, shape=(182, 349, 1)2025-11-13 18:24:43,277 - INFO - DEBUG eval_reconstruction [Baseline]: amp_target stats: mean=0.564070, std=0.046069, shape=(182, 349, 1)
 
-DEBUG eval_reconstruction [Baseline]: amp_pred stats: mean=0.000000, std=0.000000, shape=(182, 349, 1)2025-11-13 17:56:15,084 - INFO - DEBUG eval_reconstruction [Baseline]: amp_pred stats: mean=0.000000, std=0.000000, shape=(182, 349, 1)
+DEBUG eval_reconstruction [Baseline]: amp_pred stats: mean=0.000000, std=0.000000, shape=(182, 349, 1)2025-11-13 18:24:43,278 - INFO - DEBUG eval_reconstruction [Baseline]: amp_pred stats: mean=0.000000, std=0.000000, shape=(182, 349, 1)
 
-DEBUG eval_reconstruction [Baseline]: phi_target stats: mean=0.000000, std=0.274321, shape=(182, 349)2025-11-13 17:56:15,084 - INFO - DEBUG eval_reconstruction [Baseline]: phi_target stats: mean=0.000000, std=0.274321, shape=(182, 349)
+DEBUG eval_reconstruction [Baseline]: phi_target stats: mean=0.000000, std=0.274321, shape=(182, 349)2025-11-13 18:24:43,278 - INFO - DEBUG eval_reconstruction [Baseline]: phi_target stats: mean=0.000000, std=0.274321, shape=(182, 349)
 
-DEBUG eval_reconstruction [Baseline]: phi_pred stats: mean=0.000000, std=0.000000, shape=(182, 349)2025-11-13 17:56:15,084 - INFO - DEBUG eval_reconstruction [Baseline]: phi_pred stats: mean=0.000000, std=0.000000, shape=(182, 349)
+DEBUG eval_reconstruction [Baseline]: phi_pred stats: mean=0.000000, std=0.000000, shape=(182, 349)2025-11-13 18:24:43,278 - INFO - DEBUG eval_reconstruction [Baseline]: phi_pred stats: mean=0.000000, std=0.000000, shape=(182, 349)
 
-2025-11-13 17:56:15,084 - ERROR - Baseline evaluation failed: 
-Amplitude normalization scale factor: 1.1222892025-11-13 17:56:15,089 - INFO - Amplitude normalization scale factor: 1.122289
+2025-11-13 18:24:43,278 - ERROR - Baseline evaluation failed: 
+Amplitude normalization scale factor: 1.1233292025-11-13 18:24:43,283 - INFO - Amplitude normalization scale factor: 1.123329
 
-mean scale adjustment:2025-11-13 17:56:15,089 - INFO - mean scale adjustment:
- 12025-11-13 17:56:15,089 - INFO - 1
+mean scale adjustment:2025-11-13 18:24:43,283 - INFO - mean scale adjustment:
+ 12025-11-13 18:24:43,283 - INFO - 1
 
-mean scale adjustment:2025-11-13 17:56:15,089 - INFO - mean scale adjustment:
- 12025-11-13 17:56:15,089 - INFO - 1
+mean scale adjustment:2025-11-13 18:24:43,283 - INFO - mean scale adjustment:
+ 12025-11-13 18:24:43,283 - INFO - 1
 
-DEBUG eval_reconstruction [Pty-chi (pty-chi)]: amp_target stats: mean=0.563962, std=0.046323, shape=(178, 345, 1)2025-11-13 17:56:15,091 - INFO - DEBUG eval_reconstruction [Pty-chi (pty-chi)]: amp_target stats: mean=0.563962, std=0.046323, shape=(178, 345, 1)
+DEBUG eval_reconstruction [Pty-chi (pty-chi)]: amp_target stats: mean=0.563962, std=0.046323, shape=(178, 345, 1)2025-11-13 18:24:43,285 - INFO - DEBUG eval_reconstruction [Pty-chi (pty-chi)]: amp_target stats: mean=0.563962, std=0.046323, shape=(178, 345, 1)
 
-DEBUG eval_reconstruction [Pty-chi (pty-chi)]: amp_pred stats: mean=0.502510, std=0.108508, shape=(178, 345, 1)2025-11-13 17:56:15,091 - INFO - DEBUG eval_reconstruction [Pty-chi (pty-chi)]: amp_pred stats: mean=0.502510, std=0.108508, shape=(178, 345, 1)
+DEBUG eval_reconstruction [Pty-chi (pty-chi)]: amp_pred stats: mean=0.502045, std=0.107945, shape=(178, 345, 1)2025-11-13 18:24:43,285 - INFO - DEBUG eval_reconstruction [Pty-chi (pty-chi)]: amp_pred stats: mean=0.502045, std=0.107945, shape=(178, 345, 1)
 
-DEBUG eval_reconstruction [Pty-chi (pty-chi)]: phi_target stats: mean=0.000000, std=0.275141, shape=(178, 345)2025-11-13 17:56:15,091 - INFO - DEBUG eval_reconstruction [Pty-chi (pty-chi)]: phi_target stats: mean=0.000000, std=0.275141, shape=(178, 345)
+DEBUG eval_reconstruction [Pty-chi (pty-chi)]: phi_target stats: mean=0.000000, std=0.275141, shape=(178, 345)2025-11-13 18:24:43,285 - INFO - DEBUG eval_reconstruction [Pty-chi (pty-chi)]: phi_target stats: mean=0.000000, std=0.275141, shape=(178, 345)
 
-DEBUG eval_reconstruction [Pty-chi (pty-chi)]: phi_pred stats: mean=-0.000000, std=0.331795, shape=(178, 345)2025-11-13 17:56:15,092 - INFO - DEBUG eval_reconstruction [Pty-chi (pty-chi)]: phi_pred stats: mean=-0.000000, std=0.331795, shape=(178, 345)
+DEBUG eval_reconstruction [Pty-chi (pty-chi)]: phi_pred stats: mean=-0.000000, std=0.332012, shape=(178, 345)2025-11-13 18:24:43,285 - INFO - DEBUG eval_reconstruction [Pty-chi (pty-chi)]: phi_pred stats: mean=-0.000000, std=0.332012, shape=(178, 345)
 
-performed by index method2025-11-13 17:56:15,094 - INFO - performed by index method
+performed by index method2025-11-13 18:24:43,287 - INFO - performed by index method
 
-performed by index method2025-11-13 17:56:15,102 - INFO - performed by index method
+performed by index method2025-11-13 18:24:43,296 - INFO - performed by index method
 
-performed by index method2025-11-13 17:56:15,110 - INFO - performed by index method
+performed by index method2025-11-13 18:24:43,304 - INFO - performed by index method
 
-mean scale adjustment:2025-11-13 17:56:15,118 - INFO - mean scale adjustment:
- 12025-11-13 17:56:15,118 - INFO - 1
+mean scale adjustment:2025-11-13 18:24:43,312 - INFO - mean scale adjustment:
+ 12025-11-13 18:24:43,312 - INFO - 1
 
-mean scale adjustment:2025-11-13 17:56:15,118 - INFO - mean scale adjustment:
- 12025-11-13 17:56:15,118 - INFO - 1
+mean scale adjustment:2025-11-13 18:24:43,312 - INFO - mean scale adjustment:
+ 12025-11-13 18:24:43,312 - INFO - 1
 
-Phase preprocessing: plane-fitted range [-0.694, 0.419] -> scaled range [0.390, 0.567]2025-11-13 17:56:15,119 - INFO - Phase preprocessing: plane-fitted range [-0.694, 0.419] -> scaled range [0.390, 0.567]
+Phase preprocessing: plane-fitted range [-0.694, 0.419] -> scaled range [0.390, 0.567]2025-11-13 18:24:43,313 - INFO - Phase preprocessing: plane-fitted range [-0.694, 0.419] -> scaled range [0.390, 0.567]
 
-performed by index method2025-11-13 17:56:15,128 - INFO - performed by index method
+performed by index method2025-11-13 18:24:43,322 - INFO - performed by index method
 
-performed by index method2025-11-13 17:56:15,136 - INFO - performed by index method
+performed by index method2025-11-13 18:24:43,330 - INFO - performed by index method
 
-performed by index method2025-11-13 17:56:15,145 - INFO - performed by index method
+performed by index method2025-11-13 18:24:43,339 - INFO - performed by index method
 
-2025-11-13 17:56:15,153 - INFO - Pty-chi (pty-chi) evaluation complete. SSIM: amp=0.308, phase=0.856, MS-SSIM: amp=0.628, phase=0.839
-2025-11-13 17:56:15,154 - INFO - Metrics saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/comparison_metrics.csv
+2025-11-13 18:24:43,347 - INFO - Pty-chi (pty-chi) evaluation complete. SSIM: amp=0.315, phase=0.873, MS-SSIM: amp=0.645, phase=0.866
+2025-11-13 18:24:43,348 - INFO - Metrics saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/comparison_metrics.csv
 
---- Comparison Metrics ---2025-11-13 17:56:15,154 - INFO - --- Comparison Metrics ---
+--- Comparison Metrics ---2025-11-13 18:24:43,348 - INFO - --- Comparison Metrics ---
 
             model                 metric  amplitude     phase     value
-       PtychoPINN                    mae   0.401280  0.241510       NaN
-       PtychoPINN                    mse   0.178046  0.075368       NaN
-       PtychoPINN                   psnr  55.625471 59.358920       NaN
-       PtychoPINN                   ssim   0.093242  0.727271       NaN
-       PtychoPINN                ms_ssim   0.003690  0.047559       NaN
+       PtychoPINN                    mae   0.401280  0.241509       NaN
+       PtychoPINN                    mse   0.178046  0.075366       NaN
+       PtychoPINN                   psnr  55.625471 59.359021       NaN
+       PtychoPINN                   ssim   0.093236  0.727275       NaN
+       PtychoPINN                ms_ssim   0.003691  0.047561       NaN
        PtychoPINN                  frc50   1.000000  1.000000       NaN
          Baseline                    mae        NaN       NaN       NaN
          Baseline                    mse        NaN       NaN       NaN
@@ -1104,21 +1098,21 @@ performed by index method2025-11-13 17:56:15,145 - INFO - performed by index met
          Baseline                   ssim        NaN       NaN       NaN
          Baseline                ms_ssim        NaN       NaN       NaN
          Baseline                  frc50        NaN       NaN       NaN
-Pty-chi (pty-chi)                    mae   0.068922  0.122770       NaN
-Pty-chi (pty-chi)                    mse   0.007149  0.025300       NaN
-Pty-chi (pty-chi)                   psnr  69.588423 64.099603       NaN
-Pty-chi (pty-chi)                   ssim   0.308111  0.855809       NaN
-Pty-chi (pty-chi)                ms_ssim   0.627979  0.839151       NaN
+Pty-chi (pty-chi)                    mae   0.067846  0.113992       NaN
+Pty-chi (pty-chi)                    mse   0.006981  0.021746       NaN
+Pty-chi (pty-chi)                   psnr  69.691934 64.756978       NaN
+Pty-chi (pty-chi)                   ssim   0.315198  0.872655       NaN
+Pty-chi (pty-chi)                ms_ssim   0.644743  0.865627       NaN
 Pty-chi (pty-chi)                  frc50   1.000000  1.000000       NaN
-Pty-chi (pty-chi) registration_offset_dy        NaN       NaN  0.180000
-Pty-chi (pty-chi) registration_offset_dx        NaN       NaN -0.280000
-       PtychoPINN     computation_time_s        NaN       NaN 20.605662
-         Baseline     computation_time_s        NaN       NaN 16.3218982025-11-13 17:56:15,156 - INFO - model                 metric  amplitude     phase     value
-       PtychoPINN                    mae   0.401280  0.241510       NaN
-       PtychoPINN                    mse   0.178046  0.075368       NaN
-       PtychoPINN                   psnr  55.625471 59.358920       NaN
-       PtychoPINN                   ssim   0.093242  0.727271       NaN
-       PtychoPINN                ms_ssim   0.003690  0.047559       NaN
+Pty-chi (pty-chi) registration_offset_dy        NaN       NaN  1.440000
+Pty-chi (pty-chi) registration_offset_dx        NaN       NaN  0.100000
+       PtychoPINN     computation_time_s        NaN       NaN 20.470156
+         Baseline     computation_time_s        NaN       NaN 16.2981502025-11-13 18:24:43,350 - INFO - model                 metric  amplitude     phase     value
+       PtychoPINN                    mae   0.401280  0.241509       NaN
+       PtychoPINN                    mse   0.178046  0.075366       NaN
+       PtychoPINN                   psnr  55.625471 59.359021       NaN
+       PtychoPINN                   ssim   0.093236  0.727275       NaN
+       PtychoPINN                ms_ssim   0.003691  0.047561       NaN
        PtychoPINN                  frc50   1.000000  1.000000       NaN
          Baseline                    mae        NaN       NaN       NaN
          Baseline                    mse        NaN       NaN       NaN
@@ -1126,78 +1120,78 @@ Pty-chi (pty-chi) registration_offset_dx        NaN       NaN -0.280000
          Baseline                   ssim        NaN       NaN       NaN
          Baseline                ms_ssim        NaN       NaN       NaN
          Baseline                  frc50        NaN       NaN       NaN
-Pty-chi (pty-chi)                    mae   0.068922  0.122770       NaN
-Pty-chi (pty-chi)                    mse   0.007149  0.025300       NaN
-Pty-chi (pty-chi)                   psnr  69.588423 64.099603       NaN
-Pty-chi (pty-chi)                   ssim   0.308111  0.855809       NaN
-Pty-chi (pty-chi)                ms_ssim   0.627979  0.839151       NaN
+Pty-chi (pty-chi)                    mae   0.067846  0.113992       NaN
+Pty-chi (pty-chi)                    mse   0.006981  0.021746       NaN
+Pty-chi (pty-chi)                   psnr  69.691934 64.756978       NaN
+Pty-chi (pty-chi)                   ssim   0.315198  0.872655       NaN
+Pty-chi (pty-chi)                ms_ssim   0.644743  0.865627       NaN
 Pty-chi (pty-chi)                  frc50   1.000000  1.000000       NaN
-Pty-chi (pty-chi) registration_offset_dy        NaN       NaN  0.180000
-Pty-chi (pty-chi) registration_offset_dx        NaN       NaN -0.280000
-       PtychoPINN     computation_time_s        NaN       NaN 20.605662
-         Baseline     computation_time_s        NaN       NaN 16.321898
+Pty-chi (pty-chi) registration_offset_dy        NaN       NaN  1.440000
+Pty-chi (pty-chi) registration_offset_dx        NaN       NaN  0.100000
+       PtychoPINN     computation_time_s        NaN       NaN 20.470156
+         Baseline     computation_time_s        NaN       NaN 16.298150
 
-2025-11-13 17:56:15,157 - INFO - FRC curves saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/pinn_frc_curves.csv
-2025-11-13 17:56:15,157 - INFO - Saving NPZ files of aligned reconstructions...
-2025-11-13 17:56:15,227 - INFO - Unified aligned reconstructions saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/reconstructions_aligned.npz
-2025-11-13 17:56:15,228 - INFO - Aligned metadata saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/reconstructions_aligned_metadata.txt
-2025-11-13 17:56:15,228 - INFO - Unified aligned NPZ reconstruction file saved successfully!
-2025-11-13 17:56:15,264 - INFO - PtychoPINN amplitude color scale (vmin, vmax) set to: (0.000, 0.778) using 10.0/90.0 percentiles [per-panel].
-2025-11-13 17:56:15,265 - INFO - Baseline amplitude color scale (vmin, vmax) set to: (0.000, 0.000) using 10.0/90.0 percentiles [per-panel].
-2025-11-13 17:56:15,266 - INFO - PtychoPINN phase color scale (vmin, vmax) set to: (-0.078, 0.000) using 10.0/90.0 percentiles [per-panel].
-2025-11-13 17:56:15,266 - INFO - Baseline phase color scale (vmin, vmax) set to: (0.000, 0.000) using 10.0/90.0 percentiles [per-panel].
-2025-11-13 17:56:15,267 - INFO - Pty-chi (pty-chi) amplitude color scale (vmin, vmax) set to: (0.351, 0.641) using 10.0/90.0 percentiles [per-panel].
-2025-11-13 17:56:15,269 - INFO - Pty-chi (pty-chi) phase color scale (vmin, vmax) set to: (-0.599, 0.246) using 10.0/90.0 percentiles [per-panel].
-2025-11-13 17:56:15,278 - INFO - Ground Truth amplitude color scale (vmin, vmax) set to: (0.500, 0.620) using 10.0/90.0 percentiles [per-panel].
-2025-11-13 17:56:15,279 - INFO - Ground Truth phase color scale (vmin, vmax) set to: (-0.468, 0.276) using 10.0/90.0 percentiles [per-panel].
-2025-11-13 17:56:15,981 - INFO - Visual comparison saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/comparison_plot.png
-2025-11-13 17:56:15,982 - INFO - 
+2025-11-13 18:24:43,351 - INFO - FRC curves saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/pinn_frc_curves.csv
+2025-11-13 18:24:43,351 - INFO - Saving NPZ files of aligned reconstructions...
+2025-11-13 18:24:43,422 - INFO - Unified aligned reconstructions saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/reconstructions_aligned.npz
+2025-11-13 18:24:43,422 - INFO - Aligned metadata saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/reconstructions_aligned_metadata.txt
+2025-11-13 18:24:43,422 - INFO - Unified aligned NPZ reconstruction file saved successfully!
+2025-11-13 18:24:43,459 - INFO - PtychoPINN amplitude color scale (vmin, vmax) set to: (0.000, 0.778) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 18:24:43,459 - INFO - Baseline amplitude color scale (vmin, vmax) set to: (0.000, 0.000) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 18:24:43,460 - INFO - PtychoPINN phase color scale (vmin, vmax) set to: (-0.078, 0.000) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 18:24:43,461 - INFO - Baseline phase color scale (vmin, vmax) set to: (0.000, 0.000) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 18:24:43,461 - INFO - Pty-chi (pty-chi) amplitude color scale (vmin, vmax) set to: (0.351, 0.639) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 18:24:43,463 - INFO - Pty-chi (pty-chi) phase color scale (vmin, vmax) set to: (-0.601, 0.245) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 18:24:43,472 - INFO - Ground Truth amplitude color scale (vmin, vmax) set to: (0.500, 0.620) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 18:24:43,473 - INFO - Ground Truth phase color scale (vmin, vmax) set to: (-0.468, 0.276) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 18:24:44,177 - INFO - Visual comparison saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/comparison_plot.png
+2025-11-13 18:24:44,177 - INFO - 
 Comparison complete!
-2025-11-13 17:56:15,982 - INFO - Results saved to: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test
+2025-11-13 18:24:44,177 - INFO - Results saved to: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test
 
 
 === STDERR ===
-2025-11-13 17:53:47.733701: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-11-13 18:22:15.199471: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1763085227.745176 2435465 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1763085227.749104 2435465 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1763085227.759265 2435465 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763085227.759277 2435465 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763085227.759279 2435465 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763085227.759280 2435465 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2025-11-13 17:53:47.762045: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+E0000 00:00:1763086935.210792 2465723 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763086935.214421 2465723 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763086935.224550 2465723 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763086935.224560 2465723 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763086935.224562 2465723 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763086935.224563 2465723 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-13 18:22:15.227285: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
 To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-I0000 00:00:1763085230.427200 2435465 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
-I0000 00:00:1763085230.428540 2435465 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
-2025-11-13 17:53:51.150237: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:103] Profiler session initializing.
-2025-11-13 17:53:51.150248: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:118] Profiler session started.
+I0000 00:00:1763086937.936476 2465723 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1763086937.937657 2465723 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+2025-11-13 18:22:18.664221: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:103] Profiler session initializing.
+2025-11-13 18:22:18.664231: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:118] Profiler session started.
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-I0000 00:00:1763085231.150260 2435465 cupti_tracer.cc:1026] Profiler found 1 GPUs
-W0000 00:00:1763085231.167359 2435465 cupti_tracer.cc:1213] Fail to use per-thread activity buffer, cupti trace overhead may be big. CUPTI ERROR CODE:1
-2025-11-13 17:53:51.167433: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:130] Profiler session tear down.
-I0000 00:00:1763085231.167505 2435465 cupti_tracer.cc:1249] CUPTI activity buffer flushed
+I0000 00:00:1763086938.664244 2465723 cupti_tracer.cc:1026] Profiler found 1 GPUs
+W0000 00:00:1763086938.681590 2465723 cupti_tracer.cc:1213] Fail to use per-thread activity buffer, cupti trace overhead may be big. CUPTI ERROR CODE:1
+2025-11-13 18:22:18.681662: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:130] Profiler session tear down.
+I0000 00:00:1763086938.681733 2465723 cupti_tracer.cc:1249] CUPTI activity buffer flushed
 /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
   warnings.warn(
 /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
   warnings.warn(
-I0000 00:00:1763085233.405711 2435465 service.cc:152] XLA service 0x4964ae90 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
-I0000 00:00:1763085233.405728 2435465 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
-2025-11-13 17:53:53.427220: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
-I0000 00:00:1763085233.448095 2435465 cuda_dnn.cc:529] Loaded cuDNN version 91002
-I0000 00:00:1763085233.606867 2435465 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
-2025-11-13 17:55:16.414892: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 2734686208 exceeds 10% of free system memory.
-2025-11-13 17:55:27.751557: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_6_1/padded_obj_2_1/cond/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_6_1/padded_obj_2_1/cond/while/cond_0
-2025-11-13 17:55:27.959292: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_6_1/padded_obj_2_1/cond_1/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while/cond_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while_1_0
-2025-11-13 17:55:28.100253: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_6_1/padded_obj_2_1/cond_2/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_6_1/padded_obj_2_1/cond_2/while/cond_0
-2025-11-13 17:55:28.253804: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_6_1/padded_obj_2_1/cond_3/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while/cond_0
-2025-11-13 17:55:29.487936: E external/local_xla/xla/service/slow_operation_alarm.cc:73] Constant folding an instruction is taking > 1s:
+I0000 00:00:1763086940.943714 2465723 service.cc:152] XLA service 0x4cfd29f0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1763086940.943733 2465723 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-11-13 18:22:20.965227: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1763086940.985909 2465723 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1763086941.143850 2465723 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+2025-11-13 18:23:44.692547: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 2734686208 exceeds 10% of free system memory.
+2025-11-13 18:23:55.993052: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_6_1/padded_obj_2_1/cond/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_6_1/padded_obj_2_1/cond/while/cond_0
+2025-11-13 18:23:56.205607: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_6_1/padded_obj_2_1/cond_1/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while/cond_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while_1_0
+2025-11-13 18:23:56.346068: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_6_1/padded_obj_2_1/cond_2/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_6_1/padded_obj_2_1/cond_2/while/cond_0
+2025-11-13 18:23:56.502146: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_6_1/padded_obj_2_1/cond_3/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while/cond_0
+2025-11-13 18:23:57.744096: E external/local_xla/xla/service/slow_operation_alarm.cc:73] Constant folding an instruction is taking > 1s:
 
   %pad.2116 = f32[256,128,128,1]{3,2,1,0} pad(f32[128,128,128,1]{3,2,1,0} %constant.2114, f32[] %constant.2115), padding=0_128x0_0x0_0x0_0, metadata={op_type="StridedSlice" op_name="functional_6_1/padded_obj_2_1/cond_1/while/strided_slice_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while_1_tfg_cf_sunk_functional_6_1/padded_obj_2_1/cond_1/while/cond_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while_1" source_file="dummy_file_name" source_line=10}
 
 This isn't necessarily a bug; constant-folding is inherently a trade-off between compilation time and speed at runtime. XLA has some guards that attempt to keep constant folding from taking too long, but fundamentally you'll always be able to come up with an input program that takes a long time.
 
 If you'd like to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-2025-11-13 17:55:35.338480: E external/local_xla/xla/service/slow_operation_alarm.cc:140] The operation took 6.850654425s
+2025-11-13 18:24:03.500465: E external/local_xla/xla/service/slow_operation_alarm.cc:140] The operation took 6.756462465s
 Constant folding an instruction is taking > 1s:
 
   %pad.2116 = f32[256,128,128,1]{3,2,1,0} pad(f32[128,128,128,1]{3,2,1,0} %constant.2114, f32[] %constant.2115), padding=0_128x0_0x0_0x0_0, metadata={op_type="StridedSlice" op_name="functional_6_1/padded_obj_2_1/cond_1/while/strided_slice_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while_1_tfg_cf_sunk_functional_6_1/padded_obj_2_1/cond_1/while/cond_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while_1" source_file="dummy_file_name" source_line=10}
@@ -1205,14 +1199,14 @@ Constant folding an instruction is taking > 1s:
 This isn't necessarily a bug; constant-folding is inherently a trade-off between compilation time and speed at runtime. XLA has some guards that attempt to keep constant folding from taking too long, but fundamentally you'll always be able to come up with an input program that takes a long time.
 
 If you'd like to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-2025-11-13 17:55:37.355035: E external/local_xla/xla/service/slow_operation_alarm.cc:73] Constant folding an instruction is taking > 2s:
+2025-11-13 18:24:05.513103: E external/local_xla/xla/service/slow_operation_alarm.cc:73] Constant folding an instruction is taking > 2s:
 
   %pad.3952 = f32[256,128,128,1]{3,2,1,0} pad(f32[128,128,128,1]{3,2,1,0} %constant.3950, f32[] %constant.3951), padding=0_128x0_0x0_0x0_0, metadata={op_type="StridedSlice" op_name="functional_6_1/padded_obj_2_1/cond_3/while/strided_slice_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3_1_1_tfg_cf_sunk_functional_6_1/padded_obj_2_1/cond_3/while/cond_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3_1_1" source_file="dummy_file_name" source_line=10}
 
 This isn't necessarily a bug; constant-folding is inherently a trade-off between compilation time and speed at runtime. XLA has some guards that attempt to keep constant folding from taking too long, but fundamentally you'll always be able to come up with an input program that takes a long time.
 
 If you'd like to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-2025-11-13 17:55:42.177663: E external/local_xla/xla/service/slow_operation_alarm.cc:140] The operation took 6.822711583s
+2025-11-13 18:24:10.267705: E external/local_xla/xla/service/slow_operation_alarm.cc:140] The operation took 6.754685256s
 Constant folding an instruction is taking > 2s:
 
   %pad.3952 = f32[256,128,128,1]{3,2,1,0} pad(f32[128,128,128,1]{3,2,1,0} %constant.3950, f32[] %constant.3951), padding=0_128x0_0x0_0x0_0, metadata={op_type="StridedSlice" op_name="functional_6_1/padded_obj_2_1/cond_3/while/strided_slice_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3_1_1_tfg_cf_sunk_functional_6_1/padded_obj_2_1/cond_3/while/cond_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3_1_1" source_file="dummy_file_name" source_line=10}
@@ -1220,13 +1214,13 @@ Constant folding an instruction is taking > 2s:
 This isn't necessarily a bug; constant-folding is inherently a trade-off between compilation time and speed at runtime. XLA has some guards that attempt to keep constant folding from taking too long, but fundamentally you'll always be able to come up with an input program that takes a long time.
 
 If you'd like to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-2025-11-13 17:55:52.008050: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond/while/cond_0
-2025-11-13 17:55:52.109084: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond_1/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond_1/while/cond_0
-2025-11-13 17:55:52.191169: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond_2/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond_2/while/cond_0
-2025-11-13 17:55:52.252029: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond_3/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond_3/while/cond_0
-2025-11-13 17:56:02.983005: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 2734686208 exceeds 10% of free system memory.
-2025-11-13 17:56:06.923828: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 2734686208 exceeds 10% of free system memory.
-2025-11-13 17:56:10.507891: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 2734686208 exceeds 10% of free system memory.
+2025-11-13 18:24:20.161824: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond/while/cond_0
+2025-11-13 18:24:20.259792: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond_1/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond_1/while/cond_0
+2025-11-13 18:24:20.340175: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond_2/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond_2/while/cond_0
+2025-11-13 18:24:20.400491: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond_3/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond_3/while/cond_0
+2025-11-13 18:24:31.075053: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 2734686208 exceeds 10% of free system memory.
+2025-11-13 18:24:35.022711: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 2734686208 exceeds 10% of free system memory.
+2025-11-13 18:24:38.687651: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 2734686208 exceeds 10% of free system memory.
 /home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:168: RuntimeWarning: Negative SSIM value (-0.0024) encountered in MS-SSIM calculation. Clamping to 0.0001 to avoid NaN.
   warnings.warn(f"Negative SSIM value ({ssim_val:.4f}) encountered in MS-SSIM calculation. "
 /home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:168: RuntimeWarning: Negative SSIM value (-0.0082) encountered in MS-SSIM calculation. Clamping to 0.0001 to avoid NaN.

@@ -521,6 +521,19 @@ Checklist
   <status>approved</status>
 </plan_update>
 
+<plan_update version="1.0">
+  <trigger>Hub audit (2025-11-14T021842Z) shows partial progress: Phase C regenerated and compare_models now emits train/test artifacts, but `{analysis}/verification_report.json` still reports `n_valid=0/10`, `report_phase_g_dense_metrics.py` aborts because it cannot find canonical `Baseline`/`PtyChi` entries, and the SSIM grid preview fails immediately because `analysis/metrics_delta_highlights_preview.txt` never materialized.</trigger>
+  <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md, docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/DEVELOPER_GUIDE.md, docs/COMMANDS_REFERENCE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/architecture.md, specs/data_contracts.md, specs/overlap_metrics.md, specs/ptychodus_api_spec.md, docs/fix_plan.md, galph_memory.md, input.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/verification_report.json, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/metrics_summary.json, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/logs/logs/debug.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/comparison_metrics.csv, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train/comparison_metrics.csv, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/aggregate_report_cli.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_post_verify_only.log</documents_read>
+  <current_plan_path>plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md</current_plan_path>
+  <proposed_changes>- Capture the new evidence (Baseline evaluation returning all zeros on the dense **test** split plus the canonical-name mismatch called out in METRICS-NAMING-001) so the Do Now highlights both issues before the rerun.
+- Tighten the Do Now ordering: guard + translation pytest → regenerate train/test comparison bundles with canonical IDs (or file a blocker) → rerun the counted `--clobber` pipeline → immediately execute the fully parameterized `--post-verify-only` and metrics helpers so the preview, SSIM grid, verification logs, metrics digest, and artifact inventory finally land.
+- Require engineers to record a `$HUB/red/blocked_<timestamp>.md` if Baseline inference continues to emit zeros or if canonical `PtyChi` IDs still fail the metrics reporter, ensuring the ledger captures the exact failing command + signature.</proposed_changes>
+  <impacts>Without Baseline/PtyChi deltas the verification bundle cannot meet PREVIEW-PHASE-001 or TEST-CLI-001, and the initiative stays stalled with zero evidence for stakeholders.</impacts>
+  <ledger_updates>Rewrite docs/fix_plan.md, the initiative summary, hub summary, and input.md with the new guardrails (canonical model IDs, dense test Baseline zeros, missing preview), and keep the focus in ready_for_implementation so Ralph executes the rerun immediately.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
 #### Phase G — Active Checklist (2025-11-12)
 - [x] Wire post-verify automation (`run_phase_g_dense.py::main`) so every dense run automatically executes SSIM grid → verifier → highlights checker with success banner references (commit 74a97db5).
 - [x] Add pytest coverage for collect-only + execution chain (`tests/study/test_phase_g_dense_orchestrator.py::{test_run_phase_g_dense_collect_only_post_verify_only,test_run_phase_g_dense_post_verify_only_executes_chain}`) and archive GREEN logs under `reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/`.
@@ -538,34 +551,71 @@ Checklist
 
 
 - **Do Now — Counted Phase G rerun + verification bundle (ready_for_implementation):**
-  1. Guard the working directory and env vars:
+  1. Guard the working directory and env vars so PREVIEW-PHASE-001 / TEST-CLI-001 evidence lands in the canonical hub:
      ```bash
      test "$(pwd -P)" = "/home/ollie/Documents/PtychoPINN"
      export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
      export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier
      ```
-  2. Re-run the translation regression selector to ensure `ReassemblePatchesLayer` stays GREEN before touching the study hub:
+  2. Keep the translation regression guard GREEN before touching the hub:
      ```bash
      pytest tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split} -vv \
-       | tee "$HUB"/green/pytest_compare_models_translation_fix_v3.log
+       | tee "$HUB"/green/pytest_compare_models_translation_fix_v5.log
      ```
-  3. Execute the counted dense pipeline with clobber so Phase C/D/E artifacts regenerate inside this repo:
+  3. Regenerate the compare_models bundles **for both splits** so Baseline/PtyChi metrics exist and use canonical IDs per METRICS-NAMING-001. Capture the commands + logs under `$HUB/cli/`:
+     ```bash
+     python -m scripts.compare_models \
+       --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 \
+       --baseline_dir "$HUB"/data/phase_e/dose_1000/baseline/gs1 \
+       --test_data "$HUB"/data/phase_c/dose_1000/patched_train.npz \
+       --output_dir "$HUB"/analysis/dose_1000/dense/train \
+       --ms-ssim-sigma 1.0 --register-ptychi-only \
+       |& tee "$HUB"/cli/compare_models_dense_train_rerun.log
+     python -m scripts.compare_models \
+       --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 \
+       --baseline_dir "$HUB"/data/phase_e/dose_1000/baseline/gs1 \
+       --test_data "$HUB"/data/phase_c/dose_1000/patched_test.npz \
+       --output_dir "$HUB"/analysis/dose_1000/dense/test \
+       --ms-ssim-sigma 1.0 --register-ptychi-only \
+       |& tee "$HUB"/cli/compare_models_dense_test_rerun.log
+     ```
+     Inspect `$HUB/analysis/dose_1000/dense/test/logs/logs/debug.log` for non-zero Baseline stats; if the amplitude/phase rows still show zeros (see lines 605‑608 in the current log), stop and file `$HUB/red/blocked_<timestamp>.md` with the command + stack trace instead of continuing.
+  4. Re-run the Phase D acceptance guards so ACCEPTANCE-001 / DATA-001 stay enforced on the regenerated NPZs:
+     ```bash
+     pytest tests/study/test_dose_overlap_overlap.py::test_filter_dataset_by_mask_handles_scalar_metadata -vv \
+       | tee "$HUB"/green/pytest_filter_dataset_by_mask.log
+     pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_dense_acceptance_floor -vv \
+       | tee "$HUB"/green/pytest_dense_acceptance_floor.log
+     ```
+  5. Execute the counted dense pipeline with clobber so Phase C/D/E artifacts refresh under this repo (TYPE-PATH-001):
      ```bash
      python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \
        --hub "$HUB" --dose 1000 --view dense --splits train test --clobber \
        |& tee "$HUB"/cli/run_phase_g_dense_stdout.log
      ```
-     Immediately confirm `$HUB/cli/phase_d_dense.log` records the regenerated overlap run and that `data/phase_d/dose_1000/dense/{train.npz,test.npz}` plus `data/phase_e/dose_1000/dense/gs2/wts.h5.zip` have fresh timestamps; failures → `$HUB/red/blocked_<timestamp>.md`.
-  4. Run the fully parameterized post-verify helper:
+     Immediately confirm `$HUB/cli/phase_d_dense.log` and `$HUB/cli/phase_e_dense_gs2_dose1000.log` gained fresh content plus that `data/phase_d/dose_1000/dense/{train.npz,test.npz}` and `data/phase_e/dose_1000/dense/gs2/wts.h5.zip` exist; otherwise capture a `$HUB/red/blocked_<timestamp>.md` citing the failing phase.
+  6. Before touching the SSIM grid, regenerate the metrics bundle so the preview + digest exist:
+     ```bash
+     python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/report_phase_g_dense_metrics.py \
+       --hub "$HUB" --metrics "$HUB"/analysis/metrics_summary.json \
+       --output "$HUB"/analysis/aggregate_report.md \
+       --highlights "$HUB"/analysis/aggregate_highlights.txt \
+       |& tee "$HUB"/cli/aggregate_report_cli.log
+     python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/analyze_dense_metrics.py \
+       --hub "$HUB" \
+       |& tee "$HUB"/cli/analyze_dense_metrics.log
+     ```
+     Ensure the reporter now sees `Baseline` and `PtyChi`; if it still fails, log the canonical-name mismatch per METRICS-NAMING-001 and stop.
+  7. Run the fully parameterized post-verify helper (now that the preview exists) so SSIM grid + verification logs populate `{analysis}`:
      ```bash
      python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \
        --hub "$HUB" --dose 1000 --view dense --splits train test --post-verify-only \
        |& tee "$HUB"/cli/run_phase_g_dense_post_verify_only.log
      ```
-  5. If `analysis/metrics_summary.json` predates the rerun, execute `report_phase_g_dense_metrics.py --hub "$HUB" --metrics "$HUB"/analysis/metrics_summary.json --output "$HUB"/analysis/aggregate_report.md --highlights "$HUB"/analysis/aggregate_highlights.txt` followed by `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/analyze_dense_metrics.py --hub "$HUB"` so `{analysis}` gains refreshed `metrics_summary.json`, `metrics_summary.md`, `metrics_delta_highlights_preview.txt`, `metrics_digest.md`, and `analysis/artifact_inventory.txt`. Log stdout under `$HUB/cli/aggregate_report_cli.log` / `$HUB/cli/analyze_dense_metrics.log`.
-  6. Verify `{analysis}` now contains `ssim_grid_summary.md`, `ssim_grid.log`, `verification_report.json` (`n_valid=10`), `verification_report_translation_fix.json`, `verify_dense_stdout.log`, `check_dense_highlights.log`, MS-SSIM/MAE metrics CSVs, preview text, and `analysis/artifact_inventory.txt`. Any missing artifact or failing check → `$HUB/red/blocked_<timestamp>.md` with the exact command/log path and minimal error signature.
-  7. Update `analysis/blocker.log`, `{analysis}/verification_report.json`, `$HUB/summary/summary.md`, docs/fix_plan.md, and galph_memory with MS-SSIM/MAE deltas, selectors, CLI paths, and verification status so the initiative can hand back to downstream tasks.
+  8. Confirm `{analysis}` now contains `ssim_grid_summary.md`, `ssim_grid.log`, `verification_report.json` with `n_valid=10`, `verification_report_translation_fix.json`, `verify_dense_stdout.log`, `check_dense_highlights.log`, refreshed metrics summary/digest CSV/MD files, `analysis/metrics_delta_highlights_preview.txt`, and `analysis/artifact_inventory.txt`. Any missing artifact or regression → `$HUB/red/blocked_<timestamp>.md` with the exact command + error signature before handing back.
+  9. Update `analysis/blocker.log`, `{analysis}/verification_report.json`, `$HUB/summary/summary.md`, docs/fix_plan.md, and galph_memory with the MS-SSIM/MAE deltas, selectors, and CLI paths so downstream phases can consume the fresh evidence.
 
+- **2025-11-14T021842Z audit:** `{analysis}/verification_report.json` still reports `n_valid=0/10` and even claims `metrics_summary.json` is missing (lines 1‑19), yet the file now exists but its Baseline rows are empty and the PtyChi model is labeled `“Pty-chi (pty-chi)”` (metrics_summary.json lines 48‑105). The dense **test** comparison log proves why: `debug.log` shows Baseline amplitude/phase remain all zeros (lines 600‑609) and `comparison_metrics.csv` keeps blank Baseline rows (lines 8‑18), so `report_phase_g_dense_metrics.py` bails out with `Required models missing for delta computation: Baseline, PtyChi` (aggregate_report_cli.log lines 1‑11). Because the preview text never appears, `run_phase_g_dense_post_verify_only.log` still dies under PREVIEW-PHASE-001 complaining `analysis/metrics_delta_highlights_preview.txt` is missing (lines 12‑23). The refreshed Do Now therefore front-loads compare_models fixes (with canonical IDs) and reruns the metrics helpers before retrying the SSIM grid/verification chain.
 - **2025-11-14T173000Z audit:** Translation blocker is resolved (see `green/pytest_compare_models_translation_fix_v2.log`, `cli/phase_g_dense_translation_fix_{train,test}_v2.log`, `analysis/verification_report_translation_fix.json`), yet `{analysis}/verification_report.json` remains 0/10 because the counted rerun never executed. `analysis/blocker.log` now references the failing aggregate metrics CLI (`ERROR: Required models missing for delta computation: Baseline, PtyChi`), and `cli/run_phase_g_dense_post_verify_only.log` is still the old argparse usage banner. Do Now stays ready_for_implementation: guard env/HUB → rerun the translation regression selector → execute the counted `run_phase_g_dense.py --clobber` → immediately run the fully parameterized `--post-verify-only` → refresh the metrics helpers → ensure `{analysis}` holds SSIM grid / verification / highlights / metrics / preview / inventory artifacts with 10/10 validity, logging blockers under `$HUB/red/blocked_<timestamp>.md`.
 
 - **2025-11-14T011500Z audit:** `analysis/verification_report.json` still reports `n_valid=0`, the newest CLI log remains `run_phase_g_dense_stdout.log` (timestamp 2025-11-12T22:24Z), `cli/phase_d_dense.log` is empty, and `cli/phase_e_dense_gs2_dose1000.log` logs “No jobs match the specified filters” because dense NPZ files were never detected. `analysis/comparison_manifest.json` + `analysis/dose_100000/dense/train/comparison.log` still reference the old dose=100000 run that failed with `ValueError: Dimensions must be equal, but are 128 and 32` inside `Translation.call`, so there is no usable Phase G MS-SSIM/MAE evidence. Do Now stays in ready_for_implementation with the guards above: rerun the two pytest selectors, execute the counted dense pipeline with `--clobber`, verify Phase D/Phase E outputs actually materialize, run the fully parameterized `--post-verify-only` sweep, and regenerate the metrics/digest/preview/inventory bundle under `$HUB/analysis`.

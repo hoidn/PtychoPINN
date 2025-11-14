@@ -3,7 +3,7 @@
 # Log: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/aggregate_report_cli.log
 # ==============================================================================
 
-ERROR: Required models missing for delta computation: Baseline, PtyChi
+ERROR: Required models missing for delta computation: Baseline
 Available models: Pty-chi (pty-chi), PtychoPINN
 
 [run_phase_g_dense] ERROR: Command failed with return code 1
