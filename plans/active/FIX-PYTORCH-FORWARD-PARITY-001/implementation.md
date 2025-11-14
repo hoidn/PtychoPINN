@@ -59,6 +59,39 @@ PyTorch forward inference currently produces impulse-like patches with extremely
 - Ralph’s latest evidence-only commit (`876eeb12`) refreshed `outputs/torch_forward_parity_baseline/analysis/torch_patch_stats*.json` plus `train_debug.log`, but it never touched `$HUB`; `analysis/artifact_inventory.txt` and the CLI logs are still Nov 14. After the rerun completes, copy the new stats/grid/debug artifacts into `$HUB/analysis/` and update `$HUB/summary.md` and the initiative summary before closing Phase A.
 - Refresh `$HUB/analysis/artifact_inventory.txt`, `$HUB/summary.md`, and the initiative summary once artifacts land; log blockers in `$HUB/red/blocked_<timestamp>.md`.
 
+### Actionable Do Now — Phase A Evidence Refresh
+1. Guard env vars so selectors cite `docs/TESTING_GUIDE.md` (KB: POLICY-001 / CONFIG-001 / ANTIPATTERN-001):  
+   `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`  
+   `export HUB=$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity`  
+   `export OUT=outputs/torch_forward_parity_baseline`
+2. Re-run the instrumentation selector to prove the TrainingPayload-threaded flags still work:  
+   `pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv | tee \"$HUB\"/green/pytest_patch_stats_rerun.log`
+3. Execute the short 10-epoch Torch baseline with instrumentation enabled (same dataset slices as Nov 14):  
+   ```bash
+   python -m ptycho_torch.train \
+     --train_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz \
+     --test_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
+     --output_dir \"$OUT\" \
+     --n_images 256 --gridsize 2 --batch_size 4 \
+     --max_epochs 10 --neighbor_count 4 \
+     --torch-loss-mode poisson --accelerator gpu --deterministic --quiet \
+     --log-patch-stats --patch-stats-limit 2 \
+     |& tee \"$HUB\"/cli/train_patch_stats_rerun.log
+   ```
+4. Immediately run inference with the debug dump + patch stats enabled:  
+   ```bash
+   python -m ptycho_torch.inference \
+     --model_path \"$OUT\" \
+     --test_data datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
+     --output_dir \"$OUT\"/inference \
+     --n_images 128 --accelerator gpu \
+     --debug-dump \"$HUB\"/analysis/forward_parity_debug \
+     --log-patch-stats --patch-stats-limit 2 \
+     |& tee \"$HUB\"/cli/inference_patch_stats_rerun.log
+   ```
+5. Copy `torch_patch_stats*.json`, `torch_patch_grid*.png`, and the refreshed `forward_parity_debug/` bundle from `\"$OUT\"/analysis/` into `$HUB/analysis/`, then update `$HUB/analysis/artifact_inventory.txt`, `$HUB/summary.md`, and `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md` so Phase A evidence clearly post-dates dc5415ba.
+6. If CUDA/memory blocks any command, capture the minimal error signature and create `$HUB/red/blocked_<timestamp>.md` referencing POLICY-001 / CONFIG-001 before handing the focus back.
+
 ### Notes & Risks
 - Keep instrumentation gated (first batch or debug flag) to avoid log spam during full training.
 - Do not modify TF core files (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`) without separate approval.

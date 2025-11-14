@@ -1,3 +1,9 @@
+### Turn Summary (2025-11-17T234500Z)
+Audited the forward_parity hub and confirmed `analysis/artifact_inventory.txt` plus both CLI logs still show the 2025-11-14 timestamps, so none of the TrainingPayload evidence Ralph generated lives under `$HUB`.
+Updated the Phase A plan and fix_plan Do Now with concrete rerun steps (env exports, pytest selector, 10-epoch train/infer commands, artifact copy expectations, blocker logging per POLICY-001/CONFIG-001) and rewrote input.md to hand Ralph that runnable brief.
+Next: Ralph must rerun the selector + short Torch baseline/inference, copy the refreshed torch_patch_stats/grid/debug artifacts into `$HUB/analysis/`, refresh `$HUB/analysis/artifact_inventory.txt` + summaries, or log `$HUB/red/blocked_<timestamp>.md` if CUDA/memory blocks progress.
+Artifacts: docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md; input.md
+
 ### Turn Summary (2025-11-14T043600Z)
 Executed Phase A evidence refresh: reran pytest selector (GREEN 1/1, 7.15s), ran 10-epoch training with --log-patch-stats --patch-stats-limit 2 (completed successfully), ran inference with debug dumps, and captured fresh torch_patch_stats.json + torch_patch_grid.png artifacts.
 Training stats show non-zero variance (var_zero_mean=2.57e-05, mean=0.002909, std=0.005068), inference shows expected higher variance (var_zero_mean=5443325.0, mean=1276.072, std=2333.519) for unnormalized outputs, and all debug dumps materialized correctly with 2025-11-14 04:35-04:36 timestamps.
