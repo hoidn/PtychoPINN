@@ -23,7 +23,20 @@ Initiative Header
 - Add a new “Next Do Now” block that elevates the counted dense rerun + `--post-verify-only` helper, GREEN pytest selectors, and metrics scripts with explicit env/logging guidance.
 - Tie evidence requirements back to hub summaries and ledger updates so we know exactly what to publish once the run succeeds.</proposed_changes>
   <impacts>Running `run_phase_g_dense.py` plus verification consumes minutes and large disk space; missing any artifact keeps Phase G blocked and delays study metrics publication.</impacts>
-  <ledger_updates>Switch docs/fix_plan.md’s Active Focus to this initiative, rewrite that Do Now, refresh the initiative + hub summaries, and update input.md so Ralph executes the rerun immediately.</ledger_updates>
+<ledger_updates>Switch docs/fix_plan.md’s Active Focus to this initiative, rewrite that Do Now, refresh the initiative + hub summaries, and update input.md so Ralph executes the rerun immediately.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
+<plan_update version="1.0">
+  <trigger>FIX-COMPARE-MODELS-TRANSLATION-001 delivered (commits a80d4d2b + bf3f1b07, GREEN `green/pytest_compare_models_translation_fix_v2.log`, and train/test logs `cli/phase_g_dense_translation_fix_{train,test}_v2.log`), but `{analysis}/verification_report.json` still reports 0/10 and `analysis/blocker.log` now records the aggregate metrics CLI failing because Baseline/PtyChi deltas were never regenerated.</trigger>
+  <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md, docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/COMMANDS_REFERENCE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/DEVELOPER_GUIDE.md, docs/GRIDSIZE_N_GROUPS_GUIDE.md, specs/data_contracts.md, specs/overlap_metrics.md, docs/fix_plan.md, galph_memory.md, input.md, plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/verification_report.json, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/verification_report_translation_fix.json, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/blocker.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/phase_g_dense_translation_fix_train_v2.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/phase_g_dense_translation_fix_test_v2.log</documents_read>
+  <current_plan_path>plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md</current_plan_path>
+  <proposed_changes>- Capture the translation evidence in this plan and remove the already-completed smoke/test prep tasks from the Do Now.
+- Redirect the Do Now toward executing the counted Phase G rerun (`--clobber`), the fully parameterized `--post-verify-only`, and the metrics helper pair so `{analysis}` finally hits 10/10 validity with SSIM/verification/highlights/preview/inventory artifacts.
+- Require engineers to log any remaining CLI failures (e.g., aggregate_report) under `$HUB/red/blocked_<timestamp>.md` before pausing.</proposed_changes>
+  <impacts>Executing the counted run + metrics helpers consumes 30–120 minutes and heavy disk I/O; failing to finish leaves the study without publishable metrics.</impacts>
+  <ledger_updates>Update docs/fix_plan.md (Active Focus → this initiative), prepend the initiative/hub summaries with the translation fix evidence + rerun expectations, and refresh input.md/galph_memory so Ralph immediately executes the rerun + verification proof.</ledger_updates>
   <status>approved</status>
 </plan_update>
 
@@ -511,47 +524,37 @@ Checklist
 - [ ] Rerun the counted dense pipeline (after the fix/test above) with logs under the hub: `python plans/active/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense_stdout.log`, then immediately invoke `python plans/active/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --post-verify-only |& tee "$HUB"/cli/run_phase_g_dense_post_verify_only.log` before rerunning the metrics helpers if `analysis/metrics_summary.json` is stale so `{analysis}` gains SSIM grid summary/log, verification report/log, highlights log, metrics summary/digest, preview text, and `artifact_inventory.txt`. (docs/TESTING_GUIDE.md §§Phase G orchestrator + metrics; docs/findings.md: PREVIEW-PHASE-001, TEST-CLI-001.)
 
 
-- **2025-11-13T235900Z bug triage:** `cli/compare_models_dense_train_fix.log:534-566` now reaches the converter but dies in `align_for_evaluation` because `pinn_recon` stays batched `(32, 128, 128)` and `_center_crop` still expects a 2D tensor. Until we reassemble/log the PINN stack before alignment, compare_models cannot finish and `{analysis}/verification_report.json` remains 0/10.
-- **Do Now — PINN reassembly + counted rerun (ready_for_implementation):**
+- **Do Now — Counted Phase G rerun + verification bundle (ready_for_implementation):**
   1. Guard the working directory and env vars:
      ```bash
      test "$(pwd -P)" = "/home/ollie/Documents/PtychoPINN"
      export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
      export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier
      ```
-  2. Update `scripts/compare_models.py` so the PINN prediction stack is reassembled via `reassemble_position` (using the Phase G offsets and `args.stitch_crop_size`) before calling `align_for_evaluation`, log the before/after shapes, and add `test_pinn_reconstruction_reassembles_batched_predictions` to `tests/study/test_dose_overlap_comparison.py`.
-  3. Run the compare_models regression suite (existing cases + the new test) and archive the GREEN log:
+  2. Re-run the translation regression selector to ensure `ReassemblePatchesLayer` stays GREEN before touching the study hub:
      ```bash
-     pytest tests/study/test_dose_overlap_comparison.py::test_baseline_model_predict_receives_both_inputs \
-           tests/study/test_dose_overlap_comparison.py::test_baseline_complex_output_converts_to_amplitude_phase \
-           tests/study/test_dose_overlap_comparison.py::test_prepare_baseline_inference_data_grouped_flatten_helper \
-           tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_batched_predictions -vv \
-       | tee "$HUB"/green/pytest_compare_models_reassembly.log
+     pytest tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split} -vv \
+       | tee "$HUB"/green/pytest_compare_models_translation_fix_v3.log
      ```
-  4. Re-run the limited smoke with `--n-test-groups 32 --register-ptychi-only` and capture `$HUB/cli/compare_models_dense_train_fix.log`. The log must reach the metrics/report footer; otherwise file `$HUB/red/blocked_<timestamp>_compare_models.md` with the stack trace before touching the pipeline.
-  5. Re-run the two Phase D overlap selectors so scalar metadata + geometry floor behavior stay GREEN:
-     ```bash
-     pytest tests/study/test_dose_overlap_overlap.py::test_filter_dataset_by_mask_handles_scalar_metadata -vv \
-       | tee "$HUB"/green/pytest_filter_dataset_by_mask.log
-     pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_dense_acceptance_floor -vv \
-       | tee "$HUB"/green/pytest_dense_acceptance_floor.log
-     ```
-  6. Execute the counted dense pipeline with clobber:
+  3. Execute the counted dense pipeline with clobber so Phase C/D/E artifacts regenerate inside this repo:
      ```bash
      python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \
        --hub "$HUB" --dose 1000 --view dense --splits train test --clobber \
        |& tee "$HUB"/cli/run_phase_g_dense_stdout.log
      ```
      Immediately confirm `$HUB/cli/phase_d_dense.log` records the regenerated overlap run and that `data/phase_d/dose_1000/dense/{train.npz,test.npz}` plus `data/phase_e/dose_1000/dense/gs2/wts.h5.zip` have fresh timestamps; failures → `$HUB/red/blocked_<timestamp>.md`.
-  7. Run the fully parameterized post-verify helper:
+  4. Run the fully parameterized post-verify helper:
      ```bash
      python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \
        --hub "$HUB" --dose 1000 --view dense --splits train test --post-verify-only \
        |& tee "$HUB"/cli/run_phase_g_dense_post_verify_only.log
      ```
-  8. If `analysis/metrics_summary.json` predates the rerun, execute `report_phase_g_dense_metrics.py` and `analyze_dense_metrics.py` with `--hub "$HUB"` so `{analysis}` gains refreshed `metrics_summary.json`, `metrics_delta_highlights_preview.txt` (phase-only), and `metrics_digest.md`.
-  9. Verify `{analysis}` now contains `ssim_grid_summary.md`, `ssim_grid.log`, `verification_report.json` (`n_valid=10`), `verify_dense_stdout.log`, `check_dense_highlights.log`, the metrics bundle, `preview.txt`, and `analysis/artifact_inventory.txt`. Any missing artifact or failing check → `$HUB/red/blocked_<timestamp>.md` with the exact command/log path.
- 10. Update `summary.md`, `summary/summary.md`, docs/fix_plan.md, and galph_memory with MS-SSIM ±0.000 / MAE ±0.000000 deltas, the pytest/CLI/metrics commands executed, and the confirmation that `analysis/verification_report.json` is GREEN.
+  5. If `analysis/metrics_summary.json` predates the rerun, execute `report_phase_g_dense_metrics.py --hub "$HUB" --metrics "$HUB"/analysis/metrics_summary.json --output "$HUB"/analysis/aggregate_report.md --highlights "$HUB"/analysis/aggregate_highlights.txt` followed by `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/analyze_dense_metrics.py --hub "$HUB"` so `{analysis}` gains refreshed `metrics_summary.json`, `metrics_summary.md`, `metrics_delta_highlights_preview.txt`, `metrics_digest.md`, and `analysis/artifact_inventory.txt`. Log stdout under `$HUB/cli/aggregate_report_cli.log` / `$HUB/cli/analyze_dense_metrics.log`.
+  6. Verify `{analysis}` now contains `ssim_grid_summary.md`, `ssim_grid.log`, `verification_report.json` (`n_valid=10`), `verification_report_translation_fix.json`, `verify_dense_stdout.log`, `check_dense_highlights.log`, MS-SSIM/MAE metrics CSVs, preview text, and `analysis/artifact_inventory.txt`. Any missing artifact or failing check → `$HUB/red/blocked_<timestamp>.md` with the exact command/log path and minimal error signature.
+  7. Update `analysis/blocker.log`, `{analysis}/verification_report.json`, `$HUB/summary/summary.md`, docs/fix_plan.md, and galph_memory with MS-SSIM/MAE deltas, selectors, CLI paths, and verification status so the initiative can hand back to downstream tasks.
+
+- **2025-11-14T173000Z audit:** Translation blocker is resolved (see `green/pytest_compare_models_translation_fix_v2.log`, `cli/phase_g_dense_translation_fix_{train,test}_v2.log`, `analysis/verification_report_translation_fix.json`), yet `{analysis}/verification_report.json` remains 0/10 because the counted rerun never executed. `analysis/blocker.log` now references the failing aggregate metrics CLI (`ERROR: Required models missing for delta computation: Baseline, PtyChi`), and `cli/run_phase_g_dense_post_verify_only.log` is still the old argparse usage banner. Do Now stays ready_for_implementation: guard env/HUB → rerun the translation regression selector → execute the counted `run_phase_g_dense.py --clobber` → immediately run the fully parameterized `--post-verify-only` → refresh the metrics helpers → ensure `{analysis}` holds SSIM grid / verification / highlights / metrics / preview / inventory artifacts with 10/10 validity, logging blockers under `$HUB/red/blocked_<timestamp>.md`.
+
 - **2025-11-14T011500Z audit:** `analysis/verification_report.json` still reports `n_valid=0`, the newest CLI log remains `run_phase_g_dense_stdout.log` (timestamp 2025-11-12T22:24Z), `cli/phase_d_dense.log` is empty, and `cli/phase_e_dense_gs2_dose1000.log` logs “No jobs match the specified filters” because dense NPZ files were never detected. `analysis/comparison_manifest.json` + `analysis/dose_100000/dense/train/comparison.log` still reference the old dose=100000 run that failed with `ValueError: Dimensions must be equal, but are 128 and 32` inside `Translation.call`, so there is no usable Phase G MS-SSIM/MAE evidence. Do Now stays in ready_for_implementation with the guards above: rerun the two pytest selectors, execute the counted dense pipeline with `--clobber`, verify Phase D/Phase E outputs actually materialize, run the fully parameterized `--post-verify-only` sweep, and regenerate the metrics/digest/preview/inventory bundle under `$HUB/analysis`.
 - **2025-11-14T021800Z audit:** The hub remains unchanged: `analysis/verification_report.json` is still 0/10, `analysis/metrics_*` artifacts are absent, `cli/phase_d_dense.log` is a zero-byte file, and `cli/phase_e_dense_gs2_dose1000.log` still ends with “No jobs match the specified filters.” `data/phase_d/dose_1000/dense/{train.npz,test.npz}` and `data/phase_e/dose_1000/dense/gs2/train.log` retain their 2025-11-12 timestamps and there is still no `wts.h5.zip`, while the only Phase G comparison manifest/log pair references the older dose=100000 job that fails in `Translation.call`. Reaffirm the guarded pytest selectors, counted dense pipeline with `--clobber`, fully parameterized `--post-verify-only` sweep, metrics helpers, and the new checkpoint that requires engineers to verify Phase D/Phase E outputs (or record a `$HUB/red/blocked_<timestamp>.md`) before announcing success.
 - **2025-11-14T033700Z audit:** No new CLI/analysis artifacts exist after 2025-11-12, `analysis/verification_report.json` still reports `n_valid=0`, and `analysis/dose_1000/dense/train/comparison.log` now contains a `ValueError: Dimensions must be equal, but are 128 and 32` stack trace (Translation → projective_warp_xla) emitted by `scripts.fly64_dose_overlap.comparison`. `analysis/blocker.log` confirms the counted comparison command is still exiting 1 and points at `cli/phase_g_dense_train.log`, so Phase G never produced the SSIM/verification/highlights/metrics/preview/artifact-inventory bundle. Keep the Do Now unchanged: guard `/home/ollie/Documents/PtychoPINN`, export `AUTHORITATIVE_CMDS_DOC` + HUB, rerun the two pytest selectors with GREEN logs, execute the counted pipeline with `--clobber`, immediately run the fully parameterized `--post-verify-only` helper, verify Phase D/E outputs/logs (`data/phase_d/dose_1000/dense/{train.npz,test.npz}`, `data/phase_e/dose_1000/dense/gs2/wts.h5.zip`, CLI transcripts) have fresh timestamps, rerun the metrics/reporting helpers, and only then update docs once `verification_report.json` shows 10/10. If the Comparison failure reproduces, capture a `$HUB/red/blocked_<timestamp>.md` quoting the Translation stack trace plus the exact command/exit code before pausing.
