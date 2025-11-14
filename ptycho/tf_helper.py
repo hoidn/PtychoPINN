@@ -942,26 +942,34 @@ def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_
 
                 # Translation layer may change dimensions slightly due to interpolation/rounding
                 # (e.g., padded_size=158 becomes 157). We cannot use _flat_to_channel when sizes
-                # don't match because reshape will fail. Instead, align each translated patch to
-                # canvas size, then sum. Shape: batch_translated is (batch_size, H, W, 1)
-                # Use static padded_size for graph mode compatibility (shape_invariants requirement)
+                # don't match because reshape will fail. Sum the batch first, then align to canvas.
+                # Shape: batch_translated is (batch_size, H, W, 1)
 
-                # Resize each translated patch to match canvas dimensions before accumulation
-                # This preserves overlap semantics since we're just padding/cropping before
-                # summing, not changing the weights within the translated region
-                def resize_single(img):
-                    return tf.image.resize_with_crop_or_pad(img, padded_size, padded_size)
+                # Log batch dimensions for debugging
+                tf.debugging.check_numerics(batch_translated, "batch_translated contains NaN or Inf")
 
-                batch_aligned = tf.map_fn(
-                    resize_single,
-                    batch_translated,
-                    dtype=tf.float32,
-                    parallel_iterations=10
+                # Sum all translated patches in the batch first
+                # Shape: (batch_size, H, W, 1) -> (1, H, W, 1)
+                batch_summed = tf.reduce_sum(batch_translated, axis=0, keepdims=True)
+
+                # Now align the summed result to canvas dimensions using static padded_size
+                # This is CRITICAL for graph mode (tf.while_loop shape_invariants requirement)
+                # Use static padded_size integer, not tf.shape(canvas) which is dynamic
+                batch_aligned = tf.image.resize_with_crop_or_pad(batch_summed, padded_size, padded_size)
+
+                # Verify shapes and dtypes match before accumulation
+                tf.debugging.assert_equal(
+                    tf.shape(canvas),
+                    tf.shape(batch_aligned),
+                    message=f"Canvas shape mismatch: canvas vs batch_aligned (padded_size={padded_size})"
+                )
+                tf.debugging.assert_type(
+                    batch_aligned,
+                    canvas.dtype,
+                    message=f"Dtype mismatch: canvas {canvas.dtype} vs batch_aligned {batch_aligned.dtype}"
                 )
 
-                # Sum all aligned patches in the batch and return in canvas shape (1, H, W, 1)
-                batch_total = tf.reduce_sum(batch_aligned, axis=0, keepdims=True)
-                return batch_total
+                return batch_aligned
 
             def skip_batch():
                 return tf.zeros_like(canvas)
