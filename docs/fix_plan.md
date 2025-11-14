@@ -25,7 +25,7 @@
 - Depends on: INTEGRATE-PYTORCH-PARITY-001 (PyTorch backend API parity reactivation), FIX-COMPARE-MODELS-TRANSLATION-001 (translation batching guardrails)
 - Priority: High
 - Status: in_progress — Phase A COMPLETE; Phase B2 (intensity_scale persistence) merged via commit 9a09ece2, awaiting Phase B3 validation evidence
-- Owner/Date: Ralph/2025-11-13
+- Owner/Date: Ralph/2025-11-14
 - Working Plan: `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md`
 - Reports Hub: `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/`
 - Notes: Phase A rerun v3 (2025-11-14T0547Z) confirmed TrainingPayload threading and healthy variance; B1 object_big defaults already enforced (`ptycho_torch/config_factory.py:205-234`). Commit 9a09ece2 threads the learned/fallback `intensity_scale` through `_train_with_lightning → save_torch_bundle → load_inference_bundle_torch` with docs/tests updated (`docs/workflows/pytorch.md:150-189`, `tests/torch/test_model_manager.py:1-200`). Hub logs still show `Loaded intensity_scale from bundle: 1.000000` because the short baseline hasn't been rerun since B2 landed (`.../cli/inference_patch_stats_rerun_v3.log:20-38`).

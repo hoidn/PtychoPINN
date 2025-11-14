@@ -1,3 +1,21 @@
+### Phase B3 Scaling Validation — 2025-11-14
+
+Validated that Phase B2's intensity_scale persistence (commit 9a09ece2) works correctly. Training captured learned scale (9.882118), bundle persisted it in params.dill, and inference loaded the stored value instead of defaulting to 1.0.
+
+**Key Evidence**: Inference log shows `Loaded intensity_scale from bundle: 9.882118` (scaling_alignment/phase_b3/cli/inference_patch_stats_scaling.log:29), replacing previous default of `1.000000` (cli/inference_patch_stats_rerun_v3.log:26).
+
+**Test Results**:
+- **Pytest guard**: GREEN (2/2 PASSED, 3.67s) - tests/torch/test_inference_reassembly_parity.py
+- **Training**: SUCCESS (10 epochs, 256 groups, patch stats: mean=0.003913, var=0.000046)
+- **Inference**: SUCCESS (128 groups, intensity_scale=9.882118, patch stats: mean=51466.19, var=8.97e9)
+- **Bundle**: wts.h5.zip (8.3MB, sha1: 01c1a83a), params.dill (971 bytes, sha1: d70bced4)
+
+**Artifacts**: scaling_alignment/phase_b3/{cli,green,analysis}/ - logs, pytest results, debug dumps, bundle digests
+
+**Phase B3 Status**: COMPLETE - intensity_scale persistence validated
+
+---
+
 ### Turn Summary (2025-11-18T000000Z)
 Revalidated the forward_parity hub and git history: the supposed `_v2` selector/train/infer logs still begin with 2025-11-14 timestamps and `git log -n5` shows no Ralph evidence after `cdecf3fd`, so Phase A proof remains stale.
 Extended the working plan to add the pre-clobber verification step plus explicit reminders that `outputs/torch_forward_parity_baseline/analysis` only has the base `torch_patch_stats.json`/`torch_patch_grid.png`; engineers must rerun pytest + the 10-epoch train/infer commands, regenerate fresh patch stats, and overwrite the hub (or emit `_v3` copies) while citing POLICY-001 / CONFIG-001 / ANTIPATTERN-001.

@@ -1,4 +1,16 @@
 ### Turn Summary
+Executed Phase B3 validation proving Phase B2's intensity_scale persistence works correctly: pytest guard GREEN (2/2), training captured learned scale (9.882118), and inference loaded the persisted value from bundle instead of defaulting to 1.0.
+The critical evidence is inference log line 29 showing "Loaded intensity_scale from bundle: 9.882118", replacing the previous "1.000000" default seen in v3 baseline.
+All artifacts archived under scaling_alignment/phase_b3/ with bundle digests, patch stats logs, and debug dumps; Phase B3 checklist complete.
+Next: proceed to Phase C TF vs Torch parity proof per implementation plan.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/scaling_alignment/phase_b3/{cli,green,analysis}/
+
+Checklist:
+- Files touched: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/scaling_alignment/phase_b3/{cli/train_patch_stats_scaling.log,cli/inference_patch_stats_scaling.log,green/pytest_inference_reassembly.log,analysis/artifact_inventory.txt,analysis/bundle_digest.txt,analysis/forward_parity_debug_scaling/}, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/summary.md
+- Tests run: pytest tests/torch/test_inference_reassembly_parity.py -vv
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/scaling_alignment/phase_b3/analysis/{artifact_inventory.txt,bundle_digest.txt}
+
+### Turn Summary
 Verified Phase B2 landed (commit 9a09ece2) by reviewing docs/workflows/pytorch.md:150-189 and tests/torch/test_model_manager.py:1-200 and ensured the implementation plan now reflects the committed intensity_scale persistence flow.
 Confirmed the hub still reports `Loaded intensity_scale from bundle: 1.000000` (plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/cli/inference_patch_stats_rerun_v3.log:20-38), so fresh scaling evidence is required before Phase C work.
 Expanded plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md with a Phase B3 action plan (pytest guard + short-baseline rerun + bundle digest capture) and rewrote docs/fix_plan.md so the next Do Now targets HUB/scaling_alignment/phase_b3 evidence.
