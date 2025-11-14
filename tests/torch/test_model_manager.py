@@ -323,6 +323,59 @@ class TestSaveTorchBundle:
                 "intensity_scale MUST be numeric when present"
             )
 
+    def test_save_bundle_with_intensity_scale(
+        self,
+        tmp_path,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_torch_models
+    ):
+        """
+        Phase B2: Validate that save_torch_bundle persists non-default intensity_scale.
+
+        This test ensures that when an explicit intensity_scale is provided to
+        save_torch_bundle, it is correctly stored in params.dill and will be available
+        during inference loading. This satisfies the Phase B2 requirement to persist
+        the learned scale from training.
+
+        Test mechanism:
+        - Call save_torch_bundle with explicit intensity_scale=2.5
+        - Extract params.dill from the bundle
+        - Verify intensity_scale field equals the provided value
+        """
+        from ptycho_torch.model_manager import save_torch_bundle
+        from ptycho.config.config import update_legacy_dict
+
+        # Populate params.cfg via config bridge (CONFIG-001 requirement)
+        update_legacy_dict(params_cfg_snapshot, minimal_training_config)
+
+        # Define output path
+        base_path = tmp_path / "test_intensity_scale"
+
+        # Call save_torch_bundle with explicit intensity_scale
+        test_intensity_scale = 2.5
+        save_torch_bundle(
+            models_dict=dummy_torch_models,
+            base_path=str(base_path),
+            config=minimal_training_config,
+            intensity_scale=test_intensity_scale
+        )
+
+        # Extract and validate params.dill contains the intensity_scale
+        zip_path = Path(f"{base_path}.zip")
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            with zf.open('diffraction_to_obj/params.dill') as params_file:
+                loaded_params = dill.load(params_file)
+
+        # Validate intensity_scale was persisted
+        assert 'intensity_scale' in loaded_params, (
+            "params.dill MUST contain 'intensity_scale' when provided to save_torch_bundle"
+        )
+        assert loaded_params['intensity_scale'] == test_intensity_scale, (
+            f"Expected intensity_scale={test_intensity_scale}, "
+            f"got {loaded_params['intensity_scale']}"
+        )
+
 
 class TestLoadTorchBundle:
     """

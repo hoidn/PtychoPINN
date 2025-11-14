@@ -191,10 +191,15 @@ def run_cdi_example_torch(
         logger.info(f"Saving trained models to {config.output_dir} via save_torch_bundle")
         # Build archive path following TensorFlow convention (wts.h5.zip)
         archive_path = Path(config.output_dir) / "wts.h5"
+        # Phase B2: extract intensity_scale from train_results if available
+        intensity_scale = train_results.get('intensity_scale', None)
+        if intensity_scale is not None:
+            logger.info(f"Persisting intensity_scale={intensity_scale:.6f} in bundle")
         save_torch_bundle(
             models_dict=train_results['models'],
             base_path=str(archive_path),
-            config=config
+            config=config,
+            intensity_scale=intensity_scale
         )
         logger.info(f"Models saved successfully to {archive_path}.zip")
     else:
@@ -927,6 +932,31 @@ def _train_with_lightning(
 
     logger.info("Lightning training complete")
 
+    # Phase B2: Capture intensity_scale from trained model (per spec-ptycho-core.md:80-110)
+    # Extract learned scale if trainable, otherwise compute fallback
+    intensity_scale = None
+    if hasattr(model, 'scaler') and hasattr(model.scaler, 'log_scale'):
+        if model.scaler.log_scale is not None:
+            # Trainable case: extract learned parameter
+            import math
+            intensity_scale = math.exp(float(model.scaler.log_scale.detach().cpu()))
+            logger.info(f"Captured learned intensity_scale: {intensity_scale:.6f}")
+        else:
+            # Non-trainable case: compute fallback per spec formula
+            # s ≈ sqrt(nphotons) / (N/2)
+            import math
+            N = config.model.N
+            nphotons = config.nphotons
+            intensity_scale = math.sqrt(nphotons) / (N / 2.0)
+            logger.info(f"Computed fallback intensity_scale: {intensity_scale:.6f} (nphotons={nphotons}, N={N})")
+    else:
+        # Fallback: compute from config when scaler missing
+        import math
+        N = config.model.N
+        nphotons = config.nphotons
+        intensity_scale = math.sqrt(nphotons) / (N / 2.0)
+        logger.warning(f"Model missing scaler.log_scale, computed fallback: {intensity_scale:.6f}")
+
     # B2.7: Build results payload with dual-model dict for bundle persistence (Phase C4.D3)
     # save_torch_bundle requires 'autoencoder' and 'diffraction_to_obj' keys per spec §4.6
     # Since PyTorch uses a unified PtychoPINN_Lightning module, map diffraction_to_obj to the module
@@ -938,7 +968,8 @@ def _train_with_lightning(
         "models": {
             "diffraction_to_obj": model,  # Main Lightning module
             "autoencoder": {'_sentinel': 'autoencoder'}  # Sentinel for dual-model requirement
-        }
+        },
+        "intensity_scale": intensity_scale  # Phase B2: persist for bundle export
     }
 
 
@@ -1217,6 +1248,10 @@ def load_inference_bundle_torch(bundle_dir: Union[str, Path], model_name: str = 
     # Phase C4.D signature change: load_torch_bundle now returns (models_dict, params_dict)
     # instead of (single_model, params_dict) to satisfy spec §4.6 dual-model requirement
     models_dict, params_dict = load_torch_bundle(str(archive_path), model_name=model_name)
+
+    # Phase B2: Extract and log intensity_scale from bundle
+    bundle_intensity_scale = params_dict.get('intensity_scale', 1.0)
+    logger.info(f"Loaded intensity_scale from bundle: {bundle_intensity_scale:.6f}")
 
     logger.info(f"Inference bundle loaded successfully. Models: {list(models_dict.keys())}, Params keys: {list(params_dict.keys())[:5]}...")
 

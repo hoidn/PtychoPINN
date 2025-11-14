@@ -165,6 +165,26 @@ models_dict, loaded_config = load_inference_bundle_torch(config.output_dir)
 lightning_module = models_dict['lightning_module']
 ```
 
+**Intensity Scale Persistence (Phase B2):**
+
+During training, the PyTorch workflow captures the `intensity_scale` parameter and persists it in the model bundle:
+
+1. **Learned scale (trainable case)**: If `model.scaler.log_scale` is a trainable parameter, the learned value is extracted after `trainer.fit()` completes: `intensity_scale = exp(log_scale)`
+
+2. **Fallback scale (non-trainable case)**: When `intensity_scale_trainable=False` or the parameter is missing, the scale is computed using the spec formula from `docs/specs/spec-ptycho-core.md:80-110`:
+   ```
+   intensity_scale ≈ sqrt(nphotons) / (N / 2)
+   ```
+
+3. **Bundle persistence**: The captured scale is stored in `params.dill` inside the `wts.h5.zip` bundle via `save_torch_bundle(intensity_scale=...)`
+
+4. **Inference loading**: When loading a bundle via `load_inference_bundle_torch`, the stored `intensity_scale` is extracted from `params.dill` and logged:
+   ```
+   INFO: Loaded intensity_scale from bundle: 2.500000
+   ```
+
+This ensures that inference uses the same normalization scale as training, maintaining parity with TensorFlow workflows.
+
 ## 7. Inference and Reconstruction
 
 For standalone inference without retraining:
