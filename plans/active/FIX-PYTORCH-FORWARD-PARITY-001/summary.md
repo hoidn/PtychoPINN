@@ -1,4 +1,10 @@
 ### Turn Summary
+Tier-2 dwell triggered because neither the guard selector nor the scaled TF CLI had been executed (tf_baseline/phase_c1_scaled/analysis/ still empty and `tf_baseline/phase_c1_scaled/cli/train_tf_phase_c1_scaled.log` remains 0 bytes), so FIX-PYTORCH-FORWARD-PARITY-001 is now BLOCKED pending the new execution focus.
+Minted blocker focus FIX-TF-C1D-SCALED-RERUN-001 that carries the same guard selector + scaled TF CLI (with `TF_XLA_FLAGS="--tf_xla_auto_jit=0"` / `USE_XLA_TRANSLATE=0`), mandates hub env captures, and spells out the artifact inventory update or blocker policy so Ralph has a runnable workload this loop.
+Next: run `pytest tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_guard -vv | tee "$HUB/green/pytest_tf_translation_guard.log"`, rerun the scaled TF CLI with the documented dataset knobs, and update `$HUB/analysis/artifact_inventory.txt` (or write `$TF_BASE/red/blocked_<ts>_tf_translation_guard.md` if the CLI fails) before resuming the parent initiative.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1_scaled/cli/train_tf_phase_c1_scaled.log
+
+### Turn Summary
 Re-read POLICY-001/CONFIG-001 guardrails plus the hub artifacts and confirmed the TF scaled baseline slot still has no stats bundle—`tf_baseline/phase_c1_scaled/analysis/` is empty and `cli/train_tf_phase_c1_scaled.log` remains 0 bytes—so Phase C1d still lacks TF evidence.
 Guard + regression tests already exist for the non-XLA translation fix, leaving the actionable work to run the guard selector, rerun the scaled TF CLI with `TF_XLA_FLAGS="--tf_xla_auto_jit=0"` / `USE_XLA_TRANSLATE=0`, and capture `forward_parity_debug_tf` plus inventory updates (or a new blocker) once the run finishes.
 Next: execute the guard pytest selector, rerun the scaled TF command with the recorded env vars, and update `$HUB/analysis/artifact_inventory.txt` (or log `$HUB/tf_baseline/phase_c1_scaled/red/blocked_<timestamp>.md`) as soon as the CLI exits.
