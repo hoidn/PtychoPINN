@@ -1,4 +1,15 @@
 ### Turn Summary
+Logged Phase C1 TensorFlow baseline blocker after successfully running the integration pytest health gate (34.80s, GREEN) but encountering an XLA compilation error during 10-epoch training with fly64_coord_variants identity dataset.
+TensorFlow failed at first training step with `XlaRuntimeError: RET_CHECK failure in dynamic_padder.cc` inside projective_warp_xla_jit, matching Finding XLA-DYN-DOT-001 pattern for XLA dynamic shape handling.
+Next: Either retry with fly001_reconstructed train dataset (matches PyTorch B3 commands), disable XLA via TF_XLA_FLAGS, or escalate as TF-specific limitation per POLICY-001 and proceed with PyTorch-only parity validation.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1/{green/pytest_tf_integration.log,red/blocked_20251114T064950Z_tf_xla_error.md,analysis/artifact_inventory.txt}
+
+Checklist:
+- Files touched: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1/{green/pytest_tf_integration.log,red/blocked_20251114T064950Z_tf_xla_error.md,analysis/artifact_inventory.txt}, docs/fix_plan.md
+- Tests run: pytest tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle -vv
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1/analysis/artifact_inventory.txt, docs/fix_plan.md
+
+### Turn Summary
 Logged that Phase B3 scaling validation is complete (`scaling_alignment/phase_b3/analysis/forward_parity_debug_scaling/stats.json` and bundle digests) and pivoted the initiative toward Phase C1 TensorFlow baseline capture.
 Updated the implementation plan, fix_plan ledger, and input brief with the new TF hub path (`tf_baseline/phase_c1`), explicit training/inference commands, and the integration pytest selector so Ralph can run the matched baseline without hunting for instructions.
 Next: execute the TF baseline (pytest selector + CLI runs + debug dump + artifact inventory updates) and record the TF vs Torch patch-stat deltas for use in Phase C2.
