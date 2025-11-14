@@ -100,6 +100,10 @@ def parse_args():
                         help="Limit baseline inference to first N groups for debugging (default: all groups).")
     parser.add_argument("--baseline-debug-dir", type=Path, default=None,
                         help="Directory to save baseline debug artifacts (NPZ with inputs/outputs/offsets, JSON with stats).")
+    parser.add_argument("--baseline-chunk-size", type=int, default=None,
+                        help="Process baseline inference in chunks of N groups to reduce GPU memory (default: None = all at once).")
+    parser.add_argument("--baseline-predict-batch-size", type=int, default=32,
+                        help="Batch size for baseline model.predict() within each chunk (default: 32).")
 
     # Add logging arguments
     add_logging_arguments(parser)
@@ -1071,8 +1075,60 @@ def main():
         )
 
     baseline_start = time.time()
-    # Pass BOTH tensors to baseline model - it expects [input, positions] per dual-input architecture
-    baseline_output = baseline_model.predict([baseline_input, baseline_offsets], batch_size=32, verbose=1)
+
+    # Chunked inference to reduce GPU memory footprint
+    n_groups = baseline_input.shape[0]
+    chunk_size = args.baseline_chunk_size if args.baseline_chunk_size is not None else n_groups
+
+    if chunk_size < n_groups:
+        logger.info(f"Using chunked baseline inference: {n_groups} groups in chunks of {chunk_size} (batch_size={args.baseline_predict_batch_size})")
+        baseline_output_chunks = []
+
+        for chunk_start in range(0, n_groups, chunk_size):
+            chunk_end = min(chunk_start + chunk_size, n_groups)
+            chunk_idx = chunk_start // chunk_size
+            logger.info(f"Processing baseline chunk {chunk_idx+1}/{(n_groups + chunk_size - 1) // chunk_size}: groups [{chunk_start}:{chunk_end}]")
+
+            chunk_input = baseline_input[chunk_start:chunk_end]
+            chunk_offsets = baseline_offsets[chunk_start:chunk_end]
+
+            # Clear TF session before each chunk to release memory
+            if chunk_idx > 0:
+                tf.keras.backend.clear_session()
+
+            try:
+                chunk_output = baseline_model.predict(
+                    [chunk_input, chunk_offsets],
+                    batch_size=args.baseline_predict_batch_size,
+                    verbose=1
+                )
+
+                # DIAGNOSTIC: Per-chunk stats
+                chunk_output_np = np.asarray(chunk_output)
+                chunk_mean = np.abs(chunk_output_np).mean()
+                chunk_max = np.abs(chunk_output_np).max()
+                chunk_nonzero = np.count_nonzero(chunk_output_np)
+                logger.info(f"DIAGNOSTIC chunk {chunk_idx+1} baseline_output stats: mean={chunk_mean:.6f}, max={chunk_max:.6f}, nonzero_count={chunk_nonzero}/{chunk_output_np.size}")
+
+                baseline_output_chunks.append(chunk_output_np)
+
+            except tf.errors.ResourceExhaustedError as e:
+                logger.error(f"ResourceExhaustedError in chunk {chunk_idx+1} at [{chunk_start}:{chunk_end}]: {e}")
+                logger.error(f"Try reducing --baseline-chunk-size (currently {chunk_size}) or --baseline-predict-batch-size (currently {args.baseline_predict_batch_size})")
+                raise
+
+        # Concatenate all chunks
+        baseline_output = np.concatenate(baseline_output_chunks, axis=0)
+        logger.info(f"Concatenated {len(baseline_output_chunks)} chunks into final baseline_output shape: {baseline_output.shape}")
+    else:
+        # Single-shot inference (original path)
+        logger.info(f"Using single-shot baseline inference: {n_groups} groups (batch_size={args.baseline_predict_batch_size})")
+        baseline_output = baseline_model.predict(
+            [baseline_input, baseline_offsets],
+            batch_size=args.baseline_predict_batch_size,
+            verbose=1
+        )
+
     baseline_inference_time = time.time() - baseline_start
     logger.info(f"Baseline inference completed in {baseline_inference_time:.2f}s")
 
