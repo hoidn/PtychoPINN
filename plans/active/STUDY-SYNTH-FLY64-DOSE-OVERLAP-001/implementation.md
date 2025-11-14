@@ -694,7 +694,21 @@ Checklist
   <status>approved</status>
 </plan_update>
 
-#### Next Do Now — Baseline chunked container fix (2025-11-16T095500Z, planning)
+<plan_update version="1.22">
+  <trigger>Chunked Baseline container refactor merged in `scripts/compare_models.py` (`451fdd82`, Finding `BASELINE-CHUNKED-002`) with GREEN translation guard (`plans/active/.../green/pytest_compare_models_translation_fix_v17.log`), yet the new chunked debug rerun under `analysis/dose_1000/dense/test_debug_v2/logs/logs/debug.log:1299` stopped at chunk 21/33 and the canonical dense-test metrics are still blank (`analysis/dose_1000/dense/test/comparison_metrics.csv:8-13`, `analysis/metrics_summary.json:22`). As a result `cli/aggregate_report_cli.log:1-9` and `cli/run_phase_g_dense_post_verify_only.log:1-24` continue to fail and `analysis/verification_report.json:1-35` reports 0/10 validations.</trigger>
+  <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md, docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/DEVELOPER_GUIDE.md, docs/COMMANDS_REFERENCE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/architecture.md, specs/data_contracts.md, specs/overlap_metrics.md, docs/fix_plan.md, galph_memory.md, input.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix_v17.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test_debug_v2/logs/logs/debug.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/comparison_metrics.csv, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/metrics_summary.json, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/verification_report.json, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/aggregate_report_cli.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_post_verify_only.log</documents_read>
+  <current_plan_path>plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md</current_plan_path>
+  <proposed_changes>- Mark the chunked container Do Now as completed with links to the landing commit, translation guard log, and partial debug evidence so it is clear the code change shipped.
+- Refresh the active Do Now so it emphasizes finishing the chunked debug + full reruns (both splits) and explicitly cites the failing artifacts (metrics CSV/summary, aggregate report, post-verify preview, verification_report.json) that must flip before touching the ledger again.
+- Require `$HUB/red/blocked_<timestamp>.md` entries whenever Baseline DIAGNOSTIC stats or CSV rows remain zero so PREVIEW-PHASE-001 / TEST-CLI-001 blockers stay documented.</proposed_changes>
+  <impacts>Without executing the rerun locally, `{analysis}` never gains Baseline metrics, SSIM grid, highlights, or verification evidence, keeping Phase G hard-blocked.</impacts>
+  <ledger_updates>Updated this plan, docs/fix_plan.md, the initiative summary, galph_memory.md, and input.md to capture the merged code plus the outstanding rerun evidence.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
+#### Completed Do Now — Baseline chunked container fix (completed 2025-11-16 via commit 451fdd82)
+> Evidence: `scripts/compare_models.py:1152-1197,1431-1442`, `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix_v17.log`, `.../analysis/dose_1000/dense/test_debug_v2/logs/logs/debug.log`.
   1. Guard the working directory + env vars so prompts stay satisfied:
      ```bash
      test "$(pwd -P)" = "/home/ollie/Documents/PtychoPINN"
@@ -747,7 +761,7 @@ Checklist
   2. Keep the translation regression guard GREEN (guards the reassembly fix plus the new chunk helper) before touching the hub:
      ```bash
      pytest tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split} -vv \
-       | tee "$HUB"/green/pytest_compare_models_translation_fix_v16.log
+       | tee "$HUB"/green/pytest_compare_models_translation_fix_v18.log
      ```
   3. Exercise the chunked Baseline helper on the fast, debug-limited slice so we can bail out before burning the full dataset if chunks still misbehave. Use the stricter chunk size (160 groups) to guarantee multiple passes and capture the DIAGNOSTIC lines:
      ```bash
@@ -758,7 +772,7 @@ Checklist
        --output_dir "$HUB"/analysis/dose_1000/dense/train \
        --ms-ssim-sigma 1.0 --register-ptychi-only \
        --baseline-debug-limit 320 --baseline-chunk-size 160 --baseline-predict-batch-size 16 \
-       |& tee "$HUB"/cli/compare_models_dense_train_debug.log
+       |& tee "$HUB"/cli/compare_models_dense_train_debug_v3.log
      python -m scripts.compare_models \
        --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 \
        --baseline_dir "$HUB"/data/phase_e/dose_1000/baseline/gs1 \
@@ -766,9 +780,9 @@ Checklist
        --output_dir "$HUB"/analysis/dose_1000/dense/test \
        --ms-ssim-sigma 1.0 --register-ptychi-only \
        --baseline-debug-limit 320 --baseline-chunk-size 160 --baseline-predict-batch-size 16 \
-       |& tee "$HUB"/cli/compare_models_dense_test_debug.log
+       |& tee "$HUB"/cli/compare_models_dense_test_debug_v3.log
      ```
-     After each run, inspect `$HUB/analysis/dose_1000/dense/{train,test}/logs/logs/debug.log` for chunk-level DIAGNOSTIC lines plus a **non-zero** summary, and confirm `analysis/dose_1000/dense/{split}/comparison_metrics.csv` (and `analysis/metrics_summary.json`) now contain canonical `Baseline`/`PtyChi` rows. If any split still shows zero-valued outputs or the helper backs off to the minimum chunk size, stop immediately and file `$HUB/red/blocked_<timestamp>.md` with the command + DIAGNOSTIC tail before proceeding.
+     The previous run under `analysis/dose_1000/dense/test_debug_v2/logs/logs/debug.log:1299` stopped mid-stream at chunk 21/33, so tail the new logs and confirm the chunk loop now completes with the final DIAGNOSTIC summary lines. After each run, inspect `$HUB/analysis/dose_1000/dense/{train,test}/logs/logs/debug.log` for chunk-level DIAGNOSTIC lines plus a **non-zero** summary, and confirm `analysis/dose_1000/dense/{split}/comparison_metrics.csv` (and `analysis/metrics_summary.json`) now contain canonical `Baseline`/`PtyChi` rows. If any split still shows zero-valued outputs or the helper backs off to the minimum chunk size, stop immediately and file `$HUB/red/blocked_<timestamp>.md` with the command + DIAGNOSTIC tail before proceeding.
   4. Once the debug slice is healthy, rerun the **full** dense train/test compare_models commands with chunk size 256 so the canonical hub artifacts reflect the chunked inference evidence:
      ```bash
      python -m scripts.compare_models \
@@ -778,7 +792,7 @@ Checklist
        --output_dir "$HUB"/analysis/dose_1000/dense/train \
        --ms-ssim-sigma 1.0 --register-ptychi-only \
        --baseline-chunk-size 256 --baseline-predict-batch-size 16 \
-       |& tee "$HUB"/cli/compare_models_dense_train_full.log
+       |& tee "$HUB"/cli/compare_models_dense_train_full_v3.log
      python -m scripts.compare_models \
        --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 \
        --baseline_dir "$HUB"/data/phase_e/dose_1000/baseline/gs1 \
@@ -786,9 +800,9 @@ Checklist
        --output_dir "$HUB"/analysis/dose_1000/dense/test \
        --ms-ssim-sigma 1.0 --register-ptychi-only \
        --baseline-chunk-size 256 --baseline-predict-batch-size 16 \
-       |& tee "$HUB"/cli/compare_models_dense_test_full.log
+       |& tee "$HUB"/cli/compare_models_dense_test_full_v3.log
      ```
-     Validate that the tail of `$HUB/analysis/dose_1000/dense/{split}/logs/logs/debug.log` now reports the non-zero DIAGNOSTIC stats (current tail at `.../dense/test/logs/logs/debug.log:540` still shows `mean=0`/`nonzero_count=0`) and that `analysis/dose_1000/dense/test/comparison_metrics.csv` contains populated Baseline rows. Stop and record `$HUB/red/blocked_<timestamp>.md` if any Baseline metric remains blank before proceeding.
+     Validate that the tail of `$HUB/analysis/dose_1000/dense/{split}/logs/logs/debug.log` now reports the non-zero DIAGNOSTIC stats (current tails at `.../dense/test/logs/logs/debug.log:540` and `.../dense/test_debug_v2/logs/logs/debug.log:1299` show the zero-output failure) and that `analysis/dose_1000/dense/test/comparison_metrics.csv` contains populated Baseline rows. Stop and record `$HUB/red/blocked_<timestamp>.md` if any Baseline metric remains blank before proceeding.
   5. Re-run the Phase D acceptance guards so ACCEPTANCE-001 / DATA-001 stay enforced on the regenerated NPZs:
      ```bash
      pytest tests/study/test_dose_overlap_overlap.py::test_filter_dataset_by_mask_handles_scalar_metadata -vv \
@@ -814,13 +828,14 @@ Checklist
        --hub "$HUB" \
        |& tee "$HUB"/cli/analyze_dense_metrics.log
      ```
-     Before continuing, open `$HUB/analysis/metrics_summary.json` **and** `$HUB/analysis/dose_1000/dense/test/comparison_metrics.csv` and confirm there are populated Baseline rows plus the canonical `PtyChi` identifier (no `"Pty-chi (pty-chi)"` aliases). Any missing values or aliases are blockers—stop immediately, capture the command/log snippet, and record `$HUB/red/blocked_<timestamp>.md` before re-running the reporter.
+     The previous reporter run failed with “Required models missing: Baseline” (`$HUB`/cli/aggregate_report_cli.log:1-9), so before continuing open `$HUB/analysis/metrics_summary.json` **and** `$HUB/analysis/dose_1000/dense/test/comparison_metrics.csv` and confirm there are populated Baseline rows plus the canonical `PtyChi` identifier (no `"Pty-chi (pty-chi)"` aliases). Any missing values or aliases are blockers—stop immediately, capture the command/log snippet, and record `$HUB/red/blocked_<timestamp>.md` before re-running the reporter.
   8. Run the fully parameterized post-verify helper (only after `analysis/metrics_delta_highlights_preview.txt` exists) so SSIM grid + verification logs populate `{analysis}`:
      ```bash
      python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \
        --hub "$HUB" --dose 1000 --view dense --splits train test --post-verify-only \
        |& tee "$HUB"/cli/run_phase_g_dense_post_verify_only.log
      ```
+     The current log (`$HUB`/cli/run_phase_g_dense_post_verify_only.log:1-24) aborts under PREVIEW-PHASE-001 because `analysis/metrics_delta_highlights_preview.txt` never existed; do not rerun this helper until Step 7 regenerates the preview/highlights bundle.
   9. Confirm `{analysis}` now contains `ssim_grid_summary.md`, `ssim_grid.log`, `verification_report.json` with `n_valid=10`, `verification_report_translation_fix.json`, `verify_dense_stdout.log`, `check_dense_highlights.log`, refreshed metrics summary/digest CSV/MD files, `analysis/metrics_delta_highlights_preview.txt`, and `analysis/artifact_inventory.txt`. Any missing artifact or regression → `$HUB/red/blocked_<timestamp>.md` with the exact command + error signature before handing back.
   10. Update `analysis/blocker.log`, `{analysis}/verification_report.json`, `$HUB/summary/summary.md`, docs/fix_plan.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/{summary.md,implementation.md}, and galph_memory with the MS-SSIM/MAE deltas, selectors, and CLI paths so downstream phases can consume the fresh evidence.
 
