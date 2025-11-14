@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2025-11-14 (Ralph loop — EXPORT-PTYCHODUS-PRODUCT-001 verification)
-**Active Focus:** (none — EXPORT-PTYCHODUS-PRODUCT-001 completed; awaiting supervisor direction)
+**Last Updated:** 2025-11-16 (Galph loop — FIX-PYTORCH-FORWARD-PARITY-001 Phase A planning kickoff)
+**Active Focus:** FIX-PYTORCH-FORWARD-PARITY-001 — add Torch patch-stat instrumentation + rerun the short baseline with evidence under `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/`
 
 ---
 
@@ -19,10 +19,17 @@
 ## [FIX-PYTORCH-FORWARD-PARITY-001] Stabilize Torch Forward Patch Parity
 - Depends on: INTEGRATE-PYTORCH-PARITY-001 (PyTorch backend API parity reactivation), FIX-COMPARE-MODELS-TRANSLATION-001 (translation batching guardrails)
 - Priority: High
-- Status: pending — instrumentation and scaling alignment plan prepared; awaiting implementation loops.
+- Status: in_progress — Phase A instrumentation + short-baseline rerun is queued now that EXPORT-PTYCHODUS-PRODUCT-001 is complete.
 - Owner/Date: Ralph/2025-11-13
 - Working Plan: `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md`
+- Reports Hub: `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/`
 - Notes: PyTorch inference still emits impulse-like patches even after per-patch normalization; this focus adds structured instrumentation, fixes scaling/object_big defaults, and proves TF vs Torch parity before touching stitching (POLICY-001 / CONFIG-001 enforced).
+- Do Now (2025-11-16T131500Z):
+  1. Implement optional patch-stat instrumentation toggles in `ptycho_torch/model.py` + `ptycho_torch/inference.py`, plumbed via new CLI flags (`--log-patch-stats`, `--patch-stats-limit`) and recorded to `$HUB/analysis/torch_patch_stats.json` + `torch_patch_grid.png`. Guard instrumentation so it only runs for the first N batches when enabled.
+  2. Add pytest coverage (`tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump`) that invokes `ptycho_torch.train.cli_main` with the new flags and asserts the JSON/PNG dumps exist (log to `$HUB/green/pytest_patch_stats.log`).
+  3. Rerun the short baseline with instrumentation enabled: `python -m ptycho_torch.train --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_identity.npz --test_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz --output_dir outputs/torch_forward_parity_baseline --max_epochs 10 --n_images 256 --gridsize 2 --batch_size 4 --torch-loss-mode poisson --accelerator gpu --deterministic --log-patch-stats --patch-stats-limit 2 --quiet |& tee "$HUB"/cli/train_patch_stats.log`, followed by `python -m ptycho_torch.inference --model_path outputs/torch_forward_parity_baseline --test_data datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz --output_dir outputs/torch_forward_parity_baseline/inference --n_images 128 --accelerator gpu --debug-dump "$HUB"/analysis/forward_parity_debug --log-patch-stats --patch-stats-limit 2 |& tee "$HUB"/cli/inference_patch_stats.log`.
+  4. Update `$HUB/analysis/artifact_inventory.txt` and the initiative summary once the new artifacts/logs land; blockers go to `$HUB/red/blocked_<timestamp>.md`.
+- Latest Attempt (2025-11-16T131500Z): planning — Created the forward_parity hub skeleton, documented the instrumentation Do Now above, and updated the initiative summary/input so Ralph can begin Phase A. No production edits landed yet.
 - Latest Attempt (2025-11-13T000000Z): planning — Created the implementation plan and Reports Hub skeleton; no code changes yet.
 
 ---
@@ -187,6 +194,7 @@ Do Now (updated):
 - Working Plan: `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/implementation_plan.md`
 - Test Strategy: `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/test_strategy.md`
 - Reports Hub: `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/`
+- Latest Attempt (2025-11-16T131500Z): verification — Re-read `docs/DATA_MANAGEMENT_GUIDE.md:242-369`, `docs/index.md:125-133`, and hub artifacts (`analysis/data_guide_snippet.md`, `analysis/artifact_inventory.txt`, `summary/*.md`) to confirm the “Ptychodus Product Export” section plus index cross-link already match the approved snippet. No repo edits required; focus stays `done` and evidence references remain valid.
 - Latest Attempt (2025-11-14T010940Z): verification — Verified commit a679e6fb (Nov 11) already integrated all deliverables: docs/DATA_MANAGEMENT_GUIDE.md lines 242-375 contain the full "Ptychodus Product Export" section with CLI examples, metadata parameters, raw-data toggles, storage policy, programmatic API, and verification code; docs/index.md lines 125-128 cross-reference the guide with ptychodus-export keyword; hub artifact_inventory.txt, summary.md, and summary/summary.md all document the integration. Tests (3/3 PASSED), CLI conversion, and HDF5 verification logs remain at the hub. Updated fix_plan status to `done`, cleared Active Focus, and prepared Turn Summary. Artifacts: plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/ (all evidence already committed).
 - Do Now (superseded — 2025-11-13T101500Z):
   1. Guard from `/home/ollie/Documents/PtychoPINN`, export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`, and set `HUB="$PWD/plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap"`.

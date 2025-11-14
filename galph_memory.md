@@ -1,3 +1,16 @@
+## 2025-11-16T131500Z: Exporter verification complete; PyTorch parity focus activated
+- dwell: 0 (closed EXPORT-PTYCHODUS-PRODUCT-001 with evidence-only verification and spun up a fresh FIX-PYTORCH-FORWARD-PARITY-001 plan, so dwell resets on the new focus).
+- Focus issue: Verified the Run1084 exporter doc edits are already present (`docs/DATA_MANAGEMENT_GUIDE.md:242-369`, `docs/index.md:125-133`, hub `analysis/data_guide_snippet.md`/`analysis/artifact_inventory.txt`), then pivoted to PyTorch forward parity to add patch-stat instrumentation and a short baseline rerun.
+- Action type: Planning
+- Mode: Perf
+- Git sync: `git status --porcelain` → clean; `timeout 30 git pull --rebase` → Already up to date; re-exported `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`.
+- Documents/artifacts reviewed: docs/index.md; docs/findings.md (DATA-001); docs/DATA_MANAGEMENT_GUIDE.md; docs/workflows/pytorch.md; docs/fix_plan.md; plans/active/EXPORT-PTYCHODUS-PRODUCT-001/{summary.md,reports/.../analysis/{data_guide_snippet.md,artifact_inventory.txt},summary/summary.md}; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/plan/plan.md; input.md.
+- Findings: Exporter deliverables are fully published, so no further doc work is needed; PyTorch focus lacks instrumentation evidence, so we need optional CLI flags, JSON/PNG dumps, pytest coverage, and a rerun of the short 10-epoch baseline before attacking scaling fixes.
+- Steering: Added a new Turn Summary to the exporter initiative, updated `docs/fix_plan.md` metadata/status, created the forward_parity hub scaffolding (analysis/cli/green/plan/summary dirs plus plan.md), authored a summary for the new initiative, and rewrote input.md to hand Ralph the patch-stat instrumentation + baseline Do Now with explicit commands/log paths.
+- Next actions for Ralph: implement the `--log-patch-stats/--patch-stats-limit` plumbing + dumps, add/run the targeted pytest selector, rerun the short training + inference commands with instrumentation enabled, and refresh `$HUB/analysis/artifact_inventory.txt` (log blockers in `$HUB/red/` if CUDA/memory prevents execution).
+- <Action State>: [ready_for_implementation]
+- focus=FIX-PYTORCH-FORWARD-PARITY-001 state=ready_for_implementation dwell=0 ralph_last_commit=a0282ecf summary=plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md next_action=patch-stat instrumentation + pytest + short Torch baseline & inference reruns under forward_parity hub
+
 ## 2025-11-16T123500Z: Exporter doc integration hand-off after Tier-3 block
 - dwell: 0 (switched focus after freezing STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 in Tier‑3 blocked_escalation; last Ralph evidence remains `cdfaf857` from 2025-11-14 covering translation guard logs only).
 - Focus issue: EXPORT-PTYCHODUS-PRODUCT-001 — Run1084 exporter evidence (pytest log, convert CLI log, verify log, data_guide_snippet) is complete but the Data Management Guide still lacks the approved “Ptychodus Product Export” section and the hub summaries/artifact inventory do not cite the doc path.

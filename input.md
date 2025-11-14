@@ -1,10 +1,10 @@
 Brief:
-Work from repo root (`test "$(pwd -P)" = "/home/ollie/Documents/PtychoPINN"`) with `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md HUB=$PWD/plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap` and reopen `analysis/data_guide_snippet.md` so you can reuse the approved copy.
-Add a full “Ptychodus Product Export” subsection to `docs/DATA_MANAGEMENT_GUIDE.md` (after the existing NPZ/HDF5 guidance) that includes the `scripts/tools/convert_to_ptychodus_product.py --input-npz datasets/Run1084_recon3_postPC_shrunk_3.npz --output-product outputs/ptychodus_products/run1084_product.h5 --name … --include-diffraction/--no-include-diffraction` example, enumerates the metadata flags, explains the raw-data toggle, reiterates the `outputs/ptychodus_products/` storage policy, and links to `specs/data_contracts.md` plus `ptycho/io/ptychodus_product_io.py`.
-If discoverability would benefit, add a one-line cross-link under the Data Management Guide entry in `docs/index.md` that points directly to the new subsection.
-Update `$HUB/analysis/artifact_inventory.txt`, `$HUB/summary.md`, and `$HUB/summary/summary.md` with the doc path and section heading, logging `$HUB/red/blocked_<timestamp>.md` if any blocker surfaces.
-No pytest selector is required for this doc-only pass.
+Work from repo root (`test "$(pwd -P)" = "/home/ollie/Documents/PtychoPINN"`), set `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md HUB=$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity OUT=$PWD/outputs/torch_forward_parity_baseline`, and keep `$HUB` clean.
+Add optional patch-stat instrumentation toggles to `ptycho_torch/model.py` + `ptycho_torch/inference.py` plus CLI plumbing (`--log-patch-stats`, `--patch-stats-limit`), writing JSON+PNG dumps (`torch_patch_stats.json`, `torch_patch_grid.png`) under `$HUB/analysis/`.
+Create a targeted pytest in `tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump` that enables the new flags and proves the JSON/PNG files appear; run it and log to `$HUB/green/pytest_patch_stats.log`.
+Rerun the short Torch baseline with instrumentation: the train command from `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/plan/plan.md` (10 epochs, 256 groups, `--log-patch-stats --patch-stats-limit 2`) and the paired inference command with `--debug-dump "$HUB"/analysis/forward_parity_debug`, capturing logs under `$HUB/cli/`.
+Update `$HUB/analysis/artifact_inventory.txt` and `$HUB/summary.md` with the new artifacts, or drop `$HUB/red/blocked_<timestamp>.md` immediately if CUDA/memory constraints prevent the run.
 
-Summary: plans/active/EXPORT-PTYCHODUS-PRODUCT-001/summary.md
-Plan: plans/active/EXPORT-PTYCHODUS-PRODUCT-001/implementation_plan.md
-Selector: none — evidence-only
+Summary: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
+Plan: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md
+Selector: tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump
