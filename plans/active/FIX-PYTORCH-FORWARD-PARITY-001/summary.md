@@ -1,4 +1,10 @@
 ### Turn Summary
+Confirmed commit f85a9150 already extends `tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump` with the inference CLI guard and `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/green/pytest_patch_variance_guard.log` shows the selector is GREEN for both training and inference assertions.
+Updated `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md` and `docs/fix_plan.md` so C3c/C3d are checked off and Phase C1 now includes a C1d subtask authorizing non-XLA translation guards plus a regression test in `ptycho/tf_helper.py`.
+Next: Ralph implements the translation guard/test, reruns the scaled TF baseline (`n_images=64`, `n_groups=32`, `gridsize=2`, XLA disabled), and updates the hub inventory or records a new blocker if it still fails.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md}, docs/fix_plan.md, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/green/pytest_patch_variance_guard.log
+
+### Turn Summary
 Extended `test_patch_stats_dump` to invoke inference CLI after training, parsing inference patch stats and enforcing the same variance (>1e-6) and global-mean (>1e-9) thresholds.
 Pytest selector GREEN (1/1 PASSED, 7.21s) with both training and inference guards passing; updated hub artifact_inventory.txt and summary.md with Phase C3c/C3d section documenting the inference variance guard.
 Phase C3 checklist items C3a/C3b/C3c/C3d now complete; the single selector guards both training and inference paths against variance collapse for gridsize≥2 configurations.

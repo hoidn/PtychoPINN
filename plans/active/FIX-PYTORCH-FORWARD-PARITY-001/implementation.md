@@ -331,6 +331,52 @@ PyTorch forward inference currently produces impulse-like patches with extremely
    - If the stats JSON files are missing or malformed, create `$HUB/scaling_alignment/phase_c1_gs1/red/blocked_<timestamp>_missing_gs1_stats.md` describing the gap before touching inventories.
    - If TF blockers change (new env capture, different stack), add the file path to the inventory entry and summarize the delta in the Turn Summary.
 
+### Action Plan — C1d (Non-XLA translation guardrail to unblock TF baseline)
+TensorFlow training still crashes with `values[0].shape=[4] != values[2].shape=[128]` once XLA is disabled (`tf_baseline/phase_c1/red/blocked_20251114T074039Z_tf_non_xla_shape_error.md`). We need a guarded non-XLA translation path so Phase C1 evidence can land without re-enabling XLA.
+
+1. **Reproduce on a scaled configuration.**
+   ```bash
+   export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
+   export TF_XLA_FLAGS="--tf_xla_auto_jit=0"
+   export USE_XLA_TRANSLATE=0
+   export HUB="$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"
+   export TF_BASE="$HUB/tf_baseline/phase_c1_scaled"
+   mkdir -p "$TF_BASE"/{cli,analysis,green,red}
+   python scripts/training/train.py \
+     --backend tensorflow \
+     --train_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz \
+     --test_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
+     --output_dir "$TF_BASE/run_scaled" \
+     --n_images 64 \
+     --n_groups 32 \
+     --batch_size 4 \
+     --gridsize 2 \
+     --neighbor_count 7 \
+     --max_epochs 1 \
+     --do_stitching \
+     --quiet \
+     |& tee "$TF_BASE/cli/train_tf_phase_c1_scaled.log"
+   ```
+   - Scaling `n_images/n_groups` keeps memory bounded per the supervisor directive (“deal with OOM errors by decreasing dataset size, not architecture refactors”) while still exercising gridsize 2.
+   - Expect the existing build to crash in `Translation`; keep the log for regression comparison.
+
+2. **Authorized code change (`ptycho/tf_helper.py`).**
+   - In `translate_core`/`Translation.call`, detect when the batch dimension of `images` disagrees with `translations`. In that case, reshape/tile the tensors so the `tf.raw_ops.ImageProjectiveTransformV3` call receives matching lengths, or fall back to `_translate_images_simple` instead of throwing.
+   - Add assertions with actionable error text (include both shapes) before the raw-op path so future regressions fail fast.
+   - Cite `docs/specs/spec-ptycho-workflow.md` §Reassembly Requirements plus the blocker filename in inline comments to justify the guard.
+
+3. **Regression test (fast CPU).**
+   - Add `tests/tf_helper/test_translation_shape_guard.py` (or extend an existing tf_helper module) with a minimal reproduction: construct fake `(batch=1, gridsize=2)` tensors, flatten offsets via `_channel_to_flat`, monkeypatch `should_use_xla()` to return `False`, and confirm `_reassemble_patches_position_real` no longer raises.
+   - Mention POLICY-001 / CONFIG-001 in the docstring so reviewers know why PyTorch-focused work is touching TensorFlow internals.
+
+4. **Rerun the scaled TF baseline.**
+   - Repeat the command from step 1 after the code/test changes. Success criteria: `train_tf_phase_c1_scaled.log` reaches epoch completion and `$TF_BASE/analysis/forward_parity_debug_tf` contains `stats.json`, `offsets.json`, and PNGs.
+   - Append a “Phase C1 — TF scaled baseline” section to `$HUB/analysis/artifact_inventory.txt` describing the scaled parameters, env captures, and new logs.
+   - If the guard still fails, create `$TF_BASE/red/blocked_<timestamp>_tf_translation_guard.md` with the new stack trace and stop (no partial edits).
+
+5. **Follow-on comparisons.**
+   - Once TF emits a debug bundle, rerun `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/bin/phase_c2_compare_stats.py` against the scaled TF stats so Phase C2 can report PyTorch vs TF deltas (label the run as scaled in the summary).
+
 ### Action Plan — C2 (PyTorch-only comparison & guard rails)
 1. **Promote reusable comparison tooling (scriptization Tier 2).**
    - Create `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/bin/phase_c2_compare_stats.py` with the header template from CLAUDE.md §scriptization.
@@ -385,7 +431,7 @@ _Status recap_: C3a/C3b (training guard) landed in commit `392a44ea` — keep th
    - Also assert `canvas_amplitude.mean` is non-zero to catch cases where outputs collapse to zeros.
    - Reference the Phase C2 metrics (`analysis/phase_c2_pytorch_only_metrics.txt`) when justifying the threshold in an inline comment so future maintainers know why we only gate gridsize ≥ 2.
 
-3. **NEW — add inference CLI guard.**
+3. **Inference CLI guard (landed via commit `f85a9150`).**
    - After the training CLI run completes, invoke `ptycho_torch.inference.cli_main` with the saved tmp outputs (`--model_path <train_out> --test_data <tmp_path>/train_test.npz --output_dir <tmp_path>/outputs_infer --n_images 8 --log-patch-stats --patch-stats-limit 2 --accelerator cpu --quiet`) so the PyTorch inference workflow produces `analysis/torch_patch_stats_inference.json` and `torch_patch_grid_inference.png`.
    - Parse the first batch of `torch_patch_stats_inference.json` and enforce the same thresholds as training: `patch_amplitude.var_zero_mean > 1e-6` and `abs(global_mean) > 1e-9`. Cite `analysis/phase_c2_pytorch_only_metrics.txt` and `docs/specs/spec-ptycho-workflow.md` (forward-path parity) in the inline comment to explain why inference must retain variance for gridsize ≥ 2.
    - Fail fast with an actionable assertion (POLICY-001/CONFIG-001) if the inference CLI does not emit the stats/PNG artifacts.
@@ -400,12 +446,13 @@ _Status recap_: C3a/C3b (training guard) landed in commit `392a44ea` — keep th
 
 ### Checklist
 - [ ] C1: Run the matched TF baseline (`scripts/training/train.py --backend tensorflow` + `scripts/inference/inference.py --backend tensorflow --debug_dump`) and archive artifacts (`.../reports/.../tf_baseline/`).
+- [x] C1c: Consolidate GS1 fallback evidence (stats delta artifact, inventory/summary update, TF blocker cross-links).
+- [ ] C1d: Implement the non-XLA translation shape guard (authorized edit of `ptycho/tf_helper.py`), add a regression test, and rerun the scaled TF baseline to unblock the TF debug bundle.
 - [x] C2: Build a comparison script/notebook that ingests Torch/TF dumps, reports variance ratios and stitched MAE/SSIM, and summarize findings in `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md`.
 - [x] C3a: Harden `TestPatchStatsCLI::test_patch_stats_dump` by seeding its fixture and asserting `patch_amplitude.var_zero_mean > 1e-6` plus non-zero canvas means in the generated `torch_patch_stats.json`.
 - [x] C3b: Capture the updated selector via `pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv | tee "$HUB"/green/pytest_patch_variance_guard.log`, updating hub inventories/summaries or filing a blocker if the guard fails.
-- [ ] C3c: Extend the selector so it also runs the inference CLI, parses `analysis/torch_patch_stats_inference.json`, and enforces the same variance/global-mean thresholds (citing Phase C2 metrics + spec references).
-- [ ] C3d: Re-run the selector with the inference guard, refresh `$HUB/green/pytest_patch_variance_guard.log`, and update hub inventories/summaries or drop `$HUB/red/blocked_<timestamp>_patch_variance_guard_inference.md` on failure.
-- [x] C1c: Consolidate GS1 fallback evidence (stats delta artifact, inventory/summary update, TF blocker cross-links).
+- [x] C3c: Extend the selector so it also runs the inference CLI, parses `analysis/torch_patch_stats_inference.json`, and enforces the same variance/global-mean thresholds (citing Phase C2 metrics + spec references).
+- [x] C3d: Re-run the selector with the inference guard, refresh `$HUB/green/pytest_patch_variance_guard.log`, and update hub inventories/summaries or drop `$HUB/red/blocked_<timestamp>_patch_variance_guard_inference.md` on failure.
 
 ### Pending Tasks (Engineering)
 - Implement comparison tooling, define acceptable thresholds, then codify guards/tests.

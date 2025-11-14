@@ -1,3 +1,15 @@
+# 2025-11-19T093000Z: Phase C1d translation guard planning
+- dwell: 2 (second consecutive planning/doc loop since Ralph’s 2025-11-14 commit `f85a9150`; next loop must land implementation evidence or mark the focus blocked per the dwell policy).
+- Focus issue: FIX-PYTORCH-FORWARD-PARITY-001 — PyTorch training/inference guards are GREEN, but TensorFlow Phase C1 still fails in the non-XLA translation path (`values[0].shape=[4] != values[2].shape=[128]`), so we lack TF debug dumps for parity.
+- Action type: Planning (translation guard scope).
+- Git sync: `git status --porcelain` → clean; skipped pull because HEAD already matches origin, recorded evidence_only_dirty=false.
+- Documents/artifacts reviewed: docs/index.md; docs/findings.md (POLICY-001 / CONFIG-001); docs/DEVELOPER_GUIDE.md; docs/INITIATIVE_WORKFLOW_GUIDE.md; docs/COMMANDS_REFERENCE.md; docs/TESTING_GUIDE.md; docs/development/TEST_SUITE_INDEX.md; docs/specs/spec-ptycho-workflow.md; specs/data_contracts.md; specs/ptychodus_api_spec.md; docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md}; Reports Hub `$HUB/green/pytest_patch_variance_guard.log`, `$HUB/analysis/artifact_inventory.txt`, `$HUB/tf_baseline/phase_c1/red/*.md`.
+- Findings: Commit `f85a9150` already extends `test_patch_stats_dump` with the inference CLI guard and the hub log proves the selector is GREEN, so the standing Do Now was stale. The remaining blocker is the non-XLA translation shape mismatch that prevents TF from emitting Phase C1 artifacts even on scaled configs.
+- Steering: Marked C3c/C3d complete in the plan, added C1d instructions authorizing a `ptycho/tf_helper.py` guard + regression test, updated `docs/fix_plan.md`, the initiative summary, and input.md so Ralph now focuses on implementing the translation guard and rerunning the scaled TF baseline.
+- Next actions for Ralph: reproduce the failure under `$HUB/tf_baseline/phase_c1_scaled/`, patch `ptycho/tf_helper.py` (non-XLA branch) and add `tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_guard`, then rerun the scaled TF training command to capture `analysis/forward_parity_debug_tf` (or log a new blocker if it still fails).
+- <Action State>: [ready_for_implementation]
+- focus=FIX-PYTORCH-FORWARD-PARITY-001 state=ready_for_implementation dwell=2 ralph_last_commit=f85a9150 summary=plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md next_action=implement non-XLA translation guard + regression test and rerun the scaled TF baseline per input.md
+
 # 2025-11-19T060500Z: Phase C3 inference guard planning pivot
 - dwell: 1 (Ralph’s 2025-11-19 commit `392a44ea` delivered the training guard, so dwell reset to 0 before this planning turn; this loop increments it to 1 without exceeding the docs-only cap).
 - Focus issue: FIX-PYTORCH-FORWARD-PARITY-001 — training-side variance guard is GREEN but the selector still never exercises the inference CLI, so inference patch stats could regress silently.
