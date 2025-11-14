@@ -498,6 +498,29 @@ Examples:
         )
     )
 
+    # Patch statistics instrumentation (FIX-PYTORCH-FORWARD-PARITY-001 Phase A)
+    parser.add_argument(
+        '--log-patch-stats',
+        dest='log_patch_stats',
+        action='store_true',
+        help=(
+            'Enable per-patch amplitude statistics logging with JSON+PNG dumps. '
+            'Writes torch_patch_stats.json and torch_patch_grid.png to analysis/ subdirectory. '
+            'Default: disabled.'
+        )
+    )
+    parser.add_argument(
+        '--patch-stats-limit',
+        dest='patch_stats_limit',
+        type=int,
+        default=None,
+        help=(
+            'Maximum number of batches to instrument for patch stats. '
+            'Use small values (e.g., 2) to avoid log spam during full training. '
+            'Default: None (instrument all batches when --log-patch-stats is enabled).'
+        )
+    )
+
     # Checkpoint and early stopping flags (Phase EB1.B - ADR-003)
     parser.add_argument(
         '--enable-checkpointing',
@@ -672,6 +695,8 @@ Examples:
             'gridsize': args.gridsize,
             'max_epochs': args.max_epochs,
             'torch_loss_mode': args.torch_loss_mode,
+            'log_patch_stats': args.log_patch_stats,
+            'patch_stats_limit': args.patch_stats_limit,
         }
         if test_data_file:
             overrides['test_data_file'] = test_data_file

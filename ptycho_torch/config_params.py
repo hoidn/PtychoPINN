@@ -151,6 +151,10 @@ class InferenceConfig:
     pad_eval: bool = True #Pads the evaluation edges, enforced during training for Nyquist frequency. Can turn off for eval
     window: int = 20 #Window padding around reconstruction due to edge errors
 
+    # Patch statistics instrumentation (FIX-PYTORCH-FORWARD-PARITY-001 Phase A)
+    log_patch_stats: bool = False  # Enable patch-stat JSON+PNG dumps
+    patch_stats_limit: Optional[int] = None  # Max batches to instrument (None = unlimited)
+
 @dataclass
 class DatagenConfig:
     """Configuration parameters for data generation class"""
