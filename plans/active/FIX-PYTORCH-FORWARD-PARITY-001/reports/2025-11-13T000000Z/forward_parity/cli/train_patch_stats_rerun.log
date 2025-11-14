@@ -1,23 +1,23 @@
-2025-11-14 04:20:05.679253: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-11-14 04:35:15.407399: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1763122805.691047 2928194 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1763122805.694825 2928194 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1763122805.706064 2928194 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763122805.706075 2928194 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763122805.706077 2928194 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763122805.706078 2928194 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2025-11-14 04:20:05.709009: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+E0000 00:00:1763123715.418591 2939248 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763123715.422421 2939248 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763123715.433287 2939248 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763123715.433298 2939248 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763123715.433299 2939248 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763123715.433301 2939248 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-14 04:35:15.435969: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
 To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
 /home/ollie/Documents/PtychoPINN/ptycho_torch/config_factory.py:632: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
   warnings.warn(
-I0000 00:00:1763122811.888647 2928194 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
-I0000 00:00:1763122811.889872 2928194 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+I0000 00:00:1763123721.653491 2939248 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1763123721.654730 2939248 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-I0000 00:00:1763122812.758588 2928194 service.cc:152] XLA service 0x40900b10 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
-I0000 00:00:1763122812.758608 2928194 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
-2025-11-14 04:20:12.776276: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
-I0000 00:00:1763122812.793333 2928194 cuda_dnn.cc:529] Loaded cuDNN version 91002
-I0000 00:00:1763122812.925365 2928194 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+I0000 00:00:1763123722.534510 2939248 service.cc:152] XLA service 0x548dd2d0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1763123722.534532 2939248 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-11-14 04:35:22.552694: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1763123722.569331 2939248 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1763123722.699934 2939248 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
 Seed set to 42
 INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
 INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
@@ -87,8 +87,8 @@ Decoder Block 1: No attention module added.
 Decoder Block 2: No attention module added.
 Decoder Block 1: No attention module added.
 Decoder Block 2: No attention module added.
-Torch scaling debug (training): mean|input|=0.448763 mean|pred|=0.000238 mean_input_scale=1.000000 mean_physics_scale=1.000000 physics_weight=1.000
-Torch patch stats (train batch 0): mean=0.001482 std=0.002686 var_zero_mean=0.000007
-Torch patch stats (train batch 0): mean=0.001482 std=0.002686 var_zero_mean=0.000007
+Torch scaling debug (training): mean|input|=0.456245 mean|pred|=0.000500 mean_input_scale=1.000000 mean_physics_scale=1.000000 physics_weight=1.000
+Torch patch stats (train batch 0): mean=0.002909 std=0.005068 var_zero_mean=0.000026
+Torch patch stats (train batch 0): mean=0.002909 std=0.005068 var_zero_mean=0.000026
 ✓ Training completed successfully. Outputs saved to outputs/torch_forward_parity_baseline
 ✓ Model bundle saved to outputs/torch_forward_parity_baseline/wts.h5.zip
