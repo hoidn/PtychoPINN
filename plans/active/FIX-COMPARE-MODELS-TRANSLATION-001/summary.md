@@ -1,4 +1,10 @@
 ### Turn Summary
+Re-reviewed the Phase G hub plus `plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/reports/pytest_translation_fix.log` and confirmed `_reassemble_position_batched` still hits the AddV2 broadcast error while `{analysis}` remains empty (verification `n_valid=0`).
+Updated the implementation plan and docs/fix_plan entry to mandate padded_size instrumentation, a batched `tf.image.resize_with_crop_or_pad` path, and shape/dtype assertions before accumulating onto the canvas so future logs explain exactly which tensor drifts.
+Rewrote input.md so Ralph exports the hub env, replays both compare_models commands, patches the custom layer/tf_helper helpers, keeps the targeted pytest selector GREEN, and refreshes train/test metrics plus blocker summaries before handing the hub back to STUDY-SYNTH.
+Artifacts: plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/implementation.md, docs/fix_plan.md, input.md
+
+### Turn Summary
 Reviewed `plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/reports/pytest_translation_fix.log`, which still shows `test_pinn_reconstruction_reassembles_full_train_split` failing with `InvalidArgumentError: required broadcastable shapes` inside `_reassemble_position_batched`.
 Captured the RED evidence in the plan, noted that the ≥5k-patch regression test already exists, and refreshed docs/fix_plan.md/input.md so Ralph can focus on hardening `ReassemblePatchesLayer`/`tf_helper` plus the train/test CLI reproductions.
 Next: instrument the batched reassembly helpers to keep canvas/batch_result shapes aligned, make the targeted pytest selector green, and rerun `scripts/compare_models.py` for train/test with logs under `$HUB/cli/phase_g_dense_translation_fix_{split}.log`.

@@ -44,6 +44,17 @@ Initiative Header
   <status>approved</status>
 </plan_update>
 
+<plan_update version="1.3">
+  <trigger>`plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/reports/pytest_translation_fix.log` still fails at `ptycho/tf_helper.py:959` with `{{__wrapped__AddV2}} required broadcastable shapes`, and hub reality checks (`analysis/verification_report.json`, `cli/phase_g_dense_translation_fix_train.log`) confirm no new artifacts—`analysis` still lacks SSIM/metrics bundles and verification remains `n_valid=0`.</trigger>
+  <focus_id>FIX-COMPARE-MODELS-TRANSLATION-001</focus_id>
+  <documents_read>docs/index.md; docs/findings.md (REASSEMBLY-BATCH-001 / ACCEPTANCE-001 / TEST-CLI-001 / PREVIEW-PHASE-001 / DATA-001); docs/INITIATIVE_WORKFLOW_GUIDE.md; docs/DEVELOPER_GUIDE.md; docs/COMMANDS_REFERENCE.md; docs/TESTING_GUIDE.md; docs/development/TEST_SUITE_INDEX.md; specs/overlap_metrics.md; specs/data_contracts.md; docs/fix_plan.md; galph_memory.md; input.md; plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/{implementation.md,summary.md,reports/pytest_translation_fix.log}; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/{implementation.md,summary.md}; hub paths (`analysis/verification_report.json`, `analysis/dose_1000/dense/train/logs/logs/debug.log`, `cli/phase_g_dense_translation_fix_train.log`).</documents_read>
+  <current_plan_path>plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/implementation.md</current_plan_path>
+  <proposed_changes>Refine Phase B/Do Now so Ralph adds explicit shape/dtype assertions around `canvas + batch_result`, instruments the padded_size being used, replaces the per-element `tf.map_fn` resize with a single `tf.image.resize_with_crop_or_pad(batch_translated, padded_size, padded_size)` call, and ensures both `_reassemble_position_batched` branches derive padded_size from either the kwarg or `params.get_padded_size()`. Require capturing these diagnostics in the pytest log plus GREEN train/test CLI runs.</proposed_changes>
+  <impacts>The counted dense rerun remains blocked until `_reassemble_position_batched` stops producing mismatched tensors; verification/reporting SLA stays unmet.</impacts>
+  <ledger_updates>Updating docs/fix_plan.md, summary.md, and input.md this loop to highlight the instrumentation + padding-alignment tasks.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
 ## Guardrails (Reset 2025-11-13)
 - `ptycho/tf_helper.py` is treated as stable per CLAUDE.md; batching must leverage the existing helpers (`mk_reassemble_position_batched_real`, `_reassemble_position_batched`, `_flat_to_channel`) rather than rewriting default paths.
 - No edits to `reassemble_patches`, `mk_reassemble_position_real`, or other shared helpers unless explicitly authorized here and backed by regression evidence.
@@ -81,6 +92,7 @@ Initiative Header
 - [ ] Update `ptycho/custom_layers.ReassemblePatchesLayer` to accept a configurable batch size and invoke `hh.mk_reassemble_position_batched_real` (falling back to the existing path for small patch counts).
 - [ ] Where necessary, adjust helpers in `ptycho/tf_helper.py` (`mk_reassemble_position_real`, `_reassemble_position_batched`, `reassemble_patches`) so patch/offset tensors stay aligned when chunked; add shape assertions with actionable error messages.
 - [ ] Document the new behavior (module docstring or short comment) so future contributors understand when batching engages.
+- [ ] Instrument `_reassemble_position_batched` to log the padded_size and enforce `tf.debugging.assert_equal(tf.shape(canvas), tf.shape(batch_result))`/dtype checks before accumulation, and prefer a single `tf.image.resize_with_crop_or_pad` call on the entire batch rather than a per-element `tf.map_fn`.
 
 ### Phase C — Regression coverage & validation
 - [ ] Ensure `tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split}` both pass (update the existing fixtures/test bodies only if required for the new batching behavior).
@@ -91,8 +103,8 @@ Initiative Header
 ## Do Now (Reset 2025-11-13)
 1. `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md HUB="$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier"`.
 2. Reproduce the failure with the train/test `scripts/compare_models.py` commands (Phase A) to refresh `$HUB/cli/phase_g_dense_translation_fix_{train,test}.log`. Capture blocker notes (`$HUB/red/blocked_<timestamp>.md`) if Translation still aborts.
-3. Implement a guarded batching hook by wiring `ReassemblePatchesLayer` to call `hh.mk_reassemble_position_batched_real` (existing helper) when `patch_count > batch_size`. Do **not** modify `reassemble_patches` or `_flat_to_channel`; add shape assertions and a short comment explaining the trigger.
-4. Enhance `_reassemble_position_batched` to emit overlap weights / crop warnings without changing the legacy normalization path. Any resize that would crop translated data must log a message (and ideally count occurrences) so we can audit future runs.
+3. Implement a guarded batching hook by wiring `ReassemblePatchesLayer` to call `hh.mk_reassemble_position_batched_real` (existing helper) when `patch_count > batch_size`. Do **not** modify `reassemble_patches` or `_flat_to_channel`; add inline comments plus an assertion that the helper sees `total_patches > batch_size` before it switches modes.
+4. Enhance `_reassemble_position_batched` so it (a) derives `padded_size` from the kwarg or `params.get_padded_size()`, (b) replaces the per-element `tf.map_fn` resize with a single `tf.image.resize_with_crop_or_pad(batch_translated, padded_size, padded_size)` call, (c) logs the measured padded_size + batch dimensions, and (d) raises an actionable `tf.debugging.assert_equal` error when `tf.shape(canvas)` and `tf.shape(batch_result)` (or dtypes) diverge. Any resize that would crop translated data must log a message (and ideally count occurrences) so we can audit future runs.
 5. Extend `tests/study/test_dose_overlap_comparison.py` with an intensity/overlap conservation check (compare streamed vs legacy results) and ensure both regression tests pass:  
    `pytest tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split} -vv | tee "$HUB"/green/pytest_compare_models_translation_fix.log`
 6. Rerun the train/test `scripts/compare_models.py` commands; success criteria: exit 0, refreshed `analysis/dose_1000/dense/{train,test}` artifacts, no crop warnings. Store logs under `$HUB/cli/phase_g_dense_translation_fix_{split}.log`.
