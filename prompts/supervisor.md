@@ -237,14 +237,20 @@
       • <code>Plan:</code> path to the single evolving plan for this focus.  
       • <code>Selector:</code> one validating pytest node (for <code>Mode != Docs</code>) or the literal <code>none</code> when <code>Mode = Docs</code> and the loop is evidence‑only.
 
-    - <strong>Workload Spec (required for implementation turns)</strong>: when the loop is intended to ship code/tests (`Mode != Docs`), you MUST embed a structured iteration workload spec directly in `input.md` under a <code>### Workload Spec</code> heading. Only the following top-level headings are allowed inside this section; anything else is considered malformed `input.md`:
-      • <code>## Goal</code> — 3–5 sentences on why this loop exists and what “done” means for this iteration (not the whole initiative).  
-      • <code>## Contracts</code> — 1–2 bullet links to specs/arch/data contracts (`path:line`).  
-      • <code>## Interfaces</code> — 1–N blocks of <code>path::symbol</code>, each with signature, inputs/outputs, and 1–2 invariants this iteration must respect.  
-      • <code>## Pseudocode</code> — short (5–15 line) behavior skeletons for the key symbols/tests this iteration will implement or change.  
-      • <code>## Tasks</code> — 3–7 concrete items; each references <code>path::symbol</code> from Interfaces and, optionally, checklist IDs from the implementation plan. These are the units Ralph must attempt this loop.  
-      • <code>## Selector</code> — exactly one pytest/CLI command for this iteration, plus pass criteria and a blocker protocol (where to write <code>blocked_*.md</code>, what minimal error signature to capture, and where logs live).  
-      • <code>## Artifacts</code> — expected log/JSON/PNG/summary paths for this loop, so Ralph knows what to update when the selector passes or fails.
+    - <strong>Workload Spec (required for implementation turns)</strong>: when the loop is intended to ship code/tests (`Mode != Docs`), you MUST embed a structured iteration workload spec directly in `input.md` under a <code>### Workload Spec</code> heading. There are two allowed shapes:
+      • <em>Full form</em> (for non-trivial or cross-cutting work): use all of the following top-level headings, in any order; anything else is considered malformed `input.md`:  
+        – <code>## Goal</code> — 3–5 sentences on why this loop exists and what “done” means for this iteration (not the whole initiative).  
+        – <code>## Contracts</code> — 1–2 bullet links to specs/arch/data contracts (`path:line`).  
+        – <code>## Interfaces</code> — 1–N blocks of <code>path::symbol</code>, each with signature, inputs/outputs, and 1–2 invariants this iteration must respect.  
+        – <code>## Pseudocode</code> — short (5–15 line) behavior skeletons for the key symbols/tests this iteration will implement or change.  
+        – <code>## Tasks</code> — 3–7 concrete items; each references <code>path::symbol</code> from Interfaces and, optionally, checklist IDs from the implementation plan. These are the units Ralph must attempt this loop.  
+        – <code>## Selector</code> — exactly one pytest/CLI command for this iteration, plus pass criteria and a blocker protocol (where to write <code>blocked_*.md</code>, what minimal error signature to capture, and where logs live).  
+        – <code>## Artifacts</code> — expected log/JSON/PNG/summary paths for this loop, so Ralph knows what to update when the selector passes or fails.  
+      • <em>Short form</em> (for truly trivial edits: docs/comments/log wording only, or a single, clearly-localized code/test fix with an existing selector): you MAY use only:  
+        – <code>## Goal</code> — short description of the tiny change and why it matters.  
+        – <code>## Tasks</code> — 1–3 bullets, each with <code>path::symbol</code> and intent.  
+        – <code>## Selector</code> — the single pytest node or CLI command to exercise the change (plus pass/blocker notes).  
+      In all cases, Tasks must still reference concrete <code>path::symbol</code> entries, and the Selector must be executable from the repo root.
 
     - <strong>Schema validation</strong>: Before finalizing `input.md` for a loop, run the schema validator:
       ```bash
@@ -285,8 +291,8 @@
         • `git pull --ff-only` then `git push`.
     - The repository should be clean when exiting.
 
-    - <strong>Turn Summary (required):</strong> At the very end of your supervisor reply, append a lightweight Markdown block humans can skim. Format: a single level‑3 heading <code>### Turn Summary</code>, then 3–5 short single‑line sentences covering: (a) what you shipped/advanced, (b) the main problem and how you handled it (or note it’s still open), and (c) the single next step. End with an <code>Artifacts:</code> line listing links (if any) to external or `.artifacts/` evidence. Do <em>not</em> include focus IDs, branch names, dwell/state, or pytest selectors (those live in <code>galph_memory.md</code> and <code>input.md</code>).
-    - <strong>Persistence:</strong> For this focus, prepend a corresponding entry to `plans/active/<initiative-id>/summary.md` capturing the same essence as the Turn Summary (it may be a shortened or reformatted version rather than an exact copy).
+    - <strong>Turn Summary (required):</strong> At the very end of your supervisor reply, append a lightweight Markdown block humans can skim. Format: a single level‑3 heading <code>### Turn Summary</code>. For non‑trivial loops, include 3–5 short single‑line sentences covering: (a) what you shipped/advanced, (b) the main problem and how you handled it (or note it’s still open), and (c) the single next step. For trivial loops that used a short‑form Workload Spec (tiny, localized changes), 2–3 concise sentences are sufficient. End with an <code>Artifacts:</code> line listing links (if any) to external or `.artifacts/` evidence. Do <em>not</em> include focus IDs, branch names, dwell/state, or pytest selectors (those live in <code>galph_memory.md</code> and <code>input.md</code>).
+    - <strong>Persistence:</strong> For this focus, prepend a corresponding entry to `plans/active/<initiative-id>/summary.md` capturing the same essence as the Turn Summary (it may be a shortened or reformatted version rather than an exact copy, and may be particularly brief for trivial loops).
 
     Example:
     ### Turn Summary

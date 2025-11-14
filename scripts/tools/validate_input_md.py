@@ -137,12 +137,14 @@ def main(argv: List[str]) -> int:
                         f"Allowed headings: {sorted(ALLOWED_WS_HEADINGS)}"
                     )
 
-            # Ensure all required headings appear at least once
-            missing = [h for h in ALLOWED_WS_HEADINGS if h not in seen_titles]
-            if missing:
+            # Ensure core short-form headings appear at least once.
+            # For trivial loops, a short-form spec with just Goal/Tasks/Selector is allowed.
+            core_required = {"Goal", "Tasks", "Selector"}
+            missing_core = [h for h in core_required if h not in seen_titles]
+            if missing_core:
                 errors.append(
-                    "Workload Spec is missing required headings: "
-                    + ", ".join(f"'## {h}'" for h in missing)
+                    "Workload Spec is missing required core headings: "
+                    + ", ".join(f"'## {h}'" for h in missing_core)
                 )
 
             # Validate Tasks section
