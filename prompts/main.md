@@ -74,7 +74,7 @@
        - If `Mode != Docs` and there is <em>no</em> Workload Spec, or the schema validator reports an error, treat `input.md` as malformed:
          • Do not invent your own Tasks from the Overview.  
          • Record in the Turn Summary and `galph_memory.md` that `input.md` failed schema validation (include the validator error) and mark the focus `blocked` pending a corrected `input.md`.
-      - <strong>Allowed nucleus surfaces (in order):</strong> initiative `bin/` scripts under `plans/active/<initiative>/bin/**`, `tests/**` (targeted guard or minimal test), `scripts/tools/**`. Touch production modules only with explicit supervisor authorization.
+      - <strong>Allowed nucleus surfaces (in order):</strong> initiative `bin/` scripts under `plans/active/<initiative>/bin/**`, `tests/**` (targeted guard or minimal test), `scripts/tools/**`. Touch production modules only with explicit supervisor authorization; when a Task in the Workload Spec lists a production <code>path::symbol</code>, treat that as explicit authorization to edit that symbol for this loop.
        - If prerequisites (e.g., git hygiene, long‑running artifacts) block the main task, still land a micro nucleus on the allowed surfaces (e.g., add a workspace guard, selector, or CLI check) and run its targeted test.
       - Never start a long‑running job, leave it in the background, and exit the loop. As soon as you determine a required command will not finish (and produce its artifacts) during this loop, stop, record its status (command, PID/log path, expected completion signal) in `docs/fix_plan.md` + `input.md`, mark the focus `blocked`, and escalate per supervisor direction instead of running other work for that focus.
        - Execute this nucleus first. If time runs short, ship the nucleus rather than expanding scope.
@@ -111,7 +111,8 @@
 
     6. **Tests**
        - Run targeted selectors from `input.md` (or mapped from `docs/TESTING_GUIDE.md` / `docs/development/TEST_SUITE_INDEX.md`).
-       - If no selector exists: author a *minimal* pytest test colocated under `tests/` (e.g., `tests/dbex/test_<module>_mini.py`), `@pytest.mark.mini`, mapping 1:1 to the acceptance criterion.
+       - If the Selector header in `input.md` is <code>none</code> and `Mode != Docs`, this is a schema error that should have been caught earlier: do not invent a new selector; treat the loop as blocked on malformed `input.md` and record the issue in your Turn Summary and `galph_memory.md`.
+       - Authoring new pytest tests/selectors is only appropriate when explicitly requested in the Workload Spec (e.g., `Mode: TDD` with a Task pointing at `tests/...::test_...`) and must be reflected back into `docs/fix_plan.md` / `input.md` by the supervisor in a subsequent loop.
 
     7. **Static analysis (hard gate)**
        - Run configured linters/formatters/type‑checkers for touched code; resolve new issues before full suite.

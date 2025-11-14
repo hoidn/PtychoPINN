@@ -113,6 +113,12 @@ def main(argv: List[str]) -> int:
 
     if selector is None:
         errors.append("Missing required header 'Selector: <pytest-node or none>' near top of input.md")
+    else:
+        sel_norm = selector.strip().lower()
+        if mode != "Docs" and sel_norm == "none":
+            errors.append(
+                "Mode is not 'Docs' but Selector is 'none'; implementation loops must use a concrete pytest node"
+            )
 
     # For Mode == Docs we do not require a Workload Spec
     if mode != "Docs":
@@ -205,4 +211,3 @@ def main(argv: List[str]) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv))
-

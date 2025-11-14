@@ -229,13 +229,13 @@
     - <strong>Header</strong> (top of file): three lines specifying mode, focus, and selector:
       • <code>Mode:</code> one of <code>TDD|Parity|Perf|Docs|none</code>  
       • <code>Focus:</code> the active initiative ID (e.g., <code>FIX-PYTORCH-FORWARD-PARITY-001</code>)  
-      • <code>Selector:</code> a single pytest node for this iteration or the literal <code>none</code> when evidence‑only is explicitly intended
+      • <code>Selector:</code> a single pytest node for this iteration when <code>Mode != Docs</code>, or the literal <code>none</code> <em>only</em> when `Mode = Docs` and the loop is evidence‑only
 
     - <strong>Overview</strong>: 3–5 sentences in natural language describing what Ralph should do now and why. Prefer action verbs and concrete outcomes over forms.
     - <strong>Refs</strong> (footer): exactly these keys on separate lines:
       • <code>Summary:</code> `plans/active/<initiative-id>/summary.md` (prepend a Turn Summary per loop).  
       • <code>Plan:</code> path to the single evolving plan for this focus.  
-      • <code>Selector:</code> one validating pytest node (or `none — evidence-only`).
+      • <code>Selector:</code> one validating pytest node (for <code>Mode != Docs</code>) or the literal <code>none</code> when <code>Mode = Docs</code> and the loop is evidence‑only.
 
     - <strong>Workload Spec (required for implementation turns)</strong>: when the loop is intended to ship code/tests (`Mode != Docs`), you MUST embed a structured iteration workload spec directly in `input.md` under a <code>### Workload Spec</code> heading. Only the following top-level headings are allowed inside this section; anything else is considered malformed `input.md`:
       • <code>## Goal</code> — 3–5 sentences on why this loop exists and what “done” means for this iteration (not the whole initiative).  
@@ -258,7 +258,7 @@
     - You may not run two Docs loops in a row for the same focus.
     - When a structured <code>### Workload Spec</code> is present, Ralph MUST treat its Tasks and Selector as the binding contract for this iteration: either implement that slice (code + selector + artifacts) or produce a blocker report as described in the Spec. When `Mode = Docs` and no Workload Spec is present, the loop is documentation/plan/prompt work only; Ralph is not expected to derive or execute an implementation nucleus in that case.
     - Guidance: When production code is being changed, keep the Selector targeted to the smallest valuable check for the current focus. The TF integration test is executed during Ralph’s comprehensive test gate; do not make it the only Selector unless the focus is specifically “end‑to‑end TF workflow”.
-    - For matured focuses (e.g., dwell ≥ 1) where heavy jobs are not yet appropriate, a valid low‑friction execution nucleus is to read the latest existing log/metrics/report for this focus, then update the Turn Summary (and initiative summary) with 1–2 sentences summarizing what the evidence shows or what is still broken, citing the artifact path. This keeps execution grounded in real evidence without requiring a full pipeline rerun.
+    - For matured focuses (e.g., dwell ≥ 1) where heavy jobs are not yet appropriate, a valid low‑friction execution nucleus is to read the latest existing log/metrics/report for this focus, then update the Turn Summary (and initiative summary) with 1–2 sentences summarizing what the evidence shows or what is still broken, citing the artifact path. Such loops are <code>Mode: Docs</code> (no new code or tests) and still count against the “at most one Docs‑only loop per focus” rule; they must not introduce new commands beyond those already recorded in prior artifacts.
   </input_md_requirements>
 
   <evidence_parameter_sourcing>
