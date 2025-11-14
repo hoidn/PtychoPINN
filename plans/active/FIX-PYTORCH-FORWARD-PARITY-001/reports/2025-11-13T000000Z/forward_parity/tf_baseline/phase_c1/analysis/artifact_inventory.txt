@@ -1,0 +1,36 @@
+# Phase C1 TensorFlow Baseline Artifacts — BLOCKED
+**Date:** 2025-11-14T06:49:50Z
+**Status:** blocked (XLA compilation error)
+
+## Completed Artifacts
+
+1. **Integration pytest log** (`green/pytest_tf_integration.log`)
+   - Selector: `tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle`
+   - Result: PASSED (34.80s)
+   - Purpose: TensorFlow workflow health gate
+
+2. **Blocker documentation** (`red/blocked_20251114T064950Z_tf_xla_error.md`)
+   - Error: XLA RET_CHECK failure in dynamic_padder during projective_warp_xla_jit
+   - Stack trace: `ptycho/projective_warp_xla.py:182` → XLA compilation
+   - Dataset: `datasets/fly64_coord_variants/fly001_64_train_converted_identity.npz`
+
+## Missing Artifacts (Blocked)
+
+1. **Training log** (`cli/train_tf_phase_c1.log`) — INCOMPLETE (XLA error)
+2. **Inference log** (`cli/inference_tf_phase_c1.log`) — NOT RUN
+3. **Bundle digest** (`analysis/bundle_digest_tf_phase_c1.txt`) — NOT GENERATED
+4. **Debug dumps** (`analysis/forward_parity_debug_tf/`) — NOT GENERATED
+5. **Stats comparison** — NOT PERFORMED
+
+## Next Actions
+
+Per blocker document, three mitigation paths:
+1. Retry with fly001_reconstructed train dataset (matches PyTorch B3 better)
+2. Disable XLA and retry with TF_XLA_FLAGS="--tf_xla_auto_jit=0"
+3. Use prior successful TF baseline if available from earlier work
+
+## Related Findings
+
+- XLA-DYN-DOT-001: XLA dynamic shape handling in projective warp
+- POLICY-001: PyTorch is mandatory; TF issues should not block PyTorch progress
+- Phase B3 PyTorch baseline used: `datasets/fly64_coord_variants/fly001_64_train_converted_identity.npz`
