@@ -208,6 +208,7 @@
     - Keep checklist IDs authoritative (`[ ]`, `[P]`, `[x]`).
     - Every plan change ships with a same-loop `docs/fix_plan.md` update and a `galph_memory.md` note referencing the attempt/timestamp.
     - <strong>Plan generation via prompt:</strong> When creating a new focus/initiative that is clearly larger than a single Ralph loop (e.g., multi-file feature work, cross-backend parity, complex test/CLI refactors), prefer seeding the Working Plan via `prompts/plan_generation.md` instead of hand-authoring the entire implementation plan. Summarize the work as a concise <code>$TASK_DESCRIPTION</code> (problem, selectors/commands, key artifacts, constraints), invoke `prompts/plan_generation.md` once with that description, then adopt the generated `plans/active/<initiative-id>/implementation.md` and corresponding `docs/fix_plan.md` entry as canonical for this initiative. For tiny one-loop blockers (single selector, single file, single change), inline plan updates in `docs/fix_plan.md` and the focus file are sufficient.
+    - <strong>Ledger source-of-truth order:</strong> Treat `docs/fix_plan.md` as canonical for focus IDs, plan paths, and selectors. After updating the relevant row there, regenerate `input.md` so its Overview/Workload Spec mirrors the current Do‑Now for that focus, then update the initiative `summary.md` and `galph_memory.md` to reflect the same focus, selector, and artifacts. If inconsistency is discovered later, repair `docs/fix_plan.md` first, then propagate.
   </planning>
 
     <review_or_housekeeping>
@@ -225,6 +226,11 @@
   <input_md_requirements>
     Overwrite `./input.md` each loop with a concise loop overview, references, and—whenever `Mode != Docs`—a structured workload spec:
 
+    - <strong>Header</strong> (top of file): three lines specifying mode, focus, and selector:
+      • <code>Mode:</code> one of <code>TDD|Parity|Perf|Docs|none</code>  
+      • <code>Focus:</code> the active initiative ID (e.g., <code>FIX-PYTORCH-FORWARD-PARITY-001</code>)  
+      • <code>Selector:</code> a single pytest node for this iteration or the literal <code>none</code> when evidence‑only is explicitly intended
+
     - <strong>Overview</strong>: 3–5 sentences in natural language describing what Ralph should do now and why. Prefer action verbs and concrete outcomes over forms.
     - <strong>Refs</strong> (footer): exactly these keys on separate lines:
       • <code>Summary:</code> `plans/active/<initiative-id>/summary.md` (prepend a Turn Summary per loop).  
@@ -239,6 +245,12 @@
       • <code>## Tasks</code> — 3–7 concrete items; each references <code>path::symbol</code> from Interfaces and, optionally, checklist IDs from the implementation plan. These are the units Ralph must attempt this loop.  
       • <code>## Selector</code> — exactly one pytest/CLI command for this iteration, plus pass criteria and a blocker protocol (where to write <code>blocked_*.md</code>, what minimal error signature to capture, and where logs live).  
       • <code>## Artifacts</code> — expected log/JSON/PNG/summary paths for this loop, so Ralph knows what to update when the selector passes or fails.
+
+    - <strong>Schema validation</strong>: Before finalizing `input.md` for a loop, run the schema validator:
+      ```bash
+      python scripts/tools/validate_input_md.py input.md
+      ```
+      Treat any non‑zero exit code as a configuration error: repair `input.md` (or the underlying fix‑plan row) before handing off to Ralph. Do not ask Ralph to “fill in” missing Workload Spec fields.
 
     Notes:
     - Keep long-lived, multi-phase checklists in the plan file (`plans/active/<initiative-id>/implementation.md` or the focus file). The Workload Spec in `input.md` should capture only the <em>current iteration’s</em> slice of that plan plus the concrete interfaces/pseudocode needed to execute it.

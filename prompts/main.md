@@ -11,8 +11,9 @@
   </role>
 
   <required_reading>
+    Before your <em>first</em> implementation loop for a given focus (or after relevant docs change), read the following end‑to‑end. On subsequent loops for the same focus, always re‑read `input.md` and `docs/fix_plan.md`, and re‑consult only those other documents that are directly relevant to this iteration’s Workload Spec.
     - docs/index.md
-    - input.md  <!-- Overview/Workload Spec are authoritative for this loop -->
+    - input.md  <!-- Header + Overview/Workload Spec are authoritative for this loop -->
     - docs/fix_plan.md  <!-- focus item + Attempts History -->
     - docs/findings.md  <!-- scan for relevant IDs -->
     - docs/architecture.md
@@ -34,7 +35,7 @@
 
   <ground_rules>
     - **One focus per loop.** Execute only the item selected in `input.md`. If prerequisites are missing, document the block in fix‑plan Attempts History and follow the blocker protocol instead of silently changing focus.
-    - **Do‑Now must include code.** Unless `Mode: Docs`, make at least one code change that advances exit criteria. When `input.md` contains a structured <code>### Workload Spec</code>, treat its Tasks and Selector as the binding contract for this loop. If `Mode != Docs` and `input.md` is missing a Workload Spec, treat it as malformed (see Implementation Flow §0) and block rather than deriving your own implementation nucleus.
+    - **Do‑Now must include code.** Unless `Mode: Docs`, make at least one code change that advances exit criteria. When `input.md` contains a structured <code>### Workload Spec</code>, treat its Tasks and Selector as the binding contract for this loop. If `Mode != Docs` and `input.md` is missing a Workload Spec or fails schema validation, treat it as malformed (see Implementation Flow §0) and block rather than deriving your own implementation nucleus.
     - **Spec precedence.** Prefer SPEC over ARCH on external behavior; file an ARCH update when they disagree.
     - **Search first.** Before coding, search the repo to avoid duplicating partial implementations.
     - **Refactoring discipline (atomic).** If moving/renaming modules/classes/functions:
@@ -42,7 +43,7 @@
     - **Testing scope.** Run tests via `pytest` under `./tests/` only; no ad‑hoc scripts.
     - **Test style.** Use native pytest; do not mix `unittest.TestCase`.
     - **Project hygiene.** Assume editable install; do not mutate `sys.path`. Tests must run via `pytest` from project root.
-    - **Static analysis (hard gate).** Run configured linters/formatters/type‑checkers for touched code; resolve new errors before the full test run. Do not introduce new tools.
+    - **Static analysis (hard gate).** Run configured linters/formatters/type‑checkers for touched code; resolve new errors before the full test run. Do not introduce new tools. If required tools are not importable or runnable under the current environment, treat static analysis as <em>blocked</em>, record the missing tool + command in the Turn Summary and `docs/fix_plan.md`, and hand off a separate env‑fix focus; do not install or upgrade packages yourself.
     - **Scientific hygiene.** Respect units/dimensions; deterministic seeds; numeric tolerances (atol/rtol); prefer float64 where appropriate; avoid silent dtype downcasts.
     - **PyTorch/device discipline.** Keep dtype/device agnostic code; avoid `.cpu()`/`.cuda()` in production paths; run CPU + CUDA smoke checks as applicable.
     - **Instrumentation/tracing.** When emitting trace/metrics, reuse production helpers; don’t re‑derive physics.
@@ -70,9 +71,9 @@
          • Run the single Selector command defined there, producing either GREEN evidence (logs/artifacts) or a blocker report as described in the Spec.  
          • Reflect implemented vs blocked Tasks when updating plan/ledger files.
        - If `Mode = Docs` and there is <em>no</em> Workload Spec, you MAY skip deriving an implementation nucleus and treat this loop as documentation/plan/prompt work only (confined to docs/plan/prompt files and ledger updates).
-       - If `Mode != Docs` and there is <em>no</em> Workload Spec, treat `input.md` as malformed:
+       - If `Mode != Docs` and there is <em>no</em> Workload Spec, or the schema validator reports an error, treat `input.md` as malformed:
          • Do not invent your own Tasks from the Overview.  
-         • Record in the Turn Summary and `galph_memory.md` that the Workload Spec is missing or malformed and mark the focus `blocked` pending a corrected `input.md`.
+         • Record in the Turn Summary and `galph_memory.md` that `input.md` failed schema validation (include the validator error) and mark the focus `blocked` pending a corrected `input.md`.
       - <strong>Allowed nucleus surfaces (in order):</strong> initiative `bin/` scripts under `plans/active/<initiative>/bin/**`, `tests/**` (targeted guard or minimal test), `scripts/tools/**`. Touch production modules only with explicit supervisor authorization.
        - If prerequisites (e.g., git hygiene, long‑running artifacts) block the main task, still land a micro nucleus on the allowed surfaces (e.g., add a workspace guard, selector, or CLI check) and run its targeted test.
       - Never start a long‑running job, leave it in the background, and exit the loop. As soon as you determine a required command will not finish (and produce its artifacts) during this loop, stop, record its status (command, PID/log path, expected completion signal) in `docs/fix_plan.md` + `input.md`, mark the focus `blocked`, and escalate per supervisor direction instead of running other work for that focus.
@@ -89,7 +90,7 @@
          1) Verify parameter rationale is documented;  
          2) Validate against SPEC/ARCH sections cited.
 
-    1. Read `input.md` fully (mode, Overview/Workload Spec, selectors, artifacts path). Update `docs/fix_plan.md` Status→`in_progress` for this item.
+    1. Read `docs/fix_plan.md` first and identify the active focus row (initiative ID, Working Plan path, Selector). Then read `input.md` fully (header Mode/Focus/Selector, Overview/Workload Spec, artifacts path). If `docs/fix_plan.md` and `input.md` disagree on focus or selector, treat `docs/fix_plan.md` as canonical: follow its focus/selector, record the mismatch in the Turn Summary and `galph_memory.md`, and rely on the supervisor to repair `input.md` in the next loop. Update `docs/fix_plan.md` Status→`in_progress` for this item.
 
     2. Review prior artifacts for this initiative under `plans/active/<initiative-id>/reports/` to avoid duplication.
 
