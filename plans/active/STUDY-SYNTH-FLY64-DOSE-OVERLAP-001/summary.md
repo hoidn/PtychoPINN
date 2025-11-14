@@ -1,13 +1,14 @@
 ### Turn Summary
-Translation regression guards remain GREEN (2 passed, 6.21s); compare_models now emits DIAGNOSTIC baseline stats per Brief step 3.
-Train split produces valid Baseline predictions (mean=0.003092, nonzero=1387120/333447168), but test split returns **all zeros** (mean=0.000000, nonzero=0/341835776) with CRITICAL error logged.
-Documented blocker at `red/blocked_20251113T191906_baseline_test_zero.md` citing train/test log lines; Phase G counted rerun cannot proceed until Baseline test inference is fixed (TensorFlow/XLA runtime or model numerical stability issue affecting test data).
-Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/compare_models_dense_{train,test}_rerun.log, red/blocked_20251113T191906_baseline_test_zero.md
+Translation regression guards remain GREEN (2 passed, 6.22s); confirmed diagnostic logging from previous loop successfully captures Baseline input/output stats.
+Train split Baseline predictions valid (mean=0.003092, nonzero=1.4M), but test split produces **all zeros** despite receiving valid inputs (input mean=0.112671, nonzero=17.8M).
+Updated blocker doc (`red/blocked_20251113T191906_baseline_test_zero.md`) confirming this is a **TensorFlow/model runtime issue** that cannot be fixed in compare_models.py; instrumentation proves model receives valid inputs but outputs zeros for test data.
+Phase G counted rerun blocked pending baseline model investigation (numerical stability, XLA compilation differences, or test data characteristics triggering underflow).
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix_v8.log, red/blocked_20251113T191906_baseline_test_zero.md
 
 Checklist:
-- Files touched: none (diagnostic-only rerun)
+- Files touched: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/red/blocked_20251113T191906_baseline_test_zero.md
 - Tests run: pytest tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split} -vv
-- Artifacts updated: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix_v7.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/compare_models_dense_train_rerun.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/compare_models_dense_test_rerun.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/red/blocked_20251113T191906_baseline_test_zero.md
+- Artifacts updated: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix_v8.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/red/blocked_20251113T191906_baseline_test_zero.md
 
 ### Turn Summary
 Verification guard is still 0/10 and the SSIM/preview hooks abort immediately because the hub never produced the metrics bundle or artifact inventory (`analysis/verification_report.json:1-80`, `cli/run_phase_g_dense_post_verify_only.log:1-24`).

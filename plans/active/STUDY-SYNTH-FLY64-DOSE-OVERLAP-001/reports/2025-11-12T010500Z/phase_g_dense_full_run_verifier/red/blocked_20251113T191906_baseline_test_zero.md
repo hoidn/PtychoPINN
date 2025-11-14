@@ -32,19 +32,30 @@ Source: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T0105
 - Verification bundle (SSIM/highlights/preview) cannot be generated without valid Baseline metrics
 - Cannot proceed with counted Phase G rerun until this is resolved
 
-## Next Actions
+## Analysis (2025-11-13T19:30Z)
 
-This is a TensorFlow/XLA runtime or model-specific issue that affects test data differently than train data. Possible causes:
-1. Different data characteristics between train/test splits causing numerical underflow
-2. Model weights or configuration issue specific to test batch sizes
+**STATUS:** CONFIRMED BLOCKER - Cannot be fixed in `scripts/compare_models.py`
+
+The diagnostic logging added to `scripts/compare_models.py:1041-1068` successfully captures the problem:
+- Baseline **input** stats are normal for both splits (mean ~0.112, nonzero counts > 17M)
+- Baseline **output** is valid for train (mean=0.003092, nonzero=1.4M) but **all zeros** for test
+
+This is a TensorFlow/model runtime issue that affects test data differently than train data. Possible root causes:
+1. Different data characteristics between train/test splits triggering numerical underflow in the model
+2. Model weights or configuration issue specific to test batch size/shape
 3. XLA compilation behavior differing between splits
-4. Baseline model's probe handling for test split coordinate distribution
+4. Baseline model's internal processing (probe/object interactions) failing for test split coordinates
 
-Recommend:
-1. Investigate baseline model weights/architecture for numerical stability
-2. Compare train vs test NPZ coordinate distributions and batch characteristics
-3. Check for any test-specific preprocessing or normalization differences
-4. Consider disabling XLA for baseline inference to isolate compilation effects
+**This cannot be resolved by instrumenting compare_models.py.** The diagnostic logging proves the model is receiving valid inputs but producing zero outputs.
+
+## Recommended Next Steps
+
+1. Investigate baseline model architecture (`data/phase_e/dose_1000/baseline/gs1/`) for numerical stability issues
+2. Compare train vs test NPZ (`data/phase_c/dose_1000/patched_{train,test}.npz`) coordinate distributions
+3. Check if test split has different batch characteristics that trigger model failure
+4. Try disabling XLA for baseline inference to isolate compilation effects
+5. Review baseline model training logs for any warnings about test data
+6. Consider retraining baseline model with different numerical stability settings
 
 ## Commands to reproduce
 
