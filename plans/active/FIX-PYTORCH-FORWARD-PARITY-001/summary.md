@@ -1,3 +1,14 @@
+### Turn Summary (2025-11-14T045100Z)
+Executed Phase A evidence rerun proving TrainingPayload threading works: pytest selector GREEN (1/1, 7.17s), 10-epoch training completed with --log-patch-stats --patch-stats-limit 2, inference generated debug dumps, and all artifacts now live under `$HUB`.
+Training patch stats show non-zero variance (var_zero_mean=6.44e-07, mean=0.000416, std=0.000803), inference shows expected higher variance (var_zero_mean=3988776.25, mean=1080.26, std=1997.34) for unnormalized outputs, and debug dumps contain canvas/offsets/pred_patches grids.
+Next: Phase A checklist A0/A1/A2/A3 complete; ready for Phase B scaling/config alignment (object_big defaults, intensity_scale persistence per CONFIG-001/POLICY-001).
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_stats_rerun.log,cli/train_patch_stats_rerun.log,cli/inference_patch_stats_rerun.log,analysis/torch_patch_stats.json,analysis/torch_patch_grid.png,analysis/torch_patch_stats_inference.json,analysis/torch_patch_grid_inference.png,analysis/forward_parity_debug/,analysis/artifact_inventory.txt}
+
+Checklist:
+- Files touched: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_stats_rerun.log,cli/train_patch_stats_rerun.log,cli/inference_patch_stats_rerun.log,analysis/artifact_inventory.txt,analysis/torch_patch_stats.json,analysis/torch_patch_grid.png,analysis/torch_patch_stats_inference.json,analysis/torch_patch_grid_inference.png}, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
+- Tests run: pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_stats_rerun.log,cli/train_patch_stats_rerun.log,cli/inference_patch_stats_rerun.log,analysis/torch_patch_stats.json,analysis/torch_patch_grid.png,analysis/torch_patch_stats_inference.json,analysis/torch_patch_grid_inference.png,analysis/forward_parity_debug/,analysis/artifact_inventory.txt}
+
 ### Turn Summary (2025-11-17T234500Z)
 Audited the forward_parity hub and confirmed `analysis/artifact_inventory.txt` plus both CLI logs still show the 2025-11-14 timestamps, so none of the TrainingPayload evidence Ralph generated lives under `$HUB`.
 Updated the Phase A plan and fix_plan Do Now with concrete rerun steps (env exports, pytest selector, 10-epoch train/infer commands, artifact copy expectations, blocker logging per POLICY-001/CONFIG-001) and rewrote input.md to hand Ralph that runnable brief.
