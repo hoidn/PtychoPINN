@@ -1,3 +1,16 @@
+### Turn Summary
+Executed Phase C1d TF rerun with guard selector GREEN but CLI training failed during eval with the same reshape error (third consecutive failure).
+Guard test covers training-time translation but not the eval/inference path where the 0-element tensor reshape occurs at ptycho/tf_helper.py:199.
+Next: investigate eval-time batch shape mismatch or extend guard to cover eval code path.
+Artifacts: green/pytest_tf_translation_guard.log; tf_baseline/phase_c1_scaled/cli/train_tf_phase_c1_scaled.log (55KB); tf_baseline/phase_c1_scaled/red/blocked_20251114T153747_tf_translation_guard.md
+
+Checklist:
+- Files touched: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/green/pytest_tf_translation_guard.log, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1_scaled/cli/train_tf_phase_c1_scaled.log, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1_scaled/red/blocked_20251114T153747_tf_translation_guard.md, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/analysis/artifact_inventory.txt
+- Tests run: pytest tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_guard -vv
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/analysis/artifact_inventory.txt
+
+---
+
 ### Turn Summary (2025-11-14T2331Z)
 Ran the Phase C1d guard selector (GREEN, 1 passed in 5.03s) and attempted the scaled TF baseline rerun with XLA disabled.
 Training epoch 1 completed successfully but inference/stitching failed with a reshape error in _translate_images_simple when trying to reshape a 0-element tensor.

@@ -274,22 +274,25 @@ No doc/test registry updates required - existing selector extended, name unchang
 **Phase C3 Complete**:
 All checklist items C3a/C3b/C3c/C3d now complete. The single selector now guards both training and inference paths against variance collapse for gridsize≥2 configurations.
 
-## Phase C1d — TF Scaled Baseline Rerun (2025-11-14T2325Z)
-**Status**: BLOCKED - Inference reshape error persists
+## Phase C1d — TF Scaled Baseline Rerun (2025-11-14T1537Z)
+**Status**: BLOCKED - Inference reshape error persists (confirmed in third attempt)
 
 **Summary**:
-Attempted to capture the missing TensorFlow scaled baseline (Phase C1d) evidence by rerunning the guard selector plus the scaled TF CLI with XLA disabled. Guard test passed GREEN, but CLI training failed during evaluation/inference with a reshape error in the translation layer, confirming the inference blocker documented in the summary.md.
+Third attempt to capture the missing TensorFlow scaled baseline (Phase C1d) evidence by rerunning the guard selector plus the scaled TF CLI with XLA disabled. Guard test passed GREEN again, but CLI training failed during evaluation/inference with the same reshape error in the translation layer, confirming this is a persistent blocker not covered by the current guard test.
 
 **Guard Test**:
 - Selector: `pytest tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_guard -vv`
-- Result: GREEN (1 passed in 5.03s)
-- Log: green/pytest_tf_translation_guard.log
+- Result: GREEN (1 passed in 5.03s, run at 2025-11-14T1535Z)
+- Log: green/pytest_tf_translation_guard.log (refreshed)
 - Confirms training-time translation guard working correctly
 
 **Environment**:
 ```bash
 TF_XLA_FLAGS="--tf_xla_auto_jit=0"
 USE_XLA_TRANSLATE=0
+AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
+HUB=$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity
+TF_BASE=$HUB/tf_baseline/phase_c1_scaled
 ```
 
 **CLI Command**:
@@ -298,35 +301,49 @@ python scripts/training/train.py \
   --backend tensorflow \
   --train_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz \
   --test_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
-  --output_dir tf_baseline/phase_c1_scaled/run_scaled \
+  --output_dir $TF_BASE/run_scaled \
   --n_images 64 --n_groups 32 --batch_size 4 --gridsize 2 --neighbor_count 7 \
   --nepochs 1 --do_stitching --quiet
 ```
 
-**CLI Result**: FAILED during evaluation/inference
+**CLI Result**: FAILED during evaluation/inference (third consecutive failure)
 - Training epoch 1 completed successfully (8/8 batches)
 - Failure during post-training evaluation/stitching phase
 - Error: `InvalidArgumentError: Input to reshape is a tensor with 0 values, but the requested shape has 4`
 - Stack: `_translate_images_simple` line 199 during `functional_1/padded_objs_with_offsets_1/translation_36_1/Reshape_4`
 
 **Artifacts**:
-- tf_baseline/phase_c1_scaled/cli/train_tf_phase_c1_scaled.log — Full CLI log showing epoch 1 completion + eval failure
-- tf_baseline/phase_c1_scaled/red/blocked_20251114T232542Z_tf_translation_guard.md — Blocker documentation with full stack trace
-- green/pytest_tf_translation_guard.log — Guard selector GREEN proof
+- tf_baseline/phase_c1_scaled/cli/train_tf_phase_c1_scaled.log — Full CLI log (55KB, refreshed 2025-11-14T1537Z)
+- tf_baseline/phase_c1_scaled/red/blocked_20251114T153747_tf_translation_guard.md — Latest blocker documentation with analysis
+- tf_baseline/phase_c1_scaled/red/blocked_20251114T232542Z_tf_translation_guard.md — Previous blocker (same error)
+- tf_baseline/phase_c1_scaled/red/blocked_20251114T233123Z_tf_translation_guard.md — Previous blocker (same error)
+- green/pytest_tf_translation_guard.log — Guard selector GREEN proof (refreshed)
 
 **Missing Artifacts** (CLI failed before generation):
 - tf_baseline/phase_c1_scaled/analysis/forward_parity_debug_tf/ — Not created (inference crashed before debug dump)
-- tf_baseline/phase_c1_scaled/run_scaled/ — Output directory never created
+- tf_baseline/phase_c1_scaled/run_scaled/ — Output directory partially created but no valid model artifacts
 
-**Observations**:
-1. Guard test covers training-time translation (`_channel_to_flat` → `translate_core`) ✓
-2. Guard test does NOT cover eval/inference translation path ✗
-3. Inference has a separate reshape bug with 0-element tensors
-4. This is the "inference blocker" mentioned in summary.md Turn Summaries
+**Root Cause Analysis**:
+1. Guard test (`test_non_xla_translation_guard`) covers training-time translation with mocked batch dimensions ✓
+2. Guard test does NOT exercise the eval/inference code path where batching differs ✗
+3. Inference reshape error occurs in `_translate_images_simple:199` when processing 0-element tensors
+4. This suggests a shape mismatch between training batching (C groups × K neighbors) and eval batching patterns
+5. The guard may need to be extended to cover eval-time translation patterns or a separate eval guard is required
 
-**Status**: Phase C1d remains BLOCKED pending fix for inference reshape error. The training-time guard fix (TF-NON-XLA-SHAPE-001) is working, but inference/eval has a distinct issue not covered by the guard.
+**Pattern Recognition**:
+All three blocker files show identical error signatures, confirming:
+- Training completes successfully (guard protects this path)
+- Eval always fails at the same location (`_translate_images_simple:199`)
+- Error is deterministic and not environment-dependent
+- Current guard test design gap: only covers training forward path, not eval/inference
+
+**Status**: Phase C1d remains BLOCKED pending one of:
+1. Fix for eval/inference reshape error in `_translate_images_simple`
+2. Extended guard test covering eval code path
+3. Investigation of batch shape differences between training and eval
 
 **Next Steps**:
-1. Investigate why eval/inference produces 0-element tensors during translation
-2. Consider adding a separate guard test for the eval/inference code path
-3. Check if eval uses a different translation invocation pattern than training
+1. Read `tests/tf_helper/test_translation_shape_guard.py:46-87` to verify guard parameters match eval conditions
+2. Add instrumentation to log actual tensor shapes in `_translate_images_simple:199` before reshape
+3. Compare training vs eval batch dimensions to identify the shape mismatch root cause
+4. Either extend existing guard or create separate eval-path guard test
