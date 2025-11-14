@@ -1,4 +1,10 @@
 ### Turn Summary
+Logged that Phase B3 scaling validation is complete (`scaling_alignment/phase_b3/analysis/forward_parity_debug_scaling/stats.json` and bundle digests) and pivoted the initiative toward Phase C1 TensorFlow baseline capture.
+Updated the implementation plan, fix_plan ledger, and input brief with the new TF hub path (`tf_baseline/phase_c1`), explicit training/inference commands, and the integration pytest selector so Ralph can run the matched baseline without hunting for instructions.
+Next: execute the TF baseline (pytest selector + CLI runs + debug dump + artifact inventory updates) and record the TF vs Torch patch-stat deltas for use in Phase C2.
+Artifacts: docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md}; input.md
+
+### Turn Summary
 Executed Phase B3 validation proving Phase B2's intensity_scale persistence works correctly: pytest guard GREEN (2/2), training captured learned scale (9.882118), and inference loaded the persisted value from bundle instead of defaulting to 1.0.
 The critical evidence is inference log line 29 showing "Loaded intensity_scale from bundle: 9.882118", replacing the previous "1.000000" default seen in v3 baseline.
 All artifacts archived under scaling_alignment/phase_b3/ with bundle digests, patch stats logs, and debug dumps; Phase B3 checklist complete.

@@ -161,14 +161,60 @@ PyTorch forward inference currently produces impulse-like patches with extremely
    - Copy the refreshed `outputs/torch_forward_parity_baseline/wts.h5.zip` and `diffraction_to_obj/params.dill` digest (e.g., `shasum`) into `"$SCALING/analysis"` so reviewers can verify the persisted scalar exists.
    - Update `$HUB/analysis/artifact_inventory.txt` with a “Phase B3 — scaling validation” section listing the pytest log, train/infer logs, and bundle digest paths. Summarize the observed intensity_scale value in `$HUB/summary.md`.
 
-### Pending Tasks (Engineering)
-- Execute the B3 validation plan (pytest selector + short baseline rerun + artifact capture) and update the hub inventory/summary once inference logs show the stored intensity scale.
+### Status
+- ✅ Phase B3 completed 2025-11-14 (logs + stats under `scaling_alignment/phase_b3/` prove `intensity_scale=9.882118` is loaded at inference). Proceed to Phase C for cross-backend comparisons.
 
 ### Notes & Risks
 - Changing defaults impacts existing CLI usage; maintain overrides and document changes clearly.
 - Remain compliant with CONFIG-001: update `params.cfg` before invoking legacy modules.
 
 ## Phase C — TF vs Torch Parity Proof & Guards
+### Action Plan — C1 (Matched TensorFlow baseline)
+1. **Guardrails + directories.**
+   - `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`
+   - `HUB="$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"`
+   - `OUT_TORCH="$PWD/outputs/torch_forward_parity_baseline"`
+   - `OUT_TF="$PWD/outputs/tf_forward_parity_baseline"`
+   - `TF_BASE="$HUB/tf_baseline/phase_c1"`
+   - `mkdir -p "$TF_BASE"/{cli,analysis,green}`
+2. **Baseline health check.**
+   - `pytest tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle -vv | tee "$TF_BASE/green/pytest_tf_integration.log"`
+   - File blockers under `$HUB/red/blocked_<timestamp>.md` citing POLICY-001/CONFIG-001 if runtime/env gaps appear.
+3. **TensorFlow short training run (mirrors Torch Phase B3).**
+   ```bash
+   python scripts/training/train.py \
+     --backend tensorflow \
+     --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_identity.npz \
+     --test_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
+     --output_dir "$OUT_TF" \
+     --n_groups 256 \
+     --gridsize 2 \
+     --neighbor_count 7 \
+     --batch_size 4 \
+     --nepochs 10 \
+     --do_stitching \
+     |& tee "$TF_BASE/cli/train_tf_phase_c1.log"
+   ```
+4. **TensorFlow inference with debug dump.**
+   ```bash
+   python scripts/inference/inference.py \
+     --backend tensorflow \
+     --model_path "$OUT_TF" \
+     --test_data datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
+     --output_dir "$OUT_TF/inference_phase_c1" \
+     --n_images 128 \
+     --debug_dump "$TF_BASE/analysis/forward_parity_debug_tf" \
+     --comparison_plot \
+     |& tee "$TF_BASE/cli/inference_tf_phase_c1.log"
+   ```
+   - Confirm `forward_parity_debug_tf` contains `stats.json`, `offsets.json`, and patch-grid PNGs (TF helper already emits these).
+5. **Bundle + metrics bookkeeping.**
+   - `shasum "$OUT_TF/wts.h5.zip" > "$TF_BASE/analysis/bundle_digest_tf_phase_c1.txt"`.
+   - `python - <<'PY'` snippet to print the TF stats alongside the PyTorch Phase B3 stats (`scaling_alignment/phase_b3/analysis/forward_parity_debug_scaling/stats.json`) and jot the numbers into `$TF_BASE/analysis/phase_c1_stats.txt` for Phase C2 comparison.
+6. **Hub updates.**
+   - Append a “Phase C1 — TF baseline” section to `$HUB/analysis/artifact_inventory.txt` (reference logs, stats, bundle digest).
+   - Mention the TF stats + PyTorch reference deltas in `$HUB/summary.md`.
+
 ### Checklist
 - [ ] C1: Run the matched TF baseline (`scripts/training/train.py --backend tensorflow` + `scripts/inference/inference.py --backend tensorflow --debug_dump`) and archive artifacts (`.../reports/.../tf_baseline/`).
 - [ ] C2: Build a comparison script/notebook that ingests Torch/TF dumps, reports variance ratios and stitched MAE/SSIM, and summarize findings in `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md`.

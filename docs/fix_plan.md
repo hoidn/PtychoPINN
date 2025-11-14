@@ -24,18 +24,46 @@
 ## [FIX-PYTORCH-FORWARD-PARITY-001] Stabilize Torch Forward Patch Parity
 - Depends on: INTEGRATE-PYTORCH-PARITY-001 (PyTorch backend API parity reactivation), FIX-COMPARE-MODELS-TRANSLATION-001 (translation batching guardrails)
 - Priority: High
-- Status: in_progress — Phase A COMPLETE; Phase B2 (intensity_scale persistence) merged via commit 9a09ece2, awaiting Phase B3 validation evidence
+- Status: in_progress — Phase A complete, B1/B2 shipped, B3 validation artifacts captured (intensity_scale=9.882118). Moving to Phase C parity proof.
 - Owner/Date: Ralph/2025-11-14
 - Working Plan: `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md`
 - Reports Hub: `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/`
-- Notes: Phase A rerun v3 (2025-11-14T0547Z) confirmed TrainingPayload threading and healthy variance; B1 object_big defaults already enforced (`ptycho_torch/config_factory.py:205-234`). Commit 9a09ece2 threads the learned/fallback `intensity_scale` through `_train_with_lightning → save_torch_bundle → load_inference_bundle_torch` with docs/tests updated (`docs/workflows/pytorch.md:150-189`, `tests/torch/test_model_manager.py:1-200`). Hub logs still show `Loaded intensity_scale from bundle: 1.000000` because the short baseline hasn't been rerun since B2 landed (`.../cli/inference_patch_stats_rerun_v3.log:20-38`).
-- Do Now (next): Phase B3 — validate the persisted scale via pytest + short-baseline rerun.
-  1. Export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`, set `HUB="$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"`, `OUT="$PWD/outputs/torch_forward_parity_baseline"`, and `SCALING="$HUB/scaling_alignment/phase_b3"` (ensure `cli/`, `analysis/`, `green/` subdirs exist).
-  2. Run `pytest tests/torch/test_inference_reassembly_parity.py -vv | tee "$SCALING/green/pytest_inference_reassembly.log"`; write `$HUB/red/blocked_<timestamp>.md` with failure signatures if POLICY-001 / CONFIG-001 issues recur.
-  3. Re-run the 10-epoch short PyTorch baseline (train + inference commands from `plan/plan.md`) with `--log-patch-stats --patch-stats-limit 2`, teeing logs to `$SCALING/cli/train_patch_stats_scaling.log` and `$SCALING/cli/inference_patch_stats_scaling.log`, and capture the new debug dumps under `$SCALING/analysis/forward_parity_debug_scaling`.
-  4. After inference, confirm the log reports the stored scalar (no longer `1.000000`), record a digest of `wts.h5.zip` / `diffraction_to_obj/params.dill` inside `$SCALING/analysis`, and update `$HUB/analysis/artifact_inventory.txt` + `$HUB/summary.md` with a “Phase B3 scaling validation” section covering the pytest result, logs, observed `intensity_scale`, and bundle digest paths.
-  5. Drop blockers immediately via `$HUB/red/blocked_<timestamp>.md` if CUDA/memory issues prevent the rerun.
-  Selector: `pytest tests/torch/test_inference_reassembly_parity.py -vv`
+- Notes: Phase A rerun v3 (2025-11-14T0547Z) confirmed TrainingPayload threading and healthy variance; B1 object_big defaults already enforced (`ptycho_torch/config_factory.py:205-234`). Commit 9a09ece2 threads the learned/fallback `intensity_scale` through `_train_with_lightning → save_torch_bundle → load_inference_bundle_torch` with docs/tests updated (`docs/workflows/pytorch.md:150-189`, `tests/torch/test_model_manager.py:1-200`). Scaling evidence now lives under `scaling_alignment/phase_b3/analysis/forward_parity_debug_scaling/stats.json` showing the persisted scalar is loaded at inference time (phase_b3 log line 29).
+- Do Now (next): Phase C1 — capture a matched TensorFlow baseline to compare against the PyTorch Phase B3 run.
+  1. Export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`, set `HUB="$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"`, `OUT_TORCH="$PWD/outputs/torch_forward_parity_baseline"`, `OUT_TF="$PWD/outputs/tf_forward_parity_baseline"`, and `TF_BASE="$HUB/tf_baseline/phase_c1"`; create `"$TF_BASE"/{cli,analysis,green}` so TF artifacts stay isolated.
+  2. Run `pytest tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle -vv | tee "$TF_BASE/green/pytest_tf_integration.log"` to prove the TensorFlow workflow is still healthy before exercising the CLI commands; log blockers under `$HUB/red/blocked_<timestamp>.md` citing POLICY-001/CONFIG-001 if the selector fails due to environment/runtime gaps.
+  3. Launch the TensorFlow short baseline with the same datasets as the Torch run:  
+     ```bash
+     python scripts/training/train.py \
+       --backend tensorflow \
+       --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_identity.npz \
+       --test_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
+       --output_dir "$OUT_TF" \
+       --n_groups 256 \
+       --gridsize 2 \
+       --neighbor_count 7 \
+       --batch_size 4 \
+       --nepochs 10 \
+       --do_stitching \
+       |& tee "$TF_BASE/cli/train_tf_phase_c1.log"
+     ```
+  4. Run inference with debug dumps that mirror the Phase B3 capture:  
+     ```bash
+     python scripts/inference/inference.py \
+       --backend tensorflow \
+       --model_path "$OUT_TF" \
+       --test_data datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
+       --output_dir "$OUT_TF/inference_phase_c1" \
+       --n_images 128 \
+       --debug_dump "$TF_BASE/analysis/forward_parity_debug_tf" \
+       --comparison_plot \
+       |& tee "$TF_BASE/cli/inference_tf_phase_c1.log"
+     ```
+     Ensure `forward_parity_debug_tf/{stats.json,offsets.json,pred_patches_amp_grid.png}` are emitted.
+  5. Record bundle digests (`shasum "$OUT_TF/wts.h5.zip" > "$TF_BASE/analysis/bundle_digest_tf_phase_c1.txt"`) and note key stats (mean/std/var_zero_mean) extracted from both TF `stats.json` and the PyTorch Phase B3 `stats.json`. Update `$HUB/analysis/artifact_inventory.txt` with a “Phase C1 — TF baseline” section plus the parsing snippet, and add a brief comparison line to `$HUB/summary.md`. Future Phase C2 will consume these stats; keep raw numbers handy.
+  6. Store all logs/artifacts under `$TF_BASE`, refresh the initiative summary, and drop blockers if GPUs/TF runtime fail to execute; cite POLICY-001/CONFIG-001/ANTIPATTERN-001 in the blocker note when applicable.
+  Selector: `pytest tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle -vv`
+- Latest Attempt (2025-11-14T063100Z): implementation — Completed Phase B3 scaling validation. PyTorch inference log now prints `Loaded intensity_scale from bundle: 9.882118` (`.../scaling_alignment/phase_b3/cli/inference_patch_stats_scaling.log:29`), `stats.json` shows `patch_amplitude.var_zero_mean=8.97e+09`, and bundle digests are recorded in `.../phase_b3/analysis/bundle_digest.txt`. Updated `analysis/artifact_inventory.txt` with a “Phase B3 scaling validation” section and confirmed pytest selector `tests/torch/test_inference_reassembly_parity.py -vv` remains green (log archived at `.../phase_b3/green/pytest_inference_reassembly.log`).
 - Latest Attempt (2025-11-14T1324Z): planning — Verified B2 landed via commit 9a09ece2 (persisted `intensity_scale`, test additions, docs update) and noted inference log still prints `Loaded intensity_scale from bundle: 1.000000` (`plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/cli/inference_patch_stats_rerun_v3.log:20-38`). Updated the implementation plan (new B3 action plan), initiative summary, fix_plan entry, and input brief so the next loop runs the reassembly pytest guard plus the short baseline rerun, captures artifacts under `scaling_alignment/phase_b3/`, and refreshes `$HUB/analysis/artifact_inventory.txt` with the observed scalar and bundle digest.
 - Latest Attempt (2025-11-14T054700Z): implementation — Executed Phase A evidence refresh v3: pytest selector GREEN (1/1, 7.17s), 10-epoch training completed successfully, inference generated debug dumps with healthy variance. Training patch stats show var_zero_mean=6.09e-05 (mean=0.00450, std=0.00781), and crucially, inference patches now show var_zero_mean=5.19e+06 (mean=1228.73, std=2277.86), resolving the "essentially zero" issue from v2 run. All artifacts archived under hub with _v3 suffixes (pytest_patch_stats_rerun_v3.log, train_patch_stats_rerun_v3.log, inference_patch_stats_rerun_v3.log, torch_patch_stats_combined_v3.json, forward_parity_debug_v3/, artifact_inventory_v3.txt). Phase A checklist A0/A1/A2/A3 complete. Next: Phase B scaling/config alignment (intensity_scale persistence per CONFIG-001/POLICY-001).
 - Latest Attempt (2025-11-18T000000Z): planning — Revalidated the hub and git history: `green/pytest_patch_stats_rerun_v2.log:1-5`, `cli/train_patch_stats_rerun_v2.log:1-5`, and `cli/inference_patch_stats_rerun_v2.log:1-5` still show 2025-11-14 timestamps, and `git log -n5` confirms no Ralph evidence after `cdecf3fd`, so the Phase A proof remains stale. Updated the working plan with a pre-clobber log capture step, noted that `outputs/torch_forward_parity_baseline/analysis/` only has the base `torch_patch_stats.json` / `torch_patch_grid.png` pair, and reiterated the Do Now so Ralph must export `AUTHORITATIVE_CMDS_DOC`/`HUB`/`OUT`, rerun `tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump`, execute the 10-epoch train + inference commands with `--log-patch-stats --patch-stats-limit 2`, copy the regenerated stats/grid/debug bundles into `$HUB/analysis/`, refresh `$HUB/analysis/artifact_inventory.txt` + both summaries, and log `$HUB/red/blocked_<timestamp>.md` immediately on CUDA/memory failures (KB: POLICY-001 / CONFIG-001 / ANTIPATTERN-001). Artifacts: docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md}; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/summary.md; input.md.
