@@ -1,4 +1,10 @@
 ### Turn Summary
+Reframed the Phase G execution plan now that chunked Baseline inference is merged, so the Do Now walks Ralph through translation guard → debug/full chunked compare_models runs before touching the counted pipeline.
+Updated docs/fix_plan.md, the implementation plan, and this summary with the new checklist entry for the chunk helper plus refreshed artifact/selector requirements for Phase D/Phase G/verification.
+Next: execute the rerun sequence (translation guard, debug + full compare_models with `--baseline-chunk-size 256 --baseline-predict-batch-size 16`, Phase D tests, counted `run_phase_g_dense.py --clobber`, metrics helpers, fully parameterized `--post-verify-only`) and capture blockers under `$HUB/red/` if Baseline rows or verification artifacts stay missing.
+Artifacts: docs/fix_plan.md; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md; input.md
+
+### Turn Summary
 Implemented chunked Baseline inference to resolve dense-test OOM blocker (commit 26c26402); added `--baseline-chunk-size` and `--baseline-predict-batch-size` flags with automatic fallback to single-shot when chunk size is None.
 Chunked path processes groups sequentially with `tf.keras.backend.clear_session()` between chunks, includes per-chunk DIAGNOSTIC logging (mean/max/nonzero stats), and provides actionable guidance when ResourceExhaustedError still occurs.
 Translation regression tests remain GREEN (2/2 passed, 6.14s); documented BASELINE-CHUNKED-001 in docs/findings.md with implementation details and mitigation strategy.
