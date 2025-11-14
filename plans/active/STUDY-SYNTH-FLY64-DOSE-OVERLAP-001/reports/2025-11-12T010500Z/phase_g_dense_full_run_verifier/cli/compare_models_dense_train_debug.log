@@ -1,22 +1,10 @@
-2025-11-13 21:55:19.109662: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
-WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1763099719.120875 2633858 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1763099719.124461 2633858 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1763099719.134375 2633858 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763099719.134385 2633858 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763099719.134387 2633858 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763099719.134388 2633858 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2025-11-13 21:55:19.137085: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
-To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2025-11-13 21:55:21,490 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
-2025-11-13 21:55:21,490 - INFO - Registration: enabled
-2025-11-13 21:55:21,490 - INFO - NPZ output: raw=enabled, aligned=enabled
-2025-11-13 21:55:21,490 - INFO - Loading PtychoPINN inference model (diffraction_to_obj) to restore configuration...
-2025-11-13 21:55:21,490 - INFO - Loading model from: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
-I0000 00:00:1763099721.884694 2633858 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
-I0000 00:00:1763099721.886002 2633858 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+2025-11-13 22:25:17,544 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
+2025-11-13 22:25:17,544 - INFO - Registration: enabled
+2025-11-13 22:25:17,544 - INFO - NPZ output: raw=enabled, aligned=enabled
+2025-11-13 22:25:17,544 - INFO - Loading PtychoPINN inference model (diffraction_to_obj) to restore configuration...
+2025-11-13 22:25:17,544 - INFO - Loading model from: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
 Model: "functional"
-2025-11-13 21:55:22,568 - INFO - Model: "functional"
+2025-11-13 22:25:18,627 - INFO - Model: "functional"
 ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
 ┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
 ┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
@@ -220,7 +208,7 @@ Model: "functional"
 │ pred_intensity      │ (None, 128, 128,  │          0 │ intensity_scaler… │
 │ (SquareLayer)       │ 4)                │            │                   │
 └─────────────────────┴───────────────────┴────────────┴───────────────────┘
-2025-11-13 21:55:22,593 - INFO - ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
+2025-11-13 22:25:18,651 - INFO - ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
 ┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
 ┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
 │ input (InputLayer)  │ (None, 128, 128,  │          0 │ -                 │
@@ -424,424 +412,315 @@ Model: "functional"
 │ (SquareLayer)       │ 4)                │            │                   │
 └─────────────────────┴───────────────────┴────────────┴───────────────────┘
  Total params: 4,667,056 (17.80 MB)
-2025-11-13 21:55:22,593 - INFO - Total params: 4,667,056 (17.80 MB)
+2025-11-13 22:25:18,651 - INFO - Total params: 4,667,056 (17.80 MB)
  Trainable params: 4,667,056 (17.80 MB)
-2025-11-13 21:55:22,593 - INFO - Trainable params: 4,667,056 (17.80 MB)
+2025-11-13 22:25:18,652 - INFO - Trainable params: 4,667,056 (17.80 MB)
  Non-trainable params: 0 (0.00 B)
-2025-11-13 21:55:22,593 - INFO - Non-trainable params: 0 (0.00 B)
-None2025-11-13 21:55:22,593 - INFO - None
+2025-11-13 22:25:18,652 - INFO - Non-trainable params: 0 (0.00 B)
+None2025-11-13 22:25:18,652 - INFO - None
 
-2025-11-13 21:55:22.593978: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:103] Profiler session initializing.
-2025-11-13 21:55:22.593987: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:118] Profiler session started.
-WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-I0000 00:00:1763099722.594000 2633858 cupti_tracer.cc:1026] Profiler found 1 GPUs
-W0000 00:00:1763099722.611244 2633858 cupti_tracer.cc:1213] Fail to use per-thread activity buffer, cupti trace overhead may be big. CUPTI ERROR CODE:1
-2025-11-13 21:55:22.611314: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:130] Profiler session tear down.
-I0000 00:00:1763099722.611448 2633858 cupti_tracer.cc:1249] CUPTI activity buffer flushed
-/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+2025-11-13 22:25:18,842 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
   warnings.warn(
-2025-11-13 21:55:22,788 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+2025-11-13 22:25:18,843 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
   warnings.warn(
-/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
-  warnings.warn(
-2025-11-13 21:55:22,789 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
-  warnings.warn(
-2025-11-13 21:55:23,446 - INFO - Successfully loaded model from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
-2025-11-13 21:55:23,447 - INFO - Restored configuration from model: gridsize=2, N=128
-2025-11-13 21:55:23,447 - INFO - Loading test data from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz with restored gridsize=2...
-2025-11-13 21:55:23,447 - INFO - Using all test data (no subsampling or grouping limit)
-2025-11-13 21:55:23,447 - INFO - Loading data from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz with n_images=None, n_subsample=None
-2025-11-13 21:55:23,888 - WARNING - Ignoring NPZ 'Y' with incompatible shape (1, 128, 128, 1) (expected first axis 5088)
-2025-11-13 21:55:23,888 - INFO - Using full dataset of 5088 images
-diff3d shape: (5088, 128, 128)2025-11-13 21:55:23,927 - INFO - diff3d shape: (5088, 128, 128)
+2025-11-13 22:25:19,493 - INFO - Successfully loaded model from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
+2025-11-13 22:25:19,493 - INFO - Restored configuration from model: gridsize=2, N=128
+2025-11-13 22:25:19,493 - INFO - Loading test data from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz with restored gridsize=2...
+2025-11-13 22:25:19,494 - INFO - Using all test data (no subsampling or grouping limit)
+2025-11-13 22:25:19,494 - INFO - Loading data from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz with n_images=None, n_subsample=None
+2025-11-13 22:25:19,936 - WARNING - Ignoring NPZ 'Y' with incompatible shape (1, 128, 128, 1) (expected first axis 5088)
+2025-11-13 22:25:19,936 - INFO - Using full dataset of 5088 images
+diff3d shape: (5088, 128, 128)2025-11-13 22:25:19,974 - INFO - diff3d shape: (5088, 128, 128)
 
-probeGuess shape: (128, 128)2025-11-13 21:55:23,927 - INFO - probeGuess shape: (128, 128)
+probeGuess shape: (128, 128)2025-11-13 22:25:19,974 - INFO - probeGuess shape: (128, 128)
 
-scan_index shape: (5088,)2025-11-13 21:55:23,927 - INFO - scan_index shape: (5088,)
+scan_index shape: (5088,)2025-11-13 22:25:19,974 - INFO - scan_index shape: (5088,)
 
-objectGuess shape: (464, 464)2025-11-13 21:55:23,927 - INFO - objectGuess shape: (464, 464)
+objectGuess shape: (464, 464)2025-11-13 22:25:19,974 - INFO - objectGuess shape: (464, 464)
 
-xcoords shape: (5088,)2025-11-13 21:55:23,927 - INFO - xcoords shape: (5088,)
+xcoords shape: (5088,)2025-11-13 22:25:19,974 - INFO - xcoords shape: (5088,)
 
-ycoords shape: (5088,)2025-11-13 21:55:23,927 - INFO - ycoords shape: (5088,)
+ycoords shape: (5088,)2025-11-13 22:25:19,974 - INFO - ycoords shape: (5088,)
 
-xcoords_start shape: (5088,)2025-11-13 21:55:23,927 - INFO - xcoords_start shape: (5088,)
+xcoords_start shape: (5088,)2025-11-13 22:25:19,974 - INFO - xcoords_start shape: (5088,)
 
-ycoords_start shape: (5088,)2025-11-13 21:55:23,927 - INFO - ycoords_start shape: (5088,)
+ycoords_start shape: (5088,)2025-11-13 22:25:19,974 - INFO - ycoords_start shape: (5088,)
 
-2025-11-13 21:55:23,928 - INFO - Final configuration: gridsize=2, N=128, n_images=5088
-2025-11-13 21:55:23,928 - INFO - Using stitch_crop_size M=20 (N=128)
-2025-11-13 21:55:23,928 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=5088, n_points=5088, C=4, K=7
-2025-11-13 21:55:23,928 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=128, sequential_sampling=False
-2025-11-13 21:55:23,928 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
-2025-11-13 21:55:23,928 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 5088 > 5088 = False
-2025-11-13 21:55:23,928 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
-2025-11-13 21:55:23,928 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
-DEBUG:2025-11-13 21:55:23,928 - INFO - DEBUG:
- nsamples: 5088, gridsize: 2 (using efficient random sample-then-group strategy)2025-11-13 21:55:23,928 - INFO - nsamples: 5088, gridsize: 2 (using efficient random sample-then-group strategy)
+2025-11-13 22:25:19,975 - INFO - Final configuration: gridsize=2, N=128, n_images=5088
+2025-11-13 22:25:19,975 - INFO - Using stitch_crop_size M=20 (N=128)
+2025-11-13 22:25:19,975 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=5088, n_points=5088, C=4, K=7
+2025-11-13 22:25:19,975 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=128, sequential_sampling=False
+2025-11-13 22:25:19,975 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
+2025-11-13 22:25:19,975 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 5088 > 5088 = False
+2025-11-13 22:25:19,975 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2025-11-13 22:25:19,975 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+DEBUG:2025-11-13 22:25:19,975 - INFO - DEBUG:
+ nsamples: 5088, gridsize: 2 (using efficient random sample-then-group strategy)2025-11-13 22:25:19,975 - INFO - nsamples: 5088, gridsize: 2 (using efficient random sample-then-group strategy)
 
-2025-11-13 21:55:23,928 - INFO - Using efficient random sampling strategy for gridsize=2
-2025-11-13 21:55:23,928 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
-2025-11-13 21:55:23,928 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=5088, K=7, C=4
-2025-11-13 21:55:23,928 - INFO - Generating 5088 groups efficiently from 5088 points (K=7, C=4)
-2025-11-13 21:55:23,928 - INFO - [OVERSAMPLING DEBUG] Standard case: using 5088 groups from 5088 points
-2025-11-13 21:55:23,928 - INFO - [OVERSAMPLING DEBUG] Using all 5088 points as seeds (no sampling needed)
-2025-11-13 21:55:23,928 - INFO - Using all 5088 points as seeds
-2025-11-13 21:55:23,962 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 5088 groups
-2025-11-13 21:55:23,962 - INFO - Successfully generated 5088 groups with shape (5088, 4)
-2025-11-13 21:55:23,962 - INFO - [OVERSAMPLING DEBUG] Generated 5088 groups in total
-2025-11-13 21:55:23,962 - INFO - Generated 5088 groups efficiently
-INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.2025-11-13 21:55:24,113 - INFO - INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+2025-11-13 22:25:19,975 - INFO - Using efficient random sampling strategy for gridsize=2
+2025-11-13 22:25:19,975 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-11-13 22:25:19,976 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=5088, K=7, C=4
+2025-11-13 22:25:19,976 - INFO - Generating 5088 groups efficiently from 5088 points (K=7, C=4)
+2025-11-13 22:25:19,976 - INFO - [OVERSAMPLING DEBUG] Standard case: using 5088 groups from 5088 points
+2025-11-13 22:25:19,976 - INFO - [OVERSAMPLING DEBUG] Using all 5088 points as seeds (no sampling needed)
+2025-11-13 22:25:19,976 - INFO - Using all 5088 points as seeds
+2025-11-13 22:25:20,009 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 5088 groups
+2025-11-13 22:25:20,010 - INFO - Successfully generated 5088 groups with shape (5088, 4)
+2025-11-13 22:25:20,010 - INFO - [OVERSAMPLING DEBUG] Generated 5088 groups in total
+2025-11-13 22:25:20,010 - INFO - Generated 5088 groups efficiently
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.2025-11-13 22:25:20,161 - INFO - INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
 
-I0000 00:00:1763099724.825310 2633858 service.cc:152] XLA service 0x304d7220 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
-I0000 00:00:1763099724.825329 2633858 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
-2025-11-13 21:55:24.847348: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
-I0000 00:00:1763099724.868437 2633858 cuda_dnn.cc:529] Loaded cuDNN version 91002
-I0000 00:00:1763099725.025027 2633858 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
-2025-11-13 21:56:45.325554: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 2667577344 exceeds 10% of free system memory.
-neighbor-sampled diffraction shape2025-11-13 21:56:50,833 - INFO - neighbor-sampled diffraction shape
- (5088, 128, 128, 4)2025-11-13 21:56:50,833 - INFO - (5088, 128, 128, 4)
+neighbor-sampled diffraction shape2025-11-13 22:26:47,445 - INFO - neighbor-sampled diffraction shape
+ (5088, 128, 128, 4)2025-11-13 22:26:47,445 - INFO - (5088, 128, 128, 4)
 
-loader: using provided ground truth patches.2025-11-13 21:56:52,864 - INFO - loader: using provided ground truth patches.
+loader: using provided ground truth patches.2025-11-13 22:26:49,477 - INFO - loader: using provided ground truth patches.
 
-INFO:2025-11-13 21:56:53,251 - INFO - INFO:
- None2025-11-13 21:56:53,252 - INFO - None
+INFO:2025-11-13 22:26:49,870 - INFO - INFO:
+ None2025-11-13 22:26:49,870 - INFO - None
 
-<PtychoDataContainer X=(5088, 128, 128, 4) Y_I=(5088, 128, 128, 4) Y_phi=(5088, 128, 128, 4) norm_Y_I=() coords_nominal=(5088, 1, 2, 4) coords_true=(5088, 1, 2, 4) nn_indices=(5088, 4) mean=2550.773 global_offsets=(5088, 1, 2, 1) mean=188.719 local_offsets=(5088, 1, 2, 4) mean=0.000 probe=(128, 128) mean_amplitude=0.007>2025-11-13 21:56:53,252 - INFO - <PtychoDataContainer X=(5088, 128, 128, 4) Y_I=(5088, 128, 128, 4) Y_phi=(5088, 128, 128, 4) norm_Y_I=() coords_nominal=(5088, 1, 2, 4) coords_true=(5088, 1, 2, 4) nn_indices=(5088, 4) mean=2550.773 global_offsets=(5088, 1, 2, 1) mean=188.719 local_offsets=(5088, 1, 2, 4) mean=0.000 probe=(128, 128) mean_amplitude=0.007>
+<PtychoDataContainer X=(5088, 128, 128, 4) Y_I=(5088, 128, 128, 4) Y_phi=(5088, 128, 128, 4) norm_Y_I=() coords_nominal=(5088, 1, 2, 4) coords_true=(5088, 1, 2, 4) nn_indices=(5088, 4) mean=2550.773 global_offsets=(5088, 1, 2, 1) mean=188.719 local_offsets=(5088, 1, 2, 4) mean=0.000 probe=(128, 128) mean_amplitude=0.007>2025-11-13 22:26:49,870 - INFO - <PtychoDataContainer X=(5088, 128, 128, 4) Y_I=(5088, 128, 128, 4) Y_phi=(5088, 128, 128, 4) norm_Y_I=() coords_nominal=(5088, 1, 2, 4) coords_true=(5088, 1, 2, 4) nn_indices=(5088, 4) mean=2550.773 global_offsets=(5088, 1, 2, 1) mean=188.719 local_offsets=(5088, 1, 2, 4) mean=0.000 probe=(128, 128) mean_amplitude=0.007>
 
-2025-11-13 21:56:53,260 - INFO - Loading Baseline model from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1...
-2025-11-13 21:56:53,260 - INFO - baseline_model.h5 not found; attempting to load TF bundle (wts.h5.zip)
-2025-11-13 21:56:53,260 - INFO - Loading model from: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
-2025-11-13 21:56:54,298 - INFO - Successfully loaded model from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
-2025-11-13 21:56:54,299 - INFO - Loading iterative reconstruction from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/train/ptychi_reconstruction.npz...
-2025-11-13 21:56:54,304 - INFO - Loaded PtyChi reconstruction: (346, 514) (complex64)
-2025-11-13 21:56:54,304 - INFO - PtyChi reconstruction loaded for three-way comparison
-2025-11-13 21:56:54,304 - INFO - Running inference with PtychoPINN (diffraction_to_obj)...
-2025-11-13 21:56:54,304 - WARNING - GRIDSIZE MISMATCH: params.cfg['gridsize']=1 but diffraction has 4 channels (requires gridsize=2)
-2025-11-13 21:56:54,304 - WARNING - Forcing params.cfg['gridsize']=2 before inference to prevent Translation layer crash
-2025-11-13 21:56:56.245698: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_6_1/padded_obj_2_1/cond/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_6_1/padded_obj_2_1/cond/while/cond_tfg_inlined_functional_6_1/padded_obj_2_1/cond/while_1_0
-2025-11-13 21:56:56.461455: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_6_1/padded_obj_2_1/cond_1/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while/cond_0
-2025-11-13 21:56:56.600376: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_6_1/padded_obj_2_1/cond_2/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_6_1/padded_obj_2_1/cond_2/while/cond_0
-2025-11-13 21:56:56.752076: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_6_1/padded_obj_2_1/cond_3/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while/cond_0
-2025-11-13 21:56:57.987429: E external/local_xla/xla/service/slow_operation_alarm.cc:73] Constant folding an instruction is taking > 1s:
-
-  %pad.2116 = f32[256,128,128,1]{3,2,1,0} pad(f32[128,128,128,1]{3,2,1,0} %constant.2114, f32[] %constant.2115), padding=0_128x0_0x0_0x0_0, metadata={op_type="StridedSlice" op_name="functional_6_1/padded_obj_2_1/cond_1/while/strided_slice_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1_1_1_tfg_cf_sunk_functional_6_1/padded_obj_2_1/cond_1/while/cond_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1_1_1" source_file="dummy_file_name" source_line=10}
-
-This isn't necessarily a bug; constant-folding is inherently a trade-off between compilation time and speed at runtime. XLA has some guards that attempt to keep constant folding from taking too long, but fundamentally you'll always be able to come up with an input program that takes a long time.
-
-If you'd like to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-2025-11-13 21:57:03.684310: E external/local_xla/xla/service/slow_operation_alarm.cc:140] The operation took 6.696968072s
-Constant folding an instruction is taking > 1s:
-
-  %pad.2116 = f32[256,128,128,1]{3,2,1,0} pad(f32[128,128,128,1]{3,2,1,0} %constant.2114, f32[] %constant.2115), padding=0_128x0_0x0_0x0_0, metadata={op_type="StridedSlice" op_name="functional_6_1/padded_obj_2_1/cond_1/while/strided_slice_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1_1_1_tfg_cf_sunk_functional_6_1/padded_obj_2_1/cond_1/while/cond_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1_1_1" source_file="dummy_file_name" source_line=10}
-
-This isn't necessarily a bug; constant-folding is inherently a trade-off between compilation time and speed at runtime. XLA has some guards that attempt to keep constant folding from taking too long, but fundamentally you'll always be able to come up with an input program that takes a long time.
-
-If you'd like to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-2025-11-13 21:57:05.699076: E external/local_xla/xla/service/slow_operation_alarm.cc:73] Constant folding an instruction is taking > 2s:
-
-  %pad.3952 = f32[256,128,128,1]{3,2,1,0} pad(f32[128,128,128,1]{3,2,1,0} %constant.3950, f32[] %constant.3951), padding=0_128x0_0x0_0x0_0, metadata={op_type="StridedSlice" op_name="functional_6_1/padded_obj_2_1/cond_3/while/strided_slice_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3_1_1_tfg_cf_sunk_functional_6_1/padded_obj_2_1/cond_3/while/cond_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3_1_1" source_file="dummy_file_name" source_line=10}
-
-This isn't necessarily a bug; constant-folding is inherently a trade-off between compilation time and speed at runtime. XLA has some guards that attempt to keep constant folding from taking too long, but fundamentally you'll always be able to come up with an input program that takes a long time.
-
-If you'd like to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-2025-11-13 21:57:10.394453: E external/local_xla/xla/service/slow_operation_alarm.cc:140] The operation took 6.695455575s
-Constant folding an instruction is taking > 2s:
-
-  %pad.3952 = f32[256,128,128,1]{3,2,1,0} pad(f32[128,128,128,1]{3,2,1,0} %constant.3950, f32[] %constant.3951), padding=0_128x0_0x0_0x0_0, metadata={op_type="StridedSlice" op_name="functional_6_1/padded_obj_2_1/cond_3/while/strided_slice_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3_1_1_tfg_cf_sunk_functional_6_1/padded_obj_2_1/cond_3/while/cond_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3_1_1" source_file="dummy_file_name" source_line=10}
-
-This isn't necessarily a bug; constant-folding is inherently a trade-off between compilation time and speed at runtime. XLA has some guards that attempt to keep constant folding from taking too long, but fundamentally you'll always be able to come up with an input program that takes a long time.
-
-If you'd like to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-[1m  1/159[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m45:56[0m 17s/step2025-11-13 21:57:12,417 - INFO - [1m  1/159[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m45:56[0m 17s/step
-[1m  5/159[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 13ms/step  2025-11-13 21:57:12,470 - INFO - [1m  5/159[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 13ms/step
-[1m 10/159[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 13ms/step2025-11-13 21:57:12,531 - INFO - [1m 10/159[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 13ms/step
-[1m 15/159[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 21:57:12,591 - INFO - [1m 15/159[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 20/159[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 21:57:12,652 - INFO - [1m 20/159[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 25/159[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 21:57:12,713 - INFO - [1m 25/159[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 30/159[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 21:57:12,774 - INFO - [1m 30/159[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 35/159[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 21:57:12,834 - INFO - [1m 35/159[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 40/159[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 21:57:12,895 - INFO - [1m 40/159[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 45/159[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 21:57:12,959 - INFO - [1m 45/159[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 50/159[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 21:57:13,020 - INFO - [1m 50/159[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 55/159[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 21:57:13,081 - INFO - [1m 55/159[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 60/159[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 21:57:13,142 - INFO - [1m 60/159[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 65/159[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 21:57:13,203 - INFO - [1m 65/159[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 70/159[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 21:57:13,263 - INFO - [1m 70/159[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 75/159[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 21:57:13,323 - INFO - [1m 75/159[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 79/159[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 21:57:13,375 - INFO - [1m 79/159[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 12ms/step
-[1m 84/159[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 21:57:13,435 - INFO - [1m 84/159[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 12ms/step
-[1m 89/159[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 21:57:13,497 - INFO - [1m 89/159[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 12ms/step
-[1m 94/159[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 21:57:13,557 - INFO - [1m 94/159[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 12ms/step
-[1m 99/159[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 21:57:13,618 - INFO - [1m 99/159[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 12ms/step
-[1m104/159[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 21:57:13,682 - INFO - [1m104/159[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 12ms/step
-[1m109/159[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 21:57:13,743 - INFO - [1m109/159[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 12ms/step
-[1m114/159[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 21:57:13,805 - INFO - [1m114/159[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 12ms/step
-[1m119/159[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 21:57:13,867 - INFO - [1m119/159[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 12ms/step
-[1m124/159[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 12ms/step2025-11-13 21:57:13,929 - INFO - [1m124/159[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 12ms/step
-[1m129/159[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 12ms/step2025-11-13 21:57:13,991 - INFO - [1m129/159[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 12ms/step
-[1m134/159[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 12ms/step2025-11-13 21:57:14,056 - INFO - [1m134/159[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 12ms/step
-[1m139/159[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 12ms/step2025-11-13 21:57:14,115 - INFO - [1m139/159[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 12ms/step
-[1m144/159[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 12ms/step2025-11-13 21:57:14,174 - INFO - [1m144/159[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 12ms/step
-[1m149/159[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 12ms/step2025-11-13 21:57:14,234 - INFO - [1m149/159[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 12ms/step
-[1m154/159[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 12ms/step2025-11-13 21:57:14,293 - INFO - [1m154/159[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 12ms/step
-[1m158/159[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 12ms/step2025-11-13 21:57:14,354 - INFO - [1m158/159[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 12ms/step
+2025-11-13 22:26:49,878 - INFO - Loading Baseline model from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1...
+2025-11-13 22:26:49,878 - INFO - baseline_model.h5 not found; attempting to load TF bundle (wts.h5.zip)
+2025-11-13 22:26:49,878 - INFO - Loading model from: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
+2025-11-13 22:26:50,911 - INFO - Successfully loaded model from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
+2025-11-13 22:26:50,912 - INFO - Running two-way comparison (PtychoPINN vs. Baseline)
+2025-11-13 22:26:50,912 - INFO - Running inference with PtychoPINN (diffraction_to_obj)...
+2025-11-13 22:26:50,912 - WARNING - GRIDSIZE MISMATCH: params.cfg['gridsize']=1 but diffraction has 4 channels (requires gridsize=2)
+2025-11-13 22:26:50,912 - WARNING - Forcing params.cfg['gridsize']=2 before inference to prevent Translation layer crash
+[1m  1/159[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m46:03[0m 17s/step2025-11-13 22:27:09,071 - INFO - [1m  1/159[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m46:03[0m 17s/step
+[1m  5/159[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 13ms/step  2025-11-13 22:27:09,123 - INFO - [1m  5/159[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 13ms/step
+[1m 10/159[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 13ms/step2025-11-13 22:27:09,184 - INFO - [1m 10/159[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 13ms/step
+[1m 15/159[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 22:27:09,245 - INFO - [1m 15/159[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 20/159[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 22:27:09,305 - INFO - [1m 20/159[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 25/159[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 22:27:09,365 - INFO - [1m 25/159[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 30/159[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 22:27:09,425 - INFO - [1m 30/159[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 35/159[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 22:27:09,485 - INFO - [1m 35/159[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 40/159[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 22:27:09,544 - INFO - [1m 40/159[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 45/159[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 22:27:09,604 - INFO - [1m 45/159[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 50/159[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 22:27:09,664 - INFO - [1m 50/159[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 54/159[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 22:27:09,715 - INFO - [1m 54/159[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 59/159[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 22:27:09,776 - INFO - [1m 59/159[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 64/159[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 22:27:09,837 - INFO - [1m 64/159[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 69/159[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 22:27:09,898 - INFO - [1m 69/159[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 74/159[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 22:27:09,960 - INFO - [1m 74/159[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m1s[0m 12ms/step
+[1m 78/159[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 22:27:10,010 - INFO - [1m 78/159[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 12ms/step
+[1m 83/159[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 22:27:10,072 - INFO - [1m 83/159[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 12ms/step
+[1m 88/159[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 22:27:10,134 - INFO - [1m 88/159[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 12ms/step
+[1m 93/159[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 22:27:10,196 - INFO - [1m 93/159[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 12ms/step
+[1m 98/159[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 22:27:10,258 - INFO - [1m 98/159[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 12ms/step
+[1m103/159[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 22:27:10,319 - INFO - [1m103/159[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 12ms/step
+[1m108/159[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 22:27:10,381 - INFO - [1m108/159[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 12ms/step
+[1m113/159[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 22:27:10,443 - INFO - [1m113/159[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 12ms/step
+[1m118/159[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 22:27:10,504 - INFO - [1m118/159[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 12ms/step
+[1m123/159[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 12ms/step2025-11-13 22:27:10,564 - INFO - [1m123/159[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 12ms/step
+[1m128/159[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 12ms/step2025-11-13 22:27:10,625 - INFO - [1m128/159[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 12ms/step
+[1m133/159[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 12ms/step2025-11-13 22:27:10,684 - INFO - [1m133/159[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 12ms/step
+[1m138/159[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 12ms/step2025-11-13 22:27:10,745 - INFO - [1m138/159[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 12ms/step
+[1m143/159[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 12ms/step2025-11-13 22:27:10,804 - INFO - [1m143/159[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 12ms/step
+[1m148/159[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 12ms/step2025-11-13 22:27:10,863 - INFO - [1m148/159[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 12ms/step
+[1m153/159[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 12ms/step2025-11-13 22:27:10,924 - INFO - [1m153/159[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 12ms/step
+[1m158/159[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 12ms/step2025-11-13 22:27:10,994 - INFO - [1m158/159[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 12ms/step
 [1m159/159[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m19s[0m 12ms/step
-2025-11-13 21:57:14,379 - INFO - [1m159/159[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m19s[0m 12ms/step
-2025-11-13 21:57:14,547 - INFO - PtychoPINN inference completed in 20.24s
-2025-11-13 21:57:14,547 - INFO - PINN patches shape before reassembly: (159, 128, 128, 1), dtype: complex64
-2025-11-13 21:57:14,547 - INFO - Reassembling PINN patches...
-2025-11-13 21:57:14,547 - INFO - PINN offsets shape before reassembly: (5088, 1, 2, 1), dtype: float64
-2025-11-13 21:57:15,720 - INFO - PINN reconstruction shape after reassembly: (364, 364, 1), dtype: <dtype: 'complex64'>
-2025-11-13 21:57:15,720 - INFO - Running inference with Baseline model...
-2025-11-13 21:57:15,720 - INFO - Flattening grouped diffraction for baseline model: X (5088, 128, 128, 4) → channels merged; resolved gridsize=2 (from 4 channels)
-DEBUG: Setting2025-11-13 21:57:15,720 - INFO - DEBUG: Setting
- gridsize2025-11-13 21:57:15,720 - INFO - gridsize
- to2025-11-13 21:57:15,720 - INFO - to
- 22025-11-13 21:57:15,720 - INFO - 2
- in params2025-11-13 21:57:15,720 - INFO - in params
+2025-11-13 22:27:11,022 - INFO - [1m159/159[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m19s[0m 12ms/step
+2025-11-13 22:27:11,196 - INFO - PtychoPINN inference completed in 20.28s
+2025-11-13 22:27:11,197 - INFO - PINN patches shape before reassembly: (159, 128, 128, 1), dtype: complex64
+2025-11-13 22:27:11,197 - INFO - Reassembling PINN patches...
+2025-11-13 22:27:11,197 - INFO - PINN offsets shape before reassembly: (5088, 1, 2, 1), dtype: float64
+2025-11-13 22:27:12,362 - INFO - PINN reconstruction shape after reassembly: (364, 364, 1), dtype: <dtype: 'complex64'>
+2025-11-13 22:27:12,363 - INFO - Running inference with Baseline model...
+2025-11-13 22:27:12,363 - INFO - Flattening grouped diffraction for baseline model: X (5088, 128, 128, 4) → channels merged; resolved gridsize=2 (from 4 channels)
+DEBUG: Setting2025-11-13 22:27:12,363 - INFO - DEBUG: Setting
+ gridsize2025-11-13 22:27:12,363 - INFO - gridsize
+ to2025-11-13 22:27:12,363 - INFO - to
+ 22025-11-13 22:27:12,363 - INFO - 2
+ in params2025-11-13 22:27:12,363 - INFO - in params
 
-2025-11-13 21:57:15,720 - INFO - Forced params.cfg['gridsize']=2 for baseline grouped inference
-2025-11-13 21:57:15,727 - INFO - Centered baseline offsets: original mean=188.72, std=86.11 → centered mean=-0.000000, std=86.11
-2025-11-13 21:57:16,619 - INFO - Applied --baseline-debug-limit=320: limited (20352, 128, 128, 1) → (320, 128, 128, 1)
-2025-11-13 21:57:16,619 - INFO - Baseline inference input shape: (320, 128, 128, 1)
-2025-11-13 21:57:16,619 - INFO - Baseline inference offsets shape: (320, 1, 2, 1)
-2025-11-13 21:57:16,626 - INFO - DIAGNOSTIC baseline_input stats: mean=0.112901, max=4.951581, nonzero_count=274138/5242880
-2025-11-13 21:57:16,626 - INFO - Using chunked baseline inference: 320 groups in chunks of 160 (batch_size=16)
-2025-11-13 21:57:16,626 - INFO - Processing baseline chunk 1/2: groups [0:160]
-2025-11-13 21:57:17.667572: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond/while/cond_0
-2025-11-13 21:57:17.746231: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond_1/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond_1/while/cond_tfg_inlined_functional_10_1/padded_obj_2_1/cond_1/while_1_0
-2025-11-13 21:57:17.805765: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond_2/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond_2/while/cond_0
-2025-11-13 21:57:17.855621: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond_3/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond_3/while/cond_0
-[1m 1/10[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m34s[0m 4s/step2025-11-13 21:57:20,515 - INFO - [1m 1/10[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m34s[0m 4s/step
-[1m10/10[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 6ms/step2025-11-13 21:57:20,568 - INFO - [1m10/10[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 6ms/step
+2025-11-13 22:27:12,363 - INFO - Forced params.cfg['gridsize']=2 for baseline grouped inference
+2025-11-13 22:27:12,370 - INFO - Centered baseline offsets: original mean=188.72, std=86.11 → centered mean=-0.000000, std=86.11
+2025-11-13 22:27:13,278 - INFO - Applied --baseline-debug-limit=320: limited (20352, 128, 128, 1) → (320, 128, 128, 1)
+2025-11-13 22:27:13,278 - INFO - Baseline inference input shape: (320, 128, 128, 1)
+2025-11-13 22:27:13,278 - INFO - Baseline inference offsets shape: (320, 1, 2, 1)
+2025-11-13 22:27:13,285 - INFO - DIAGNOSTIC baseline_input stats: mean=0.112901, max=4.951581, nonzero_count=274138/5242880
+2025-11-13 22:27:13,285 - INFO - Using chunked baseline inference: 320 groups in chunks of 160 (batch_size=16)
+2025-11-13 22:27:13,285 - INFO - Processing baseline chunk 1/2: groups [0:160]
+[1m 1/10[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m34s[0m 4s/step2025-11-13 22:27:17,179 - INFO - [1m 1/10[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m34s[0m 4s/step
+[1m10/10[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 6ms/step2025-11-13 22:27:17,233 - INFO - [1m10/10[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 6ms/step
 [1m10/10[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m4s[0m 7ms/step
-2025-11-13 21:57:20,581 - INFO - [1m10/10[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m4s[0m 7ms/step
-2025-11-13 21:57:20,611 - INFO - DIAGNOSTIC chunk 1 baseline_output stats: mean=0.209449, max=1.639315, nonzero_count=687354/2621440
-2025-11-13 21:57:20,612 - INFO - Processing baseline chunk 2/2: groups [160:320]
-[1m 1/10[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 256ms/step2025-11-13 21:57:21,084 - INFO - [1m 1/10[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 256ms/step
-[1m10/10[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 6ms/step  2025-11-13 21:57:21,134 - INFO - [1m10/10[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 6ms/step
-[1m10/10[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 7ms/step
-2025-11-13 21:57:21,146 - INFO - [1m10/10[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 7ms/step
-2025-11-13 21:57:21,178 - INFO - DIAGNOSTIC chunk 2 baseline_output stats: mean=0.258584, max=1.646160, nonzero_count=841255/2621440
-2025-11-13 21:57:21,183 - INFO - Concatenated 2 chunks into final baseline_output shape: (320, 128, 128, 1)
-2025-11-13 21:57:21,184 - INFO - Baseline inference completed in 4.56s
-2025-11-13 21:57:21,200 - INFO - DIAGNOSTIC baseline_output stats: mean=0.234016, max=1.646160, nonzero_count=1528609/5242880
-2025-11-13 21:57:21,200 - INFO - Baseline output format: single tensor, shape: (320, 128, 128, 1), dtype: complex64
-2025-11-13 21:57:21,200 - INFO - Converting baseline output from single complex tensor format
-2025-11-13 21:57:21,239 - INFO - After conversion - amplitude shape: (320, 128, 128, 1), phase shape: (320, 128, 128, 1)
-2025-11-13 21:57:21,239 - INFO - Complex patches shape: (320, 128, 128, 1), dtype: complex64
-2025-11-13 21:57:21,240 - INFO - DIAGNOSTIC first patch amplitude: shape=(128, 128, 1), mean=0.549378, max=1.396892, nonzero=11000/16384
-2025-11-13 21:57:21,240 - INFO - DIAGNOSTIC first patch phase: shape=(128, 128, 1), mean=0.492245, std=0.431378, min=0.000000, max=2.805013
-2025-11-13 21:57:21,240 - INFO - Reassembling baseline patches...
-2025-11-13 21:57:21,634 - INFO - Saving NPZ files of raw reconstructions...
-2025-11-13 21:57:21,788 - INFO - Unified reconstructions saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/reconstructions.npz
-2025-11-13 21:57:21,788 - INFO - Metadata saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/reconstructions_metadata.txt
-2025-11-13 21:57:21,788 - INFO - Unified NPZ reconstruction file saved successfully!
-2025-11-13 21:57:21,788 - INFO - Performing coordinate-based alignment of ground truth...
-2025-11-13 21:57:21,788 - INFO - Ground truth original shape: (464, 464)
-2025-11-13 21:57:21,788 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
-2025-11-13 21:57:21,789 - INFO - Calculated ground truth crop region: rows [55:240], cols [54:408]
-2025-11-13 21:57:21,789 - INFO - Initial shapes: Recon=(364, 364), Cropped GT=(185, 354)
-2025-11-13 21:57:21,789 - INFO - Center-cropping from (364, 364) to (185, 354)
-2025-11-13 21:57:21,789 - INFO - Final aligned shape: (185, 354)
-2025-11-13 21:57:21,789 - INFO - --- Alignment complete ---
-2025-11-13 21:57:21,789 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
-2025-11-13 21:57:21,789 - INFO - Calculated ground truth crop region: rows [55:240], cols [54:408]
-2025-11-13 21:57:21,789 - INFO - Initial shapes: Recon=(384, 384), Cropped GT=(185, 354)
-2025-11-13 21:57:21,789 - INFO - Center-cropping from (384, 384) to (185, 354)
-2025-11-13 21:57:21,789 - INFO - Final aligned shape: (185, 354)
-2025-11-13 21:57:21,789 - INFO - --- Alignment complete ---
-2025-11-13 21:57:21,789 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
-2025-11-13 21:57:21,789 - INFO - Calculated ground truth crop region: rows [55:240], cols [54:408]
-2025-11-13 21:57:21,789 - INFO - Initial shapes: Recon=(346, 514), Cropped GT=(185, 354)
-2025-11-13 21:57:21,789 - INFO - Center-cropping from (346, 514) to (185, 354)
-2025-11-13 21:57:21,789 - INFO - Final aligned shape: (185, 354)
-2025-11-13 21:57:21,789 - INFO - --- Alignment complete ---
-2025-11-13 21:57:21,789 - INFO - Performing selective registration (ONLY for pty-chi/tike)...
-2025-11-13 21:57:21,789 - INFO - PtychoPINN and Baseline: skipping registration (as intended)
-2025-11-13 21:57:21,793 - INFO - PtyChi detected offset: (1.100, 13.060)
-2025-11-13 21:57:21,798 - INFO - Final evaluation shapes: PINN (185, 354), Baseline (185, 354), PtyChi (181, 350), GT (185, 354)
-Amplitude normalization scale factor: 1.1283662025-11-13 21:57:21,805 - INFO - Amplitude normalization scale factor: 1.128366
+2025-11-13 22:27:17,246 - INFO - [1m10/10[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m4s[0m 7ms/step
+2025-11-13 22:27:17,276 - INFO - DIAGNOSTIC chunk 1 baseline_output stats: mean=0.209449, max=1.639315, nonzero_count=687354/2621440
+2025-11-13 22:27:17,276 - INFO - Processing baseline chunk 2/2: groups [160:320]
+[1m 1/10[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 269ms/step2025-11-13 22:27:17,760 - INFO - [1m 1/10[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 269ms/step
+[1m10/10[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 7ms/step  
+2025-11-13 22:27:17,821 - INFO - [1m10/10[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 7ms/step
+2025-11-13 22:27:17,853 - INFO - DIAGNOSTIC chunk 2 baseline_output stats: mean=0.258584, max=1.646160, nonzero_count=841255/2621440
+2025-11-13 22:27:17,858 - INFO - Concatenated 2 chunks into final baseline_output shape: (320, 128, 128, 1)
+2025-11-13 22:27:17,858 - INFO - Baseline inference completed in 4.57s
+2025-11-13 22:27:17,874 - INFO - DIAGNOSTIC baseline_output stats: mean=0.234016, max=1.646160, nonzero_count=1528609/5242880
+2025-11-13 22:27:17,874 - INFO - Baseline output format: single tensor, shape: (320, 128, 128, 1), dtype: complex64
+2025-11-13 22:27:17,875 - INFO - Converting baseline output from single complex tensor format
+2025-11-13 22:27:17,913 - INFO - After conversion - amplitude shape: (320, 128, 128, 1), phase shape: (320, 128, 128, 1)
+2025-11-13 22:27:17,913 - INFO - Complex patches shape: (320, 128, 128, 1), dtype: complex64
+2025-11-13 22:27:17,913 - INFO - DIAGNOSTIC first patch amplitude: shape=(128, 128, 1), mean=0.549378, max=1.396892, nonzero=11000/16384
+2025-11-13 22:27:17,914 - INFO - DIAGNOSTIC first patch phase: shape=(128, 128, 1), mean=0.492245, std=0.431378, min=0.000000, max=2.805013
+2025-11-13 22:27:17,914 - INFO - Reassembling baseline patches...
+2025-11-13 22:27:18,312 - INFO - Saving NPZ files of raw reconstructions...
+2025-11-13 22:27:18,466 - INFO - Unified reconstructions saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/reconstructions.npz
+2025-11-13 22:27:18,467 - INFO - Metadata saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/reconstructions_metadata.txt
+2025-11-13 22:27:18,467 - INFO - Unified NPZ reconstruction file saved successfully!
+2025-11-13 22:27:18,467 - INFO - Performing coordinate-based alignment of ground truth...
+2025-11-13 22:27:18,467 - INFO - Ground truth original shape: (464, 464)
+2025-11-13 22:27:18,467 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
+2025-11-13 22:27:18,467 - INFO - Calculated ground truth crop region: rows [55:240], cols [54:408]
+2025-11-13 22:27:18,467 - INFO - Initial shapes: Recon=(364, 364), Cropped GT=(185, 354)
+2025-11-13 22:27:18,467 - INFO - Center-cropping from (364, 364) to (185, 354)
+2025-11-13 22:27:18,467 - INFO - Final aligned shape: (185, 354)
+2025-11-13 22:27:18,467 - INFO - --- Alignment complete ---
+2025-11-13 22:27:18,467 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
+2025-11-13 22:27:18,467 - INFO - Calculated ground truth crop region: rows [55:240], cols [54:408]
+2025-11-13 22:27:18,467 - INFO - Initial shapes: Recon=(384, 384), Cropped GT=(185, 354)
+2025-11-13 22:27:18,467 - INFO - Center-cropping from (384, 384) to (185, 354)
+2025-11-13 22:27:18,467 - INFO - Final aligned shape: (185, 354)
+2025-11-13 22:27:18,467 - INFO - --- Alignment complete ---
+2025-11-13 22:27:18,467 - INFO - Performing fine-scale registration to correct pixel-level misalignments...
+2025-11-13 22:27:18,471 - INFO - PtychoPINN detected offset: (25.120, 118.860)
+2025-11-13 22:27:18,478 - INFO - Baseline detected offset: (46.980, -173.860)
+2025-11-13 22:27:18,482 - INFO - Registration completed. PtychoPINN offset: (25.1200008392334, 118.86000061035156), Baseline offset: (46.97999954223633, -173.86000061035156)
+2025-11-13 22:27:18,482 - INFO - Final aligned shapes - PINN: (181, 350), Baseline: (181, 350), GT: (181, 350)
+2025-11-13 22:27:18,482 - INFO - Final evaluation shapes: PINN (181, 350), Baseline (181, 350), GT (181, 350)
+Amplitude normalization scale factor: 1.1560182025-11-13 22:27:18,488 - INFO - Amplitude normalization scale factor: 1.156018
 
-mean scale adjustment:2025-11-13 21:57:21,805 - INFO - mean scale adjustment:
- 12025-11-13 21:57:21,805 - INFO - 1
+mean scale adjustment:2025-11-13 22:27:18,489 - INFO - mean scale adjustment:
+ 12025-11-13 22:27:18,489 - INFO - 1
 
-mean scale adjustment:2025-11-13 21:57:21,805 - INFO - mean scale adjustment:
- 12025-11-13 21:57:21,805 - INFO - 1
+mean scale adjustment:2025-11-13 22:27:18,489 - INFO - mean scale adjustment:
+ 12025-11-13 22:27:18,489 - INFO - 1
 
-DEBUG eval_reconstruction [PtychoPINN]: amp_target stats: mean=0.565780, std=0.045193, shape=(181, 350, 1)2025-11-13 21:57:21,807 - INFO - DEBUG eval_reconstruction [PtychoPINN]: amp_target stats: mean=0.565780, std=0.045193, shape=(181, 350, 1)
+DEBUG eval_reconstruction [PtychoPINN]: amp_target stats: mean=0.565883, std=0.045348, shape=(177, 346, 1)2025-11-13 22:27:18,491 - INFO - DEBUG eval_reconstruction [PtychoPINN]: amp_target stats: mean=0.565883, std=0.045348, shape=(177, 346, 1)
 
-DEBUG eval_reconstruction [PtychoPINN]: amp_pred stats: mean=0.501415, std=0.372077, shape=(181, 350, 1)2025-11-13 21:57:21,808 - INFO - DEBUG eval_reconstruction [PtychoPINN]: amp_pred stats: mean=0.501415, std=0.372077, shape=(181, 350, 1)
+DEBUG eval_reconstruction [PtychoPINN]: amp_pred stats: mean=0.489511, std=0.366827, shape=(177, 346, 1)2025-11-13 22:27:18,491 - INFO - DEBUG eval_reconstruction [PtychoPINN]: amp_pred stats: mean=0.489511, std=0.366827, shape=(177, 346, 1)
 
-DEBUG eval_reconstruction [PtychoPINN]: phi_target stats: mean=-0.000000, std=0.267682, shape=(181, 350)2025-11-13 21:57:21,808 - INFO - DEBUG eval_reconstruction [PtychoPINN]: phi_target stats: mean=-0.000000, std=0.267682, shape=(181, 350)
+DEBUG eval_reconstruction [PtychoPINN]: phi_target stats: mean=-0.000000, std=0.267424, shape=(177, 346)2025-11-13 22:27:18,491 - INFO - DEBUG eval_reconstruction [PtychoPINN]: phi_target stats: mean=-0.000000, std=0.267424, shape=(177, 346)
 
-DEBUG eval_reconstruction [PtychoPINN]: phi_pred stats: mean=-0.000000, std=0.032086, shape=(181, 350)2025-11-13 21:57:21,808 - INFO - DEBUG eval_reconstruction [PtychoPINN]: phi_pred stats: mean=-0.000000, std=0.032086, shape=(181, 350)
+DEBUG eval_reconstruction [PtychoPINN]: phi_pred stats: mean=0.000000, std=1.287943, shape=(177, 346)2025-11-13 22:27:18,491 - INFO - DEBUG eval_reconstruction [PtychoPINN]: phi_pred stats: mean=0.000000, std=1.287943, shape=(177, 346)
 
-performed by index method2025-11-13 21:57:21,811 - INFO - performed by index method
+performed by index method2025-11-13 22:27:18,493 - INFO - performed by index method
 
-performed by index method2025-11-13 21:57:21,820 - INFO - performed by index method
+performed by index method2025-11-13 22:27:18,502 - INFO - performed by index method
 
-performed by index method2025-11-13 21:57:21,829 - INFO - performed by index method
+performed by index method2025-11-13 22:27:18,510 - INFO - performed by index method
 
-mean scale adjustment:2025-11-13 21:57:21,837 - INFO - mean scale adjustment:
- 12025-11-13 21:57:21,837 - INFO - 1
+mean scale adjustment:2025-11-13 22:27:18,518 - INFO - mean scale adjustment:
+ 12025-11-13 22:27:18,518 - INFO - 1
 
-mean scale adjustment:2025-11-13 21:57:21,837 - INFO - mean scale adjustment:
- 12025-11-13 21:57:21,837 - INFO - 1
+mean scale adjustment:2025-11-13 22:27:18,519 - INFO - mean scale adjustment:
+ 12025-11-13 22:27:18,519 - INFO - 1
 
-Phase preprocessing: plane-fitted range [-0.655, 0.372] -> scaled range [0.396, 0.559]2025-11-13 21:57:21,838 - INFO - Phase preprocessing: plane-fitted range [-0.655, 0.372] -> scaled range [0.396, 0.559]
+Phase preprocessing: plane-fitted range [-0.657, 0.369] -> scaled range [0.396, 0.559]2025-11-13 22:27:18,519 - INFO - Phase preprocessing: plane-fitted range [-0.657, 0.369] -> scaled range [0.396, 0.559]
 
-/home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:168: RuntimeWarning: Negative SSIM value (-0.0080) encountered in MS-SSIM calculation. Clamping to 0.0001 to avoid NaN.
+2025-11-13 22:27:18,524 - ERROR - /home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:168: RuntimeWarning: Negative SSIM value (-0.0102) encountered in MS-SSIM calculation. Clamping to 0.0001 to avoid NaN.
   warnings.warn(f"Negative SSIM value ({ssim_val:.4f}) encountered in MS-SSIM calculation. "
-2025-11-13 21:57:21,846 - ERROR - /home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:168: RuntimeWarning: Negative SSIM value (-0.0080) encountered in MS-SSIM calculation. Clamping to 0.0001 to avoid NaN.
+2025-11-13 22:27:18,524 - ERROR - /home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:168: RuntimeWarning: Negative SSIM value (-0.0127) encountered in MS-SSIM calculation. Clamping to 0.0001 to avoid NaN.
   warnings.warn(f"Negative SSIM value ({ssim_val:.4f}) encountered in MS-SSIM calculation. "
-performed by index method2025-11-13 21:57:21,849 - INFO - performed by index method
+performed by index method2025-11-13 22:27:18,529 - INFO - performed by index method
 
-performed by index method2025-11-13 21:57:21,857 - INFO - performed by index method
+performed by index method2025-11-13 22:27:18,537 - INFO - performed by index method
 
-performed by index method2025-11-13 21:57:21,866 - INFO - performed by index method
+performed by index method2025-11-13 22:27:18,546 - INFO - performed by index method
 
-2025-11-13 21:57:21,875 - INFO - PtychoPINN evaluation complete. SSIM: amp=0.096, phase=0.740, MS-SSIM: amp=0.031, phase=0.015
-Amplitude normalization scale factor: 4.2300162025-11-13 21:57:21,880 - INFO - Amplitude normalization scale factor: 4.230016
+2025-11-13 22:27:18,554 - INFO - PtychoPINN evaluation complete. SSIM: amp=0.035, phase=0.340, MS-SSIM: amp=0.003, phase=0.099
+Amplitude normalization scale factor: 4.5219312025-11-13 22:27:18,559 - INFO - Amplitude normalization scale factor: 4.521931
 
-mean scale adjustment:2025-11-13 21:57:21,881 - INFO - mean scale adjustment:
- 12025-11-13 21:57:21,881 - INFO - 1
+mean scale adjustment:2025-11-13 22:27:18,559 - INFO - mean scale adjustment:
+ 12025-11-13 22:27:18,559 - INFO - 1
 
-mean scale adjustment:2025-11-13 21:57:21,881 - INFO - mean scale adjustment:
- 12025-11-13 21:57:21,881 - INFO - 1
+mean scale adjustment:2025-11-13 22:27:18,560 - INFO - mean scale adjustment:
+ 12025-11-13 22:27:18,560 - INFO - 1
 
-DEBUG eval_reconstruction [Baseline]: amp_target stats: mean=0.565780, std=0.045193, shape=(181, 350, 1)2025-11-13 21:57:21,883 - INFO - DEBUG eval_reconstruction [Baseline]: amp_target stats: mean=0.565780, std=0.045193, shape=(181, 350, 1)
+DEBUG eval_reconstruction [Baseline]: amp_target stats: mean=0.565883, std=0.045348, shape=(177, 346, 1)2025-11-13 22:27:18,562 - INFO - DEBUG eval_reconstruction [Baseline]: amp_target stats: mean=0.565883, std=0.045348, shape=(177, 346, 1)
 
-DEBUG eval_reconstruction [Baseline]: amp_pred stats: mean=0.133754, std=0.301832, shape=(181, 350, 1)2025-11-13 21:57:21,883 - INFO - DEBUG eval_reconstruction [Baseline]: amp_pred stats: mean=0.133754, std=0.301832, shape=(181, 350, 1)
+DEBUG eval_reconstruction [Baseline]: amp_pred stats: mean=0.125142, std=0.291075, shape=(177, 346, 1)2025-11-13 22:27:18,562 - INFO - DEBUG eval_reconstruction [Baseline]: amp_pred stats: mean=0.125142, std=0.291075, shape=(177, 346, 1)
 
-DEBUG eval_reconstruction [Baseline]: phi_target stats: mean=-0.000000, std=0.267682, shape=(181, 350)2025-11-13 21:57:21,883 - INFO - DEBUG eval_reconstruction [Baseline]: phi_target stats: mean=-0.000000, std=0.267682, shape=(181, 350)
+DEBUG eval_reconstruction [Baseline]: phi_target stats: mean=-0.000000, std=0.267424, shape=(177, 346)2025-11-13 22:27:18,562 - INFO - DEBUG eval_reconstruction [Baseline]: phi_target stats: mean=-0.000000, std=0.267424, shape=(177, 346)
 
-DEBUG eval_reconstruction [Baseline]: phi_pred stats: mean=0.000000, std=0.313960, shape=(181, 350)2025-11-13 21:57:21,883 - INFO - DEBUG eval_reconstruction [Baseline]: phi_pred stats: mean=0.000000, std=0.313960, shape=(181, 350)
+DEBUG eval_reconstruction [Baseline]: phi_pred stats: mean=0.000000, std=1.733435, shape=(177, 346)2025-11-13 22:27:18,562 - INFO - DEBUG eval_reconstruction [Baseline]: phi_pred stats: mean=0.000000, std=1.733435, shape=(177, 346)
 
-performed by index method2025-11-13 21:57:21,886 - INFO - performed by index method
+performed by index method2025-11-13 22:27:18,564 - INFO - performed by index method
 
-performed by index method2025-11-13 21:57:21,894 - INFO - performed by index method
+performed by index method2025-11-13 22:27:18,572 - INFO - performed by index method
 
-performed by index method2025-11-13 21:57:21,903 - INFO - performed by index method
+performed by index method2025-11-13 22:27:18,580 - INFO - performed by index method
 
-mean scale adjustment:2025-11-13 21:57:21,912 - INFO - mean scale adjustment:
- 12025-11-13 21:57:21,912 - INFO - 1
+mean scale adjustment:2025-11-13 22:27:18,588 - INFO - mean scale adjustment:
+ 12025-11-13 22:27:18,588 - INFO - 1
 
-mean scale adjustment:2025-11-13 21:57:21,912 - INFO - mean scale adjustment:
- 12025-11-13 21:57:21,912 - INFO - 1
+mean scale adjustment:2025-11-13 22:27:18,588 - INFO - mean scale adjustment:
+ 12025-11-13 22:27:18,588 - INFO - 1
 
-Phase preprocessing: plane-fitted range [-0.655, 0.372] -> scaled range [0.396, 0.559]2025-11-13 21:57:21,912 - INFO - Phase preprocessing: plane-fitted range [-0.655, 0.372] -> scaled range [0.396, 0.559]
+Phase preprocessing: plane-fitted range [-0.657, 0.369] -> scaled range [0.396, 0.559]2025-11-13 22:27:18,588 - INFO - Phase preprocessing: plane-fitted range [-0.657, 0.369] -> scaled range [0.396, 0.559]
 
-performed by index method2025-11-13 21:57:21,924 - INFO - performed by index method
+performed by index method2025-11-13 22:27:18,599 - INFO - performed by index method
 
-performed by index method2025-11-13 21:57:21,933 - INFO - performed by index method
+performed by index method2025-11-13 22:27:18,607 - INFO - performed by index method
 
-performed by index method2025-11-13 21:57:21,942 - INFO - performed by index method
+performed by index method2025-11-13 22:27:18,615 - INFO - performed by index method
 
-2025-11-13 21:57:21,951 - INFO - Baseline evaluation complete. SSIM: amp=0.002, phase=0.688, MS-SSIM: amp=0.015, phase=0.108
-Amplitude normalization scale factor: 1.1188742025-11-13 21:57:21,957 - INFO - Amplitude normalization scale factor: 1.118874
+2025-11-13 22:27:18,622 - INFO - Baseline evaluation complete. SSIM: amp=0.002, phase=0.089, MS-SSIM: amp=0.023, phase=0.072
+2025-11-13 22:27:18,624 - INFO - Metrics saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/comparison_metrics.csv
 
-mean scale adjustment:2025-11-13 21:57:21,957 - INFO - mean scale adjustment:
- 12025-11-13 21:57:21,957 - INFO - 1
+--- Comparison Metrics ---2025-11-13 22:27:18,624 - INFO - --- Comparison Metrics ---
 
-mean scale adjustment:2025-11-13 21:57:21,957 - INFO - mean scale adjustment:
- 12025-11-13 21:57:21,957 - INFO - 1
+     model                 metric  amplitude     phase       value
+PtychoPINN                    mae   0.412193  0.816302         NaN
+PtychoPINN                    mse   0.183146  1.727680         NaN
+PtychoPINN                   psnr  55.502839 45.756171         NaN
+PtychoPINN                   ssim   0.035393  0.340317         NaN
+PtychoPINN                ms_ssim   0.003206  0.098575         NaN
+PtychoPINN                  frc50   1.000000  1.000000         NaN
+  Baseline                    mae   0.938946  1.434695         NaN
+  Baseline                    mse   1.736244  3.089788         NaN
+  Baseline                   psnr  45.734696 43.231517         NaN
+  Baseline                   ssim   0.002365  0.088859         NaN
+  Baseline                ms_ssim   0.023051  0.071571         NaN
+  Baseline                  frc50   1.000000  1.000000         NaN
+PtychoPINN registration_offset_dy        NaN       NaN   25.120001
+PtychoPINN registration_offset_dx        NaN       NaN  118.860001
+  Baseline registration_offset_dy        NaN       NaN   46.980000
+  Baseline registration_offset_dx        NaN       NaN -173.860001
+PtychoPINN     computation_time_s        NaN       NaN   20.284540
+  Baseline     computation_time_s        NaN       NaN    4.5725452025-11-13 22:27:18,626 - INFO - model                 metric  amplitude     phase       value
+PtychoPINN                    mae   0.412193  0.816302         NaN
+PtychoPINN                    mse   0.183146  1.727680         NaN
+PtychoPINN                   psnr  55.502839 45.756171         NaN
+PtychoPINN                   ssim   0.035393  0.340317         NaN
+PtychoPINN                ms_ssim   0.003206  0.098575         NaN
+PtychoPINN                  frc50   1.000000  1.000000         NaN
+  Baseline                    mae   0.938946  1.434695         NaN
+  Baseline                    mse   1.736244  3.089788         NaN
+  Baseline                   psnr  45.734696 43.231517         NaN
+  Baseline                   ssim   0.002365  0.088859         NaN
+  Baseline                ms_ssim   0.023051  0.071571         NaN
+  Baseline                  frc50   1.000000  1.000000         NaN
+PtychoPINN registration_offset_dy        NaN       NaN   25.120001
+PtychoPINN registration_offset_dx        NaN       NaN  118.860001
+  Baseline registration_offset_dy        NaN       NaN   46.980000
+  Baseline registration_offset_dx        NaN       NaN -173.860001
+PtychoPINN     computation_time_s        NaN       NaN   20.284540
+  Baseline     computation_time_s        NaN       NaN    4.572545
 
-DEBUG eval_reconstruction [PtyChi]: amp_target stats: mean=0.565883, std=0.045348, shape=(177, 346, 1)2025-11-13 21:57:21,959 - INFO - DEBUG eval_reconstruction [PtyChi]: amp_target stats: mean=0.565883, std=0.045348, shape=(177, 346, 1)
-
-DEBUG eval_reconstruction [PtyChi]: amp_pred stats: mean=0.505762, std=0.104054, shape=(177, 346, 1)2025-11-13 21:57:21,959 - INFO - DEBUG eval_reconstruction [PtyChi]: amp_pred stats: mean=0.505762, std=0.104054, shape=(177, 346, 1)
-
-DEBUG eval_reconstruction [PtyChi]: phi_target stats: mean=-0.000000, std=0.267424, shape=(177, 346)2025-11-13 21:57:21,959 - INFO - DEBUG eval_reconstruction [PtyChi]: phi_target stats: mean=-0.000000, std=0.267424, shape=(177, 346)
-
-DEBUG eval_reconstruction [PtyChi]: phi_pred stats: mean=-0.000000, std=0.352897, shape=(177, 346)2025-11-13 21:57:21,959 - INFO - DEBUG eval_reconstruction [PtyChi]: phi_pred stats: mean=-0.000000, std=0.352897, shape=(177, 346)
-
-performed by index method2025-11-13 21:57:21,961 - INFO - performed by index method
-
-performed by index method2025-11-13 21:57:21,969 - INFO - performed by index method
-
-performed by index method2025-11-13 21:57:21,977 - INFO - performed by index method
-
-mean scale adjustment:2025-11-13 21:57:21,984 - INFO - mean scale adjustment:
- 12025-11-13 21:57:21,984 - INFO - 1
-
-mean scale adjustment:2025-11-13 21:57:21,984 - INFO - mean scale adjustment:
- 12025-11-13 21:57:21,984 - INFO - 1
-
-Phase preprocessing: plane-fitted range [-0.657, 0.369] -> scaled range [0.396, 0.559]2025-11-13 21:57:21,985 - INFO - Phase preprocessing: plane-fitted range [-0.657, 0.369] -> scaled range [0.396, 0.559]
-
-performed by index method2025-11-13 21:57:21,994 - INFO - performed by index method
-
-performed by index method2025-11-13 21:57:22,002 - INFO - performed by index method
-
-performed by index method2025-11-13 21:57:22,010 - INFO - performed by index method
-
-2025-11-13 21:57:22,018 - INFO - PtyChi evaluation complete. SSIM: amp=0.032, phase=0.474, MS-SSIM: amp=0.114, phase=0.186
-2025-11-13 21:57:22,019 - INFO - Metrics saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/comparison_metrics.csv
-
---- Comparison Metrics ---2025-11-13 21:57:22,019 - INFO - --- Comparison Metrics ---
-
-     model                 metric  amplitude     phase     value
-PtychoPINN                    mae   0.401741  0.235939       NaN
-PtychoPINN                    mse   0.178232  0.073415       NaN
-PtychoPINN                   psnr  55.620953 59.472979       NaN
-PtychoPINN                   ssim   0.095511  0.739655       NaN
-PtychoPINN                ms_ssim   0.031140  0.015374       NaN
-PtychoPINN                  frc50   1.000000  1.000000       NaN
-  Baseline                    mae   0.941105  0.335032       NaN
-  Baseline                    mse   1.636034  0.175099       NaN
-  Baseline                   psnr  45.992879 55.697957       NaN
-  Baseline                   ssim   0.002445  0.687630       NaN
-  Baseline                ms_ssim   0.014721  0.108090       NaN
-  Baseline                  frc50   1.000000  1.000000       NaN
-    PtyChi                    mae   0.097524  0.329137       NaN
-    PtyChi                    mse   0.014812  0.185844       NaN
-    PtyChi                   psnr  66.424764 55.439310       NaN
-    PtyChi                   ssim   0.032294  0.474256       NaN
-    PtyChi                ms_ssim   0.114328  0.185646       NaN
-    PtyChi                  frc50   1.000000  2.000000       NaN
-    PtyChi registration_offset_dy        NaN       NaN  1.100000
-    PtyChi registration_offset_dx        NaN       NaN 13.060000
-PtychoPINN     computation_time_s        NaN       NaN 20.242696
-  Baseline     computation_time_s        NaN       NaN  4.5570832025-11-13 21:57:22,021 - INFO - model                 metric  amplitude     phase     value
-PtychoPINN                    mae   0.401741  0.235939       NaN
-PtychoPINN                    mse   0.178232  0.073415       NaN
-PtychoPINN                   psnr  55.620953 59.472979       NaN
-PtychoPINN                   ssim   0.095511  0.739655       NaN
-PtychoPINN                ms_ssim   0.031140  0.015374       NaN
-PtychoPINN                  frc50   1.000000  1.000000       NaN
-  Baseline                    mae   0.941105  0.335032       NaN
-  Baseline                    mse   1.636034  0.175099       NaN
-  Baseline                   psnr  45.992879 55.697957       NaN
-  Baseline                   ssim   0.002445  0.687630       NaN
-  Baseline                ms_ssim   0.014721  0.108090       NaN
-  Baseline                  frc50   1.000000  1.000000       NaN
-    PtyChi                    mae   0.097524  0.329137       NaN
-    PtyChi                    mse   0.014812  0.185844       NaN
-    PtyChi                   psnr  66.424764 55.439310       NaN
-    PtyChi                   ssim   0.032294  0.474256       NaN
-    PtyChi                ms_ssim   0.114328  0.185646       NaN
-    PtyChi                  frc50   1.000000  2.000000       NaN
-    PtyChi registration_offset_dy        NaN       NaN  1.100000
-    PtyChi registration_offset_dx        NaN       NaN 13.060000
-PtychoPINN     computation_time_s        NaN       NaN 20.242696
-  Baseline     computation_time_s        NaN       NaN  4.557083
-
-2025-11-13 21:57:22,022 - INFO - FRC curves saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/pinn_frc_curves.csv
-2025-11-13 21:57:22,022 - INFO - FRC curves saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/baseline_frc_curves.csv
-2025-11-13 21:57:22,023 - INFO - Saving NPZ files of aligned reconstructions...
-2025-11-13 21:57:22,095 - INFO - Unified aligned reconstructions saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/reconstructions_aligned.npz
-2025-11-13 21:57:22,095 - INFO - Aligned metadata saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/reconstructions_aligned_metadata.txt
-2025-11-13 21:57:22,095 - INFO - Unified aligned NPZ reconstruction file saved successfully!
-2025-11-13 21:57:22,132 - INFO - PtychoPINN amplitude color scale (vmin, vmax) set to: (0.000, 0.778) using 10.0/90.0 percentiles [per-panel].
-2025-11-13 21:57:22,133 - INFO - Baseline amplitude color scale (vmin, vmax) set to: (0.000, 0.807) using 10.0/90.0 percentiles [per-panel].
-2025-11-13 21:57:22,134 - INFO - PtychoPINN phase color scale (vmin, vmax) set to: (-0.078, 0.000) using 10.0/90.0 percentiles [per-panel].
-2025-11-13 21:57:22,134 - INFO - Baseline phase color scale (vmin, vmax) set to: (0.000, 0.608) using 10.0/90.0 percentiles [per-panel].
-2025-11-13 21:57:22,135 - INFO - PtyChi amplitude color scale (vmin, vmax) set to: (0.365, 0.636) using 10.0/90.0 percentiles [per-panel].
-2025-11-13 21:57:22,137 - INFO - PtyChi phase color scale (vmin, vmax) set to: (-0.601, 0.310) using 10.0/90.0 percentiles [per-panel].
-2025-11-13 21:57:22,146 - INFO - Ground Truth amplitude color scale (vmin, vmax) set to: (0.500, 0.619) using 10.0/90.0 percentiles [per-panel].
-2025-11-13 21:57:22,147 - INFO - Ground Truth phase color scale (vmin, vmax) set to: (-0.491, 0.218) using 10.0/90.0 percentiles [per-panel].
-2025-11-13 21:57:22,847 - INFO - Visual comparison saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/comparison_plot.png
-2025-11-13 21:57:22,847 - INFO - 
+2025-11-13 22:27:18,627 - INFO - FRC curves saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/pinn_frc_curves.csv
+2025-11-13 22:27:18,627 - INFO - FRC curves saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/baseline_frc_curves.csv
+2025-11-13 22:27:18,627 - INFO - Saving NPZ files of aligned reconstructions...
+2025-11-13 22:27:18,768 - INFO - Unified aligned reconstructions saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/reconstructions_aligned.npz
+2025-11-13 22:27:18,768 - INFO - Aligned metadata saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/reconstructions_aligned_metadata.txt
+2025-11-13 22:27:18,769 - INFO - Unified aligned NPZ reconstruction file saved successfully!
+2025-11-13 22:27:18,799 - INFO - PtychoPINN amplitude color scale (vmin, vmax) set to: (0.006, 0.793) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 22:27:18,800 - INFO - Baseline amplitude color scale (vmin, vmax) set to: (0.000, 0.801) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 22:27:18,801 - INFO - PtychoPINN phase color scale (vmin, vmax) set to: (-0.140, 2.939) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 22:27:18,803 - INFO - Baseline phase color scale (vmin, vmax) set to: (-2.541, 2.541) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 22:27:18,809 - INFO - Ground Truth amplitude color scale (vmin, vmax) set to: (0.500, 0.619) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 22:27:18,810 - INFO - Ground Truth phase color scale (vmin, vmax) set to: (-0.491, 0.218) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 22:27:19,395 - INFO - Visual comparison saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/comparison_plot.png
+2025-11-13 22:27:19,395 - INFO - 
 Comparison complete!
-2025-11-13 21:57:22,848 - INFO - Results saved to: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug
+2025-11-13 22:27:19,395 - INFO - Results saved to: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug
