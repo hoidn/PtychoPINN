@@ -11,4 +11,4 @@ collecting ... collected 2 items
 tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_batched_predictions PASSED [ 50%]
 tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split PASSED [100%]
 
-============================== 2 passed in 6.18s ===============================
+============================== 2 passed in 6.12s ===============================
