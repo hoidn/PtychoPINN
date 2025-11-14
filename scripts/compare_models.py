@@ -1038,6 +1038,14 @@ def main():
     logger.info(f"Baseline inference input shape: {baseline_input.shape}")
     logger.info(f"Baseline inference offsets shape: {baseline_offsets.shape}")
 
+    # DIAGNOSTIC: Check baseline input data stats
+    baseline_input_mean = baseline_input.mean()
+    baseline_input_max = baseline_input.max()
+    baseline_input_nonzero = np.count_nonzero(baseline_input)
+    logger.info(f"DIAGNOSTIC baseline_input stats: mean={baseline_input_mean:.6f}, max={baseline_input_max:.6f}, nonzero_count={baseline_input_nonzero}/{baseline_input.size}")
+    if baseline_input_mean == 0.0:
+        logger.error("CRITICAL: Baseline input data is all zeros! Data preparation may have failed.")
+
     # Warn if offsets are missing (shouldn't happen after prepare_baseline_inference_data)
     if baseline_offsets is None or baseline_offsets.size == 0:
         logger.warning(
@@ -1049,6 +1057,15 @@ def main():
     baseline_output = baseline_model.predict([baseline_input, baseline_offsets], batch_size=32, verbose=1)
     baseline_inference_time = time.time() - baseline_start
     logger.info(f"Baseline inference completed in {baseline_inference_time:.2f}s")
+
+    # DIAGNOSTIC: Check if baseline output contains actual values
+    baseline_output_np_check = np.asarray(baseline_output)
+    baseline_output_mean = np.abs(baseline_output_np_check).mean()
+    baseline_output_max = np.abs(baseline_output_np_check).max()
+    baseline_output_nonzero = np.count_nonzero(baseline_output_np_check)
+    logger.info(f"DIAGNOSTIC baseline_output stats: mean={baseline_output_mean:.6f}, max={baseline_output_max:.6f}, nonzero_count={baseline_output_nonzero}/{baseline_output_np_check.size}")
+    if baseline_output_mean == 0.0:
+        logger.error("CRITICAL: Baseline model returned all-zero predictions! Check model weights and input data.")
 
     # Log baseline output shape before conversion
     if isinstance(baseline_output, list):
