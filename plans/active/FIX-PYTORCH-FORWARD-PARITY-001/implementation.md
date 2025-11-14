@@ -122,9 +122,47 @@ PyTorch forward inference currently produces impulse-like patches with extremely
    - Document the persistence rule in `docs/workflows/pytorch.md` (short subsection under bundle persistence).
    - After code/test updates, rerun the short baseline to regenerate `cli/inference_patch_stats_rerun*.log` so the log line `Loaded intensity_scale …` reports the stored float; archive the new bundle params diff in the hub.
 
+### Action Plan — B3 (Scaling Validation)
+1. **Pre-flight + hub prep.**
+   - Export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`, set `HUB="$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"`, `OUT="$PWD/outputs/torch_forward_parity_baseline"`, and `SCALING="$HUB/scaling_alignment/phase_b3"`.
+   - Create `"$SCALING/cli"`, `"$SCALING/analysis"`, and `"$SCALING/green"` so new evidence is isolated from the Phase A/B runs. Confirm `$OUT` contains the latest bundle from commit `9a09ece2`.
+2. **Pytest guard (torch inference reassembly).**
+   - Run `pytest tests/torch/test_inference_reassembly_parity.py -vv | tee "$SCALING/green/pytest_inference_reassembly.log"`.
+   - Failure output (if any) should be copied to `$HUB/red/blocked_<timestamp>.md` referencing CONFIG-001 / POLICY-001 before exiting.
+3. **Short baseline rerun with instrumentation.**
+   - Reuse the canonical commands from `plan/plan.md` (10 epochs, 256 groups, `--log-patch-stats --patch-stats-limit 2`) but stream logs to the scaling folder:
+     ```bash
+     python -m ptycho_torch.train \
+       --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_identity.npz \
+       --test_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
+       --output_dir "$OUT" \
+       --max_epochs 10 \
+       --n_images 256 \
+       --gridsize 2 \
+       --batch_size 4 \
+       --torch-loss-mode poisson \
+       --accelerator gpu --deterministic \
+       --log-patch-stats --patch-stats-limit 2 \
+       --quiet \
+       |& tee "$SCALING/cli/train_patch_stats_scaling.log"
+
+     python -m ptycho_torch.inference \
+       --model_path "$OUT" \
+       --test_data datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
+       --output_dir "$OUT"/inference \
+       --n_images 128 \
+       --accelerator gpu \
+       --debug-dump "$SCALING/analysis/forward_parity_debug_scaling" \
+       --log-patch-stats --patch-stats-limit 2 \
+       |& tee "$SCALING/cli/inference_patch_stats_scaling.log"
+     ```
+   - After inference, grep `Loaded intensity_scale` inside the log to prove it now reports the stored float instead of `1.000000` (see previous baseline at `cli/inference_patch_stats_rerun_v3.log:26`).
+4. **Bundle + artifact capture.**
+   - Copy the refreshed `outputs/torch_forward_parity_baseline/wts.h5.zip` and `diffraction_to_obj/params.dill` digest (e.g., `shasum`) into `"$SCALING/analysis"` so reviewers can verify the persisted scalar exists.
+   - Update `$HUB/analysis/artifact_inventory.txt` with a “Phase B3 — scaling validation” section listing the pytest log, train/infer logs, and bundle digest paths. Summarize the observed intensity_scale value in `$HUB/summary.md`.
+
 ### Pending Tasks (Engineering)
-- Implement the four-step B2 plan above, re-run the short baseline, and ensure logs show consistent scaling.
-- Record diffs/commands in the Reports Hub summary and `analysis/artifact_inventory.txt`.
+- Execute the B3 validation plan (pytest selector + short baseline rerun + artifact capture) and update the hub inventory/summary once inference logs show the stored intensity scale.
 
 ### Notes & Risks
 - Changing defaults impacts existing CLI usage; maintain overrides and document changes clearly.

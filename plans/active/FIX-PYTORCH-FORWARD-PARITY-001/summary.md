@@ -1,4 +1,11 @@
 ### Turn Summary
+Verified Phase B2 landed (commit 9a09ece2) by reviewing docs/workflows/pytorch.md:150-189 and tests/torch/test_model_manager.py:1-200 and ensured the implementation plan now reflects the committed intensity_scale persistence flow.
+Confirmed the hub still reports `Loaded intensity_scale from bundle: 1.000000` (plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/cli/inference_patch_stats_rerun_v3.log:20-38), so fresh scaling evidence is required before Phase C work.
+Expanded plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md with a Phase B3 action plan (pytest guard + short-baseline rerun + bundle digest capture) and rewrote docs/fix_plan.md so the next Do Now targets HUB/scaling_alignment/phase_b3 evidence.
+Next: run `pytest tests/torch/test_inference_reassembly_parity.py -vv`, rerun the 10-epoch train and inference commands with patch stats enabled, store logs under `$HUB/scaling_alignment/phase_b3`, and refresh `$HUB/analysis/artifact_inventory.txt` with the observed intensity scale.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md; docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/cli/inference_patch_stats_rerun_v3.log
+
+### Turn Summary
 Implemented Phase B2 intensity_scale persistence pipeline: capture learned scale from PtychoPINN_Lightning.scaler.log_scale (or compute fallback from nphotons/N per spec), thread through train_results→save_torch_bundle, and log on load_inference_bundle_torch.
 Resolved the "always 1.0" inference scale issue by persisting the real value in params.dill inside wts.h5.zip bundles.
 Added test_save_bundle_with_intensity_scale proving round-trip persistence (3/3 TestSaveTorchBundle GREEN), documented behavior in docs/workflows/pytorch.md.

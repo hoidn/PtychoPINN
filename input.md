@@ -1,9 +1,10 @@
 Brief:
-Phase A v3 evidence is in the hub, so start Phase B2 by capturing the real `intensity_scale` during `_train_with_lightning` (read the Lightning/PTycho scaler parameter when trainable, otherwise compute the fallback from `docs/specs/spec-ptycho-core.md:80-110`) and stash it in `train_results`.
-Thread that scalar through `save_torch_bundle` so `params_snapshot['intensity_scale']` is no longer always `1.0`, make `load_inference_bundle_torch`/CLI inference prefer the stored value (the log line should report the new float), and document the behavior in `docs/workflows/pytorch.md`.
-Add/extend pytest coverage (e.g., `tests/torch/test_model_manager.py` or a new workflow test) proving the scale survives a save→load round trip, then rerun the short baseline to refresh `cli/*_rerun_v3.log` so inference shows the persisted scale.
-If CUDA/memory blocks any command, capture the minimal signature and drop `$HUB/red/blocked_<timestamp>.md` referencing POLICY-001 / CONFIG-001 immediately.
+Phase B2’s intensity_scale persistence landed in commit 9a09ece2, but the hub still shows `Loaded intensity_scale from bundle: 1.000000` (cli/inference_patch_stats_rerun_v3.log), so Phase B3 needs fresh scaling evidence.
+Export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md, set HUB="$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity", OUT="$PWD/outputs/torch_forward_parity_baseline", SCALING="$HUB/scaling_alignment/phase_b3", mkdir -p "$SCALING"/{cli,analysis,green}, then run `pytest tests/torch/test_inference_reassembly_parity.py -vv | tee "$SCALING/green/pytest_inference_reassembly.log"` (emit `$HUB/red/blocked_<timestamp>.md` immediately if it fails with POLICY-001/CONFIG-001 issues).
+Re-run the canonical 10-epoch short baseline with `--log-patch-stats --patch-stats-limit 2` using the commands in the plan, teeing to `$SCALING/cli/train_patch_stats_scaling.log` and `$SCALING/cli/inference_patch_stats_scaling.log`, and copy the debug dump into `$SCALING/analysis/forward_parity_debug_scaling`.
+After inference, grep for `Loaded intensity_scale` to prove it now reports the stored scalar (not 1.000000), record a digest of `wts.h5.zip` and `diffraction_to_obj/params.dill` inside `$SCALING/analysis`, and update `$HUB/analysis/artifact_inventory.txt` plus `$HUB/summary.md` with a “Phase B3 scaling validation” section summarizing the pytest result, logs, observed scalar, and bundle digest paths.
+Drop blockers immediately if CUDA/memory failures prevent any command from finishing.
 
 Summary: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
 Plan: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md
-Selector: tests/torch/test_model_manager.py::TestSaveTorchBundle::test_save_bundle_archives_config_snapshot
+Selector: tests/torch/test_inference_reassembly_parity.py

@@ -1373,3 +1373,15 @@
 - Next actions for Ralph: Implement intensity_scale persistence + pytest guard + baseline rerun as described in the Do Now; log blockers immediately if CUDA/memory issues recur.
 - <Action State>: [ready_for_implementation]
 - focus=FIX-PYTORCH-FORWARD-PARITY-001 state=ready_for_implementation dwell=1 ralph_last_commit=56287400 summary=plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md next_action=implement B2 intensity_scale persistence + pytest guard + short-baseline refresh
+# 2025-11-14T142400Z: Phase B3 scaling validation brief
+- dwell: 1 (reset after Ralph’s Phase B2 implementation commit 9a09ece2; this loop re-enters planning)
+- Focus issue: FIX-PYTORCH-FORWARD-PARITY-001 — need Phase B3 evidence proving the persisted `intensity_scale` is honored by inference.
+- Action type: Planning (Perf validation)
+- Mode: Perf
+- Git sync: `git status --porcelain` → clean; `timeout 30 git pull --rebase` → up to date; exported `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` for downstream commands.
+- Documents/artifacts reviewed: docs/index.md; docs/findings.md (POLICY-001 / CONFIG-001 / ANTIPATTERN-001); docs/DEVELOPER_GUIDE.md; docs/INITIATIVE_WORKFLOW_GUIDE.md; docs/COMMANDS_REFERENCE.md; docs/TESTING_GUIDE.md; docs/workflows/pytorch.md:150-189; docs/specs/spec-ptycho-core.md:80-120; docs/architecture.md; docs/development/TEST_SUITE_INDEX.md; docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md}; HUB logs `cli/inference_patch_stats_rerun_v3.log`; code refs `ptycho_torch/workflows/components.py:900-1040`, `tests/torch/test_model_manager.py`, `tests/torch/test_inference_reassembly_parity.py`.
+- Findings: Phase B2 code/tests/docs are merged but the latest inference log still prints `Loaded intensity_scale ... 1.000000`, so no evidence proves the stored scalar is used; Reports Hub lacks a scaling_alignment folder.
+- Steering: Added a Phase B3 action plan to the implementation doc (pytest guard, short-baseline rerun, scaling evidence folder, bundle digest requirements), rewrote docs/fix_plan.md Do Now accordingly, refreshed the initiative summary/input brief, and set HUB/scaling_alignment/phase_b3 as the target for new artifacts.
+- Next actions for Ralph: follow the refreshed brief — run `pytest tests/torch/test_inference_reassembly_parity.py -vv` tee’d into `$HUB/scaling_alignment/phase_b3/green/`, rerun the 10-epoch train + inference commands with patch stats enabled tee’d into `$HUB/scaling_alignment/phase_b3/cli/`, copy debug dumps + bundle digests into `$HUB/scaling_alignment/phase_b3/analysis/`, ensure the inference log reports the stored scalar, and update `$HUB/analysis/artifact_inventory.txt` / summary.md or log blockers.
+- <Action State>: [ready_for_implementation]
+- focus=FIX-PYTORCH-FORWARD-PARITY-001 state=ready_for_implementation dwell=1 ralph_last_commit=9a09ece2 summary=plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md next_action=pytest guard + short baseline rerun with scaling_alignment evidence and inventory refresh
