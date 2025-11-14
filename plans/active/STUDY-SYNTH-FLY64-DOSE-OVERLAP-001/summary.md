@@ -1,4 +1,11 @@
 ### Turn Summary
+Tier-3 dwell limit enforced after confirming chunked compare_models still runs single-shot PINN inference (`plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug_v3/logs/logs/debug.log:347-365`) and Baseline metrics remain blank (`.../analysis/dose_1000/dense/test/comparison_metrics.csv:2-13`, `.../analysis/verification_report.json:1-40`).
+`.../cli/run_phase_g_dense_post_verify_only.log:1-22` still fails PREVIEW-PHASE-001 because `analysis/metrics_delta_highlights_preview.txt` never materialized, so `{analysis}` lacks SSIM grid, metrics summary/deltas, verification bundle, and artifact inventory.
+Focus marked `blocked_escalation` and `analysis/dwell_escalation_report.md` updated; no further planning until Ralph delivers the chunked debug/full reruns plus counted `run_phase_g_dense.py --clobber` + metrics + fully parameterized `--post-verify-only` that populate Baseline rows and flip `verification_report.json` to 10/10.
+Next: engineer executes the guarded selector, chunked compare_models runs, and Phase G rerun end-to-end (or logs a new `$HUB/red/blocked_<timestamp>.md` the moment a command fails).
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dwell_escalation_report.md
+
+### Turn Summary
 Guarded repo/HUB and verified Phase C/E/F assets (patched_{train,test}.npz 587M/601M, dense/baseline wts.h5.zip 66M each, ptychi_reconstruction.npz 1.4M) all exist.
 Translation regression tests remain GREEN (2/2 passed, 6.14s), confirming chunked Baseline refactor is intact.
 Cannot execute the four required compare_models commands (train/test debug 320 groups + train/test full 5088/5216 groups) within this loop—GPU inference for debug runs requires >180s and full runs need 30-60+ minutes per Ralph §0 long-running job policy.

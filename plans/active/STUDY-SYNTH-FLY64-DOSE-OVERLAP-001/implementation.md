@@ -745,6 +745,19 @@ Checklist
   <status>approved</status>
 </plan_update>
 
+<plan_update version="1.26">
+  <trigger>Dwell counter reached Tier 3 again (six straight planning loops) with zero new Baseline evidence: `analysis/dose_1000/dense/train_debug_v3/logs/logs/debug.log` still logs “Using single-shot PINN inference: 5088 groups” and verification remains 0/10.</trigger>
+  <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md, docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/DEVELOPER_GUIDE.md, docs/COMMANDS_REFERENCE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/architecture.md, docs/fix_plan.md, galph_memory.md, input.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug_v3/logs/logs/debug.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/comparison_metrics.csv, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/verification_report.json, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_post_verify_only.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dwell_escalation_report.md</documents_read>
+  <current_plan_path>plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md</current_plan_path>
+  <proposed_changes>- Freeze this focus in `blocked_escalation` until Ralph executes the guarded selector, chunked debug/full compare_models runs with the explicit chunk/group flags, the Phase D selectors, counted `run_phase_g_dense.py --clobber`, metrics helpers, and the fully parameterized `--post-verify-only` sweep that populates Baseline CSV/JSON artifacts and flips `analysis/verification_report.json` to 10/10.
+- Point the ledger + summaries at `analysis/dwell_escalation_report.md` so future loops resume only after new CLI/log evidence exists.
+- Reiterate that any further failures must emit `$HUB/red/blocked_<timestamp>.md` records (command + exit signature) before handing back to supervision.</proposed_changes>
+  <impacts>Continuing to plan without chunked reruns keeps PREVIEW-PHASE-001 red and Phase G evidence absent, so nothing can close.</impacts>
+  <ledger_updates>Updated this plan, docs/fix_plan.md, the initiative summary, input.md, galph_memory.md, and `analysis/dwell_escalation_report.md` to capture the Tier 3 enforcement.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
 #### Completed Do Now — Baseline chunked container fix (completed 2025-11-16 via commit 451fdd82)
 > Evidence: `scripts/compare_models.py:1152-1197,1431-1442`, `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix_v17.log`, `.../analysis/dose_1000/dense/test_debug_v2/logs/logs/debug.log`.
   1. Guard the working directory + env vars so prompts stay satisfied:
