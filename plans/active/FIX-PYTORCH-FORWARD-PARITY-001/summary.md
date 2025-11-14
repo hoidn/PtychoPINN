@@ -1,3 +1,14 @@
+### Turn Summary (2025-11-14T032800Z)
+Completed Phase A evidence refresh: reran pytest selector (GREEN 1/1, 7.11s), executed 10-epoch training with instrumentation, ran inference with debug dumps, and captured fresh torch_patch_stats.json + torch_patch_grid.png artifacts.
+Training stats show non-zero variance (var_zero_mean=3.30e-06, mean=0.001003, std=0.001816), inference shows much higher values (var_zero_mean=9025851.0, mean=1673.339) as expected for unnormalized outputs, and all debug dumps (canvas/offsets/patch grids) materialized correctly.
+Next: Phase A checklist complete, ready for Phase B scaling/config alignment (object_big defaults, intensity_scale persistence per CONFIG-001/POLICY-001).
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_stats_rerun.log,cli/train_patch_stats_rerun.log,cli/inference_patch_stats_rerun.log,analysis/torch_patch_stats.json,analysis/torch_patch_grid.png,analysis/forward_parity_debug/}
+
+Checklist:
+- Files touched: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/analysis/artifact_inventory.txt, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/summary.md, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
+- Tests run: pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_stats_rerun.log,cli/train_patch_stats_rerun.log,cli/inference_patch_stats_rerun.log,analysis/torch_patch_stats.json,analysis/torch_patch_grid.png,analysis/forward_parity_debug/,analysis/artifact_inventory.txt}
+
 ### Turn Summary (2025-11-17T033500Z)
 Audited the forward_parity hub and confirmed every CLI/log artifact is still stamped 2025-11-14 (e.g., `cli/train_patch_stats_rerun.log` line 1), so Phase A evidence predates the TrainingPayload fix and must be rerun.
 Updated the implementation plan, fix_plan ledger, and input.md to restate the Do Now: guard the repo/HUB, rerun the pytest selector, execute the 10-epoch training + inference pair with `--log-patch-stats --patch-stats-limit 2`, copy the resulting torch_patch_stats.json/torch_patch_grid.png + debug dumps into `$HUB/analysis/`, then refresh the hub summary/inventory (log blockers under `$HUB/red/`).

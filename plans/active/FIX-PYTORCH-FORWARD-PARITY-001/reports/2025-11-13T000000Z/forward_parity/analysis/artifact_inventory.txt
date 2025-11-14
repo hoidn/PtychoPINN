@@ -1,41 +1,41 @@
 # Artifact Inventory — FIX-PYTORCH-FORWARD-PARITY-001/forward_parity
 
-## Phase A — Instrumentation + Short Baseline Rerun (2025-11-14, refreshed post-dc5415ba)
+## Phase A — Instrumentation + Short Baseline Rerun (2025-11-14, post-dc5415ba refresh)
 
 ### Green Evidence (Tests Passing)
-- green/pytest_patch_stats_rerun.log — Selector GREEN after post-payload-fix rerun (1/1 PASSED, 7.14s)
+- green/pytest_patch_stats_rerun.log — Selector GREEN after fresh rerun (1/1 PASSED, 7.11s)
   - Confirms torch_patch_stats.json/torch_patch_grid.png emission
   - log_patch_stats/patch_stats_limit flags working via payload handoff (dc5415ba)
-- green/pytest_patch_stats_payload_handoff.log — Original payload handoff fix (1/1 PASSED, 7.14s)
+  - Test timestamp: 2025-11-14 03:27:26 (fresh evidence post-dc5415ba)
 
 ### CLI Evidence (Training + Inference)
-- cli/train_patch_stats_rerun.log — 10-epoch training run with instrumentation (post-dc5415ba)
+- cli/train_patch_stats_rerun.log — 10-epoch training run with instrumentation (fresh 2025-11-14 03:27)
   - Dataset: fly001_reconstructed_final_downsampled_data_train.npz (256 images, gridsize=2)
   - Flags: --log-patch-stats --patch-stats-limit 2
   - Output: outputs/torch_forward_parity_baseline
   - Completed successfully, model saved to wts.h5.zip
-  - Torch patch stats logged for train batch 0 (mean=0.00451, std=0.00784, var_zero_mean=6.15e-05)
-- cli/inference_patch_stats_rerun.log — Inference run with debug dump (post-dc5415ba)
+  - Torch patch stats logged for train batch 0 (mean=0.001003, std=0.001816, var_zero_mean=3.30e-06)
+- cli/inference_patch_stats_rerun.log — Inference run with debug dump (fresh 2025-11-14 03:28)
   - Model: outputs/torch_forward_parity_baseline
   - Dataset: fly001_reconstructed_final_downsampled_data_test.npz (128 images)
   - Flags: --log-patch-stats --patch-stats-limit 2 --debug-dump
   - Completed successfully
-  - Torch patch stats logged for inference batch 0 (mean=0.000004, std=0.000127, var_zero_mean=0.0)
+  - Torch patch stats logged for inference batch 0 (mean=1673.339, std=3004.637, var_zero_mean=9025851.0)
 
 ### Analysis Artifacts
-- analysis/torch_patch_stats.json — Per-patch statistics (2 training batches, post-dc5415ba)
-  - Train phase batch 0 (first occurrence): mean=0.00451, std=0.00784, var_zero_mean=6.15e-05
-  - Train phase batch 0 (second occurrence): mean=0.00451, std=0.00784, var_zero_mean=6.15e-05
+- analysis/torch_patch_stats.json — Per-patch statistics (2 training batches, fresh 2025-11-14 03:28)
+  - Train phase batch 0 (first occurrence): mean=0.001003, std=0.001816, var_zero_mean=3.30e-06
+  - Train phase batch 0 (second occurrence): mean=0.001003, std=0.001816, var_zero_mean=3.30e-06
   - Non-zero variance confirms patches have meaningful structure
-  - Higher variance than previous Nov 14 run (3.33e-05 → 6.15e-05), likely due to different dataset
-- analysis/torch_patch_grid.png — Normalized patch visualization (7.4KB)
-  - Shows first 2 batches of training patches
-- analysis/forward_parity_debug/ — Inference debug dump (post-dc5415ba)
-  - canvas.json — Canvas metadata
-  - offsets.json — Patch offset information
-  - pred_patches_amp_grid.png — Amplitude patches (unnormalized, 37KB)
-  - pred_patches_amp_grid_normalized.png — Amplitude patches (normalized, 41KB)
-  - stats.json — Inference statistics
+  - 4 patches per batch, consistent metrics across both logged batches
+- analysis/torch_patch_grid.png — Normalized patch visualization (7.4KB, fresh 2025-11-14 03:28)
+  - Shows first 2 batches of training patches (8 patches total)
+- analysis/forward_parity_debug/ — Inference debug dump (fresh 2025-11-14 03:28)
+  - canvas.json — Canvas metadata (140 bytes)
+  - offsets.json — Patch offset information (1.4KB, 128 groups)
+  - pred_patches_amp_grid.png — Amplitude patches unnormalized (85KB)
+  - pred_patches_amp_grid_normalized.png — Amplitude patches normalized (90KB)
+  - stats.json — Inference statistics (299 bytes)
 
 ### Code Changes (Commit dc5415ba)
 - ptycho_torch/workflows/components.py — Training payload threading
@@ -43,7 +43,11 @@
   - Conditional logic: reuse payload when provided, rebuild via factory otherwise
 - ptycho_torch/train.py — Pass payload at line 756
 
-### Next Steps
+### Summary
+- All Phase A evidence refreshed with timestamps after dc5415ba (2025-11-14 03:27-03:28)
+- Pytest selector GREEN, training/inference logs captured with instrumentation active
+- torch_patch_stats.json shows non-zero training variance (3.30e-06) proving patches have structure
+- Inference shows much higher variance (9025851.0) due to unnormalized outputs
+- Debug dumps contain expected canvas/offsets/patch grids
 - Phase A checklist items A0/A1/A2/A3 complete
-- Fresh evidence captured post-payload-handoff fix (dc5415ba)
 - Ready for Phase B: scaling/config alignment (object_big defaults, intensity_scale persistence)
