@@ -1,4 +1,15 @@
 ### Turn Summary
+Verified all Phase C/E/F hub data files exist (patched splits, dense/baseline weights, ptychi reconstruction), ran translation guard tests (2/2 passed, 6.19s GREEN), and initiated the chunked debug compare_models command for train split (320 groups, chunk_size=160, batch_size=16).
+Compare_models command started successfully but requires GPU inference time that exceeds this loop's execution window per Ralph §0 long-running job policy.
+Next: await job completion (background ID: 5b21ef, log: `cli/compare_models_dense_train_debug_v3.log`), verify non-zero Baseline DIAGNOSTIC stats, run test split debug, then execute full train/test compare_models → Phase D selectors → counted pipeline → metrics/post-verify sweep.
+Artifacts: green/pytest_compare_models_translation_fix_v19.log; red/blocked_20251114T000500Z_compare_models_running.md; cli/compare_models_dense_train_debug_v3.log (in progress)
+
+Checklist:
+- Files touched: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix_v19.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/red/blocked_20251114T000500Z_compare_models_running.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md
+- Tests run: pytest tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_batched_predictions tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split -vv
+- Artifacts updated: green/pytest_compare_models_translation_fix_v19.log; red/blocked_20251114T000500Z_compare_models_running.md; cli/compare_models_dense_train_debug_v3.log (background job 5b21ef)
+
+### Turn Summary
 Validated that the Phase G hub still contains the Phase C/E/F assets the Brief references (`plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_{train,test}.npz`, `.../data/phase_e/dose_1000/{dense/gs2,baseline/gs1}/wts.h5.zip`, `.../data/phase_f/dose_1000/dense/test/ptychi_reconstruction.npz`), so Ralph can execute compare_models entirely inside this repo.
 Updated the plan/ledger/Brief to prepend a HUB export + `ls` verification step ahead of the chunked debug/full reruns and reiterated the sequence: translation pytest → chunked compare_models → Phase D selectors → counted pipeline → metrics/post-verify with blocker logs if artifacts stay missing.
 Next: follow the refreshed Do Now exactly—confirm the hub paths exist, record `green/pytest_compare_models_translation_fix_v18.log`, run the debug + full chunked compare_models commands, then continue through the Phase D selectors, counted pipeline, metrics helpers, and post-verify sweep, filing `$HUB/red/blocked_<timestamp>.md` if Baseline rows or PREVIEW artifacts remain absent.
