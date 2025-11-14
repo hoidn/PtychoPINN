@@ -707,6 +707,19 @@ Checklist
   <status>approved</status>
 </plan_update>
 
+<plan_update version="1.23">
+  <trigger>Latest engineer loop (red/blocked_20251113T235013Z_missing_hub_data.md) halted because the Brief referenced `$HUB/data/{phase_c,phase_e,phase_f}` paths that were believed missing. Today’s audit shows the entire data tree still lives under the Phase G hub (`plans/active/.../data/phase_c/dose_1000/patched_{train,test}.npz`, `.../data/phase_e/dose_1000/{dense/gs2,baseline/gs1}/wts.h5.zip`, `.../data/phase_f/dose_1000/dense/test/ptychi_reconstruction.npz`), so the rerun must resume rather than re-copying assets.</trigger>
+  <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md, docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/COMMANDS_REFERENCE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/DEVELOPER_GUIDE.md, docs/architecture.md, specs/data_contracts.md, specs/overlap_metrics.md, docs/fix_plan.md, galph_memory.md, input.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix_v18.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/red/blocked_20251113T235013Z_missing_hub_data.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/comparison_metrics.csv, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/metrics_summary.json, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test_debug_v2/logs/logs/debug.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/verification_report.json, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/aggregate_report_cli.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_post_verify_only.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2/wts.h5.zip, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1/wts.h5.zip, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/test/ptychi_reconstruction.npz</documents_read>
+  <current_plan_path>plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md</current_plan_path>
+  <proposed_changes>- Prepend the active Do Now with an explicit HUB export + `ls` verification step covering the Phase C/E/F assets so future loops stop flagging missing data before the rerun begins.
+- Keep the translation pytest + chunked debug/full compare_models runs as the first execution steps, but reiterate that `$HUB/red/blocked_<timestamp>.md` must capture any residual zero-output Baseline stats before Phase D selectors or the counted pipeline are retried.
+- Leave the downstream Phase D selectors, counted pipeline, metrics helpers, and post-verify sweep intact while restating the PREVIEW-PHASE-001 and METRICS-NAMING-001 expectations tied to `analysis/metrics_summary.json` and `analysis/metrics_delta_highlights_preview.txt`.</proposed_changes>
+  <impacts>Without the verification step, Ralph repeatedly files false blockers and the Baseline rerun never starts even though the data is present, keeping `{analysis}` stuck at 0/10 validations.</impacts>
+  <ledger_updates>Updated this plan, docs/fix_plan.md, the initiative summary, galph_memory.md, and input.md with the verification requirement and refreshed Do Now.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
 #### Completed Do Now — Baseline chunked container fix (completed 2025-11-16 via commit 451fdd82)
 > Evidence: `scripts/compare_models.py:1152-1197,1431-1442`, `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix_v17.log`, `.../analysis/dose_1000/dense/test_debug_v2/logs/logs/debug.log`.
   1. Guard the working directory + env vars so prompts stay satisfied:
@@ -757,7 +770,11 @@ Checklist
      test "$(pwd -P)" = "/home/ollie/Documents/PtychoPINN"
      export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
      export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier
+     ls -lh "$HUB"/data/phase_c/dose_1000/patched_train.npz "$HUB"/data/phase_c/dose_1000/patched_test.npz
+     ls -lh "$HUB"/data/phase_e/dose_1000/dense/gs2/wts.h5.zip "$HUB"/data/phase_e/dose_1000/baseline/gs1/wts.h5.zip
+     ls -lh "$HUB"/data/phase_f/dose_1000/dense/test/ptychi_reconstruction.npz
      ```
+     Any missing file means the run must stop and capture `$HUB/red/blocked_<timestamp>.md` before proceeding.
   2. Keep the translation regression guard GREEN (guards the reassembly fix plus the new chunk helper) before touching the hub:
      ```bash
      pytest tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split} -vv \

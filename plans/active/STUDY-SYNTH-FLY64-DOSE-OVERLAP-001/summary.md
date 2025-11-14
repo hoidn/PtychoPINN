@@ -1,4 +1,10 @@
 ### Turn Summary
+Validated that the Phase G hub still contains the Phase C/E/F assets the Brief references (`plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_{train,test}.npz`, `.../data/phase_e/dose_1000/{dense/gs2,baseline/gs1}/wts.h5.zip`, `.../data/phase_f/dose_1000/dense/test/ptychi_reconstruction.npz`), so Ralph can execute compare_models entirely inside this repo.
+Updated the plan/ledger/Brief to prepend a HUB export + `ls` verification step ahead of the chunked debug/full reruns and reiterated the sequence: translation pytest → chunked compare_models → Phase D selectors → counted pipeline → metrics/post-verify with blocker logs if artifacts stay missing.
+Next: follow the refreshed Do Now exactly—confirm the hub paths exist, record `green/pytest_compare_models_translation_fix_v18.log`, run the debug + full chunked compare_models commands, then continue through the Phase D selectors, counted pipeline, metrics helpers, and post-verify sweep, filing `$HUB/red/blocked_<timestamp>.md` if Baseline rows or PREVIEW artifacts remain absent.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz; .../data/phase_e/dose_1000/dense/gs2/wts.h5.zip; .../data/phase_e/dose_1000/baseline/gs1/wts.h5.zip; .../data/phase_f/dose_1000/dense/test/ptychi_reconstruction.npz
+
+### Turn Summary
 Translation guard tests remain GREEN (2/2 passed, 6.18s), confirming the chunked Baseline refactor is intact.
 Input.md Brief requests execution of compare_models with paths under `$HUB/data/{phase_e,phase_c,phase_f}`, but these directories do not exist—the actual data resides at `data/phase_c/dose_1000/` and archived locations.
 Documented blocker in red/blocked_20251113T235013Z_missing_hub_data.md; cannot execute compare_models commands until supervisor populates HUB data directories or updates Brief with correct paths.
