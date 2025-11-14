@@ -144,55 +144,12 @@
         • Guardrails: module/device/dtype neutrality; small ROI; respect Protected Assets; stable key names in traces.
 
       <scriptization_policy>
-        <summary><strong>Right‑sized persistence (avoid trash, keep reproducibility)</strong></summary>
-
-        <tiers>
-          <tier name="T0 — Micro probe (inline only)">
-            - Criteria: stdlib‑only; ≤ 120 chars; no file I/O.
-            - Action: keep as an inline command; paste the exact command <em>and</em> output in the loop’s artifacts `summary.md` under a “Micro probes” section. No separate file.
-          </tier>
-
-          <tier name="T1 — Small one‑off (first use; not decision‑carrying)">
-            - Criteria: up to ~25 lines; may import third‑party libs; reads small inputs; used once to inform you but <em>not</em> handed to Ralph and <em>not</em> used to gate decisions across loops.
-            - Action: embed the full code in a fenced block inside `plans/active/<initiative-id>/summary.md` under “One‑off analysis”. Save only minimal outputs inline; link bulky artifacts externally or under `.artifacts/`. <em>No</em> separate script file.
-            - Note: if you run it again in a future loop (same or different params), it <strong>auto‑promotes to T2</strong>.
-          </tier>
-
-          <tier name="T2 — Reused or decision‑carrying (script)">
-            - Promote to a checked‑in script when <em>any</em> is true:
-              1) It is referenced in `input.md` for Ralph to run; or
-              2) You run it in more than one loop (promote‑on‑second‑use); or
-              3) It produces metrics/plots used for comparisons over time or to decide pass/fail; or
-              4) It exceeds ~25 lines, or requires argument parsing, or touches multiple files of project data.
-            - Locations:
-              • Initiative‑scoped: `plans/active/<initiative-id>/bin/<slug>.py` (preferred first step)  
-              • Promoted tooling (only after proven cross‑initiative reuse): `scripts/tools/<area>/<slug>.py`
-            - Naming: verb+noun, e.g., `trace_first_divergence.py`.
-            - Header template (minimum):
-              <![CDATA[
-              #!/usr/bin/env python3
-              """
-              <one-line purpose>  (initiative: <ID>, owner: galph)
-              Inputs: <args>    Data deps: <paths or "none">
-              Outputs: minimal inline notes in `summary.md`; link to external artifacts if needed.
-              Repro: python <this_script>.py <args...>
-              """
-              import argparse
-              def main():
-                  ap = argparse.ArgumentParser()
-                  # define args…
-                  args = ap.parse_args()
-                  # body…
-              if __name__ == "__main__":
-                  main()
-              ]]>
-          </tier>
-        </tiers>
-
-        <input_md_rule>
-          - If a **How‑To Map** section is present in your plan, and Ralph will execute the analysis, reference the <em>script path + CLI args</em> (T2) there. From `input.md`, link to the plan.
-          - Do not put non‑trivial `python -c` in `input.md`; if it’s a one‑off for you (T1), keep it in `summary.md` only.
-        </input_md_rule>
+        - Use three tiers for non‑production analysis code:
+          • <strong>T0 micro probes:</strong> tiny stdlib‑only commands (no file I/O); keep them inline in the loop’s `summary.md` with command + output, no separate file.
+          • <strong>T1 one‑offs:</strong> short (~≤25‑line) helpers used once and not decision‑carrying; embed them in fenced blocks in `plans/active/<initiative-id>/summary.md` under “One‑off analysis”, linking bulky outputs externally or under `.artifacts/`.
+          • <strong>T2 scripts:</strong> any tool reused across loops, referenced from `input.md`, used to gate decisions, or larger than a trivial one‑off; check these in as scripts.
+        - Place initiative‑scoped T2 scripts under `plans/active/<initiative-id>/bin/<slug>.py` first; promote to `scripts/tools/<area>/<slug>.py` only after cross‑initiative reuse.
+        - When Ralph will run an analysis, reference the script path + CLI args (T2) from the plan and `input.md`; avoid non‑trivial `python -c` snippets in `input.md`.
       </scriptization_policy>
     </evidence_collection>
 

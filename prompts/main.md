@@ -118,21 +118,10 @@
        - Run configured linters/formatters/type‑checkers for touched code; resolve new issues before full suite.
 
     8. **Comprehensive Testing (suite gate)**
-       - Always run the targeted selector(s) for this focus (see step 6). These are your primary regression guardrails for the current change.
-       - Treat a full `pytest -v tests/` run as a <em>suite gate</em>, not an every‑loop hard gate:
-         a) Run the full suite from project root when one of the following is true:
-            • You intend to move the focus from `in_progress` to `done` in `docs/fix_plan.md`.  
-            • The changes cross module categories or touch multiple subsystems (per the Module scope declared in step 3).  
-            • You made non‑trivial behavioral changes in shared utilities or core workflow logic that plausibly affect other modules.  
-            • The supervisor explicitly flags this loop as a suite‑gate loop in `input.md` (e.g., via the Overview/Workload Spec).  
-         b) When you run a suite gate:
-            • All tests must pass (no `FAILED`/`ERROR`).  
-            • Collection must succeed (no ImportError, etc.).  
-            • If you added/renamed tests, verify selectors still collect (>0). If not: either author missing tests immediately or temporarily downgrade the selector to “Planned” with rationale and file a follow‑up fix‑plan item.  
-         c) When you <em>skip</em> the full suite for this loop:
-            • Record in the Turn Summary and `docs/fix_plan.md` Attempts History that you ran only targeted tests and why a suite gate was deferred (e.g., small localized change, earlier suite gate recently run, or pending separate test‑infra focus).  
-            • Do not mark the focus `done` until at least one suite‑gate run has passed for that focus or an explicitly linked test‑infra initiative states why a full suite is not currently feasible.
-       - When implementation (production) code changes, also ensure the project’s integration smoke passes for the relevant backend(s) when appropriate. Use the project‑level integration marker for the early check: `-m integration` (repository docs may define additional backend‑specific markers; in this repo, `tf_integration` is an alias). You may rely on the suite‑gate run or invoke the marker/node directly for an earlier signal; do not replace the targeted selector with this marker.
+       - Always run the targeted selector(s) for this focus (see step 6); they are your primary regression guardrails.
+       - Treat `pytest -v tests/` as a <em>suite gate</em>, not an every‑loop hard gate: run at least one full‑suite loop before moving a focus from `in_progress` to `done` in `docs/fix_plan.md`, and whenever changes plausibly affect multiple modules or shared infrastructure.
+       - For detailed suite‑gate protocol (when to run full suite, how to record failures, and how to open follow‑up items), follow `prompts/full_suite.md`; do not weaken those rules here.
+       - When implementation (production) code changes, also ensure the project’s integration smoke passes for the relevant backend(s) when appropriate (for example with `-m integration` / `tf_integration`), in addition to the targeted selector.
 
     9. **Artifacts**
        - Save `pytest.log`, `summary.md`, metrics JSONs under the loop’s reports directory.
