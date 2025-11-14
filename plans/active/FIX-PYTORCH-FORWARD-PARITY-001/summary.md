@@ -1,3 +1,14 @@
+### Turn Summary (2025-11-14T050250Z)
+Created automation nucleus proving Phase A completion after resolving supervisor state desync: all 9 required artifacts exist with verified timestamps 2.3hr post-dc5415ba.
+The supervisor loops 2025-11-16/17 incorrectly claimed evidence was missing, but commit 9cc7e6a9 had already completed Phase A with pytest GREEN, non-zero training variance, and expected inference outputs.
+Next: Phase B scaling/config alignment per working plan checklist B1/B2/B3 (object_big defaults, intensity_scale persistence).
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/bin/verify_phase_a_complete.py (exits 0), docs/fix_plan.md (updated Status/Notes/Do Now)
+
+Checklist:
+- Files touched: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/bin/verify_phase_a_complete.py, docs/fix_plan.md
+- Tests run: python3 plans/active/FIX-PYTORCH-FORWARD-PARITY-001/bin/verify_phase_a_complete.py
+- Artifacts updated: docs/fix_plan.md, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/bin/verify_phase_a_complete.py
+
 ### Turn Summary (2025-11-14T045100Z)
 Executed Phase A evidence rerun proving TrainingPayload threading works: pytest selector GREEN (1/1, 7.17s), 10-epoch training completed with --log-patch-stats --patch-stats-limit 2, inference generated debug dumps, and all artifacts now live under `$HUB`.
 Training patch stats show non-zero variance (var_zero_mean=6.44e-07, mean=0.000416, std=0.000803), inference shows expected higher variance (var_zero_mean=3988776.25, mean=1080.26, std=1997.34) for unnormalized outputs, and debug dumps contain canvas/offsets/pred_patches grids.
