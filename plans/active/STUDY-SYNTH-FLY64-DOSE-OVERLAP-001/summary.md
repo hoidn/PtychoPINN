@@ -1,4 +1,15 @@
 ### Turn Summary
+Translation regression guards remain GREEN (2 passed, 6.21s); compare_models now emits DIAGNOSTIC baseline stats per Brief step 3.
+Train split produces valid Baseline predictions (mean=0.003092, nonzero=1387120/333447168), but test split returns **all zeros** (mean=0.000000, nonzero=0/341835776) with CRITICAL error logged.
+Documented blocker at `red/blocked_20251113T191906_baseline_test_zero.md` citing train/test log lines; Phase G counted rerun cannot proceed until Baseline test inference is fixed (TensorFlow/XLA runtime or model numerical stability issue affecting test data).
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/compare_models_dense_{train,test}_rerun.log, red/blocked_20251113T191906_baseline_test_zero.md
+
+Checklist:
+- Files touched: none (diagnostic-only rerun)
+- Tests run: pytest tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split} -vv
+- Artifacts updated: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix_v7.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/compare_models_dense_train_rerun.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/compare_models_dense_test_rerun.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/red/blocked_20251113T191906_baseline_test_zero.md
+
+### Turn Summary
 Verification guard is still 0/10 and the SSIM/preview hooks abort immediately because the hub never produced the metrics bundle or artifact inventory (`analysis/verification_report.json:1-80`, `cli/run_phase_g_dense_post_verify_only.log:1-24`).
 Dense test Baseline reconstructions remain all zeros so the metrics reporter skips every Baseline row and Phase G deltas never materialize (`analysis/dose_1000/dense/test/comparison_metrics.csv:1-23`, `analysis/dose_1000/dense/test/comparison.log:1015-1030`).
 Next: capture the new compare_models diagnostics for both train/test splits, stop immediately if the `baseline_input`/`baseline_output` stats are still zero, and only proceed to the guarded pytest selectors + counted rerun once Baseline predictions contain signal.
