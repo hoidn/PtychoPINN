@@ -89,7 +89,8 @@ def run_cdi_example_torch(
     transpose: bool = False,
     M: int = 20,
     do_stitching: bool = False,
-    execution_config: Optional[Any] = None
+    execution_config: Optional[Any] = None,
+    training_payload: Optional[Any] = None
 ) -> Tuple[Optional[Any], Optional[Any], Dict[str, Any]]:
     """
     Run the main CDI example execution flow using PyTorch backend.
@@ -113,6 +114,9 @@ def run_cdi_example_torch(
         execution_config: Optional PyTorchExecutionConfig for runtime control (accelerator,
                          num_workers, learning_rate, scheduler, logger, checkpointing).
                          See CONFIG-002, CONFIG-LOGGER-001.
+        training_payload: Optional TrainingPayload from CLI with pre-built configs. If provided,
+                         bypasses config_factory rebuild in _train_with_lightning, preserving
+                         CLI overrides like log_patch_stats/patch_stats_limit (Phase A fix).
 
     Returns:
         Tuple containing:
@@ -158,7 +162,11 @@ def run_cdi_example_torch(
     logger.info("Invoking PyTorch training orchestration via train_cdi_model_torch")
     # Note: train_cdi_model_torch will need to be updated to accept execution_config
     # For now, we pass it as a keyword argument for forward compatibility
-    train_results = train_cdi_model_torch(train_data, test_data, config, execution_config=execution_config)
+    train_results = train_cdi_model_torch(
+        train_data, test_data, config,
+        execution_config=execution_config,
+        training_payload=training_payload
+    )
 
     # Step 2: Initialize return values for reconstruction outputs
     recon_amp, recon_phase = None, None
@@ -593,7 +601,8 @@ def _train_with_lightning(
     train_container: 'PtychoDataContainerTorch',
     test_container: Optional['PtychoDataContainerTorch'],
     config: TrainingConfig,
-    execution_config: Optional['PyTorchExecutionConfig'] = None
+    execution_config: Optional['PyTorchExecutionConfig'] = None,
+    training_payload: Optional[Any] = None
 ) -> Dict[str, Any]:
     """
     Orchestrate Lightning trainer execution for PyTorch model training.
@@ -611,6 +620,8 @@ def _train_with_lightning(
         test_container: Optional normalized test data container
         config: TrainingConfig with training hyperparameters
         execution_config: Optional PyTorchExecutionConfig with runtime knobs (Phase C3.A2)
+        training_payload: Optional TrainingPayload from CLI. If provided, uses pt_inference_config
+                         from payload instead of rebuilding, preserving CLI overrides (Phase A fix).
 
     Returns:
         Dict[str, Any]: Training results including:
@@ -650,44 +661,55 @@ def _train_with_lightning(
     logger.info("_train_with_lightning orchestrating Lightning training")
     logger.info(f"Training config: nepochs={config.nepochs}, n_groups={config.n_groups}")
 
-    # B2.1: Use config_factory to derive PyTorch configs with correct channel propagation
-    # CRITICAL (Phase C4.D B2): Factory ensures C = gridsize**2 is propagated to
-    # pt_model_config.C_model and pt_model_config.C_forward, preventing channel mismatch
-    # when gridsize > 1 (see docs/findings.md#BUG-TF-001).
-    from ptycho_torch.config_factory import create_training_payload
+    # Phase A fix: Reuse CLI payload if provided, otherwise rebuild via factory
+    if training_payload is not None:
+        logger.info("Phase A: Using CLI TrainingPayload (preserves log_patch_stats/patch_stats_limit)")
+        pt_data_config = training_payload.pt_data_config
+        pt_model_config = training_payload.pt_model_config
+        pt_training_config = training_payload.pt_training_config
+        pt_inference_config = training_payload.pt_inference_config
+        # execution_config already passed separately; use payload's if not overridden
+        if execution_config is None:
+            execution_config = training_payload.execution_config
+    else:
+        # B2.1: Use config_factory to derive PyTorch configs with correct channel propagation
+        # CRITICAL (Phase C4.D B2): Factory ensures C = gridsize**2 is propagated to
+        # pt_model_config.C_model and pt_model_config.C_forward, preventing channel mismatch
+        # when gridsize > 1 (see docs/findings.md#BUG-TF-001).
+        from ptycho_torch.config_factory import create_training_payload
 
-    # Build factory overrides from TrainingConfig fields
-    # Factory requires n_groups in overrides dict; train_data_file and output_dir as positional
-    # Note: Factory expects model_type in PyTorch naming ('Unsupervised'/'Supervised')
-    #       but TrainingConfig uses TensorFlow naming ('pinn'/'supervised')
-    mode_map = {'pinn': 'Unsupervised', 'supervised': 'Supervised'}
-    factory_overrides = {
-        'n_groups': config.n_groups,  # Required by factory validation
-        'gridsize': config.model.gridsize,
-        'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
-        'amp_activation': config.model.amp_activation,
-        'n_filters_scale': config.model.n_filters_scale,
-        'nphotons': config.nphotons,
-        'neighbor_count': config.neighbor_count,
-        'max_epochs': config.nepochs,
-        'batch_size': getattr(config, 'batch_size', 16),
-        'subsample_seed': getattr(config, 'subsample_seed', None),
-        'torch_loss_mode': getattr(config, 'torch_loss_mode', 'poisson'),
-    }
+        # Build factory overrides from TrainingConfig fields
+        # Factory requires n_groups in overrides dict; train_data_file and output_dir as positional
+        # Note: Factory expects model_type in PyTorch naming ('Unsupervised'/'Supervised')
+        #       but TrainingConfig uses TensorFlow naming ('pinn'/'supervised')
+        mode_map = {'pinn': 'Unsupervised', 'supervised': 'Supervised'}
+        factory_overrides = {
+            'n_groups': config.n_groups,  # Required by factory validation
+            'gridsize': config.model.gridsize,
+            'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
+            'amp_activation': config.model.amp_activation,
+            'n_filters_scale': config.model.n_filters_scale,
+            'nphotons': config.nphotons,
+            'neighbor_count': config.neighbor_count,
+            'max_epochs': config.nepochs,
+            'batch_size': getattr(config, 'batch_size', 16),
+            'subsample_seed': getattr(config, 'subsample_seed', None),
+            'torch_loss_mode': getattr(config, 'torch_loss_mode', 'poisson'),
+        }
 
-    # Create payload with factory-derived PyTorch configs
-    payload = create_training_payload(
-        train_data_file=Path(config.train_data_file),
-        output_dir=Path(getattr(config, 'output_dir', './outputs')),
-        execution_config=execution_config,  # Pass through from caller
-        overrides=factory_overrides
-    )
+        # Create payload with factory-derived PyTorch configs
+        payload = create_training_payload(
+            train_data_file=Path(config.train_data_file),
+            output_dir=Path(getattr(config, 'output_dir', './outputs')),
+            execution_config=execution_config,  # Pass through from caller
+            overrides=factory_overrides
+        )
 
-    # Extract PyTorch configs from payload (gridsize → C propagation already applied)
-    pt_data_config = payload.pt_data_config
-    pt_model_config = payload.pt_model_config
-    pt_training_config = payload.pt_training_config
-    pt_inference_config = payload.pt_inference_config  # Phase A: Use factory-provided config with instrumentation flags
+        # Extract PyTorch configs from payload (gridsize → C propagation already applied)
+        pt_data_config = payload.pt_data_config
+        pt_model_config = payload.pt_model_config
+        pt_training_config = payload.pt_training_config
+        pt_inference_config = payload.pt_inference_config  # Phase A: Use factory-provided config with instrumentation flags
 
     # CRITICAL: Supervised mode REQUIRES a compatible loss function (MAE)
     # The Lightning module expects loss_name to be defined, which only happens when:
@@ -1079,7 +1101,8 @@ def train_cdi_model_torch(
     train_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
     test_data: Optional[Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch']],
     config: TrainingConfig,
-    execution_config: Optional[Any] = None
+    execution_config: Optional[Any] = None,
+    training_payload: Optional[Any] = None
 ) -> Dict[str, Any]:
     """
     Train the CDI model using PyTorch Lightning backend.
@@ -1092,6 +1115,7 @@ def train_cdi_model_torch(
         test_data: Optional test data for validation
         config: TrainingConfig instance (TensorFlow dataclass)
         execution_config: Optional PyTorchExecutionConfig for runtime control
+        training_payload: Optional TrainingPayload with pre-built configs (Phase A handoff)
 
     Returns:
         Dict[str, Any]: Results dictionary containing:
@@ -1132,7 +1156,11 @@ def train_cdi_model_torch(
 
     # Step 4: Delegate to Lightning trainer
     logger.info("Delegating to Lightning trainer via _train_with_lightning")
-    results = _train_with_lightning(train_container, test_container, config, execution_config=execution_config)
+    results = _train_with_lightning(
+        train_container, test_container, config,
+        execution_config=execution_config,
+        training_payload=training_payload
+    )
 
     return results
 

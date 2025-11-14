@@ -745,12 +745,15 @@ Examples:
             test_data = RawData.from_file(str(test_data_file)) if test_data_file else None
 
             # Route through run_cdi_example_torch for bundle persistence
+            # Phase A: Pass payload so _train_with_lightning preserves CLI overrides
             from ptycho_torch.workflows.components import run_cdi_example_torch
             amplitude, phase, results = run_cdi_example_torch(
                 train_data=train_data,
                 test_data=test_data,
                 config=payload.tf_training_config,
-                do_stitching=False  # CLI only needs training, not reconstruction
+                do_stitching=False,  # CLI only needs training, not reconstruction
+                execution_config=execution_config,
+                training_payload=payload  # Phase A fix: preserve log_patch_stats/patch_stats_limit
             )
 
             print(f"✓ Training completed successfully. Outputs saved to {output_dir}")
