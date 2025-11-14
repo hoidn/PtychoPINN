@@ -1,4 +1,17 @@
 ### Turn Summary
+Verified batched reassembly and XLA streaming fixes work correctly with the current codebase (commits a80d4d2b and bf3f1b07). Reran pytest selector—both regression tests PASS (2/2, 6.12s). Reran train and test split compare_models commands—both exit 0 with fresh metrics (train: MS-SSIM phase=0.054, MAE phase=0.234; test: MS-SSIM phase=0.048, MAE phase=0.242). 
+Created verification_report_translation_fix.json (10/10 valid) and blocker_resolved.log documenting successful resolution of dense Phase G translation issues.
+This focus is complete; STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 is now unblocked for the counted Phase G rerun.
+Artifacts: green/pytest_compare_models_translation_fix_v2.log, cli/phase_g_dense_translation_fix_test_v2.log, analysis/verification_report_translation_fix.json, analysis/blocker_resolved.log, analysis/dose_1000/dense/test/comparison_metrics.csv
+
+Checklist:
+- Files touched: docs/fix_plan.md
+- Tests run: pytest tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_{batched_predictions,full_train_split} -vv; scripts/compare_models.py (both train and test splits)
+- Artifacts updated: docs/fix_plan.md; analysis/verification_report_translation_fix.json; analysis/blocker_resolved.log; analysis/dose_1000/dense/test/comparison_metrics.csv
+
+---
+
+### Turn Summary
 Re-read the required docs plus the Phase G hub and reconfirmed `plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/reports/pytest_translation_fix.log` still fails at `ptycho/tf_helper.py:959` while no new `$HUB/cli/phase_g_dense_translation_fix_{train,test}.log` files or `{analysis}` artifacts exist.
 Added plan_update v1.5 to tighten Phase B and the Do Now with a patch-count gate plus tf.print diagnostics inside `ReassemblePatchesLayer`/`_reassemble_position_batched`, so Ralph’s implementation loop can prove when batching engages before rerunning compare_models.
 Refreshed docs/fix_plan.md and input.md with the new logging requirements and selector expectations, keeping the focus at ready_for_implementation despite dwell pressure.
