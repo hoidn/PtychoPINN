@@ -1,0 +1,93 @@
+2025-11-14 01:38:04.066032: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1763113084.077237 2801588 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763113084.081014 2801588 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763113084.091789 2801588 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763113084.091801 2801588 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763113084.091803 2801588 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763113084.091804 2801588 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-14 01:38:04.094459: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+/home/ollie/Documents/PtychoPINN/ptycho_torch/config_factory.py:624: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+  warnings.warn(
+I0000 00:00:1763113089.479803 2801588 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1763113089.481102 2801588 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1763113090.354969 2801588 service.cc:152] XLA service 0x3bfe71e0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1763113090.354990 2801588 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-11-14 01:38:10.372697: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1763113090.390445 2801588 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1763113090.521736 2801588 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+/home/ollie/Documents/PtychoPINN/ptycho_torch/config_factory.py:265: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+  tf_training_config = to_training_config(
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+INFO:pytorch_lightning.utilities.rank_zero:You are using a CUDA device ('NVIDIA GeForce RTX 3090') that has Tensor Cores. To properly utilize them, you should set `torch.set_float32_matmul_precision('medium' | 'high')` which will trade-off precision for performance. For more details, read https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type        | Params | Mode 
+----------------------------------------------
+0 | model | PtychoPINN  | 2.3 M  | train
+1 | Loss  | PoissonLoss | 0      | train
+----------------------------------------------
+2.3 M     Trainable params
+0         Non-trainable params
+2.3 M     Total params
+9.365     Total estimated model params size (MB)
+73        Modules in train mode
+0         Modules in eval mode
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+INFO:pytorch_lightning.utilities.rank_zero:`Trainer.fit` stopped: `max_epochs=10` reached.
+Using new CLI interface with factory-based config (ADR-003)
+Creating configuration via factory (CONFIG-001 compliance)...
+✓ Factory created configs: N=64, gridsize=(2, 2), epochs=10
+✓ Execution config: accelerator=gpu, deterministic=True, learning_rate=0.001
+Starting training with 10 epochs...
+diff3d shape: (8311, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (8311,)
+objectGuess shape: (232, 232)
+xcoords shape: (8311,)
+ycoords shape: (8311,)
+xcoords_start shape: (8311,)
+ycoords_start shape: (8311,)
+diff3d shape: (1993, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (1993,)
+objectGuess shape: (232, 232)
+xcoords shape: (1993,)
+ycoords shape: (1993,)
+xcoords_start shape: (1993,)
+ycoords_start shape: (1993,)
+diff3d shape: (8311, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (8311,)
+objectGuess shape: (232, 232)
+xcoords shape: (8311,)
+ycoords shape: (8311,)
+xcoords_start shape: (8311,)
+ycoords_start shape: (8311,)
+DEBUG: nsamples: 256, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (256, 64, 64, 4)
+diff3d shape: (1993, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (1993,)
+objectGuess shape: (232, 232)
+xcoords shape: (1993,)
+ycoords shape: (1993,)
+xcoords_start shape: (1993,)
+ycoords_start shape: (1993,)
+DEBUG: nsamples: 256, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (256, 64, 64, 4)
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Torch scaling debug (training): mean|input|=18.856331 mean|pred|=0.004646 mean_input_scale=1.000000 mean_physics_scale=1.000000 physics_weight=1.000
+✓ Training completed successfully. Outputs saved to outputs/torch_forward_parity_baseline
+✓ Model bundle saved to outputs/torch_forward_parity_baseline/wts.h5.zip
