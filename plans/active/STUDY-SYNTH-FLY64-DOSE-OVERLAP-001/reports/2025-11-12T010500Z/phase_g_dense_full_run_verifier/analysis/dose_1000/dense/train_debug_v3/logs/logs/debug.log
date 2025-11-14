@@ -365,3 +365,11 @@ array([[[ 0.28498438-0.09745132j],
 2025-11-14 00:05:49,284 - INFO - [OVERSAMPLING DEBUG] Generated 5088 groups in total
 2025-11-14 00:05:49,284 - INFO - Generated 5088 groups efficiently
 2025-11-14 00:05:49,440 - INFO - INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+2025-11-14 00:07:17,417 - INFO - neighbor-sampled diffraction shape
+2025-11-14 00:07:17,418 - INFO - (5088, 128, 128, 4)
+2025-11-14 00:07:19,466 - INFO - loader: using provided ground truth patches.
+2025-11-14 00:07:19,884 - INFO - INFO:
+2025-11-14 00:07:19,884 - INFO - None
+2025-11-14 00:07:19,884 - INFO - <PtychoDataContainer X=(5088, 128, 128, 4) Y_I=(5088, 128, 128, 4) Y_phi=(5088, 128, 128, 4) norm_Y_I=() coords_nominal=(5088, 1, 2, 4) coords_true=(5088, 1, 2, 4) nn_indices=(5088, 4) mean=2550.773 global_offsets=(5088, 1, 2, 1) mean=188.719 local_offsets=(5088, 1, 2, 4) mean=0.000 probe=(128, 128) mean_amplitude=0.007>
+2025-11-14 00:07:19,892 - WARNING - GRIDSIZE MISMATCH: params.cfg['gridsize']=1 but diffraction has 4 channels (requires gridsize=2)
+2025-11-14 00:07:19,892 - WARNING - Forcing params.cfg['gridsize']=2 before inference to prevent Translation layer crash

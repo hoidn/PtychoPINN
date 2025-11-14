@@ -1,0 +1,24 @@
+Aligned NPZ File Contents:
+==========================
+
+Arrays saved in reconstructions_aligned.npz:
+- ptychopinn_amplitude: (181, 350) float64
+- ptychopinn_phase: (181, 350) float64
+- ptychopinn_complex: (181, 350) complex128
+- baseline_amplitude: (181, 350) float64
+- baseline_phase: (181, 350) float64
+- baseline_complex: (181, 350) complex128
+- pinn_offset_dy: 25.1200008392334 (scalar)
+- pinn_offset_dx: 118.86000061035156 (scalar)
+- baseline_offset_dy: 73.0199966430664 (scalar)
+- baseline_offset_dx: -160.16000366210938 (scalar)
+- ground_truth_amplitude: (181, 350) float32
+- ground_truth_phase: (181, 350) float32
+- ground_truth_complex: (181, 350) complex64
+
+Description:
+- *_amplitude: Real-valued amplitude data
+- *_phase: Real-valued phase data in radians
+- *_complex: Complex-valued reconstruction data
+- *_offset_dy, *_offset_dx: Registration offsets in pixels
+- Data saved AFTER registration correction and alignment

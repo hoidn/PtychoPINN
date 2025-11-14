@@ -720,6 +720,18 @@ Checklist
   <status>approved</status>
 </plan_update>
 
+<plan_update version="1.24">
+  <trigger>The background compare_models job launched last loop actually completed, but the log under `analysis/dose_1000/dense/train_debug_v3/logs/logs/debug.log:347-365` confirms we still load all 5,088 groups because the Brief never passed `--n-test-groups` or `--pinn-chunk-size`. Dense-test inherits the same config, so `create_ptycho_data_container()` OOMs before the Baseline chunk loop and `analysis/dose_1000/dense/test/comparison_metrics.csv` / `analysis/metrics_summary.json` remain Baseline-empty, keeping `cli/aggregate_report_cli.log` and `cli/run_phase_g_dense_post_verify_only.log` red.</trigger>
+  <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md, docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/COMMANDS_REFERENCE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/DEVELOPER_GUIDE.md, docs/architecture.md, docs/fix_plan.md, galph_memory.md, input.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug_v3/logs/logs/debug.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/compare_models_dense_train_debug_v3.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/comparison_metrics.csv, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/metrics_summary.json, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/logs/logs/debug.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/aggregate_report_cli.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_post_verify_only.log</documents_read>
+  <current_plan_path>plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md</current_plan_path>
+  <proposed_changes>- Update the debug/full compare_models commands to cap the dataset (`--n-test-groups 320` on the debug slice) and enable chunked PINN inference (`--pinn-chunk-size` + `--pinn-predict-batch-size`) so the Baseline chunk helper can actually start.
+- Refresh the Do Now text so it references the new CLI log targets (`compare_models_dense_{train,test}_{debug,full}_v4.log`) and explicitly requires the DIAGNOSTIC Baseline stats + CSV rows to show non-zero values before touching Phase D selectors or the counted pipeline.</proposed_changes>
+  <impacts>Without chunking PINN and limiting the debug slice, dense-test OOMs before producing Baseline outputs, keeping PREVIEW-PHASE-001 / TEST-CLI-001 artifacts red and blocking the verification bundle.</impacts>
+  <ledger_updates>Updated this plan, docs/fix_plan.md, the initiative summary, input.md, and galph_memory.md with the new flags and evidence expectations.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
 #### Completed Do Now — Baseline chunked container fix (completed 2025-11-16 via commit 451fdd82)
 > Evidence: `scripts/compare_models.py:1152-1197,1431-1442`, `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix_v17.log`, `.../analysis/dose_1000/dense/test_debug_v2/logs/logs/debug.log`.
   1. Guard the working directory + env vars so prompts stay satisfied:
@@ -781,44 +793,50 @@ Checklist
        | tee "$HUB"/green/pytest_compare_models_translation_fix_v18.log
      ```
   3. Exercise the chunked Baseline helper on the fast, debug-limited slice so we can bail out before burning the full dataset if chunks still misbehave. Use the stricter chunk size (160 groups) to guarantee multiple passes and capture the DIAGNOSTIC lines:
-     ```bash
-     python -m scripts.compare_models \
-       --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 \
-       --baseline_dir "$HUB"/data/phase_e/dose_1000/baseline/gs1 \
-       --test_data "$HUB"/data/phase_c/dose_1000/patched_train.npz \
-       --output_dir "$HUB"/analysis/dose_1000/dense/train \
-       --ms-ssim-sigma 1.0 --register-ptychi-only \
-       --baseline-debug-limit 320 --baseline-chunk-size 160 --baseline-predict-batch-size 16 \
-       |& tee "$HUB"/cli/compare_models_dense_train_debug_v3.log
-     python -m scripts.compare_models \
-       --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 \
-       --baseline_dir "$HUB"/data/phase_e/dose_1000/baseline/gs1 \
-       --test_data "$HUB"/data/phase_c/dose_1000/patched_test.npz \
-       --output_dir "$HUB"/analysis/dose_1000/dense/test \
-       --ms-ssim-sigma 1.0 --register-ptychi-only \
-       --baseline-debug-limit 320 --baseline-chunk-size 160 --baseline-predict-batch-size 16 \
-       |& tee "$HUB"/cli/compare_models_dense_test_debug_v3.log
-     ```
-     The previous run under `analysis/dose_1000/dense/test_debug_v2/logs/logs/debug.log:1299` stopped mid-stream at chunk 21/33, so tail the new logs and confirm the chunk loop now completes with the final DIAGNOSTIC summary lines. After each run, inspect `$HUB/analysis/dose_1000/dense/{train,test}/logs/logs/debug.log` for chunk-level DIAGNOSTIC lines plus a **non-zero** summary, and confirm `analysis/dose_1000/dense/{split}/comparison_metrics.csv` (and `analysis/metrics_summary.json`) now contain canonical `Baseline`/`PtyChi` rows. If any split still shows zero-valued outputs or the helper backs off to the minimum chunk size, stop immediately and file `$HUB/red/blocked_<timestamp>.md` with the command + DIAGNOSTIC tail before proceeding.
+    ```bash
+    python -m scripts.compare_models \
+      --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 \
+      --baseline_dir "$HUB"/data/phase_e/dose_1000/baseline/gs1 \
+      --test_data "$HUB"/data/phase_c/dose_1000/patched_train.npz \
+      --output_dir "$HUB"/analysis/dose_1000/dense/train \
+      --ms-ssim-sigma 1.0 --register-ptychi-only \
+      --n-test-groups 320 \
+      --pinn-chunk-size 160 --pinn-predict-batch-size 16 \
+      --baseline-debug-limit 320 --baseline-chunk-size 160 --baseline-predict-batch-size 16 \
+      |& tee "$HUB"/cli/compare_models_dense_train_debug_v4.log
+    python -m scripts.compare_models \
+      --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 \
+      --baseline_dir "$HUB"/data/phase_e/dose_1000/baseline/gs1 \
+      --test_data "$HUB"/data/phase_c/dose_1000/patched_test.npz \
+      --output_dir "$HUB"/analysis/dose_1000/dense/test \
+      --ms-ssim-sigma 1.0 --register-ptychi-only \
+      --n-test-groups 320 \
+      --pinn-chunk-size 160 --pinn-predict-batch-size 16 \
+      --baseline-debug-limit 320 --baseline-chunk-size 160 --baseline-predict-batch-size 16 \
+      |& tee "$HUB"/cli/compare_models_dense_test_debug_v4.log
+    ```
+    The previous run under `analysis/dose_1000/dense/train_debug_v3/logs/logs/debug.log:347-365` still shows “Using single-shot PINN inference: 5088 groups…”, and `analysis/dose_1000/dense/test/logs/logs/debug.log:299-360` records the ResourceExhausted crash, so tail the new logs and confirm the chunk loops finish with final DIAGNOSTIC lines. After each run, inspect `$HUB/analysis/dose_1000/dense/{train,test}/logs/logs/debug.log` for chunk-level DIAGNOSTIC lines plus a **non-zero** summary, and confirm `analysis/dose_1000/dense/{split}/comparison_metrics.csv` (and `analysis/metrics_summary.json`) now contain canonical `Baseline`/`PtyChi` rows. If any split still shows zero-valued outputs or the helper backs off to the minimum chunk size, stop immediately and file `$HUB/red/blocked_<timestamp>.md` with the command + DIAGNOSTIC tail before proceeding.
   4. Once the debug slice is healthy, rerun the **full** dense train/test compare_models commands with chunk size 256 so the canonical hub artifacts reflect the chunked inference evidence:
-     ```bash
-     python -m scripts.compare_models \
-       --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 \
-       --baseline_dir "$HUB"/data/phase_e/dose_1000/baseline/gs1 \
-       --test_data "$HUB"/data/phase_c/dose_1000/patched_train.npz \
-       --output_dir "$HUB"/analysis/dose_1000/dense/train \
-       --ms-ssim-sigma 1.0 --register-ptychi-only \
-       --baseline-chunk-size 256 --baseline-predict-batch-size 16 \
-       |& tee "$HUB"/cli/compare_models_dense_train_full_v3.log
-     python -m scripts.compare_models \
-       --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 \
-       --baseline_dir "$HUB"/data/phase_e/dose_1000/baseline/gs1 \
-       --test_data "$HUB"/data/phase_c/dose_1000/patched_test.npz \
-       --output_dir "$HUB"/analysis/dose_1000/dense/test \
-       --ms-ssim-sigma 1.0 --register-ptychi-only \
-       --baseline-chunk-size 256 --baseline-predict-batch-size 16 \
-       |& tee "$HUB"/cli/compare_models_dense_test_full_v3.log
-     ```
+    ```bash
+    python -m scripts.compare_models \
+      --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 \
+      --baseline_dir "$HUB"/data/phase_e/dose_1000/baseline/gs1 \
+      --test_data "$HUB"/data/phase_c/dose_1000/patched_train.npz \
+      --output_dir "$HUB"/analysis/dose_1000/dense/train \
+      --ms-ssim-sigma 1.0 --register-ptychi-only \
+      --pinn-chunk-size 256 --pinn-predict-batch-size 16 \
+      --baseline-chunk-size 256 --baseline-predict-batch-size 16 \
+      |& tee "$HUB"/cli/compare_models_dense_train_full_v4.log
+    python -m scripts.compare_models \
+      --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 \
+      --baseline_dir "$HUB"/data/phase_e/dose_1000/baseline/gs1 \
+      --test_data "$HUB"/data/phase_c/dose_1000/patched_test.npz \
+      --output_dir "$HUB"/analysis/dose_1000/dense/test \
+      --ms-ssim-sigma 1.0 --register-ptychi-only \
+      --pinn-chunk-size 256 --pinn-predict-batch-size 16 \
+      --baseline-chunk-size 256 --baseline-predict-batch-size 16 \
+      |& tee "$HUB"/cli/compare_models_dense_test_full_v4.log
+    ```
      Validate that the tail of `$HUB/analysis/dose_1000/dense/{split}/logs/logs/debug.log` now reports the non-zero DIAGNOSTIC stats (current tails at `.../dense/test/logs/logs/debug.log:540` and `.../dense/test_debug_v2/logs/logs/debug.log:1299` show the zero-output failure) and that `analysis/dose_1000/dense/test/comparison_metrics.csv` contains populated Baseline rows. Stop and record `$HUB/red/blocked_<timestamp>.md` if any Baseline metric remains blank before proceeding.
   5. Re-run the Phase D acceptance guards so ACCEPTANCE-001 / DATA-001 stay enforced on the regenerated NPZs:
      ```bash

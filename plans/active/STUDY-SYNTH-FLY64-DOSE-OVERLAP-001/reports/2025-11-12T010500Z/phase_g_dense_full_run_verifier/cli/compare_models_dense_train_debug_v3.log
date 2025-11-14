@@ -507,3 +507,4 @@ I0000 00:00:1763107550.159484 2723355 service.cc:160]   StreamExecutor device (0
 2025-11-14 00:05:50.180859: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
 I0000 00:00:1763107550.201712 2723355 cuda_dnn.cc:529] Loaded cuDNN version 91002
 I0000 00:00:1763107550.360535 2723355 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+2025-11-14 00:07:11.808525: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 2667577344 exceeds 10% of free system memory.
