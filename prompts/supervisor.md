@@ -13,6 +13,7 @@
   <current_long_term_goals>
     - Keep the fix plan accurate and advancing.
     - Ship one focused, verifiable increment per loop via Ralph.
+    - deal with OOM errors by decreasing dataset size, not via laborious architecture refactoring
   </current_long_term_goals>
 
   <agent_context>
