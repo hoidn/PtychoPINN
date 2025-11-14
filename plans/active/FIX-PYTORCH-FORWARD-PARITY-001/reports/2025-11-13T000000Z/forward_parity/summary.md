@@ -1,3 +1,9 @@
+### Turn Summary (2025-11-18T000000Z)
+Revalidated the forward_parity hub and git history: the supposed `_v2` selector/train/infer logs still begin with 2025-11-14 timestamps and `git log -n5` shows no Ralph evidence after `cdecf3fd`, so Phase A proof remains stale.
+Extended the working plan to add the pre-clobber verification step plus explicit reminders that `outputs/torch_forward_parity_baseline/analysis` only has the base `torch_patch_stats.json`/`torch_patch_grid.png`; engineers must rerun pytest + the 10-epoch train/infer commands, regenerate fresh patch stats, and overwrite the hub (or emit `_v3` copies) while citing POLICY-001 / CONFIG-001 / ANTIPATTERN-001.
+Next: follow the refreshed Do Now—export `AUTHORITATIVE_CMDS_DOC`/`HUB`/`OUT`, capture the existing log headers for the Turn Summary, rerun the selector and both CLI commands with `--log-patch-stats --patch-stats-limit 2`, copy the regenerated stats/grid/debug bundles into `$HUB/analysis`, refresh `$HUB/analysis/artifact_inventory.txt` and both summaries, and drop `$HUB/red/blocked_<timestamp>.md` immediately on CUDA/memory failures.
+Artifacts: docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md}; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/summary.md; input.md
+
 ### Turn Summary (2025-11-14T0529Z)
 Executed Phase A evidence rerun v2 proving TrainingPayload threading works: pytest selector GREEN (1/1, 7.13s), 10-epoch training completed with patch-stat instrumentation, and inference generated debug dumps.
 Training patch stats show healthy variance (var_zero_mean=1.525e-05, mean=0.002228, std=0.003905), but inference patches are essentially zero (var_zero_mean=9.512e-20, mean=1.686e-12), confirming the forward parity issue.
