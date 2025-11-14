@@ -642,7 +642,12 @@ Checklist
      pytest tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split} -vv \
        | tee "$HUB"/green/pytest_compare_models_translation_fix_v14.log
      ```
-  3. Instrument/repair `scripts/compare_models.py` so Baseline inference logs the first patch amplitude/phase, per-split DIAGNOSTIC stats, and optionally supports a fast-repro flag (e.g., `--baseline-debug-limit` or reuse `--n-test-groups`) for running the first ~32 groups before committing to the full dataset. Re-run both splits (stop immediately and iterate if the test split still reports zero output):
+  3. Patch `scripts/compare_models.py` so Baseline inference can no longer blow past GPU memory on the dense-test split (see `$HUB/red/blocked_20251116T010000Z_test_baseline_oom.md` and `analysis/dose_1000/dense/test/logs/logs/debug.log:520-661`). Requirements:
+     - Add chunking controls (`--baseline-chunk-size` for groups per predict call, default ≤512; `--baseline-predict-batch-size` that forwards to the Keras `batch_size`, default 32) and log the resolved values at runtime.
+     - Route the existing `baseline_model.predict()` invocation through a helper that iterates chunks, catches `tf.errors.ResourceExhaustedError`, halves the chunk size (minimum 32) and retries automatically, and clears intermediate tensors between chunks so GPU memory is released before the next call.
+     - Emit per-chunk DIAGNOSTIC lines (chunk_idx/start/stop/nonzero_count/elapsed) while preserving the aggregated stats + NPZ/JSON dumps after the concatenated tensor is materialized. Continue to fail fast if any chunk reports all-zero outputs.
+     - Update `$HUB/analysis/dose_1000/dense/{split}/debug/baseline_debug_stats.json` schema to include the chunk sizing info so future regressions can be triaged without another code change.
+  3a. Re-run the **debug-limited** compare_models probes with the new chunked path (stop/file a blocker if the tail still shows zeros):
      ```bash
      python -m scripts.compare_models \
        --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 \
@@ -650,6 +655,7 @@ Checklist
        --test_data "$HUB"/data/phase_c/dose_1000/patched_train.npz \
        --output_dir "$HUB"/analysis/dose_1000/dense/train \
        --ms-ssim-sigma 1.0 --register-ptychi-only \
+       --baseline-debug-limit 320 --baseline-chunk-size 160 --baseline-predict-batch-size 16 \
        |& tee "$HUB"/cli/compare_models_dense_train_debug.log
      python -m scripts.compare_models \
        --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 \
@@ -657,9 +663,10 @@ Checklist
        --test_data "$HUB"/data/phase_c/dose_1000/patched_test.npz \
        --output_dir "$HUB"/analysis/dose_1000/dense/test \
        --ms-ssim-sigma 1.0 --register-ptychi-only \
+       --baseline-debug-limit 320 --baseline-chunk-size 160 --baseline-predict-batch-size 16 \
        |& tee "$HUB"/cli/compare_models_dense_test_debug.log
      ```
-    After each run, inspect `$HUB/analysis/dose_1000/dense/{train,test}/logs/logs/debug.log` for non-zero `DIAGNOSTIC baseline_output` mean/max/nonzero_count, dump the first patch amplitude/phase (or NPZ) when debugging, and confirm `analysis/dose_1000/dense/{split}/comparison_metrics.csv` plus `analysis/metrics_summary.json` contain canonical `Baseline` and `PtyChi` rows (METRICS-NAMING-001). If either split still produces zero-valued outputs or aliases, stop immediately, capture the failing command + log excerpt in `$HUB/red/blocked_<timestamp>.md`, and keep iterating on the instrumentation before touching the pytest/Phase D/Phase G steps.
+    After each run, inspect `$HUB/analysis/dose_1000/dense/{train,test}/logs/logs/debug.log` for the updated chunk-level DIAGNOSTIC entries plus a **non-zero** summary line, dump the first patch amplitude/phase (or NPZ) when debugging, and confirm `analysis/dose_1000/dense/{split}/comparison_metrics.csv` plus `analysis/metrics_summary.json` contain canonical `Baseline` and `PtyChi` rows (METRICS-NAMING-001). If either split still produces zero-valued outputs or the helper keeps backing off to the minimum chunk size, stop immediately, capture the failing command + log excerpt in `$HUB/red/blocked_<timestamp>.md`, and keep iterating on the chunked path before touching the pytest/Phase D/Phase G steps.
   3b. Once the debug slice is healthy, run **full** compare_models for dense train/test (no debug limit) so the canonical CSV/JSON artifacts refresh inside this repo. Tee to dedicated logs to keep the debug evidence separate:
      ```bash
      python -m scripts.compare_models \
@@ -668,6 +675,7 @@ Checklist
        --test_data "$HUB"/data/phase_c/dose_1000/patched_train.npz \
        --output_dir "$HUB"/analysis/dose_1000/dense/train \
        --ms-ssim-sigma 1.0 --register-ptychi-only \
+       --baseline-chunk-size 256 --baseline-predict-batch-size 16 \
        |& tee "$HUB"/cli/compare_models_dense_train_full.log
      python -m scripts.compare_models \
        --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 \
@@ -675,6 +683,7 @@ Checklist
        --test_data "$HUB"/data/phase_c/dose_1000/patched_test.npz \
        --output_dir "$HUB"/analysis/dose_1000/dense/test \
        --ms-ssim-sigma 1.0 --register-ptychi-only \
+       --baseline-chunk-size 256 --baseline-predict-batch-size 16 \
        |& tee "$HUB"/cli/compare_models_dense_test_full.log
      ```
      Validate that the tail of `$HUB/analysis/dose_1000/dense/{split}/logs/logs/debug.log` now reports the non-zero DIAGNOSTIC stats (the current tail at `.../dense/test/logs/logs/debug.log:540` still shows `mean=0`/`nonzero_count=0`) and that `analysis/dose_1000/dense/test/comparison_metrics.csv` contains populated Baseline rows. Stop and record `$HUB/red/blocked_<timestamp>.md` if Baseline values are still blank before proceeding to the Phase D guards.

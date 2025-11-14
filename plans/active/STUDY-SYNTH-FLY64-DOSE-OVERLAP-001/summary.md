@@ -1,4 +1,15 @@
 ### Turn Summary
+Dense-test Baseline compare_models still crashes with the TF `ResourceExhaustedError` (`plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/logs/logs/debug.log:520-661`), so `analysis/dose_1000/dense/test/comparison_metrics.csv` stays blank and `analysis/verification_report.json` is stuck at 0/10.
+Updated `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md` and `docs/fix_plan.md` to mandate chunked Baseline inference (`--baseline-chunk-size` + `--baseline-predict-batch-size` with automatic fallback) before the Phase D/Phase G rerun, leaving the healthy dense-train evidence untouched.
+Next: Ralph implements the chunked path inside `scripts/compare_models.py`, reruns the debug + full compare_models commands with the new flags to repopulate the Baseline rows, then executes the guarded pytest selectors → counted `run_phase_g_dense.py --clobber` → metrics helpers → fully parameterized `--post-verify-only` to produce the missing SSIM/verification/highlights/preview/inventory artifacts.
+Artifacts: docs/fix_plan.md; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/red/blocked_20251116T010000Z_test_baseline_oom.md
+
+Checklist:
+- Files touched: docs/fix_plan.md; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/{implementation.md,summary.md}
+- Tests run: none
+- Artifacts updated: docs/fix_plan.md entry; initiative plan/summary
+
+### Turn Summary
 Dense-train compare_models succeeded with healthy Baseline outputs (mean=0.188, 78.7M nonzero pixels, complete CSV rows), but dense-test failed with TensorFlow GPU OOM during Baseline inference, leaving blank Baseline metric rows in test CSV.
 Translation regression tests remain GREEN (2/2 passed).
 Blocker documented (`red/blocked_20251116T010000Z_test_baseline_oom.md`) with evidence, root cause (TF ResourceExhaustedError during test-split Baseline inference), and four mitigation options (batched inference, skip test Baseline, reduce dataset, TF memory config).
