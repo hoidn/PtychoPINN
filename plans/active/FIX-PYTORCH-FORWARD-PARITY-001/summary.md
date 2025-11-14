@@ -1,4 +1,10 @@
 ### Turn Summary
+Verified Ralph’s Phase C3 training guard landed (commit 392a44ea) by reviewing the pytest log plus hub inventory/summary entries so we have fresh GREEN evidence for the training path.
+Retrofitted the implementation plan, fix_plan, and input.md to pivot Phase C3 toward an inference CLI variance guard (new checklist items C3c/C3d citing POLICY-001/CONFIG-001 + phase_c2 metrics) so the selector now has a concrete next action.
+Next: Ralph extends `test_patch_stats_dump` to run the inference CLI, enforces the same variance/global-mean thresholds on `torch_patch_stats_inference.json`, reruns the selector with logging, and updates the hub summaries or files a blocker if inference still collapses.
+Artifacts: docs/fix_plan.md, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md, input.md
+
+### Turn Summary
 Implemented Phase C3 variance regression guard by seeding the minimal_train_args fixture (np.random.seed(12345)) and adding assertions to test_patch_stats_dump: var_zero_mean > 1e-6 and abs(global_mean) > 1e-9.
 Pytest selector GREEN (1/1 PASSED, 7.07s), confirming seeded fixture produces healthy variance (1.44e-05) and non-zero mean (2.18e-03).
 Updated HUB artifact_inventory.txt and summary.md with Phase C3 section citing phase_c2_pytorch_only_metrics.txt rationale for 1e-6 threshold (guards gridsize≥2 only).

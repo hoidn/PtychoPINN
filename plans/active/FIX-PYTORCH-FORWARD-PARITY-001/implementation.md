@@ -374,28 +374,37 @@ PyTorch forward inference currently produces impulse-like patches with extremely
    - When TF baseline artifacts land, re-run the script with `--candidate-stats` pointing at `$HUB/tf_baseline/.../stats.json` and update the metrics file rather than creating a new one to preserve diffability.
 
 ### Action Plan — C3 (PyTorch variance regression guard)
+_Status recap_: C3a/C3b (training guard) landed in commit `392a44ea` — keep the steps below documented, but only the items labeled “NEW” remain open.
+
 1. **Deterministic minimal dataset for the CLI test.**
    - Update `tests/torch/test_cli_train_torch.py::TestPatchStatsCLI.minimal_train_args` to seed NumPy (`np.random.seed(12345)`) before writing the temporary NPZ so the generated diffraction/object/probe arrays are repeatable and contain non-zero variance.
    - Keep the dataset tiny (`n_images=8`, `gridsize=2`, `batch_size=4`) so the selector stays within TESTING_GUIDE budgets, but document that the seeded randomness guarantees variance > 0 for both training/inference dumps.
 
-2. **Extend `test_patch_stats_dump` with variance assertions.**
+2. **Training variance assertions (already landed).**
    - After the CLI run succeeds, open `<output_dir>/analysis/torch_patch_stats.json`, parse the `patch_amplitude.var_zero_mean` values, and assert they exceed a minimal threshold (e.g., `> 1e-6`) to guard against the zero-variance regression observed before Phase A.
    - Also assert `canvas_amplitude.mean` is non-zero to catch cases where outputs collapse to zeros.
    - Reference the Phase C2 metrics (`analysis/phase_c2_pytorch_only_metrics.txt`) when justifying the threshold in an inline comment so future maintainers know why we only gate gridsize ≥ 2.
 
-3. **Pytest execution + hub capture.**
-   - Selector: `pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv`.
-   - Tee output to `$HUB/green/pytest_patch_variance_guard.log` and record pass/fail status in `analysis/artifact_inventory.txt` and `summary.md`.
-   - If the selector fails or the stats file is missing, capture `$HUB/red/blocked_<timestamp>_patch_variance_guard.md` with the traceback prior to editing hub inventories.
+3. **NEW — add inference CLI guard.**
+   - After the training CLI run completes, invoke `ptycho_torch.inference.cli_main` with the saved tmp outputs (`--model_path <train_out> --test_data <tmp_path>/train_test.npz --output_dir <tmp_path>/outputs_infer --n_images 8 --log-patch-stats --patch-stats-limit 2 --accelerator cpu --quiet`) so the PyTorch inference workflow produces `analysis/torch_patch_stats_inference.json` and `torch_patch_grid_inference.png`.
+   - Parse the first batch of `torch_patch_stats_inference.json` and enforce the same thresholds as training: `patch_amplitude.var_zero_mean > 1e-6` and `abs(global_mean) > 1e-9`. Cite `analysis/phase_c2_pytorch_only_metrics.txt` and `docs/specs/spec-ptycho-workflow.md` (forward-path parity) in the inline comment to explain why inference must retain variance for gridsize ≥ 2.
+   - Fail fast with an actionable assertion (POLICY-001/CONFIG-001) if the inference CLI does not emit the stats/PNG artifacts.
 
-4. **Follow-up doc/test-registry rule.**
-   - This reuse of the existing selector does not require changes to `docs/TESTING_GUIDE.md` or `docs/development/TEST_SUITE_INDEX.md`; if a new selector is introduced later, update both references immediately after the code lands.
+4. **Pytest execution + hub capture (rerun).**
+   - Selector: `pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv`.
+   - Tee output to `$HUB/green/pytest_patch_variance_guard.log`, then append a “Phase C3 — Inference guard” bullet to `$HUB/analysis/artifact_inventory.txt` and `$HUB/summary.md` citing the refreshed log plus inference JSON/PNG paths.
+   - If either the training or inference guard fails, capture `$HUB/red/blocked_<timestamp>_patch_variance_guard_inference.md` with the traceback before editing inventories.
+
+5. **Follow-up doc/test-registry rule.**
+   - Reusing the existing selector avoids updates to `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`; if we ever split out a dedicated inference selector, update both docs immediately after the code lands.
 
 ### Checklist
 - [ ] C1: Run the matched TF baseline (`scripts/training/train.py --backend tensorflow` + `scripts/inference/inference.py --backend tensorflow --debug_dump`) and archive artifacts (`.../reports/.../tf_baseline/`).
 - [x] C2: Build a comparison script/notebook that ingests Torch/TF dumps, reports variance ratios and stitched MAE/SSIM, and summarize findings in `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md`.
-- [ ] C3a: Harden `TestPatchStatsCLI::test_patch_stats_dump` by seeding its fixture and asserting `patch_amplitude.var_zero_mean > 1e-6` plus non-zero canvas means in the generated `torch_patch_stats.json`.
-- [ ] C3b: Capture the updated selector via `pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv | tee "$HUB"/green/pytest_patch_variance_guard.log`, updating hub inventories/summaries or filing a blocker if the guard fails.
+- [x] C3a: Harden `TestPatchStatsCLI::test_patch_stats_dump` by seeding its fixture and asserting `patch_amplitude.var_zero_mean > 1e-6` plus non-zero canvas means in the generated `torch_patch_stats.json`.
+- [x] C3b: Capture the updated selector via `pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv | tee "$HUB"/green/pytest_patch_variance_guard.log`, updating hub inventories/summaries or filing a blocker if the guard fails.
+- [ ] C3c: Extend the selector so it also runs the inference CLI, parses `analysis/torch_patch_stats_inference.json`, and enforces the same variance/global-mean thresholds (citing Phase C2 metrics + spec references).
+- [ ] C3d: Re-run the selector with the inference guard, refresh `$HUB/green/pytest_patch_variance_guard.log`, and update hub inventories/summaries or drop `$HUB/red/blocked_<timestamp>_patch_variance_guard_inference.md` on failure.
 - [x] C1c: Consolidate GS1 fallback evidence (stats delta artifact, inventory/summary update, TF blocker cross-links).
 
 ### Pending Tasks (Engineering)
