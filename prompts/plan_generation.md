@@ -17,10 +17,11 @@ Process and constraints (follow exactly):
      - Any developer/architecture guides (for example, `docs/DEVELOPER_GUIDE.md`, `docs/architecture*.md` if present).
      - The master task ledger or fix-plan document (for example, `docs/fix_plan.md` or an equivalent).
      - Any knowledge-base or findings ledger (for example, `docs/findings.md` or similar).
-   - From there, scan the main specification and API documentation locations in a project-agnostic way:
+   - From there, use the index/overview docs to scan the main specification and architecture/documentation locations in a project-agnostic way:
      - Specs under `docs/specs/` (if present).
      - Specs under top-level `specs/` (if present).
-     - Any other spec or contract directories referenced by the index/overview docs.
+     - Architecture and design docs (for example, any `docs/architecture*.md` or similar design overviews).
+     - Any other spec, API, testing, or workflow documentation categories referenced by `docs/index.md` or the primary overview file.
    - Using the work description and the index/overview, identify the minimal subset of documentation files that are actually relevant to this initiative (for example, specific spec shards, workflow docs, or architecture descriptions).
    - You will later list that *subset* in the plan’s “Context Priming” section. Do **not** just copy any example entries from the template verbatim; select files based on this project and this initiative.
 
@@ -57,7 +58,9 @@ Process and constraints (follow exactly):
    - Ensure Phase A includes at least one small, shippable nucleus suitable for a single engineer loop (for example, a guard test, a tiny helper, or a CLI sanity check), consistent with the project’s main implementation prompt (if present, such as `prompts/main.md`).
 
 4) Align with the agentic process and templates
-   - Ensure the plan is compatible with any Supervisor/Engineer loop or similar agentic process described in this repository (for example, prompts like `prompts/supervisor.md` and `prompts/main.md` if they exist).
+   - Ensure the plan is compatible with the Supervisor/Engineer loop described in:
+     - `prompts/supervisor.md`
+     - `prompts/main.md`
    - The implementation plan should be the primary “Working Plan” for this initiative; other artifacts (summary, reports) will live alongside it under `plans/active/<initiative-id>/`.
    - If the repository marks specific files or modules as “stable” or “do not edit” (for example via documentation or AGENTS/CLAUDE-style instructions), call out in the plan that edits to those areas require separate, explicitly approved scope.
 
