@@ -1,3 +1,14 @@
+### Turn Summary (2025-11-14T0547Z)
+Executed Phase A evidence refresh v3: pytest selector GREEN (1/1, 7.17s), 10-epoch training completed with patch-stat instrumentation, and inference generated debug dumps with healthy variance.
+Training patch stats show var_zero_mean=6.09e-05 (healthy), and crucially, inference patches now show var_zero_mean=5.19e+06 (NOT zero!), resolving the "essentially zero" inference issue from v2 run.
+Phase A checklist A0/A1/A2/A3 complete; ready for Phase B scaling/config alignment (intensity_scale persistence per CONFIG-001/POLICY-001).
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_stats_rerun_v3.log, cli/train_patch_stats_rerun_v3.log, cli/inference_patch_stats_rerun_v3.log, analysis/torch_patch_stats_combined_v3.json, analysis/forward_parity_debug_v3/, analysis/artifact_inventory_v3.txt}
+
+Checklist:
+- Files touched: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_stats_rerun_v3.log, cli/train_patch_stats_rerun_v3.log, cli/inference_patch_stats_rerun_v3.log, analysis/torch_patch_stats_combined_v3.json, analysis/forward_parity_debug_v3/, analysis/artifact_inventory_v3.txt}, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md, docs/fix_plan.md
+- Tests run: pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_stats_rerun_v3.log, cli/train_patch_stats_rerun_v3.log, cli/inference_patch_stats_rerun_v3.log, analysis/torch_patch_stats_combined_v3.json, analysis/forward_parity_debug_v3/, analysis/artifact_inventory_v3.txt}
+
 ### Turn Summary (2025-11-18T000000Z)
 Revalidated the forward_parity hub and git history: the supposed `_v2` selector/train/infer logs still begin with 2025-11-14 timestamps and `git log -n5` shows no Ralph evidence after `cdecf3fd`, so Phase A proof remains stale.
 Extended the working plan to add the pre-clobber verification step plus explicit reminders that `outputs/torch_forward_parity_baseline/analysis` only has the base `torch_patch_stats.json`/`torch_patch_grid.png`; engineers must rerun pytest + the 10-epoch train/infer commands, regenerate fresh patch stats, and overwrite the hub (or emit `_v3` copies) while citing POLICY-001 / CONFIG-001 / ANTIPATTERN-001.
