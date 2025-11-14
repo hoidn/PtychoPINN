@@ -44,16 +44,49 @@ def load_metrics(metrics_path: Path) -> dict:
     return data
 
 
-def validate_required_models(aggregate_metrics: dict) -> None:
-    """Ensure PtychoPINN, Baseline, and PtyChi are present for delta computation."""
-    required = {'PtychoPINN', 'Baseline', 'PtyChi'}
-    available = set(aggregate_metrics.keys())
-    missing = required - available
+def validate_required_models(aggregate_metrics: dict) -> tuple[str, str, str]:
+    """
+    Ensure PtychoPINN, Baseline, and PtyChi are present for delta computation.
+    Returns (pinn_key, baseline_key, ptychi_key) with actual keys from metrics.
+    Accepts flexible model names with case-insensitive prefix matching.
+    """
+    available_keys = set(aggregate_metrics.keys())
+
+    # Find PtychoPINN (exact match required)
+    pinn_key = None
+    if 'PtychoPINN' in available_keys:
+        pinn_key = 'PtychoPINN'
+
+    # Find Baseline (case-insensitive prefix match)
+    baseline_key = None
+    for key in available_keys:
+        if key.lower().startswith('baseline'):
+            baseline_key = key
+            break
+
+    # Find PtyChi/Pty-chi (case-insensitive, allows dash)
+    ptychi_key = None
+    for key in available_keys:
+        key_clean = key.lower().replace('-', '').replace(' ', '').replace('(', '').replace(')', '')
+        if 'ptychi' in key_clean:
+            ptychi_key = key
+            break
+
+    # Check if all three models were found
+    missing = []
+    if pinn_key is None:
+        missing.append('PtychoPINN')
+    if baseline_key is None:
+        missing.append('Baseline')
+    if ptychi_key is None:
+        missing.append('PtyChi')
 
     if missing:
         print(f"ERROR: Required models missing for delta computation: {', '.join(sorted(missing))}", file=sys.stderr)
-        print(f"Available models: {', '.join(sorted(available))}", file=sys.stderr)
+        print(f"Available models: {', '.join(sorted(available_keys))}", file=sys.stderr)
         sys.exit(1)
+
+    return (pinn_key, baseline_key, ptychi_key)
 
 
 def format_metric_table(model_name: str, metrics: dict) -> str:
@@ -274,7 +307,7 @@ def generate_highlights(
     return "\n".join(lines)
 
 
-def generate_report(data: dict, ms_ssim_threshold: float) -> str:
+def generate_report(data: dict, ms_ssim_threshold: float, pinn_key: str, baseline_key: str, ptychi_key: str) -> str:
     """Generate full Markdown report from metrics_summary.json."""
     aggregate_metrics = data['aggregate_metrics']
 
@@ -299,12 +332,11 @@ def generate_report(data: dict, ms_ssim_threshold: float) -> str:
         metrics = aggregate_metrics[model_name]
         lines.append(format_metric_table(model_name, metrics))
 
-    # Delta tables
-    if 'PtychoPINN' in aggregate_metrics and 'Baseline' in aggregate_metrics and 'PtyChi' in aggregate_metrics:
-        pinn_metrics = aggregate_metrics['PtychoPINN']
-        baseline_metrics = aggregate_metrics['Baseline']
-        ptychi_metrics = aggregate_metrics['PtyChi']
-        lines.append(format_delta_tables(pinn_metrics, baseline_metrics, ptychi_metrics))
+    # Delta tables (use actual keys from validation)
+    pinn_metrics = aggregate_metrics[pinn_key]
+    baseline_metrics = aggregate_metrics[baseline_key]
+    ptychi_metrics = aggregate_metrics[ptychi_key]
+    lines.append(format_delta_tables(pinn_metrics, baseline_metrics, ptychi_metrics))
 
     return "\n".join(lines)
 
@@ -343,10 +375,10 @@ def main() -> None:
     # Load and validate
     data = load_metrics(args.metrics)
     aggregate_metrics = data['aggregate_metrics']
-    validate_required_models(aggregate_metrics)
+    pinn_key, baseline_key, ptychi_key = validate_required_models(aggregate_metrics)
 
-    # Generate report
-    report = generate_report(data, args.ms_ssim_threshold)
+    # Generate report with actual model keys
+    report = generate_report(data, args.ms_ssim_threshold, pinn_key, baseline_key, ptychi_key)
 
     # Emit to stdout
     print(report)
@@ -365,9 +397,9 @@ def main() -> None:
     # Optionally write highlights file
     if args.highlights:
         try:
-            pinn_metrics = aggregate_metrics['PtychoPINN']
-            baseline_metrics = aggregate_metrics['Baseline']
-            ptychi_metrics = aggregate_metrics['PtyChi']
+            pinn_metrics = aggregate_metrics[pinn_key]
+            baseline_metrics = aggregate_metrics[baseline_key]
+            ptychi_metrics = aggregate_metrics[ptychi_key]
             highlights = generate_highlights(
                 pinn_metrics,
                 baseline_metrics,

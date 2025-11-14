@@ -16,14 +16,14 @@ Summary statistics across all jobs per model.
 
 | Statistic | Amplitude | Phase |
 |-----------|-----------|-------|
-| Mean | 0.617 | 0.829 |
-| Best | 0.617 | 0.829 |
+| Mean | 0.628 | 0.839 |
+| Best | 0.628 | 0.839 |
 
 **MAE:**
 
 | Statistic | Amplitude | Phase |
 |-----------|-----------|-------|
-| Mean | 0.070 | 0.128 |
+| Mean | 0.069 | 0.123 |
 
 ### PtychoPINN
 
@@ -31,14 +31,14 @@ Summary statistics across all jobs per model.
 
 | Statistic | Amplitude | Phase |
 |-----------|-----------|-------|
-| Mean | 0.190 | 0.039 |
-| Best | 0.190 | 0.039 |
+| Mean | 0.004 | 0.048 |
+| Best | 0.004 | 0.048 |
 
 **MAE:**
 
 | Statistic | Amplitude | Phase |
 |-----------|-----------|-------|
-| Mean | 0.041 | 0.242 |
+| Mean | 0.401 | 0.242 |
 
 ---
 
@@ -48,13 +48,13 @@ Summary statistics across all jobs per model.
 
 | Metric | Amplitude | Phase | Value |
 |--------|-----------|-------|-------|
-| mae | 0.0414 | 0.2422 |  |
-| mse | 0.0027 | 0.0749 |  |
-| psnr | 73.8598 | 59.3834 |  |
-| ssim | 0.2216 | 0.7302 |  |
-| ms_ssim | 0.1902 | 0.0392 |  |
+| mae | 0.4013 | 0.2415 |  |
+| mse | 0.1780 | 0.0754 |  |
+| psnr | 55.6255 | 59.3589 |  |
+| ssim | 0.0932 | 0.7273 |  |
+| ms_ssim | 0.0037 | 0.0476 |  |
 | frc50 | 1.0000 | 1.0000 |  |
-| computation_time_s |  |  | 7.1077 |
+| computation_time_s |  |  | 20.6057 |
 
 ### Baseline
 
@@ -66,20 +66,20 @@ Summary statistics across all jobs per model.
 | ssim |  |  |  |
 | ms_ssim |  |  |  |
 | frc50 |  |  |  |
-| computation_time_s |  |  | 12.6594 |
+| computation_time_s |  |  | 16.3219 |
 
 ### Pty-chi (pty-chi)
 
 | Metric | Amplitude | Phase | Value |
 |--------|-----------|-------|-------|
-| mae | 0.0696 | 0.1283 |  |
-| mse | 0.0073 | 0.0275 |  |
-| psnr | 69.5256 | 63.7347 |  |
-| ssim | 0.3006 | 0.8483 |  |
-| ms_ssim | 0.6168 | 0.8294 |  |
+| mae | 0.0689 | 0.1228 |  |
+| mse | 0.0071 | 0.0253 |  |
+| psnr | 69.5884 | 64.0996 |  |
+| ssim | 0.3081 | 0.8558 |  |
+| ms_ssim | 0.6280 | 0.8392 |  |
 | frc50 | 1.0000 | 1.0000 |  |
-| registration_offset_dy |  |  | 0.1000 |
-| registration_offset_dx |  |  | -1.2200 |
+| registration_offset_dy |  |  | 0.1800 |
+| registration_offset_dx |  |  | -0.2800 |
 
 ---
 

@@ -11,32 +11,32 @@
         {
           "model": "PtychoPINN",
           "metric": "mae",
-          "amplitude": 0.041413,
-          "phase": 0.242237
+          "amplitude": 0.40128,
+          "phase": 0.24151
         },
         {
           "model": "PtychoPINN",
           "metric": "mse",
-          "amplitude": 0.002674,
-          "phase": 0.074945
+          "amplitude": 0.178046,
+          "phase": 0.075368
         },
         {
           "model": "PtychoPINN",
           "metric": "psnr",
-          "amplitude": 73.859807,
-          "phase": 59.383374
+          "amplitude": 55.625471,
+          "phase": 59.35892
         },
         {
           "model": "PtychoPINN",
           "metric": "ssim",
-          "amplitude": 0.221598,
-          "phase": 0.73025
+          "amplitude": 0.093242,
+          "phase": 0.727271
         },
         {
           "model": "PtychoPINN",
           "metric": "ms_ssim",
-          "amplitude": 0.19021,
-          "phase": 0.039176
+          "amplitude": 0.00369,
+          "phase": 0.047559
         },
         {
           "model": "PtychoPINN",
@@ -71,32 +71,32 @@
         {
           "model": "Pty-chi (pty-chi)",
           "metric": "mae",
-          "amplitude": 0.069598,
-          "phase": 0.128297
+          "amplitude": 0.068922,
+          "phase": 0.12277
         },
         {
           "model": "Pty-chi (pty-chi)",
           "metric": "mse",
-          "amplitude": 0.007253,
-          "phase": 0.027517
+          "amplitude": 0.007149,
+          "phase": 0.0253
         },
         {
           "model": "Pty-chi (pty-chi)",
           "metric": "psnr",
-          "amplitude": 69.52562,
-          "phase": 63.734735
+          "amplitude": 69.588423,
+          "phase": 64.099603
         },
         {
           "model": "Pty-chi (pty-chi)",
           "metric": "ssim",
-          "amplitude": 0.300585,
-          "phase": 0.848341
+          "amplitude": 0.308111,
+          "phase": 0.855809
         },
         {
           "model": "Pty-chi (pty-chi)",
           "metric": "ms_ssim",
-          "amplitude": 0.616761,
-          "phase": 0.82938
+          "amplitude": 0.627979,
+          "phase": 0.839151
         },
         {
           "model": "Pty-chi (pty-chi)",
@@ -107,22 +107,22 @@
         {
           "model": "Pty-chi (pty-chi)",
           "metric": "registration_offset_dy",
-          "value": 0.1
+          "value": 0.18
         },
         {
           "model": "Pty-chi (pty-chi)",
           "metric": "registration_offset_dx",
-          "value": -1.22
+          "value": -0.28
         },
         {
           "model": "PtychoPINN",
           "metric": "computation_time_s",
-          "value": 7.107684
+          "value": 20.605662
         },
         {
           "model": "Baseline",
           "metric": "computation_time_s",
-          "value": 12.659365
+          "value": 16.321898
         }
       ]
     }
@@ -130,26 +130,26 @@
   "aggregate_metrics": {
     "Pty-chi (pty-chi)": {
       "mae": {
-        "mean_amplitude": 0.069598,
-        "mean_phase": 0.128297
+        "mean_amplitude": 0.068922,
+        "mean_phase": 0.12277
       },
       "ms_ssim": {
-        "mean_amplitude": 0.616761,
-        "best_amplitude": 0.616761,
-        "mean_phase": 0.82938,
-        "best_phase": 0.82938
+        "mean_amplitude": 0.627979,
+        "best_amplitude": 0.627979,
+        "mean_phase": 0.839151,
+        "best_phase": 0.839151
       }
     },
     "PtychoPINN": {
       "mae": {
-        "mean_amplitude": 0.041413,
-        "mean_phase": 0.242237
+        "mean_amplitude": 0.40128,
+        "mean_phase": 0.24151
       },
       "ms_ssim": {
-        "mean_amplitude": 0.19021,
-        "best_amplitude": 0.19021,
-        "mean_phase": 0.039176,
-        "best_phase": 0.039176
+        "mean_amplitude": 0.00369,
+        "best_amplitude": 0.00369,
+        "mean_phase": 0.047559,
+        "best_phase": 0.047559
       }
     }
   },

@@ -1,0 +1,12 @@
+# Command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/ssim_grid.py --hub /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier
+# CWD: /home/ollie/Documents/PtychoPINN
+# Log: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/ssim_grid_cli.log
+# ==============================================================================
+
+ERROR: Preview guard failure (PREVIEW-PHASE-001)
+Preview file contains 'amplitude' keyword (violates phase-only requirement):
+  Preview file not found: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/metrics_delta_highlights_preview.txt
+
+[run_phase_g_dense] ERROR: Command failed with return code 1
+Command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/ssim_grid.py --hub /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier
+Log: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/ssim_grid_cli.log
