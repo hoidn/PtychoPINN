@@ -1,0 +1,174 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump 2025-11-14 02:05:43.953853: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1763114743.965517 2822194 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763114743.969612 2822194 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763114743.980504 2822194 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763114743.980515 2822194 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763114743.980517 2822194 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763114743.980518 2822194 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-14 02:05:43.983487: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+I0000 00:00:1763114748.297867 2822194 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1763114748.299116 2822194 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1763114749.236187 2822194 service.cc:152] XLA service 0x4ca1a700 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1763114749.236206 2822194 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-11-14 02:05:49.256039: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1763114749.274297 2822194 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1763114749.406349 2822194 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+INFO: Seed set to 42
+INFO: LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+INFO: 
+  | Name  | Type        | Params | Mode 
+----------------------------------------------
+0 | model | PtychoPINN  | 2.3 M  | train
+1 | Loss  | PoissonLoss | 0      | train
+----------------------------------------------
+2.3 M     Trainable params
+0         Non-trainable params
+2.3 M     Total params
+9.365     Total estimated model params size (MB)
+73        Modules in train mode
+0         Modules in eval mode
+Using new CLI interface with factory-based config (ADR-003)
+Creating configuration via factory (CONFIG-001 compliance)...
+✓ Factory created configs: N=64, gridsize=(2, 2), epochs=1
+✓ Execution config: accelerator=cpu, deterministic=True, learning_rate=0.001
+Starting training with 1 epochs...
+diff3d shape: (10, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (10,)
+objectGuess shape: (200, 200)
+xcoords shape: (10,)
+ycoords shape: (10,)
+xcoords_start shape: (10,)
+ycoords_start shape: (10,)
+diff3d shape: (10, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (10,)
+objectGuess shape: (200, 200)
+xcoords shape: (10,)
+ycoords shape: (10,)
+xcoords_start shape: (10,)
+ycoords_start shape: (10,)
+DEBUG: nsamples: 8, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (8, 64, 64, 4)
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Torch scaling debug (training): mean|input|=0.433329 mean|pred|=0.005213 mean_input_scale=1.000000 mean_physics_scale=1.000000 physics_weight=1.000
+✓ Training completed successfully. Outputs saved to /tmp/pytest-of-ollie/pytest-734/test_patch_stats_dump0/outputs
+✓ Model bundle saved to /tmp/pytest-of-ollie/pytest-734/test_patch_stats_dump0/outputs/wts.h5.zip
+FAILED
+
+=================================== FAILURES ===================================
+___________________ TestPatchStatsCLI.test_patch_stats_dump ____________________
+
+self = <test_cli_train_torch.TestPatchStatsCLI object at 0x7f7f0976e490>
+minimal_train_args = ['--train_data_file', '/tmp/pytest-of-ollie/pytest-734/test_patch_stats_dump0/train.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-734/test_patch_stats_dump0/outputs', '--n_images', '8', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f7f0970a390>
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-734/test_patch_stats_dump0')
+
+    def test_patch_stats_dump(self, minimal_train_args, monkeypatch, tmp_path):
+        """
+        Test that --log-patch-stats produces JSON and PNG artifacts.
+    
+        This is the selector required by input.md Phase A Do Now:
+        pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump
+    
+        Expected behavior:
+        - CLI accepts --log-patch-stats and --patch-stats-limit flags
+        - After training, <output_dir>/analysis/ contains:
+          - torch_patch_stats.json
+          - torch_patch_grid.png
+        """
+        from ptycho_torch.train import cli_main
+    
+        output_dir = tmp_path / 'outputs'
+        test_args = minimal_train_args + [
+            '--log-patch-stats',
+            '--patch-stats-limit', '2',
+            '--accelerator', 'cpu',
+            '--quiet',
+        ]
+    
+        monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+    
+        # Run training
+        try:
+            exit_code = cli_main()
+        except SystemExit as e:
+            exit_code = e.code
+    
+        # Assert training completed
+        assert exit_code == 0 or exit_code is None, \
+            f"Training CLI failed with exit code {exit_code}"
+    
+        # Assert artifacts exist
+        analysis_dir = output_dir / 'analysis'
+        json_path = analysis_dir / 'torch_patch_stats.json'
+        png_path = analysis_dir / 'torch_patch_grid.png'
+    
+>       assert json_path.exists(), \
+            f"Missing torch_patch_stats.json at {json_path}"
+E       AssertionError: Missing torch_patch_stats.json at /tmp/pytest-of-ollie/pytest-734/test_patch_stats_dump0/outputs/analysis/torch_patch_stats.json
+E       assert False
+E        +  where False = exists()
+E        +    where exists = PosixPath('/tmp/pytest-of-ollie/pytest-734/test_patch_stats_dump0/outputs/analysis/torch_patch_stats.json').exists
+
+tests/torch/test_cli_train_torch.py:865: AssertionError
+------------------------------ Captured log call -------------------------------
+INFO     lightning.fabric.utilities.seed:seed.py:57 Seed set to 42
+INFO     pytorch_lightning.utilities.rank_zero:setup.py:156 GPU available: True (cuda), used: True
+INFO     pytorch_lightning.utilities.rank_zero:setup.py:159 TPU available: False, using: 0 TPU cores
+INFO     pytorch_lightning.utilities.rank_zero:setup.py:169 HPU available: False, using: 0 HPUs
+INFO     pytorch_lightning.utilities.rank_zero:cuda.py:166 You are using a CUDA device ('NVIDIA GeForce RTX 3090') that has Tensor Cores. To properly utilize them, you should set `torch.set_float32_matmul_precision('medium' | 'high')` which will trade-off precision for performance. For more details, read https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+INFO     lightning.pytorch.accelerators.cuda:cuda.py:61 LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+INFO     lightning.pytorch.callbacks.model_summary:model_summary.py:104 
+  | Name  | Type        | Params | Mode 
+----------------------------------------------
+0 | model | PtychoPINN  | 2.3 M  | train
+1 | Loss  | PoissonLoss | 0      | train
+----------------------------------------------
+2.3 M     Trainable params
+0         Non-trainable params
+2.3 M     Total params
+9.365     Total estimated model params size (MB)
+73        Modules in train mode
+0         Modules in eval mode
+INFO     pytorch_lightning.utilities.rank_zero:fit_loop.py:191 `Trainer.fit` stopped: `max_epochs=1` reached.
+=============================== warnings summary ===============================
+tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump
+  /home/ollie/Documents/PtychoPINN/ptycho_torch/config_factory.py:272: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_training_config = to_training_config(
+
+tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump
+  /home/ollie/Documents/PtychoPINN/ptycho_torch/config_factory.py:632: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+    warnings.warn(
+
+tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/configuration_validator.py:70: You defined a `validation_step` but have no `val_dataloader`. Skipping val loop.
+
+tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+
+tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/callbacks/model_checkpoint.py:467: `ModelCheckpoint(monitor='train_loss')` could not find the monitored key in the returned metrics: ['poisson_train_loss_step', 'amp_inv_mae_step', 'poisson_train_loss', 'learning_rate', 'poisson_train_loss_epoch', 'amp_inv_mae_epoch', 'amp_mae_tf_scale_epoch', 'epoch', 'step']. HINT: Did you call `log('train_loss', value)` in the `LightningModule`?
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+======================== 1 failed, 5 warnings in 7.45s =========================
