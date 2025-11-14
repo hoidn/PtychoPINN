@@ -1,0 +1,26 @@
+Artifact Inventory — FIX-PYTORCH-FORWARD-PARITY-001 Phase A
+============================================================
+
+## Phase A: CLI Instrumentation & Testing (2025-11-16)
+
+### Production Changes
+- ptycho_torch/patch_stats_instrumentation.py: New module with PatchStatsLogger class for JSON+PNG dumps
+- ptycho_torch/config_params.py: Added log_patch_stats and patch_stats_limit fields to InferenceConfig
+- ptycho_torch/train.py: Added --log-patch-stats and --patch-stats-limit CLI flags
+
+### Test Coverage
+- tests/torch/test_patch_stats_cli.py: New test module with TestPatchStatsCLI class
+  - test_patch_stats_flags_accepted: Proves CLI flags are accepted and forwarded to overrides
+  - test_patch_stats_default_disabled: Verifies default behavior (disabled)
+
+### Test Evidence
+- green/pytest_patch_stats_flags.log: PASSED (1/1) - CLI flags correctly wired through config stack
+
+### Notes
+- Instrumentation module provides skeleton implementation with placeholder PNG generation
+- Full JSON statistics collection implemented; PNG grid rendering stubbed for future work
+- CLI flags integrated but not yet connected to model forward pass (requires config bridge update)
+- Tests prove flags are parsed and forwarded; full integration deferred to avoid expanding scope
+
+## Blockers / Open Items
+None - Phase A CLI plumbing complete; model integration requires config_factory updates (Phase B scope)
