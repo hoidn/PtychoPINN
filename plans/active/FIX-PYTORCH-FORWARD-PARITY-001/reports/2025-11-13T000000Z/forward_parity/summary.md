@@ -1,6 +1,29 @@
+### Phase C3c/C3d Inference Path Variance Guard — 2025-11-14T0917Z
+
+Extended the Phase C3 regression guard to verify inference forward-path parity by invoking the inference CLI after training and asserting the same variance/global-mean thresholds on inference patch statistics.
+
+**Test Extension**:
+- Added inference CLI invocation after training completes: `python -m ptycho_torch.inference --model_path <train_out> --test_data <tmp_npz> --log-patch-stats --patch-stats-limit 2`
+- Parse inference `torch_patch_stats.json` (note: inference uses same artifact names as training)
+- Assert inference `var_zero_mean > 1e-6` and `abs(global_mean) > 1e-9` (same thresholds as training guard)
+- Inline comments cite analysis/phase_c2_pytorch_only_metrics.txt, POLICY-001/CONFIG-001, and docs/specs/spec-ptycho-workflow.md
+
+**Test Results**: green/pytest_patch_variance_guard.log — Selector GREEN (1/1 PASSED, 7.21s)
+- Training variance guard: PASSED (var_zero_mean > 1e-6, global_mean > 1e-9)
+- Inference variance guard: PASSED (var_zero_mean > 1e-6, global_mean > 1e-9)
+- Single selector now validates both training and inference forward paths in one test run
+
+**Guard Rationale**: Same thresholds as Phase C3 training guard (1e-6 for variance, 1e-9 for global mean), ensuring inference forward-reassembly produces structured patches before stitching per spec-ptycho-workflow.md forward-path parity requirement. References POLICY-001 (PyTorch mandatory) and CONFIG-001 (config bridge).
+
+**Documentation**: No registry updates required (selector name unchanged, test extended inline).
+
+**Phase C3 Status**: All checklist items C3a/C3b/C3c/C3d now COMPLETE. The selector guards both training and inference paths against variance collapse for gridsize≥2 configurations.
+
+---
+
 ### Phase C3 Patch Variance Regression Guard — 2025-11-14T0849Z
 
-Added deterministic variance assertions to the existing patch-stats test selector, guarding against zero-variance regressions observed in gridsize=1 fallback.
+Added deterministic variance assertions to the existing patch-stats test selector (training path only), guarding against zero-variance regressions observed in gridsize=1 fallback.
 
 **Test Updates**:
 - Seeded minimal_train_args fixture (`np.random.seed(12345)`) for deterministic non-zero variance

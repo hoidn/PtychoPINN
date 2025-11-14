@@ -235,3 +235,41 @@ Threshold of 1e-6 chosen based on Phase C2 comparison showing gridsize=2 baselin
 
 **Documentation Impact**:
 No doc/test registry updates required - existing selector name unchanged, just assertions added.
+
+## Phase C3c/C3d — Inference Path Variance Guard (2025-11-14T0917Z)
+**Status**: COMPLETE - Selector GREEN (1/1 PASSED)
+
+**Summary**:
+Extended the Phase C3 regression guard to also verify the inference forward path retains variance for gridsize≥2. The test now invokes both training and inference CLI workflows in sequence, asserting the same variance/global-mean thresholds for both paths to ensure forward-reassembly parity per docs/specs/spec-ptycho-workflow.md.
+
+**Test Updates**:
+- tests/torch/test_cli_train_torch.py:900-974 — Added inference CLI invocation and assertions:
+  - After training completes, run inference with --log-patch-stats --patch-stats-limit 2
+  - Parse inference torch_patch_stats.json (note: inference uses same artifact names as training)
+  - Assert inference `var_zero_mean > 1e-6` and `abs(global_mean) > 1e-9`
+  - Inline comments cite analysis/phase_c2_pytorch_only_metrics.txt, POLICY-001/CONFIG-001, and spec-ptycho-workflow.md
+
+**Test Results**:
+- green/pytest_patch_variance_guard.log — Selector GREEN (1/1 PASSED, 7.21s)
+  - Training variance guard: PASSED (var_zero_mean > 1e-6, global_mean > 1e-9)
+  - Inference variance guard: PASSED (var_zero_mean > 1e-6, global_mean > 1e-9)
+  - Test timestamp: 2025-11-14 09:17:12
+  - Both training and inference paths validated in single test run
+
+**Guard Rationale**:
+Same thresholds as Phase C3 training guard (1e-6 for variance, 1e-9 for global mean), chosen based on Phase C2 metrics showing gridsize=2 baseline retains patch variance of 8.97e9 while gridsize=1 collapses to 0.0. Guard ensures inference forward-path parity with training per spec-ptycho-workflow.md requirements. References POLICY-001 (PyTorch mandatory) and CONFIG-001 (config bridge).
+
+**Artifacts** (generated during test execution, ephemeral):
+- Test creates temporary directories under /tmp/pytest-of-*/test_patch_stats_dump*/
+- Training artifacts: outputs/analysis/torch_patch_stats.json, torch_patch_grid.png
+- Inference artifacts: outputs_infer/analysis/torch_patch_stats.json, torch_patch_grid.png
+- All artifacts cleaned up automatically by pytest tmp_path fixture
+
+**Selector Name**: (unchanged)
+`pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump`
+
+**Documentation Impact**:
+No doc/test registry updates required - existing selector extended, name unchanged.
+
+**Phase C3 Complete**:
+All checklist items C3a/C3b/C3c/C3d now complete. The single selector now guards both training and inference paths against variance collapse for gridsize≥2 configurations.

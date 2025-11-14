@@ -1,4 +1,17 @@
 ### Turn Summary
+Extended `test_patch_stats_dump` to invoke inference CLI after training, parsing inference patch stats and enforcing the same variance (>1e-6) and global-mean (>1e-9) thresholds.
+Pytest selector GREEN (1/1 PASSED, 7.21s) with both training and inference guards passing; updated hub artifact_inventory.txt and summary.md with Phase C3c/C3d section documenting the inference variance guard.
+Phase C3 checklist items C3a/C3b/C3c/C3d now complete; the single selector guards both training and inference paths against variance collapse for gridsize≥2 configurations.
+Next: Phase C complete; initiative ready for broader integration testing or additional parity work if TensorFlow translation layer unblocks.
+Artifacts: tests/torch/test_cli_train_torch.py (extended test), plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_variance_guard.log, analysis/artifact_inventory.txt, summary.md}
+
+Checklist:
+- Files touched: tests/torch/test_cli_train_torch.py, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_variance_guard.log, analysis/artifact_inventory.txt, summary.md}, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
+- Tests run: pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_variance_guard.log, analysis/artifact_inventory.txt, summary.md}
+
+
+### Turn Summary
 Verified Ralph’s Phase C3 training guard landed (commit 392a44ea) by reviewing the pytest log plus hub inventory/summary entries so we have fresh GREEN evidence for the training path.
 Retrofitted the implementation plan, fix_plan, and input.md to pivot Phase C3 toward an inference CLI variance guard (new checklist items C3c/C3d citing POLICY-001/CONFIG-001 + phase_c2 metrics) so the selector now has a concrete next action.
 Next: Ralph extends `test_patch_stats_dump` to run the inference CLI, enforces the same variance/global-mean thresholds on `torch_patch_stats_inference.json`, reruns the selector with logging, and updates the hub summaries or files a blocker if inference still collapses.

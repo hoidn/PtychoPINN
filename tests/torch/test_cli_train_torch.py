@@ -896,3 +896,80 @@ class TestPatchStatsCLI:
         global_mean = first_batch['global_mean']
         assert abs(global_mean) > 1e-9, \
             f"Global mean is zero (global_mean={global_mean:.2e}), indicates output collapse"
+
+        # Phase C3c: Run inference CLI to verify forward-path parity (gridsize>=2)
+        # Rationale: analysis/phase_c2_pytorch_only_metrics.txt and
+        # docs/specs/spec-ptycho-workflow.md require that inference patches retain
+        # variance when gridsize>=2, ensuring forward reassembly produces structured
+        # patches before stitching (POLICY-001/CONFIG-001).
+        from ptycho_torch.inference import cli_main as inference_cli_main
+
+        # Extract train data path from minimal_train_args
+        train_data_idx = minimal_train_args.index('--train_data_file')
+        test_data_path = minimal_train_args[train_data_idx + 1]
+
+        inference_args = [
+            '--model_path', str(output_dir),
+            '--test_data', test_data_path,
+            '--output_dir', str(tmp_path / 'outputs_infer'),
+            '--n_images', '8',
+            '--log-patch-stats',
+            '--patch-stats-limit', '2',
+            '--accelerator', 'cpu',
+            '--quiet',
+        ]
+
+        monkeypatch.setattr('sys.argv', ['inference.py'] + inference_args)
+
+        # Run inference
+        try:
+            exit_code = inference_cli_main()
+        except SystemExit as e:
+            exit_code = e.code
+
+        # Assert inference completed
+        assert exit_code == 0 or exit_code is None, \
+            f"Inference CLI failed with exit code {exit_code}"
+
+        # Assert inference artifacts exist
+        # Note: inference CLI uses same artifact names as training (torch_patch_stats.json)
+        inference_output_dir = tmp_path / 'outputs_infer'
+        inference_analysis_dir = inference_output_dir / 'analysis'
+        inference_json_path = inference_analysis_dir / 'torch_patch_stats.json'
+        inference_png_path = inference_analysis_dir / 'torch_patch_grid.png'
+
+        assert inference_json_path.exists(), \
+            f"Missing torch_patch_stats.json at {inference_json_path} " \
+            f"(POLICY-001/CONFIG-001: inference instrumentation must emit stats for gridsize>=2)"
+        assert inference_png_path.exists(), \
+            f"Missing torch_patch_grid.png at {inference_png_path}"
+
+        # Verify inference JSON structure and variance guard (Phase C3c/C3d)
+        import json
+        with open(inference_json_path) as f:
+            inference_stats = json.load(f)
+
+        assert isinstance(inference_stats, list), "Expected list of batch stats from inference"
+        assert len(inference_stats) > 0, "Expected at least one batch logged during inference"
+
+        # Phase C3d regression guard: assert non-zero variance for inference path
+        # Threshold rationale (same as training): analysis/phase_c2_pytorch_only_metrics.txt
+        # shows that gridsize=2 baseline retains patch.var_zero_mean=8.97e9, while gridsize=1
+        # collapsed to 0.0. Inference forward path must preserve variance for gridsize>=2.
+        # References: POLICY-001 (PyTorch mandatory), CONFIG-001 (config bridge),
+        # docs/specs/spec-ptycho-workflow.md (forward reassembly parity requirement)
+        inference_first_batch = inference_stats[0]
+
+        assert 'var_zero_mean' in inference_first_batch, \
+            "Missing var_zero_mean in inference batch stats"
+        inference_patch_var = inference_first_batch['var_zero_mean']
+        assert inference_patch_var > 1e-6, \
+            f"Inference patch variance too low (var_zero_mean={inference_patch_var:.2e}), " \
+            f"expected > 1e-6 for gridsize>=2 (forward-path parity requirement)"
+
+        assert 'global_mean' in inference_first_batch, \
+            "Missing global_mean in inference batch stats"
+        inference_global_mean = inference_first_batch['global_mean']
+        assert abs(inference_global_mean) > 1e-9, \
+            f"Inference global mean is zero (global_mean={inference_global_mean:.2e}), " \
+            f"indicates inference output collapse (violates forward-path parity)"
