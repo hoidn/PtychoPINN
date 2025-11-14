@@ -1,3 +1,9 @@
+### Turn Summary (2025-11-16T191500Z)
+Confirmed the patch-stats pytest failure occurs because the new CLI builds a TrainingPayload with the instrumentation flags but then calls `run_cdi_example_torch` without reusing it, so `_train_with_lightning` re-derives configs that drop `log_patch_stats`/`patch_stats_limit` and no JSON/PNG artifacts are written (`plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/green/pytest_patch_stats.log:125`, `ptycho_torch/train.py:720-758`, `ptycho_torch/workflows/components.py:664-690`).
+Added checklist item A0 plus a new Do Now step so Phase A now starts by threading the CLI TrainingPayload (or an equivalent override hook) through `run_cdi_example_torch → train_cdi_model_torch → _train_with_lightning` before rerunning the short Torch baseline and inference commands.
+Next: implement the payload hand-off, turn `tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump` green, then rerun the short train/inference commands with instrumentation enabled and update the hub inventory.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/green/pytest_patch_stats.log
+
 ### Turn Summary (2025-11-16T151500Z)
 Re-read the PyTorch workflow/spec docs and verified the forward_parity hub still lacks torch_patch_stats.json / torch_patch_grid.png, so Phase A instrumentation + baseline reruns remain outstanding.
 Refreshed the Phase A plan + fix_plan Do Now to emphasize the CLI flag plumbing, targeted pytest selector, and the short train/inference commands under POLICY-001 / CONFIG-001 constraints.

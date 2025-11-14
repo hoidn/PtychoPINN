@@ -1,6 +1,6 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2025-11-16 (Galph loop — FIX-PYTORCH-FORWARD-PARITY-001 Phase A planning kickoff)
+**Last Updated:** 2025-11-16 (Galph loop — FIX-PYTORCH-FORWARD-PARITY-001 Phase A payload hand-off + instrumentation brief)
 **Active Focus:** FIX-PYTORCH-FORWARD-PARITY-001 — add Torch patch-stat instrumentation + rerun the short baseline with evidence under `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/`
 
 ---
@@ -34,6 +34,7 @@
   2. Add and run the targeted pytest (`tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump`) so it invokes `ptycho_torch.train.cli_main` with the flags, asserts JSON/PNG existence, and logs to `$HUB/green/pytest_patch_stats.log`.
   3. Rerun the short baseline + inference commands from `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/plan/plan.md` with `--log-patch-stats --patch-stats-limit 2`, capturing logs under `$HUB/cli/{train_patch_stats.log,inference_patch_stats.log}` and dropping the debug dumps under `$HUB/analysis/forward_parity_debug`.
   4. Update `$HUB/analysis/artifact_inventory.txt`, `$HUB/summary.md`, and the initiative summary with the new JSON/PNG/log artifacts—or record an immediate blocker under `$HUB/red/blocked_<timestamp>.md` if GPU/memory prevents completion.
+- Latest Attempt (2025-11-16T191500Z): planning — Triaged the failing `tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump` log and traced it to the CLI discarding its TrainingPayload before calling `run_cdi_example_torch`, so `_train_with_lightning` rebuilds configs without `log_patch_stats` and no JSON/PNG files are produced; added checklist item A0 and rewrote the Do Now to start with the payload hand-off before rerunning pytest + the short baseline commands.
 - Latest Attempt (2025-11-16T151500Z): planning — Re-read POLICY-001/CONFIG-001 docs, confirmed the hub still lacks patch stats artifacts, refreshed the Do Now + summary with the existing commands/selector, and rewrote input.md so Ralph can start implementation immediately.
 - Latest Attempt (2025-11-16T131500Z): planning — Created the forward_parity hub skeleton, documented the instrumentation Do Now above, and updated the initiative summary/input so Ralph can begin Phase A. No production edits landed yet.
 - Latest Attempt (2025-11-13T000000Z): planning — Created the implementation plan and Reports Hub skeleton; no code changes yet.
