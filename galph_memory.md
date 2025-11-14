@@ -1,3 +1,15 @@
+## 2025-11-16T151500Z: Phase A patch-stat instrumentation brief refresh
+- dwell: 1 (second consecutive planning/doc loop for this focus; no new production evidence yet, so dwell increments while we keep the Do Now runnable).
+- Focus issue: FIX-PYTORCH-FORWARD-PARITY-001 — Phase A still lacks the JSON/PNG patch-stat artifacts and short baseline rerun, so the PyTorch parity effort cannot progress.
+- Action type: Planning (Perf mode — instrumentation + short baseline capture)
+- Git sync: `git status --porcelain` → clean; `timeout 30 git pull --rebase` → Already up to date; re-exported `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` for downstream runs.
+- Documents/artifacts reviewed: docs/index.md; docs/findings.md (POLICY-001/CONFIG-001); docs/workflows/pytorch.md; docs/DEVELOPER_GUIDE.md; docs/INITIATIVE_WORKFLOW_GUIDE.md; docs/COMMANDS_REFERENCE.md; docs/TESTING_GUIDE.md; docs/development/TEST_SUITE_INDEX.md; docs/specs/{spec-ptycho-workflow.md,spec-ptycho-interfaces.md}; specs/data_contracts.md; specs/ptychodus_api_spec.md; docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md}; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{plan/plan.md,analysis/artifact_inventory.txt,green/*.log,cli/train_patch_stats.log,red/blocked_20251114T014035Z_factory_inference_config.md}; input.md.
+- Findings: No new hub artifacts exist beyond the initial CLI/test logs; the train/inference commands plus pytest selector still need to run after wiring the instrumentation through model + inference; POLICY-001 requires we keep PyTorch path active and CONFIG-001 still enforces legacy bridge sequencing.
+- Steering: Updated the initiative summary, plan (status + context checklist), fix_plan Do Now, and input.md to restate the runnable steps (patch-stat wiring, targeted pytest, short baseline & inference reruns, and artifact inventory refresh); reiterated blocker handling via `$HUB/red/`.
+- Next actions for Ralph: implement the instrumentation wiring, run the pytest selector, rerun the short train+inference commands with instrumentation turned on, capture JSON/PNG/log artifacts, and update the hub inventory or file an immediate blocker if the GPU run fails.
+- <Action State>: [ready_for_implementation]
+- focus=FIX-PYTORCH-FORWARD-PARITY-001 state=ready_for_implementation dwell=1 ralph_last_commit=99422ab0 summary=plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md next_action=wire patch stats + run pytest + short Torch baseline/inference with instrumentation
+
 ## 2025-11-16T131500Z: Exporter verification complete; PyTorch parity focus activated
 - dwell: 0 (closed EXPORT-PTYCHODUS-PRODUCT-001 with evidence-only verification and spun up a fresh FIX-PYTORCH-FORWARD-PARITY-001 plan, so dwell resets on the new focus).
 - Focus issue: Verified the Run1084 exporter doc edits are already present (`docs/DATA_MANAGEMENT_GUIDE.md:242-369`, `docs/index.md:125-133`, hub `analysis/data_guide_snippet.md`/`analysis/artifact_inventory.txt`), then pivoted to PyTorch forward parity to add patch-stat instrumentation and a short baseline rerun.

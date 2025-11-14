@@ -4,20 +4,20 @@
 - ID: FIX-PYTORCH-FORWARD-PARITY-001
 - Title: Stabilize Torch Forward Patch Parity
 - Owner/Date: Ralph / 2025-11-13
-- Status: pending
+- Status: in_progress
 - Priority: High
 - Working Plan: this file
 - Reports Hub (primary): `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/`
 
 ## Context Priming (read before edits)
 > Required reading before touching this initiative.
-- [ ] docs/index.md — Documentation map; use it to locate workflow/spec files referenced below.
-- [ ] docs/fix_plan.md — Master ledger; ensures this plan aligns with other active focuses and dwell rules.
-- [ ] docs/findings.md — POLICY-001, CONFIG-001, and known PyTorch/translation findings that constrain this work.
-- [ ] docs/workflows/pytorch.md — Canonical PyTorch training/inference workflow, CLI expectations, and reporting policy.
-- [ ] docs/DEVELOPER_GUIDE.md — Two-system architecture; highlights forbidden core files (`ptycho/model.py`, etc.).
-- [ ] docs/specs/spec-ptycho-workflow.md — Normative forward pipeline semantics (reassembly, scaling, offsets).
-- [ ] docs/specs/spec-ptycho-interfaces.md — Data contracts for grouped tensors, offsets, and stitching inputs.
+- [x] docs/index.md — Documentation map; use it to locate workflow/spec files referenced below.
+- [x] docs/fix_plan.md — Master ledger; ensures this plan aligns with other active focuses and dwell rules.
+- [x] docs/findings.md — POLICY-001, CONFIG-001, and known PyTorch/translation findings that constrain this work.
+- [x] docs/workflows/pytorch.md — Canonical PyTorch training/inference workflow, CLI expectations, and reporting policy.
+- [x] docs/DEVELOPER_GUIDE.md — Two-system architecture; highlights forbidden core files (`ptycho/model.py`, etc.).
+- [x] docs/specs/spec-ptycho-workflow.md — Normative forward pipeline semantics (reassembly, scaling, offsets).
+- [x] docs/specs/spec-ptycho-interfaces.md — Data contracts for grouped tensors, offsets, and stitching inputs.
 
 ## Problem Statement
 PyTorch forward inference currently produces impulse-like patches with extremely low variance even after per-patch normalization, diverging from TensorFlow behavior before stitching occurs. Scaling telemetry shows training and inference operate with different normalization, and we lack a structured plan to instrument, align, and test the PyTorch forward path to achieve TF-level patch quality.
@@ -98,4 +98,3 @@ PyTorch forward inference currently produces impulse-like patches with extremely
 ## Open Questions & Follow-ups
 - Should we backfill existing PyTorch bundles with recorded `intensity_scale`, or is a forward-looking fix sufficient?
 - Do we need a CLI flag to capture training-time per-patch stats for future initiatives?
-

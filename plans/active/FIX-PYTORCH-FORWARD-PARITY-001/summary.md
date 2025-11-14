@@ -1,3 +1,9 @@
+### Turn Summary (2025-11-16T151500Z)
+Re-read the PyTorch workflow/spec docs and verified the forward_parity hub still lacks torch_patch_stats.json / torch_patch_grid.png, so Phase A instrumentation + baseline reruns remain outstanding.
+Refreshed the Phase A plan + fix_plan Do Now to emphasize the CLI flag plumbing, targeted pytest selector, and the short train/inference commands under POLICY-001 / CONFIG-001 constraints.
+Next: wire the patch-stat logger through model/inference, run `tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump`, then rerun the short baseline + inference with instrumentation enabled and update the hub inventory.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{plan/plan.md,analysis/artifact_inventory.txt}
+
 ### Turn Summary (2025-11-14T014500Z)
 Fixed the factory config propagation blocker by adding PTInferenceConfig to TrainingPayload and wiring it through config_factory→train.py→workflows/components.py.
 Root cause was that create_training_payload() omitted PTInferenceConfig, so --log-patch-stats/--patch-stats-limit flags were lost and the workflow created a default disabled config instead.
