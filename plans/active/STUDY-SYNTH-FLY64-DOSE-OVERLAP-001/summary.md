@@ -1,4 +1,15 @@
 ### Turn Summary
+Dense-test Baseline predictions still come back all zeros (`plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/logs/logs/debug.log:421-535`), so `analysis/metrics_summary.json` keeps blank Baseline rows and `cli/aggregate_report_cli.log:1-11` plus `cli/run_phase_g_dense_post_verify_only.log:4-23` continue failing (metrics reporter + PREVIEW-PHASE-001).
+Updated the implementation plan, ledger, and input to force Ralph to fix/instrument `scripts/compare_models.py` (tf.debugging asserts + canonical `Baseline`/`PtyChi` labels), verify the CSV/JSON metrics contain Baseline values before rerunning `report_phase_g_dense_metrics.py`, and to block the SSIM grid helper until `analysis/metrics_delta_highlights_preview.txt` exists.
+Do Now remains ready_for_implementation: rerun the guarded pytest selector, repair Baseline inference so both compare_models splits log non-zero `baseline_output` stats, ensure metrics reporters succeed (Baseline rows populated), then rerun the counted `run_phase_g_dense.py --clobber` + fully parameterized `--post-verify-only` to produce the SSIM/verification/highlights/metrics/preview bundle.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/logs/logs/debug.log, analysis/metrics_summary.json, cli/aggregate_report_cli.log, cli/run_phase_g_dense_post_verify_only.log
+
+Checklist:
+- Files touched: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/summary.md; docs/fix_plan.md; input.md; galph_memory.md; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md
+- Tests run: none
+- Artifacts updated: none (audit-only)
+
+### Turn Summary
 Translation regression guards confirmed GREEN (2 passed, 6.26s); Baseline model zero-prediction issue verified as TensorFlow/model runtime problem outside compare_models.py scope.
 Created comprehensive blocker document (`red/blocked_20251113T193000Z_baseline_model_investigation_required.md`) documenting that train split Baseline works (mean=0.003092, nonzero=1.4M) while test split returns all zeros despite valid inputs (input mean=0.112671, nonzero=17.8M).
 Diagnostic instrumentation from previous loop successfully proves model receives valid inputs but outputs zeros—this requires investigation of baseline model architecture, numerical stability, XLA compilation behavior, or test data characteristics.
@@ -93,3 +104,13 @@ Checklist:
 - Files touched: none
 - Tests run: pytest tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_batched_predictions tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split -vv
 - Artifacts updated: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix_v4.log; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_stdout_v4.log
+### Turn Summary
+Dense-test Baseline predictions still come back all zeros (`plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/logs/logs/debug.log:421-535`), so `analysis/metrics_summary.json` keeps blank Baseline rows and `cli/aggregate_report_cli.log:1-11` plus `cli/run_phase_g_dense_post_verify_only.log:4-23` continue failing (metrics reporter + PREVIEW-PHASE-001).
+Updated the implementation plan, ledger, and input to force Ralph to fix/instrument `scripts/compare_models.py` (tf.debugging asserts + canonical `Baseline`/`PtyChi` labels), verify the CSV/JSON metrics contain Baseline values before rerunning `report_phase_g_dense_metrics.py`, and to block the SSIM grid helper until `analysis/metrics_delta_highlights_preview.txt` exists.
+Do Now remains ready_for_implementation: rerun the guarded pytest selector, repair Baseline inference so both compare_models splits log non-zero `baseline_output` stats, ensure metrics reporters succeed (Baseline rows populated), then rerun the counted `run_phase_g_dense.py --clobber` + fully parameterized `--post-verify-only` to produce the SSIM/verification/highlights/metrics/preview bundle.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/logs/logs/debug.log, analysis/metrics_summary.json, cli/aggregate_report_cli.log, cli/run_phase_g_dense_post_verify_only.log
+
+Checklist:
+- Files touched: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/summary.md; docs/fix_plan.md; input.md; galph_memory.md; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md
+- Tests run: none
+- Artifacts updated: none (audit-only)
