@@ -113,6 +113,7 @@
     - From `docs/index.md`, enumerate and read the most relevant documents; note file paths you will rely on (with one‑line rationale each).
     - If focus relates to an in‑progress item, read artifacts under `plans/active/<initiative-id>/reports/` (and commit messages).
     - Prefer continuing current focus unless hard‑blocked; if pivoting, mark current item `blocked` with return conditions.
+    - When spinning up a new focus that is obviously multi‑loop in scope (e.g., new initiative or substantial blocker), treat this loop as a planning + plan‑generation turn: write a clear <code>$TASK_DESCRIPTION</code> and drive `prompts/plan_generation.md` instead of hand‑authoring a fresh implementation plan.
     - When a “Working Plan” path exists on the item, read it and use its checklist IDs for the next Do Now.
   </focus_selection>
 
@@ -203,6 +204,7 @@
     - Keep a single plan document per focus; append new context/checklists instead of duplicating files unless the scope or initiative changes materially.
     - Keep checklist IDs authoritative (`[ ]`, `[P]`, `[x]`).
     - Every plan change ships with a same-loop `docs/fix_plan.md` update and a `galph_memory.md` note referencing the attempt/timestamp.
+    - <strong>Plan generation via prompt:</strong> When creating a new focus/initiative that is clearly larger than a single Ralph loop (e.g., multi-file feature work, cross-backend parity, complex test/CLI refactors), prefer seeding the Working Plan via `prompts/plan_generation.md` instead of hand-authoring the entire implementation plan. Summarize the work as a concise <code>$TASK_DESCRIPTION</code> (problem, selectors/commands, key artifacts, constraints), invoke `prompts/plan_generation.md` once with that description, then adopt the generated `plans/active/<initiative-id>/implementation.md` and corresponding `docs/fix_plan.md` entry as canonical for this initiative. For tiny one-loop blockers (single selector, single file, single change), inline plan updates in `docs/fix_plan.md` and the focus file are sufficient.
   </planning>
 
     <review_or_housekeeping>

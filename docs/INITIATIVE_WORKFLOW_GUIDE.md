@@ -56,6 +56,25 @@ Supervisor records `ralph_last_commit=<sha8|none>` in `galph_memory.md` and chec
 ### Plan Maintenance
 Each initiative (or focus) owns a single evolving plan file such as `plans/active/<initiative-id>/implementation.md` or a dedicated focus document. Update that file in place—add new sections, checklists, or notes as work progresses—instead of generating a brand-new `plan/plan.md` every loop. Create a new plan file only when the scope fundamentally changes (for example, splitting off a new focus or initiative). Cross-reference the active plan path from `docs/fix_plan.md` so every loop knows which document to edit.
 
+### Using `prompts/plan_generation.md` for new initiatives
+For substantial new focuses that will span more than a single Ralph loop (for example, cross-module features, complex blockers, or multi-backend parity work), prefer using the plan‑generation prompt to seed the Working Plan instead of hand-authoring the entire document.
+
+Workflow:
+
+- Write a concise `$TASK_DESCRIPTION` capturing:
+  - The user-visible problem or goal.
+  - Any known selectors/commands and key existing artifacts (logs/metrics/reports).
+  - Hard constraints (for example, modules that must not be edited without explicit scope).
+- Run `prompts/plan_generation.md` with `$TASK_DESCRIPTION` as input.
+- The prompt will:
+  - Create `plans/active/<initiative-id>/implementation.md` from the template, customized for this focus.
+  - Add a corresponding `## [<initiative-id>]` entry to `docs/fix_plan.md` pointing at the new Working Plan and, optionally, a `summary.md`/reports hub.
+- After this step, treat the generated plan and ledger entry as authoritative for the initiative. Subsequent supervisor loops should:
+  - Update the Working Plan in place.
+  - Update `docs/fix_plan.md` Attempts History and the initiative’s `summary.md` as usual.
+
+For very small, one-loop blockers (single selector, single file, single change), you may continue to create/adjust the plan inline without invoking `prompts/plan_generation.md`.
+
 ### PROJECT_STATUS.md Template
 ```markdown
 # Project Status Tracker
