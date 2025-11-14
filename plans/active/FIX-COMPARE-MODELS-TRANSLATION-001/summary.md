@@ -1,4 +1,10 @@
 ### Turn Summary
+Re-read the required docs plus the Phase G hub and reconfirmed `plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/reports/pytest_translation_fix.log` still fails at `ptycho/tf_helper.py:959` while no new `$HUB/cli/phase_g_dense_translation_fix_{train,test}.log` files or `{analysis}` artifacts exist.
+Added plan_update v1.5 to tighten Phase B and the Do Now with a patch-count gate plus tf.print diagnostics inside `ReassemblePatchesLayer`/`_reassemble_position_batched`, so Ralph’s implementation loop can prove when batching engages before rerunning compare_models.
+Refreshed docs/fix_plan.md and input.md with the new logging requirements and selector expectations, keeping the focus at ready_for_implementation despite dwell pressure.
+Artifacts: plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/implementation.md, docs/fix_plan.md, input.md
+
+### Turn Summary
 Revalidated the hub evidence: the guarded pytest still fails at `ptycho/tf_helper.py:959` and the compare_models reproductions never ran because the script rejected the unsupported `--split` flag, so no new artifacts exist.
 Updated the implementation plan, fix_plan entry, and Do Now to remove the bad flag, spell out the padded-size logging + `tf.image.resize_with_crop_or_pad`/`tf.debugging.assert_equal` instrumentation, and restate the required CLI/test deliverables.
 Next: Ralph must implement the ReassemblePatchesLayer batching hook with the new diagnostics, keep the pytest selector green, rerun train/test `scripts/compare_models.py`, and refresh hub summaries/blocker logs accordingly.
