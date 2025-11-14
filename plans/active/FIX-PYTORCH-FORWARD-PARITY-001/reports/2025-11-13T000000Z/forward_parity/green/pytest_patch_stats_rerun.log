@@ -32,4 +32,4 @@ tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump
   /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/callbacks/model_checkpoint.py:467: `ModelCheckpoint(monitor='train_loss')` could not find the monitored key in the returned metrics: ['poisson_train_loss_step', 'amp_inv_mae_step', 'poisson_train_loss', 'learning_rate', 'poisson_train_loss_epoch', 'amp_inv_mae_epoch', 'amp_mae_tf_scale_epoch', 'epoch', 'step']. HINT: Did you call `log('train_loss', value)` in the `LightningModule`?
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-======================== 1 passed, 6 warnings in 7.07s =========================
+======================== 1 passed, 6 warnings in 7.16s =========================

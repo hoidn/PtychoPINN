@@ -1,12 +1,12 @@
-2025-11-14 04:03:30.540326: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-11-14 04:20:40.301331: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1763121810.551941 2910669 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1763121810.555758 2910669 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1763121810.567183 2910669 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763121810.567197 2910669 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763121810.567199 2910669 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763121810.567200 2910669 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2025-11-14 04:03:30.569949: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+E0000 00:00:1763122840.313616 2928449 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763122840.317509 2928449 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763122840.328882 2928449 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763122840.328897 2928449 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763122840.328899 2928449 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763122840.328901 2928449 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-14 04:20:40.331861: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
 To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
 /home/ollie/Documents/PtychoPINN/ptycho_torch/config_factory.py:632: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
   warnings.warn(
@@ -38,10 +38,10 @@ ycoords_start shape: (7597,)
 Loaded test data: 7597 scan positions
 Running inference on 128 images...
 Torch scaling debug (inference pre-forward): mean|input|=430.749084 mean_input_scale=1.000000 mean_physics_scale=1.000000 physics_weight=1.000
-Torch patch stats (inference batch 0): mean=2010.464233 std=3683.037842 var_zero_mean=13562567.000000
-Torch scaling debug (inference post-forward): mean|patch|=2010.464233 mean_output_scale=1.000000
+Torch patch stats (inference batch 0): mean=3018.192383 std=5785.084473 var_zero_mean=33463704.000000
+Torch scaling debug (inference post-forward): mean|patch|=3018.192383 mean_output_scale=1.000000
 Reconstruction shape: (247, 247)
-Amplitude range: [0.0000, 10771.0088]
+Amplitude range: [0.0000, 18976.7012]
 Phase range: [-3.1416, 3.1416]
 Saved amplitude reconstruction to: outputs/torch_forward_parity_baseline/inference/reconstructed_amplitude.png
 Saved phase reconstruction to: outputs/torch_forward_parity_baseline/inference/reconstructed_phase.png

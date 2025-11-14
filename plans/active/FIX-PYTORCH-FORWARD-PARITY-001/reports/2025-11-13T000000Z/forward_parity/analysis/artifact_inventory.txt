@@ -1,46 +1,46 @@
 # Artifact Inventory — FIX-PYTORCH-FORWARD-PARITY-001/forward_parity
 
-## Phase A — Instrumentation + Short Baseline Rerun (2025-11-14, post-dc5415ba refresh on 2025-11-14 04:02-04:03)
+## Phase A — Instrumentation + Short Baseline Rerun (2025-11-14, post-dc5415ba refresh on 2025-11-14 04:19-04:21)
 
 ### Green Evidence (Tests Passing)
-- green/pytest_patch_stats_rerun.log — Selector GREEN after fresh rerun (1/1 PASSED, 7.07s)
+- green/pytest_patch_stats_rerun.log — Selector GREEN after fresh rerun (1/1 PASSED, 7.16s)
   - Confirms torch_patch_stats.json/torch_patch_grid.png emission
   - log_patch_stats/patch_stats_limit flags working via payload handoff (dc5415ba)
-  - Test timestamp: 2025-11-14 04:02:16 (latest fresh evidence post-dc5415ba)
+  - Test timestamp: 2025-11-14 04:19:53 (latest fresh evidence post-dc5415ba)
 
 ### CLI Evidence (Training + Inference)
-- cli/train_patch_stats_rerun.log — 10-epoch training run with instrumentation (fresh 2025-11-14 04:02-04:03)
+- cli/train_patch_stats_rerun.log — 10-epoch training run with instrumentation (fresh 2025-11-14 04:19-04:20)
   - Dataset: fly001_reconstructed_final_downsampled_data_train.npz (256 images, gridsize=2)
   - Flags: --log-patch-stats --patch-stats-limit 2 --accelerator gpu --deterministic
   - Output: outputs/torch_forward_parity_baseline
   - Completed successfully, model saved to wts.h5.zip
-  - Torch patch stats logged for train batch 0 (mean=0.000170, std=0.000325, var_zero_mean=1.05e-07)
-- cli/inference_patch_stats_rerun.log — Inference run with debug dump (fresh 2025-11-14 04:03-04:04)
+  - Torch patch stats logged for train batch 0 (mean=0.001482, std=0.002686, var_zero_mean=7.21e-06)
+- cli/inference_patch_stats_rerun.log — Inference run with debug dump (fresh 2025-11-14 04:20-04:21)
   - Model: outputs/torch_forward_parity_baseline
   - Dataset: fly001_reconstructed_final_downsampled_data_test.npz (128 images)
   - Flags: --log-patch-stats --patch-stats-limit 2 --debug-dump --accelerator gpu
   - Completed successfully
-  - Torch patch stats logged for inference batch 0 (mean=2010.464, std=3683.038, var_zero_mean=13562567.0)
+  - Torch patch stats logged for inference batch 0 (mean=3018.192, std=5785.084, var_zero_mean=33463704.0)
 
 ### Analysis Artifacts
-- analysis/torch_patch_stats.json — Per-patch statistics (2 training batches, fresh 2025-11-14 04:03)
-  - Train phase batch 0 (first occurrence): mean=0.000170, std=0.000324, var_zero_mean=1.05e-07
-  - Train phase batch 0 (second occurrence): mean=0.000170, std=0.000325, var_zero_mean=1.05e-07
+- analysis/torch_patch_stats.json — Per-patch statistics (2 training batches, fresh 2025-11-14 04:20)
+  - Train phase batch 0 (first occurrence): mean=0.001482, std=0.002686, var_zero_mean=7.21e-06
+  - Train phase batch 0 (second occurrence): mean=0.001482, std=0.002686, var_zero_mean=7.21e-06
   - Non-zero variance confirms patches have meaningful structure
   - 4 patches per batch, consistent metrics across both logged batches
-- analysis/torch_patch_grid.png — Normalized patch visualization (7.4KB, fresh 2025-11-14 04:03)
+- analysis/torch_patch_grid.png — Normalized patch visualization (7.4KB, fresh 2025-11-14 04:20)
   - Shows first 2 batches of training patches (8 patches total)
-- analysis/torch_patch_stats_inference.json — Per-patch statistics (1 inference batch, fresh 2025-11-14 04:03)
-  - Inference phase batch 0: mean=2010.464, std=3683.038, var_zero_mean=13562567.0
+- analysis/torch_patch_stats_inference.json — Per-patch statistics (1 inference batch, fresh 2025-11-14 04:20)
+  - Inference phase batch 0: mean=3018.192, std=5785.084, var_zero_mean=33463704.0
   - Much higher variance than training (expected for unnormalized outputs)
   - 4 patches logged (batch_size=128, but only first 4 captured for stats)
-- analysis/torch_patch_grid_inference.png — Normalized inference patch visualization (7.4KB, fresh 2025-11-14 04:03)
-- analysis/forward_parity_debug/ — Inference debug dump (fresh 2025-11-14 04:03-04:04)
+- analysis/torch_patch_grid_inference.png — Normalized inference patch visualization (7.4KB, fresh 2025-11-14 04:20)
+- analysis/forward_parity_debug/ — Inference debug dump (fresh 2025-11-14 04:20-04:21)
   - canvas.json — Canvas metadata (140 bytes)
   - offsets.json — Patch offset information (1.4KB, 128 groups)
-  - pred_patches_amp_grid.png — Amplitude patches unnormalized (79.8KB)
-  - pred_patches_amp_grid_normalized.png — Amplitude patches normalized (84.5KB)
-  - stats.json — Inference statistics (298 bytes)
+  - pred_patches_amp_grid.png — Amplitude patches unnormalized (78KB)
+  - pred_patches_amp_grid_normalized.png — Amplitude patches normalized (82KB)
+  - stats.json — Inference statistics (295 bytes)
 
 ### Code Changes (Commit dc5415ba)
 - ptycho_torch/workflows/components.py — Training payload threading
@@ -49,10 +49,10 @@
 - ptycho_torch/train.py — Pass payload at line 756
 
 ### Summary
-- All Phase A evidence refreshed with timestamps after dc5415ba (2025-11-14 04:02-04:04)
-- Pytest selector GREEN (1/1 PASSED, 7.07s), training/inference logs captured with instrumentation active
-- torch_patch_stats.json shows non-zero training variance (1.05e-07) proving patches have structure
-- Inference shows much higher variance (13562567.0) due to unnormalized outputs
+- All Phase A evidence refreshed with timestamps after dc5415ba (2025-11-14 04:19-04:21)
+- Pytest selector GREEN (1/1 PASSED, 7.16s), training/inference logs captured with instrumentation active
+- torch_patch_stats.json shows non-zero training variance (7.21e-06) proving patches have structure
+- Inference shows much higher variance (33463704.0) due to unnormalized outputs
 - Debug dumps contain expected canvas/offsets/patch grids
 - Phase A checklist items A0/A1/A2/A3 complete
 - Ready for Phase B: scaling/config alignment (object_big defaults, intensity_scale persistence)
@@ -60,7 +60,7 @@
 ### Key Metrics Comparison
 | Phase     | Mean      | Std       | Var(zero-mean) |
 |-----------|-----------|-----------|----------------|
-| Training  | 0.000170  | 0.000325  | 1.05e-07       |
-| Inference | 2010.464  | 3683.038  | 13562567.0     |
+| Training  | 0.001482  | 0.002686  | 7.21e-06       |
+| Inference | 3018.192  | 5785.084  | 33463704.0     |
 
-The ~129M-fold variance increase from training→inference is expected because training uses normalized inputs while inference outputs are unnormalized reconstructed patches.
+The ~4.6M-fold variance increase from training→inference is expected because training uses normalized inputs while inference outputs are unnormalized reconstructed patches.
