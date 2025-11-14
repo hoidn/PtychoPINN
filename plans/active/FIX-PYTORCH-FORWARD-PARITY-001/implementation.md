@@ -172,6 +172,7 @@ PyTorch forward inference currently produces impulse-like patches with extremely
 ### Action Plan — C1 (Matched TensorFlow baseline)
 1. **Guardrails + directories.**
    - `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`
+   - `export TF_XLA_FLAGS="--tf_xla_auto_jit=0"` (disables the XLA pass that triggered the dynamic_padder RET_CHECK on 2025-11-14; note the value inside each CLI log header so we can prove the mitigation was applied).
    - `HUB="$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"`
    - `OUT_TORCH="$PWD/outputs/torch_forward_parity_baseline"`
    - `OUT_TF="$PWD/outputs/tf_forward_parity_baseline"`
@@ -179,7 +180,7 @@ PyTorch forward inference currently produces impulse-like patches with extremely
    - `mkdir -p "$TF_BASE"/{cli,analysis,green}`
 2. **Baseline health check.**
    - `pytest tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle -vv | tee "$TF_BASE/green/pytest_tf_integration.log"`
-   - File blockers under `$HUB/red/blocked_<timestamp>.md` citing POLICY-001/CONFIG-001 if runtime/env gaps appear.
+   - Include an `env | grep TF_XLA_FLAGS` snippet in the log (or append to the Turn Summary) to capture the disabled-XLA configuration. File blockers under `$HUB/red/blocked_<timestamp>.md` citing POLICY-001/CONFIG-001 if runtime/env gaps appear.
 3. **TensorFlow short training run (mirrors Torch Phase B3).**
    ```bash
    python scripts/training/train.py \
@@ -207,13 +208,17 @@ PyTorch forward inference currently produces impulse-like patches with extremely
      --comparison_plot \
      |& tee "$TF_BASE/cli/inference_tf_phase_c1.log"
    ```
-   - Confirm `forward_parity_debug_tf` contains `stats.json`, `offsets.json`, and patch-grid PNGs (TF helper already emits these).
+   - Confirm `forward_parity_debug_tf` contains `stats.json`, `offsets.json`, and patch-grid PNGs (TF helper already emits these). Keep TF_XLA_FLAGS exported for the inference process as well so the mitigation remains active.
 5. **Bundle + metrics bookkeeping.**
    - `shasum "$OUT_TF/wts.h5.zip" > "$TF_BASE/analysis/bundle_digest_tf_phase_c1.txt"`.
    - `python - <<'PY'` snippet to print the TF stats alongside the PyTorch Phase B3 stats (`scaling_alignment/phase_b3/analysis/forward_parity_debug_scaling/stats.json`) and jot the numbers into `$TF_BASE/analysis/phase_c1_stats.txt` for Phase C2 comparison.
 6. **Hub updates.**
    - Append a “Phase C1 — TF baseline” section to `$HUB/analysis/artifact_inventory.txt` (reference logs, stats, bundle digest).
    - Mention the TF stats + PyTorch reference deltas in `$HUB/summary.md`.
+
+7. **Fallback path if XLA still blocks training.**
+   - If the disabled-XLA configuration still raises RET_CHECK failures, immediately capture the error signature under `$TF_BASE/red/blocked_<timestamp>_tf_xla_disabled.md`, cite Finding XLA-DYN-DOT-001, and switch to the non-identity dataset (`datasets/fly64_coord_variants/fly001_64_train_converted.npz`) that exercised Phase B3 successfully.
+   - Record in the Turn Summary whether the fallback dataset required a corresponding PyTorch rerun; if so, add the rerun command references to the Do Now before proceeding.
 
 ### Checklist
 - [ ] C1: Run the matched TF baseline (`scripts/training/train.py --backend tensorflow` + `scripts/inference/inference.py --backend tensorflow --debug_dump`) and archive artifacts (`.../reports/.../tf_baseline/`).

@@ -1,4 +1,10 @@
 ### Turn Summary
+Rebuilt the Phase C1 brief so the TF baseline rerun disables XLA via `TF_XLA_FLAGS="--tf_xla_auto_jit=0"` and captures that configuration before the CLI commands.
+Documented the fallback path (non-identity dataset + optional PyTorch rerun note) and refreshed the plan/fix_plan/input so Ralph can unblock TensorFlow without diverging from the Phase B3 evidence.
+Next: run the TF integration selector, rerun the short baseline with TF_XLA_FLAGS exported, capture bundle digest/stats, and update the hub inventory—or archive a new blocker if even the disabled-XLA run fails.
+Artifacts: docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md}; input.md
+
+### Turn Summary
 Logged Phase C1 TensorFlow baseline blocker after successfully running the integration pytest health gate (34.80s, GREEN) but encountering an XLA compilation error during 10-epoch training with fly64_coord_variants identity dataset.
 TensorFlow failed at first training step with `XlaRuntimeError: RET_CHECK failure in dynamic_padder.cc` inside projective_warp_xla_jit, matching Finding XLA-DYN-DOT-001 pattern for XLA dynamic shape handling.
 Next: Either retry with fly001_reconstructed train dataset (matches PyTorch B3 commands), disable XLA via TF_XLA_FLAGS, or escalate as TF-specific limitation per POLICY-001 and proceed with PyTorch-only parity validation.
