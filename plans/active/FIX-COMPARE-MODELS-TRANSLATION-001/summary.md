@@ -1,4 +1,10 @@
 ### Turn Summary
+Revalidated the hub evidence: the guarded pytest still fails at `ptycho/tf_helper.py:959` and the compare_models reproductions never ran because the script rejected the unsupported `--split` flag, so no new artifacts exist.
+Updated the implementation plan, fix_plan entry, and Do Now to remove the bad flag, spell out the padded-size logging + `tf.image.resize_with_crop_or_pad`/`tf.debugging.assert_equal` instrumentation, and restate the required CLI/test deliverables.
+Next: Ralph must implement the ReassemblePatchesLayer batching hook with the new diagnostics, keep the pytest selector green, rerun train/test `scripts/compare_models.py`, and refresh hub summaries/blocker logs accordingly.
+Artifacts: plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/reports/pytest_translation_fix.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/phase_g_dense_translation_fix_train.log
+
+### Turn Summary
 Verified batched reassembly fix (commit a80d4d2b) successfully resolves the dense Phase G translation guard issue; both regression tests pass (2/2) and train split compare_models completed with exit code 0, generating fresh comparison_metrics.csv (MS-SSIM amplitude 0.213, phase 0.054; MAE amplitude 0.043, phase 0.234).
 Test split encountered a separate XLA vectorization batch mismatch (5216 vs 163 patches) unrelated to ReassemblePatchesLayer; documented in red/blocked_20251113T162400Z_test_split_xla.md as a distinct blocker.
 This focus delivered on its core deliverable: batched reassembly for ≥5k patches with GREEN pytest + train CLI evidence; test split XLA issue requires separate investigation outside this scope.

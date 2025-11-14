@@ -55,6 +55,17 @@ Initiative Header
   <status>approved</status>
 </plan_update>
 
+<plan_update version="1.4">
+  <trigger>Today’s hub sweep reconfirmed `tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split` still crashes at `ptycho/tf_helper.py:959` (AddV2 broadcasting error), and the so-called “translation fix” CLI reproductions never actually ran because `scripts/compare_models.py` does not support the `--split` flag (`cli/phase_g_dense_translation_fix_train.log` aborts immediately with “unrecognized arguments: --split train”). No new artifacts exist under `analysis/` (`verification_report.json` remains 0/10, blocker log untouched).</trigger>
+  <focus_id>FIX-COMPARE-MODELS-TRANSLATION-001</focus_id>
+  <documents_read>docs/index.md; docs/prompt_sources_map.json (missing — noted); docs/findings.md (REASSEMBLY-BATCH-001 / ACCEPTANCE-001 / TEST-CLI-001 / PREVIEW-PHASE-001 / DATA-001); docs/INITIATIVE_WORKFLOW_GUIDE.md; docs/DEVELOPER_GUIDE.md; docs/COMMANDS_REFERENCE.md; docs/TESTING_GUIDE.md; docs/development/TEST_SUITE_INDEX.md; docs/GRIDSIZE_N_GROUPS_GUIDE.md; docs/architecture.md; specs/overlap_metrics.md; specs/data_contracts.md; specs/ptychodus_api_spec.md; docs/fix_plan.md; plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/{implementation.md,summary.md,reports/pytest_translation_fix.log}; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/{implementation.md,summary.md}; hub artifacts (`analysis/verification_report.json`, `analysis/blocker.log`, `analysis/dose_1000/dense/train/comparison.log`, `cli/phase_g_dense_translation_fix_{train,test}.log`).</documents_read>
+  <current_plan_path>plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/implementation.md</current_plan_path>
+  <proposed_changes>Fix the Phase A commands so they actually execute (drop the nonexistent `--split` flag and point the train/test runs at the patched NPZs), emphasize the need to log padded_size/batch diagnostics inside `_reassemble_position_batched`, and reiterate that Ralph must land the shape-assert + resize refactor before rerunning the CLI evidence.</proposed_changes>
+  <impacts>Without a runnable Do Now, Ralph cannot perform the third-consecutive loop implementation work and STUDY-SYNTH stays blocked with dwell pressure; ensuring executable commands + instrumentation is critical before we risk another empty run.</impacts>
+  <ledger_updates>Updating this plan, docs/fix_plan.md, summary.md, input.md, and galph_memory.md with the corrected commands + evidence expectations.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
 ## Guardrails (Reset 2025-11-13)
 - `ptycho/tf_helper.py` is treated as stable per CLAUDE.md; batching must leverage the existing helpers (`mk_reassemble_position_batched_real`, `_reassemble_position_batched`, `_flat_to_channel`) rather than rewriting default paths.
 - No edits to `reassemble_patches`, `mk_reassemble_position_real`, or other shared helpers unless explicitly authorized here and backed by regression evidence.
@@ -83,9 +94,9 @@ Initiative Header
 
 ### Phase A — Reproduce & isolate
 - [ ] Export `AUTHORITATIVE_CMDS_DOC` and `HUB` per Do Now.
-- [ ] Run the train-split command:  
-      `PYTHONPATH="$PWD" python scripts/compare_models.py --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 --baseline_dir "$HUB"/data/phase_e/dose_1000/baseline/gs1 --test_data "$HUB"/data/phase_c/dose_1000/patched_train.npz --output_dir "$HUB"/analysis/dose_1000/dense/train --ms-ssim-sigma 1.0 --tike_recon_path "$HUB"/data/phase_f/dose_1000/dense/train/ptychi_reconstruction.npz --register-ptychi-only --split train |& tee "$HUB"/cli/phase_g_dense_translation_fix_train.log`
-- [ ] Repeat for `--split test` (`--output_dir "$HUB"/analysis/dose_1000/dense/test"`, log to `..._test.log`).
+- [ ] Run the train-split command (no `--split` flag — dataset path controls the split):  
+      `PYTHONPATH="$PWD" python scripts/compare_models.py --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 --baseline_dir "$HUB"/data/phase_e/dose_1000/baseline/gs1 --test_data "$HUB"/data/phase_c/dose_1000/patched_train.npz --output_dir "$HUB"/analysis/dose_1000/dense/train --ms-ssim-sigma 1.0 --tike_recon_path "$HUB"/data/phase_f/dose_1000/dense/train/ptychi_reconstruction.npz --register-ptychi-only |& tee "$HUB"/cli/phase_g_dense_translation_fix_train.log`
+- [ ] Repeat for the held-out test split by swapping `--test_data "$HUB"/data/phase_c/dose_1000/patched_test.npz` and `--output_dir "$HUB"/analysis/dose_1000/dense/test"`; log to `..._test.log`.
 - [ ] If either command still fails, capture the minimal stack + exit code in `$HUB/red/blocked_<timestamp>.md`.
 
 ### Phase B — Harden the translation path
@@ -102,7 +113,7 @@ Initiative Header
 
 ## Do Now (Reset 2025-11-13)
 1. `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md HUB="$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier"`.
-2. Reproduce the failure with the train/test `scripts/compare_models.py` commands (Phase A) to refresh `$HUB/cli/phase_g_dense_translation_fix_{train,test}.log`. Capture blocker notes (`$HUB/red/blocked_<timestamp>.md`) if Translation still aborts.
+2. Reproduce the failure with the train/test `scripts/compare_models.py` commands (Phase A — no `--split` flag; use the train/test NPZ paths) to refresh `$HUB/cli/phase_g_dense_translation_fix_{train,test}.log`. Capture blocker notes (`$HUB/red/blocked_<timestamp>.md`) if Translation still aborts.
 3. Implement a guarded batching hook by wiring `ReassemblePatchesLayer` to call `hh.mk_reassemble_position_batched_real` (existing helper) when `patch_count > batch_size`. Do **not** modify `reassemble_patches` or `_flat_to_channel`; add inline comments plus an assertion that the helper sees `total_patches > batch_size` before it switches modes.
 4. Enhance `_reassemble_position_batched` so it (a) derives `padded_size` from the kwarg or `params.get_padded_size()`, (b) replaces the per-element `tf.map_fn` resize with a single `tf.image.resize_with_crop_or_pad(batch_translated, padded_size, padded_size)` call, (c) logs the measured padded_size + batch dimensions, and (d) raises an actionable `tf.debugging.assert_equal` error when `tf.shape(canvas)` and `tf.shape(batch_result)` (or dtypes) diverge. Any resize that would crop translated data must log a message (and ideally count occurrences) so we can audit future runs.
 5. Extend `tests/study/test_dose_overlap_comparison.py` with an intensity/overlap conservation check (compare streamed vs legacy results) and ensure both regression tests pass:  
