@@ -1,4 +1,15 @@
 ### Turn Summary
+Implemented partial PINN chunked inference (`--pinn-chunk-size`, `--pinn-predict-batch-size` flags, `slice_raw_data()` helper) to mitigate GPU OOM on 5216-group test split; translation guard tests remain GREEN (2/2 passed, 6.16s).
+Root cause analysis revealed the OOM occurs in `PtychoDataContainer.__init__ → combine_complex()` GPU tensor allocation (ptycho/loader.py:141) BEFORE inference, not during model.predict(), so chunking the RawData before container creation fails because NPZ files contain pre-grouped data and slicing breaks grouping validation.
+Architectural blocker documented (PINN-CHUNKED-001): proper fix requires refactoring `PtychoDataContainer` to delay GPU conversion (estimated 2-3 loops); pragmatic mitigation per blocker analysis is to proceed with train-only Baseline metrics (train split succeeded: mean=0.188, 78.7M nonzero pixels) and 2-way test-split comparison (PINN vs PtyChi only, skip Baseline).
+Next: supervisor decision on mitigation path—accept train-only Baseline, reduce test split size to ≤5000 groups, or schedule architectural refactor.
+Artifacts: scripts/compare_models.py:107-110,219-235,1026-1146 (partial chunking implementation); docs/findings.md:PINN-CHUNKED-001; green/pytest_compare_models_translation_fix_v18_pinn_chunking.log; red/{analysis_oom_root_cause.md,blocked_20251113T220800Z_test_full_oom_despite_chunking.md,blocked_20251113T230000Z_chunking_architecture_limit.md}
+
+Checklist:
+- Files touched: scripts/compare_models.py; docs/findings.md; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md
+- Tests run: pytest tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_batched_predictions tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split -vv
+- Artifacts updated: green/pytest_compare_models_translation_fix_v18_pinn_chunking.log; docs/findings.md (PINN-CHUNKED-001); red/{analysis_oom_root_cause.md,blocked_20251113T220800Z_test_full_oom_despite_chunking.md,blocked_20251113T230000Z_chunking_architecture_limit.md}
+### Turn Summary
 Re-validated the Phase G hub: the debug chunked compare_models logs still show non-zero Baseline outputs (`plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test_debug/logs/logs/debug.log:428-447`), yet the canonical dense-test metrics remain blank so aggregate_report/post-verify continue to fail (`analysis/dose_1000/dense/test/comparison_metrics.csv:1-16`, `analysis/metrics_summary.json:1-53`, `analysis/verification_report.json:1-35`).
 Documented the evidence trail and refreshed the plan/ledger/input so Ralph reruns the translation guard → chunked debug + full compare_models → Phase D selectors → clobbered Phase G pipeline → metrics helpers → fully parameterized post-verify sequence, stopping to write `$HUB/red/blocked_<timestamp>.md` if Baseline stats regress.
 Next: execute that rerun from `/home/ollie/Documents/PtychoPINN`, publish the updated Baseline metrics and SSIM/verification/highlights/preview/inventory artifacts, or capture the failing command/signature in the hub.
