@@ -173,6 +173,8 @@ PyTorch forward inference currently produces impulse-like patches with extremely
 1. **Guardrails + directories.**
    - `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`
    - `export TF_XLA_FLAGS="--tf_xla_auto_jit=0"` (disables the XLA pass that triggered the dynamic_padder RET_CHECK on 2025-11-14; note the value inside each CLI log header so we can prove the mitigation was applied).
+   - `export USE_XLA_TRANSLATE=0` (forces `ptycho/tf_helper.should_use_xla()` to bypass `translate_xla()` per `ptycho/tf_helper.py:158-175`, which is the only knob that actually disables the `projective_warp_xla_jit` code path).
+   - Before kicking off any CLI commands, emit a one-line capture of both env vars by running `printf 'TF_XLA_FLAGS=%s\nUSE_XLA_TRANSLATE=%s\n' "$TF_XLA_FLAGS" "$USE_XLA_TRANSLATE"` and teeing it into the matching CLI log so the mitigation is self-evident inside the artifact.
    - `HUB="$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"`
    - `OUT_TORCH="$PWD/outputs/torch_forward_parity_baseline"`
    - `OUT_TF="$PWD/outputs/tf_forward_parity_baseline"`
@@ -183,21 +185,21 @@ PyTorch forward inference currently produces impulse-like patches with extremely
    - Include an `env | grep TF_XLA_FLAGS` snippet in the log (or append to the Turn Summary) to capture the disabled-XLA configuration. File blockers under `$HUB/red/blocked_<timestamp>.md` citing POLICY-001/CONFIG-001 if runtime/env gaps appear.
    - If the selector fails because TensorFlow still tries to JIT compile the identity dataset, capture the RET_CHECK signature immediately; do **not** proceed to the CLI commands.
 3. **TensorFlow short training run (mirrors Torch Phase B3).**
-   - **Dataset note:** The `fly001_64_train_converted_identity.npz` variant has now failed twice (see `tf_baseline/phase_c1/red/blocked_*tf_xla_*.md`) with the same XLA RET_CHECK even after exporting `TF_XLA_FLAGS="--tf_xla_auto_jit=0"`. To keep Phase C moving, default to the non-identity dataset `datasets/fly64_coord_variants/fly001_64_train_converted.npz` until we have an identity-safe mitigation. Record the dataset choice and whether a matching PyTorch rerun is required for Phase C2 parity inside `$HUB/summary.md`.
-   ```bash
-   python scripts/training/train.py \
-     --backend tensorflow \
-     --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted.npz \
-     --test_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
-     --output_dir "$OUT_TF" \
-     --n_groups 256 \
-     --gridsize 2 \
-     --neighbor_count 7 \
-     --batch_size 4 \
-     --nepochs 10 \
-     --do_stitching \
-     |& tee "$TF_BASE/cli/train_tf_phase_c1.log"
-   ```
+   - **Dataset note:** The `fly001_64_train_converted_identity.npz` variant has now failed twice (see `tf_baseline/phase_c1/red/blocked_*tf_xla_*.md`) with the same XLA RET_CHECK even after exporting `TF_XLA_FLAGS="--tf_xla_auto_jit=0"`. To keep Phase C moving, default to the non-identity dataset `datasets/fly64/fly001_64_train_converted.npz` (this file actually exists; the earlier `fly64_coord_variants` path was a typo). Record the dataset choice and whether a matching PyTorch rerun is required for Phase C2 parity inside `$HUB/summary.md`.
+  ```bash
+  python scripts/training/train.py \
+    --backend tensorflow \
+    --train_data_file datasets/fly64/fly001_64_train_converted.npz \
+    --test_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
+    --output_dir "$OUT_TF" \
+    --n_groups 256 \
+    --gridsize 2 \
+    --neighbor_count 7 \
+    --batch_size 4 \
+    --nepochs 10 \
+    --do_stitching \
+    |& tee "$TF_BASE/cli/train_tf_phase_c1.log"
+  ```
 4. **TensorFlow inference with debug dump.**
    ```bash
    python scripts/inference/inference.py \
@@ -220,9 +222,10 @@ PyTorch forward inference currently produces impulse-like patches with extremely
    - Mention the TF stats + PyTorch reference deltas in `$HUB/summary.md`.
 
    - Include the TF_XLA_FLAGS line in both CLI logs’ headers so we can prove the mitigation remained active end-to-end.
+   - Include the `USE_XLA_TRANSLATE` capture inside each CLI log as well so reviewers can confirm the mitigation was applied.
 7. **Fallback path if XLA still blocks training.**
-   - If TensorFlow still errors even on the non-identity dataset, capture the error signature under `$TF_BASE/red/blocked_<timestamp>_tf_xla_disabled.md`, cite Finding XLA-DYN-DOT-001, and note whether the failure occurred before or after any data-dependent ops.
-   - Only fall back to additional dataset changes (or disabling translate_xla in params.cfg) after documenting the new blocker and updating `docs/fix_plan.md` + this plan with the proposed mitigation. Continue to record whether a corresponding PyTorch rerun is required before Phase C2 comparisons whenever the dataset diverges from the Phase B3 baseline.
+   - If TensorFlow still errors even on the non-identity dataset with `USE_XLA_TRANSLATE=0`, capture the error signature under `$TF_BASE/red/blocked_<timestamp>_tf_xla_disabled.md`, cite Finding XLA-DYN-DOT-001, and note whether the failure occurred before or after any data-dependent ops. The blocker must quote the env capture so we can prove both knobs were set.
+   - Only fall back to additional dataset changes (or propose PyTorch-only Phase C evidence) after documenting the new blocker and updating `docs/fix_plan.md` + this plan with the proposed mitigation. Continue to record whether a corresponding PyTorch rerun is required before Phase C2 comparisons whenever the dataset diverges from the Phase B3 baseline.
 
 ### Checklist
 - [ ] C1: Run the matched TF baseline (`scripts/training/train.py --backend tensorflow` + `scripts/inference/inference.py --backend tensorflow --debug_dump`) and archive artifacts (`.../reports/.../tf_baseline/`).

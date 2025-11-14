@@ -1,4 +1,15 @@
 ### Turn Summary
+Confirmed via `tf_baseline/phase_c1/cli/train_tf_phase_c1.log:11-58` that the fallback dataset is actually `datasets/fly64/fly001_64_train_converted.npz`, and the new blocker (`red/blocked_20251114T071940Z_tf_xla_code_level.md:1-85`) shows we still hit `translate_xla()` even with `TF_XLA_FLAGS="--tf_xla_auto_jit=0"` because `use_xla_translate` remained True.
+Updated the working plan, ledger, and input brief so Ralph must also export `USE_XLA_TRANSLATE=0`, capture both env values inside each CLI log, keep the corrected dataset path, and record a Dataset note before collecting bundle digests/stats.
+Next: rerun the integration selector plus the TF training/inference commands with both env toggles; if it still fails, log `$TF_BASE/red/blocked_<timestamp>_tf_xla_disabled.md` proving both env values were set and propose PyTorch-only Phase C evidence.
+Artifacts: docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,input.md}; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1/{cli/train_tf_phase_c1.log,red/blocked_20251114T071940Z_tf_xla_code_level.md}
+
+Checklist:
+- Files touched: docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md,input.md}
+- Tests run: none
+- Artifacts updated: docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md,input.md}
+
+### Turn Summary
 Confirmed Phase C1 TensorFlow baseline still fails even with `TF_XLA_FLAGS="--tf_xla_auto_jit=0"` and the non-identity dataset (`datasets/fly64/fly001_64_train_converted.npz`) because the codebase explicitly calls `translate_xla()` functions bypassing the environment flag.
 Integration pytest passed (34.86s GREEN), but training crashed at first epoch in `projective_warp_xla_jit` with tf2xla conversion failure despite TF_XLA_FLAGS being exported (Finding XLA-DYN-DOT-001).
 Documented blocker under `tf_baseline/phase_c1/red/blocked_20251114T071940Z_tf_xla_code_level.md` with three mitigation options: (1) set `params.cfg['use_xla_translate']=False`, (2) fix XLA dynamic shape handling, or (3) proceed with PyTorch-only parity per POLICY-001.
