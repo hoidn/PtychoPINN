@@ -1,3 +1,19 @@
+## 2025-11-14T235900Z: Baseline inference guard + verification refresh
+- dwell: 3 (third consecutive planning loop on this focus; dwell stays in Tier 1 and the next handoff must remain runnable)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G dense comparison + verification bundle (Baselines still zero so verification cannot pass)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
+- Notes:
+  - `timeout 30 git pull --rebase` reported “Already up to date”; re-exported `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` before editing artifacts.
+  - `git log --all --oneline -n 5 --grep='^RALPH ' --grep='actor=ralph'` shows 4ca17d6a is still the latest Ralph commit, so no implementation evidence landed since the prior loop.
+  - Reality check: `analysis/dose_1000/dense/test/reconstructions_aligned.npz` and the raw `reconstructions.npz` are entirely zeros for `baseline_*`, matching the `analysis/dose_1000/dense/test/comparison.log` stats (amp/phase mean=0), so `analysis/metrics_summary.json` still lacks Baseline rows and `cli/aggregate_report_cli.log` keeps failing with “Required models missing”.
+  - `cli/run_phase_g_dense_post_verify_only.log` plus `cli/ssim_grid_cli.log` confirm the preview file was never generated, so `run_phase_g_dense.py --post-verify-only` aborts immediately and `analysis/verification_report.json` remains 0/10.
+  - Added plan_update v1.7, refreshed summary.md/docs/fix_plan.md/input.md, and documented that Ralph must instrument/fix `scripts/compare_models.py` so both train/test compare_models runs stop returning zeroed Baseline tensors before rerunning the Phase D guards, counted pipeline, metrics helpers, and post-verify sweep.
+- Next actions for Ralph: stay in `/home/ollie/Documents/PtychoPINN`, rerun the translation pytest selector, patch/instrument `scripts/compare_models.py` so `$HUB/analysis/dose_1000/dense/{train,test}/reconstructions_aligned.npz` show non-zero Baseline stats (file `$HUB/red/blocked_*.md` if they do not), then rerun the Phase D acceptance selectors, `run_phase_g_dense.py --clobber`, `report_phase_g_dense_metrics.py` + `bin/analyze_dense_metrics.py`, and the fully parameterized `run_phase_g_dense.py --post-verify-only` until the SSIM/verification/highlights/metrics/preview/artifact-inventory bundle exists and `analysis/verification_report.json` reports 10/10.
+- <Action State>: [ready_for_implementation]
+- focus=STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 state=ready_for_implementation dwell=3 ralph_last_commit=4ca17d6a summary=plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md next_action=instrument compare_models baseline path + rerun counted pipeline/verification bundle
+
 - Notes:
   - `timeout 30 git pull --rebase` already up to date; re-exported `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` before editing artifacts.
   - Reality check against commit 535dad55 confirmed Ralph only refreshed post-verify-only pytest + CLI logs; the 2025-11-12 hub still lacks an `analysis/` directory (no SSIM grid, verification, highlights, metrics, or inventory evidence), so the ledger guardrail remains unmet.
