@@ -290,10 +290,52 @@ PyTorch forward inference currently produces impulse-like patches with extremely
    - PyTorch failures → `$HUB/scaling_alignment/phase_c1_gs1/red/blocked_<timestamp>_torch_gs1.md` (cite POLICY-001/CONFIG-001).
    - TensorFlow failures → `$TF_BASE_GS1/red/blocked_<timestamp>_tf_gs1.md` (cite XLA-DYN-DOT-001 or translate_core bug). Stop and reassess if GS1 still cannot complete.
 
+### Action Plan — C1c (GS1 evidence consolidation & dataset note)
+1. **Compute GS1 vs Phase B3 stats delta (analysis artifact).**
+   - Goal: quantify how the GS1 fallback differs from the Phase B3 (gridsize 2) baseline so reviewers can see exactly what evidence exists even though TF remains blocked.
+   - Command (runs entirely on existing artifacts):
+     ```bash
+     HUB="$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"
+     python - <<'PY'
+     import json, os, pathlib
+     hub = pathlib.Path(os.environ["HUB"])
+     phase_b3 = hub / "scaling_alignment/phase_b3/analysis/forward_parity_debug_scaling/stats.json"
+     gs1 = hub / "scaling_alignment/phase_c1_gs1/analysis/forward_parity_debug_gs1/stats.json"
+     out = hub / "tf_baseline/phase_c1_gs1/analysis/phase_c1_gs1_stats.txt"
+     data = {"phase_b3": json.loads(phase_b3.read_text()), "phase_c1_gs1": json.loads(gs1.read_text())}
+     lines = [
+         "# Phase C1 GS1 fallback vs Phase B3 scaling",
+         f"phase_b3.patch.var_zero_mean={data['phase_b3']['patch_amplitude']['var_zero_mean']}",
+         f"phase_c1_gs1.patch.var_zero_mean={data['phase_c1_gs1']['patch_amplitude']['var_zero_mean']}",
+         f"ratio_patch_var_zero_mean={data['phase_c1_gs1']['patch_amplitude']['var_zero_mean'] / data['phase_b3']['patch_amplitude']['var_zero_mean'] if data['phase_b3']['patch_amplitude']['var_zero_mean'] else 'inf'}",
+         f"phase_b3.canvas.var_zero_mean={data['phase_b3']['canvas_amplitude']['var_zero_mean'] if 'var_zero_mean' in data['phase_b3']['canvas_amplitude'] else 'n/a'}",
+         f"phase_c1_gs1.canvas.var_zero_mean={data['phase_c1_gs1']['canvas_amplitude'].get('var_zero_mean', 0)}",
+     ]
+     out.write_text("\n".join(str(x) for x in lines))
+     print(f"Wrote stats delta to {out}")
+     PY
+     ```
+   - Copy (or symlink) the text file into `$HUB/scaling_alignment/phase_c1_gs1/analysis/` so both backend folders cite the same numbers, then sha1 the file for reviewers.
+2. **Refresh the main artifact inventory.**
+   - Append a “Phase C1 — GS1 fallback (PyTorch-only)” section to `$HUB/analysis/artifact_inventory.txt` that lists:
+     - `scaling_alignment/phase_c1_gs1/cli/{train_patch_stats_gs1.log,inference_patch_stats_gs1.log}`
+     - `scaling_alignment/phase_c1_gs1/analysis/{torch_patch_stats_gs1.json,forward_parity_debug_gs1/,bundle_digest_torch_gs1.txt,phase_c1_gs1_stats.txt}`
+     - TF blocker files at `$HUB/tf_baseline/phase_c1_gs1/red/blocked_*`
+   - Call out explicitly that TF integration + stitching still fail even at GS1, referencing the blocker filenames and error strings.
+3. **Update the initiative summary + hub summary.**
+   - Prepend the Turn Summary block in `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md` and `$HUB/summary.md` with:
+     - Dataset note (GS1 fallback uses the same fly001 reconstructed dataset for both PyTorch commands).
+     - Stats-delta path + sha1.
+     - TF blocker references and next decision (PyTorch-only parity unless TF translation gets fixed).
+4. **Blocker handling.**
+   - If the stats JSON files are missing or malformed, create `$HUB/scaling_alignment/phase_c1_gs1/red/blocked_<timestamp>_missing_gs1_stats.md` describing the gap before touching inventories.
+   - If TF blockers change (new env capture, different stack), add the file path to the inventory entry and summarize the delta in the Turn Summary.
+
 ### Checklist
 - [ ] C1: Run the matched TF baseline (`scripts/training/train.py --backend tensorflow` + `scripts/inference/inference.py --backend tensorflow --debug_dump`) and archive artifacts (`.../reports/.../tf_baseline/`).
 - [ ] C2: Build a comparison script/notebook that ingests Torch/TF dumps, reports variance ratios and stitched MAE/SSIM, and summarize findings in `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md`.
 - [ ] C3: Add regression tests/guards (e.g., small synthetic dataset test under `tests/torch/`) ensuring `var_zero_mean` stays above a threshold and the CLI applies scaling overrides. Update docs/test registries if selectors change.
+- [ ] C1c: Consolidate GS1 fallback evidence (stats delta artifact, inventory/summary update, TF blocker cross-links).
 
 ### Pending Tasks (Engineering)
 - Implement comparison tooling, define acceptable thresholds, then codify guards/tests.

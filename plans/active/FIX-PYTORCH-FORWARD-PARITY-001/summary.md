@@ -1,4 +1,10 @@
 ### Turn Summary
+GS1 fallback evidence lives only in the subfolders, so the main hub inventory/summary still stop at Phase B3 and reviewers can’t see the gridsize=1 PyTorch results or the TensorFlow blocker chain.
+Re-scoped Phase C1 to compute a stats delta between `scaling_alignment/phase_b3/analysis/forward_parity_debug_scaling/stats.json` and `scaling_alignment/phase_c1_gs1/analysis/forward_parity_debug_gs1/stats.json`, drop the text file into both `tf_baseline/phase_c1_gs1/analysis/phase_c1_gs1_stats.txt` and `scaling_alignment/phase_c1_gs1/analysis/phase_c1_vs_phase_b3_stats.txt`, and refresh `$HUB/analysis/artifact_inventory.txt` / `$HUB/summary.md` with a GS1 dataset note plus TF blocker references.
+Next: run the python snippet from plan §C1c to emit the stats-delta file, mirror it into the PyTorch folder, capture sha1s, then update the inventory and summaries with those paths and the blocker citations so Phase C2 can proceed PyTorch-only.
+Artifacts: planning only (no new files this loop)
+
+### Turn Summary
 Executed Phase C1b GS1 fallback: PyTorch training/inference completed successfully with gridsize=1 (bundle digest c3124f2d, intensity_scale=9.882118 loaded correctly), but TensorFlow remains blocked even at gridsize=1 because the `--do_stitching` flag invokes `reassemble_patches` which triggers XLA translation errors during post-training reconstruction.
 Documented three consecutive TensorFlow blockers (gridsize=2 XLA, gridsize=2 non-XLA, gridsize=1 stitching XLA) proving TF translation layer is fundamentally broken across multiple code paths.
 Per POLICY-001 and the brief's anticipated fallback path, proceeding with PyTorch-only Phase C evidence: captured bundle digest, patch stats (var_zero_mean=0.000033 training, 0.000000 inference), and debug dumps under `$HUB/scaling_alignment/phase_c1_gs1/`.
