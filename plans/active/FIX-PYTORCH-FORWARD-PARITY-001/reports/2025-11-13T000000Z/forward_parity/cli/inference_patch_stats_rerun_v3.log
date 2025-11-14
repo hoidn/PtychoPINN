@@ -1,0 +1,50 @@
+2025-11-14 05:47:37.115175: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1763128057.127372 2987856 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763128057.131211 2987856 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763128057.142332 2987856 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763128057.142343 2987856 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763128057.142344 2987856 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763128057.142346 2987856 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-14 05:47:37.145074: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+/home/ollie/Documents/PtychoPINN/ptycho_torch/config_factory.py:632: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+  warnings.warn(
+Loaded configuration from model checkpoint
+Test data: datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz
+Output directory: outputs/torch_forward_parity_baseline/inference
+N groups: 128
+Execution config: accelerator=gpu, num_workers=0
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Loaded intensity_scale from bundle: 1.000000
+Loaded model bundle from: outputs/torch_forward_parity_baseline/wts.h5.zip
+Model device: cuda
+Restored params.cfg from bundle (N=64, gridsize=2)
+diff3d shape: (7597, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (7597,)
+objectGuess shape: (232, 232)
+xcoords shape: (7597,)
+ycoords shape: (7597,)
+xcoords_start shape: (7597,)
+ycoords_start shape: (7597,)
+Loaded test data: 7597 scan positions
+Running inference on 128 images...
+Torch scaling debug (inference pre-forward): mean|input|=430.749084 mean_input_scale=1.000000 mean_physics_scale=1.000000 physics_weight=1.000
+Torch patch stats (inference batch 0): mean=1228.732422 std=2277.862793 var_zero_mean=5188100.000000
+Torch scaling debug (inference post-forward): mean|patch|=1228.732422 mean_output_scale=1.000000
+Reconstruction shape: (247, 247)
+Amplitude range: [0.0000, 7000.0811]
+Phase range: [-3.1416, 3.1416]
+Saved amplitude reconstruction to: outputs/torch_forward_parity_baseline/inference/reconstructed_amplitude.png
+Saved phase reconstruction to: outputs/torch_forward_parity_baseline/inference/reconstructed_phase.png
+
+Inference completed successfully!
+Output artifacts saved to: outputs/torch_forward_parity_baseline/inference

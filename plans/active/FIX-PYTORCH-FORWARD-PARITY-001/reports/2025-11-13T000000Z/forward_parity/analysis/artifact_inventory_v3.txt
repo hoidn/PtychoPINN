@@ -1,0 +1,72 @@
+# Phase A Evidence Refresh (v3) — Forward Parity Instrumentation
+# Generated: 2025-11-14 05:47
+# Commit context: post-dc5415ba (TrainingPayload threading fix)
+
+## Overview
+This refresh demonstrates that the TrainingPayload threading fix (dc5415ba) successfully
+propagates instrumentation flags through the PyTorch training/inference pipeline.
+
+## Key Findings
+
+### Training Patch Statistics
+- **Source**: outputs/torch_forward_parity_baseline/analysis/torch_patch_stats.json
+- **Batches logged**: 2 training batches (batch_idx=0, repeated)
+- **Variance**: var_zero_mean ≈ 6.09e-05 (healthy, non-zero)
+- **Mean**: ≈ 0.00450
+- **Std**: ≈ 0.00781
+- **Interpretation**: Training patches show expected healthy variance
+
+### Inference Patch Statistics
+- **Source**: forward_parity_debug_v3/stats.json
+- **Variance**: var_zero_mean = 5,188,101.0 (VERY HIGH - unnormalized outputs)
+- **Mean**: 1228.73
+- **Std**: 2277.86
+- **Interpretation**: Inference patches have strong signal; much higher than training
+  because they represent unnormalized amplitude values before stitching
+
+### Comparison with Previous Runs
+The fix_plan summary mentions a previous run (2025-11-14T0529Z rerun v2) where:
+- Training: var_zero_mean=1.525e-05, mean=0.002228
+- Inference: var_zero_mean=9.512e-20, mean=1.686e-12 (essentially ZERO!)
+
+This v3 run shows:
+- Training: var_zero_mean=6.09e-05 (4x higher, still healthy)
+- Inference: var_zero_mean=5.19e+06 (NOT zero! The forward path is working)
+
+**Conclusion**: The inference forward path now produces non-trivial outputs with strong
+variance. The previous "essentially zero" inference issue has been resolved.
+
+## Artifact Checklist
+
+### Green (Tests)
+- [x] pytest_patch_stats_rerun_v3.log (2025-11-14 05:45, 1 PASSED, 7.17s)
+
+### CLI Logs
+- [x] train_patch_stats_rerun_v3.log (2025-11-14 05:46-05:47, 10 epochs completed)
+- [x] inference_patch_stats_rerun_v3.log (2025-11-14 05:47, 128 images processed)
+
+### Analysis Artifacts
+- [x] torch_patch_stats_combined_v3.json (training batch stats, 2 batches)
+- [x] forward_parity_debug_v3/stats.json (inference patch + canvas amplitude stats)
+- [x] forward_parity_debug_v3/canvas.json (canvas dimensions)
+- [x] forward_parity_debug_v3/offsets.json (patch offsets)
+- [x] forward_parity_debug_v3/pred_patches_amp_grid.png (unnormalized amplitude patches)
+- [x] forward_parity_debug_v3/pred_patches_amp_grid_normalized.png (normalized view)
+
+### Output Model Bundle
+- [x] outputs/torch_forward_parity_baseline/wts.h5.zip (trained model)
+- [x] outputs/torch_forward_parity_baseline/inference/reconstructed_amplitude.png
+- [x] outputs/torch_forward_parity_baseline/inference/reconstructed_phase.png
+
+## Next Steps (Phase B)
+1. Implement intensity_scale persistence during training→inference handoff
+2. Add pytest coverage for scale round-trip
+3. Validate by rerunning baseline and confirming consistent scaling
+4. Document changes in docs/workflows/pytorch.md
+
+## Notes
+- All artifacts generated with --log-patch-stats --patch-stats-limit 2
+- Training used 256 images, gridsize=2, batch_size=4, 10 epochs
+- Inference processed 128 images with debug dumps enabled
+- GPU: NVIDIA GeForce RTX 3090 (22259 MB)
+- PyTorch version: 2.8.0+cu128
