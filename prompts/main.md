@@ -117,12 +117,22 @@
     7. **Static analysis (hard gate)**
        - Run configured linters/formatters/type‑checkers for touched code; resolve new issues before full suite.
 
-    8. **Comprehensive Testing (hard gate, once)**
-       - After targeted tests pass, run the **entire suite** from project root: `pytest -v tests/`.
-         a) All tests must pass (no `FAILED`/`ERROR`).  
-         b) **Collection must succeed** (no ImportError, etc.).  
-         c) If you added/renamed tests, verify selectors still collect (>0). If not: either author missing tests immediately or temporarily downgrade the selector to “Planned” with rationale and file a follow‑up fix‑plan item.
-       - When implementation (production) code changes, also ensure the project’s integration smoke passes. Use the project‑level integration marker for the early check: `-m integration` (repository docs may define additional backend‑specific markers; in this repo, `tf_integration` is an alias). You may rely on the full‑suite run or invoke the marker/node directly for an earlier signal; do not replace the targeted selector with this marker.
+    8. **Comprehensive Testing (suite gate)**
+       - Always run the targeted selector(s) for this focus (see step 6). These are your primary regression guardrails for the current change.
+       - Treat a full `pytest -v tests/` run as a <em>suite gate</em>, not an every‑loop hard gate:
+         a) Run the full suite from project root when one of the following is true:
+            • You intend to move the focus from `in_progress` to `done` in `docs/fix_plan.md`.  
+            • The changes cross module categories or touch multiple subsystems (per the Module scope declared in step 3).  
+            • You made non‑trivial behavioral changes in shared utilities or core workflow logic that plausibly affect other modules.  
+            • The supervisor explicitly flags this loop as a suite‑gate loop in `input.md` (e.g., via the Overview/Workload Spec).  
+         b) When you run a suite gate:
+            • All tests must pass (no `FAILED`/`ERROR`).  
+            • Collection must succeed (no ImportError, etc.).  
+            • If you added/renamed tests, verify selectors still collect (>0). If not: either author missing tests immediately or temporarily downgrade the selector to “Planned” with rationale and file a follow‑up fix‑plan item.  
+         c) When you <em>skip</em> the full suite for this loop:
+            • Record in the Turn Summary and `docs/fix_plan.md` Attempts History that you ran only targeted tests and why a suite gate was deferred (e.g., small localized change, earlier suite gate recently run, or pending separate test‑infra focus).  
+            • Do not mark the focus `done` until at least one suite‑gate run has passed for that focus or an explicitly linked test‑infra initiative states why a full suite is not currently feasible.
+       - When implementation (production) code changes, also ensure the project’s integration smoke passes for the relevant backend(s) when appropriate. Use the project‑level integration marker for the early check: `-m integration` (repository docs may define additional backend‑specific markers; in this repo, `tf_integration` is an alias). You may rely on the suite‑gate run or invoke the marker/node directly for an earlier signal; do not replace the targeted selector with this marker.
 
     9. **Artifacts**
        - Save `pytest.log`, `summary.md`, metrics JSONs under the loop’s reports directory.
@@ -171,7 +181,7 @@
     - Search summary (what exists/missing; file pointers).
     - Diff or file list of changes.
     - Targeted test(s)/example(s) added/updated and results.
-    - Exact pytest commands executed (targeted and the single full‑suite run).
+    - Exact pytest commands executed (targeted selectors and any suite‑gate/full‑suite runs).
     - `docs/fix_plan.md` delta (items done/new), Attempts History snippet.
     - Any `CLAUDE.md` or `docs/architecture.md` updates (1–3 lines each).
     - Next most‑important item you would pick if you had another loop.
@@ -199,7 +209,7 @@
     - Acceptance & module scope declared; stayed within a single module category (or deferral recorded).
     - SPEC/ADR quotes present; search‑first evidence (file:line pointers) captured.
     - Static analysis passed for touched files.
-    - Full `pytest -v tests/` run executed once and passed (no collection failures).
+    - For focuses that require a suite gate, at least one `pytest -v tests/` run has executed and passed (no collection failures) before marking the `docs/fix_plan.md` row `done` (or an explicitly documented test‑infra blocker explains why a full suite is not currently feasible).
     - New issues added to `docs/fix_plan.md` as TODOs.
   </completion_checklist>
 
