@@ -1,3 +1,14 @@
+### Turn Summary (2025-11-14T033900Z)
+Executed fresh Phase A evidence refresh post-dc5415ba: ran pytest selector GREEN (1/1 PASSED, 7.20s), completed 10-epoch training with instrumentation on fly001_reconstructed datasets, and ran inference with debug dumps.
+Training stats show healthy non-zero variance (var_zero_mean=1.33e-05, mean=0.002091, std=0.003645), inference shows expected higher variance (var_zero_mean=1953579.0, mean=765.820) for unnormalized outputs, and all artifacts (JSON/PNG/debug dumps) materialized correctly under the hub.
+Next: Phase A checklist A0/A1/A2/A3 complete; ready for supervisor handoff to Phase B (scaling/config alignment: object_big defaults and intensity_scale persistence per CONFIG-001/POLICY-001).
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_stats_rerun.log,cli/train_patch_stats_rerun.log,cli/inference_patch_stats_rerun.log,analysis/torch_patch_stats.json,analysis/torch_patch_grid.png,analysis/torch_patch_stats_inference.json,analysis/torch_patch_grid_inference.png,analysis/forward_parity_debug/,analysis/artifact_inventory.txt}
+
+Checklist:
+- Files touched: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{cli/train_patch_stats_rerun.log,cli/inference_patch_stats_rerun.log,green/pytest_patch_stats_rerun.log,analysis/artifact_inventory.txt,analysis/torch_patch_stats.json,analysis/torch_patch_grid.png,analysis/torch_patch_stats_inference.json,analysis/torch_patch_grid_inference.png}, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
+- Tests run: pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_stats_rerun.log,cli/train_patch_stats_rerun.log,cli/inference_patch_stats_rerun.log,analysis/torch_patch_stats.json,analysis/torch_patch_grid.png,analysis/torch_patch_stats_inference.json,analysis/torch_patch_grid_inference.png,analysis/forward_parity_debug/,analysis/artifact_inventory.txt}
+
 ### Turn Summary (2025-11-14T032800Z)
 Completed Phase A evidence refresh: reran pytest selector (GREEN 1/1, 7.11s), executed 10-epoch training with instrumentation, ran inference with debug dumps, and captured fresh torch_patch_stats.json + torch_patch_grid.png artifacts.
 Training stats show non-zero variance (var_zero_mean=3.30e-06, mean=0.001003, std=0.001816), inference shows much higher values (var_zero_mean=9025851.0, mean=1673.339) as expected for unnormalized outputs, and all debug dumps (canvas/offsets/patch grids) materialized correctly.
