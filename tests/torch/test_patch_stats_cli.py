@@ -138,3 +138,82 @@ class TestPatchStatsCLI:
             "Expected log_patch_stats=False by default"
         assert overrides.get('patch_stats_limit') is None, \
             "Expected patch_stats_limit=None by default"
+
+    def test_factory_creates_inference_config_with_patch_stats(self, tmp_path):
+        """
+        Test that factory creates PTInferenceConfig with patch stats fields.
+
+        This test validates the fix for the blocker documented in:
+        plans/active/.../red/blocked_20251114T014035Z_factory_inference_config.md
+
+        Expected behavior:
+        - create_training_payload creates pt_inference_config
+        - pt_inference_config has log_patch_stats and patch_stats_limit from overrides
+        - Payload includes pt_inference_config field
+        """
+        from ptycho_torch.config_factory import create_training_payload
+        from pathlib import Path
+        import numpy as np
+
+        # Create minimal NPZ fixture
+        train_file = tmp_path / "train.npz"
+        np.savez(
+            train_file,
+            diffraction=np.random.rand(10, 64, 64).astype(np.float32),
+            xcoords=np.random.rand(10).astype(np.float32),
+            ycoords=np.random.rand(10).astype(np.float32),
+            probeGuess=np.random.rand(64, 64).astype(np.complex64),
+            objectGuess=np.random.rand(200, 200).astype(np.complex64),
+        )
+
+        # Create payload with patch stats overrides
+        payload = create_training_payload(
+            train_data_file=train_file,
+            output_dir=tmp_path / "outputs",
+            overrides={
+                'n_groups': 8,
+                'log_patch_stats': True,
+                'patch_stats_limit': 2,
+            }
+        )
+
+        # Assert payload has pt_inference_config
+        assert hasattr(payload, 'pt_inference_config'), \
+            "TrainingPayload missing pt_inference_config field"
+
+        # Assert pt_inference_config has correct values
+        assert payload.pt_inference_config.log_patch_stats is True, \
+            f"Expected log_patch_stats=True, got {payload.pt_inference_config.log_patch_stats}"
+        assert payload.pt_inference_config.patch_stats_limit == 2, \
+            f"Expected patch_stats_limit=2, got {payload.pt_inference_config.patch_stats_limit}"
+
+    def test_factory_inference_config_defaults(self, tmp_path):
+        """
+        Test that factory creates PTInferenceConfig with defaults when flags not provided.
+        """
+        from ptycho_torch.config_factory import create_training_payload
+        import numpy as np
+
+        # Create minimal NPZ fixture
+        train_file = tmp_path / "train.npz"
+        np.savez(
+            train_file,
+            diffraction=np.random.rand(10, 64, 64).astype(np.float32),
+            xcoords=np.random.rand(10).astype(np.float32),
+            ycoords=np.random.rand(10).astype(np.float32),
+            probeGuess=np.random.rand(64, 64).astype(np.complex64),
+            objectGuess=np.random.rand(200, 200).astype(np.complex64),
+        )
+
+        # Create payload without patch stats overrides
+        payload = create_training_payload(
+            train_data_file=train_file,
+            output_dir=tmp_path / "outputs",
+            overrides={'n_groups': 8}
+        )
+
+        # Assert pt_inference_config has defaults
+        assert payload.pt_inference_config.log_patch_stats is False, \
+            "Expected log_patch_stats=False by default"
+        assert payload.pt_inference_config.patch_stats_limit is None, \
+            "Expected patch_stats_limit=None by default"

@@ -718,13 +718,13 @@ Examples:
                   f"learning_rate={execution_config.learning_rate}")
 
             # Extract configs for main()
-            # Note: Factory only creates training-relevant configs; create InferenceConfig/DatagenConfig defaults
-            from ptycho_torch.config_params import InferenceConfig, DatagenConfig
+            # Phase A instrumentation: Use factory-provided pt_inference_config with CLI overrides
+            from ptycho_torch.config_params import DatagenConfig
             existing_config = (
                 payload.pt_data_config,
                 payload.pt_model_config,
                 payload.pt_training_config,
-                InferenceConfig(),  # Not in payload, use default
+                payload.pt_inference_config,  # Phase A: Now includes log_patch_stats/patch_stats_limit
                 DatagenConfig(),  # Not in payload, use default
             )
 

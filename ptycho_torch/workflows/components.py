@@ -687,6 +687,7 @@ def _train_with_lightning(
     pt_data_config = payload.pt_data_config
     pt_model_config = payload.pt_model_config
     pt_training_config = payload.pt_training_config
+    pt_inference_config = payload.pt_inference_config  # Phase A: Use factory-provided config with instrumentation flags
 
     # CRITICAL: Supervised mode REQUIRES a compatible loss function (MAE)
     # The Lightning module expects loss_name to be defined, which only happens when:
@@ -704,9 +705,6 @@ def _train_with_lightning(
         # Create new ModelConfig with corrected loss_function
         from dataclasses import replace
         pt_model_config = replace(pt_model_config, loss_function='MAE')
-
-    # Create minimal InferenceConfig for Lightning module (training payload doesn't include it)
-    pt_inference_config = PTInferenceConfig()
 
     # B2.4: Instantiate PtychoPINN_Lightning with factory-derived config objects
     model = PtychoPINN_Lightning(

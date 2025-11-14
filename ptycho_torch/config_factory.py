@@ -80,6 +80,7 @@ class TrainingPayload:
     pt_data_config: PTDataConfig  # PyTorch singleton
     pt_model_config: PTModelConfig  # PyTorch singleton
     pt_training_config: PTTrainingConfig  # PyTorch singleton
+    pt_inference_config: PTInferenceConfig  # PyTorch singleton (Phase A instrumentation)
     execution_config: PyTorchExecutionConfig  # Execution knobs (Phase C2)
     overrides_applied: Dict[str, Any] = field(default_factory=dict)  # Audit trail
 
@@ -237,6 +238,12 @@ def create_training_payload(
         torch_loss_mode=overrides.get('torch_loss_mode', 'poisson'),
     )
 
+    # InferenceConfig: Extract inference-specific fields from overrides (Phase A instrumentation)
+    pt_inference_config = PTInferenceConfig(
+        log_patch_stats=overrides.get('log_patch_stats', False),
+        patch_stats_limit=overrides.get('patch_stats_limit', None),
+    )
+
     # Step 4: Translate to TensorFlow canonical configs via config_bridge
     tf_model_config = to_model_config(pt_data_config, pt_model_config)
 
@@ -297,6 +304,7 @@ def create_training_payload(
         pt_data_config=pt_data_config,
         pt_model_config=pt_model_config,
         pt_training_config=pt_training_config,
+        pt_inference_config=pt_inference_config,  # Phase A instrumentation
         execution_config=execution_config,  # Now always PyTorchExecutionConfig instance
         overrides_applied=overrides_applied,
     )
