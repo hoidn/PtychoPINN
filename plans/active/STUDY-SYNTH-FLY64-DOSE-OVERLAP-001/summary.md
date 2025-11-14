@@ -1,4 +1,14 @@
 ### Turn Summary
+Confirmed translation fix regression tests remain GREEN (2 passed in 6.18s) after commits a80d4d2b/bf3f1b07, proving batched reassembly and XLA streaming fixes are stable on HEAD.
+Launched the counted Phase C→G dense pipeline with `--clobber` for dose=1000 in background (PID 2445542); Phase C (Dataset Generation) is currently executing TensorFlow diffraction simulation with CUDA (RTX 3090) and will automatically proceed through all 8 phases.
+Pipeline estimated to complete in 30-120 minutes; remaining workflow steps (--post-verify-only, report_phase_g_dense_metrics.py, analyze_dense_metrics.py, verification of n_valid=10) are blocked pending pipeline completion.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix_v4.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_stdout_v4.log (streaming)
+
+Checklist:
+- Files touched: none
+- Tests run: pytest tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_batched_predictions tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split -vv
+- Artifacts updated: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix_v4.log; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_stdout_v4.log
+### Turn Summary
 Re-audited the Phase G hub and confirmed `analysis/verification_report.json` still reports 0/10 while the SSIM grid, verification logs, highlights preview, metrics digest, and artifact inventory files are all missing, so the counted rerun has not landed.
 `analysis/metrics_summary.json` only contains fresh PtychoPINN vs PtyChi values (Baseline rows remain empty) and `analysis/blocker.log` plus `cli/ssim_grid_cli.log` show `ssim_grid.py` fails immediately under PREVIEW-PHASE-001 because `analysis/metrics_delta_highlights_preview.txt` does not exist.
 Kept the Do Now unchanged so Ralph must rerun the guarded pytest selector, execute `run_phase_g_dense.py --clobber` followed by the fully parameterized `--post-verify-only`, rerun the metrics helpers, and log any blockers under `$HUB/red/` until `verification_report.json` flips to 10/10 with the full evidence bundle.

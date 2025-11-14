@@ -1,8 +1,24 @@
-# Command: /home/ollie/miniconda3/envs/ptycho311/bin/python -m studies.fly64_dose_overlap.generation --base-npz tike_outputs/fly001_reconstructed_final_prepared/fly001_reconstructed_interp_smooth_both.npz --output-root /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c --dose 1000
-# CWD: /home/ollie/Documents/PtychoPINN
-# Log: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/phase_c_generation.log
-# ==============================================================================
+[run_phase_g_dense] WARNING: AUTHORITATIVE_CMDS_DOC not set; setting to ./docs/TESTING_GUIDE.md
 
+================================================================================
+[run_phase_g_dense] Preparing hub...
+================================================================================
+
+[prepare_hub] Archiving stale Phase C outputs to: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/archive/phase_c_20251114T021124Z
+[prepare_hub] Archived /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c → /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/archive/phase_c_20251114T021124Z
+[prepare_hub] Hub is now clean and ready for new pipeline run
+
+[run_phase_g_dense] Starting Phase C→G pipeline for dose=1000, view=dense, splits=['train', 'test']
+[run_phase_g_dense] Hub: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier
+[run_phase_g_dense] Total commands: 8
+
+
+================================================================================
+[1/8] Phase C: Dataset Generation
+================================================================================
+
+[run_phase_g_dense] Executing: /home/ollie/miniconda3/envs/ptycho311/bin/python -m studies.fly64_dose_overlap.generation --base-npz tike_outputs/fly001_reconstructed_final_prepared/fly001_reconstructed_interp_smooth_both.npz --output-root /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c --dose 1000
+[run_phase_g_dense] Logging to: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/phase_c_generation.log
 2025-11-13 18:11:25.080931: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
 E0000 00:00:1763086285.093097 2445577 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
