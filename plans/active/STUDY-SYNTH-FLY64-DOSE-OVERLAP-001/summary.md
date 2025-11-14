@@ -1,4 +1,16 @@
 ### Turn Summary
+Dense-train compare_models succeeded with healthy Baseline outputs (mean=0.188, 78.7M nonzero pixels, complete CSV rows), but dense-test failed with TensorFlow GPU OOM during Baseline inference, leaving blank Baseline metric rows in test CSV.
+Translation regression tests remain GREEN (2/2 passed).
+Blocker documented (`red/blocked_20251116T010000Z_test_baseline_oom.md`) with evidence, root cause (TF ResourceExhaustedError during test-split Baseline inference), and four mitigation options (batched inference, skip test Baseline, reduce dataset, TF memory config).
+Next: await supervisor decision on mitigation path before proceeding with Phase D acceptance → counted pipeline → post-verify sweep.
+Artifacts: red/blocked_20251116T010000Z_test_baseline_oom.md; analysis/dose_1000/dense/train/comparison_metrics.csv (Baseline rows complete); analysis/dose_1000/dense/test/comparison_metrics.csv (Baseline rows blank)
+
+Checklist:
+- Files touched: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/red/blocked_20251116T010000Z_test_baseline_oom.md
+- Tests run: none (verified completed compare_models outputs)
+- Artifacts updated: red/blocked_20251116T010000Z_test_baseline_oom.md
+
+### Turn Summary
 Translation regression tests remain GREEN (2/2 passed, 6.19s), confirming the offset-centering fix maintains correctness.
 Launched full compare_models for dense train/test splits (PIDs 2610948, 2611189) but they are actively running GPU inference and will not complete within this loop's execution window per Ralph §0 long-running job policy.
 Jobs blocked pending completion; documented running status with PIDs, log paths (`cli/compare_models_dense_{split}_full.log`), and return condition (verify non-zero Baseline stats in debug.log and CSV rows) in `red/blocked_20251113T212244Z_compare_models_running.md`.
