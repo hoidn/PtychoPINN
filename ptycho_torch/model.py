@@ -16,6 +16,7 @@ from typing import Optional
 from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig, update_existing_config
 import ptycho_torch.helper as hh
 from ptycho_torch.model_attention import CBAM, ECALayer, BasicSpatialAttention
+from ptycho_torch.patch_stats_instrumentation import PatchStatsLogger
 import copy
 
 logger = logging.getLogger(__name__)
@@ -1031,6 +1032,18 @@ class PtychoPINN_Lightning(L.LightningModule):
         self._scaling_debug_logged = False
         self._patch_stats_logged = False
 
+        # Patch stats instrumentation (FIX-PYTORCH-FORWARD-PARITY-001 Phase A)
+        # Instantiate logger if enabled via inference_config
+        from pathlib import Path
+        enabled = getattr(self.inference_config, 'log_patch_stats', False)
+        limit = getattr(self.inference_config, 'patch_stats_limit', None)
+        # Output directory will be set during training if needed
+        self.patch_stats_logger = PatchStatsLogger(
+            output_dir=None,  # Will be set when training starts and output_dir is known
+            enabled=enabled,
+            limit=limit
+        )
+
         self.torch_loss_mode = getattr(self.training_config, 'torch_loss_mode', 'poisson')
         if isinstance(self.torch_loss_mode, str):
             self.torch_loss_mode = self.torch_loss_mode.lower()
@@ -1141,24 +1154,30 @@ class PtychoPINN_Lightning(L.LightningModule):
         logger.info(msg)
         print(msg)
 
-    def _log_patch_stats(self, amplitude_tensor):
-        if self._patch_stats_logged:
+    def _log_patch_stats(self, amplitude_tensor, phase="train", batch_idx=0):
+        """
+        Log patch statistics using PatchStatsLogger if enabled.
+
+        Phase A instrumentation (FIX-PYTORCH-FORWARD-PARITY-001):
+        Delegates to self.patch_stats_logger which was configured during __init__.
+        """
+        if not self.patch_stats_logger.enabled:
             return
-        self._patch_stats_logged = True
 
-        with torch.no_grad():
-            amp_abs = torch.abs(amplitude_tensor.detach())
-            mean_val = float(torch.mean(amp_abs).cpu())
-            std_val = float(torch.std(amp_abs).cpu())
-            zero_mean = amp_abs - torch.mean(amp_abs, dim=(-2, -1), keepdim=True)
-            var_val = float(torch.mean(zero_mean ** 2).cpu())
+        # Set output directory on first call if not already set
+        if self.patch_stats_logger.output_dir is None:
+            # Try to get output_dir from trainer or use fallback
+            from pathlib import Path
+            if hasattr(self.trainer, 'default_root_dir'):
+                output_dir = Path(self.trainer.default_root_dir) / "analysis"
+            else:
+                output_dir = Path("analysis")
+            self.patch_stats_logger.output_dir = output_dir
+            self.patch_stats_logger.output_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Patch stats output directory: {output_dir}")
 
-        msg = (
-            "Torch patch stats (training): mean="
-            f"{mean_val:.6f} std={std_val:.6f} var_zero_mean={var_val:.6f}"
-        )
-        logger.info(msg)
-        print(msg)
+        # Delegate to logger
+        self.patch_stats_logger.log_batch(amplitude_tensor, phase=phase, batch_idx=batch_idx)
     
     def forward(self, x, positions, probe, input_scale_factor, output_scale_factor):
         x_out = self.model(x, positions, probe, input_scale_factor, output_scale_factor)
@@ -1220,7 +1239,8 @@ class PtychoPINN_Lightning(L.LightningModule):
             output_scale_factor=output_scaling_factor,
         )
         self._log_scaling_debug(x, pred, input_scaling_factor, physics_scaling_factor, physics_weight)
-        self._log_patch_stats(amp)
+        # Note: batch_idx not available in compute_loss context, use 0 as placeholder
+        self._log_patch_stats(amp, phase="train", batch_idx=0)
         
         #Normalization factor for loss output (just to keep it scaled down)
         intensity_norm_factor = torch.mean(x).detach() + 1e-8
@@ -1306,12 +1326,23 @@ class PtychoPINN_Lightning(L.LightningModule):
         Uses the same multi-stage approach as training
         """
         val_loss = self.compute_loss(batch)
-        
+
         # Log validation loss
         self.log(self.val_loss_name, val_loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        
+
         return val_loss
-    
+
+    def on_train_end(self):
+        """
+        Lightning hook called when training ends.
+
+        Phase A instrumentation (FIX-PYTORCH-FORWARD-PARITY-001):
+        Finalizes patch stats logging (writes JSON + PNG).
+        """
+        if hasattr(self, 'patch_stats_logger') and self.patch_stats_logger.enabled:
+            self.patch_stats_logger.finalize()
+            logger.info("Patch stats instrumentation finalized")
+
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(),
                                      lr = self.lr)
