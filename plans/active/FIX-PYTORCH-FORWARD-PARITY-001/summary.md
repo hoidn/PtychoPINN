@@ -1,4 +1,10 @@
 ### Turn Summary
+Verified Phase C2 artifacts (compare_stats script, metrics, hub summaries) are complete and pivoted the initiative to Phase C3’s regression guard against zero patch variance.
+Expanded the implementation plan with a concrete Action Plan for seeding the CLI test fixture, asserting `patch_amplitude.var_zero_mean > 1e-6`, and capturing the regression selector log under `$HUB/green/pytest_patch_variance_guard.log`, then refreshed docs/fix_plan.md and input.md accordingly.
+Next: Ralph updates `tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump` per the new plan, runs the selector with tee’d logging, and records the pass/fail evidence in the hub summaries.
+Artifacts: docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md}; input.md
+
+### Turn Summary
 Executed Phase C2 PyTorch-only comparison by creating `bin/phase_c2_compare_stats.py` (Tier-2 helper with argparse/docstring citing POLICY-001/CONFIG-001), running it against Phase B3 vs GS1 stats, and capturing the variance collapse metrics (patch.var_zero_mean dropped from 8.97e9 to 0.0).
 Updated the hub artifact inventory and both summaries with the Phase C2 section documenting the complete variance collapse at gridsize=1, referencing the three TensorFlow blocker files, and noting that MAE/SSIM comparisons are deferred until TF translation layer unblocks.
 Next: Phase C3 regression guards will target gridsize≥2 configurations; rerun the comparison script with TF stats when available.

@@ -373,10 +373,29 @@ PyTorch forward inference currently produces impulse-like patches with extremely
    - Capture the script usage (CLI example + expected outputs) inside this plan and in the Reports Hub README so future loops can reuse it when TF evidence appears.
    - When TF baseline artifacts land, re-run the script with `--candidate-stats` pointing at `$HUB/tf_baseline/.../stats.json` and update the metrics file rather than creating a new one to preserve diffability.
 
+### Action Plan — C3 (PyTorch variance regression guard)
+1. **Deterministic minimal dataset for the CLI test.**
+   - Update `tests/torch/test_cli_train_torch.py::TestPatchStatsCLI.minimal_train_args` to seed NumPy (`np.random.seed(12345)`) before writing the temporary NPZ so the generated diffraction/object/probe arrays are repeatable and contain non-zero variance.
+   - Keep the dataset tiny (`n_images=8`, `gridsize=2`, `batch_size=4`) so the selector stays within TESTING_GUIDE budgets, but document that the seeded randomness guarantees variance > 0 for both training/inference dumps.
+
+2. **Extend `test_patch_stats_dump` with variance assertions.**
+   - After the CLI run succeeds, open `<output_dir>/analysis/torch_patch_stats.json`, parse the `patch_amplitude.var_zero_mean` values, and assert they exceed a minimal threshold (e.g., `> 1e-6`) to guard against the zero-variance regression observed before Phase A.
+   - Also assert `canvas_amplitude.mean` is non-zero to catch cases where outputs collapse to zeros.
+   - Reference the Phase C2 metrics (`analysis/phase_c2_pytorch_only_metrics.txt`) when justifying the threshold in an inline comment so future maintainers know why we only gate gridsize ≥ 2.
+
+3. **Pytest execution + hub capture.**
+   - Selector: `pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv`.
+   - Tee output to `$HUB/green/pytest_patch_variance_guard.log` and record pass/fail status in `analysis/artifact_inventory.txt` and `summary.md`.
+   - If the selector fails or the stats file is missing, capture `$HUB/red/blocked_<timestamp>_patch_variance_guard.md` with the traceback prior to editing hub inventories.
+
+4. **Follow-up doc/test-registry rule.**
+   - This reuse of the existing selector does not require changes to `docs/TESTING_GUIDE.md` or `docs/development/TEST_SUITE_INDEX.md`; if a new selector is introduced later, update both references immediately after the code lands.
+
 ### Checklist
 - [ ] C1: Run the matched TF baseline (`scripts/training/train.py --backend tensorflow` + `scripts/inference/inference.py --backend tensorflow --debug_dump`) and archive artifacts (`.../reports/.../tf_baseline/`).
-- [ ] C2: Build a comparison script/notebook that ingests Torch/TF dumps, reports variance ratios and stitched MAE/SSIM, and summarize findings in `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md`.
-- [ ] C3: Add regression tests/guards (e.g., small synthetic dataset test under `tests/torch/`) ensuring `var_zero_mean` stays above a threshold and the CLI applies scaling overrides. Update docs/test registries if selectors change.
+- [x] C2: Build a comparison script/notebook that ingests Torch/TF dumps, reports variance ratios and stitched MAE/SSIM, and summarize findings in `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md`.
+- [ ] C3a: Harden `TestPatchStatsCLI::test_patch_stats_dump` by seeding its fixture and asserting `patch_amplitude.var_zero_mean > 1e-6` plus non-zero canvas means in the generated `torch_patch_stats.json`.
+- [ ] C3b: Capture the updated selector via `pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv | tee "$HUB"/green/pytest_patch_variance_guard.log`, updating hub inventories/summaries or filing a blocker if the guard fails.
 - [x] C1c: Consolidate GS1 fallback evidence (stats delta artifact, inventory/summary update, TF blocker cross-links).
 
 ### Pending Tasks (Engineering)
