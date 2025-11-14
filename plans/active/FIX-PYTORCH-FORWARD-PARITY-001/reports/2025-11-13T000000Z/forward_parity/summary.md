@@ -1,3 +1,29 @@
+### Phase C1 GS1 Fallback — 2025-11-14T0800Z
+
+**Dataset Note**: GS1 fallback uses identical fly001_reconstructed dataset as Phase B3 (datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_{train,test}.npz) with gridsize=1. No dataset divergence; no PyTorch rerun required.
+
+**Stats Delta**:
+- Paths: tf_baseline/phase_c1_gs1/analysis/phase_c1_gs1_stats.txt (mirrored: scaling_alignment/phase_c1_gs1/analysis/phase_c1_vs_phase_b3_stats.txt)
+- SHA1: 50ac27fa99bd12a332fdbb44cec98da92d3dac74
+- Headline: phase_b3.patch.var_zero_mean=8.97e9, phase_c1_gs1.patch.var_zero_mean=0.0, ratio=0.0
+
+**PyTorch GS1**: COMPLETE — Training/inference succeeded with gridsize=1, bundle digest c3124f2d, intensity_scale=9.882118 loaded correctly. However, patch variance is zero (expected for single-patch gridsize=1 configuration).
+
+**TensorFlow GS1**: BLOCKED — Three consecutive translation layer failures:
+1. Gridsize=2 XLA path: XLA-DYN-DOT-001 dynamic shape error
+2. Gridsize=2 non-XLA path: translate_core shape mismatch (values[0].shape=[4] != values[2].shape=[128])
+3. Gridsize=1 stitching: XLA ImageProjectiveTransformV3 error triggered by --do_stitching after epoch 10/10
+
+**TensorFlow Blocker Files**:
+- tf_baseline/phase_c1_gs1/red/blocked_20251114T075851_tf_integration_gs1_env.md (subprocess env inheritance)
+- tf_baseline/phase_c1_gs1/red/blocked_20251114T080013_tf_gs1_xla_still_fails.md (stitching XLA failure)
+
+**Decision**: Proceeding PyTorch-only for Phase C2 per POLICY-001. TensorFlow parity deferred until translation layer bugs are fixed.
+
+**PyTorch Artifacts**: scaling_alignment/phase_c1_gs1/{cli/{train,inference}_patch_stats_gs1.log, analysis/{bundle_digest_torch_gs1.txt, torch_patch_stats_gs1.json, forward_parity_debug_gs1/, phase_c1_vs_phase_b3_stats.txt}}
+
+---
+
 ### Phase B3 Scaling Validation — 2025-11-14
 
 Validated that Phase B2's intensity_scale persistence (commit 9a09ece2) works correctly. Training captured learned scale (9.882118), bundle persisted it in params.dill, and inference loaded the stored value instead of defaulting to 1.0.

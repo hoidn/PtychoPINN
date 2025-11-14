@@ -1,4 +1,16 @@
 ### Turn Summary
+Completed Phase C1c GS1 evidence consolidation: generated stats-delta artifact comparing Phase B3 (gridsize=2, var_zero_mean=8.97e9) vs GS1 (gridsize=1, var_zero_mean=0.0), mirrored file into both tf_baseline/phase_c1_gs1 and scaling_alignment/phase_c1_gs1 folders (sha1: 50ac27fa99bd12a332fdbb44cec98da92d3dac74).
+Updated hub artifact inventory and summaries with Phase C1 GS1 section documenting PyTorch-only completion (bundle c3124f2d, intensity_scale=9.882118 persisted correctly) plus three TensorFlow blocker files proving translation layer failures across XLA, non-XLA, and gridsize=1 stitching paths.
+Decision documented: proceeding PyTorch-only for Phase C2 per POLICY-001 with dataset note confirming no divergence from Phase B3 baseline (same fly001_reconstructed dataset).
+Next: Phase C2 PyTorch-only parity validation per implementation plan.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{analysis/artifact_inventory.txt, summary.md, tf_baseline/phase_c1_gs1/analysis/phase_c1_gs1_stats.txt, scaling_alignment/phase_c1_gs1/analysis/phase_c1_vs_phase_b3_stats.txt}
+
+Checklist:
+- Files touched: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{analysis/artifact_inventory.txt, summary.md, tf_baseline/phase_c1_gs1/analysis/phase_c1_gs1_stats.txt, scaling_alignment/phase_c1_gs1/analysis/phase_c1_vs_phase_b3_stats.txt}, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
+- Tests run: none
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{analysis/artifact_inventory.txt, summary.md, tf_baseline/phase_c1_gs1/analysis/phase_c1_gs1_stats.txt, scaling_alignment/phase_c1_gs1/analysis/phase_c1_vs_phase_b3_stats.txt}
+
+### Turn Summary
 GS1 fallback evidence lives only in the subfolders, so the main hub inventory/summary still stop at Phase B3 and reviewers can’t see the gridsize=1 PyTorch results or the TensorFlow blocker chain.
 Re-scoped Phase C1 to compute a stats delta between `scaling_alignment/phase_b3/analysis/forward_parity_debug_scaling/stats.json` and `scaling_alignment/phase_c1_gs1/analysis/forward_parity_debug_gs1/stats.json`, drop the text file into both `tf_baseline/phase_c1_gs1/analysis/phase_c1_gs1_stats.txt` and `scaling_alignment/phase_c1_gs1/analysis/phase_c1_vs_phase_b3_stats.txt`, and refresh `$HUB/analysis/artifact_inventory.txt` / `$HUB/summary.md` with a GS1 dataset note plus TF blocker references.
 Next: run the python snippet from plan §C1c to emit the stats-delta file, mirror it into the PyTorch folder, capture sha1s, then update the inventory and summaries with those paths and the blocker citations so Phase C2 can proceed PyTorch-only.

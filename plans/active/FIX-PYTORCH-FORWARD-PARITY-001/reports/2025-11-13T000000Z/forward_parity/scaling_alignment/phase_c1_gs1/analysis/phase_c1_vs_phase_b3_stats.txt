@@ -1,0 +1,6 @@
+# Phase C1 GS1 fallback vs Phase B3 scaling
+phase_b3.patch.var_zero_mean=8965544960.0
+phase_c1_gs1.patch.var_zero_mean=0.0
+ratio_patch_var_zero_mean=0.0
+phase_b3.canvas.var_zero_mean=n/a
+phase_c1_gs1.canvas.var_zero_mean=0
