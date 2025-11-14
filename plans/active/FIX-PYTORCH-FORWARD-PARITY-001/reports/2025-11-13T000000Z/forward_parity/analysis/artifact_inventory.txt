@@ -347,3 +347,75 @@ All three blocker files show identical error signatures, confirming:
 2. Add instrumentation to log actual tensor shapes in `_translate_images_simple:199` before reshape
 3. Compare training vs eval batch dimensions to identify the shape mismatch root cause
 4. Either extend existing guard or create separate eval-path guard test
+
+## Phase C1d — TF Scaled Baseline Rerun (Fourth Attempt, 2025-11-14T1555Z)
+**Status**: BLOCKED - Inference reshape error persists (fourth consecutive failure)
+
+**Summary**:
+Fourth attempt executed per FIX-TF-C1D-SCALED-RERUN-001 blocker focus. Guard test passed GREEN confirming training-time translation layer working, but scaled TF CLI failed during evaluation/inference with identical error as prior three attempts. Error signature unchanged: 0-element tensor reshape in `_translate_images_simple:199` during eval phase.
+
+**Guard Test** (PASSED):
+- Selector: `pytest tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_guard -vv`
+- Result: GREEN (1 passed in 5.00s, run at 2025-11-14T1555Z)
+- Log: green/pytest_tf_translation_guard.log (refreshed from /tmp/pytest_tf_translation_guard.log)
+- Confirms training-time non-XLA translation fallback working correctly
+
+**Environment Capture**:
+- File: tf_baseline/phase_c1_scaled/cli/env_capture_scaled.txt
+- Content:
+  ```
+  TF_XLA_FLAGS=--tf_xla_auto_jit=0
+  USE_XLA_TRANSLATE=0
+  ```
+
+**CLI Execution** (FAILED):
+- Command: See blocker document for full CLI invocation
+- Training: SUCCESS (epoch 1/1, 8/8 batches, loss=-2,700,843.25)
+- Evaluation: FAILED during model.predict()
+- Error: `InvalidArgumentError: Input to reshape is a tensor with 0 values, but the requested shape has 4`
+- Location: `ptycho/tf_helper.py:199` in `_translate_images_simple`
+- Log: tf_baseline/phase_c1_scaled/cli/train_tf_phase_c1_scaled.log (705 lines, refreshed 2025-11-14T1555Z)
+
+**Blocker Document**:
+- File: tf_baseline/phase_c1_scaled/red/blocked_20251114T155500Z_tf_translation_guard.md
+- Fourth consecutive identical failure documented
+- All prior blockers reference same error signature:
+  1. blocked_20251114T153747_tf_translation_guard.md
+  2. blocked_20251114T232542Z_tf_translation_guard.md
+  3. blocked_20251114T233123Z_tf_translation_guard.md
+  4. blocked_20251114T155500Z_tf_translation_guard.md (this attempt)
+
+**Root Cause Confirmed**:
+Guard test `test_non_xla_translation_guard` exercises training-time forward path only (lines 46-87):
+- Creates fake images with batch=gridsize^2=4 (simulating `_channel_to_flat` output)
+- Creates fake translations with batch=1 (simulating original batch before flattening)
+- Mocks `should_use_xla()` to return False
+- Validates fallback to `_translate_images_simple` succeeds
+
+However, the guard does NOT cover the eval/inference path where:
+- Different batching logic applies during `model.predict()`
+- Test dataset processing (7597 images vs 32 training groups)
+- Stitching operation produces 0-element tensors
+- Batch dimension mismatch manifests differently than training path
+
+**Missing Artifacts** (CLI failed before generation):
+- tf_baseline/phase_c1_scaled/analysis/forward_parity_debug_tf/ — Empty directory (inference crashed before debug dump)
+- tf_baseline/phase_c1_scaled/run_scaled/wts.h5 — Training artifacts may exist but inference artifacts missing
+
+**Evidence Status**:
+✓ Guard selector log captured (GREEN)
+✓ CLI log captured (FAILED during eval)
+✓ Environment capture documented
+✓ Blocker document created with analysis
+✗ TensorFlow forward parity debug artifacts NOT generated
+✗ stats.json/offsets.json/pngs NOT available
+
+**Recommendations** (from blocker document):
+1. **Extend guard test** to cover eval/inference path with test dataset
+2. **Investigate eval batch shapes** via instrumentation at `tf_helper.py:789` (translate_core entry)
+3. **Defer TensorFlow parity** and proceed PyTorch-only per POLICY-001 until translation layer bugs fixed
+
+**Return Condition**:
+This blocker is resolved when EITHER:
+- Guard extended + scaled TF CLI both GREEN with artifacts generated, OR
+- Documented decision to defer TensorFlow parity with TF-NON-XLA-SHAPE-001 updated in docs/findings.md
