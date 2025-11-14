@@ -1,0 +1,42 @@
+# Phase C2 PyTorch-only Forward Parity Metrics Comparison
+
+## Configuration
+Baseline: Phase B3 (gridsize=2)
+Candidate: Phase C1 GS1 fallback (PyTorch-only)
+Overall Status: ok
+
+## Policy Citations
+POLICY-001: PyTorch (torch>=2.2) is mandatory; TensorFlow comparison blocked pending translation layer fixes.
+CONFIG-001: Both backends should bridge via update_legacy_dict(params.cfg, config) for equivalent stats.
+
+## Patch Amplitude
+
+  mean:
+    Baseline:  5.146620e+04
+    Candidate: 0.000000e+00
+    Delta:     -5.146620e+04
+    Ratio:     0.000000 (ok)
+  std:
+    Baseline:  9.469914e+04
+    Candidate: 0.000000e+00
+    Delta:     -9.469914e+04
+    Ratio:     0.000000 (ok)
+  var_zero_mean:
+    Baseline:  8.965545e+09
+    Candidate: 0.000000e+00
+    Delta:     -8.965545e+09
+    Ratio:     0.000000 (ok)
+
+## Canvas Amplitude
+
+  mean:
+    Baseline:  3.303306e+03
+    Candidate: 0.000000e+00
+    Delta:     -3.303306e+03
+    Ratio:     0.000000 (ok)
+  std:
+    Baseline:  2.609086e+04
+    Candidate: 0.000000e+00
+    Delta:     -2.609086e+04
+    Ratio:     0.000000 (ok)
+  var_zero_mean: Status=missing_var_zero_mean
