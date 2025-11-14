@@ -1,7 +1,7 @@
 {
   "iteration": 360,
   "expected_actor": "galph",
-  "status": "complete",
+  "status": "running-galph",
   "last_update": "2025-11-14T10:54:25Z",
   "lease_expires_at": "2025-11-14T11:04:25Z",
   "galph_commit": "a3f17b17",
