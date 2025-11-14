@@ -1,4 +1,43 @@
 ### Turn Summary
+Baseline compare_models on the dense-test split still aborts with `DIAGNOSTIC baseline_output stats: mean=0.000000 ... nonzero_count=0` so `analysis/metrics_summary.json` and `analysis/dose_1000/dense/test/comparison_metrics.csv` never gain Baseline rows and `report_phase_g_dense_metrics.py` fails immediately (`plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/logs/logs/debug.log#L539-L550`, `.../cli/aggregate_report_cli.log:1-11`).
+Dense-train logs prove the instrumentation still records non-zero Baseline outputs (`analysis/.../dense/train/logs/logs/debug.log#L534-L542`), so the split-specific regression plus missing preview/verification artifacts keeps the Phase G bundle blocked pending a counted rerun.
+A one-off probe rebuilt the Phase C containers with `n_images=64` and showed flattened `baseline_offsets` for dense-test shifted to ≈273 ± 86 px versus ≈185 ± 72 px for dense-train, so the next engineer loop must center offsets in `scripts/compare_models.py`, add debug flags/NPZ dumps, rerun the guarded compare_models commands, and only then follow the Phase D pytest guard → counted `run_phase_g_dense.py --clobber` → metrics helpers → fully parameterized `--post-verify-only` chain until `{analysis}` holds the SSIM/verification/highlights/preview/inventory bundle.
+Next: land the offset-centering + debug plumbing, prove dense-train/dense-test compare_models both emit canonical Baseline rows, then execute the counted pipeline/post-verify sweep per plan; blockers (zero Baseline stats, missing preview, verification <10/10) must be logged under `$HUB/red/blocked_<timestamp>.md` with the failing command signature.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/logs/logs/debug.log#L539-L550, .../analysis/dose_1000/dense/train/logs/logs/debug.log#L534-L542, .../cli/aggregate_report_cli.log:1-11, .../cli/run_phase_g_dense_post_verify_only.log:1-23
+
+Checklist:
+- Files touched: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md; docs/fix_plan.md; input.md; galph_memory.md
+- Tests run: none
+- Artifacts updated: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/{train,test}/logs/logs/debug.log (referenced); .../cli/{aggregate_report_cli.log,run_phase_g_dense_post_verify_only.log}; offset micro-probe recorded below
+
+#### One-off analysis — baseline offset stats (n_images=64)
+```python
+from pathlib import Path
+from ptycho.workflows.components import load_data, create_ptycho_data_container
+from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
+from scripts.compare_models import prepare_baseline_inference_data
+from ptycho import params as p
+
+def summarize(split, path):
+    raw = load_data(str(path), n_images=64)
+    cfg = TrainingConfig(model=ModelConfig(N=raw.probeGuess.shape[0], gridsize=2),
+                         n_groups=raw.diff3d.shape[0], neighbor_count=7,
+                         train_data_file=path)
+    update_legacy_dict(p.cfg, cfg)
+    container = create_ptycho_data_container(raw, cfg)
+    _, offsets = prepare_baseline_inference_data(container)
+    return offsets.mean(), offsets.std(), offsets.min(), offsets.max()
+
+base = Path("plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000")
+train_stats = summarize("train", base/"patched_train.npz")
+test_stats = summarize("test", base/"patched_test.npz")
+print(train_stats, test_stats)
+```
+Results:
+- train offsets: mean≈185.18, std≈72.14, min≈58.06, max≈401.35
+- test offsets: mean≈272.80, std≈85.76, min≈51.38, max≈427.88
+
+### Turn Summary
 Translation regression tests remain GREEN (2/2 passed in 6.20s); fast debug runs with `--n-test-groups 10` confirmed the Baseline zero-output issue on test split while train split produces sparse but non-zero outputs (mean=0.000415, 406 nonzero pixels).
 Test split Baseline inference returns completely zero outputs (mean=0.0, 0 nonzero) despite valid inputs (mean=0.112296, 33937 nonzero), triggering the instrumented RuntimeError as designed and halting execution before wasting compute on full pipeline.
 Blocker documented (`red/blocked_20251113T203727Z_baseline_test_zero_confirmed.md`) with fast-loop evidence, decision point, and recommendation to proceed with PINN vs PtyChi only metrics.
