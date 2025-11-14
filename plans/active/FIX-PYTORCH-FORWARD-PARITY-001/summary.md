@@ -1,5 +1,16 @@
 ### Turn Summary
-Validated that Ralph’s C1c GS1 consolidation landed (stats delta + inventory/summary updates) and confirmed the Reports Hub now exposes the PyTorch-only fallback evidence plus TF blocker files.
+Executed Phase C2 PyTorch-only comparison by creating `bin/phase_c2_compare_stats.py` (Tier-2 helper with argparse/docstring citing POLICY-001/CONFIG-001), running it against Phase B3 vs GS1 stats, and capturing the variance collapse metrics (patch.var_zero_mean dropped from 8.97e9 to 0.0).
+Updated the hub artifact inventory and both summaries with the Phase C2 section documenting the complete variance collapse at gridsize=1, referencing the three TensorFlow blocker files, and noting that MAE/SSIM comparisons are deferred until TF translation layer unblocks.
+Next: Phase C3 regression guards will target gridsize≥2 configurations; rerun the comparison script with TF stats when available.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/bin/phase_c2_compare_stats.py, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{analysis/phase_c2_pytorch_only_metrics.txt, analysis/phase_c2_pytorch_only_metrics.txt.sha1, cli/phase_c2_compare_stats.log, analysis/artifact_inventory.txt, summary.md}, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
+
+Checklist:
+- Files touched: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/bin/phase_c2_compare_stats.py, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/analysis/{phase_c2_pytorch_only_metrics.txt,phase_c2_pytorch_only_metrics.txt.sha1,artifact_inventory.txt}, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{cli/phase_c2_compare_stats.log,summary.md}, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
+- Tests run: none
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{analysis/artifact_inventory.txt,summary.md}, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
+
+### Turn Summary
+Validated that Ralph's C1c GS1 consolidation landed (stats delta + inventory/summary updates) and confirmed the Reports Hub now exposes the PyTorch-only fallback evidence plus TF blocker files.
 Expanded the implementation plan with a concrete Phase C2 PyTorch-only comparison workflow: new Tier‑2 script path, CLI instructions, metrics/sha1 destinations, and blocker handling for missing stats so reviewers can quantify variance collapse without rerunning TF.
 Next: author `bin/phase_c2_compare_stats.py`, run it against Phase B3 vs GS1 stats, capture metrics/log/sha1 inside the hub, then refresh artifact inventory and summaries or file a blocker if the stats JSONs are missing.
 Artifacts: docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md}

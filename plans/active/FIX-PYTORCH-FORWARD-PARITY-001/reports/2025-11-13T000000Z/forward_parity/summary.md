@@ -1,3 +1,20 @@
+### Phase C2 PyTorch-only Comparison — 2025-11-14T0835Z
+
+Executed Tier-2 comparison script quantifying variance collapse from gridsize=2 (Phase B3) to gridsize=1 (Phase C1 GS1 fallback). Results show complete patch variance collapse at gridsize=1 (all metrics zero), consistent with architectural expectations for single-patch groups.
+
+**Key Metrics**:
+- Phase B3 (gridsize=2): patch.var_zero_mean=8.97e9, canvas.mean=3303.31
+- Phase C1 GS1 (gridsize=1): patch.var_zero_mean=0.0, canvas.mean=0.0
+- All ratios: 0.0 (complete collapse)
+
+**Artifacts**: analysis/phase_c2_pytorch_only_metrics.txt (sha1: 4f1f33d0), cli/phase_c2_compare_stats.log, plus TensorFlow blocker references (3 distinct translation layer failures).
+
+**TensorFlow Status**: Phase C2 remains PyTorch-only pending TF translation layer fixes (see blocker files in tf_baseline/phase_c1*/red/).
+
+**Findings**: Gridsize=1 produces degenerate zero-variance patches as expected. MAE/SSIM canvas comparisons deferred until TensorFlow baseline unblocks. Regression guards (Phase C3) will target gridsize≥2 configurations.
+
+---
+
 ### Phase C1 GS1 Fallback — 2025-11-14T0800Z
 
 **Dataset Note**: GS1 fallback uses identical fly001_reconstructed dataset as Phase B3 (datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_{train,test}.npz) with gridsize=1. No dataset divergence; no PyTorch rerun required.

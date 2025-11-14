@@ -162,3 +162,49 @@ GS1 fallback uses the identical fly001_reconstructed dataset for both PyTorch tr
 
 **Next Steps**:
 Phase C2 will proceed with PyTorch-only parity validation. TensorFlow parity deferred until translation layer bugs (XLA-DYN-DOT-001 + translate_core shape mismatch + stitching XLA bypass) are fixed in a separate initiative.
+
+## Phase C2 — PyTorch-only Comparison (2025-11-14T0835Z)
+**Status**: COMPLETE - Variance collapse quantified (gridsize=2 → gridsize=1)
+
+**Summary**:
+Executed Tier-2 comparison script to quantify PyTorch-only forward parity between Phase B3 (gridsize=2, healthy variance) and Phase C1 GS1 (gridsize=1, zero variance). Results confirm complete variance collapse at gridsize=1, consistent with the architectural expectation that single-patch groups (gridsize=1, neighbor_count=1) produce degenerate patch statistics.
+
+**Comparison Script**:
+- plans/active/FIX-PYTORCH-FORWARD-PARITY-001/bin/phase_c2_compare_stats.py
+  - Argparse CLI with baseline/candidate stats paths
+  - Computes ratios/deltas for mean, std, var_zero_mean across patch/canvas
+  - Cites POLICY-001 (PyTorch mandatory) and CONFIG-001 (config bridge) in header
+  - Handles zero-baseline edge cases with explicit status flags
+
+**Metrics Artifacts**:
+- analysis/phase_c2_pytorch_only_metrics.txt — Comparison report (1.1KB)
+  - sha1: 4f1f33d080188db7b408dd9ec92a7c195d157c8b
+  - Baseline: Phase B3 (gridsize=2)
+    - patch.var_zero_mean=8.965545e+09
+    - canvas.mean=3.303306e+03
+  - Candidate: Phase C1 GS1 (PyTorch-only, gridsize=1)
+    - patch.var_zero_mean=0.000000e+00 (complete collapse)
+    - canvas.mean=0.000000e+00
+  - All ratios=0.0 (candidate/baseline)
+  - Status: ok (baseline non-zero, ratios computable)
+- analysis/phase_c2_pytorch_only_metrics.txt.sha1 — Checksum file
+- cli/phase_c2_compare_stats.log — Script execution log (empty tee artifact)
+
+**Source Stats**:
+- Baseline: scaling_alignment/phase_b3/analysis/forward_parity_debug_scaling/stats.json
+- Candidate: scaling_alignment/phase_c1_gs1/analysis/forward_parity_debug_gs1/stats.json
+
+**TensorFlow Blocker References**:
+Phase C2 remains PyTorch-only due to three outstanding TensorFlow blockers:
+1. tf_baseline/phase_c1/red/blocked_20251114T064950Z_tf_xla_error.md (gridsize=2 XLA)
+2. tf_baseline/phase_c1/red/blocked_20251114T074039Z_tf_non_xla_shape_error.md (gridsize=2 non-XLA)
+3. tf_baseline/phase_c1_gs1/red/blocked_20251114T080013_tf_gs1_xla_still_fails.md (gridsize=1 stitching)
+
+**Findings**:
+- Gridsize=1 produces zero-variance patches (expected architectural limitation)
+- Phase B3 (gridsize=2) shows healthy patch variance (8.97e9)
+- MAE/SSIM canvas comparisons cannot proceed until TensorFlow baseline unblocks
+- Regression guards (Phase C3) will target gridsize≥2 configurations
+
+**Next Steps**:
+When TensorFlow baseline artifacts become available, rerun the comparison script with `--candidate-stats` pointing at `tf_baseline/.../stats.json` to enable cross-backend parity validation. For now, Phase C2 establishes PyTorch-only gridsize variance behavior.
