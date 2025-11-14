@@ -1,3 +1,14 @@
+### Turn Summary (2025-11-16T231500Z)
+Validated Ralph's payload-handoff fix (dc5415ba) and confirmed the forward_parity hub still lacks the short Torch baseline/inference artifacts with --log-patch-stats enabled, so Phase A now needs execution rather than more plumbing.
+Audit of HUB/analysis, existing CLI logs, and git log -10 shows the latest training log predates instrumentation and no torch_patch_stats.json/torch_patch_grid.png exist under the hub, so I marked checklist A0/A1 complete and rewrote the Do Now to rerun the plan/plan.md short training + inference commands with instrumentation.
+Next: rerun `pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv` for a fresh log, execute the 10-epoch training + inference pair with `--log-patch-stats --patch-stats-limit 2`, copy the resulting JSON/PNG plus debug dumps into `$HUB/analysis`, refresh `$HUB/analysis/artifact_inventory.txt`, and update the hub + initiative summaries (blockers → `$HUB/red/blocked_<timestamp>.md`).
+Artifacts: docs/fix_plan.md, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,plan/plan.md}
+
+Checklist:
+- Files touched: docs/fix_plan.md, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md}, input.md, galph_memory.md
+- Tests run: none
+- Artifacts updated: docs/fix_plan.md, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md}, input.md, galph_memory.md
+
 ### Turn Summary (2025-11-16T201500Z)
 Fixed the CLI→workflow payload discard blocker by threading TrainingPayload through run_cdi_example_torch→train_cdi_model_torch→_train_with_lightning so instrumentation flags (log_patch_stats/patch_stats_limit) are preserved instead of being dropped during config rebuild.
 Root cause was that train.py built a payload with CLI overrides but discarded it before calling run_cdi_example_torch, so _train_with_lightning re-ran create_training_payload without the flags.

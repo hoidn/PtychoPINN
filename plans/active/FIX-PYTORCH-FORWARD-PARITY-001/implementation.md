@@ -47,15 +47,15 @@ PyTorch forward inference currently produces impulse-like patches with extremely
 
 ## Phase A — Diagnostics & Baseline Capture
 ### Checklist
-- [ ] A0: Thread the CLI TrainingPayload (or an equivalent override hook) from `ptycho_torch/train.py::cli_main` into `run_cdi_example_torch → train_cdi_model_torch → _train_with_lightning` so the Lightning module actually receives `pt_inference_config.log_patch_stats` / `patch_stats_limit` before rerunning the baseline.
-- [ ] A1: Extend `ptycho_torch/model.py` and `ptycho_torch/inference.py` with one-time per-patch variance logging plus normalized patch grid dumps.
+- [x] A0: Thread the CLI TrainingPayload (or an equivalent override hook) from `ptycho_torch/train.py::cli_main` into `run_cdi_example_torch → train_cdi_model_torch → _train_with_lightning` so the Lightning module actually receives `pt_inference_config.log_patch_stats` / `patch_stats_limit` before rerunning the baseline. (dc5415ba)
+- [x] A1: Extend `ptycho_torch/model.py` and `ptycho_torch/inference.py` with one-time per-patch variance logging plus normalized patch grid dumps.
 - [ ] A2: Re-run the short Torch baseline (10 epochs, 256 samples) via `python -m ptycho_torch.train` and `python -m ptycho_torch.inference --debug-dump`, archiving logs/PNG/JSON artifacts under `.../reports/.../torch_baseline/`.
 - [ ] A3: Summarize baseline stats (mean, std, `var_zero_mean`) and normalized grid observations in a notebook/script stored under the Reports Hub.
 
 ### Pending Tasks (Engineering)
-- Fix the CLI/workflow bridge so the TrainingPayload created in `ptycho_torch/train.py:720-758` is actually reused downstream (currently `_train_with_lightning` re-derives configs without patch-stat overrides, see `ptycho_torch/workflows/components.py:664-690`).
-- Once overrides propagate, implement/validate the instrumentation hooks and rerun the baseline until logs/JSON entries appear as expected.
-- Store commands, logs, and PNGs inside the Reports Hub; update `analysis/artifact_inventory.txt` accordingly.
+- The CLI/workflow bridge now threads the TrainingPayload from commit `dc5415ba`, and instrumentation hooks already emit stats under the pytest selector.
+- Re-run the short baseline + inference commands with `--log-patch-stats --patch-stats-limit 2`, capture the emitted JSON/PNG artifacts, and copy them into the Reports Hub alongside the CLI logs.
+- Refresh `$HUB/analysis/artifact_inventory.txt`, `$HUB/summary.md`, and the initiative summary once artifacts land; log blockers in `$HUB/red/blocked_<timestamp>.md`.
 
 ### Notes & Risks
 - Keep instrumentation gated (first batch or debug flag) to avoid log spam during full training.
