@@ -1,3 +1,14 @@
+### Turn Summary (2025-11-17T154500Z)
+Audited the forward_parity hub and confirmed `analysis/artifact_inventory.txt` still documents only the 2025-11-14 baseline and both CLI logs begin with `2025-11-14` timestamps, so no post-TrainingPayload evidence exists inside `$HUB` yet.
+Reviewed git commit `f2264803` to verify Ralph only refreshed `outputs/torch_forward_parity_baseline/analysis/torch_patch_stats*.json` plus `train_debug.log`, leaving `$HUB/analysis/` untouched and reinforcing the need for a fresh rerun.
+Next: guard env vars (AUTHORITATIVE_CMDS_DOC + HUB), rerun the pytest selector, execute the documented 10-epoch train + inference commands with `--log-patch-stats --patch-stats-limit 2`, copy the new torch_patch_stats/grid/debug artifacts into `$HUB/analysis/`, refresh the hub + initiative summaries, and drop a `$HUB/red/blocked_<timestamp>.md` if CUDA/memory stops any command.
+Artifacts: docs/fix_plan.md, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md}, input.md, galph_memory.md
+
+Checklist:
+- Files touched: docs/fix_plan.md, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md}, input.md, galph_memory.md
+- Tests run: none
+- Artifacts updated: docs/fix_plan.md, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md}, input.md, galph_memory.md
+
 ### Turn Summary (2025-11-14T040230Z)
 Executed complete Phase A evidence refresh post-dc5415ba: ran pytest selector GREEN (1/1 PASSED, 7.07s), trained 10-epoch baseline with fly001_reconstructed datasets (256 images, gridsize=2, batch=4), ran inference with debug dumps, and captured fresh torch_patch_stats artifacts.
 Training stats show non-zero variance (var_zero_mean=1.05e-07, mean=0.000170, std=0.000325), inference shows expected higher variance (var_zero_mean=13562567.0, mean=2010.464) for unnormalized outputs, and all artifacts (JSON/PNG/debug dumps) materialized correctly under the hub with 2025-11-14 04:02-04:04 timestamps.
