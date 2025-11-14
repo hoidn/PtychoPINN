@@ -1,3 +1,14 @@
+### Turn Summary (2025-11-14T040230Z)
+Executed complete Phase A evidence refresh post-dc5415ba: ran pytest selector GREEN (1/1 PASSED, 7.07s), trained 10-epoch baseline with fly001_reconstructed datasets (256 images, gridsize=2, batch=4), ran inference with debug dumps, and captured fresh torch_patch_stats artifacts.
+Training stats show non-zero variance (var_zero_mean=1.05e-07, mean=0.000170, std=0.000325), inference shows expected higher variance (var_zero_mean=13562567.0, mean=2010.464) for unnormalized outputs, and all artifacts (JSON/PNG/debug dumps) materialized correctly under the hub with 2025-11-14 04:02-04:04 timestamps.
+Next: Phase A checklist A0/A1/A2/A3 complete, ready for supervisor handoff to Phase B (scaling/config alignment: object_big defaults and intensity_scale persistence per CONFIG-001/POLICY-001).
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_stats_rerun.log,cli/train_patch_stats_rerun.log,cli/inference_patch_stats_rerun.log,analysis/torch_patch_stats.json,analysis/torch_patch_grid.png,analysis/torch_patch_stats_inference.json,analysis/torch_patch_grid_inference.png,analysis/forward_parity_debug/,analysis/artifact_inventory.txt}
+
+Checklist:
+- Files touched: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_stats_rerun.log,cli/train_patch_stats_rerun.log,cli/inference_patch_stats_rerun.log,analysis/artifact_inventory.txt,analysis/torch_patch_stats.json,analysis/torch_patch_grid.png,analysis/torch_patch_stats_inference.json,analysis/torch_patch_grid_inference.png}, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
+- Tests run: pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_patch_stats_rerun.log,cli/train_patch_stats_rerun.log,cli/inference_patch_stats_rerun.log,analysis/torch_patch_stats.json,analysis/torch_patch_grid.png,analysis/torch_patch_stats_inference.json,analysis/torch_patch_grid_inference.png,analysis/forward_parity_debug/,analysis/artifact_inventory.txt}
+
 ### Turn Summary (2025-11-17T123500Z)
 Audited Ralph’s 876eeb12 evidence drop and confirmed the forward_parity hub still only contains the 2025-11-14 patch-stat run (`cli/train_patch_stats_rerun.log:1-4`, `analysis/artifact_inventory.txt:3-35`), so the TrainingPayload fix still lacks proof.
 Updated the implementation plan, fix-plan entry, input.md, and initiative summary to reiterate that the pytest selector plus the 10-epoch train/infer commands must be rerun with `--log-patch-stats --patch-stats-limit 2`, copying JSON/PNG + debug dumps into `$HUB/analysis/` instead of leaving them under `outputs/`.
