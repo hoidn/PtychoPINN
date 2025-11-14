@@ -1,3 +1,9 @@
+### Turn Summary (2025-11-17T123500Z)
+Audited Ralph’s 876eeb12 evidence drop and confirmed the forward_parity hub still only contains the 2025-11-14 patch-stat run (`cli/train_patch_stats_rerun.log:1-4`, `analysis/artifact_inventory.txt:3-35`), so the TrainingPayload fix still lacks proof.
+Updated the implementation plan, fix-plan entry, input.md, and initiative summary to reiterate that the pytest selector plus the 10-epoch train/infer commands must be rerun with `--log-patch-stats --patch-stats-limit 2`, copying JSON/PNG + debug dumps into `$HUB/analysis/` instead of leaving them under `outputs/`.
+Next: Ralph should guard HUB/AUTH env, rerun the selector, execute the documented commands, refresh `$HUB/analysis/artifact_inventory.txt` + `$HUB/summary.md`, and file `$HUB/red/blocked_<timestamp>.md` citing POLICY-001/CONFIG-001 if CUDA/memory interrupts anything.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{cli/train_patch_stats_rerun.log,analysis/artifact_inventory.txt,analysis/torch_patch_stats.json}
+
 ### Turn Summary (2025-11-14T033900Z)
 Executed fresh Phase A evidence refresh post-dc5415ba: ran pytest selector GREEN (1/1 PASSED, 7.20s), completed 10-epoch training with instrumentation on fly001_reconstructed datasets, and ran inference with debug dumps.
 Training stats show healthy non-zero variance (var_zero_mean=1.33e-05, mean=0.002091, std=0.003645), inference shows expected higher variance (var_zero_mean=1953579.0, mean=765.820) for unnormalized outputs, and all artifacts (JSON/PNG/debug dumps) materialized correctly under the hub.
