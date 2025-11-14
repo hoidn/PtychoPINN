@@ -1,4 +1,10 @@
 ### Turn Summary
+10-group compare_models debug runs now prove the offset-centering fix works (train mean=0.284, test mean=0.079 with non-zero `baseline_output` counts logged under `analysis/dose_1000/dense/{split}/debug/baseline_debug_stats.json`), so Baseline inference is healthy in the limited probe.
+The counted train/test compare_models logs are still the pre-fix artifacts (`analysis/dose_1000/dense/test/logs/logs/debug.log:540` reports zeros and `analysis/dose_1000/dense/test/comparison_metrics.csv` lacks Baseline values), so `analysis/metrics_summary.json`, highlights, preview text, and `analysis/verification_report.json` remain missing (0/10).
+Next: rerun the translation pytest guard, execute full compare_models for dense train/test without the debug limit (tee to `$HUB/cli/compare_models_dense_{split}_full.log`), confirm CSV/JSON Baseline rows plus non-zero DIAGNOSTIC stats, then run the dense acceptance selector, counted `run_phase_g_dense.py --clobber`, metrics helpers, and `--post-verify-only` until `{analysis}` holds SSIM grid/verification/highlights/preview/inventory artifacts with 10/10 validity.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/{train,test}/debug/baseline_debug_stats.json, .../cli/compare_models_dense_{split}_debug_centered.log, .../analysis/dose_1000/dense/test/logs/logs/debug.log
+
+### Turn Summary
 Centered baseline offsets to fix the test-split zero-output blocker (commit 1ff0821a); debug runs with 10 groups prove train/test both emit non-zero Baseline predictions (train mean=0.284, test mean=0.079) after centering offsets from mean≈273px (test) and mean≈185px (train) to zero-mean.
 Root cause was numerical instability in the Baseline model's position-dependent layers when facing the 87px train→test offset distribution shift; centering `flattened_offsets` before inference solved it immediately.
 Translation regression tests remain GREEN (2/2 passed), full suite reports 474 passed/28 failed (pre-existing torch/TF failures unrelated to this change).
