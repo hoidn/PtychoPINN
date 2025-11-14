@@ -1,4 +1,10 @@
 ### Turn Summary
+Validated that Ralph’s C1c GS1 consolidation landed (stats delta + inventory/summary updates) and confirmed the Reports Hub now exposes the PyTorch-only fallback evidence plus TF blocker files.
+Expanded the implementation plan with a concrete Phase C2 PyTorch-only comparison workflow: new Tier‑2 script path, CLI instructions, metrics/sha1 destinations, and blocker handling for missing stats so reviewers can quantify variance collapse without rerunning TF.
+Next: author `bin/phase_c2_compare_stats.py`, run it against Phase B3 vs GS1 stats, capture metrics/log/sha1 inside the hub, then refresh artifact inventory and summaries or file a blocker if the stats JSONs are missing.
+Artifacts: docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md}
+
+### Turn Summary
 Completed Phase C1c GS1 evidence consolidation: generated stats-delta artifact comparing Phase B3 (gridsize=2, var_zero_mean=8.97e9) vs GS1 (gridsize=1, var_zero_mean=0.0), mirrored file into both tf_baseline/phase_c1_gs1 and scaling_alignment/phase_c1_gs1 folders (sha1: 50ac27fa99bd12a332fdbb44cec98da92d3dac74).
 Updated hub artifact inventory and summaries with Phase C1 GS1 section documenting PyTorch-only completion (bundle c3124f2d, intensity_scale=9.882118 persisted correctly) plus three TensorFlow blocker files proving translation layer failures across XLA, non-XLA, and gridsize=1 stitching paths.
 Decision documented: proceeding PyTorch-only for Phase C2 per POLICY-001 with dataset note confirming no divergence from Phase B3 baseline (same fly001_reconstructed dataset).
