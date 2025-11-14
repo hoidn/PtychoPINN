@@ -1,4 +1,10 @@
 ### Turn Summary
+Validated that the hub still reflects the pre-chunked dense-test evidence—`analysis/dose_1000/dense/test/comparison_metrics.csv`, `analysis/metrics_summary.json`, and `analysis/verification_report.json` all show empty Baseline rows, and `cli/aggregate_report_cli.log` / `cli/run_phase_g_dense_post_verify_only.log` remain red—so no Phase G rerun has executed since the chunk helper landed.
+Refreshed the implementation plan, ledger, summary, and `input.md` to keep the Do Now laser-focused on rerunning the translation guard, chunked debug/full compare_models commands (with the documented chunk/batch sizes), Phase D selectors, the clobbered `run_phase_g_dense.py` pipeline, metrics helpers, and the fully parameterized `--post-verify-only` sweep while logging blockers under `$HUB/red/`.
+Next: Ralph must execute that rerun sequence end-to-end and publish fresh Baseline metrics plus the SSIM/verification/highlights/preview/inventory bundle or capture the failing command/signature.
+Artifacts: docs/fix_plan.md; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md; input.md; analysis/dose_1000/dense/test/comparison_metrics.csv; analysis/metrics_summary.json; cli/aggregate_report_cli.log; cli/run_phase_g_dense_post_verify_only.log; analysis/verification_report.json
+
+### Turn Summary
 Translation guard tests GREEN (2/2 passed, 6.15s); debug-limited compare_models runs (320 groups) succeeded for both splits with chunked Baseline producing non-zero outputs (train mean=0.188, test mean=0.159).
 Full train compare_models succeeded with chunked Baseline (mean=0.188, 78.7M nonzero pixels, complete CSV rows), but full test compare_models OOM'd during TensorFlow Cast operation despite chunking, indicating memory issue elsewhere in pipeline (possibly PINN inference or metrics).
 Blocker documented (`red/blocked_20251113T220800Z_test_full_oom_despite_chunking.md`) with evidence that chunked Baseline inference works but full 5216-group test dataset triggers OOM in different operation.

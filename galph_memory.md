@@ -1,3 +1,21 @@
+## 2025-11-16T050500Z: Chunked Baseline rerun still pending after debug-only evidence
+- dwell: 2 (second consecutive planning/doc loop; no new implementation evidence since Ralph’s `cc61f14e` hub/log upload)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Dense-test compare_models artifacts remain pre-chunked, so Phase G metrics/verification are still missing despite the chunk helper landing.
+- Action type: Planning (Perf mode)
+- Mode: Perf
+- Git sync: `git status --porcelain` clean → `timeout 30 git pull --rebase` (already up to date); exported `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` for this loop.
+- Documents/artifacts reviewed: docs/index.md; docs/findings.md (POLICY-001 / CONFIG-001 / DATA-001 / TYPE-PATH-001 / STUDY-001 / TEST-CLI-001 / PREVIEW-PHASE-001 / BASELINE-CHUNKED-001); docs/INITIATIVE_WORKFLOW_GUIDE.md; docs/DEVELOPER_GUIDE.md; docs/COMMANDS_REFERENCE.md; docs/TESTING_GUIDE.md; docs/development/TEST_SUITE_INDEX.md; docs/architecture.md; specs/data_contracts.md; specs/overlap_metrics.md; docs/fix_plan.md; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/{implementation.md,summary.md}; hub summary; `analysis/dose_1000/dense/test/comparison_metrics.csv`; `analysis/metrics_summary.json`; `analysis/verification_report.json`; `cli/aggregate_report_cli.log`; `cli/run_phase_g_dense_post_verify_only.log`; input.md.
+- Findings: Only the debug-limited chunked runs have been executed locally—dense-train CSVs now include Baseline rows, but dense-test CSV/metrics summary remain blank, `analysis/verification_report.json` still reports `n_valid=0/10`, and both `cli/aggregate_report_cli.log` and `cli/run_phase_g_dense_post_verify_only.log` are failing, proving the counted rerun never consumed the new chunk flags inside this repo.
+- Steering: Added plan_update v1.12 plus a fresh Turn Summary, rewrote docs/fix_plan.md and input.md to keep the Do Now focused on translation guard → chunked debug/full compare_models → Phase D selectors → counted `run_phase_g_dense.py --clobber` → metrics helpers → fully parameterized `--post-verify-only`, and reiterated the `$HUB/red/blocked_<timestamp>.md` policy for any missing Baseline rows or verification artifacts.
+- Next actions for Ralph:
+  1. Guard pwd/env + rerun the translation selector (tee log under `$HUB/green/`).
+  2. Run the chunked debug compare_models commands for train/test with `--baseline-debug-limit 320 --baseline-chunk-size 160 --baseline-predict-batch-size 16`, stopping to file `$HUB/red/` if DIAGNOSTIC stats or CSV rows are still zero.
+  3. Execute the full dense train/test compare_models commands with `--baseline-chunk-size 256 --baseline-predict-batch-size 16` and confirm `analysis/dose_1000/dense/{split}/comparison_metrics.csv` plus `analysis/metrics_summary.json` contain Baseline entries.
+  4. Re-run the Phase D acceptance selectors, then `python plans/active/.../bin/run_phase_g_dense.py --hub \"$HUB\" --dose 1000 --view dense --splits train test --clobber` followed by the metrics helpers (`report_phase_g_dense_metrics.py`, `analyze_dense_metrics.py`).
+  5. Finish with `run_phase_g_dense.py --post-verify-only`, ensuring `{analysis}` now has SSIM grid, verification (10/10), highlights, preview, metrics, and artifact inventory or logging blockers with the failing command/signature.
+- <Action State>: [ready_for_implementation]
+- focus=STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 state=ready_for_implementation dwell=2 ralph_last_commit=cc61f14e summary=plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md next_action=translation guard + chunked debug/full compare_models → Phase D selectors → run_phase_g_dense.py --clobber → metrics helpers → run_phase_g_dense.py --post-verify-only
+
 ## 2025-11-16T032500Z: Chunked Baseline rerun briefing refresh
 - dwell: 1 (planning loop only; chunked Baseline helper is already merged but no new implementation evidence landed this turn)
 - Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Dense-test `analysis/dose_1000/dense/test/comparison_metrics.csv` and `analysis/metrics_summary.json` still lack Baseline rows even after chunked inference landed (`scripts/compare_models.py` commit 26c26402), so Phase G metrics/verification/preview artifacts remain missing and `verification_report.json` is stuck at 0/10.

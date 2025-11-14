@@ -642,6 +642,19 @@ Checklist
   <status>approved</status>
 </plan_update>
 
+<plan_update version="1.12">
+  <trigger>Hub inspection on 2025-11-16 shows the chunked helper only ran for the debug-limited slice: train Baseline rows exist but `analysis/dose_1000/dense/test/comparison_metrics.csv` and `analysis/metrics_summary.json` still lack Baseline entries, so `cli/aggregate_report_cli.log`/`cli/run_phase_g_dense_post_verify_only.log` stay red and `analysis/verification_report.json` reports n_valid=0/10.</trigger>
+  <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md, docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/DEVELOPER_GUIDE.md, docs/COMMANDS_REFERENCE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/architecture.md, specs/data_contracts.md, specs/overlap_metrics.md, docs/fix_plan.md, galph_memory.md, input.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/summary/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/comparison_metrics.csv, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/metrics_summary.json, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/logs/logs/debug.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/aggregate_report_cli.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_post_verify_only.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/verification_report.json</documents_read>
+  <current_plan_path>plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md</current_plan_path>
+  <proposed_changes>- Keep the Do Now sequence intact (translation guard → debug chunked runs → full chunked rerun → Phase D selectors → counted pipeline → metrics helpers → `--post-verify-only`) but call out the specific stale artifacts so success criteria are unambiguous.
+- Remind Ralph to stop immediately and file `$HUB/red/blocked_<timestamp>.md` if dense-test Baseline DIAGNOSTIC stats or CSV rows are still empty before moving on to Phase D.
+- Tie the metrics/verification steps back to the failing logs (aggregate report, post-verify, verification_report.json) so evidence reviewers know which files must flip to green.</proposed_changes>
+  <impacts>Without rerunning compare_models + metrics/verification locally, PREVIEW-PHASE-001 and TEST-CLI-001 failures persist and the study cannot publish.</impacts>
+  <ledger_updates>Updated this plan, docs/fix_plan.md, the initiative summary, input.md, and galph_memory with the refreshed evidence while keeping the focus ready_for_implementation.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
 - **Do Now — Counted Phase G rerun + verification bundle (ready_for_implementation):**
   1. Guard the working directory and env vars so PREVIEW-PHASE-001 / TEST-CLI-001 evidence lands in the canonical hub:
      ```bash
