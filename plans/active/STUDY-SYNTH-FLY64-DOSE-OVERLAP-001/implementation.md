@@ -681,6 +681,62 @@ Checklist
   <status>approved</status>
 </plan_update>
 
+<plan_update version="1.21">
+  <trigger>Dense-test compare_models still fails with `ResourceExhaustedError: failed to allocate memory [Op:Cast]` while building the test container even though chunked Baseline inference is enabled (`analysis/dose_1000/dense/test/logs/logs/debug.log:299-360`, `red/blocked_20251116T010000Z_test_baseline_oom.md`). `scripts/compare_models.py` continues to instantiate a full `PtychoDataContainer` whenever chunking is requested, so GPU memory is exhausted before the chunk loop can run and `analysis/dose_1000/dense/test/comparison_metrics.csv` / `analysis/metrics_summary.json` remain blank.</trigger>
+  <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md, docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/COMMANDS_REFERENCE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/fix_plan.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/logs/logs/debug.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/comparison_metrics.csv, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/red/blocked_20251116T010000Z_test_baseline_oom.md, scripts/compare_models.py</documents_read>
+  <current_plan_path>plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md</current_plan_path>
+  <proposed_changes>- Stop trying to instantiate a full `test_container` during chunked runs; instead slice the RawData per chunk (`slice_raw_data`) and call `create_ptycho_data_container` with a chunk-sized config (`dataclasses.replace(final_config, n_groups=n_chunk)`), capturing DIAGNOSTIC logs + offsets for each slice before moving to the next chunk.
+- When chunking, derive the scan coordinates for alignment from the already-concatenated `pinn_offsets` so we no longer need `test_container.global_offsets` in GPU memory.
+- Update the Do Now so Ralph first lands this code change, then reruns the guarded translation selector and dense **test** compare_models jobs (debug-limited + full) to prove Baseline rows populate `analysis/dose_1000/dense/test/comparison_metrics.csv` before resuming Phase D selectors and the counted Phase G pipeline.</proposed_changes>
+  <impacts>Without eliminating the upfront container allocation the rerun can never reach the metrics/verification stages, so PREVIEW-PHASE-001 / TEST-CLI-001 stay blocked and `{analysis}` cannot be published.</impacts>
+  <ledger_updates>Refreshed this plan, docs/fix_plan.md, the initiative summary, and input.md so the focus shifts to implementing the chunked container path before attempting the dense rerun again.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
+#### Next Do Now — Baseline chunked container fix (2025-11-16T095500Z, planning)
+  1. Guard the working directory + env vars so prompts stay satisfied:
+     ```bash
+     test "$(pwd -P)" = "/home/ollie/Documents/PtychoPINN"
+     export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
+     export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier
+     ```
+  2. Update `scripts/compare_models.py` so chunked Baseline mode never instantiates a full `PtychoDataContainer`:
+     - Introduce a helper (or inline logic) that uses `slice_raw_data(test_data_raw, chunk_start, chunk_end)` plus `dataclasses.replace(final_config, n_groups=chunk_size)` before every chunk so `create_ptycho_data_container` only sees the slice being processed.
+     - Accumulate `baseline_offsets` and outputs per chunk (lists + `np.concatenate`) and log DIAGNOSTIC stats for each chunk + the final concatenated arrays. Respect `--baseline-debug-limit` by capping the total groups processed and breaking early once the limit is reached.
+     - When chunking, derive the alignment offsets from the concatenated `pinn_offsets` rather than `test_container.global_offsets`, and guard new code with actionable error messages if chunk sizes/limits cause empty batches.
+     - Keep the single-shot path untouched for small runs, add comments referencing `analysis/dose_1000/dense/test/logs/logs/debug.log:299-360`, and avoid modifying `ptycho/model.py` / `ptycho/diffsim.py` / `ptycho/tf_helper.py`.
+  3. Re-run the guarded translation selector to prove the regression tests still pass after the script change:
+     ```bash
+     pytest tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split} -vv \
+       | tee "$HUB"/green/pytest_compare_models_translation_fix_v17.log
+     ```
+  4. Exercise the chunked Baseline helper on the dense **test** split with the fast debug slice so we can bail out quickly if the architecture still misbehaves (keep the narrower chunk to guarantee multiple passes):
+     ```bash
+     python -m scripts.compare_models \
+       --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 \
+       --baseline_dir "$HUB"/data/phase_e/dose_1000/baseline/gs1 \
+       --test_data "$HUB"/data/phase_c/dose_1000/patched_test.npz \
+       --output_dir "$HUB"/analysis/dose_1000/dense/test \
+       --ms-ssim-sigma 1.0 --register-ptychi-only \
+       --baseline-debug-limit 320 --baseline-chunk-size 160 --baseline-predict-batch-size 16 \
+       |& tee "$HUB"/cli/compare_models_dense_test_debug.log
+     ```
+     Inspect `$HUB/analysis/dose_1000/dense/test/logs/logs/debug.log` for the new chunk-level DIAGNOSTIC lines plus non-zero Baseline stats before moving on.
+  5. Run the full dense-test compare_models command with chunk size 256 so the canonical artifacts pick up the Baseline evidence:
+     ```bash
+     python -m scripts.compare_models \
+       --pinn_dir "$HUB"/data/phase_e/dose_1000/dense/gs2 \
+       --baseline_dir "$HUB"/data/phase_e/dose_1000/baseline/gs1 \
+       --test_data "$HUB"/data/phase_c/dose_1000/patched_test.npz \
+       --output_dir "$HUB"/analysis/dose_1000/dense/test \
+       --ms-ssim-sigma 1.0 --register-ptychi-only \
+       --baseline-chunk-size 256 --baseline-predict-batch-size 16 \
+       |& tee "$HUB"/cli/compare_models_dense_test_full.log
+     ```
+     Stop immediately and file `$HUB/red/blocked_<timestamp>.md` if any Baseline DIAGNOSTIC stats stay zero or if `analysis/dose_1000/dense/test/comparison_metrics.csv` / `analysis/metrics_summary.json` are still missing Baseline rows.
+  6. Once Baseline metrics exist for dense-test, update `$HUB/summary/summary.md`, docs/fix_plan.md, and galph_memory with the evidence and prepare to resume the Phase D selectors → counted `run_phase_g_dense.py` pipeline captured in the “Dense rerun evidence” Do Now below.
+
 #### Next Do Now — Dense rerun evidence (2025-11-16T073500Z, ready_for_implementation)
   1. Guard the working directory and env vars so PREVIEW-PHASE-001 / TEST-CLI-001 evidence lands in the canonical hub:
      ```bash
