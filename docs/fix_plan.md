@@ -29,42 +29,70 @@
 - Working Plan: `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md`
 - Reports Hub: `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/`
 - Notes: Phase A rerun v3 (2025-11-14T0547Z) confirmed TrainingPayload threading and healthy variance; B1 object_big defaults already enforced (`ptycho_torch/config_factory.py:205-234`). Commit 9a09ece2 threads the learned/fallback `intensity_scale` through `_train_with_lightning → save_torch_bundle → load_inference_bundle_torch` with docs/tests updated (`docs/workflows/pytorch.md:150-189`, `tests/torch/test_model_manager.py:1-200`). Scaling evidence now lives under `scaling_alignment/phase_b3/analysis/forward_parity_debug_scaling/stats.json` showing the persisted scalar is loaded at inference time (phase_b3 log line 29).
-- Do Now (next): Phase C1 — capture a matched TensorFlow baseline to compare against the PyTorch Phase B3 run.
-  1. Export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`, `TF_XLA_FLAGS="--tf_xla_auto_jit=0"`, **and** `USE_XLA_TRANSLATE=0` (the only knob that actually forces `ptycho/tf_helper.should_use_xla()` to bypass `translate_xla()`). Then set `HUB="$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"`, `OUT_TORCH="$PWD/outputs/torch_forward_parity_baseline"`, `OUT_TF="$PWD/outputs/tf_forward_parity_baseline"`, and `TF_BASE="$HUB/tf_baseline/phase_c1"`; create `"$TF_BASE"/{cli,analysis,green}` so TF artifacts stay isolated, and prepend both env values to each CLI log (e.g., `printf 'TF_XLA_FLAGS=%s\nUSE_XLA_TRANSLATE=%s\n' ... | tee -a "$TF_BASE/cli/train_tf_phase_c1.log"`).
-  2. Run `pytest tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle -vv | tee "$TF_BASE/green/pytest_tf_integration.log"` to prove the TensorFlow workflow is still healthy before exercising the CLI commands; log blockers under `$HUB/red/blocked_<timestamp>.md` citing POLICY-001/CONFIG-001 if the selector fails due to environment/runtime gaps, and note TF_XLA_FLAGS in the blocker if applicable.
-  3. Launch the TensorFlow short baseline while both env vars remain exported. Because the identity-coordinate dataset has now failed twice with the same `projective_warp_xla_jit` RET_CHECK (Finding XLA-DYN-DOT-001) even after toggling TF_XLA_FLAGS, switch to the non-identity dataset `datasets/fly64/fly001_64_train_converted.npz` for this attempt, record that choice in `$HUB/summary.md`, and note whether a matching PyTorch rerun is required before Phase C2 comparisons:
+- Do Now (next): Phase C1 fallback — capture matched PyTorch + TensorFlow baselines at `gridsize=1` so parity work can continue without the broken translation layer (`tf_baseline/phase_c1/red/blocked_20251114T074039Z_tf_non_xla_shape_error.md`).
+  1. Export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`, `TF_XLA_FLAGS="--tf_xla_auto_jit=0"`, and `USE_XLA_TRANSLATE=0`. Set `HUB="$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"`, `OUT_TORCH="$PWD/outputs/torch_forward_parity_baseline"`, `OUT_TF="$PWD/outputs/tf_forward_parity_baseline"`, `OUT_TORCH_GS1="$OUT_TORCH/gs1_phase_c1"`, `OUT_TF_GS1="$OUT_TF/gs1_phase_c1"`, and `TF_BASE_GS1="$HUB/tf_baseline/phase_c1_gs1"`. Create `$HUB/scaling_alignment/phase_c1_gs1/{cli,analysis,green}` and `$TF_BASE_GS1/{cli,analysis,green,red}` up front, and prepend the env capture to each CLI log (`printf 'TF_XLA_FLAGS=%s\nUSE_XLA_TRANSLATE=%s\n' "$TF_XLA_FLAGS" "$USE_XLA_TRANSLATE" | tee -a "$TF_BASE_GS1/cli/train_tf_phase_c1_gs1.log"`).
+  2. Re-run the PyTorch short baseline with `--gridsize 1` so the GS1 TensorFlow run has a matching reference:
+     ```bash
+     python -m ptycho_torch.train \
+       --train_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz \
+       --test_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
+       --output_dir "$OUT_TORCH_GS1" \
+       --n_images 256 --gridsize 1 --batch_size 4 \
+       --max_epochs 10 --neighbor_count 1 \
+       --torch-loss-mode poisson --accelerator gpu --deterministic --quiet \
+       --log-patch-stats --patch-stats-limit 2 \
+       |& tee "$HUB/scaling_alignment/phase_c1_gs1/cli/train_patch_stats_gs1.log"
+     ```
+  3. Immediately run PyTorch inference with the same GS1 config so we capture debug dumps and patch stats:
+     ```bash
+     python -m ptycho_torch.inference \
+       --model_path "$OUT_TORCH_GS1" \
+       --test_data datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
+       --output_dir "$OUT_TORCH_GS1/inference" \
+       --n_images 128 --accelerator gpu \
+       --debug-dump "$HUB/scaling_alignment/phase_c1_gs1/analysis/forward_parity_debug_gs1" \
+       --log-patch-stats --patch-stats-limit 2 \
+       |& tee "$HUB/scaling_alignment/phase_c1_gs1/cli/inference_patch_stats_gs1.log"
+     ```
+     Copy the refreshed `torch_patch_stats*_gs1.{json,png}` plus the debug bundle into `$HUB/scaling_alignment/phase_c1_gs1/analysis/`, and add a “Phase C1 — PyTorch GS1 fallback” entry to `$HUB/analysis/artifact_inventory.txt`.
+  4. Run the TensorFlow integration selector so we have a GS1 log documenting both env exports:  
+     `pytest tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle -vv | tee "$TF_BASE_GS1/green/pytest_tf_integration_gs1.log"`.  
+     If the selector still fails because subprocesses drop env vars, log `$TF_BASE_GS1/red/blocked_<timestamp>_tf_integration_gs1.md` with the error text and stop.
+  5. Execute the TensorFlow GS1 training command (env vars still exported) and tee the log into the GS1 hub:
      ```bash
      python scripts/training/train.py \
        --backend tensorflow \
-       --train_data_file datasets/fly64/fly001_64_train_converted.npz \
+       --train_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz \
        --test_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
-       --output_dir "$OUT_TF" \
+       --output_dir "$OUT_TF_GS1" \
        --n_groups 256 \
-       --gridsize 2 \
-       --neighbor_count 7 \
+       --gridsize 1 \
+       --neighbor_count 1 \
        --batch_size 4 \
        --nepochs 10 \
        --do_stitching \
-       |& tee "$TF_BASE/cli/train_tf_phase_c1.log"
+       |& tee "$TF_BASE_GS1/cli/train_tf_phase_c1_gs1.log"
      ```
-  4. Run inference with debug dumps that mirror the Phase B3 capture (keep TF_XLA_FLAGS exported for this step too):  
+  6. Run TensorFlow inference with identical knobs so we capture `forward_parity_debug_tf_gs1` artifacts:
      ```bash
      python scripts/inference/inference.py \
        --backend tensorflow \
-       --model_path "$OUT_TF" \
+       --model_path "$OUT_TF_GS1" \
        --test_data datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
-       --output_dir "$OUT_TF/inference_phase_c1" \
+       --output_dir "$OUT_TF_GS1/inference_phase_c1_gs1" \
        --n_images 128 \
-       --debug_dump "$TF_BASE/analysis/forward_parity_debug_tf" \
+       --debug_dump "$TF_BASE_GS1/analysis/forward_parity_debug_tf_gs1" \
        --comparison_plot \
-       |& tee "$TF_BASE/cli/inference_tf_phase_c1.log"
+       |& tee "$TF_BASE_GS1/cli/inference_tf_phase_c1_gs1.log"
      ```
-     Ensure `forward_parity_debug_tf/{stats.json,offsets.json,pred_patches_amp_grid.png}` are emitted.
-  5. Record bundle digests (`shasum "$OUT_TF/wts.h5.zip" > "$TF_BASE/analysis/bundle_digest_tf_phase_c1.txt"`) and note key stats (mean/std/var_zero_mean) extracted from both TF `stats.json` and the PyTorch Phase B3 `stats.json`. Update `$HUB/analysis/artifact_inventory.txt` with a “Phase C1 — TF baseline” section plus the parsing snippet, and add a brief comparison line to `$HUB/summary.md`. Future Phase C2 will consume these stats; keep raw numbers handy.
-     - Add a `Dataset note:` bullet to both the artifact inventory and summary describing which dataset ran, confirming the exact path (`datasets/fly64/fly001_64_train_converted.npz`), and whether we now owe a PyTorch rerun for parity.
-  6. Store all logs/artifacts under `$TF_BASE`, refresh the initiative summary, and drop blockers if GPUs/TF runtime fail to execute; cite POLICY-001/CONFIG-001/ANTIPATTERN-001 in the blocker note when applicable.
-  7. **Fallback path:** If TensorFlow still fails even on the non-identity dataset with `USE_XLA_TRANSLATE=0`, capture the new RET_CHECK signature under `$TF_BASE/red/blocked_<timestamp>_tf_xla_disabled.md`, cite Finding XLA-DYN-DOT-001, and either (a) propose a params.cfg-level mitigation beyond env toggles or (b) document why Phase C must proceed with PyTorch-only evidence. Any additional dataset change must be documented in `$HUB/summary.md` along with the PyTorch parity implications before proceeding to Phase C2, and the blocker must quote the env capture so reviewers can confirm both knobs were set.
+  7. Record bundle digests (`shasum "$OUT_TORCH_GS1/wts.h5.zip" > "$HUB/scaling_alignment/phase_c1_gs1/analysis/bundle_digest_torch_gs1.txt"` and `shasum "$OUT_TF_GS1/wts.h5.zip" > "$TF_BASE_GS1/analysis/bundle_digest_tf_phase_c1_gs1.txt"`) and generate a stats delta file (`python - <<'PY'` comparing the GS1 PyTorch vs TF `stats.json`, append to `$TF_BASE_GS1/analysis/phase_c1_gs1_stats.txt`).
+  8. Update `$HUB/analysis/artifact_inventory.txt` and `$HUB/summary.md` with a “Phase C1 — GS1 fallback” section that includes:
+     - The PyTorch + TensorFlow GS1 artifacts and env capture lines.
+     - A `Dataset note:` explaining why GS1 was used, whether additional PyTorch GS1 runs are required, and how the evidence maps to POLICY-001 parity expectations.
+     - Links to the stats text file and bundle digests for Phase C2 consumption.
+  - **Blocker policy:** If any PyTorch GS1 command fails (CUDA/memory), log `$HUB/scaling_alignment/phase_c1_gs1/red/blocked_<timestamp>_torch_gs1.md` referencing POLICY-001/CONFIG-001. If TensorFlow still fails even on GS1, log `$TF_BASE_GS1/red/blocked_<timestamp>_tf_gs1.md` referencing XLA-DYN-DOT-001 or the translate_core shape bug and stop so we can decide on a PyTorch-only Phase C path.
   Selector: `pytest tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle -vv`
+- Latest Attempt (2025-11-18T235500Z): planning — Reviewed `tf_baseline/phase_c1/red/blocked_20251114T074039Z_tf_non_xla_shape_error.md` and `red/env_mitigation_summary.md` to confirm TensorFlow still dies in `translate_core` even with XLA disabled, so Phase C1 must pivot to a translation-free configuration. Updated the Do Now, implementation plan, initiative summary, and input brief so Ralph reruns the PyTorch short baseline/inference with `gridsize=1`, captures matching TensorFlow integration/train/infer logs under `$HUB/tf_baseline/phase_c1_gs1/`, records bundle digests + stats comparisons, and annotates `$HUB/analysis/artifact_inventory.txt` with a GS1 Dataset note before attempting Phase C2. Artifacts: docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md,input.md}; plans/active/.../tf_baseline/phase_c1/red/blocked_20251114T074039Z_tf_non_xla_shape_error.md.
 - Latest Attempt (2025-11-14T063100Z): implementation — Completed Phase B3 scaling validation. PyTorch inference log now prints `Loaded intensity_scale from bundle: 9.882118` (`.../scaling_alignment/phase_b3/cli/inference_patch_stats_scaling.log:29`), `stats.json` shows `patch_amplitude.var_zero_mean=8.97e+09`, and bundle digests are recorded in `.../phase_b3/analysis/bundle_digest.txt`. Updated `analysis/artifact_inventory.txt` with a “Phase B3 scaling validation” section and confirmed pytest selector `tests/torch/test_inference_reassembly_parity.py -vv` remains green (log archived at `.../phase_b3/green/pytest_inference_reassembly.log`).
 - Latest Attempt (2025-11-14T070500Z): blocked — Phase C1 TensorFlow baseline training blocked by XLA compilation error even with `TF_XLA_FLAGS="--tf_xla_auto_jit=0"`. TensorFlow integration pytest passed (34.75s, GREEN), but training with fly64_coord_variants/fly001_64_train_converted_identity.npz failed during first epoch with `tf2xla conversion failed while converting __inference_projective_warp_xla_jit_2335[]`. Root cause: disabling auto_jit is insufficient because code explicitly calls `translate_xla` functions decorated with `@tf.function(jit_compile=True)`, and params.cfg shows `use_xla_translate: True`. Blocker documented under `$TF_BASE/red/blocked_20251114T070500Z_tf_xla_still_active.md` with mitigation options. Next action per brief step 7: Retry Phase C1 with non-identity dataset `datasets/fly64_coord_variants/fly001_64_train_converted.npz` (matches PyTorch B3 more closely), document dataset change in hub summary, and note whether PyTorch B3 needs rerun for apples-to-apples comparison before Phase C2. Artifacts: `$TF_BASE/green/pytest_tf_integration.log` (PASSED), `$TF_BASE/green/env_capture.txt` (TF_XLA_FLAGS=--tf_xla_auto_jit=0), `$TF_BASE/cli/train_tf_phase_c1.log` (XLA error), `$TF_BASE/red/blocked_20251114T070500Z_tf_xla_still_active.md`.
 - Latest Attempt (2025-11-18T190000Z): planning — Re-read `tf_baseline/phase_c1/analysis/artifact_inventory.txt` and blocker log to confirm the RET_CHECK failure is isolated to XLA compiling the identity-coordinate dataset. Updated the Phase C1 action plan, initiative summary, fix_plan Do Now, and input brief so the next execution disables XLA via `TF_XLA_FLAGS="--tf_xla_auto_jit=0"`, captures the env value in each log, and only falls back to the non-identity dataset if the disabled-XLA run still fails. Documented that any fallback must be accompanied by a note in `$HUB/summary.md` describing whether a matching PyTorch rerun is needed before Phase C2 comparisons. Artifacts: docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,summary.md}; input.md.

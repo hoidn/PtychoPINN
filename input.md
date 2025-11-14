@@ -1,9 +1,8 @@
 Brief:
-Set `AUTHORITATIVE_CMDS_DOC`, `TF_XLA_FLAGS="--tf_xla_auto_jit=0"`, and `USE_XLA_TRANSLATE=0`, then wire `HUB/OUT_TORCH/OUT_TF/TF_BASE` per the plan (create `$TF_BASE/{cli,analysis,green}`) and record both env values at the top of each CLI log (Finding XLA-DYN-DOT-001, CONFIG-001).
-Rerun `pytest tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle -vv | tee "$TF_BASE/green/pytest_tf_integration.log"` so we have a fresh green gate that shows both env exports.
-With those env vars still set, rerun the Phase C1 CLI commands against `datasets/fly64/fly001_64_train_converted.npz` (non-identity) and the existing test split, tee logs into `$TF_BASE/cli/{train_tf_phase_c1,inference_tf_phase_c1}.log`, emit the debug dump and `stats.json` under `$TF_BASE/analysis/forward_parity_debug_tf`, and write `bundle_digest_tf_phase_c1.txt` plus `phase_c1_stats.txt` comparing against `scaling_alignment/phase_b3/analysis/forward_parity_debug_scaling/stats.json`.
-Update `$HUB/analysis/artifact_inventory.txt` and `$HUB/summary.md` with a “Phase C1 — TF baseline” section that includes a Dataset note (path + whether we owe a PyTorch rerun) and the env capture; cite POLICY-001 if parity requires another PyTorch pass.
-If TensorFlow still fails even with both env toggles, capture the RET_CHECK under `$TF_BASE/red/blocked_<timestamp>_tf_xla_disabled.md` quoting the env capture, cite XLA-DYN-DOT-001, and stop so we can decide whether to fall back to PyTorch-only Phase C evidence.
+Export `AUTHORITATIVE_CMDS_DOC`, `TF_XLA_FLAGS="--tf_xla_auto_jit=0"`, and `USE_XLA_TRANSLATE=0`, then create the GS1 folders under `$HUB/scaling_alignment/phase_c1_gs1/` and `$HUB/tf_baseline/phase_c1_gs1/` so both backends log the env capture before any commands run.
+Rerun the PyTorch short baseline + inference with `--gridsize 1` (same dataset/files as Phase B3) writing logs/artifacts into the new GS1 folder, copy the patch stats/debug bundle, and record the torch bundle digest.
+Run the TensorFlow integration selector, then execute the TF training and inference CLIs with `--gridsize 1` (logs + debug dump under `tf_baseline/phase_c1_gs1/`), capture bundle digests + a stats delta text file comparing the GS1 PyTorch vs TF `stats.json`, and update `$HUB/analysis/artifact_inventory.txt` / `$HUB/summary.md` with a “GS1 fallback” section plus the Dataset note.
+Log `$HUB/scaling_alignment/phase_c1_gs1/red/blocked_*.md` or `$TF_BASE_GS1/red/blocked_*.md` immediately if any GS1 command fails; otherwise leave the hub ready for Phase C2 consumers.
 
 Summary: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
 Plan: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md

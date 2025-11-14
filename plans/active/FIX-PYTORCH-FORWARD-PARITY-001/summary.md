@@ -1,4 +1,11 @@
 ### Turn Summary
+Phase C1 remains blocked after the latest attempt logged `translate_core` shape failures even with XLA disabled (`plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1/red/blocked_20251114T074039Z_tf_non_xla_shape_error.md`), so the new plan pivots to a gridsize 1 fallback.
+Re-scoped the working plan/fix_plan/input so Ralph exports the TF mitigation env vars, reruns the PyTorch short baseline plus the TensorFlow integration/CLI commands with `--gridsize 1`, and captures bundle digests + stats comparisons under `$HUB/scaling_alignment/phase_c1_gs1/` and `$HUB/tf_baseline/phase_c1_gs1/` before refreshing the artifact inventory with a Dataset note.
+The refreshed Do Now now requires logging the GS1 dataset delta, copying the PyTorch/TF debug dumps + stats into the hub, and documenting whether the GS1 evidence satisfies POLICY-001 parity expectations or if further PyTorch-only guardrails are needed.
+Next: execute the GS1 PyTorch + TensorFlow baselines per the brief, or record new blockers if even the translation-free configuration fails.
+Artifacts: docs/fix_plan.md; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/{implementation.md,input.md}; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1/red/blocked_20251114T074039Z_tf_non_xla_shape_error.md
+
+### Turn Summary
 Exported both `TF_XLA_FLAGS="--tf_xla_auto_jit=0"` and `USE_XLA_TRANSLATE=0` per the brief, successfully disabled XLA compilation (no tf2xla errors), but revealed a latent bug in the non-XLA translation path: shape mismatch at first epoch (`values[0].shape = [4] != values[2].shape = [128]` in translate_core stack operation).
 Integration pytest still failed (subprocess doesn't inherit env vars), but direct training execution progressed further than previous attempts before hitting the non-XLA bug.
 Documented two distinct TF blockers (XLA path per XLA-DYN-DOT-001, non-XLA path shape error) under `tf_baseline/phase_c1/red/` and recommend proceeding with PyTorch-only Phase C evidence per POLICY-001 given multiple TF translation layer bugs.

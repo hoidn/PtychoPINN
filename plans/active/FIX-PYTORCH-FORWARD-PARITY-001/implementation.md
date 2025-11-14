@@ -227,6 +227,69 @@ PyTorch forward inference currently produces impulse-like patches with extremely
    - If TensorFlow still errors even on the non-identity dataset with `USE_XLA_TRANSLATE=0`, capture the error signature under `$TF_BASE/red/blocked_<timestamp>_tf_xla_disabled.md`, cite Finding XLA-DYN-DOT-001, and note whether the failure occurred before or after any data-dependent ops. The blocker must quote the env capture so we can prove both knobs were set.
    - Only fall back to additional dataset changes (or propose PyTorch-only Phase C evidence) after documenting the new blocker and updating `docs/fix_plan.md` + this plan with the proposed mitigation. Continue to record whether a corresponding PyTorch rerun is required before Phase C2 comparisons whenever the dataset diverges from the Phase B3 baseline.
 
+### Action Plan — C1b (GS1 fallback to bypass translation)
+1. **Environment + directories.**
+   - Export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`, `TF_XLA_FLAGS="--tf_xla_auto_jit=0"`, `USE_XLA_TRANSLATE=0`.
+   - Set `OUT_TORCH_GS1="$OUT_TORCH/gs1_phase_c1"`, `OUT_TF_GS1="$OUT_TF/gs1_phase_c1"`, and `TF_BASE_GS1="$HUB/tf_baseline/phase_c1_gs1"`.
+   - Create `$HUB/scaling_alignment/phase_c1_gs1/{cli,analysis,green}` + `$TF_BASE_GS1/{cli,analysis,green,red}`; prepend the env capture to every CLI log (use `printf 'TF_XLA_FLAGS=%s\nUSE_XLA_TRANSLATE=%s\n' …`).
+2. **PyTorch GS1 short baseline.**
+   - Training:
+     ```bash
+     python -m ptycho_torch.train \
+       --train_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz \
+       --test_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
+       --output_dir "$OUT_TORCH_GS1" \
+       --n_images 256 --gridsize 1 --batch_size 4 \
+       --max_epochs 10 --neighbor_count 1 \
+       --torch-loss-mode poisson --accelerator gpu --deterministic --quiet \
+       --log-patch-stats --patch-stats-limit 2 \
+       |& tee "$HUB/scaling_alignment/phase_c1_gs1/cli/train_patch_stats_gs1.log"
+     ```
+   - Inference:
+     ```bash
+     python -m ptycho_torch.inference \
+       --model_path "$OUT_TORCH_GS1" \
+       --test_data datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
+       --output_dir "$OUT_TORCH_GS1/inference" \
+       --n_images 128 --accelerator gpu \
+       --debug-dump "$HUB/scaling_alignment/phase_c1_gs1/analysis/forward_parity_debug_gs1" \
+       --log-patch-stats --patch-stats-limit 2 \
+       |& tee "$HUB/scaling_alignment/phase_c1_gs1/cli/inference_patch_stats_gs1.log"
+     ```
+   - Copy `torch_patch_stats*_gs1.{json,png}` + debug bundle into `$HUB/scaling_alignment/phase_c1_gs1/analysis/` and extend the hub inventory with a “PyTorch GS1 fallback” section.
+3. **TensorFlow GS1 guard + CLI.**
+   - Integration gate: `pytest tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle -vv | tee "$TF_BASE_GS1/green/pytest_tf_integration_gs1.log"`.
+   - Training:
+     ```bash
+     python scripts/training/train.py \
+       --backend tensorflow \
+       --train_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz \
+       --test_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
+       --output_dir "$OUT_TF_GS1" \
+       --n_groups 256 --gridsize 1 --neighbor_count 1 \
+       --batch_size 4 --nepochs 10 --do_stitching \
+       |& tee "$TF_BASE_GS1/cli/train_tf_phase_c1_gs1.log"
+     ```
+   - Inference:
+     ```bash
+     python scripts/inference/inference.py \
+       --backend tensorflow \
+       --model_path "$OUT_TF_GS1" \
+       --test_data datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
+       --output_dir "$OUT_TF_GS1/inference_phase_c1_gs1" \
+       --n_images 128 \
+       --debug_dump "$TF_BASE_GS1/analysis/forward_parity_debug_tf_gs1" \
+       --comparison_plot \
+       |& tee "$TF_BASE_GS1/cli/inference_tf_phase_c1_gs1.log"
+     ```
+4. **Bookkeeping.**
+   - Bundle digests: `shasum "$OUT_TORCH_GS1/wts.h5.zip" > "$HUB/scaling_alignment/phase_c1_gs1/analysis/bundle_digest_torch_gs1.txt"` and `shasum "$OUT_TF_GS1/wts.h5.zip" > "$TF_BASE_GS1/analysis/bundle_digest_tf_phase_c1_gs1.txt"`.
+   - Stats delta: `python - <<'PY'` to load `forward_parity_debug_gs1/stats.json` + `forward_parity_debug_tf_gs1/stats.json`, print mean/std/var_zero_mean deltas, append to `$TF_BASE_GS1/analysis/phase_c1_gs1_stats.txt`.
+   - Hub updates: add a “Phase C1 — GS1 fallback” section to `$HUB/analysis/artifact_inventory.txt` + `$HUB/summary.md` (include dataset note + env capture).
+5. **Blockers.**
+   - PyTorch failures → `$HUB/scaling_alignment/phase_c1_gs1/red/blocked_<timestamp>_torch_gs1.md` (cite POLICY-001/CONFIG-001).
+   - TensorFlow failures → `$TF_BASE_GS1/red/blocked_<timestamp>_tf_gs1.md` (cite XLA-DYN-DOT-001 or translate_core bug). Stop and reassess if GS1 still cannot complete.
+
 ### Checklist
 - [ ] C1: Run the matched TF baseline (`scripts/training/train.py --backend tensorflow` + `scripts/inference/inference.py --backend tensorflow --debug_dump`) and archive artifacts (`.../reports/.../tf_baseline/`).
 - [ ] C2: Build a comparison script/notebook that ingests Torch/TF dumps, reports variance ratios and stitched MAE/SSIM, and summarize findings in `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md`.
