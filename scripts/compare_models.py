@@ -1141,13 +1141,60 @@ def main():
     pinn_recon = reassemble_position(pinn_patches, pinn_offsets, M=args.stitch_crop_size)
     logger.info(f"PINN reconstruction shape after reassembly: {pinn_recon.shape}, dtype: {pinn_recon.dtype}")
 
-    # Create a full test_container for Baseline inference (if not already created in single-shot path)
-    if chunk_size < n_groups:
-        test_container = create_ptycho_data_container(test_data_raw, final_config)
-
     # Run inference for Baseline
+    # CRITICAL: In chunked mode, process Baseline per chunk to avoid full container OOM
     logger.info("Running inference with Baseline model...")
-    baseline_input, baseline_offsets = prepare_baseline_inference_data(test_container)
+
+    # Determine if we should chunk Baseline inference
+    baseline_chunk_size = args.baseline_chunk_size if args.baseline_chunk_size is not None else n_groups
+    use_baseline_chunking = baseline_chunk_size < n_groups
+
+    if use_baseline_chunking:
+        # Chunked Baseline: slice RawData per chunk, create chunk-scoped containers
+        logger.info(f"Using chunked Baseline inference: {n_groups} groups in chunks of {baseline_chunk_size}")
+        baseline_input_chunks = []
+        baseline_offsets_chunks = []
+
+        for chunk_start in range(0, n_groups, baseline_chunk_size):
+            chunk_end = min(chunk_start + baseline_chunk_size, n_groups)
+            chunk_idx = chunk_start // baseline_chunk_size
+            logger.info(f"Preparing Baseline chunk {chunk_idx+1}/{(n_groups + baseline_chunk_size - 1) // baseline_chunk_size}: groups [{chunk_start}:{chunk_end}]")
+
+            # Slice raw data for this chunk
+            chunk_raw_data = slice_raw_data(test_data_raw, chunk_start, chunk_end)
+
+            # Create chunk-scoped config with correct n_groups
+            import dataclasses
+            chunk_n_groups = chunk_end - chunk_start
+            chunk_config = dataclasses.replace(final_config, n_groups=chunk_n_groups)
+
+            # Create container for this chunk
+            chunk_container = create_ptycho_data_container(chunk_raw_data, chunk_config)
+
+            # Prepare Baseline data from chunk container
+            chunk_input, chunk_offsets = prepare_baseline_inference_data(chunk_container)
+
+            baseline_input_chunks.append(chunk_input)
+            baseline_offsets_chunks.append(chunk_offsets)
+
+            # Log chunk stats
+            logger.info(f"Baseline chunk {chunk_idx+1} prepared: input shape={chunk_input.shape}, offsets shape={chunk_offsets.shape}")
+
+        # Concatenate all chunks
+        baseline_input = np.concatenate(baseline_input_chunks, axis=0)
+        baseline_offsets = np.concatenate(baseline_offsets_chunks, axis=0)
+        logger.info(f"Concatenated {len(baseline_input_chunks)} chunks into final Baseline input shape: {baseline_input.shape}, offsets shape: {baseline_offsets.shape}")
+    else:
+        # Single-shot Baseline: create full container (only if not already created in PINN single-shot path)
+        if chunk_size >= n_groups:
+            # test_container was already created in PINN single-shot path
+            logger.info(f"Reusing test_container from PINN single-shot path for Baseline inference")
+        else:
+            # PINN was chunked but Baseline is single-shot (shouldn't happen, but handle it)
+            logger.warning(f"PINN was chunked but Baseline chunk size ({baseline_chunk_size}) >= n_groups ({n_groups}), creating full container")
+            test_container = create_ptycho_data_container(test_data_raw, final_config)
+
+        baseline_input, baseline_offsets = prepare_baseline_inference_data(test_container)
 
     # Apply debug limit if requested
     if args.baseline_debug_limit is not None:
@@ -1376,12 +1423,21 @@ def main():
         logger.info(f"Ground truth original shape: {gt_obj_squeezed.shape}")
         
         # --- COORDINATE-BASED ALIGNMENT + REGISTRATION WORKFLOW ---
-        
+
         # 1. Define the stitching parameter
         M_STITCH_SIZE = args.stitch_crop_size
 
         # 2. Extract scan coordinates in (y, x) format
-        global_offsets = test_container.global_offsets
+        # CRITICAL: When chunking, use concatenated pinn_offsets instead of test_container.global_offsets
+        if use_baseline_chunking:
+            # In chunked mode, we never created a full test_container, so use pinn_offsets
+            global_offsets = pinn_offsets
+            logger.info(f"Using concatenated pinn_offsets for alignment (chunked mode): shape={global_offsets.shape}")
+        else:
+            # In single-shot mode, test_container was created
+            global_offsets = test_container.global_offsets
+            logger.info(f"Using test_container.global_offsets for alignment (single-shot mode): shape={global_offsets.shape}")
+
         scan_coords_xy = np.squeeze(global_offsets)
         scan_coords_yx = scan_coords_xy[:, [1, 0]]
 
