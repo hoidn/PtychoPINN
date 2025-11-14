@@ -1,19 +1,45 @@
 # Artifact Inventory — FIX-PYTORCH-FORWARD-PARITY-001/forward_parity
 
-## Phase A — Instrumentation Nucleus (2025-11-16)
+## Phase A — Instrumentation + Short Baseline Rerun (2025-11-14)
 
 ### Green Evidence (Tests Passing)
-- green/pytest_patch_stats_payload_handoff.log — Selector GREEN after payload handoff fix (1/1 PASSED, 7.14s)
-  - Artifacts created: torch_patch_stats.json (2 batches with var_zero_mean), torch_patch_grid.png (390×290 PNG)
-  - Confirms CLI TrainingPayload now threads through to _train_with_lightning
-  - log_patch_stats/patch_stats_limit flags preserved via payload reuse
+- green/pytest_patch_stats_rerun.log — Selector GREEN after fresh rerun (1/1 PASSED, 7.07s)
+  - Confirms torch_patch_stats.json/torch_patch_grid.png emission
+  - log_patch_stats/patch_stats_limit flags working via payload handoff
+- green/pytest_patch_stats_payload_handoff.log — Original payload handoff fix (1/1 PASSED, 7.14s)
+
+### CLI Evidence (Training + Inference)
+- cli/train_patch_stats_rerun.log — 10-epoch training run with instrumentation
+  - Dataset: fly001_reconstructed_final_downsampled_data_train.npz (256 images, gridsize=2)
+  - Flags: --log-patch-stats --patch-stats-limit 2
+  - Output: outputs/torch_forward_parity_baseline
+  - Completed successfully, model saved to wts.h5.zip
+- cli/inference_patch_stats_rerun.log — Inference run with debug dump
+  - Model: outputs/torch_forward_parity_baseline
+  - Dataset: fly001_reconstructed_final_downsampled_data_test.npz (128 images)
+  - Flags: --log-patch-stats --patch-stats-limit 2 --debug-dump
+  - Completed successfully
+
+### Analysis Artifacts
+- analysis/torch_patch_stats.json — Per-patch statistics (2 batches)
+  - Train phase batch 0: mean=0.00332, std=0.00577, var_zero_mean=3.33e-05
+  - Train phase batch 1: mean=0.00332, std=0.00577, var_zero_mean=3.33e-05
+  - Non-zero variance confirms patches have meaningful structure
+- analysis/torch_patch_grid.png — Normalized patch visualization (7.4KB)
+  - Shows first 2 batches of training patches
+- analysis/forward_parity_debug/ — Inference debug dump
+  - canvas.json — Canvas metadata
+  - offsets.json — Patch offset information
+  - pred_patches_amp_grid.png — Amplitude patches (unnormalized, 81KB)
+  - pred_patches_amp_grid_normalized.png — Amplitude patches (normalized, 86KB)
+  - stats.json — Inference statistics
 
 ### Code Changes (Commit dc5415ba)
-- ptycho_torch/workflows/components.py — Added training_payload parameter to run_cdi_example_torch, train_cdi_model_torch, _train_with_lightning
-  - Conditional logic: reuse payload when provided, otherwise rebuild via factory (backward compat)
-- ptycho_torch/train.py — Pass payload to run_cdi_example_torch at line 756
+- ptycho_torch/workflows/components.py — Training payload threading
+  - Added training_payload parameter to run_cdi_example_torch, train_cdi_model_torch, _train_with_lightning
+  - Conditional logic: reuse payload when provided, rebuild via factory otherwise
+- ptycho_torch/train.py — Pass payload at line 756
 
 ### Next Steps
-- Execute short baseline training + inference commands with instrumentation flags
-- Capture CLI logs and artifacts under hub/cli/ and hub/analysis/
-- Verify JSON/PNG artifacts appear in output_dir/analysis/
+- Phase A checklist items A2/A3 complete
+- Ready for Phase B: scaling/config alignment (object_big defaults, intensity_scale persistence)

@@ -1,3 +1,14 @@
+### Turn Summary (2025-11-14T024800Z)
+Executed Phase A instrumentation rerun: trained 10-epoch Torch baseline with fly001_reconstructed datasets (256 images, gridsize=2, batch=4), ran inference with debug dumps, captured torch_patch_stats.json showing non-zero variance (var_zero_mean~3.3e-05), and archived all artifacts under the hub.
+Pytest selector stayed GREEN (1/1 PASSED, 7.07s), training completed successfully producing wts.h5.zip, inference generated debug dumps (canvas.json, offsets.json, pred_patches grids), and patch stats show healthy mean/std values across both training batches logged.
+Next: mark Phase A checklist A2/A3 complete, update fix_plan.md status, and await supervisor handoff for Phase B (scaling/config alignment with object_big defaults and intensity_scale persistence).
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{cli/train_patch_stats_rerun.log,cli/inference_patch_stats_rerun.log,analysis/torch_patch_stats.json,analysis/torch_patch_grid.png,analysis/forward_parity_debug/}
+
+Checklist:
+- Files touched: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/analysis/artifact_inventory.txt; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
+- Tests run: pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/analysis/{artifact_inventory.txt,torch_patch_stats.json,torch_patch_grid.png,forward_parity_debug/}; plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
+
 ### Turn Summary (2025-11-16T231500Z)
 Validated Ralph's payload-handoff fix (dc5415ba) and confirmed the forward_parity hub still lacks the short Torch baseline/inference artifacts with --log-patch-stats enabled, so Phase A now needs execution rather than more plumbing.
 Audit of HUB/analysis, existing CLI logs, and git log -10 shows the latest training log predates instrumentation and no torch_patch_stats.json/torch_patch_grid.png exist under the hub, so I marked checklist A0/A1 complete and rewrote the Do Now to rerun the plan/plan.md short training + inference commands with instrumentation.
