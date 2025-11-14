@@ -1,3 +1,9 @@
+### Turn Summary (2025-11-14T132300Z)
+Re-checked the Reports Hub inventory and CLI logs and confirmed every artifact still carries the original 2025-11-14 timestamps, so no post-876eeb12 rerun evidence exists yet.
+Documented the `_v2` rerun requirement inside the working plan and fix_plan so the next engineer loop must refresh the pytest selector plus 10-epoch train/infer commands and overwrite the hub artifacts before touching Phase B.
+Next: export HUB/AUTHORITATIVE_CMDS_DOC, rerun the selector and both CLI commands with --log-patch-stats/--patch-stats-limit 2, copy the `_v2` JSON/PNG/debug bundles into `$HUB/analysis/`, refresh inventories/summaries, and drop a red blocker immediately if CUDA/memory resurfaces.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md; docs/fix_plan.md
+
 ### Turn Summary (2025-11-14T000000Z)
 Resolved supervisor state desync by creating `bin/verify_phase_b_readiness.py` automation nucleus that proves Phase A completed 2025-11-14 with all 9 artifacts verified post-dc5415ba.
 Both verification scripts confirm readiness: `verify_phase_a_complete.py` ✓ (9/9 artifacts) and `verify_phase_b_readiness.py` ✓ (object_big defaults True in config_factory.py lines 220,433).
