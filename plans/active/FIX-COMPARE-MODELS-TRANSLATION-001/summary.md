@@ -52,3 +52,14 @@ Artifacts: plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/implementation.md, pl
 Reverted commits `da91e466` / `087a9238` to undo the semantic drift in `_reassemble_position_batched` (they broke TF integration and silently altered overlap weighting). Updated the plan/fix-plan to emphasise that batching must reuse the existing helper, added new guardrails + Do Now steps (overlap preservation, crop logging, CLI evidence), and refreshed input.md / galph_memory.
 Next: re-implement batching via `mk_reassemble_position_batched_real`, add conservation tests, rerun the guarded pytest selector, and capture GREEN compare_models train/test logs before unblocking STUDY-SYNTH.
 Artifacts: git reverts 7e446332 & 173217a9, docs/fix_plan.md, galph_memory.md, updated implementation.md / summary.md.
+
+### Turn Summary  
+Fixed XLA vectorization batch mismatch by disabling the vectorized path in `mk_reassemble_position_real` and forcing streaming-only execution with tf.while_loop chunking (chunk_size=1024).  
+Root cause: tf.cond memory-cap decision was traced at graph construction with symbolic tensors, allowing >1000-patch datasets to trigger XLA batch dimension errors in translate_xla despite memory threshold guards.  
+Both regression tests remain GREEN (2/2 PASSED); commit bf3f1b07 updates ptycho/tf_helper.py:1176-1215 and adds XLA-VECTORIZE-001 finding; dense compare_models execution still needs verification.  
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix.log (✅), red/blocked_20251113T163800Z_train_xla_vectorization.md
+
+Checklist:
+- Files touched: ptycho/tf_helper.py, docs/findings.md
+- Tests run: pytest tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split} -vv (2 passed)
+- Artifacts updated: green/pytest_compare_models_translation_fix.log, docs/findings.md (XLA-VECTORIZE-001), commit bf3f1b07
