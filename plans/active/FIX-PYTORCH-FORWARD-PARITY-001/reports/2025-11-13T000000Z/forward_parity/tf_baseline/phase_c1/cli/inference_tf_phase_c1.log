@@ -1,0 +1,39 @@
+2025-11-14 07:05:01.597062: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1763132701.608541 3046674 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763132701.612162 3046674 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763132701.622130 3046674 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763132701.622139 3046674 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763132701.622141 3046674 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763132701.622142 3046674 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-14 07:05:01.624867: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-14 07:05:04,091 - INFO - Starting ptychography inference script...
+2025-11-14 07:05:04,092 - INFO - Script execution failed: model_path does not exist: outputs/tf_forward_parity_baseline (also checked outputs/tf_forward_parity_baseline.zip)
+2025-11-14 07:05:04,092 - INFO - Cleaning up resources...
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/scripts/inference/inference.py", line 566, in main
+    config = setup_inference_configuration(args, args.config)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/scripts/inference/inference.py", line 216, in setup_inference_configuration
+    validate_inference_config(inference_config)
+  File "/home/ollie/Documents/PtychoPINN/ptycho/config/config.py", line 405, in validate_inference_config
+    raise ValueError(f"model_path does not exist: {config.model_path} (also checked {zip_path})")
+ValueError: model_path does not exist: outputs/tf_forward_parity_baseline (also checked outputs/tf_forward_parity_baseline.zip)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/scripts/inference/inference.py", line 729, in main
+    sys.exit(1)
+SystemExit: 1
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/scripts/inference/inference.py", line 737, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN/scripts/inference/inference.py", line 733, in main
+    if config.backend == 'tensorflow':
+       ^^^^^^
+UnboundLocalError: cannot access local variable 'config' where it is not associated with a value
