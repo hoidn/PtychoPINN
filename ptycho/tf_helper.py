@@ -1174,18 +1174,16 @@ def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 1
     padded_size = M + 2 * dynamic_pad  # scalar tensor
 
     # ------------------------------------------------------------------ #
-    # Fast path: vectorised processing if memory footprint is acceptable #
+    # ALWAYS use streaming path to avoid XLA batch dimension mismatches #
+    # (see XLA-VECTORIZE-001: dense datasets cause "Dimensions must be  #
+    # equal" errors in translate_xla's vectorized path)                  #
     # ------------------------------------------------------------------ #
     num_patches = tf.shape(cropped_obj)[0]
-    texels_per_patch = tf.cast(padded_size * padded_size, tf.int64)
-    total_texels     = tf.cast(num_patches, tf.int64) * texels_per_patch
-    mem_cap_texels   = tf.constant(512 * 1024 * 1024, tf.int64)  # ~2 GB @ c64
 
-    def _vectorised():
-        imgs_padded = _tf_pad_sym(cropped_obj, dynamic_pad)
-        offsets_flat = tf.reshape(adjusted_offsets, (-1, 2))
-        translated   = translate(imgs_padded, offsets_flat, interpolation='bilinear')
-        return tf.reduce_sum(translated, axis=0)                 # (H,W,1)
+    # Vectorized path disabled - causes XLA errors with >200 patches
+    def _vectorised_disabled():
+        """Disabled due to XLA vectorization bugs - use _streaming instead"""
+        raise NotImplementedError("Vectorized path disabled - XLA batch dimension issues")
 
     # -------------------------------------------------------------- #
     # Streaming fallback: chunk to avoid OOM on gigantic datasets    #
@@ -1212,7 +1210,8 @@ def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 1
         _, result = tf.while_loop(cond, body, [i, result])
         return result
 
-    result = tf.cond(total_texels < mem_cap_texels, _vectorised, _streaming)
+    # ALWAYS use streaming path (vectorized path has XLA issues)
+    result = _streaming()
     return result
 
 #@debug
