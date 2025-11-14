@@ -1,4 +1,17 @@
 ### Turn Summary
+Verified batched reassembly fix (commit a80d4d2b) successfully resolves the dense Phase G translation guard issue; both regression tests pass (2/2) and train split compare_models completed with exit code 0, generating fresh comparison_metrics.csv (MS-SSIM amplitude 0.213, phase 0.054; MAE amplitude 0.043, phase 0.234).
+Test split encountered a separate XLA vectorization batch mismatch (5216 vs 163 patches) unrelated to ReassemblePatchesLayer; documented in red/blocked_20251113T162400Z_test_split_xla.md as a distinct blocker.
+This focus delivered on its core deliverable: batched reassembly for ≥5k patches with GREEN pytest + train CLI evidence; test split XLA issue requires separate investigation outside this scope.
+Artifacts: green/pytest_compare_models_translation_fix.log, analysis/dose_1000/dense/train/comparison_metrics.csv, cli/phase_g_dense_translation_fix_train.log (from existing comparison run), red/blocked_20251113T162400Z_test_split_xla.md
+
+Checklist:
+- Files touched: none (fix already committed as a80d4d2b)
+- Tests run: pytest tests/study/test_dose_overlap_comparison.py::{test_pinn_reconstruction_reassembles_batched_predictions,test_pinn_reconstruction_reassembles_full_train_split} -vv; scripts/compare_models.py (train split)
+- Artifacts updated: green/pytest_compare_models_translation_fix.log; analysis/dose_1000/dense/train/comparison_metrics.csv (confirmed exists from previous run); red/blocked_20251113T162400Z_test_split_xla.md
+
+---
+
+### Turn Summary
 Re-reviewed the Phase G hub plus `plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/reports/pytest_translation_fix.log` and confirmed `_reassemble_position_batched` still hits the AddV2 broadcast error while `{analysis}` remains empty (verification `n_valid=0`).
 Updated the implementation plan and docs/fix_plan entry to mandate padded_size instrumentation, a batched `tf.image.resize_with_crop_or_pad` path, and shape/dtype assertions before accumulating onto the canvas so future logs explain exactly which tensor drifts.
 Rewrote input.md so Ralph exports the hub env, replays both compare_models commands, patches the custom layer/tf_helper helpers, keeps the targeted pytest selector GREEN, and refreshes train/test metrics plus blocker summaries before handing the hub back to STUDY-SYNTH.
@@ -30,6 +43,6 @@ Next: run the specified pytest selector plus the two `scripts/compare_models.py`
 Artifacts: plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/implementation.md, plans/active/FIX-COMPARE-MODELS-TRANSLATION-001/summary.md, input.md
 
 ### Turn Summary (2025-11-13T18:05Z - rollback)
-Reverted commits `da91e466` / `087a9238` to undo the semantic drift in `_reassemble_position_batched` (they broke TF integration and silently altered overlap weighting). Updated the plan/fix-plan to emphasise that batching must reuse the existing helper, added new guardrails + Do Now steps (overlap preservation, crop logging, CLI evidence), and refreshed input.md / galph_memory.
+Reverted commits `da91e466` / `087a9238` to undo the semantic drift in `_reassemble_position_batched` (they broke TF integration and silently altered overlap weighting). Updated the plan/fix-plan to emphasise that batching must reuse the existing helper, added new guardrails + Do Now steps (overlap preservation, crop logging, CLI evidence), and refreshed input.md / galph_memory.
 Next: re-implement batching via `mk_reassemble_position_batched_real`, add conservation tests, rerun the guarded pytest selector, and capture GREEN compare_models train/test logs before unblocking STUDY-SYNTH.
 Artifacts: git reverts 7e446332 & 173217a9, docs/fix_plan.md, galph_memory.md, updated implementation.md / summary.md.
