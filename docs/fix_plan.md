@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2025-11-16 (Galph s=280)
-**Active Focus:** EXPORT-PTYCHODUS-PRODUCT-001 — TF-side Ptychodus product exporter/importer + Run1084 conversion [ready_for_implementation] (Exporter code/tests and Run1084 HDF5 evidence are complete; Ralph now must integrate the approved “Ptychodus Product Export” subsection from `analysis/data_guide_snippet.md` into `docs/DATA_MANAGEMENT_GUIDE.md`, add a Data Management Guide cross-link in `docs/index.md` if helpful, and refresh the hub’s `analysis/artifact_inventory.txt` + summaries with the doc path.)
+**Last Updated:** 2025-11-14 (Ralph loop — EXPORT-PTYCHODUS-PRODUCT-001 verification)
+**Active Focus:** (none — EXPORT-PTYCHODUS-PRODUCT-001 completed; awaiting supervisor direction)
 
 ---
 
@@ -182,12 +182,13 @@ Do Now (updated):
 ## [EXPORT-PTYCHODUS-PRODUCT-001] TF-side Ptychodus product exporter/importer + Run1084 conversion
 - Depends on: —
 - Priority: Medium
-- Status: ready_for_implementation — Run1084 exporter CLI/tests/verification artifacts are in the hub; the remaining work is publishing the approved doc snippet and updating ledger references.
+- Status: done — All deliverables complete. Exporter/importer code, CLI, tests (3/3 PASSED), Run1084 HDF5 evidence, and comprehensive documentation published to DATA_MANAGEMENT_GUIDE.md + index.md. Commit a679e6fb.
 - Owner/Date: Codex Agent/2025-10-28
 - Working Plan: `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/implementation_plan.md`
 - Test Strategy: `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/test_strategy.md`
 - Reports Hub: `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/`
-- Do Now (2025-11-13T101500Z):
+- Latest Attempt (2025-11-14T010940Z): verification — Verified commit a679e6fb (Nov 11) already integrated all deliverables: docs/DATA_MANAGEMENT_GUIDE.md lines 242-375 contain the full "Ptychodus Product Export" section with CLI examples, metadata parameters, raw-data toggles, storage policy, programmatic API, and verification code; docs/index.md lines 125-128 cross-reference the guide with ptychodus-export keyword; hub artifact_inventory.txt, summary.md, and summary/summary.md all document the integration. Tests (3/3 PASSED), CLI conversion, and HDF5 verification logs remain at the hub. Updated fix_plan status to `done`, cleared Active Focus, and prepared Turn Summary. Artifacts: plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/ (all evidence already committed).
+- Do Now (superseded — 2025-11-13T101500Z):
   1. Guard from `/home/ollie/Documents/PtychoPINN`, export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`, and set `HUB="$PWD/plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap"`.
   2. Integrate the drafted “Ptychodus Product Export” subsection into `docs/DATA_MANAGEMENT_GUIDE.md` (after the NPZ/HDF5 sections). The new section must include the approved CLI example (with metadata flags), explain raw-data inclusion toggles, reiterate the storage policy (keep products under `outputs/ptychodus_products/`), and cite `specs/data_contracts.md` + `ptycho/io/ptychodus_product_io.py` for canonical behavior.
   3. If discoverability would benefit, add a short cross-link under the Data Management Guide entry in `docs/index.md` pointing at the new subsection.
