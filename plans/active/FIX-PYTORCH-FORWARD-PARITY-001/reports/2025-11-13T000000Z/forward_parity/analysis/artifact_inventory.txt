@@ -63,3 +63,29 @@
 | Inference | 1080.26   | 1997.34   | 3988776.25     |
 
 The ~6.2 billion-fold variance increase from training→inference is expected because training uses normalized inputs while inference outputs are unnormalized reconstructed patches.
+
+## Phase B3 Scaling Validation (2025-11-14T1431Z)
+**Status**: COMPLETE - intensity_scale persistence validated
+
+**Key Finding**: Inference log confirms `Loaded intensity_scale from bundle: 9.882118` 
+(scaling_alignment/phase_b3/cli/inference_patch_stats_scaling.log:29), replacing 
+previous default of `1.000000` from v3 baseline.
+
+**Test Results**:
+- Pytest guard: GREEN (2/2 PASSED, 3.67s) - tests/torch/test_inference_reassembly_parity.py
+- Training: SUCCESS (patch stats: mean=0.003913, var=0.000046)
+- Inference: SUCCESS (intensity_scale=9.882118, patch stats: mean=51466.19, var=8.97e9)
+
+**Artifacts**:
+- scaling_alignment/phase_b3/cli/train_patch_stats_scaling.log
+- scaling_alignment/phase_b3/cli/inference_patch_stats_scaling.log
+- scaling_alignment/phase_b3/green/pytest_inference_reassembly.log
+- scaling_alignment/phase_b3/analysis/artifact_inventory.txt
+- scaling_alignment/phase_b3/analysis/bundle_digest.txt
+- scaling_alignment/phase_b3/analysis/forward_parity_debug_scaling/
+
+**Bundle Digests**:
+- wts.h5.zip: sha1 01c1a83acee88d3bb1ca1e4f458c59fc8cc45e5d (8.3MB)
+- params.dill: sha1 d70bced43e96f661639dcc0825d9e2c74500cc33 (971 bytes)
+
+Phase B (all checklists B1/B2/B3) now complete. Ready for Phase C TF vs Torch parity proof.

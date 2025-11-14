@@ -1,0 +1,55 @@
+# Phase B3 Scaling Validation Artifacts — 2025-11-14
+
+## Summary
+Validates that Phase B2's intensity_scale persistence (commit 9a09ece2) works correctly:
+- Training captures the learned scale (9.882118)
+- Bundle persists the scale in params.dill
+- Inference loads and uses the stored scale (no longer defaults to 1.000000)
+
+## Key Evidence
+**Intensity scale loaded from bundle**: `9.882118` (see cli/inference_patch_stats_scaling.log:29)
+**Previous baseline (v3)**: `1.000000` (see ../cli/inference_patch_stats_rerun_v3.log:26)
+
+This proves Phase B2 implementation is working as specified.
+
+## Test Results
+### Pytest Guard (tests/torch/test_inference_reassembly_parity.py)
+- Status: GREEN (2/2 PASSED)
+- Log: green/pytest_inference_reassembly.log
+- Duration: 3.67s
+- Timestamp: 2025-11-14 06:29
+
+### Training Run (10 epochs, 256 groups)
+- Status: SUCCESS
+- Log: cli/train_patch_stats_scaling.log
+- Patch stats logged: mean=0.003913, std=0.006794, var_zero_mean=0.000046
+- Bundle saved: outputs/torch_forward_parity_baseline/wts.h5.zip (8.3MB)
+- Timestamp: 2025-11-14 06:30
+
+### Inference Run (128 groups)
+- Status: SUCCESS
+- Log: cli/inference_patch_stats_scaling.log
+- **Loaded intensity_scale: 9.882118** (line 29)
+- Patch stats: mean=51466.191406, std=94699.226562, var_zero_mean=8965543936.0
+- Debug dumps: analysis/forward_parity_debug_scaling/
+- Timestamp: 2025-11-14 06:31
+
+## Bundle Digests
+Bundle checksums (see analysis/bundle_digest.txt):
+- wts.h5.zip: contains diffraction_to_obj/params.dill (971 bytes)
+- params.dill: persists the learned intensity_scale value
+
+## Commands Run
+1. pytest tests/torch/test_inference_reassembly_parity.py -vv
+2. python -m ptycho_torch.train --train_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz --test_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz --output_dir outputs/torch_forward_parity_baseline --n_images 256 --gridsize 2 --batch_size 4 --max_epochs 10 --torch-loss-mode poisson --accelerator gpu --deterministic --quiet --log-patch-stats --patch-stats-limit 2
+3. python -m ptycho_torch.inference --model_path outputs/torch_forward_parity_baseline --test_data datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz --output_dir outputs/torch_forward_parity_baseline/inference --n_images 128 --accelerator gpu --debug-dump [hub]/analysis/forward_parity_debug_scaling --log-patch-stats --patch-stats-limit 2
+
+## Phase B3 Checklist Status
+- [x] Pytest guard passed (2/2 GREEN)
+- [x] Training completed with patch stats logged
+- [x] Inference completed with debug dumps
+- [x] **intensity_scale loaded from bundle: 9.882118 (not 1.0!)**
+- [x] Bundle digests captured
+- [x] Artifact inventory updated
+
+Phase B3 validation: **COMPLETE**

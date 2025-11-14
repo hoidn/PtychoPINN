@@ -1,0 +1,11 @@
+Bundle checksums (Phase B3 — 2025-11-14):
+01c1a83acee88d3bb1ca1e4f458c59fc8cc45e5d  outputs/torch_forward_parity_baseline/wts.h5.zip
+d70bced43e96f661639dcc0825d9e2c74500cc33  diffraction_to_obj/params.dill (extracted from wts.h5.zip)
+
+wts.h5.zip: 8.3MB, contains persisted intensity_scale in params.dill
+diffraction_to_obj/params.dill: 971 bytes inside wts.h5.zip
+
+Intensity scale value stored in bundle: 9.882118
+(Verified via inference log line 29: "Loaded intensity_scale from bundle: 9.882118")
+
+Phase B2 persistence implementation confirmed working.
