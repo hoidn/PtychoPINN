@@ -1,4 +1,10 @@
 ### Turn Summary
+Validated that `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1_scaled/analysis/` is still empty and the latest CLI log (`cli/train_tf_phase_c1_scaled.log`, 55 KB from 2025‑11‑14) is the most recent Phase C1d evidence, so the TensorFlow scaled rerun still hasn’t produced the expected debug bundle.
+Updated `docs/fix_plan.md` and input.md so Ralph’s blocker focus again targets running the guard selector plus the scaled TF CLI with the documented env exports, and reiterated here that the only acceptable outcomes are a populated `forward_parity_debug_tf/` bundle + inventory updates or a fresh blocker that cites both the pytest log and CLI log paths.
+Next: run the selector + scaled CLI, tee both logs into the hub, and either publish stats/sha1s to `analysis/artifact_inventory.txt` + `$HUB/summary.md` or capture `$TF_BASE/red/blocked_<ts>_tf_translation_guard.md` that quotes the guard log and CLI stack trace.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/{green/pytest_tf_translation_guard.log,analysis/artifact_inventory.txt,tf_baseline/phase_c1_scaled/{analysis/,cli/train_tf_phase_c1_scaled.log}}
+
+### Turn Summary
 Executed Phase C1d TF rerun with guard selector GREEN but CLI training failed during eval with the same reshape error (third consecutive failure).
 Guard test covers training-time translation but not the eval/inference path where the 0-element tensor reshape occurs at ptycho/tf_helper.py:199.
 Next: investigate eval-time batch shape mismatch or extend guard to cover eval code path.
