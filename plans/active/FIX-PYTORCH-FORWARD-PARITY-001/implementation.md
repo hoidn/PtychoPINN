@@ -105,7 +105,7 @@ PyTorch forward inference currently produces impulse-like patches with extremely
 ### Checklist
 - [x] B1: Enforce `object_big=True` and physics weighting through `ptycho_torch/config_factory.py`, CLI wrappers, and inference payloads; document behavior in `docs/workflows/pytorch.md`. (Object defaults verified in `config_factory.py:205-234`.)
 - [x] B2: Persist bundle `intensity_scale` during training export and reuse it in inference; add tests (e.g., `tests/torch/test_model_manager.py`) to ensure the scale is stored/restored. (Implemented 2025-11-14, commit 9a09ece2)
-- [ ] B3: Validate scaling by re-running the short baseline and `pytest tests/torch/test_inference_reassembly_parity.py -vv`, capturing logs under `.../reports/.../scaling_alignment/`.
+- [x] B3: Validate scaling by re-running the short baseline and `pytest tests/torch/test_inference_reassembly_parity.py -vv`, capturing logs under `.../reports/.../scaling_alignment/`. (Validated 2025-11-14T1431Z, commit 08cfe61b: intensity_scale=9.882118 loaded from bundle)
 
 ### Action Plan — B2 (Intensity Scale Persistence)
 1. **Capture the real scale during training.**
