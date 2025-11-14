@@ -96,7 +96,11 @@ def parse_args():
                         help="Path to Tike reconstruction NPZ file for three-way comparison (optional).")
     parser.add_argument("--stitch-crop-size", type=int, default=20,
                         help="Crop size M for patch stitching (must be 0 < M <= N, default: 20).")
-    
+    parser.add_argument("--baseline-debug-limit", type=int, default=None,
+                        help="Limit baseline inference to first N groups for debugging (default: all groups).")
+    parser.add_argument("--baseline-debug-dir", type=Path, default=None,
+                        help="Directory to save baseline debug artifacts (NPZ with inputs/outputs/offsets, JSON with stats).")
+
     # Add logging arguments
     add_logging_arguments(parser)
     
@@ -243,9 +247,23 @@ def prepare_baseline_inference_data(container):
         flattened_input = _channel_to_flat(container.X)
         offsets_channel = _compute_channel_offsets(container)
         flattened_offsets = _channel_to_flat(offsets_channel)
+
+        # Center offsets to zero-mean for baseline model stability
+        flattened_offsets_np = tensor_to_numpy(flattened_offsets, dtype=np.float64)
+        offset_mean = flattened_offsets_np.mean()
+        centered_offsets = flattened_offsets_np - offset_mean
+
+        logger.info(
+            "Centered baseline offsets: original mean=%.2f, std=%.2f → centered mean=%.6f, std=%.2f",
+            offset_mean,
+            flattened_offsets_np.std(),
+            centered_offsets.mean(),
+            centered_offsets.std()
+        )
+
         return (
             tensor_to_numpy(flattened_input, dtype=np.float32),
-            tensor_to_numpy(flattened_offsets, dtype=np.float64),
+            centered_offsets,
         )
     return (
         tensor_to_numpy(container.X, dtype=np.float32),
@@ -1027,6 +1045,14 @@ def main():
     # Run inference for Baseline
     logger.info("Running inference with Baseline model...")
     baseline_input, baseline_offsets = prepare_baseline_inference_data(test_container)
+
+    # Apply debug limit if requested
+    if args.baseline_debug_limit is not None:
+        original_shape = baseline_input.shape
+        baseline_input = baseline_input[:args.baseline_debug_limit]
+        baseline_offsets = baseline_offsets[:args.baseline_debug_limit]
+        logger.info(f"Applied --baseline-debug-limit={args.baseline_debug_limit}: limited {original_shape} → {baseline_input.shape}")
+
     logger.info(f"Baseline inference input shape: {baseline_input.shape}")
     logger.info(f"Baseline inference offsets shape: {baseline_offsets.shape}")
 
@@ -1056,6 +1082,53 @@ def main():
     baseline_output_max = np.abs(baseline_output_np_check).max()
     baseline_output_nonzero = np.count_nonzero(baseline_output_np_check)
     logger.info(f"DIAGNOSTIC baseline_output stats: mean={baseline_output_mean:.6f}, max={baseline_output_max:.6f}, nonzero_count={baseline_output_nonzero}/{baseline_output_np_check.size}")
+
+    # Save debug artifacts if requested
+    if args.baseline_debug_dir is not None:
+        import json
+        debug_dir = Path(args.baseline_debug_dir)
+        debug_dir.mkdir(parents=True, exist_ok=True)
+
+        debug_stats = {
+            "input": {
+                "shape": list(baseline_input.shape),
+                "mean": float(baseline_input_mean),
+                "max": float(baseline_input_max),
+                "nonzero_count": int(baseline_input_nonzero),
+                "size": int(baseline_input.size)
+            },
+            "offsets": {
+                "shape": list(baseline_offsets.shape),
+                "mean": float(baseline_offsets.mean()),
+                "std": float(baseline_offsets.std()),
+                "min": float(baseline_offsets.min()),
+                "max": float(baseline_offsets.max())
+            },
+            "output": {
+                "shape": list(baseline_output_np_check.shape),
+                "mean": float(baseline_output_mean),
+                "max": float(baseline_output_max),
+                "nonzero_count": int(baseline_output_nonzero),
+                "size": int(baseline_output_np_check.size)
+            },
+            "inference_time_seconds": float(baseline_inference_time)
+        }
+
+        debug_npz_path = debug_dir / "baseline_debug.npz"
+        debug_json_path = debug_dir / "baseline_debug_stats.json"
+
+        np.savez_compressed(
+            debug_npz_path,
+            baseline_input=baseline_input,
+            baseline_offsets=baseline_offsets,
+            baseline_output=baseline_output_np_check
+        )
+        with open(debug_json_path, 'w') as f:
+            json.dump(debug_stats, f, indent=2)
+
+        logger.info(f"Saved baseline debug artifacts to {debug_dir}:")
+        logger.info(f"  NPZ: {debug_npz_path}")
+        logger.info(f"  Stats: {debug_json_path}")
 
     # CRITICAL ASSERTION: Halt execution if Baseline outputs are all zeros
     if baseline_output_mean == 0.0 or baseline_output_nonzero == 0:
