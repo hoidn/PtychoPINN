@@ -1,4 +1,16 @@
 ### Turn Summary
+Translation regression tests remain GREEN (2/2 passed in 6.20s); fast debug runs with `--n-test-groups 10` confirmed the Baseline zero-output issue on test split while train split produces sparse but non-zero outputs (mean=0.000415, 406 nonzero pixels).
+Test split Baseline inference returns completely zero outputs (mean=0.0, 0 nonzero) despite valid inputs (mean=0.112296, 33937 nonzero), triggering the instrumented RuntimeError as designed and halting execution before wasting compute on full pipeline.
+Blocker documented (`red/blocked_20251113T203727Z_baseline_test_zero_confirmed.md`) with fast-loop evidence, decision point, and recommendation to proceed with PINN vs PtyChi only metrics.
+Next: await supervisor decision—proceed with partial metrics (skip Baseline), debug Baseline model architecture, retrain from scratch, or accept train-only Baseline data.
+Artifacts: green/pytest_compare_models_translation_fix_v12.log, cli/compare_models_dense_train_debug.log (10 groups, sparse outputs), cli/compare_models_dense_test_debug.log (10 groups, zero outputs, RuntimeError), red/blocked_20251113T203727Z_baseline_test_zero_confirmed.md
+
+Checklist:
+- Files touched: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/red/blocked_20251113T203727Z_baseline_test_zero_confirmed.md
+- Tests run: pytest tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_batched_predictions tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split -vv; python scripts/compare_models.py --n-test-groups 10 (train exit 0, test RuntimeError)
+- Artifacts updated: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix_v12.log; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/compare_models_dense_train_debug.log; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/compare_models_dense_test_debug.log; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/red/blocked_20251113T203727Z_baseline_test_zero_confirmed.md
+
+### Turn Summary
 Added first-patch diagnostic logging to baseline inference (commit 035fb5c3); translation regression tests remain GREEN (2/2 passed, 6.17s).
 Train split compare_models succeeds with non-zero Baseline outputs (mean=0.003092, 1.4M nonzero pixels, canonical `Baseline`/`PtyChi` IDs in CSV), but test split triggers RuntimeError (Baseline inputs mean=0.112671, 17.8M nonzero → outputs mean=0.0, 0 nonzero), proving TensorFlow/model runtime issue beyond compare_models.py scope.
 Blocker documented (`red/blocked_20251114T043136Z_baseline_test_zero_final.md`) with evidence and decision point—supervisor must choose whether to proceed with PINN vs PtyChi only, debug baseline model internals, or retrain baseline model.

@@ -1,0 +1,790 @@
+2025-11-13 20:36:10.451594: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1763094970.462633 2571734 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763094970.466415 2571734 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763094970.476186 2571734 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763094970.476198 2571734 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763094970.476200 2571734 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763094970.476202 2571734 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-13 20:36:10.478867: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-13 20:36:12,802 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
+2025-11-13 20:36:12,802 - INFO - Registration: enabled
+2025-11-13 20:36:12,802 - INFO - NPZ output: raw=enabled, aligned=enabled
+2025-11-13 20:36:12,802 - INFO - Loading PtychoPINN inference model (diffraction_to_obj) to restore configuration...
+2025-11-13 20:36:12,802 - INFO - Loading model from: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
+I0000 00:00:1763094973.194723 2571734 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1763094973.195987 2571734 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+Model: "functional"
+2025-11-13 20:36:13,888 - INFO - Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
+│ input (InputLayer)  │ (None, 128, 128,  │          0 │ -                 │
+│                     │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ intensity_scaler    │ (None, 128, 128,  │          0 │ input[0][0]       │
+│ (IntensityScaler)   │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d (Conv2D)     │ (None, 128, 128,  │      1,184 │ intensity_scaler… │
+│                     │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_1 (Conv2D)   │ (None, 128, 128,  │      9,248 │ conv2d[0][0]      │
+│                     │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d       │ (None, 64, 64,    │          0 │ conv2d_1[0][0]    │
+│ (MaxPooling2D)      │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_2 (Conv2D)   │ (None, 64, 64,    │     18,496 │ max_pooling2d[0]… │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_3 (Conv2D)   │ (None, 64, 64,    │     36,928 │ conv2d_2[0][0]    │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d_1     │ (None, 32, 32,    │          0 │ conv2d_3[0][0]    │
+│ (MaxPooling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_4 (Conv2D)   │ (None, 32, 32,    │     73,856 │ max_pooling2d_1[… │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_5 (Conv2D)   │ (None, 32, 32,    │    147,584 │ conv2d_4[0][0]    │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d_2     │ (None, 16, 16,    │          0 │ conv2d_5[0][0]    │
+│ (MaxPooling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_6 (Conv2D)   │ (None, 16, 16,    │    295,168 │ max_pooling2d_2[… │
+│                     │ 256)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_7 (Conv2D)   │ (None, 16, 16,    │    590,080 │ conv2d_6[0][0]    │
+│                     │ 256)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d_3     │ (None, 8, 8, 256) │          0 │ conv2d_7[0][0]    │
+│ (MaxPooling2D)      │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_10 (Conv2D)  │ (None, 8, 8, 256) │    590,080 │ max_pooling2d_3[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_20 (Conv2D)  │ (None, 8, 8, 256) │    590,080 │ max_pooling2d_3[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_11 (Conv2D)  │ (None, 8, 8, 256) │    590,080 │ conv2d_10[0][0]   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_21 (Conv2D)  │ (None, 8, 8, 256) │    590,080 │ conv2d_20[0][0]   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d       │ (None, 16, 16,    │          0 │ conv2d_11[0][0]   │
+│ (UpSampling2D)      │ 256)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_4     │ (None, 16, 16,    │          0 │ conv2d_21[0][0]   │
+│ (UpSampling2D)      │ 256)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_12 (Conv2D)  │ (None, 16, 16,    │    295,040 │ up_sampling2d[0]… │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_22 (Conv2D)  │ (None, 16, 16,    │    295,040 │ up_sampling2d_4[… │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_13 (Conv2D)  │ (None, 16, 16,    │    147,584 │ conv2d_12[0][0]   │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_23 (Conv2D)  │ (None, 16, 16,    │    147,584 │ conv2d_22[0][0]   │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_1     │ (None, 32, 32,    │          0 │ conv2d_13[0][0]   │
+│ (UpSampling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_5     │ (None, 32, 32,    │          0 │ conv2d_23[0][0]   │
+│ (UpSampling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_14 (Conv2D)  │ (None, 32, 32,    │     73,792 │ up_sampling2d_1[… │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_24 (Conv2D)  │ (None, 32, 32,    │     73,792 │ up_sampling2d_5[… │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_15 (Conv2D)  │ (None, 32, 32,    │     36,928 │ conv2d_14[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_25 (Conv2D)  │ (None, 32, 32,    │     36,928 │ conv2d_24[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_2     │ (None, 64, 64,    │          0 │ conv2d_15[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_6     │ (None, 64, 64,    │          0 │ conv2d_25[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_1          │ (None, 64, 64, 4) │          0 │ up_sampling2d_2[… │
+│ (GetItem)           │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_3          │ (None, 64, 64, 4) │          0 │ up_sampling2d_6[… │
+│ (GetItem)           │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_16 (Conv2D)  │ (None, 64, 64,    │      1,184 │ get_item_1[0][0]  │
+│                     │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_26 (Conv2D)  │ (None, 64, 64,    │      1,184 │ get_item_3[0][0]  │
+│                     │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_17 (Conv2D)  │ (None, 64, 64,    │      9,248 │ conv2d_16[0][0]   │
+│                     │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_27 (Conv2D)  │ (None, 64, 64,    │      9,248 │ conv2d_26[0][0]   │
+│                     │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_3     │ (None, 128, 128,  │          0 │ conv2d_17[0][0]   │
+│ (UpSampling2D)      │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_7     │ (None, 128, 128,  │          0 │ conv2d_27[0][0]   │
+│ (UpSampling2D)      │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item (GetItem)  │ (None, 64, 64,    │          0 │ up_sampling2d_2[… │
+│                     │ 60)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_9 (Conv2D)   │ (None, 128, 128,  │      1,156 │ up_sampling2d_3[… │
+│                     │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_2          │ (None, 64, 64,    │          0 │ up_sampling2d_6[… │
+│ (GetItem)           │ 60)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_19 (Conv2D)  │ (None, 128, 128,  │      1,156 │ up_sampling2d_7[… │
+│                     │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_8 (Conv2D)   │ (None, 64, 64, 4) │      2,164 │ get_item[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ silu (Silu)         │ (None, 128, 128,  │          0 │ conv2d_9[0][0]    │
+│                     │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_18 (Conv2D)  │ (None, 64, 64, 4) │      2,164 │ get_item_2[0][0]  │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ silu_1 (Silu)       │ (None, 128, 128,  │          0 │ conv2d_19[0][0]   │
+│                     │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ amp                 │ (None, 64, 64, 4) │          0 │ conv2d_8[0][0]    │
+│ (ActivationLayer)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ center_mask_layer   │ (None, 128, 128,  │          0 │ silu[0][0]        │
+│ (CenterMaskLayer)   │ 1)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ phi                 │ (None, 64, 64, 4) │          0 │ conv2d_18[0][0]   │
+│ (ActivationLayer)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ center_mask_layer_1 │ (None, 128, 128,  │          0 │ silu_1[0][0]      │
+│ (CenterMaskLayer)   │ 1)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ amp_padded          │ (None, 128, 128,  │          0 │ amp[0][0]         │
+│ (ZeroPadding2D)     │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ multiply (Multiply) │ (None, 128, 128,  │          0 │ silu[0][0],       │
+│                     │ 4)                │            │ center_mask_laye… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ phase_padded        │ (None, 128, 128,  │          0 │ phi[0][0]         │
+│ (ZeroPadding2D)     │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ multiply_1          │ (None, 128, 128,  │          0 │ silu_1[0][0],     │
+│ (Multiply)          │ 4)                │            │ center_mask_laye… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ add (Add)           │ (None, 128, 128,  │          0 │ amp_padded[0][0], │
+│                     │ 4)                │            │ multiply[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ add_1 (Add)         │ (None, 128, 128,  │          0 │ phase_padded[0][… │
+│                     │ 4)                │            │ multiply_1[0][0]  │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ obj                 │ (None, 128, 128,  │          0 │ add[0][0],        │
+│ (CombineComplexLay… │ 4)                │            │ add_1[0][0]       │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ input_positions     │ (None, 1, 2, 4)   │          0 │ -                 │
+│ (InputLayer)        │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ padded_obj_2        │ (None, 142, 142,  │          0 │ obj[0][0],        │
+│ (ReassemblePatches… │ 4)                │            │ input_positions[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ padded_objs_with_o… │ (None, 132, 132,  │          0 │ padded_obj_2[0][… │
+│ (ExtractPatchesPos… │ 4)                │            │ input_positions[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ probe_illumination  │ [(None, 132, 132, │          0 │ padded_objs_with… │
+│ (ProbeIllumination) │ 4), (None, 132,   │            │                   │
+│                     │ 132, 4)]          │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_amplitude      │ [(None, 128, 128, │          0 │ probe_illuminati… │
+│ (PadAndDiffractLay… │ 4), (None, 128,   │            │                   │
+│                     │ 128, 4)]          │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_diff_channels  │ (None, 128, 128,  │          0 │ pred_amplitude[0… │
+│ (FlatToChannelLaye… │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ intensity_scaler_i… │ (None, 128, 128,  │          0 │ pred_diff_channe… │
+│ (IntensityScaler_i… │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ trimmed_obj         │ (None, 128, 128,  │          0 │ padded_obj_2[0][… │
+│ (TrimReconstructio… │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_intensity      │ (None, 128, 128,  │          0 │ intensity_scaler… │
+│ (SquareLayer)       │ 4)                │            │                   │
+└─────────────────────┴───────────────────┴────────────┴───────────────────┘
+2025-11-13 20:36:13,913 - INFO - ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
+│ input (InputLayer)  │ (None, 128, 128,  │          0 │ -                 │
+│                     │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ intensity_scaler    │ (None, 128, 128,  │          0 │ input[0][0]       │
+│ (IntensityScaler)   │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d (Conv2D)     │ (None, 128, 128,  │      1,184 │ intensity_scaler… │
+│                     │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_1 (Conv2D)   │ (None, 128, 128,  │      9,248 │ conv2d[0][0]      │
+│                     │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d       │ (None, 64, 64,    │          0 │ conv2d_1[0][0]    │
+│ (MaxPooling2D)      │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_2 (Conv2D)   │ (None, 64, 64,    │     18,496 │ max_pooling2d[0]… │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_3 (Conv2D)   │ (None, 64, 64,    │     36,928 │ conv2d_2[0][0]    │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d_1     │ (None, 32, 32,    │          0 │ conv2d_3[0][0]    │
+│ (MaxPooling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_4 (Conv2D)   │ (None, 32, 32,    │     73,856 │ max_pooling2d_1[… │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_5 (Conv2D)   │ (None, 32, 32,    │    147,584 │ conv2d_4[0][0]    │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d_2     │ (None, 16, 16,    │          0 │ conv2d_5[0][0]    │
+│ (MaxPooling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_6 (Conv2D)   │ (None, 16, 16,    │    295,168 │ max_pooling2d_2[… │
+│                     │ 256)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_7 (Conv2D)   │ (None, 16, 16,    │    590,080 │ conv2d_6[0][0]    │
+│                     │ 256)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d_3     │ (None, 8, 8, 256) │          0 │ conv2d_7[0][0]    │
+│ (MaxPooling2D)      │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_10 (Conv2D)  │ (None, 8, 8, 256) │    590,080 │ max_pooling2d_3[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_20 (Conv2D)  │ (None, 8, 8, 256) │    590,080 │ max_pooling2d_3[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_11 (Conv2D)  │ (None, 8, 8, 256) │    590,080 │ conv2d_10[0][0]   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_21 (Conv2D)  │ (None, 8, 8, 256) │    590,080 │ conv2d_20[0][0]   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d       │ (None, 16, 16,    │          0 │ conv2d_11[0][0]   │
+│ (UpSampling2D)      │ 256)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_4     │ (None, 16, 16,    │          0 │ conv2d_21[0][0]   │
+│ (UpSampling2D)      │ 256)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_12 (Conv2D)  │ (None, 16, 16,    │    295,040 │ up_sampling2d[0]… │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_22 (Conv2D)  │ (None, 16, 16,    │    295,040 │ up_sampling2d_4[… │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_13 (Conv2D)  │ (None, 16, 16,    │    147,584 │ conv2d_12[0][0]   │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_23 (Conv2D)  │ (None, 16, 16,    │    147,584 │ conv2d_22[0][0]   │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_1     │ (None, 32, 32,    │          0 │ conv2d_13[0][0]   │
+│ (UpSampling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_5     │ (None, 32, 32,    │          0 │ conv2d_23[0][0]   │
+│ (UpSampling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_14 (Conv2D)  │ (None, 32, 32,    │     73,792 │ up_sampling2d_1[… │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_24 (Conv2D)  │ (None, 32, 32,    │     73,792 │ up_sampling2d_5[… │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_15 (Conv2D)  │ (None, 32, 32,    │     36,928 │ conv2d_14[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_25 (Conv2D)  │ (None, 32, 32,    │     36,928 │ conv2d_24[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_2     │ (None, 64, 64,    │          0 │ conv2d_15[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_6     │ (None, 64, 64,    │          0 │ conv2d_25[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_1          │ (None, 64, 64, 4) │          0 │ up_sampling2d_2[… │
+│ (GetItem)           │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_3          │ (None, 64, 64, 4) │          0 │ up_sampling2d_6[… │
+│ (GetItem)           │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_16 (Conv2D)  │ (None, 64, 64,    │      1,184 │ get_item_1[0][0]  │
+│                     │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_26 (Conv2D)  │ (None, 64, 64,    │      1,184 │ get_item_3[0][0]  │
+│                     │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_17 (Conv2D)  │ (None, 64, 64,    │      9,248 │ conv2d_16[0][0]   │
+│                     │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_27 (Conv2D)  │ (None, 64, 64,    │      9,248 │ conv2d_26[0][0]   │
+│                     │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_3     │ (None, 128, 128,  │          0 │ conv2d_17[0][0]   │
+│ (UpSampling2D)      │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_7     │ (None, 128, 128,  │          0 │ conv2d_27[0][0]   │
+│ (UpSampling2D)      │ 32)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item (GetItem)  │ (None, 64, 64,    │          0 │ up_sampling2d_2[… │
+│                     │ 60)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_9 (Conv2D)   │ (None, 128, 128,  │      1,156 │ up_sampling2d_3[… │
+│                     │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_2          │ (None, 64, 64,    │          0 │ up_sampling2d_6[… │
+│ (GetItem)           │ 60)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_19 (Conv2D)  │ (None, 128, 128,  │      1,156 │ up_sampling2d_7[… │
+│                     │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_8 (Conv2D)   │ (None, 64, 64, 4) │      2,164 │ get_item[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ silu (Silu)         │ (None, 128, 128,  │          0 │ conv2d_9[0][0]    │
+│                     │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_18 (Conv2D)  │ (None, 64, 64, 4) │      2,164 │ get_item_2[0][0]  │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ silu_1 (Silu)       │ (None, 128, 128,  │          0 │ conv2d_19[0][0]   │
+│                     │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ amp                 │ (None, 64, 64, 4) │          0 │ conv2d_8[0][0]    │
+│ (ActivationLayer)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ center_mask_layer   │ (None, 128, 128,  │          0 │ silu[0][0]        │
+│ (CenterMaskLayer)   │ 1)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ phi                 │ (None, 64, 64, 4) │          0 │ conv2d_18[0][0]   │
+│ (ActivationLayer)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ center_mask_layer_1 │ (None, 128, 128,  │          0 │ silu_1[0][0]      │
+│ (CenterMaskLayer)   │ 1)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ amp_padded          │ (None, 128, 128,  │          0 │ amp[0][0]         │
+│ (ZeroPadding2D)     │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ multiply (Multiply) │ (None, 128, 128,  │          0 │ silu[0][0],       │
+│                     │ 4)                │            │ center_mask_laye… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ phase_padded        │ (None, 128, 128,  │          0 │ phi[0][0]         │
+│ (ZeroPadding2D)     │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ multiply_1          │ (None, 128, 128,  │          0 │ silu_1[0][0],     │
+│ (Multiply)          │ 4)                │            │ center_mask_laye… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ add (Add)           │ (None, 128, 128,  │          0 │ amp_padded[0][0], │
+│                     │ 4)                │            │ multiply[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ add_1 (Add)         │ (None, 128, 128,  │          0 │ phase_padded[0][… │
+│                     │ 4)                │            │ multiply_1[0][0]  │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ obj                 │ (None, 128, 128,  │          0 │ add[0][0],        │
+│ (CombineComplexLay… │ 4)                │            │ add_1[0][0]       │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ input_positions     │ (None, 1, 2, 4)   │          0 │ -                 │
+│ (InputLayer)        │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ padded_obj_2        │ (None, 142, 142,  │          0 │ obj[0][0],        │
+│ (ReassemblePatches… │ 4)                │            │ input_positions[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ padded_objs_with_o… │ (None, 132, 132,  │          0 │ padded_obj_2[0][… │
+│ (ExtractPatchesPos… │ 4)                │            │ input_positions[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ probe_illumination  │ [(None, 132, 132, │          0 │ padded_objs_with… │
+│ (ProbeIllumination) │ 4), (None, 132,   │            │                   │
+│                     │ 132, 4)]          │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_amplitude      │ [(None, 128, 128, │          0 │ probe_illuminati… │
+│ (PadAndDiffractLay… │ 4), (None, 128,   │            │                   │
+│                     │ 128, 4)]          │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_diff_channels  │ (None, 128, 128,  │          0 │ pred_amplitude[0… │
+│ (FlatToChannelLaye… │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ intensity_scaler_i… │ (None, 128, 128,  │          0 │ pred_diff_channe… │
+│ (IntensityScaler_i… │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ trimmed_obj         │ (None, 128, 128,  │          0 │ padded_obj_2[0][… │
+│ (TrimReconstructio… │ 4)                │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_intensity      │ (None, 128, 128,  │          0 │ intensity_scaler… │
+│ (SquareLayer)       │ 4)                │            │                   │
+└─────────────────────┴───────────────────┴────────────┴───────────────────┘
+ Total params: 4,667,056 (17.80 MB)
+2025-11-13 20:36:13,913 - INFO - Total params: 4,667,056 (17.80 MB)
+ Trainable params: 4,667,056 (17.80 MB)
+2025-11-13 20:36:13,913 - INFO - Trainable params: 4,667,056 (17.80 MB)
+ Non-trainable params: 0 (0.00 B)
+2025-11-13 20:36:13,913 - INFO - Non-trainable params: 0 (0.00 B)
+None2025-11-13 20:36:13,913 - INFO - None
+
+2025-11-13 20:36:13.914089: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:103] Profiler session initializing.
+2025-11-13 20:36:13.914099: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:118] Profiler session started.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1763094973.914113 2571734 cupti_tracer.cc:1026] Profiler found 1 GPUs
+W0000 00:00:1763094973.931266 2571734 cupti_tracer.cc:1213] Fail to use per-thread activity buffer, cupti trace overhead may be big. CUPTI ERROR CODE:1
+2025-11-13 20:36:13.931339: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:130] Profiler session tear down.
+I0000 00:00:1763094973.931410 2571734 cupti_tracer.cc:1249] CUPTI activity buffer flushed
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+2025-11-13 20:36:14,112 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+2025-11-13 20:36:14,113 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+2025-11-13 20:36:14,764 - INFO - Successfully loaded model from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
+2025-11-13 20:36:14,765 - INFO - Restored configuration from model: gridsize=2, N=128
+2025-11-13 20:36:14,765 - INFO - Loading test data from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz with restored gridsize=2...
+2025-11-13 20:36:14,765 - INFO - Using n_test_groups=10 (controls grouping)
+2025-11-13 20:36:14,765 - INFO - Loading data from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz with n_images=10, n_subsample=None
+2025-11-13 20:36:15,209 - WARNING - Ignoring NPZ 'Y' with incompatible shape (1, 128, 128, 1) (expected first axis 5088)
+2025-11-13 20:36:15,209 - INFO - Legacy sampling: using 10 images from 5088 total
+2025-11-13 20:36:15,209 - INFO - Randomly subsampled 10 images
+diff3d shape: (10, 128, 128)2025-11-13 20:36:15,209 - INFO - diff3d shape: (10, 128, 128)
+
+probeGuess shape: (128, 128)2025-11-13 20:36:15,209 - INFO - probeGuess shape: (128, 128)
+
+scan_index shape: (10,)2025-11-13 20:36:15,209 - INFO - scan_index shape: (10,)
+
+objectGuess shape: (464, 464)2025-11-13 20:36:15,209 - INFO - objectGuess shape: (464, 464)
+
+xcoords shape: (10,)2025-11-13 20:36:15,209 - INFO - xcoords shape: (10,)
+
+ycoords shape: (10,)2025-11-13 20:36:15,209 - INFO - ycoords shape: (10,)
+
+xcoords_start shape: (10,)2025-11-13 20:36:15,209 - INFO - xcoords_start shape: (10,)
+
+ycoords_start shape: (10,)2025-11-13 20:36:15,209 - INFO - ycoords_start shape: (10,)
+
+2025-11-13 20:36:15,211 - INFO - Final configuration: gridsize=2, N=128, n_images=10
+2025-11-13 20:36:15,211 - INFO - Using stitch_crop_size M=20 (N=128)
+2025-11-13 20:36:15,211 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=10, n_points=10, C=4, K=7
+2025-11-13 20:36:15,211 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=128, sequential_sampling=False
+2025-11-13 20:36:15,211 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
+2025-11-13 20:36:15,211 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 10 > 10 = False
+2025-11-13 20:36:15,211 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2025-11-13 20:36:15,211 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+DEBUG:2025-11-13 20:36:15,211 - INFO - DEBUG:
+ nsamples: 10, gridsize: 2 (using efficient random sample-then-group strategy)2025-11-13 20:36:15,211 - INFO - nsamples: 10, gridsize: 2 (using efficient random sample-then-group strategy)
+
+2025-11-13 20:36:15,211 - INFO - Using efficient random sampling strategy for gridsize=2
+2025-11-13 20:36:15,211 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-11-13 20:36:15,211 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=10, K=7, C=4
+2025-11-13 20:36:15,211 - INFO - Generating 10 groups efficiently from 10 points (K=7, C=4)
+2025-11-13 20:36:15,211 - INFO - [OVERSAMPLING DEBUG] Standard case: using 10 groups from 10 points
+2025-11-13 20:36:15,211 - INFO - [OVERSAMPLING DEBUG] Using all 10 points as seeds (no sampling needed)
+2025-11-13 20:36:15,211 - INFO - Using all 10 points as seeds
+2025-11-13 20:36:15,211 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 10 groups
+2025-11-13 20:36:15,211 - INFO - Successfully generated 10 groups with shape (10, 4)
+2025-11-13 20:36:15,211 - INFO - [OVERSAMPLING DEBUG] Generated 10 groups in total
+2025-11-13 20:36:15,211 - INFO - Generated 10 groups efficiently
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.2025-11-13 20:36:15,212 - INFO - INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+
+I0000 00:00:1763094975.908248 2571734 service.cc:152] XLA service 0x1b5a5730 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1763094975.908269 2571734 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-11-13 20:36:15.929874: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1763094975.950386 2571734 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1763094976.106536 2571734 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+neighbor-sampled diffraction shape2025-11-13 20:36:16,276 - INFO - neighbor-sampled diffraction shape
+ (10, 128, 128, 4)2025-11-13 20:36:16,276 - INFO - (10, 128, 128, 4)
+
+loader: using provided ground truth patches.2025-11-13 20:36:16,279 - INFO - loader: using provided ground truth patches.
+
+INFO:2025-11-13 20:36:16,621 - INFO - INFO:
+ None2025-11-13 20:36:16,621 - INFO - None
+
+<PtychoDataContainer X=(10, 128, 128, 4) Y_I=(10, 128, 128, 4) Y_phi=(10, 128, 128, 4) norm_Y_I=() coords_nominal=(10, 1, 2, 4) coords_true=(10, 1, 2, 4) nn_indices=(10, 4) mean=4.325 global_offsets=(10, 1, 2, 1) mean=172.688 local_offsets=(10, 1, 2, 4) mean=-0.000 probe=(128, 128) mean_amplitude=0.007>2025-11-13 20:36:16,621 - INFO - <PtychoDataContainer X=(10, 128, 128, 4) Y_I=(10, 128, 128, 4) Y_phi=(10, 128, 128, 4) norm_Y_I=() coords_nominal=(10, 1, 2, 4) coords_true=(10, 1, 2, 4) nn_indices=(10, 4) mean=4.325 global_offsets=(10, 1, 2, 1) mean=172.688 local_offsets=(10, 1, 2, 4) mean=-0.000 probe=(128, 128) mean_amplitude=0.007>
+
+2025-11-13 20:36:16,621 - INFO - Loading Baseline model from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1...
+2025-11-13 20:36:16,621 - INFO - baseline_model.h5 not found; attempting to load TF bundle (wts.h5.zip)
+2025-11-13 20:36:16,621 - INFO - Loading model from: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
+2025-11-13 20:36:17,659 - INFO - Successfully loaded model from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
+2025-11-13 20:36:17,660 - INFO - Loading iterative reconstruction from /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/train/ptychi_reconstruction.npz...
+2025-11-13 20:36:17,665 - INFO - Loaded PtyChi reconstruction: (346, 514) (complex64)
+2025-11-13 20:36:17,665 - INFO - PtyChi reconstruction loaded for three-way comparison
+2025-11-13 20:36:17,665 - INFO - Running inference with PtychoPINN (diffraction_to_obj)...
+2025-11-13 20:36:17,665 - WARNING - GRIDSIZE MISMATCH: params.cfg['gridsize']=1 but diffraction has 4 channels (requires gridsize=2)
+2025-11-13 20:36:17,665 - WARNING - Forcing params.cfg['gridsize']=2 before inference to prevent Translation layer crash
+2025-11-13 20:36:18.858803: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_6_1/padded_obj_2_1/cond/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_6_1/padded_obj_2_1/cond/while/cond_0
+2025-11-13 20:36:18.953006: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_6_1/padded_obj_2_1/cond_1/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while/cond_0
+2025-11-13 20:36:19.026137: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_6_1/padded_obj_2_1/cond_2/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_6_1/padded_obj_2_1/cond_2/while/cond_0
+2025-11-13 20:36:19.090509: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_6_1/padded_obj_2_1/cond_3/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while/cond_0
+2025-11-13 20:36:20.204824: E external/local_xla/xla/service/slow_operation_alarm.cc:73] Constant folding an instruction is taking > 1s:
+
+  %pad.2222 = f32[80,128,128,1]{3,2,1,0} pad(f32[40,128,128,1]{3,2,1,0} %constant.2220, f32[] %constant.2221), padding=0_40x0_0x0_0x0_0, metadata={op_type="StridedSlice" op_name="functional_6_1/padded_obj_2_1/cond_1/while/strided_slice_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1_1_1_tfg_cf_sunk_functional_6_1/padded_obj_2_1/cond_1/while/cond_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1_1_1" source_file="dummy_file_name" source_line=10}
+
+This isn't necessarily a bug; constant-folding is inherently a trade-off between compilation time and speed at runtime. XLA has some guards that attempt to keep constant folding from taking too long, but fundamentally you'll always be able to come up with an input program that takes a long time.
+
+If you'd like to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
+2025-11-13 20:36:21.335049: E external/local_xla/xla/service/slow_operation_alarm.cc:140] The operation took 2.130310422s
+Constant folding an instruction is taking > 1s:
+
+  %pad.2222 = f32[80,128,128,1]{3,2,1,0} pad(f32[40,128,128,1]{3,2,1,0} %constant.2220, f32[] %constant.2221), padding=0_40x0_0x0_0x0_0, metadata={op_type="StridedSlice" op_name="functional_6_1/padded_obj_2_1/cond_1/while/strided_slice_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1_1_1_tfg_cf_sunk_functional_6_1/padded_obj_2_1/cond_1/while/cond_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1_1_1" source_file="dummy_file_name" source_line=10}
+
+This isn't necessarily a bug; constant-folding is inherently a trade-off between compilation time and speed at runtime. XLA has some guards that attempt to keep constant folding from taking too long, but fundamentally you'll always be able to come up with an input program that takes a long time.
+
+If you'd like to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
+2025-11-13 20:36:23.340243: E external/local_xla/xla/service/slow_operation_alarm.cc:73] Constant folding an instruction is taking > 2s:
+
+  %pad.4164 = f32[80,128,128,1]{3,2,1,0} pad(f32[40,128,128,1]{3,2,1,0} %constant.4162, f32[] %constant.4163), padding=0_40x0_0x0_0x0_0, metadata={op_type="StridedSlice" op_name="functional_6_1/padded_obj_2_1/cond_3/while/strided_slice_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3_1_1_tfg_cf_sunk_functional_6_1/padded_obj_2_1/cond_3/while/cond_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3_1_1" source_file="dummy_file_name" source_line=10}
+
+This isn't necessarily a bug; constant-folding is inherently a trade-off between compilation time and speed at runtime. XLA has some guards that attempt to keep constant folding from taking too long, but fundamentally you'll always be able to come up with an input program that takes a long time.
+
+If you'd like to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
+2025-11-13 20:36:23.456396: E external/local_xla/xla/service/slow_operation_alarm.cc:140] The operation took 2.116226567s
+Constant folding an instruction is taking > 2s:
+
+  %pad.4164 = f32[80,128,128,1]{3,2,1,0} pad(f32[40,128,128,1]{3,2,1,0} %constant.4162, f32[] %constant.4163), padding=0_40x0_0x0_0x0_0, metadata={op_type="StridedSlice" op_name="functional_6_1/padded_obj_2_1/cond_3/while/strided_slice_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3_1_1_tfg_cf_sunk_functional_6_1/padded_obj_2_1/cond_3/while/cond_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3_1_1" source_file="dummy_file_name" source_line=10}
+
+This isn't necessarily a bug; constant-folding is inherently a trade-off between compilation time and speed at runtime. XLA has some guards that attempt to keep constant folding from taking too long, but fundamentally you'll always be able to come up with an input program that takes a long time.
+
+If you'd like to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
+[1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 7s/step2025-11-13 20:36:25,138 - INFO - [1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 7s/step
+[1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m7s[0m 7s/step
+2025-11-13 20:36:25,152 - INFO - [1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m7s[0m 7s/step
+2025-11-13 20:36:25,155 - INFO - PtychoPINN inference completed in 7.49s
+2025-11-13 20:36:25,155 - INFO - PINN patches shape before reassembly: (10, 128, 128, 1), dtype: complex64
+2025-11-13 20:36:25,155 - INFO - Reassembling PINN patches...
+2025-11-13 20:36:25,155 - INFO - PINN offsets shape before reassembly: (10, 1, 2, 1), dtype: float64
+2025-11-13 20:36:26,245 - INFO - PINN reconstruction shape after reassembly: (92, 92, 1), dtype: <dtype: 'complex64'>
+2025-11-13 20:36:26,245 - INFO - Running inference with Baseline model...
+2025-11-13 20:36:26,245 - INFO - Flattening grouped diffraction for baseline model: X (10, 128, 128, 4) → channels merged; resolved gridsize=2 (from 4 channels)
+DEBUG: Setting2025-11-13 20:36:26,245 - INFO - DEBUG: Setting
+ gridsize2025-11-13 20:36:26,246 - INFO - gridsize
+ to2025-11-13 20:36:26,246 - INFO - to
+ 22025-11-13 20:36:26,246 - INFO - 2
+ in params2025-11-13 20:36:26,246 - INFO - in params
+
+2025-11-13 20:36:26,246 - INFO - Forced params.cfg['gridsize']=2 for baseline grouped inference
+2025-11-13 20:36:26,249 - INFO - Baseline inference input shape: (40, 128, 128, 1)
+2025-11-13 20:36:26,249 - INFO - Baseline inference offsets shape: (40, 1, 2, 1)
+2025-11-13 20:36:26,250 - INFO - DIAGNOSTIC baseline_input stats: mean=0.111416, max=4.601460, nonzero_count=33335/655360
+2025-11-13 20:36:27.246210: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond/while/cond_0
+2025-11-13 20:36:27.347569: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond_1/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond_1/while/cond_0
+2025-11-13 20:36:27.429286: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond_2/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond_2/while/cond_tfg_inlined_functional_10_1/padded_obj_2_1/cond_2/while_1_0
+2025-11-13 20:36:27.489724: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond_3/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond_3/while/cond_tfg_inlined_functional_10_1/padded_obj_2_1/cond_3/while_1_0
+[1m1/2[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m5s[0m 6s/step2025-11-13 20:36:32,098 - INFO - [1m1/2[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m5s[0m 6s/step
+2025-11-13 20:36:33.074832: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond/while/cond_tfg_inlined_functional_10_1/padded_obj_2_1/cond/while_1_0
+2025-11-13 20:36:33.112515: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond_1/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond_1/while/cond_0
+2025-11-13 20:36:33.149741: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond_2/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond_2/while/cond_0
+2025-11-13 20:36:33.187445: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond_3/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond_3/while/cond_tfg_inlined_functional_10_1/padded_obj_2_1/cond_3/while_1_0
+[1m2/2[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 2s/step2025-11-13 20:36:34,076 - INFO - [1m2/2[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 2s/step
+[1m2/2[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m8s[0m 2s/step
+2025-11-13 20:36:34,089 - INFO - [1m2/2[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m8s[0m 2s/step
+2025-11-13 20:36:34,101 - INFO - Baseline inference completed in 7.85s
+2025-11-13 20:36:34,103 - INFO - DIAGNOSTIC baseline_output stats: mean=0.000415, max=0.938639, nonzero_count=406/655360
+2025-11-13 20:36:34,103 - INFO - Baseline output format: single tensor, shape: (40, 128, 128, 1), dtype: complex64
+2025-11-13 20:36:34,103 - INFO - Converting baseline output from single complex tensor format
+2025-11-13 20:36:34,107 - INFO - After conversion - amplitude shape: (40, 128, 128, 1), phase shape: (40, 128, 128, 1)
+2025-11-13 20:36:34,107 - INFO - Complex patches shape: (40, 128, 128, 1), dtype: complex64
+2025-11-13 20:36:34,108 - INFO - DIAGNOSTIC first patch amplitude: shape=(128, 128, 1), mean=0.000000, max=0.000000, nonzero=0/16384
+2025-11-13 20:36:34,108 - INFO - DIAGNOSTIC first patch phase: shape=(128, 128, 1), mean=0.000000, std=0.000000, min=0.000000, max=0.000000
+2025-11-13 20:36:34,108 - INFO - Reassembling baseline patches...
+2025-11-13 20:36:34,388 - INFO - Saving NPZ files of raw reconstructions...
+2025-11-13 20:36:34,493 - INFO - Unified reconstructions saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/reconstructions.npz
+2025-11-13 20:36:34,493 - INFO - Metadata saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/reconstructions_metadata.txt
+2025-11-13 20:36:34,493 - INFO - Unified NPZ reconstruction file saved successfully!
+2025-11-13 20:36:34,493 - INFO - Performing coordinate-based alignment of ground truth...
+2025-11-13 20:36:34,493 - INFO - Ground truth original shape: (464, 464)
+2025-11-13 20:36:34,493 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
+2025-11-13 20:36:34,493 - INFO - Calculated ground truth crop region: rows [106:172], cols [164:249]
+2025-11-13 20:36:34,493 - INFO - Initial shapes: Recon=(92, 92), Cropped GT=(66, 85)
+2025-11-13 20:36:34,493 - INFO - Center-cropping from (92, 92) to (66, 85)
+2025-11-13 20:36:34,493 - INFO - Final aligned shape: (66, 85)
+2025-11-13 20:36:34,493 - INFO - --- Alignment complete ---
+2025-11-13 20:36:34,493 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
+2025-11-13 20:36:34,493 - INFO - Calculated ground truth crop region: rows [106:172], cols [164:249]
+2025-11-13 20:36:34,493 - INFO - Initial shapes: Recon=(288, 288), Cropped GT=(66, 85)
+2025-11-13 20:36:34,493 - INFO - Center-cropping from (288, 288) to (66, 85)
+2025-11-13 20:36:34,493 - INFO - Final aligned shape: (66, 85)
+2025-11-13 20:36:34,493 - INFO - --- Alignment complete ---
+2025-11-13 20:36:34,493 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
+2025-11-13 20:36:34,493 - INFO - Calculated ground truth crop region: rows [106:172], cols [164:249]
+2025-11-13 20:36:34,493 - INFO - Initial shapes: Recon=(346, 514), Cropped GT=(66, 85)
+2025-11-13 20:36:34,493 - INFO - Center-cropping from (346, 514) to (66, 85)
+2025-11-13 20:36:34,493 - INFO - Final aligned shape: (66, 85)
+2025-11-13 20:36:34,494 - INFO - --- Alignment complete ---
+2025-11-13 20:36:34,494 - INFO - Performing selective registration (ONLY for pty-chi/tike)...
+2025-11-13 20:36:34,494 - INFO - PtychoPINN and Baseline: skipping registration (as intended)
+2025-11-13 20:36:34,495 - INFO - PtyChi detected offset: (0.040, -0.020)
+2025-11-13 20:36:34,495 - INFO - Final evaluation shapes: PINN (66, 85), Baseline (66, 85), PtyChi (62, 81), GT (66, 85)
+Amplitude normalization scale factor: 1.8884272025-11-13 20:36:34,498 - INFO - Amplitude normalization scale factor: 1.888427
+
+mean scale adjustment:2025-11-13 20:36:34,498 - INFO - mean scale adjustment:
+ 12025-11-13 20:36:34,498 - INFO - 1
+
+mean scale adjustment:2025-11-13 20:36:34,498 - INFO - mean scale adjustment:
+ 12025-11-13 20:36:34,498 - INFO - 1
+
+DEBUG eval_reconstruction [PtychoPINN]: amp_target stats: mean=0.568082, std=0.050773, shape=(62, 81, 1)2025-11-13 20:36:34,499 - INFO - DEBUG eval_reconstruction [PtychoPINN]: amp_target stats: mean=0.568082, std=0.050773, shape=(62, 81, 1)
+
+DEBUG eval_reconstruction [PtychoPINN]: amp_pred stats: mean=0.300823, std=0.347584, shape=(62, 81, 1)2025-11-13 20:36:34,499 - INFO - DEBUG eval_reconstruction [PtychoPINN]: amp_pred stats: mean=0.300823, std=0.347584, shape=(62, 81, 1)
+
+DEBUG eval_reconstruction [PtychoPINN]: phi_target stats: mean=-0.000000, std=0.250684, shape=(62, 81)2025-11-13 20:36:34,499 - INFO - DEBUG eval_reconstruction [PtychoPINN]: phi_target stats: mean=-0.000000, std=0.250684, shape=(62, 81)
+
+DEBUG eval_reconstruction [PtychoPINN]: phi_pred stats: mean=-0.000000, std=0.343749, shape=(62, 81)2025-11-13 20:36:34,499 - INFO - DEBUG eval_reconstruction [PtychoPINN]: phi_pred stats: mean=-0.000000, std=0.343749, shape=(62, 81)
+
+performed by index method2025-11-13 20:36:34,500 - INFO - performed by index method
+
+performed by index method2025-11-13 20:36:34,501 - INFO - performed by index method
+
+performed by index method2025-11-13 20:36:34,502 - INFO - performed by index method
+
+mean scale adjustment:2025-11-13 20:36:34,503 - INFO - mean scale adjustment:
+ 12025-11-13 20:36:34,504 - INFO - 1
+
+mean scale adjustment:2025-11-13 20:36:34,504 - INFO - mean scale adjustment:
+ 12025-11-13 20:36:34,504 - INFO - 1
+
+Phase preprocessing: plane-fitted range [-0.640, 0.404] -> scaled range [0.398, 0.564]2025-11-13 20:36:34,504 - INFO - Phase preprocessing: plane-fitted range [-0.640, 0.404] -> scaled range [0.398, 0.564]
+
+performed by index method2025-11-13 20:36:34,506 - INFO - performed by index method
+
+performed by index method2025-11-13 20:36:34,507 - INFO - performed by index method
+
+performed by index method2025-11-13 20:36:34,508 - INFO - performed by index method
+
+2025-11-13 20:36:34,509 - INFO - PtychoPINN evaluation complete. SSIM: amp=-0.007, phase=0.547, MS-SSIM: amp=0.035, phase=0.244
+/home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:543: RuntimeWarning: divide by zero encountered in scalar divide
+  scale_factor = np.mean(amp_target_np) / np.mean(amp_pred_np)
+2025-11-13 20:36:34,511 - ERROR - /home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:543: RuntimeWarning: divide by zero encountered in scalar divide
+  scale_factor = np.mean(amp_target_np) / np.mean(amp_pred_np)
+/home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:544: RuntimeWarning: invalid value encountered in multiply
+  amp_pred_normalized = amp_pred_np * scale_factor
+2025-11-13 20:36:34,511 - ERROR - /home/ollie/Documents/PtychoPINN/ptycho/evaluation.py:544: RuntimeWarning: invalid value encountered in multiply
+  amp_pred_normalized = amp_pred_np * scale_factor
+Amplitude normalization scale factor: inf2025-11-13 20:36:34,511 - INFO - Amplitude normalization scale factor: inf
+
+mean scale adjustment:2025-11-13 20:36:34,511 - INFO - mean scale adjustment:
+ 12025-11-13 20:36:34,511 - INFO - 1
+
+mean scale adjustment:2025-11-13 20:36:34,511 - INFO - mean scale adjustment:
+ 12025-11-13 20:36:34,511 - INFO - 1
+
+DEBUG eval_reconstruction [Baseline]: amp_target stats: mean=0.568082, std=0.050773, shape=(62, 81, 1)2025-11-13 20:36:34,511 - INFO - DEBUG eval_reconstruction [Baseline]: amp_target stats: mean=0.568082, std=0.050773, shape=(62, 81, 1)
+
+DEBUG eval_reconstruction [Baseline]: amp_pred stats: mean=0.000000, std=0.000000, shape=(62, 81, 1)2025-11-13 20:36:34,512 - INFO - DEBUG eval_reconstruction [Baseline]: amp_pred stats: mean=0.000000, std=0.000000, shape=(62, 81, 1)
+
+DEBUG eval_reconstruction [Baseline]: phi_target stats: mean=-0.000000, std=0.250684, shape=(62, 81)2025-11-13 20:36:34,512 - INFO - DEBUG eval_reconstruction [Baseline]: phi_target stats: mean=-0.000000, std=0.250684, shape=(62, 81)
+
+DEBUG eval_reconstruction [Baseline]: phi_pred stats: mean=0.000000, std=0.000000, shape=(62, 81)2025-11-13 20:36:34,512 - INFO - DEBUG eval_reconstruction [Baseline]: phi_pred stats: mean=0.000000, std=0.000000, shape=(62, 81)
+
+2025-11-13 20:36:34,512 - ERROR - Baseline evaluation failed: 
+Amplitude normalization scale factor: 1.1160302025-11-13 20:36:34,513 - INFO - Amplitude normalization scale factor: 1.116030
+
+mean scale adjustment:2025-11-13 20:36:34,513 - INFO - mean scale adjustment:
+ 12025-11-13 20:36:34,513 - INFO - 1
+
+mean scale adjustment:2025-11-13 20:36:34,513 - INFO - mean scale adjustment:
+ 12025-11-13 20:36:34,513 - INFO - 1
+
+DEBUG eval_reconstruction [PtyChi]: amp_target stats: mean=0.568624, std=0.050877, shape=(58, 77, 1)2025-11-13 20:36:34,514 - INFO - DEBUG eval_reconstruction [PtyChi]: amp_target stats: mean=0.568624, std=0.050877, shape=(58, 77, 1)
+
+DEBUG eval_reconstruction [PtyChi]: amp_pred stats: mean=0.509506, std=0.080751, shape=(58, 77, 1)2025-11-13 20:36:34,514 - INFO - DEBUG eval_reconstruction [PtyChi]: amp_pred stats: mean=0.509506, std=0.080751, shape=(58, 77, 1)
+
+DEBUG eval_reconstruction [PtyChi]: phi_target stats: mean=0.000000, std=0.250917, shape=(58, 77)2025-11-13 20:36:34,514 - INFO - DEBUG eval_reconstruction [PtyChi]: phi_target stats: mean=0.000000, std=0.250917, shape=(58, 77)
+
+DEBUG eval_reconstruction [PtyChi]: phi_pred stats: mean=-0.000000, std=0.312817, shape=(58, 77)2025-11-13 20:36:34,514 - INFO - DEBUG eval_reconstruction [PtyChi]: phi_pred stats: mean=-0.000000, std=0.312817, shape=(58, 77)
+
+performed by index method2025-11-13 20:36:34,514 - INFO - performed by index method
+
+performed by index method2025-11-13 20:36:34,515 - INFO - performed by index method
+
+performed by index method2025-11-13 20:36:34,516 - INFO - performed by index method
+
+mean scale adjustment:2025-11-13 20:36:34,517 - INFO - mean scale adjustment:
+ 12025-11-13 20:36:34,517 - INFO - 1
+
+mean scale adjustment:2025-11-13 20:36:34,517 - INFO - mean scale adjustment:
+ 12025-11-13 20:36:34,517 - INFO - 1
+
+Phase preprocessing: plane-fitted range [-0.620, 0.401] -> scaled range [0.401, 0.564]2025-11-13 20:36:34,517 - INFO - Phase preprocessing: plane-fitted range [-0.620, 0.401] -> scaled range [0.401, 0.564]
+
+performed by index method2025-11-13 20:36:34,520 - INFO - performed by index method
+
+performed by index method2025-11-13 20:36:34,521 - INFO - performed by index method
+
+performed by index method2025-11-13 20:36:34,521 - INFO - performed by index method
+
+2025-11-13 20:36:34,522 - INFO - PtyChi evaluation complete. SSIM: amp=0.050, phase=0.418, MS-SSIM: amp=0.170, phase=0.105
+2025-11-13 20:36:34,524 - INFO - Metrics saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/comparison_metrics.csv
+
+--- Comparison Metrics ---2025-11-13 20:36:34,524 - INFO - --- Comparison Metrics ---
+
+     model                 metric  amplitude     phase     value
+PtychoPINN                    mae   0.524218  0.281465       NaN
+PtychoPINN                    mse   0.441132  0.167414       NaN
+PtychoPINN                   psnr  51.685118 55.892886       NaN
+PtychoPINN                   ssim  -0.007345  0.546977       NaN
+PtychoPINN                ms_ssim   0.034921  0.243572       NaN
+PtychoPINN                  frc50   2.000000  1.000000       NaN
+  Baseline                    mae        NaN       NaN       NaN
+  Baseline                    mse        NaN       NaN       NaN
+  Baseline                   psnr        NaN       NaN       NaN
+  Baseline                   ssim        NaN       NaN       NaN
+  Baseline                ms_ssim        NaN       NaN       NaN
+  Baseline                  frc50        NaN       NaN       NaN
+    PtyChi                    mae   0.080933  0.320098       NaN
+    PtyChi                    mse   0.010120  0.158392       NaN
+    PtyChi                   psnr  68.078845 56.133463       NaN
+    PtyChi                   ssim   0.049716  0.417816       NaN
+    PtyChi                ms_ssim   0.169858  0.104632       NaN
+    PtyChi                  frc50   1.000000  2.000000       NaN
+    PtyChi registration_offset_dy        NaN       NaN  0.040000
+    PtyChi registration_offset_dx        NaN       NaN -0.020000
+PtychoPINN     computation_time_s        NaN       NaN  7.489878
+  Baseline     computation_time_s        NaN       NaN  7.8509132025-11-13 20:36:34,526 - INFO - model                 metric  amplitude     phase     value
+PtychoPINN                    mae   0.524218  0.281465       NaN
+PtychoPINN                    mse   0.441132  0.167414       NaN
+PtychoPINN                   psnr  51.685118 55.892886       NaN
+PtychoPINN                   ssim  -0.007345  0.546977       NaN
+PtychoPINN                ms_ssim   0.034921  0.243572       NaN
+PtychoPINN                  frc50   2.000000  1.000000       NaN
+  Baseline                    mae        NaN       NaN       NaN
+  Baseline                    mse        NaN       NaN       NaN
+  Baseline                   psnr        NaN       NaN       NaN
+  Baseline                   ssim        NaN       NaN       NaN
+  Baseline                ms_ssim        NaN       NaN       NaN
+  Baseline                  frc50        NaN       NaN       NaN
+    PtyChi                    mae   0.080933  0.320098       NaN
+    PtyChi                    mse   0.010120  0.158392       NaN
+    PtyChi                   psnr  68.078845 56.133463       NaN
+    PtyChi                   ssim   0.049716  0.417816       NaN
+    PtyChi                ms_ssim   0.169858  0.104632       NaN
+    PtyChi                  frc50   1.000000  2.000000       NaN
+    PtyChi registration_offset_dy        NaN       NaN  0.040000
+    PtyChi registration_offset_dx        NaN       NaN -0.020000
+PtychoPINN     computation_time_s        NaN       NaN  7.489878
+  Baseline     computation_time_s        NaN       NaN  7.850913
+
+2025-11-13 20:36:34,527 - INFO - FRC curves saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/pinn_frc_curves.csv
+2025-11-13 20:36:34,527 - INFO - Saving NPZ files of aligned reconstructions...
+2025-11-13 20:36:34,531 - INFO - Unified aligned reconstructions saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/reconstructions_aligned.npz
+2025-11-13 20:36:34,531 - INFO - Aligned metadata saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/reconstructions_aligned_metadata.txt
+2025-11-13 20:36:34,531 - INFO - Unified aligned NPZ reconstruction file saved successfully!
+2025-11-13 20:36:34,577 - INFO - PtychoPINN amplitude color scale (vmin, vmax) set to: (0.000, 0.910) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 20:36:34,578 - INFO - Baseline amplitude color scale (vmin, vmax) set to: (0.000, 0.000) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 20:36:34,578 - INFO - PtychoPINN phase color scale (vmin, vmax) set to: (-0.232, 0.150) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 20:36:34,578 - INFO - Baseline phase color scale (vmin, vmax) set to: (0.000, 0.000) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 20:36:34,578 - INFO - PtyChi amplitude color scale (vmin, vmax) set to: (0.405, 0.622) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 20:36:34,578 - INFO - PtyChi phase color scale (vmin, vmax) set to: (-0.543, 0.286) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 20:36:34,586 - INFO - Ground Truth amplitude color scale (vmin, vmax) set to: (0.487, 0.625) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 20:36:34,586 - INFO - Ground Truth phase color scale (vmin, vmax) set to: (-0.474, 0.203) using 10.0/90.0 percentiles [per-panel].
+2025-11-13 20:36:35,126 - INFO - Visual comparison saved to /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug/comparison_plot.png
+2025-11-13 20:36:35,126 - INFO - 
+Comparison complete!
+2025-11-13 20:36:35,126 - INFO - Results saved to: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug
