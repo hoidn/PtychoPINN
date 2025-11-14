@@ -10,4 +10,5 @@ collecting ... collected 1 item
 
 tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle PASSED [100%]
 
-============================== 1 passed in 34.75s ==============================
+============================== 1 passed in 34.86s ==============================
+--- Environment Capture ---

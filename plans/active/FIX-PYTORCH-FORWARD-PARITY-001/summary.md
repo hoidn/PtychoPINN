@@ -1,4 +1,16 @@
 ### Turn Summary
+Confirmed Phase C1 TensorFlow baseline still fails even with `TF_XLA_FLAGS="--tf_xla_auto_jit=0"` and the non-identity dataset (`datasets/fly64/fly001_64_train_converted.npz`) because the codebase explicitly calls `translate_xla()` functions bypassing the environment flag.
+Integration pytest passed (34.86s GREEN), but training crashed at first epoch in `projective_warp_xla_jit` with tf2xla conversion failure despite TF_XLA_FLAGS being exported (Finding XLA-DYN-DOT-001).
+Documented blocker under `tf_baseline/phase_c1/red/blocked_20251114T071940Z_tf_xla_code_level.md` with three mitigation options: (1) set `params.cfg['use_xla_translate']=False`, (2) fix XLA dynamic shape handling, or (3) proceed with PyTorch-only parity per POLICY-001.
+Next: either disable XLA at params.cfg level and retry TF baseline, or escalate to supervisor for PyTorch-only decision.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1/{green/pytest_tf_integration.log,cli/train_tf_phase_c1.log,red/blocked_20251114T071940Z_tf_xla_code_level.md}
+
+Checklist:
+- Files touched: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1/{green/pytest_tf_integration.log,cli/train_tf_phase_c1.log,red/blocked_20251114T071940Z_tf_xla_code_level.md}, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
+- Tests run: pytest tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle -vv
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1/{green/pytest_tf_integration.log,cli/train_tf_phase_c1.log,red/blocked_20251114T071940Z_tf_xla_code_level.md}
+
+### Turn Summary
 Re-scoped Phase C1 so the TF baseline now defaults to `datasets/fly64_coord_variants/fly001_64_train_converted.npz` after two projective_warp_xla_jit RET_CHECKs on the identity dataset even with `TF_XLA_FLAGS="--tf_xla_auto_jit=0"` (Finding XLA-DYN-DOT-001).
 Updated the implementation plan and ledger so Ralph exports the HUB/OUT/TF paths, logs TF_XLA_FLAGS in every artifact, runs the integration selector, and executes the TF training/inference commands with the non-identity dataset plus the existing test split.
 Added explicit instructions to append a “Dataset note” with the parity decision (whether a matching PyTorch rerun is owed) and tightened the fallback procedure if TensorFlow still fails on the non-identity data.
