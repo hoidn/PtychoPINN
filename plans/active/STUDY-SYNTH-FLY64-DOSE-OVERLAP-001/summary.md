@@ -1,4 +1,15 @@
 ### Turn Summary
+Translation guard tests remain GREEN (2/2 passed, 6.18s), confirming the chunked Baseline refactor is intact.
+Input.md Brief requests execution of compare_models with paths under `$HUB/data/{phase_e,phase_c,phase_f}`, but these directories do not exist—the actual data resides at `data/phase_c/dose_1000/` and archived locations.
+Documented blocker in red/blocked_20251113T235013Z_missing_hub_data.md; cannot execute compare_models commands until supervisor populates HUB data directories or updates Brief with correct paths.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix_v18.log; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/red/blocked_20251113T235013Z_missing_hub_data.md
+
+Checklist:
+- Files touched: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix_v18.log, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/red/blocked_20251113T235013Z_missing_hub_data.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md
+- Tests run: pytest tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_batched_predictions tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split -vv
+- Artifacts updated: green/pytest_compare_models_translation_fix_v18.log; red/blocked_20251113T235013Z_missing_hub_data.md
+
+### Turn Summary
 Chunked Baseline container fix is merged (scripts/compare_models.py:1152-1197,1431-1442) but the rerun evidence still reflects the pre-chunked path, so I refreshed the plan/ledger/input to focus Ralph on executing the debug + full chunked compare_models runs followed by the Phase D selectors and counted pipeline.
 Current blockers are visible in the hub: the new debug log stops at chunk 21/33 (`analysis/dose_1000/dense/test_debug_v2/logs/logs/debug.log:1299`), dense-test Baseline rows are blank (`analysis/dose_1000/dense/test/comparison_metrics.csv:8`), `analysis/metrics_summary.json:22` still lists “Pty-chi (pty-chi)”, and both `cli/aggregate_report_cli.log:1` and `cli/run_phase_g_dense_post_verify_only.log:1` fail immediately, leaving `analysis/verification_report.json:1` at 0/10.
 Next: run the translation guard, rerun the chunked debug + full train/test compare_models commands with the documented chunk sizes, then execute the Phase D selectors, counted `run_phase_g_dense.py --clobber`, metrics reporters, and `--post-verify-only`, filing `$HUB/red/blocked_<timestamp>.md` if Baseline stats regress or the SSIM/preview bundle is still missing.
