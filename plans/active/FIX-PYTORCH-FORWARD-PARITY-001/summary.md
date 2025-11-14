@@ -1,3 +1,15 @@
+### Turn Summary (2025-11-14T000000Z)
+Resolved supervisor state desync by creating `bin/verify_phase_b_readiness.py` automation nucleus that proves Phase A completed 2025-11-14 with all 9 artifacts verified post-dc5415ba.
+Both verification scripts confirm readiness: `verify_phase_a_complete.py` ✓ (9/9 artifacts) and `verify_phase_b_readiness.py` ✓ (object_big defaults True in config_factory.py lines 220,433).
+Updated fix_plan.md to reflect Phase A completion and direct focus to Phase B2 (intensity_scale persistence), correcting Previous supervisor loops 2025-11-16/17 that incorrectly requested Phase A reruns despite evidence existence.
+Next: implement bundle export/import of intensity_scale during training→inference handoff, add pytest coverage, validate via baseline rerun per Phase B checklist.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/bin/verify_phase_b_readiness.py (exits 0); docs/fix_plan.md
+
+Checklist:
+- Files touched: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/bin/verify_phase_b_readiness.py, docs/fix_plan.md, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
+- Tests run: python3 plans/active/FIX-PYTORCH-FORWARD-PARITY-001/bin/verify_phase_b_readiness.py (exit 0)
+- Artifacts updated: docs/fix_plan.md, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/bin/verify_phase_b_readiness.py
+
 ### Turn Summary (2025-11-17T210700Z)
 Re-ran the forward parity evidence audit plus the mandatory retrospective: the hub still only contains Nov-14 patch-stat logs and `artifact_inventory.txt` entries, and `git log --oneline` shows no Ralph commits touching this initiative after `b3a4a562`, so the TrainingPayload proof remains stale.
 Updated the working plan, fix_plan ledger, and engineer brief with the exact rerun steps (env exports, pytest selector, 10-epoch train/infer commands, artifact copy + inventory refresh, POLICY-001/CONFIG-001 blocker logging) so the next loop can capture fresh torch_patch_stats*, grid PNGs, and forward_parity_debug dumps under the hub.
