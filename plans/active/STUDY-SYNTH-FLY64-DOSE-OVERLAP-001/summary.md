@@ -1,4 +1,16 @@
 ### Turn Summary
+Translation guard tests GREEN (2/2 passed, 6.15s); debug-limited compare_models runs (320 groups) succeeded for both splits with chunked Baseline producing non-zero outputs (train mean=0.188, test mean=0.159).
+Full train compare_models succeeded with chunked Baseline (mean=0.188, 78.7M nonzero pixels, complete CSV rows), but full test compare_models OOM'd during TensorFlow Cast operation despite chunking, indicating memory issue elsewhere in pipeline (possibly PINN inference or metrics).
+Blocker documented (`red/blocked_20251113T220800Z_test_full_oom_despite_chunking.md`) with evidence that chunked Baseline inference works but full 5216-group test dataset triggers OOM in different operation.
+Next: await supervisor decision on mitigation (reduce chunk size further, skip test Baseline, or investigate PINN inference chunking) before proceeding with Phase D/Phase G pipeline.
+Artifacts: green/pytest_compare_models_translation_fix_v16.log; cli/compare_models_dense_{train,test}_debug.log; cli/compare_models_dense_train_full.log; analysis/dose_1000/dense/train/comparison_metrics.csv (complete Baseline rows); red/blocked_20251113T220800Z_test_full_oom_despite_chunking.md
+
+Checklist:
+- Files touched: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/red/blocked_20251113T220800Z_test_full_oom_despite_chunking.md
+- Tests run: pytest tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_batched_predictions tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split -vv; python scripts/compare_models.py (train/test debug with 320 groups; train full with 5088 groups; test full failed OOM)
+- Artifacts updated: green/pytest_compare_models_translation_fix_v16.log; cli/compare_models_dense_{train,test}_debug.log; cli/compare_models_dense_train_full.log; analysis/dose_1000/dense/train/comparison_metrics.csv; red/blocked_20251113T220800Z_test_full_oom_despite_chunking.md
+
+### Turn Summary
 Reframed the Phase G execution plan now that chunked Baseline inference is merged, so the Do Now walks Ralph through translation guard → debug/full chunked compare_models runs before touching the counted pipeline.
 Updated docs/fix_plan.md, the implementation plan, and this summary with the new checklist entry for the chunk helper plus refreshed artifact/selector requirements for Phase D/Phase G/verification.
 Next: execute the rerun sequence (translation guard, debug + full compare_models with `--baseline-chunk-size 256 --baseline-predict-batch-size 16`, Phase D tests, counted `run_phase_g_dense.py --clobber`, metrics helpers, fully parameterized `--post-verify-only`) and capture blockers under `$HUB/red/` if Baseline rows or verification artifacts stay missing.

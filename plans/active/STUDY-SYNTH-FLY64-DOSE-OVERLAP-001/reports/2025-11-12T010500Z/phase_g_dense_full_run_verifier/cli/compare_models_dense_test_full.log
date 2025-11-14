@@ -1,22 +1,22 @@
-2025-11-13 21:21:09.314619: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-11-13 22:02:09.670340: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1763097669.326717 2611189 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1763097669.330663 2611189 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1763097669.340723 2611189 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763097669.340738 2611189 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763097669.340740 2611189 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763097669.340742 2611189 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2025-11-13 21:21:09.343501: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+E0000 00:00:1763100129.682687 2636392 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1763100129.686646 2636392 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1763100129.696760 2636392 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763100129.696783 2636392 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763100129.696785 2636392 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1763100129.696786 2636392 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-13 22:02:09.699582: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
 To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2025-11-13 21:21:11,733 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.5
-2025-11-13 21:21:11,734 - INFO - Registration: enabled
-2025-11-13 21:21:11,734 - INFO - NPZ output: raw=enabled, aligned=enabled
-2025-11-13 21:21:11,734 - INFO - Loading PtychoPINN inference model (diffraction_to_obj) to restore configuration...
-2025-11-13 21:21:11,734 - INFO - Loading model from: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
-I0000 00:00:1763097672.131046 2611189 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
-I0000 00:00:1763097672.132370 2611189 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 21832 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+2025-11-13 22:02:12,023 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
+2025-11-13 22:02:12,023 - INFO - Registration: enabled
+2025-11-13 22:02:12,023 - INFO - NPZ output: raw=enabled, aligned=enabled
+2025-11-13 22:02:12,023 - INFO - Loading PtychoPINN inference model (diffraction_to_obj) to restore configuration...
+2025-11-13 22:02:12,023 - INFO - Loading model from: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
+I0000 00:00:1763100132.421386 2636392 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1763100132.422678 2636392 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 21831 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
 Model: "functional"
-2025-11-13 21:21:12,876 - INFO - Model: "functional"
+2025-11-13 22:02:13,156 - INFO - Model: "functional"
 ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
 ┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
 ┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
@@ -220,7 +220,7 @@ Model: "functional"
 │ pred_intensity      │ (None, 128, 128,  │          0 │ intensity_scaler… │
 │ (SquareLayer)       │ 4)                │            │                   │
 └─────────────────────┴───────────────────┴────────────┴───────────────────┘
-2025-11-13 21:21:12,902 - INFO - ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
+2025-11-13 22:02:13,181 - INFO - ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
 ┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
 ┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
 │ input (InputLayer)  │ (None, 128, 128,  │          0 │ -                 │
@@ -424,89 +424,89 @@ Model: "functional"
 │ (SquareLayer)       │ 4)                │            │                   │
 └─────────────────────┴───────────────────┴────────────┴───────────────────┘
  Total params: 4,667,056 (17.80 MB)
-2025-11-13 21:21:12,902 - INFO - Total params: 4,667,056 (17.80 MB)
+2025-11-13 22:02:13,181 - INFO - Total params: 4,667,056 (17.80 MB)
  Trainable params: 4,667,056 (17.80 MB)
-2025-11-13 21:21:12,902 - INFO - Trainable params: 4,667,056 (17.80 MB)
+2025-11-13 22:02:13,181 - INFO - Trainable params: 4,667,056 (17.80 MB)
  Non-trainable params: 0 (0.00 B)
-2025-11-13 21:21:12,902 - INFO - Non-trainable params: 0 (0.00 B)
-None2025-11-13 21:21:12,903 - INFO - None
+2025-11-13 22:02:13,182 - INFO - Non-trainable params: 0 (0.00 B)
+None2025-11-13 22:02:13,182 - INFO - None
 
-2025-11-13 21:21:12.903123: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:103] Profiler session initializing.
-2025-11-13 21:21:12.903141: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:118] Profiler session started.
+2025-11-13 22:02:13.182224: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:103] Profiler session initializing.
+2025-11-13 22:02:13.182234: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:118] Profiler session started.
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-I0000 00:00:1763097672.903164 2611189 cupti_tracer.cc:1026] Profiler found 1 GPUs
-W0000 00:00:1763097672.921149 2611189 cupti_tracer.cc:1213] Fail to use per-thread activity buffer, cupti trace overhead may be big. CUPTI ERROR CODE:1
-2025-11-13 21:21:12.921247: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:130] Profiler session tear down.
-I0000 00:00:1763097672.921326 2611189 cupti_tracer.cc:1249] CUPTI activity buffer flushed
+I0000 00:00:1763100133.182250 2636392 cupti_tracer.cc:1026] Profiler found 1 GPUs
+W0000 00:00:1763100133.200490 2636392 cupti_tracer.cc:1213] Fail to use per-thread activity buffer, cupti trace overhead may be big. CUPTI ERROR CODE:1
+2025-11-13 22:02:13.200589: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:130] Profiler session tear down.
+I0000 00:00:1763100133.200686 2636392 cupti_tracer.cc:1249] CUPTI activity buffer flushed
 /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
   warnings.warn(
-2025-11-13 21:21:13,116 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+2025-11-13 22:02:13,396 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
   warnings.warn(
 /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
   warnings.warn(
-2025-11-13 21:21:13,117 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+2025-11-13 22:02:13,397 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
   warnings.warn(
-2025-11-13 21:21:13,837 - INFO - Successfully loaded model from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
-2025-11-13 21:21:13,838 - INFO - Restored configuration from model: gridsize=2, N=128
-2025-11-13 21:21:13,838 - INFO - Loading test data from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_test.npz with restored gridsize=2...
-2025-11-13 21:21:13,838 - INFO - Using all test data (no subsampling or grouping limit)
-2025-11-13 21:21:13,838 - INFO - Loading data from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_test.npz with n_images=None, n_subsample=None
-2025-11-13 21:21:14,306 - WARNING - Ignoring NPZ 'Y' with incompatible shape (1, 128, 128, 1) (expected first axis 5216)
-2025-11-13 21:21:14,307 - INFO - Using full dataset of 5216 images
-diff3d shape: (5216, 128, 128)2025-11-13 21:21:14,351 - INFO - diff3d shape: (5216, 128, 128)
+2025-11-13 22:02:14,126 - INFO - Successfully loaded model from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
+2025-11-13 22:02:14,127 - INFO - Restored configuration from model: gridsize=2, N=128
+2025-11-13 22:02:14,127 - INFO - Loading test data from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_test.npz with restored gridsize=2...
+2025-11-13 22:02:14,127 - INFO - Using all test data (no subsampling or grouping limit)
+2025-11-13 22:02:14,127 - INFO - Loading data from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_test.npz with n_images=None, n_subsample=None
+2025-11-13 22:02:14,588 - WARNING - Ignoring NPZ 'Y' with incompatible shape (1, 128, 128, 1) (expected first axis 5216)
+2025-11-13 22:02:14,588 - INFO - Using full dataset of 5216 images
+diff3d shape: (5216, 128, 128)2025-11-13 22:02:14,632 - INFO - diff3d shape: (5216, 128, 128)
 
-probeGuess shape: (128, 128)2025-11-13 21:21:14,351 - INFO - probeGuess shape: (128, 128)
+probeGuess shape: (128, 128)2025-11-13 22:02:14,632 - INFO - probeGuess shape: (128, 128)
 
-scan_index shape: (5216,)2025-11-13 21:21:14,351 - INFO - scan_index shape: (5216,)
+scan_index shape: (5216,)2025-11-13 22:02:14,632 - INFO - scan_index shape: (5216,)
 
-objectGuess shape: (464, 464)2025-11-13 21:21:14,351 - INFO - objectGuess shape: (464, 464)
+objectGuess shape: (464, 464)2025-11-13 22:02:14,632 - INFO - objectGuess shape: (464, 464)
 
-xcoords shape: (5216,)2025-11-13 21:21:14,351 - INFO - xcoords shape: (5216,)
+xcoords shape: (5216,)2025-11-13 22:02:14,632 - INFO - xcoords shape: (5216,)
 
-ycoords shape: (5216,)2025-11-13 21:21:14,351 - INFO - ycoords shape: (5216,)
+ycoords shape: (5216,)2025-11-13 22:02:14,632 - INFO - ycoords shape: (5216,)
 
-xcoords_start shape: (5216,)2025-11-13 21:21:14,351 - INFO - xcoords_start shape: (5216,)
+xcoords_start shape: (5216,)2025-11-13 22:02:14,632 - INFO - xcoords_start shape: (5216,)
 
-ycoords_start shape: (5216,)2025-11-13 21:21:14,351 - INFO - ycoords_start shape: (5216,)
+ycoords_start shape: (5216,)2025-11-13 22:02:14,632 - INFO - ycoords_start shape: (5216,)
 
-2025-11-13 21:21:14,352 - INFO - Final configuration: gridsize=2, N=128, n_images=5216
-2025-11-13 21:21:14,352 - INFO - Using stitch_crop_size M=20 (N=128)
-2025-11-13 21:21:14,352 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=5216, n_points=5216, C=4, K=7
-2025-11-13 21:21:14,352 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=128, sequential_sampling=False
-2025-11-13 21:21:14,352 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
-2025-11-13 21:21:14,352 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 5216 > 5216 = False
-2025-11-13 21:21:14,352 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
-2025-11-13 21:21:14,352 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
-DEBUG:2025-11-13 21:21:14,352 - INFO - DEBUG:
- nsamples: 5216, gridsize: 2 (using efficient random sample-then-group strategy)2025-11-13 21:21:14,352 - INFO - nsamples: 5216, gridsize: 2 (using efficient random sample-then-group strategy)
+2025-11-13 22:02:14,633 - INFO - Final configuration: gridsize=2, N=128, n_images=5216
+2025-11-13 22:02:14,633 - INFO - Using stitch_crop_size M=20 (N=128)
+2025-11-13 22:02:14,633 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=5216, n_points=5216, C=4, K=7
+2025-11-13 22:02:14,633 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=128, sequential_sampling=False
+2025-11-13 22:02:14,633 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
+2025-11-13 22:02:14,633 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 5216 > 5216 = False
+2025-11-13 22:02:14,633 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2025-11-13 22:02:14,633 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+DEBUG:2025-11-13 22:02:14,633 - INFO - DEBUG:
+ nsamples: 5216, gridsize: 2 (using efficient random sample-then-group strategy)2025-11-13 22:02:14,633 - INFO - nsamples: 5216, gridsize: 2 (using efficient random sample-then-group strategy)
 
-2025-11-13 21:21:14,352 - INFO - Using efficient random sampling strategy for gridsize=2
-2025-11-13 21:21:14,352 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
-2025-11-13 21:21:14,352 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=5216, K=7, C=4
-2025-11-13 21:21:14,352 - INFO - Generating 5216 groups efficiently from 5216 points (K=7, C=4)
-2025-11-13 21:21:14,352 - INFO - [OVERSAMPLING DEBUG] Standard case: using 5216 groups from 5216 points
-2025-11-13 21:21:14,352 - INFO - [OVERSAMPLING DEBUG] Using all 5216 points as seeds (no sampling needed)
-2025-11-13 21:21:14,352 - INFO - Using all 5216 points as seeds
-2025-11-13 21:21:14,387 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 5216 groups
-2025-11-13 21:21:14,387 - INFO - Successfully generated 5216 groups with shape (5216, 4)
-2025-11-13 21:21:14,387 - INFO - [OVERSAMPLING DEBUG] Generated 5216 groups in total
-2025-11-13 21:21:14,387 - INFO - Generated 5216 groups efficiently
-INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.2025-11-13 21:21:14,562 - INFO - INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+2025-11-13 22:02:14,633 - INFO - Using efficient random sampling strategy for gridsize=2
+2025-11-13 22:02:14,633 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-11-13 22:02:14,633 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=5216, K=7, C=4
+2025-11-13 22:02:14,633 - INFO - Generating 5216 groups efficiently from 5216 points (K=7, C=4)
+2025-11-13 22:02:14,633 - INFO - [OVERSAMPLING DEBUG] Standard case: using 5216 groups from 5216 points
+2025-11-13 22:02:14,633 - INFO - [OVERSAMPLING DEBUG] Using all 5216 points as seeds (no sampling needed)
+2025-11-13 22:02:14,633 - INFO - Using all 5216 points as seeds
+2025-11-13 22:02:14,668 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 5216 groups
+2025-11-13 22:02:14,668 - INFO - Successfully generated 5216 groups with shape (5216, 4)
+2025-11-13 22:02:14,668 - INFO - [OVERSAMPLING DEBUG] Generated 5216 groups in total
+2025-11-13 22:02:14,668 - INFO - Generated 5216 groups efficiently
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.2025-11-13 22:02:14,842 - INFO - INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
 
-I0000 00:00:1763097675.354588 2611189 service.cc:152] XLA service 0x27c0c9a0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
-I0000 00:00:1763097675.354605 2611189 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
-2025-11-13 21:21:15.377420: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
-I0000 00:00:1763097675.399293 2611189 cuda_dnn.cc:529] Loaded cuDNN version 91002
-I0000 00:00:1763097675.560746 2611189 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
-2025-11-13 21:22:41.856082: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 2734686208 exceeds 10% of free system memory.
-neighbor-sampled diffraction shape2025-11-13 21:22:47,837 - INFO - neighbor-sampled diffraction shape
- (5216, 128, 128, 4)2025-11-13 21:22:47,837 - INFO - (5216, 128, 128, 4)
+I0000 00:00:1763100135.606442 2636392 service.cc:152] XLA service 0x398c5150 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1763100135.606461 2636392 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-11-13 22:02:15.628833: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1763100135.650872 2636392 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1763100135.817955 2636392 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+2025-11-13 22:03:43.158273: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 2734686208 exceeds 10% of free system memory.
+neighbor-sampled diffraction shape2025-11-13 22:03:48,997 - INFO - neighbor-sampled diffraction shape
+ (5216, 128, 128, 4)2025-11-13 22:03:48,997 - INFO - (5216, 128, 128, 4)
 
-loader: using provided ground truth patches.2025-11-13 21:22:50,012 - INFO - loader: using provided ground truth patches.
+loader: using provided ground truth patches.2025-11-13 22:03:51,141 - INFO - loader: using provided ground truth patches.
 
-2025-11-13 21:22:50.351829: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:359] gpu_async_0 cuMemAllocAsync failed to allocate 2734686208 bytes: RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
- Reported by CUDA: Free memory/Total memory: 31784960/25298927616
-2025-11-13 21:22:50.351846: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:364] Stats: Limit:                     22892838912
+2025-11-13 22:03:51.446570: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:359] gpu_async_0 cuMemAllocAsync failed to allocate 2734686208 bytes: RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
+ Reported by CUDA: Free memory/Total memory: 31260672/25298927616
+2025-11-13 22:03:51.446587: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:364] Stats: Limit:                     22892314624
 InUse:                      6893448392
 MaxInUse:                   8260874944
 NumAllocs:                      607103
@@ -515,41 +515,39 @@ Reserved:                            0
 PeakReserved:                        0
 LargestFreeBlock:                    0
 
-2025-11-13 21:22:50.351854: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:68] Histogram of current allocation: (allocation_size_in_bytes, nb_allocation_of_that_sizes), ...;
-2025-11-13 21:22:50.351856: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 4, 29
-2025-11-13 21:22:50.351858: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 8, 2
-2025-11-13 21:22:50.351859: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 16, 12
-2025-11-13 21:22:50.351860: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 128, 18
-2025-11-13 21:22:50.351862: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 256, 18
-2025-11-13 21:22:50.351863: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 512, 18
-2025-11-13 21:22:50.351865: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1024, 18
-2025-11-13 21:22:50.351866: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1028, 1
-2025-11-13 21:22:50.351867: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 4608, 15
-2025-11-13 21:22:50.351869: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 8640, 6
-2025-11-13 21:22:50.351870: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 36864, 9
-2025-11-13 21:22:50.351872: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 73728, 3
-2025-11-13 21:22:50.351873: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 131072, 3
-2025-11-13 21:22:50.351874: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 147456, 9
-2025-11-13 21:22:50.351876: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 166912, 2
-2025-11-13 21:22:50.351877: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 294912, 9
-2025-11-13 21:22:50.351879: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 589824, 9
-2025-11-13 21:22:50.351880: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1179648, 9
-2025-11-13 21:22:50.351881: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 2359296, 15
-2025-11-13 21:22:50.351883: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1367343104, 3
-2025-11-13 21:22:50.351884: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 2734686208, 1
-2025-11-13 21:22:50.351887: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:104] CU_MEMPOOL_ATTR_RESERVED_MEM_CURRENT: 8455716864
-2025-11-13 21:22:50.351889: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:106] CU_MEMPOOL_ATTR_USED_MEM_CURRENT: 6893448392
-2025-11-13 21:22:50.351890: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:107] CU_MEMPOOL_ATTR_RESERVED_MEM_HIGH: 8455716864
-2025-11-13 21:22:50.351892: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:108] CU_MEMPOOL_ATTR_USED_MEM_HIGH: 8260874944
-2025-11-13 21:22:50.351903: W tensorflow/core/framework/op_kernel.cc:1844] RESOURCE_EXHAUSTED: failed to allocate memory
-2025-11-13 21:22:50.351912: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: RESOURCE_EXHAUSTED: failed to allocate memory
-2025-11-13 21:22:50,352 - CRITICAL - Uncaught exception
+2025-11-13 22:03:51.446595: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:68] Histogram of current allocation: (allocation_size_in_bytes, nb_allocation_of_that_sizes), ...;
+2025-11-13 22:03:51.446597: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 4, 29
+2025-11-13 22:03:51.446599: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 8, 2
+2025-11-13 22:03:51.446600: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 16, 12
+2025-11-13 22:03:51.446602: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 128, 18
+2025-11-13 22:03:51.446603: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 256, 18
+2025-11-13 22:03:51.446604: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 512, 18
+2025-11-13 22:03:51.446606: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1024, 18
+2025-11-13 22:03:51.446607: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1028, 1
+2025-11-13 22:03:51.446609: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 4608, 15
+2025-11-13 22:03:51.446610: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 8640, 6
+2025-11-13 22:03:51.446611: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 36864, 9
+2025-11-13 22:03:51.446613: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 73728, 3
+2025-11-13 22:03:51.446614: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 131072, 3
+2025-11-13 22:03:51.446615: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 147456, 9
+2025-11-13 22:03:51.446617: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 166912, 2
+2025-11-13 22:03:51.446618: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 294912, 9
+2025-11-13 22:03:51.446619: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 589824, 9
+2025-11-13 22:03:51.446621: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1179648, 9
+2025-11-13 22:03:51.446623: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 2359296, 15
+2025-11-13 22:03:51.446624: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1367343104, 3
+2025-11-13 22:03:51.446626: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 2734686208, 1
+2025-11-13 22:03:51.446629: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:104] CU_MEMPOOL_ATTR_RESERVED_MEM_CURRENT: 8455716864
+2025-11-13 22:03:51.446631: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:106] CU_MEMPOOL_ATTR_USED_MEM_CURRENT: 6893448392
+2025-11-13 22:03:51.446632: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:107] CU_MEMPOOL_ATTR_RESERVED_MEM_HIGH: 8455716864
+2025-11-13 22:03:51.446634: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:108] CU_MEMPOOL_ATTR_USED_MEM_HIGH: 8260874944
+2025-11-13 22:03:51.446644: W tensorflow/core/framework/op_kernel.cc:1844] RESOURCE_EXHAUSTED: failed to allocate memory
+2025-11-13 22:03:51.446650: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: RESOURCE_EXHAUSTED: failed to allocate memory
+2025-11-13 22:03:51,446 - CRITICAL - Uncaught exception
 Traceback (most recent call last):
-  File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1481, in <module>
+  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1537, in <module>
     main()
-  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 984, in main
+  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 988, in main
     test_container = create_ptycho_data_container(test_data_raw, final_config)
                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 691, in create_ptycho_data_container
@@ -571,365 +569,361 @@ Traceback (most recent call last):
     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 tensorflow.python.framework.errors_impl.ResourceExhaustedError: {{function_node __wrapped__Cast_device_/job:localhost/replica:0/task:0/device:GPU:0}} failed to allocate memory [Op:Cast] name: 
 Traceback (most recent call last):
-2025-11-13 21:22:50,353 - ERROR - Traceback (most recent call last):
-  File "<frozen runpy>", line 198, in _run_module_as_main
-2025-11-13 21:22:50,353 - ERROR - File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-2025-11-13 21:22:50,353 - ERROR - File "<frozen runpy>", line 88, in _run_code
-  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1481, in <module>
-2025-11-13 21:22:50,353 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1481, in <module>
-    main()2025-11-13 21:22:50,353 - ERROR - main()
+2025-11-13 22:03:51,448 - ERROR - Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1537, in <module>
+2025-11-13 22:03:51,448 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1537, in <module>
+    main()2025-11-13 22:03:51,448 - ERROR - main()
 
-  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 984, in main
-2025-11-13 21:22:50,353 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 984, in main
-    test_container = create_ptycho_data_container(test_data_raw, final_config)2025-11-13 21:22:50,353 - ERROR - test_container = create_ptycho_data_container(test_data_raw, final_config)
+  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 988, in main
+2025-11-13 22:03:51,448 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 988, in main
+    test_container = create_ptycho_data_container(test_data_raw, final_config)2025-11-13 22:03:51,448 - ERROR - test_container = create_ptycho_data_container(test_data_raw, final_config)
 
-                     ^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
-^2025-11-13 21:22:50,354 - ERROR - ^
+                     ^2025-11-13 22:03:51,448 - ERROR - ^
+^2025-11-13 22:03:51,448 - ERROR - ^
+^2025-11-13 22:03:51,448 - ERROR - ^
+^2025-11-13 22:03:51,448 - ERROR - ^
+^2025-11-13 22:03:51,448 - ERROR - ^
+^2025-11-13 22:03:51,448 - ERROR - ^
+^2025-11-13 22:03:51,448 - ERROR - ^
+^2025-11-13 22:03:51,448 - ERROR - ^
+^2025-11-13 22:03:51,448 - ERROR - ^
+^2025-11-13 22:03:51,448 - ERROR - ^
+^2025-11-13 22:03:51,448 - ERROR - ^
+^2025-11-13 22:03:51,448 - ERROR - ^
+^2025-11-13 22:03:51,448 - ERROR - ^
+^2025-11-13 22:03:51,448 - ERROR - ^
+^2025-11-13 22:03:51,448 - ERROR - ^
+^2025-11-13 22:03:51,448 - ERROR - ^
+^2025-11-13 22:03:51,448 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
 
   File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 691, in create_ptycho_data_container
-2025-11-13 21:22:50,355 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 691, in create_ptycho_data_container
-    return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)2025-11-13 21:22:50,355 - ERROR - return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)
+2025-11-13 22:03:51,449 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 691, in create_ptycho_data_container
+    return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)2025-11-13 22:03:51,449 - ERROR - return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)
 
-           ^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,355 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
+           ^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,449 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,450 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
 
   File "/home/ollie/Documents/PtychoPINN/ptycho/loader.py", line 341, in load
-2025-11-13 21:22:50,356 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/loader.py", line 341, in load
-    container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, 2025-11-13 21:22:50,356 - ERROR - container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true,
+2025-11-13 22:03:51,451 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/loader.py", line 341, in load
+    container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, 2025-11-13 22:03:51,451 - ERROR - container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true,
 
-                ^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,356 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,357 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
+                ^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,451 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
 
   File "/home/ollie/Documents/PtychoPINN/ptycho/loader.py", line 141, in __init__
-2025-11-13 21:22:50,358 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/loader.py", line 141, in __init__
-    self.Y = combine_complex(Y_I, Y_phi)2025-11-13 21:22:50,358 - ERROR - self.Y = combine_complex(Y_I, Y_phi)
+2025-11-13 22:03:51,452 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/loader.py", line 141, in __init__
+    self.Y = combine_complex(Y_I, Y_phi)2025-11-13 22:03:51,452 - ERROR - self.Y = combine_complex(Y_I, Y_phi)
 
-             ^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
+             ^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,452 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
 
   File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 336, in combine_complex
-2025-11-13 21:22:50,358 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 336, in combine_complex
-    output = tf.cast(amp, tf.complex64) * tf.exp(2025-11-13 21:22:50,358 - ERROR - output = tf.cast(amp, tf.complex64) * tf.exp(
+2025-11-13 22:03:51,453 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 336, in combine_complex
+    output = tf.cast(amp, tf.complex64) * tf.exp(2025-11-13 22:03:51,453 - ERROR - output = tf.cast(amp, tf.complex64) * tf.exp(
 
-             ^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,358 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
-^2025-11-13 21:22:50,359 - ERROR - ^
+             ^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
+^2025-11-13 22:03:51,453 - ERROR - ^
 
   File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py", line 153, in error_handler
-2025-11-13 21:22:50,359 - ERROR - File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py", line 153, in error_handler
-    raise e.with_traceback(filtered_tb) from None2025-11-13 21:22:50,359 - ERROR - raise e.with_traceback(filtered_tb) from None
+2025-11-13 22:03:51,453 - ERROR - File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py", line 153, in error_handler
+    raise e.with_traceback(filtered_tb) from None2025-11-13 22:03:51,453 - ERROR - raise e.with_traceback(filtered_tb) from None
 
   File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/framework/ops.py", line 6006, in raise_from_not_ok_status
-2025-11-13 21:22:50,359 - ERROR - File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/framework/ops.py", line 6006, in raise_from_not_ok_status
-    raise core._status_to_exception(e) from None  # pylint: disable=protected-access2025-11-13 21:22:50,360 - ERROR - raise core._status_to_exception(e) from None  # pylint: disable=protected-access
+2025-11-13 22:03:51,453 - ERROR - File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/framework/ops.py", line 6006, in raise_from_not_ok_status
+    raise core._status_to_exception(e) from None  # pylint: disable=protected-access2025-11-13 22:03:51,454 - ERROR - raise core._status_to_exception(e) from None  # pylint: disable=protected-access
 
-    ^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,360 - ERROR - ^
-^2025-11-13 21:22:50,361 - ERROR - ^
+    ^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,454 - ERROR - ^
+^2025-11-13 22:03:51,455 - ERROR - ^
+^2025-11-13 22:03:51,455 - ERROR - ^
+^2025-11-13 22:03:51,455 - ERROR - ^
+^2025-11-13 22:03:51,455 - ERROR - ^
+^2025-11-13 22:03:51,455 - ERROR - ^
+^2025-11-13 22:03:51,455 - ERROR - ^
+^2025-11-13 22:03:51,455 - ERROR - ^
+^2025-11-13 22:03:51,455 - ERROR - ^
+^2025-11-13 22:03:51,455 - ERROR - ^
+^2025-11-13 22:03:51,455 - ERROR - ^
 
-tensorflow.python.framework.errors_impl2025-11-13 21:22:50,361 - ERROR - tensorflow.python.framework.errors_impl
-.2025-11-13 21:22:50,361 - ERROR - .
-ResourceExhaustedError2025-11-13 21:22:50,361 - ERROR - ResourceExhaustedError
-: 2025-11-13 21:22:50,361 - ERROR - :
-{{function_node __wrapped__Cast_device_/job:localhost/replica:0/task:0/device:GPU:0}} failed to allocate memory [Op:Cast] name: 2025-11-13 21:22:50,361 - ERROR - {{function_node __wrapped__Cast_device_/job:localhost/replica:0/task:0/device:GPU:0}} failed to allocate memory [Op:Cast] name:
+tensorflow.python.framework.errors_impl2025-11-13 22:03:51,455 - ERROR - tensorflow.python.framework.errors_impl
+.2025-11-13 22:03:51,455 - ERROR - .
+ResourceExhaustedError2025-11-13 22:03:51,455 - ERROR - ResourceExhaustedError
+: 2025-11-13 22:03:51,455 - ERROR - :
+{{function_node __wrapped__Cast_device_/job:localhost/replica:0/task:0/device:GPU:0}} failed to allocate memory [Op:Cast] name: 2025-11-13 22:03:51,455 - ERROR - {{function_node __wrapped__Cast_device_/job:localhost/replica:0/task:0/device:GPU:0}} failed to allocate memory [Op:Cast] name:
 
