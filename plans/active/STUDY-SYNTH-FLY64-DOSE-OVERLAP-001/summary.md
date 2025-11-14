@@ -1,4 +1,16 @@
 ### Turn Summary
+Translation regression tests remain GREEN (2/2 passed, 6.19s), confirming the offset-centering fix maintains correctness.
+Launched full compare_models for dense train/test splits (PIDs 2610948, 2611189) but they are actively running GPU inference and will not complete within this loop's execution window per Ralph §0 long-running job policy.
+Jobs blocked pending completion; documented running status with PIDs, log paths (`cli/compare_models_dense_{split}_full.log`), and return condition (verify non-zero Baseline stats in debug.log and CSV rows) in `red/blocked_20251113T212244Z_compare_models_running.md`.
+Next: await job completion, verify Baseline output health for both splits, then proceed with Phase D acceptance tests → counted pipeline → post-verify sweep.
+Artifacts: green/pytest_compare_models_translation_fix_v14.log; cli/compare_models_dense_{train,test}_full.log (in progress); red/blocked_20251113T212244Z_compare_models_running.md
+
+Checklist:
+- Files touched: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/red/blocked_20251113T212244Z_compare_models_running.md
+- Tests run: pytest tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_batched_predictions tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split -vv
+- Artifacts updated: green/pytest_compare_models_translation_fix_v14.log; cli/compare_models_dense_{train,test}_full.log (background PIDs 2610948, 2611189); red/blocked_20251113T212244Z_compare_models_running.md
+
+### Turn Summary
 10-group compare_models debug runs now prove the offset-centering fix works (train mean=0.284, test mean=0.079 with non-zero `baseline_output` counts logged under `analysis/dose_1000/dense/{split}/debug/baseline_debug_stats.json`), so Baseline inference is healthy in the limited probe.
 The counted train/test compare_models logs are still the pre-fix artifacts (`analysis/dose_1000/dense/test/logs/logs/debug.log:540` reports zeros and `analysis/dose_1000/dense/test/comparison_metrics.csv` lacks Baseline values), so `analysis/metrics_summary.json`, highlights, preview text, and `analysis/verification_report.json` remain missing (0/10).
 Next: rerun the translation pytest guard, execute full compare_models for dense train/test without the debug limit (tee to `$HUB/cli/compare_models_dense_{split}_full.log`), confirm CSV/JSON Baseline rows plus non-zero DIAGNOSTIC stats, then run the dense acceptance selector, counted `run_phase_g_dense.py --clobber`, metrics helpers, and `--post-verify-only` until `{analysis}` holds SSIM grid/verification/highlights/preview/inventory artifacts with 10/10 validity.
