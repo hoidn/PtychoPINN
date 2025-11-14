@@ -1,3 +1,15 @@
+### Turn Summary (2025-11-14T014500Z)
+Fixed the factory config propagation blocker by adding PTInferenceConfig to TrainingPayload and wiring it through config_factory→train.py→workflows/components.py.
+Root cause was that create_training_payload() omitted PTInferenceConfig, so --log-patch-stats/--patch-stats-limit flags were lost and the workflow created a default disabled config instead.
+Implemented the fix in 3 files (config_factory.py, train.py, workflows/components.py), added 2 new targeted tests proving factory creates the config correctly, and committed with 4/4 GREEN pytest results.
+Next: Run end-to-end baseline training with --log-patch-stats --patch-stats-limit 2 to verify instrumentation produces JSON/PNG artifacts in analysis/.
+Artifacts: ptycho_torch/{config_factory,train,workflows/components}.py diffs, tests/torch/test_patch_stats_cli.py (4/4 GREEN)
+
+Checklist:
+- Files touched: ptycho_torch/config_factory.py, ptycho_torch/train.py, ptycho_torch/workflows/components.py, tests/torch/test_patch_stats_cli.py
+- Tests run: pytest tests/torch/test_patch_stats_cli.py -v; pytest tests/torch/test_config_factory.py -v
+- Artifacts updated: none (no baseline run yet; config fix only)
+
 ### Turn Summary (2025-11-14T013800Z)
 Wired PatchStatsLogger into PtychoPINN_Lightning model (__init__, _log_patch_stats, on_train_end) and ran training baseline successfully, but instrumentation didn't activate because config_factory doesn't create PTInferenceConfig for training workflows.
 Root cause: create_training_payload() omits PT InferenceConfig entirely, so CLI overrides (log_patch_stats/patch_stats_limit) never reach the model instance.
