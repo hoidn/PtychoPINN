@@ -1,3 +1,9 @@
+### Turn Summary
+Verified EXPORT-PTYCHODUS-PRODUCT-001 deliverables already complete in commit a679e6fb (Nov 11).
+Documentation integration confirmed: DATA_MANAGEMENT_GUIDE.md lines 242-375 contain the full Ptychodus Product Export section, index.md includes the cross-reference, and hub artifacts document the changes.
+Updated fix_plan status to `done`, cleared Active Focus, and committed ledger update (a0282ecf).
+Artifacts: plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/ (existing evidence verified)
+
 ### Turn Summary (Documentation Integration — 2025-11-13)
 Replaced the legacy "Exporting to Ptychodus HDF5 Product" section in docs/DATA_MANAGEMENT_GUIDE.md (lines 242-375) with the comprehensive "Ptychodus Product Export" subsection from the hub snippet, including CLI examples, metadata parameters, raw data toggle, storage policy, programmatic access, and verification code.
 Added Data Management Guide entry to docs/index.md (lines 115-118) for discoverability with Ptychodus export keywords.
