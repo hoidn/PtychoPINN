@@ -104,6 +104,10 @@ def parse_args():
                         help="Process baseline inference in chunks of N groups to reduce GPU memory (default: None = all at once).")
     parser.add_argument("--baseline-predict-batch-size", type=int, default=32,
                         help="Batch size for baseline model.predict() within each chunk (default: 32).")
+    parser.add_argument("--pinn-chunk-size", type=int, default=None,
+                        help="Process PINN inference in chunks of N groups to reduce GPU memory (default: None = all at once).")
+    parser.add_argument("--pinn-predict-batch-size", type=int, default=32,
+                        help="Batch size for PINN model.predict() within each chunk (default: 32).")
 
     # Add logging arguments
     add_logging_arguments(parser)
@@ -210,6 +214,25 @@ def _compute_channel_offsets(container) -> tf.Tensor:
         repeats = total_channels // divisor
         local_offsets = tf.tile(local_offsets, [1, 1, 1, repeats])
     return global_offsets + local_offsets
+
+
+def slice_raw_data(raw_data, start_idx, end_idx):
+    """Slice a RawData object to get a subset of groups."""
+    from ptycho.raw_data import RawData
+
+    return RawData(
+        xcoords=raw_data.xcoords[start_idx:end_idx],
+        ycoords=raw_data.ycoords[start_idx:end_idx],
+        xcoords_start=raw_data.xcoords_start[start_idx:end_idx],
+        ycoords_start=raw_data.ycoords_start[start_idx:end_idx],
+        diff3d=raw_data.diff3d[start_idx:end_idx] if raw_data.diff3d is not None else None,
+        probeGuess=raw_data.probeGuess,  # Probe is shared across all groups
+        scan_index=raw_data.scan_index[start_idx:end_idx],
+        objectGuess=raw_data.objectGuess,  # Object guess is shared
+        Y=raw_data.Y[start_idx:end_idx] if raw_data.Y is not None else None,
+        norm_Y_I=raw_data.norm_Y_I[start_idx:end_idx] if raw_data.norm_Y_I is not None else None,
+        metadata=raw_data.metadata
+    )
 
 
 def prepare_baseline_inference_data(container):
@@ -983,10 +1006,7 @@ def main():
     if not (0 < args.stitch_crop_size <= N):
         raise ValueError(f"Invalid stitch_crop_size: {args.stitch_crop_size}. Must be 0 < M <= N={N}")
     logger.info(f"Using stitch_crop_size M={args.stitch_crop_size} (N={N})")
-    
-    # Create data container AFTER legacy params are updated
-    test_container = create_ptycho_data_container(test_data_raw, final_config)
-    
+
     # Extract ground truth if available
     ground_truth_obj = test_data_raw.objectGuess[None, ..., None] if test_data_raw.objectGuess is not None else None
 
@@ -1003,48 +1023,127 @@ def main():
         tike_recon, tike_computation_time, algorithm_name = None, None, None
         logger.info("Running two-way comparison (PtychoPINN vs. Baseline)")
 
-    # Run inference for PtychoPINN
+    # Run inference for PtychoPINN with optional chunking
     logger.info("Running inference with PtychoPINN (diffraction_to_obj)...")
 
-    # CRITICAL FIX: Force gridsize from channel count before inference
-    # When test data has grouped diffraction (e.g., 4 channels from gs=2),
-    # params.cfg['gridsize'] must match sqrt(channel_count) to prevent
-    # Translation layer batch dimension mismatch (B vs B·C crash)
-    import math
-    diffraction_channels = int(test_container.X.shape[-1])
-    required_gridsize = int(math.isqrt(diffraction_channels))
-    current_gridsize = p.cfg.get('gridsize', 1)
-
-    if current_gridsize != required_gridsize:
-        logger.warning(f"GRIDSIZE MISMATCH: params.cfg['gridsize']={current_gridsize} but diffraction has {diffraction_channels} channels (requires gridsize={required_gridsize})")
-        logger.warning(f"Forcing params.cfg['gridsize']={required_gridsize} before inference to prevent Translation layer crash")
-        p.cfg['gridsize'] = required_gridsize
-    else:
-        logger.info(f"Gridsize validated: params.cfg['gridsize']={current_gridsize} matches {diffraction_channels} channels")
+    n_groups = test_data_raw.diff3d.shape[0]
+    chunk_size = args.pinn_chunk_size if args.pinn_chunk_size is not None else n_groups
 
     pinn_start = time.time()
-    pinn_patches = pinn_model.predict(
-        [test_container.X * p.get('intensity_scale'), test_container.coords_nominal],
-        batch_size=32,
-        verbose=1
-    )
+
+    if chunk_size < n_groups:
+        # Chunked PINN inference to reduce GPU memory footprint
+        logger.info(f"Using chunked PINN inference: {n_groups} groups in chunks of {chunk_size} (batch_size={args.pinn_predict_batch_size})")
+        pinn_patches_chunks = []
+        pinn_offsets_chunks = []
+
+        for chunk_start in range(0, n_groups, chunk_size):
+            chunk_end = min(chunk_start + chunk_size, n_groups)
+            chunk_idx = chunk_start // chunk_size
+            logger.info(f"Processing PINN chunk {chunk_idx+1}/{(n_groups + chunk_size - 1) // chunk_size}: groups [{chunk_start}:{chunk_end}]")
+
+            # Slice raw data for this chunk
+            chunk_raw_data = slice_raw_data(test_data_raw, chunk_start, chunk_end)
+
+            # Create container for this chunk
+            chunk_container = create_ptycho_data_container(chunk_raw_data, final_config)
+
+            # Validate gridsize for chunk
+            import math
+            diffraction_channels = int(chunk_container.X.shape[-1])
+            required_gridsize = int(math.isqrt(diffraction_channels))
+            current_gridsize = p.cfg.get('gridsize', 1)
+
+            if current_gridsize != required_gridsize:
+                logger.warning(f"GRIDSIZE MISMATCH in chunk {chunk_idx+1}: params.cfg['gridsize']={current_gridsize} but diffraction has {diffraction_channels} channels (requires gridsize={required_gridsize})")
+                logger.warning(f"Forcing params.cfg['gridsize']={required_gridsize} before inference")
+                p.cfg['gridsize'] = required_gridsize
+
+            # Clear TF session before each chunk (except first) to release memory
+            if chunk_idx > 0:
+                tf.keras.backend.clear_session()
+
+            try:
+                chunk_patches = pinn_model.predict(
+                    [chunk_container.X * p.get('intensity_scale'), chunk_container.coords_nominal],
+                    batch_size=args.pinn_predict_batch_size,
+                    verbose=1
+                )
+
+                if isinstance(chunk_patches, (list, tuple)) and chunk_patches:
+                    chunk_patches = chunk_patches[0]
+                chunk_patches_np = np.asarray(chunk_patches)
+
+                # DIAGNOSTIC: Per-chunk stats
+                chunk_mean = np.abs(chunk_patches_np).mean()
+                chunk_max = np.abs(chunk_patches_np).max()
+                chunk_nonzero = np.count_nonzero(chunk_patches_np)
+                logger.info(f"DIAGNOSTIC chunk {chunk_idx+1} PINN patches stats: mean={chunk_mean:.6f}, max={chunk_max:.6f}, nonzero_count={chunk_nonzero}/{chunk_patches_np.size}")
+
+                pinn_patches_chunks.append(chunk_patches_np)
+
+                # Extract offsets for reassembly
+                chunk_offsets = np.asarray(chunk_container.global_offsets, dtype=np.float64)
+                pinn_offsets_chunks.append(chunk_offsets)
+
+            except tf.errors.ResourceExhaustedError as e:
+                logger.error(f"ResourceExhaustedError in PINN chunk {chunk_idx+1} at [{chunk_start}:{chunk_end}]: {e}")
+                logger.error(f"Try reducing --pinn-chunk-size (currently {chunk_size}) or --pinn-predict-batch-size (currently {args.pinn_predict_batch_size})")
+                raise
+
+        # Concatenate all chunks
+        pinn_patches = np.concatenate(pinn_patches_chunks, axis=0)
+        pinn_offsets = np.concatenate(pinn_offsets_chunks, axis=0)
+        logger.info(f"Concatenated {len(pinn_patches_chunks)} chunks into final PINN patches shape: {pinn_patches.shape}")
+
+    else:
+        # Single-shot PINN inference (original path)
+        logger.info(f"Using single-shot PINN inference: {n_groups} groups (batch_size={args.pinn_predict_batch_size})")
+
+        # Create data container AFTER legacy params are updated
+        test_container = create_ptycho_data_container(test_data_raw, final_config)
+
+        # CRITICAL FIX: Force gridsize from channel count before inference
+        import math
+        diffraction_channels = int(test_container.X.shape[-1])
+        required_gridsize = int(math.isqrt(diffraction_channels))
+        current_gridsize = p.cfg.get('gridsize', 1)
+
+        if current_gridsize != required_gridsize:
+            logger.warning(f"GRIDSIZE MISMATCH: params.cfg['gridsize']={current_gridsize} but diffraction has {diffraction_channels} channels (requires gridsize={required_gridsize})")
+            logger.warning(f"Forcing params.cfg['gridsize']={required_gridsize} before inference to prevent Translation layer crash")
+            p.cfg['gridsize'] = required_gridsize
+        else:
+            logger.info(f"Gridsize validated: params.cfg['gridsize']={current_gridsize} matches {diffraction_channels} channels")
+
+        pinn_patches = pinn_model.predict(
+            [test_container.X * p.get('intensity_scale'), test_container.coords_nominal],
+            batch_size=args.pinn_predict_batch_size,
+            verbose=1
+        )
+
+        if isinstance(pinn_patches, (list, tuple)) and pinn_patches:
+            pinn_patches = pinn_patches[0]
+        pinn_patches = np.asarray(pinn_patches)
+
+        # Extract offsets for reassembly
+        pinn_offsets = np.asarray(test_container.global_offsets, dtype=np.float64)
+
     pinn_inference_time = time.time() - pinn_start
     logger.info(f"PtychoPINN inference completed in {pinn_inference_time:.2f}s")
-
-    if isinstance(pinn_patches, (list, tuple)) and pinn_patches:
-        pinn_patches = pinn_patches[0]
-    pinn_patches = np.asarray(pinn_patches)
 
     # Log PINN patches shape before reassembly
     logger.info(f"PINN patches shape before reassembly: {pinn_patches.shape}, dtype: {pinn_patches.dtype}")
 
-    # Reassemble PINN patches using global offsets (not coords_nominal which is channel-formatted)
+    # Reassemble PINN patches using global offsets
     logger.info("Reassembling PINN patches...")
-    # Use global_offsets for reassembly - expects shape (B, 1, 2, 1)
-    pinn_offsets = np.asarray(test_container.global_offsets, dtype=np.float64)
     logger.info(f"PINN offsets shape before reassembly: {pinn_offsets.shape}, dtype: {pinn_offsets.dtype}")
     pinn_recon = reassemble_position(pinn_patches, pinn_offsets, M=args.stitch_crop_size)
     logger.info(f"PINN reconstruction shape after reassembly: {pinn_recon.shape}, dtype: {pinn_recon.dtype}")
+
+    # Create a full test_container for Baseline inference (if not already created in single-shot path)
+    if chunk_size < n_groups:
+        test_container = create_ptycho_data_container(test_data_raw, final_config)
 
     # Run inference for Baseline
     logger.info("Running inference with Baseline model...")
