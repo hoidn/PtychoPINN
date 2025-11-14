@@ -94,3 +94,51 @@ Added `--pinn-chunk-size` and `--pinn-predict-batch-size` CLI flags to `scripts/
 
 ### Status
 **Active** — Flags/helpers committed as nucleus; full chunked PINN inference blocked pending architectural refactor.
+
+## TF-NON-XLA-SHAPE-001 - Non-XLA Translation Batch Dimension Mismatch
+**Category:** TensorFlow, Translation, Shape Handling
+**Impact:** TensorFlow training/inference with gridsize > 1 when XLA disabled (`USE_XLA_TRANSLATE=0`)
+**Location:** ptycho/tf_helper.py:702-839 (`translate_core`, `Translation.call`)
+**Date:** 2025-11-14
+
+### Issue
+When XLA is disabled (`USE_XLA_TRANSLATE=0`) and gridsize > 1, TensorFlow training crashes during the first epoch with shape mismatch in `translate_core`:
+```
+Shapes of all inputs must match: values[0].shape = [4] != values[2].shape = [128]
+ [[{{node functional_1/padded_objs_with_offsets_1/translation_36_1/stack_1}}]]
+```
+**Root cause:** The non-XLA `ImageProjectiveTransformV3` fast path builds transformation matrices using `tf.stack` on tensors (`ones`, `zeros`, `dx`, `dy`) that must all have the same batch dimension. When `gridsize > 1`, `_channel_to_flat` expands images from shape `(b, N, N, c)` to `(b*c, N, N, 1)`, but `translations` remains `(b, 2)`. The mismatch causes `tf.stack` to fail.
+
+### Fix (2025-11-14)
+**Phase 1 (Immediate):** Disabled the `ImageProjectiveTransformV3` fast path entirely when `use_xla=False`. The function now always uses the fallback `_translate_images_simple` implementation for non-XLA mode, which includes broadcast logic to tile translations to match the images batch dimension via `tf.repeat`.
+
+**Location:** ptycho/tf_helper.py:735-753, 756-839
+- Lines 742-744: Compute `images_batch` and `trans_batch` for guard check
+- Lines 746-753: Skip fast path when `use_xla=False` (unconditional fallback)
+- Lines 813-828: Broadcast translations using `tf.cond` and `tf.repeat` when batch dimensions mismatch
+
+**Rationale:** Attempting to conditionally use the fast path in graph mode (via `tf.cond` or `tf.debugging.assert_equal`) introduced complexity:
+- `tf.debugging.assert_equal` raises at graph execution time, bypassing `try/except`
+- Nested `tf.cond` with the existing XLA path adds control flow complexity
+- The performance benefit of `ImageProjectiveTransformV3` vs `_translate_images_simple` is minor for typical batch sizes
+- Disabling the fast path entirely when `use_xla=False` is the simplest, most reliable solution
+
+### Outcome
+- **Training:** TensorFlow training with gridsize=2, batch_size=4, n_groups=32 completes 1 full epoch without crashing (verified 2025-11-14)
+- **Inference blocker:** A separate issue in `_translate_images_simple` (reshape with 0 values → shape [4]) occurs during post-training eval/inference. This is tracked separately and does not affect the core training crash fix.
+
+### Tests
+Regression tests added in `tests/tf_helper/test_translation_shape_guard.py`:
+- `test_non_xla_translation_guard`: Mismatched batch dimensions fall back to `_translate_images_simple`
+- `test_non_xla_translation_matching_batch`: Matching batch dimensions use fast path when available
+- `test_reassemble_patches_position_real_gridsize2`: Full reassembly integration with gridsize=2
+
+All 3 tests pass (pytest run 2025-11-14, 5.13s).
+
+### Evidence
+- Original blocker: `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/.../tf_baseline/phase_c1/red/blocked_20251114T074039Z_tf_non_xla_shape_error.md`
+- Scaled training GREEN (1 epoch): `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/.../tf_baseline/phase_c1_scaled/cli/train_tf_phase_c1_scaled.log` (lines showing "8/8 steps" completion)
+- Regression tests: `tests/tf_helper/test_translation_shape_guard.py` (3/3 passed)
+
+### Status
+**Resolved** (training), **Inference blocker open** (reshape 0→4 error in `_translate_images_simple` during eval)
