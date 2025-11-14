@@ -1,4 +1,16 @@
 ### Turn Summary
+Implemented chunked Baseline inference to resolve dense-test OOM blocker (commit 26c26402); added `--baseline-chunk-size` and `--baseline-predict-batch-size` flags with automatic fallback to single-shot when chunk size is None.
+Chunked path processes groups sequentially with `tf.keras.backend.clear_session()` between chunks, includes per-chunk DIAGNOSTIC logging (mean/max/nonzero stats), and provides actionable guidance when ResourceExhaustedError still occurs.
+Translation regression tests remain GREEN (2/2 passed, 6.14s); documented BASELINE-CHUNKED-001 in docs/findings.md with implementation details and mitigation strategy.
+Next: execute debug-limited compare_models for train/test splits with new chunking flags (e.g., `--baseline-chunk-size 256 --baseline-predict-batch-size 16`), verify non-zero Baseline stats in DIAGNOSTIC logs and CSV rows, then proceed with Phase D guards → counted `run_phase_g_dense.py --clobber` → metrics helpers → `--post-verify-only` to produce SSIM/verification/highlights/preview/inventory bundle.
+Artifacts: green/pytest_compare_models_translation_fix_v15.log (2/2 PASSED), scripts/compare_models.py:1077-1140 (chunked inference implementation), docs/findings.md:BASELINE-CHUNKED-001
+
+Checklist:
+- Files touched: scripts/compare_models.py; docs/findings.md; plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md
+- Tests run: pytest tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_batched_predictions tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split -vv
+- Artifacts updated: green/pytest_compare_models_translation_fix_v15.log; scripts/compare_models.py (chunked inference); docs/findings.md (BASELINE-CHUNKED-001)
+
+### Turn Summary
 Dense-test Baseline compare_models still crashes with the TF `ResourceExhaustedError` (`plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/logs/logs/debug.log:520-661`), so `analysis/dose_1000/dense/test/comparison_metrics.csv` stays blank and `analysis/verification_report.json` is stuck at 0/10.
 Updated `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md` and `docs/fix_plan.md` to mandate chunked Baseline inference (`--baseline-chunk-size` + `--baseline-predict-batch-size` with automatic fallback) before the Phase D/Phase G rerun, leaving the healthy dense-train evidence untouched.
 Next: Ralph implements the chunked path inside `scripts/compare_models.py`, reruns the debug + full compare_models commands with the new flags to repopulate the Baseline rows, then executes the guarded pytest selectors → counted `run_phase_g_dense.py --clobber` → metrics helpers → fully parameterized `--post-verify-only` to produce the missing SSIM/verification/highlights/preview/inventory artifacts.
