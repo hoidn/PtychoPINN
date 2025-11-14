@@ -732,6 +732,19 @@ Checklist
   <status>approved</status>
 </plan_update>
 
+<plan_update version="1.25">
+  <trigger>Verification is still 0/10 even after the chunked container refactor, dense-test Baseline rows remain blank, the metrics reporter/post-verify helper keep failing, and the “chunked debug” log never advanced beyond chunk 21/33, so no new Phase G evidence exists since Ralph’s 451fdd82 commit.</trigger>
+  <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md, docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/DEVELOPER_GUIDE.md, docs/COMMANDS_REFERENCE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/architecture.md, docs/GRIDSIZE_N_GROUPS_GUIDE.md, specs/data_contracts.md, specs/overlap_metrics.md, specs/ptychodus_api_spec.md, docs/fix_plan.md, galph_memory.md, input.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/{summary.md,analysis/metrics_summary.json,analysis/dose_1000/dense/test/comparison_metrics.csv,analysis/verification_report.json,analysis/dose_1000/dense/test_debug_v2/logs/logs/debug.log,cli/aggregate_report_cli.log,cli/run_phase_g_dense_post_verify_only.log}, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_train.npz, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_test.npz, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2/wts.h5.zip, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1/wts.h5.zip, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/test/ptychi_reconstruction.npz</documents_read>
+  <current_plan_path>plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md</current_plan_path>
+  <proposed_changes>- Keep the Do Now ready_for_implementation but call out the specific failing artifacts (verification_report.json 0/10, metrics_summary/comparison_metrics blank for Baseline, aggregate_report CLI error, post-verify PREVIEW guard, chunked debug log stuck mid-run) so success criteria remain explicit.
+- Retain the Step 1 guard (export HUB/AUTH cmds + `ls -lh` Phase C/E/F data) to avoid future false blockers about missing assets.
+- Require Ralph to rerun the chunked debug and full compare_models commands (train/test) with the new chunk/batch flags before proceeding to the Phase D selectors, clobbered `run_phase_g_dense.py`, metrics helpers, and fully parameterized `--post-verify-only`, logging `$HUB/red/blocked_<timestamp>.md` immediately if Baseline stats or PREVIEW artifacts are still missing.</proposed_changes>
+  <impacts>Without those reruns, `{analysis}` never gains Baseline metrics, SSIM grid, preview text, or a 10/10 verification report, so Phase G stays blocked.</impacts>
+  <ledger_updates>Updated docs/fix_plan.md, this plan, the initiative summary, input.md, and galph_memory.md with the refreshed guardrails and evidence requirements.</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
 #### Completed Do Now — Baseline chunked container fix (completed 2025-11-16 via commit 451fdd82)
 > Evidence: `scripts/compare_models.py:1152-1197,1431-1442`, `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_compare_models_translation_fix_v17.log`, `.../analysis/dose_1000/dense/test_debug_v2/logs/logs/debug.log`.
   1. Guard the working directory + env vars so prompts stay satisfied:
