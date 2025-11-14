@@ -1,4 +1,15 @@
 ### Turn Summary
+Executed the guard selector (GREEN: 1 passed in 5.03s) and the scaled TF CLI with XLA disabled, but training failed during evaluation with the same inference reshape error (0-element tensor → shape 4) documented in prior summaries.
+Guard test confirms training-time translation fix is working, but inference/eval has a distinct reshape bug not covered by the guard that prevents artifact generation.
+Next: the blocker document at `tf_baseline/phase_c1_scaled/red/blocked_20251114T232542Z_tf_translation_guard.md` and updated inventory explain the failure; supervisor should decide whether to investigate the inference reshape issue or defer TF parity pending a broader inference fix.
+Artifacts: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/green/pytest_tf_translation_guard.log, tf_baseline/phase_c1_scaled/cli/train_tf_phase_c1_scaled.log, tf_baseline/phase_c1_scaled/red/blocked_20251114T232542Z_tf_translation_guard.md
+
+Checklist:
+- Files touched: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/analysis/artifact_inventory.txt, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1_scaled/red/blocked_20251114T232542Z_tf_translation_guard.md, plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
+- Tests run: pytest tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_guard -vv (1 passed in 5.03s)
+- Artifacts updated: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/analysis/artifact_inventory.txt (Phase C1d section), tf_baseline/phase_c1_scaled/red/blocked_20251114T232542Z_tf_translation_guard.md (new blocker), green/pytest_tf_translation_guard.log, tf_baseline/phase_c1_scaled/cli/train_tf_phase_c1_scaled.log
+
+### Turn Summary
 Tier-2 dwell triggered because neither the guard selector nor the scaled TF CLI had been executed (tf_baseline/phase_c1_scaled/analysis/ still empty and `tf_baseline/phase_c1_scaled/cli/train_tf_phase_c1_scaled.log` remains 0 bytes), so FIX-PYTORCH-FORWARD-PARITY-001 is now BLOCKED pending the new execution focus.
 Minted blocker focus FIX-TF-C1D-SCALED-RERUN-001 that carries the same guard selector + scaled TF CLI (with `TF_XLA_FLAGS="--tf_xla_auto_jit=0"` / `USE_XLA_TRANSLATE=0`), mandates hub env captures, and spells out the artifact inventory update or blocker policy so Ralph has a runnable workload this loop.
 Next: run `pytest tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_guard -vv | tee "$HUB/green/pytest_tf_translation_guard.log"`, rerun the scaled TF CLI with the documented dataset knobs, and update `$HUB/analysis/artifact_inventory.txt` (or write `$TF_BASE/red/blocked_<ts>_tf_translation_guard.md` if the CLI fails) before resuming the parent initiative.
