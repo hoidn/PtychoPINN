@@ -198,14 +198,21 @@
 
     - <strong>Workload Spec (required for implementation turns)</strong>: when the loop is intended to ship code/tests (`Mode != Docs`), you MUST embed a structured iteration workload spec directly in `input.md` under a <code>### Workload Spec</code> heading. There are two allowed shapes:
       • <em>Full form</em> (for non-trivial or cross-cutting work): use all of the following top-level headings, in any order; anything else is considered malformed `input.md`:  
-        – <code>## Goal</code> — 3–5 sentences on why this loop exists and what “done” means for this iteration (not the whole initiative).  
-        – <code>## Contracts</code> — 1–2 bullet links to specs/arch/data contracts (`path:line`) that constrain this iteration.  
-        – <code>## Interfaces</code> — 1–N interface definitions, each starting with a <code>path::symbol</code> line and a Python-style signature, followed by brief type/shape notes, for example:  
-          <code>- ptycho/tf_helper.py::translate_core(images: tf.Tensor, translations: tf.Tensor, interpolation: str, use_xla_workaround: bool) -> tf.Tensor</code>  
-          &nbsp;&nbsp;&nbsp;• <code>images</code>: (batch, H, W, C) complex64; <code>translations</code>: (batch, 2) float32; returns translated images with same shape/dtype.  
+        – `## Goal` — 3–5 sentences on why this loop exists and what “done” means for this iteration (not the whole initiative).  
+        – `## Contracts` — 1–2 bullet links to specs/arch/data contracts (`path:line`) that constrain this iteration.  
+        – `## Interfaces` — 1–N interface definitions, each starting with a `path::symbol` line and a Python-style signature, followed by brief type/shape notes, for example:  
+          - `ptycho/tf_helper.py::translate_core(images: tf.Tensor, translations: tf.Tensor, interpolation: str, use_xla_workaround: bool) -> tf.Tensor`  
+            • `images`: (batch, H, W, C) complex64; `translations`: (batch, 2) float32; returns translated images with same shape/dtype.  
           Interfaces are where you define the data types, shapes, and function/class signatures Ralph must honor.  
-        – <code>## Pseudocode</code> — for each key interface/test, a short Python-esque pseudocode block (5–20 lines) showing the control flow and main operations, e.g.:  
-          <code>```python\n def translate_core(images, translations, interpolation=\"bilinear\", use_xla_workaround=False):\n     use_xla = use_xla_workaround or should_use_xla()\n     if use_xla:\n         return translate_xla(images, translations, interpolation=interpolation, use_jit=True)\n     # non-XLA path: validate shapes, build transforms, apply projective transform or fallback\n     ...\n ```</code>  
+        – `## Pseudocode` — for each key interface/test, include a short Python-esque pseudocode block (5–20 lines) showing the control flow and main operations, e.g.:  
+          ```python
+          def translate_core(images, translations, interpolation="bilinear", use_xla_workaround=False):
+              use_xla = use_xla_workaround or should_use_xla()
+              if use_xla:
+                  return translate_xla(images, translations, interpolation=interpolation, use_jit=True)
+              # non-XLA path: validate shapes, build transforms, apply projective transform or fallback
+              ...
+          ```  
           Pseudocode should read like real Python structure (branches, loops, helper calls), not just prose bullets.  
         – <code>## Tasks</code> — 3–7 concrete items; each references <code>path::symbol</code> from Interfaces and, optionally, checklist IDs from the implementation plan. These are the units Ralph must attempt this loop.  
         – <code>## Selector</code> — exactly one pytest/CLI command for this iteration, plus pass criteria and a blocker protocol (where to write <code>blocked_*.md</code>, what minimal error signature to capture, and where logs live).  
