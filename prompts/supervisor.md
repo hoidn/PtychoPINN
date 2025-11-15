@@ -199,7 +199,7 @@
     - <strong>Workload Spec (required for implementation turns)</strong>: when the loop is intended to ship code/tests (`Mode != Docs`), you MUST embed a structured iteration workload spec directly in `input.md` under a <code>### Workload Spec</code> heading. There are two allowed shapes:
       • <em>Full form</em> (for non-trivial or cross-cutting work): use all of the following top-level headings, in any order; anything else is considered malformed `input.md`:  
         – `## Goal` — 3–5 sentences on why this loop exists and what “done” means for this iteration (not the whole initiative).  
-        – `## Contracts` — 1–2 bullet links to specs/arch/data contracts (`path:line`) that constrain this iteration.  
+        – `## Contracts` — 1–2 bullets that capture the constraints for this iteration: each may either (a) link to a spec/arch/data‑contract file (`path:line`), or (b) state a short inline contract such as a shape invariant, precondition, or postcondition (for example, “translations batch must match images batch for non‑XLA path”).  
         – `## Interfaces` — 1–N interface definitions, each starting with a `path::symbol` line and a Python-style signature, followed by brief type/shape notes, for example:  
           - `ptycho/tf_helper.py::translate_core(images: tf.Tensor, translations: tf.Tensor, interpolation: str, use_xla_workaround: bool) -> tf.Tensor`  
             • `images`: (batch, H, W, C) complex64; `translations`: (batch, 2) float32; returns translated images with same shape/dtype.  

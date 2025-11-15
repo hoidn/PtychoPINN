@@ -167,7 +167,9 @@ def main(argv: List[str]) -> int:
                 for i, raw in enumerate(contract_lines):
                     stripped = raw.lstrip()
                     if stripped.startswith("-"):
-                        # Expect something like `- path/to/file:line`
+                        # Bullets may be either:
+                        #   - A link to a spec/arch/data-contract file, e.g. `docs/specs/spec-ptycho-workflow.md:42`
+                        #   - Or an inline contract (no path), e.g. "translations batch must match images batch"
                         text = stripped.lstrip("-").strip()
                         if not text:
                             errors.append(
@@ -176,12 +178,16 @@ def main(argv: List[str]) -> int:
                             continue
                         path_part = text.split()[0]
                         file_part = path_part.split(":", 1)[0]
-                        file_path = root / file_part
-                        if not file_path.exists():
-                            errors.append(
-                                f"'## Contracts' bullet at line {contracts_idx + 2 + i} "
-                                f"references missing file '{file_part}'"
-                            )
+                        # Heuristic: only treat the first token as a path if it looks like one.
+                        # Otherwise, assume this bullet is an inline contract and skip path existence checks.
+                        looks_like_path = "/" in file_part or "." in file_part
+                        if looks_like_path:
+                            file_path = root / file_part
+                            if not file_path.exists():
+                                errors.append(
+                                    f"'## Contracts' bullet at line {contracts_idx + 2 + i} "
+                                    f"references missing file '{file_part}'"
+                                )
 
             # Validate Selector section: exactly one fenced code block
             selector_idx = next((idx for title, idx in headings if title == "Selector"), None)
