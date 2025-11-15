@@ -218,9 +218,9 @@
         – <code>## Selector</code> — exactly one pytest/CLI command for this iteration, plus pass criteria and a blocker protocol (where to write <code>blocked_*.md</code>, what minimal error signature to capture, and where logs live).  
         – <code>## Artifacts</code> — expected log/JSON/PNG/summary paths for this loop, so Ralph knows what to update when the selector passes or fails.  
       • <em>Short form</em> (for truly trivial edits: docs/comments/log wording only, or a single, clearly-localized code/test fix with an existing selector): you MAY use only:  
-        – <code>## Goal</code> — short description of the tiny change and why it matters.  
-        – <code>## Tasks</code> — 1–3 bullets, each with <code>path::symbol</code> and intent.  
-        – <code>## Selector</code> — the single pytest node or CLI command to exercise the change (plus pass/blocker notes).  
+        – `## Goal` — short description of the tiny change and why it matters.  
+        – `## Tasks` — 1–3 lines, each naming a `path::symbol` and the intent of the edit (for example, “`ptycho_torch/cli/train.py::main` — update help text for --max-epochs”).  
+        – `## Selector` — the single pytest node or CLI command to exercise the change (plus pass/blocker notes).  
       In all cases, Tasks must still reference concrete <code>path::symbol</code> entries, and the Selector must be executable from the repo root.
 
     - <strong>Schema validation</strong>: Before finalizing `input.md` for a loop, run the schema validator:
