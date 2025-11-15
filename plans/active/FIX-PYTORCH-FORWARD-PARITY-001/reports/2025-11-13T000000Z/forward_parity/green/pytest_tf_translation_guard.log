@@ -10,4 +10,4 @@ collecting ... collected 1 item
 
 tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_guard PASSED [100%]
 
-============================== 1 passed in 5.00s ===============================
+============================== 1 passed in 5.26s ===============================

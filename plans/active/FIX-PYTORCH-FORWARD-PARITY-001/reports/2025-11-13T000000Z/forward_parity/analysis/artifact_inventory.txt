@@ -419,3 +419,104 @@ However, the guard does NOT cover the eval/inference path where:
 This blocker is resolved when EITHER:
 - Guard extended + scaled TF CLI both GREEN with artifacts generated, OR
 - Documented decision to defer TensorFlow parity with TF-NON-XLA-SHAPE-001 updated in docs/findings.md
+
+## Phase C1d — TF Scaled Baseline Rerun (Fifth Attempt, 2025-11-15T0021Z)
+**Status**: BLOCKED - Inference reshape error persists (fifth consecutive failure)
+
+**Summary**:
+Fifth attempt executed per FIX-TF-C1D-SCALED-RERUN-001 focus. Guard test passed GREEN (1 passed in 5.26s) confirming training-time translation layer fix working. Scaled TF CLI succeeded through epoch 1 training (8/8 batches) but failed during evaluation/inference with identical reshape error as prior four attempts. This marks the **fifth consecutive failure** with the same error signature.
+
+**Guard Test** (PASSED):
+- Selector: `pytest tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_guard -vv`
+- Result: GREEN (1 passed in 5.26s, run at 2025-11-15T0018Z)
+- Log: green/pytest_tf_translation_guard.log (refreshed)
+- Confirms training-time non-XLA translation guard working correctly
+
+**Environment Capture**:
+- File: tf_baseline/phase_c1_scaled/cli/env_capture_scaled.txt (refreshed)
+- Content:
+  ```
+  TF_XLA_FLAGS=--tf_xla_auto_jit=0
+  USE_XLA_TRANSLATE=0
+  ```
+
+**CLI Execution** (FAILED):
+- Command: See blocker document for full CLI invocation
+- Training: SUCCESS (epoch 1/1, 8/8 batches complete, val_loss: -2793478.0)
+- Evaluation: FAILED during post-training evaluation/stitching
+- Error: `InvalidArgumentError: Input to reshape is a tensor with 0 values, but the requested shape has 4`
+- Location: `ptycho/tf_helper.py:199` in `_translate_images_simple`
+- Stack: `functional_1/padded_objs_with_offsets_1/translation_36_1/Reshape_4`
+- Log: tf_baseline/phase_c1_scaled/cli/train_tf_phase_c1_scaled.log (701 lines, 54KB, refreshed 2025-11-15T0019Z)
+
+**Blocker Document**:
+- File: tf_baseline/phase_c1_scaled/red/blocked_20251115T002143Z_tf_translation_guard.md (NEW)
+- Fifth consecutive identical failure documented with comprehensive analysis
+- All prior blockers reference same error signature:
+  1. blocked_20251114T153747_tf_translation_guard.md
+  2. blocked_20251114T232542Z_tf_translation_guard.md
+  3. blocked_20251114T233123Z_tf_translation_guard.md
+  4. blocked_20251114T155500Z_tf_translation_guard.md
+  5. blocked_20251115T002143Z_tf_translation_guard.md (this attempt)
+
+**Training Success Details**:
+The log confirms training completed successfully before the eval error:
+- Line 460: Batch 1/8 progress shown
+- Line 462: `8/8 [━━━━━━━━━━━━━━━━━━━━] 13s 358ms/step` (epoch complete)
+- Final metrics: loss=-2624654.5, val_loss=-2793478.0
+
+**Error Occurrence**:
+- Line 464: Local rendezvous aborting: `Input to reshape is a tensor with 0 values, but the requested shape has 4`
+- Line 595-700: Stack trace showing error in `_translate_images_simple:199`
+
+**Root Cause Analysis** (documented in blocker):
+Guard test covers **training forward path only**:
+- Exercises controlled batch dimensions (batch_size=4, gridsize=2)
+- Mocks translation layer with known inputs
+- Validates fallback to `_translate_images_simple` succeeds
+
+Guard does **NOT** cover **eval/inference/stitching path** where:
+- Different batching logic applies (7597 test images vs 32 training groups)
+- Dynamic batching during stitching produces edge cases
+- 0-element tensors trigger reshape errors
+- Batch dimension mismatch manifests differently than training
+
+**Missing Artifacts** (CLI failed before generation):
+- ❌ tf_baseline/phase_c1_scaled/analysis/forward_parity_debug_tf/ — NOT GENERATED
+  - No stats.json
+  - No offsets.json
+  - No normalized PNG grids
+- ✅ Guard log: green/pytest_tf_translation_guard.log (GREEN)
+- ✅ Environment capture: tf_baseline/phase_c1_scaled/cli/env_capture_scaled.txt
+- ✅ Training CLI log: tf_baseline/phase_c1_scaled/cli/train_tf_phase_c1_scaled.log (701 lines)
+
+**Supervisor Decision Required**:
+After **five consecutive failures** with identical error signature, recommend:
+
+**Option A — Extend Guard Test**:
+Add `test_non_xla_translation_guard_eval` covering:
+- Evaluation/stitching batching patterns
+- Edge cases with 0-element tensors
+- Reassembly code path during inference
+
+**Option B — Investigate Eval Batch Shapes**:
+Add instrumentation at `ptycho/tf_helper.py:789` to log:
+- Batch shapes entering `translate_core` during eval
+- Translation tensor dimensions
+- Reshape target shapes
+
+**Option C — Defer TensorFlow Parity** (RECOMMENDED per POLICY-001):
+Given five consecutive failures with identical symptoms:
+- Document TensorFlow eval/inference reshape bug as known limitation
+- Complete Phase C forward parity using PyTorch evidence only
+- Open separate initiative for TensorFlow eval/inference fix
+- Proceed with PyTorch-only workflow per POLICY-001 (PyTorch mandatory)
+
+**Cross-References**:
+- Finding: TF-NON-XLA-SHAPE-001 (docs/findings.md:98-100)
+- Policy: POLICY-001 (PyTorch mandatory, TensorFlow optional)
+- Guard implementation: ptycho/tf_helper.py:702-790
+- Guard tests: tests/tf_helper/test_translation_shape_guard.py:46-157
+
+**Conclusion**:
+The guard test is GREEN, training succeeds, but TensorFlow evaluation/inference/stitching fails with reshape errors not covered by current guard. Fifth consecutive failure indicates systematic gap between training code path (guard covers) and eval code path (triggers actual error). Recommendation: proceed PyTorch-only per POLICY-001.
