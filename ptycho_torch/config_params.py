@@ -130,9 +130,12 @@ class InferenceConfig:
 @dataclass
 class DatagenConfig:
     """Configuration parameters for data generation class"""
-    objects_per_probe: int = 4 #Number of unique synthetic objects per probe function
+    objects_per_probe: int = 4 #Number of synthetic objects of a specific class per probe. If multiple object classes specified, this is per object class per probe.
     diff_per_object: int = 7000 #Number of diffraction images per unique object
-    object_class: Literal['dead_leaves', 'procedural', 'polyhedra', 'white_noise','simplex_noise','blurred_white_noise'] = 'dead_leaves'
+    object_class: Union[
+                    Literal['dead_leaves', 'procedural', 'polyhedra', 'white_noise','simplex_noise','blurred_white_noise'],
+                    List[Literal['dead_leaves', 'procedural', 'polyhedra', 'white_noise','simplex_noise','blurred_white_noise']]
+                ]= 'dead_leaves'
     image_size: Tuple[int, int] = (250,250)
     probe_paths: List[str] = field(default_factory=list) # List of all probe files used
     beamstop_diameter: int = 4 # For simulating beamstop in forward model

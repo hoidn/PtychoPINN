@@ -602,11 +602,11 @@ class Datagen:
                                   obj_arg = None):
         from ptycho_torch.datagen.datagen import simulate_synthetic_objects
         from ptycho_torch.api.api_helper import simulate_synthetic_object_list
-
+        
+        #Obj_arg is deprecated but this exposes in case anything need to be modified
         if obj_arg is None:
             obj_arg = {}
 
-        #Dummy argument: Deprecated for now
         simulate_synthetic_object_list(self, obj_arg)
     
     def _generate_simulated_data(self,
