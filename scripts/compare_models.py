@@ -36,6 +36,49 @@ from ptycho.log_config import setup_logging
 # NOTE: nbutils import is delayed until after models are loaded to prevent KeyError
 
 
+def _center_pad_or_crop(arr, target_h, target_w):
+    """Center-pad or center-crop an array to target_h x target_w."""
+    h, w = arr.shape[-2], arr.shape[-1]
+    pad_h = max(0, target_h - h)
+    pad_w = max(0, target_w - w)
+    if pad_h or pad_w:
+        pad_top = pad_h // 2
+        pad_bottom = pad_h - pad_top
+        pad_left = pad_w // 2
+        pad_right = pad_w - pad_left
+        arr = np.pad(arr, ((pad_top, pad_bottom), (pad_left, pad_right)), mode='constant')
+        h, w = arr.shape
+    if h > target_h or w > target_w:
+        start_h = (h - target_h) // 2
+        start_w = (w - target_w) // 2
+        arr = arr[start_h:start_h + target_h, start_w:start_w + target_w]
+    return arr
+
+
+def align_for_evaluation_fixed_canvas(reconstruction_image, ground_truth_image, full_scan_coords_yx, stitch_patch_size):
+    """
+    Align using the full test-data coordinate bounding box to keep canvas size consistent across subsets.
+    """
+    recon_2d = np.squeeze(reconstruction_image)
+    gt_2d = np.squeeze(ground_truth_image)
+
+    effective_radius = stitch_patch_size // 2
+    min_y, min_x = full_scan_coords_yx.min(axis=0)
+    max_y, max_x = full_scan_coords_yx.max(axis=0)
+
+    start_row = max(0, int(min_y) - effective_radius)
+    end_row = min(gt_2d.shape[0], int(max_y) + effective_radius)
+    start_col = max(0, int(min_x) - effective_radius)
+    end_col = min(gt_2d.shape[1], int(max_x) + effective_radius)
+
+    gt_cropped = gt_2d[start_row:end_row, start_col:end_col]
+    target_h, target_w = gt_cropped.shape
+
+    aligned_recon = _center_pad_or_crop(recon_2d, target_h, target_w)
+    aligned_gt = gt_cropped
+    return aligned_recon, aligned_gt
+
+
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Compare PtychoPINN and Baseline models.")
@@ -96,6 +139,8 @@ def parse_args():
                         help="Path to Tike reconstruction NPZ file for three-way comparison (optional).")
     parser.add_argument("--stitch-crop-size", type=int, default=20,
                         help="Crop size M for patch stitching (must be 0 < M <= N, default: 20).")
+    parser.add_argument("--fixed-canvas", action="store_true", default=False,
+                        help="Use full test-data coordinate bounding box for GT/recon alignment to keep plots consistent across different subsets.")
     parser.add_argument("--baseline-debug-limit", type=int, default=None,
                         help="Limit baseline inference to first N groups for debugging (default: all groups).")
     parser.add_argument("--baseline-debug-dir", type=Path, default=None,
@@ -1243,8 +1288,9 @@ def main():
                 tf.keras.backend.clear_session()
 
             try:
+                model_inputs = [chunk_input, chunk_offsets] if len(baseline_model.inputs) > 1 else chunk_input
                 chunk_output = baseline_model.predict(
-                    [chunk_input, chunk_offsets],
+                    model_inputs,
                     batch_size=args.baseline_predict_batch_size,
                     verbose=1
                 )
@@ -1269,8 +1315,9 @@ def main():
     else:
         # Single-shot inference (original path)
         logger.info(f"Using single-shot baseline inference: {n_groups} groups (batch_size={args.baseline_predict_batch_size})")
+        model_inputs = [baseline_input, baseline_offsets] if len(baseline_model.inputs) > 1 else baseline_input
         baseline_output = baseline_model.predict(
-            [baseline_input, baseline_offsets],
+            model_inputs,
             batch_size=args.baseline_predict_batch_size,
             verbose=1
         )
@@ -1441,29 +1488,62 @@ def main():
         scan_coords_xy = np.squeeze(global_offsets)
         scan_coords_yx = scan_coords_xy[:, [1, 0]]
 
-        # 3. First stage: Coordinate-based alignment (crop to scanned region)
-        pinn_recon_cropped, gt_cropped_for_pinn = align_for_evaluation(
-            reconstruction_image=pinn_recon,
-            ground_truth_image=ground_truth_obj,
-            scan_coords_yx=scan_coords_yx,
-            stitch_patch_size=M_STITCH_SIZE
-        )
-        
-        baseline_recon_cropped, gt_cropped_for_baseline = align_for_evaluation(
-            reconstruction_image=baseline_recon,
-            ground_truth_image=ground_truth_obj,
-            scan_coords_yx=scan_coords_yx,
-            stitch_patch_size=M_STITCH_SIZE
-        )
-        
-        # Crop Tike reconstruction if available
-        if tike_recon is not None:
-            tike_recon_cropped, gt_cropped_for_tike = align_for_evaluation(
-                reconstruction_image=tike_recon,
+        # Optionally use full test-data coordinates to keep canvas size fixed across subsets
+        full_scan_coords_yx = None
+        if args.fixed_canvas:
+            try:
+                full_npz = np.load(args.test_data)
+                if 'ycoords' in full_npz and 'xcoords' in full_npz:
+                    full_scan_coords_yx = np.stack([full_npz['ycoords'], full_npz['xcoords']], axis=1)
+                    logger.info(f"Using full test-data coordinate bounding box for alignment: {full_scan_coords_yx.shape}")
+            except Exception as exc:
+                logger.warning(f"Failed to load full coords for fixed canvas: {exc}")
+
+        # 3. First stage: Coordinate-based alignment (crop/pad to scanned region)
+        if full_scan_coords_yx is not None:
+            pinn_recon_cropped, gt_cropped_for_pinn = align_for_evaluation_fixed_canvas(
+                reconstruction_image=pinn_recon,
+                ground_truth_image=ground_truth_obj,
+                full_scan_coords_yx=full_scan_coords_yx,
+                stitch_patch_size=M_STITCH_SIZE
+            )
+            baseline_recon_cropped, gt_cropped_for_baseline = align_for_evaluation_fixed_canvas(
+                reconstruction_image=baseline_recon,
+                ground_truth_image=ground_truth_obj,
+                full_scan_coords_yx=full_scan_coords_yx,
+                stitch_patch_size=M_STITCH_SIZE
+            )
+        else:
+            pinn_recon_cropped, gt_cropped_for_pinn = align_for_evaluation(
+                reconstruction_image=pinn_recon,
                 ground_truth_image=ground_truth_obj,
                 scan_coords_yx=scan_coords_yx,
                 stitch_patch_size=M_STITCH_SIZE
             )
+            
+            baseline_recon_cropped, gt_cropped_for_baseline = align_for_evaluation(
+                reconstruction_image=baseline_recon,
+                ground_truth_image=ground_truth_obj,
+                scan_coords_yx=scan_coords_yx,
+                stitch_patch_size=M_STITCH_SIZE
+            )
+        
+        # Crop Tike reconstruction if available
+        if tike_recon is not None:
+            if full_scan_coords_yx is not None:
+                tike_recon_cropped, gt_cropped_for_tike = align_for_evaluation_fixed_canvas(
+                    reconstruction_image=tike_recon,
+                    ground_truth_image=ground_truth_obj,
+                    full_scan_coords_yx=full_scan_coords_yx,
+                    stitch_patch_size=M_STITCH_SIZE
+                )
+            else:
+                tike_recon_cropped, gt_cropped_for_tike = align_for_evaluation(
+                    reconstruction_image=tike_recon,
+                    ground_truth_image=ground_truth_obj,
+                    scan_coords_yx=scan_coords_yx,
+                    stitch_patch_size=M_STITCH_SIZE
+                )
         else:
             tike_recon_cropped = None
         
