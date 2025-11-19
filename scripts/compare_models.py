@@ -22,6 +22,8 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# This CLI follows `specs/compare_models_spec.md` for interface and behavior.
+
 # Import ptycho components
 from ptycho.workflows.components import load_data, create_ptycho_data_container, logger, load_inference_bundle
 from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
@@ -81,9 +83,9 @@ def align_for_evaluation_fixed_canvas(reconstruction_image, ground_truth_image, 
 
 def parse_args():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="Compare PtychoPINN and Baseline models.")
-    parser.add_argument("--pinn_dir", type=Path, required=True,
-                        help="Directory of the trained PtychoPINN model.")
+parser = argparse.ArgumentParser(description="Compare PtychoPINN and Baseline models.")
+parser.add_argument("--pinn_dir", type=Path, required=True,
+                    help="Directory of the trained PtychoPINN model.")
     parser.add_argument("--baseline_dir", type=Path, required=True,
                         help="Directory of the trained baseline model.")
     parser.add_argument("--test_data", type=Path, required=True,
@@ -139,8 +141,8 @@ def parse_args():
                         help="Path to Tike reconstruction NPZ file for three-way comparison (optional).")
     parser.add_argument("--stitch-crop-size", type=int, default=20,
                         help="Crop size M for patch stitching (must be 0 < M <= N, default: 20).")
-    parser.add_argument("--fixed-canvas", action="store_true", default=False,
-                        help="Use full test-data coordinate bounding box for GT/recon alignment to keep plots consistent across different subsets.")
+parser.add_argument("--fixed-canvas", action="store_true", default=False,
+                    help="Use full test-data coordinate bounding box for GT/recon alignment to keep plots consistent across different subsets.")
     parser.add_argument("--baseline-debug-limit", type=int, default=None,
                         help="Limit baseline inference to first N groups for debugging (default: all groups).")
     parser.add_argument("--baseline-debug-dir", type=Path, default=None,
