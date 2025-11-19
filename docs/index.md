@@ -19,6 +19,11 @@ This index provides a comprehensive overview of all available documentation with
 **Keywords:** workflow, training, evaluation, model-comparison, troubleshooting  
 **Use this when:** Starting a new project, planning experiments, or need to understand the complete train→evaluate→compare workflow.
 
+### [Model Comparison Guide](MODEL_COMPARISON_GUIDE.md)
+**Description:** How to run 2-way/3-way comparisons, pick entry points (direct compare vs wrappers vs studies), reuse existing runs, plug in PtyChi/Tike reconstructions, apply subsampling consistently, and handle fixed-canvas alignment.  
+**Keywords:** comparison, studies, ptychi, subsampling, artifacts, alignment  
+**Use this when:** You need to compare models, reuse existing outputs, or decide which comparison script to run.
+
 ### [PyTorch Workflow Guide](workflows/pytorch.md)
 **Description:** End-to-end instructions for configuring, training, and running inference with the PyTorch implementation, highlighting differences from the TensorFlow pipelines and reusing the shared data contracts.  
 **Keywords:** pytorch, lightning, mlflow, configuration, training  
@@ -28,6 +33,11 @@ This index provides a comprehensive overview of all available documentation with
 **Description:** Centralized record of critical discoveries, conventions, and recurring bugs, maintained as the agent's long-term memory.  
 **Keywords:** knowledge-base, lessons-learned, debugging, conventions  
 **Use this when:** Investigating an issue, planning a change, or verifying whether a problem has prior art.
+
+### [Compare Models Spec](../specs/compare_models_spec.md)
+**Description:** Interface/behavior contract for `compare_models.py` (CLI + future API), including inputs, outputs, sampling, registration, stitching, metrics, and recon NPZ expectations.  
+**Keywords:** spec, comparison, interface, contract  
+**Use this when:** You need authoritative details on `compare_models.py` behavior or are refactoring the compare pipeline.
 
 ## Project Management
 
