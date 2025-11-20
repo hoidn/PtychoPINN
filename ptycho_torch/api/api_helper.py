@@ -398,8 +398,8 @@ def assemble_probes_from_npz(npz_path,
     from ptycho_torch.datagen.datagen import assemble_precomputed_images
 
     if config_manager is not None:
-            datagen_config = config_manager.datagen_config
-            data_config = config_manager.data_config
+        datagen_config = config_manager.datagen_config
+        data_config = config_manager.data_config
     elif datagen_config is not None:
         datagen_config = ConfigManager._parse_config(datagen_config,
                                                         DatagenConfig)
@@ -408,8 +408,14 @@ def assemble_probes_from_npz(npz_path,
     # Only rank 0 does the actual data generation
     print("Rank 0: Preparing synthetic data...")
 
+    #Check for multiple specified objects
+    if isinstance(datagen_config.object_class, str):
+        num_obj = 1
+    elif isinstance(datagen_config.object_class, list):
+        num_obj = len(datagen_config.object_class)
+
     exp_probe_list = assemble_precomputed_images(npz_path, 'probe', True)
-    probe_list = [item for item in exp_probe_list for _ in range(datagen_config.objects_per_probe)]
+    probe_list = [item for item in exp_probe_list for _ in range(num_obj * datagen_config.objects_per_probe)]
     probe_name_idx = [idx for idx in list(range(len(exp_probe_list))) for _ in range(datagen_config.objects_per_probe)]
     probe_arg['probe_name_idx'] = probe_name_idx
 

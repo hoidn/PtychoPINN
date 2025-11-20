@@ -66,8 +66,10 @@ from ptycho.raw_data import RawData
 # PyTorch imports (now mandatory per Phase F3.1/F3.2)
 try:
     from ptycho_torch.raw_data_bridge import RawDataTorch
+    from ptycho_torch.config_factory import TrainingPayload, InferencePayload
     from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
     from ptycho_torch.model_manager import save_torch_bundle, load_torch_bundle
+    from ptycho_torch.dataloader import PtychoDataset, TensorDictDataLoader
 except ImportError as e:
     # If Phase C/D3 modules not available, raise actionable error
     raise RuntimeError(
@@ -291,12 +293,14 @@ def _ensure_container(
 
 
 def _build_lightning_dataloaders(
-    train_container: Union['PtychoDataContainerTorch', Dict],
-    test_container: Optional[Union['PtychoDataContainerTorch', Dict]],
-    config: TrainingConfig
+    train_container: Union['PtychoDataContainerTorch', Dict, 'PtychoDataset'],
+    test_container: Optional[Union['PtychoDataContainerTorch', Dict, 'PtychoDataset']],
+    config: Optional[TrainingConfig],
+    payload: Optional[TrainingPayload]
 ):
     """
-    Build PyTorch DataLoader instances from container data for Lightning training.
+    Build PyTorch DataLoader instances from container data for Lightning training. This is training-specific,
+    so this is not needed for inference.
 
     This helper wraps the container data into DataLoaders that yield TensorDict-style
     batches matching the structure expected by PtychoPINN_Lightning.compute_loss.
@@ -333,6 +337,9 @@ def _build_lightning_dataloaders(
             "Install with: pip install -e .[torch]\n"
             "See docs/findings.md#policy-001 for PyTorch requirement policy."
         ) from e
+    
+    if payload and not config:
+        config = payload.tf_training_config
 
     # Set deterministic seed if provided
     seed = getattr(config, 'subsample_seed', None) or 42
@@ -463,8 +470,19 @@ def _build_lightning_dataloaders(
                 scaling = torch.ones(1, dtype=torch.float32)
 
             return tensor_dict, probe, scaling
+    
+    # Build memory mapped dataloader if train container is PtychoDataset
+    if isinstance(train_container, PtychoDataset):
+        #Data product either datamodule or dataloader (depending on configs)
+        try: 
+            memory_mapped_data_product = _build_dataloaders_from_ptycho_dataset(train_container, test_container, payload)
+        
+        except Exception as e:
+            print(f'Error occurred during memory-mapped data product creation: {e}')
+        
+        return memory_mapped_data_product
 
-    # Build training dataset
+    # Build training dataset if train_container is PtychoDataContainerTorch
     train_dataset = PtychoLightningDataset(train_container)
 
     # Configure shuffle based on sequential_sampling flag
@@ -492,6 +510,64 @@ def _build_lightning_dataloaders(
         )
 
     return train_loader, val_loader
+
+def _build_dataloaders_from_ptycho_dataset(
+    train_ptycho_dataset: PtychoDataset,
+    payload: Optional[TrainingPayload],
+    test_ptycho_dataset: Optional[PtychoDataset] = None
+):
+    """
+    Returns either ptychodatamodule or tensordictdataloader
+
+    Datamodule already does its own validation set split, so do not need additional input
+    """
+    training_config = payload.pt_training_config
+    data_config = payload.pt_data_config
+    model_config = payload.pt_model_config
+    #If using lightning and DDP, need to use custom datamodule
+    if getattr(training_config, 'strategy') == 'ddp' and getattr(training_config, 'framework') == 'Lightning':
+        from ptycho_torch.train_utils import PrebuiltPtychoDataModule
+        #Create datamodule
+        dataset_path = train_ptycho_dataset.data_dir_path
+        data_module = PrebuiltPtychoDataModule(dataset_path, model_config = model_config,
+                                              data_config = data_config, training_config=training_config)
+        
+        return data_module
+    elif getattr(training_config, 'strategy') == None:
+        from ptycho_torch.dataloader import TensorDictDataLoader, Collate
+        import torch
+        
+        gpu_ids = list(range(torch.cuda.device_count()))
+
+        if gpu_ids and len(gpu_ids) == 1:
+            primary_device = torch.device(f'cuda:{gpu_ids[0]}')
+        else:
+            primary_device = training_config.device
+
+        train_data_loader = TensorDictDataLoader(
+            train_ptycho_dataset, 
+            batch_size=training_config.batch_size,
+            num_workers=training_config.num_workers,
+            collate_fn=Collate(device=primary_device),
+            pin_memory = True,
+            persistent_workers=True
+        )
+
+        test_data_loader = TensorDictDataLoader(
+            test_ptycho_dataset,
+            batch_size=training_config.batch_size,
+            num_workers=training_config.num_workers,
+            collate_fn=Collate(device=primary_device),
+            pin_memory = True,
+            persistent_workers=True
+        )
+
+        return train_data_loader, test_data_loader
+
+
+    
+    
+    
 
 
 def _build_inference_dataloader(

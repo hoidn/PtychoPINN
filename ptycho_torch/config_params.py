@@ -107,6 +107,9 @@ class TrainingConfig:
     strategy: Optional[str] = 'ddp' # Strategy for distributed training (e.g., 'ddp', None)
     n_devices: int = 1 #Number of devices you're training on
 
+    # Framework
+    framework: Literal['Default', 'Lightning'] = 'Lightning' #Training framework. Most of work don in PT was done in lightning
+
     # Add other training-specific parameters here as needed, e.g.:
     learning_rate: float = 1e-3
     epochs: int = 50 #Default epochs number, will be overridden if multi-stage training is active at all

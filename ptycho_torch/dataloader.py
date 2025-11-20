@@ -364,6 +364,51 @@ class PtychoDataset(Dataset):
              raise ValueError("Could not determine image shape from any NPZ file.")
 
         return total_length, first_im_shape, cumulative_length, valid_indices_per_file
+    
+    @classmethod
+    def from_existing_map(cls, map_path, model_config, data_config, current_rank = 0, is_ddp_active = False):
+        """
+        Creates data instance from existing memory map. Do NOT run without a memory map!
+
+        Assumes:
+        1. Memory map already exists at map_path
+        2. State files exist
+        3. No rank coordination
+        4. No file operations
+        """
+
+        instance = cls.__new__(cls)
+
+        #Set basic attributes
+        instance.model_config = model_config
+        instance.data_config = data_config
+        instance.current_rank = current_rank
+        instance.is_ddp_active = is_ddp_active
+
+        #Set paths
+        instance.data_dir = str(map_path)
+        instance.data_dir_path = Path(map_path)
+        data_prefix_path = instance.data_dir_path.parent
+        instance.state_path = data_prefix_path / 'state_files.npz'
+
+        #Load existing map
+        try:
+            instance.mmap_ptycho = TensorDict.load_memmap(str(instance.data_dir_path))
+            instance.length = len(instance.mmap_ptycho)
+
+            #Load state data
+            loaded_state = np.load(instance.state_path, allow_pickle = True)
+            instance.data_dict = loaded_state['data_dict'].item()
+            
+            print(f"[PtychoDataset Rank {current_rank}] Loaded existing memory map: {instance.length} samples")
+
+        except Exception as e:
+            raise RuntimeError(
+                f"[Rank {current_rank}] Failed to load existing memory map from {map_path}. "
+                f"Ensure prepare_memory_mapped_data() was called first. Error: {e}"
+            )
+        
+        return instance
 
     # Methods for diffraction data mapping
     def memory_map_data(self, image_paths):
