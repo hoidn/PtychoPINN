@@ -2,7 +2,7 @@
 
 Overview (Normative)
 - Purpose: Define the precise ptychographic forward model, all mathematical operations implemented, normalization rules, coordinate semantics, and strict data contracts for PtychoPINN.
-- Scope: TensorFlow backend using complex objects and coherent probe; grid and non‑grid scan grouping; amplitude‑domain training with Poisson photon statistics; model sizes N ∈ {64, 128, 256}; square pixels.
+- Scope: Normative definition of the ptychographic physics, coordinate systems, and data contracts that every backend (TensorFlow, PyTorch, or future engines) MUST satisfy. TensorFlow helpers cited throughout serve as the reference implementation for the math described here.
 
 Units, Conventions, and Frames (Normative)
 - Pixels and coordinates: All image‑plane arrays are sampled on square pixel grids; offsets and scan coordinates are in pixel units on the object sampling grid.
