@@ -57,9 +57,12 @@ Reassembly Requirements (Normative)
 
 Staging and Options (Normative)
 - `object.big=True`: reassemble patches into padded canvas before trimming.
-- `probe.big=True`: per‑channel probe; else shared probe.
+- `probe.big=True`: per-channel probe; else shared probe.
 - Gaussian smoothing sigma configurable (0 disables; default 0).
 - Extraction jitter MAY be enabled for augmentation.
+
+### Resource Constraints (Informative)
+Current implementations allocate GPU tensors eagerly inside `PtychoDataContainer` (see finding PINN-CHUNKED-001 in `docs/findings.md`). Large datasets that exceed VRAM therefore require manual chunk-size reductions until the planned lazy-loading/chunking refactor lands. Future revisions will make lazy loading a normative requirement once the architecture supports it.
 
 Outputs (Normative)
 - Training run yields Keras history, saved weights, and optional stitched object; metrics if GT available.

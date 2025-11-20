@@ -84,7 +84,14 @@ Defaults & Precedence:
 - Translation must satisfy the unit tests in `tests/torch/test_config_bridge.py` (mapping, overrides, and params.cfg population).
 - Workflows must show `update_legacy_dict(params.cfg, config)` called before data operations (see `docs/workflows/pytorch.md`).
 
-## 7. Examples
+## 7. Compliance & Prohibitions (Normative)
+
+To preserve a single source of truth between the dataclasses and `params.cfg`, the following practices are mandatory:
+
+1. **No implicit initialization:** Modules SHALL NOT read from or mutate `ptycho.params` at module scope (import time). All `params` access MUST occur inside functions or methods after configuration synchronization.
+2. **Bridge mandate:** Every execution entry point (CLI, notebook, script, API) MUST call `update_legacy_dict(params.cfg, config_object)` immediately after resolving configuration and BEFORE importing or executing modules that read from `ptycho.params`.
+
+## 8. Examples
 
 ```python
 from pathlib import Path
@@ -106,11 +113,10 @@ tf_train = config_bridge.to_training_config(
 update_legacy_dict(params.cfg, tf_train)
 ```
 
-## 8. References
+## 9. References
 
 - TensorFlow configs: `ptycho/config/config.py`
 - PyTorch configs: `ptycho_torch/config_params.py`
 - Bridge adapter: `ptycho_torch/config_bridge.py`
 - Workflows: `docs/workflows/pytorch.md`
 - Tests: `tests/torch/test_config_bridge.py`
-
