@@ -8,11 +8,19 @@
 ## Initiative
 - ID: <initiative-id>
 - Title: <short title>
+- Spec Owner: <docs/specs/spec-*.md filename or governing spec>  <!-- Declare the normative spec this initiative enforces -->
 - Owner/Date: <name> / <YYYY‑MM‑DD>
 - Status: pending | in_progress | blocked | done | archived
 - Priority: <High|Medium|Low>
 - Working Plan: this file
 - Reports Hub (primary): `plans/active/<initiative-id>/reports/<ISO8601Z>/<slug>/`
+
+## Compliance Matrix (Mandatory)
+> Enumerate the normative clauses and findings this initiative MUST comply with. Missing relevant entries (e.g., CONFIG-001, POLICY-001) is a plan defect.
+- [ ] **Spec Constraint:** <e.g., “docs/specs/spec-ptycho-core.md §Ptychographic Forward Model — FFT normalization must remain unitary”>
+- [ ] **Finding ID:** <e.g., “CONFIG-001 — update_legacy_dict before legacy import”>
+- [ ] **Policy:** <e.g., “POLICY-001 — PyTorch ≥ 2.2 mandatory; raise on missing torch”>
+- Add more rows as needed for additional constraints (data contracts, overlap metrics, etc.).
 
 ## Context Priming (read before edits)
 > Replace the example entries below with the documentation that is actually relevant to this initiative—do **not** copy these paths verbatim.
@@ -46,7 +54,7 @@
 
 ## Phase A — <name>
 ### Checklist
-- [ ] A0: Nucleus — minimal guard/test proving the current failure (selector + expected artifact)
+- [ ] A0: **Nucleus** — minimal guard/test or probe that validates the spec assumption or reproduces the defect before making code changes (include selector + expected artifact path)
 - [ ] A1: <task> (expected artifacts)
 - [ ] A2: <task>
 - [ ] A3: <task>
