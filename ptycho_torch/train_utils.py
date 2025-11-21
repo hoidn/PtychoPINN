@@ -299,6 +299,80 @@ class PtychoDataModule(L.LightningDataModule):
             prefetch_factor = 4,
         )
     
+class PrebuiltPtychoDataModule(L.LightningDataModule):
+    def __init__(self, map_path,
+                 model_config, data_config, training_config):
+        super().__init__()
+        self.map_path = map_path
+        self.model_config = model_config
+        self.data_config = data_config
+        self.training_config = training_config
+        self.dataset = None
+        self.train_dataset = None
+        self.val_dataset = None
+
+    def setup(self, stage=None):
+        """Setup that respects rank separation"""
+
+        from ptycho_torch.dataloader import get_current_rank, is_ddp_initialized_and_active
+        
+        # Only create dataset once per rank
+        if self.dataset is None:
+            if stage == "fit" or stage is None:
+                
+                # Rank-aware dataset creation
+                current_rank = get_current_rank()
+                is_ddp_active = is_ddp_initialized_and_active()
+                
+                print(f"[DataModule setup] Rank {current_rank}: Loading existing memory map")
+                
+                # Create dataset with NO setup logic - just load existing map
+                self.dataset = PtychoDataset.from_existing_map(
+                    self.map_path, 
+                    self.model_config,
+                    self.data_config,
+                    current_rank=current_rank,
+                    is_ddp_active=is_ddp_active
+                )
+                
+                # Train/val split (all ranks do this identically)
+                dataset_size = len(self.dataset)
+                val_size = int(0.1 * dataset_size)
+                train_size = dataset_size - val_size
+                
+                # Use same seed for reproducible split across ranks
+                generator = torch.Generator().manual_seed(42)
+                self.train_dataset, self.val_dataset = torch.utils.data.random_split(
+                    self.dataset, [train_size, val_size], generator=generator
+                )
+                
+                print(f"[DataModule setup] Rank {current_rank}: Dataset ready, "
+                      f"train={train_size}, val={val_size}")
+
+    def train_dataloader(self):
+        return TensorDictDataLoader(
+            self.train_dataset,
+            batch_size=self.config.batch_size,
+            shuffle=True,
+            num_workers=self.config.num_workers,
+            collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
+            pin_memory=True,
+            persistent_workers=True,
+            prefetch_factor=4,
+        )
+
+    def val_dataloader(self):
+        return TensorDictDataLoader(
+            self.val_dataset,
+            batch_size=self.config.batch_size,
+            shuffle=False,
+            num_workers=self.config.num_workers,
+            collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
+            pin_memory=True,
+            persistent_workers=True,
+            prefetch_factor=4,
+        )
+    
 # Schedulers
 class MultiStageLRScheduler(_LRScheduler):
     """

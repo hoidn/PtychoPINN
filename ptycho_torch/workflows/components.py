@@ -59,7 +59,7 @@ from typing import Union, Optional, Tuple, Dict, Any
 
 # Core imports (always available)
 from ptycho import params
-from ptycho.config.config import TrainingConfig
+from ptycho.config.config import TrainingConfig, InferenceConfig, PyTorchExecutionConfig
 from ptycho.config import config as ptycho_config  # For update_legacy_dict
 from ptycho.raw_data import RawData
 
@@ -716,6 +716,7 @@ def _train_with_lightning(
             TrainingConfig as PTTrainingConfig,
             InferenceConfig as PTInferenceConfig
         )
+        from ptycho_torch.train_utils import PrebuiltPtychoDataModule
     except ImportError as e:
         raise RuntimeError(
             "PyTorch backend requires torch>=2.2 and lightning. "
@@ -784,7 +785,7 @@ def _train_with_lightning(
     # Create minimal InferenceConfig for Lightning module (training payload doesn't include it)
     pt_inference_config = PTInferenceConfig()
 
-    # B2.4: Instantiate PtychoPINN_Lightning with factory-derived config objects
+    # B2.4: Instantiate PtychoPINN_Lightning model with factory-derived config objects
     model = PtychoPINN_Lightning(
         model_config=pt_model_config,
         data_config=pt_data_config,
@@ -796,9 +797,14 @@ def _train_with_lightning(
     model.save_hyperparameters()
 
     # B2.3: Build dataloaders via helper
-    train_loader, val_loader = _build_lightning_dataloaders(
-        train_container, test_container, config
+    data_product = _build_lightning_dataloaders(
+        train_container, test_container, config, payload = payload
     )
+    
+    #Data product is a lightning datamodule if ddp and lightning selected, otherwise
+    #it is a regular train/val loader
+    if pt_training_config.strategy != 'ddp':
+        train_loader, val_loader = data_product
 
     # DATA-SUP-001: Supervised mode requires labeled data
     # Check if supervised mode is requested but training data lacks required labels
@@ -837,7 +843,9 @@ def _train_with_lightning(
         from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 
         # Determine if we have validation data to use val metrics
-        has_validation = test_container is not None
+        # Ptycho Datamodule automatically creates a validation dataset on instantiation (see train_utils.py)
+        # so this means validation set exists if data product is a datamodule.
+        has_validation = test_container is not None or isinstance(data_product, PrebuiltPtychoDataModule)
 
         # EB2.B: Derive monitor metric from model.val_loss_name (ADR-003 Phase EB2)
         # The model's val_loss_name is dynamically constructed based on model_type and loss configuration
@@ -957,18 +965,25 @@ def _train_with_lightning(
 
     # B2.6: Execute training cycle
     logger.info(f"Starting Lightning training: {config.nepochs} epochs")
-    try:
-        trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
-    except Exception as e:
-        logger.error(f"Lightning training failed: {e}")
-        raise RuntimeError(f"Lightning training failed. See logs for details.") from e
+    if isinstance(data_product, PrebuiltPtychoDataModule):
+        try:
+            trainer.fit(model, datamodule = data_product)
+        except Exception as e:
+            logger.error(f"Lightning training failed: {e}")
+            raise RuntimeError(f"Lightning training failed. See logs for details.") from e
+    else:
+        try:
+            trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
+        except Exception as e:
+            logger.error(f"Lightning training failed: {e}")
+            raise RuntimeError(f"Lightning training failed. See logs for details.") from e
 
     # Extract loss history from trainer metrics
     # Note: trainer.callback_metrics may vary depending on logging configuration
     # For MVP, construct minimal history from logged metrics
     history = {
         "train_loss": [],  # Populated during training; extract from logs if needed
-        "val_loss": [] if test_container is not None else None
+        "val_loss": [] if test_container is not None or isinstance(data_product, PrebuiltPtychoDataModule) else None
     }
 
     # Attempt to extract metrics if available
@@ -996,6 +1011,57 @@ def _train_with_lightning(
             "autoencoder": {'_sentinel': 'autoencoder'}  # Sentinel for dual-model requirement
         }
     }
+
+def _reassemble_cdi_image_torch_mmap(
+   test_data: PtychoDataset,
+   config: InferenceConfig,
+   payload: InferencePayload,
+   execution_config: PyTorchExecutionConfig,
+   train_results: Optional[Dict[str, Any]] = None,
+   verbose = True
+):
+    """
+    Reassemble CDI image using optimized CDI image functions from ptycho_torch library
+    """
+    
+    #Import 
+    try:
+        from ptycho_torch.reassembly import reconstruct_image_barycentric
+        from ptycho_torch.config_params import TrainingConfig
+    except Exception as e:
+        print(f"Could not import due to exception: {e}")
+    
+    #Getting proper configs
+    data_config = payload.pt_data_config
+    inference_config = payload.pt_inference_config
+    #Dummy argument to get reconstruct function tow ork
+    model_config = None
+
+    #Loading model
+    loaded_model = train_results['models']['diffraction_to_obj']
+    loaded_model.eval()
+    loaded_model.to(execution_config.accelerator)
+    loaded_model.training = True
+
+    #Workaround since the only use of training_config is for device
+    #Will pass in PyTorch TrainingConfig so we don't need to modify reconstruct_image_baryecentric
+    training_config = TrainingConfig(device = execution_config.accelerator)
+
+    #Reconstructing. Automatically puts dataset into dataloader, so don't worry about it
+    if verbose:
+        print(f"Data config: {data_config}")
+        print(f"Inference config: {inference_config}")
+
+    #Call optimized reconstruction method
+
+    result, recon_dataset, _ = reconstruct_image_barycentric(loaded_model, test_data,
+                           training_config, data_config, model_config, inference_config, gpu_ids = None,
+                           use_mixed_precision=True, verbose = False)
+    
+    
+    return result.to('cpu')
+    
+
 
 
 def _reassemble_cdi_image_torch(
