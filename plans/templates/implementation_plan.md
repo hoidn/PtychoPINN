@@ -19,6 +19,8 @@
 - [ ] docs/specs/spec-ptycho-core.md — Core physics/data contracts (example)
 - [ ] docs/specs/spec-ptycho-workflow.md — Pipeline semantics (example)
 - [ ] docs/architecture_torch.md — Backend-specific architecture notes (example)
+- **Spec Alignment:** This initiative enforces/modifies the following active findings or spec shards (cite IDs/paths):
+  - e.g., `CONFIG-001`, `docs/specs/spec-ptycho-config-bridge.md`
 
 ## Problem Statement
 <1–3 sentences framing the problem and constraints>
@@ -44,6 +46,7 @@
 
 ## Phase A — <name>
 ### Checklist
+- [ ] A0: Nucleus — minimal guard/test proving the current failure (selector + expected artifact)
 - [ ] A1: <task> (expected artifacts)
 - [ ] A2: <task>
 - [ ] A3: <task>
@@ -53,6 +56,7 @@
 
 ### Notes & Risks
 - <risk or nuance>
+- Rollback strategy if Phase A regresses the code/tests: <describe how to restore clean state quickly>
 
 ## Phase B — <name>
 ### Checklist
@@ -64,6 +68,7 @@
 
 ### Notes & Risks
 - <risk>
+- Rollback strategy if Phase B work regresses functionality: <describe revert path>
 
 ## Phase C — <name>
 ### Checklist
@@ -75,6 +80,7 @@
 
 ### Notes & Risks
 - <risk>
+- Rollback strategy if Phase C work regresses functionality: <describe revert path>
 
 ## Deprecation / Policy Banner (optional)
 - <Use this slot to mark deprecations or policy reminders relevant to the initiative>
