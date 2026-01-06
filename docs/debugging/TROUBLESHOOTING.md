@@ -1,5 +1,91 @@
 # Troubleshooting Guide
 
+## Model Architecture Mismatch After Changing gridsize
+
+### Problem: Model expects (B, N, N, 1) but data has (B, N, N, 4)
+
+**Symptom:**
+```
+ValueError: Shapes (None, 64, 64, 1) and (None, 64, 64, 4) are incompatible
+```
+or
+```
+Input 0 is incompatible with layer: expected shape=(None, 64, 64, 1), found shape=(None, 64, 64, 4)
+```
+
+**Root Cause:**
+`ptycho.model.autoencoder` is a **module-level singleton** created when the module is first imported. It captures `params.cfg['gridsize']` **at import time**, not when you use it.
+
+```python
+# In ptycho/model.py (lines 529-537) - RUNS AT IMPORT TIME:
+autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_amp_scaled, pred_intensity_sampled])
+diffraction_to_obj = tf.keras.Model(inputs=[input_img, input_positions], outputs=[trimmed_obj])
+```
+
+**Why CONFIG-001 Alone Doesn't Fix This:**
+```python
+# This sequence STILL FAILS:
+from ptycho import model              # ← autoencoder created with gridsize=1 (default)
+update_legacy_dict(params.cfg, config)  # ← Sets gridsize=2, but too late!
+# model.autoencoder already has gridsize=1 architecture
+```
+
+**Solution: Use the Factory Function**
+
+```python
+from ptycho.model import create_model_with_gridsize
+
+# Create fresh model with correct gridsize
+autoencoder, diffraction_to_obj = create_model_with_gridsize(
+    gridsize=config.model.gridsize,  # e.g., 2
+    N=config.model.N                  # e.g., 64
+)
+
+# Pass to training function
+results = train(train_data, model_instance=autoencoder)
+```
+
+**Alternative: Control Import Order**
+
+If you must use the module-level singleton:
+```python
+# Set params BEFORE importing model
+from ptycho.config.config import update_legacy_dict
+update_legacy_dict(params.cfg, config)  # ← gridsize=2 set FIRST
+
+from ptycho import model  # ← NOW autoencoder gets gridsize=2
+# model.autoencoder has correct architecture
+```
+
+**Quick Diagnosis:**
+```python
+# Check when model was built vs current config:
+print(f"Config gridsize: {config.model.gridsize}")
+print(f"Params gridsize: {params.cfg.get('gridsize')}")
+print(f"Model input shape: {model.autoencoder.input_shape}")
+# If model input shows channels=1 but you want channels=4, the model is stale
+```
+
+**Common Scenario: Simulation → Training**
+```python
+# PROBLEMATIC FLOW:
+sim_config = TrainingConfig(model=ModelConfig(gridsize=1))  # Simulation
+update_legacy_dict(params.cfg, sim_config)                   # gridsize=1
+from ptycho import model                                      # autoencoder built with gridsize=1
+# ... simulation runs ...
+
+train_config = TrainingConfig(model=ModelConfig(gridsize=2))  # Training
+update_legacy_dict(params.cfg, train_config)                   # gridsize=2
+# model.autoencoder STILL has gridsize=1 architecture!
+
+# FIX: Use factory
+autoencoder, _ = create_model_with_gridsize(gridsize=2, N=64)
+```
+
+**Related:** [MODULE-SINGLETON-001](../findings.md), [CONFIG-001 Exception](#config-001-exception-import-time-singletons)
+
+---
+
 ## Shape Mismatch Errors
 
 ### Problem: Getting (batch, 64, 64, 1) instead of (batch, 64, 64, 4) with gridsize=2

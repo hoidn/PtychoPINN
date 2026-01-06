@@ -2,6 +2,19 @@
 
 This index provides a comprehensive overview of all available documentation with detailed descriptions to help you quickly find relevant information.
 
+## Critical Gotchas ⚠️
+
+These are the most common pitfalls that cause subtle, hard-to-debug failures. **Read these first when debugging.**
+
+| Gotcha | Symptom | Fix | Reference |
+|--------|---------|-----|-----------|
+| **MODULE-SINGLETON-001** | Model expects shape (B,N,N,1) but data has (B,N,N,4) after changing gridsize | Use `create_model_with_gridsize()` factory instead of `model.autoencoder` singleton | [Troubleshooting](debugging/TROUBLESHOOTING.md#model-architecture-mismatch-after-changing-gridsize) |
+| **CONFIG-001** | Shape mismatch - gridsize not synced | Call `update_legacy_dict(params.cfg, config)` before data loading | [Quick Reference](debugging/QUICK_REFERENCE_PARAMS.md) |
+| **CONFIG-001 Exception** | CONFIG-001 doesn't fix model architecture | Module-level singletons are created at import time; use factory functions | [Quick Reference](debugging/QUICK_REFERENCE_PARAMS.md#️-critical-exception-module-level-singletons-module-singleton-001) |
+| **ANTIPATTERN-001** | Hidden crashes from import-time side effects | Push work into functions with explicit arguments | [Developer Guide](DEVELOPER_GUIDE.md#21-anti-pattern-side-effects-on-import) |
+
+---
+
 ## Quick Start
 
 ### [README](../README.md) - Project Overview
@@ -247,10 +260,11 @@ This index provides a comprehensive overview of all available documentation with
 
 ### Neural Network & Physics (`ptycho/`)
 
-#### `ptycho/model.py` - Neural Network Architecture
-**Description:** U-Net-based physics-informed neural network combining deep learning with differentiable ptychographic forward modeling. Features custom Keras layers for physics constraints.  
-**Key Dependencies:** Global `params.cfg` state at import time, `tf_helper` for tensor operations  
+#### `ptycho/model.py` - Neural Network Architecture ⚠️ SINGLETON WARNING
+**Description:** U-Net-based physics-informed neural network combining deep learning with differentiable ptychographic forward modeling. Features custom Keras layers for physics constraints.
+**Key Dependencies:** Global `params.cfg` state at import time, `tf_helper` for tensor operations
 **Critical For:** Training workflows, inference, physics-informed reconstruction
+**⚠️ CRITICAL:** `model.autoencoder` and `model.diffraction_to_obj` are **module-level singletons** created at import time. They capture `params.cfg['gridsize']` when imported, NOT when used. If you change gridsize after importing this module, use `create_model_with_gridsize(gridsize, N)` to get correctly-sized models. See [MODULE-SINGLETON-001](findings.md) and [Troubleshooting](debugging/TROUBLESHOOTING.md#model-architecture-mismatch-after-changing-gridsize).
 
 #### `ptycho/diffsim.py` - Physics Simulation Layer
 **Description:** Core forward physics implementation simulating the complete ptychographic measurement process: object illumination → coherent diffraction → Poisson photon noise.  

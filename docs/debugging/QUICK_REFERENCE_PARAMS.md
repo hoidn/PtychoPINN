@@ -3,6 +3,29 @@
 ## ⚠️ The Golden Rule
 **Always call `update_legacy_dict()` BEFORE any data operations!**
 
+### ⚠️ Critical Exception: Module-Level Singletons (MODULE-SINGLETON-001)
+
+The Golden Rule has ONE critical exception: **module-level singletons are created at import time**, before any function can call `update_legacy_dict()`.
+
+**The Problem:**
+```python
+from ptycho import model                  # ← autoencoder created NOW with current gridsize
+update_legacy_dict(params.cfg, config)    # ← Too late! Model already exists
+```
+
+**Affected Objects:**
+- `ptycho.model.autoencoder` - main training model
+- `ptycho.model.diffraction_to_obj` - inference model
+- `ptycho.model.autoencoder_no_nll` - NLL-free variant
+
+**The Fix:** Use factory functions instead of module-level singletons:
+```python
+from ptycho.model import create_model_with_gridsize
+autoencoder, diffraction_to_obj = create_model_with_gridsize(gridsize=2, N=64)
+```
+
+See: [TROUBLESHOOTING.md#model-architecture-mismatch](TROUBLESHOOTING.md#model-architecture-mismatch-after-changing-gridsize)
+
 ## Common Scenarios
 
 ### Training Script
