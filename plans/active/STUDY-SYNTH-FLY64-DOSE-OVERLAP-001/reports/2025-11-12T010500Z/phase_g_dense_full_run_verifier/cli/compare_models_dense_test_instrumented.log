@@ -1,753 +1,0 @@
-2025-11-13 20:01:27.520363: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
-WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1763092887.531767 2553636 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1763092887.535390 2553636 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1763092887.545342 2553636 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763092887.545354 2553636 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763092887.545356 2553636 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1763092887.545358 2553636 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2025-11-13 20:01:27.548048: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
-To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2025-11-13 20:01:29,904 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
-2025-11-13 20:01:29,904 - INFO - Registration: enabled
-2025-11-13 20:01:29,904 - INFO - NPZ output: raw=disabled, aligned=disabled
-2025-11-13 20:01:29,904 - INFO - Loading PtychoPINN inference model (diffraction_to_obj) to restore configuration...
-2025-11-13 20:01:29,904 - INFO - Loading model from: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
-I0000 00:00:1763092890.305463 2553636 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
-I0000 00:00:1763092890.306698 2553636 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
-Model: "functional"
-2025-11-13 20:01:31,000 - INFO - Model: "functional"
-┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
-┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
-┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
-│ input (InputLayer)  │ (None, 128, 128,  │          0 │ -                 │
-│                     │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ intensity_scaler    │ (None, 128, 128,  │          0 │ input[0][0]       │
-│ (IntensityScaler)   │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d (Conv2D)     │ (None, 128, 128,  │      1,184 │ intensity_scaler… │
-│                     │ 32)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_1 (Conv2D)   │ (None, 128, 128,  │      9,248 │ conv2d[0][0]      │
-│                     │ 32)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ max_pooling2d       │ (None, 64, 64,    │          0 │ conv2d_1[0][0]    │
-│ (MaxPooling2D)      │ 32)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_2 (Conv2D)   │ (None, 64, 64,    │     18,496 │ max_pooling2d[0]… │
-│                     │ 64)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_3 (Conv2D)   │ (None, 64, 64,    │     36,928 │ conv2d_2[0][0]    │
-│                     │ 64)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ max_pooling2d_1     │ (None, 32, 32,    │          0 │ conv2d_3[0][0]    │
-│ (MaxPooling2D)      │ 64)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_4 (Conv2D)   │ (None, 32, 32,    │     73,856 │ max_pooling2d_1[… │
-│                     │ 128)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_5 (Conv2D)   │ (None, 32, 32,    │    147,584 │ conv2d_4[0][0]    │
-│                     │ 128)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ max_pooling2d_2     │ (None, 16, 16,    │          0 │ conv2d_5[0][0]    │
-│ (MaxPooling2D)      │ 128)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_6 (Conv2D)   │ (None, 16, 16,    │    295,168 │ max_pooling2d_2[… │
-│                     │ 256)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_7 (Conv2D)   │ (None, 16, 16,    │    590,080 │ conv2d_6[0][0]    │
-│                     │ 256)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ max_pooling2d_3     │ (None, 8, 8, 256) │          0 │ conv2d_7[0][0]    │
-│ (MaxPooling2D)      │                   │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_10 (Conv2D)  │ (None, 8, 8, 256) │    590,080 │ max_pooling2d_3[… │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_20 (Conv2D)  │ (None, 8, 8, 256) │    590,080 │ max_pooling2d_3[… │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_11 (Conv2D)  │ (None, 8, 8, 256) │    590,080 │ conv2d_10[0][0]   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_21 (Conv2D)  │ (None, 8, 8, 256) │    590,080 │ conv2d_20[0][0]   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ up_sampling2d       │ (None, 16, 16,    │          0 │ conv2d_11[0][0]   │
-│ (UpSampling2D)      │ 256)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ up_sampling2d_4     │ (None, 16, 16,    │          0 │ conv2d_21[0][0]   │
-│ (UpSampling2D)      │ 256)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_12 (Conv2D)  │ (None, 16, 16,    │    295,040 │ up_sampling2d[0]… │
-│                     │ 128)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_22 (Conv2D)  │ (None, 16, 16,    │    295,040 │ up_sampling2d_4[… │
-│                     │ 128)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_13 (Conv2D)  │ (None, 16, 16,    │    147,584 │ conv2d_12[0][0]   │
-│                     │ 128)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_23 (Conv2D)  │ (None, 16, 16,    │    147,584 │ conv2d_22[0][0]   │
-│                     │ 128)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ up_sampling2d_1     │ (None, 32, 32,    │          0 │ conv2d_13[0][0]   │
-│ (UpSampling2D)      │ 128)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ up_sampling2d_5     │ (None, 32, 32,    │          0 │ conv2d_23[0][0]   │
-│ (UpSampling2D)      │ 128)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_14 (Conv2D)  │ (None, 32, 32,    │     73,792 │ up_sampling2d_1[… │
-│                     │ 64)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_24 (Conv2D)  │ (None, 32, 32,    │     73,792 │ up_sampling2d_5[… │
-│                     │ 64)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_15 (Conv2D)  │ (None, 32, 32,    │     36,928 │ conv2d_14[0][0]   │
-│                     │ 64)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_25 (Conv2D)  │ (None, 32, 32,    │     36,928 │ conv2d_24[0][0]   │
-│                     │ 64)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ up_sampling2d_2     │ (None, 64, 64,    │          0 │ conv2d_15[0][0]   │
-│ (UpSampling2D)      │ 64)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ up_sampling2d_6     │ (None, 64, 64,    │          0 │ conv2d_25[0][0]   │
-│ (UpSampling2D)      │ 64)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ get_item_1          │ (None, 64, 64, 4) │          0 │ up_sampling2d_2[… │
-│ (GetItem)           │                   │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ get_item_3          │ (None, 64, 64, 4) │          0 │ up_sampling2d_6[… │
-│ (GetItem)           │                   │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_16 (Conv2D)  │ (None, 64, 64,    │      1,184 │ get_item_1[0][0]  │
-│                     │ 32)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_26 (Conv2D)  │ (None, 64, 64,    │      1,184 │ get_item_3[0][0]  │
-│                     │ 32)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_17 (Conv2D)  │ (None, 64, 64,    │      9,248 │ conv2d_16[0][0]   │
-│                     │ 32)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_27 (Conv2D)  │ (None, 64, 64,    │      9,248 │ conv2d_26[0][0]   │
-│                     │ 32)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ up_sampling2d_3     │ (None, 128, 128,  │          0 │ conv2d_17[0][0]   │
-│ (UpSampling2D)      │ 32)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ up_sampling2d_7     │ (None, 128, 128,  │          0 │ conv2d_27[0][0]   │
-│ (UpSampling2D)      │ 32)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ get_item (GetItem)  │ (None, 64, 64,    │          0 │ up_sampling2d_2[… │
-│                     │ 60)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_9 (Conv2D)   │ (None, 128, 128,  │      1,156 │ up_sampling2d_3[… │
-│                     │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ get_item_2          │ (None, 64, 64,    │          0 │ up_sampling2d_6[… │
-│ (GetItem)           │ 60)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_19 (Conv2D)  │ (None, 128, 128,  │      1,156 │ up_sampling2d_7[… │
-│                     │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_8 (Conv2D)   │ (None, 64, 64, 4) │      2,164 │ get_item[0][0]    │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ silu (Silu)         │ (None, 128, 128,  │          0 │ conv2d_9[0][0]    │
-│                     │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_18 (Conv2D)  │ (None, 64, 64, 4) │      2,164 │ get_item_2[0][0]  │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ silu_1 (Silu)       │ (None, 128, 128,  │          0 │ conv2d_19[0][0]   │
-│                     │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ amp                 │ (None, 64, 64, 4) │          0 │ conv2d_8[0][0]    │
-│ (ActivationLayer)   │                   │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ center_mask_layer   │ (None, 128, 128,  │          0 │ silu[0][0]        │
-│ (CenterMaskLayer)   │ 1)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ phi                 │ (None, 64, 64, 4) │          0 │ conv2d_18[0][0]   │
-│ (ActivationLayer)   │                   │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ center_mask_layer_1 │ (None, 128, 128,  │          0 │ silu_1[0][0]      │
-│ (CenterMaskLayer)   │ 1)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ amp_padded          │ (None, 128, 128,  │          0 │ amp[0][0]         │
-│ (ZeroPadding2D)     │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ multiply (Multiply) │ (None, 128, 128,  │          0 │ silu[0][0],       │
-│                     │ 4)                │            │ center_mask_laye… │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ phase_padded        │ (None, 128, 128,  │          0 │ phi[0][0]         │
-│ (ZeroPadding2D)     │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ multiply_1          │ (None, 128, 128,  │          0 │ silu_1[0][0],     │
-│ (Multiply)          │ 4)                │            │ center_mask_laye… │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ add (Add)           │ (None, 128, 128,  │          0 │ amp_padded[0][0], │
-│                     │ 4)                │            │ multiply[0][0]    │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ add_1 (Add)         │ (None, 128, 128,  │          0 │ phase_padded[0][… │
-│                     │ 4)                │            │ multiply_1[0][0]  │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ obj                 │ (None, 128, 128,  │          0 │ add[0][0],        │
-│ (CombineComplexLay… │ 4)                │            │ add_1[0][0]       │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ input_positions     │ (None, 1, 2, 4)   │          0 │ -                 │
-│ (InputLayer)        │                   │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ padded_obj_2        │ (None, 142, 142,  │          0 │ obj[0][0],        │
-│ (ReassemblePatches… │ 4)                │            │ input_positions[… │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ padded_objs_with_o… │ (None, 132, 132,  │          0 │ padded_obj_2[0][… │
-│ (ExtractPatchesPos… │ 4)                │            │ input_positions[… │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ probe_illumination  │ [(None, 132, 132, │          0 │ padded_objs_with… │
-│ (ProbeIllumination) │ 4), (None, 132,   │            │                   │
-│                     │ 132, 4)]          │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ pred_amplitude      │ [(None, 128, 128, │          0 │ probe_illuminati… │
-│ (PadAndDiffractLay… │ 4), (None, 128,   │            │                   │
-│                     │ 128, 4)]          │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ pred_diff_channels  │ (None, 128, 128,  │          0 │ pred_amplitude[0… │
-│ (FlatToChannelLaye… │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ intensity_scaler_i… │ (None, 128, 128,  │          0 │ pred_diff_channe… │
-│ (IntensityScaler_i… │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ trimmed_obj         │ (None, 128, 128,  │          0 │ padded_obj_2[0][… │
-│ (TrimReconstructio… │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ pred_intensity      │ (None, 128, 128,  │          0 │ intensity_scaler… │
-│ (SquareLayer)       │ 4)                │            │                   │
-└─────────────────────┴───────────────────┴────────────┴───────────────────┘
-2025-11-13 20:01:31,024 - INFO - ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
-┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
-┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
-│ input (InputLayer)  │ (None, 128, 128,  │          0 │ -                 │
-│                     │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ intensity_scaler    │ (None, 128, 128,  │          0 │ input[0][0]       │
-│ (IntensityScaler)   │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d (Conv2D)     │ (None, 128, 128,  │      1,184 │ intensity_scaler… │
-│                     │ 32)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_1 (Conv2D)   │ (None, 128, 128,  │      9,248 │ conv2d[0][0]      │
-│                     │ 32)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ max_pooling2d       │ (None, 64, 64,    │          0 │ conv2d_1[0][0]    │
-│ (MaxPooling2D)      │ 32)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_2 (Conv2D)   │ (None, 64, 64,    │     18,496 │ max_pooling2d[0]… │
-│                     │ 64)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_3 (Conv2D)   │ (None, 64, 64,    │     36,928 │ conv2d_2[0][0]    │
-│                     │ 64)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ max_pooling2d_1     │ (None, 32, 32,    │          0 │ conv2d_3[0][0]    │
-│ (MaxPooling2D)      │ 64)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_4 (Conv2D)   │ (None, 32, 32,    │     73,856 │ max_pooling2d_1[… │
-│                     │ 128)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_5 (Conv2D)   │ (None, 32, 32,    │    147,584 │ conv2d_4[0][0]    │
-│                     │ 128)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ max_pooling2d_2     │ (None, 16, 16,    │          0 │ conv2d_5[0][0]    │
-│ (MaxPooling2D)      │ 128)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_6 (Conv2D)   │ (None, 16, 16,    │    295,168 │ max_pooling2d_2[… │
-│                     │ 256)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_7 (Conv2D)   │ (None, 16, 16,    │    590,080 │ conv2d_6[0][0]    │
-│                     │ 256)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ max_pooling2d_3     │ (None, 8, 8, 256) │          0 │ conv2d_7[0][0]    │
-│ (MaxPooling2D)      │                   │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_10 (Conv2D)  │ (None, 8, 8, 256) │    590,080 │ max_pooling2d_3[… │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_20 (Conv2D)  │ (None, 8, 8, 256) │    590,080 │ max_pooling2d_3[… │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_11 (Conv2D)  │ (None, 8, 8, 256) │    590,080 │ conv2d_10[0][0]   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_21 (Conv2D)  │ (None, 8, 8, 256) │    590,080 │ conv2d_20[0][0]   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ up_sampling2d       │ (None, 16, 16,    │          0 │ conv2d_11[0][0]   │
-│ (UpSampling2D)      │ 256)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ up_sampling2d_4     │ (None, 16, 16,    │          0 │ conv2d_21[0][0]   │
-│ (UpSampling2D)      │ 256)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_12 (Conv2D)  │ (None, 16, 16,    │    295,040 │ up_sampling2d[0]… │
-│                     │ 128)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_22 (Conv2D)  │ (None, 16, 16,    │    295,040 │ up_sampling2d_4[… │
-│                     │ 128)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_13 (Conv2D)  │ (None, 16, 16,    │    147,584 │ conv2d_12[0][0]   │
-│                     │ 128)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_23 (Conv2D)  │ (None, 16, 16,    │    147,584 │ conv2d_22[0][0]   │
-│                     │ 128)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ up_sampling2d_1     │ (None, 32, 32,    │          0 │ conv2d_13[0][0]   │
-│ (UpSampling2D)      │ 128)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ up_sampling2d_5     │ (None, 32, 32,    │          0 │ conv2d_23[0][0]   │
-│ (UpSampling2D)      │ 128)              │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_14 (Conv2D)  │ (None, 32, 32,    │     73,792 │ up_sampling2d_1[… │
-│                     │ 64)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_24 (Conv2D)  │ (None, 32, 32,    │     73,792 │ up_sampling2d_5[… │
-│                     │ 64)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_15 (Conv2D)  │ (None, 32, 32,    │     36,928 │ conv2d_14[0][0]   │
-│                     │ 64)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_25 (Conv2D)  │ (None, 32, 32,    │     36,928 │ conv2d_24[0][0]   │
-│                     │ 64)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ up_sampling2d_2     │ (None, 64, 64,    │          0 │ conv2d_15[0][0]   │
-│ (UpSampling2D)      │ 64)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ up_sampling2d_6     │ (None, 64, 64,    │          0 │ conv2d_25[0][0]   │
-│ (UpSampling2D)      │ 64)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ get_item_1          │ (None, 64, 64, 4) │          0 │ up_sampling2d_2[… │
-│ (GetItem)           │                   │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ get_item_3          │ (None, 64, 64, 4) │          0 │ up_sampling2d_6[… │
-│ (GetItem)           │                   │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_16 (Conv2D)  │ (None, 64, 64,    │      1,184 │ get_item_1[0][0]  │
-│                     │ 32)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_26 (Conv2D)  │ (None, 64, 64,    │      1,184 │ get_item_3[0][0]  │
-│                     │ 32)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_17 (Conv2D)  │ (None, 64, 64,    │      9,248 │ conv2d_16[0][0]   │
-│                     │ 32)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_27 (Conv2D)  │ (None, 64, 64,    │      9,248 │ conv2d_26[0][0]   │
-│                     │ 32)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ up_sampling2d_3     │ (None, 128, 128,  │          0 │ conv2d_17[0][0]   │
-│ (UpSampling2D)      │ 32)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ up_sampling2d_7     │ (None, 128, 128,  │          0 │ conv2d_27[0][0]   │
-│ (UpSampling2D)      │ 32)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ get_item (GetItem)  │ (None, 64, 64,    │          0 │ up_sampling2d_2[… │
-│                     │ 60)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_9 (Conv2D)   │ (None, 128, 128,  │      1,156 │ up_sampling2d_3[… │
-│                     │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ get_item_2          │ (None, 64, 64,    │          0 │ up_sampling2d_6[… │
-│ (GetItem)           │ 60)               │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_19 (Conv2D)  │ (None, 128, 128,  │      1,156 │ up_sampling2d_7[… │
-│                     │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_8 (Conv2D)   │ (None, 64, 64, 4) │      2,164 │ get_item[0][0]    │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ silu (Silu)         │ (None, 128, 128,  │          0 │ conv2d_9[0][0]    │
-│                     │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ conv2d_18 (Conv2D)  │ (None, 64, 64, 4) │      2,164 │ get_item_2[0][0]  │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ silu_1 (Silu)       │ (None, 128, 128,  │          0 │ conv2d_19[0][0]   │
-│                     │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ amp                 │ (None, 64, 64, 4) │          0 │ conv2d_8[0][0]    │
-│ (ActivationLayer)   │                   │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ center_mask_layer   │ (None, 128, 128,  │          0 │ silu[0][0]        │
-│ (CenterMaskLayer)   │ 1)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ phi                 │ (None, 64, 64, 4) │          0 │ conv2d_18[0][0]   │
-│ (ActivationLayer)   │                   │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ center_mask_layer_1 │ (None, 128, 128,  │          0 │ silu_1[0][0]      │
-│ (CenterMaskLayer)   │ 1)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ amp_padded          │ (None, 128, 128,  │          0 │ amp[0][0]         │
-│ (ZeroPadding2D)     │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ multiply (Multiply) │ (None, 128, 128,  │          0 │ silu[0][0],       │
-│                     │ 4)                │            │ center_mask_laye… │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ phase_padded        │ (None, 128, 128,  │          0 │ phi[0][0]         │
-│ (ZeroPadding2D)     │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ multiply_1          │ (None, 128, 128,  │          0 │ silu_1[0][0],     │
-│ (Multiply)          │ 4)                │            │ center_mask_laye… │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ add (Add)           │ (None, 128, 128,  │          0 │ amp_padded[0][0], │
-│                     │ 4)                │            │ multiply[0][0]    │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ add_1 (Add)         │ (None, 128, 128,  │          0 │ phase_padded[0][… │
-│                     │ 4)                │            │ multiply_1[0][0]  │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ obj                 │ (None, 128, 128,  │          0 │ add[0][0],        │
-│ (CombineComplexLay… │ 4)                │            │ add_1[0][0]       │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ input_positions     │ (None, 1, 2, 4)   │          0 │ -                 │
-│ (InputLayer)        │                   │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ padded_obj_2        │ (None, 142, 142,  │          0 │ obj[0][0],        │
-│ (ReassemblePatches… │ 4)                │            │ input_positions[… │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ padded_objs_with_o… │ (None, 132, 132,  │          0 │ padded_obj_2[0][… │
-│ (ExtractPatchesPos… │ 4)                │            │ input_positions[… │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ probe_illumination  │ [(None, 132, 132, │          0 │ padded_objs_with… │
-│ (ProbeIllumination) │ 4), (None, 132,   │            │                   │
-│                     │ 132, 4)]          │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ pred_amplitude      │ [(None, 128, 128, │          0 │ probe_illuminati… │
-│ (PadAndDiffractLay… │ 4), (None, 128,   │            │                   │
-│                     │ 128, 4)]          │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ pred_diff_channels  │ (None, 128, 128,  │          0 │ pred_amplitude[0… │
-│ (FlatToChannelLaye… │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ intensity_scaler_i… │ (None, 128, 128,  │          0 │ pred_diff_channe… │
-│ (IntensityScaler_i… │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ trimmed_obj         │ (None, 128, 128,  │          0 │ padded_obj_2[0][… │
-│ (TrimReconstructio… │ 4)                │            │                   │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ pred_intensity      │ (None, 128, 128,  │          0 │ intensity_scaler… │
-│ (SquareLayer)       │ 4)                │            │                   │
-└─────────────────────┴───────────────────┴────────────┴───────────────────┘
- Total params: 4,667,056 (17.80 MB)
-2025-11-13 20:01:31,025 - INFO - Total params: 4,667,056 (17.80 MB)
- Trainable params: 4,667,056 (17.80 MB)
-2025-11-13 20:01:31,025 - INFO - Trainable params: 4,667,056 (17.80 MB)
- Non-trainable params: 0 (0.00 B)
-2025-11-13 20:01:31,025 - INFO - Non-trainable params: 0 (0.00 B)
-None2025-11-13 20:01:31,025 - INFO - None
-
-2025-11-13 20:01:31.025662: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:103] Profiler session initializing.
-2025-11-13 20:01:31.025672: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:118] Profiler session started.
-WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-I0000 00:00:1763092891.025685 2553636 cupti_tracer.cc:1026] Profiler found 1 GPUs
-W0000 00:00:1763092891.043106 2553636 cupti_tracer.cc:1213] Fail to use per-thread activity buffer, cupti trace overhead may be big. CUPTI ERROR CODE:1
-2025-11-13 20:01:31.043194: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:130] Profiler session tear down.
-I0000 00:00:1763092891.043267 2553636 cupti_tracer.cc:1249] CUPTI activity buffer flushed
-/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
-  warnings.warn(
-2025-11-13 20:01:31,216 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
-  warnings.warn(
-/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
-  warnings.warn(
-2025-11-13 20:01:31,217 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
-  warnings.warn(
-2025-11-13 20:01:31,865 - INFO - Successfully loaded model from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/dense/gs2
-2025-11-13 20:01:31,865 - INFO - Restored configuration from model: gridsize=2, N=128
-2025-11-13 20:01:31,865 - INFO - Loading test data from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_test.npz with restored gridsize=2...
-2025-11-13 20:01:31,866 - INFO - Using all test data (no subsampling or grouping limit)
-2025-11-13 20:01:31,866 - INFO - Loading data from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c/dose_1000/patched_test.npz with n_images=None, n_subsample=None
-2025-11-13 20:01:32,325 - WARNING - Ignoring NPZ 'Y' with incompatible shape (1, 128, 128, 1) (expected first axis 5216)
-2025-11-13 20:01:32,326 - INFO - Using full dataset of 5216 images
-diff3d shape: (5216, 128, 128)2025-11-13 20:01:32,365 - INFO - diff3d shape: (5216, 128, 128)
-
-probeGuess shape: (128, 128)2025-11-13 20:01:32,365 - INFO - probeGuess shape: (128, 128)
-
-scan_index shape: (5216,)2025-11-13 20:01:32,365 - INFO - scan_index shape: (5216,)
-
-objectGuess shape: (464, 464)2025-11-13 20:01:32,365 - INFO - objectGuess shape: (464, 464)
-
-xcoords shape: (5216,)2025-11-13 20:01:32,365 - INFO - xcoords shape: (5216,)
-
-ycoords shape: (5216,)2025-11-13 20:01:32,365 - INFO - ycoords shape: (5216,)
-
-xcoords_start shape: (5216,)2025-11-13 20:01:32,365 - INFO - xcoords_start shape: (5216,)
-
-ycoords_start shape: (5216,)2025-11-13 20:01:32,365 - INFO - ycoords_start shape: (5216,)
-
-2025-11-13 20:01:32,366 - INFO - Final configuration: gridsize=2, N=128, n_images=5216
-2025-11-13 20:01:32,366 - INFO - Using stitch_crop_size M=20 (N=128)
-2025-11-13 20:01:32,366 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=5216, n_points=5216, C=4, K=7
-2025-11-13 20:01:32,366 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=128, sequential_sampling=False
-2025-11-13 20:01:32,366 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
-2025-11-13 20:01:32,366 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 5216 > 5216 = False
-2025-11-13 20:01:32,366 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
-2025-11-13 20:01:32,366 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
-DEBUG:2025-11-13 20:01:32,366 - INFO - DEBUG:
- nsamples: 5216, gridsize: 2 (using efficient random sample-then-group strategy)2025-11-13 20:01:32,367 - INFO - nsamples: 5216, gridsize: 2 (using efficient random sample-then-group strategy)
-
-2025-11-13 20:01:32,367 - INFO - Using efficient random sampling strategy for gridsize=2
-2025-11-13 20:01:32,367 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
-2025-11-13 20:01:32,367 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=5216, K=7, C=4
-2025-11-13 20:01:32,367 - INFO - Generating 5216 groups efficiently from 5216 points (K=7, C=4)
-2025-11-13 20:01:32,367 - INFO - [OVERSAMPLING DEBUG] Standard case: using 5216 groups from 5216 points
-2025-11-13 20:01:32,367 - INFO - [OVERSAMPLING DEBUG] Using all 5216 points as seeds (no sampling needed)
-2025-11-13 20:01:32,367 - INFO - Using all 5216 points as seeds
-2025-11-13 20:01:32,402 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 5216 groups
-2025-11-13 20:01:32,402 - INFO - Successfully generated 5216 groups with shape (5216, 4)
-2025-11-13 20:01:32,402 - INFO - [OVERSAMPLING DEBUG] Generated 5216 groups in total
-2025-11-13 20:01:32,402 - INFO - Generated 5216 groups efficiently
-INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.2025-11-13 20:01:32,559 - INFO - INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
-
-I0000 00:00:1763092893.284697 2553636 service.cc:152] XLA service 0x1f516ea0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
-I0000 00:00:1763092893.284718 2553636 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
-2025-11-13 20:01:33.307033: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
-I0000 00:00:1763092893.328753 2553636 cuda_dnn.cc:529] Loaded cuDNN version 91002
-I0000 00:00:1763092893.487512 2553636 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
-2025-11-13 20:02:56.099587: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 2734686208 exceeds 10% of free system memory.
-neighbor-sampled diffraction shape2025-11-13 20:03:02,050 - INFO - neighbor-sampled diffraction shape
- (5216, 128, 128, 4)2025-11-13 20:03:02,050 - INFO - (5216, 128, 128, 4)
-
-loader: using provided ground truth patches.2025-11-13 20:03:04,163 - INFO - loader: using provided ground truth patches.
-
-INFO:2025-11-13 20:03:04,557 - INFO - INFO:
- None2025-11-13 20:03:04,557 - INFO - None
-
-<PtychoDataContainer X=(5216, 128, 128, 4) Y_I=(5216, 128, 128, 4) Y_phi=(5216, 128, 128, 4) norm_Y_I=() coords_nominal=(5216, 1, 2, 4) coords_true=(5216, 1, 2, 4) nn_indices=(5216, 4) mean=2619.745 global_offsets=(5216, 1, 2, 1) mean=273.808 local_offsets=(5216, 1, 2, 4) mean=0.000 probe=(128, 128) mean_amplitude=0.007>2025-11-13 20:03:04,557 - INFO - <PtychoDataContainer X=(5216, 128, 128, 4) Y_I=(5216, 128, 128, 4) Y_phi=(5216, 128, 128, 4) norm_Y_I=() coords_nominal=(5216, 1, 2, 4) coords_true=(5216, 1, 2, 4) nn_indices=(5216, 4) mean=2619.745 global_offsets=(5216, 1, 2, 1) mean=273.808 local_offsets=(5216, 1, 2, 4) mean=0.000 probe=(128, 128) mean_amplitude=0.007>
-
-2025-11-13 20:03:04,565 - INFO - Loading Baseline model from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1...
-2025-11-13 20:03:04,565 - INFO - baseline_model.h5 not found; attempting to load TF bundle (wts.h5.zip)
-2025-11-13 20:03:04,565 - INFO - Loading model from: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
-2025-11-13 20:03:05,598 - INFO - Successfully loaded model from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_e/dose_1000/baseline/gs1
-2025-11-13 20:03:05,599 - INFO - Loading iterative reconstruction from plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_f/dose_1000/dense/test/ptychi_reconstruction.npz...
-2025-11-13 20:03:05,603 - INFO - Loaded PtyChi reconstruction: (346, 514) (complex64)
-2025-11-13 20:03:05,603 - INFO - PtyChi reconstruction loaded for three-way comparison
-2025-11-13 20:03:05,604 - INFO - Running inference with PtychoPINN (diffraction_to_obj)...
-2025-11-13 20:03:05,604 - WARNING - GRIDSIZE MISMATCH: params.cfg['gridsize']=1 but diffraction has 4 channels (requires gridsize=2)
-2025-11-13 20:03:05,604 - WARNING - Forcing params.cfg['gridsize']=2 before inference to prevent Translation layer crash
-2025-11-13 20:03:07.570028: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_6_1/padded_obj_2_1/cond/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_6_1/padded_obj_2_1/cond/while/cond_0
-2025-11-13 20:03:07.781735: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_6_1/padded_obj_2_1/cond_1/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while/cond_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while_1_0
-2025-11-13 20:03:07.929947: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_6_1/padded_obj_2_1/cond_2/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_6_1/padded_obj_2_1/cond_2/while/cond_0
-2025-11-13 20:03:08.100315: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_6_1/padded_obj_2_1/cond_3/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while/cond_0
-2025-11-13 20:03:09.349402: E external/local_xla/xla/service/slow_operation_alarm.cc:73] Constant folding an instruction is taking > 1s:
-
-  %pad.2116 = f32[256,128,128,1]{3,2,1,0} pad(f32[128,128,128,1]{3,2,1,0} %constant.2114, f32[] %constant.2115), padding=0_128x0_0x0_0x0_0, metadata={op_type="StridedSlice" op_name="functional_6_1/padded_obj_2_1/cond_1/while/strided_slice_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while_1_tfg_cf_sunk_functional_6_1/padded_obj_2_1/cond_1/while/cond_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while_1" source_file="dummy_file_name" source_line=10}
-
-This isn't necessarily a bug; constant-folding is inherently a trade-off between compilation time and speed at runtime. XLA has some guards that attempt to keep constant folding from taking too long, but fundamentally you'll always be able to come up with an input program that takes a long time.
-
-If you'd like to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-2025-11-13 20:03:15.062303: E external/local_xla/xla/service/slow_operation_alarm.cc:140] The operation took 6.713006294s
-Constant folding an instruction is taking > 1s:
-
-  %pad.2116 = f32[256,128,128,1]{3,2,1,0} pad(f32[128,128,128,1]{3,2,1,0} %constant.2114, f32[] %constant.2115), padding=0_128x0_0x0_0x0_0, metadata={op_type="StridedSlice" op_name="functional_6_1/padded_obj_2_1/cond_1/while/strided_slice_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while_1_tfg_cf_sunk_functional_6_1/padded_obj_2_1/cond_1/while/cond_tfg_inlined_functional_6_1/padded_obj_2_1/cond_1/while_1" source_file="dummy_file_name" source_line=10}
-
-This isn't necessarily a bug; constant-folding is inherently a trade-off between compilation time and speed at runtime. XLA has some guards that attempt to keep constant folding from taking too long, but fundamentally you'll always be able to come up with an input program that takes a long time.
-
-If you'd like to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-2025-11-13 20:03:17.074609: E external/local_xla/xla/service/slow_operation_alarm.cc:73] Constant folding an instruction is taking > 2s:
-
-  %pad.3952 = f32[256,128,128,1]{3,2,1,0} pad(f32[128,128,128,1]{3,2,1,0} %constant.3950, f32[] %constant.3951), padding=0_128x0_0x0_0x0_0, metadata={op_type="StridedSlice" op_name="functional_6_1/padded_obj_2_1/cond_3/while/strided_slice_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3_1_1_tfg_cf_sunk_functional_6_1/padded_obj_2_1/cond_3/while/cond_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3_1_1" source_file="dummy_file_name" source_line=10}
-
-This isn't necessarily a bug; constant-folding is inherently a trade-off between compilation time and speed at runtime. XLA has some guards that attempt to keep constant folding from taking too long, but fundamentally you'll always be able to come up with an input program that takes a long time.
-
-If you'd like to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-2025-11-13 20:03:21.739273: E external/local_xla/xla/service/slow_operation_alarm.cc:140] The operation took 6.664746105s
-Constant folding an instruction is taking > 2s:
-
-  %pad.3952 = f32[256,128,128,1]{3,2,1,0} pad(f32[128,128,128,1]{3,2,1,0} %constant.3950, f32[] %constant.3951), padding=0_128x0_0x0_0x0_0, metadata={op_type="StridedSlice" op_name="functional_6_1/padded_obj_2_1/cond_3/while/strided_slice_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3_1_1_tfg_cf_sunk_functional_6_1/padded_obj_2_1/cond_3/while/cond_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3/while_tfg_inlined_functional_6_1/padded_obj_2_1/cond_3_1_1" source_file="dummy_file_name" source_line=10}
-
-This isn't necessarily a bug; constant-folding is inherently a trade-off between compilation time and speed at runtime. XLA has some guards that attempt to keep constant folding from taking too long, but fundamentally you'll always be able to come up with an input program that takes a long time.
-
-If you'd like to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-[1m  1/163[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m47:07[0m 17s/step2025-11-13 20:03:23,758 - INFO - [1m  1/163[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m47:07[0m 17s/step
-[1m  5/163[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 13ms/step  2025-11-13 20:03:23,810 - INFO - [1m  5/163[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 13ms/step
-[1m 10/163[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 20:03:23,870 - INFO - [1m 10/163[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 15/163[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 20:03:23,931 - INFO - [1m 15/163[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 20/163[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 20:03:23,992 - INFO - [1m 20/163[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 25/163[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 20:03:24,053 - INFO - [1m 25/163[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 30/163[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 20:03:24,114 - INFO - [1m 30/163[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 35/163[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 20:03:24,174 - INFO - [1m 35/163[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 40/163[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 20:03:24,235 - INFO - [1m 40/163[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 44/163[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 20:03:24,286 - INFO - [1m 44/163[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 49/163[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 20:03:24,348 - INFO - [1m 49/163[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 54/163[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 20:03:24,409 - INFO - [1m 54/163[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 59/163[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 20:03:24,471 - INFO - [1m 59/163[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 63/163[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 20:03:24,522 - INFO - [1m 63/163[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 68/163[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 20:03:24,583 - INFO - [1m 68/163[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 73/163[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 20:03:24,643 - INFO - [1m 73/163[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 78/163[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m1s[0m 12ms/step2025-11-13 20:03:24,706 - INFO - [1m 78/163[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m1s[0m 12ms/step
-[1m 83/163[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 20:03:24,768 - INFO - [1m 83/163[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 12ms/step
-[1m 88/163[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 20:03:24,830 - INFO - [1m 88/163[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 12ms/step
-[1m 93/163[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 20:03:24,892 - INFO - [1m 93/163[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 12ms/step
-[1m 98/163[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 20:03:24,954 - INFO - [1m 98/163[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 12ms/step
-[1m102/163[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 20:03:25,008 - INFO - [1m102/163[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 12ms/step
-[1m107/163[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 20:03:25,070 - INFO - [1m107/163[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 12ms/step
-[1m112/163[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 20:03:25,131 - INFO - [1m112/163[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 12ms/step
-[1m117/163[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 20:03:25,192 - INFO - [1m117/163[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 12ms/step
-[1m122/163[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 12ms/step2025-11-13 20:03:25,253 - INFO - [1m122/163[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 12ms/step
-[1m126/163[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 12ms/step2025-11-13 20:03:25,303 - INFO - [1m126/163[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 12ms/step
-[1m130/163[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 12ms/step2025-11-13 20:03:25,357 - INFO - [1m130/163[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 12ms/step
-[1m135/163[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 12ms/step2025-11-13 20:03:25,417 - INFO - [1m135/163[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 12ms/step
-[1m140/163[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 12ms/step2025-11-13 20:03:25,476 - INFO - [1m140/163[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 12ms/step
-[1m144/163[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 12ms/step2025-11-13 20:03:25,533 - INFO - [1m144/163[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 12ms/step
-[1m149/163[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 12ms/step2025-11-13 20:03:25,593 - INFO - [1m149/163[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 12ms/step
-[1m154/163[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 12ms/step2025-11-13 20:03:25,652 - INFO - [1m154/163[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 12ms/step
-[1m159/163[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 12ms/step2025-11-13 20:03:25,712 - INFO - [1m159/163[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 12ms/step
-[1m163/163[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 12ms/step2025-11-13 20:03:25,767 - INFO - [1m163/163[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 12ms/step
-[1m163/163[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m19s[0m 12ms/step
-2025-11-13 20:03:25,780 - INFO - [1m163/163[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m19s[0m 12ms/step
-2025-11-13 20:03:25,960 - INFO - PtychoPINN inference completed in 20.36s
-2025-11-13 20:03:25,961 - INFO - PINN patches shape before reassembly: (163, 128, 128, 1), dtype: complex64
-2025-11-13 20:03:25,961 - INFO - Reassembling PINN patches...
-2025-11-13 20:03:25,961 - INFO - PINN offsets shape before reassembly: (5216, 1, 2, 1), dtype: float64
-2025-11-13 20:03:27,114 - INFO - PINN reconstruction shape after reassembly: (356, 356, 1), dtype: <dtype: 'complex64'>
-2025-11-13 20:03:27,114 - INFO - Running inference with Baseline model...
-2025-11-13 20:03:27,114 - INFO - Flattening grouped diffraction for baseline model: X (5216, 128, 128, 4) → channels merged; resolved gridsize=2 (from 4 channels)
-DEBUG: Setting2025-11-13 20:03:27,114 - INFO - DEBUG: Setting
- gridsize2025-11-13 20:03:27,114 - INFO - gridsize
- to2025-11-13 20:03:27,114 - INFO - to
- 22025-11-13 20:03:27,114 - INFO - 2
- in params2025-11-13 20:03:27,114 - INFO - in params
-
-2025-11-13 20:03:27,114 - INFO - Forced params.cfg['gridsize']=2 for baseline grouped inference
-2025-11-13 20:03:28,069 - INFO - Baseline inference input shape: (20864, 128, 128, 1)
-2025-11-13 20:03:28,069 - INFO - Baseline inference offsets shape: (20864, 1, 2, 1)
-2025-11-13 20:03:28,538 - INFO - DIAGNOSTIC baseline_input stats: mean=0.112671, max=5.362341, nonzero_count=17793971/341835776
-2025-11-13 20:03:32.054960: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond/while/cond_0
-2025-11-13 20:03:32.154801: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond_1/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond_1/while/cond_0
-2025-11-13 20:03:32.234515: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond_2/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond_2/while/cond_0
-2025-11-13 20:03:32.293958: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_10_1/padded_obj_2_1/cond_3/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_10_1/padded_obj_2_1/cond_3/while/cond_0
-[1m  1/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m57:56[0m 5s/step2025-11-13 20:03:36,380 - INFO - [1m  1/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m57:56[0m 5s/step
-[1m  6/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m7s[0m 11ms/step 2025-11-13 20:03:36,435 - INFO - [1m  6/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m7s[0m 11ms/step
-[1m 11/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 11ms/step2025-11-13 20:03:36,486 - INFO - [1m 11/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 11ms/step
-[1m 17/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 20:03:36,546 - INFO - [1m 17/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step
-[1m 22/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 20:03:36,596 - INFO - [1m 22/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step
-[1m 27/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 20:03:36,647 - INFO - [1m 27/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step
-[1m 32/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 20:03:36,697 - INFO - [1m 32/652[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step
-[1m 38/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 20:03:36,757 - INFO - [1m 38/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step
-[1m 43/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 20:03:36,807 - INFO - [1m 43/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step
-[1m 49/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 20:03:36,866 - INFO - [1m 49/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step
-[1m 55/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step2025-11-13 20:03:36,924 - INFO - [1m 55/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 10ms/step
-[1m 61/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 20:03:36,982 - INFO - [1m 61/652[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
-[1m 67/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 20:03:37,041 - INFO - [1m 67/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
-[1m 72/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 20:03:37,093 - INFO - [1m 72/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
-[1m 78/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 20:03:37,151 - INFO - [1m 78/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
-[1m 84/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 20:03:37,210 - INFO - [1m 84/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
-[1m 90/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 20:03:37,269 - INFO - [1m 90/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
-[1m 96/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 20:03:37,329 - INFO - [1m 96/652[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
-[1m102/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 20:03:37,389 - INFO - [1m102/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
-[1m108/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 20:03:37,448 - INFO - [1m108/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
-[1m114/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 20:03:37,507 - INFO - [1m114/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
-[1m120/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 20:03:37,566 - INFO - [1m120/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
-[1m126/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 20:03:37,625 - INFO - [1m126/652[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
-[1m132/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 20:03:37,685 - INFO - [1m132/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
-[1m138/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 20:03:37,743 - INFO - [1m138/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
-[1m144/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step2025-11-13 20:03:37,802 - INFO - [1m144/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m5s[0m 10ms/step
-[1m150/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 20:03:37,860 - INFO - [1m150/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
-[1m156/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 20:03:37,918 - INFO - [1m156/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
-[1m162/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 20:03:37,977 - INFO - [1m162/652[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
-[1m168/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 20:03:38,035 - INFO - [1m168/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
-[1m174/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 20:03:38,094 - INFO - [1m174/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
-[1m180/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 20:03:38,153 - INFO - [1m180/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
-[1m186/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 20:03:38,210 - INFO - [1m186/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
-[1m192/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 20:03:38,268 - INFO - [1m192/652[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
-[1m198/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 20:03:38,327 - INFO - [1m198/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
-[1m204/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 20:03:38,385 - INFO - [1m204/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
-[1m210/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 20:03:38,443 - INFO - [1m210/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
-[1m216/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 20:03:38,503 - INFO - [1m216/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
-[1m222/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 20:03:38,562 - INFO - [1m222/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
-[1m228/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 20:03:38,621 - INFO - [1m228/652[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
-[1m234/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 20:03:38,680 - INFO - [1m234/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
-[1m240/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 20:03:38,739 - INFO - [1m240/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
-[1m246/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step2025-11-13 20:03:38,797 - INFO - [1m246/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m4s[0m 10ms/step
-[1m252/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 20:03:38,855 - INFO - [1m252/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
-[1m258/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 20:03:38,915 - INFO - [1m258/652[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
-[1m264/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 20:03:38,974 - INFO - [1m264/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
-[1m270/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 20:03:39,032 - INFO - [1m270/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
-[1m276/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 20:03:39,090 - INFO - [1m276/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
-[1m282/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 20:03:39,149 - INFO - [1m282/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
-[1m287/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 20:03:39,199 - INFO - [1m287/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
-[1m293/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 20:03:39,257 - INFO - [1m293/652[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m3s[0m 10ms/step
-[1m299/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 20:03:39,317 - INFO - [1m299/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
-[1m305/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 20:03:39,376 - INFO - [1m305/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
-[1m311/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 20:03:39,434 - INFO - [1m311/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
-[1m317/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 20:03:39,493 - INFO - [1m317/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
-[1m323/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 20:03:39,552 - INFO - [1m323/652[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m3s[0m 10ms/step
-[1m329/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 20:03:39,611 - INFO - [1m329/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step
-[1m335/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 20:03:39,669 - INFO - [1m335/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step
-[1m341/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 20:03:39,728 - INFO - [1m341/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step
-[1m347/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step2025-11-13 20:03:39,786 - INFO - [1m347/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m3s[0m 10ms/step
-[1m353/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 20:03:39,845 - INFO - [1m353/652[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m2s[0m 10ms/step
-[1m359/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 20:03:39,903 - INFO - [1m359/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step
-[1m365/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 20:03:39,962 - INFO - [1m365/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step
-[1m371/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 20:03:40,020 - INFO - [1m371/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step
-[1m377/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 20:03:40,079 - INFO - [1m377/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step
-[1m383/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 20:03:40,138 - INFO - [1m383/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step
-[1m389/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 20:03:40,197 - INFO - [1m389/652[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m2s[0m 10ms/step
-[1m395/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 20:03:40,256 - INFO - [1m395/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step
-[1m401/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 20:03:40,315 - INFO - [1m401/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step
-[1m407/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 20:03:40,375 - INFO - [1m407/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step
-[1m412/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 20:03:40,427 - INFO - [1m412/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step
-[1m417/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 20:03:40,477 - INFO - [1m417/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step
-[1m423/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 20:03:40,536 - INFO - [1m423/652[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m2s[0m 10ms/step
-[1m429/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 20:03:40,596 - INFO - [1m429/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step
-[1m435/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 20:03:40,655 - INFO - [1m435/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step
-[1m441/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 20:03:40,714 - INFO - [1m441/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step
-[1m447/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step2025-11-13 20:03:40,773 - INFO - [1m447/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m2s[0m 10ms/step
-[1m453/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 20:03:40,832 - INFO - [1m453/652[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m1s[0m 10ms/step
-[1m459/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 20:03:40,892 - INFO - [1m459/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
-[1m465/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 20:03:40,951 - INFO - [1m465/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
-[1m471/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 20:03:41,010 - INFO - [1m471/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
-[1m477/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 20:03:41,069 - INFO - [1m477/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
-[1m483/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step2025-11-13 20:03:41,128 - INFO - [1m483/652[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m1s[0m 10ms/step
-[1m489/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 20:03:41,186 - INFO - [1m489/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
-[1m495/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 20:03:41,245 - INFO - [1m495/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
-[1m501/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 20:03:41,304 - INFO - [1m501/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
-[1m507/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 20:03:41,363 - INFO - [1m507/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
-[1m513/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 20:03:41,422 - INFO - [1m513/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
-[1m519/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step2025-11-13 20:03:41,481 - INFO - [1m519/652[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m1s[0m 10ms/step
-[1m525/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step2025-11-13 20:03:41,540 - INFO - [1m525/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step
-[1m531/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step2025-11-13 20:03:41,598 - INFO - [1m531/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step
-[1m537/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step2025-11-13 20:03:41,658 - INFO - [1m537/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step
-[1m543/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step2025-11-13 20:03:41,717 - INFO - [1m543/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step
-[1m548/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step2025-11-13 20:03:41,768 - INFO - [1m548/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m1s[0m 10ms/step
-[1m554/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 10ms/step2025-11-13 20:03:41,828 - INFO - [1m554/652[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 10ms/step
-[1m560/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 20:03:41,887 - INFO - [1m560/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
-[1m566/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 20:03:41,946 - INFO - [1m566/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
-[1m572/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 20:03:42,007 - INFO - [1m572/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
-[1m577/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 20:03:42,057 - INFO - [1m577/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
-[1m582/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step2025-11-13 20:03:42,107 - INFO - [1m582/652[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step
-[1m588/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 20:03:42,166 - INFO - [1m588/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
-[1m594/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 20:03:42,225 - INFO - [1m594/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
-[1m600/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 20:03:42,284 - INFO - [1m600/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
-[1m606/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 20:03:42,344 - INFO - [1m606/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
-[1m612/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 20:03:42,404 - INFO - [1m612/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
-[1m617/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step2025-11-13 20:03:42,455 - INFO - [1m617/652[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step
-[1m623/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 20:03:42,514 - INFO - [1m623/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step
-[1m629/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 20:03:42,573 - INFO - [1m629/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step
-[1m635/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 20:03:42,632 - INFO - [1m635/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step
-[1m641/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 20:03:42,691 - INFO - [1m641/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step
-[1m647/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step2025-11-13 20:03:42,750 - INFO - [1m647/652[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step
-[1m652/652[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m12s[0m 10ms/step
-2025-11-13 20:03:42,811 - INFO - [1m652/652[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m12s[0m 10ms/step
-2025-11-13 20:03:42.966752: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 2734686208 exceeds 10% of free system memory.
-2025-11-13 20:03:44,802 - INFO - Baseline inference completed in 16.26s
-2025-11-13 20:03:45,851 - INFO - DIAGNOSTIC baseline_output stats: mean=0.000000, max=0.000000, nonzero_count=0/341835776
-2025-11-13 20:03:45,851 - ERROR - CRITICAL: Baseline model returned all-zero predictions! Check model weights and input data.
-2025-11-13 20:03:45,851 - ERROR - Baseline input stats: mean=0.112671, max=5.362341, nonzero=17793971
-2025-11-13 20:03:45,851 - ERROR - Baseline output stats: mean=0.000000, max=0.000000, nonzero=0
-2025-11-13 20:03:45,851 - CRITICAL - Uncaught exception
-Traceback (most recent call last):
-  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1399, in <module>
-    main()
-  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1065, in main
-    raise RuntimeError(
-RuntimeError: Baseline model inference failed: outputs are all zeros (mean=0.000000, nonzero=0/341835776). This indicates a TensorFlow/model runtime issue. Inputs were valid (mean=0.112671, nonzero=17793971). Investigation required before Phase G can proceed.
-Traceback (most recent call last):
-2025-11-13 20:03:45,852 - ERROR - Traceback (most recent call last):
-  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1399, in <module>
-2025-11-13 20:03:45,852 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1399, in <module>
-    main()2025-11-13 20:03:45,852 - ERROR - main()
-
-  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1065, in main
-2025-11-13 20:03:45,852 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1065, in main
-    raise RuntimeError(2025-11-13 20:03:45,852 - ERROR - raise RuntimeError(
-
-RuntimeError2025-11-13 20:03:45,852 - ERROR - RuntimeError
-: 2025-11-13 20:03:45,852 - ERROR - :
-Baseline model inference failed: outputs are all zeros (mean=0.000000, nonzero=0/341835776). This indicates a TensorFlow/model runtime issue. Inputs were valid (mean=0.112671, nonzero=17793971). Investigation required before Phase G can proceed.2025-11-13 20:03:45,852 - ERROR - Baseline model inference failed: outputs are all zeros (mean=0.000000, nonzero=0/341835776). This indicates a TensorFlow/model runtime issue. Inputs were valid (mean=0.112671, nonzero=17793971). Investigation required before Phase G can proceed.
-

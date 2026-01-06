@@ -79,11 +79,15 @@ def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=
     probe.set_probe_guess(None, train_data.probe)
 
     from ptycho import model
+
+    # Create fresh model with current params instead of using stale singleton
+    # This fixes MODULE-SINGLETON-001: model architecture must match current gridsize
     if model_instance is None:
-        model_instance = model.autoencoder
+        model_instance, _ = model.create_compiled_model()
+
     nepochs = params.cfg['nepochs']
     params.print_params()
-    return model_instance, model.train(nepochs, train_data)
+    return model_instance, model.train(nepochs, train_data, model_instance=model_instance)
 
 def train_eval(ptycho_dataset):
     ## TODO reconstructed_obj -> pred_Y or something

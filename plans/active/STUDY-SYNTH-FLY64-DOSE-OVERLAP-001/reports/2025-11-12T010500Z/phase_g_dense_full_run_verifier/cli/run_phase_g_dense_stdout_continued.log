@@ -1,9 +1,0 @@
-[run_phase_g_dense] WARNING: AUTHORITATIVE_CMDS_DOC not set; setting to ./docs/TESTING_GUIDE.md
-[run_phase_g_dense] ERROR during hub preparation: Hub contains stale Phase C outputs: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c
-To remove previous outputs and proceed, re-run with --clobber flag.
-Example: python run_phase_g_dense.py --hub /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier --dose <dose> --view <view> --splits <splits> --clobber
-
-================================================================================
-[run_phase_g_dense] Preparing hub...
-================================================================================
-

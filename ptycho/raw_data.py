@@ -550,7 +550,14 @@ class RawData:
         Y4d_nn = None
         if self.Y is not None:
             print("INFO: Using pre-computed 'Y' array from the input file.")
-            Y4d_nn = np.transpose(self.Y[nn_indices], [0, 2, 3, 1])
+            Y_indexed = self.Y[nn_indices]
+            # Handle case where Y has extra channel dimension and indexing adds extra dim
+            # Expected input: (n_groups, C, H, W, 1) -> output: (n_groups, H, W, C)
+            if Y_indexed.ndim == 5:
+                Y4d_nn = np.transpose(Y_indexed, [0, 2, 3, 1, 4])[:, :, :, :, 0]
+            else:
+                # Standard 4D case: (n_groups, H, W, C) -> (n_groups, H, W, C)
+                Y4d_nn = np.transpose(Y_indexed, [0, 2, 3, 1])
         elif self.objectGuess is not None:
             print("INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.")
             Y4d_nn = get_image_patches(self.objectGuess, coords_offsets, coords_relative, N=N, gridsize=gridsize)

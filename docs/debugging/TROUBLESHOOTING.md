@@ -30,16 +30,42 @@ update_legacy_dict(params.cfg, config)  # ← Sets gridsize=2, but too late!
 # model.autoencoder already has gridsize=1 architecture
 ```
 
-**Solution: Use the Factory Function**
+**Solution: Standard Training Workflow (Automatic)**
+
+As of 2026-01-06, `train_pinn.train()` automatically creates fresh models using `model.create_compiled_model()`. If you use the standard training workflow, this is handled for you:
 
 ```python
-from ptycho.model import create_model_with_gridsize
+from ptycho import train_pinn
+from ptycho.config.config import update_legacy_dict
 
-# Create fresh model with correct gridsize
-autoencoder, diffraction_to_obj = create_model_with_gridsize(
+# Set params BEFORE calling train
+update_legacy_dict(params.cfg, config)
+
+# train_pinn.train() automatically creates a fresh compiled model
+model_instance, history = train_pinn.train(train_data)
+# ✅ Model architecture matches current gridsize
+```
+
+**Solution: Custom Workflows (Manual)**
+
+For custom workflows where you need direct control, use factory functions:
+
+```python
+from ptycho.model import create_compiled_model, create_model_with_gridsize
+
+# Option 1: create_compiled_model() - Returns compiled model ready for training
+autoencoder, diffraction_to_obj = create_compiled_model(
     gridsize=config.model.gridsize,  # e.g., 2
     N=config.model.N                  # e.g., 64
 )
+
+# Option 2: create_model_with_gridsize() - Returns uncompiled model
+# (Use if you need custom compilation settings)
+autoencoder, diffraction_to_obj = create_model_with_gridsize(
+    gridsize=config.model.gridsize,
+    N=config.model.N
+)
+autoencoder.compile(...)  # Custom compilation
 
 # Pass to training function
 results = train(train_data, model_instance=autoencoder)

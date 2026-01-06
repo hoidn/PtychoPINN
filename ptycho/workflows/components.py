@@ -557,6 +557,16 @@ def parse_arguments():
                             default=field.default,
                             help=f"Training parameter: {field.name}"
                         )
+                    elif get_origin(field.type) is Literal:
+                        # Handle Literal types (e.g., torch_loss_mode)
+                        choices = list(get_args(field.type))
+                        parser.add_argument(
+                            f"--{field.name}",
+                            type=str,
+                            choices=choices,
+                            default=field.default,
+                            help=f"Training parameter: {field.name}, choices: {choices}"
+                        )
                     else:
                         parser.add_argument(
                             f"--{field.name}",

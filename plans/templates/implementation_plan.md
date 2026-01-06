@@ -1,102 +1,93 @@
 # Implementation Plan Template (Phased)
 
-> How to use
-> - Copy this file to `plans/active/<initiative-id>/implementation.md` and customize.
-> - Keep a single evolving plan per focus; reuse a long‑lived Reports Hub until a milestone lands.
-> - Record structural plan changes with a small Plan‑Update XML block inside the plan (not in `docs/fix_plan.md`).
+> Copy this file to `plans/active/<initiative-id>/implementation.md` and customize.
 
 ## Initiative
 - ID: <initiative-id>
 - Title: <short title>
-- Spec Owner: <docs/specs/spec-*.md filename or governing spec>  <!-- Declare the normative spec this initiative enforces -->
-- Owner/Date: <name> / <YYYY‑MM‑DD>
+- Owner: <name>
+- Spec Owner: <normative spec filename>  <!-- e.g., docs/spec-db-core.md -->
 - Status: pending | in_progress | blocked | done | archived
-- Priority: <High|Medium|Low>
-- Working Plan: this file
-- Reports Hub (primary): `plans/active/<initiative-id>/reports/<ISO8601Z>/<slug>/`
 
-## Compliance Matrix (Mandatory)
-> Enumerate the normative clauses and findings this initiative MUST comply with. Missing relevant entries (e.g., CONFIG-001, POLICY-001) is a plan defect.
-- [ ] **Spec Constraint:** <e.g., “docs/specs/spec-ptycho-core.md §Ptychographic Forward Model — FFT normalization must remain unitary”>
-- [ ] **Finding ID:** <e.g., “CONFIG-001 — update_legacy_dict before legacy import”>
-- [ ] **Policy:** <e.g., “POLICY-001 — PyTorch ≥ 2.2 mandatory; raise on missing torch”>
-- Add more rows as needed for additional constraints (data contracts, overlap metrics, etc.).
-
-## Context Priming (read before edits)
-> Replace the example entries below with the documentation that is actually relevant to this initiative—do **not** copy these paths verbatim.
-- [ ] docs/specs/spec-ptycho-core.md — Core physics/data contracts (example)
-- [ ] docs/specs/spec-ptycho-workflow.md — Pipeline semantics (example)
-- [ ] docs/architecture_torch.md — Backend-specific architecture notes (example)
-- **Spec Alignment:** This initiative enforces/modifies the following active findings or spec shards (cite IDs/paths):
-  - e.g., `CONFIG-001`, `docs/specs/spec-ptycho-config-bridge.md`
-
-## Problem Statement
-<1–3 sentences framing the problem and constraints>
-
-## Objectives
-- <objective 1>
-- <objective 2>
-
-## Deliverables
-1. <artifact or outcome>
-2. <artifact or outcome>
+## Goals
+- <goal 1>
+- <goal 2>
 
 ## Phases Overview
-- Phase A — <name>: <one‑line objective>
-- Phase B — <name>: <one‑line objective>
-- Phase C — <name>: <one‑line objective>
+- Phase A — <name>: <one-line objective>
+- Phase B — <name>: <one-line objective>
+- Phase C — <name>: <one-line objective>
 
 ## Exit Criteria
 1. <criterion 1>
 2. <criterion 2>
 3. <criterion 3>
-4. Test registry synchronized: update `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md` if tests changed; save `pytest --collect-only` logs under the active Reports Hub. Do not close if any selector marked Active collects 0 tests.
+4. Test registry synchronized: `docs/TESTING_GUIDE.md` §2 and `docs/development/TEST_SUITE_INDEX.md` reflect any new/changed tests; `pytest --collect-only` logs for documented selectors are saved under `plans/active/<initiative-id>/reports/<timestamp>/`. Do not close the initiative if any selector marked "Active" collects 0 tests.
+
+## Compliance Matrix (Mandatory)
+> List the specific Spec constraints, Fix-Plan ledger rows, and Findings/Policies this initiative must honor. Missing a relevant entry is a plan defect per ARRP.
+- [ ] **Spec Constraint:** <e.g., `spec-db-core.md §5.2 — Variance model definition`>
+- [ ] **Fix-Plan Link:** <e.g., `docs/fix_plan.md — Row [PHYSICS-LOSS-001]`>
+- [ ] **Finding/Policy ID:** <e.g., `CONFIG-001`, `POLICY-001 (PyTorch Optional)`>
+
+## Spec Alignment
+- **Normative Spec:** [path to spec file]
+- **Key Clauses:** [list of specific requirements this plan satisfies]
+
+## Architecture / Interfaces (optional)
+- **Key Data Types / Protocols:**  
+  e.g., `User`, `OrderService`, `PaymentGateway` in a web app, or `Model`, `Trainer`, `MetricSink` in an ML pipeline. You can sketch these in a tiny IDL-style block if helpful (e.g., `types: User { id: UUID; email: string }`).
+- **Boundary Definitions:**  
+  Briefly describe the main seams between components (layers, services, processes, or subsystems), e.g., `[Client] -> [API] -> [Service] -> [DB]`.
+- **Sequence Sketch (Happy Path):**  
+  Short textual outline of the primary request/response or job execution path, e.g., `Client -> API: POST /orders -> Service -> DB -> Client`.
+- **Data-Flow Notes:**  
+  Note what data moves where (shape, format, rate) and across which boundaries (in‑process, network, devices, storage), e.g., `[Raw events] -> [Validate] -> [Transform] -> [Warehouse]`.
+
+> One-shot example (replace with your own):
+> - types: `User { id: UUID; email: string }`, `Order { id: UUID; user_id: UUID; total_cents: int }`
+> - boundaries: `[Browser] -> [HTTP API] -> [OrderService] -> [Postgres]`
+> - sequence: `Browser -> API: POST /orders -> OrderService -> DB -> API -> Browser`
+> - data-flow: JSON request (~2 KB) → row in `orders` table → JSON response with `order_id`, or for a training step: batch tensor `[B, C, H, W]` on GPU → forward pass → loss scalar → gradient tensors → optimizer step
+
+## Context Priming (read before edits)
+- Primary docs/specs to re-read: <list explicit files + sections>
+- Required findings/case law: <docs/findings.md IDs + summary>
+- Related telemetry/attempts: <links to relevant artifacts or plan history>
+- Data dependencies to verify: <summarize the external inputs (datasets, configs, HKL/sigma assets, etc.) this initiative relies on; reference `docs/data_dependency_manifest.md` entries and note any additions needed>
 
 ## Phase A — <name>
 ### Checklist
-- [ ] A0: **Nucleus** — minimal guard/test or probe that validates the spec assumption or reproduces the defect before making code changes (include selector + expected artifact path)
-- [ ] A1: <task> (expected artifacts)
+- [ ] A0: **Nucleus / Test-first gate:** <minimal probe or selector to validate assumptions before implementation>
+- [ ] A1: <task> (owner, expected artifacts)
 - [ ] A2: <task>
 - [ ] A3: <task>
 
-### Pending Tasks (Engineering)
-- <next actionable steps grouped here; selectors live in input.md>
+### Dependency Analysis (Required for Refactors)
+- **Touched Modules:** [list]
+- **Circular Import Risks:** [analysis]
+- **State Migration:** [how state moves from old to new]
 
 ### Notes & Risks
-- <risk or nuance>
-- Rollback strategy if Phase A regresses the code/tests: <describe how to restore clean state quickly>
+- <risk 1>
 
 ## Phase B — <name>
 ### Checklist
 - [ ] B1: <task>
 - [ ] B2: <task>
 
-### Pending Tasks (Engineering)
-- <next actionable steps grouped here; selectors live in input.md>
-
 ### Notes & Risks
-- <risk>
-- Rollback strategy if Phase B work regresses functionality: <describe revert path>
+- <risk 2>
 
 ## Phase C — <name>
 ### Checklist
 - [ ] C1: <task>
 - [ ] C2: <task>
 
-### Pending Tasks (Engineering)
-- <next actionable steps grouped here; selectors live in input.md>
-
 ### Notes & Risks
-- <risk>
-- Rollback strategy if Phase C work regresses functionality: <describe revert path>
-
-## Deprecation / Policy Banner (optional)
-- <Use this slot to mark deprecations or policy reminders relevant to the initiative>
+- <risk 3>
 
 ## Artifacts Index
 - Reports root: `plans/active/<initiative-id>/reports/`
-- Latest run: `<ISO8601Z>/<slug>/`
+- Latest run: `<YYYY-MM-DDTHHMMSSZ>/`
 
-## Open Questions & Follow-ups
-- <decision pending>
-- <follow‑up validation>

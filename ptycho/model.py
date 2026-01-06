@@ -577,8 +577,24 @@ def prepare_outputs(train_data: PtychoDataContainer):
                 (p.get('intensity_scale') * train_data.X)**2]
 
 #def train(epochs, X_train, coords_train, Y_obj_train):
-def train(epochs, trainset: PtychoDataContainer):
+def train(epochs, trainset: PtychoDataContainer, model_instance=None):
+    """Train the ptychography model.
+
+    Args:
+        epochs: Number of training epochs
+        trainset: Training data container
+        model_instance: Optional compiled model. If None, uses module-level
+                       singleton (for backward compatibility).
+
+    Returns:
+        Training history object
+    """
     assert type(trainset) == PtychoDataContainer
+
+    # Use provided model or fall back to module-level singleton for backward compatibility
+    if model_instance is None:
+        model_instance = autoencoder  # Backward compatible fallback
+
     coords_train = trainset.coords
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                   patience=2, min_lr=0.0001, verbose=1)
@@ -590,7 +606,7 @@ def train(epochs, trainset: PtychoDataContainer):
                             save_weights_only=False, mode='auto', save_freq='epoch')
 
     batch_size = p.params()['batch_size']
-    history=autoencoder.fit(
+    history=model_instance.fit(
 #        prepare_inputs(X_train, coords_train),
 #        prepare_outputs(Y_obj_train, coords_train, X_train),
         prepare_inputs(trainset),
@@ -735,3 +751,51 @@ def _create_models_from_global_config():
     gridsize = p.get('gridsize')
     N = p.get('N')
     return create_model_with_gridsize(gridsize, N)
+
+
+def create_compiled_model(gridsize=None, N=None):
+    """Create and compile autoencoder ready for training.
+
+    Use this instead of the module-level singleton when gridsize
+    may have changed since module import. See MODULE-SINGLETON-001
+    in docs/findings.md.
+
+    Args:
+        gridsize: Grid size for model architecture. If None, reads from params.cfg.
+        N: Patch size. If None, reads from params.cfg.
+
+    Returns:
+        tuple: (compiled_autoencoder, diffraction_to_obj)
+
+    Example:
+        >>> from ptycho import model, params
+        >>> params.cfg['gridsize'] = 2
+        >>> autoencoder, d2o = model.create_compiled_model()
+        >>> assert autoencoder.input_shape[0][-1] == 4  # gridsize² channels
+    """
+    gridsize = gridsize if gridsize is not None else p.get('gridsize')
+    N = N if N is not None else p.get('N')
+
+    autoencoder, diffraction_to_obj = create_model_with_gridsize(gridsize, N)
+
+    # Compile with current loss weights (mirrors module-level compilation)
+    mae_weight = p.get('mae_weight')
+    nll_weight = p.get('nll_weight')
+    realspace_weight = p.get('realspace_weight')
+
+    use_xla = os.environ.get('USE_XLA_COMPILE', '').lower() in ('1', 'true', 'yes')
+    try:
+        use_xla = use_xla or p.get('use_xla_compile')
+    except KeyError:
+        pass
+
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+
+    autoencoder.compile(
+        optimizer=optimizer,
+        loss=[hh.realspace_loss, 'mean_absolute_error', negloglik],
+        loss_weights=[realspace_weight, mae_weight, nll_weight],
+        jit_compile=use_xla
+    )
+
+    return autoencoder, diffraction_to_obj

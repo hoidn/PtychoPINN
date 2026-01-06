@@ -18,10 +18,23 @@ update_legacy_dict(params.cfg, config)    # ← Too late! Model already exists
 - `ptycho.model.diffraction_to_obj` - inference model
 - `ptycho.model.autoencoder_no_nll` - NLL-free variant
 
-**The Fix:** Use factory functions instead of module-level singletons:
+**RESOLVED for Standard Workflows (2026-01-06):**
+
+`train_pinn.train()` now automatically creates fresh models via `model.create_compiled_model()`. If using the standard training workflow, no manual intervention is needed:
 ```python
-from ptycho.model import create_model_with_gridsize
+update_legacy_dict(params.cfg, config)  # ← Set params first
+model_instance, history = train_pinn.train(train_data)  # ← Fresh model created automatically
+```
+
+**For Custom Workflows:** Use factory functions instead of module-level singletons:
+```python
+from ptycho.model import create_compiled_model  # For training (compiled)
+autoencoder, diffraction_to_obj = create_compiled_model(gridsize=2, N=64)
+
+# Or for custom compilation needs:
+from ptycho.model import create_model_with_gridsize  # Uncompiled
 autoencoder, diffraction_to_obj = create_model_with_gridsize(gridsize=2, N=64)
+autoencoder.compile(...)
 ```
 
 See: [TROUBLESHOOTING.md#model-architecture-mismatch](TROUBLESHOOTING.md#model-architecture-mismatch-after-changing-gridsize)

@@ -139,7 +139,8 @@ This final stage prepares the data for the selected backend by converting groupe
     -   **Key Functions:** `illuminate_and_diffract()`, `mk_simdata()`.
 
 -   **`model.py`**: The **core deep learning model**. Defines the U-Net architecture and custom Keras layers that embed the physics constraints.
-    -   **Key Functions:** `create_model_with_gridsize()`, `train()`.
+    -   **Key Functions:** `create_compiled_model()` (factory for training-ready models), `create_model_with_gridsize()` (uncompiled factory), `train()`.
+    -   **Note:** The module-level singleton `autoencoder` is created at import time and should NOT be used when gridsize may have changed. Use `create_compiled_model()` instead. See MODULE-SINGLETON-001 in `docs/findings.md`.
 
 -   **`tf_helper.py`**: A **low-level TensorFlow utility module**. Contains reusable tensor operations for patching, reassembly, and transformations.
     -   **Key Functions:** `reassemble_position()`, `extract_patches_position()`.

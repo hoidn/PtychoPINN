@@ -28,8 +28,11 @@ python scripts/reconstruction/run_tike_reconstruction.py \
     input.npz output_dir --iterations 1000
 
 # New (Pty-chi) - 17-20x faster
-python scripts/reconstruction/run_ptychi_reconstruction.py \
-    input.npz output_dir --iterations 200 --algorithm ePIE
+python scripts/reconstruction/ptychi_reconstruct_tike.py \
+    --input-npz input.npz \
+    --output-dir output_dir \
+    --num-epochs 200 \
+    --algorithm ePIE
 ```
 
 ### Three-Way Comparison Studies
@@ -55,18 +58,16 @@ Update your generalization study commands:
 
 ### 1. Standalone Reconstruction
 
-The `run_ptychi_reconstruction.py` script matches the interface of `run_tike_reconstruction.py`:
+The `ptychi_reconstruct_tike.py` script provides pty-chi reconstruction:
 
 ```bash
 # Full command with options
-python scripts/reconstruction/run_ptychi_reconstruction.py \
-    datasets/fly/fly001_transposed.npz \
-    ./ptychi_output \
-    --algorithm ePIE \           # Algorithm choice (ePIE recommended)
-    --iterations 200 \           # Fewer iterations needed than Tike
-    --batch-size 8 \            # Batch size for GPU efficiency
-    --n-images 1000 \           # Optional subsampling
-    --quiet                     # For automation
+python scripts/reconstruction/ptychi_reconstruct_tike.py \
+    --input-npz datasets/fly/fly001_transposed.npz \
+    --output-dir ./ptychi_output \
+    --algorithm ePIE \
+    --num-epochs 200 \
+    --n-images 1000
 ```
 
 **Output Files:**
@@ -228,15 +229,14 @@ After migration, verify:
 ```python
 # scripts/sweep_ptychi_params.py
 algorithms = ['ePIE', 'rPIE', 'DM']
-iterations = [100, 200, 300]
-batch_sizes = [4, 8, 16]
+epochs = [100, 200, 300]
 
 for algo in algorithms:
-    for iters in iterations:
-        for batch in batch_sizes:
-            cmd = f"python run_ptychi_reconstruction.py input.npz output_{algo}_{iters}_{batch} "
-            cmd += f"--algorithm {algo} --iterations {iters} --batch-size {batch}"
-            subprocess.run(cmd, shell=True)
+    for n_epochs in epochs:
+        cmd = f"python scripts/reconstruction/ptychi_reconstruct_tike.py "
+        cmd += f"--input-npz input.npz --output-dir output_{algo}_{n_epochs} "
+        cmd += f"--algorithm {algo} --num-epochs {n_epochs}"
+        subprocess.run(cmd, shell=True)
 ```
 
 ### Automated Algorithm Selection
