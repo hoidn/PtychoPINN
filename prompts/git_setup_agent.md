@@ -52,6 +52,8 @@ Notes
 
 Step 4 — Ignore Transient/Generated Files (keep the tree clean)
 Add these patterns if missing (append-only). Do not remove repo-specific ignores.
+- __pycache__/
+- *.pyc
 - tmp/
 - *.log
 - *.egg-info/
@@ -134,4 +136,3 @@ Success Criteria
 - .claude/claude submodules, if present, have ignore = dirty in .gitmodules
 - .gitignore blocks logs, eggs, outputs, and large data artifacts
 - git status clean; pull/rebase cycle succeeds without manual intervention
-
