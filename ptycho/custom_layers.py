@@ -130,10 +130,14 @@ class ReassemblePatchesLayer(layers.Layer):
     Inputs: [patches (B, N, N, C), positions (B, 1, 2, C)]
     Output: (B, padded_size, padded_size, 1)
     """
-    
-    def __init__(self, **kwargs):
+
+    def __init__(self, padded_size: Optional[int] = None, N: Optional[int] = None,
+                 gridsize: Optional[int] = None, **kwargs):
         super().__init__(**kwargs)
-    
+        self.padded_size = padded_size
+        self.N = N
+        self.gridsize = gridsize
+
     def call(self, inputs: List[tf.Tensor]) -> tf.Tensor:
         """Reassemble patches.
 
@@ -150,19 +154,26 @@ class ReassemblePatchesLayer(layers.Layer):
         # This handles Translation layer shape variations robustly
         # The batched function automatically falls back to non-batched mode for small inputs
         batch_size = 64
-        fn_reassemble = hh.mk_reassemble_position_batched_real(positions, batch_size=batch_size)
+        fn_reassemble = hh.mk_reassemble_position_batched_real(
+            positions, batch_size=batch_size, padded_size=self.padded_size, N=self.N
+        )
 
-        return hh.reassemble_patches(patches, fn_reassemble_real=fn_reassemble)
-    
+        return hh.reassemble_patches(patches, fn_reassemble_real=fn_reassemble,
+                                     N=self.N, gridsize=self.gridsize)
+
     def compute_output_shape(self, input_shape: List[tf.TensorShape]) -> tf.TensorShape:
         from . import params
-        padded_size = params.get_padded_size()
+        padded_size = self.padded_size or params.get_padded_size()
         batch_size = input_shape[0][0]
         channels = input_shape[0][-1]
         return tf.TensorShape([batch_size, padded_size, padded_size, channels])
-    
+
     def get_config(self) -> Dict[str, Any]:
-        return super().get_config()
+        config = super().get_config()
+        config['padded_size'] = self.padded_size
+        config['N'] = self.N
+        config['gridsize'] = self.gridsize
+        return config
 
 
 @tf.keras.utils.register_keras_serializable(package='ptycho')
@@ -175,15 +186,15 @@ class TrimReconstructionLayer(layers.Layer):
     
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
         """Trim the reconstruction.
-        
+
         Args:
             inputs: Padded reconstruction tensor
-            
+
         Returns:
             Trimmed reconstruction
         """
         from . import tf_helper as hh
-        return hh.trim_reconstruction(inputs)
+        return hh.trim_reconstruction(inputs, N=self.output_size)
     
     def compute_output_shape(self, input_shape: tf.TensorShape) -> tf.TensorShape:
         from . import params

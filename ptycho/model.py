@@ -456,6 +456,9 @@ if p.get('object.big'):
     from .params import get_padded_size
     padded_size = get_padded_size()
     padded_obj_2 = ReassemblePatchesLayer(
+        padded_size=padded_size,
+        N=N,
+        gridsize=gridsize,
         dtype=tf.complex64,
         name='padded_obj_2'
     )([obj, input_positions])
@@ -693,6 +696,9 @@ def create_model_with_gridsize(gridsize: int, N: int, **kwargs):
         if p.get('object.big'):
             # If 'object.big' is true, reassemble the patches
             padded_obj_2 = ReassemblePatchesLayer(
+                padded_size=padded_size,
+                N=N,
+                gridsize=gridsize,
                 dtype=tf.complex64,
                 name='padded_obj_2'
             )([obj, input_positions])
