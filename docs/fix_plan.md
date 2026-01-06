@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-06 (housekeeping: Attempts History trimmed, done initiatives compressed)
-**Active Focus:** FIX-TF-C1D-SCALED-RERUN-001 — Guard + scaled TF rerun evidence capture (Phase C1d)
+**Last Updated:** 2026-01-06 (added STUDY-SYNTH-DOSE-COMPARISON-001 as top priority)
+**Active Focus:** STUDY-SYNTH-DOSE-COMPARISON-001 — Synthetic Dose Response & Loss Comparison Study
 
 ---
 
@@ -13,6 +13,29 @@
 ---
 
 ## Active / Pending Initiatives
+
+### [STUDY-SYNTH-DOSE-COMPARISON-001] Synthetic Dose Response & Loss Comparison Study
+- Depends on: None (standalone scientific validation study)
+- Priority: **Critical** (Scientific Validation — Top Priority)
+- Status: in_progress — Phase A orchestration & data fabric underway.
+- Owner/Date: Ralph/2026-01-06
+- Working Plan: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/implementation.md`
+- Reports Hub: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/`
+- Spec Owner: `docs/specs/spec-ptycho-core.md` (Physics/Normalization)
+- Goals:
+  - Compare PtychoPINN reconstruction quality under High Dose (1e9 photons) vs. Low Dose (1e4 photons).
+  - Evaluate Poisson NLL vs. MAE loss robustness across dose regimes.
+  - Produce publication-ready 6-panel figure (diffraction + reconstructions).
+  - Demonstrate pure Python workflow using library APIs directly (no CLI subprocess).
+- Exit Criteria:
+  - `scripts/studies/dose_response_study.py` runs without error.
+  - Four models trained (High/NLL, High/MAE, Low/NLL, Low/MAE) with valid convergence.
+  - Final `dose_comparison.png` matches 6-panel specification.
+  - Test registry check passes (`pytest --collect-only`).
+  - This ledger updated with results or blockers.
+- Return Condition: Study complete with figure artifact and convergence evidence in Reports Hub.
+
+---
 
 ### [STUDY-SYNTH-FLY64-DOSE-OVERLAP-001] Synthetic fly64 dose/overlap study
 - Depends on: Phase C/E/F artifacts under `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/`; FEAT-LAZY-LOADING-001 to eliminate OOM wall (PINN-CHUNKED-001).
