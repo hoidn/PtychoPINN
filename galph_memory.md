@@ -1,3 +1,37 @@
+# 2026-01-09T02:00:00Z: PARALLEL-API-INFERENCE — Task 1 implementation handoff
+
+- dwell: 1 (continuing focus from prior planning loop)
+- Focus issue: PARALLEL-API-INFERENCE — Programmatic TF/PyTorch API parity (Task 1)
+- Action type: Implementation handoff (TF helper extraction)
+- Mode: Implementation
+- Git sync: `git pull --rebase` → Already up to date.
+- Documents reviewed: docs/fix_plan.md, galph_memory.md (prior entry), docs/findings.md (CONFIG-001, ANTIPATTERN-001), plans/active/PARALLEL-API-INFERENCE/plan.md, plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T010000Z/extraction_design.md, scripts/inference/inference.py:321-428 (perform_inference), ptycho_torch/inference.py:426-632 (_run_inference_and_reconstruct).
+
+**Phase A Review:**
+- Extraction design complete: `reports/2026-01-09T010000Z/extraction_design.md`
+- Proposed signature mirrors PyTorch helper: `_run_tf_inference_and_reconstruct(model, raw_data, config, ...) -> (amp, phase)`
+- Ground truth handling moved to separate `extract_ground_truth()` utility
+- `perform_inference` becomes deprecated wrapper for backward compatibility
+
+**Task 1 Implementation Scope:**
+1. Create `_run_tf_inference_and_reconstruct()` in `scripts/inference/inference.py`
+2. Create `extract_ground_truth()` utility
+3. Refactor `perform_inference` as deprecated wrapper calling new helper
+4. Create `tests/scripts/test_tf_inference_helper.py` with signature validation tests
+5. Run integration regression to verify no breakage
+
+**Mapped Tests:**
+- `tests/scripts/test_tf_inference_helper.py::TestTFInferenceHelper` (new, 4 tests)
+- `tests/test_integration_workflow.py` (regression)
+
+**input.md Updated:** Task 1 implementation with full code samples and verification commands.
+
+- Next: Ralph extracts TF helper, creates test, runs verification
+- <Action State>: [ready_for_implementation]
+- focus=PARALLEL-API-INFERENCE state=ready_for_implementation dwell=1 ralph_last_commit=c46e496a artifacts=plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T020000Z/ next_action=implement Task 1 (TF helper extraction + tests)
+
+---
+
 # 2026-01-09T01:00:00Z: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — G-scaled COMPLETE, focus selection
 
 - dwell: 0 (new loop after G-scaled completion)
