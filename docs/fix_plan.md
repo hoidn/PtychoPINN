@@ -199,7 +199,7 @@
 ### [PARALLEL-API-INFERENCE] Programmatic TF/PyTorch API parity
 - Depends on: INTEGRATE-PYTORCH-PARITY-001 (backend selector wiring complete)
 - Priority: Medium
-- Status: in_progress — Phase A exploration complete; extraction design documented.
+- Status: in_progress — Task 1 complete; Task 2-4 pending.
 - Owner/Date: Ralph/2026-01-09
 - Working Plan: `plans/active/PARALLEL-API-INFERENCE/plan.md`
 - Reports Hub: `plans/active/PARALLEL-API-INFERENCE/reports/`
@@ -214,6 +214,7 @@
   - Smoke test passes (pytest selectors TBD).
 - Attempts History:
   - *2026-01-09T010000Z (Phase A exploration):* Analyzed TF inference (`scripts/inference/inference.py:321-428`) and PyTorch inference (`ptycho_torch/inference.py:426-632`). Documented extraction design: propose `_run_tf_inference_and_reconstruct(model, raw_data, config, ...)` returning `(amp, phase)` to match PyTorch helper signature. Ground truth handling moves to separate utility. CLI wrapper unchanged except to call new helper. **No code changes — planning only.** Artifacts: `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T010000Z/extraction_design.md`. Next: Task 1 implementation (extract TF helper).
+  - *2026-01-09T020000Z (Task 1 complete):* Extracted TF inference helper per extraction design. Changes: (1) Added `_run_tf_inference_and_reconstruct()` to `scripts/inference/inference.py:353-457` with signature matching PyTorch helper; (2) Added `extract_ground_truth()` utility at `scripts/inference/inference.py:323-350`; (3) Refactored `perform_inference()` as deprecated wrapper calling new helper; (4) Created `tests/scripts/test_tf_inference_helper.py` with 7 signature/availability tests. **Result: ALL 7 TESTS PASSED (3.74s).** Integration test (`tests/test_integration_workflow.py`) also passed (35.93s). Test collection: 23 tests in `tests/scripts/`. Metrics: 7 passed (helper tests), 1 passed (integration). Artifacts: `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T020000Z/` (pytest_tf_helper.log, pytest_integration.log, pytest_collect.log). Next: Task 2 — create `scripts/pytorch_api_demo.py`.
 
 ---
 

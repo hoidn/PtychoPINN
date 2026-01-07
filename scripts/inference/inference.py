@@ -22,7 +22,9 @@ Arguments:
     --nsamples: Number of samples for grouped data generation (default: 1)
 """
 
-from typing import Optional
+from __future__ import annotations
+
+from typing import Optional, Tuple
 import argparse
 import logging
 import os
@@ -318,100 +320,127 @@ def _dump_tf_inference_debug_artifacts(
         json.dump(canvas_payload, fp, indent=2)
 
 
-def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K: int, nsamples: int,
-                      debug_dump_dir: Path | None = None, debug_patch_limit: int = 16) -> tuple:
+def extract_ground_truth(raw_data: "RawData") -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """
-    Perform inference using the loaded model and test data.
+    Extract ground truth amplitude/phase from RawData if available and valid.
 
     Args:
-        model (tf.keras.Model): The loaded TensorFlow model.
-        test_data (RawData): The RawData object containing test data.
-        config (dict): The model's configuration dictionary.
-        K (int): Number of nearest neighbors for grouped data generation.
-        nsamples (int): Number of samples for grouped data generation.
+        raw_data: RawData instance with potential ground truth in objectGuess.
 
     Returns:
-        tuple: (np.ndarray, np.ndarray, np.ndarray, np.ndarray) - Reconstructed amplitude, 
-               reconstructed phase, ePIE amplitude, and ePIE phase.
+        (amplitude, phase) tuple if valid ground truth exists, else None.
+
+    Notes:
+        - Returns None if objectGuess is missing, all zeros, or uniform.
+        - Uses crop_to_non_uniform_region_with_buffer for processing.
+    """
+    from ptycho.nbutils import crop_to_non_uniform_region_with_buffer
+
+    if not hasattr(raw_data, 'objectGuess') or raw_data.objectGuess is None:
+        return None
+    if np.allclose(raw_data.objectGuess, 0, atol=1e-10):
+        return None
+    obj_complex = raw_data.objectGuess
+    if (np.allclose(obj_complex.real, obj_complex.real.flat[0], atol=1e-10) and
+            np.allclose(obj_complex.imag, obj_complex.imag.flat[0], atol=1e-10)):
+        return None
+
+    epie_phase = crop_to_non_uniform_region_with_buffer(np.angle(obj_complex), buffer=-20)
+    epie_amplitude = crop_to_non_uniform_region_with_buffer(np.abs(obj_complex), buffer=-20)
+    return (epie_amplitude, epie_phase)
+
+
+def _run_tf_inference_and_reconstruct(
+    model: tf.keras.Model,
+    raw_data: "RawData",
+    config: dict,
+    K: int = 4,
+    nsamples: Optional[int] = None,
+    quiet: bool = False,
+    debug_dump_dir: Optional[Path] = None,
+    debug_patch_limit: int = 16,
+    seed: int = 45,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Core TensorFlow inference helper for programmatic use.
+
+    Mirrors PyTorch `_run_inference_and_reconstruct()` signature for API parity.
+    See docs/specs/spec-ptycho-interfaces.md for contract details.
+
+    Args:
+        model: Loaded TensorFlow model (from load_inference_bundle_with_backend).
+        raw_data: RawData instance with test data.
+        config: Dict with 'N', 'gridsize' keys (from model bundle).
+        K: Number of nearest neighbors (default: 4).
+        nsamples: Number of samples; if None, uses all available.
+        quiet: Suppress progress output.
+        debug_dump_dir: Optional directory for debug artifacts.
+        debug_patch_limit: Patches to visualize in debug mode.
+        seed: Random seed for reproducibility (default: 45).
+
+    Returns:
+        Tuple of (amplitude, phase) as numpy arrays.
 
     Raises:
         ValueError: If there's an error during inference.
-    """
-    from ptycho.nbutils import reconstruct_image, crop_to_non_uniform_region_with_buffer
-    try:
-        # The model loaded by the caller already contains the correct trained probe.
-        # There is no need to set it again from the test data, as that would be
-        # both misleading and ineffectual - the model's internal tf.Variable probe
-        # is not affected by changes to the global configuration after loading.
-        # [Removed: probe.set_probe_guess(None, test_data.probeGuess)]
 
-        # Set random seeds
-        tf.random.set_seed(45)
-        np.random.seed(45)
+    Notes:
+        - Expects params.cfg to be populated via CONFIG-001 before call.
+        - Ground truth not returned (use extract_ground_truth separately).
+    """
+    from ptycho.nbutils import reconstruct_image
+    from ptycho import loader
+    from ptycho.tf_helper import reassemble_position
+
+    try:
+        # Set random seeds for reproducibility
+        tf.random.set_seed(seed)
+        np.random.seed(seed)
 
         # Generate grouped data
-        print(f"DEBUG: Using gridsize={config.get('gridsize', 'NOT_SET')} for data generation")
-        test_dataset = test_data.generate_grouped_data(config['N'], K=K, nsamples=nsamples, gridsize=config.get('gridsize', 1))
-        
-        # Debug: check the shape of the generated data
-        if 'diffraction' in test_dataset:
-            print(f"DEBUG: Generated diffraction data shape: {test_dataset['diffraction'].shape}")
-        if 'Y' in test_dataset and test_dataset['Y'] is not None:
-            print(f"DEBUG: Generated Y data shape: {test_dataset['Y'].shape}")
-        
+        if not quiet:
+            logger.info(f"DEBUG: Using gridsize={config.get('gridsize', 'NOT_SET')} for data generation")
+        test_dataset = raw_data.generate_grouped_data(
+            config['N'], K=K, nsamples=nsamples, gridsize=config.get('gridsize', 1)
+        )
+
+        # Debug: check shapes
+        if not quiet:
+            if 'diffraction' in test_dataset:
+                logger.info(f"DEBUG: Generated diffraction data shape: {test_dataset['diffraction'].shape}")
+            if 'Y' in test_dataset and test_dataset['Y'] is not None:
+                logger.info(f"DEBUG: Generated Y data shape: {test_dataset['Y'].shape}")
+
         # Create PtychoDataContainer
-        from ptycho import loader
-        test_data_container = loader.load(lambda: test_dataset, test_data.probeGuess, which=None, create_split=False)
-        
-        # Debug: check the data container
-        print(f"DEBUG: PtychoDataContainer shapes - X (diffraction): {test_data_container.X.shape}, Y: {test_data_container.Y.shape if test_data_container.Y is not None else 'None'}")
-        
+        test_data_container = loader.load(
+            lambda: test_dataset, raw_data.probeGuess, which=None, create_split=False
+        )
+
+        if not quiet:
+            logger.info(
+                f"DEBUG: PtychoDataContainer shapes - X (diffraction): {test_data_container.X.shape}, "
+                f"Y: {test_data_container.Y.shape if test_data_container.Y is not None else 'None'}"
+            )
+
         # Perform reconstruction
         start_time = time.time()
         obj_tensor_full, global_offsets = reconstruct_image(test_data_container, diffraction_to_obj=model)
         reconstruction_time = time.time() - start_time
-        print(f"Reconstruction completed in {reconstruction_time:.2f} seconds")
+        if not quiet:
+            logger.info(f"Reconstruction completed in {reconstruction_time:.2f} seconds")
 
         # Process the reconstructed image
-        from ptycho.tf_helper import reassemble_position
         obj_image = reassemble_position(obj_tensor_full, global_offsets, M=20)
-        
+
         # Extract amplitude and phase
         reconstructed_amplitude = np.abs(obj_image)
         reconstructed_phase = np.angle(obj_image)
 
-        # Check if ground truth object is available and valid
-        has_ground_truth = False
-        if hasattr(test_data, 'objectGuess') and test_data.objectGuess is not None:
-            # Check if the object is all zeros or very close to zero
-            if not np.allclose(test_data.objectGuess, 0, atol=1e-10):
-                # Check if the object is uniform (all values are the same)
-                obj_complex = test_data.objectGuess
-                if not (np.allclose(obj_complex.real, obj_complex.real.flat[0], atol=1e-10) and 
-                        np.allclose(obj_complex.imag, obj_complex.imag.flat[0], atol=1e-10)):
-                    has_ground_truth = True
-                    epie_phase = crop_to_non_uniform_region_with_buffer(np.angle(test_data.objectGuess), buffer=-20)
-                    epie_amplitude = crop_to_non_uniform_region_with_buffer(np.abs(test_data.objectGuess), buffer=-20)
-#                    epie_phase = np.angle(test_data.objectGuess)
-#                    epie_amplitude = np.abs(test_data.objectGuess)
-                    print(f"Ground truth available - ePIE amplitude shape: {epie_amplitude.shape}")
-                    print(f"Ground truth available - ePIE phase shape: {epie_phase.shape}")
-                else:
-                    print("Ground truth object is uniform (all same value), skipping ground truth processing")
-                    epie_phase = None
-                    epie_amplitude = None
-            else:
-                print("Ground truth object is all zeros, skipping ground truth processing")
-                epie_phase = None
-                epie_amplitude = None
-        else:
-            print("No ground truth object available")
-            epie_phase = None
-            epie_amplitude = None
+        if not quiet:
+            logger.info(f"Reconstructed amplitude shape: {reconstructed_amplitude.shape}")
+            logger.info(f"Reconstructed phase shape: {reconstructed_phase.shape}")
 
-        print(f"Reconstructed amplitude shape: {reconstructed_amplitude.shape}")
-        print(f"Reconstructed phase shape: {reconstructed_phase.shape}")
-
+        # Debug artifact dump (conditional)
         if debug_dump_dir is not None:
             _dump_tf_inference_debug_artifacts(
                 debug_dump_dir,
@@ -421,11 +450,61 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
                 patch_limit=debug_patch_limit,
             )
 
-        return reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase
+        return reconstructed_amplitude, reconstructed_phase
 
     except Exception as e:
-        print(f"Error during inference: {str(e)}")
+        logger.error(f"Error during inference: {str(e)}")
         raise ValueError(f"Error during inference: {str(e)}")
+
+
+def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K: int, nsamples: int,
+                      debug_dump_dir: Path | None = None, debug_patch_limit: int = 16) -> tuple:
+    """
+    Perform inference using the loaded model and test data.
+
+    .. deprecated::
+        Use `_run_tf_inference_and_reconstruct()` for new code.
+        This wrapper maintains backward compatibility with the 4-tuple return.
+
+    Args:
+        model (tf.keras.Model): The loaded TensorFlow model.
+        test_data (RawData): The RawData object containing test data.
+        config (dict): The model's configuration dictionary.
+        K (int): Number of nearest neighbors for grouped data generation.
+        nsamples (int): Number of samples for grouped data generation.
+        debug_dump_dir: Optional directory for debug artifacts.
+        debug_patch_limit: Number of patches to visualize in debug mode.
+
+    Returns:
+        tuple: (np.ndarray, np.ndarray, np.ndarray, np.ndarray) - Reconstructed amplitude,
+               reconstructed phase, ePIE amplitude, and ePIE phase.
+
+    Raises:
+        ValueError: If there's an error during inference.
+    """
+    import warnings
+    warnings.warn(
+        "perform_inference is deprecated; use _run_tf_inference_and_reconstruct",
+        DeprecationWarning,
+        stacklevel=2
+    )
+
+    amp, phase = _run_tf_inference_and_reconstruct(
+        model=model,
+        raw_data=test_data,
+        config=config,
+        K=K,
+        nsamples=nsamples,
+        quiet=False,
+        debug_dump_dir=debug_dump_dir,
+        debug_patch_limit=debug_patch_limit,
+        seed=45,
+    )
+
+    gt = extract_ground_truth(test_data)
+    if gt:
+        return amp, phase, gt[0], gt[1]
+    return amp, phase, None, None
 
 def save_comparison_plot(reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase, output_dir, phase_vmin=None, phase_vmax=None):
     """
