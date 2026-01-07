@@ -1,0 +1,94 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... 2026-01-06 17:18:27.125862: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1767748707.137476  123916 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1767748707.141369  123916 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1767748707.152882  123916 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1767748707.152900  123916 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1767748707.152901  123916 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1767748707.152902  123916 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-06 17:18:27.155687: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+collected 1 item
+
+tests/test_model_factory.py::TestXLAReenablement::test_multi_n_with_xla_enabled STDOUT:
+XLA test starting, TF version: 2.19.0
+Params initialized for N=128
+Lazy loading verified: no models at import
+Creating model with N=128...
+Running forward pass for N=128...
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 142
+DEBUG _flat_to_channel: input shape=(4, 142, 142, 1), reshaping to (-1, 4, 142, 142)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 142
+DEBUG _flat_to_channel: input shape=(4, 142, 142, 1), reshaping to (-1, 4, 142, 142)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 142
+DEBUG _flat_to_channel: input shape=(4, 142, 142, 1), reshaping to (-1, 4, 142, 142)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 142
+DEBUG _flat_to_channel: input shape=(4, 142, 142, 1), reshaping to (-1, 4, 142, 142)
+input shape (4, 128, 128, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 128
+DEBUG _flat_to_channel: input shape=(4, 128, 128, 1), reshaping to (-1, 4, 128, 128)
+Forward pass N=128 succeeded, output shapes: [(1, 128, 128, 1), (1, 128, 128, 4), (1, 128, 128, 4)]
+Creating model with N=64...
+Running forward pass for N=64...
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(4, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(4, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(4, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(4, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+input shape (4, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(4, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+Forward pass N=64 succeeded, output shapes: [(1, 64, 64, 1), (1, 64, 64, 4), (1, 64, 64, 4)]
+PASS: XLA re-enablement spike test succeeded
+
+STDERR:
+2026-01-06 17:18:29.592221: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1767748709.603763  123983 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1767748709.607247  123983 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1767748709.616575  123983 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1767748709.616584  123983 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1767748709.616586  123983 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1767748709.616588  123983 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-06 17:18:29.619356: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+I0000 00:00:1767748711.786578  123983 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 9423 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1767748714.566088  124137 service.cc:152] XLA service 0x70b558003370 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1767748714.566108  124137 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2026-01-06 17:18:34.615015: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+2026-01-06 17:18:34.803455: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_1/padded_obj_2_1/cond/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_1/padded_obj_2_1/cond/while/cond_0
+2026-01-06 17:18:34.866647: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_1/padded_obj_2_1/cond_1/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_1/padded_obj_2_1/cond_1/while/cond_tfg_inlined_functional_1/padded_obj_2_1/cond_1/while_1_0
+2026-01-06 17:18:34.910329: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_1/padded_obj_2_1/cond_2/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_1/padded_obj_2_1/cond_2/while/cond_tfg_inlined_functional_1/padded_obj_2_1/cond_2/while_1_0
+2026-01-06 17:18:34.957088: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_1/padded_obj_2_1/cond_3/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_1/padded_obj_2_1/cond_3/while/cond_tfg_inlined_functional_1/padded_obj_2_1/cond_3/while_1_0
+I0000 00:00:1767748715.003861  124137 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1767748716.396131  124137 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+2026-01-06 17:18:37.915974: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_1/padded_obj_2_1/cond/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_1/padded_obj_2_1/cond/while/cond_0
+2026-01-06 17:18:37.974482: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_1/padded_obj_2_1/cond_1/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_1/padded_obj_2_1/cond_1/while/cond_0
+2026-01-06 17:18:38.015786: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_1/padded_obj_2_1/cond_2/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_1/padded_obj_2_1/cond_2/while/cond_tfg_inlined_functional_1/padded_obj_2_1/cond_2/while_1_0
+2026-01-06 17:18:38.058775: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_1/padded_obj_2_1/cond_3/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_1/padded_obj_2_1/cond_3/while/cond_0
+
+PASSED
+
+============================== 1 passed in 14.01s ==============================
