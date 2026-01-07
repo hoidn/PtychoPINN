@@ -1,3 +1,37 @@
+# 2026-01-09T03:00:00Z: PARALLEL-API-INFERENCE — Task 1 verified, Task 2-3 handoff
+
+- dwell: 2 (continuing focus; dwell incremented since last loop was implementation)
+- Focus issue: PARALLEL-API-INFERENCE — Programmatic TF/PyTorch API parity (Task 2-3)
+- Action type: Review → Implementation handoff
+- Mode: Implementation
+- Git sync: `git pull --rebase` → Already up to date.
+- Documents reviewed: docs/fix_plan.md, galph_memory.md, plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T020000Z/*.log (Task 1 evidence), scripts/pytorch_api_demo.py (existing demo), scripts/inference/inference.py:323-507 (new helpers).
+
+**Task 1 Verification (COMPLETE ✅):**
+- Ralph commit 781ec2f2: Extracted TF helper per design
+- Tests: 7/7 passed (`tests/scripts/test_tf_inference_helper.py`, 3.74s)
+- Integration: 1/1 passed (`tests/test_integration_workflow.py`, 35.93s)
+- Evidence: `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T020000Z/` (pytest_tf_helper.log, pytest_integration.log)
+
+**Task 2 Scope (Revised):**
+- `scripts/pytorch_api_demo.py` **already exists** (discovered during review)
+- Currently uses old TF path: `tf_components.perform_inference`
+- Need to update to use new `_run_tf_inference_and_reconstruct` helper for API parity
+- PyTorch path unchanged (already uses `torch_infer`)
+
+**Task 3 Scope:**
+- Create `tests/scripts/test_api_demo.py` smoke test
+- Fast tests: import checks, signature validation
+- Slow tests: full backend execution (marked `@pytest.mark.slow`)
+
+**input.md Updated:** Task 2-3 with demo script update and smoke test creation.
+
+- Next: Ralph updates demo script TF path, adds smoke test
+- <Action State>: [ready_for_implementation]
+- focus=PARALLEL-API-INFERENCE state=ready_for_implementation dwell=2 ralph_last_commit=781ec2f2 artifacts=plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/ next_action=implement Task 2-3 (demo script update + smoke test)
+
+---
+
 # 2026-01-09T02:00:00Z: PARALLEL-API-INFERENCE — Task 1 implementation handoff
 
 - dwell: 1 (continuing focus from prior planning loop)

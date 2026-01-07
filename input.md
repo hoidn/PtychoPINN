@@ -1,184 +1,145 @@
-# PARALLEL-API-INFERENCE — Task 1: Extract TF Inference Helper
+# PARALLEL-API-INFERENCE — Task 2: Update Demo Script to Use New TF Helper
 
-**Summary:** Extract reusable TF inference helper from `scripts/inference/inference.py` following Phase A extraction design.
+**Summary:** Update `scripts/pytorch_api_demo.py` to use `_run_tf_inference_and_reconstruct` and add smoke test.
 
-**Focus:** PARALLEL-API-INFERENCE — Programmatic TF/PyTorch API parity (Task 1)
+**Focus:** PARALLEL-API-INFERENCE — Programmatic TF/PyTorch API parity (Task 2-3)
 
 **Branch:** feature/torchapi-newprompt-2
 
 **Mapped tests:**
-- `tests/test_integration_workflow.py` — regression for TF inference (existing)
-- `tests/scripts/test_tf_inference_helper.py::TestTFInferenceHelper` — new signature tests (to be created)
+- `tests/scripts/test_api_demo.py::TestPyTorchApiDemo` — new smoke test (to be created)
+- `tests/scripts/test_tf_inference_helper.py::TestTFInferenceHelper` — regression (existing, 7 tests)
 
-**Artifacts:** `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T020000Z/`
+**Artifacts:** `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/`
 
 ---
 
 ## Do Now
 
-### Task 1: Extract `_run_tf_inference_and_reconstruct()` helper
+### Task 2: Update demo script to use new TF helper
 
-**Implement: `scripts/inference/inference.py::_run_tf_inference_and_reconstruct`**
+**Implement: `scripts/pytorch_api_demo.py::run_backend`**
 
-1. **Create new helper function** at `scripts/inference/inference.py` (after `perform_inference`):
+The demo script currently uses the old TF inference path (`tf_components.perform_inference`). Update it to use the new `_run_tf_inference_and_reconstruct` helper for API parity.
+
+1. **Add import for new helper** (replace `tf_components.perform_inference`):
 
    ```python
-   def _run_tf_inference_and_reconstruct(
-       model: tf.keras.Model,
-       raw_data: "RawData",
-       config: dict,
-       K: int = 4,
-       nsamples: Optional[int] = None,
-       quiet: bool = False,
-       debug_dump_dir: Optional[Path] = None,
-       debug_patch_limit: int = 16,
-       seed: int = 45,
-   ) -> Tuple[np.ndarray, np.ndarray]:
-       """
-       Core TensorFlow inference helper for programmatic use.
-
-       Mirrors PyTorch `_run_inference_and_reconstruct()` signature for API parity.
-
-       Args:
-           model: Loaded TensorFlow model (from load_inference_bundle_with_backend)
-           raw_data: RawData instance with test data
-           config: Dict with 'N', 'gridsize' keys (from model bundle)
-           K: Number of nearest neighbors (default: 4)
-           nsamples: Number of samples; if None, uses all available
-           quiet: Suppress progress output
-           debug_dump_dir: Optional directory for debug artifacts
-           debug_patch_limit: Patches to visualize in debug mode
-           seed: Random seed for reproducibility (default: 45)
-
-       Returns:
-           Tuple of (amplitude, phase) as numpy arrays
-
-       Notes:
-           - Expects params.cfg to be populated via CONFIG-001 before call
-           - Ground truth not returned (use extract_ground_truth separately)
-       """
+   from scripts.inference.inference import (
+       _run_tf_inference_and_reconstruct as tf_infer,
+       extract_ground_truth,
+   )
    ```
 
-2. **Move core logic from `perform_inference` body** (lines 341-424) into new helper:
-   - Lines 348-349: Set random seeds
-   - Lines 353-354: Generate grouped data via `raw_data.generate_grouped_data()`
-   - Lines 362-364: Create `PtychoDataContainer` via `loader.load()`
-   - Lines 370-372: Call `reconstruct_image()` and capture offsets
-   - Lines 376-381: Reassemble and extract amplitude/phase
-   - Lines 415-422: Debug artifact dump (conditional)
-   - Return only `(amplitude, phase)` — not ground truth
+2. **Update TF inference call** in `run_backend()` (lines 79-82):
 
-3. **Create `extract_ground_truth()` utility** in same file:
-
+   Replace:
    ```python
-   def extract_ground_truth(raw_data: "RawData") -> Optional[Tuple[np.ndarray, np.ndarray]]:
-       """
-       Extract ground truth amplitude/phase from RawData if available and valid.
-
-       Returns:
-           (amplitude, phase) tuple if valid ground truth exists, else None
-       """
-       from ptycho.nbutils import crop_to_non_uniform_region_with_buffer
-
-       if not hasattr(raw_data, 'objectGuess') or raw_data.objectGuess is None:
-           return None
-       if np.allclose(raw_data.objectGuess, 0, atol=1e-10):
-           return None
-       obj_complex = raw_data.objectGuess
-       if (np.allclose(obj_complex.real, obj_complex.real.flat[0], atol=1e-10) and
-           np.allclose(obj_complex.imag, obj_complex.imag.flat[0], atol=1e-10)):
-           return None
-
-       epie_phase = crop_to_non_uniform_region_with_buffer(np.angle(obj_complex), buffer=-20)
-       epie_amplitude = crop_to_non_uniform_region_with_buffer(np.abs(obj_complex), buffer=-20)
-       return (epie_amplitude, epie_phase)
+   else:
+       container = tf_components.create_ptycho_data_container(test_data, infer_cfg.model)
+       amp, phase = tf_components.perform_inference(model, container, params_dict, infer_cfg, quiet=True)
+       tf_components.save_outputs(amp, phase, {}, infer_cfg.output_dir)
    ```
 
-4. **Refactor `perform_inference` as deprecated wrapper**:
-
+   With:
    ```python
-   def perform_inference(model, test_data, config, K, nsamples,
-                         debug_dump_dir=None, debug_patch_limit=16):
-       """
-       .. deprecated::
-           Use `_run_tf_inference_and_reconstruct()` for new code.
-       """
-       import warnings
-       warnings.warn(
-           "perform_inference is deprecated; use _run_tf_inference_and_reconstruct",
-           DeprecationWarning, stacklevel=2
+   else:
+       # Use new helper for API parity with PyTorch path
+       config = {'N': infer_cfg.model.N, 'gridsize': infer_cfg.model.gridsize}
+       amp, phase = tf_infer(
+           model=model,
+           raw_data=RawData.from_file(str(DATA)),
+           config=config,
+           K=7,  # neighbor_count
+           nsamples=infer_cfg.n_groups,
+           quiet=True,
        )
-       amp, phase = _run_tf_inference_and_reconstruct(
-           model, test_data, config, K=K, nsamples=nsamples,
-           quiet=False, debug_dump_dir=debug_dump_dir,
-           debug_patch_limit=debug_patch_limit, seed=45,
-       )
-       gt = extract_ground_truth(test_data)
-       if gt:
-           return amp, phase, gt[0], gt[1]
-       return amp, phase, None, None
+       # Save outputs
+       import numpy as np
+       out_path = infer_cfg.output_dir
+       out_path.mkdir(parents=True, exist_ok=True)
+       np.savez(out_path / "reconstruction.npz", amplitude=amp, phase=phase)
    ```
 
-5. **Create minimal test** `tests/scripts/test_tf_inference_helper.py`:
+3. **Remove unused import** `tf_components` if no longer needed.
 
-   ```python
-   """Tests for TensorFlow inference helper extraction (PARALLEL-API-INFERENCE)."""
-   import pytest
-   import inspect
+### Task 3: Add smoke test
+
+**Implement: `tests/scripts/test_api_demo.py`**
+
+Create minimal smoke test that verifies the demo script's `run_backend` function works for both backends.
+
+```python
+"""Smoke tests for scripts/pytorch_api_demo.py (PARALLEL-API-INFERENCE)."""
+import pytest
+from pathlib import Path
+import shutil
 
 
-   class TestTFInferenceHelper:
-       """Validate _run_tf_inference_and_reconstruct signature and availability."""
+class TestPyTorchApiDemo:
+    """Smoke tests for the unified API demo script."""
 
-       def test_helper_is_importable(self):
-           """Helper function can be imported from scripts.inference.inference."""
-           from scripts.inference.inference import _run_tf_inference_and_reconstruct
-           assert callable(_run_tf_inference_and_reconstruct)
+    @pytest.fixture
+    def work_dir(self, tmp_path):
+        """Create temporary work directory."""
+        return tmp_path / "api_demo_test"
 
-       def test_helper_signature_matches_spec(self):
-           """Helper signature has required parameters per extraction design."""
-           from scripts.inference.inference import _run_tf_inference_and_reconstruct
-           sig = inspect.signature(_run_tf_inference_and_reconstruct)
-           params = list(sig.parameters.keys())
+    def test_demo_module_importable(self):
+        """Demo script can be imported without side effects."""
+        from scripts import pytorch_api_demo
+        assert hasattr(pytorch_api_demo, 'run_backend')
+        assert hasattr(pytorch_api_demo, 'main')
 
-           # Required positional params
-           assert 'model' in params
-           assert 'raw_data' in params
-           assert 'config' in params
+    def test_run_backend_function_signature(self):
+        """run_backend function has expected signature."""
+        import inspect
+        from scripts.pytorch_api_demo import run_backend
+        sig = inspect.signature(run_backend)
+        params = list(sig.parameters.keys())
+        assert 'backend' in params
+        assert 'out_dir' in params
 
-           # Optional params with defaults
-           assert 'K' in params
-           assert 'nsamples' in params
-           assert 'quiet' in params
-           assert 'seed' in params
+    @pytest.mark.slow
+    def test_tensorflow_backend_runs(self, work_dir):
+        """TensorFlow backend executes without error (slow)."""
+        from scripts.pytorch_api_demo import run_backend
 
-       def test_extract_ground_truth_is_importable(self):
-           """extract_ground_truth utility can be imported."""
-           from scripts.inference.inference import extract_ground_truth
-           assert callable(extract_ground_truth)
+        out_dir = work_dir / "tf"
+        run_backend("tensorflow", out_dir)
 
-       def test_deprecated_wrapper_still_works(self):
-           """perform_inference wrapper emits deprecation warning."""
-           import warnings
-           from scripts.inference.inference import perform_inference
-           # Just check it's callable — full test is in integration suite
-           assert callable(perform_inference)
-   ```
+        # Verify outputs exist
+        assert (out_dir / "train_outputs").exists()
+        assert (out_dir / "inference_outputs").exists()
+        assert (out_dir / "inference_outputs" / "reconstruction.npz").exists()
+
+    @pytest.mark.slow
+    @pytest.mark.skipif(
+        not pytest.importorskip("torch", reason="PyTorch not available"),
+        reason="PyTorch required"
+    )
+    def test_pytorch_backend_runs(self, work_dir):
+        """PyTorch backend executes without error (slow)."""
+        from scripts.pytorch_api_demo import run_backend
+
+        out_dir = work_dir / "pytorch"
+        run_backend("pytorch", out_dir)
+
+        # Verify outputs exist
+        assert (out_dir / "train_outputs").exists()
+        assert (out_dir / "inference_outputs").exists()
+```
 
 ### Verification
 
 ```bash
-# Create test directory
-mkdir -p tests/scripts
+# Run new smoke tests (imports only, fast)
+pytest tests/scripts/test_api_demo.py -v -k "not slow" 2>&1 | tee plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/pytest_api_demo.log
 
-# Run new tests
-pytest tests/scripts/test_tf_inference_helper.py -v 2>&1 | tee plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T020000Z/pytest_tf_helper.log
-
-# Run integration regression
-pytest tests/test_integration_workflow.py -v 2>&1 | tee plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T020000Z/pytest_integration.log
+# Run TF helper regression
+pytest tests/scripts/test_tf_inference_helper.py -v 2>&1 | tee plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/pytest_tf_helper_regression.log
 
 # Collect test count
-pytest tests/scripts/ --collect-only 2>&1 | tee plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T020000Z/pytest_collect.log
+pytest tests/scripts/ --collect-only 2>&1 | tee plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/pytest_collect.log
 ```
 
 ---
@@ -187,30 +148,30 @@ pytest tests/scripts/ --collect-only 2>&1 | tee plans/active/PARALLEL-API-INFERE
 
 | Step | Command | Artifact |
 |------|---------|----------|
-| Run new helper tests | `pytest tests/scripts/test_tf_inference_helper.py -v` | `pytest_tf_helper.log` |
-| Run integration regression | `pytest tests/test_integration_workflow.py -v` | `pytest_integration.log` |
+| Run smoke tests (fast) | `pytest tests/scripts/test_api_demo.py -v -k "not slow"` | `pytest_api_demo.log` |
+| Run TF helper regression | `pytest tests/scripts/test_tf_inference_helper.py -v` | `pytest_tf_helper_regression.log` |
 | Collect test count | `pytest tests/scripts/ --collect-only` | `pytest_collect.log` |
 
 ---
 
 ## Pitfalls To Avoid
 
-1. **DO NOT** change the return type of existing `perform_inference` — it must remain backward-compatible (4-tuple)
-2. **DO NOT** remove ground truth handling from `perform_inference` — move to separate utility, call from wrapper
-3. **DO NOT** modify `params.cfg` handling — assume CONFIG-001 compliance as precondition
-4. **DO** use `from __future__ import annotations` for forward references in type hints
-5. **DO** keep the `quiet` parameter for progress suppression (matches PyTorch helper)
-6. **DO** preserve existing DEBUG print statements in helper (move them, don't delete)
-7. **DO** preserve `_dump_tf_inference_debug_artifacts` call for debug mode
+1. **DO NOT** break the existing PyTorch path — only update TF path
+2. **DO NOT** change the `DATA` path or fixture requirements
+3. **DO** ensure params.cfg is populated before TF inference (CONFIG-001)
+4. **DO** use `from __future__ import annotations` for forward references
+5. **DO** preserve the training step — only update inference
+6. **DO** add `# noqa: F401` if imports appear unused (they're for CLI/main)
+7. **DO** mark slow tests with `@pytest.mark.slow` for CI gating
 
 ---
 
 ## If Blocked
 
-If imports fail or tests don't collect:
-1. Check Python path includes repo root (`export PYTHONPATH=.`)
-2. Verify `tests/scripts/__init__.py` exists
-3. Log exact error to `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T020000Z/blocker.md`
+If imports fail or the demo script errors:
+1. Check `params.cfg` initialization via `update_legacy_dict`
+2. Verify the minimal fixture exists at `tests/fixtures/pytorch_integration/minimal_dataset_v1.npz`
+3. Log exact error to `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/blocker.md`
 
 ---
 
@@ -218,17 +179,17 @@ If imports fail or tests don't collect:
 
 | Finding ID | Adherence |
 |------------|-----------|
-| CONFIG-001 | Document precondition in docstring; assume params.cfg populated before call |
-| POLICY-001 | N/A (TensorFlow-only extraction) |
-| ANTIPATTERN-001 | Avoid import-time side effects; lazy imports inside function body |
+| CONFIG-001 | Ensure params.cfg populated before TF inference |
+| POLICY-001 | PyTorch path unchanged, torch available |
+| ANTIPATTERN-001 | Lazy imports inside function; no module-level side effects |
 
 ---
 
 ## Pointers
 
-- Extraction design: `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T010000Z/extraction_design.md`
-- TF inference source: `scripts/inference/inference.py:321-428`
-- PyTorch reference: `ptycho_torch/inference.py:426-632`
+- New TF helper: `scripts/inference/inference.py:353-457`
+- PyTorch helper: `ptycho_torch/inference.py:426-632`
+- Demo script: `scripts/pytorch_api_demo.py:33-84`
 - Fix plan item: `docs/fix_plan.md` § PARALLEL-API-INFERENCE
 - Testing guide: `docs/TESTING_GUIDE.md` § Integration Tests
 
@@ -236,4 +197,4 @@ If imports fail or tests don't collect:
 
 ## Next Up (if finished early)
 
-- Task 2: Create `scripts/pytorch_api_demo.py` with both backends
+- Task 4: Document in `docs/workflows/pytorch.md` (add "Programmatic usage" section)
