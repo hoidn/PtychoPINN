@@ -24,10 +24,21 @@ References:
     - Implementation plan: plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/implementation.md
     - Spec: docs/specs/spec-ptycho-core.md (Physics/Normalization)
 """
+# CRITICAL: Disable XLA translation BEFORE any ptycho imports to avoid shape caching
+# issues when creating models with different N values. See MODULE-SINGLETON-001.
+# This must be at the very top, before any other imports that might trigger ptycho.
+import os
+os.environ['USE_XLA_TRANSLATE'] = '0'
+# Also disable TensorFlow's XLA JIT to prevent compile-time constant errors
+os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=0'
+
+# Force eager execution to avoid Keras 3.x XLA graph compilation issues
+# with dynamic batch dimensions in the non-XLA translation path.
+import tensorflow as tf
+tf.config.run_functions_eagerly(True)
 
 import argparse
 import logging
-import os
 import sys
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
