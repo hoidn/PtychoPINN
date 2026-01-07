@@ -61,40 +61,31 @@ with np.load(path, allow_pickle=True) as data:
 - Commit: 5cd130d3
 
 ## PINN-CHUNKED-001 - PINN Chunked Inference Architecture Limitation
-**Category:** Architecture, GPU Memory, Refactor Required  
-**Impact:** compare_models.py large-dataset PINN inference  
-**Location:** scripts/compare_models.py:1026-1146  
-**Date:** 2025-11-13
+**Category:** Architecture, GPU Memory, Refactor Required
+**Impact:** compare_models.py large-dataset PINN inference
+**Location:** scripts/compare_models.py:1026-1146, ptycho/loader.py (PtychoDataContainer)
+**Date:** 2025-11-13 (Reported), 2026-01-07 (Resolved)
 
 ### Issue
 Dense test-split PINN inference fails with OOM (`ResourceExhaustedError` in `ptycho/loader.py:141 → combine_complex()`) when processing 5216 already-grouped diffraction patterns. Attempted chunked PINN inference (similar to BASELINE-CHUNKED-001) hits architectural limitation: NPZ files contain pre-grouped data, and `create_ptycho_data_container()` eagerly converts ALL groups to GPU tensors before inference begins.
 
-### Current Implementation (Partial)
-Added `--pinn-chunk-size` and `--pinn-predict-batch-size` CLI flags to `scripts/compare_models.py` with chunked inference skeleton and `slice_raw_data()` helper. Implementation works for translation guard tests but fails on real datasets because:
-1. Slicing RawData before `create_ptycho_data_container()` doesn't work—data is already grouped
-2. `PtychoDataContainer.__init__` eagerly allocates GPU tensors for the full dataset via `combine_complex()`
-3. Proper chunking requires loading groups AFTER container creation, which needs architectural refactor
+### Resolution (2026-01-07)
+**FEAT-LAZY-LOADING-001 Phase B** implemented lazy tensor allocation in `PtychoDataContainer`:
+1. Data stored as NumPy arrays internally (`_X_np`, `_Y_I_np`, etc.)
+2. Lazy property accessors (`.X`, `.Y`, etc.) convert to tensors on first access with caching
+3. `as_tf_dataset(batch_size)` method provides memory-efficient streaming for training
+4. `load()` function updated to pass NumPy arrays (no eager tensorification)
+5. Backward compatible: existing code accessing `.X`, `.Y` still works (triggers lazy conversion)
 
-### Architectural Blocker
-`PtychoDataContainer` couples data loading with GPU tensor allocation. Chunked PINN inference would require:
-1. Refactor `PtychoDataContainer.__init__` to delay `combine_complex()` GPU conversion
-2. Add lazy loading or chunked tensor methods
-3. Update all downstream code expecting eager TF tensors
-4. Extensive testing across workflows (estimated 2-3 loops)
-
-### Mitigation (Pragmatic)
-**Proceed with train-only Baseline metrics for Phase G dense pipeline.**
-- Train split (5088 groups): Succeeds with full Baseline stats (mean=0.188, 78.7M nonzero pixels)
-- Test split (5216 groups): Run 2-way comparison (PINN vs PtyChi only, skip Baseline)
-- Alternative: Reduce test split size to ≤5000 groups or regenerate Phase C with smaller test split
+For large datasets, use `container.as_tf_dataset(batch_size)` instead of accessing `.X`, `.Y` directly.
 
 ### Evidence
-- Blocker docs: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/red/{blocked_20251113T220800Z_test_full_oom_despite_chunking.md,blocked_20251113T230000Z_chunking_architecture_limit.md}`
-- Translation tests: GREEN (2/2 passed, 6.16s) with `--pinn-chunk-size` flags present
-- Implementation: scripts/compare_models.py:107-110 (flags), 219-235 (slice_raw_data helper), 1026-1146 (chunked inference logic with architectural limitation)
+- Fix implementation: `ptycho/loader.py:97-321` (PtychoDataContainer with lazy loading)
+- Tests: `tests/test_lazy_loading.py::TestLazyLoading` (5 tests, all passing)
+- Artifacts: `plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-07T220000Z/`
 
 ### Status
-**Active** — Flags/helpers committed as nucleus; full chunked PINN inference blocked pending architectural refactor.
+**Resolved** — Lazy tensor allocation implemented. Large datasets can now be processed without OOM at container construction time.
 
 ## TF-NON-XLA-SHAPE-001 - Non-XLA Translation Batch Dimension Mismatch
 **Category:** TensorFlow, Translation, Shape Handling

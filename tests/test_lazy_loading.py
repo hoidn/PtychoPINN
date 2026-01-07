@@ -106,31 +106,198 @@ class TestEagerLoadingOOM:
             )
 
 
-class TestLazyLoadingPlaceholder:
-    """Placeholder tests for lazy loading implementation (Phase B).
+class TestLazyLoading:
+    """Tests for lazy loading implementation (Phase B).
 
-    These tests define the expected behavior of the lazy loading fix.
-    They are marked as skip until Phase B is implemented.
+    These tests verify that PtychoDataContainer stores NumPy arrays internally
+    and converts to TensorFlow tensors only on demand.
     """
 
-    @pytest.mark.skip(reason="Phase B not implemented yet")
     def test_lazy_loading_avoids_oom(self):
-        """Verify lazy loading handles large datasets without OOM.
+        """Verify lazy loading doesn't allocate GPU memory at construction."""
+        N = 64
+        gridsize = 2
+        C = gridsize ** 2
+        n_images = 1000
 
-        After Phase B, this test should:
-        1. Create a LazyPtychoDataContainer with large dataset
-        2. Verify no immediate GPU memory allocation
-        3. Access batches via .as_dataset() without OOM
-        """
-        pass
+        # Create NumPy data
+        X = np.random.rand(n_images, N, N, C).astype(np.float32)
+        Y_I = np.random.rand(n_images, N, N, C).astype(np.float32)
+        Y_phi = np.random.rand(n_images, N, N, C).astype(np.float32)
+        coords = np.random.rand(n_images, 1, 2, C).astype(np.float32)
+        probe = np.random.rand(N, N).astype(np.complex64)
 
-    @pytest.mark.skip(reason="Phase B not implemented yet")
+        # Measure GPU memory BEFORE creating container
+        if tf.config.list_physical_devices('GPU'):
+            initial_mem = tf.config.experimental.get_memory_info('GPU:0')['current']
+        else:
+            initial_mem = 0
+
+        # Create container with NumPy arrays (should NOT allocate GPU memory)
+        container = PtychoDataContainer(
+            X=X,  # NumPy array, not tensor
+            Y_I=Y_I,
+            Y_phi=Y_phi,
+            norm_Y_I=np.ones(n_images),
+            YY_full=None,
+            coords_nominal=coords,
+            coords_true=coords,
+            nn_indices=np.zeros((n_images, 7), dtype=np.int32),
+            global_offsets=coords,
+            local_offsets=coords,
+            probeGuess=probe,
+        )
+
+        # Measure GPU memory AFTER creating container (should be unchanged)
+        if tf.config.list_physical_devices('GPU'):
+            after_construct_mem = tf.config.experimental.get_memory_info('GPU:0')['current']
+        else:
+            after_construct_mem = 0
+
+        # Memory should not have increased significantly (allow 1MB tolerance for overhead)
+        memory_delta = after_construct_mem - initial_mem
+        assert memory_delta < 1e6, f"Container construction allocated {memory_delta/1e6:.1f} MB"
+
+        # Verify data is accessible via properties (this WILL allocate)
+        assert container.X.shape == (n_images, N, N, C)
+        assert len(container) == n_images
+
     def test_lazy_container_backward_compatible(self):
-        """Verify lazy container works with existing training pipeline.
+        """Verify lazy container works with existing training pipeline patterns."""
+        N = 64
+        gridsize = 2
+        C = gridsize ** 2
+        n_images = 100
 
-        After Phase B, accessing .X or .Y directly should:
-        1. Log a deprecation warning
-        2. Return the full tensor (for backward compatibility)
-        3. Work correctly with existing code
-        """
-        pass
+        X = np.random.rand(n_images, N, N, C).astype(np.float32)
+        Y_I = np.random.rand(n_images, N, N, C).astype(np.float32)
+        Y_phi = np.random.rand(n_images, N, N, C).astype(np.float32)
+        coords = np.random.rand(n_images, 1, 2, C).astype(np.float32)
+        probe = np.random.rand(N, N).astype(np.complex64)
+
+        container = PtychoDataContainer(
+            X=X,
+            Y_I=Y_I,
+            Y_phi=Y_phi,
+            norm_Y_I=np.ones(n_images),
+            YY_full=None,
+            coords_nominal=coords,
+            coords_true=coords,
+            nn_indices=np.zeros((n_images, 7), dtype=np.int32),
+            global_offsets=coords,
+            local_offsets=coords,
+            probeGuess=probe,
+        )
+
+        # Test backward-compatible property access
+        assert tf.is_tensor(container.X)
+        assert tf.is_tensor(container.Y)
+        assert tf.is_tensor(container.coords_nominal)
+        assert tf.is_tensor(container.probe)
+
+        # Verify shapes
+        assert container.X.shape == (n_images, N, N, C)
+        assert container.Y.shape == (n_images, N, N, C)
+        assert container.Y.dtype == tf.complex64
+
+        # Verify coords alias works
+        assert container.coords.shape == container.coords_nominal.shape
+
+    def test_lazy_caching(self):
+        """Verify that tensor conversion is cached (same object returned)."""
+        N = 32
+        C = 4
+        n_images = 10
+
+        X = np.random.rand(n_images, N, N, C).astype(np.float32)
+        Y_I = np.random.rand(n_images, N, N, C).astype(np.float32)
+        Y_phi = np.random.rand(n_images, N, N, C).astype(np.float32)
+        coords = np.random.rand(n_images, 1, 2, C).astype(np.float32)
+        probe = np.random.rand(N, N).astype(np.complex64)
+
+        container = PtychoDataContainer(
+            X=X,
+            Y_I=Y_I,
+            Y_phi=Y_phi,
+            norm_Y_I=np.ones(n_images),
+            YY_full=None,
+            coords_nominal=coords,
+            coords_true=coords,
+            nn_indices=np.zeros((n_images, 7), dtype=np.int32),
+            global_offsets=coords,
+            local_offsets=coords,
+            probeGuess=probe,
+        )
+
+        # First access triggers conversion
+        X_first = container.X
+        # Second access should return cached tensor (same object)
+        X_second = container.X
+        assert X_first is X_second, "Tensor should be cached"
+
+    def test_tensor_input_handled(self):
+        """Verify that tensor inputs are converted to numpy and stored."""
+        N = 32
+        C = 4
+        n_images = 10
+
+        # Pass TensorFlow tensors instead of NumPy arrays
+        X = tf.random.uniform((n_images, N, N, C), dtype=tf.float32)
+        Y_I = tf.random.uniform((n_images, N, N, C), dtype=tf.float32)
+        Y_phi = tf.random.uniform((n_images, N, N, C), dtype=tf.float32)
+        coords = tf.random.uniform((n_images, 1, 2, C), dtype=tf.float32)
+        probe = tf.complex(
+            tf.random.uniform((N, N)),
+            tf.random.uniform((N, N))
+        )
+
+        container = PtychoDataContainer(
+            X=X,
+            Y_I=Y_I,
+            Y_phi=Y_phi,
+            norm_Y_I=np.ones(n_images),
+            YY_full=None,
+            coords_nominal=coords,
+            coords_true=coords,
+            nn_indices=np.zeros((n_images, 7), dtype=np.int32),
+            global_offsets=coords.numpy(),
+            local_offsets=coords.numpy(),
+            probeGuess=probe,
+        )
+
+        # Verify internal storage is NumPy
+        assert isinstance(container._X_np, np.ndarray)
+        assert isinstance(container._Y_I_np, np.ndarray)
+        assert isinstance(container._probe_np, np.ndarray)
+
+        # Verify property access still returns tensors
+        assert tf.is_tensor(container.X)
+        assert tf.is_tensor(container.probe)
+
+    def test_len_method(self):
+        """Verify __len__ returns correct sample count."""
+        N = 32
+        C = 4
+        n_images = 50
+
+        X = np.random.rand(n_images, N, N, C).astype(np.float32)
+        Y_I = np.random.rand(n_images, N, N, C).astype(np.float32)
+        Y_phi = np.random.rand(n_images, N, N, C).astype(np.float32)
+        coords = np.random.rand(n_images, 1, 2, C).astype(np.float32)
+        probe = np.random.rand(N, N).astype(np.complex64)
+
+        container = PtychoDataContainer(
+            X=X,
+            Y_I=Y_I,
+            Y_phi=Y_phi,
+            norm_Y_I=np.ones(n_images),
+            YY_full=None,
+            coords_nominal=coords,
+            coords_true=coords,
+            nn_indices=np.zeros((n_images, 7), dtype=np.int32),
+            global_offsets=coords,
+            local_offsets=coords,
+            probeGuess=probe,
+        )
+
+        assert len(container) == n_images

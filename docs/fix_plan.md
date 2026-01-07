@@ -146,23 +146,24 @@
 ### [FEAT-LAZY-LOADING-001] Implement Lazy Tensor Allocation in loader.py
 - Depends on: `spec-ptycho-workflow.md` Resource Constraints; finding `PINN-CHUNKED-001`.
 - Priority: High
-- Status: in_progress — Phase A complete; Phase B (lazy container implementation) next.
+- Status: in_progress — Phase B complete; Phase C (update training pipeline) next.
 - Owner/Date: Ralph/2026-01-07
 - Working Plan: `plans/active/FEAT-LAZY-LOADING-001/implementation.md`
 - Summary: `plans/active/FEAT-LAZY-LOADING-001/summary.md`
 - Reports Hub: `plans/active/FEAT-LAZY-LOADING-001/reports/`
 - Goals:
-  - Refactor `PtychoDataContainer` to keep datasets in NumPy/mmap until batch request.
-  - Provide streaming/batching APIs (`.as_dataset()` or equivalent).
+  - Refactor `PtychoDataContainer` to keep datasets in NumPy/mmap until batch request. ✅
+  - Provide streaming/batching APIs (`.as_tf_dataset()` or equivalent). ✅
   - Update dependent scripts (train_pinn, compare_models) to use lazy interfaces.
 - Exit Criteria:
   - `tests/test_lazy_loading.py::test_oom_with_eager_loading` demonstrates current OOM behavior. ✅ (test exists, skipped by default)
-  - `tests/test_lazy_loading.py::test_lazy_loading_avoids_oom` passes with lazy container.
-  - Existing training pipeline works with lazy container (backward compatibility).
+  - `tests/test_lazy_loading.py::test_lazy_loading_avoids_oom` passes with lazy container. ✅
+  - Existing training pipeline works with lazy container (backward compatibility). ✅
 - Return Condition: Lazy container merged with OOM fix tests; STUDY-SYNTH-FLY64 unblocked.
 - Attempts History:
   - *2026-01-07T21:00:00Z (Phase A start):* Focus selected after STUDY-SYNTH-DOSE-COMPARISON-001 completion. Code analysis complete: `loader.py:309-311,325` contains eager `tf.convert_to_tensor` calls that cause OOM. Phase A1 task: create OOM reproduction script/test. Artifacts: `plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-07T210000Z/`.
   - *2026-01-07T21:30:00Z (Phase A complete):* Created `tests/test_lazy_loading.py` with `TestEagerLoadingOOM` class. Changes: (1) Added `test_memory_usage_scales_with_dataset_size` parametrized test (n_images=100,500,1000); (2) Added `test_oom_with_eager_loading` with `@pytest.mark.oom` + skip (run with `--run-oom`); (3) Added `TestLazyLoadingPlaceholder` with Phase B stubs; (4) Updated `tests/conftest.py` with `--run-oom` option and `oom` marker. **Result: 3 PASSED, 3 SKIPPED (5.13s)** — collection verified (6 tests), memory scaling tests demonstrate eager allocation pattern. Artifacts: `plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-07T210000Z/` (pytest_collect.log, pytest_memory_scaling.log). Next: Phase B — implement lazy container architecture.
+  - *2026-01-07T22:00:00Z (Phase B complete):* Implemented lazy tensor allocation in `PtychoDataContainer`. Changes: (1) B1: Modified `__init__` to store data as NumPy arrays internally (`_X_np`, `_Y_I_np`, etc.) with `_tensor_cache` for lazy conversion; (2) B2: Added lazy property accessors (`.X`, `.Y`, `.Y_I`, `.Y_phi`, `.coords_nominal`, `.coords_true`, `.probe`) that convert to tensors on first access with caching; (3) B3: Added `as_tf_dataset(batch_size, shuffle)` method for memory-efficient streaming; (4) B3: Added `__len__` method; (5) B4: Updated `load()` function to pass NumPy arrays instead of tensors; (6) B5: Updated tests with 5 new test cases (`TestLazyLoading` class). **Result: 8 PASSED, 1 SKIPPED (5.85s)** — lazy loading tests: `test_lazy_loading_avoids_oom`, `test_lazy_container_backward_compatible`, `test_lazy_caching`, `test_tensor_input_handled`, `test_len_method`. Model factory regression: 3/3 PASSED (25.75s). Artifacts: `plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-07T220000Z/` (pytest_phase_b.log, pytest_collect.log). Next: Phase C — Update training pipeline to optionally use `as_tf_dataset()` for large datasets.
 
 ---
 
