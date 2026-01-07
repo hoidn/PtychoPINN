@@ -1,3 +1,54 @@
+# 2026-01-06T14:00:00Z: FIX-GRIDSIZE-TRANSLATE-BATCH-001 — Root cause confirmed, fix designed
+
+- dwell: 0 (new focus after pivoting from blocked STUDY-SYNTH-DOSE-COMPARISON-001)
+- Focus issue: FIX-GRIDSIZE-TRANSLATE-BATCH-001 — Fix Translation Layer Batch Dimension Mismatch for gridsize>1
+- Action type: Planning → Implementation handoff (code task ready)
+- Mode: Implementation
+- Git sync: `git pull --rebase` → Already up to date.
+- Documents reviewed: docs/fix_plan.md, galph_memory.md (prior entry), ptycho/projective_warp_xla.py:242-300, ptycho/tf_helper.py:716-805 (translate_core), ptycho/tf_helper.py:853-879 (flatten_offsets, _reassemble_patches_position_real), docs/findings.md (TF-NON-XLA-SHAPE-001).
+
+**Root Cause Analysis (CONFIRMED):**
+The bug is in `translate_xla` (projective_warp_xla.py:271):
+```python
+B = tf.shape(translations)[0]  # Gets B from translations
+# ... builds M with shape [B, 3, 3]
+```
+
+Then `projective_warp_xla` at line 63:
+```python
+B = tf.shape(images)[0]  # Gets B from images (different!)
+# ... tiles grid to [B, H, W, 3]
+```
+
+When gridsize>1:
+- Images flattened to (b*C, N, N, 1) where C = gridsize²
+- Translations may be (b, 2) or (b*C, 2) depending on call path
+- M matrix has batch=trans_batch, grid has batch=images_batch
+- Shape mismatch in mask at line 182 when they interact
+
+**Fix Design:**
+Add batch broadcast logic to `translate_xla` BEFORE building M matrices (after line 268):
+```python
+images_batch = tf.shape(images)[0]
+trans_batch = tf.shape(translations)[0]
+translations = tf.cond(
+    tf.not_equal(images_batch, trans_batch),
+    lambda: tf.repeat(translations, images_batch // trans_batch, axis=0),
+    lambda: translations
+)
+```
+
+This mirrors the fix at tf_helper.py:779-794 for the non-XLA path (TF-NON-XLA-SHAPE-001).
+
+**Implementation Plan Created:** plans/active/FIX-GRIDSIZE-TRANSLATE-BATCH-001/implementation.md
+**input.md Updated:** Detailed code changes and test instructions for Ralph
+
+- Next: Ralph implements broadcast fix in translate_xla and runs regression tests
+- <Action State>: [ready_for_implementation]
+- focus=FIX-GRIDSIZE-TRANSLATE-BATCH-001 state=ready_for_implementation dwell=0 ralph_last_commit=none artifacts=plans/active/FIX-GRIDSIZE-TRANSLATE-BATCH-001/reports/2026-01-06T140000Z/ next_action=implement batch broadcast in translate_xla
+
+---
+
 # 2026-01-07T08:00:00Z: STUDY-SYNTH-DOSE-COMPARISON-001 blocked — Translation layer gridsize>1 batch mismatch
 
 ## Ralph Debugging Findings (CRITICAL — Root Cause Analysis)

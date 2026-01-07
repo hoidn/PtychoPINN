@@ -72,23 +72,27 @@
 ### [FIX-GRIDSIZE-TRANSLATE-BATCH-001] Fix Translation Layer Batch Dimension Mismatch for gridsize>1
 - Depends on: None
 - Priority: **Critical** (Unblocks STUDY-SYNTH-DOSE-COMPARISON-001)
-- Status: pending — new initiative filed 2026-01-07.
+- Status: in_progress — root cause identified, fix designed.
 - Owner/Date: Ralph/2026-01-07
-- Working Plan: TBD
+- Working Plan: `plans/active/FIX-GRIDSIZE-TRANSLATE-BATCH-001/implementation.md`
 - Reports Hub: `plans/active/FIX-GRIDSIZE-TRANSLATE-BATCH-001/reports/`
 - Goals:
   - Fix batch dimension mismatch in Translation layer when gridsize > 1.
   - Ensure both XLA and non-XLA translation paths handle flattened images (b*C, N, N, 1) correctly.
-  - Key files: `ptycho/tf_helper.py` (Translation, translate_core, _translate_images_simple), `ptycho/projective_warp_xla.py` (translate_xla, projective_warp_xla).
+  - Key files: `ptycho/projective_warp_xla.py` (translate_xla).
 - Exit Criteria:
   - `dose_response_study.py` runs with gridsize=2 without Translation errors.
   - Test `tests/test_model_factory.py::test_multi_n_model_creation` continues to pass.
-- Analysis:
-  - XLA path error: `projective_warp_xla.py:182` — boolean mask has shape (B_M, H, W) from homography M batch, but reshape expects (B_images, H, W) from images batch. B_M ≠ B_images when translations not broadcasted.
-  - Non-XLA path error: `_translate_images_simple:199` — dx/dy have 0 elements (empty translations) but reshape expects batch_size=4 (=gridsize²).
-  - Root cause: `_channel_to_flat` expands images to (b*C, N, N, 1) but corresponding offsets/translations from `flatten_offsets` are (b*C, 2) — BUT somewhere the shapes diverge.
-  - Partial fix attempted: Added broadcast logic to `translate_xla` before complex handling (repeat translations to match images_batch), but XLA graph tracing or caching may interfere.
+  - New test `tests/tf_helper/test_translation_shape_guard.py::test_translate_xla_gridsize_broadcast` passes.
+- Root Cause (CONFIRMED):
+  - `translate_xla` builds homography matrices M with `B = tf.shape(translations)[0]`
+  - `projective_warp_xla` uses `B = tf.shape(images)[0]` to tile the grid
+  - When gridsize>1, images are flattened to (b*C, N, N, 1) but translations may be (b, 2) or (b*C, 2)
+  - The M matrix batch dimension doesn't match the grid batch dimension, causing reshape failures
+- Fix: Add `tf.repeat` broadcast logic in `translate_xla` BEFORE building M matrices, same pattern as non-XLA fix at tf_helper.py:779-794.
 - Return Condition: Gridsize>1 training works end-to-end with Translation layer.
+- Attempts History:
+  - *2026-01-06T14:00:00Z:* Root cause confirmed via code analysis. Fix designed: add batch broadcast to `translate_xla` at projective_warp_xla.py:268. Implementation plan created. input.md written with implementation tasks.
 
 ---
 
