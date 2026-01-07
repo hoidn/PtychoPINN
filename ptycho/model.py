@@ -137,32 +137,37 @@ tfkl = hh.tf.keras.layers
 tfpl = tfp.layers
 tfd = tfp.distributions
 
+# Module-level cache for lazy-loaded singletons (REFACTOR-MODEL-SINGLETON-001)
+# See docs/findings.md MODULE-SINGLETON-001 for migration guide
+_lazy_cache = {}
+_model_construction_done = False
+
 wt_path = 'wts4.1'
 # sets the number of convolutional filters
 
-n_filters_scale =  p.get('n_filters_scale')
-N = p.get('N')
-gridsize = p.get('gridsize')
-offset = p.get('offset')
-
 from . import probe
-tprobe = p.params()['probe']
 
-probe_mask = probe.get_probe_mask(N)
-#probe_mask = cfg.get('probe_mask')[:, :, :, 0]
 
-if len(tprobe.shape) == 3:
-    initial_probe_guess = tprobe[None, ...]
-    #probe_mask = probe_mask[None, ...]
-elif len(tprobe.shape) == 4:
-    initial_probe_guess = tprobe
-else:
-    raise ValueError
+def _get_initial_probe_guess():
+    """Get or create the initial_probe_guess tf.Variable lazily.
 
-initial_probe_guess = tf.Variable(
-            initial_value=tf.cast(initial_probe_guess, tf.complex64),
+    Defers tf.Variable creation until first access to avoid import-time side effects.
+    See REFACTOR-MODEL-SINGLETON-001 Phase B.
+    """
+    if 'initial_probe_guess' not in _lazy_cache:
+        tprobe = p.params()['probe']
+        N = p.get('N')
+        if len(tprobe.shape) == 3:
+            probe_init = tprobe[None, ...]
+        elif len(tprobe.shape) == 4:
+            probe_init = tprobe
+        else:
+            raise ValueError(f"Invalid probe shape: {tprobe.shape}")
+        _lazy_cache['initial_probe_guess'] = tf.Variable(
+            initial_value=tf.cast(probe_init, tf.complex64),
             trainable=p.params()['probe.trainable'],
         )
+    return _lazy_cache['initial_probe_guess']
 
 # TODO hyperparameters:
 # TODO total variation loss
@@ -193,8 +198,9 @@ class ProbeIllumination(tf.keras.layers.Layer):
                 trainable=p.params()['probe.trainable'],
             )
         else:
-            # Backward compatibility: use module-level variable
-            self.w = initial_probe_guess
+            # Backward compatibility: use lazy-loaded module-level variable
+            # See REFACTOR-MODEL-SINGLETON-001 Phase B
+            self.w = _get_initial_probe_guess()
 
         self.sigma = p.get('gaussian_smoothing_sigma')
 
@@ -230,23 +236,36 @@ class ProbeIllumination(tf.keras.layers.Layer):
         config['N'] = self._N
         return config
 
-probe_illumination = ProbeIllumination()
+def _get_probe_illumination():
+    """Get or create the ProbeIllumination singleton lazily.
 
-nphotons = p.get('nphotons')
+    Defers layer instantiation until first access to avoid import-time side effects.
+    See REFACTOR-MODEL-SINGLETON-001 Phase B.
+    """
+    if 'probe_illumination' not in _lazy_cache:
+        _lazy_cache['probe_illumination'] = ProbeIllumination()
+    return _lazy_cache['probe_illumination']
 
-# TODO scaling could be done on a shot-by-shot basis, but IIRC I tried this
-# and there were issues
-log_scale_guess = np.log(p.get('intensity_scale'))
-log_scale = tf.Variable(
+
+def _get_log_scale():
+    """Get or create the log_scale tf.Variable lazily.
+
+    Defers tf.Variable creation until first access to avoid import-time side effects.
+    See REFACTOR-MODEL-SINGLETON-001 Phase B.
+    """
+    if 'log_scale' not in _lazy_cache:
+        log_scale_guess = np.log(p.get('intensity_scale'))
+        _lazy_cache['log_scale'] = tf.Variable(
             initial_value=tf.constant(float(log_scale_guess)),
-            trainable = p.params()['intensity_scale.trainable'],
+            trainable=p.params()['intensity_scale.trainable'],
         )
+    return _lazy_cache['log_scale']
 
 class IntensityScaler(tf.keras.layers.Layer):
     def __init__(self, **kwargs):
         kwargs.pop('dtype', None)
         super(IntensityScaler, self).__init__(**kwargs)
-        self.w = log_scale
+        self.w = _get_log_scale()  # Lazy loading, see REFACTOR-MODEL-SINGLETON-001
     def call(self, inputs):
         x, = inputs
         return x / tf.math.exp(self.w)
@@ -259,7 +278,7 @@ class IntensityScaler_inv(tf.keras.layers.Layer):
     def __init__(self, **kwargs):
         kwargs.pop('dtype', None)
         super(IntensityScaler_inv, self).__init__(**kwargs)
-        self.w = log_scale
+        self.w = _get_log_scale()  # Lazy loading, see REFACTOR-MODEL-SINGLETON-001
     def call(self, inputs):
         x, = inputs
         return tf.math.exp(self.w) * x
@@ -268,23 +287,12 @@ class IntensityScaler_inv(tf.keras.layers.Layer):
 
 def scale(inputs):
     x, = inputs
-    res = x / tf.math.exp(log_scale)
+    res = x / tf.math.exp(_get_log_scale())
     return res
 
 def inv_scale(inputs):
     x, = inputs
-    return tf.math.exp(log_scale) * x
-
-tf.keras.backend.clear_session()
-np.random.seed(2)
-
-files=glob.glob('%s/*' %wt_path)
-for file in files:
-    os.remove(file)
-
-lambda_norm = Lambda(lambda x: tf.math.reduce_sum(x**2, axis = [1, 2]), output_shape=lambda s: (s[0], s[3]))
-input_img = Input(shape=(N, N, gridsize**2), name = 'input')
-input_positions = Input(shape=(1, 2, gridsize**2), name = 'input_positions')
+    return tf.math.exp(_get_log_scale()) * x
 
 def Conv_Pool_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last'):
     x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
@@ -461,74 +469,9 @@ def create_decoder_amp(input_tensor, n_filters_scale, gridsize, big):
         name = 'amp')
     return outputs
 
-normed_input = IntensityScaler(name='intensity_scaler')([input_img])
-
-# Get N value for output shapes
-N = p.params()['N']
-
-decoded1, decoded2 = create_autoencoder(normed_input, n_filters_scale, gridsize,
-    p.get('object.big'))
-
-# Combine the two decoded outputs
-obj = CombineComplexLayer(name='obj')([decoded1, decoded2])
-
-if p.get('object.big'):
-    # If 'object.big' is true, reassemble the patches
-    # Calculate output shape dynamically based on padded_size
-    from .params import get_padded_size
-    padded_size = get_padded_size()
-    padded_obj_2 = ReassemblePatchesLayer(
-        padded_size=padded_size,
-        N=N,
-        gridsize=gridsize,
-        dtype=tf.complex64,
-        name='padded_obj_2'
-    )([obj, input_positions])
-else:
-    # If 'object.big' is not true, pad the reconstruction
-    from .params import get_padded_size
-    padded_size = get_padded_size()
-    padded_obj_2 = PadReconstructionLayer(
-        dtype=tf.complex64,
-        name='padded_obj_2'
-    )(obj)
-
-# TODO rename?
-# Trim the object reconstruction to N x N
-trimmed_obj = TrimReconstructionLayer(output_size=N, dtype=tf.complex64, name='trimmed_obj')(padded_obj_2)
-
-# Extract overlapping regions of the object
-# Output shape should be (batch, N, N, 1) where N is the patch size
-padded_objs_with_offsets = ExtractPatchesPositionLayer(
-    jitter=0.0,
-    dtype=tf.complex64,
-    name='padded_objs_with_offsets'
-)([padded_obj_2, input_positions])
-
-# Apply the probe illumination
-padded_objs_with_offsets, probe_tensor = probe_illumination([padded_objs_with_offsets])
-flat_illuminated = padded_objs_with_offsets
-
-# Apply pad and diffract operation
-pad_diffract_layer = PadAndDiffractLayer(h=N, w=N, pad=False, name='pred_amplitude')
-padded_objs_with_offsets, pred_diff = pad_diffract_layer(padded_objs_with_offsets)
-
-# Reshape
-pred_diff = FlatToChannelLayer(N=N, gridsize=gridsize, name='pred_diff_channels')(pred_diff)
-
-# Scale the amplitude
-pred_amp_scaled = IntensityScaler_inv(name='intensity_scaler_inv')([pred_diff])
-
-
-# TODO Please pass an integer value for `reinterpreted_batch_ndims`. The current behavior corresponds to `reinterpreted_batch_ndims=tf.size(distribution.batch_shape_tensor()) - 1`.
-# In TF 2.19, using TFP distributions as model outputs is problematic
-# We'll handle the distribution in the loss function instead
-# For now, just use the squared amplitude as a placeholder
-pred_intensity_sampled = SquareLayer(name='pred_intensity')(pred_amp_scaled)
-
 # Create the distribution function for use in loss calculation
 def create_poisson_distribution_for_loss(amplitude):
-    squared = tf.square(amplitude) 
+    squared = tf.square(amplitude)
     return tfd.Independent(tfd.Poisson(squared), reinterpreted_batch_ndims=3)
 
 # We'll use this in the loss function
@@ -551,45 +494,119 @@ def negloglik(y_true, y_pred):
     # Use TensorFlow's Poisson loss which computes: y_pred - y_true * log(y_pred)
     return tf.nn.log_poisson_loss(y_true, tf.math.log(y_pred), compute_full_loss=False)
 
-autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_amp_scaled, pred_intensity_sampled])
 
-autoencoder_no_nll = Model(inputs = [input_img, input_positions],
-        outputs = [pred_amp_scaled])
+def _build_module_level_models():
+    """Build module-level models on first access (lazy loading).
 
-#encode_obj_to_diffraction = tf.keras.Model(inputs=[obj, input_positions],
-#                           outputs=[pred_diff, flat_illuminated])
-diffraction_to_obj = tf.keras.Model(inputs=[input_img, input_positions],
-                           outputs=[trimmed_obj])
+    This function encapsulates all the model construction code that previously
+    ran at import time. It's called by __getattr__ on first access to
+    autoencoder, diffraction_to_obj, or autoencoder_no_nll.
 
-mae_weight = p.get('mae_weight') # should normally be 0
-nll_weight = p.get('nll_weight') # should normally be 1
-# Total variation regularization on real space amplitude
-realspace_weight = p.get('realspace_weight')#1e2
-optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+    Warning: This function modifies module-level state. It should only be
+    called once per process via the _model_construction_done guard.
 
-# Check if XLA compilation is enabled via environment or config
-use_xla_compile = os.environ.get('USE_XLA_COMPILE', '').lower() in ('1', 'true', 'yes')
-# Check if parameter exists in config
-try:
-    use_xla_compile = use_xla_compile or p.get('use_xla_compile')
-except KeyError:
-    pass  # Parameter doesn't exist, keep environment value
+    See REFACTOR-MODEL-SINGLETON-001 Phase B, docs/findings.md MODULE-SINGLETON-001.
+    """
+    global _model_construction_done
+    if _model_construction_done:
+        return
 
-autoencoder.compile(optimizer= optimizer,
-     #loss=[lambda target, pred: hh.total_variation(pred),
-     loss=[hh.realspace_loss,
-        'mean_absolute_error', negloglik],
-     loss_weights = [realspace_weight, mae_weight, nll_weight],
-     jit_compile=use_xla_compile)
+    # Get current params (whatever is set when models are first accessed)
+    N = p.get('N')
+    gridsize = p.get('gridsize')
+    n_filters_scale = p.get('n_filters_scale')
 
-print (autoencoder.summary())
+    # Create input layers
+    input_img = Input(shape=(N, N, gridsize**2), name='input')
+    input_positions = Input(shape=(1, 2, gridsize**2), name='input_positions')
 
-# Create a TensorBoard callback
-logs = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
+    # === Begin model construction (moved from module level) ===
+    normed_input = IntensityScaler(name='intensity_scaler')([input_img])
 
-tboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logs,
-                                                 histogram_freq=1,
-                                                 profile_batch='500,520')
+    decoded1, decoded2 = create_autoencoder(normed_input, n_filters_scale, gridsize,
+        p.get('object.big'))
+
+    # Combine the two decoded outputs
+    obj = CombineComplexLayer(name='obj')([decoded1, decoded2])
+
+    if p.get('object.big'):
+        # If 'object.big' is true, reassemble the patches
+        # Calculate output shape dynamically based on padded_size
+        from .params import get_padded_size
+        padded_size = get_padded_size()
+        padded_obj_2 = ReassemblePatchesLayer(
+            padded_size=padded_size,
+            N=N,
+            gridsize=gridsize,
+            dtype=tf.complex64,
+            name='padded_obj_2'
+        )([obj, input_positions])
+    else:
+        # If 'object.big' is not true, pad the reconstruction
+        from .params import get_padded_size
+        padded_size = get_padded_size()
+        padded_obj_2 = PadReconstructionLayer(
+            dtype=tf.complex64,
+            name='padded_obj_2'
+        )(obj)
+
+    # Trim the object reconstruction to N x N
+    trimmed_obj = TrimReconstructionLayer(output_size=N, dtype=tf.complex64, name='trimmed_obj')(padded_obj_2)
+
+    # Extract overlapping regions of the object
+    # Output shape should be (batch, N, N, 1) where N is the patch size
+    padded_objs_with_offsets = ExtractPatchesPositionLayer(
+        jitter=0.0,
+        dtype=tf.complex64,
+        name='padded_objs_with_offsets'
+    )([padded_obj_2, input_positions])
+
+    # Apply the probe illumination (lazy-loaded)
+    padded_objs_with_offsets, probe_tensor = _get_probe_illumination()([padded_objs_with_offsets])
+
+    # Apply pad and diffract operation
+    pad_diffract_layer = PadAndDiffractLayer(h=N, w=N, pad=False, name='pred_amplitude')
+    padded_objs_with_offsets, pred_diff = pad_diffract_layer(padded_objs_with_offsets)
+
+    # Reshape
+    pred_diff = FlatToChannelLayer(N=N, gridsize=gridsize, name='pred_diff_channels')(pred_diff)
+
+    # Scale the amplitude
+    pred_amp_scaled = IntensityScaler_inv(name='intensity_scaler_inv')([pred_diff])
+
+    # Use the squared amplitude as intensity
+    pred_intensity_sampled = SquareLayer(name='pred_intensity')(pred_amp_scaled)
+
+    # Create models
+    autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_amp_scaled, pred_intensity_sampled])
+    autoencoder_no_nll = Model(inputs=[input_img, input_positions], outputs=[pred_amp_scaled])
+    diffraction_to_obj = tf.keras.Model(inputs=[input_img, input_positions], outputs=[trimmed_obj])
+
+    # Compile autoencoder (moved from module level)
+    mae_weight = p.get('mae_weight')
+    nll_weight = p.get('nll_weight')
+    realspace_weight = p.get('realspace_weight')
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+
+    use_xla_compile = os.environ.get('USE_XLA_COMPILE', '').lower() in ('1', 'true', 'yes')
+    try:
+        use_xla_compile = use_xla_compile or p.get('use_xla_compile')
+    except KeyError:
+        pass
+
+    autoencoder.compile(
+        optimizer=optimizer,
+        loss=[hh.realspace_loss, 'mean_absolute_error', negloglik],
+        loss_weights=[realspace_weight, mae_weight, nll_weight],
+        jit_compile=use_xla_compile
+    )
+
+    # Store in cache
+    _lazy_cache['autoencoder'] = autoencoder
+    _lazy_cache['diffraction_to_obj'] = diffraction_to_obj
+    _lazy_cache['autoencoder_no_nll'] = autoencoder_no_nll
+
+    _model_construction_done = True
 
 def prepare_inputs(train_data: PtychoDataContainer):
     """training inputs"""
@@ -845,3 +862,29 @@ def create_compiled_model(gridsize=None, N=None):
     )
 
     return autoencoder, diffraction_to_obj
+
+
+def __getattr__(name):
+    """Lazy load module-level singletons on first access.
+
+    Implements REFACTOR-MODEL-SINGLETON-001 fix: model construction is deferred
+    until first access, allowing params.cfg to be configured before models are built.
+
+    Emits DeprecationWarning for legacy singleton access.
+    See docs/findings.md MODULE-SINGLETON-001 for migration guide.
+    """
+    import warnings
+
+    if name in ('autoencoder', 'diffraction_to_obj', 'autoencoder_no_nll'):
+        if name not in _lazy_cache:
+            warnings.warn(
+                f"Accessing deprecated module-level singleton '{name}'. "
+                "Use create_compiled_model() or create_model_with_gridsize() instead. "
+                "See docs/findings.md MODULE-SINGLETON-001 for migration guide.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+            _build_module_level_models()
+        return _lazy_cache[name]
+
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

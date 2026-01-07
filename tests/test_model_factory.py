@@ -141,3 +141,59 @@ class TestMultiNModelCreation:
         # Verify different models have different shapes
         assert autoenc_128.input_shape[0][1] == 128
         assert autoenc_64.input_shape[0][1] == 64
+
+
+class TestImportSideEffects:
+    """Test that importing ptycho.model doesn't create models.
+
+    Exit Criterion for Phase B (REFACTOR-MODEL-SINGLETON-001):
+    Importing the module should NOT:
+    1. Create Keras models
+    2. Instantiate tf.Variable
+    3. Execute model graph construction
+    """
+
+    def test_import_no_side_effects(self):
+        """Verify importing ptycho.model doesn't create models.
+
+        This test runs in a subprocess to ensure a clean import state.
+
+        Ref: REFACTOR-MODEL-SINGLETON-001 Phase B, ANTIPATTERN-001
+        """
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        # Run a subprocess that imports ptycho.model and checks for side effects
+        code = '''
+import sys
+import os
+
+# Set environment before any TF imports
+os.environ['USE_XLA_TRANSLATE'] = '0'
+os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=0'
+
+import tensorflow as tf
+tf.config.run_functions_eagerly(True)
+
+# Import the module
+from ptycho import model
+
+# Check that no models were created at import time
+# The _lazy_cache should be empty if no singletons were accessed
+assert model._lazy_cache == {}, f"Models created at import: {list(model._lazy_cache.keys())}"
+assert not model._model_construction_done, "Model construction ran at import time"
+
+print("PASS: No side effects at import")
+'''
+        result = subprocess.run(
+            [sys.executable, '-c', code],
+            capture_output=True,
+            text=True,
+            cwd=str(Path(__file__).parent.parent)
+        )
+
+        if result.returncode != 0:
+            pytest.fail(f"Import side-effect test failed:\nstdout: {result.stdout}\nstderr: {result.stderr}")
+
+        assert "PASS" in result.stdout
