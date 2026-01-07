@@ -1,3 +1,29 @@
+# 2026-01-07T073000Z: Focus Transition — REFACTOR-MODEL-SINGLETON-001 done, STUDY-SYNTH-DOSE-COMPARISON-001 unblocked
+- dwell: 0 (new focus after REFACTOR-MODEL-SINGLETON-001 completion).
+- Focus issue: STUDY-SYNTH-DOSE-COMPARISON-001 — Synthetic Dose Response & Loss Comparison Study
+- Action type: Implementation handoff (study execution ready).
+- Mode: Implementation
+- Git sync: `git pull --rebase` → Already up to date.
+- Documents reviewed: docs/fix_plan.md, REFACTOR-MODEL-SINGLETON-001/summary.md, STUDY-SYNTH-DOSE-COMPARISON-001/implementation.md, dose_response_study.py (verified no XLA workarounds).
+- **REFACTOR-MODEL-SINGLETON-001 Assessment:**
+  - Phase A ✅: XLA workaround (removed in Phase C)
+  - Phase B ✅: Lazy loading via `__getattr__` (ptycho/model.py:867-890)
+  - Phase C ✅: XLA workarounds removed, commit 347ce7d6
+  - Phase D ✅: D1-D3, D5 verified complete. D4 (dose_response_study.py full run) deferred to STUDY-SYNTH-DOSE-COMPARISON-001.
+  - Tests: 3/3 PASSED (test_multi_n_model_creation, test_import_no_side_effects, test_multi_n_with_xla_enabled)
+  - Status: **DONE** — marked complete in fix_plan.md and summary.md
+- **STUDY-SYNTH-DOSE-COMPARISON-001 Status:**
+  - Previously blocked on REFACTOR-MODEL-SINGLETON-001
+  - Now unblocked and marked pending
+  - Ready for execution (Phase A-C per implementation.md)
+- Updated input.md with study execution tasks
+- Ralph tasks: Run dose_response_study.py with --nepochs 5, capture logs and figure
+- Next: Execute study, verify no shape mismatch, produce 6-panel figure
+- <Action State>: [ready_for_implementation]
+- focus=STUDY-SYNTH-DOSE-COMPARISON-001 state=ready_for_implementation dwell=0 ralph_last_commit=347ce7d6 artifacts=plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T073000Z/ next_action=execute dose_response_study.py
+
+---
+
 # 2026-01-07T060000Z: REFACTOR-MODEL-SINGLETON-001 Phase C1-C4 — Remove XLA Workarounds
 - dwell: 1 (one loop since spike passed; spike verified XLA works with lazy loading).
 - Focus issue: REFACTOR-MODEL-SINGLETON-001 — Phase C1-C4: Remove XLA workarounds from dose_response_study.py and test file.

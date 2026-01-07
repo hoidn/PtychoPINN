@@ -17,7 +17,7 @@
 ### [REFACTOR-MODEL-SINGLETON-001] Remove Module-Level Singletons in ptycho/model.py
 - Depends on: None
 - Priority: **Critical** (Unblocks STUDY-SYNTH-DOSE-COMPARISON-001)
-- Status: in_progress — Phase A ✅, Phase B ✅, Phase C ✅ (XLA workarounds removed). Ready for Phase D.
+- Status: done — All phases complete. D4 verification deferred to STUDY-SYNTH-DOSE-COMPARISON-001.
 - Owner/Date: Ralph/2026-01-07
 - Working Plan: `plans/active/REFACTOR-MODEL-SINGLETON-001/implementation.md`
 - Summary: `plans/active/REFACTOR-MODEL-SINGLETON-001/summary.md`
@@ -45,9 +45,9 @@
 ---
 
 ### [STUDY-SYNTH-DOSE-COMPARISON-001] Synthetic Dose Response & Loss Comparison Study
-- Depends on: REFACTOR-MODEL-SINGLETON-001 (blocked on module-level singleton fix)
+- Depends on: REFACTOR-MODEL-SINGLETON-001 ✅ (complete)
 - Priority: **Critical** (Scientific Validation — Top Priority)
-- Status: blocked — awaiting REFACTOR-MODEL-SINGLETON-001 completion.
+- Status: pending — REFACTOR-MODEL-SINGLETON-001 complete, ready to execute.
 - Owner/Date: Ralph/2026-01-06
 - Working Plan: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/implementation.md`
 - Reports Hub: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/`

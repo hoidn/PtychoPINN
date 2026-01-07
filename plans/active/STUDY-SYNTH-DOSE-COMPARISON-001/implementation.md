@@ -5,8 +5,8 @@
 - **Title:** Synthetic Dose Response & Loss Comparison Study
 - **Owner:** Ralph
 - **Spec Owner:** `docs/specs/spec-ptycho-core.md` (Physics/Normalization)
-- **Status:** blocked
-- **Blocked By:** REFACTOR-MODEL-SINGLETON-001 (module-level singleton bug causes shape mismatch when varying N/gridsize)
+- **Status:** pending
+- **Unblocked By:** REFACTOR-MODEL-SINGLETON-001 complete (2026-01-07) — lazy loading fixes multi-N shape mismatch
 - **Priority:** High (Scientific Validation)
 - **Working Plan:** this file
 - **Reports Hub:** `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/`

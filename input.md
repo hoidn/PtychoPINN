@@ -1,166 +1,128 @@
 Mode: Implementation
-Focus: REFACTOR-MODEL-SINGLETON-001 — Phase C1-C4 (Remove XLA Workarounds)
+Focus: STUDY-SYNTH-DOSE-COMPARISON-001 — Synthetic Dose Response & Loss Comparison Study
 Branch: feature/torchapi-newprompt-2
-Selector: tests/test_model_factory.py -vv
-Artifacts: plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T060000Z/
+Selector: scripts/studies/dose_response_study.py (direct execution)
+Artifacts: plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T073000Z/
 
 ## Summary
 
-Remove Phase A XLA workarounds now that the Phase C spike test confirmed lazy loading fixes the multi-N XLA shape mismatch bug.
+Execute the dose response study now that REFACTOR-MODEL-SINGLETON-001 is complete. This will verify D4 (dose_response_study.py runs with varying N/gridsize) and produce scientific results.
 
 ## Goal
 
-Clean up temporary workarounds from Phase A (environment variables and eager execution). The spike test proved these are no longer needed:
-- `USE_XLA_TRANSLATE=0` environment variable
-- `TF_XLA_FLAGS=--tf_xla_auto_jit=0` environment variable
-- `tf.config.run_functions_eagerly(True)` call
+Run `dose_response_study.py` end-to-end with 4 experimental arms (High Dose NLL, High Dose MAE, Low Dose NLL, Low Dose MAE) to:
+1. Verify REFACTOR-MODEL-SINGLETON-001 Phase D4 exit criterion (varying N/gridsize works)
+2. Train models and produce reconstructions
+3. Generate the 6-panel comparison figure
 
 ## Tasks
 
-### C1: Remove XLA workarounds from dose_response_study.py
+### Task 1: Verify study script structure (A0 from plan)
 
 **File:** `scripts/studies/dose_response_study.py`
 
-Delete lines 27-38 (the workaround block):
+Check that the script is properly structured:
+- No XLA workarounds at the top (Phase C removed them)
+- Uses `TrainingConfig` and `update_legacy_dict`
+- Has entry point for execution
 
-```python
-# DELETE THIS BLOCK:
-# CRITICAL: Disable XLA translation BEFORE any ptycho imports to avoid shape caching
-# issues when creating models with different N values. See MODULE-SINGLETON-001.
-# This must be at the very top, before any other imports that might trigger ptycho.
-import os
-os.environ['USE_XLA_TRANSLATE'] = '0'
-# Also disable TensorFlow's XLA JIT to prevent compile-time constant errors
-os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=0'
-
-# Force eager execution to avoid Keras 3.x XLA graph compilation issues
-# with dynamic batch dimensions in the non-XLA translation path.
-import tensorflow as tf
-tf.config.run_functions_eagerly(True)
+Run a quick import test:
+```bash
+python -c "from scripts.studies.dose_response_study import main; print('Script imports OK')"
 ```
 
-The module should start with just the docstring and normal imports:
-```python
-#!/usr/bin/env python3
-"""
-dose_response_study.py - Synthetic Dose Response & Loss Comparison Study
-...docstring continues...
-"""
-import argparse
-import logging
-import sys
-...
-```
+### Task 2: Execute the study
 
-### C2: Remove XLA workarounds from tests/test_model_factory.py
-
-**File:** `tests/test_model_factory.py`
-
-1. Delete lines 11-27 (the workaround block at module level):
-```python
-# DELETE THIS BLOCK:
-# CRITICAL: Set environment BEFORE any ptycho imports to avoid XLA trace caching
-# See docs/findings.md MODULE-SINGLETON-001 and TF-NON-XLA-SHAPE-001
-os.environ['USE_XLA_TRANSLATE'] = '0'
-
-# Also disable TensorFlow's XLA JIT to prevent compile-time constant errors
-# in tf.repeat during graph execution (the non-XLA translate path)
-os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=0'
-
-import tensorflow as tf
-import numpy as np
-
-# Force eager execution to avoid XLA compilation of the graph
-# This is necessary because Keras 3.x uses XLA JIT by default for model.predict()
-tf.config.run_functions_eagerly(True)
-```
-
-2. Replace with clean imports:
-```python
-import os
-import pytest
-import subprocess
-import sys
-from pathlib import Path
-
-import tensorflow as tf
-import numpy as np
-```
-
-3. Update the `test_multi_n_model_creation` docstring to reflect the new reality:
-   - Remove references to the XLA workaround
-   - Update to say "lazy loading prevents import-time model creation, avoiding XLA trace conflicts"
-
-4. Update `test_import_no_side_effects` subprocess code:
-   - Remove the env var lines (`os.environ['USE_XLA_TRANSLATE'] = '0'` etc.)
-   - Remove `tf.config.run_functions_eagerly(True)`
-   - Keep the rest of the test logic
-
-5. Keep `TestXLAReenablement::test_multi_n_with_xla_enabled` as-is — this is the permanent regression test for XLA mode.
-
-### C3: Run all tests to verify no regressions
-
+Run the dose response study with reduced epochs for initial verification:
 ```bash
 # Create artifacts directory
-mkdir -p plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T060000Z/
+mkdir -p plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T073000Z/
 
-# Run all model factory tests
-pytest tests/test_model_factory.py -vv 2>&1 | tee plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T060000Z/pytest_phase_c_final.log
-
-# Expected: 3 passed (test_multi_n_model_creation, test_import_no_side_effects, test_multi_n_with_xla_enabled)
+# Run with reduced epochs for verification
+python scripts/studies/dose_response_study.py \
+    --output-dir tmp/dose_study \
+    --nepochs 5 \
+    2>&1 | tee plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T073000Z/dose_study_run.log
 ```
 
-### C4: Update docs/findings.md
+**Expected:**
+- 4 models trained (high_nll, high_mae, low_nll, low_mae)
+- Figure `dose_comparison.png` generated
+- No shape mismatch errors (confirms REFACTOR-MODEL-SINGLETON-001 fix)
 
-Update the `MODULE-SINGLETON-001` entry to mark it fully resolved:
+### Task 3: Capture evidence
 
-1. Find the line with status "Resolved" (near end of entry)
-2. Update the synopsis to include the lazy loading fix:
-   - Add note that Phase B lazy loading (`__getattr__` in model.py) eliminated the need for XLA workarounds
-3. Update evidence pointer to include test file:
-   - Add `tests/test_model_factory.py` reference
+If successful:
+```bash
+# Copy figure to artifacts
+cp tmp/dose_study/dose_comparison.png plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T073000Z/
+
+# Record completion
+echo "STUDY-SYNTH-DOSE-COMPARISON-001: VERIFIED" >> plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T073000Z/status.txt
+```
+
+If blocked:
+- Capture full error traceback
+- Note the specific failure point (simulation, training, inference, visualization)
+- Record in `blocked_<timestamp>.md`
 
 ## Implement
 
-- `scripts/studies/dose_response_study.py::` — remove XLA workaround block (lines 27-38)
-- `tests/test_model_factory.py::` — remove XLA workarounds from module level and subprocess tests
-- `docs/findings.md::MODULE-SINGLETON-001` — update status text
+- Execute `scripts/studies/dose_response_study.py` with reduced epochs
+- Verify no shape mismatch errors occur
+- Capture output figure and logs
 
 ## How-To Map
 
 ```bash
-# After making changes, verify with:
-pytest tests/test_model_factory.py -vv 2>&1 | tee plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T060000Z/pytest_phase_c_final.log
+# Quick test that script loads
+python -c "import scripts.studies.dose_response_study"
 
-# Parse results
-grep -E "^(PASSED|FAILED|ERROR|tests/)" plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T060000Z/pytest_phase_c_final.log
+# Full run with reduced epochs
+python scripts/studies/dose_response_study.py --output-dir tmp/dose_study --nepochs 5
+
+# Check for shape errors in log
+grep -i "shape\|mismatch\|reshape" plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T073000Z/dose_study_run.log
+
+# Verify output
+ls -la tmp/dose_study/
+ls -la tmp/dose_study/dose_comparison.png
 ```
 
 ## Pitfalls To Avoid
 
-1. **DO NOT** remove the XLA spike test (`test_multi_n_with_xla_enabled`) — it's the permanent regression test
-2. **DO NOT** change ptycho/model.py — the lazy loading code is already correct
-3. **DO** update the test docstrings to reflect the new reality (lazy loading, not env vars)
-4. **DO** keep subprocess isolation in tests — tests run in subprocess for clean Python state
-5. **DO** verify all 3 tests pass before committing
+1. **DO NOT** add XLA workarounds — they should not be needed with lazy loading
+2. **DO NOT** skip `update_legacy_dict` calls between training arms
+3. **DO** use reduced epochs (5) for verification; full run can come later
+4. **DO** capture the full log including any warnings
+5. **DO** check for DeprecationWarnings from lazy singleton access (expected but harmless)
+6. **DO** verify the figure shows actual data, not placeholders
 
 ## If Blocked
 
-If tests fail after removing workarounds:
-1. Check if the test is running in subprocess (subprocess tests should work because they start fresh)
-2. Check if there's module-level import order issue in the test file itself
-3. Re-read the spike test to understand what worked there
-4. Log the specific error and stack trace
+1. If shape mismatch: Check if module is being imported before params.cfg is set
+2. If OOM: Reduce n_groups in the study config
+3. If inference fails: Check that model was saved correctly to output_dir
+4. Log the error and create blocker document with:
+   - Error message and traceback
+   - Which arm failed (high_nll, etc.)
+   - Last successful step
 
 ## Findings Applied
 
-- **MODULE-SINGLETON-001**: Lazy loading fix verified by spike test; workarounds can be removed
-- **CONFIG-001**: Params must still be set before model creation (unchanged)
-- **ANTIPATTERN-001**: Import side effects eliminated by Phase B lazy loading
+- **MODULE-SINGLETON-001**: RESOLVED — Lazy loading prevents import-time model creation
+- **CONFIG-001**: Must call `update_legacy_dict(params.cfg, config)` before each training arm
+- **NORMALIZATION-001**: Respect intensity_scale symmetry per spec-ptycho-core.md
+- **DATA-001**: Generated RawData follows data contract
 
 ## Pointers
 
-- Spike test evidence: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T050000Z/pytest_phase_c_spike_verbose.log`
-- Implementation plan: `plans/active/REFACTOR-MODEL-SINGLETON-001/implementation.md` (Phase C checklist)
-- Lazy loading: `ptycho/model.py:867-890` (`__getattr__`)
-- Fix plan: `docs/fix_plan.md` (REFACTOR-MODEL-SINGLETON-001 entry)
+- Study implementation: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/implementation.md`
+- Lazy loading fix: `ptycho/model.py:867-890` (`__getattr__`)
+- Factory API: `ptycho/model.py::create_compiled_model()`, `create_model_with_gridsize()`
+- Fix plan: `docs/fix_plan.md` (STUDY-SYNTH-DOSE-COMPARISON-001 entry)
+
+## Next Up
+
+- If study succeeds: Full production run with 50 epochs
+- Update fix_plan with results and metrics

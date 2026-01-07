@@ -236,15 +236,20 @@ The XLA re-enablement spike test verified the hypothesis that lazy loading fixes
 
 ### Checklist
 
-- [ ] **D1:** Update `ptycho/train_pinn.py` to accept `model_instance` argument in `train()` and `train_eval()`.
+- [x] **D1:** Update `ptycho/train_pinn.py` to accept `model_instance` argument in `train()` and `train_eval()`.
+  - Done: Line 70 accepts `model_instance=None`, lines 85-86 use `create_compiled_model()` when None
 
-- [ ] **D2:** Update `ptycho/workflows/components.py` (`train_cdi_model`, `run_cdi_example`) to call `create_compiled_model` using values from `TrainingConfig` instead of importing singletons.
+- [x] **D2:** Update `ptycho/workflows/components.py` (`train_cdi_model`, `run_cdi_example`) to call `create_compiled_model` using values from `TrainingConfig` instead of importing singletons.
+  - Done: Line 736 calls `train_pinn.train_eval()` which internally uses factories
 
-- [ ] **D3:** Update `ptycho/model_manager.py` to explicitly pass `N`/`gridsize` to factories during loading, removing reliance on implicit global state during the load process.
+- [x] **D3:** Update `ptycho/model_manager.py` to explicitly pass `N`/`gridsize` to factories during loading, removing reliance on implicit global state during the load process.
+  - Done: Line 176 calls `create_model_with_gridsize(gridsize, N)` explicitly
 
 - [ ] **D4:** Verify `dose_response_study.py` runs successfully with varying `N` and `gridsize`.
+  - Deferred to STUDY-SYNTH-DOSE-COMPARISON-001 (main goal of that initiative)
 
-- [ ] **D5:** Add `DeprecationWarning` message to lazy-loader (already in B4) with migration instructions.
+- [x] **D5:** Add `DeprecationWarning` message to lazy-loader (already in B4) with migration instructions.
+  - Done: Lines 867-890 in ptycho/model.py emit DeprecationWarning
 
 ### Notes & Risks
 
