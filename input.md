@@ -1,201 +1,126 @@
 Mode: Implementation
-Focus: FIX-GRIDSIZE-TRANSLATE-BATCH-001 — Fix Translation Layer Batch Dimension Mismatch for gridsize>1
+Focus: STUDY-SYNTH-DOSE-COMPARISON-001 — Synthetic Dose Response & Loss Comparison Study
 Branch: feature/torchapi-newprompt-2
-Mapped tests: tests/tf_helper/test_translation_shape_guard.py (existing), tests/test_model_factory.py (regression)
-Artifacts: plans/active/FIX-GRIDSIZE-TRANSLATE-BATCH-001/reports/2026-01-06T140000Z/
+Mapped tests: pytest --collect-only -q tests/ (registry check)
+Artifacts: plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/
 
 ## Summary
 
-Fix the batch dimension mismatch in `translate_xla` that prevents gridsize>1 training. The root cause is that homography matrices are built with translations batch dimension, but images have a different (larger) batch dimension after channel flattening.
+Execute the synthetic dose response study now that all blockers are resolved. The FIX-GRIDSIZE-TRANSLATE-BATCH-001 fix (commit 13599565) added XLA-compatible batch broadcast to `translate_xla`, and all 8 translation/model tests pass.
 
-## Root Cause Analysis (CONFIRMED)
+## Current State
 
-In `_reassemble_patches_position_real` (tf_helper.py:876-879):
-```python
-offsets_flat = flatten_offsets(offsets_xy)   # (B*C, 2) where C = gridsize^2
-imgs_flat = _channel_to_flat(imgs)            # (B*C, N, N, 1)
-Translation(...)([imgs_flat_padded, -offsets_flat])
-```
-
-Both `offsets_flat` and `imgs_flat` should have the same batch dimension `B*C`. However, the error suggests one of them doesn't.
-
-**Key insight from error analysis:**
-- Error: 389376 = 64 × 78 × 78 vs expected 24336 = 4 × 78 × 78
-- 64 = batch_size (16) × gridsize² (4) — this is `B*C`
-- 4 = gridsize² — this is just `C`
-- The mask is being created with batch=64 but reshaped expecting batch=4
-
-The bug is in `translate_xla` (projective_warp_xla.py:271):
-```python
-B = tf.shape(translations)[0]  # Gets B from translations
-# ... builds M with shape [B, 3, 3]
-```
-
-Then `projective_warp_xla` at line 63:
-```python
-B = tf.shape(images)[0]  # Gets B from images (different!)
-# ... tiles grid to [B, H, W, 3]
-```
-
-**The M matrix (from translations) and grid (from images) have mismatched batch dimensions!**
+- **FIX-GRIDSIZE-TRANSLATE-BATCH-001**: ✅ DONE (commit 13599565, 8/8 tests pass)
+- **REFACTOR-MODEL-SINGLETON-001**: ✅ DONE (lazy loading prevents import-time model creation)
+- **Prior run artifacts**: `dose_comparison.png` shows "No Data" for all 4 reconstruction panels (from BEFORE the fix)
+- **Study status**: Ready for execution
 
 ## Do Now
 
-### Implement: `ptycho/projective_warp_xla.py::translate_xla`
+### Phase A: Verify Environment
 
-**Phase B1: Add batch broadcast to translate_xla**
-
-Add broadcast logic BEFORE building homography matrices (after line 268):
-
-```python
-def translate_xla(images: tf.Tensor, translations: tf.Tensor,
-                  interpolation: str = 'bilinear',
-                  use_jit: bool = True) -> tf.Tensor:
-    # ... docstring and complex handling unchanged ...
-
-    # Ensure translations has correct shape
-    translations = tf.ensure_shape(translations, [None, 2])
-
-    # === NEW: Broadcast translations to match images batch dimension ===
-    images_batch = tf.shape(images)[0]
-    trans_batch = tf.shape(translations)[0]
-
-    # When gridsize > 1, images are flattened from (b, N, N, C) to (b*C, N, N, 1)
-    # but translations may still be (b*C, 2) or (b, 2). Broadcast if needed.
-    def broadcast_translations():
-        # Compute repeat factor: images_batch = trans_batch * factor
-        repeat_factor = images_batch // trans_batch
-        # Tile translations: (trans_batch, 2) -> (images_batch, 2)
-        return tf.repeat(translations, repeat_factor, axis=0)
-
-    def keep_translations():
-        return translations
-
-    translations = tf.cond(
-        tf.not_equal(images_batch, trans_batch),
-        broadcast_translations,
-        keep_translations
-    )
-    # === END NEW ===
-
-    # Build translation-only homography matrices (now uses images_batch)
-    B = tf.shape(translations)[0]  # Now matches images batch
-    # ... rest unchanged ...
-```
-
-**File location:** ptycho/projective_warp_xla.py:267-271 (insert after line 268)
-
-### Test: `tests/tf_helper/test_translation_shape_guard.py::test_translate_xla_gridsize_broadcast`
-
-Add a new test to verify the broadcast works:
-
-```python
-def test_translate_xla_gridsize_broadcast():
-    """Verify translate_xla broadcasts translations for gridsize>1 scenarios."""
-    import tensorflow as tf
-    from ptycho.projective_warp_xla import translate_xla
-
-    # Simulate gridsize=2 scenario: images flattened, translations not
-    batch_size = 16
-    gridsize = 2
-    C = gridsize * gridsize  # 4
-    N = 64
-
-    # Images after _channel_to_flat: (batch*C, N, N, 1)
-    images_flat = tf.random.normal([batch_size * C, N, N, 1])
-
-    # Translations after flatten_offsets: should also be (batch*C, 2)
-    # But test the broadcast case where they're (batch, 2)
-    translations_small = tf.random.normal([batch_size, 2])
-
-    # This should work with broadcast
-    result = translate_xla(images_flat, translations_small, use_jit=False)
-
-    assert result.shape == images_flat.shape, \
-        f"Expected shape {images_flat.shape}, got {result.shape}"
-
-    # Also test the matching case (no broadcast needed)
-    translations_full = tf.random.normal([batch_size * C, 2])
-    result2 = translate_xla(images_flat, translations_full, use_jit=False)
-    assert result2.shape == images_flat.shape
-```
-
-### Verify: Run regression tests
-
+1. **Quick sanity check** - verify the XLA fix is active:
 ```bash
-# Test the new fix
-pytest tests/tf_helper/test_translation_shape_guard.py -v -k "test_translate_xla" 2>&1 | tee plans/active/FIX-GRIDSIZE-TRANSLATE-BATCH-001/reports/2026-01-06T140000Z/pytest_translate_xla.log
+pytest tests/tf_helper/test_translation_shape_guard.py -v -k "gridsize_broadcast" --tb=short 2>&1 | tee plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/pytest_sanity.log
 
-# Verify existing tests still pass
-pytest tests/test_model_factory.py -v 2>&1 | tee -a plans/active/FIX-GRIDSIZE-TRANSLATE-BATCH-001/reports/2026-01-06T140000Z/pytest_regression.log
-
-# Verify translation guard tests still pass
-pytest tests/tf_helper/test_translation_shape_guard.py -v 2>&1 | tee -a plans/active/FIX-GRIDSIZE-TRANSLATE-BATCH-001/reports/2026-01-06T140000Z/pytest_guard.log
+# Expected: 2 passed
 ```
 
-### End-to-end verify (if tests pass):
+### Phase B: Execute Dose Response Study
 
+2. **Run the study** with moderate epochs (5) for quick validation:
 ```bash
-# Quick test with dose_response_study.py
-timeout 300 python scripts/studies/dose_response_study.py \
-    --output-dir tmp/test_gridsize_fix \
-    --nepochs 2 \
-    2>&1 | tee plans/active/FIX-GRIDSIZE-TRANSLATE-BATCH-001/reports/2026-01-06T140000Z/dose_study_test.log
+cd /home/ollie/Documents/PtychoPINN
+
+# Run dose response study
+timeout 1800 python scripts/studies/dose_response_study.py \
+    --output-dir plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/study_outputs \
+    --nepochs 5 \
+    2>&1 | tee plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/dose_study_run.log
 
 # Check for success
-grep -i "error\|exception\|shape.*mismatch" plans/active/FIX-GRIDSIZE-TRANSLATE-BATCH-001/reports/2026-01-06T140000Z/dose_study_test.log || echo "No errors found"
+grep -i "error\|exception\|shape.*mismatch" plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/dose_study_run.log && echo "ERRORS FOUND" || echo "NO ERRORS"
+```
+
+### Phase C: Verify Outputs
+
+3. **Check artifacts** were produced:
+```bash
+# Check for trained models
+ls -la plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/study_outputs/*/wts.h5.zip 2>/dev/null || echo "No model weights found"
+
+# Check for figure
+ls -la plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/study_outputs/dose_comparison.png 2>/dev/null || echo "No figure found"
+
+# Copy figure to reports root for easy access
+cp plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/study_outputs/dose_comparison.png \
+   plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/dose_comparison_v3.png 2>/dev/null || true
+```
+
+### Phase D: Test Registry Check
+
+4. **Run pytest collect** to verify no regressions:
+```bash
+pytest --collect-only -q tests/ 2>&1 | tee plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/pytest_collect.log
+
+# Check for errors
+grep -i "error" plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/pytest_collect.log && echo "Collection errors found" || echo "Collection OK"
 ```
 
 ## How-To Map
 
 ```bash
-# Create artifacts dir
-mkdir -p plans/active/FIX-GRIDSIZE-TRANSLATE-BATCH-001/reports/2026-01-06T140000Z/
+# Artifacts directory
+ARTIFACTS=plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z
 
-# Edit projective_warp_xla.py - add broadcast logic at line 268
-# Edit test file - add test_translate_xla_gridsize_broadcast
+# Full study run
+python scripts/studies/dose_response_study.py --output-dir $ARTIFACTS/study_outputs --nepochs 5
 
-# Run tests
-pytest tests/tf_helper/test_translation_shape_guard.py -v
-pytest tests/test_model_factory.py -v
-
-# Quick e2e check
-python scripts/studies/dose_response_study.py --nepochs 2 --output-dir tmp/test_fix
+# If OOM or timeout, try smaller batch:
+python scripts/studies/dose_response_study.py --output-dir $ARTIFACTS/study_outputs --nepochs 3 --batch-size 8
 ```
 
 ## Pitfalls To Avoid
 
-1. **DO NOT** modify `projective_warp_xla` function — only modify `translate_xla` wrapper
-2. **DO NOT** change the M matrix structure, only the input translations
-3. **DO** ensure broadcast uses `tf.repeat` not `tf.tile` (repeat duplicates each element, tile repeats the whole tensor)
-4. **DO** use `tf.cond` for graph-mode compatibility, not Python `if`
-5. **DO** test with `use_jit=False` first to avoid XLA caching issues
-6. **DO** handle the case where batches already match (no broadcast needed)
-7. **DO NOT** add debug prints — they break XLA compilation
-8. **Environment Freeze:** Do not install packages or modify environment
+1. **DO NOT** modify the translation layer code - the fix is complete
+2. **DO NOT** add XLA workarounds (`USE_XLA_TRANSLATE=0`) - XLA should work now
+3. **DO** ensure the study runs with default XLA settings (no env var overrides)
+4. **DO** capture full logs for debugging if failures occur
+5. **DO** check that reconstruction panels show actual data (not "No Data")
+6. **DO** verify all 4 arms produce model weights
+7. **Environment Freeze:** Do not install packages or modify environment
 
 ## If Blocked
 
-1. If XLA still fails after fix: Test with `USE_XLA_TRANSLATE=0` to verify non-XLA path works
-2. If broadcast produces wrong shapes: Log `images_batch`, `trans_batch`, `repeat_factor` with eager mode
-3. If tests timeout: Reduce test scope or use smaller batch sizes
-4. Record blocker in `plans/active/FIX-GRIDSIZE-TRANSLATE-BATCH-001/reports/2026-01-06T140000Z/blocked_<timestamp>.md`
+1. If XLA errors persist: Log the full traceback, note any shape values
+2. If OOM: Reduce batch_size to 8 or nepochs to 3
+3. If timeout: Reduce nepochs to 2 for quick validation
+4. Record blocker in `$ARTIFACTS/blocked_<timestamp>.md` with error signature
 
 ## Findings Applied
 
-- **TF-NON-XLA-SHAPE-001:** Non-XLA path already has broadcast logic at tf_helper.py:779-794; XLA path needs same fix
-- **CONFIG-001:** `update_legacy_dict` must be called before legacy modules (handled in dose_response_study.py)
-- **BUG-TF-001:** `params.cfg['gridsize']` must be set before data generation
+- **MODULE-SINGLETON-001:** ✅ Resolved - lazy loading active, no XLA workarounds needed
+- **CONFIG-001:** `update_legacy_dict` must be called before legacy modules - handled in dose_response_study.py
+- **BUG-TF-001:** `params.cfg['gridsize']` must be set before data generation - handled
+- **TF-NON-XLA-SHAPE-001:** Non-XLA batch broadcast - reference for XLA fix design (commit 13599565)
 
 ## Pointers
 
-- Implementation plan: `plans/active/FIX-GRIDSIZE-TRANSLATE-BATCH-001/implementation.md`
-- XLA translate wrapper: `ptycho/projective_warp_xla.py:242-300`
-- Non-XLA broadcast fix reference: `ptycho/tf_helper.py:779-794`
-- Reassembly call site: `ptycho/tf_helper.py:876-879`
-- fix_plan: `docs/fix_plan.md` (FIX-GRIDSIZE-TRANSLATE-BATCH-001 entry)
+- Implementation plan: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/implementation.md`
+- XLA fix commit: 13599565 (`FIX-GRIDSIZE-TRANSLATE-BATCH-001`)
+- Dose response script: `scripts/studies/dose_response_study.py`
+- Prior blocker analysis: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/blockers/2026-01-06_xla_shape_mismatch_hypothesis.md`
+- fix_plan: `docs/fix_plan.md` (STUDY-SYNTH-DOSE-COMPARISON-001 entry)
+
+## Exit Criteria
+
+1. `dose_response_study.py` completes without exceptions
+2. All 4 arms produce `wts.h5.zip` model weights
+3. `dose_comparison.png` shows image data (not "No Data") in all 6 panels
+4. `pytest --collect-only` shows no regressions
+5. Ledger updated with results
 
 ## Next Up
 
-- If fix works: Unblock STUDY-SYNTH-DOSE-COMPARISON-001 and run dose response study
-- Update docs/findings.md with new finding for XLA batch broadcast fix
+- If successful: Update fix_plan.md to mark study `done`, archive artifacts
+- If blocked: Document specific failure mode, determine if fix needs refinement

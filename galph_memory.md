@@ -1,3 +1,31 @@
+# 2026-01-07T20:00:00Z: STUDY-SYNTH-DOSE-COMPARISON-001 — Execute dose response study (blockers resolved)
+
+- dwell: 0 (new focus; FIX-GRIDSIZE-TRANSLATE-BATCH-001 done, returning to unblocked study)
+- Focus issue: STUDY-SYNTH-DOSE-COMPARISON-001 — Synthetic Dose Response & Loss Comparison Study
+- Action type: Implementation handoff (study execution ready)
+- Mode: Implementation
+- Git sync: `git pull --rebase` → Already up to date.
+- Documents reviewed: docs/fix_plan.md (FIX-GRIDSIZE-TRANSLATE-BATCH-001 done, STUDY-SYNTH-DOSE-COMPARISON-001 pending), galph_memory.md (prior entry), implementation.md, dose_comparison.png (shows "No Data" from pre-fix run), pytest_sanity.log (2/2 gridsize_broadcast tests pass).
+
+**State Assessment:**
+- **FIX-GRIDSIZE-TRANSLATE-BATCH-001**: ✅ DONE (commit 13599565) — XLA-compatible batch broadcast using modular indexing with `tf.gather`
+- **REFACTOR-MODEL-SINGLETON-001**: ✅ DONE — lazy loading prevents import-time model creation
+- **Prior dose_comparison.png**: Shows "No Data" for all 4 reconstruction panels (from BEFORE the fix was applied)
+- **Current test status**: 2/2 gridsize broadcast tests PASS (5.75s)
+
+**Blocker Resolution Confirmed:**
+Both prerequisites complete:
+1. Lazy loading (MODULE-SINGLETON-001) — prevents shape mismatch from import-time model creation
+2. XLA batch broadcast (FIX-GRIDSIZE-TRANSLATE-BATCH-001) — handles gridsize>1 batch dimension mismatch
+
+**input.md Updated:** Study execution tasks (run dose_response_study.py, verify outputs, check test registry)
+
+- Next: Ralph runs dose_response_study.py with --nepochs 5, verifies 6-panel figure has actual reconstruction data
+- <Action State>: [ready_for_implementation]
+- focus=STUDY-SYNTH-DOSE-COMPARISON-001 state=ready_for_implementation dwell=0 ralph_last_commit=13599565 artifacts=plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/ next_action=execute dose_response_study.py and verify outputs
+
+---
+
 # 2026-01-06T14:00:00Z: FIX-GRIDSIZE-TRANSLATE-BATCH-001 — Root cause confirmed, fix designed
 
 - dwell: 0 (new focus after pivoting from blocked STUDY-SYNTH-DOSE-COMPARISON-001)
