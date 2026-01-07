@@ -508,3 +508,68 @@ class TestCompareModelsChunking:
 
         # Now tensor cache should be populated
         assert 'X' in container._tensor_cache, "Accessing .X should populate tensor cache"
+
+    def test_lazy_container_inference_integration(self):
+        """Verify lazy container works for inference without OOM at container creation.
+
+        This tests the integration path: create_ptycho_data_container() returns
+        a lazy container that stores NumPy internally and converts to tensors
+        on property access. This is the same path compare_models.py uses.
+
+        Spec: spec-ptycho-workflow.md Resource Constraints
+        Finding: PINN-CHUNKED-001
+        """
+        from ptycho.workflows.components import create_ptycho_data_container
+        from ptycho.config.config import TrainingConfig, ModelConfig
+
+        # Create minimal config (gridsize=1 means C=1 channels)
+        model_config = ModelConfig(N=64, gridsize=1)
+        config = TrainingConfig(
+            model=model_config,
+            n_images=100,
+            train_data_file=None,
+        )
+
+        # Create synthetic data matching compare_models inference path
+        N = 64
+        n_images = 100
+        C = 1  # gridsize=1
+
+        # Create a PtychoDataContainer with NumPy arrays (lazy storage)
+        # This mimics what compare_models receives after loading data
+        container = PtychoDataContainer(
+            X=np.random.rand(n_images, N, N, C).astype(np.float32),
+            Y_I=np.random.rand(n_images, N, N, C).astype(np.float32),
+            Y_phi=np.random.rand(n_images, N, N, C).astype(np.float32),
+            norm_Y_I=np.ones(n_images, dtype=np.float32),
+            YY_full=None,
+            coords_nominal=np.random.rand(n_images, 1, 2, C).astype(np.float32),
+            coords_true=np.random.rand(n_images, 1, 2, C).astype(np.float32),
+            nn_indices=np.zeros((n_images, 7), dtype=np.int32),
+            global_offsets=np.random.rand(n_images, 1, 2, C).astype(np.float32),
+            local_offsets=np.random.rand(n_images, 1, 2, C).astype(np.float32),
+            probeGuess=np.random.rand(N, N).astype(np.complex64),
+        )
+
+        # Pass through create_ptycho_data_container (should return same container)
+        result_container = create_ptycho_data_container(container, config)
+
+        # Verify the factory function returns the container (pass-through for PtychoDataContainer)
+        assert result_container is container, "Factory should return same container for PtychoDataContainer input"
+
+        # Verify lazy storage
+        assert hasattr(result_container, '_X_np'), "Container should use lazy storage"
+        assert result_container._tensor_cache == {}, "Tensor cache should be empty initially"
+
+        # Access .X triggers lazy conversion
+        X_tensor = result_container.X
+        assert isinstance(X_tensor, tf.Tensor)
+        assert X_tensor.shape == (n_images, N, N, C)
+
+        # Verify caching worked
+        assert 'X' in result_container._tensor_cache
+
+        # Verify coords_nominal also works (needed for model.predict([X, coords]))
+        coords = result_container.coords_nominal
+        assert isinstance(coords, tf.Tensor)
+        assert coords.shape == (n_images, 1, 2, C)

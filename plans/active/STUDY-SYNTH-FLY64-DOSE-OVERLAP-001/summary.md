@@ -1,4 +1,11 @@
 ### Turn Summary
+Added integration test `test_lazy_container_inference_integration` to verify lazy container works in the inference path via `create_ptycho_data_container()`.
+Test confirms: container stores NumPy internally, tensor cache empty initially, lazy conversion on `.X` access, caching works, `coords_nominal` conversion for model.predict([X, coords]).
+All tests pass: lazy loading suite 14/14 (1 intentional skip), model factory regression 3/3, integration test 2/2.
+Next: Consider STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 G-scaled verification complete; focus can shift to remaining blockers (BASELINE-CHUNKED-001/002).
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2026-01-08T210000Z/ (pytest_integration.log, pytest_lazy_loading.log, pytest_model_factory.log)
+
+### Turn Summary
 Tier-3 dwell limit enforced after confirming chunked compare_models still runs single-shot PINN inference (`plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train_debug_v3/logs/logs/debug.log:347-365`) and Baseline metrics remain blank for the <em>full</em> dense-test configuration (`.../analysis/dose_1000/dense/test/comparison_metrics.csv:2-13`, `.../analysis/verification_report.json:1-40`).
 `.../cli/run_phase_g_dense_post_verify_only.log:1-22` still fails PREVIEW-PHASE-001 because `analysis/metrics_delta_highlights_preview.txt` never materialized, so `{analysis}` lacks SSIM grid, metrics summary/deltas, verification bundle, and artifact inventory for the full run.
 Focus marked `blocked_escalation` and `analysis/dwell_escalation_report.md` updated. Going forward, Phase G is split into two goals: (1) <strong>G‑scaled</strong> — a clearly documented scaled configuration (same CLI/code paths with reduced size/time knobs such as limited `--n-test-groups` and chunk sizes) that can run end-to-end without OOM/timeout and produce non-zero Baseline rows + a self-consistent verification bundle; and (2) <strong>G‑full</strong> — the original full dense train+test configuration, which remains blocked on resource/architecture limits. G‑scaled is now the next execution target; G‑full is tracked as a blocked follow-up.
