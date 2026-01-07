@@ -1,0 +1,15 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 3 items
+
+tests/test_model_factory.py::TestMultiNModelCreation::test_multi_n_model_creation PASSED [ 33%]
+tests/test_model_factory.py::TestImportSideEffects::test_import_no_side_effects PASSED [ 66%]
+tests/test_model_factory.py::TestXLAReenablement::test_multi_n_with_xla_enabled PASSED [100%]
+
+============================== 3 passed in 27.78s ==============================

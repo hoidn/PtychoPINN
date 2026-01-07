@@ -1,0 +1,14 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 2 items
+
+tests/test_lazy_loading.py::TestCompareModelsChunking::test_container_numpy_slicing_for_chunked_inference PASSED [ 50%]
+tests/test_lazy_loading.py::TestCompareModelsChunking::test_lazy_container_inference_integration PASSED [100%]
+
+============================== 2 passed in 4.33s ===============================
