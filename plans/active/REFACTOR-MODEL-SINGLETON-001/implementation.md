@@ -175,7 +175,32 @@ Key changes to `ptycho/model.py`:
 
 **Rationale:** Phase A added XLA workarounds (`USE_XLA_TRANSLATE=0`, `TF_XLA_FLAGS`, eager execution) to fix multi-N crashes caused by import-time model construction. With Phase B complete, models are only created on-demand with correct N values, so XLA can be safely re-enabled for performance.
 
+**Status:** C-SPIKE ✅ PASSED (2026-01-07) — Ready for C1-C4 implementation
+
+### Spike Test Results (C-SPIKE)
+
+The XLA re-enablement spike test verified the hypothesis that lazy loading fixes the multi-N XLA bug:
+
+- **Test:** `tests/test_model_factory.py::TestXLAReenablement::test_multi_n_with_xla_enabled`
+- **Result:** PASSED
+- **Key Evidence:**
+  - `Lazy loading verified: no models at import` — Phase B works
+  - `XLA service ... initialized for platform CUDA` — XLA active (not disabled)
+  - `Compiled cluster using XLA!` — XLA compilation occurred
+  - Forward pass N=128 succeeded, output shapes correct
+  - Forward pass N=64 succeeded, output shapes correct (previously this would crash!)
+- **Artifacts:** `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T050000Z/`
+  - `pytest_phase_c_spike.log`
+  - `pytest_phase_c_spike_verbose.log`
+
+**Conclusion:** Lazy loading (Phase B) is sufficient to fix the XLA shape mismatch bug. Phase A workarounds can be removed.
+
 ### Checklist
+
+- [x] **C-SPIKE:** Create and run XLA spike test to verify hypothesis.
+  - Added `TestXLAReenablement::test_multi_n_with_xla_enabled` to `tests/test_model_factory.py`
+  - Test runs in subprocess with XLA enabled (no env var workarounds)
+  - PASSED — confirms lazy loading fixes the multi-N bug
 
 - [ ] **C1:** Remove XLA workarounds from `scripts/studies/dose_response_study.py`:
   - Delete `os.environ['USE_XLA_TRANSLATE'] = '0'`

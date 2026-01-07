@@ -197,3 +197,143 @@ print("PASS: No side effects at import")
             pytest.fail(f"Import side-effect test failed:\nstdout: {result.stdout}\nstderr: {result.stderr}")
 
         assert "PASS" in result.stdout
+
+
+class TestXLAReenablement:
+    """Test that XLA can be re-enabled after lazy loading fix.
+
+    Phase C spike test for REFACTOR-MODEL-SINGLETON-001.
+    """
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        """Clear session before each test."""
+        tf.keras.backend.clear_session()
+        yield
+        tf.keras.backend.clear_session()
+
+    def test_multi_n_with_xla_enabled(self):
+        """Verify models with different N values work with XLA translation enabled.
+
+        This test verifies the hypothesis that lazy loading (Phase B) fixes the
+        XLA shape mismatch bug, allowing XLA to be re-enabled.
+
+        Approach:
+        1. Run in subprocess with clean Python state (no env var workarounds)
+        2. Import ptycho.model (no side effects due to lazy loading)
+        3. Create model with N=128, run forward pass
+        4. Create model with N=64, run forward pass
+        5. Verify no XLA shape mismatch errors
+
+        If this test passes, Phase A workarounds can be removed.
+        If it fails, document the specific error and Phase C is blocked.
+
+        Ref: REFACTOR-MODEL-SINGLETON-001 Phase C
+        """
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        # CRITICAL: Do NOT set USE_XLA_TRANSLATE=0 - we want to test WITH XLA
+        code = '''
+import sys
+import os
+
+# Clear any XLA workaround env vars to test with XLA enabled
+os.environ.pop('USE_XLA_TRANSLATE', None)
+os.environ.pop('TF_XLA_FLAGS', None)
+
+import tensorflow as tf
+
+# Allow eager for Keras 3.x compatibility but don't disable XLA JIT
+# tf.config.run_functions_eagerly(True)  # Intentionally commented out
+
+print(f"XLA test starting, TF version: {tf.__version__}")
+
+# Initialize params before importing model
+from ptycho import params as p
+from ptycho import probe
+
+# Set up params for N=128 first
+N1, N2 = 128, 64
+gridsize = 2
+
+p.cfg['N'] = N1
+p.cfg['gridsize'] = gridsize
+p.cfg['offset'] = 4
+p.cfg['default_probe_scale'] = 4.0
+p.cfg['probe'] = probe.get_default_probe(N1, fmt='tf')
+p.cfg['intensity_scale'] = 1.0
+p.cfg['nphotons'] = 1e9
+
+print(f"Params initialized for N={N1}")
+
+# Import model - should NOT create models (lazy loading)
+from ptycho import model
+
+# Verify lazy loading worked
+assert model._lazy_cache == {}, f"Models created at import: {list(model._lazy_cache.keys())}"
+print("Lazy loading verified: no models at import")
+
+from ptycho.model import create_model_with_gridsize
+import numpy as np
+
+# Create first model with N=128
+print(f"Creating model with N={N1}...")
+tf.keras.backend.clear_session()
+autoenc_128, d2o_128 = create_model_with_gridsize(gridsize, N=N1)
+
+# Run forward pass to trigger any XLA tracing
+dummy_128 = [
+    np.random.randn(1, N1, N1, gridsize**2).astype(np.float32),
+    np.random.randn(1, 1, 2, gridsize**2).astype(np.float32)
+]
+print(f"Running forward pass for N={N1}...")
+out_128 = autoenc_128.predict(dummy_128, verbose=0)
+print(f"Forward pass N={N1} succeeded, output shapes: {[o.shape for o in out_128]}")
+
+# Create second model with N=64 (the bug scenario)
+print(f"Creating model with N={N2}...")
+p.cfg['N'] = N2
+p.cfg['probe'] = probe.get_default_probe(N2, fmt='tf')
+tf.keras.backend.clear_session()
+
+autoenc_64, d2o_64 = create_model_with_gridsize(gridsize, N=N2)
+
+# Run forward pass - THIS IS WHERE THE XLA BUG WOULD OCCUR
+dummy_64 = [
+    np.random.randn(1, N2, N2, gridsize**2).astype(np.float32),
+    np.random.randn(1, 1, 2, gridsize**2).astype(np.float32)
+]
+print(f"Running forward pass for N={N2}...")
+try:
+    out_64 = autoenc_64.predict(dummy_64, verbose=0)
+    print(f"Forward pass N={N2} succeeded, output shapes: {[o.shape for o in out_64]}")
+    print("PASS: XLA re-enablement spike test succeeded")
+except tf.errors.InvalidArgumentError as e:
+    print(f"FAIL: XLA shape mismatch error: {e}")
+    sys.exit(1)
+except Exception as e:
+    print(f"FAIL: Unexpected error: {type(e).__name__}: {e}")
+    sys.exit(1)
+'''
+
+        result = subprocess.run(
+            [sys.executable, '-c', code],
+            capture_output=True,
+            text=True,
+            cwd=str(Path(__file__).parent.parent),
+            timeout=120
+        )
+
+        print(f"STDOUT:\n{result.stdout}")
+        print(f"STDERR:\n{result.stderr}")
+
+        if result.returncode != 0:
+            pytest.fail(
+                f"XLA re-enablement spike failed:\n"
+                f"stdout: {result.stdout}\n"
+                f"stderr: {result.stderr}"
+            )
+
+        assert "PASS" in result.stdout, "Expected PASS in output"
