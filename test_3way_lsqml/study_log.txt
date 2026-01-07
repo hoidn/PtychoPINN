@@ -1,0 +1,108 @@
+[2026-01-01 15:52:27] === Starting Complete Generalization Study ===
+[2026-01-01 15:52:27] Training group sizes: 512
+[2026-01-01 15:52:27] Training subsample sizes: 512
+[2026-01-01 15:52:27] Test groups: 2048
+[2026-01-01 15:52:27] Test subsample: 4096
+[2026-01-01 15:52:27] Number of trials per size: 1
+[2026-01-01 15:52:27] Output directory: test_3way_lsqml
+[2026-01-01 15:52:27] Total training runs planned: 2
+[2026-01-01 15:52:27] Validating environment...
+[2026-01-01 15:52:27] Environment validation passed
+[2026-01-01 15:52:27] Configuration saved to: test_3way_lsqml/study_config.txt
+[2026-01-01 15:52:27] Skipping dataset preparation (--skip-data-prep)
+[2026-01-01 15:52:27] === STEP 2: Model Training ===
+[2026-01-01 15:52:27] Training models sequentially with 1 trials per training size
+[2026-01-01 15:52:27] Starting training with train_groups=512, train_subsample=512 (1 trials)
+[2026-01-01 15:52:27] Training models for train_subsample=512, train_groups=512 (Trial 1/1)
+[2026-01-01 15:52:27] EXECUTING: PtychoPINN training (subsample=512, groups=512, trial=1)
+[2026-01-01 15:52:27] COMMAND: python scripts/training/train.py \
+            --train_data_file 'datasets/fly64/fly001_64_prepared_final_train.npz' \
+            --test_data_file 'datasets/fly64/fly001_64_prepared_final_test.npz' \
+            --n_groups 512 --n_subsample 512 \
+            --neighbor_count 7 \
+            --output_dir 'test_3way_lsqml/train_subsample_512_groups_512/trial_1/pinn_run'
+[2026-01-01 15:52:27] DRY-RUN: Would execute command
+[2026-01-01 15:52:27] EXECUTING: Baseline training (subsample=512, groups=512, trial=1)
+[2026-01-01 15:52:27] COMMAND: python scripts/run_baseline.py \
+            --train_data_file 'datasets/fly64/fly001_64_prepared_final_train.npz' \
+            --test_data 'datasets/fly64/fly001_64_prepared_final_test.npz' \
+            --n_groups 512 --n_subsample 512 \
+            --neighbor_count 7 \
+            --output_dir 'test_3way_lsqml/train_subsample_512_groups_512/trial_1/baseline_run'
+[2026-01-01 15:52:27] DRY-RUN: Would execute command
+[2026-01-01 15:52:27] EXECUTING: Pty-chi reconstruction (algorithm=LSQML, n_images=4096, trial=1)
+[2026-01-01 15:52:27] COMMAND: python scripts/reconstruction/ptychi_reconstruct_tike.py \
+                --input-npz 'datasets/fly64/fly001_64_prepared_final_test.npz' \
+                --output-dir 'test_3way_lsqml/train_subsample_512_groups_512/trial_1/ptychi_run' \
+                --algorithm LSQML \
+                --n-images 4096 \
+                --num-epochs 200
+[2026-01-01 15:52:27] DRY-RUN: Would execute command
+[2026-01-01 15:52:27] Completed training for train_groups=512 (Trial 1/1)
+[2026-01-01 15:52:27] Completed all trials for train_groups=512
+[2026-01-01 15:52:27] Model training phase completed
+[2026-01-01 15:52:27] === STEP 3: Model Comparison ===
+[2026-01-01 15:52:27] Running comparisons for train_subsample=512, train_groups=512 (1 trials)
+[2026-01-01 15:52:27] WARNING: PtychoPINN model not found for trial=1: test_3way_lsqml/train_subsample_512_groups_512/trial_1/pinn_run/wts.h5.zip
+[2026-01-01 15:52:27] Completed comparisons for train_groups=512
+[2026-01-01 15:52:27] Model comparison phase completed
+[2026-01-01 15:52:27] === STEP 4: Results Aggregation ===
+[2026-01-01 15:52:27] EXECUTING: PSNR phase generalization plot
+[2026-01-01 15:52:27] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'test_3way_lsqml' \
+        --metric psnr \
+        --part phase \
+        --output psnr_phase_generalization.png
+[2026-01-01 15:52:27] DRY-RUN: Would execute command
+[2026-01-01 15:52:27] EXECUTING: FRC amplitude generalization plot
+[2026-01-01 15:52:27] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'test_3way_lsqml' \
+        --metric frc50 \
+        --part amp \
+        --output frc50_amp_generalization.png
+[2026-01-01 15:52:27] DRY-RUN: Would execute command
+[2026-01-01 15:52:27] EXECUTING: MAE amplitude generalization plot
+[2026-01-01 15:52:27] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'test_3way_lsqml' \
+        --metric mae \
+        --part amp \
+        --output mae_amp_generalization.png
+[2026-01-01 15:52:27] DRY-RUN: Would execute command
+[2026-01-01 15:52:27] EXECUTING: SSIM amplitude generalization plot
+[2026-01-01 15:52:27] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'test_3way_lsqml' \
+        --metric ssim \
+        --part amp \
+        --output ssim_amp_generalization.png
+[2026-01-01 15:52:27] DRY-RUN: Would execute command
+[2026-01-01 15:52:27] EXECUTING: SSIM phase generalization plot
+[2026-01-01 15:52:27] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'test_3way_lsqml' \
+        --metric ssim \
+        --part phase \
+        --output ssim_phase_generalization.png
+[2026-01-01 15:52:27] DRY-RUN: Would execute command
+[2026-01-01 15:52:27] EXECUTING: MS-SSIM amplitude generalization plot
+[2026-01-01 15:52:27] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'test_3way_lsqml' \
+        --metric ms_ssim \
+        --part amp \
+        --output ms_ssim_amp_generalization.png
+[2026-01-01 15:52:27] DRY-RUN: Would execute command
+[2026-01-01 15:52:27] EXECUTING: MS-SSIM phase generalization plot
+[2026-01-01 15:52:27] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'test_3way_lsqml' \
+        --metric ms_ssim \
+        --part phase \
+        --output ms_ssim_phase_generalization.png
+[2026-01-01 15:52:27] DRY-RUN: Would execute command
+[2026-01-01 15:52:27] Results aggregation completed
+[2026-01-01 15:52:27] === Generating Summary Report ===
+[2026-01-01 15:52:27] Summary report generated: test_3way_lsqml/STUDY_SUMMARY.md
+[2026-01-01 15:52:27] === Study Completed Successfully ===
+[2026-01-01 15:52:27] Training sizes tested: 1
+[2026-01-01 15:52:27] Trials per size: 1
+[2026-01-01 15:52:27] Total trials completed: 1
+[2026-01-01 15:52:27] Total runtime: 00:00:00
+[2026-01-01 15:52:27] Results directory: test_3way_lsqml
+[2026-01-01 15:52:27] Summary report: test_3way_lsqml/STUDY_SUMMARY.md
