@@ -1,0 +1,28 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 14 items
+
+tests/test_lazy_loading.py::TestEagerLoadingOOM::test_memory_usage_scales_with_dataset_size[100] PASSED [  7%]
+tests/test_lazy_loading.py::TestEagerLoadingOOM::test_memory_usage_scales_with_dataset_size[500] PASSED [ 14%]
+tests/test_lazy_loading.py::TestEagerLoadingOOM::test_memory_usage_scales_with_dataset_size[1000] PASSED [ 21%]
+tests/test_lazy_loading.py::TestEagerLoadingOOM::test_oom_with_eager_loading SKIPPED [ 28%]
+tests/test_lazy_loading.py::TestLazyLoading::test_lazy_loading_avoids_oom PASSED [ 35%]
+tests/test_lazy_loading.py::TestLazyLoading::test_lazy_container_backward_compatible PASSED [ 42%]
+tests/test_lazy_loading.py::TestLazyLoading::test_lazy_caching PASSED    [ 50%]
+tests/test_lazy_loading.py::TestLazyLoading::test_tensor_input_handled PASSED [ 57%]
+tests/test_lazy_loading.py::TestLazyLoading::test_len_method PASSED      [ 64%]
+tests/test_lazy_loading.py::TestStreamingTraining::test_as_tf_dataset_yields_correct_structure PASSED [ 71%]
+tests/test_lazy_loading.py::TestStreamingTraining::test_streaming_training_auto_detection PASSED [ 78%]
+tests/test_lazy_loading.py::TestStreamingTraining::test_train_accepts_use_streaming_parameter PASSED [ 85%]
+tests/test_lazy_loading.py::TestStreamingTraining::test_dataset_batch_count PASSED [ 92%]
+tests/test_lazy_loading.py::TestCompareModelsChunking::test_container_numpy_slicing_for_chunked_inference PASSED [100%]
+
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_lazy_loading.py:67: Intentionally triggers OOM - run manually with --run-oom
+======================== 13 passed, 1 skipped in 8.30s =========================
