@@ -154,3 +154,67 @@ def test_reassemble_patches_position_real_gridsize2():
     assert result.shape[1] == 128  # padded_size
     assert result.shape[2] == 128
     assert result.shape[3] == 1  # aggregated
+
+
+def test_translate_xla_gridsize_broadcast():
+    """Verify translate_xla broadcasts translations for gridsize>1 scenarios.
+
+    When gridsize > 1, images are flattened from (b, N, N, C) to (b*C, N, N, 1)
+    but translations may remain at (b, 2). translate_xla must broadcast
+    translations to match the images batch dimension.
+
+    This is a regression test for FIX-GRIDSIZE-TRANSLATE-BATCH-001.
+
+    Reference: input.md Section "Do Now" - Test specification
+    """
+    from ptycho.projective_warp_xla import translate_xla
+
+    # Simulate gridsize=2 scenario: images flattened, translations not
+    batch_size = 16
+    gridsize = 2
+    C = gridsize * gridsize  # 4
+    N = 64
+
+    # Images after _channel_to_flat: (batch*C, N, N, 1)
+    images_flat = tf.random.normal([batch_size * C, N, N, 1])
+
+    # Translations after flatten_offsets: should also be (batch*C, 2)
+    # But test the broadcast case where they're (batch, 2)
+    translations_small = tf.random.normal([batch_size, 2])
+
+    # This should work with broadcast (use_jit=False for eager testing)
+    result = translate_xla(images_flat, translations_small, use_jit=False)
+
+    assert result.shape == images_flat.shape, \
+        f"Expected shape {images_flat.shape}, got {result.shape}"
+
+    # Also test the matching case (no broadcast needed)
+    translations_full = tf.random.normal([batch_size * C, 2])
+    result2 = translate_xla(images_flat, translations_full, use_jit=False)
+    assert result2.shape == images_flat.shape
+
+
+def test_translate_xla_gridsize_broadcast_jit():
+    """Verify translate_xla broadcast works with JIT compilation.
+
+    Same as test_translate_xla_gridsize_broadcast but with use_jit=True
+    to verify XLA graph compilation handles the broadcast correctly.
+    """
+    from ptycho.projective_warp_xla import translate_xla
+
+    batch_size = 8
+    gridsize = 2
+    C = gridsize * gridsize  # 4
+    N = 32  # Smaller for faster JIT compilation
+
+    # Images after _channel_to_flat: (batch*C, N, N, 1)
+    images_flat = tf.random.normal([batch_size * C, N, N, 1])
+
+    # Translations with smaller batch (needs broadcast)
+    translations_small = tf.random.normal([batch_size, 2])
+
+    # This should work with JIT (XLA compilation)
+    result = translate_xla(images_flat, translations_small, use_jit=True)
+
+    assert result.shape == images_flat.shape, \
+        f"Expected shape {images_flat.shape}, got {result.shape}"

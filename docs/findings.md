@@ -143,3 +143,44 @@ All 3 tests pass (pytest run 2025-11-14, 5.13s).
 
 ### Status
 **Resolved** (training), **Inference blocker open** (reshape 0→4 error in `_translate_images_simple` during eval)
+
+## TF-XLA-BATCH-BROADCAST-001 - XLA Translation Batch Dimension Mismatch
+**Category:** TensorFlow, XLA, Translation, Shape Handling
+**Impact:** TensorFlow training/inference with gridsize > 1 when XLA enabled (default)
+**Location:** ptycho/projective_warp_xla.py:270-285 (`translate_xla`)
+**Date:** 2026-01-06
+
+### Issue
+When XLA is enabled (default) and gridsize > 1, TensorFlow training crashes with shape mismatch:
+```
+Input to reshape is a tensor with 389376 values, but the requested shape has 24336
+```
+Error signature: 389376 = 64 (batch) × 78 × 78 vs 24336 = 4 (gridsize²) × 78 × 78
+
+**Root cause:** `translate_xla` built homography matrices M using `B = tf.shape(translations)[0]`, but when gridsize > 1, images are flattened from (b, N, N, C) to (b*C, N, N, 1). The M matrix batch dimension (from translations) didn't match the images batch dimension, causing reshape failures in the homography application.
+
+### Fix (2026-01-06)
+XLA-compatible batch broadcast using modular indexing with `tf.gather`:
+```python
+indices = tf.range(images_batch) % trans_batch
+translations = tf.gather(translations, indices)
+```
+
+**Important:** Initial approach using `tf.repeat`/`tf.cond` failed XLA compilation with "Repeat/Tile must be a compile-time constant" error. The modular indexing approach avoids this by using ops that XLA can trace without requiring compile-time constant arguments.
+
+**Location:** ptycho/projective_warp_xla.py:270-285
+
+### Tests
+Regression tests in `tests/tf_helper/test_translation_shape_guard.py`:
+- `test_translate_xla_gridsize_broadcast`: Verifies broadcast with `use_jit=False`
+- `test_translate_xla_gridsize_broadcast_jit`: Verifies broadcast with `use_jit=True` (XLA)
+
+All 8 tests pass (pytest run 2026-01-06, 27.75s).
+
+### Evidence
+- Implementation: `plans/active/FIX-GRIDSIZE-TRANSLATE-BATCH-001/reports/2026-01-06T140000Z/pytest_all_tests.log`
+- Tests: `tests/tf_helper/test_translation_shape_guard.py` (5/5 passed)
+- Model factory regression: `tests/test_model_factory.py` (3/3 passed)
+
+### Status
+**Resolved** — XLA batch broadcast fix implemented and verified

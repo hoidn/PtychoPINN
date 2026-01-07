@@ -266,9 +266,26 @@ def translate_xla(images: tf.Tensor, translations: tf.Tensor,
     
     # Ensure translations has correct shape
     translations = tf.ensure_shape(translations, [None, 2])
-    
+
+    # === Broadcast translations to match images batch dimension ===
+    # When gridsize > 1, images are flattened from (b, N, N, C) to (b*C, N, N, 1)
+    # but translations may still be (b, 2) or (b*C, 2). Broadcast if needed.
+    #
+    # XLA-compatible approach: Use modular indexing with tf.gather instead of
+    # tf.repeat/tf.cond which require compile-time constant repeat factors.
+    # This creates indices [0, 1, ..., trans_batch-1, 0, 1, ...] that wrap around.
+    images_batch = tf.shape(images)[0]
+    trans_batch = tf.shape(translations)[0]
+
+    # Modular indexing: indices cycle through [0, trans_batch) repeatedly
+    # When batches match, this is identity. When images_batch > trans_batch,
+    # translations are broadcast correctly.
+    indices = tf.range(images_batch) % trans_batch
+    translations = tf.gather(translations, indices)
+    # === END broadcast ===
+
     # Build translation-only homography matrices
-    B = tf.shape(translations)[0]
+    B = tf.shape(translations)[0]  # Now matches images batch
     # Use same dtype as images for consistency
     matrix_dtype = images.dtype.real_dtype if images.dtype.is_complex else images.dtype
     

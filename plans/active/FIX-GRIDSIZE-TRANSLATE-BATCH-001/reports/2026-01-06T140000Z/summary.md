@@ -1,5 +1,6 @@
 ### Turn Summary
-Confirmed root cause of gridsize>1 Translation layer failure: `translate_xla` builds homography matrices M with batch dimension from translations, but `projective_warp_xla` tiles the grid using images batch dimension — these diverge when channel flattening is applied.
-Designed fix: add `tf.repeat` broadcast in `translate_xla` before building M matrices, same pattern as the non-XLA fix at tf_helper.py:779-794.
-Next: Ralph implements the broadcast fix, adds regression test, and verifies dose_response_study.py runs with gridsize=2.
-Artifacts: plans/active/FIX-GRIDSIZE-TRANSLATE-BATCH-001/reports/2026-01-06T140000Z/ (implementation.md)
+Implemented XLA-compatible batch broadcast in `translate_xla` using modular indexing with `tf.gather` to fix gridsize>1 shape mismatch.
+Initial `tf.repeat`/`tf.cond` approach failed XLA compilation; modular indexing avoids compile-time constant requirement.
+Added 2 regression tests (`test_translate_xla_gridsize_broadcast`, `test_translate_xla_gridsize_broadcast_jit`); all 8 tests pass.
+Next: Run dose_response_study.py to verify e2e fix works (in STUDY-SYNTH-DOSE-COMPARISON-001).
+Artifacts: plans/active/FIX-GRIDSIZE-TRANSLATE-BATCH-001/reports/2026-01-06T140000Z/ (pytest_all_tests.log)
