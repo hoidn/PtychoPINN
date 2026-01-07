@@ -3,28 +3,17 @@
 Tests MODULE-SINGLETON-001 fix: models created with different N values
 must work correctly in a single process.
 
-This module sets USE_XLA_TRANSLATE=0 BEFORE any ptycho imports to prevent
-XLA trace caching bugs when creating models with different N values.
+Lazy loading in ptycho/model.py (via __getattr__) prevents import-time model
+creation, eliminating XLA trace caching conflicts when changing N values.
+No environment variable workarounds are needed.
 
-Ref: REFACTOR-MODEL-SINGLETON-001, TF-NON-XLA-SHAPE-001, CONFIG-001
+Ref: REFACTOR-MODEL-SINGLETON-001, CONFIG-001
 """
 import os
 import pytest
 
-# CRITICAL: Set environment BEFORE any ptycho imports to avoid XLA trace caching
-# See docs/findings.md MODULE-SINGLETON-001 and TF-NON-XLA-SHAPE-001
-os.environ['USE_XLA_TRANSLATE'] = '0'
-
-# Also disable TensorFlow's XLA JIT to prevent compile-time constant errors
-# in tf.repeat during graph execution (the non-XLA translate path)
-os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=0'
-
 import tensorflow as tf
 import numpy as np
-
-# Force eager execution to avoid XLA compilation of the graph
-# This is necessary because Keras 3.x uses XLA JIT by default for model.predict()
-tf.config.run_functions_eagerly(True)
 
 
 def _init_params_for_model(N: int, gridsize: int = 2):
@@ -77,20 +66,16 @@ class TestMultiNModelCreation:
     def test_multi_n_model_creation(self):
         """Verify models with different N values don't cause shape mismatch.
 
-        This test reproduces the bug from dose_response_study.py where creating
-        models with N=128 then N=64 caused XLA trace shape conflicts.
+        This test validates that creating models with N=128 then N=64 works
+        correctly without XLA trace shape conflicts.
 
-        The root cause was:
-        1. `from ptycho import model` triggers module-level code that creates models
-        2. During model construction, Translation layers call should_use_xla() -> True
-        3. projective_warp_xla_jit traces with N=128 shapes
-        4. XLA traces persist at Python module level (clear_session doesn't clear them)
-        5. Later create_model_with_gridsize(N=64) sets use_xla_translate=False but old traces exist
-        6. Translation layer executes with stale XLA trace expecting N=128 shapes, crashes on N=64
+        Fix (REFACTOR-MODEL-SINGLETON-001 Phase B): Lazy loading via __getattr__
+        in ptycho/model.py prevents import-time model creation. Models are only
+        created when explicitly requested via create_model_with_gridsize() or
+        when module-level singletons are accessed. This eliminates XLA trace
+        conflicts because each model creation starts fresh.
 
-        Fix: Set USE_XLA_TRANSLATE=0 environment variable BEFORE any ptycho imports.
-
-        Ref: REFACTOR-MODEL-SINGLETON-001, TF-NON-XLA-SHAPE-001
+        Ref: REFACTOR-MODEL-SINGLETON-001, CONFIG-001
         """
         # Initialize params BEFORE importing model (required by MODULE-SINGLETON-001)
         _init_params_for_model(N=128, gridsize=2)
@@ -165,18 +150,12 @@ class TestImportSideEffects:
         from pathlib import Path
 
         # Run a subprocess that imports ptycho.model and checks for side effects
+        # No XLA environment workarounds needed - lazy loading prevents import-time side effects
         code = '''
 import sys
-import os
 
-# Set environment before any TF imports
-os.environ['USE_XLA_TRANSLATE'] = '0'
-os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=0'
-
-import tensorflow as tf
-tf.config.run_functions_eagerly(True)
-
-# Import the module
+# Import the module without any environment workarounds
+# Lazy loading should prevent any model creation at import time
 from ptycho import model
 
 # Check that no models were created at import time

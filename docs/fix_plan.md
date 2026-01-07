@@ -17,7 +17,7 @@
 ### [REFACTOR-MODEL-SINGLETON-001] Remove Module-Level Singletons in ptycho/model.py
 - Depends on: None
 - Priority: **Critical** (Unblocks STUDY-SYNTH-DOSE-COMPARISON-001)
-- Status: in_progress — Phase A ✅, Phase B ✅, Phase C-SPIKE ✅ (XLA re-enablement verified). Ready for C1-C4.
+- Status: in_progress — Phase A ✅, Phase B ✅, Phase C ✅ (XLA workarounds removed). Ready for Phase D.
 - Owner/Date: Ralph/2026-01-07
 - Working Plan: `plans/active/REFACTOR-MODEL-SINGLETON-001/implementation.md`
 - Summary: `plans/active/REFACTOR-MODEL-SINGLETON-001/summary.md`
@@ -36,6 +36,7 @@
 - Return Condition: All phases complete with passing tests.
 - Notes: Supersedes FIX-IMPORT-SIDE-EFFECTS-001.
 - Attempts History:
+  - *2026-01-07T06:00:00Z (Phase C complete):* Removed all XLA workarounds from production code and tests. Changes: (1) Deleted XLA env var block from `scripts/studies/dose_response_study.py` (lines 27-38); (2) Removed XLA workarounds from `tests/test_model_factory.py` module-level and subprocess code; (3) Updated docstrings to reflect lazy loading fix; (4) Updated `docs/findings.md` MODULE-SINGLETON-001 entry. **Result: ALL TESTS PASSED (3/3, 25.40s)** — XLA workarounds successfully removed, lazy loading is sufficient. Artifacts: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T060000Z/pytest_phase_c_final.log`. Next: Phase D (update consumers to use factory API).
   - *2026-01-07T17:18:00Z (Phase C-SPIKE complete):* Created and ran XLA spike test to verify lazy loading fixes multi-N XLA bug. Changes: (1) Added `TestXLAReenablement::test_multi_n_with_xla_enabled` to `tests/test_model_factory.py`; (2) Test runs in subprocess with XLA enabled (no env var workarounds); (3) Verified XLA compilation occurs (`Compiled cluster using XLA!`); (4) Both N=128 and N=64 forward passes succeed. **Result: SPIKE PASSED** — lazy loading is sufficient, Phase A workarounds can be removed. Metrics: 3 passed, 22.14s. Artifacts: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T050000Z/pytest_phase_c_spike_verbose.log`. Next: C1-C4 (remove workarounds).
   - *2026-01-07T17:08:00Z (Phase B complete):* Implemented lazy loading for ptycho/model.py. Changes: (1) Added `_lazy_cache` and `_model_construction_done` guards; (2) Moved `log_scale`, `initial_probe_guess`, and `probe_illumination` to lazy getters; (3) Wrapped model construction (lines 464-593) in `_build_module_level_models()`; (4) Added `__getattr__` for backward-compatible singleton access with DeprecationWarning; (5) Added `test_import_no_side_effects` test. Metrics: 2 passed, 11.85s. Artifacts: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T040000Z/pytest_phase_b.log`.
   - *2026-01-07T04:00:00Z (Phase B):* input.md written with lazy loading implementation tasks: `__getattr__` for deferred model construction, `_lazy_cache` + `_model_construction_done` guards, move lines 464-593 into `_build_module_level_models()`, add `test_import_no_side_effects`. Artifacts: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T040000Z/`.
