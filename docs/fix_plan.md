@@ -199,15 +199,21 @@
 ### [PARALLEL-API-INFERENCE] Programmatic TF/PyTorch API parity
 - Depends on: INTEGRATE-PYTORCH-PARITY-001 (backend selector wiring complete)
 - Priority: Medium
-- Status: planning — new initiative for backend selector demo script + helpers.
-- Owner/Date: Ralph/2025-11-14T030000Z
+- Status: in_progress — Phase A exploration complete; extraction design documented.
+- Owner/Date: Ralph/2026-01-09
 - Working Plan: `plans/active/PARALLEL-API-INFERENCE/plan.md`
-- Reports Hub: TBD
-- Do Now:
-  1. Extract TF inference helper from `scripts/inference/inference.py`.
-  2. Build `scripts/pytorch_api_demo.py` for both backends.
-  3. Add smoke test `tests/scripts/test_api_demo.py`.
-  4. Document in `docs/workflows/pytorch.md`.
+- Reports Hub: `plans/active/PARALLEL-API-INFERENCE/reports/`
+- Goals:
+  - Task 1: Extract TF inference helper from `scripts/inference/inference.py` into callable `_run_tf_inference_and_reconstruct()`.
+  - Task 2: Build `scripts/pytorch_api_demo.py` for both backends.
+  - Task 3: Add smoke test `tests/scripts/test_api_demo.py`.
+  - Task 4: Document in `docs/workflows/pytorch.md`.
+- Exit Criteria:
+  - `_run_tf_inference_and_reconstruct()` exists and is callable without CLI args.
+  - Demo script runs both backends on synthetic fixture.
+  - Smoke test passes (pytest selectors TBD).
+- Attempts History:
+  - *2026-01-09T010000Z (Phase A exploration):* Analyzed TF inference (`scripts/inference/inference.py:321-428`) and PyTorch inference (`ptycho_torch/inference.py:426-632`). Documented extraction design: propose `_run_tf_inference_and_reconstruct(model, raw_data, config, ...)` returning `(amp, phase)` to match PyTorch helper signature. Ground truth handling moves to separate utility. CLI wrapper unchanged except to call new helper. **No code changes — planning only.** Artifacts: `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T010000Z/extraction_design.md`. Next: Task 1 implementation (extract TF helper).
 
 ---
 
