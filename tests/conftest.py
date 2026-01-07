@@ -14,13 +14,24 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+def pytest_addoption(parser):
+    """Add custom command-line options."""
+    parser.addoption(
+        "--run-oom",
+        action="store_true",
+        default=False,
+        help="Run OOM tests that intentionally exhaust memory",
+    )
+
+
 def pytest_configure(config):
     """Configure pytest with custom settings."""
-    
+
     # Register custom markers
     config.addinivalue_line("markers", "torch: mark test as requiring PyTorch")
     config.addinivalue_line("markers", "optional: mark test as requiring optional dependencies")
     config.addinivalue_line("markers", "slow: mark test as slow running")
+    config.addinivalue_line("markers", "oom: mark test as OOM-triggering (requires --run-oom)")
 
 def pytest_collection_modifyitems(config, items):
     """
@@ -30,6 +41,8 @@ def pytest_collection_modifyitems(config, items):
     tests in tests/torch/ will FAIL (not skip) if torch unavailable.
 
     In TF-only CI environments, tests/torch/ directory is skipped entirely.
+
+    OOM tests require --run-oom flag to execute (they intentionally exhaust memory).
     """
 
     # Check if PyTorch is available
@@ -39,12 +52,20 @@ def pytest_collection_modifyitems(config, items):
     except ImportError:
         torch_available = False
 
+    # Check if --run-oom option was provided
+    run_oom = config.getoption("--run-oom", default=False)
+
     # Skip torch tests only in TF-only CI environments (directory-based)
+    # Skip OOM tests unless --run-oom is provided
     for item in items:
         if "torch" in str(item.fspath).lower() or item.get_closest_marker("torch"):
             if not torch_available:
                 # No whitelist exceptions: ALL torch tests skip in TF-only CI
                 item.add_marker(pytest.mark.skip(reason="PyTorch not available (TF-only CI)"))
+
+        # Handle OOM tests
+        if item.get_closest_marker("oom") and not run_oom:
+            item.add_marker(pytest.mark.skip(reason="Need --run-oom option to run OOM tests"))
 
 def pytest_ignore_collect(path, config):
     """Avoid importing torch test modules when PyTorch is unavailable.

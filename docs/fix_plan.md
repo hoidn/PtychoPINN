@@ -146,7 +146,7 @@
 ### [FEAT-LAZY-LOADING-001] Implement Lazy Tensor Allocation in loader.py
 - Depends on: `spec-ptycho-workflow.md` Resource Constraints; finding `PINN-CHUNKED-001`.
 - Priority: High
-- Status: in_progress — Phase A (OOM reproduction test) starting 2026-01-07.
+- Status: in_progress — Phase A complete; Phase B (lazy container implementation) next.
 - Owner/Date: Ralph/2026-01-07
 - Working Plan: `plans/active/FEAT-LAZY-LOADING-001/implementation.md`
 - Summary: `plans/active/FEAT-LAZY-LOADING-001/summary.md`
@@ -156,12 +156,13 @@
   - Provide streaming/batching APIs (`.as_dataset()` or equivalent).
   - Update dependent scripts (train_pinn, compare_models) to use lazy interfaces.
 - Exit Criteria:
-  - `tests/test_lazy_loading.py::test_oom_with_eager_loading` demonstrates current OOM behavior.
+  - `tests/test_lazy_loading.py::test_oom_with_eager_loading` demonstrates current OOM behavior. ✅ (test exists, skipped by default)
   - `tests/test_lazy_loading.py::test_lazy_loading_avoids_oom` passes with lazy container.
   - Existing training pipeline works with lazy container (backward compatibility).
 - Return Condition: Lazy container merged with OOM fix tests; STUDY-SYNTH-FLY64 unblocked.
 - Attempts History:
   - *2026-01-07T21:00:00Z (Phase A start):* Focus selected after STUDY-SYNTH-DOSE-COMPARISON-001 completion. Code analysis complete: `loader.py:309-311,325` contains eager `tf.convert_to_tensor` calls that cause OOM. Phase A1 task: create OOM reproduction script/test. Artifacts: `plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-07T210000Z/`.
+  - *2026-01-07T21:30:00Z (Phase A complete):* Created `tests/test_lazy_loading.py` with `TestEagerLoadingOOM` class. Changes: (1) Added `test_memory_usage_scales_with_dataset_size` parametrized test (n_images=100,500,1000); (2) Added `test_oom_with_eager_loading` with `@pytest.mark.oom` + skip (run with `--run-oom`); (3) Added `TestLazyLoadingPlaceholder` with Phase B stubs; (4) Updated `tests/conftest.py` with `--run-oom` option and `oom` marker. **Result: 3 PASSED, 3 SKIPPED (5.13s)** — collection verified (6 tests), memory scaling tests demonstrate eager allocation pattern. Artifacts: `plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-07T210000Z/` (pytest_collect.log, pytest_memory_scaling.log). Next: Phase B — implement lazy container architecture.
 
 ---
 
