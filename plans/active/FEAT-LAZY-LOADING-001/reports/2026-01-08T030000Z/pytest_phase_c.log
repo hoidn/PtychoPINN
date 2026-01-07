@@ -1,0 +1,42 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 13 items
+
+tests/test_lazy_loading.py::TestEagerLoadingOOM::test_memory_usage_scales_with_dataset_size[100] PASSED [  7%]
+tests/test_lazy_loading.py::TestEagerLoadingOOM::test_memory_usage_scales_with_dataset_size[500] PASSED [ 15%]
+tests/test_lazy_loading.py::TestEagerLoadingOOM::test_memory_usage_scales_with_dataset_size[1000] PASSED [ 23%]
+tests/test_lazy_loading.py::TestEagerLoadingOOM::test_oom_with_eager_loading SKIPPED [ 30%]
+tests/test_lazy_loading.py::TestLazyLoading::test_lazy_loading_avoids_oom PASSED [ 38%]
+tests/test_lazy_loading.py::TestLazyLoading::test_lazy_container_backward_compatible PASSED [ 46%]
+tests/test_lazy_loading.py::TestLazyLoading::test_lazy_caching PASSED    [ 53%]
+tests/test_lazy_loading.py::TestLazyLoading::test_tensor_input_handled PASSED [ 61%]
+tests/test_lazy_loading.py::TestLazyLoading::test_len_method PASSED      [ 69%]
+tests/test_lazy_loading.py::TestStreamingTraining::test_as_tf_dataset_yields_correct_structure PASSED [ 76%]
+tests/test_lazy_loading.py::TestStreamingTraining::test_streaming_training_auto_detection PASSED [ 84%]
+tests/test_lazy_loading.py::TestStreamingTraining::test_train_accepts_use_streaming_parameter PASSED [ 92%]
+tests/test_lazy_loading.py::TestStreamingTraining::test_dataset_batch_count PASSED [100%]
+
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_lazy_loading.py:67: Intentionally triggers OOM - run manually with --run-oom
+======================== 12 passed, 1 skipped in 8.28s =========================
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 3 items
+
+tests/test_model_factory.py::TestMultiNModelCreation::test_multi_n_model_creation PASSED [ 33%]
+tests/test_model_factory.py::TestImportSideEffects::test_import_no_side_effects PASSED [ 66%]
+tests/test_model_factory.py::TestXLAReenablement::test_multi_n_with_xla_enabled PASSED [100%]
+
+============================== 3 passed in 25.61s ==============================
