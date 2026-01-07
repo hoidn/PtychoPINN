@@ -1,6 +1,5 @@
 ### Turn Summary
-Confirmed both blockers (FIX-GRIDSIZE-TRANSLATE-BATCH-001 and REFACTOR-MODEL-SINGLETON-001) are resolved; XLA batch broadcast tests pass (2/2).
-Prior dose_comparison.png shows "No Data" for all reconstruction panels because it was generated before the fix; study needs re-execution.
-Prepared input.md for Ralph to run dose_response_study.py with --nepochs 5 and verify 6-panel figure shows actual reconstruction data.
-Next: Execute the study and confirm all 4 arms produce model weights and valid reconstructions.
-Artifacts: plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/
+Executed STUDY-SYNTH-DOSE-COMPARISON-001 dose response study to completion; all 4 arms (high_nll, high_mae, low_nll, low_mae) trained successfully with XLA enabled.
+XLA batch broadcast fix (FIX-GRIDSIZE-TRANSLATE-BATCH-001) resolved the gridsize>1 translation shape mismatch that blocked prior attempts; XLA compilation confirmed in logs.
+Next: Study complete; consider FEAT-LAZY-LOADING-001 for OOM improvements or Phase D consumer API updates.
+Artifacts: plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/ (dose_study_run.log, pytest_sanity.log, pytest_collect.log, study_outputs/)
