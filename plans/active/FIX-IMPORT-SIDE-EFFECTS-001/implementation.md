@@ -1,11 +1,17 @@
 # Implementation Plan - Remove Global State Side-Effects in Model
 
 - **Initiative:** FIX-IMPORT-SIDE-EFFECTS-001
-- **Status:** pending
+- **Status:** superseded
+- **Superseded By:** REFACTOR-MODEL-SINGLETON-001
 - **Owner:** Ralph
-- **Priority:** High
+- **Priority:** N/A (see superseding initiative)
 - **Working Plan:** `plans/active/FIX-IMPORT-SIDE-EFFECTS-001/implementation.md`
 - **Reports Hub:** `plans/active/FIX-IMPORT-SIDE-EFFECTS-001/reports/`
+
+> **Note (2026-01-06):** This initiative has been superseded by REFACTOR-MODEL-SINGLETON-001,
+> which provides a more comprehensive analysis including the non-XLA translation bug fix,
+> detailed module-level variable inventory, and phased implementation approach.
+> See `plans/active/REFACTOR-MODEL-SINGLETON-001/implementation.md` for the active plan.
 
 ## Context Priming
 - `docs/specs/spec-ptycho-config-bridge.md` (Normative): Defines "Compliance & Prohibitions" regarding import-time side effects.

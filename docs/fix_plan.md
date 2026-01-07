@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-06 (added STUDY-SYNTH-DOSE-COMPARISON-001 as top priority)
-**Active Focus:** STUDY-SYNTH-DOSE-COMPARISON-001 — Synthetic Dose Response & Loss Comparison Study
+**Last Updated:** 2026-01-06 (added REFACTOR-MODEL-SINGLETON-001, updated dependencies)
+**Active Focus:** REFACTOR-MODEL-SINGLETON-001 — Remove Module-Level Singletons (blocks STUDY-SYNTH-DOSE-COMPARISON-001)
 
 ---
 
@@ -14,10 +14,32 @@
 
 ## Active / Pending Initiatives
 
+### [REFACTOR-MODEL-SINGLETON-001] Remove Module-Level Singletons in ptycho/model.py
+- Depends on: None
+- Priority: **Critical** (Unblocks STUDY-SYNTH-DOSE-COMPARISON-001)
+- Status: in_progress — Phase A (non-XLA translation fix) underway.
+- Owner/Date: Ralph/2026-01-06
+- Working Plan: `plans/active/REFACTOR-MODEL-SINGLETON-001/implementation.md`
+- Summary: `plans/active/REFACTOR-MODEL-SINGLETON-001/summary.md`
+- Reports Hub: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/`
+- Spec Owner: `docs/specs/spec-ptycho-core.md` (Model Sizes)
+- Goals:
+  - Fix non-XLA `translate_core` broadcasting bug (Phase A).
+  - Move model construction into factory functions, eliminating import-time side effects (Phase B).
+  - Update consumers to use `create_compiled_model()` factory API (Phase C).
+- Exit Criteria:
+  - `dose_response_study.py` runs successfully with varying N/gridsize.
+  - Importing `ptycho.model` does not instantiate Keras models or tf.Variables.
+  - `tests/test_tf_helper_broadcasting.py` passes.
+- Return Condition: All phases complete with passing tests.
+- Notes: Supersedes FIX-IMPORT-SIDE-EFFECTS-001.
+
+---
+
 ### [STUDY-SYNTH-DOSE-COMPARISON-001] Synthetic Dose Response & Loss Comparison Study
-- Depends on: None (standalone scientific validation study)
+- Depends on: REFACTOR-MODEL-SINGLETON-001 (blocked on module-level singleton fix)
 - Priority: **Critical** (Scientific Validation — Top Priority)
-- Status: in_progress — Phase A orchestration & data fabric underway.
+- Status: blocked — awaiting REFACTOR-MODEL-SINGLETON-001 completion.
 - Owner/Date: Ralph/2026-01-06
 - Working Plan: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/implementation.md`
 - Reports Hub: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/`
@@ -75,18 +97,10 @@
 ---
 
 ### [FIX-IMPORT-SIDE-EFFECTS-001] Remove Global State Side-Effects in ptycho/model.py
-- Depends on: `spec-ptycho-config-bridge.md` Compliance; `docs/debugging/QUICK_REFERENCE_PARAMS.md` guardrails.
-- Priority: High
-- Status: pending — planning artifacts created 2025-11-20; awaiting Phase A regression tests.
+- **Status:** superseded by REFACTOR-MODEL-SINGLETON-001
 - Owner/Date: Ralph/2025-11-20
 - Working Plan: `plans/active/FIX-IMPORT-SIDE-EFFECTS-001/implementation.md`
-- Summary: `plans/active/FIX-IMPORT-SIDE-EFFECTS-001/summary.md`
-- Reports Hub: `plans/active/FIX-IMPORT-SIDE-EFFECTS-001/reports/`
-- Goals:
-  - Remove module-scope `params.get()` calls from `ptycho/model.py`.
-  - Ensure `autoencoder`/`diffraction_to_obj` instantiated via factories after `update_legacy_dict`.
-  - Add regression tests proving `import ptycho.model` performs no `ptycho.params` access.
-- Return Condition: Regression test passes with factory-only config access evidence in Reports Hub.
+- Notes: Superseded 2026-01-06. REFACTOR-MODEL-SINGLETON-001 provides more comprehensive solution including non-XLA fix, detailed variable inventory, and phased approach.
 
 ---
 
