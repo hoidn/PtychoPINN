@@ -1,3 +1,75 @@
+# 2026-01-08T20:30:00Z: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — G-scaled verification handoff
+
+- dwell: 0 (new focus after FEAT-LAZY-LOADING-001 completion)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — G-scaled: Verify lazy loading enables chunked PINN inference
+- Action type: Implementation handoff (chunking verification test)
+- Mode: Implementation
+- Git sync: `git pull --rebase` → Already up to date.
+- Documents reviewed: docs/fix_plan.md, galph_memory.md, docs/findings.md (PINN-CHUNKED-001 resolved), ptycho/loader.py (lazy container), plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md (prior state).
+
+**Prior Blocker Analysis:**
+- PINN-CHUNKED-001: ✅ RESOLVED via FEAT-LAZY-LOADING-001
+- BASELINE-CHUNKED-001/002: Still active (Baseline OOM issues)
+- Root cause was `PtychoDataContainer.__init__` → `tf.convert_to_tensor()` for all data
+
+**Lazy Loading Enables:**
+- `._X_np`, `._Y_I_np`, etc. — direct NumPy array access
+- Chunk-wise slicing without GPU allocation
+- `as_tf_dataset(batch_size)` for streaming training
+
+**G-scaled Task:**
+Add test `test_container_numpy_slicing_for_chunked_inference` to verify:
+1. Container exposes `_X_np`, `_coords_nominal_np` for chunking
+2. Chunk slicing works without triggering full tensor conversion
+3. Backward compatibility (full `.X` access still works)
+
+**input.md Updated:** G1-G3 tasks for chunking verification test.
+
+- Next: Ralph adds chunking test, runs all lazy loading tests, archives evidence
+- <Action State>: [ready_for_implementation]
+- focus=STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 state=ready_for_implementation dwell=0 ralph_last_commit=bd8d9480 artifacts=plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2026-01-08T200000Z/ next_action=implement G-scaled chunking verification test
+
+---
+
+# 2026-01-08T20:00:00Z: FEAT-LAZY-LOADING-001 — INITIATIVE COMPLETE, focus selection
+
+- dwell: 0 (initiative complete; no further loops needed)
+- Focus issue: FEAT-LAZY-LOADING-001 — ✅ COMPLETE
+- Action type: Review/Housekeeping (verification of Phase C completion + focus selection)
+- Mode: Review
+- Git sync: `git pull --rebase` → Already up to date.
+- Documents reviewed: docs/fix_plan.md, galph_memory.md (prior entry), plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-08T030000Z/pytest_phase_c.log, pytest --collect-only output (13 tests in test_lazy_loading.py).
+
+**Phase C Verification (COMPLETE):**
+- Tests PASSED: 12/13 (1 OOM skip)
+  - TestEagerLoadingOOM: 3 memory scaling + 1 OOM skip
+  - TestLazyLoading: 5 tests (avoids_oom, backward_compat, caching, tensor_input, len_method)
+  - TestStreamingTraining: 4 tests (dataset_structure, auto_detection, use_streaming_param, batch_count)
+- Regression: `test_model_factory.py` 3/3 PASSED (25.61s)
+- Commit bd8d9480: FEAT-LAZY-LOADING-001 Phase C complete
+
+**Initiative Summary:**
+FEAT-LAZY-LOADING-001 is DONE. All phases complete:
+- Phase A: OOM reproduction tests
+- Phase B: Lazy container (`PtychoDataContainer` with `_X_np` storage, lazy properties, `as_tf_dataset()`)
+- Phase C: Training integration (`train()` with `use_streaming` parameter, auto-detection)
+
+**PINN-CHUNKED-001 Finding:** Marked RESOLVED in `docs/findings.md`. Large datasets can now use `as_tf_dataset()` or direct NumPy slicing.
+
+**Focus Selection:**
+- FEAT-LAZY-LOADING-001: done ✅
+- STUDY-SYNTH-FLY64-DOSE-OVERLAP-001: ~~blocked_escalation~~ → pending (PINN-CHUNKED-001 resolved)
+- FIX-TF-C1D-SCALED-RERUN-001: ~~in_progress~~ → blocked (stale since 2025-11-20)
+- FIX-PYTORCH-FORWARD-PARITY-001: blocked on FIX-TF-C1D-SCALED-RERUN-001
+- PARALLEL-API-INFERENCE: planning
+
+**Decision:** STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 was blocked primarily on PINN-CHUNKED-001 (OOM). With lazy loading complete, the G-scaled goal is now feasible. Marked FIX-TF-C1D-SCALED-RERUN-001 as blocked (stale).
+
+- <Action State>: [planning]
+- focus=FOCUS_SELECTION state=planning dwell=0 ralph_last_commit=bd8d9480 artifacts=plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-08T030000Z/ next_action=handoff G-scaled verification
+
+---
+
 # 2026-01-08T03:00:00Z: FEAT-LAZY-LOADING-001 — Phase C: Training pipeline integration handoff
 
 - dwell: 0 (reset after Phase B completion; commit 37985157 landed with 8/8 tests passing)

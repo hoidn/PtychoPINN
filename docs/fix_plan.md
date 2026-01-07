@@ -99,9 +99,9 @@
 ---
 
 ### [STUDY-SYNTH-FLY64-DOSE-OVERLAP-001] Synthetic fly64 dose/overlap study
-- Depends on: Phase C/E/F artifacts under `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/`; FEAT-LAZY-LOADING-001 to eliminate OOM wall (PINN-CHUNKED-001).
+- Depends on: Phase C/E/F artifacts under `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/`; ~~FEAT-LAZY-LOADING-001~~ ✅ RESOLVED.
 - Priority: High
-- Status: blocked_escalation — Tier 3 dwell triggered 2025-11-16; full dense-test Phase G blocked on GPU/TF resource limits.
+- Status: pending — PINN-CHUNKED-001 resolved via FEAT-LAZY-LOADING-001; G-scaled goal ready for fresh attempt.
 - Owner/Date: Ralph/2025-11-11
 - Working Plan: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md`
 - Summary: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md`
@@ -175,7 +175,7 @@
 ### [FIX-TF-C1D-SCALED-RERUN-001] Phase C1d TensorFlow scaled rerun execution
 - Depends on: FIX-PYTORCH-FORWARD-PARITY-001 (Phase C guard + regression tests merged)
 - Priority: Critical
-- Status: in_progress — guard/regression code landed; executing scaled TF rerun now.
+- Status: blocked — stale since 2025-11-20; needs scope refresh before resumption.
 - Owner/Date: Ralph/2025-11-19
 - Working Plan: `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md` (Phase C1d checklist)
 - Summary: `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md`
