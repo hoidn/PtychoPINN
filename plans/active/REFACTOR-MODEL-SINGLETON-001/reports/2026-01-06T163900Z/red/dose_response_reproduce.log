@@ -1,0 +1,2384 @@
+2026-01-06 16:36:10.225940: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1767746170.237632   94546 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1767746170.241315   94546 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1767746170.251654   94546 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1767746170.251668   94546 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1767746170.251670   94546 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1767746170.251671   94546 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-06 16:36:10.254574: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-01-06 16:36:12,664 - INFO - __main__ - ============================================================
+2026-01-06 16:36:12,664 - INFO - __main__ - STUDY-SYNTH-DOSE-COMPARISON-001: Dose Response Study
+2026-01-06 16:36:12,665 - INFO - __main__ - ============================================================
+2026-01-06 16:36:12,665 - INFO - __main__ - 
+========================================
+2026-01-06 16:36:12,665 - INFO - __main__ - PHASE A: Orchestration & Data Fabric
+2026-01-06 16:36:12,665 - INFO - __main__ - ========================================
+2026-01-06 16:36:12,665 - INFO - __main__ - === Verifying params.cfg population ===
+2026-01-06 16:36:12,665 - INFO - __main__ - params.cfg['N'] = 64 (expected: 64)
+2026-01-06 16:36:12,665 - INFO - __main__ - params.cfg['gridsize'] = 2 (expected: 2)
+2026-01-06 16:36:12,665 - INFO - __main__ - params.cfg['nphotons'] = 1000000000.0 (expected: 1000000000.0)
+2026-01-06 16:36:12,665 - INFO - __main__ - === params.cfg verification PASSED ===
+2026-01-06 16:36:12,665 - INFO - __main__ - === Generating Ground Truth ===
+2026-01-06 16:36:12,677 - INFO - __main__ - Object shape: (128, 128)
+2026-01-06 16:36:12,677 - INFO - __main__ - Object amplitude range: [0.601, 1.500]
+2026-01-06 16:36:12,677 - INFO - __main__ - Probe shape: (64, 64)
+2026-01-06 16:36:12,677 - INFO - __main__ - Probe amplitude range: [0.000, 1.000]
+2026-01-06 16:36:12,678 - INFO - __main__ - === Simulating Datasets ===
+2026-01-06 16:36:12,678 - INFO - __main__ - 
+--- Simulating high_nll ---
+I0000 00:00:1767746172.803082   94546 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1767746172.804291   94546 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 9422 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1767746173.582209   94546 service.cc:152] XLA service 0x31485a30 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1767746173.582229   94546 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2026-01-06 16:36:13.600273: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1767746173.616663   94546 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1767746173.742795   94546 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+2026-01-06 16:36:14,301 - WARNING - tensorflow - From /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow_probability/python/distributions/distribution.py:342: calling _Independent.__init__ (from tensorflow_probability.python.distributions.independent) with reinterpreted_batch_ndims=None is deprecated and will be removed after 2022-03-01.
+Instructions for updating:
+Please pass an integer value for `reinterpreted_batch_ndims`. The current behavior corresponds to `reinterpreted_batch_ndims=tf.size(distribution.batch_shape_tensor()) - 1`.
+2026-01-06 16:36:14.580283: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence
+2026-01-06 16:36:14.766709: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence
+2026-01-06 16:36:14,772 - INFO - __main__ - Train data shape: (32, 64, 64)
+2026-01-06 16:36:14,772 - INFO - __main__ - Test data shape: (8, 64, 64)
+2026-01-06 16:36:14,772 - INFO - __main__ - 
+--- Simulating high_mae ---
+2026-01-06 16:36:15.239221: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence
+2026-01-06 16:36:15,244 - INFO - __main__ - Train data shape: (32, 64, 64)
+2026-01-06 16:36:15,244 - INFO - __main__ - Test data shape: (8, 64, 64)
+2026-01-06 16:36:15,244 - INFO - __main__ - 
+--- Simulating low_nll ---
+2026-01-06 16:36:15,703 - INFO - __main__ - Train data shape: (32, 64, 64)
+2026-01-06 16:36:15,703 - INFO - __main__ - Test data shape: (8, 64, 64)
+2026-01-06 16:36:15,703 - INFO - __main__ - 
+--- Simulating low_mae ---
+2026-01-06 16:36:16.173050: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence
+2026-01-06 16:36:16,178 - INFO - __main__ - Train data shape: (32, 64, 64)
+2026-01-06 16:36:16,178 - INFO - __main__ - Test data shape: (8, 64, 64)
+2026-01-06 16:36:16,178 - INFO - __main__ - 
+=== Sanity Check: Dataset Statistics ===
+2026-01-06 16:36:16,178 - INFO - __main__ - Arm                 nphotons          Train Shape     Mean Intensity
+2026-01-06 16:36:16,178 - INFO - __main__ - ----------------------------------------------------------------------
+2026-01-06 16:36:16,178 - INFO - __main__ - high_nll               1e+09         (32, 64, 64)           6.44e-02
+2026-01-06 16:36:16,178 - INFO - __main__ - high_mae               1e+09         (32, 64, 64)           6.44e-02
+2026-01-06 16:36:16,178 - INFO - __main__ - low_nll                1e+04         (32, 64, 64)           5.27e-02
+2026-01-06 16:36:16,178 - INFO - __main__ - low_mae                1e+04         (32, 64, 64)           5.25e-02
+2026-01-06 16:36:16,178 - INFO - __main__ - 
+Intensity ratio (High/Low): 1.22e+00
+2026-01-06 16:36:16,178 - INFO - __main__ - Expected ratio: ~1e5 (from nphotons ratio 1e9/1e4)
+2026-01-06 16:36:16,178 - WARNING - __main__ - Intensity ratio 1.22e+00 is lower than expected!
+2026-01-06 16:36:16,178 - INFO - __main__ - 
+========================================
+2026-01-06 16:36:16,178 - INFO - __main__ - PHASE B: Training & Inference Loop
+2026-01-06 16:36:16,178 - INFO - __main__ - ========================================
+2026-01-06 16:36:16,180 - INFO - __main__ - 
+=== Training All Arms ===
+2026-01-06 16:36:16,180 - INFO - __main__ - 
+--- Training high_nll ---
+2026-01-06 16:36:16,180 - INFO - __main__ - [DEBUG] After update_legacy_dict: params.cfg['gridsize'] = 2 (expected: 2)
+2026-01-06 16:36:16,180 - INFO - root - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=32, n_points=32, C=4, K=7
+2026-01-06 16:36:16,180 - INFO - root - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
+2026-01-06 16:36:16,180 - INFO - root - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=True, neighbor_pool_size=None, effective_K=7
+2026-01-06 16:36:16,180 - INFO - root - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 32 > 32 = False
+2026-01-06 16:36:16,180 - INFO - root - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2026-01-06 16:36:16,180 - INFO - root - [OVERSAMPLING DEBUG] needs_oversampling = False
+2026-01-06 16:36:16,180 - INFO - root - Using efficient random sampling strategy for gridsize=2
+2026-01-06 16:36:16,180 - INFO - root - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2026-01-06 16:36:16,180 - INFO - root - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=32, K=7, C=4
+2026-01-06 16:36:16,180 - INFO - root - Generating 32 groups efficiently from 32 points (K=7, C=4)
+2026-01-06 16:36:16,180 - INFO - root - [OVERSAMPLING DEBUG] Standard case: using 32 groups from 32 points
+2026-01-06 16:36:16,180 - INFO - root - [OVERSAMPLING DEBUG] Using all 32 points as seeds (no sampling needed)
+2026-01-06 16:36:16,180 - INFO - root - Using all 32 points as seeds
+2026-01-06 16:36:16,181 - INFO - root - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 32 groups
+2026-01-06 16:36:16,181 - INFO - root - Successfully generated 32 groups with shape (32, 4)
+2026-01-06 16:36:16,181 - INFO - root - [OVERSAMPLING DEBUG] Generated 32 groups in total
+2026-01-06 16:36:16,181 - INFO - root - Generated 32 groups efficiently
+2026-01-06 16:36:16,199 - INFO - root - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=32, n_points=8, C=4, K=7
+2026-01-06 16:36:16,199 - INFO - root - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
+2026-01-06 16:36:16,199 - INFO - root - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=True, neighbor_pool_size=None, effective_K=7
+2026-01-06 16:36:16,199 - INFO - root - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 32 > 8 = True
+2026-01-06 16:36:16,199 - INFO - root - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2026-01-06 16:36:16,199 - INFO - root - [OVERSAMPLING DEBUG] needs_oversampling = True
+2026-01-06 16:36:16,199 - INFO - root - [OVERSAMPLING DEBUG] Oversampling guards passed: enable_oversampling=True, effective_K=7 >= C=4
+2026-01-06 16:36:16,199 - INFO - root - Using K choose C oversampling random sampling strategy for gridsize=2
+2026-01-06 16:36:16,199 - INFO - root - [OVERSAMPLING DEBUG] Taking oversampling branch: K choose C oversampling
+2026-01-06 16:36:16,199 - INFO - root - Automatically using K choose C oversampling: 32 groups requested but only 8 points available (K=7, C=4)
+2026-01-06 16:36:16,199 - INFO - root - [OVERSAMPLING DEBUG] _generate_groups_with_oversampling called with: nsamples=32, K=7, C=4
+2026-01-06 16:36:16,199 - INFO - root - Generating 32 groups with K choose C oversampling from 8 points (K=7, C=4)
+2026-01-06 16:36:16,199 - INFO - root - [OVERSAMPLING DEBUG] Max combinations per seed: 35 (C=4, K=7)
+2026-01-06 16:36:16,199 - INFO - root - Each seed point can generate up to 35 combinations
+2026-01-06 16:36:16,199 - INFO - root - [OVERSAMPLING DEBUG] Calculated seed requirements: min_seeds_needed=1, using n_seeds=2
+2026-01-06 16:36:16,199 - INFO - root - [OVERSAMPLING DEBUG] Randomly selected 2 seed points from 8
+2026-01-06 16:36:16,199 - INFO - root - Using 2 seed points to generate 32 groups
+2026-01-06 16:36:16,199 - INFO - root - [OVERSAMPLING DEBUG] Generated combination pool: 64 total combinations
+2026-01-06 16:36:16,200 - INFO - root - Generated pool of 64 combinations
+2026-01-06 16:36:16,200 - INFO - root - [OVERSAMPLING DEBUG] Sampling 32 from 64 combinations (without replacement)
+2026-01-06 16:36:16,200 - INFO - root - [OVERSAMPLING DEBUG] _generate_groups_with_oversampling completed: generated 32 groups
+2026-01-06 16:36:16,200 - INFO - root - Successfully generated 32 groups with K choose C oversampling
+2026-01-06 16:36:16,200 - INFO - root - [OVERSAMPLING DEBUG] Generated 32 groups in total
+2026-01-06 16:36:16,200 - INFO - root - Generated 32 groups efficiently
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 1000000000.0 in params
+input shape (None, 64, 64, 1)
+diff3d shape: (32, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (32,)
+objectGuess shape: (128, 128)
+xcoords shape: (32,)
+ycoords shape: (32,)
+xcoords_start shape: (32,)
+ycoords_start shape: (32,)
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 1000000000.0 in params
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 1000000000.0 in params
+input shape (None, 64, 64, 1)
+diff3d shape: (8, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (8,)
+objectGuess shape: (128, 128)
+xcoords shape: (8,)
+ycoords shape: (8,)
+xcoords_start shape: (8,)
+ycoords_start shape: (8,)
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 1000000000.0 in params
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 1000000000.0 in params
+input shape (None, 64, 64, 1)
+diff3d shape: (32, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (32,)
+objectGuess shape: (128, 128)
+xcoords shape: (32,)
+ycoords shape: (32,)
+xcoords_start shape: (32,)
+ycoords_start shape: (32,)
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 1000000000.0 in params
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 1000000000.0 in params
+input shape (None, 64, 64, 1)
+diff3d shape: (8, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (8,)
+objectGuess shape: (128, 128)
+xcoords shape: (8,)
+ycoords shape: (8,)
+xcoords_start shape: (8,)
+ycoords_start shape: (8,)
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 1000000000.0 in params
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 10000.0 in params
+input shape (None, 64, 64, 1)
+diff3d shape: (32, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (32,)
+objectGuess shape: (128, 128)
+xcoords shape: (32,)
+ycoords shape: (32,)
+xcoords_start shape: (32,)
+ycoords_start shape: (32,)
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 10000.0 in params
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 10000.0 in params
+input shape (None, 64, 64, 1)
+diff3d shape: (8, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (8,)
+objectGuess shape: (128, 128)
+xcoords shape: (8,)
+ycoords shape: (8,)
+xcoords_start shape: (8,)
+ycoords_start shape: (8,)
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 10000.0 in params
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 10000.0 in params
+input shape (None, 64, 64, 1)
+diff3d shape: (32, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (32,)
+objectGuess shape: (128, 128)
+xcoords shape: (32,)
+ycoords shape: (32,)
+xcoords_start shape: (32,)
+ycoords_start shape: (32,)
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 10000.0 in params
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 10000.0 in params
+input shape (None, 64, 64, 1)
+diff3d shape: (8, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (8,)
+objectGuess shape: (128, 128)
+xcoords shape: (8,)
+ycoords shape: (8,)
+xcoords_start shape: (8,)
+ycoords_start shape: (8,)
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 10000.0 in params
+DEBUG: nsamples: 32, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: Using pre-computed 'Y' array from the input file.
+neighbor-sampled diffraction shape (32, 64, 64, 4)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(32, 64, 64, 4) Y_I=(32, 64, 64, 4) Y_phi=(32, 64, 64, 4) norm_Y_I=() coords_nominal=(32, 1, 2, 4) coords_true=(32, 1, 2, 4) nn_indices=(32, 4) mean=16.828 global_offsets=(32, 1, 2, 1) mean=59.729 local_offsets=(32, 1, 2, 4) mean=0.000 probe=(64, 64) mean_amplitude=0.092>
+DEBUG: nsamples: 32, gridsize: 2 (using K choose C oversampling random sample-then-group strategy)
+INFO: Using pre-computed 'Y' array from the input file.
+neighbor-sampled diffraction shape (32, 64, 64, 4)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(32, 64, 64, 4) Y_I=(32, 64, 64, 4) Y_phi=(32, 64, 64, 4) norm_Y_I=() coords_nominal=(32, 1, 2, 4) coords_true=(32, 1, 2, 4) nn_indices=(32, 4) mean=3.602 global_offsets=(32, 1, 2, 1) mean=64.339 local_offsets=(32, 1, 2, 4) mean=-0.000 probe=(64, 64) mean_amplitude=0.092>
+DEBUG: Setting probe to tf.Tensor(
+[[[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ ...
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]], shape=(64, 64, 1), dtype=complex64) in params
+DEBUG: Setting intensity_scale to 988.21173 in params
+DEBUG: Setting probe to tf.Tensor(
+[[[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ ...
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]], shape=(64, 64, 1), dtype=complex64) in params
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
+│ input (InputLayer)  │ (None, 64, 64, 4) │          0 │ -                 │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ intensity_scaler    │ (None, 64, 64, 4) │          0 │ input[0][0]       │
+│ (IntensityScaler)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d (Conv2D)     │ (None, 64, 64,    │      2,368 │ intensity_scaler… │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_1 (Conv2D)   │ (None, 64, 64,    │     36,928 │ conv2d[0][0]      │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d       │ (None, 32, 32,    │          0 │ conv2d_1[0][0]    │
+│ (MaxPooling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_2 (Conv2D)   │ (None, 32, 32,    │     73,856 │ max_pooling2d[0]… │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_3 (Conv2D)   │ (None, 32, 32,    │    147,584 │ conv2d_2[0][0]    │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d_1     │ (None, 16, 16,    │          0 │ conv2d_3[0][0]    │
+│ (MaxPooling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_4 (Conv2D)   │ (None, 16, 16,    │    295,168 │ max_pooling2d_1[… │
+│                     │ 256)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_5 (Conv2D)   │ (None, 16, 16,    │    590,080 │ conv2d_4[0][0]    │
+│                     │ 256)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d_2     │ (None, 8, 8, 256) │          0 │ conv2d_5[0][0]    │
+│ (MaxPooling2D)      │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_8 (Conv2D)   │ (None, 8, 8, 128) │    295,040 │ max_pooling2d_2[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_16 (Conv2D)  │ (None, 8, 8, 128) │    295,040 │ max_pooling2d_2[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_9 (Conv2D)   │ (None, 8, 8, 128) │    147,584 │ conv2d_8[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_17 (Conv2D)  │ (None, 8, 8, 128) │    147,584 │ conv2d_16[0][0]   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d       │ (None, 16, 16,    │          0 │ conv2d_9[0][0]    │
+│ (UpSampling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_3     │ (None, 16, 16,    │          0 │ conv2d_17[0][0]   │
+│ (UpSampling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_10 (Conv2D)  │ (None, 16, 16,    │     73,792 │ up_sampling2d[0]… │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_18 (Conv2D)  │ (None, 16, 16,    │     73,792 │ up_sampling2d_3[… │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_11 (Conv2D)  │ (None, 16, 16,    │     36,928 │ conv2d_10[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_19 (Conv2D)  │ (None, 16, 16,    │     36,928 │ conv2d_18[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_1     │ (None, 32, 32,    │          0 │ conv2d_11[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_4     │ (None, 32, 32,    │          0 │ conv2d_19[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_1          │ (None, 32, 32, 4) │          0 │ up_sampling2d_1[… │
+│ (GetItem)           │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_3          │ (None, 32, 32, 4) │          0 │ up_sampling2d_4[… │
+│ (GetItem)           │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_12 (Conv2D)  │ (None, 32, 32,    │      2,368 │ get_item_1[0][0]  │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_20 (Conv2D)  │ (None, 32, 32,    │      2,368 │ get_item_3[0][0]  │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_13 (Conv2D)  │ (None, 32, 32,    │     36,928 │ conv2d_12[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_21 (Conv2D)  │ (None, 32, 32,    │     36,928 │ conv2d_20[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_2     │ (None, 64, 64,    │          0 │ conv2d_13[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_5     │ (None, 64, 64,    │          0 │ conv2d_21[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item (GetItem)  │ (None, 32, 32,    │          0 │ up_sampling2d_1[… │
+│                     │ 60)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_7 (Conv2D)   │ (None, 64, 64, 4) │      2,308 │ up_sampling2d_2[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_2          │ (None, 32, 32,    │          0 │ up_sampling2d_4[… │
+│ (GetItem)           │ 60)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_15 (Conv2D)  │ (None, 64, 64, 4) │      2,308 │ up_sampling2d_5[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_6 (Conv2D)   │ (None, 32, 32, 4) │      2,164 │ get_item[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ silu (Silu)         │ (None, 64, 64, 4) │          0 │ conv2d_7[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_14 (Conv2D)  │ (None, 32, 32, 4) │      2,164 │ get_item_2[0][0]  │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ silu_1 (Silu)       │ (None, 64, 64, 4) │          0 │ conv2d_15[0][0]   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ amp                 │ (None, 32, 32, 4) │          0 │ conv2d_6[0][0]    │
+│ (ActivationLayer)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ center_mask_layer   │ (None, 64, 64, 1) │          0 │ silu[0][0]        │
+│ (CenterMaskLayer)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ phi                 │ (None, 32, 32, 4) │          0 │ conv2d_14[0][0]   │
+│ (ActivationLayer)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ center_mask_layer_1 │ (None, 64, 64, 1) │          0 │ silu_1[0][0]      │
+│ (CenterMaskLayer)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ amp_padded          │ (None, 64, 64, 4) │          0 │ amp[0][0]         │
+│ (ZeroPadding2D)     │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ multiply (Multiply) │ (None, 64, 64, 4) │          0 │ silu[0][0],       │
+│                     │                   │            │ center_mask_laye… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ phase_padded        │ (None, 64, 64, 4) │          0 │ phi[0][0]         │
+│ (ZeroPadding2D)     │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ multiply_1          │ (None, 64, 64, 4) │          0 │ silu_1[0][0],     │
+│ (Multiply)          │                   │            │ center_mask_laye… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ add (Add)           │ (None, 64, 64, 4) │          0 │ amp_padded[0][0], │
+│                     │                   │            │ multiply[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ add_1 (Add)         │ (None, 64, 64, 4) │          0 │ phase_padded[0][… │
+│                     │                   │            │ multiply_1[0][0]  │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ obj                 │ (None, 64, 64, 4) │          0 │ add[0][0],        │
+│ (CombineComplexLay… │                   │            │ add_1[0][0]       │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ input_positions     │ (None, 1, 2, 4)   │          0 │ -                 │
+│ (InputLayer)        │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ padded_obj_2        │ (None, 78, 78, 4) │          0 │ obj[0][0],        │
+│ (ReassemblePatches… │                   │            │ input_positions[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ padded_objs_with_o… │ (None, 68, 68, 4) │          0 │ padded_obj_2[0][… │
+│ (ExtractPatchesPos… │                   │            │ input_positions[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ probe_illumination  │ [(None, 68, 68,   │          0 │ padded_objs_with… │
+│ (ProbeIllumination) │ 4), (None, 68,    │            │                   │
+│                     │ 68, 4)]           │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_amplitude      │ [(None, 64, 64,   │          0 │ probe_illuminati… │
+│ (PadAndDiffractLay… │ 4), (None, 64,    │            │                   │
+│                     │ 64, 4)]           │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_diff_channels  │ (None, 64, 64, 4) │          0 │ pred_amplitude[0… │
+│ (FlatToChannelLaye… │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ intensity_scaler_i… │ (None, 64, 64, 4) │          0 │ pred_diff_channe… │
+│ (IntensityScaler_i… │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ trimmed_obj         │ (None, 64, 64, 4) │          0 │ padded_obj_2[0][… │
+│ (TrimReconstructio… │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_intensity      │ (None, 64, 64, 4) │          0 │ intensity_scaler… │
+│ (SquareLayer)       │                   │            │                   │
+└─────────────────────┴───────────────────┴────────────┴───────────────────┘
+ Total params: 2,340,208 (8.93 MB)
+ Trainable params: 2,340,208 (8.93 MB)
+ Non-trainable params: 0 (0.00 B)
+2026-01-06 16:36:16.901817: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:103] Profiler session initializing.
+2026-01-06 16:36:16.901827: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:118] Profiler session started.
+I0000 00:00:1767746176.901843   94546 cupti_tracer.cc:1026] Profiler found 1 GPUs
+W0000 00:00:1767746176.915956   94546 cupti_tracer.cc:1213] Fail to use per-thread activity buffer, cupti trace overhead may be big. CUPTI ERROR CODE:1
+2026-01-06 16:36:16.916045: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:130] Profiler session tear down.
+I0000 00:00:1767746176.916467   94546 cupti_tracer.cc:1249] CUPTI activity buffer flushed
+2026-01-06 16:36:18,248 - WARNING - tensorflow - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2026-01-06 16:36:21,769 - WARNING - tensorflow - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2026-01-06 16:36:23.782070: W tensorflow/core/common_runtime/type_inference.cc:340] Type inference failed. This indicates an invalid graph that escaped type checking. Error message: INVALID_ARGUMENT: expected compatible input types, but input 1:
+type_id: TFT_OPTIONAL
+args {
+  type_id: TFT_PRODUCT
+  args {
+    type_id: TFT_TENSOR
+    args {
+      type_id: TFT_INT32
+    }
+  }
+}
+ is neither a subtype nor a supertype of the combined inputs preceding it:
+type_id: TFT_OPTIONAL
+args {
+  type_id: TFT_PRODUCT
+  args {
+    type_id: TFT_TENSOR
+    args {
+      type_id: TFT_FLOAT
+    }
+  }
+}
+
+	for Tuple type infernce function 0
+	while inferring type of node 'StatefulPartitionedCall/functional_1/padded_obj_2_1/cond/output/_165'
+2026-01-06 16:36:27.435737: W tensorflow/core/framework/op_kernel.cc:1857] OP_REQUIRES failed at xla_ops.cc:591 : INVALID_ARGUMENT: Input to reshape is a tensor with 389376 values, but the requested shape has 24336
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 809, in <module>
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 771, in main
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 375, in train_all_arms
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 736, in train_cdi_model
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 94, in train_eval
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 90, in train
+File "Documents/PtychoPINN/ptycho/model.py", line 634, in train
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 377, in fit
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 220, in function
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 133, in multi_step_on_iterator
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 114, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 58, in train_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1092, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1343, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1019, in _reassemble_position_batched
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 930, in original_approach
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 850, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 814, in translate
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 736, in translate_core
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 294, in translate_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 209, in projective_warp_xla_jit
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 121, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 145, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 182, in projective_warp_xla
+
+	 [[{{node Reshape_21}}]]
+	tf2xla conversion failed while converting __forward_projective_warp_xla_jit_17451[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+2026-01-06 16:36:27.453475: W tensorflow/core/framework/op_kernel.cc:1857] OP_REQUIRES failed at xla_ops.cc:591 : INVALID_ARGUMENT: Input to reshape is a tensor with 389376 values, but the requested shape has 24336
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 809, in <module>
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 771, in main
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 375, in train_all_arms
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 736, in train_cdi_model
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 94, in train_eval
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 90, in train
+File "Documents/PtychoPINN/ptycho/model.py", line 634, in train
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 377, in fit
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 220, in function
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 133, in multi_step_on_iterator
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 114, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 58, in train_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1092, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1343, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1019, in _reassemble_position_batched
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 930, in original_approach
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 850, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 814, in translate
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 736, in translate_core
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 294, in translate_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 209, in projective_warp_xla_jit
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 121, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 145, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 182, in projective_warp_xla
+
+	 [[{{node Reshape_21}}]]
+	tf2xla conversion failed while converting __forward_projective_warp_xla_jit_17451[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+2026-01-06 16:36:27,459 - ERROR - __main__ - Training failed for high_nll: Graph execution error:
+
+Detected at node Reshape_21 defined at (most recent call last):
+<stack traces unavailable>
+Input to reshape is a tensor with 389376 values, but the requested shape has 24336
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 809, in <module>
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 771, in main
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 375, in train_all_arms
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 736, in train_cdi_model
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 94, in train_eval
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 90, in train
+File "Documents/PtychoPINN/ptycho/model.py", line 634, in train
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 377, in fit
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 220, in function
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 133, in multi_step_on_iterator
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 114, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 58, in train_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1092, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1343, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1019, in _reassemble_position_batched
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 930, in original_approach
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 850, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 814, in translate
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 736, in translate_core
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 294, in translate_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 209, in projective_warp_xla_jit
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 121, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 145, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 182, in projective_warp_xla
+
+	 [[{{node Reshape_21}}]]
+	tf2xla conversion failed while converting __forward_projective_warp_xla_jit_17451[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall/functional_1/padded_objs_with_offsets_1/translation_18_1/PartitionedCall_1]] [Op:__inference_multi_step_on_iterator_38106]
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 375, in train_all_arms
+    train_results = train_cdi_model(train_data, test_data, config)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 736, in train_cdi_model
+    results = train_pinn.train_eval(PtychoDataset(train_container, test_container))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/train_pinn.py", line 94, in train_eval
+    model_instance, history = train(ptycho_dataset.train_data)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/train_pinn.py", line 90, in train
+    return model_instance, model.train(nepochs, train_data, model_instance=model_instance)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/model.py", line 634, in train
+    history=model_instance.fit(
+            ^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 122, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/execute.py", line 59, in quick_execute
+    except TypeError as e:
+tensorflow.python.framework.errors_impl.InvalidArgumentError: Graph execution error:
+
+Detected at node Reshape_21 defined at (most recent call last):
+<stack traces unavailable>
+Input to reshape is a tensor with 389376 values, but the requested shape has 24336
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 809, in <module>
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 771, in main
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 375, in train_all_arms
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 736, in train_cdi_model
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 94, in train_eval
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 90, in train
+File "Documents/PtychoPINN/ptycho/model.py", line 634, in train
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 377, in fit
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 220, in function
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 133, in multi_step_on_iterator
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 114, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 58, in train_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1092, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1343, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1019, in _reassemble_position_batched
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 930, in original_approach
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 850, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 814, in translate
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 736, in translate_core
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 294, in translate_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 209, in projective_warp_xla_jit
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 121, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 145, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 182, in projective_warp_xla
+
+	 [[{{node Reshape_21}}]]
+	tf2xla conversion failed while converting __forward_projective_warp_xla_jit_17451[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall/functional_1/padded_objs_with_offsets_1/translation_18_1/PartitionedCall_1]] [Op:__inference_multi_step_on_iterator_38106]
+2026-01-06 16:36:27,460 - INFO - __main__ - 
+--- Training high_mae ---
+2026-01-06 16:36:27,460 - INFO - __main__ - [DEBUG] After update_legacy_dict: params.cfg['gridsize'] = 2 (expected: 2)
+2026-01-06 16:36:27,460 - INFO - root - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=32, n_points=32, C=4, K=7
+2026-01-06 16:36:27,460 - INFO - root - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
+2026-01-06 16:36:27,460 - INFO - root - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=True, neighbor_pool_size=None, effective_K=7
+2026-01-06 16:36:27,460 - INFO - root - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 32 > 32 = False
+2026-01-06 16:36:27,460 - INFO - root - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2026-01-06 16:36:27,460 - INFO - root - [OVERSAMPLING DEBUG] needs_oversampling = False
+2026-01-06 16:36:27,460 - INFO - root - Using efficient random sampling strategy for gridsize=2
+2026-01-06 16:36:27,460 - INFO - root - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2026-01-06 16:36:27,460 - INFO - root - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=32, K=7, C=4
+2026-01-06 16:36:27,460 - INFO - root - Generating 32 groups efficiently from 32 points (K=7, C=4)
+2026-01-06 16:36:27,460 - INFO - root - [OVERSAMPLING DEBUG] Standard case: using 32 groups from 32 points
+2026-01-06 16:36:27,460 - INFO - root - [OVERSAMPLING DEBUG] Using all 32 points as seeds (no sampling needed)
+2026-01-06 16:36:27,460 - INFO - root - Using all 32 points as seeds
+2026-01-06 16:36:27,461 - INFO - root - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 32 groups
+2026-01-06 16:36:27,461 - INFO - root - Successfully generated 32 groups with shape (32, 4)
+2026-01-06 16:36:27,461 - INFO - root - [OVERSAMPLING DEBUG] Generated 32 groups in total
+2026-01-06 16:36:27,461 - INFO - root - Generated 32 groups efficiently
+2026-01-06 16:36:27,473 - INFO - root - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=32, n_points=8, C=4, K=7
+2026-01-06 16:36:27,473 - INFO - root - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
+2026-01-06 16:36:27,473 - INFO - root - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=True, neighbor_pool_size=None, effective_K=7
+2026-01-06 16:36:27,473 - INFO - root - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 32 > 8 = True
+2026-01-06 16:36:27,473 - INFO - root - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2026-01-06 16:36:27,473 - INFO - root - [OVERSAMPLING DEBUG] needs_oversampling = True
+2026-01-06 16:36:27,473 - INFO - root - [OVERSAMPLING DEBUG] Oversampling guards passed: enable_oversampling=True, effective_K=7 >= C=4
+2026-01-06 16:36:27,473 - INFO - root - Using K choose C oversampling random sampling strategy for gridsize=2
+2026-01-06 16:36:27,473 - INFO - root - [OVERSAMPLING DEBUG] Taking oversampling branch: K choose C oversampling
+2026-01-06 16:36:27,473 - INFO - root - Automatically using K choose C oversampling: 32 groups requested but only 8 points available (K=7, C=4)
+2026-01-06 16:36:27,473 - INFO - root - [OVERSAMPLING DEBUG] _generate_groups_with_oversampling called with: nsamples=32, K=7, C=4
+2026-01-06 16:36:27,474 - INFO - root - Generating 32 groups with K choose C oversampling from 8 points (K=7, C=4)
+2026-01-06 16:36:27,474 - INFO - root - [OVERSAMPLING DEBUG] Max combinations per seed: 35 (C=4, K=7)
+2026-01-06 16:36:27,474 - INFO - root - Each seed point can generate up to 35 combinations
+2026-01-06 16:36:27,474 - INFO - root - [OVERSAMPLING DEBUG] Calculated seed requirements: min_seeds_needed=1, using n_seeds=2
+2026-01-06 16:36:27,474 - INFO - root - [OVERSAMPLING DEBUG] Randomly selected 2 seed points from 8
+2026-01-06 16:36:27,474 - INFO - root - Using 2 seed points to generate 32 groups
+2026-01-06 16:36:27,474 - INFO - root - [OVERSAMPLING DEBUG] Generated combination pool: 64 total combinations
+2026-01-06 16:36:27,474 - INFO - root - Generated pool of 64 combinations
+2026-01-06 16:36:27,474 - INFO - root - [OVERSAMPLING DEBUG] Sampling 32 from 64 combinations (without replacement)
+2026-01-06 16:36:27,474 - INFO - root - [OVERSAMPLING DEBUG] _generate_groups_with_oversampling completed: generated 32 groups
+2026-01-06 16:36:27,474 - INFO - root - Successfully generated 32 groups with K choose C oversampling
+2026-01-06 16:36:27,474 - INFO - root - [OVERSAMPLING DEBUG] Generated 32 groups in total
+2026-01-06 16:36:27,474 - INFO - root - Generated 32 groups efficiently
+None
+Current Parameters:
+--------------------
+N: 64
+amp_activation: sigmoid
+backend: tensorflow
+batch_size: 16
+bigN: 68
+big_gridsize: 10
+data_source: generic
+debug: True
+default_probe_scale: 0.7
+enable_oversampling: True
+gaussian_smoothing_sigma: 0.0
+gridsize: 2
+h5_path: wts.h5
+intensity_scale: 988.2117309570312
+intensity_scale.trainable: True
+label: 
+mae_weight: 0.0
+max_position_jitter: 10
+model_type: pinn
+n_filters_scale: 2
+n_groups: 32
+neighbor_count: 7
+nepochs: 1
+nimgs_test: 3
+nimgs_train: 9
+nll_weight: 1.0
+nphotons: 1000000000.0
+npseed: 42
+object.big: True
+offset: 4
+outer_offset_test: None
+outer_offset_train: None
+output_prefix: tmp/dose_study/high_nll
+pad_object: True
+positions.provided: True
+probe:
+  shape: (64, 64, 1)
+  mean: 0.250+0.000j
+  std: 0.741
+  min: 0.000+0.000j
+  max: 2.723+0.000j
+probe.big: True
+probe.mask: False
+probe.trainable: False
+probe_scale: 4.0
+realspace_mae_weight: 0.0
+realspace_weight: 0.0
+sequential_sampling: False
+set_phi: False
+sim_jitter_scale: 0.0
+size: 392
+torch_loss_mode: poisson
+tv_weight: 0.0
+use_xla_translate: True
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from global params: 64
+DEBUG _flat_to_channel: input shape=(128, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+DEBUG: nsamples: 32, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: Using pre-computed 'Y' array from the input file.
+neighbor-sampled diffraction shape (32, 64, 64, 4)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(32, 64, 64, 4) Y_I=(32, 64, 64, 4) Y_phi=(32, 64, 64, 4) norm_Y_I=() coords_nominal=(32, 1, 2, 4) coords_true=(32, 1, 2, 4) nn_indices=(32, 4) mean=16.719 global_offsets=(32, 1, 2, 1) mean=58.521 local_offsets=(32, 1, 2, 4) mean=0.000 probe=(64, 64) mean_amplitude=0.092>
+DEBUG: nsamples: 32, gridsize: 2 (using K choose C oversampling random sample-then-group strategy)
+INFO: Using pre-computed 'Y' array from the input file.
+neighbor-sampled diffraction shape (32, 64, 64, 4)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(32, 64, 64, 4) Y_I=(32, 64, 64, 4) Y_phi=(32, 64, 64, 4) norm_Y_I=() coords_nominal=(32, 1, 2, 4) coords_true=(32, 1, 2, 4) nn_indices=(32, 4) mean=3.383 global_offsets=(32, 1, 2, 1) mean=60.500 local_offsets=(32, 1, 2, 4) mean=-0.000 probe=(64, 64) mean_amplitude=0.092>
+DEBUG: Setting probe to tf.Tensor(
+[[[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ ...
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]], shape=(64, 64, 1), dtype=complex64) in params
+DEBUG: Setting intensity_scale to 988.21173 in params
+DEBUG: Setting probe to tf.Tensor(
+[[[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ ...
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]], shape=(64, 64, 1), dtype=complex64) in params
+Current Parameters:
+--------------------
+N: 64
+amp_activation: sigmoid
+backend: tensorflow
+batch_size: 16
+bigN: 68
+big_gridsize: 10
+data_source: generic
+debug: True
+default_probe_scale: 0.7
+enable_oversampling: True
+gaussian_smoothing_sigma: 0.0
+gridsize: 2
+h5_path: wts.h5
+intensity_scale: 988.2117309570312
+intensity_scale.trainable: True
+label: 
+mae_weight: 1.0
+max_position_jitter: 10
+model_type: pinn
+n_filters_scale: 2
+n_groups: 32
+neighbor_count: 7
+nepochs: 1
+nimgs_test: 3
+nimgs_train: 9
+nll_weight: 0.0
+nphotons: 1000000000.0
+npseed: 42
+object.big: True
+offset: 4
+outer_offset_test: None
+outer_offset_train: None
+output_prefix: tmp/dose_study/high_mae
+pad_object: True
+positions.provided: True
+probe:
+  shape: (64, 64, 1)
+  mean: 0.250+0.000j
+  std: 0.741
+  min: 0.000+0.000j
+  max: 2.723+0.000j
+probe.big: True
+probe.mask: False
+probe.trainable: False
+probe_scale: 4.0
+realspace_mae_weight: 0.0
+realspace_weight: 0.0
+sequential_sampling: False
+set_phi: False
+sim_jitter_scale: 0.0
+size: 392
+torch_loss_mode: poisson
+tv_weight: 0.0
+use_xla_translate: True
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from global params: 64
+DEBUG _flat_to_channel: input shape=(128, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 642026-01-06 16:36:28,596 - WARNING - tensorflow - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2026-01-06 16:36:31,642 - WARNING - tensorflow - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2026-01-06 16:36:36.449885: W tensorflow/core/framework/op_kernel.cc:1857] OP_REQUIRES failed at xla_ops.cc:591 : INVALID_ARGUMENT: Input to reshape is a tensor with 389376 values, but the requested shape has 24336
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 809, in <module>
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 771, in main
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 375, in train_all_arms
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 736, in train_cdi_model
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 94, in train_eval
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 90, in train
+File "Documents/PtychoPINN/ptycho/model.py", line 634, in train
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 377, in fit
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 220, in function
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 133, in multi_step_on_iterator
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 114, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 58, in train_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1092, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1343, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1019, in _reassemble_position_batched
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 930, in original_approach
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 850, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 814, in translate
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 736, in translate_core
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 294, in translate_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 209, in projective_warp_xla_jit
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 121, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 145, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 182, in projective_warp_xla
+
+	 [[{{node Reshape_21}}]]
+	tf2xla conversion failed while converting __forward_projective_warp_xla_jit_17451[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+2026-01-06 16:36:36.468810: W tensorflow/core/framework/op_kernel.cc:1857] OP_REQUIRES failed at xla_ops.cc:591 : INVALID_ARGUMENT: Input to reshape is a tensor with 389376 values, but the requested shape has 24336
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 809, in <module>
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 771, in main
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 375, in train_all_arms
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 736, in train_cdi_model
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 94, in train_eval
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 90, in train
+File "Documents/PtychoPINN/ptycho/model.py", line 634, in train
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 377, in fit
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 220, in function
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 133, in multi_step_on_iterator
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 114, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 58, in train_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1092, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1343, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1019, in _reassemble_position_batched
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 930, in original_approach
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 850, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 814, in translate
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 736, in translate_core
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 294, in translate_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 209, in projective_warp_xla_jit
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 121, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 145, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 182, in projective_warp_xla
+
+	 [[{{node Reshape_21}}]]
+	tf2xla conversion failed while converting __forward_projective_warp_xla_jit_17451[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+2026-01-06 16:36:36,473 - ERROR - __main__ - Training failed for high_mae: Graph execution error:
+
+Detected at node Reshape_21 defined at (most recent call last):
+<stack traces unavailable>
+Input to reshape is a tensor with 389376 values, but the requested shape has 24336
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 809, in <module>
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 771, in main
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 375, in train_all_arms
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 736, in train_cdi_model
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 94, in train_eval
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 90, in train
+File "Documents/PtychoPINN/ptycho/model.py", line 634, in train
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 377, in fit
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 220, in function
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 133, in multi_step_on_iterator
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 114, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 58, in train_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1092, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1343, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1019, in _reassemble_position_batched
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 930, in original_approach
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 850, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 814, in translate
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 736, in translate_core
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 294, in translate_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 209, in projective_warp_xla_jit
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 121, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 145, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 182, in projective_warp_xla
+
+	 [[{{node Reshape_21}}]]
+	tf2xla conversion failed while converting __forward_projective_warp_xla_jit_17451[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall/functional_1/padded_objs_with_offsets_1/translation_18_1/PartitionedCall_1]] [Op:__inference_multi_step_on_iterator_61979]
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 375, in train_all_arms
+    train_results = train_cdi_model(train_data, test_data, config)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 736, in train_cdi_model
+    results = train_pinn.train_eval(PtychoDataset(train_container, test_container))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/train_pinn.py", line 94, in train_eval
+    model_instance, history = train(ptycho_dataset.train_data)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/train_pinn.py", line 90, in train
+    return model_instance, model.train(nepochs, train_data, model_instance=model_instance)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/model.py", line 634, in train
+    history=model_instance.fit(
+            ^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 122, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/execute.py", line 59, in quick_execute
+    except TypeError as e:
+tensorflow.python.framework.errors_impl.InvalidArgumentError: Graph execution error:
+
+Detected at node Reshape_21 defined at (most recent call last):
+<stack traces unavailable>
+Input to reshape is a tensor with 389376 values, but the requested shape has 24336
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 809, in <module>
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 771, in main
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 375, in train_all_arms
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 736, in train_cdi_model
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 94, in train_eval
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 90, in train
+File "Documents/PtychoPINN/ptycho/model.py", line 634, in train
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 377, in fit
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 220, in function
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 133, in multi_step_on_iterator
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 114, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 58, in train_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1092, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1343, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1019, in _reassemble_position_batched
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 930, in original_approach
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 850, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 814, in translate
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 736, in translate_core
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 294, in translate_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 209, in projective_warp_xla_jit
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 121, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 145, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 182, in projective_warp_xla
+
+	 [[{{node Reshape_21}}]]
+	tf2xla conversion failed while converting __forward_projective_warp_xla_jit_17451[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall/functional_1/padded_objs_with_offsets_1/translation_18_1/PartitionedCall_1]] [Op:__inference_multi_step_on_iterator_61979]
+2026-01-06 16:36:36,474 - INFO - __main__ - 
+--- Training low_nll ---
+2026-01-06 16:36:36,474 - INFO - __main__ - [DEBUG] After update_legacy_dict: params.cfg['gridsize'] = 2 (expected: 2)
+2026-01-06 16:36:36,474 - INFO - root - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=32, n_points=32, C=4, K=7
+2026-01-06 16:36:36,474 - INFO - root - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
+2026-01-06 16:36:36,474 - INFO - root - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=True, neighbor_pool_size=None, effective_K=7
+2026-01-06 16:36:36,474 - INFO - root - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 32 > 32 = False
+2026-01-06 16:36:36,474 - INFO - root - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2026-01-06 16:36:36,474 - INFO - root - [OVERSAMPLING DEBUG] needs_oversampling = False
+2026-01-06 16:36:36,474 - INFO - root - Using efficient random sampling strategy for gridsize=2
+2026-01-06 16:36:36,474 - INFO - root - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2026-01-06 16:36:36,474 - INFO - root - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=32, K=7, C=4
+2026-01-06 16:36:36,474 - INFO - root - Generating 32 groups efficiently from 32 points (K=7, C=4)
+2026-01-06 16:36:36,474 - INFO - root - [OVERSAMPLING DEBUG] Standard case: using 32 groups from 32 points
+2026-01-06 16:36:36,474 - INFO - root - [OVERSAMPLING DEBUG] Using all 32 points as seeds (no sampling needed)
+2026-01-06 16:36:36,474 - INFO - root - Using all 32 points as seeds
+2026-01-06 16:36:36,475 - INFO - root - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 32 groups
+2026-01-06 16:36:36,475 - INFO - root - Successfully generated 32 groups with shape (32, 4)
+2026-01-06 16:36:36,475 - INFO - root - [OVERSAMPLING DEBUG] Generated 32 groups in total
+2026-01-06 16:36:36,475 - INFO - root - Generated 32 groups efficiently
+2026-01-06 16:36:36,487 - INFO - root - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=32, n_points=8, C=4, K=7
+2026-01-06 16:36:36,487 - INFO - root - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
+2026-01-06 16:36:36,487 - INFO - root - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=True, neighbor_pool_size=None, effective_K=7
+2026-01-06 16:36:36,487 - INFO - root - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 32 > 8 = True
+2026-01-06 16:36:36,487 - INFO - root - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2026-01-06 16:36:36,487 - INFO - root - [OVERSAMPLING DEBUG] needs_oversampling = True
+2026-01-06 16:36:36,487 - INFO - root - [OVERSAMPLING DEBUG] Oversampling guards passed: enable_oversampling=True, effective_K=7 >= C=4
+2026-01-06 16:36:36,487 - INFO - root - Using K choose C oversampling random sampling strategy for gridsize=2
+2026-01-06 16:36:36,488 - INFO - root - [OVERSAMPLING DEBUG] Taking oversampling branch: K choose C oversampling
+2026-01-06 16:36:36,488 - INFO - root - Automatically using K choose C oversampling: 32 groups requested but only 8 points available (K=7, C=4)
+2026-01-06 16:36:36,488 - INFO - root - [OVERSAMPLING DEBUG] _generate_groups_with_oversampling called with: nsamples=32, K=7, C=4
+2026-01-06 16:36:36,488 - INFO - root - Generating 32 groups with K choose C oversampling from 8 points (K=7, C=4)
+2026-01-06 16:36:36,488 - INFO - root - [OVERSAMPLING DEBUG] Max combinations per seed: 35 (C=4, K=7)
+2026-01-06 16:36:36,488 - INFO - root - Each seed point can generate up to 35 combinations
+2026-01-06 16:36:36,488 - INFO - root - [OVERSAMPLING DEBUG] Calculated seed requirements: min_seeds_needed=1, using n_seeds=2
+2026-01-06 16:36:36,488 - INFO - root - [OVERSAMPLING DEBUG] Randomly selected 2 seed points from 8
+2026-01-06 16:36:36,488 - INFO - root - Using 2 seed points to generate 32 groups
+2026-01-06 16:36:36,488 - INFO - root - [OVERSAMPLING DEBUG] Generated combination pool: 64 total combinations
+2026-01-06 16:36:36,488 - INFO - root - Generated pool of 64 combinations
+2026-01-06 16:36:36,488 - INFO - root - [OVERSAMPLING DEBUG] Sampling 32 from 64 combinations (without replacement)
+2026-01-06 16:36:36,488 - INFO - root - [OVERSAMPLING DEBUG] _generate_groups_with_oversampling completed: generated 32 groups
+2026-01-06 16:36:36,488 - INFO - root - Successfully generated 32 groups with K choose C oversampling
+2026-01-06 16:36:36,488 - INFO - root - [OVERSAMPLING DEBUG] Generated 32 groups in total
+2026-01-06 16:36:36,488 - INFO - root - Generated 32 groups efficiently
+2026-01-06 16:36:37,717 - WARNING - tensorflow - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2026-01-06 16:36:40,777 - WARNING - tensorflow - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2026-01-06 16:36:45.284265: W tensorflow/core/framework/op_kernel.cc:1857] OP_REQUIRES failed at xla_ops.cc:591 : INVALID_ARGUMENT: Input to reshape is a tensor with 389376 values, but the requested shape has 24336
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 809, in <module>
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 771, in main
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 375, in train_all_arms
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 736, in train_cdi_model
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 94, in train_eval
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 90, in train
+File "Documents/PtychoPINN/ptycho/model.py", line 634, in train
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 377, in fit
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 220, in function
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 133, in multi_step_on_iterator
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 114, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 58, in train_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1092, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1343, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1019, in _reassemble_position_batched
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 930, in original_approach
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 850, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 814, in translate
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 736, in translate_core
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 294, in translate_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 209, in projective_warp_xla_jit
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 121, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 145, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 182, in projective_warp_xla
+
+	 [[{{node Reshape_21}}]]
+	tf2xla conversion failed while converting __forward_projective_warp_xla_jit_17451[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+2026-01-06 16:36:45.302173: W tensorflow/core/framework/op_kernel.cc:1857] OP_REQUIRES failed at xla_ops.cc:591 : INVALID_ARGUMENT: Input to reshape is a tensor with 389376 values, but the requested shape has 24336
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 809, in <module>
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 771, in main
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 375, in train_all_arms
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 736, in train_cdi_model
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 94, in train_eval
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 90, in train
+File "Documents/PtychoPINN/ptycho/model.py", line 634, in train
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 377, in fit
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 220, in function
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 133, in multi_step_on_iterator
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 114, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 58, in train_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1092, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1343, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1019, in _reassemble_position_batched
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 930, in original_approach
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 850, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 814, in translate
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 736, in translate_core
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 294, in translate_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 209, in projective_warp_xla_jit
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 121, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 145, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 182, in projective_warp_xla
+
+	 [[{{node Reshape_21}}]]
+	tf2xla conversion failed while converting __forward_projective_warp_xla_jit_17451[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+2026-01-06 16:36:45,306 - ERROR - __main__ - Training failed for low_nll: Graph execution error:
+
+Detected at node Reshape_21 defined at (most recent call last):
+<stack traces unavailable>
+Input to reshape is a tensor with 389376 values, but the requested shape has 24336
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 809, in <module>
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 771, in main
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 375, in train_all_arms
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 736, in train_cdi_model
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 94, in train_eval
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 90, in train
+File "Documents/PtychoPINN/ptycho/model.py", line 634, in train
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 377, in fit
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 220, in function
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 133, in multi_step_on_iterator
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 114, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 58, in train_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1092, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1343, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1019, in _reassemble_position_batched
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 930, in original_approach
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 850, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 814, in translate
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 736, in translate_core
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 294, in translate_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 209, in projective_warp_xla_jit
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 121, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 145, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 182, in projective_warp_xla
+
+	 [[{{node Reshape_21}}]]
+	tf2xla conversion failed while converting __forward_projective_warp_xla_jit_17451[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall/functional_1/padded_objs_with_offsets_1/translation_18_1/PartitionedCall_1]] [Op:__inference_multi_step_on_iterator_85852]
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 375, in train_all_arms
+    train_results = train_cdi_model(train_data, test_data, config)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 736, in train_cdi_model
+    results = train_pinn.train_eval(PtychoDataset(train_container, test_container))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/train_pinn.py", line 94, in train_eval
+    model_instance, history = train(ptycho_dataset.train_data)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/train_pinn.py", line 90, in train
+    return model_instance, model.train(nepochs, train_data, model_instance=model_instance)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/model.py", line 634, in train
+    history=model_instance.fit(
+            ^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 122, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/execute.py", line 59, in quick_execute
+    except TypeError as e:
+tensorflow.python.framework.errors_impl.InvalidArgumentError: Graph execution error:
+
+Detected at node Reshape_21 defined at (most recent call last):
+<stack traces unavailable>
+Input to reshape is a tensor with 389376 values, but the requested shape has 24336
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 809, in <module>
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 771, in main
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 375, in train_all_arms
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 736, in train_cdi_model
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 94, in train_eval
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 90, in train
+File "Documents/PtychoPINN/ptycho/model.py", line 634, in train
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 377, in fit
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 220, in function
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 133, in multi_step_on_iterator
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 114, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 58, in train_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1092, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1343, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1019, in _reassemble_position_batched
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 930, in original_approach
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 850, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 814, in translate
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 736, in translate_core
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 294, in translate_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 209, in projective_warp_xla_jit
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 121, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 145, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 182, in projective_warp_xla
+
+	 [[{{node Reshape_21}}]]
+	tf2xla conversion failed while converting __forward_projective_warp_xla_jit_17451[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall/functional_1/padded_objs_with_offsets_1/translation_18_1/PartitionedCall_1]] [Op:__inference_multi_step_on_iterator_85852]
+2026-01-06 16:36:45,307 - INFO - __main__ - 
+--- Training low_mae ---
+2026-01-06 16:36:45,307 - INFO - __main__ - [DEBUG] After update_legacy_dict: params.cfg['gridsize'] = 2 (expected: 2)
+2026-01-06 16:36:45,307 - INFO - root - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=32, n_points=32, C=4, K=7
+2026-01-06 16:36:45,307 - INFO - root - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
+2026-01-06 16:36:45,307 - INFO - root - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=True, neighbor_pool_size=None, effective_K=7
+2026-01-06 16:36:45,307 - INFO - root - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 32 > 32 = False
+2026-01-06 16:36:45,307 - INFO - root - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2026-01-06 16:36:45,307 - INFO - root - [OVERSAMPLING DEBUG] needs_oversampling = False
+2026-01-06 16:36:45,307 - INFO - root - Using efficient random sampling strategy for gridsize=2
+2026-01-06 16:36:45,307 - INFO - root - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2026-01-06 16:36:45,307 - INFO - root - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=32, K=7, C=4
+2026-01-06 16:36:45,307 - INFO - root - Generating 32 groups efficiently from 32 points (K=7, C=4)
+2026-01-06 16:36:45,307 - INFO - root - [OVERSAMPLING DEBUG] Standard case: using 32 groups from 32 points
+2026-01-06 16:36:45,307 - INFO - root - [OVERSAMPLING DEBUG] Using all 32 points as seeds (no sampling needed)
+2026-01-06 16:36:45,307 - INFO - root - Using all 32 points as seeds
+2026-01-06 16:36:45,308 - INFO - root - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 32 groups
+2026-01-06 16:36:45,308 - INFO - root - Successfully generated 32 groups with shape (32, 4)
+2026-01-06 16:36:45,308 - INFO - root - [OVERSAMPLING DEBUG] Generated 32 groups in total
+2026-01-06 16:36:45,308 - INFO - root - Generated 32 groups efficiently
+2026-01-06 16:36:45,320 - INFO - root - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=32, n_points=8, C=4, K=7
+2026-01-06 16:36:45,320 - INFO - root - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
+2026-01-06 16:36:45,320 - INFO - root - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=True, neighbor_pool_size=None, effective_K=7
+2026-01-06 16:36:45,321 - INFO - root - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 32 > 8 = True
+2026-01-06 16:36:45,321 - INFO - root - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2026-01-06 16:36:45,321 - INFO - root - [OVERSAMPLING DEBUG] needs_oversampling = True
+2026-01-06 16:36:45,321 - INFO - root - [OVERSAMPLING DEBUG] Oversampling guards passed: enable_oversampling=True, effective_K=7 >= C=4
+2026-01-06 16:36:45,321 - INFO - root - Using K choose C oversampling random sampling strategy for gridsize=2
+2026-01-06 16:36:45,321 - INFO - root - [OVERSAMPLING DEBUG] Taking oversampling branch: K choose C oversampling
+2026-01-06 16:36:45,321 - INFO - root - Automatically using K choose C oversampling: 32 groups requested but only 8 points available (K=7, C=4)
+2026-01-06 16:36:45,321 - INFO - root - [OVERSAMPLING DEBUG] _generate_groups_with_oversampling called with: nsamples=32, K=7, C=4
+2026-01-06 16:36:45,321 - INFO - root - Generating 32 groups with K choose C oversampling from 8 points (K=7, C=4)
+2026-01-06 16:36:45,321 - INFO - root - [OVERSAMPLING DEBUG] Max combinations per seed: 35 (C=4, K=7)
+2026-01-06 16:36:45,321 - INFO - root - Each seed point can generate up to 35 combinations
+2026-01-06 16:36:45,321 - INFO - root - [OVERSAMPLING DEBUG] Calculated seed requirements: min_seeds_needed=1, using n_seeds=2
+2026-01-06 16:36:45,321 - INFO - root - [OVERSAMPLING DEBUG] Randomly selected 2 seed points from 8
+2026-01-06 16:36:45,321 - INFO - root - Using 2 seed points to generate 32 groups
+2026-01-06 16:36:45,321 - INFO - root - [OVERSAMPLING DEBUG] Generated combination pool: 64 total combinations
+2026-01-06 16:36:45,321 - INFO - root - Generated pool of 64 combinations
+2026-01-06 16:36:45,321 - INFO - root - [OVERSAMPLING DEBUG] Sampling 32 from 64 combinations (without replacement)
+2026-01-06 16:36:45,321 - INFO - root - [OVERSAMPLING DEBUG] _generate_groups_with_oversampling completed: generated 32 groups
+2026-01-06 16:36:45,321 - INFO - root - Successfully generated 32 groups with K choose C oversampling
+2026-01-06 16:36:45,321 - INFO - root - [OVERSAMPLING DEBUG] Generated 32 groups in total
+2026-01-06 16:36:45,321 - INFO - root - Generated 32 groups efficiently
+
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+DEBUG: nsamples: 32, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: Using pre-computed 'Y' array from the input file.
+neighbor-sampled diffraction shape (32, 64, 64, 4)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(32, 64, 64, 4) Y_I=(32, 64, 64, 4) Y_phi=(32, 64, 64, 4) norm_Y_I=() coords_nominal=(32, 1, 2, 4) coords_true=(32, 1, 2, 4) nn_indices=(32, 4) mean=16.750 global_offsets=(32, 1, 2, 1) mean=59.663 local_offsets=(32, 1, 2, 4) mean=0.000 probe=(64, 64) mean_amplitude=0.092>
+DEBUG: nsamples: 32, gridsize: 2 (using K choose C oversampling random sample-then-group strategy)
+INFO: Using pre-computed 'Y' array from the input file.
+neighbor-sampled diffraction shape (32, 64, 64, 4)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(32, 64, 64, 4) Y_I=(32, 64, 64, 4) Y_phi=(32, 64, 64, 4) norm_Y_I=() coords_nominal=(32, 1, 2, 4) coords_true=(32, 1, 2, 4) nn_indices=(32, 4) mean=3.344 global_offsets=(32, 1, 2, 1) mean=64.031 local_offsets=(32, 1, 2, 4) mean=-0.000 probe=(64, 64) mean_amplitude=0.092>
+DEBUG: Setting probe to tf.Tensor(
+[[[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ ...
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]], shape=(64, 64, 1), dtype=complex64) in params
+DEBUG: Setting intensity_scale to 3.125 in params
+DEBUG: Setting probe to tf.Tensor(
+[[[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ ...
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]], shape=(64, 64, 1), dtype=complex64) in params
+Current Parameters:
+--------------------
+N: 64
+amp_activation: sigmoid
+backend: tensorflow
+batch_size: 16
+bigN: 68
+big_gridsize: 10
+data_source: generic
+debug: True
+default_probe_scale: 0.7
+enable_oversampling: True
+gaussian_smoothing_sigma: 0.0
+gridsize: 2
+h5_path: wts.h5
+intensity_scale: 3.125
+intensity_scale.trainable: True
+label: 
+mae_weight: 0.0
+max_position_jitter: 10
+model_type: pinn
+n_filters_scale: 2
+n_groups: 32
+neighbor_count: 7
+nepochs: 1
+nimgs_test: 3
+nimgs_train: 9
+nll_weight: 1.0
+nphotons: 10000.0
+npseed: 42
+object.big: True
+offset: 4
+outer_offset_test: None
+outer_offset_train: None
+output_prefix: tmp/dose_study/low_nll
+pad_object: True
+positions.provided: True
+probe:
+  shape: (64, 64, 1)
+  mean: 0.250+0.000j
+  std: 0.741
+  min: 0.000+0.000j
+  max: 2.723+0.000j
+probe.big: True
+probe.mask: False
+probe.trainable: False
+probe_scale: 4.0
+realspace_mae_weight: 0.0
+realspace_weight: 0.0
+sequential_sampling: False
+set_phi: False
+sim_jitter_scale: 0.0
+size: 392
+torch_loss_mode: poisson
+tv_weight: 0.0
+use_xla_translate: True
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from global params: 64
+DEBUG _flat_to_channel: input shape=(128, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+DEBUG: nsamples: 32, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: Using pre-computed 'Y' array from the input file.
+neighbor-sampled diffraction shape (32, 64, 64, 4)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(32, 64, 64, 4) Y_I=(32, 64, 64, 4) Y_phi=(32, 64, 64, 4) norm_Y_I=() coords_nominal=(32, 1, 2, 4) coords_true=(32, 1, 2, 4) nn_indices=(32, 4) mean=15.586 global_offsets=(32, 1, 2, 1) mean=60.020 local_offsets=(32, 1, 2, 4) mean=0.000 probe=(64, 64) mean_amplitude=0.092>
+DEBUG: nsamples: 32, gridsize: 2 (using K choose C oversampling random sample-then-group strategy)
+INFO: Using pre-computed 'Y' array from the input file.
+neighbor-sampled diffraction shape (32, 64, 64, 4)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(32, 64, 64, 4) Y_I=(32, 64, 64, 4) Y_phi=(32, 64, 64, 4) norm_Y_I=() coords_nominal=(32, 1, 2, 4) coords_true=(32, 1, 2, 4) nn_indices=(32, 4) mean=3.289 global_offsets=(32, 1, 2, 1) mean=63.082 local_offsets=(32, 1, 2, 4) mean=0.000 probe=(64, 64) mean_amplitude=0.092>2026-01-06 16:36:46,613 - WARNING - tensorflow - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2026-01-06 16:36:49,667 - WARNING - tensorflow - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2026-01-06 16:36:54.601622: W tensorflow/core/framework/op_kernel.cc:1857] OP_REQUIRES failed at xla_ops.cc:591 : INVALID_ARGUMENT: Input to reshape is a tensor with 389376 values, but the requested shape has 24336
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 809, in <module>
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 771, in main
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 375, in train_all_arms
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 736, in train_cdi_model
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 94, in train_eval
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 90, in train
+File "Documents/PtychoPINN/ptycho/model.py", line 634, in train
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 377, in fit
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 220, in function
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 133, in multi_step_on_iterator
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 114, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 58, in train_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1092, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1343, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1019, in _reassemble_position_batched
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 930, in original_approach
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 850, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 814, in translate
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 736, in translate_core
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 294, in translate_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 209, in projective_warp_xla_jit
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 121, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 145, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 182, in projective_warp_xla
+
+	 [[{{node Reshape_21}}]]
+	tf2xla conversion failed while converting __forward_projective_warp_xla_jit_17451[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+2026-01-06 16:36:54.620110: W tensorflow/core/framework/op_kernel.cc:1857] OP_REQUIRES failed at xla_ops.cc:591 : INVALID_ARGUMENT: Input to reshape is a tensor with 389376 values, but the requested shape has 24336
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 809, in <module>
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 771, in main
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 375, in train_all_arms
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 736, in train_cdi_model
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 94, in train_eval
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 90, in train
+File "Documents/PtychoPINN/ptycho/model.py", line 634, in train
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 377, in fit
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 220, in function
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 133, in multi_step_on_iterator
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 114, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 58, in train_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1092, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1343, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1019, in _reassemble_position_batched
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 930, in original_approach
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 850, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 814, in translate
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 736, in translate_core
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 294, in translate_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 209, in projective_warp_xla_jit
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 121, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 145, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 182, in projective_warp_xla
+
+	 [[{{node Reshape_21}}]]
+	tf2xla conversion failed while converting __forward_projective_warp_xla_jit_17451[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+2026-01-06 16:36:54,626 - ERROR - __main__ - Training failed for low_mae: Graph execution error:
+
+Detected at node Reshape_21 defined at (most recent call last):
+<stack traces unavailable>
+Input to reshape is a tensor with 389376 values, but the requested shape has 24336
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 809, in <module>
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 771, in main
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 375, in train_all_arms
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 736, in train_cdi_model
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 94, in train_eval
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 90, in train
+File "Documents/PtychoPINN/ptycho/model.py", line 634, in train
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 377, in fit
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 220, in function
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 133, in multi_step_on_iterator
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 114, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 58, in train_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1092, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1343, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1019, in _reassemble_position_batched
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 930, in original_approach
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 850, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 814, in translate
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 736, in translate_core
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 294, in translate_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 209, in projective_warp_xla_jit
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 121, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 145, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 182, in projective_warp_xla
+
+	 [[{{node Reshape_21}}]]
+	tf2xla conversion failed while converting __forward_projective_warp_xla_jit_17451[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall/functional_1/padded_objs_with_offsets_1/translation_18_1/PartitionedCall_1]] [Op:__inference_multi_step_on_iterator_109725]
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 375, in train_all_arms
+    train_results = train_cdi_model(train_data, test_data, config)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 736, in train_cdi_model
+    results = train_pinn.train_eval(PtychoDataset(train_container, test_container))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/train_pinn.py", line 94, in train_eval
+    model_instance, history = train(ptycho_dataset.train_data)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/train_pinn.py", line 90, in train
+    return model_instance, model.train(nepochs, train_data, model_instance=model_instance)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/model.py", line 634, in train
+    history=model_instance.fit(
+            ^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 122, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/execute.py", line 59, in quick_execute
+    except TypeError as e:
+tensorflow.python.framework.errors_impl.InvalidArgumentError: Graph execution error:
+
+Detected at node Reshape_21 defined at (most recent call last):
+<stack traces unavailable>
+Input to reshape is a tensor with 389376 values, but the requested shape has 24336
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 809, in <module>
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 771, in main
+File "Documents/PtychoPINN/scripts/studies/dose_response_study.py", line 375, in train_all_arms
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 736, in train_cdi_model
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 94, in train_eval
+File "Documents/PtychoPINN/ptycho/train_pinn.py", line 90, in train
+File "Documents/PtychoPINN/ptycho/model.py", line 634, in train
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 377, in fit
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 220, in function
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 133, in multi_step_on_iterator
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 114, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 58, in train_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1092, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1343, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1019, in _reassemble_position_batched
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 930, in original_approach
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 850, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 814, in translate
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 736, in translate_core
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 294, in translate_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 209, in projective_warp_xla_jit
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 121, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 145, in projective_warp_xla
+File "Documents/PtychoPINN/ptycho/projective_warp_xla.py", line 182, in projective_warp_xla
+
+	 [[{{node Reshape_21}}]]
+	tf2xla conversion failed while converting __forward_projective_warp_xla_jit_17451[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall/functional_1/padded_objs_with_offsets_1/translation_18_1/PartitionedCall_1]] [Op:__inference_multi_step_on_iterator_109725]
+2026-01-06 16:36:54,627 - INFO - __main__ - 
+=== Running Inference ===
+2026-01-06 16:36:54,627 - WARNING - __main__ - Skipping inference for high_nll (training failed)
+2026-01-06 16:36:54,627 - WARNING - __main__ - Skipping inference for high_mae (training failed)
+2026-01-06 16:36:54,627 - WARNING - __main__ - Skipping inference for low_nll (training failed)
+2026-01-06 16:36:54,627 - WARNING - __main__ - Skipping inference for low_mae (training failed)
+2026-01-06 16:36:54,627 - INFO - __main__ - 
+========================================
+2026-01-06 16:36:54,627 - INFO - __main__ - PHASE C: Visualization & Delivery
+2026-01-06 16:36:54,627 - INFO - __main__ - ========================================
+2026-01-06 16:36:54,627 - INFO - __main__ - 
+=== Generating 6-Panel Figure ===
+/home/ollie/Documents/PtychoPINN/scripts/studies/dose_response_study.py:633: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+  plt.tight_layout(rect=[0, 0, 1, 0.95])
+2026-01-06 16:36:55,140 - INFO - __main__ - Figure saved to: plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/dose_comparison.png
+2026-01-06 16:36:55,140 - INFO - __main__ - Training history saved to: plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/training_history.json
+2026-01-06 16:36:55,140 - INFO - __main__ - 
+============================================================
+2026-01-06 16:36:55,140 - INFO - __main__ - STUDY COMPLETE
+2026-01-06 16:36:55,140 - INFO - __main__ - ============================================================
+2026-01-06 16:36:55,140 - INFO - __main__ - Output directory: tmp/dose_study
+2026-01-06 16:36:55,140 - INFO - __main__ - Figure saved to: plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/dose_comparison.png
+2026-01-06 16:36:55,140 - INFO - __main__ -   high_nll: PENDING/FAILED
+2026-01-06 16:36:55,140 - INFO - __main__ -   high_mae: PENDING/FAILED
+2026-01-06 16:36:55,140 - INFO - __main__ -   low_nll: PENDING/FAILED
+2026-01-06 16:36:55,140 - INFO - __main__ -   low_mae: PENDING/FAILED
+2026-01-06 16:36:55,140 - INFO - __main__ - 
+To view results: open plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/dose_comparison.png
+
+DEBUG: Setting probe to tf.Tensor(
+[[[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ ...
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]], shape=(64, 64, 1), dtype=complex64) in params
+DEBUG: Setting intensity_scale to 3.125 in params
+DEBUG: Setting probe to tf.Tensor(
+[[[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ ...
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]
+
+ [[2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  ...
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]
+  [2.7234042e-09+0.j]]], shape=(64, 64, 1), dtype=complex64) in params
+Current Parameters:
+--------------------
+N: 64
+amp_activation: sigmoid
+backend: tensorflow
+batch_size: 16
+bigN: 68
+big_gridsize: 10
+data_source: generic
+debug: True
+default_probe_scale: 0.7
+enable_oversampling: True
+gaussian_smoothing_sigma: 0.0
+gridsize: 2
+h5_path: wts.h5
+intensity_scale: 3.125
+intensity_scale.trainable: True
+label: 
+mae_weight: 1.0
+max_position_jitter: 10
+model_type: pinn
+n_filters_scale: 2
+n_groups: 32
+neighbor_count: 7
+nepochs: 1
+nimgs_test: 3
+nimgs_train: 9
+nll_weight: 0.0
+nphotons: 10000.0
+npseed: 42
+object.big: True
+offset: 4
+outer_offset_test: None
+outer_offset_train: None
+output_prefix: tmp/dose_study/low_mae
+pad_object: True
+positions.provided: True
+probe:
+  shape: (64, 64, 1)
+  mean: 0.250+0.000j
+  std: 0.741
+  min: 0.000+0.000j
+  max: 2.723+0.000j
+probe.big: True
+probe.mask: False
+probe.trainable: False
+probe_scale: 4.0
+realspace_mae_weight: 0.0
+realspace_weight: 0.0
+sequential_sampling: False
+set_phi: False
+sim_jitter_scale: 0.0
+size: 392
+torch_loss_mode: poisson
+tv_weight: 0.0
+use_xla_translate: True
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from global params: 64
+DEBUG _flat_to_channel: input shape=(128, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 78
+DEBUG _flat_to_channel: input shape=(None, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 4, 64, 64)

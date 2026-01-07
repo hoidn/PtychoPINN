@@ -1,0 +1,13 @@
+{
+    "train_data": "datasets/fly64/fly64_top_half_shuffled.npz",
+    "test_data": "datasets/fly64/fly64_shuffled.npz",
+    "n_images": 512,
+    "n_groups": 512,
+    "neighbor_count": 7,
+    "nepochs": 50,
+    "ptychi_algorithm": "LSQML",
+    "ptychi_epochs": 200,
+    "skip_registration": true,
+    "sampling_seed": 42,
+    "timestamp": "2026-01-02T12:27:59-08:00"
+}
