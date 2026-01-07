@@ -1,49 +1,109 @@
-Mode: Perf
-Focus: FIX-TF-C1D-SCALED-RERUN-001
-Selector: tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_guard
+Mode: Implementation
+Focus: REFACTOR-MODEL-SINGLETON-001 — Phase A (XLA Trace Cache Fix)
+Selector: tests/test_model_factory.py::test_multi_n_model_creation
 
-Overview:
-Phase C1d remains blocked because `$HUB/tf_baseline/phase_c1_scaled/analysis/` has never produced `forward_parity_debug_tf/*` and the only artifacts are the Nov 14 guard and CLI logs. Capture a fresh GREEN result for the TF-NON-XLA-SHAPE-001 guard, then rerun the scaled TensorFlow CLI with the same dataset knobs used for the PyTorch Phase B3 slice while `TF_XLA_FLAGS="--tf_xla_auto_jit=0"` and `USE_XLA_TRANSLATE=0` stay exported per spec-ptycho-runtime.md. Success means recording a non-empty CLI log plus `analysis/forward_parity_debug_tf/{stats.json,offsets.json,png grids}` and updating the hub inventory/summary with a stats sha1 + env capture; failure must instead produce `$TF_BASE/red/blocked_<timestamp>_tf_translation_guard.md` that cites both the pytest output and the CLI stack trace. No production code edits are needed—this loop is about delivering TensorFlow evidence or a blocker so Phase C parity can resume.
+## Overview
 
-### Workload Spec
-## Goal
-Gather current TensorFlow guard + scaled CLI artifacts (or document a blocker) so the Phase C contract is satisfied: a new guard log under `$HUB/green/`, a non-zero `$TF_BASE/cli/train_tf_phase_c1_scaled.log`, and either a populated `$TF_BASE/analysis/forward_parity_debug_tf/` bundle with sha1 recorded in `analysis/artifact_inventory.txt` or a blocker referencing both logs. Use the scaled knobs from the PyTorch study (`n_images=64`, `n_groups=32`, `gridsize=2`, `neighbor_count=7`, `batch_size=4`, `max_epochs=1`, `--do_stitching --quiet`) to keep parity apples-to-apples.
+The `dose_response_study.py` crashes when creating models with different `N` values in a single process. The error occurs in `projective_warp_xla_jit` because the `@tf.function(jit_compile=True)` decorator traces the function with the first-seen shapes (N=128 → padded_size=156), and those traces persist even after `tf.keras.backend.clear_session()`. When a subsequent model uses N=64 (padded_size=78), the XLA graph expects 24336 values but receives 389376.
+
+**Error signature:**
+```
+InvalidArgumentError: Input to reshape is a tensor with 389376 values, but the requested shape has 24336
+  389376 = 78 × 78 × 64  (padded_size=78 for N=64, batch=64)
+  24336  = 156 × 156     (padded_size=156 for N=128 — stale XLA trace)
+```
+
+**Evidence:** `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-06T163900Z/red/dose_response_reproduce.log`
 
 ## Contracts
-- docs/specs/spec-ptycho-workflow.md:46 — Backend parity requires TensorFlow evidence (stats, offsets, PNGs) before advancing PyTorch forward-parity work.
-- docs/specs/spec-ptycho-runtime.md:15 — Non-XLA translation runs MUST respect the `USE_XLA_TRANSLATE`/`TF_XLA_FLAGS` toggles; this rerun keeps XLA disabled to align with TF-NON-XLA-SHAPE-001.
 
-## Interfaces
-- tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_guard — tests/tf_helper/test_translation_shape_guard.py:46-87. Ensures `_translate_images_simple` handles batch-size mismatches when XLA is off.
-- scripts/training/train.py::main — scripts/training/train.py:300-420. CLI orchestrator that updates `params.cfg` (CONFIG-001) and runs train→eval; call it with the scaled dataset paths and knobs while teeing logs to `$TF_BASE/cli/train_tf_phase_c1_scaled.log`.
-- plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/analysis/artifact_inventory.txt::Phase C1 — TF scaled baseline — Inventory section that must reflect the new stats sha1/env capture or blocker reference so reviewers can audit this rerun.
+- **MODULE-SINGLETON-001** (docs/findings.md): Module-level singletons capture shapes at import time; factory functions must create fresh models.
+- **docs/specs/spec-ptycho-runtime.md:15**: Non-XLA translation runs MUST respect `USE_XLA_TRANSLATE` toggle.
+- **docs/specs/spec-ptycho-core.md**: Model Sizes (N, gridsize, offset) must be configurable at runtime.
 
-## Pseudocode
-1. `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` and `export HUB="$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"`.
-2. `export TF_BASE="$HUB/tf_baseline/phase_c1_scaled"; mkdir -p "$TF_BASE"/{cli,analysis,green,red}`.
-3. `export TF_XLA_FLAGS="--tf_xla_auto_jit=0"; export USE_XLA_TRANSLATE=0; printf 'TF_XLA_FLAGS=%s\nUSE_XLA_TRANSLATE=%s\n' "$TF_XLA_FLAGS" "$USE_XLA_TRANSLATE" | tee "$TF_BASE/cli/env_capture_scaled.txt"`.
-4. `pytest tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_guard -vv | tee "$HUB/green/pytest_tf_translation_guard.log"` — stop immediately and file a blocker if this fails.
-5. Run `python scripts/training/train.py --backend tensorflow --train_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz --test_data_file datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz --output_dir "$TF_BASE/run_scaled" --n_images 64 --n_groups 32 --batch_size 4 --gridsize 2 --neighbor_count 7 --max_epochs 1 --do_stitching --quiet |& tee "$TF_BASE/cli/train_tf_phase_c1_scaled.log"`.
-6. On success: confirm `$TF_BASE/analysis/forward_parity_debug_tf/{stats.json,offsets.json,*.png}` exist, compute `shasum "$TF_BASE/analysis/forward_parity_debug_tf/stats.json"` and append the sha + env note to `$HUB/analysis/artifact_inventory.txt` and `$HUB/summary.md`.
-7. On failure: create `$TF_BASE/red/blocked_<timestamp>_tf_translation_guard.md` summarizing the guard + CLI failures, then reference it from the inventory/summary instead.
+## Root Cause Analysis
+
+1. `projective_warp_xla_jit` at ptycho/projective_warp_xla.py:202-211 is decorated with `@tf.function(jit_compile=True)`
+2. This causes TF to trace and XLA-compile the function with the first-seen input shapes
+3. `tf.keras.backend.clear_session()` clears Keras models but does NOT clear TF function traces
+4. `create_model_with_gridsize()` at ptycho/model.py sets `use_xla_translate=False` in params.cfg
+5. BUT: `Translation` layer instances are created during model building and call `should_use_xla()` at layer instantiation time
+6. If params.cfg hasn't been updated yet (or if `should_use_xla()` is cached), the XLA path is still taken
+
+## Phase A Fix Strategy
+
+**Approach:** Force non-XLA mode for multi-config scenarios by ensuring the XLA toggle is properly propagated during model construction.
+
+**Key insight:** The `Translation` layer at tf_helper.py:817-850 accepts `use_xla` in `__init__`. The model factory must explicitly pass `use_xla=False` when creating layers, not rely on global config.
 
 ## Tasks
-- tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_guard — Record a new GREEN log under `$HUB/green/` or emit a blocker if the selector fails.
-- scripts/training/train.py::main — Execute the scaled TensorFlow rerun with the recorded env exports, tee CLI output to `$TF_BASE/cli/train_tf_phase_c1_scaled.log`, and produce `forward_parity_debug_tf/*` on success.
-- plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/.../analysis/artifact_inventory.txt::Phase C1 — TF scaled baseline — Update the inventory/summary with either the stats sha1 + env capture or the blocker pointer so reviewers know the outcome.
+
+### A0: Test-First Gate (RED)
+**File:** `tests/test_model_factory.py`
+**Function:** `test_multi_n_model_creation`
+
+Create a test that reproduces the shape mismatch bug:
+1. Create a model with N=128, gridsize=2
+2. Run a forward pass to trigger XLA tracing
+3. Clear session
+4. Create a model with N=64, gridsize=2
+5. Run a forward pass — this should NOT crash
+
+The test should initially FAIL (RED) demonstrating the bug.
+
+### A1: Fix Translation Layer XLA Toggle
+**File:** `ptycho/model.py::create_model_with_gridsize`
+**Function:** Ensure Translation layers are created with explicit `use_xla=False`
+
+The fix involves:
+1. Pass `use_xla=False` explicitly to all Translation layer instantiations within `create_model_with_gridsize()`
+2. OR: Set `os.environ['USE_XLA_TRANSLATE'] = '0'` at the start of the factory function
+3. Verify by checking `_reassemble_patches_position_real` at tf_helper.py:879 which creates `Translation(jitter_stddev=0.0, use_xla=should_use_xla())`
+
+### A2: Verify Test Passes (GREEN)
+Run the test again after the fix — it should now PASS.
+
+```bash
+pytest tests/test_model_factory.py::test_multi_n_model_creation -vv
+```
+
+## Pitfalls To Avoid
+
+1. **DO NOT** rely on `tf.keras.backend.clear_session()` alone — it doesn't clear XLA traces
+2. **DO NOT** modify `projective_warp_xla_jit` decorator — changing shared infra is out of scope
+3. **DO NOT** add try/except around XLA calls — fix the toggle propagation instead
+4. **DO** use `USE_XLA_TRANSLATE=0` environment variable OR explicit `use_xla=False` parameter
+5. **DO** verify the fix works with the actual `dose_response_study.py` after tests pass
 
 ## Selector
+
+```bash
+pytest tests/test_model_factory.py::test_multi_n_model_creation -vv
 ```
-pytest tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_guard -vv | tee "$HUB/green/pytest_tf_translation_guard.log"
-```
-Pass when the selector exits 0 and the log is saved to `$HUB/green/`. If it fails, do not rerun; immediately create `$TF_BASE/red/blocked_<timestamp>_tf_translation_guard.md` referencing this log.
+
+Expected: Initially FAIL (RED), then PASS (GREEN) after fix.
 
 ## Artifacts
-- plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/green/pytest_tf_translation_guard.log
-- plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/tf_baseline/phase_c1_scaled/cli/train_tf_phase_c1_scaled.log
-- plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/analysis/artifact_inventory.txt
 
-Refs:
-Summary: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md
-Plan: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md
-Selector: tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_guard
+- Reports: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-06T173000Z/`
+- Test log: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-06T173000Z/green/pytest_model_factory.log`
+
+## Findings Applied
+
+- **MODULE-SINGLETON-001**: Factory functions must create fresh models; this task ensures XLA traces don't persist across model creations.
+- **CONFIG-001**: `update_legacy_dict()` must run before legacy modules; the fix ensures XLA toggle is set before Translation layers are instantiated.
+- **ANTIPATTERN-001**: Import-time side effects; the factory approach avoids import-time model creation.
+
+## Pointers
+
+- Implementation plan: `plans/active/REFACTOR-MODEL-SINGLETON-001/implementation.md` (Phase A checklist)
+- Translation layer: `ptycho/tf_helper.py:817-850`
+- XLA toggle: `ptycho/tf_helper.py:154-175` (`should_use_xla()`)
+- Model factory: `ptycho/model.py::create_model_with_gridsize`
+- Blocker log: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-06T163900Z/red/dose_response_reproduce.log`
+
+## Next Up (Optional)
+
+If A0-A2 complete successfully:
+- A3: Run `dose_response_study.py` end-to-end to verify the full workflow
+- Move to Phase B (Module Variable Inventory) per implementation.md
