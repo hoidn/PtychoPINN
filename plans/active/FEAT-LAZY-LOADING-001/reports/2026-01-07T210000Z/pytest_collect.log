@@ -1,0 +1,22 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collected 6 items
+
+<Dir PtychoPINN>
+  <Package tests>
+    <Module test_lazy_loading.py>
+      <Class TestEagerLoadingOOM>
+        <Function test_memory_usage_scales_with_dataset_size[100]>
+        <Function test_memory_usage_scales_with_dataset_size[500]>
+        <Function test_memory_usage_scales_with_dataset_size[1000]>
+        <Function test_oom_with_eager_loading>
+      <Class TestLazyLoadingPlaceholder>
+        <Function test_lazy_loading_avoids_oom>
+        <Function test_lazy_container_backward_compatible>
+
+========================== 6 tests collected in 3.70s ==========================
