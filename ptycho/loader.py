@@ -292,13 +292,13 @@ class PtychoDataContainer:
                     self._Y_I_np[batch_idx], dtype=tf.float32
                 )
 
-                # Prepare inputs: [X * intensity_scale, coords]
-                inputs = [X_batch * intensity_scale, coords_batch]
+                # Prepare inputs: (X * intensity_scale, coords) as tuple
+                inputs = (X_batch * intensity_scale, coords_batch)
 
-                # Prepare outputs: [centered_Y_I[:,:,:,:1], X*s, (X*s)^2]
+                # Prepare outputs: (centered_Y_I[:,:,:,:1], X*s, (X*s)^2) as tuple
                 Y_I_centered = hh.center_channels(Y_I_batch, coords_batch)[:, :, :, :1]
                 X_scaled = intensity_scale * X_batch
-                outputs = [Y_I_centered, X_scaled, X_scaled ** 2]
+                outputs = (Y_I_centered, X_scaled, X_scaled ** 2)
 
                 yield inputs, outputs
 

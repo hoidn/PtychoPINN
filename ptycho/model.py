@@ -619,7 +619,7 @@ def prepare_outputs(train_data: PtychoDataContainer):
                 (p.get('intensity_scale') * train_data.X)**2]
 
 #def train(epochs, X_train, coords_train, Y_obj_train):
-def train(epochs, trainset: PtychoDataContainer, model_instance=None):
+def train(epochs, trainset: PtychoDataContainer, model_instance=None, use_streaming=None):
     """Train the ptychography model.
 
     Args:
@@ -627,6 +627,10 @@ def train(epochs, trainset: PtychoDataContainer, model_instance=None):
         trainset: Training data container
         model_instance: Optional compiled model. If None, uses module-level
                        singleton (for backward compatibility).
+        use_streaming: If True, use as_tf_dataset() for memory-efficient streaming.
+                      If None (default), auto-detect based on dataset size.
+                      Large datasets (>10000 samples) automatically use streaming.
+                      See docs/findings.md PINN-CHUNKED-001.
 
     Returns:
         Training history object
@@ -637,26 +641,43 @@ def train(epochs, trainset: PtychoDataContainer, model_instance=None):
     if model_instance is None:
         model_instance = autoencoder  # Backward compatible fallback
 
-    coords_train = trainset.coords
+    batch_size = p.params()['batch_size']
+
+    # Auto-detect streaming mode based on dataset size
+    if use_streaming is None:
+        use_streaming = len(trainset) > 10000
+
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                   patience=2, min_lr=0.0001, verbose=1)
     earlystop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
 
-    checkpoints= tf.keras.callbacks.ModelCheckpoint(
-                            '%s/weights.{epoch:02d}.h5' %wt_path,
+    checkpoints = tf.keras.callbacks.ModelCheckpoint(
+                            '%s/weights.{epoch:02d}.h5' % wt_path,
                             monitor='val_loss', verbose=1, save_best_only=True,
                             save_weights_only=False, mode='auto', save_freq='epoch')
 
-    batch_size = p.params()['batch_size']
-    history=model_instance.fit(
-#        prepare_inputs(X_train, coords_train),
-#        prepare_outputs(Y_obj_train, coords_train, X_train),
-        prepare_inputs(trainset),
-        prepare_outputs(trainset),
-        shuffle=True, batch_size=batch_size, verbose=1,
-        epochs=epochs, validation_split = 0.05,
-        callbacks=[reduce_lr, earlystop])
-        #callbacks=[reduce_lr, earlystop, tboard_callback])
+    if use_streaming:
+        # Memory-efficient streaming for large datasets
+        # Uses as_tf_dataset() to stream data in batches without loading everything into GPU memory
+        print(f"Using streaming mode for {len(trainset)} samples")
+        dataset = trainset.as_tf_dataset(batch_size, shuffle=True)
+        # Note: validation_split not compatible with tf.data.Dataset
+        # For streaming, skip validation or use separate validation dataset
+        history = model_instance.fit(
+            dataset,
+            epochs=epochs,
+            verbose=1,
+            callbacks=[reduce_lr, earlystop]
+        )
+    else:
+        # Standard mode for smaller datasets (current behavior)
+        history = model_instance.fit(
+            prepare_inputs(trainset),
+            prepare_outputs(trainset),
+            shuffle=True, batch_size=batch_size, verbose=1,
+            epochs=epochs, validation_split=0.05,
+            callbacks=[reduce_lr, earlystop])
+
     return history
 import numpy as np
 
