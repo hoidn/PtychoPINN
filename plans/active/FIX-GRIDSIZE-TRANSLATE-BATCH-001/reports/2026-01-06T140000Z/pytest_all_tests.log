@@ -1,0 +1,20 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 8 items
+
+tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_guard PASSED [ 12%]
+tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_matching_batch PASSED [ 25%]
+tests/tf_helper/test_translation_shape_guard.py::test_reassemble_patches_position_real_gridsize2 PASSED [ 37%]
+tests/tf_helper/test_translation_shape_guard.py::test_translate_xla_gridsize_broadcast PASSED [ 50%]
+tests/tf_helper/test_translation_shape_guard.py::test_translate_xla_gridsize_broadcast_jit PASSED [ 62%]
+tests/test_model_factory.py::TestMultiNModelCreation::test_multi_n_model_creation PASSED [ 75%]
+tests/test_model_factory.py::TestImportSideEffects::test_import_no_side_effects PASSED [ 87%]
+tests/test_model_factory.py::TestXLAReenablement::test_multi_n_with_xla_enabled PASSED [100%]
+
+============================== 8 passed in 27.75s ==============================
