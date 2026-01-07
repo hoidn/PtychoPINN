@@ -1,3 +1,10 @@
+### Turn Summary (2026-01-09)
+**G-scaled verification COMPLETE.** All tests pass: lazy loading 14/15 (1 intentional OOM skip), model factory 3/3, compare_models chunking 2/2.
+PINN-CHUNKED-001 is RESOLVED — lazy container enables chunked PINN inference without OOM at container construction.
+G-full remains blocked on BASELINE-CHUNKED-001/002 (Baseline model OOM during inference, separate issue from PINN chunking).
+Next: Focus selection — consider FIX-PYTORCH-FORWARD-PARITY-001, PARALLEL-API-INFERENCE, or new initiative.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2026-01-08T210000Z/
+
 ### Turn Summary
 Added integration test `test_lazy_container_inference_integration` to verify lazy container works in the inference path via `create_ptycho_data_container()`.
 Test confirms: container stores NumPy internally, tensor cache empty initially, lazy conversion on `.X` access, caching works, `coords_nominal` conversion for model.predict([X, coords]).

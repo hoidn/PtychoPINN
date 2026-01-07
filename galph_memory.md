@@ -1,3 +1,37 @@
+# 2026-01-09T01:00:00Z: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — G-scaled COMPLETE, focus selection
+
+- dwell: 0 (new loop after G-scaled completion)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 → PARALLEL-API-INFERENCE
+- Action type: Review/Housekeeping (milestone verification + focus selection)
+- Mode: Planning
+- Git sync: `git pull --rebase` → Already up to date.
+- Documents reviewed: docs/fix_plan.md, galph_memory.md, docs/findings.md (PINN-CHUNKED-001 RESOLVED), plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2026-01-08T210000Z/*.log, plans/active/PARALLEL-API-INFERENCE/plan.md
+
+**G-scaled Verification COMPLETE:**
+- Ralph commits c46e496a (integration test) + 5e1cf26f (evidence)
+- Tests: 14/15 passed (1 intentional OOM skip), model factory 3/3, integration 2/2
+- PINN-CHUNKED-001: ✅ RESOLVED in docs/findings.md
+- docs/fix_plan.md updated: G-scaled marked COMPLETE
+
+**Focus Selection:**
+- STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 G-full: blocked on BASELINE-CHUNKED-001/002
+- FIX-PYTORCH-FORWARD-PARITY-001: blocked on FIX-TF-C1D-SCALED-RERUN-001
+- FIX-TF-C1D-SCALED-RERUN-001: blocked (stale since 2025-11-20)
+- PARALLEL-API-INFERENCE: planning status, unblocked — selected as next focus
+
+**Next Focus: PARALLEL-API-INFERENCE**
+The initiative is in planning status with a clear scope:
+1. Extract TF inference helper from scripts/inference/inference.py
+2. Build scripts/pytorch_api_demo.py for both backends
+3. Add smoke test tests/scripts/test_api_demo.py
+4. Document in docs/workflows/pytorch.md
+
+- Next: Write input.md for PARALLEL-API-INFERENCE Phase A (exploration + task 1)
+- <Action State>: [planning]
+- focus=PARALLEL-API-INFERENCE state=planning dwell=0 ralph_last_commit=c46e496a artifacts=N/A next_action=write input.md for PARALLEL-API-INFERENCE exploration
+
+---
+
 # 2026-01-08T21:00:00Z: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — G-scaled verification review + next phase
 
 - dwell: 1 (continuing focus; Ralph committed G-scaled test in db8f15bd + evidence in 995fcc68)
