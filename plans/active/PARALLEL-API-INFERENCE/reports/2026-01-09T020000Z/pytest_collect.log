@@ -1,0 +1,44 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collected 23 items
+
+<Dir PtychoPINN>
+  <Package tests>
+    <Package scripts>
+      <Module test_inference_backend_selector.py>
+        <Class TestInferenceCliBackendDispatch>
+          <Function test_pytorch_backend_dispatch>
+          <Function test_tensorflow_backend_dispatch>
+          <Function test_backend_selector_preserves_config_001_compliance>
+          <Function test_cli_backend_argument_parsing>
+          <Function test_setup_inference_configuration_uses_backend>
+          <Function test_pytorch_inference_execution_path>
+          <Function test_pytorch_execution_config_flags>
+          <Function test_pytorch_backend_moves_model_to_execution_device>
+          <Function test_pytorch_backend_defaults_auto_execution_config>
+      <Module test_ptychi_reconstruct_tike.py>
+        <Function test_main_uses_cli_arguments>
+      <Module test_tf_inference_helper.py>
+        <Class TestTFInferenceHelper>
+          <Function test_helper_is_importable>
+          <Function test_helper_signature_matches_spec>
+          <Function test_helper_has_correct_defaults>
+          <Function test_extract_ground_truth_is_importable>
+          <Function test_extract_ground_truth_signature>
+          <Function test_deprecated_wrapper_still_works>
+          <Function test_deprecated_wrapper_has_deprecation_docstring>
+      <Module test_training_backend_selector.py>
+        <Class TestTrainingCliBackendDispatch>
+          <Function test_pytorch_backend_dispatch>
+          <Function test_tensorflow_backend_persistence>
+          <Function test_pytorch_execution_config_flags>
+          <Function test_supervised_mode_enforces_mae_loss>
+          <Function test_manual_accumulation_guard>
+          <Function test_pytorch_backend_defaults_auto_execution_config>
+
+========================= 23 tests collected in 0.86s ==========================
