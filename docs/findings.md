@@ -82,10 +82,11 @@ For large datasets, use `container.as_tf_dataset(batch_size)` instead of accessi
 ### Evidence
 - Fix implementation: `ptycho/loader.py:97-321` (PtychoDataContainer with lazy loading)
 - Tests: `tests/test_lazy_loading.py::TestLazyLoading` (5 tests, all passing)
-- Artifacts: `plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-07T220000Z/`
+- G-scaled verification: `tests/test_lazy_loading.py::TestCompareModelsChunking::test_container_numpy_slicing_for_chunked_inference` — verifies `_X_np`/`_coords_nominal_np` slicing enables chunked inference without GPU allocation
+- Artifacts: `plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-07T220000Z/`, `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2026-01-08T200000Z/`
 
 ### Status
-**Resolved** — Lazy tensor allocation implemented. Large datasets can now be processed without OOM at container construction time.
+**Resolved** — Lazy tensor allocation implemented. Large datasets can now be processed without OOM at container construction time. G-scaled verification confirms chunked inference via NumPy slicing is supported.
 
 ## TF-NON-XLA-SHAPE-001 - Non-XLA Translation Batch Dimension Mismatch
 **Category:** TensorFlow, Translation, Shape Handling

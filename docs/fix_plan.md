@@ -101,7 +101,7 @@
 ### [STUDY-SYNTH-FLY64-DOSE-OVERLAP-001] Synthetic fly64 dose/overlap study
 - Depends on: Phase C/E/F artifacts under `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/`; ~~FEAT-LAZY-LOADING-001~~ ✅ RESOLVED.
 - Priority: High
-- Status: pending — PINN-CHUNKED-001 resolved via FEAT-LAZY-LOADING-001; G-scaled goal ready for fresh attempt.
+- Status: in_progress — G-scaled verification test added; lazy loading enables chunked PINN inference.
 - Owner/Date: Ralph/2025-11-11
 - Working Plan: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md`
 - Summary: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md`
@@ -115,6 +115,7 @@
 - Attempts History:
   - *First (2025-11-11):* Initial Phase G orchestrator execution failed on Phase C generation.
   - *Last (2025-11-16T110500Z):* Tier 3 enforcement logged under `analysis/dwell_escalation_report.md`; awaiting scaled rerun.
+  - *2026-01-08T20:00:00Z (G-scaled verification):* Added `TestCompareModelsChunking::test_container_numpy_slicing_for_chunked_inference` to `tests/test_lazy_loading.py`. Test verifies: (1) `_X_np`, `_coords_nominal_np` attributes exist; (2) NumPy slicing works without populating tensor cache; (3) backward-compatible `.X` access still works. **Result: 14 TESTS (13 passed, 1 skipped), model factory 3/3 passed.** Artifacts: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2026-01-08T200000Z/`. Next: Run compare_models with chunked PINN inference on small dataset.
   - ... (see `docs/fix_plan_archive.md` and `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/` for full history).
 
 ---

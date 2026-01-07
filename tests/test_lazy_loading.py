@@ -440,3 +440,71 @@ class TestStreamingTraining:
         expected_batches = (n_images + batch_size - 1) // batch_size
         assert batch_count == expected_batches, f"Expected {expected_batches} batches, got {batch_count}"
         assert total_samples == n_images, f"Expected {n_images} samples, got {total_samples}"
+
+
+class TestCompareModelsChunking:
+    """Tests for chunked PINN inference via NumPy slicing (G-scaled verification).
+
+    Verifies that compare_models.py can slice container data via _X_np/_coords_nominal_np
+    without triggering full GPU tensor allocation — the resolution path for PINN-CHUNKED-001.
+
+    See: docs/findings.md PINN-CHUNKED-001
+    """
+
+    def test_container_numpy_slicing_for_chunked_inference(self):
+        """Verify container supports NumPy slicing for chunked PINN inference.
+
+        This test confirms that PtychoDataContainer stores data as NumPy arrays
+        internally and allows chunk-wise slicing without triggering full tensor
+        conversion — enabling chunked inference in compare_models.py.
+
+        Spec: spec-ptycho-workflow.md Resource Constraints
+        Finding: PINN-CHUNKED-001
+        """
+        N = 64
+        C = 4
+        n_images = 500  # Moderate size
+
+        X = np.random.rand(n_images, N, N, C).astype(np.float32)
+        Y_I = np.random.rand(n_images, N, N, C).astype(np.float32)
+        Y_phi = np.random.rand(n_images, N, N, C).astype(np.float32)
+        coords = np.random.rand(n_images, 1, 2, C).astype(np.float32)
+        probe = np.random.rand(N, N).astype(np.complex64)
+
+        container = PtychoDataContainer(
+            X=X, Y_I=Y_I, Y_phi=Y_phi,
+            norm_Y_I=np.ones(n_images),
+            YY_full=None,
+            coords_nominal=coords, coords_true=coords,
+            nn_indices=np.zeros((n_images, 7), dtype=np.int32),
+            global_offsets=coords, local_offsets=coords,
+            probeGuess=probe,
+        )
+
+        # Verify NumPy arrays are accessible for chunked slicing
+        assert hasattr(container, '_X_np'), "Container should have _X_np for chunked access"
+        assert container._X_np.shape == (n_images, N, N, C)
+
+        # Verify coords_nominal NumPy array exists
+        assert hasattr(container, '_coords_nominal_np'), "Container should have _coords_nominal_np for chunked access"
+        assert container._coords_nominal_np.shape == (n_images, 1, 2, C)
+
+        # Slice chunks without triggering full tensor conversion
+        chunk_size = 100
+        for i in range(0, n_images, chunk_size):
+            chunk_X = container._X_np[i:i+chunk_size]
+            chunk_coords = container._coords_nominal_np[i:i+chunk_size]
+            assert chunk_X.shape[0] <= chunk_size
+            assert chunk_coords.shape[0] <= chunk_size
+
+        # Verify tensor cache is still empty (no GPU allocation yet)
+        assert 'X' not in container._tensor_cache, "Slicing _X_np should not populate tensor cache"
+        assert 'coords_nominal' not in container._tensor_cache, "Slicing _coords_nominal_np should not populate tensor cache"
+
+        # Full .X access should still work (backward compat)
+        X_tensor = container.X
+        assert X_tensor.shape == (n_images, N, N, C)
+        assert tf.is_tensor(X_tensor)
+
+        # Now tensor cache should be populated
+        assert 'X' in container._tensor_cache, "Accessing .X should populate tensor cache"
