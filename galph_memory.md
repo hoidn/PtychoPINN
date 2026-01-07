@@ -1,3 +1,52 @@
+# 2026-01-07T08:00:00Z: STUDY-SYNTH-DOSE-COMPARISON-001 blocked — Translation layer gridsize>1 batch mismatch
+
+## Ralph Debugging Findings (CRITICAL — Root Cause Analysis)
+
+**Issue:** Running `dose_response_study.py` with gridsize=2 fails with batch dimension mismatch in Translation layer.
+
+**Error Signatures:**
+1. **XLA path:** `Input to reshape is a tensor with 389376 values, but the requested shape has 24336` (projective_warp_xla.py:182)
+   - 389376 = 64 × 78 × 78 (mask_batch=64 × padded_size² where padded_size=78)
+   - 24336 = 4 × 78 × 78 (expected B=4=gridsize² × padded_size²)
+   - Ratio 389376/24336 = 16 = batch_size (the training batch)
+
+2. **Non-XLA path:** `Input to reshape is a tensor with 0 values, but the requested shape has 4` (_translate_images_simple:199)
+   - translations tensor is empty when reaching `tf.reshape(dx, [batch_size, 1, 1])`
+
+**Root Cause Hypothesis:**
+The Translation layer receives mismatched batch dimensions:
+- Images: Flattened from (b, N, N, C) to (b*C, N, N, 1) via `_channel_to_flat`
+- Offsets: Should also be flattened from (b, 1, 2, C) to (b*C, 2) via `flatten_offsets`
+- BUT somewhere in the call chain, the flattening is inconsistent
+
+**Key Observation:**
+Looking at `_reassemble_position_batched` line 917-930:
+```python
+offsets_flat = flatten_offsets(offsets_xy)  # (b*C, 2)
+imgs_flat = _channel_to_flat(imgs)          # (b*C, N, N, 1)
+imgs_flat_padded = pad_patches(...)         # (b*C, padded_size, padded_size, 1)
+Translation(...)([imgs_flat_padded, -offsets_flat])
+```
+If both have batch=b*C, they should match. But the error shows mask has 64×78×78 (batch=64) while expected shape is 4×78×78 (batch=4=C).
+
+**Partial Fix Attempted:**
+Added batch broadcast to `translate_xla` (before complex handling):
+```python
+repeat_factor = tf.maximum(images_batch // trans_batch, 1)
+translations = tf.repeat(translations, repeat_factor, axis=0)
+```
+This didn't fix the issue — XLA graph caching or a different code path may be involved.
+
+**Next Investigation Steps:**
+1. Add debug logging to verify actual shapes at Translation.call entry point
+2. Check if XLA JIT caching is using stale shapes (disable JIT temporarily)
+3. Trace the exact call path during training to see where shapes diverge
+4. Consider if `complexify_function` decorator is interfering with shape propagation
+
+**Filed:** FIX-GRIDSIZE-TRANSLATE-BATCH-001 as new critical blocker.
+
+---
+
 # 2026-01-07T073000Z: Focus Transition — REFACTOR-MODEL-SINGLETON-001 done, STUDY-SYNTH-DOSE-COMPARISON-001 unblocked
 - dwell: 0 (new focus after REFACTOR-MODEL-SINGLETON-001 completion).
 - Focus issue: STUDY-SYNTH-DOSE-COMPARISON-001 — Synthetic Dose Response & Loss Comparison Study

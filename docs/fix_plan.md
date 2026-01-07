@@ -45,10 +45,10 @@
 ---
 
 ### [STUDY-SYNTH-DOSE-COMPARISON-001] Synthetic Dose Response & Loss Comparison Study
-- Depends on: REFACTOR-MODEL-SINGLETON-001 ✅ (complete)
+- Depends on: REFACTOR-MODEL-SINGLETON-001 ✅ (complete), **FIX-GRIDSIZE-TRANSLATE-BATCH-001** (new blocker)
 - Priority: **Critical** (Scientific Validation — Top Priority)
-- Status: pending — REFACTOR-MODEL-SINGLETON-001 complete, ready to execute.
-- Owner/Date: Ralph/2026-01-06
+- Status: blocked — gridsize>1 training fails with batch dimension mismatch in Translation layer (both XLA and non-XLA paths).
+- Owner/Date: Ralph/2026-01-07
 - Working Plan: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/implementation.md`
 - Reports Hub: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/`
 - Spec Owner: `docs/specs/spec-ptycho-core.md` (Physics/Normalization)
@@ -63,7 +63,32 @@
   - Final `dose_comparison.png` matches 6-panel specification.
   - Test registry check passes (`pytest --collect-only`).
   - This ledger updated with results or blockers.
-- Return Condition: Study complete with figure artifact and convergence evidence in Reports Hub.
+- Return Condition: FIX-GRIDSIZE-TRANSLATE-BATCH-001 complete; study complete with figure artifact and convergence evidence in Reports Hub.
+- Attempts History:
+  - *2026-01-07T07:30:00Z:* Attempted to run dose_response_study.py with gridsize=2, nepochs=5. Failed with XLA translate batch mismatch: `Input to reshape is a tensor with 389376 values, but the requested shape has 24336` in `projective_warp_xla.py:182`. Added batch broadcast fix to `translate_xla` before complex handling, but error persists. Also tested with `USE_XLA_TRANSLATE=0` - non-XLA path also fails with `Input to reshape is a tensor with 0 values, but the requested shape has 4` in `_translate_images_simple`. Root cause: Translation layer receives images flattened from (b, N, N, C) to (b*C, N, N, 1) but offsets/translations are not consistently flattened, causing batch dimension mismatches. Artifacts: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T073000Z/dose_study_run.log`. Next: File FIX-GRIDSIZE-TRANSLATE-BATCH-001 to fix Translation layer batch handling for gridsize>1.
+
+---
+
+### [FIX-GRIDSIZE-TRANSLATE-BATCH-001] Fix Translation Layer Batch Dimension Mismatch for gridsize>1
+- Depends on: None
+- Priority: **Critical** (Unblocks STUDY-SYNTH-DOSE-COMPARISON-001)
+- Status: pending — new initiative filed 2026-01-07.
+- Owner/Date: Ralph/2026-01-07
+- Working Plan: TBD
+- Reports Hub: `plans/active/FIX-GRIDSIZE-TRANSLATE-BATCH-001/reports/`
+- Goals:
+  - Fix batch dimension mismatch in Translation layer when gridsize > 1.
+  - Ensure both XLA and non-XLA translation paths handle flattened images (b*C, N, N, 1) correctly.
+  - Key files: `ptycho/tf_helper.py` (Translation, translate_core, _translate_images_simple), `ptycho/projective_warp_xla.py` (translate_xla, projective_warp_xla).
+- Exit Criteria:
+  - `dose_response_study.py` runs with gridsize=2 without Translation errors.
+  - Test `tests/test_model_factory.py::test_multi_n_model_creation` continues to pass.
+- Analysis:
+  - XLA path error: `projective_warp_xla.py:182` — boolean mask has shape (B_M, H, W) from homography M batch, but reshape expects (B_images, H, W) from images batch. B_M ≠ B_images when translations not broadcasted.
+  - Non-XLA path error: `_translate_images_simple:199` — dx/dy have 0 elements (empty translations) but reshape expects batch_size=4 (=gridsize²).
+  - Root cause: `_channel_to_flat` expands images to (b*C, N, N, 1) but corresponding offsets/translations from `flatten_offsets` are (b*C, 2) — BUT somewhere the shapes diverge.
+  - Partial fix attempted: Added broadcast logic to `translate_xla` before complex handling (repeat translations to match images_batch), but XLA graph tracing or caching may interfere.
+- Return Condition: Gridsize>1 training works end-to-end with Translation layer.
 
 ---
 
