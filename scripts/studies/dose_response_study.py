@@ -104,8 +104,17 @@ def generate_ground_truth(N: int = 64, object_size: int = 128) -> Tuple[np.ndarr
     # mk_lines_img is in ptycho.diffsim, returns (N, N, 3) with Gaussian filtering
     from ptycho.diffsim import mk_lines_img
 
-    # Generate lines pattern
-    obj_full = mk_lines_img(N=object_size, nlines=400)
+    # Generate lines pattern - match notebook (ptycho_lines.ipynb) approach:
+    # sim_object_image generates at 2*size with 400 lines, then crops to size
+    # Scale nlines to maintain similar density: notebook uses 400 lines for 784 pixels
+    full_size = 2 * object_size
+    nlines = int(400 * full_size / 784)  # Scale lines to match notebook density
+    obj_full = mk_lines_img(N=full_size, nlines=nlines)
+
+    # Crop to object_size (center crop like sim_object_image does)
+    crop_start = object_size // 2
+    crop_end = full_size - object_size // 2
+    obj_full = obj_full[crop_start:crop_end, crop_start:crop_end, :]
 
     # Convert to complex (amplitude-only: real-valued, zero phase)
     # Normalize to reasonable amplitude range [0.5, 1.5]
