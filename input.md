@@ -1,109 +1,180 @@
 Mode: Implementation
-Focus: REFACTOR-MODEL-SINGLETON-001 — Phase A (XLA Trace Cache Fix)
+Focus: REFACTOR-MODEL-SINGLETON-001 — Phase A (Environment Variable Fix + Test)
 Selector: tests/test_model_factory.py::test_multi_n_model_creation
 
-## Overview
+## Summary
 
-The `dose_response_study.py` crashes when creating models with different `N` values in a single process. The error occurs in `projective_warp_xla_jit` because the `@tf.function(jit_compile=True)` decorator traces the function with the first-seen shapes (N=128 → padded_size=156), and those traces persist even after `tf.keras.backend.clear_session()`. When a subsequent model uses N=64 (padded_size=78), the XLA graph expects 24336 values but receives 389376.
+Fix the XLA trace caching bug by setting `USE_XLA_TRANSLATE=0` before importing `ptycho.model`. The root cause is that module-level model creation at import time creates XLA traces that persist even after `tf.keras.backend.clear_session()`.
+
+## Root Cause (from supervisor analysis)
+
+1. `from ptycho import model` triggers module-level code (lines 554-562) that creates `autoencoder`, `diffraction_to_obj`
+2. During model construction, `Translation` layers call `should_use_xla()` → defaults to `True`
+3. `projective_warp_xla_jit` (line 202, decorated with `@tf.function(jit_compile=True)`) traces with N=128 shapes
+4. XLA traces persist at Python module level — `tf.keras.backend.clear_session()` doesn't clear them
+5. Later `create_model_with_gridsize(N=64)` sets `use_xla_translate=False` but old traces still exist
+6. When Translation layer executes, the stale XLA trace expects N=128 shapes, crashes on N=64 input
 
 **Error signature:**
 ```
 InvalidArgumentError: Input to reshape is a tensor with 389376 values, but the requested shape has 24336
-  389376 = 78 × 78 × 64  (padded_size=78 for N=64, batch=64)
-  24336  = 156 × 156     (padded_size=156 for N=128 — stale XLA trace)
+  389376 = 78 × 78 × 64 (padded_size=78 for N=64)
+  24336 = 156 × 156 (padded_size=156 for N=128 — stale trace)
 ```
 
-**Evidence:** `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-06T163900Z/red/dose_response_reproduce.log`
+## Fix Strategy
 
-## Contracts
-
-- **MODULE-SINGLETON-001** (docs/findings.md): Module-level singletons capture shapes at import time; factory functions must create fresh models.
-- **docs/specs/spec-ptycho-runtime.md:15**: Non-XLA translation runs MUST respect `USE_XLA_TRANSLATE` toggle.
-- **docs/specs/spec-ptycho-core.md**: Model Sizes (N, gridsize, offset) must be configurable at runtime.
-
-## Root Cause Analysis
-
-1. `projective_warp_xla_jit` at ptycho/projective_warp_xla.py:202-211 is decorated with `@tf.function(jit_compile=True)`
-2. This causes TF to trace and XLA-compile the function with the first-seen input shapes
-3. `tf.keras.backend.clear_session()` clears Keras models but does NOT clear TF function traces
-4. `create_model_with_gridsize()` at ptycho/model.py sets `use_xla_translate=False` in params.cfg
-5. BUT: `Translation` layer instances are created during model building and call `should_use_xla()` at layer instantiation time
-6. If params.cfg hasn't been updated yet (or if `should_use_xla()` is cached), the XLA path is still taken
-
-## Phase A Fix Strategy
-
-**Approach:** Force non-XLA mode for multi-config scenarios by ensuring the XLA toggle is properly propagated during model construction.
-
-**Key insight:** The `Translation` layer at tf_helper.py:817-850 accepts `use_xla` in `__init__`. The model factory must explicitly pass `use_xla=False` when creating layers, not rely on global config.
+**Two-part fix:**
+1. **Immediate stabilization:** Set `USE_XLA_TRANSLATE=0` environment variable at the START of any script that needs multiple N values (before any ptycho imports)
+2. **Test coverage:** Create a regression test that verifies multi-N model creation works
 
 ## Tasks
 
-### A0: Test-First Gate (RED)
+### A0: Create regression test (RED → GREEN)
 **File:** `tests/test_model_factory.py`
-**Function:** `test_multi_n_model_creation`
 
-Create a test that reproduces the shape mismatch bug:
-1. Create a model with N=128, gridsize=2
-2. Run a forward pass to trigger XLA tracing
-3. Clear session
-4. Create a model with N=64, gridsize=2
-5. Run a forward pass — this should NOT crash
+```python
+"""Tests for model factory functions.
 
-The test should initially FAIL (RED) demonstrating the bug.
+Tests MODULE-SINGLETON-001 fix: models created with different N values
+must work correctly in a single process.
+"""
+import os
+import pytest
 
-### A1: Fix Translation Layer XLA Toggle
-**File:** `ptycho/model.py::create_model_with_gridsize`
-**Function:** Ensure Translation layers are created with explicit `use_xla=False`
+# Set environment BEFORE any ptycho imports to avoid XLA trace caching
+os.environ['USE_XLA_TRANSLATE'] = '0'
 
-The fix involves:
-1. Pass `use_xla=False` explicitly to all Translation layer instantiations within `create_model_with_gridsize()`
-2. OR: Set `os.environ['USE_XLA_TRANSLATE'] = '0'` at the start of the factory function
-3. Verify by checking `_reassemble_patches_position_real` at tf_helper.py:879 which creates `Translation(jitter_stddev=0.0, use_xla=should_use_xla())`
+import tensorflow as tf
+import numpy as np
 
-### A2: Verify Test Passes (GREEN)
-Run the test again after the fix — it should now PASS.
 
+class TestMultiNModelCreation:
+    """Test that models with different N values can coexist."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        """Clear session before each test."""
+        tf.keras.backend.clear_session()
+        yield
+        tf.keras.backend.clear_session()
+
+    def test_multi_n_model_creation(self):
+        """Verify models with different N values don't cause shape mismatch.
+
+        This test reproduces the bug from dose_response_study.py where creating
+        models with N=128 then N=64 caused XLA trace shape conflicts.
+
+        Ref: REFACTOR-MODEL-SINGLETON-001, TF-NON-XLA-SHAPE-001
+        """
+        from ptycho import params as p
+        from ptycho.model import create_model_with_gridsize
+
+        gridsize = 2
+
+        # First model: N=128
+        p.cfg['N'] = 128
+        p.cfg['gridsize'] = gridsize
+        tf.keras.backend.clear_session()
+
+        autoenc_128, d2o_128 = create_model_with_gridsize(gridsize, N=128)
+
+        # Verify shapes
+        assert autoenc_128.input_shape[0] == (None, 128, 128, gridsize**2), \
+            f"Expected input shape (None, 128, 128, {gridsize**2}), got {autoenc_128.input_shape[0]}"
+
+        # Run a forward pass to trigger any lazy tracing
+        dummy_input_128 = [
+            np.random.randn(1, 128, 128, gridsize**2).astype(np.float32),
+            np.random.randn(1, 1, 2, gridsize**2).astype(np.float32)
+        ]
+        _ = autoenc_128.predict(dummy_input_128, verbose=0)
+
+        # Second model: N=64 (THIS SHOULD NOT CRASH)
+        p.cfg['N'] = 64
+        tf.keras.backend.clear_session()
+
+        autoenc_64, d2o_64 = create_model_with_gridsize(gridsize, N=64)
+
+        # Verify shapes
+        assert autoenc_64.input_shape[0] == (None, 64, 64, gridsize**2), \
+            f"Expected input shape (None, 64, 64, {gridsize**2}), got {autoenc_64.input_shape[0]}"
+
+        # Run a forward pass - this is where the XLA shape mismatch would occur
+        dummy_input_64 = [
+            np.random.randn(1, 64, 64, gridsize**2).astype(np.float32),
+            np.random.randn(1, 1, 2, gridsize**2).astype(np.float32)
+        ]
+        try:
+            _ = autoenc_64.predict(dummy_input_64, verbose=0)
+        except tf.errors.InvalidArgumentError as e:
+            pytest.fail(f"XLA shape mismatch bug not fixed: {e}")
+
+        # Verify different models have different shapes
+        assert autoenc_128.input_shape[0][1] == 128
+        assert autoenc_64.input_shape[0][1] == 64
+```
+
+### A1: Update dose_response_study.py with environment fix
+**File:** `scripts/studies/dose_response_study.py`
+
+Add at the very top of the file (BEFORE any imports):
+```python
+#!/usr/bin/env python
+"""Dose Response Study: Compare high vs low dose reconstructions.
+...
+"""
+import os
+# CRITICAL: Disable XLA translation to avoid shape caching issues
+# when creating models with different N values. See MODULE-SINGLETON-001.
+os.environ['USE_XLA_TRANSLATE'] = '0'
+
+# Rest of imports follow...
+```
+
+### A2: Run test and verify
 ```bash
-pytest tests/test_model_factory.py::test_multi_n_model_creation -vv
+pytest tests/test_model_factory.py::test_multi_n_model_creation -vv 2>&1 | tee plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-06T180000Z/pytest_model_factory.log
+```
+
+Expected: PASS (GREEN)
+
+### A3 (optional): Run dose_response_study.py to verify end-to-end
+If A0-A2 pass, run the study script:
+```bash
+cd scripts/studies && python dose_response_study.py --dry-run 2>&1 | head -100
 ```
 
 ## Pitfalls To Avoid
 
-1. **DO NOT** rely on `tf.keras.backend.clear_session()` alone — it doesn't clear XLA traces
-2. **DO NOT** modify `projective_warp_xla_jit` decorator — changing shared infra is out of scope
-3. **DO NOT** add try/except around XLA calls — fix the toggle propagation instead
-4. **DO** use `USE_XLA_TRANSLATE=0` environment variable OR explicit `use_xla=False` parameter
-5. **DO** verify the fix works with the actual `dose_response_study.py` after tests pass
-
-## Selector
-
-```bash
-pytest tests/test_model_factory.py::test_multi_n_model_creation -vv
-```
-
-Expected: Initially FAIL (RED), then PASS (GREEN) after fix.
+1. **DO NOT** import any ptycho module before setting `USE_XLA_TRANSLATE=0`
+2. **DO NOT** rely on `params.cfg['use_xla_translate'] = False` alone — this doesn't prevent import-time XLA tracing
+3. **DO NOT** modify `projective_warp_xla.py` — changing the XLA decorator is out of scope
+4. **DO** ensure the environment variable is set at module level (top of file), not inside functions
+5. **DO** clear Keras session between model creations with `tf.keras.backend.clear_session()`
 
 ## Artifacts
 
-- Reports: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-06T173000Z/`
-- Test log: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-06T173000Z/green/pytest_model_factory.log`
+- Reports: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-06T180000Z/`
+- Test log: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-06T180000Z/pytest_model_factory.log`
 
 ## Findings Applied
 
-- **MODULE-SINGLETON-001**: Factory functions must create fresh models; this task ensures XLA traces don't persist across model creations.
-- **CONFIG-001**: `update_legacy_dict()` must run before legacy modules; the fix ensures XLA toggle is set before Translation layers are instantiated.
-- **ANTIPATTERN-001**: Import-time side effects; the factory approach avoids import-time model creation.
+- **MODULE-SINGLETON-001**: Module-level singletons capture shapes at import time; this fix prevents XLA tracing at import by disabling XLA before import.
+- **TF-NON-XLA-SHAPE-001**: Non-XLA translation path is safer for multi-N scenarios.
+- **CONFIG-001**: Environment variable takes precedence over params.cfg in `should_use_xla()`.
 
 ## Pointers
 
 - Implementation plan: `plans/active/REFACTOR-MODEL-SINGLETON-001/implementation.md` (Phase A checklist)
-- Translation layer: `ptycho/tf_helper.py:817-850`
-- XLA toggle: `ptycho/tf_helper.py:154-175` (`should_use_xla()`)
-- Model factory: `ptycho/model.py::create_model_with_gridsize`
-- Blocker log: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-06T163900Z/red/dose_response_reproduce.log`
+- Translation layer: `ptycho/tf_helper.py:817-850` (uses `should_use_xla()`)
+- XLA toggle: `ptycho/tf_helper.py:154-175` (`should_use_xla()` — checks env var first!)
+- XLA decorator: `ptycho/projective_warp_xla.py:202` (`@tf.function(jit_compile=True)`)
+- Model factory: `ptycho/model.py:681` (`create_model_with_gridsize`)
+- Module-level model: `ptycho/model.py:554-562` (root cause of XLA trace pollution)
 
 ## Next Up (Optional)
 
-If A0-A2 complete successfully:
-- A3: Run `dose_response_study.py` end-to-end to verify the full workflow
-- Move to Phase B (Module Variable Inventory) per implementation.md
+If A0-A3 complete successfully:
+- Update `plans/active/REFACTOR-MODEL-SINGLETON-001/implementation.md` Phase A checklist
+- Move to Phase B (Module Variable Inventory + Lazy Loading)

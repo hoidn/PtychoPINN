@@ -1,3 +1,32 @@
+# 2026-01-06T180000Z: REFACTOR-MODEL-SINGLETON-001 Phase A — Refined analysis + implementation handoff
+- dwell: 2 (second loop for REFACTOR-MODEL-SINGLETON-001; first loop was planning/analysis, Ralph did not execute code).
+- Focus issue: REFACTOR-MODEL-SINGLETON-001 — XLA trace caching from module-level model creation at import time.
+- Action type: Planning → Implementation handoff (code tasks ready).
+- Mode: Implementation
+- Git sync: `git pull --rebase` → Already up to date.
+- Documents reviewed: Prior input.md, galph_memory.md entry from loop 1, implementation.md, error log, source code analysis.
+- **Refined Root Cause Analysis:**
+  - Previous input.md assumed `create_model_with_gridsize()` setting `use_xla_translate=False` would fix the issue
+  - **Key insight:** XLA traces are created at **import time** when `from ptycho import model` executes module-level code (lines 554-562)
+  - The XLA traces persist at Python module level — `tf.keras.backend.clear_session()` does NOT clear `@tf.function` traces
+  - Setting `use_xla_translate=False` in `create_model_with_gridsize()` is too late — traces already exist
+  - **Solution:** Set `USE_XLA_TRANSLATE=0` environment variable BEFORE any ptycho imports
+- Callchain verification:
+  1. `from ptycho import model` → model.py:554-562 executes
+  2. Model construction creates Translation layers → `should_use_xla()` defaults True
+  3. Translation.call() invokes `projective_warp_xla_jit` → `@tf.function(jit_compile=True)` traces shapes
+  4. Later `create_model_with_gridsize(N=64)` sets `use_xla_translate=False` but stale traces remain
+- Updated input.md with:
+  - Environment variable fix (set `USE_XLA_TRANSLATE=0` at script top, before imports)
+  - Test file `tests/test_model_factory.py` with multi-N test case
+  - Fix for `dose_response_study.py` (add env var at top)
+- Ralph tasks: A0 (create test), A1 (update dose_response_study.py), A2 (run test), A3 (optional e2e verification)
+- Next: Ralph implements and runs test to confirm fix
+- <Action State>: [ready_for_implementation]
+- focus=REFACTOR-MODEL-SINGLETON-001 state=ready_for_implementation dwell=2 ralph_last_commit=none artifacts=plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-06T180000Z/ next_action=implement Phase A (env var fix + test)
+
+---
+
 # 2026-01-06T173000Z: REFACTOR-MODEL-SINGLETON-001 Phase A analysis + input.md refresh
 - dwell: 1 (first supervisor loop for REFACTOR-MODEL-SINGLETON-001 after fix_plan update; prior loops focused on FIX-TF-C1D-SCALED-RERUN-001 from Nov 2025 are stale).
 - Focus issue: REFACTOR-MODEL-SINGLETON-001 — Module-level XLA trace caching in `projective_warp_xla_jit` causes shape mismatch when `dose_response_study.py` creates models with different N values in a single process.
