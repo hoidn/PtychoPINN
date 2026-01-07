@@ -1,3 +1,29 @@
+# 2026-01-07T040000Z: REFACTOR-MODEL-SINGLETON-001 Phase B — Lazy loading implementation handoff
+- dwell: 0 (reset after Ralph executed Phase A; commit 3e877cde landed with passing tests).
+- Focus issue: REFACTOR-MODEL-SINGLETON-001 — Phase B: Eliminate import-time side effects via lazy loading.
+- Action type: Implementation handoff (Phase B tasks ready).
+- Mode: Implementation
+- Git sync: `git pull --rebase` → Already up to date.
+- Documents reviewed: docs/fix_plan.md, implementation.md, ptycho/model.py (lines 143-593 for module-level code), galph_memory.md prior entry.
+- **Phase A Verification:**
+  - Ralph commit 3e877cde: `test_multi_n_model_creation` PASSED (1 passed, 8.41s)
+  - XLA workaround applied to `dose_response_study.py` and test file
+  - Phase A checklist items A0-A2 verified complete
+- **Phase B Scope:**
+  - Goal: Importing `ptycho.model` must NOT create Keras models or tf.Variables
+  - Method: Implement `__getattr__` lazy loading per PEP 562
+  - Move model construction (lines 464-593) into `_build_module_level_models()` function
+  - Also move probe init (lines 148-165) and log_scale init (line 240-243)
+  - Add `_lazy_cache` dict and `_model_construction_done` guard
+  - Emit DeprecationWarning on legacy singleton access
+- Updated input.md with Phase B tasks: B4 (lazy loading), B-TEST (import side-effect test), B-VERIFY (run tests)
+- Ralph tasks: Implement `__getattr__`, move model construction into lazy builder, add `test_import_no_side_effects`
+- Next: Ralph implements Phase B lazy loading and runs tests
+- <Action State>: [ready_for_implementation]
+- focus=REFACTOR-MODEL-SINGLETON-001 state=ready_for_implementation dwell=0 ralph_last_commit=3e877cde artifacts=plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T040000Z/ next_action=implement Phase B (lazy loading + import cleanup)
+
+---
+
 # 2026-01-06T180000Z: REFACTOR-MODEL-SINGLETON-001 Phase A — Refined analysis + implementation handoff
 - dwell: 2 (second loop for REFACTOR-MODEL-SINGLETON-001; first loop was planning/analysis, Ralph did not execute code).
 - Focus issue: REFACTOR-MODEL-SINGLETON-001 — XLA trace caching from module-level model creation at import time.

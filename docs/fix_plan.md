@@ -17,7 +17,7 @@
 ### [REFACTOR-MODEL-SINGLETON-001] Remove Module-Level Singletons in ptycho/model.py
 - Depends on: None
 - Priority: **Critical** (Unblocks STUDY-SYNTH-DOSE-COMPARISON-001)
-- Status: in_progress — Phase A complete (2026-01-07). Next: Phase B (module variable inventory + lazy loading).
+- Status: in_progress — Phase A complete (2026-01-07). Phase B in progress.
 - Owner/Date: Ralph/2026-01-06
 - Working Plan: `plans/active/REFACTOR-MODEL-SINGLETON-001/implementation.md`
 - Summary: `plans/active/REFACTOR-MODEL-SINGLETON-001/summary.md`
@@ -25,15 +25,17 @@
 - Spec Owner: `docs/specs/spec-ptycho-core.md` (Model Sizes)
 - Goals:
   - Fix non-XLA `translate_core` broadcasting bug (Phase A). ✅ Complete
-  - Move model construction into factory functions, eliminating import-time side effects (Phase B).
+  - Move model construction into factory functions, eliminating import-time side effects (Phase B). ← Current
   - Update consumers to use `create_compiled_model()` factory API (Phase C).
 - Exit Criteria:
   - `dose_response_study.py` runs successfully with varying N/gridsize.
   - Importing `ptycho.model` does not instantiate Keras models or tf.Variables.
   - `tests/test_model_factory.py::test_multi_n_model_creation` passes. ✅ Complete
+  - `tests/test_model_factory.py::test_import_no_side_effects` passes. ← Phase B target
 - Return Condition: All phases complete with passing tests.
 - Notes: Supersedes FIX-IMPORT-SIDE-EFFECTS-001.
 - Attempts History:
+  - *2026-01-07T04:00:00Z (Phase B):* input.md written with lazy loading implementation tasks: `__getattr__` for deferred model construction, `_lazy_cache` + `_model_construction_done` guards, move lines 464-593 into `_build_module_level_models()`, add `test_import_no_side_effects`. Artifacts: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T040000Z/`.
   - *2026-01-07T00:51:13Z (Phase A):* Created `tests/test_model_factory.py` with multi-N regression test. Updated `scripts/studies/dose_response_study.py` with XLA fixes: `USE_XLA_TRANSLATE=0`, `TF_XLA_FLAGS=--tf_xla_auto_jit=0`, and `tf.config.run_functions_eagerly(True)`. Test PASSED. Metrics: 1 passed, 8.41s. Artifacts: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T005113Z/pytest_model_factory.log`.
 
 ---
