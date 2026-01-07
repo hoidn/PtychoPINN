@@ -30,23 +30,27 @@
 
 **Evidence:** 3 passed, 3 skipped (5.13s). See `reports/2026-01-07T210000Z/pytest_memory_scaling.log`.
 
-### Phase B: Refactor Container Architecture ← CURRENT
+### Phase B: Refactor Container Architecture ✅ COMPLETE
 **Goal:** Implement the Lazy Container.
 | ID | Task Description | State | How/Why & Guidance |
 |---|---|---|---|
-| B1 | Modify `__init__` signature | [ ] | Store as `self._X_np`, `self._Y_I_np`, etc. using `X.numpy() if tf.is_tensor(X) else X` pattern. Add `self._tensor_cache = {}`. |
-| B2 | Add lazy property accessors | [ ] | Convert `.X`, `.Y_I`, `.Y_phi`, `.coords_nominal`, `.coords_true`, `.probe` to `@property` with caching. |
-| B3 | Add `as_tf_dataset()` method | [ ] | Returns `tf.data.Dataset` for memory-efficient batched access. Uses generator pattern. |
-| B4 | Update `load()` function | [ ] | Remove eager `tf.convert_to_tensor()` calls at lines 309-311, 325. Pass NumPy arrays to container. |
-| B5 | Update tests | [ ] | Activate `test_lazy_loading_avoids_oom` and `test_lazy_container_backward_compatible`. |
-| B6 | Run regression tests | [ ] | Verify `test_model_factory.py` still passes. |
+| B1 | Modify `__init__` signature | [x] | Store as `self._X_np`, `self._Y_I_np`, etc. using `X.numpy() if tf.is_tensor(X) else X` pattern. Add `self._tensor_cache = {}`. Commit 37985157. |
+| B2 | Add lazy property accessors | [x] | Converted `.X`, `.Y_I`, `.Y_phi`, `.coords_nominal`, `.coords_true`, `.probe` to `@property` with caching. |
+| B3 | Add `as_tf_dataset()` method | [x] | Returns `tf.data.Dataset` for memory-efficient batched access. Uses generator pattern (ptycho/loader.py:255-321). |
+| B4 | Update `load()` function | [x] | Removed eager `tf.convert_to_tensor()` calls. Pass NumPy arrays with `.astype(np.float32)` (ptycho/loader.py:474-478). |
+| B5 | Update tests | [x] | All 5 Phase B tests active and passing: `test_lazy_loading_avoids_oom`, `test_lazy_container_backward_compatible`, `test_lazy_caching`, `test_tensor_input_handled`, `test_len_method`. |
+| B6 | Run regression tests | [x] | `test_model_factory.py` passes (3/3, 25.67s). No regressions. |
 
-### Phase C: Integration
+**Evidence:** 8 passed, 1 skipped (6.44s). See `reports/2026-01-07T220000Z/pytest_phase_b.log`.
+
+### Phase C: Integration ← CURRENT
 **Goal:** Connect new container to Training/Inference loops.
 | ID | Task Description | State | How/Why & Guidance |
 |---|---|---|---|
-| C1 | Update `train_pinn.py` | [ ] | Optionally use `.as_tf_dataset()` for large datasets. |
-| C2 | Update `compare_models.py` | [ ] | Enable chunked PINN inference via lazy loading. |
+| C1 | Add `train_with_dataset()` to model.py | [ ] | New function that accepts `tf.data.Dataset` from `as_tf_dataset()`. Use `model.fit(dataset, ...)` directly. Add heuristic threshold (e.g., n_samples > 10000) to auto-select streaming. |
+| C2 | Update `ptycho.model.train()` | [ ] | Add optional `use_streaming: bool = None` parameter. When True or auto-detected, use `as_tf_dataset()`. Otherwise use current `prepare_inputs/prepare_outputs` pattern. |
+| C3 | Update `compare_models.py` | [ ] | Enable chunked PINN inference by iterating over container without loading full `.X` tensor. Use `_X_np` slicing with chunk-wise tensorification. |
+| C4 | Add integration tests | [ ] | Test that training works with `use_streaming=True` on small datasets. Verify metrics are equivalent to current path. |
 
 ## Exit Criteria
 1. `tests/test_lazy_loading.py::test_lazy_loading_avoids_oom` passes
