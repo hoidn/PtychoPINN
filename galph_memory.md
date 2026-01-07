@@ -1,3 +1,35 @@
+# 2026-01-07T22:00:00Z: FEAT-LAZY-LOADING-001 — Phase B: Lazy container implementation handoff
+
+- dwell: 1 (continuing focus; Phase A complete with passing tests)
+- Focus issue: FEAT-LAZY-LOADING-001 — Implement Lazy Tensor Allocation in loader.py
+- Action type: Implementation handoff (Phase B tasks ready)
+- Mode: Implementation
+- Git sync: `git pull --rebase` → Already up to date.
+- Documents reviewed: docs/fix_plan.md, galph_memory.md (prior entry), plans/active/FEAT-LAZY-LOADING-001/implementation.md (updated Phase A→complete), tests/test_lazy_loading.py (Phase A tests verified), ptycho/loader.py:97-346 (PtychoDataContainer + load()), ptycho/model.py:611-660 (training loop usage), docs/findings.md (PINN-CHUNKED-001).
+
+**Phase A Verification:**
+- Tests PASSED: 3/3 memory scaling tests, 3 skipped (5.13s)
+- Test file created: `tests/test_lazy_loading.py`
+- OOM test exists (skipped by default, run with `--run-oom`)
+- Commit 1d4b09f4 landed with Phase A tests
+
+**Phase B Design:**
+- Goal: Refactor `PtychoDataContainer` to store NumPy arrays internally, convert to TensorFlow tensors lazily
+- B1: Store as `self._X_np` etc. with `self._tensor_cache = {}`
+- B2: Convert `.X`, `.Y`, etc. to `@property` with caching
+- B3: Add `as_tf_dataset(batch_size)` for memory-efficient batched access
+- B4: Update `load()` to pass NumPy arrays instead of eager tensors
+- B5: Activate Phase B tests (remove skips)
+- B6: Run regression tests
+
+**input.md Updated:** Full implementation code for Phase B with step-by-step tasks.
+
+- Next: Ralph implements lazy container (B1-B4), updates tests (B5), runs all tests (B6)
+- <Action State>: [ready_for_implementation]
+- focus=FEAT-LAZY-LOADING-001 state=ready_for_implementation dwell=1 ralph_last_commit=1d4b09f4 artifacts=plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-07T220000Z/ next_action=implement Phase B (lazy container + tests)
+
+---
+
 # 2026-01-07T21:00:00Z: FEAT-LAZY-LOADING-001 — Phase A: OOM reproduction test
 
 - dwell: 0 (new focus after STUDY-SYNTH-DOSE-COMPARISON-001 completion)
