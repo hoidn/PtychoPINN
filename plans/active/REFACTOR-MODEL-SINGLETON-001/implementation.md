@@ -182,26 +182,62 @@ def __getattr__(name):
 
 ---
 
-## Phase C — Migration & Cleanup
+## Phase C — XLA Re-enablement
+
+**Objective:** Remove Phase A XLA workarounds now that lazy loading prevents import-time model creation.
+
+**Rationale:** Phase A added XLA workarounds (`USE_XLA_TRANSLATE=0`, `TF_XLA_FLAGS`, eager execution) to fix multi-N crashes caused by import-time model construction. With Phase B complete, models are only created on-demand with correct N values, so XLA can be safely re-enabled for performance.
+
+### Checklist
+
+- [ ] **C1:** Remove XLA workarounds from `scripts/studies/dose_response_study.py`:
+  - Delete `os.environ['USE_XLA_TRANSLATE'] = '0'`
+  - Delete `os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=0'`
+  - Delete `tf.config.run_functions_eagerly(True)`
+
+- [ ] **C2:** Update `tests/test_model_factory.py`:
+  - Keep `test_multi_n_model_creation` but remove XLA workarounds (test should pass with XLA enabled)
+  - Add `test_multi_n_with_xla` explicitly testing XLA mode works for multi-N
+
+- [ ] **C3:** Verify XLA performance is restored:
+  - Run `dose_response_study.py` without workarounds
+  - Compare wall-clock time with/without `jit_compile=True`
+
+- [ ] **C4:** Update `docs/findings.md` to note that MODULE-SINGLETON-001 is fully resolved (not just worked around).
+
+### Exit Criteria
+
+- `dose_response_study.py` runs without any XLA env vars or eager execution hacks
+- `test_multi_n_model_creation` passes with XLA enabled
+- No regression in model training/inference correctness
+
+### Dependency Analysis
+
+- **Depends on:** Phase B complete (lazy loading implemented)
+- **Touched Files:** `scripts/studies/dose_response_study.py`, `tests/test_model_factory.py`, `docs/findings.md`
+
+---
+
+## Phase D — Migration & Cleanup
 
 **Objective:** Update consumers to use the new factory API.
 
 ### Checklist
 
-- [ ] **C1:** Update `ptycho/train_pinn.py` to accept `model_instance` argument in `train()` and `train_eval()`.
+- [ ] **D1:** Update `ptycho/train_pinn.py` to accept `model_instance` argument in `train()` and `train_eval()`.
 
-- [ ] **C2:** Update `ptycho/workflows/components.py` (`train_cdi_model`, `run_cdi_example`) to call `create_compiled_model` using values from `TrainingConfig` instead of importing singletons.
+- [ ] **D2:** Update `ptycho/workflows/components.py` (`train_cdi_model`, `run_cdi_example`) to call `create_compiled_model` using values from `TrainingConfig` instead of importing singletons.
 
-- [ ] **C3:** Update `ptycho/model_manager.py` to explicitly pass `N`/`gridsize` to factories during loading, removing reliance on implicit global state during the load process.
+- [ ] **D3:** Update `ptycho/model_manager.py` to explicitly pass `N`/`gridsize` to factories during loading, removing reliance on implicit global state during the load process.
 
-- [ ] **C4:** Verify `dose_response_study.py` runs successfully with varying `N` and `gridsize`.
+- [ ] **D4:** Verify `dose_response_study.py` runs successfully with varying `N` and `gridsize`.
 
-- [ ] **C5:** Add `DeprecationWarning` message to lazy-loader (already in B4) with migration instructions.
+- [ ] **D5:** Add `DeprecationWarning` message to lazy-loader (already in B4) with migration instructions.
 
 ### Notes & Risks
 
 - **Risk:** `model_manager` serialization/deserialization relies on global state restoration
-- **Mitigation:** C3 explicitly addresses this by passing params to factory
+- **Mitigation:** D3 explicitly addresses this by passing params to factory
 
 ---
 

@@ -1,6 +1,6 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-07 (Phase A complete: XLA fix + regression test)
+**Last Updated:** 2026-01-07 (Phase B complete: Lazy loading + import side-effect test)
 **Active Focus:** REFACTOR-MODEL-SINGLETON-001 — Remove Module-Level Singletons (blocks STUDY-SYNTH-DOSE-COMPARISON-001)
 
 ---
@@ -17,7 +17,7 @@
 ### [REFACTOR-MODEL-SINGLETON-001] Remove Module-Level Singletons in ptycho/model.py
 - Depends on: None
 - Priority: **Critical** (Unblocks STUDY-SYNTH-DOSE-COMPARISON-001)
-- Status: in_progress — Phase A complete (2026-01-07). Phase B in progress.
+- Status: in_progress — Phase A ✅, Phase B ✅. Ready for Phase C.
 - Owner/Date: Ralph/2026-01-06
 - Working Plan: `plans/active/REFACTOR-MODEL-SINGLETON-001/implementation.md`
 - Summary: `plans/active/REFACTOR-MODEL-SINGLETON-001/summary.md`
@@ -25,16 +25,18 @@
 - Spec Owner: `docs/specs/spec-ptycho-core.md` (Model Sizes)
 - Goals:
   - Fix non-XLA `translate_core` broadcasting bug (Phase A). ✅ Complete
-  - Move model construction into factory functions, eliminating import-time side effects (Phase B). ← Current
-  - Update consumers to use `create_compiled_model()` factory API (Phase C).
+  - Move model construction into factory functions, eliminating import-time side effects (Phase B). ✅ Complete
+  - Re-enable XLA now that lazy loading prevents import-time conflicts (Phase C). ← Next
+  - Update consumers to use `create_compiled_model()` factory API (Phase D).
 - Exit Criteria:
   - `dose_response_study.py` runs successfully with varying N/gridsize.
-  - Importing `ptycho.model` does not instantiate Keras models or tf.Variables.
+  - Importing `ptycho.model` does not instantiate Keras models or tf.Variables. ✅ Complete
   - `tests/test_model_factory.py::test_multi_n_model_creation` passes. ✅ Complete
-  - `tests/test_model_factory.py::test_import_no_side_effects` passes. ← Phase B target
+  - `tests/test_model_factory.py::test_import_no_side_effects` passes. ✅ Complete
 - Return Condition: All phases complete with passing tests.
 - Notes: Supersedes FIX-IMPORT-SIDE-EFFECTS-001.
 - Attempts History:
+  - *2026-01-07T17:08:00Z (Phase B complete):* Implemented lazy loading for ptycho/model.py. Changes: (1) Added `_lazy_cache` and `_model_construction_done` guards; (2) Moved `log_scale`, `initial_probe_guess`, and `probe_illumination` to lazy getters; (3) Wrapped model construction (lines 464-593) in `_build_module_level_models()`; (4) Added `__getattr__` for backward-compatible singleton access with DeprecationWarning; (5) Added `test_import_no_side_effects` test. Metrics: 2 passed, 11.85s. Artifacts: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T040000Z/pytest_phase_b.log`.
   - *2026-01-07T04:00:00Z (Phase B):* input.md written with lazy loading implementation tasks: `__getattr__` for deferred model construction, `_lazy_cache` + `_model_construction_done` guards, move lines 464-593 into `_build_module_level_models()`, add `test_import_no_side_effects`. Artifacts: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T040000Z/`.
   - *2026-01-07T00:51:13Z (Phase A):* Created `tests/test_model_factory.py` with multi-N regression test. Updated `scripts/studies/dose_response_study.py` with XLA fixes: `USE_XLA_TRANSLATE=0`, `TF_XLA_FLAGS=--tf_xla_auto_jit=0`, and `tf.config.run_functions_eagerly(True)`. Test PASSED. Metrics: 1 passed, 8.41s. Artifacts: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T005113Z/pytest_model_factory.log`.
 
