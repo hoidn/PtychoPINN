@@ -1,3 +1,29 @@
+# 2026-01-07T050000Z: REFACTOR-MODEL-SINGLETON-001 Phase C — XLA Re-enablement Spike
+- dwell: 0 (reset after Phase B completion; commit 0206ff42 landed with 2/2 tests passing).
+- Focus issue: REFACTOR-MODEL-SINGLETON-001 — Phase C: XLA Re-enablement Spike Test.
+- Action type: Implementation handoff (spike test design + delegation).
+- Mode: Implementation
+- Git sync: `git pull --rebase` → Already up to date.
+- Documents reviewed: docs/fix_plan.md, implementation.md (Phase C), ptycho/model.py (lazy loading at 867-890), ptycho/projective_warp_xla.py (XLA JIT at 202), ptycho/tf_helper.py (should_use_xla at 154), docs/findings.md (MODULE-SINGLETON-001, TF-NON-XLA-SHAPE-001).
+- **Phase B Verification:**
+  - Tests PASSED: `test_multi_n_model_creation`, `test_import_no_side_effects` (2/2, 12.14s)
+  - Lazy loading implemented: `__getattr__` defers model construction
+  - Module import no longer creates models
+- **Phase C Analysis:**
+  - Goal: Determine if XLA workarounds (Phase A) can be removed now that lazy loading is in place
+  - Hypothesis: Lazy loading prevents import-time XLA traces, so multi-N should work
+  - **Key concern:** XLA traces are cached at Python module level (`@tf.function(jit_compile=True)`)
+  - **Spike approach:** Run subprocess test with XLA enabled (no env var workarounds)
+  - Test sequence: Import model → verify lazy cache empty → create N=128 model → forward pass → create N=64 model → forward pass
+- Updated input.md with Phase C spike test: `test_multi_n_with_xla_enabled`
+- Ralph tasks: Add `TestXLAReenablement` class, implement spike test, run and report results
+- Decision gate: PASS → proceed with C1-C4; FAIL → document blocker, Phase C blocked
+- Next: Ralph implements spike test and runs it
+- <Action State>: [ready_for_implementation]
+- focus=REFACTOR-MODEL-SINGLETON-001 state=ready_for_implementation dwell=0 ralph_last_commit=0206ff42 artifacts=plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T050000Z/ next_action=implement Phase C spike test
+
+---
+
 # 2026-01-07T040000Z: REFACTOR-MODEL-SINGLETON-001 Phase B — Lazy loading implementation handoff
 - dwell: 0 (reset after Ralph executed Phase A; commit 3e877cde landed with passing tests).
 - Focus issue: REFACTOR-MODEL-SINGLETON-001 — Phase B: Eliminate import-time side effects via lazy loading.
