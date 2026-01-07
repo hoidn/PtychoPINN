@@ -83,7 +83,11 @@ def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=
     # Create fresh model with current params instead of using stale singleton
     # This fixes MODULE-SINGLETON-001: model architecture must match current gridsize
     if model_instance is None:
-        model_instance, _ = model.create_compiled_model()
+        model_instance, diffraction_to_obj = model.create_compiled_model()
+        # Update module-level singletons so model_manager.save() saves the trained model
+        # (SINGLETON-SAVE-001: save() hardcodes model.autoencoder/diffraction_to_obj)
+        model.autoencoder = model_instance
+        model.diffraction_to_obj = diffraction_to_obj
 
     nepochs = params.cfg['nepochs']
     params.print_params()
