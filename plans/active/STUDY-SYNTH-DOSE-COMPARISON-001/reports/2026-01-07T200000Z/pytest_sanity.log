@@ -1,0 +1,14 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 5 items / 3 deselected / 2 selected
+
+tests/tf_helper/test_translation_shape_guard.py::test_translate_xla_gridsize_broadcast PASSED [ 50%]
+tests/tf_helper/test_translation_shape_guard.py::test_translate_xla_gridsize_broadcast_jit PASSED [100%]
+
+======================= 2 passed, 3 deselected in 5.82s ========================
