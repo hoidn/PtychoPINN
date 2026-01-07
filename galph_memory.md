@@ -1,3 +1,38 @@
+# 2026-01-07T21:00:00Z: FEAT-LAZY-LOADING-001 — Phase A: OOM reproduction test
+
+- dwell: 0 (new focus after STUDY-SYNTH-DOSE-COMPARISON-001 completion)
+- Focus issue: FEAT-LAZY-LOADING-001 — Implement Lazy Tensor Allocation in loader.py
+- Action type: Implementation handoff (Phase A1 — create OOM reproduction test)
+- Mode: Implementation
+- Git sync: `git pull --rebase` → Already up to date.
+- Documents reviewed: docs/fix_plan.md, galph_memory.md, plans/active/FEAT-LAZY-LOADING-001/implementation.md, plans/active/FEAT-LAZY-LOADING-001/summary.md, ptycho/loader.py (lines 97-346 — PtychoDataContainer and load() function), docs/findings.md (PINN-CHUNKED-001).
+
+**State Assessment:**
+- **STUDY-SYNTH-DOSE-COMPARISON-001**: ✅ DONE (6-panel figure 324KB, 532 tests collected)
+- **REFACTOR-MODEL-SINGLETON-001**: ✅ DONE (lazy loading active)
+- **FIX-GRIDSIZE-TRANSLATE-BATCH-001**: ✅ DONE (XLA batch broadcast)
+- **FEAT-LAZY-LOADING-001**: ⏳ IN_PROGRESS (Phase A starting)
+
+**Code Analysis:**
+The OOM root cause is in `ptycho/loader.py`:
+- Lines 309-311: `tf.convert_to_tensor()` for X, coords_nominal, coords_true
+- Line 325: `tf.convert_to_tensor()` for Y (complex64)
+These immediately allocate GPU memory for the entire dataset.
+
+**Phase A1 Task:**
+Create `tests/test_lazy_loading.py` with:
+1. `test_memory_usage_scales_with_dataset_size` — demonstrates linear memory scaling (safe to run)
+2. `test_oom_with_eager_loading` — intentionally triggers OOM (skipped by default)
+3. `TestLazyLoadingPlaceholder` — skeleton for Phase B tests
+
+**input.md Updated:** Full test code provided for Ralph to implement.
+
+- Next: Ralph creates test file and runs memory scaling test
+- <Action State>: [ready_for_implementation]
+- focus=FEAT-LAZY-LOADING-001 state=ready_for_implementation dwell=0 ralph_last_commit=none artifacts=plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-07T210000Z/ next_action=create tests/test_lazy_loading.py and run memory scaling test
+
+---
+
 # 2026-01-07T20:00:00Z: STUDY-SYNTH-DOSE-COMPARISON-001 — Execute dose response study (blockers resolved)
 
 - dwell: 0 (new focus; FIX-GRIDSIZE-TRANSLATE-BATCH-001 done, returning to unblocked study)

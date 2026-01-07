@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-07 (STUDY-SYNTH-DOSE-COMPARISON-001 complete)
-**Active Focus:** None — Scientific validation study complete. Next: FEAT-LAZY-LOADING-001 or FIX-TF-C1D-SCALED-RERUN-001
+**Last Updated:** 2026-01-07 (FEAT-LAZY-LOADING-001 started)
+**Active Focus:** FEAT-LAZY-LOADING-001 — Lazy Tensor Allocation to fix OOM in large datasets
 
 ---
 
@@ -146,8 +146,8 @@
 ### [FEAT-LAZY-LOADING-001] Implement Lazy Tensor Allocation in loader.py
 - Depends on: `spec-ptycho-workflow.md` Resource Constraints; finding `PINN-CHUNKED-001`.
 - Priority: High
-- Status: pending — planning artifacts created 2025-11-20; awaiting Phase A reproduction script.
-- Owner/Date: Ralph/2025-11-20
+- Status: in_progress — Phase A (OOM reproduction test) starting 2026-01-07.
+- Owner/Date: Ralph/2026-01-07
 - Working Plan: `plans/active/FEAT-LAZY-LOADING-001/implementation.md`
 - Summary: `plans/active/FEAT-LAZY-LOADING-001/summary.md`
 - Reports Hub: `plans/active/FEAT-LAZY-LOADING-001/reports/`
@@ -155,7 +155,13 @@
   - Refactor `PtychoDataContainer` to keep datasets in NumPy/mmap until batch request.
   - Provide streaming/batching APIs (`.as_dataset()` or equivalent).
   - Update dependent scripts (train_pinn, compare_models) to use lazy interfaces.
+- Exit Criteria:
+  - `tests/test_lazy_loading.py::test_oom_with_eager_loading` demonstrates current OOM behavior.
+  - `tests/test_lazy_loading.py::test_lazy_loading_avoids_oom` passes with lazy container.
+  - Existing training pipeline works with lazy container (backward compatibility).
 - Return Condition: Lazy container merged with OOM fix tests; STUDY-SYNTH-FLY64 unblocked.
+- Attempts History:
+  - *2026-01-07T21:00:00Z (Phase A start):* Focus selected after STUDY-SYNTH-DOSE-COMPARISON-001 completion. Code analysis complete: `loader.py:309-311,325` contains eager `tf.convert_to_tensor` calls that cause OOM. Phase A1 task: create OOM reproduction script/test. Artifacts: `plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-07T210000Z/`.
 
 ---
 

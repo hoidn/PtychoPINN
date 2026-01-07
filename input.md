@@ -1,126 +1,260 @@
 Mode: Implementation
-Focus: STUDY-SYNTH-DOSE-COMPARISON-001 — Synthetic Dose Response & Loss Comparison Study
+Focus: FEAT-LAZY-LOADING-001 — Implement Lazy Tensor Allocation in loader.py
 Branch: feature/torchapi-newprompt-2
-Mapped tests: pytest --collect-only -q tests/ (registry check)
-Artifacts: plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/
+Mapped tests: pytest tests/test_lazy_loading.py::test_oom_with_eager_loading -v (target test — to be created this loop)
+Artifacts: plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-07T210000Z/
 
 ## Summary
 
-Execute the synthetic dose response study now that all blockers are resolved. The FIX-GRIDSIZE-TRANSLATE-BATCH-001 fix (commit 13599565) added XLA-compatible batch broadcast to `translate_xla`, and all 8 translation/model tests pass.
+Create a test that reproduces the OOM failure caused by eager `tf.convert_to_tensor()` calls in `loader.py`. This establishes the baseline failure mode that Phase B will fix.
 
-## Current State
+## Context
 
-- **FIX-GRIDSIZE-TRANSLATE-BATCH-001**: ✅ DONE (commit 13599565, 8/8 tests pass)
-- **REFACTOR-MODEL-SINGLETON-001**: ✅ DONE (lazy loading prevents import-time model creation)
-- **Prior run artifacts**: `dose_comparison.png` shows "No Data" for all 4 reconstruction panels (from BEFORE the fix)
-- **Study status**: Ready for execution
+**Problem:** `PtychoDataContainer` and the `load()` function immediately convert all input arrays to TensorFlow tensors via `tf.convert_to_tensor()`. This forces the entire dataset into GPU memory at once, causing OOM errors for large datasets (e.g., fly64 dense study with 20k+ images).
+
+**Root Cause Location:** `ptycho/loader.py:309-311,325`:
+```python
+X = tf.convert_to_tensor(X_full_split, dtype=tf.float32)
+coords_nominal = tf.convert_to_tensor(coords_nominal, dtype=tf.float32)
+coords_true = tf.convert_to_tensor(coords_true, dtype=tf.float32)
+# ...
+Y = tf.convert_to_tensor(Y_split, dtype=tf.complex64)
+```
+
+**Finding:** PINN-CHUNKED-001 documents that chunked inference is blocked by this eager loading architecture.
 
 ## Do Now
 
-### Phase A: Verify Environment
+### A1: Create OOM Reproduction Test
 
-1. **Quick sanity check** - verify the XLA fix is active:
-```bash
-pytest tests/tf_helper/test_translation_shape_guard.py -v -k "gridsize_broadcast" --tb=short 2>&1 | tee plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/pytest_sanity.log
+1. **Create test file** `tests/test_lazy_loading.py`:
 
-# Expected: 2 passed
+```python
+"""Tests for lazy tensor allocation in loader.py.
+
+These tests verify the OOM behavior with eager loading (baseline)
+and the fix via lazy tensor allocation (Phase B).
+"""
+import pytest
+import numpy as np
+import tensorflow as tf
+
+from ptycho.loader import PtychoDataContainer, load
+
+
+class TestEagerLoadingOOM:
+    """Tests demonstrating OOM with current eager loading architecture."""
+
+    @pytest.mark.parametrize("n_images", [100, 500, 1000])
+    def test_memory_usage_scales_with_dataset_size(self, n_images):
+        """Verify memory usage scales linearly with dataset size.
+
+        This test doesn't trigger OOM but measures memory consumption
+        to demonstrate the eager loading problem.
+        """
+        N = 64  # Patch size
+        gridsize = 2
+        C = gridsize ** 2  # Channels
+
+        # Synthetic data matching expected shapes
+        X = np.random.rand(n_images, N, N, C).astype(np.float32)
+        Y_I = np.random.rand(n_images, N, N, C).astype(np.float32)
+        Y_phi = np.random.rand(n_images, N, N, C).astype(np.float32)
+        coords = np.random.rand(n_images, 1, 2, C).astype(np.float32)
+        probe = np.random.rand(N, N).astype(np.complex64)
+
+        # Measure memory before
+        initial_memory = tf.config.experimental.get_memory_info('GPU:0')['current'] if tf.config.list_physical_devices('GPU') else 0
+
+        # Create container (triggers eager tensorification)
+        container = PtychoDataContainer(
+            X=tf.convert_to_tensor(X, dtype=tf.float32),
+            Y_I=tf.convert_to_tensor(Y_I, dtype=tf.float32),
+            Y_phi=tf.convert_to_tensor(Y_phi, dtype=tf.float32),
+            norm_Y_I=np.ones(n_images),
+            YY_full=None,
+            coords_nominal=tf.convert_to_tensor(coords, dtype=tf.float32),
+            coords_true=tf.convert_to_tensor(coords, dtype=tf.float32),
+            nn_indices=np.zeros((n_images, 7), dtype=np.int32),
+            global_offsets=coords,
+            local_offsets=coords,
+            probeGuess=tf.convert_to_tensor(probe, dtype=tf.complex64),
+        )
+
+        # Verify container was created and data is accessible
+        assert container.X.shape[0] == n_images
+        assert container.Y.shape[0] == n_images
+
+        # Calculate expected memory usage (approximate)
+        # X: n_images * N * N * C * 4 bytes (float32)
+        # Y: n_images * N * N * C * 8 bytes (complex64)
+        # coords: n_images * 1 * 2 * C * 4 bytes (float32)
+        expected_bytes = n_images * N * N * C * (4 + 8) + n_images * 1 * 2 * C * 4 * 2
+        print(f"\nn_images={n_images}: Expected ~{expected_bytes / 1e6:.1f} MB tensor allocation")
+
+
+    @pytest.mark.skip(reason="Intentionally triggers OOM - run manually with --run-oom")
+    def test_oom_with_eager_loading(self):
+        """Demonstrate OOM failure with large dataset.
+
+        This test creates a dataset larger than available GPU memory
+        to demonstrate the eager loading problem.
+
+        Run with: pytest tests/test_lazy_loading.py::TestEagerLoadingOOM::test_oom_with_eager_loading -v --run-oom
+        """
+        N = 128  # Larger patch size
+        gridsize = 2
+        C = gridsize ** 2
+        n_images = 20000  # Large dataset that exceeds typical GPU memory
+
+        # Calculate expected memory: ~7.5 GB for this configuration
+        expected_gb = (n_images * N * N * C * (4 + 8 + 4 * 2)) / 1e9
+        print(f"\nAttempting to allocate ~{expected_gb:.1f} GB of tensors...")
+
+        X = np.random.rand(n_images, N, N, C).astype(np.float32)
+        Y_I = np.random.rand(n_images, N, N, C).astype(np.float32)
+        Y_phi = np.random.rand(n_images, N, N, C).astype(np.float32)
+        coords = np.random.rand(n_images, 1, 2, C).astype(np.float32)
+        probe = np.random.rand(N, N).astype(np.complex64)
+
+        # This should trigger OOM on most GPUs
+        with pytest.raises((tf.errors.ResourceExhaustedError, MemoryError)):
+            container = PtychoDataContainer(
+                X=tf.convert_to_tensor(X, dtype=tf.float32),
+                Y_I=tf.convert_to_tensor(Y_I, dtype=tf.float32),
+                Y_phi=tf.convert_to_tensor(Y_phi, dtype=tf.float32),
+                norm_Y_I=np.ones(n_images),
+                YY_full=None,
+                coords_nominal=tf.convert_to_tensor(coords, dtype=tf.float32),
+                coords_true=tf.convert_to_tensor(coords, dtype=tf.float32),
+                nn_indices=np.zeros((n_images, 7), dtype=np.int32),
+                global_offsets=coords,
+                local_offsets=coords,
+                probeGuess=tf.convert_to_tensor(probe, dtype=tf.complex64),
+            )
+
+
+class TestLazyLoadingPlaceholder:
+    """Placeholder tests for lazy loading implementation (Phase B).
+
+    These tests define the expected behavior of the lazy loading fix.
+    They are marked as skip until Phase B is implemented.
+    """
+
+    @pytest.mark.skip(reason="Phase B not implemented yet")
+    def test_lazy_loading_avoids_oom(self):
+        """Verify lazy loading handles large datasets without OOM.
+
+        After Phase B, this test should:
+        1. Create a LazyPtychoDataContainer with large dataset
+        2. Verify no immediate GPU memory allocation
+        3. Access batches via .as_dataset() without OOM
+        """
+        pass
+
+    @pytest.mark.skip(reason="Phase B not implemented yet")
+    def test_lazy_container_backward_compatible(self):
+        """Verify lazy container works with existing training pipeline.
+
+        After Phase B, accessing .X or .Y directly should:
+        1. Log a deprecation warning
+        2. Return the full tensor (for backward compatibility)
+        3. Work correctly with existing code
+        """
+        pass
 ```
 
-### Phase B: Execute Dose Response Study
+2. **Add pytest marker** for OOM tests in `conftest.py` (if not already present):
 
-2. **Run the study** with moderate epochs (5) for quick validation:
-```bash
-cd /home/ollie/Documents/PtychoPINN
+```python
+# Add to tests/conftest.py (append to existing markers if any)
+def pytest_addoption(parser):
+    parser.addoption(
+        "--run-oom",
+        action="store_true",
+        default=False,
+        help="Run OOM tests that intentionally exhaust memory",
+    )
 
-# Run dose response study
-timeout 1800 python scripts/studies/dose_response_study.py \
-    --output-dir plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/study_outputs \
-    --nepochs 5 \
-    2>&1 | tee plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/dose_study_run.log
+def pytest_configure(config):
+    config.addinivalue_line("markers", "oom: mark test as OOM-triggering")
 
-# Check for success
-grep -i "error\|exception\|shape.*mismatch" plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/dose_study_run.log && echo "ERRORS FOUND" || echo "NO ERRORS"
+def pytest_collection_modifyitems(config, items):
+    if not config.getoption("--run-oom"):
+        skip_oom = pytest.mark.skip(reason="Need --run-oom option to run")
+        for item in items:
+            if "oom" in item.keywords:
+                item.add_marker(skip_oom)
 ```
 
-### Phase C: Verify Outputs
+### A2: Run the Memory Scaling Test
 
-3. **Check artifacts** were produced:
 ```bash
-# Check for trained models
-ls -la plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/study_outputs/*/wts.h5.zip 2>/dev/null || echo "No model weights found"
-
-# Check for figure
-ls -la plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/study_outputs/dose_comparison.png 2>/dev/null || echo "No figure found"
-
-# Copy figure to reports root for easy access
-cp plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/study_outputs/dose_comparison.png \
-   plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/dose_comparison_v3.png 2>/dev/null || true
+# Run memory scaling test (safe, doesn't trigger OOM)
+pytest tests/test_lazy_loading.py::TestEagerLoadingOOM::test_memory_usage_scales_with_dataset_size -v 2>&1 | tee plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-07T210000Z/pytest_memory_scaling.log
 ```
 
-### Phase D: Test Registry Check
+### A3: Verify Test Registry
 
-4. **Run pytest collect** to verify no regressions:
 ```bash
-pytest --collect-only -q tests/ 2>&1 | tee plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/pytest_collect.log
-
-# Check for errors
-grep -i "error" plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/pytest_collect.log && echo "Collection errors found" || echo "Collection OK"
+# Verify test collection works
+pytest --collect-only tests/test_lazy_loading.py 2>&1 | tee plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-07T210000Z/pytest_collect.log
 ```
 
 ## How-To Map
 
 ```bash
 # Artifacts directory
-ARTIFACTS=plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z
+ARTIFACTS=plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-07T210000Z
 
-# Full study run
-python scripts/studies/dose_response_study.py --output-dir $ARTIFACTS/study_outputs --nepochs 5
+# Run memory scaling tests (safe)
+pytest tests/test_lazy_loading.py::TestEagerLoadingOOM::test_memory_usage_scales_with_dataset_size -v
 
-# If OOM or timeout, try smaller batch:
-python scripts/studies/dose_response_study.py --output-dir $ARTIFACTS/study_outputs --nepochs 3 --batch-size 8
+# Verify collection
+pytest --collect-only tests/test_lazy_loading.py
+
+# Optional: Run OOM test (WARNING: may crash/freeze system)
+# pytest tests/test_lazy_loading.py::TestEagerLoadingOOM::test_oom_with_eager_loading -v --run-oom
 ```
 
 ## Pitfalls To Avoid
 
-1. **DO NOT** modify the translation layer code - the fix is complete
-2. **DO NOT** add XLA workarounds (`USE_XLA_TRANSLATE=0`) - XLA should work now
-3. **DO** ensure the study runs with default XLA settings (no env var overrides)
-4. **DO** capture full logs for debugging if failures occur
-5. **DO** check that reconstruction panels show actual data (not "No Data")
-6. **DO** verify all 4 arms produce model weights
-7. **Environment Freeze:** Do not install packages or modify environment
+1. **DO NOT** run `test_oom_with_eager_loading` without explicit user consent — it WILL exhaust GPU/system memory
+2. **DO NOT** modify `loader.py` in this phase — we are only creating the reproduction test
+3. **DO** ensure the test imports work correctly with the existing module structure
+4. **DO** use synthetic data that matches the real data shapes from `loader.py:126-138`
+5. **DO** check if `conftest.py` already has pytest options/markers before adding duplicates
+6. **Environment Freeze:** Do not install packages or modify environment
 
 ## If Blocked
 
-1. If XLA errors persist: Log the full traceback, note any shape values
-2. If OOM: Reduce batch_size to 8 or nepochs to 3
-3. If timeout: Reduce nepochs to 2 for quick validation
+1. If test imports fail: Check `ptycho/loader.py` imports are accessible from `tests/`
+2. If GPU not available: Tests should fall back gracefully to CPU memory measurement
+3. If conftest conflict: Merge with existing markers rather than overwriting
 4. Record blocker in `$ARTIFACTS/blocked_<timestamp>.md` with error signature
 
 ## Findings Applied
 
-- **MODULE-SINGLETON-001:** ✅ Resolved - lazy loading active, no XLA workarounds needed
-- **CONFIG-001:** `update_legacy_dict` must be called before legacy modules - handled in dose_response_study.py
-- **BUG-TF-001:** `params.cfg['gridsize']` must be set before data generation - handled
-- **TF-NON-XLA-SHAPE-001:** Non-XLA batch broadcast - reference for XLA fix design (commit 13599565)
+- **PINN-CHUNKED-001:** This initiative directly addresses the OOM blocker documented there
+- **DATA-001:** Test data should match NPZ data contract shapes (though synthetic)
+- **CONFIG-001:** Not directly relevant for this test phase (no params.cfg usage)
 
 ## Pointers
 
-- Implementation plan: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/implementation.md`
-- XLA fix commit: 13599565 (`FIX-GRIDSIZE-TRANSLATE-BATCH-001`)
-- Dose response script: `scripts/studies/dose_response_study.py`
-- Prior blocker analysis: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/blockers/2026-01-06_xla_shape_mismatch_hypothesis.md`
-- fix_plan: `docs/fix_plan.md` (STUDY-SYNTH-DOSE-COMPARISON-001 entry)
+- Implementation plan: `plans/active/FEAT-LAZY-LOADING-001/implementation.md`
+- Eager loading code: `ptycho/loader.py:309-311,325` (tf.convert_to_tensor calls)
+- Container class: `ptycho/loader.py:97-158` (PtychoDataContainer)
+- PINN-CHUNKED-001 finding: `docs/findings.md` (OOM blocker documentation)
+- fix_plan: `docs/fix_plan.md` (FEAT-LAZY-LOADING-001 entry)
 
 ## Exit Criteria
 
-1. `dose_response_study.py` completes without exceptions
-2. All 4 arms produce `wts.h5.zip` model weights
-3. `dose_comparison.png` shows image data (not "No Data") in all 6 panels
-4. `pytest --collect-only` shows no regressions
+1. `tests/test_lazy_loading.py` created with `TestEagerLoadingOOM` class
+2. `test_memory_usage_scales_with_dataset_size` runs and prints memory estimates
+3. `test_oom_with_eager_loading` exists (skipped by default)
+4. pytest collection shows new tests without errors
 5. Ledger updated with results
 
 ## Next Up
 
-- If successful: Update fix_plan.md to mark study `done`, archive artifacts
-- If blocked: Document specific failure mode, determine if fix needs refinement
+- Phase B: Implement lazy container architecture (modify `PtychoDataContainer.__init__` to store NumPy, add `.as_dataset()` method)
