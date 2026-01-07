@@ -64,6 +64,11 @@ baseline_model.h5
 3way_*/**/study_log.txt
 3way_*/**/reconstruction_visualization.png
 
+# Test comparison artifacts
+test_*/**/comparison_metrics.csv
+test_*/**/baseline_frc_curves.csv
+test_*/**/pinn_frc_curves.csv
+
 # Notebooks
 notebooks/untracked_notebooks*
 untracked*
