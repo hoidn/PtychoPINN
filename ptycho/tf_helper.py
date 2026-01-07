@@ -413,8 +413,15 @@ def grid_to_channel(*grids: tf.Tensor) -> Tuple[tf.Tensor, ...]:
 def _flat_to_channel(img: tf.Tensor, N: Optional[int] = None, gridsize: Optional[int] = None) -> tf.Tensor:
     if gridsize is None:
         gridsize = params()['gridsize']  # Fallback for backward compatibility
+        print(f"DEBUG _flat_to_channel: gridsize from global params: {gridsize}")
+    else:
+        print(f"DEBUG _flat_to_channel: gridsize from parameter: {gridsize}")
     if N is None:
         N = params()['N']
+        print(f"DEBUG _flat_to_channel: N from global params: {N}")
+    else:
+        print(f"DEBUG _flat_to_channel: N from parameter: {N}")
+    print(f"DEBUG _flat_to_channel: input shape={img.shape}, reshaping to (-1, {gridsize**2}, {N}, {N})")
     img = tf.reshape(img, (-1, gridsize**2, N, N))
     img = tf.transpose(img, [0, 2, 3, 1], conjugate=False)
     return img
@@ -612,7 +619,8 @@ def trim_reconstruction(x: tf.Tensor, N: Optional[int] = None) -> tf.Tensor:
             clipsize: -clipsize, :]
 
 #@debug
-def extract_patches_position(imgs: tf.Tensor, offsets_xy: tf.Tensor, jitter: float = 0.) -> tf.Tensor:
+def extract_patches_position(imgs: tf.Tensor, offsets_xy: tf.Tensor, jitter: float = 0.,
+                             N: Optional[int] = None, gridsize: Optional[int] = None) -> tf.Tensor:
     """
     Expects offsets_xy in channel format.
 
@@ -623,16 +631,21 @@ def extract_patches_position(imgs: tf.Tensor, offsets_xy: tf.Tensor, jitter: flo
 
     no negative sign
     """
+    # Get N and gridsize from params if not provided (backward compatibility)
+    if N is None:
+        N = params()['N']
+    if gridsize is None:
+        gridsize = params()['gridsize']
+
     # Ensure offsets are real-valued
     if offsets_xy.dtype in [tf.complex64, tf.complex128]:
         offsets_xy = tf.math.real(offsets_xy)
-        
+
     if  imgs.get_shape()[0] is not None:
         assert int(imgs.get_shape()[0]) == int(offsets_xy.get_shape()[0])
     assert int(imgs.get_shape()[3]) == 1
     assert int(offsets_xy.get_shape()[2]) == 2
     assert int(imgs.get_shape()[3]) == 1
-    gridsize = params()['gridsize']
     assert int(offsets_xy.get_shape()[3]) == gridsize**2
     offsets_flat = flatten_offsets(offsets_xy)
     stacked = tf.repeat(imgs, gridsize**2, axis = 3)
@@ -640,7 +653,7 @@ def extract_patches_position(imgs: tf.Tensor, offsets_xy: tf.Tensor, jitter: flo
     # Create Translation layer with jitter parameter
     translation_layer = Translation(jitter_stddev=jitter if isinstance(jitter, (int, float)) else 0.0, use_xla=should_use_xla())
     channels_translated = trim_reconstruction(
-        translation_layer([flat_padded, offsets_flat]))
+        translation_layer([flat_padded, offsets_flat]), N=N)
     return channels_translated
 
 #@debug
@@ -874,7 +887,7 @@ def _reassemble_patches_position_real(imgs: tf.Tensor, offsets_xy: tf.Tensor, ag
         return _flat_to_channel(imgs_flat_bigN_translated, N = padded_size)
 
 #@debug
-def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_size: int, batch_size: int = 64, agg: bool = True, average: bool = False, N: Optional[int] = None, **kwargs) -> tf.Tensor:
+def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_size: int, batch_size: int = 64, agg: bool = True, average: bool = False, N: Optional[int] = None, gridsize: Optional[int] = None, **kwargs) -> tf.Tensor:
     """
     Memory-efficient batched version of patch reassembly.
 
@@ -891,6 +904,7 @@ def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_
         agg: Whether to aggregate overlapping patches (default: True)
         average: Whether to average overlapping regions (for compatibility)
         N: Patch size (if None, reads from global params)
+        gridsize: Grid size for channel grouping (if None, reads from global params)
         **kwargs: Additional keyword arguments for compatibility
 
     Returns:
@@ -902,19 +916,19 @@ def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_
     """
     offsets_flat = flatten_offsets(offsets_xy)
     imgs_flat = _channel_to_flat(imgs)
-    
+
     # Get the number of patches
     num_patches = tf.shape(imgs_flat)[0]
-    
+
     # If we have very few patches, just use the original method
     if batch_size <= 0:
         batch_size = 64
-    
+
     # Use original approach if fewer patches than batch size
     def original_approach():
         imgs_flat_padded = pad_patches(imgs_flat, padded_size, N=N)
         imgs_translated = Translation(jitter_stddev=0.0, use_xla=should_use_xla())([imgs_flat_padded, -offsets_flat])
-        channels = _flat_to_channel(imgs_translated, N=padded_size)
+        channels = _flat_to_channel(imgs_translated, N=padded_size, gridsize=gridsize)
         return tf.reduce_sum(channels, axis=3, keepdims=True)
     
     def batched_approach():

@@ -66,10 +66,13 @@ class ExtractPatchesPositionLayer(layers.Layer):
     - patches: same dtype as input, shape (B, N, N, C)
     """
     
-    def __init__(self, jitter: float = 0.0, **kwargs):
+    def __init__(self, jitter: float = 0.0, N: Optional[int] = None,
+                 gridsize: Optional[int] = None, **kwargs):
         super().__init__(**kwargs)
         self.jitter = jitter
-    
+        self._N = N
+        self._gridsize = gridsize
+
     def call(self, inputs: List[tf.Tensor]) -> tf.Tensor:
         """Extract patches at specified positions.
         Args:
@@ -79,17 +82,24 @@ class ExtractPatchesPositionLayer(layers.Layer):
         """
         from . import tf_helper as hh
         padded_obj, positions = inputs
-        return hh.extract_patches_position(padded_obj, positions, self.jitter)
-    
+        return hh.extract_patches_position(padded_obj, positions, self.jitter,
+                                           N=self._N, gridsize=self._gridsize)
+
     def compute_output_shape(self, input_shape: List[tf.TensorShape]) -> tf.TensorShape:
         batch_size = input_shape[0][0]
-        N = input_shape[0][1] - 10  # Assuming padding of 5 on each side
+        # Use stored N if available, otherwise estimate from input shape
+        if self._N is not None:
+            N = self._N
+        else:
+            N = input_shape[0][1] - 10  # Fallback: assuming padding of 5 on each side
         channels = input_shape[0][-1]
         return tf.TensorShape([batch_size, N, N, channels])
-    
+
     def get_config(self) -> Dict[str, Any]:
         config = super().get_config()
         config['jitter'] = self.jitter
+        config['N'] = self._N
+        config['gridsize'] = self._gridsize
         return config
 
 
@@ -155,7 +165,8 @@ class ReassemblePatchesLayer(layers.Layer):
         # The batched function automatically falls back to non-batched mode for small inputs
         batch_size = 64
         fn_reassemble = hh.mk_reassemble_position_batched_real(
-            positions, batch_size=batch_size, padded_size=self.padded_size, N=self.N
+            positions, batch_size=batch_size, padded_size=self.padded_size, N=self.N,
+            gridsize=self.gridsize
         )
 
         return hh.reassemble_patches(patches, fn_reassemble_real=fn_reassemble,

@@ -168,44 +168,66 @@ initial_probe_guess = tf.Variable(
 # TODO total variation loss
 # -probe smoothing scale(?)
 class ProbeIllumination(tf.keras.layers.Layer):
-    def __init__(self, name=None, **kwargs):
+    def __init__(self, name=None, initial_probe=None, N=None, **kwargs):
         # Remove any kwargs that shouldn't be passed to parent
         kwargs.pop('dtype', None)  # Handle dtype separately if needed
         super(ProbeIllumination, self).__init__(name=name, **kwargs)
-        self.w = initial_probe_guess
+
+        # Store N for this instance
+        self._N = N if N is not None else p.get('N')
+
+        # Generate probe_mask once at construction (efficient)
+        self._probe_mask = probe.get_probe_mask(self._N)
+
+        # Use provided probe or fall back to module-level for backward compatibility
+        if initial_probe is not None:
+            # Create a new tf.Variable for this instance
+            if len(initial_probe.shape) == 3:
+                probe_init = initial_probe[None, ...]
+            elif len(initial_probe.shape) == 4:
+                probe_init = initial_probe
+            else:
+                raise ValueError(f"Invalid probe shape: {initial_probe.shape}")
+            self.w = tf.Variable(
+                initial_value=tf.cast(probe_init, tf.complex64),
+                trainable=p.params()['probe.trainable'],
+            )
+        else:
+            # Backward compatibility: use module-level variable
+            self.w = initial_probe_guess
+
         self.sigma = p.get('gaussian_smoothing_sigma')
 
     def call(self, inputs):
         # x is expected to have shape (batch_size, N, N, gridsize**2)
         # where N is the size of each patch and gridsize**2 is the number of patches
         x = inputs[0]
-        
+
         # self.w has shape (1, N, N, 1) or (1, N, N, gridsize**2) if probe.big is True
-        # probe_mask has shape (N, N, 1)
-        
+
         # Apply multiplication first
         illuminated = self.w * x
-        
+
         # Apply Gaussian smoothing only if sigma is not 0
         if self.sigma != 0:
             smoothed = complex_gaussian_filter2d(illuminated, filter_shape=(3, 3), sigma=self.sigma)
         else:
             smoothed = illuminated
-        
+
         if p.get('probe.mask'):
-            # Output shape: (batch_size, N, N, gridsize**2)
-            return smoothed * tf.cast(probe_mask, tf.complex64), (self.w * tf.cast(probe_mask, tf.complex64))[None, ...]
+            # Use pre-computed mask (generated in __init__)
+            return smoothed * tf.cast(self._probe_mask, tf.complex64), (self.w * tf.cast(self._probe_mask, tf.complex64))[None, ...]
         else:
             # Output shape: (batch_size, N, N, gridsize**2)
             return smoothed, (self.w)[None, ...]
-    
+
     def compute_output_shape(self, input_shape):
         # Returns two outputs - both with same shape as input
         return [input_shape, input_shape]
-    
+
     def get_config(self):
         config = super().get_config()
-        # Don't need to save w or sigma as they come from global state
+        config['N'] = self._N
         return config
 
 probe_illumination = ProbeIllumination()
@@ -484,7 +506,7 @@ padded_objs_with_offsets = ExtractPatchesPositionLayer(
 )([padded_obj_2, input_positions])
 
 # Apply the probe illumination
-padded_objs_with_offsets, probe = probe_illumination([padded_objs_with_offsets])
+padded_objs_with_offsets, probe_tensor = probe_illumination([padded_objs_with_offsets])
 flat_illuminated = padded_objs_with_offsets
 
 # Apply pad and diffract operation
@@ -671,13 +693,18 @@ def create_model_with_gridsize(gridsize: int, N: int, **kwargs):
     # Store current global state for restoration
     original_gridsize = p.get('gridsize')
     original_N = p.get('N')
-    
+    original_use_xla = p.cfg.get('use_xla_translate', True)
+
     try:
+        # Clear Keras session to avoid XLA cache conflicts from module-level model
+        tf.keras.backend.clear_session()
+
         # Temporarily update global state for model construction
-        p.cfg.update({'gridsize': gridsize, 'N': N})
+        # Disable XLA for Translation to avoid shape caching issues when N differs from import-time N
+        p.cfg.update({'gridsize': gridsize, 'N': N, 'use_xla_translate': False})
         for key, value in kwargs.items():
             p.cfg.update({key: value})
-        
+
         # Create input layers with explicit parameters
         input_img = Input(shape=(N, N, gridsize**2), name='input')
         input_positions = Input(shape=(1, 2, gridsize**2), name='input_positions')
@@ -719,12 +746,25 @@ def create_model_with_gridsize(gridsize: int, N: int, **kwargs):
         # Extract overlapping regions of the object
         padded_objs_with_offsets = ExtractPatchesPositionLayer(
             jitter=0.0,
+            N=N,
+            gridsize=gridsize,
             dtype=tf.complex64,
             name='padded_objs_with_offsets'
         )([padded_obj_2, input_positions])
-        
-        # Apply the probe illumination
-        padded_objs_with_offsets, probe = probe_illumination([padded_objs_with_offsets])
+
+        # Create fresh ProbeIllumination with correctly-sized probe for this N
+        global_probe = p.params().get('probe')
+        if global_probe is not None and global_probe.shape[0] == N:
+            local_probe = global_probe
+        else:
+            # Generate default probe of correct size
+            local_probe = probe.get_default_probe(N)
+        local_probe_illumination = ProbeIllumination(
+            initial_probe=local_probe,
+            N=N,
+            name='probe_illumination'
+        )
+        padded_objs_with_offsets, probe_out = local_probe_illumination([padded_objs_with_offsets])
         flat_illuminated = padded_objs_with_offsets
         
         # Apply pad and diffract operation
@@ -750,7 +790,7 @@ def create_model_with_gridsize(gridsize: int, N: int, **kwargs):
         
     finally:
         # Restore original global state
-        p.cfg.update({'gridsize': original_gridsize, 'N': original_N})
+        p.cfg.update({'gridsize': original_gridsize, 'N': original_N, 'use_xla_translate': original_use_xla})
 
 def _create_models_from_global_config():
     """Create models using global configuration (for backward compatibility)."""
