@@ -1,236 +1,166 @@
 Mode: Implementation
-Focus: REFACTOR-MODEL-SINGLETON-001 — Phase C (XLA Re-enablement Spike)
-Selector: tests/test_model_factory.py::TestMultiNModelCreation::test_multi_n_model_creation
+Focus: REFACTOR-MODEL-SINGLETON-001 — Phase C1-C4 (Remove XLA Workarounds)
+Branch: feature/torchapi-newprompt-2
+Selector: tests/test_model_factory.py -vv
+Artifacts: plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T060000Z/
 
 ## Summary
 
-Phase C investigates whether XLA translation can be re-enabled now that lazy loading (Phase B) prevents import-time model creation. This is a **spike test** to verify the hypothesis before removing workarounds.
+Remove Phase A XLA workarounds now that the Phase C spike test confirmed lazy loading fixes the multi-N XLA shape mismatch bug.
 
 ## Goal
 
-Determine whether the XLA workarounds (Phase A) are still necessary, or if lazy loading alone fixes the multi-N shape mismatch bug.
-
-**Hypothesis:** With lazy loading in place, `create_model_with_gridsize()` can be called multiple times with different N values in the same process, and XLA translation will work because:
-1. No models are created at import time (lazy loading)
-2. TensorFlow's XLA polymorphic compilation handles different shapes
-3. Each model creation starts fresh without stale traces
+Clean up temporary workarounds from Phase A (environment variables and eager execution). The spike test proved these are no longer needed:
+- `USE_XLA_TRANSLATE=0` environment variable
+- `TF_XLA_FLAGS=--tf_xla_auto_jit=0` environment variable
+- `tf.config.run_functions_eagerly(True)` call
 
 ## Tasks
 
-### C-SPIKE-1: Create XLA spike test
+### C1: Remove XLA workarounds from dose_response_study.py
+
+**File:** `scripts/studies/dose_response_study.py`
+
+Delete lines 27-38 (the workaround block):
+
+```python
+# DELETE THIS BLOCK:
+# CRITICAL: Disable XLA translation BEFORE any ptycho imports to avoid shape caching
+# issues when creating models with different N values. See MODULE-SINGLETON-001.
+# This must be at the very top, before any other imports that might trigger ptycho.
+import os
+os.environ['USE_XLA_TRANSLATE'] = '0'
+# Also disable TensorFlow's XLA JIT to prevent compile-time constant errors
+os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=0'
+
+# Force eager execution to avoid Keras 3.x XLA graph compilation issues
+# with dynamic batch dimensions in the non-XLA translation path.
+import tensorflow as tf
+tf.config.run_functions_eagerly(True)
+```
+
+The module should start with just the docstring and normal imports:
+```python
+#!/usr/bin/env python3
+"""
+dose_response_study.py - Synthetic Dose Response & Loss Comparison Study
+...docstring continues...
+"""
+import argparse
+import logging
+import sys
+...
+```
+
+### C2: Remove XLA workarounds from tests/test_model_factory.py
 
 **File:** `tests/test_model_factory.py`
 
-Add a new test class `TestXLAReenablement` with a spike test that verifies XLA works for multi-N:
-
+1. Delete lines 11-27 (the workaround block at module level):
 ```python
-class TestXLAReenablement:
-    """Test that XLA can be re-enabled after lazy loading fix.
+# DELETE THIS BLOCK:
+# CRITICAL: Set environment BEFORE any ptycho imports to avoid XLA trace caching
+# See docs/findings.md MODULE-SINGLETON-001 and TF-NON-XLA-SHAPE-001
+os.environ['USE_XLA_TRANSLATE'] = '0'
 
-    Phase C spike test for REFACTOR-MODEL-SINGLETON-001.
-    """
-
-    @pytest.fixture(autouse=True)
-    def setup(self):
-        """Clear session before each test."""
-        tf.keras.backend.clear_session()
-        yield
-        tf.keras.backend.clear_session()
-
-    def test_multi_n_with_xla_enabled(self):
-        """Verify models with different N values work with XLA translation enabled.
-
-        This test verifies the hypothesis that lazy loading (Phase B) fixes the
-        XLA shape mismatch bug, allowing XLA to be re-enabled.
-
-        Approach:
-        1. Run in subprocess with clean Python state (no env var workarounds)
-        2. Import ptycho.model (no side effects due to lazy loading)
-        3. Create model with N=128, run forward pass
-        4. Create model with N=64, run forward pass
-        5. Verify no XLA shape mismatch errors
-
-        If this test passes, Phase A workarounds can be removed.
-        If it fails, document the specific error and Phase C is blocked.
-
-        Ref: REFACTOR-MODEL-SINGLETON-001 Phase C
-        """
-        import subprocess
-        import sys
-        from pathlib import Path
-
-        # CRITICAL: Do NOT set USE_XLA_TRANSLATE=0 - we want to test WITH XLA
-        code = '''
-import sys
-import os
-
-# Clear any XLA workaround env vars to test with XLA enabled
-os.environ.pop('USE_XLA_TRANSLATE', None)
-os.environ.pop('TF_XLA_FLAGS', None)
+# Also disable TensorFlow's XLA JIT to prevent compile-time constant errors
+# in tf.repeat during graph execution (the non-XLA translate path)
+os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=0'
 
 import tensorflow as tf
-
-# Allow eager for Keras 3.x compatibility but don't disable XLA JIT
-# tf.config.run_functions_eagerly(True)  # Intentionally commented out
-
-print(f"XLA test starting, TF version: {tf.__version__}")
-
-# Initialize params before importing model
-from ptycho import params as p
-from ptycho import probe
-
-# Set up params for N=128 first
-N1, N2 = 128, 64
-gridsize = 2
-
-p.cfg['N'] = N1
-p.cfg['gridsize'] = gridsize
-p.cfg['offset'] = 4
-p.cfg['default_probe_scale'] = 4.0
-p.cfg['probe'] = probe.get_default_probe(N1, fmt='tf')
-p.cfg['intensity_scale'] = 1.0
-p.cfg['nphotons'] = 1e9
-
-print(f"Params initialized for N={N1}")
-
-# Import model - should NOT create models (lazy loading)
-from ptycho import model
-
-# Verify lazy loading worked
-assert model._lazy_cache == {}, f"Models created at import: {list(model._lazy_cache.keys())}"
-print("Lazy loading verified: no models at import")
-
-from ptycho.model import create_model_with_gridsize
 import numpy as np
 
-# Create first model with N=128
-print(f"Creating model with N={N1}...")
-tf.keras.backend.clear_session()
-autoenc_128, d2o_128 = create_model_with_gridsize(gridsize, N=N1)
-
-# Run forward pass to trigger any XLA tracing
-dummy_128 = [
-    np.random.randn(1, N1, N1, gridsize**2).astype(np.float32),
-    np.random.randn(1, 1, 2, gridsize**2).astype(np.float32)
-]
-print(f"Running forward pass for N={N1}...")
-out_128 = autoenc_128.predict(dummy_128, verbose=0)
-print(f"Forward pass N={N1} succeeded, output shapes: {[o.shape for o in out_128]}")
-
-# Create second model with N=64 (the bug scenario)
-print(f"Creating model with N={N2}...")
-p.cfg['N'] = N2
-p.cfg['probe'] = probe.get_default_probe(N2, fmt='tf')
-tf.keras.backend.clear_session()
-
-autoenc_64, d2o_64 = create_model_with_gridsize(gridsize, N=N2)
-
-# Run forward pass - THIS IS WHERE THE XLA BUG WOULD OCCUR
-dummy_64 = [
-    np.random.randn(1, N2, N2, gridsize**2).astype(np.float32),
-    np.random.randn(1, 1, 2, gridsize**2).astype(np.float32)
-]
-print(f"Running forward pass for N={N2}...")
-try:
-    out_64 = autoenc_64.predict(dummy_64, verbose=0)
-    print(f"Forward pass N={N2} succeeded, output shapes: {[o.shape for o in out_64]}")
-    print("PASS: XLA re-enablement spike test succeeded")
-except tf.errors.InvalidArgumentError as e:
-    print(f"FAIL: XLA shape mismatch error: {e}")
-    sys.exit(1)
-except Exception as e:
-    print(f"FAIL: Unexpected error: {type(e).__name__}: {e}")
-    sys.exit(1)
-'''
-
-        result = subprocess.run(
-            [sys.executable, '-c', code],
-            capture_output=True,
-            text=True,
-            cwd=str(Path(__file__).parent.parent),
-            timeout=120
-        )
-
-        print(f"STDOUT:\n{result.stdout}")
-        print(f"STDERR:\n{result.stderr}")
-
-        if result.returncode != 0:
-            pytest.fail(
-                f"XLA re-enablement spike failed:\n"
-                f"stdout: {result.stdout}\n"
-                f"stderr: {result.stderr}"
-            )
-
-        assert "PASS" in result.stdout, "Expected PASS in output"
+# Force eager execution to avoid XLA compilation of the graph
+# This is necessary because Keras 3.x uses XLA JIT by default for model.predict()
+tf.config.run_functions_eagerly(True)
 ```
 
-### C-SPIKE-2: Run the spike test
+2. Replace with clean imports:
+```python
+import os
+import pytest
+import subprocess
+import sys
+from pathlib import Path
+
+import tensorflow as tf
+import numpy as np
+```
+
+3. Update the `test_multi_n_model_creation` docstring to reflect the new reality:
+   - Remove references to the XLA workaround
+   - Update to say "lazy loading prevents import-time model creation, avoiding XLA trace conflicts"
+
+4. Update `test_import_no_side_effects` subprocess code:
+   - Remove the env var lines (`os.environ['USE_XLA_TRANSLATE'] = '0'` etc.)
+   - Remove `tf.config.run_functions_eagerly(True)`
+   - Keep the rest of the test logic
+
+5. Keep `TestXLAReenablement::test_multi_n_with_xla_enabled` as-is — this is the permanent regression test for XLA mode.
+
+### C3: Run all tests to verify no regressions
 
 ```bash
-# Run just the XLA spike test
-pytest tests/test_model_factory.py::TestXLAReenablement::test_multi_n_with_xla_enabled -vv 2>&1 | tee plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T050000Z/pytest_phase_c_spike.log
+# Create artifacts directory
+mkdir -p plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T060000Z/
+
+# Run all model factory tests
+pytest tests/test_model_factory.py -vv 2>&1 | tee plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T060000Z/pytest_phase_c_final.log
+
+# Expected: 3 passed (test_multi_n_model_creation, test_import_no_side_effects, test_multi_n_with_xla_enabled)
 ```
 
-### C-SPIKE-3: Decision gate
+### C4: Update docs/findings.md
 
-Based on the spike test result:
+Update the `MODULE-SINGLETON-001` entry to mark it fully resolved:
 
-**If PASS:**
-- The lazy loading fix is sufficient
-- Proceed to C1-C4 (remove workarounds from dose_response_study.py and tests)
-- Update implementation.md Phase C checklist
+1. Find the line with status "Resolved" (near end of entry)
+2. Update the synopsis to include the lazy loading fix:
+   - Add note that Phase B lazy loading (`__getattr__` in model.py) eliminated the need for XLA workarounds
+3. Update evidence pointer to include test file:
+   - Add `tests/test_model_factory.py` reference
 
-**If FAIL:**
-- Document the specific error in `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T050000Z/blocker_xla_spike.md`
-- Phase C is blocked pending further investigation
-- The XLA workarounds remain necessary even with lazy loading
-- Update fix_plan.md with blocker status
+## Implement
+
+- `scripts/studies/dose_response_study.py::` — remove XLA workaround block (lines 27-38)
+- `tests/test_model_factory.py::` — remove XLA workarounds from module level and subprocess tests
+- `docs/findings.md::MODULE-SINGLETON-001` — update status text
+
+## How-To Map
+
+```bash
+# After making changes, verify with:
+pytest tests/test_model_factory.py -vv 2>&1 | tee plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T060000Z/pytest_phase_c_final.log
+
+# Parse results
+grep -E "^(PASSED|FAILED|ERROR|tests/)" plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T060000Z/pytest_phase_c_final.log
+```
 
 ## Pitfalls To Avoid
 
-1. **DO NOT** remove the XLA workarounds from dose_response_study.py until the spike passes
-2. **DO NOT** set `USE_XLA_TRANSLATE=0` in the spike test - the whole point is to test WITH XLA
-3. **DO** run the spike in a subprocess to ensure clean Python state
-4. **DO** verify `model._lazy_cache == {}` after import to confirm lazy loading works
-5. **DO** test both N=128→N=64 sequence (the original bug scenario)
-6. **DO** capture full stdout/stderr for debugging if it fails
-
-## Artifacts
-
-- Reports: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T050000Z/`
-- Spike test log: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T050000Z/pytest_phase_c_spike.log`
-- Blocker (if fail): `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T050000Z/blocker_xla_spike.md`
-
-## Findings Applied
-
-- **MODULE-SINGLETON-001**: This spike tests whether lazy loading is the complete fix
-- **TF-NON-XLA-SHAPE-001**: The non-XLA path issues should not affect this test (XLA enabled)
-- **CONFIG-001**: Params must be set before model creation
-
-## Pointers
-
-- Implementation plan: `plans/active/REFACTOR-MODEL-SINGLETON-001/implementation.md` (Phase C checklist)
-- Lazy loading implementation: `ptycho/model.py:867-890` (`__getattr__`)
-- XLA JIT function: `ptycho/projective_warp_xla.py:202` (`projective_warp_xla_jit`)
-- Translation layer XLA check: `ptycho/tf_helper.py:154` (`should_use_xla()`)
-- Factory function: `ptycho/model.py:681-811` (`create_model_with_gridsize`)
+1. **DO NOT** remove the XLA spike test (`test_multi_n_with_xla_enabled`) — it's the permanent regression test
+2. **DO NOT** change ptycho/model.py — the lazy loading code is already correct
+3. **DO** update the test docstrings to reflect the new reality (lazy loading, not env vars)
+4. **DO** keep subprocess isolation in tests — tests run in subprocess for clean Python state
+5. **DO** verify all 3 tests pass before committing
 
 ## If Blocked
 
-If the spike fails:
-1. Log the specific error message and stack trace
-2. Create `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T050000Z/blocker_xla_spike.md`
-3. Analyze whether the issue is:
-   - XLA trace persistence (module-level `@tf.function` cache)
-   - Translation layer instantiation order
-   - Something else in the model construction path
-4. Mark Phase C as blocked in implementation.md
-5. Consider whether alternative approaches exist (e.g., XLA only for single-N workflows)
+If tests fail after removing workarounds:
+1. Check if the test is running in subprocess (subprocess tests should work because they start fresh)
+2. Check if there's module-level import order issue in the test file itself
+3. Re-read the spike test to understand what worked there
+4. Log the specific error and stack trace
 
-## Next Up (Optional)
+## Findings Applied
 
-If spike passes, proceed with:
-- C1: Remove XLA workarounds from `scripts/studies/dose_response_study.py`
-- C2: Remove workarounds from `tests/test_model_factory.py` (keep new XLA test)
-- C3: Performance verification
-- C4: Update `docs/findings.md` MODULE-SINGLETON-001 to mark fully resolved
+- **MODULE-SINGLETON-001**: Lazy loading fix verified by spike test; workarounds can be removed
+- **CONFIG-001**: Params must still be set before model creation (unchanged)
+- **ANTIPATTERN-001**: Import side effects eliminated by Phase B lazy loading
+
+## Pointers
+
+- Spike test evidence: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T050000Z/pytest_phase_c_spike_verbose.log`
+- Implementation plan: `plans/active/REFACTOR-MODEL-SINGLETON-001/implementation.md` (Phase C checklist)
+- Lazy loading: `ptycho/model.py:867-890` (`__getattr__`)
+- Fix plan: `docs/fix_plan.md` (REFACTOR-MODEL-SINGLETON-001 entry)

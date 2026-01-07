@@ -1,3 +1,29 @@
+# 2026-01-07T060000Z: REFACTOR-MODEL-SINGLETON-001 Phase C1-C4 — Remove XLA Workarounds
+- dwell: 1 (one loop since spike passed; spike verified XLA works with lazy loading).
+- Focus issue: REFACTOR-MODEL-SINGLETON-001 — Phase C1-C4: Remove XLA workarounds from dose_response_study.py and test file.
+- Action type: Implementation handoff (cleanup tasks ready).
+- Mode: Implementation
+- Git sync: `git pull --rebase` → Already up to date.
+- Documents reviewed: docs/fix_plan.md, implementation.md (Phase C), spike test results (`pytest_phase_c_spike_verbose.log`), dose_response_study.py (lines 27-38), tests/test_model_factory.py (XLA workarounds at module level).
+- **Phase C-SPIKE Verification:**
+  - Tests PASSED: `test_multi_n_with_xla_enabled` (1 passed, 14.01s)
+  - Evidence: `Compiled cluster using XLA!` in stderr — XLA was active
+  - Evidence: `Forward pass N=64 succeeded` — no shape mismatch
+  - Evidence: `PASS: XLA re-enablement spike test succeeded`
+  - Conclusion: Lazy loading (Phase B) is sufficient; Phase A workarounds can be removed
+- **Phase C1-C4 Scope:**
+  - C1: Remove XLA workarounds from `scripts/studies/dose_response_study.py` (env vars + eager)
+  - C2: Remove workarounds from `tests/test_model_factory.py` (module level + subprocess code)
+  - C3: Run all 3 tests to verify no regressions
+  - C4: Update `docs/findings.md` MODULE-SINGLETON-001 to mark fully resolved
+- Updated input.md with C1-C4 implementation tasks
+- Ralph tasks: Delete workaround blocks, update docstrings, run tests, update findings
+- Next: Ralph implements C1-C4 and runs pytest
+- <Action State>: [ready_for_implementation]
+- focus=REFACTOR-MODEL-SINGLETON-001 state=ready_for_implementation dwell=1 ralph_last_commit=b838de47 artifacts=plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T060000Z/ next_action=implement Phase C1-C4 (remove workarounds)
+
+---
+
 # 2026-01-07T050000Z: REFACTOR-MODEL-SINGLETON-001 Phase C — XLA Re-enablement Spike
 - dwell: 0 (reset after Phase B completion; commit 0206ff42 landed with 2/2 tests passing).
 - Focus issue: REFACTOR-MODEL-SINGLETON-001 — Phase C: XLA Re-enablement Spike Test.
