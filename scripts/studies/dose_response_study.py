@@ -608,24 +608,40 @@ def train_all_arms_grid_mode(
             # Use create_compiled_model which properly sets jit_compile=False
             # This avoids XLA FakeParam errors from tf.cond in reassembly layers
             from ptycho.model import create_compiled_model
+            from ptycho import tf_helper as hh
 
             # create_compiled_model returns (autoencoder, diffraction_to_obj) with proper compilation
             autoencoder, diffraction_to_obj = create_compiled_model(
                 config.model.gridsize, config.model.N
             )
 
-            # Prepare training inputs/outputs
+            # Prepare training inputs/outputs - must match prepare_inputs/prepare_outputs
+            # from ptycho.model for consistent training behavior
+            intensity_scale = p.cfg.get('intensity_scale', 1.0)
             X_train = train_container.X
-            Y_train = train_container.Y
+            Y_I_train = train_container.Y_I
             coords_train = train_container.coords_nominal
+
+            # Inputs: scale X by intensity_scale (per prepare_inputs)
+            inputs = [X_train * intensity_scale, coords_train]
+
+            # Outputs (per prepare_outputs):
+            # 1. Y_I centered by coords, first channel only (for realspace_loss)
+            # 2. Scaled diffraction amplitude (for MAE loss)
+            # 3. Squared scaled diffraction (for NLL loss)
+            Y_I_centered = hh.center_channels(Y_I_train, coords_train)[:, :, :, :1]
+            scaled_X = intensity_scale * X_train
+            squared_scaled_X = scaled_X ** 2
+            outputs = [Y_I_centered, scaled_X, squared_scaled_X]
 
             # Train the model
             logger.info(f"Training with {len(train_container)} groups, {config.nepochs} epochs")
+            logger.info(f"intensity_scale={intensity_scale:.2e}")
 
             # Use Keras model.fit directly for grid mode (simpler path)
             history = autoencoder.fit(
-                [X_train, coords_train],
-                [Y_train, Y_train, X_train],  # autoencoder has 3 outputs
+                inputs,
+                outputs,
                 epochs=config.nepochs,
                 batch_size=config.batch_size,
                 verbose=1
