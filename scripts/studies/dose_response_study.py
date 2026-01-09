@@ -343,7 +343,7 @@ def simulate_datasets_grid_mode(
     # Using gridsize=1 to avoid model architecture complexity with gridsize>1
     # Reduced from notebook defaults (N=128) to avoid OOM
     GRID_N = 64
-    GRID_SIZE = 1  # Use gridsize=1 for simplicity
+    GRID_SIZE = 2  # Match reference notebook (2x2 patch groups)
     GRID_OFFSET = 4  # Required for patch extraction
     GRID_OUTER_OFFSET_TRAIN = 8
     GRID_OUTER_OFFSET_TEST = 20
@@ -602,7 +602,7 @@ def train_all_arms_grid_mode(
         # Set probe in params.cfg before model creation (matches reference train_pinn.py)
         # This ensures ProbeIllumination layer uses the correct probe
         from ptycho import probe as probe_module
-        probe_module.set_probe_guess(None, train_container.probeGuess)
+        probe_module.set_probe_guess(None, train_container.probe)
 
         logger.info(f"[DEBUG] Grid mode: N={config.model.N}, gridsize={config.model.gridsize}")
 
