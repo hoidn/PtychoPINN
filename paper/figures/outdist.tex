@@ -168,7 +168,8 @@
 \node[anchor=north west] (ref-phs) at ($(ref-amp.north east) + (\refgap,0)$)
   {\IncludeOrPlaceholderWH{\refPhs}{\refw}{\refh}};
 \node[fit=(ref-amp)(ref-phs), inner sep=0pt] (refcol) {};
-\AddScaleBar{ref-amp}{1cm}{X nm} \AddScaleBar{ref-phs}{1cm}{X nm}
+% Scale bars removed - pixel size TBD
+% \AddScaleBar{ref-amp}{1cm}{X nm} \AddScaleBar{ref-phs}{1cm}{X nm}
 \FramePanel{ref-amp} \FramePanel{ref-phs}
 
 % Colorbars (no overlap with GT)
