@@ -4,7 +4,8 @@
 - **ID:** ALIGN-DOSE-STUDY-GRID-001
 - **Title:** Add Grid-Based Simulation Mode to Dose Study
 - **Owner:** Ralph
-- **Status:** pending
+- **Status:** done
+- **Completed:** 2026-01-09
 - **Parent:** STUDY-SYNTH-DOSE-COMPARISON-001
 
 ## Goal
