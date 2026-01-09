@@ -664,8 +664,47 @@ def train_all_arms_grid_mode(
             X_test = test_container.X
             coords_test = test_container.coords_nominal
 
-            # Get reconstruction
-            recon_obj = diffraction_to_obj.predict([X_test, coords_test])
+            # Get reconstruction (raw patches)
+            recon_obj = diffraction_to_obj.predict([X_test * intensity_scale, coords_test])
+
+            # Stitch reconstruction using grid-mode stitching (matches reference notebook)
+            # This requires params to be set correctly (N, gridsize, offset, outer_offset_test)
+            from ptycho.data_preprocessing import reassemble
+            try:
+                # reassemble expects: (patches, norm_Y_I, part, outer_offset, nimgs)
+                # Use config (already assigned above) to get n_groups
+                nimgs_test = config.n_groups // (p.cfg['gridsize'] ** 2)
+                if nimgs_test < 1:
+                    nimgs_test = 2  # Default from notebook
+
+                stitched_amp = reassemble(
+                    recon_obj,
+                    norm_Y_I=1.0,
+                    part='amp',
+                    outer_offset=p.cfg['outer_offset_test'],
+                    nimgs=nimgs_test
+                )
+                stitched_phase = reassemble(
+                    recon_obj,
+                    norm_Y_I=1.0,
+                    part='phase',
+                    outer_offset=p.cfg['outer_offset_test'],
+                    nimgs=nimgs_test
+                )
+                reconstruction = {
+                    'amplitude': np.squeeze(stitched_amp),
+                    'phase': np.squeeze(stitched_phase),
+                    'patches': recon_obj
+                }
+                logger.info(f"Stitched reconstruction shape: {stitched_amp.shape}")
+            except Exception as stitch_e:
+                logger.warning(f"Grid-mode stitching failed for {arm_name}: {stitch_e}")
+                # Fallback: show mean of patches
+                reconstruction = {
+                    'amplitude': np.mean(np.abs(recon_obj), axis=0).squeeze(),
+                    'phase': np.mean(np.angle(recon_obj), axis=0).squeeze(),
+                    'patches': recon_obj
+                }
 
             # Save model
             from ptycho.model import IntensityScaler
@@ -706,6 +745,7 @@ def train_all_arms_grid_mode(
                     'reconstructed_obj': recon_obj,
                     'test_container': test_container
                 },
+                'reconstruction': reconstruction,  # Stitched reconstruction for visualization
                 'success': True
             }
 
@@ -950,9 +990,21 @@ def generate_six_panel_figure(
 
     def get_diffraction_sample(arm_data):
         """Get a representative diffraction pattern (log scale)."""
+        # Try nongrid mode path first (test_data.diff3d)
         if arm_data and 'test_data' in arm_data:
             diff = arm_data['test_data'].diff3d[0]  # First pattern
             return np.log10(diff + 1)  # Log scale
+        # Try grid mode path (test_container.X or train_results.test_container.X)
+        if arm_data:
+            test_container = arm_data.get('test_container')
+            if test_container is None and 'train_results' in arm_data:
+                test_container = arm_data['train_results'].get('test_container')
+            if test_container is not None:
+                # X is diffraction data, shape (B, N, N, C)
+                diff = np.array(test_container.X[0])  # First pattern
+                if diff.ndim == 3:
+                    diff = diff[:, :, 0]  # Take first channel
+                return np.log10(diff + 1)  # Log scale
         return None
 
     def get_reconstruction(arm_data):
