@@ -38,6 +38,7 @@ This document is the **constitution** for the Claude AI agents working on the Pt
 - **Documentation hub:** `docs/index.md` – complete map of guides, specs, and workflows.
 - **Workflow guide:** `docs/INITIATIVE_WORKFLOW_GUIDE.md` – details on initiative planning, artifact storage, and ledger updates.
 - **Developer guide:** `docs/DEVELOPER_GUIDE.md` – architecture, anti-patterns, and TDD methodology.
+- **Data generation:** `docs/DATA_GENERATION_GUIDE.md` – grid vs nongrid simulation pipelines, parameter mappings.
 - **Testing references:** `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md` – authoritative test commands and selectors.
 - **PyTorch workflows:** `docs/workflows/pytorch.md` – configuration and execution rules for the PyTorch backend.
 - **Knowledge base:** `docs/findings.md` – mandatory pre-read for known issues, conventions, and policies.

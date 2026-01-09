@@ -151,9 +151,14 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Need to export reconstructions to Ptychodus format, understanding data file organization, or ensuring data files are not committed to git.
 
 #### [Data Normalization Guide](DATA_NORMALIZATION_GUIDE.md)
-**Description:** Explains the three distinct types of normalization (physics, statistical, display) and their proper application throughout the data pipeline to avoid common scaling errors.  
-**Keywords:** normalization, intensity_scale, physics, statistical, pipeline  
+**Description:** Explains the three distinct types of normalization (physics, statistical, display) and their proper application throughout the data pipeline to avoid common scaling errors.
+**Keywords:** normalization, intensity_scale, physics, statistical, pipeline
 **Use this when:** Debugging normalization issues, implementing new data loading features, or resolving scaling-related bugs.
+
+#### [Data Generation Guide](DATA_GENERATION_GUIDE.md) CRITICAL
+**Description:** Comprehensive guide to the two data generation pipelines: grid-based (`mk_simdata`) for notebook-compatible workflows and nongrid (`generate_simulated_data`) for production scripts. Covers parameter mappings, entry points, and container construction.
+**Keywords:** simulation, synthetic-data, grid, nongrid, mk_simdata, generate_simulated_data, params.cfg
+**Use this when:** Implementing dose studies, generating synthetic datasets, choosing between grid and nongrid simulation, or debugging data generation issues.
 
 #### [GridSize & n_groups Guide](GRIDSIZE_N_GROUPS_GUIDE.md) CRITICAL
 **Description:** Explains the unified n_groups parameter behavior across different gridsize values, eliminating confusion between individual images vs groups.  
