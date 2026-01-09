@@ -214,8 +214,190 @@ X_train, Y_I_train, Y_phi_train, coords_train = mk_simdata(
 
 ---
 
+## 4. Alternative Data Creation Flows (No NPZ Required)
+
+This section documents ways to create training/inference data programmatically without loading from NPZ files.
+
+### 4.1. Programmatic Nongrid Simulation
+
+Generate synthetic data with random scan coordinates entirely in memory:
+
+```python
+from ptycho.config.config import TrainingConfig, ModelConfig
+from ptycho.nongrid_simulation import generate_simulated_data
+from ptycho.probe import get_default_probe
+from ptycho.diffsim import sim_object_image
+import numpy as np
+
+# 1. Configure simulation
+config = TrainingConfig(
+    model=ModelConfig(N=64, gridsize=2),
+    n_groups=2000,
+    nphotons=1e6
+)
+
+# 2. Generate synthetic object (256x256 "lines" pattern)
+obj = sim_object_image(256, data_source='lines')  # Returns complex64
+
+# 3. Get default disk probe
+probe = get_default_probe(N=64, fmt='np')  # Returns (64, 64) complex
+
+# 4. Generate simulated data with random scan coordinates
+raw_data, gt_patches = generate_simulated_data(
+    config=config,
+    objectGuess=obj,
+    probeGuess=probe,
+    buffer=20.0,        # Min distance from object edges
+    return_patches=True
+)
+
+# raw_data contains:
+#   .xcoords, .ycoords: random positions within buffer
+#   .diff3d: simulated diffraction patterns with Poisson noise
+#   .Y: ground truth patches at each position
+#   .probeGuess: the probe used for simulation
+```
+
+**Supported Object Types:**
+- `'lines'`: Random line segments with Gaussian blur
+- `'grf'`: Gaussian random field
+- `'points'`: Random point sources
+
+### 4.2. Direct RawData Construction
+
+Create `RawData` from arrays without any file I/O:
+
+```python
+import numpy as np
+from ptycho.raw_data import RawData
+
+n_positions = 1000
+N = 64
+
+# Option A: From arrays with pre-computed diffraction
+raw_data = RawData(
+    xcoords=np.random.uniform(50, 200, n_positions),
+    ycoords=np.random.uniform(50, 200, n_positions),
+    xcoords_start=np.random.uniform(50, 200, n_positions),  # Can equal xcoords
+    ycoords_start=np.random.uniform(50, 200, n_positions),  # Can equal ycoords
+    diff3d=np.random.rand(n_positions, N, N).astype(np.float32),
+    probeGuess=np.ones((N, N), dtype=np.complex64),
+    scan_index=np.zeros(n_positions, dtype=int),
+    objectGuess=None,  # Optional full object
+    Y=None,            # Optional ground truth patches
+)
+
+# Option B: Simplified construction (start coords = end coords)
+raw_data = RawData.from_coords_without_pc(
+    xcoords=np.linspace(50, 200, n_positions),
+    ycoords=np.linspace(50, 200, n_positions),
+    diff3d=measured_patterns,
+    probeGuess=probe,
+    scan_index=np.zeros(n_positions, dtype=int),
+    objectGuess=full_object  # Optional
+)
+
+# Option C: Simulate diffraction from object (gridsize=1 only)
+raw_data = RawData.from_simulation(
+    xcoords=np.array([100, 110, 120]),
+    ycoords=np.array([100, 105, 115]),
+    probeGuess=probe,
+    objectGuess=full_object,
+    scan_index=None  # Defaults to zeros
+)
+```
+
+### 4.3. Direct PtychoDataContainer Construction
+
+Skip `RawData` entirely and create model-ready tensors directly:
+
+```python
+from ptycho.loader import PtychoDataContainer
+import numpy as np
+
+B, N, C = 1000, 64, 4  # batch, patch size, channels (gridsize²)
+
+# Direct construction with all required arrays
+container = PtychoDataContainer(
+    X=np.random.rand(B, N, N, C).astype(np.float32),
+    Y_I=np.random.rand(B, N, N, C).astype(np.float32),
+    Y_phi=np.random.rand(B, N, N, C).astype(np.float32),
+    norm_Y_I=1.0,
+    YY_full=None,
+    coords_nominal=np.random.rand(B, 1, 2, C).astype(np.float32),
+    coords_true=np.random.rand(B, 1, 2, C).astype(np.float32),
+    nn_indices=np.zeros((B, C), dtype=np.int32),
+    global_offsets=np.random.rand(B, 1, 2, C),
+    local_offsets=np.zeros((B, 1, 2, C)),
+    probeGuess=np.ones((N, N), dtype=np.complex64)
+)
+
+# Or via factory (combines RawData creation + grouping + loading)
+container = PtychoDataContainer.from_raw_data_without_pc(
+    xcoords=coords_x,
+    ycoords=coords_y,
+    diff3d=patterns,
+    probeGuess=probe,
+    scan_index=np.zeros(len(coords_x), dtype=int),
+    objectGuess=None,
+    N=64,
+    K=7,
+    nsamples=1000
+)
+```
+
+### 4.4. Test Fixture Patterns
+
+For unit tests, create deterministic synthetic data:
+
+```python
+import numpy as np
+from ptycho.raw_data import RawData
+
+def create_synthetic_raw_data(n_points=100, N=64, seed=42):
+    """Create synthetic RawData for testing (deterministic, no I/O)."""
+    np.random.seed(seed)
+
+    # Deterministic coordinates (reproducible across runs)
+    xcoords = np.linspace(50, 150, n_points)
+    ycoords = np.linspace(50, 150, n_points)
+
+    # Synthetic diffraction patterns
+    diff3d = np.random.rand(n_points, N, N).astype(np.float32)
+
+    # Simple uniform probe
+    probe = np.ones((N, N), dtype=np.complex64)
+
+    return RawData.from_coords_without_pc(
+        xcoords, ycoords, diff3d, probe,
+        scan_index=np.zeros(n_points, dtype=int)
+    )
+
+# Usage in tests
+def test_my_function():
+    raw_data = create_synthetic_raw_data(n_points=50, seed=42)
+    # ... test logic using raw_data ...
+```
+
+### 4.5. Flow Summary
+
+| Flow | Entry Point | NPZ Required | Global State | Output Type |
+|------|-------------|--------------|--------------|-------------|
+| NPZ Load | `RawData.from_file()` | Yes | No | `RawData` |
+| Nongrid Sim | `generate_simulated_data()` | No | Temporarily | `RawData` |
+| Grid Sim | `mk_simdata()` | No | Yes | Tensors |
+| Direct RawData | `RawData()` | No | No | `RawData` |
+| Direct Container | `PtychoDataContainer()` | No | No | `PtychoDataContainer` |
+| From Simulation | `RawData.from_simulation()` | No | Yes | `RawData` |
+
+**Recommendation:** For new code without NPZ files, use `generate_simulated_data()` with programmatic object/probe creation, or construct `RawData` directly from arrays.
+
+---
+
 ## Related Documentation
 - `docs/DEVELOPER_GUIDE.md` §1 — Two-system architecture
+- `docs/DEVELOPER_GUIDE.md` §12 — Inference pipeline patterns
+- `docs/specs/spec-inference-pipeline.md` — API contracts for data containers
 - `scripts/simulation/README.md` — Stage 1/Stage 2 simulation workflow
 - `specs/data_contracts.md` — NPZ format specification
 - `docs/findings.md` CONFIG-001 — params.cfg initialization requirement

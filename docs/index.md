@@ -89,9 +89,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 ### Core Documentation
 
 #### [Developer Guide](DEVELOPER_GUIDE.md) ⚠️ ESSENTIAL
-**Description:** Comprehensive architectural guide covering the "two-system" architecture (legacy grid-based vs. modern coordinate-based), critical anti-patterns, data pipeline contracts, TDD methodology, and configuration management best practices. Includes PYTHON-ENV-001 (Interpreter & Subprocess Policy) as the single source of truth for interpreter selection.  
-**Keywords:** architecture, TDD, anti-patterns, configuration, data-pipeline  
-**Use this when:** Starting any development work, debugging shape mismatches, understanding the codebase architecture, or implementing new features using TDD methodology.
+**Description:** Comprehensive architectural guide covering the "two-system" architecture (legacy grid-based vs. modern coordinate-based), critical anti-patterns, data pipeline contracts, TDD methodology, configuration management best practices, and **inference pipeline patterns (§12)** with canonical load→inference→stitch code examples. Includes PYTHON-ENV-001 (Interpreter & Subprocess Policy) as the single source of truth for interpreter selection.
+**Keywords:** architecture, TDD, anti-patterns, configuration, data-pipeline, inference, stitching
+**Use this when:** Starting any development work, debugging shape mismatches, understanding the codebase architecture, implementing new features using TDD methodology, or writing inference workflows.
 
 #### [Architecture Overview](architecture.md)
 **Description:** Shared core architecture (data contracts, grouping, configuration, orchestration concepts) across both backends. Includes Scripts Overview and stable-modules policy, plus config lifecycle snippet (`update_legacy_dict(params.cfg, config)`). Backend-specific sequences and diagrams are in the TF/PyTorch pages below.  
@@ -104,9 +104,14 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Implementing or debugging the TensorFlow backend and its workflows.
 
 #### [Architecture — PyTorch](architecture_torch.md)
-**Description:** PyTorch-specific architecture: component diagram, Lightning-based training and inference sequences, component reference, and function/container mapping (PyTorch ↔ TF).  
-**Keywords:** pytorch, lightning, components, training, inference, containers, mapping  
+**Description:** PyTorch-specific architecture: component diagram, Lightning-based training and inference sequences, component reference, and function/container mapping (PyTorch ↔ TF).
+**Keywords:** pytorch, lightning, components, training, inference, containers, mapping
 **Use this when:** Implementing or debugging the PyTorch backend and its workflows.
+
+#### [Architecture — Inference Pipeline](architecture_inference.md) NEW
+**Description:** Comprehensive inference pipeline architecture: component diagrams, data flow (load→inference→stitch), tensor format system (Grid/Channel/Flat), backend dispatch pattern, coordinate conventions, and performance characteristics.
+**Keywords:** inference, stitching, reassembly, data-flow, tensor-formats, coordinates
+**Use this when:** Understanding or implementing the load→inference→stitch workflow, debugging shape mismatches during inference, or optimizing reconstruction performance.
 
 #### [Testing Guide](TESTING_GUIDE.md)
 **Description:** Comprehensive testing strategy covering unit tests, integration tests, TDD methodology, regression testing practices, and specific guidance for testing CLI parameters and backward compatibility.  
@@ -156,9 +161,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Debugging normalization issues, implementing new data loading features, or resolving scaling-related bugs.
 
 #### [Data Generation Guide](DATA_GENERATION_GUIDE.md) CRITICAL
-**Description:** Comprehensive guide to the two data generation pipelines: grid-based (`mk_simdata`) for notebook-compatible workflows and nongrid (`generate_simulated_data`) for production scripts. Covers parameter mappings, entry points, and container construction.
-**Keywords:** simulation, synthetic-data, grid, nongrid, mk_simdata, generate_simulated_data, params.cfg
-**Use this when:** Implementing dose studies, generating synthetic datasets, choosing between grid and nongrid simulation, or debugging data generation issues.
+**Description:** Comprehensive guide to the two data generation pipelines: grid-based (`mk_simdata`) for notebook-compatible workflows and nongrid (`generate_simulated_data`) for production scripts. Covers parameter mappings, entry points, container construction, and **alternative data creation flows (§4)** for programmatic data generation without NPZ files.
+**Keywords:** simulation, synthetic-data, grid, nongrid, mk_simdata, generate_simulated_data, params.cfg, no-npz, programmatic
+**Use this when:** Implementing dose studies, generating synthetic datasets, choosing between grid and nongrid simulation, creating data programmatically without NPZ files, or debugging data generation issues.
 
 #### [GridSize & n_groups Guide](GRIDSIZE_N_GROUPS_GUIDE.md) CRITICAL
 **Description:** Explains the unified n_groups parameter behavior across different gridsize values, eliminating confusion between individual images vs groups.  
@@ -278,9 +283,14 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 
 ### Specifications
 
+#### [Inference Pipeline Specification](specs/spec-inference-pipeline.md) NEW
+**Description:** Normative IDL-style contracts for the inference pipeline: function signatures, preconditions/postconditions, tensor shape invariants, data container contracts (RawData, GroupedDataDict, PtychoDataContainer), model loading, inference, and stitching APIs with error taxonomy.
+**Keywords:** spec, inference, contracts, IDL, shapes, invariants, API
+**Use this when:** Need authoritative API contracts for inference functions, debugging shape mismatches, implementing new inference workflows, or understanding data container requirements.
+
 #### [PtychoPINN Spec — Index](specs/spec-ptychopinn.md)
-**Description:** Index of normative spec shards for the TensorFlow‑based physics‑informed ptychography pipeline (core physics, runtime, workflow, interfaces, conformance, tracing).  
-**Keywords:** spec, ptychography, TensorFlow, physics‑informed, index  
+**Description:** Index of normative spec shards for the TensorFlow‑based physics‑informed ptychography pipeline (core physics, runtime, workflow, interfaces, conformance, tracing).
+**Keywords:** spec, ptychography, TensorFlow, physics‑informed, index
 **Use this when:** You need the top‑level map of all PtychoPINN specifications.
 
 #### [PtychoPINN Core Physics & Data Contracts](specs/spec-ptycho-core.md)
@@ -388,6 +398,8 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 - **Understanding data**: [Data Contracts](../specs/data_contracts.md) → [Data Normalization](DATA_NORMALIZATION_GUIDE.md)
 - **Fixing shape mismatches**: [Quick Reference Params](debugging/QUICK_REFERENCE_PARAMS.md) → [Troubleshooting](debugging/TROUBLESHOOTING.md)
 - **Training models**: [Training README](../scripts/training/README.md) → [Configuration Guide](CONFIGURATION.md)
+- **Running inference**: [Developer Guide §12](DEVELOPER_GUIDE.md#12-inference-pipeline-patterns) → [Inference Spec](specs/spec-inference-pipeline.md) → [Inference Architecture](architecture_inference.md)
+- **Creating data without NPZ**: [Data Generation Guide §4](DATA_GENERATION_GUIDE.md#4-alternative-data-creation-flows-no-npz-required)
 - **Evaluating models**: [Evaluation README](../scripts/evaluation/README.md) → [Model Comparison](../scripts/studies/README.md)
 
 ### By User Type

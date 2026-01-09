@@ -688,3 +688,179 @@ def build_model(X_train, Y_I_train, Y_phi_train):
     ...
     decoded1 = Conv2D(c, (3, 3), padding='same')(x1) # <-- BUG!
 ```
+
+---
+
+## 12. Inference Pipeline Patterns
+
+This section documents the canonical patterns for running inference with trained PtychoPINN models. For the full API contracts, see `specs/spec-inference-pipeline.md`. For architecture diagrams, see `architecture_inference.md`.
+
+### 12.1. Canonical Load → Inference → Stitch Pattern
+
+The following pattern is the recommended approach for running inference:
+
+```python
+from pathlib import Path
+from ptycho.workflows.backend_selector import load_inference_bundle_with_backend
+from ptycho.workflows.components import load_data
+from ptycho.config.config import InferenceConfig, ModelConfig
+from ptycho import params
+from ptycho.nbutils import reconstruct_image
+from ptycho.tf_helper import reassemble_position
+from ptycho import loader
+import numpy as np
+
+# 1. Configure inference
+config = InferenceConfig(
+    model=ModelConfig(gridsize=2, N=64),  # Must match training config
+    model_path=Path("outputs/trained_model"),
+    test_data_file=Path("test_data.npz"),
+    backend='tensorflow'
+)
+
+# 2. Load model (CONFIG-001: automatically restores params.cfg)
+model, saved_params = load_inference_bundle_with_backend(
+    config.model_path, config
+)
+
+# 3. Load test data
+test_raw = load_data(
+    str(config.test_data_file),
+    n_images=100  # Number of groups to process
+)
+
+# 4. Generate grouped data
+# Note: params.cfg is already populated from step 2
+gridsize = params.cfg.get('gridsize', 1)
+grouped = test_raw.generate_grouped_data(
+    N=params.cfg['N'],
+    K=4,                    # Neighbors to consider
+    nsamples=100,           # Groups to generate
+    gridsize=gridsize       # Must match model
+)
+
+# 5. Convert to PtychoDataContainer
+container = loader.load(
+    lambda: grouped,
+    test_raw.probeGuess,
+    which=None,
+    create_split=False
+)
+
+# 6. Run inference
+obj_patches, global_offsets = reconstruct_image(container, model)
+# obj_patches: (B, N, N, C) complex64
+# global_offsets: (B, 1, 2, C) float64
+
+# 7. Stitch into full reconstruction
+M = 20  # Central crop size (use smaller M for cleaner edges)
+full_object = reassemble_position(obj_patches, global_offsets, M=M)
+# full_object: (H, W, 1) complex64
+
+# 8. Extract amplitude and phase
+amplitude = np.abs(np.squeeze(full_object))
+phase = np.angle(np.squeeze(full_object))
+```
+
+### 12.2. Common Pitfalls and Solutions
+
+#### Pitfall 1: CONFIG-001 Violation
+
+**Symptom:** Shape mismatch errors, incorrect gridsize, `KeyError` on params access.
+
+**Cause:** `params.cfg` not initialized before data loading or model operations.
+
+**Solution:** Always use `load_inference_bundle_with_backend()` which handles CONFIG-001 compliance, OR explicitly call `update_legacy_dict()`:
+
+```python
+from ptycho.config.config import update_legacy_dict
+
+# MUST be called before generate_grouped_data() or model loading
+update_legacy_dict(params.cfg, config)
+```
+
+#### Pitfall 2: MODULE-SINGLETON-001
+
+**Symptom:** Model produces wrong output shape, crashes in Translation layer.
+
+**Cause:** Model loaded with gridsize=1 but data has gridsize=2.
+
+**Solution:** Use `DiffractionToObjectAdapter` wrapper (automatic via `load_inference_bundle()`) or ensure params.cfg is set before model loading:
+
+```python
+# If loading model manually, set gridsize FIRST
+params.cfg['gridsize'] = 2
+model = tf.keras.models.load_model(path)
+```
+
+#### Pitfall 3: Coordinate Axis Order
+
+**Symptom:** Reconstructed image appears transposed or mirrored.
+
+**Cause:** Confusing `[x, y]` with `[row, col]` coordinate order.
+
+**Solution:** Remember that coords are `[x, y]` order:
+- `coords[:, :, 0, :]` = x (horizontal/column)
+- `coords[:, :, 1, :]` = y (vertical/row)
+
+```python
+# If you need row/col order for plotting:
+row_coords = global_offsets[:, 0, 1, :]  # y = row
+col_coords = global_offsets[:, 0, 0, :]  # x = col
+```
+
+#### Pitfall 4: Channel Count Mismatch
+
+**Symptom:** `ValueError: Channel mismatch between X and Y`
+
+**Cause:** Ground truth Y has different channel count than diffraction X.
+
+**Solution:** Ensure consistent gridsize throughout:
+
+```python
+# Check shapes before training/inference
+assert X.shape[-1] == Y.shape[-1], f"Channel mismatch: X={X.shape[-1]}, Y={Y.shape[-1]}"
+assert X.shape[-1] == gridsize ** 2, f"Expected {gridsize**2} channels, got {X.shape[-1]}"
+```
+
+### 12.3. Debugging Shape Mismatches
+
+When encountering shape errors, check these in order:
+
+1. **params.cfg state:**
+   ```python
+   print(f"gridsize={params.cfg.get('gridsize')}, N={params.cfg.get('N')}")
+   ```
+
+2. **Data container shapes:**
+   ```python
+   print(f"X: {container.X.shape}")
+   print(f"coords: {container.coords.shape}")
+   print(f"global_offsets: {container.global_offsets.shape}")
+   ```
+
+3. **Expected vs actual:**
+   ```python
+   C = params.cfg['gridsize'] ** 2
+   N = params.cfg['N']
+   print(f"Expected X shape: (B, {N}, {N}, {C})")
+   print(f"Expected coords shape: (B, 1, 2, {C})")
+   ```
+
+### 12.4. Quick Reference: Key Functions
+
+| Step | Function | Location | See Also |
+|------|----------|----------|----------|
+| Load model | `load_inference_bundle_with_backend()` | `workflows/backend_selector.py:254` | §4.1 in spec |
+| Load data | `load_data()` | `workflows/components.py:294` | §5.1 in spec |
+| Group data | `generate_grouped_data()` | `raw_data.py:368` | §3.1.2 in spec |
+| To tensors | `loader.load()` | `loader.py:420` | §5.2 in spec |
+| Inference | `reconstruct_image()` | `nbutils.py:179` | §6.1 in spec |
+| Stitch | `reassemble_position()` | `tf_helper.py:1289` | §7.1 in spec |
+
+### 12.5. Related Documentation
+
+- **<doc-ref type="spec">specs/spec-inference-pipeline.md</doc-ref>** — Full API contracts and invariants
+- **<doc-ref type="architecture">architecture_inference.md</doc-ref>** — Data flow diagrams and design rationale
+- **<doc-ref type="guide">DATA_GENERATION_GUIDE.md §4</doc-ref>** — Alternative data creation flows
+- **<doc-ref type="guide">debugging/TROUBLESHOOTING.md</doc-ref>** — Common error resolution
