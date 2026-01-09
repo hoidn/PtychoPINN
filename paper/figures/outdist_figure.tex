@@ -1,0 +1,209 @@
+% ---------- FILE MACROS (INDIVIDUAL AMP/PHASE IMAGES) ----------
+% PINN — In-Distribution (Train B → Test B)
+\newcommand{\pinnIDamp}{figures/out-dist-fig/pinn_run1084_amplitude.png}
+\newcommand{\pinnIDphs}{figures/out-dist-fig/pinn_run1084_phase.png}
+% PINN — Out-of-Distribution (Train A → Test B)
+\newcommand{\pinnOODamp}{figures/out-dist-fig/pinn_fly64trained_run1084test_amplitude.png}
+\newcommand{\pinnOODphs}{figures/out-dist-fig/pinn_fly64trained_run1084test_phase.png}
+% Baseline — In-Distribution
+\newcommand{\baseIDamp}{figures/out-dist-fig/baseline_run1084_amplitude.png}
+\newcommand{\baseIDphs}{figures/out-dist-fig/baseline_run1084_phase.png}
+% Baseline — Out-of-Distribution
+\newcommand{\baseOODamp}{figures/out-dist-fig/baseline_fly64trained_run1084test_amplitude.png}
+\newcommand{\baseOODphs}{figures/out-dist-fig/baseline_fly64trained_run1084test_phase.png}
+
+% Reference (ePIE = Ground Truth) — slightly smaller than main panels
+\newcommand{\refAmp}{figures/out-dist-fig/ground_truth_run1084_amplitude.png}
+\newcommand{\refPhs}{figures/out-dist-fig/ground_truth_run1084_phase.png}
+
+% Probe thumbnails (for badges)
+\newcommand{\probeA}{figures/out-dist-fig/fly64_probe_amplitude.png} % Probe A
+\newcommand{\probeB}{figures/out-dist-fig/run1084_probe_amplitude.png} % Probe B
+
+% ---------- OPTIONAL METRIC TEXT (EDIT OR LEAVE BLANK) ----------
+\newcommand{\pinnIDm}{}
+\newcommand{\pinnOODm}{}
+\newcommand{\baseIDm}{}
+\newcommand{\baseOODm}{}
+
+% ---------- DIMENSIONS ----------
+\newlength{\subw}       \setlength{\subw}{2.75cm}    % per-subpanel width (amp or phase)
+\newlength{\subh}       \setlength{\subh}{2.75cm}    % per-subpanel height
+\newlength{\subsepX}    \setlength{\subsepX}{1.2mm}  % gap between amp & phase in a cell
+\newlength{\panelsepX}  \setlength{\panelsepX}{7mm}  % gap between columns (ID | OOD | REF)
+\newlength{\panelsepY}  \setlength{\panelsepY}{9.5mm}% more room for bigger badges
+\newlength{\hdrlift}    \setlength{\hdrlift}{3.5mm}  % header lift above top row
+
+% Reference size (slightly smaller than main subpanels)
+\newlength{\refw}       \setlength{\refw}{2.50cm}    % set \refw=\subw and \refh=\subh to match sizes
+\newlength{\refh}       \setlength{\refh}{2.50cm}
+\newlength{\refgap}     \setlength{\refgap}{1.4mm}   % gap between ref amp/phase
+
+% ---------- INCLUDE OR PLACEHOLDER ----------
+\newcommand{\IncludeOrPlaceholderWH}[3]{% #1=file, #2=width, #3=height
+  \IfFileExists{#1}{%
+    \includegraphics[width=#2,height=#3,keepaspectratio]{#1}%
+  }{%
+    \fcolorbox{black!20}{black!5}{%
+      \parbox[c][#3][c]{#2}{\centering\footnotesize Missing}%
+    }%
+  }%
+}
+
+% ---------- HEADER NODE MACRO ----------
+% \MakeHeader{name}{anchor-node}{text}
+\newcommand{\MakeHeader}[3]{%
+  \node (#1) [anchor=south, fill=hdrbg, draw=black!10, rounded corners=1pt,
+              inner xsep=4pt, inner ysep=2pt, font=\bfseries]
+       at ($ (#2.north) + (0,\hdrlift) $) {#3};
+}
+
+% ---------- ROW LABEL ----------
+\newcommand{\RowLabelLeft}[3]{%
+  \node[anchor=east, align=right, text=#2, font=\bfseries]
+       at ($ (#1.west) + (-0.40cm,0) $) {#3};
+}
+
+% ---------- MID-GAP BADGES (between the two rows, per column) ----------
+% Larger probe circles, bigger inner images, slightly thicker rims.
+% \MidBadges{center-node}{probe-file-left}{label-left}{probe-file-right}{label-right}
+\newcommand{\MidBadges}[5]{%
+  \begin{scope}
+    \coordinate (ctr) at (#1);
+    \def\hbr{0.45cm}
+    \def\dx{1.10cm}
+    % Left badge
+    \coordinate (ba) at ($ (ctr) + (-\dx,0) $);
+    \begin{scope}
+      \clip (ba) circle (\hbr);
+      \node at (ba) {\IncludeOrPlaceholderWH{#2}{1.10cm}{1.10cm}};
+    \end{scope}
+    \draw[line width=0.9pt, draw=traincol] (ba) circle (\hbr);
+    \node[fill=traincol, text=white, inner sep=1pt, rounded corners=1.0pt, font=\scriptsize]
+         at ($ (ba) + (0,-0.65cm) $) {#3};
+    % Right badge
+    \coordinate (bb) at ($ (ctr) + (\dx,0) $);
+    \begin{scope}
+      \clip (bb) circle (\hbr);
+      \node at (bb) {\IncludeOrPlaceholderWH{#4}{1.10cm}{1.10cm}};
+    \end{scope}
+    \draw[line width=0.9pt, draw=testcol] (bb) circle (\hbr);
+    \node[fill=testcol, text=white, inner sep=1pt, rounded corners=1.0pt, font=\scriptsize]
+         at ($ (bb) + (0,-0.65cm) $) {#5};
+  \end{scope}%
+}
+
+\begin{tikzpicture}[font=\small, every node/.style={inner sep=0, outer sep=0}, >=latex]
+
+% =======================
+% Top row (PINN): each cell = amp ⎮ phase (side-by-side)
+% =======================
+% Left column: In-Distribution (PINN)
+\node[anchor=north west] (p11a) at (0,0)
+  {\IncludeOrPlaceholderWH{\pinnIDamp}{\subw}{\subh}};
+\node[anchor=north west] (p11p) at ($(p11a.north east) + (\subsepX,0)$)
+  {\IncludeOrPlaceholderWH{\pinnIDphs}{\subw}{\subh}};
+\node[fit=(p11a)(p11p), inner sep=0pt] (cell11) {};
+
+% Middle column: Out-of-Distribution (PINN)
+\node[anchor=north west] (p12a) at ($(cell11.north east) + (\panelsepX,0)$)
+  {\IncludeOrPlaceholderWH{\pinnOODamp}{\subw}{\subh}};
+\node[anchor=north west] (p12p) at ($(p12a.north east) + (\subsepX,0)$)
+  {\IncludeOrPlaceholderWH{\pinnOODphs}{\subw}{\subh}};
+\node[fit=(p12a)(p12p), inner sep=0pt] (cell12) {};
+
+% Fit box around the entire top row (to anchor headers consistently)
+\node[fit=(cell11)(cell12), inner sep=0pt] (row1box) {};
+
+% =======================
+% Bottom row (Baseline): same layout
+% =======================
+% Left column: In-Distribution (Baseline)
+\node[anchor=north west] (p21a) at ($(cell11.south west) + (0,-\panelsepY)$)
+  {\IncludeOrPlaceholderWH{\baseIDamp}{\subw}{\subh}};
+\node[anchor=north west] (p21p) at ($(p21a.north east) + (\subsepX,0)$)
+  {\IncludeOrPlaceholderWH{\baseIDphs}{\subw}{\subh}};
+\node[fit=(p21a)(p21p), inner sep=0pt] (cell21) {};
+
+% Middle column: Out-of-Distribution (Baseline)
+\node[anchor=north west] (p22a) at ($(p12a.south west) + (0,-\panelsepY)$)
+  {\IncludeOrPlaceholderWH{\baseOODamp}{\subw}{\subh}};
+\node[anchor=north west] (p22p) at ($(p22a.north east) + (\subsepX,0)$)
+  {\IncludeOrPlaceholderWH{\baseOODphs}{\subw}{\subh}};
+\node[fit=(p22a)(p22p), inner sep=0pt] (cell22) {};
+
+% =======================
+% Rightmost column (Reference): small thumbs, top-aligned with row1
+% =======================
+\node[anchor=north west] (ref-amp) at ($(row1box.north east) + (\panelsepX,0)$)
+  {\IncludeOrPlaceholderWH{\refAmp}{\refw}{\refh}};
+\node[anchor=north west] (ref-phs) at ($(ref-amp.south west) + (0,-\refgap)$)
+  {\IncludeOrPlaceholderWH{\refPhs}{\refw}{\refh}};
+\node[fit=(ref-amp)(ref-phs), inner sep=0pt] (refcol) {};
+
+% =======================
+% Headers: short & centered above their columns (no overlap)
+% =======================
+\MakeHeader{hdrID}{cell11}{In-Dist (Train B $\rightarrow$ Test B)}
+\MakeHeader{hdrOOD}{cell12}{Out-of-Dist (Train A $\rightarrow$ Test B)}
+\MakeHeader{hdrREF}{refcol}{ePIE (Reference)}
+
+% =======================
+% Row labels (methods) — left side
+% =======================
+\RowLabelLeft{cell11}{pinncol}{PINN}
+\RowLabelLeft{cell21}{basecol}{Baseline}
+
+% =======================
+% Panel letters — bottom-left of each cell (kept away from badges)
+% =======================
+\node[anchor=south west, font=\bfseries, fill=white, inner sep=1.6pt]
+  at ($(cell11.south west) + (0.05cm,0.05cm)$) {(a)};
+\node[anchor=south west, font=\bfseries, fill=white, inner sep=1.6pt]
+  at ($(cell12.south west) + (0.05cm,0.05cm)$) {(b)};
+\node[anchor=south west, font=\bfseries, fill=white, inner sep=1.6pt]
+  at ($(cell21.south west) + (0.05cm,0.05cm)$) {(c)};
+\node[anchor=south west, font=\bfseries, fill=white, inner sep=1.6pt]
+  at ($(cell22.south west) + (0.05cm,0.05cm)$) {(d)};
+\node[anchor=south west, font=\bfseries, fill=white, inner sep=1.6pt]
+  at ($(ref-amp.south west) + (0.05cm,0.05cm)$) {(e)};
+\node[anchor=south west, font=\bfseries, fill=white, inner sep=1.6pt]
+  at ($(ref-phs.south west) + (0.05cm,0.05cm)$) {(f)};
+
+% =======================
+% Bigger probe badges placed BETWEEN rows, centered per column
+% (Labels changed to "Probe A/B")
+% =======================
+\node[fit=(cell11)(cell21), inner sep=0pt] (colID)  {};
+\node[fit=(cell12)(cell22), inner sep=0pt] (colOOD) {};
+
+% ID column: both are Probe B
+\MidBadges{colID.center}{\probeB}{Probe B}{\probeB}{Probe B}
+% OOD column: left Probe A, right Probe B
+\MidBadges{colOOD.center}{\probeA}{Probe A}{\probeB}{Probe B}
+
+% =======================
+% Optional metric badges (left empty by default)
+% =======================
+\ifthenelse{\equal{\pinnIDm}{}}{}{%
+  \node[anchor=south west, fill=black!70, text=white, rounded corners=1pt,
+        inner sep=2pt, font=\scriptsize]
+       at ($ (cell11.south west) + (0.10cm,0.40cm) $) {\pinnIDm};
+}
+\ifthenelse{\equal{\pinnOODm}{}}{}{%
+  \node[anchor=south west, fill=black!70, text=white, rounded corners=1pt,
+        inner sep=2pt, font=\scriptsize]
+       at ($ (cell12.south west) + (0.10cm,0.40cm) $) {\pinnOODm};
+}
+\ifthenelse{\equal{\baseIDm}{}}{}{%
+  \node[anchor=south west, fill=black!70, text=white, rounded corners=1pt,
+        inner sep=2pt, font=\scriptsize]
+       at ($ (cell21.south west) + (0.10cm,0.40cm) $) {\baseIDm};
+}
+\ifthenelse{\equal{\baseOODm}{}}{}{%
+  \node[anchor=south west, fill=black!70, text=white, rounded corners=1pt,
+        inner sep=2pt, font=\scriptsize]
+       at ($ (cell22.south west) + (0.10cm,0.40cm) $) {\baseOODm};
+}
+
+\end{tikzpicture}

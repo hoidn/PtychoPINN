@@ -1,0 +1,251 @@
+% TikZ figure for inclusion in main document
+% Required packages should already be loaded by main document
+
+% ---------- GRAPHIC PATH ----------
+\graphicspath{{figures/out-dist-fig/}{figures/}{./}}
+
+% ---------- COLORS ----------
+\definecolor{traincol}{RGB}{0,128,128}
+\definecolor{testcol}{RGB}{108,0,158}
+\definecolor{pinncol}{RGB}{0,95,184}
+\definecolor{basecol}{RGB}{194,79,0}
+
+% ---------- FILE MACROS ----------
+\newcommand{\pinnIDamp}{figures/out-dist-fig/pinn_run1084_amplitude.png}
+\newcommand{\pinnIDphs}{figures/out-dist-fig/pinn_run1084_phase.png}
+\newcommand{\pinnOODamp}{figures/out-dist-fig/pinn_fly64trained_run1084test_amplitude.png}
+\newcommand{\pinnOODphs}{figures/out-dist-fig/pinn_fly64trained_run1084test_phase.png}
+\newcommand{\baseIDamp}{figures/out-dist-fig/baseline_run1084_amplitude.png}
+\newcommand{\baseIDphs}{figures/out-dist-fig/baseline_run1084_phase.png}
+\newcommand{\baseOODamp}{figures/out-dist-fig/baseline_fly64trained_run1084test_amplitude.png}
+\newcommand{\baseOODphs}{figures/out-dist-fig/baseline_fly64trained_run1084test_phase.png}
+\newcommand{\refAmp}{figures/out-dist-fig/ground_truth_run1084_amplitude.png}
+\newcommand{\refPhs}{figures/out-dist-fig/ground_truth_run1084_phase.png}
+\newcommand{\probeA}{figures/out-dist-fig/fly64_probe_amplitude.png}   % A: APS-2-ID
+\newcommand{\probeB}{figures/out-dist-fig/run1084_probe_amplitude.png} % B: LCLS-XPP
+
+% ---------- GLOBAL FONTS ----------
+\newcommand{\figfs}{\normalsize}
+\newcommand{\scalefs}{\small\bfseries}
+
+% ---------- DIMENSIONS ----------
+\newlength{\subw}
+\setlength{\subw}{5.0cm}
+\newlength{\subh}
+\setlength{\subh}{5.0cm}
+\newlength{\subsepX}
+\setlength{\subsepX}{4mm}
+\newlength{\panelsepX}
+\setlength{\panelsepX}{16mm}   % wider to keep clear of GT
+\newlength{\panelsepY}
+\setlength{\panelsepY}{11mm}   % gap between rows
+
+\newlength{\refw}
+\setlength{\refw}{5.0cm}
+\newlength{\refh}
+\setlength{\refh}{5.0cm}
+\newlength{\refgap}
+\setlength{\refgap}{10mm}
+
+\newlength{\cbarw}
+\setlength{\cbarw}{6mm}
+\newlength{\cbarh}
+\setlength{\cbarh}{5.0cm}
+\newlength{\cbarsep}
+\setlength{\cbarsep}{4mm}
+
+% ---------- INCLUDE / PLACEHOLDER ----------
+\newcommand{\IncludeOrPlaceholderWH}[3]{%
+  \IfFileExists{#1}{\includegraphics[width=#2,height=#3,keepaspectratio]{#1}}{%
+    \fcolorbox{black!20}{black!5}{\parbox[c][#3][c]{#2}{\centering\footnotesize Missing}}}%
+}
+
+% ---------- PANEL FRAMES ----------
+\tikzset{panelframe/.style={draw=black!60, line width=0.25pt, rounded corners=0.8pt}}
+\newcommand{\FramePanel}[1]{\draw[panelframe] (#1.north west) rectangle (#1.south east);}
+
+% ---------- SCALE BAR ----------
+\newcommand{\AddScaleBar}[3]{% #1=node, #2=length, #3=label
+  \draw[line width=2pt, black]
+    ($ (#1.south east) + (-1.4cm,0.28cm) $) --
+    ($ (#1.south east) + (-1.4cm+#2,0.28cm) $);
+  \draw[line width=1.2pt, white]
+    ($ (#1.south east) + (-1.4cm,0.28cm) $) --
+    ($ (#1.south east) + (-1.4cm+#2,0.28cm) $);
+  \node[anchor=south, font=\scalefs, text=white, fill=black,
+        inner sep=1.2pt, rounded corners=0.6pt]
+    at ($ (#1.south east) + (-1.4cm+#2/2,0.62cm) $) {#3};
+}
+
+% ---------- COLORBARS (avoid overlap) ----------
+\newcommand{\ampColorbar}{figures/out-dist-fig/amplitude_colorbar.png}
+\newcommand{\phaseColorbar}{figures/out-dist-fig/phase_colorbar.png}
+\newcommand{\IncludeCbarLeftOf}[2]{%
+  \IfFileExists{#2}{%
+    \node[anchor=north east] at ($(#1.north west) + (-\cbarsep,0)$)
+      {\includegraphics[height=\cbarh]{#2}}; }{}%
+}
+\newcommand{\IncludeCbarRightOf}[2]{%
+  \IfFileExists{#2}{%
+    \node[anchor=north west] at ($(#1.north east) + (\cbarsep,0)$)
+      {\includegraphics[height=\cbarh]{#2}}; }{}%
+}
+
+% ---------- Header & Legend styles ----------
+\tikzset{
+  headerbox/.style={
+    draw=black!30, rounded corners=2pt, fill=white,
+    align=center, inner xsep=6pt, inner ysep=4pt, font=\small\bfseries
+  },
+  legendbox/.style={
+    draw=black!30, rounded corners=2pt, fill=white,
+    inner xsep=6pt, inner ysep=6pt
+  }
+}
+
+% Begin TikZ content
+% Separate lifts for headers
+\newlength{\hdrsepRowOne}
+\setlength{\hdrsepRowOne}{4mm}   % distance above ROW 1
+\newlength{\hdrsepGT}
+\setlength{\hdrsepGT}{3mm}     % GT header proximity
+\newlength{\gtlift}
+\setlength{\gtlift}{30mm}      % raise GT pair
+
+\begin{tikzpicture}[font=\figfs, every node/.style={inner sep=0, outer sep=0}, >=latex]
+
+% Declare layers
+\pgfdeclarelayer{background}
+\pgfdeclarelayer{foreground}
+\pgfsetlayers{background,main,foreground}
+
+% =======================
+% Top row (PINN)
+% =======================
+\node[anchor=north west] (p11a) at (0,0)
+  {\IncludeOrPlaceholderWH{\pinnIDamp}{\subw}{\subh}};
+\node[anchor=north west] (p11p) at ($(p11a.north east) + (\subsepX,0)$)
+  {\IncludeOrPlaceholderWH{\pinnIDphs}{\subw}{\subh}};
+\node[fit=(p11a)(p11p), inner sep=0pt] (cell11) {};
+% \AddScaleBar{p11a}{1cm}{X nm} \AddScaleBar{p11p}{1cm}{X nm}
+\FramePanel{p11a} \FramePanel{p11p}
+
+% Top row middle (PINN OOD)
+\node[anchor=north west] (p12a) at ($(cell11.north east) + (\panelsepX,0)$)
+  {\IncludeOrPlaceholderWH{\pinnOODamp}{\subw}{\subh}};
+\node[anchor=north west] (p12p) at ($(p12a.north east) + (\subsepX,0)$)
+  {\IncludeOrPlaceholderWH{\pinnOODphs}{\subw}{\subh}};
+\node[fit=(p12a)(p12p), inner sep=0pt] (cell12) {};
+% \AddScaleBar{p12a}{1cm}{X nm} \AddScaleBar{p12p}{1cm}{X nm}
+\FramePanel{p12a} \FramePanel{p12p}
+
+% =======================
+% Bottom row (Baseline)
+% =======================
+\node[anchor=north west] (p21a) at ($(cell11.south west) + (0,-\panelsepY)$)
+  {\IncludeOrPlaceholderWH{\baseIDamp}{\subw}{\subh}};
+\node[anchor=north west] (p21p) at ($(p21a.north east) + (\subsepX,0)$)
+  {\IncludeOrPlaceholderWH{\baseIDphs}{\subw}{\subh}};
+\node[fit=(p21a)(p21p), inner sep=0pt] (cell21) {};
+% \AddScaleBar{p21a}{1cm}{X nm} \AddScaleBar{p21p}{1cm}{X nm}
+\FramePanel{p21a} \FramePanel{p21p}
+
+\node[anchor=north west] (p22a) at ($(p12a.south west) + (0,-\panelsepY)$)
+  {\IncludeOrPlaceholderWH{\baseOODamp}{\subw}{\subh}};
+\node[anchor=north west] (p22p) at ($(p22a.north east) + (\subsepX,0)$)
+  {\IncludeOrPlaceholderWH{\baseOODphs}{\subw}{\subh}};
+\node[fit=(p22a)(p22p), inner sep=0pt] (cell22) {};
+% \AddScaleBar{p22a}{1cm}{X nm} \AddScaleBar{p22p}{1cm}{X nm}
+\FramePanel{p22a} \FramePanel{p22p}
+
+% =======================
+% Ground Truth column (raised)
+% =======================
+\node[fit=(cell11)(cell21), inner sep=0pt] (bothrows) {};
+\coordinate (gt-x) at ($ (cell12.north east) + (\panelsepX,0) $);
+\node[anchor=west, yshift=\gtlift] (ref-amp) at ($(bothrows.center |- gt-x)$)
+  {\IncludeOrPlaceholderWH{\refAmp}{\refw}{\refh}};
+\node[anchor=north west] (ref-phs) at ($(ref-amp.north east) + (\refgap,0)$)
+  {\IncludeOrPlaceholderWH{\refPhs}{\refw}{\refh}};
+\node[fit=(ref-amp)(ref-phs), inner sep=0pt] (refcol) {};
+\AddScaleBar{ref-amp}{1cm}{X nm} \AddScaleBar{ref-phs}{1cm}{X nm}
+\FramePanel{ref-amp} \FramePanel{ref-phs}
+
+% Colorbars (no overlap with GT)
+\IncludeCbarLeftOf{ref-amp}{\ampColorbar}
+\IncludeCbarRightOf{ref-phs}{\phaseColorbar}
+
+% =======================
+% Fit nodes for rows & grid
+% =======================
+\node[fit=(p11a)(p11p)(p12a)(p12p), inner sep=0pt] (row1grid) {};
+\node[fit=(p21a)(p21p)(p22a)(p22p), inner sep=0pt] (row2grid) {};
+\node[fit=(cell11)(cell12)(cell21)(cell22), inner sep=0pt] (grid) {};
+
+% =======================
+% Gray separator line above ROW 2 (and below GT) - REMOVED
+% =======================
+
+% =======================
+% Boxed headers placed correctly
+% =======================
+\node[headerbox, anchor=south east] (hdr1) at ($(grid.north east)+(0,\hdrsepRowOne)$) {In-Distribution (Train B $\rightarrow$ Test B)};
+\node[headerbox, anchor=south west] (hdr2) at ($(grid.north west)+(0,\hdrsepRowOne)$) {Out-of-Distribution (Train A $\rightarrow$ Test B)};
+\node[headerbox] (hdr3) at ($(refcol.north)+(0,\hdrsepGT)$)        {Ground Truth};
+
+% =======================
+% Row labels (included in bbox)
+% =======================
+\node[anchor=east, font=\bfseries\figfs, text=pinncol] (rowPINN)
+  at ($ (cell11.west) + (-5mm,0) $) {PINN};
+\node[anchor=east, font=\bfseries\figfs, text=basecol] (rowBASE)
+  at ($ (cell21.west) + (-5mm,0) $) {Baseline};
+
+% =======================
+% Top-left legend (foreground; never hidden)
+% =======================
+\begin{pgfonlayer}{foreground}
+  % Create invisible matrix first to get positions
+  \matrix (L) [matrix of nodes,
+               row sep=5mm, column sep=4mm,
+               nodes={anchor=west, font=\small},
+               anchor=south west] at ($ (grid.north west) + (0, \hdrsepRowOne + 12mm) $)
+  {
+    \node[font=\small\bfseries] {A}; & APS-2-ID; & \node (Aimg) {}; \\
+    \node[font=\small\bfseries] {B}; & LCLS-XPP; & \node (Bimg) {}; \\
+  };
+  % Legend background box fitted around the matrix & images (draw first)
+  \node[legendbox, fit=(L) (Aimg) (Bimg)] (legend) {};
+  % Now draw content on top
+  \matrix (L) [matrix of nodes,
+               row sep=5mm, column sep=4mm,
+               nodes={anchor=west, font=\small},
+               anchor=south west] at ($ (grid.north west) + (0, \hdrsepRowOne + 12mm) $)
+  {
+    \node[font=\small\bfseries] {A}; & APS-2-ID; & \node (Aimg) {}; \\
+    \node[font=\small\bfseries] {B}; & LCLS-XPP; & \node (Bimg) {}; \\
+  };
+  % Probe thumbnails in legend
+  \def\lgr{0.35cm}
+  \begin{scope}
+    \clip (Aimg.center) circle (\lgr);
+    \node at (Aimg.center) {\IncludeOrPlaceholderWH{\probeA}{0.9cm}{0.9cm}};
+  \end{scope}
+  \draw[black!70, line width=0.4pt] (Aimg.center) circle (\lgr);
+  \begin{scope}
+    \clip (Bimg.center) circle (\lgr);
+    \node at (Bimg.center) {\IncludeOrPlaceholderWH{\probeB}{0.9cm}{0.9cm}};
+  \end{scope}
+  \draw[black!70, line width=0.4pt] (Bimg.center) circle (\lgr);
+\end{pgfonlayer}
+
+% =======================
+% Tight bounding box (include legend!)
+% =======================
+\node[fit=(legend)(hdr1)(hdr2)(hdr3)(rowPINN)(rowBASE)(refcol)(cell11)(cell12)(cell21)(cell22), inner sep=0pt] (ALL) {};
+\begin{pgfonlayer}{background}
+  \path[use as bounding box] (ALL.north west) rectangle (ALL.south east);
+\end{pgfonlayer}
+
+\end{tikzpicture}
+% End TikZ content

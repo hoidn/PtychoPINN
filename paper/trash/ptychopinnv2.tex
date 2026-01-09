@@ -1,0 +1,193 @@
+\documentclass{article}
+\usepackage{amsmath, amssymb, graphicx, bm, siunitx}
+\usepackage[margin=1in]{geometry}
+\usepackage{listings}
+
+% Minimal custom commands - only for frequently used notation
+\newcommand{\E}{\mathbb{E}}
+\renewcommand{\vec}[1]{\mathbf{#1}}  % Vector notation
+
+\title{\textbf{PtychoPINN Reconstruction Methodology}}
+\author{}
+\date{Revised: \today}
+
+\begin{document}
+\maketitle
+
+\section{Overview of Methods}
+
+The PtychoPINN framework reconstructs a complex-valued object from a series of far-field diffraction patterns using an unsupervised, physics-informed deep learning model. The model consists of two main components:
+
+\begin{enumerate}
+    \item A U-Net-like neural network $G: \mathcal{X} \rightarrow \mathcal{Y}$ that maps input diffraction data to a collection of complex-valued object patches.
+    \item A physics-based forward model $F = F_d \circ F_c$ that:
+    \begin{itemize}
+        \item Composes patches into a consistent real-space object representation ($F_c$)
+        \item Simulates illumination by a trainable probe and subsequent far-field diffraction ($F_d$)
+        \item Predicts the observed diffraction patterns
+    \end{itemize}
+\end{enumerate}
+
+The model is trained end-to-end by minimizing discrepancies between observed and predicted diffraction data using a Poisson negative log-likelihood loss with optional real-space regularization. The model defines three primary outputs: the reconstructed object $O_{\text{recon}}$, the predicted diffraction amplitudes $\hat{A}$, and a statistical model for predicted intensities $\mathcal{P}_{\text{pred}}$.
+
+\subsection{Model Inputs and Tensor Layout}
+
+Each input sample consists of:
+\begin{enumerate}
+    \item A collection of $C_g = \text{gridsize}^2$ observed diffraction patterns (amplitudes), $x_{\text{obs}}$, which have undergone initial normalization during data loading.
+    \item The corresponding relative scan positions $\vec{r}_{\text{rel}}$ of these $C_g$ patches within their common solution region.
+\end{enumerate}
+
+\begin{table}[h]
+\centering
+\caption{Input and output tensor shapes and descriptions}
+\begin{tabular}{lcl}
+\hline
+\textbf{Symbol} & \textbf{Shape} & \textbf{Description} \\
+\hline
+$x'$ & $B \times N \times N \times C_g$ & Raw diffraction amplitudes \\
+$x$ & $B \times N \times N \times C_g$ & Normalized diffraction amplitudes \\
+$\vec{r}_{\text{rel}}$ & $B \times 1 \times 2 \times C_g$ & Relative scan offsets (pixels) \\
+$\alpha_{\log}$ & Scalar (trainable) & Internal log-intensity scale \\
+$\alpha_{\text{ext}}$ & Scalar (fixed) & External scaling factor \\
+$O_k$ & $N \times N$ (complex) & $k$-th decoded object patch \\
+$O_{\text{region}}$ & $M \times M$ (complex) & Merged object representation \\
+$\hat{A}$ & $B \times N \times N \times C_g$ & Predicted amplitudes \\
+\hline
+\multicolumn{3}{l}{\footnotesize $B$: batch size, $N$: patch dimension, $C_g$: patches per group, $M$: padded region size}
+\end{tabular}
+\end{table}
+
+\subsubsection{Input Diffraction Data Scaling}
+\label{sec:input_scaling}
+
+The input diffraction amplitudes undergo multi-stage scaling before processing:
+
+\begin{enumerate}
+    \item \textbf{Initial normalization}: Raw patterns $x'$ are normalized during data loading to a standardized baseline scale, typically such that the average total intensity per pattern reaches $(N/2)^2$:
+    \begin{equation}
+        x = \text{Normalize}_{\text{dataset}}(x').
+    \end{equation}
+
+    \item \textbf{External scaling}: Before model processing, $x$ is multiplied by a fixed scaling factor $\alpha_{\text{ext}}$ (set via \texttt{params['intensity\_scale']}):
+    \begin{equation}
+        x_{\text{ext}} = \alpha_{\text{ext}} \cdot x.
+    \end{equation}
+
+    \item \textbf{Internal scaling}: A learnable scaling operation divides by $e^{\alpha_{\log}}$, where $\alpha_{\log}$ is a trainable log-scale parameter:
+    \begin{equation}
+        x_{\text{in}} = x_{\text{ext}} / e^{\alpha_{\log}}.
+    \end{equation}
+\end{enumerate}
+
+The scaled data $x_{\text{in}}$ serves as the actual input to the neural network encoder.
+
+\subsection{Object Reconstruction Network ($G$)}
+
+The mapping $G$ from scaled diffraction data to complex object patches is performed by a convolutional encoder-decoder network:
+
+\begin{itemize}
+    \item \textbf{Encoder}: Convolutional and max-pooling layers process $x_{\text{in}}$ to yield a latent representation $Z = \text{Encoder}(x_{\text{in}})$.
+    
+    \item \textbf{Decoders}: Two parallel decoder branches reconstruct amplitude and phase from $Z$. For each of the $C_g$ patterns, amplitude $A_k$ uses an activation $\sigma_A(\cdot)$ (e.g., sigmoid, swish), and phase $\phi_k$ uses $\pi \cdot \tanh(\cdot)$.
+    
+    \item \textbf{Complex patches}: These combine to form $O_k(\vec{r}) = A_k(\vec{r}) \cdot e^{i\phi_k(\vec{r})}$ for $k = 1, \ldots, C_g$, each with dimensions $N \times N$.
+\end{itemize}
+
+\subsection{Physics-Informed Forward Model ($F = F_d \circ F_c$)}
+
+The forward model establishes a consistent real-space object representation ($F_c$) and simulates the diffraction process ($F_d$).
+
+\subsubsection{Real-Space Object Composition ($F_c$)}
+
+The method for forming a consistent object representation $O_{\text{region}}$ depends on the configuration parameter \texttt{object.big}:
+
+\begin{itemize}
+    \item \textbf{Strong overlap constraint (\texttt{object.big=True})}: Patches are reassembled into a single unified view by padding, translating, and averaging overlaps:
+    \begin{equation}
+        O_{\text{region}}(\vec{r}) = \frac{\sum_{k=1}^{C_g} \mathcal{T}_{-\vec{r}_k}[\text{Pad}(O_k)]}{\sum_{k=1}^{C_g} \mathcal{T}_{-\vec{r}_k}[\text{Pad}(\mathbf{1}_k)] + \epsilon},
+    \end{equation}
+    where $\mathcal{T}_{\vec{r}}$ denotes translation by $\vec{r}$, $\mathbf{1}_k$ is a unit mask, and $\epsilon = 10^{-3}$.
+    
+    \item \textbf{No overlap averaging (\texttt{object.big=False})}: Each patch is individually padded to form a stack.
+\end{itemize}
+
+The primary model output for real-space loss computation is:
+\begin{equation}
+    O_{\text{recon}} = \text{Crop}_N[\text{primary\_view}(O_{\text{region}})].
+\end{equation}
+
+\subsubsection{Diffraction Simulation ($F_d$)}
+
+\begin{enumerate}
+    \item \textbf{Exit wave extraction}: For each scan position $k$, extract an object patch:
+    \begin{equation}
+        O'_k(\vec{r}) = \text{Crop}_N[\mathcal{T}_{\vec{r}_k}[\text{Pad}(O_{\text{region}})]].
+    \end{equation}
+
+    \item \textbf{Probe illumination}: Multiply by the effective probe $P_{\text{eff}}(\vec{r})$ (optionally smoothed/masked):
+    \begin{equation}
+        O_{\text{illum},k}(\vec{r}) = O'_k(\vec{r}) \cdot P_{\text{eff}}(\vec{r}).
+    \end{equation}
+
+    \item \textbf{Far-field diffraction}: Apply 2D FFT and normalize:
+    \begin{equation}
+        \Psi_k = \mathcal{F}\{O_{\text{illum},k}\}, \quad \hat{A}_{\text{norm},k} = |\Psi_k|/N.
+    \end{equation}
+
+    \item \textbf{Amplitude rescaling}: Scale back to match input data scale:
+    \begin{equation}
+        \hat{A} = \hat{A}_{\text{norm}} \cdot e^{\alpha_{\log}}.
+    \end{equation}
+
+    \item \textbf{Poisson model}: The predicted intensity distribution has rate parameters $\lambda_{k,ij} = |\hat{A}_{k,ij}|^2$ for each pixel.
+\end{enumerate}
+
+\subsection{Loss Function and Optimization}
+
+The model minimizes a composite loss:
+\begin{equation}
+    \mathcal{L}_{\text{total}} = w_{\text{RS}} \mathcal{L}_{\text{RS}} + w_{\text{MAE}} \mathcal{L}_{\text{MAE}} + w_{\text{NLL}} \mathcal{L}_{\text{NLL}}.
+\end{equation}
+
+The components are:
+
+\begin{itemize}
+    \item \textbf{Negative log-likelihood} ($\mathcal{L}_{\text{NLL}}$): For target photon counts $N_{\text{ph}} = x_{\text{ext}}^2$ and predicted rates $\lambda = |\hat{A}|^2$:
+    \begin{equation}
+        \mathcal{L}_{\text{NLL}} = -\sum_{\text{batch}} \sum_{k,i,j} \log \text{Poiss}(N_{\text{ph},k,ij}; \lambda_{k,ij}).
+    \end{equation}
+
+    \item \textbf{MAE loss} ($\mathcal{L}_{\text{MAE}}$): Mean absolute error between $\hat{A}$ and $x_{\text{ext}}$ (typically $w_{\text{MAE}} \approx 0$).
+
+    \item \textbf{Real-space loss} ($\mathcal{L}_{\text{RS}}$): Optional regularization on $O_{\text{recon}}$:
+    \begin{equation}
+        \mathcal{L}_{\text{RS}} = w_{\text{TV}} \mathcal{L}_{\text{TV}}(O_{\text{recon}}) + w_{\text{MAE}} \mathcal{L}_{\text{MAE}}(O_{\text{GT}}, O_{\text{recon}}).
+    \end{equation}
+\end{itemize}
+
+\subsection{Implementation and Training Details}
+
+The model is implemented using a deep learning framework with automatic differentiation. Parameters including the neural network weights, $\alpha_{\log}$, and optionally the probe function are optimized using Adam (learning rate $10^{-3}$). Training employs learning rate reduction on plateau (factor 0.5, patience 2) and early stopping (patience 3).
+
+\subsection{Key Configuration Parameters}
+
+\begin{table}[h]
+\centering
+\caption{Key configuration parameters and typical values}
+\begin{tabular}{lcl}
+\hline
+\textbf{Parameter} & \textbf{Symbol/Value} & \textbf{Description} \\
+\hline
+\texttt{N} & 64 & Patch size \\
+\texttt{gridsize} & 2 & $\sqrt{C_g}$, patches per region \\
+\texttt{offset} & 4 & Scan step (pixels) \\
+\texttt{object.big} & \texttt{True} & Enable overlap merging \\
+\texttt{probe.trainable} & \texttt{True/False} & Trainable probe \\
+\texttt{tv\_weight} & $0$ -- $10^{-4}$ & TV regularization \\
+\texttt{nll\_weight} & 1.0 & NLL loss weight \\
+\hline
+\end{tabular}
+\end{table}
+
+\end{document}

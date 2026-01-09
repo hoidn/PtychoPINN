@@ -1,0 +1,41 @@
+\begin{table}[htbp]
+\centering
+\caption{Reconstruction quality metrics at maximum training set size (16,384 images). Values shown are mean $\pm$ standard deviation across 5 trials. Best values per dataset are highlighted in \textcolor{bestval}{green}.}
+\label{tab:results_16384}
+\begin{tabular}{@{}llcccc@{}}
+\toprule
+& & \multicolumn{2}{c}{PSNR (dB)} & \multicolumn{2}{c}{MS-SSIM} \\
+\cmidrule(lr){3-4} \cmidrule(lr){5-6}
+Dataset & Method & Amplitude & Phase & Amplitude & Phase \\
+\midrule
+\multirow{2}{*}{fly001-synthetic} 
+& Baseline (supervised) & 
+  $84.83 \pm 0.23$ & 
+  $68.62 \pm 0.02$ & 
+  $0.930 \pm 0.002$ & 
+  $0.912 \pm 0.003$ \\
+& PINN (self-supervised) & 
+  \textcolor{bestval}{$\mathbf{85.53 \pm 0.02}$} & 
+  \textcolor{bestval}{$\mathbf{70.54 \pm 0.06}$} & 
+  \textcolor{bestval}{$\mathbf{0.955 \pm 0.001}$} & 
+  \textcolor{bestval}{$\mathbf{0.962 \pm 0.001}$} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% % Compact version for two-column format
+% \begin{table}[htbp]
+% \centering
+% \caption{Reconstruction metrics at 16,384 training images (mean $\pm$ std, n=5)}
+% \label{tab:results_compact}
+% \begin{tabular}{@{}llcccc@{}}
+% \toprule
+% Dataset & Method & \multicolumn{2}{c}{PSNR (dB)} & \multicolumn{2}{c}{MS-SSIM} \\
+% & & Amp. & Phase & Amp. & Phase \\
+% \midrule
+% \multirow{2}{*}{fly001-syn.} 
+% & Base. (sup.) & 84.83(23) & 68.62(2) & 0.930(2) & 0.912(3) \\
+% & PINN (self.) & \textbf{85.53(2)} & \textbf{70.54(6)} & \textbf{0.955(1)} & \textbf{0.962(1)} \\
+% \bottomrule
+% \end{tabular}
+% \end{table}
