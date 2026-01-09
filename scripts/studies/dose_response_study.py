@@ -599,6 +599,11 @@ def train_all_arms_grid_mode(
         # Set intensity_scale from simulation
         p.cfg['intensity_scale'] = arm_data.get('intensity_scale', 1.0)
 
+        # Set probe in params.cfg before model creation (matches reference train_pinn.py)
+        # This ensures ProbeIllumination layer uses the correct probe
+        from ptycho import probe as probe_module
+        probe_module.set_probe_guess(None, train_container.probeGuess)
+
         logger.info(f"[DEBUG] Grid mode: N={config.model.N}, gridsize={config.model.gridsize}")
 
         # Ensure output directory exists
