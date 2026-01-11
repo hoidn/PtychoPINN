@@ -410,17 +410,12 @@ def simulate_datasets_grid_mode(
         # Convert probe to correct shape if needed
         probe_tensor = probeGuess.astype(np.complex64)
 
-        # mk_simdata coords are tuples - create properly formatted coords
-        # PtychoDataContainer expects coords_nominal with shape (B, 1, 2, C)
-        # For grid mode, create zero-offset coords (grid positions are implicit)
-        n_train_groups = X_train.shape[0]
-        n_test_groups = X_test.shape[0]
-        n_channels = X_train.shape[-1]  # gridsize^2
-
-        # Create coords in the expected format: (B, 1, 2, C) with zeros
-        # The model uses these for translation - zero means no offset from grid position
-        coords_train = np.zeros((n_train_groups, 1, 2, n_channels), dtype=np.float32)
-        coords_test = np.zeros((n_test_groups, 1, 2, n_channels), dtype=np.float32)
+        # mk_simdata returns coords as array of shape (2, B, 1, 2, C) where:
+        # - coords[0] = nominal coords (B, 1, 2, C)
+        # - coords[1] = true coords (B, 1, 2, C)
+        # The model needs these for position-aware reconstruction/stitching
+        coords_train = coords_train_raw[0].astype(np.float32)  # Use nominal coords
+        coords_test = coords_test_raw[0].astype(np.float32)
 
         train_container = PtychoDataContainer(
             X=X_train,
@@ -480,7 +475,8 @@ def simulate_datasets_grid_mode(
             'nphotons': nphotons,
             'loss_type': arm_params['loss_type'],
             'intensity_scale': intensity_scale_train,
-            'grid_mode': True
+            'grid_mode': True,
+            'nimgs_test_param': nimgs_test  # Store for stitching (number of full images)
         }
 
         logger.info(f"Train data shape: X={X_train.shape}")
@@ -660,50 +656,45 @@ def train_all_arms_grid_mode(
             ptycho_model.autoencoder = autoencoder
             ptycho_model.diffraction_to_obj = diffraction_to_obj
 
-            # Run inference on test data
+            # Run inference on test data - use autoencoder.predict() like inference.py does
+            # autoencoder returns 3 outputs: [reconstructed_obj, pred_amp, pred_intensity]
             X_test = test_container.X
             coords_test = test_container.coords_nominal
 
-            # Get reconstruction (raw patches)
-            recon_obj = diffraction_to_obj.predict([X_test * intensity_scale, coords_test])
+            # Use batch_size=len(X_test) to process all at once, avoiding per-batch aggregation
+            reconstructed_obj, pred_amp, pred_intensity = autoencoder.predict(
+                [X_test * intensity_scale, coords_test],
+                batch_size=len(X_test)
+            )
+            logger.info(f"[DEBUG] reconstructed_obj shape: {reconstructed_obj.shape}")
+            logger.info(f"[DEBUG] X_test shape: {X_test.shape}")
 
-            # Stitch reconstruction using grid-mode stitching (matches reference notebook)
-            # This requires params to be set correctly (N, gridsize, offset, outer_offset_test)
-            from ptycho.data_preprocessing import reassemble
-            try:
-                # reassemble expects: (patches, norm_Y_I, part, outer_offset, nimgs)
-                # Use config (already assigned above) to get n_groups
-                nimgs_test = config.n_groups // (p.cfg['gridsize'] ** 2)
-                if nimgs_test < 1:
-                    nimgs_test = 2  # Default from notebook
+            # Stitch using reassemble_with_config like inference.py does
+            from ptycho.inference import reassemble_with_config
+            stitch_config = {
+                'N': p.cfg['N'],
+                'gridsize': p.cfg['gridsize'],
+                'offset': p.cfg['offset'],
+                'nimgs_test': arm_data.get('nimgs_test_param', 2),
+                'outer_offset_test': p.cfg['outer_offset_test']
+            }
 
-                stitched_amp = reassemble(
-                    recon_obj,
-                    norm_Y_I=1.0,
-                    part='amp',
-                    outer_offset=p.cfg['outer_offset_test'],
-                    nimgs=nimgs_test
-                )
-                stitched_phase = reassemble(
-                    recon_obj,
-                    norm_Y_I=1.0,
-                    part='phase',
-                    outer_offset=p.cfg['outer_offset_test'],
-                    nimgs=nimgs_test
-                )
+            stitched_amp = reassemble_with_config(reconstructed_obj, stitch_config, norm_Y_I=1.0, part='amp')
+            stitched_phase = reassemble_with_config(reconstructed_obj, stitch_config, norm_Y_I=1.0, part='phase')
+
+            if stitched_amp is not None and stitched_phase is not None:
                 reconstruction = {
                     'amplitude': np.squeeze(stitched_amp),
                     'phase': np.squeeze(stitched_phase),
-                    'patches': recon_obj
+                    'patches': reconstructed_obj
                 }
                 logger.info(f"Stitched reconstruction shape: {stitched_amp.shape}")
-            except Exception as stitch_e:
-                logger.warning(f"Grid-mode stitching failed for {arm_name}: {stitch_e}")
-                # Fallback: show mean of patches
+            else:
+                logger.warning(f"Stitching failed for {arm_name}, using mean patches")
                 reconstruction = {
-                    'amplitude': np.mean(np.abs(recon_obj), axis=0).squeeze(),
-                    'phase': np.mean(np.angle(recon_obj), axis=0).squeeze(),
-                    'patches': recon_obj
+                    'amplitude': np.mean(np.abs(reconstructed_obj), axis=0).squeeze(),
+                    'phase': np.mean(np.angle(reconstructed_obj), axis=0).squeeze(),
+                    'patches': reconstructed_obj
                 }
 
             # Save model
@@ -742,7 +733,7 @@ def train_all_arms_grid_mode(
                     'history': {
                         'train_loss': history.history.get('loss', [])
                     },
-                    'reconstructed_obj': recon_obj,
+                    'reconstructed_obj': reconstructed_obj,
                     'test_container': test_container
                 },
                 'reconstruction': reconstruction,  # Stitched reconstruction for visualization
