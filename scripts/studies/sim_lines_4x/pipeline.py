@@ -25,11 +25,22 @@ class RunParams:
     N: int = 64
     object_size: int = 392
     split_fraction: float = 0.5
-    test_count: int = 1000
-    total_images: int = 2000
+    base_total_images: int = 2000
+    group_count: int = 1000
     nphotons: float = 1e9
     neighbor_count: int = 4
     reassemble_M: int = 20
+
+
+def derive_counts(
+    params: RunParams,
+    gridsize: int,
+    image_multiplier: int = 1,
+) -> Tuple[int, int, int]:
+    total_images = params.base_total_images * (gridsize**2) * image_multiplier
+    test_count = int(round(total_images * params.split_fraction))
+    train_count = total_images - test_count
+    return total_images, train_count, test_count
 
 
 def configure_logging(log_path: Path) -> logging.Logger:
@@ -90,6 +101,7 @@ def simulate_raw_data(
     params: RunParams,
     object_guess: np.ndarray,
     probe_guess: np.ndarray,
+    total_images: int,
     buffer: Optional[float] = None,
 ):
     from ptycho import params as legacy_params
@@ -98,10 +110,12 @@ def simulate_raw_data(
 
     sim_config = TrainingConfig(
         model=ModelConfig(N=params.N, gridsize=1),
-        n_groups=params.total_images,
+        n_groups=total_images,
         nphotons=params.nphotons,
     )
     update_legacy_dict(legacy_params.cfg, sim_config)
+    if buffer is None:
+        buffer = float(min(object_guess.shape)) * 0.35
     return generate_simulated_data(
         config=sim_config,
         objectGuess=object_guess,
@@ -150,7 +164,7 @@ def split_raw_data_by_y(raw_data, test_count: int) -> Tuple:
 def build_training_config(
     params: RunParams,
     gridsize: int,
-    train_count: int,
+    group_count: int,
     output_dir: Path,
     nepochs: int,
 ):
@@ -159,7 +173,7 @@ def build_training_config(
     model_config = ModelConfig(N=params.N, gridsize=gridsize, model_type="pinn")
     return TrainingConfig(
         model=model_config,
-        n_groups=train_count,
+        n_groups=group_count,
         nphotons=params.nphotons,
         neighbor_count=params.neighbor_count,
         nepochs=nepochs,
@@ -186,6 +200,7 @@ def run_inference(
     model_dir: Path,
     gridsize: int,
     params: RunParams,
+    group_count: int,
 ) -> Tuple[np.ndarray, np.ndarray]:
     from ptycho.config.config import InferenceConfig, ModelConfig
     from ptycho.workflows.backend_selector import load_inference_bundle_with_backend
@@ -197,7 +212,7 @@ def run_inference(
         model=ModelConfig(N=params.N, gridsize=gridsize),
         model_path=model_dir,
         test_data_file=INTEGRATION_PROBE_PATH,
-        n_groups=test_data.diff3d.shape[0],
+        n_groups=group_count,
         neighbor_count=params.neighbor_count,
         backend="tensorflow",
     )
@@ -205,7 +220,7 @@ def run_inference(
     grouped = test_data.generate_grouped_data(
         params_dict.get("N", params.N),
         K=params.neighbor_count,
-        nsamples=test_data.diff3d.shape[0],
+        nsamples=group_count,
         gridsize=params_dict.get("gridsize", gridsize),
     )
     container = loader.load(lambda: grouped, test_data.probeGuess, which=None, create_split=False)
@@ -229,8 +244,16 @@ def run_scenario(
     output_root: Path,
     nepochs: int,
     buffer: Optional[float] = None,
+    image_multiplier: int = 1,
+    group_multiplier: int = 1,
 ) -> None:
     params = RunParams()
+    total_images, train_count, test_count = derive_counts(
+        params,
+        scenario.gridsize,
+        image_multiplier=image_multiplier,
+    )
+    group_count = params.group_count * group_multiplier
     scenario_dir = output_root / scenario.name
     train_dir = scenario_dir / "train_outputs"
     inference_dir = scenario_dir / "inference_outputs"
@@ -238,22 +261,28 @@ def run_scenario(
     logger = configure_logging(scenario_dir / "run.log")
     logger.info("Starting scenario: %s", scenario.name)
 
-    if params.total_images - params.test_count <= 0:
+    if total_images - test_count <= 0:
         raise ValueError("total_images must be greater than test_count")
-    expected_test = int(round(params.total_images * params.split_fraction))
-    if expected_test != params.test_count:
+    expected_test = int(round(total_images * params.split_fraction))
+    if expected_test != test_count:
         logger.warning(
             "Split fraction mismatch: expected test_count=%s from split_fraction=%s",
             expected_test,
             params.split_fraction,
         )
+    if train_count != test_count:
+        raise ValueError("train/test splits must be equal sized")
+    if group_count > train_count or group_count > test_count:
+        raise ValueError("group_count must be <= train/test image counts")
     logger.info(
-        "Run parameters: N=%s object_size=%s split_fraction=%s test_count=%s total_images=%s",
+        "Run parameters: N=%s object_size=%s split_fraction=%s total_images=%s train_images=%s test_images=%s group_count=%s",
         params.N,
         params.object_size,
         params.split_fraction,
-        params.test_count,
-        params.total_images,
+        total_images,
+        train_count,
+        test_count,
+        group_count,
     )
 
     object_guess = generate_lines_object(params.object_size)
@@ -264,13 +293,19 @@ def run_scenario(
     else:
         raise ValueError(f"Unknown probe_mode: {scenario.probe_mode}")
 
-    raw_data = simulate_raw_data(params, object_guess, probe_guess, buffer=buffer)
-    train_raw, test_raw = split_raw_data_by_y(raw_data, params.test_count)
+    raw_data = simulate_raw_data(
+        params,
+        object_guess,
+        probe_guess,
+        total_images=total_images,
+        buffer=buffer,
+    )
+    train_raw, test_raw = split_raw_data_by_y(raw_data, test_count)
 
     train_config = build_training_config(
         params=params,
         gridsize=scenario.gridsize,
-        train_count=train_raw.diff3d.shape[0],
+        group_count=group_count,
         output_dir=train_dir,
         nepochs=nepochs,
     )
@@ -292,6 +327,7 @@ def run_scenario(
         model_dir=train_dir,
         gridsize=scenario.gridsize,
         params=params,
+        group_count=group_count,
     )
     save_reconstruction(inference_dir, amp, phase)
 
@@ -302,9 +338,13 @@ def run_scenario(
         "N": params.N,
         "object_size": params.object_size,
         "split_fraction": params.split_fraction,
-        "total_images": params.total_images,
+        "base_total_images": params.base_total_images,
+        "total_images": total_images,
         "train_count": train_raw.diff3d.shape[0],
         "test_count": test_raw.diff3d.shape[0],
+        "group_count": group_count,
+        "image_multiplier": image_multiplier,
+        "group_multiplier": group_multiplier,
         "nphotons": params.nphotons,
         "neighbor_count": params.neighbor_count,
         "nepochs": nepochs,

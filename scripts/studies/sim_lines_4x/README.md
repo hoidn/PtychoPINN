@@ -20,9 +20,13 @@ These scripts intentionally keep the core parameters fixed:
 - `N=64`
 - `object_size=392`
 - `split_fraction=0.5`
-- `test_count=1000` (total images: 2000)
+- `base_total_images=2000` (gridsize=1)
+- `group_count=1000` (per split)
 - `nphotons=1e9`
 - `neighbor_count=4`
+
+For `gridsize=2`, total images scale by `gridsize^2` to keep the same number of
+groups as the `gridsize=1` scenarios. Train and test splits are equal sized.
 
 `--nepochs` can be passed to adjust training time.
 
@@ -33,6 +37,16 @@ python scripts/studies/sim_lines_4x/run_gs1_ideal.py --output-root outputs/sim_l
 python scripts/studies/sim_lines_4x/run_gs1_integration_probe.py --output-root outputs/sim_lines_4x --nepochs 5
 python scripts/studies/sim_lines_4x/run_gs2_ideal.py --output-root outputs/sim_lines_4x --nepochs 5
 python scripts/studies/sim_lines_4x/run_gs2_integration_probe.py --output-root outputs/sim_lines_4x --nepochs 5
+```
+
+Optional gs2 scaling (e.g., 5x images and groups):
+
+```bash
+python scripts/studies/sim_lines_4x/run_gs2_ideal.py \
+  --output-root outputs/sim_lines_4x \
+  --nepochs 5 \
+  --image-multiplier 5 \
+  --group-multiplier 5
 ```
 
 ## Outputs

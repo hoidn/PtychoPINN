@@ -78,7 +78,9 @@
   - object_size=392
   - split axis: y
   - split fraction: 0.5
-  - test_n=1000 -> total_n_images=2000
+  - base_total_images=2000 (gridsize=1)
+  - group_count=1000 per split
+  - gridsize scaling: total_images = base_total_images * gridsize^2
 - [x] A5: Lock persistence + inference entrypoint:
   - In-memory train/test split; no NPZ split files.
   - Save model bundle + recon images; inference via load_inference_bundle_with_backend + nbutils.reconstruct_image + tf_helper.reassemble_position.
@@ -106,7 +108,7 @@
 
 ## Phase C -- Validation
 ### Checklist
-- [ ] C1: Run four scenarios (test_n=1000 each).
+- [ ] C1: Run four scenarios (gs1 total_images=2000, gs2 total_images=8000; equal splits).
 - [ ] C2: Verify output artifacts (bundle, reconstructed_amplitude.png, reconstructed_phase.png).
 - [ ] C3: Capture per-scenario run summaries.
 - [ ] C4: Update docs/index.md and any relevant workflow READMEs if new scripts/flows are introduced.

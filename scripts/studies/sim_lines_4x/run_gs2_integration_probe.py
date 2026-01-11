@@ -25,13 +25,31 @@ def parse_args() -> argparse.Namespace:
         default=5,
         help="Number of training epochs.",
     )
+    parser.add_argument(
+        "--image-multiplier",
+        type=int,
+        default=1,
+        help="Scale total image count by this factor.",
+    )
+    parser.add_argument(
+        "--group-multiplier",
+        type=int,
+        default=1,
+        help="Scale group count by this factor.",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     scenario = ScenarioSpec(name="gs2_integration", gridsize=2, probe_mode="integration")
-    run_scenario(scenario, output_root=args.output_root, nepochs=args.nepochs)
+    run_scenario(
+        scenario,
+        output_root=args.output_root,
+        nepochs=args.nepochs,
+        image_multiplier=args.image_multiplier,
+        group_multiplier=args.group_multiplier,
+    )
 
 
 if __name__ == "__main__":

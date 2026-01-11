@@ -28,10 +28,11 @@
   - Train TF models and reconstruct the contiguous test split for each scenario.
 - Exit Criteria:
   - Four scenario runs complete with saved bundles and reconstruction images.
-  - Run logs capture N=64, object_size=392, split=0.5, test_n=1000.
+  - Run logs capture N=64, object_size=392, split=0.5, base_total_images=2000, group_count=1000 (gs2 total_images=8000).
   - Ledger and initiative summary updated.
 - Attempts History:
   - *2026-01-11T081911Z:* Implemented SIM-LINES-4X pipeline + scenario runners. Added core pipeline module and four runner scripts under `scripts/studies/sim_lines_4x/` with a README; updated `docs/index.md` and `scripts/studies/README.md`. **Static analysis:** `ruff check scripts/studies/sim_lines_4x` passed. **Tests:** `pytest -m integration` passed (1 passed, 2 skipped pre-existing). Artifacts: `plans/active/SIM-LINES-4X-001/reports/2026-01-11T081911Z/ruff_check.log`, `plans/active/SIM-LINES-4X-001/reports/2026-01-11T081911Z/pytest_integration.log`. Next: execute four scenarios (C1-C3) and capture outputs.
+  - *2026-01-11T083629Z:* Updated SIM-LINES-4X pipeline to scale `total_images` by `gridsize^2` while keeping `group_count=1000` per split. Reran gs2 scenarios with `total_images=8000` and `train/test=4000/4000`; outputs saved under `.artifacts/sim_lines_4x/{gs2_ideal,gs2_integration}`. **Static analysis:** `ruff check scripts/studies/sim_lines_4x` passed. Artifacts: `plans/active/SIM-LINES-4X-001/reports/2026-01-11T083629Z/ruff_check.log`, `plans/active/SIM-LINES-4X-001/reports/2026-01-11T083629Z/run_gs2_ideal.log`, `plans/active/SIM-LINES-4X-001/reports/2026-01-11T083629Z/run_gs2_integration_probe.log`. Notes: stitch warnings logged during inference but outputs written.
 
 ### [REFACTOR-MODEL-SINGLETON-001] Remove Module-Level Singletons in ptycho/model.py
 - Depends on: None
