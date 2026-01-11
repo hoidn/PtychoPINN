@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-09 (ALIGN-DOSE-STUDY-GRID-001 implemented)
-**Active Focus:** STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — G-scaled ✅ COMPLETE; G-full blocked on Baseline OOM
+**Last Updated:** 2026-01-11 (SIM-LINES-4X-001 Phase A/B implemented)
+**Active Focus:** SIM-LINES-4X-001 — Four-scenario nongrid sim + TF reconstruction (lines object)
 
 ---
 
@@ -13,6 +13,25 @@
 ---
 
 ## Active / Pending Initiatives
+
+### [SIM-LINES-4X-001] Four-scenario nongrid sim + TF reconstruction (lines object)
+- Depends on: None
+- Priority: Medium
+- Status: in_progress — Phase A/B complete; Phase C validation runs pending.
+- Owner/Date: Ralph/2026-01-11
+- Working Plan: `plans/active/SIM-LINES-4X-001/implementation.md`
+- Summary: `plans/active/SIM-LINES-4X-001/summary.md`
+- Reports Hub: `plans/active/SIM-LINES-4X-001/reports/`
+- Spec Owner: `specs/spec-inference-pipeline.md`
+- Goals:
+  - Simulate four datasets from a synthetic lines object (gs1/gs2 x idealized/integration probe).
+  - Train TF models and reconstruct the contiguous test split for each scenario.
+- Exit Criteria:
+  - Four scenario runs complete with saved bundles and reconstruction images.
+  - Run logs capture N=64, object_size=392, split=0.5, test_n=1000.
+  - Ledger and initiative summary updated.
+- Attempts History:
+  - *2026-01-11T081911Z:* Implemented SIM-LINES-4X pipeline + scenario runners. Added core pipeline module and four runner scripts under `scripts/studies/sim_lines_4x/` with a README; updated `docs/index.md` and `scripts/studies/README.md`. **Static analysis:** `ruff check scripts/studies/sim_lines_4x` passed. **Tests:** `pytest -m integration` passed (1 passed, 2 skipped pre-existing). Artifacts: `plans/active/SIM-LINES-4X-001/reports/2026-01-11T081911Z/ruff_check.log`, `plans/active/SIM-LINES-4X-001/reports/2026-01-11T081911Z/pytest_integration.log`. Next: execute four scenarios (C1-C3) and capture outputs.
 
 ### [REFACTOR-MODEL-SINGLETON-001] Remove Module-Level Singletons in ptycho/model.py
 - Depends on: None

@@ -69,20 +69,20 @@
 
 ## Phase A -- Design
 ### Checklist
-- [ ] A0: Create/update plans/active/SIM-LINES-4X-001/summary.md (turn summary format).
-- [ ] A1: Append initiative entry to docs/fix_plan.md (scope + next action).
-- [ ] A2: If adding/changing tests, draft test strategy from plans/templates/test_strategy_template.md and link it from docs/fix_plan.md.
-- [ ] A3: Confirm lines object generator: ptycho.diffsim.sim_object_image with data_source='lines'.
-- [ ] A4: Lock parameters:
+- [x] A0: Create/update plans/active/SIM-LINES-4X-001/summary.md (turn summary format).
+- [x] A1: Append initiative entry to docs/fix_plan.md (scope + next action).
+- [x] A2: No tests added; test strategy not required for this loop.
+- [x] A3: Confirm lines object generator: ptycho.diffsim.sim_object_image with data_source='lines'.
+- [x] A4: Lock parameters:
   - N=64
   - object_size=392
   - split axis: y
   - split fraction: 0.5
   - test_n=1000 -> total_n_images=2000
-- [ ] A5: Lock persistence + inference entrypoint:
+- [x] A5: Lock persistence + inference entrypoint:
   - In-memory train/test split; no NPZ split files.
   - Save model bundle + recon images; inference via load_inference_bundle_with_backend + nbutils.reconstruct_image + tf_helper.reassemble_position.
-- [ ] A6: Define core API signatures and output layout per scenario.
+- [x] A6: Define core API signatures and output layout per scenario.
 
 ### Dependency Analysis (Required for Refactors)
 - Touched Modules: new core pipeline module, new scenario runner scripts.
@@ -96,10 +96,10 @@
 
 ## Phase B -- Implementation
 ### Checklist
-- [ ] B1: Implement core pipeline module with pure functions wrapping existing workflow components (no new orchestration).
-- [ ] B2: Implement thin runner scripts per scenario (fresh process, minimal args).
-- [ ] B3: Enforce CONFIG-001 before grouping or model init.
-- [ ] B4: Bundle save + inference helper wiring (TF only, via backend_selector + nbutils.reconstruct_image + tf_helper.reassemble_position).
+- [x] B1: Implement core pipeline module with pure functions wrapping existing workflow components (no new orchestration).
+- [x] B2: Implement thin runner scripts per scenario (fresh process, minimal args).
+- [x] B3: Enforce CONFIG-001 before grouping or model init.
+- [x] B4: Bundle save + inference helper wiring (TF only, via backend_selector + nbutils.reconstruct_image + tf_helper.reassemble_position).
 
 ### Notes & Risks
 - Ensure model singletons refreshed per run; avoid shared imports across scenarios.

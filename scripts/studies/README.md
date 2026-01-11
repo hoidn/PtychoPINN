@@ -65,6 +65,15 @@ Analysis script that processes results from multiple training runs and generates
 python scripts/studies/aggregate_and_plot_results.py <study_output_dir> [--output-plot results.png]
 ```
 
+### `sim_lines_4x/`
+Scenario runners for SIM-LINES-4X: nongrid "lines" simulation with TF training and reconstruction
+across gs1/gs2 and idealized/integration probes.
+
+**Usage:**
+```bash
+python scripts/studies/sim_lines_4x/run_gs1_ideal.py --output-root outputs/sim_lines_4x --nepochs 5
+```
+
 ## Workflow Modes
 
 The generalization study script supports two primary modes:

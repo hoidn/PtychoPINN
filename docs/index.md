@@ -249,6 +249,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** studies, generalization, comparisons, workflows  
 **Use this when:** Running study workflows or comparing multiple models.
 
+#### [SIM-LINES-4X Runner](../scripts/studies/sim_lines_4x/README.md)
+**Description:** Four-scenario nongrid "lines" simulation with TensorFlow training and reconstruction (gs1/gs2 x idealized/integration probes).  
+**Keywords:** lines, nongrid, simulation, reconstruction, gs1, gs2  
+**Use this when:** Generating the SIM-LINES-4X datasets and reconstructions for lines objects.
+
 ## Datasets & Experiments
 
 #### [FLY64 Dataset Guide](FLY64_DATASET_GUIDE.md)
