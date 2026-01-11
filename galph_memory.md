@@ -210,6 +210,29 @@ FEAT-LAZY-LOADING-001 is DONE. All phases complete:
 
 ---
 
+# 2026-01-11T02:06:00Z: FIX-REASSEMBLE-BATCH-DIM-001 — Targeted test run (FAILED)
+
+- dwell: 0 (new focus)
+- Focus issue: FIX-REASSEMBLE-BATCH-DIM-001 — Preserve batch dimension in batched reassembly
+- Action type: Evidence collection (targeted pytest)
+- Mode: Planning
+- Git sync: `git pull --rebase` → Already up to date.
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (REASSEMBLY-BATCH-001, BUG-TF-REASSEMBLE-001), docs/debugging/debugging.md, docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/specs/spec-ptycho-workflow.md, specs/spec-inference-pipeline.md, plans/active/FIX-REASSEMBLE-BATCH-DIM-001/{implementation.md,summary.md,test_strategy.md}
+
+**Test Result:**
+- Ran `pytest tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split -v`
+- FAILED: `ValueError` in `_reassemble_position_batched` because `padded_size=None` when building `tf.zeros`.
+- Likely cause: `ReassemblePatchesLayer` passes `padded_size=None` into `mk_reassemble_position_batched_real`, which then skips the `get_padded_size()` fallback.
+- Artifact: `.artifacts/FIX-REASSEMBLE-BATCH-DIM-001/pytest_reassemble_batch.log`
+
+**Next Action:**
+Implement a guard that treats `padded_size=None` as unset (use `params.get_padded_size()`), then rerun the regression test.
+
+- <Action State>: [ready_for_implementation]
+- focus=FIX-REASSEMBLE-BATCH-DIM-001 state=ready_for_implementation dwell=0 ralph_last_commit=none artifacts=.artifacts/FIX-REASSEMBLE-BATCH-DIM-001/ next_action=fix padded_size None handling in batched reassembly path and rerun test
+
+---
+
 # 2026-01-08T03:00:00Z: FEAT-LAZY-LOADING-001 — Phase C: Training pipeline integration handoff
 
 - dwell: 0 (reset after Phase B completion; commit 37985157 landed with 8/8 tests passing)
@@ -244,4 +267,3 @@ FEAT-LAZY-LOADING-001 is DONE. All phases complete:
 - focus=FEAT-LAZY-LOADING-001 state=ready_for_implementation dwell=0 ralph_last_commit=37985157 artifacts=plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-08T030000Z/ next_action=implement Phase C (streaming training + integration tests)
 
 ---
-

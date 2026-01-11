@@ -5,7 +5,7 @@
 - Title: Preserve batch dimension in batched patch reassembly
 - Owner: Codex
 - Spec Owner: docs/specs/spec-ptycho-workflow.md (Reassembly Requirements)
-- Status: in_progress
+- Status: done
 
 ## Goals
 - Ensure `_reassemble_position_batched` returns one canvas per batch item instead of collapsing the batch.
@@ -27,7 +27,8 @@
 - [x] A1: Update `_reassemble_position_batched` to accumulate per-sample canvases (ptycho/tf_helper.py).
 - [x] A2: Align `ReassemblePatchesLayer` output shape metadata (ptycho/custom_layers.py).
 - [x] A3: Update regression test to assert batch dimension is preserved.
-- [ ] A4: Run targeted pytest and archive log.
+- [x] A4: Treat `padded_size=None` as unset in batched reassembly setup (avoid passing None to `_reassemble_position_batched`).
+- [x] A5: Run targeted pytest and archive log.
 
 ## Artifacts Index
 - Logs: `.artifacts/FIX-REASSEMBLE-BATCH-DIM-001/`

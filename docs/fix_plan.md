@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
 **Last Updated:** 2026-01-11 (SIM-LINES-4X-001 Phase A/B implemented)
-**Active Focus:** SIM-LINES-4X-001 — Four-scenario nongrid sim + TF reconstruction (lines object)
+**Active Focus:** FIX-REASSEMBLE-BATCH-DIM-001 — Preserve batch dimension in batched reassembly (complete; next focus TBD)
 
 ---
 
@@ -147,7 +147,7 @@
 ### [FIX-REASSEMBLE-BATCH-DIM-001] Preserve Batch Dimension in Batched Reassembly
 - Depends on: None
 - Priority: High
-- Status: in_progress
+- Status: done — exit criteria met (targeted regression passes).
 - Owner/Date: Codex/2026-01-11
 - Working Plan: `plans/active/FIX-REASSEMBLE-BATCH-DIM-001/implementation.md`
 - Summary: `plans/active/FIX-REASSEMBLE-BATCH-DIM-001/summary.md`
@@ -164,6 +164,8 @@
   - `tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split` passes.
 - Attempts History:
   - *2026-01-11T01:15:00Z:* Implemented per-sample batched reassembly using segment-sum accumulation, updated `ReassemblePatchesLayer.compute_output_shape`, and adjusted regression test to require batch preservation. Tests not run (per user request). Artifacts: `.artifacts/FIX-REASSEMBLE-BATCH-DIM-001/`.
+  - *2026-01-11T020400Z:* Ran `pytest tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split -v`. **FAILED** with `ValueError` in `_reassemble_position_batched` because `padded_size=None` when building `tf.zeros`. Likely cause: `ReassemblePatchesLayer` passes `padded_size=None` into `mk_reassemble_position_batched_real`, which then skips the `get_padded_size()` fallback. Artifacts: `.artifacts/FIX-REASSEMBLE-BATCH-DIM-001/pytest_reassemble_batch.log`. Next: treat `padded_size=None` as unset and rerun the regression test.
+  - *2026-01-11T021200Z:* Treated `padded_size=None` as unset in `mk_reassemble_position_batched_real` (fallback to `get_padded_size()`), then reran `pytest tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split -v`. **PASSED.** Artifacts: `.artifacts/FIX-REASSEMBLE-BATCH-DIM-001/pytest_reassemble_batch_fix.log`.
 
 ---
 

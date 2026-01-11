@@ -1343,10 +1343,9 @@ def mk_reassemble_position_batched_real(input_positions: tf.Tensor, batch_size: 
         # Merge outer_kwargs with kwargs (kwargs takes precedence)
         merged_kwargs = {**outer_kwargs, **kwargs}
 
-        if 'padded_size' not in merged_kwargs:
+        padded_size = merged_kwargs.pop('padded_size', None)
+        if padded_size is None:
             padded_size = get_padded_size()
-        else:
-            padded_size = merged_kwargs.pop('padded_size')
 
         return _reassemble_position_batched(imgs, input_positions, padded_size, batch_size, **merged_kwargs)
 
