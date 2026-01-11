@@ -397,7 +397,7 @@ def test_my_function():
 ## Related Documentation
 - `docs/DEVELOPER_GUIDE.md` §1 — Two-system architecture
 - `docs/DEVELOPER_GUIDE.md` §12 — Inference pipeline patterns
-- `docs/specs/spec-inference-pipeline.md` — API contracts for data containers
+- `specs/spec-inference-pipeline.md` — API contracts for data containers
 - `scripts/simulation/README.md` — Stage 1/Stage 2 simulation workflow
 - `specs/data_contracts.md` — NPZ format specification
 - `docs/findings.md` CONFIG-001 — params.cfg initialization requirement
