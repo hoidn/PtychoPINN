@@ -176,8 +176,7 @@ class ReassemblePatchesLayer(layers.Layer):
         from . import params
         padded_size = self.padded_size or params.get_padded_size()
         batch_size = input_shape[0][0]
-        channels = input_shape[0][-1]
-        return tf.TensorShape([batch_size, padded_size, padded_size, channels])
+        return tf.TensorShape([batch_size, padded_size, padded_size, 1])
 
     def get_config(self) -> Dict[str, Any]:
         config = super().get_config()

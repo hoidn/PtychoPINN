@@ -144,6 +144,29 @@
 
 ---
 
+### [FIX-REASSEMBLE-BATCH-DIM-001] Preserve Batch Dimension in Batched Reassembly
+- Depends on: None
+- Priority: High
+- Status: in_progress
+- Owner/Date: Codex/2026-01-11
+- Working Plan: `plans/active/FIX-REASSEMBLE-BATCH-DIM-001/implementation.md`
+- Summary: `plans/active/FIX-REASSEMBLE-BATCH-DIM-001/summary.md`
+- Test Strategy: `plans/active/FIX-REASSEMBLE-BATCH-DIM-001/test_strategy.md`
+- Artifacts: `.artifacts/FIX-REASSEMBLE-BATCH-DIM-001/`
+- Spec Owner: `docs/specs/spec-ptycho-workflow.md` (Reassembly Requirements)
+- Goals:
+  - Preserve batch dimension in `_reassemble_position_batched` for per-sample canvases.
+  - Align `ReassemblePatchesLayer` output shape metadata.
+  - Update regression test to assert batch dimension is preserved.
+- Exit Criteria:
+  - `_reassemble_position_batched` returns `(B, padded_size, padded_size, 1)` in batched mode.
+  - `ReassemblePatchesLayer` preserves batch dimension for gridsize > 1.
+  - `tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split` passes.
+- Attempts History:
+  - *2026-01-11T01:15:00Z:* Implemented per-sample batched reassembly using segment-sum accumulation, updated `ReassemblePatchesLayer.compute_output_shape`, and adjusted regression test to require batch preservation. Tests not run (per user request). Artifacts: `.artifacts/FIX-REASSEMBLE-BATCH-DIM-001/`.
+
+---
+
 ### [STUDY-SYNTH-FLY64-DOSE-OVERLAP-001] Synthetic fly64 dose/overlap study
 - Depends on: Phase C/E/F artifacts under `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/`; ~~FEAT-LAZY-LOADING-001~~ ✅ RESOLVED.
 - Priority: High

@@ -752,7 +752,7 @@ def test_pinn_reconstruction_reassembles_full_train_split():
     Exit criteria:
     - Layer processes >=5k patches successfully via batched reassembly path
     - Translation layer receives matching patch/offset tensor shapes in each batch
-    - Output shape is correct (1, padded_size, padded_size, 1) for complex tensors
+    - Output shape is correct (B, padded_size, padded_size, 1) for complex tensors
     - No ValueError from Translation layer about mismatched input shapes
 
     This regression test guards the fix in ptycho/custom_layers.py:ReassemblePatchesLayer
@@ -799,7 +799,7 @@ def test_pinn_reconstruction_reassembles_full_train_split():
         result = layer([patches, positions])
 
         # Verify output shape is correct
-        assert result.shape[0] == 1, f"Expected batch dimension 1, got {result.shape[0]}"
+        assert result.shape[0] == B, f"Expected batch dimension {B}, got {result.shape[0]}"
         assert result.shape[1] == expected_padded_size, \
             f"Expected height {expected_padded_size}, got {result.shape[1]}"
         assert result.shape[2] == expected_padded_size, \
