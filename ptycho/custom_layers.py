@@ -160,13 +160,9 @@ class ReassemblePatchesLayer(layers.Layer):
         from . import tf_helper as hh
         patches, positions = inputs
 
-        # Always use batched reassembly with a conservative batch size
-        # This handles Translation layer shape variations robustly
-        # The batched function automatically falls back to non-batched mode for small inputs
-        batch_size = 64
-        fn_reassemble = hh.mk_reassemble_position_batched_real(
-            positions, batch_size=batch_size, padded_size=self.padded_size, N=self.N,
-            gridsize=self.gridsize
+        # Use non-batched reassembly; outer training/inference controls batch size.
+        fn_reassemble = hh.mk_reassemble_position_real(
+            positions, padded_size=self.padded_size, N=self.N, gridsize=self.gridsize
         )
 
         return hh.reassemble_patches(patches, fn_reassemble_real=fn_reassemble,

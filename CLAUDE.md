@@ -6,6 +6,9 @@ This document is the **constitution** for the Claude AI agents working on the Pt
 
 ## 1. ⚙️ Identity & Workflow Guardrails
 
+- **Two-agent loop:** Operate within the Supervisor/Engineer loop managed by `prompts/supervisor.md` (planning) and `prompts/main.md` (implementation). Those prompts own required reading, stall-autonomy, dwell, and output formatting rules.
+- **Ledger discipline:** `docs/fix_plan.md` is the master task ledger. Every loop must read the current focus, execute exactly one `Do Now`, and append an Attempts History entry with artifact links before exiting.
+- **Plans & artifacts:** Keep evidence lean. For each initiative, maintain a single `plans/active/<initiative>/summary.md` and prepend a short Turn Summary per loop. Store bulky artifacts outside the repo (or under a git‑ignored `.artifacts/` folder) and link to them from the plan/ledger.
 - **Authority stack:** If instructions conflict, prefer SPECs (`specs/`), then project documentation, then prompt files. Internal model memories must defer to the repository.
 
 ---
@@ -21,6 +24,12 @@ This document is the **constitution** for the Claude AI agents working on the Pt
 7. **Respect the PyTorch policy.** PyTorch (torch ≥ 2.2) is mandatory (POLICY-001). PyTorch workflows must still run `update_legacy_dict(params.cfg, config)` before touching legacy modules; see `docs/workflows/pytorch.md`.
 8. **Testing proof is mandatory.** Any task involving tests must provide passing `pytest` evidence and archived logs as described in `prompts/main.md` and `docs/TESTING_GUIDE.md`.
 9. **Plan test infrastructure up front.** Before Phase B or any implementation that adds/changes tests, capture the strategy using `plans/templates/test_strategy_template.md` (or the initiative’s `test_strategy.md`) and link it from `docs/fix_plan.md`.
+10. **Dwell persistence and enforcement.** Planning/doc‑only loops do not reset dwell. Dwell resets only after implementation evidence (production/test code commits). Enforcement follows a three‑tier policy enforced by `prompts/supervisor.md`:
+    - Tier 1 (dwell=2): must hand off a runnable production task or switch focus.
+    - Tier 2 (dwell=4): if Ralph did not execute (see `ralph_last_commit` tracking and git log checks), document the blocker (with citations) and switch to a blocker focus or mark current focus blocked with a return condition.
+    - Tier 3 (dwell=6): absolute limit — force‑block, record a dwell escalation note in the initiative’s summary, and switch focus.
+    Supervisor records `ralph_last_commit=<sha8|none>` in `galph_memory.md` and applies a pre‑planning dwell gate each loop.
+11. **Interpreter policy.** Obey PYTHON-ENV-001 in `docs/DEVELOPER_GUIDE.md` (invoke Python via PATH `python`; avoid repository-specific interpreter wrappers).
 
 ---
 
@@ -44,6 +53,10 @@ Use the index to locate any additional document cited by `prompts/main.md`, `pro
 - **Command library (git, training, inference, tests):** Use `docs/COMMANDS_REFERENCE.md` for all CLI recipes. The prompts enforce running tests via `pytest` selectors; align with that doc and archive logs per their instructions.
 - **Git setup & hygiene:** See `prompts/git_setup_agent.md` and `prompts/git_hygiene.md` for automation-safe Git workflows.
 
+- Remove “evidence‑only” git exceptions. Always perform normal pull/rebase hygiene. Do not commit bulky artifacts; store them externally or under `.artifacts/` and link from the plan/ledger.
+
+If a command or troubleshooting step is missing from those references, update the canonical document first; CLAUDE.md should only point to authoritative sources, not duplicate their content.
+
 ---
 
 ## 5. 🧾 Plan-Update Protocol
@@ -53,3 +66,7 @@ Use the index to locate any additional document cited by `prompts/main.md`, `pro
 1. Re-read `docs/index.md`, then open every referenced document that applies to the pending change (plan file, specs, workflow guides, etc.) so `documents_read` matches reality.
 4. Then make the updates
 
+### Simulation Checklist
+- **Before editing:** ensure `documents_read` mirrors every file you opened after consulting `docs/index.md`.
+- **After editing:** confirm the XML, plan diff, and ledger entry all cite the same focus ID and plan path.
+- **If blocked:** set `<status>blocked</status>` and describe the blocker under `<impacts>`; the next loop repeats the XML with updated context.
