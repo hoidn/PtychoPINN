@@ -11,6 +11,9 @@ from ptycho.diffsim import sim_object_image
 from ptycho.nongrid_simulation import generate_simulated_data
 from ptycho.probe import get_default_probe
 from ptycho.raw_data import RawData
+from scripts.simulation.cache_utils import memoize_raw_data
+
+CACHE_ROOT = Path(".artifacts/synthetic_helpers/cache")
 
 
 def make_lines_object(
@@ -62,6 +65,7 @@ def make_probe(
     return probe_guess.astype(np.complex64)
 
 
+@memoize_raw_data(default_cache_dir=CACHE_ROOT, cache_prefix="nongrid_sim")
 def simulate_nongrid_raw_data(
     object_guess: np.ndarray,
     probe_guess: np.ndarray,
@@ -72,6 +76,8 @@ def simulate_nongrid_raw_data(
     seed: int,
     buffer: float | None = None,
     sim_gridsize: int = 1,
+    use_cache: bool = True,
+    cache_dir: Path | None = None,
 ) -> RawData:
     if sim_gridsize != 1:
         raise ValueError("simulate_nongrid_raw_data only supports sim_gridsize=1")
