@@ -192,6 +192,24 @@
 
 ---
 
+### [FIX-OBJECT-REASSEMBLY-BATCH-001] Batched object reassembly for stitching
+- Depends on: None
+- Priority: High
+- Status: pending — plan drafted; implementation not started.
+- Owner/Date: Codex/2026-01-12
+- Working Plan: `plans/active/FIX-OBJECT-REASSEMBLY-BATCH-001/implementation.md`
+- Reports Hub: `plans/active/FIX-OBJECT-REASSEMBLY-BATCH-001/reports/`
+- Spec Owner: `specs/compare_models_spec.md`
+- Goals:
+  - Add batched object reassembly that preserves `--stitch-crop-size` semantics.
+  - Update `scripts/compare_models.py` to use the batched path to avoid OOM.
+- Exit Criteria:
+  - Object reassembly supports `batch_size` and preserves `M` crop semantics.
+  - `scripts/compare_models.py` uses the batched object reassembly path for stitching when enabled.
+  - Targeted pytest selector(s) pass and capture equivalence for small inputs.
+
+---
+
 ### [STUDY-SYNTH-FLY64-DOSE-OVERLAP-001] Synthetic fly64 dose/overlap study
 - Depends on: Phase C/E/F artifacts under `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/`; ~~FEAT-LAZY-LOADING-001~~ ✅ RESOLVED.
 - Priority: High

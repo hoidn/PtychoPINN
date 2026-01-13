@@ -15,7 +15,7 @@ gaussian_smoothing_sigma: 0.0  # No smoothing
 # Training Parameters
 nepochs: 50              # Number of training epochs
 batch_size: 16           # Samples per batch (power of 2)
-n_images: 512            # Number of diffraction patterns to use
+n_images: 2048           # Number of diffraction patterns to use
 learning_rate: 0.001     # Learning rate for Adam optimizer
 
 # Physics & Loss Parameters
