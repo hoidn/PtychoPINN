@@ -22,17 +22,39 @@
 1. <criterion 1>
 2. <criterion 2>
 3. <criterion 3>
-4. Test registry synchronized: `docs/TESTING_GUIDE.md` §2 and `docs/development/TEST_SUITE_INDEX.md` reflect any new/changed tests; `pytest --collect-only` logs for documented selectors are saved under `plans/active/<initiative-id>/reports/<timestamp>/`. Do not close the initiative if any selector marked "Active" collects 0 tests.
+4. **Test coverage verified:**
+   - All cited selectors collect >0 tests (`pytest --collect-only`)
+   - All cited selectors pass
+   - No regression in existing test suite (full suite green or known-skip documented)
+   - Test registry synchronized: `docs/TESTING_GUIDE.md` §2 and `docs/development/TEST_SUITE_INDEX.md` updated
+   - Logs saved to `plans/active/<initiative-id>/reports/<timestamp>/`
 
 ## Compliance Matrix (Mandatory)
 > List the specific Spec constraints, Fix-Plan ledger rows, and Findings/Policies this initiative must honor. Missing a relevant entry is a plan defect per ARRP.
 - [ ] **Spec Constraint:** <e.g., `spec-db-core.md §5.2 — Variance model definition`>
 - [ ] **Fix-Plan Link:** <e.g., `docs/fix_plan.md — Row [PHYSICS-LOSS-001]`>
 - [ ] **Finding/Policy ID:** <e.g., `CONFIG-001`, `POLICY-001 (PyTorch Optional)`>
+- [ ] **Test Strategy:** <link to `test_strategy.md`> | "Inline `Test:` annotations sufficient"
 
 ## Spec Alignment
 - **Normative Spec:** [path to spec file]
 - **Key Clauses:** [list of specific requirements this plan satisfies]
+
+## Testing Integration
+
+**Principle:** Every checklist item that adds or modifies observable behavior MUST specify its test artifact.
+
+**Format for checklist items:**
+```
+- [ ] <ID>: <implementation task>
+      Test: <pytest selector> | N/A: <justification>
+```
+
+**Guidelines:**
+- `<selector>`: pytest selector covering this change (e.g., `tests/unit/test_foo.py::test_bar`)
+- `N/A`: Valid only for pure refactoring with existing coverage, documentation-only changes, or infrastructure with no behavior change
+
+**Complex testing needs:** Complete and link to initiative's `test_strategy.md` (template: `plans/templates/test_strategy_template.md`).
 
 ## Architecture / Interfaces (optional)
 - **Key Data Types / Protocols:**  
@@ -58,10 +80,12 @@
 
 ## Phase A — <name>
 ### Checklist
-- [ ] A0: **Nucleus / Test-first gate:** <minimal probe or selector to validate assumptions before implementation>
-- [ ] A1: <task> (owner, expected artifacts)
-- [ ] A2: <task>
-- [ ] A3: <task>
+- [ ] A0: **Nucleus / Test-first gate:** <minimal failing test or probe validating core assumption>
+      Test: <selector that fails before implementation, passes after>
+- [ ] A1: <implementation task>
+      Test: <selector> | N/A: <reason>
+- [ ] A2: <implementation task>
+      Test: <selector> | N/A: <reason>
 
 ### Dependency Analysis (Required for Refactors)
 - **Touched Modules:** [list]
@@ -73,16 +97,20 @@
 
 ## Phase B — <name>
 ### Checklist
-- [ ] B1: <task>
-- [ ] B2: <task>
+- [ ] B1: <implementation task>
+      Test: <selector> | N/A: <reason>
+- [ ] B2: <implementation task>
+      Test: <selector> | N/A: <reason>
 
 ### Notes & Risks
 - <risk 2>
 
 ## Phase C — <name>
 ### Checklist
-- [ ] C1: <task>
-- [ ] C2: <task>
+- [ ] C1: <implementation task>
+      Test: <selector> | N/A: <reason>
+- [ ] C2: <implementation task>
+      Test: <selector> | N/A: <reason>
 
 ### Notes & Risks
 - <risk 3>
