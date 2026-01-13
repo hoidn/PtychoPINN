@@ -1219,7 +1219,7 @@ def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 1
     # Streaming fallback: chunk to avoid OOM on gigantic datasets    #
     # -------------------------------------------------------------- #
     def _streaming():
-        chunk_sz = tf.constant(1024, tf.int32)
+        chunk_sz = tf.constant(256, tf.int32)
         result   = tf.zeros([padded_size, padded_size, 1], dtype=obj_tensor.dtype)
 
         # Use tf.while_loop instead of Python for loop

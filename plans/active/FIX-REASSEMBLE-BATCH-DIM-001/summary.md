@@ -1,4 +1,10 @@
 ### Turn Summary
+Reduced `shift_and_sum` streaming chunk size to 256 to lower peak reassembly memory.
+Updated `specs/spec-inference-pipeline.md` to reflect the new chunk size.
+Tests not run.
+Artifacts: none.
+
+### Turn Summary
 Switched `ReassemblePatchesLayer` to use the non-batched reassembly path while leaving `reassemble_whole_object` unchanged.
 Tests not run.
 Artifacts: none.

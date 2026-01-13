@@ -440,7 +440,7 @@ function shift_and_sum(
 1. Crop central M×M: `obj[:, N//2-M//2 : N//2+M//2, ...]`
 2. Center offsets: `adjusted = offsets - mean(offsets)`
 3. Compute canvas: `padded_size = M + 2*ceil(max(|adjusted|))`
-4. Stream chunks of 1024 patches with translation and accumulation
+4. Stream chunks of 256 patches (or smaller if needed) with translation and accumulation
 5. Return accumulated canvas
 
 ### 7.3. translate()
