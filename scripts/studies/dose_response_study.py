@@ -230,7 +230,6 @@ def simulate_datasets(
         logger.info(f"\n--- Simulating {arm_name} ---")
 
         # Create training config for this arm (with target gridsize)
-        # Enable oversampling for test data when gridsize > 1
         config = make_config(
             nphotons=arm_params['nphotons'],
             loss_type=arm_params['loss_type'],
@@ -240,7 +239,7 @@ def simulate_datasets(
             gridsize=gridsize,
             n_images=n_train,
             nepochs=nepochs,
-            enable_oversampling=True  # Required for gridsize > 1 with small test sets
+            enable_oversampling=False
         )
 
         # Generate training data with seed=1 for consistent trajectories
@@ -488,11 +487,11 @@ def sanity_check_datasets(datasets: Dict[str, Dict[str, Any]]) -> None:
     ratio = high_intensity / low_intensity
 
     logger.info(f"\nIntensity ratio (High/Low): {ratio:.2e}")
-    logger.info("Expected ratio: ~1e5 (from nphotons ratio 1e9/1e4)")
+    logger.info("Expected ratio: ~1.0 (diffraction is normalized; nphotons affects noise statistics)")
 
-    # Relaxed check: ratio should be > 1e3 (accounting for sqrt in amplitudes)
-    if ratio < 1e3:
-        logger.warning(f"Intensity ratio {ratio:.2e} is lower than expected!")
+    # Guard against unexpected scaling drift
+    if ratio < 0.5 or ratio > 2.0:
+        logger.warning(f"Intensity ratio {ratio:.2e} is outside expected normalized range!")
     else:
         logger.info("=== Intensity scaling verification PASSED ===")
 
@@ -745,8 +744,8 @@ def train_all_arms(
         Updated datasets dict with training results added
     """
     # Import training components (after params.cfg is set)
-    from ptycho.workflows.components import train_cdi_model
-    from ptycho.model_manager import ModelManager
+    from ptycho.workflows.backend_selector import train_cdi_model_with_backend
+    from ptycho import model_manager
 
     logger.info("\n=== Training All Arms (Nongrid Mode) ===")
 
@@ -756,7 +755,6 @@ def train_all_arms(
 
         config = arm_data['config']
         train_data = arm_data['train_data']
-        test_data = arm_data['test_data']
 
         # Critical: update params.cfg before each training run (CONFIG-001)
         update_legacy_dict(p.cfg, config)
@@ -772,51 +770,11 @@ def train_all_arms(
 
         # Train the model
         try:
-            train_results = train_cdi_model(train_data, test_data, config)
+            train_results = train_cdi_model_with_backend(train_data, None, config)
 
-            # Save the model weights to wts.h5.zip for later inference
-            model_instance = train_results.get('model_instance')
-            if model_instance is not None:
-                # Get intensity_scale from params
-                intensity_scale = p.cfg.get('intensity_scale', 1.0)
-
-                # Import model module here (after params are fully configured with probe)
-                from ptycho.model import create_model_with_gridsize, IntensityScaler
-                from ptycho.custom_layers import (
-                    FlatToChannelLayer, ScaleLayer, InvScaleLayer,
-                    ActivationLayer, SquareLayer, TrimReconstructionLayer,
-                    PadAndDiffractLayer
-                )
-
-                # Create diffraction_to_obj model from the autoencoder
-                # The autoencoder has 3 outputs, diffraction_to_obj has 1 (trimmed_obj)
-                _, diffraction_to_obj = create_model_with_gridsize(
-                    config.model.gridsize, config.model.N
-                )
-                # Copy weights from trained autoencoder to diffraction_to_obj
-                # Both models share the same encoder weights
-                diffraction_to_obj.set_weights(model_instance.get_weights()[:len(diffraction_to_obj.get_weights())])
-
-                models_to_save = {
-                    'autoencoder': model_instance,
-                    'diffraction_to_obj': diffraction_to_obj
-                }
-
-                model_path = str(config.output_dir / 'wts.h5')
-                custom_objects = {
-                    'IntensityScaler': IntensityScaler,
-                    'FlatToChannelLayer': FlatToChannelLayer,
-                    'ScaleLayer': ScaleLayer,
-                    'InvScaleLayer': InvScaleLayer,
-                    'ActivationLayer': ActivationLayer,
-                    'SquareLayer': SquareLayer,
-                    'TrimReconstructionLayer': TrimReconstructionLayer,
-                    'PadAndDiffractLayer': PadAndDiffractLayer,
-                }
-                ModelManager.save_multiple_models(
-                    models_to_save, model_path, custom_objects, intensity_scale
-                )
-                logger.info(f"Model saved to: {model_path}.zip")
+            # Save the model bundle for inference (includes custom layers).
+            model_manager.save(str(config.output_dir))
+            logger.info("Model saved to: %s/wts.h5.zip", config.output_dir)
 
             results[arm_name] = {
                 **arm_data,
@@ -862,6 +820,10 @@ def run_inference(
         Updated results dict with reconstructions added
     """
     from ptycho import tf_helper as hh
+    from ptycho.config.config import InferenceConfig, ModelConfig
+    from ptycho.workflows.backend_selector import load_inference_bundle_with_backend
+    from ptycho import loader
+    from ptycho import nbutils
 
     logger.info("\n=== Running Inference ===")
 
@@ -873,51 +835,56 @@ def run_inference(
         logger.info(f"\n--- Inference for {arm_name} ---")
 
         config = arm_data['config']
-        train_results = arm_data.get('train_results', {})
-
         # Update params.cfg (CONFIG-001)
         update_legacy_dict(p.cfg, config)
 
         try:
-            # Use reconstructed_obj from training results (already computed)
-            recon_obj = train_results.get('reconstructed_obj')
-            test_container = train_results.get('test_container')
-
-            if recon_obj is not None and test_container is not None:
-                logger.info(f"Using reconstructed_obj from training, shape: {recon_obj.shape}")
-
-                # Stitch reconstruction
-                try:
-                    recon = hh.reassemble_position(
-                        recon_obj,
-                        test_container.global_offsets,
-                        M=20
-                    )
-                    recon_amp = np.abs(recon)
-                    recon_phase = np.angle(recon)
-
-                    results[arm_name]['reconstruction'] = {
-                        'amplitude': recon_amp,
-                        'phase': recon_phase,
-                        'patches': recon_obj
-                    }
-                    logger.info(f"Reconstruction shape: {recon_amp.shape}")
-                except Exception as stitch_e:
-                    logger.warning(f"Stitching failed for {arm_name}: {stitch_e}")
-                    # Store individual patches as fallback
-                    # Take mean amplitude of all patches as a simple visualization
-                    mean_patch_amp = np.mean(np.abs(recon_obj), axis=0)
-                    if mean_patch_amp.ndim > 2:
-                        mean_patch_amp = np.squeeze(mean_patch_amp)
-                    results[arm_name]['reconstruction'] = {
-                        'amplitude': mean_patch_amp,
-                        'phase': np.mean(np.angle(recon_obj), axis=0).squeeze(),
-                        'patches': recon_obj
-                    }
-                    logger.info(f"Using mean patch visualization, shape: {mean_patch_amp.shape}")
-            else:
-                logger.warning(f"No reconstructed_obj for {arm_name}")
+            test_data = arm_data.get('test_data')
+            if test_data is None:
+                logger.warning(f"No test_data available for {arm_name}")
                 results[arm_name]['reconstruction'] = None
+                continue
+
+            model_dir = Path(config.output_dir)
+            infer_config = InferenceConfig(
+                model=ModelConfig(N=config.model.N, gridsize=config.model.gridsize),
+                model_path=model_dir,
+                test_data_file=model_dir / "dummy.npz",
+                n_groups=None,
+                neighbor_count=config.neighbor_count,
+                backend=config.backend,
+            )
+            model, params_dict = load_inference_bundle_with_backend(model_dir, infer_config)
+
+            raw_count = len(test_data.diff3d)
+            if config.n_groups is None:
+                group_count = raw_count
+            else:
+                group_count = min(raw_count, config.n_groups)
+
+            grouped = test_data.generate_grouped_data(
+                params_dict.get("N", config.model.N),
+                K=config.neighbor_count,
+                nsamples=group_count,
+                gridsize=params_dict.get("gridsize", config.model.gridsize),
+                enable_oversampling=False,
+            )
+            container = loader.load(lambda: grouped, test_data.probeGuess, which=None, create_split=False)
+
+            obj_tensor_full, global_offsets = nbutils.reconstruct_image(
+                container,
+                diffraction_to_obj=model,
+            )
+            recon = hh.reassemble_position(obj_tensor_full, global_offsets, M=20)
+            recon_amp = np.abs(recon)
+            recon_phase = np.angle(recon)
+
+            results[arm_name]['reconstruction'] = {
+                'amplitude': recon_amp,
+                'phase': recon_phase,
+                'patches': obj_tensor_full
+            }
+            logger.info(f"Reconstruction shape: {recon_amp.shape}")
 
         except Exception as e:
             logger.error(f"Inference failed for {arm_name}: {e}")

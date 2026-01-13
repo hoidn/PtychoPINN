@@ -32,6 +32,7 @@ class RunParams:
     N: int = 64
     object_size: int = 392
     object_seed: int = 42
+    buffer: float = 10.0
     split_fraction: float = 0.5
     base_total_images: int = 2000
     group_count: int = 1000
@@ -139,7 +140,7 @@ def run_inference(
 def save_reconstruction(output_dir: Path, amplitude: np.ndarray, phase: np.ndarray) -> None:
     from ptycho.workflows.components import save_outputs
 
-    save_outputs(amplitude, phase, {}, str(output_dir))
+    save_outputs(amplitude, phase, {}, str(output_dir), crop_mode="square")
 
 
 def write_run_metadata(path: Path, metadata: Dict[str, object]) -> None:
@@ -200,6 +201,9 @@ def run_scenario(
     else:
         raise ValueError(f"Unknown probe_mode: {scenario.probe_mode}")
 
+    if buffer is None:
+        buffer = params.buffer
+
     raw_data = simulate_nongrid_raw_data(
         object_guess,
         probe_guess,
@@ -251,6 +255,7 @@ def run_scenario(
         "N": params.N,
         "object_size": params.object_size,
         "object_seed": params.object_seed,
+        "buffer": buffer,
         "split_fraction": params.split_fraction,
         "base_total_images": params.base_total_images,
         "total_images": total_images,

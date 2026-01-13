@@ -59,6 +59,7 @@ This document provides a comprehensive index of the automated tests in the `test
 | `scripts/test_training_backend_selector.py` | Backend selector dispatch coverage for `scripts/training/train.py`. | `test_pytorch_backend_dispatch`, `test_tensorflow_backend_persistence` | `pytest tests/scripts/test_training_backend_selector.py -v` | Ensures TensorFlow-only persistence is guarded. |
 | `scripts/test_synthetic_helpers.py` | Unit tests for synthetic helper utilities (object/probe creation, nongrid simulation, splits). | `test_make_lines_object_seeded_restores_data_source`, `test_simulate_nongrid_seeded` | `pytest tests/scripts/test_synthetic_helpers.py -v` | Uses small fixtures for fast simulation. |
 | `scripts/test_synthetic_helpers_cli_smoke.py` | CLI `--help` smoke coverage for study/simulation scripts and pipeline import. | `test_dose_response_study_help`, `test_run_with_synthetic_lines_help` | `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v` | Ensures script entry points remain callable. |
+| `scripts/test_dose_response_study.py` | Regression test for dose_response_study inference group-count capping. | `test_run_inference_caps_groups` | `pytest tests/scripts/test_dose_response_study.py -v` | Uses mocks to avoid heavy inference. |
 
 ### Image Tests (`tests/image/`)
 

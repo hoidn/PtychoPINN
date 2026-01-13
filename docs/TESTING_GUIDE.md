@@ -51,12 +51,13 @@ Fast, focused tests that validate individual components and functions in isolati
 
 Lightweight tests for script-level helpers and CLI `--help` smoke coverage.
 
-- **Location:** `tests/scripts/test_synthetic_helpers.py`, `tests/scripts/test_synthetic_helpers_cli_smoke.py`
+- **Location:** `tests/scripts/test_synthetic_helpers.py`, `tests/scripts/test_synthetic_helpers_cli_smoke.py`, `tests/scripts/test_dose_response_study.py`
 - **Purpose:** Validate synthetic helper utilities and ensure key study/simulation CLIs expose `--help`
 - **Selectors:**
   ```bash
   pytest tests/scripts/test_synthetic_helpers.py -v
   pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v
+  pytest tests/scripts/test_dose_response_study.py -v
   ```
 
 ### Integration Tests

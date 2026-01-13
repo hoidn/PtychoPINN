@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-13 (SYNTH-HELPERS-001 complete)
-**Active Focus:** SYNTH-HELPERS-001 — Script-level synthetic simulation helpers (complete; next focus TBD)
+**Last Updated:** 2026-01-13 (STUDY-SYNTH-DOSE-COMPARISON-001 rerun)
+**Active Focus:** STUDY-SYNTH-DOSE-COMPARISON-001 — Synthetic Dose Response & Loss Comparison Study
 
 ---
 
@@ -33,6 +33,7 @@
 - Attempts History:
   - *2026-01-11T081911Z:* Implemented SIM-LINES-4X pipeline + scenario runners. Added core pipeline module and four runner scripts under `scripts/studies/sim_lines_4x/` with a README; updated `docs/index.md` and `scripts/studies/README.md`. **Static analysis:** `ruff check scripts/studies/sim_lines_4x` passed. **Tests:** `pytest -m integration` passed (1 passed, 2 skipped pre-existing). Artifacts: `plans/active/SIM-LINES-4X-001/reports/2026-01-11T081911Z/ruff_check.log`, `plans/active/SIM-LINES-4X-001/reports/2026-01-11T081911Z/pytest_integration.log`. Next: execute four scenarios (C1-C3) and capture outputs.
   - *2026-01-11T083629Z:* Updated SIM-LINES-4X pipeline to scale `total_images` by `gridsize^2` while keeping `group_count=1000` per split. Reran gs2 scenarios with `total_images=8000` and `train/test=4000/4000`; outputs saved under `.artifacts/sim_lines_4x/{gs2_ideal,gs2_integration}`. **Static analysis:** `ruff check scripts/studies/sim_lines_4x` passed. Artifacts: `plans/active/SIM-LINES-4X-001/reports/2026-01-11T083629Z/ruff_check.log`, `plans/active/SIM-LINES-4X-001/reports/2026-01-11T083629Z/run_gs2_ideal.log`, `plans/active/SIM-LINES-4X-001/reports/2026-01-11T083629Z/run_gs2_integration_probe.log`. Notes: stitch warnings logged during inference but outputs written.
+  - *2026-01-12T231841Z:* Updated sim_lines_4x figure presentation (square crop + nonzero vmin colormap scaling) and regenerated inference outputs for gs1/gs2 ideal/custom scenarios. Artifacts: `outputs/sim_lines_4x_rerun_20260113T025238Z/gs1_ideal/inference_outputs/`, `outputs/sim_lines_4x_rerun_20260113T025238Z/gs1_custom/inference_outputs/`, `outputs/sim_lines_4x_rerun_20260113T025238Z/gs2_ideal/inference_outputs/`, `outputs/sim_lines_4x_rerun_20260113T025238Z/gs2_custom/inference_outputs/`.
 
 ### [SYNTH-HELPERS-001] Script-level synthetic simulation helpers
 - Depends on: None
@@ -89,9 +90,10 @@
 ### [STUDY-SYNTH-DOSE-COMPARISON-001] Synthetic Dose Response & Loss Comparison Study
 - Depends on: REFACTOR-MODEL-SINGLETON-001 ✅ (complete), FIX-GRIDSIZE-TRANSLATE-BATCH-001 ✅ (complete)
 - Priority: **Critical** (Scientific Validation — Top Priority)
-- Status: done — All exit criteria met; study complete with 4 trained models and 6-panel figure.
+- Status: in_progress — Reopening to fix nongrid inference workflow regression (dose response script).
 - Owner/Date: Ralph/2026-01-07
 - Working Plan: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/implementation.md`
+- Test Strategy: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/test_strategy.md`
 - Reports Hub: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/`
 - Spec Owner: `docs/specs/spec-ptycho-core.md` (Physics/Normalization)
 - Goals:
@@ -109,6 +111,11 @@
 - Attempts History:
   - *2026-01-07T07:30:00Z:* Attempted to run dose_response_study.py with gridsize=2, nepochs=5. Failed with XLA translate batch mismatch: `Input to reshape is a tensor with 389376 values, but the requested shape has 24336` in `projective_warp_xla.py:182`. Root cause identified: Translation layer batch dimension mismatch for gridsize>1. Artifacts: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T073000Z/dose_study_run.log`. Next: File FIX-GRIDSIZE-TRANSLATE-BATCH-001.
   - *2026-01-07T20:00:00Z (STUDY COMPLETE):* Executed full study after FIX-GRIDSIZE-TRANSLATE-BATCH-001 resolved XLA batch broadcast. **Results:** (1) All 4 arms trained successfully: high_nll, high_mae, low_nll, low_mae; (2) All 4 models saved (wts.h5.zip ~35MB each); (3) Figure `dose_comparison.png` (324KB) produced; (4) Training history JSON saved; (5) Test registry: 532 tests collected, no regressions. **Metrics:** Training 5 epochs, gridsize=2, N=64, n_train=2000, n_test=128. XLA compilation confirmed (`Compiled cluster using XLA!`). **Artifacts:** `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-07T200000Z/` (dose_study_run.log, pytest_sanity.log, pytest_collect.log, study_outputs/). **Note:** Object stitching warning at end is non-critical post-processing.
+  - *2026-01-13T061238Z:* Reran dose_response_study.py with `--nepochs 5` and outputs to `.artifacts/dose_response_study/2026-01-13T061238Z`. **Observations:** intensity ratio logged as 1.23e+00 vs expected ~1e5; training losses hit NaN (e.g., low_mae final loss = nan); stitch warnings logged (`cannot reshape array of size 8192000 into shape (25,25,64,64,1)`). Figure and training history were regenerated in the reports directory. Artifacts: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/2026-01-13T061238Z/dose_response_study.log`, outputs under `.artifacts/dose_response_study/2026-01-13T061238Z/`.
+  - *2026-01-13T064343Z:* Updated dose_response_study.py to follow the sim_lines_4x inference workflow (bundle load → group → reconstruct → stitch), capped inference groups to available test images, and removed oversampling for small test splits. Added a pytest regression guard for inference group-count capping and documented test strategy. **Artifacts:** `.artifacts/STUDY-SYNTH-DOSE-COMPARISON-001/2026-01-13T064343Z/` (ruff_check.log, pytest_dose_response_study.log, pytest_collect_scripts.log). Next: rerun the study and confirm reconstructions are stable.
+  - *2026-01-13T065840Z:* Attempted rerun of dose_response_study.py (nepochs=5) but the command timed out after 120s during training. Artifacts: `.artifacts/STUDY-SYNTH-DOSE-COMPARISON-001/2026-01-13T065840Z/dose_response_study.log`.
+  - *2026-01-13T070124Z:* Reran dose_response_study.py with `--nepochs 5` to `.artifacts/dose_response_study/2026-01-13T070124Z`. **Results:** training completed for all four arms, but inference failed to reload model bundles with `ProbeIllumination` missing in Keras deserialization; reconstructions are invalid until model loading is fixed. Figure and training history were still regenerated. Artifacts: `.artifacts/STUDY-SYNTH-DOSE-COMPARISON-001/2026-01-13T070124Z/dose_response_study.log`, outputs under `.artifacts/dose_response_study/2026-01-13T070124Z/`.
+  - *2026-01-13T070738Z:* Reran dose_response_study.py after switching model saving to the shared model_manager bundle path; training + inference completed for all four arms and the 6-panel figure includes reconstructions. Artifacts: `.artifacts/STUDY-SYNTH-DOSE-COMPARISON-001/2026-01-13T070738Z/dose_response_study.log`, outputs under `.artifacts/dose_response_study/2026-01-13T070738Z/`.
 
 ---
 
