@@ -24,7 +24,7 @@
 - Reports Hub: `plans/active/SIM-LINES-4X-001/reports/`
 - Spec Owner: `specs/spec-inference-pipeline.md`
 - Goals:
-  - Simulate four datasets from a synthetic lines object (gs1/gs2 x idealized/integration probe).
+  - Simulate four datasets from a synthetic lines object (gs1/gs2 x idealized/custom probe).
   - Train TF models and reconstruct the contiguous test split for each scenario.
 - Exit Criteria:
   - Four scenario runs complete with saved bundles and reconstruction images.

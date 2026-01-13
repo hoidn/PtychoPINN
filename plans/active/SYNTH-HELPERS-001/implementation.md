@@ -57,7 +57,7 @@
     - If `seed` is provided, sets NumPy RNG for deterministic object generation.
   - `make_probe(N: int, *, mode: str = "idealized", path: Path | None = None, scale: float = 0.7) -> np.ndarray`
     - `idealized`: uses `probe.get_default_probe(N, fmt="np")` and sets `params.cfg['default_probe_scale']` if missing.
-    - `integration`: loads `probeGuess` from NPZ at `path`, validates shape `(N, N)`. Raises `KeyError` if `probeGuess` is missing (no fallback keys).
+    - `custom`: loads `probeGuess` from NPZ at `path`, validates shape `(N, N)`. Raises `KeyError` if `probeGuess` is missing (no fallback keys).
     - Returns `complex64` probe array, no other side effects.
   - `simulate_nongrid_raw_data(object_guess: np.ndarray, probe_guess: np.ndarray, *, N: int, n_images: int, nphotons: float, seed: int, buffer: float | None = None, sim_gridsize: int = 1) -> RawData`
     - Enforces `sim_gridsize == 1` (raises `ValueError` otherwise) to match `RawData.from_simulation` limitations.
@@ -75,7 +75,7 @@
 - Primary docs/specs to re-read: `docs/DATA_GENERATION_GUIDE.md`, `docs/DEVELOPER_GUIDE.md`, `docs/architecture.md`, `docs/TESTING_GUIDE.md`, `plans/templates/test_strategy_template.md`
 - Required findings/case law: `docs/findings.md` — CONFIG-001, ANTIPATTERN-001, PYTHON-ENV-001
 - Related telemetry/attempts: N/A
-- Data dependencies to verify: integration probe path `ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz`
+- Data dependencies to verify: custom probe path `ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz`
 
 ## Phase A — Design & Inventory
 ### Checklist

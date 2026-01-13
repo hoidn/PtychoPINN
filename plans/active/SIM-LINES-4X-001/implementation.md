@@ -8,7 +8,7 @@
 - Status: pending
 
 ## Goals
-- Simulate four datasets from a synthetic "lines" object: (gridsize=1,2) x (idealized probe, integration-test probe).
+- Simulate four datasets from a synthetic "lines" object: (gridsize=1,2) x (idealized probe, custom probe).
 - Run TF training + inference on the test split only, with a contiguous spatial split.
 
 ## Phases Overview
@@ -17,7 +17,7 @@
 - Phase C -- Validation: run all scenarios and confirm outputs.
 
 ## Exit Criteria
-1. Four scenario runs complete: gs1/gs2 x idealized/integration probe.
+1. Four scenario runs complete: gs1/gs2 x idealized/custom probe.
 2. Each run produces a trained bundle + reconstructed amplitude/phase for the test split.
 3. Run logs capture key parameters (N=64, object_size=392, split=0.5, test_n=1000).
 4. Workflow ledger and summary artifacts updated (docs/fix_plan.md + plans/active/SIM-LINES-4X-001/summary.md).
@@ -65,7 +65,7 @@
   - CONFIG-001, MODULE-SINGLETON-001, ANTIPATTERN-001, BUG-TF-001
 - Related telemetry/attempts: none
 - Data dependencies to verify:
-  - Integration probe source: ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz
+  - Custom probe source: ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz
 
 ## Phase A -- Design
 ### Checklist

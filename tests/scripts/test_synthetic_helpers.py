@@ -23,23 +23,23 @@ def test_make_lines_object_seeded_restores_data_source():
     assert params.get("data_source") == original_source
 
 
-def test_make_probe_integration_loads_probe(tmp_path):
+def test_make_probe_custom_loads_probe(tmp_path):
     N = 8
     probe = (np.ones((N, N)) + 1j).astype(np.complex64)
     probe_path = tmp_path / "probe.npz"
     np.savez(probe_path, probeGuess=probe)
 
-    loaded = helpers.make_probe(N, mode="integration", path=probe_path)
+    loaded = helpers.make_probe(N, mode="custom", path=probe_path)
     assert loaded.shape == (N, N)
     assert loaded.dtype == np.complex64
 
 
-def test_make_probe_integration_requires_key(tmp_path):
+def test_make_probe_custom_requires_key(tmp_path):
     probe_path = tmp_path / "probe.npz"
     np.savez(probe_path, not_probe=np.ones((4, 4)))
 
     with pytest.raises(KeyError):
-        helpers.make_probe(4, mode="integration", path=probe_path)
+        helpers.make_probe(4, mode="custom", path=probe_path)
 
 
 def test_simulate_nongrid_seeded():

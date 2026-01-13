@@ -17,14 +17,14 @@ from scripts.simulation.synthetic_helpers import (
     split_raw_data_by_axis,
 )
 
-INTEGRATION_PROBE_PATH = Path("ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz")
+CUSTOM_PROBE_PATH = Path("ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz")
 
 
 @dataclass(frozen=True)
 class ScenarioSpec:
     name: str
     gridsize: int
-    probe_mode: str  # "idealized" or "integration"
+    probe_mode: str  # "idealized" or "custom"
 
 
 @dataclass(frozen=True)
@@ -117,7 +117,7 @@ def run_inference(
     infer_config = InferenceConfig(
         model=ModelConfig(N=params.N, gridsize=gridsize),
         model_path=model_dir,
-        test_data_file=INTEGRATION_PROBE_PATH,
+        test_data_file=CUSTOM_PROBE_PATH,
         n_groups=group_count,
         neighbor_count=params.neighbor_count,
         backend="tensorflow",
@@ -192,8 +192,8 @@ def run_scenario(
     )
 
     object_guess = make_lines_object(params.object_size)
-    if scenario.probe_mode == "integration":
-        probe_guess = make_probe(params.N, mode="integration", path=INTEGRATION_PROBE_PATH)
+    if scenario.probe_mode == "custom":
+        probe_guess = make_probe(params.N, mode="custom", path=CUSTOM_PROBE_PATH)
     elif scenario.probe_mode == "idealized":
         probe_guess = make_probe(params.N, mode="idealized")
     else:

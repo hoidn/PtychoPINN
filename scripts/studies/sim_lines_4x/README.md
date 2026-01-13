@@ -9,9 +9,9 @@ inference on the contiguous test split.
 Four runner scripts map to the required scenarios:
 
 - `run_gs1_ideal.py` - gridsize=1, idealized probe
-- `run_gs1_integration_probe.py` - gridsize=1, integration-test probe
+- `run_gs1_custom_probe.py` - gridsize=1, custom probe
 - `run_gs2_ideal.py` - gridsize=2, idealized probe
-- `run_gs2_integration_probe.py` - gridsize=2, integration-test probe
+- `run_gs2_custom_probe.py` - gridsize=2, custom probe
 
 ## Locked Parameters
 
@@ -34,9 +34,9 @@ groups as the `gridsize=1` scenarios. Train and test splits are equal sized.
 
 ```bash
 python scripts/studies/sim_lines_4x/run_gs1_ideal.py --output-root outputs/sim_lines_4x --nepochs 5
-python scripts/studies/sim_lines_4x/run_gs1_integration_probe.py --output-root outputs/sim_lines_4x --nepochs 5
+python scripts/studies/sim_lines_4x/run_gs1_custom_probe.py --output-root outputs/sim_lines_4x --nepochs 5
 python scripts/studies/sim_lines_4x/run_gs2_ideal.py --output-root outputs/sim_lines_4x --nepochs 5
-python scripts/studies/sim_lines_4x/run_gs2_integration_probe.py --output-root outputs/sim_lines_4x --nepochs 5
+python scripts/studies/sim_lines_4x/run_gs2_custom_probe.py --output-root outputs/sim_lines_4x --nepochs 5
 ```
 
 Optional gs2 scaling (e.g., 5x images and groups):
@@ -64,5 +64,5 @@ outputs/sim_lines_4x/<scenario>/
   run_metadata.json
 ```
 
-The integration probe is sourced from:
+The custom probe is sourced from:
 `ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz`.

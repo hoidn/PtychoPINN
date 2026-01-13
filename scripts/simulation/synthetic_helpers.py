@@ -45,11 +45,11 @@ def make_probe(
         if params.cfg.get("default_probe_scale") is None:
             params.cfg["default_probe_scale"] = scale
         probe_guess = get_default_probe(N=N, fmt="np")
-    elif mode == "integration":
+    elif mode == "custom":
         if path is None:
-            raise ValueError("path is required for integration probe mode")
+            raise ValueError("path is required for custom probe mode")
         if not path.exists():
-            raise FileNotFoundError(f"Integration probe not found: {path}")
+            raise FileNotFoundError(f"Custom probe not found: {path}")
         with np.load(path) as data:
             if "probeGuess" not in data:
                 raise KeyError(f"probeGuess missing in {path}")

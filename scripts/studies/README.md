@@ -67,7 +67,7 @@ python scripts/studies/aggregate_and_plot_results.py <study_output_dir> [--outpu
 
 ### `sim_lines_4x/`
 Scenario runners for SIM-LINES-4X: nongrid "lines" simulation with TF training and reconstruction
-across gs1/gs2 and idealized/integration probes.
+across gs1/gs2 and idealized/custom probes.
 
 **Usage:**
 ```bash
