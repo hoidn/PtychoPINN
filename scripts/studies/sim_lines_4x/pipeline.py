@@ -31,6 +31,7 @@ class ScenarioSpec:
 class RunParams:
     N: int = 64
     object_size: int = 392
+    object_seed: int = 42
     split_fraction: float = 0.5
     base_total_images: int = 2000
     group_count: int = 1000
@@ -191,7 +192,7 @@ def run_scenario(
         group_count,
     )
 
-    object_guess = make_lines_object(params.object_size)
+    object_guess = make_lines_object(params.object_size, seed=params.object_seed)
     if scenario.probe_mode == "custom":
         probe_guess = make_probe(params.N, mode="custom", path=CUSTOM_PROBE_PATH)
     elif scenario.probe_mode == "idealized":
@@ -249,6 +250,7 @@ def run_scenario(
         "gridsize": scenario.gridsize,
         "N": params.N,
         "object_size": params.object_size,
+        "object_seed": params.object_seed,
         "split_fraction": params.split_fraction,
         "base_total_images": params.base_total_images,
         "total_images": total_images,

@@ -870,7 +870,56 @@ def run_cdi_example(
     return recon_amp, recon_phase, train_results
 
 
-def save_outputs(amplitude: Optional[np.ndarray], phase: Optional[np.ndarray], results: Dict[str, Any], output_prefix: str) -> None:
+def _crop_square_nonzero(
+    amplitude: np.ndarray,
+    phase: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
+    if amplitude.ndim != 2 or phase.ndim != 2:
+        return amplitude, phase
+
+    if amplitude.size == 0:
+        return amplitude, phase
+
+    max_val = float(np.max(amplitude))
+    if max_val <= 0.0:
+        return amplitude, phase
+
+    threshold = max(max_val * 1e-6, 1e-12)
+    mask = amplitude > threshold
+    if not np.any(mask):
+        return amplitude, phase
+
+    rows, cols = np.where(mask)
+    rmin, rmax = int(rows.min()), int(rows.max())
+    cmin, cmax = int(cols.min()), int(cols.max())
+    height = rmax - rmin + 1
+    width = cmax - cmin + 1
+
+    if height == width:
+        return amplitude[rmin : rmax + 1, cmin : cmax + 1], phase[rmin : rmax + 1, cmin : cmax + 1]
+
+    if height > width:
+        size = width
+        r_start = rmin + (height - size) // 2
+        r_end = r_start + size
+        c_start, c_end = cmin, cmax + 1
+    else:
+        size = height
+        c_start = cmin + (width - size) // 2
+        c_end = c_start + size
+        r_start, r_end = rmin, rmax + 1
+
+    return amplitude[r_start:r_end, c_start:c_end], phase[r_start:r_end, c_start:c_end]
+
+
+def save_outputs(
+    amplitude: Optional[np.ndarray],
+    phase: Optional[np.ndarray],
+    results: Dict[str, Any],
+    output_prefix: str,
+    cmap: str = "jet",
+    crop_square_nonzero: bool = True,
+) -> None:
     """Save the generated images and results."""
     os.makedirs(output_prefix, exist_ok=True)
     
@@ -888,15 +937,18 @@ def save_outputs(amplitude: Optional[np.ndarray], phase: Optional[np.ndarray], r
         logger.info(f"Squeezed amplitude shape: {amplitude.shape}")
         logger.info(f"Squeezed phase shape: {phase.shape}")
         
+        if crop_square_nonzero:
+            amplitude, phase = _crop_square_nonzero(amplitude, phase)
+
         # Save as PNG files using plt.figure() to handle 2D arrays properly
-        plt.figure(figsize=(8,8))
-        plt.imshow(amplitude, cmap='gray')
+        plt.figure(figsize=(8, 8))
+        plt.imshow(amplitude, cmap=cmap)
         plt.colorbar()
         plt.savefig(os.path.join(output_prefix, "reconstructed_amplitude.png"))
         plt.close()
         
-        plt.figure(figsize=(8,8))
-        plt.imshow(phase, cmap='viridis')
+        plt.figure(figsize=(8, 8))
+        plt.imshow(phase, cmap=cmap)
         plt.colorbar()
         plt.savefig(os.path.join(output_prefix, "reconstructed_phase.png"))
         plt.close()
