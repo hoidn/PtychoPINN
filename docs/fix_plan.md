@@ -34,6 +34,27 @@
   - *2026-01-11T081911Z:* Implemented SIM-LINES-4X pipeline + scenario runners. Added core pipeline module and four runner scripts under `scripts/studies/sim_lines_4x/` with a README; updated `docs/index.md` and `scripts/studies/README.md`. **Static analysis:** `ruff check scripts/studies/sim_lines_4x` passed. **Tests:** `pytest -m integration` passed (1 passed, 2 skipped pre-existing). Artifacts: `plans/active/SIM-LINES-4X-001/reports/2026-01-11T081911Z/ruff_check.log`, `plans/active/SIM-LINES-4X-001/reports/2026-01-11T081911Z/pytest_integration.log`. Next: execute four scenarios (C1-C3) and capture outputs.
   - *2026-01-11T083629Z:* Updated SIM-LINES-4X pipeline to scale `total_images` by `gridsize^2` while keeping `group_count=1000` per split. Reran gs2 scenarios with `total_images=8000` and `train/test=4000/4000`; outputs saved under `.artifacts/sim_lines_4x/{gs2_ideal,gs2_integration}`. **Static analysis:** `ruff check scripts/studies/sim_lines_4x` passed. Artifacts: `plans/active/SIM-LINES-4X-001/reports/2026-01-11T083629Z/ruff_check.log`, `plans/active/SIM-LINES-4X-001/reports/2026-01-11T083629Z/run_gs2_ideal.log`, `plans/active/SIM-LINES-4X-001/reports/2026-01-11T083629Z/run_gs2_integration_probe.log`. Notes: stitch warnings logged during inference but outputs written.
 
+### [SYNTH-HELPERS-001] Script-level synthetic simulation helpers
+- Depends on: None
+- Priority: Medium
+- Status: pending — Phase A planning (test strategy + ledger linkage)
+- Owner/Date: TBD/2026-01-13
+- Working Plan: `plans/active/SYNTH-HELPERS-001/implementation.md`
+- Test Strategy: `plans/active/SYNTH-HELPERS-001/test_strategy.md` (pending)
+- Reports Hub: `plans/active/SYNTH-HELPERS-001/reports/`
+- Spec Owner: `docs/DATA_GENERATION_GUIDE.md`
+- Goals:
+  - Add script-level helpers for synthetic object/probe creation and nongrid simulation.
+  - Refactor dose study, sim_lines_4x, and synthetic lines runner to use helpers.
+  - Add helper unit tests and CLI smoke coverage.
+- Exit Criteria:
+  - Helpers implemented under `scripts/simulation/synthetic_helpers.py` with deterministic seed and split behavior.
+  - Refactored scripts use helpers with no behavior regressions.
+  - Helper unit tests + CLI smoke tests pass; logs archived under the plan reports hub.
+  - Ledger and test registry updated.
+- Attempts History:
+  - *2026-01-13T01:00:00Z:* Drafted implementation plan at `plans/active/SYNTH-HELPERS-001/implementation.md` with helper API definition and test plan; test strategy + ledger linkage pending.
+
 ### [REFACTOR-MODEL-SINGLETON-001] Remove Module-Level Singletons in ptycho/model.py
 - Depends on: None
 - Priority: **Critical** (Unblocks STUDY-SYNTH-DOSE-COMPARISON-001)
