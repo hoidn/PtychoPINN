@@ -167,6 +167,7 @@
   - *2026-01-11T020400Z:* Ran `pytest tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split -v`. **FAILED** with `ValueError` in `_reassemble_position_batched` because `padded_size=None` when building `tf.zeros`. Likely cause: `ReassemblePatchesLayer` passes `padded_size=None` into `mk_reassemble_position_batched_real`, which then skips the `get_padded_size()` fallback. Artifacts: `.artifacts/FIX-REASSEMBLE-BATCH-DIM-001/pytest_reassemble_batch.log`. Next: treat `padded_size=None` as unset and rerun the regression test.
   - *2026-01-11T021200Z:* Treated `padded_size=None` as unset in `mk_reassemble_position_batched_real` (fallback to `get_padded_size()`), then reran `pytest tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split -v`. **PASSED.** Artifacts: `.artifacts/FIX-REASSEMBLE-BATCH-DIM-001/pytest_reassemble_batch_fix.log`.
   - *2026-01-12T23:49:39Z:* Switched `ReassemblePatchesLayer` to use non-batched reassembly via `mk_reassemble_position_real` per request; `reassemble_whole_object` unchanged. Tests not run.
+  - *2026-01-13T00:04:50Z:* Enforced `N % 4 == 0` in `params.validate()`, updated the regression test to use `N=128`, removed the translation crop/pad guard, then reran `pytest tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split -v`. **PASSED.**
 
 ---
 

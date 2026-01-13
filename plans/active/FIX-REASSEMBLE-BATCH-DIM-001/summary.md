@@ -4,6 +4,11 @@ Tests not run.
 Artifacts: none.
 
 ### Turn Summary
+Enforced `N % 4 == 0` for reconstruction padding, updated the regression to use `N=128`, and removed the translation crop/pad guard.
+Reran the targeted regression; it now passes.
+Artifacts: none.
+
+### Turn Summary
 Fixed batched reassembly to treat `padded_size=None` as unset, so it falls back to `get_padded_size()`.
 Reran the targeted regression; it now passes.
 Artifacts: `.artifacts/FIX-REASSEMBLE-BATCH-DIM-001/pytest_reassemble_batch_fix.log`.

@@ -768,7 +768,8 @@ def test_pinn_reconstruction_reassembles_full_train_split():
     # Simulate dense dataset dimensions matching Phase G dense train split
     # Dense fly64 has ~5088 patches (B=159 batches of 32 patches each, C=4 channels)
     B = 159  # Number of prediction batches
-    N = 138  # Patch size (fly64 reconstruction size)
+    # Use N divisible by 4 (required by CenterMaskLayer padding).
+    N = 128  # Patch size (synthetic, spec-aligned)
     C = 4    # gridsize² = 2² = 4 channels for overlapping patches
 
     # Create synthetic patches in channel format (B, N, N, C)
