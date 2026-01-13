@@ -47,6 +47,18 @@ Fast, focused tests that validate individual components and functions in isolati
 - **Execution time:** Typically < 1 second per test
 - **Dependencies:** Minimal, often using mocks or small test fixtures
 
+### Script Helper Tests
+
+Lightweight tests for script-level helpers and CLI `--help` smoke coverage.
+
+- **Location:** `tests/scripts/test_synthetic_helpers.py`, `tests/scripts/test_synthetic_helpers_cli_smoke.py`
+- **Purpose:** Validate synthetic helper utilities and ensure key study/simulation CLIs expose `--help`
+- **Selectors:**
+  ```bash
+  pytest tests/scripts/test_synthetic_helpers.py -v
+  pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v
+  ```
+
 ### Integration Tests
 
 Comprehensive tests that validate end-to-end workflows and interactions between components.

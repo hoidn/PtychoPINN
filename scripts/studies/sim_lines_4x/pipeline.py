@@ -10,6 +10,13 @@ import time
 
 import numpy as np
 
+from scripts.simulation.synthetic_helpers import (
+    make_lines_object,
+    make_probe,
+    simulate_nongrid_raw_data,
+    split_raw_data_by_axis,
+)
+
 INTEGRATION_PROBE_PATH = Path("ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz")
 
 
@@ -58,107 +65,6 @@ def configure_logging(log_path: Path) -> logging.Logger:
     logger.addHandler(stream_handler)
     logger.propagate = False
     return logger
-
-
-def generate_lines_object(object_size: int) -> np.ndarray:
-    from ptycho import params
-    from ptycho.diffsim import sim_object_image
-
-    previous_source = params.get("data_source")
-    params.set("data_source", "lines")
-    try:
-        obj = sim_object_image(size=object_size, which="train")
-    finally:
-        params.set("data_source", previous_source)
-
-    if obj.ndim == 3:
-        obj = obj[..., 0]
-    return obj.astype(np.complex64)
-
-
-def load_integration_probe(path: Path, N: int) -> np.ndarray:
-    if not path.exists():
-        raise FileNotFoundError(f"Integration probe not found: {path}")
-    with np.load(path) as data:
-        if "probeGuess" not in data:
-            raise KeyError(f"probeGuess missing in {path}")
-        probe = data["probeGuess"]
-    if probe.shape != (N, N):
-        raise ValueError(f"Expected probe shape {(N, N)}, got {probe.shape}")
-    return probe.astype(np.complex64)
-
-
-def generate_ideal_probe(N: int) -> np.ndarray:
-    from ptycho import params
-    from ptycho import probe
-
-    if params.cfg.get("default_probe_scale") is None:
-        params.cfg["default_probe_scale"] = 0.7
-    return probe.get_default_probe(N=N, fmt="np").astype(np.complex64)
-
-
-def simulate_raw_data(
-    params: RunParams,
-    object_guess: np.ndarray,
-    probe_guess: np.ndarray,
-    total_images: int,
-    buffer: Optional[float] = None,
-):
-    from ptycho import params as legacy_params
-    from ptycho.config.config import ModelConfig, TrainingConfig, update_legacy_dict
-    from ptycho.nongrid_simulation import generate_simulated_data
-
-    sim_config = TrainingConfig(
-        model=ModelConfig(N=params.N, gridsize=1),
-        n_groups=total_images,
-        nphotons=params.nphotons,
-    )
-    update_legacy_dict(legacy_params.cfg, sim_config)
-    if buffer is None:
-        buffer = float(min(object_guess.shape)) * 0.35
-    return generate_simulated_data(
-        config=sim_config,
-        objectGuess=object_guess,
-        probeGuess=probe_guess,
-        buffer=buffer,
-        return_patches=False,
-    )
-
-
-def _slice_raw_data(raw_data, indices: np.ndarray):
-    from ptycho.raw_data import RawData
-
-    scan_index = None
-    if raw_data.scan_index is not None:
-        scan_index = raw_data.scan_index[indices]
-    Y = None
-    if raw_data.Y is not None:
-        Y = raw_data.Y[indices]
-    return RawData(
-        xcoords=raw_data.xcoords[indices],
-        ycoords=raw_data.ycoords[indices],
-        xcoords_start=raw_data.xcoords_start[indices],
-        ycoords_start=raw_data.ycoords_start[indices],
-        diff3d=raw_data.diff3d[indices],
-        probeGuess=raw_data.probeGuess,
-        scan_index=scan_index,
-        objectGuess=raw_data.objectGuess,
-        Y=Y,
-        norm_Y_I=raw_data.norm_Y_I,
-        metadata=raw_data.metadata,
-    )
-
-
-def split_raw_data_by_y(raw_data, test_count: int) -> Tuple:
-    if raw_data.diff3d is None:
-        raise ValueError("raw_data.diff3d is required for splitting")
-    n_images = raw_data.diff3d.shape[0]
-    if test_count <= 0 or test_count >= n_images:
-        raise ValueError(f"test_count must be in (0, {n_images})")
-    sort_idx = np.argsort(raw_data.ycoords)
-    train_idx = sort_idx[: n_images - test_count]
-    test_idx = sort_idx[n_images - test_count :]
-    return _slice_raw_data(raw_data, train_idx), _slice_raw_data(raw_data, test_idx)
 
 
 def build_training_config(
@@ -285,22 +191,28 @@ def run_scenario(
         group_count,
     )
 
-    object_guess = generate_lines_object(params.object_size)
+    object_guess = make_lines_object(params.object_size)
     if scenario.probe_mode == "integration":
-        probe_guess = load_integration_probe(INTEGRATION_PROBE_PATH, params.N)
+        probe_guess = make_probe(params.N, mode="integration", path=INTEGRATION_PROBE_PATH)
     elif scenario.probe_mode == "idealized":
-        probe_guess = generate_ideal_probe(params.N)
+        probe_guess = make_probe(params.N, mode="idealized")
     else:
         raise ValueError(f"Unknown probe_mode: {scenario.probe_mode}")
 
-    raw_data = simulate_raw_data(
-        params,
+    raw_data = simulate_nongrid_raw_data(
         object_guess,
         probe_guess,
-        total_images=total_images,
+        N=params.N,
+        n_images=total_images,
+        nphotons=params.nphotons,
+        seed=42,
         buffer=buffer,
     )
-    train_raw, test_raw = split_raw_data_by_y(raw_data, test_count)
+    train_raw, test_raw = split_raw_data_by_axis(
+        raw_data,
+        split_fraction=params.split_fraction,
+        axis="y",
+    )
 
     train_config = build_training_config(
         params=params,

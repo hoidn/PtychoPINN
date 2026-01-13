@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-11 (SIM-LINES-4X-001 Phase A/B implemented)
-**Active Focus:** FIX-REASSEMBLE-BATCH-DIM-001 — Preserve batch dimension in batched reassembly (complete; next focus TBD)
+**Last Updated:** 2026-01-13 (SYNTH-HELPERS-001 complete)
+**Active Focus:** SYNTH-HELPERS-001 — Script-level synthetic simulation helpers (complete; next focus TBD)
 
 ---
 
@@ -37,10 +37,10 @@
 ### [SYNTH-HELPERS-001] Script-level synthetic simulation helpers
 - Depends on: None
 - Priority: Medium
-- Status: pending — Phase A planning (test strategy + ledger linkage)
+- Status: done — Phases A-C complete
 - Owner/Date: TBD/2026-01-13
 - Working Plan: `plans/active/SYNTH-HELPERS-001/implementation.md`
-- Test Strategy: `plans/active/SYNTH-HELPERS-001/test_strategy.md` (pending)
+- Test Strategy: `plans/active/SYNTH-HELPERS-001/test_strategy.md`
 - Reports Hub: `plans/active/SYNTH-HELPERS-001/reports/`
 - Spec Owner: `docs/DATA_GENERATION_GUIDE.md`
 - Goals:
@@ -54,6 +54,7 @@
   - Ledger and test registry updated.
 - Attempts History:
   - *2026-01-13T01:00:00Z:* Drafted implementation plan at `plans/active/SYNTH-HELPERS-001/implementation.md` with helper API definition and test plan; test strategy + ledger linkage pending.
+  - *2026-01-13T01:32:44Z:* Implemented `scripts/simulation/synthetic_helpers.py`, refactored `scripts/studies/dose_response_study.py`, `scripts/studies/sim_lines_4x/pipeline.py`, and `scripts/simulation/run_with_synthetic_lines.py` to use helpers, added helper + CLI smoke tests, and updated test registry docs. **Static analysis:** `ruff check scripts/simulation/synthetic_helpers.py scripts/studies/sim_lines_4x/pipeline.py scripts/studies/dose_response_study.py scripts/simulation/run_with_synthetic_lines.py tests/scripts/test_synthetic_helpers.py tests/scripts/test_synthetic_helpers_cli_smoke.py` passed. **Tests:** `pytest tests/scripts/test_synthetic_helpers.py tests/scripts/test_synthetic_helpers_cli_smoke.py -v` passed (9 tests). **Collect:** `pytest ... --collect-only -v` captured. Artifacts: `plans/active/SYNTH-HELPERS-001/reports/2026-01-13T013244Z/ruff_check.log`, `plans/active/SYNTH-HELPERS-001/reports/2026-01-13T013244Z/pytest_synthetic_helpers.log`, `plans/active/SYNTH-HELPERS-001/reports/2026-01-13T013244Z/pytest_collect.log`. 
 
 ### [REFACTOR-MODEL-SINGLETON-001] Remove Module-Level Singletons in ptycho/model.py
 - Depends on: None

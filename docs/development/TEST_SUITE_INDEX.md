@@ -48,6 +48,18 @@ This document provides a comprehensive index of the automated tests in the `test
 | `test_utilities.py` | Test utilities for PtychoPINN tests. | N/A | `python -m unittest tests.test_utilities` | — |
 | `test_workflow_components.py` | Unit tests for ptycho.workflows.components module. | `test_exception_propagation`, `test_load_valid_model_directory`, `test_missing_diffraction_model`, `test_missing_model_archive`, `test_nonexistent_directory`, `test_not_a_directory`, `test_path_conversion` | `python -m unittest tests.test_workflow_components` | — |
 
+### Scripts Tests (`tests/scripts/`)
+
+| Test File | Purpose / Scope | Key Tests | Usage / Command | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+
+| `scripts/test_inference_backend_selector.py` | Backend selector dispatch coverage for `scripts/inference/inference.py` (TensorFlow vs PyTorch). | `test_pytorch_backend_dispatch`, `test_tensorflow_backend_dispatch` | `pytest tests/scripts/test_inference_backend_selector.py -v` | Validates backend routing without running heavy inference. |
+| `scripts/test_ptychi_reconstruct_tike.py` | CLI argument propagation for pty-chi reconstruction wrapper. | `test_main_uses_cli_arguments` | `pytest tests/scripts/test_ptychi_reconstruct_tike.py -v` | Uses mocking to avoid pty-chi dependency. |
+| `scripts/test_tf_inference_helper.py` | Validates extracted TensorFlow inference helper signature and defaults. | `test_helper_signature_matches_spec`, `test_helper_has_correct_defaults` | `pytest tests/scripts/test_tf_inference_helper.py -v` | API parity coverage for helper extraction. |
+| `scripts/test_training_backend_selector.py` | Backend selector dispatch coverage for `scripts/training/train.py`. | `test_pytorch_backend_dispatch`, `test_tensorflow_backend_persistence` | `pytest tests/scripts/test_training_backend_selector.py -v` | Ensures TensorFlow-only persistence is guarded. |
+| `scripts/test_synthetic_helpers.py` | Unit tests for synthetic helper utilities (object/probe creation, nongrid simulation, splits). | `test_make_lines_object_seeded_restores_data_source`, `test_simulate_nongrid_seeded` | `pytest tests/scripts/test_synthetic_helpers.py -v` | Uses small fixtures for fast simulation. |
+| `scripts/test_synthetic_helpers_cli_smoke.py` | CLI `--help` smoke coverage for study/simulation scripts and pipeline import. | `test_dose_response_study_help`, `test_run_with_synthetic_lines_help` | `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v` | Ensures script entry points remain callable. |
+
 ### Image Tests (`tests/image/`)
 
 | Test File | Purpose / Scope | Key Tests | Usage / Command | Notes |

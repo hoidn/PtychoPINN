@@ -5,7 +5,7 @@
 - Title: Script-level synthetic simulation helpers
 - Owner: TBD
 - Spec Owner: docs/DATA_GENERATION_GUIDE.md
-- Status: pending
+- Status: complete
 
 ## Goals
 - Consolidate synthetic object/probe creation and nongrid simulation into a shared helper module.
@@ -29,10 +29,10 @@
    - Logs saved to `plans/active/SYNTH-HELPERS-001/reports/<timestamp>/`
 
 ## Compliance Matrix (Mandatory)
-- [ ] **Spec Constraint:** `docs/DATA_GENERATION_GUIDE.md` — grid vs nongrid separation; `generate_simulated_data()` usage; CONFIG-001 sequencing
-- [ ] **Fix-Plan Link:** `docs/fix_plan.md` — add SYNTH-HELPERS-001 row if tracked
-- [ ] **Finding/Policy ID:** `CONFIG-001`, `ANTIPATTERN-001`, `PYTHON-ENV-001`
-- [ ] **Test Strategy:** `plans/active/SYNTH-HELPERS-001/test_strategy.md` (link from `docs/fix_plan.md`)
+- [x] **Spec Constraint:** `docs/DATA_GENERATION_GUIDE.md` — grid vs nongrid separation; `generate_simulated_data()` usage; CONFIG-001 sequencing
+- [x] **Fix-Plan Link:** `docs/fix_plan.md` — add SYNTH-HELPERS-001 row if tracked
+- [x] **Finding/Policy ID:** `CONFIG-001`, `ANTIPATTERN-001`, `PYTHON-ENV-001`
+- [x] **Test Strategy:** `plans/active/SYNTH-HELPERS-001/test_strategy.md` (link from `docs/fix_plan.md`)
 
 ## Spec Alignment
 - **Normative Spec:** `docs/DATA_GENERATION_GUIDE.md`
@@ -79,13 +79,13 @@
 
 ## Phase A — Design & Inventory
 ### Checklist
-- [ ] A0: Create `test_strategy.md` from template and link it in `docs/fix_plan.md`
+- [x] A0: Create `test_strategy.md` from template and link it in `docs/fix_plan.md`
       Test: N/A: planning artifact
-- [ ] A1: Define helper API surface and scope (nongrid only; grid left intact)
+- [x] A1: Define helper API surface and scope (nongrid only; grid left intact)
       Test: N/A: design task
-- [ ] A2: Inventory call sites and required behavior parity (seeded scans, split axis)
+- [x] A2: Inventory call sites and required behavior parity (seeded scans, split axis)
       Test: N/A: analysis
-- [ ] A3: Define helper test cases + selectors (seed determinism, split axis)
+- [x] A3: Define helper test cases + selectors (seed determinism, split axis)
       Test: N/A: test design
 
 ### Dependency Analysis (Required for Refactors)
@@ -101,18 +101,18 @@
 
 ## Phase B — Implementation
 ### Checklist
-- [ ] B1: Add `scripts/simulation/synthetic_helpers.py` (object/probe creation, nongrid simulation, split helper)
+- [x] B1: Add `scripts/simulation/synthetic_helpers.py` (object/probe creation, nongrid simulation, split helper)
       Test: `tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded`
-- [ ] B2: Add helper unit tests (seed determinism + split axis + gridsize enforcement)
+- [x] B2: Add helper unit tests (seed determinism + split axis + gridsize enforcement)
       Test: `tests/scripts/test_synthetic_helpers.py::test_split_raw_data_by_axis`
-- [ ] B3: Add CLI smoke tests for refactored scripts
+- [x] B3: Add CLI smoke tests for refactored scripts
       Test: `tests/scripts/test_synthetic_helpers_cli_smoke.py`
       Notes: `--help` smoke for `scripts/studies/dose_response_study.py`, `scripts/studies/sim_lines_4x/run_gs1_ideal.py`, `scripts/simulation/run_with_synthetic_lines.py`; import+pure helper smoke for `scripts/studies/sim_lines_4x/pipeline.py` (e.g., `derive_counts`).
-- [ ] B4: Refactor `scripts/studies/sim_lines_4x/pipeline.py` to use helpers
+- [x] B4: Refactor `scripts/studies/sim_lines_4x/pipeline.py` to use helpers
       Test: `tests/scripts/test_synthetic_helpers.py`
-- [ ] B5: Refactor `scripts/studies/dose_response_study.py` nongrid path to use helpers
+- [x] B5: Refactor `scripts/studies/dose_response_study.py` nongrid path to use helpers
       Test: `tests/scripts/test_synthetic_helpers.py`
-- [ ] B6: Refactor `scripts/simulation/run_with_synthetic_lines.py` to use helpers
+- [x] B6: Refactor `scripts/simulation/run_with_synthetic_lines.py` to use helpers
       Test: `tests/scripts/test_synthetic_helpers.py`
 
 ### Notes & Risks
@@ -120,9 +120,9 @@
 
 ## Phase C — Verification & Docs
 ### Checklist
-- [ ] C1: Run helper + CLI smoke tests and archive logs per TEST-CLI-001
+- [x] C1: Run helper + CLI smoke tests and archive logs per TEST-CLI-001
       Test: `tests/scripts/test_synthetic_helpers.py`, `tests/scripts/test_synthetic_helpers_cli_smoke.py`
-- [ ] C2: Update docs for new helper usage and test registration
+- [x] C2: Update docs for new helper usage and test registration
       Test: N/A: docs
 
 ### Notes & Risks

@@ -28,13 +28,11 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple, List
-from dataclasses import replace
+from typing import Dict, Any, Tuple
 
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
-import tensorflow as tf
 
 # Configure logging
 logging.basicConfig(
@@ -48,13 +46,11 @@ project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 # PtychoPINN imports - modern config system
-from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
-from ptycho import params as p
+from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict  # noqa: E402
+from ptycho import params as p  # noqa: E402
 
 # PtychoPINN imports - simulation and training
-from ptycho.nongrid_simulation import generate_simulated_data
-from ptycho.loader import RawData
-from ptycho import probe
+from scripts.simulation.synthetic_helpers import make_probe, simulate_nongrid_raw_data  # noqa: E402
 
 # Lazy imports for training (deferred until after params.cfg is set)
 
@@ -79,8 +75,8 @@ def verify_params_setup(config: TrainingConfig) -> None:
 
     # Verify critical params are set correctly
     assert p.cfg.get('N') == config.model.N, f"N mismatch: {p.cfg.get('N')} != {config.model.N}"
-    assert p.cfg.get('gridsize') == config.model.gridsize, f"gridsize mismatch"
-    assert p.cfg.get('nphotons') == config.nphotons, f"nphotons mismatch"
+    assert p.cfg.get('gridsize') == config.model.gridsize, "gridsize mismatch"
+    assert p.cfg.get('nphotons') == config.nphotons, "nphotons mismatch"
 
     logger.info("=== params.cfg verification PASSED ===")
 
@@ -131,12 +127,7 @@ def generate_ground_truth(N: int = 64, object_size: int = 128) -> Tuple[np.ndarr
     logger.info(f"Object shape: {objectGuess.shape}")
     logger.info(f"Object amplitude range: [{np.abs(objectGuess).min():.3f}, {np.abs(objectGuess).max():.3f}]")
 
-    # Generate probe (requires params.cfg['default_probe_scale'] to be set)
-    # Ensure default_probe_scale is set
-    if p.cfg.get('default_probe_scale') is None:
-        p.cfg['default_probe_scale'] = 4.0
-
-    probeGuess = probe.get_default_probe(N=N, fmt='np').astype(np.complex64)
+    probeGuess = make_probe(N, mode="idealized", scale=4.0)
 
     logger.info(f"Probe shape: {probeGuess.shape}")
     logger.info(f"Probe amplitude range: [{np.abs(probeGuess).min():.3f}, {np.abs(probeGuess).max():.3f}]")
@@ -252,41 +243,26 @@ def simulate_datasets(
             enable_oversampling=True  # Required for gridsize > 1 with small test sets
         )
 
-        # For simulation, we need gridsize=1 (from_simulation limitation)
-        # Create a simulation-specific config with gridsize=1
-        sim_model_config = ModelConfig(N=N, gridsize=1, model_type='pinn')
-        sim_config_train = TrainingConfig(
-            model=sim_model_config,
-            n_groups=n_train,
-            nphotons=arm_params['nphotons'],
-            nll_weight=config.nll_weight,
-            mae_weight=config.mae_weight,
-            nepochs=1,  # Not used for simulation
-            output_dir=config.output_dir
-        )
-
-        # Update params.cfg for simulation (CONFIG-001)
-        update_legacy_dict(p.cfg, sim_config_train)
-
         # Generate training data with seed=1 for consistent trajectories
-        np.random.seed(1)  # Same seed for all training sets
-        train_data = generate_simulated_data(
-            config=sim_config_train,
-            objectGuess=objectGuess,
-            probeGuess=probeGuess,
+        train_data = simulate_nongrid_raw_data(
+            objectGuess,
+            probeGuess,
+            N=N,
+            n_images=n_train,
+            nphotons=arm_params['nphotons'],
+            seed=1,
             buffer=buffer,
-            return_patches=False
         )
 
         # Generate test data with seed=2
-        sim_config_test = replace(sim_config_train, n_groups=n_test)
-        np.random.seed(2)  # Different seed for test sets
-        test_data = generate_simulated_data(
-            config=sim_config_test,
-            objectGuess=objectGuess,
-            probeGuess=probeGuess,
+        test_data = simulate_nongrid_raw_data(
+            objectGuess,
+            probeGuess,
+            N=N,
+            n_images=n_test,
+            nphotons=arm_params['nphotons'],
+            seed=2,
             buffer=buffer,
-            return_patches=False
         )
 
         datasets[arm_name] = {
@@ -512,7 +488,7 @@ def sanity_check_datasets(datasets: Dict[str, Dict[str, Any]]) -> None:
     ratio = high_intensity / low_intensity
 
     logger.info(f"\nIntensity ratio (High/Low): {ratio:.2e}")
-    logger.info(f"Expected ratio: ~1e5 (from nphotons ratio 1e9/1e4)")
+    logger.info("Expected ratio: ~1e5 (from nphotons ratio 1e9/1e4)")
 
     # Relaxed check: ratio should be > 1e3 (accounting for sqrt in amplitudes)
     if ratio < 1e3:
@@ -552,7 +528,7 @@ def sanity_check_datasets_grid_mode(datasets: Dict[str, Dict[str, Any]]) -> None
     ratio = high_intensity / low_intensity
 
     logger.info(f"\nIntensity ratio (High/Low): {ratio:.2e}")
-    logger.info(f"Expected ratio: ~316 (sqrt of 1e9/1e4) for amplitude data")
+    logger.info("Expected ratio: ~316 (sqrt of 1e9/1e4) for amplitude data")
 
     if ratio < 100:
         logger.warning(f"Intensity ratio {ratio:.2e} is lower than expected!")
