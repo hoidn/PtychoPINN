@@ -384,8 +384,9 @@ class RawData:
             K (int, optional): Number of nearest neighbors. Defaults to 4.
             nsamples (int, optional): Number of samples. For gridsize=1, this is the
                                     number of individual images. For gridsize>1, this
-                                    is the number of neighbor groups (total images = 
-                                    nsamples * gridsize²).
+                                    is the number of neighbor groups (total images =
+                                    nsamples * gridsize²). Seed indices are always
+                                    included in each group for gridsize>1.
             dataset_path (str, optional): Path to dataset (kept for compatibility, no longer used for caching).
             seed (int, optional): Random seed for reproducible sampling.
             sequential_sampling (bool, optional): If True, uses the first nsamples points sequentially
@@ -683,7 +684,7 @@ class RawData:
                 
                 # Step 4: Generate groups by selecting C coordinates from each seed's neighbors
                 groups = np.zeros((n_samples_actual, C), dtype=np.int32)
-                # For C > 1, select from neighbors as before
+                # For C > 1, always include the seed index and sample C-1 neighbors
                 for i in range(n_samples_actual):
                     # Get this seed's neighbors (excluding self if K+1 was queried)
                     neighbors = neighbor_indices[i]
@@ -693,22 +694,17 @@ class RawData:
                     else:
                         # Use all available neighbors if dataset is small
                         neighbors = neighbors[:K]
-                    
-                    # Ensure we have enough neighbors
-                    if len(neighbors) < C:
-                        # If not enough neighbors, include the seed point itself
-                        available = np.concatenate([[seed_indices[i]], neighbors])
+
+                    seed_idx = seed_indices[i]
+                    neighbors = neighbors[neighbors != seed_idx]
+                    if len(neighbors) >= (C - 1):
+                        selected = np.random.choice(neighbors, size=C - 1, replace=False)
                     else:
-                        available = neighbors
-                    
-                    # Randomly select C indices from available neighbors
-                    if len(available) >= C:
-                        selected = np.random.choice(available, size=C, replace=False)
-                    else:
-                        # If still not enough, allow replacement (edge case for very small datasets)
-                        selected = np.random.choice(available, size=C, replace=True)
-                    
-                    groups[i] = selected
+                        # Edge case: allow replacement if fewer than C-1 neighbors
+                        selected = np.random.choice(neighbors, size=C - 1, replace=True)
+
+                    groups[i, 0] = seed_idx
+                    groups[i, 1:] = selected
             
             logging.info(f"[OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated {n_samples_actual} groups")
             logging.info(f"Successfully generated {n_samples_actual} groups with shape {groups.shape}")
@@ -720,7 +716,7 @@ class RawData:
 
     def _generate_groups_with_oversampling(self, nsamples, K, C, seed=None, seed_indices=None):
         """
-        Generate groups using K choose C combinations for data augmentation.
+        Generate groups using K choose (C-1) combinations with the seed included.
         
         This method enables creating more groups than seed points by generating
         multiple combinations from each seed's K nearest neighbors.
@@ -752,8 +748,8 @@ class RawData:
             if K < C:
                 raise ValueError(f"K={K} must be >= C={C} (need at least C neighbors to form a group)")
             
-            # Calculate maximum combinations per seed
-            max_combos_per_seed = 1 if C == 1 else len(list(combinations(range(K), C)))
+            # Calculate maximum combinations per seed (seed is always included)
+            max_combos_per_seed = 1 if C == 1 else len(list(combinations(range(K), C - 1)))
             logging.info(f"[OVERSAMPLING DEBUG] Max combinations per seed: {max_combos_per_seed} (C={C}, K={K})")
             logging.info(f"Each seed point can generate up to {max_combos_per_seed} combinations")
             
@@ -806,18 +802,13 @@ class RawData:
                     neighbors = neighbors[1:K+1]  # Exclude self
                 else:
                     neighbors = neighbors[1:] if len(neighbors) > 1 else neighbors  # Handle edge case
-                
-                # Ensure we have enough neighbors
-                if len(neighbors) < C:
-                    # Include seed point if not enough neighbors
-                    available = np.concatenate([[seed_idx], neighbors])
-                else:
-                    available = neighbors[:K]  # Use up to K neighbors
-                
-                # Generate all C-combinations from available points
-                if len(available) >= C:
-                    for combo in combinations(available, C):
-                        combination_pool.append(np.array(combo))
+
+                neighbors = neighbors[neighbors != seed_idx]
+
+                # Generate all (C-1)-combinations from available neighbors and include seed
+                if len(neighbors) >= (C - 1):
+                    for combo in combinations(neighbors[:K], C - 1):
+                        combination_pool.append(np.array([seed_idx, *combo]))
                         seed_mapping.append(seed_idx)
                         
                         # Early stopping if we have enough combinations
