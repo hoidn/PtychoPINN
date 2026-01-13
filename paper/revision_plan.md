@@ -107,7 +107,7 @@ make verify               # Check all artifacts are current
 
 | Figure/Table | Script Exists? | Data Source Documented? | Status |
 |--------------|---------------|------------------------|--------|
-| Fig 1 (recon_2x2) | ✗ | ✗ | Needs script |
+| Fig 1 (recon_2x2) | ✗ | ✗ | Needs script; source: SIM-LINES-4X study |
 | Fig 2 (outdist) | ✗ | ✗ | Needs script |
 | Fig 3 (smalldat) | ✗ | ✗ | Needs script |
 | Fig 4 (ssim) | ✗ | ✗ | Needs script |
