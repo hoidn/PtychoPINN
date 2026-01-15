@@ -14,6 +14,22 @@
 - <Action State>: [ready_for_implementation]
 - focus=REFACTOR-MEMOIZE-CORE-001 state=ready_for_implementation dwell=0 ralph_last_commit=none artifacts=plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/ next_action=move memoize_raw_data into ptycho/cache with shim + run synthetic helper script tests
 
+# 2026-01-15T23:21:07Z: REFACTOR-MEMOIZE-CORE-001 — Phase C doc/test handoff
+
+- dwell: 1 (second loop on this focus; still no production evidence)
+- Focus issue: REFACTOR-MEMOIZE-CORE-001 — Move RawData memoization decorator into a core module
+- Action type: Implementation handoff (Phase C docs + regression evidence)
+- Mode: Implementation
+- Git sync: `git pull --rebase` → Already up to date.
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (ANTIPATTERN-001, MIGRATION-001), docs/architecture.md, docs/TESTING_GUIDE.md, plans/active/REFACTOR-MEMOIZE-CORE-001/{implementation.md,summary.md}, scripts/simulation/README.md, scripts/simulation/synthetic_helpers.py, ptycho/cache.py
+- Key updates:
+  - Marked Phase B checklist complete in the plan (commit `d29efc91` landed the code) and expanded Phase C tasks with explicit doc + pytest deliverables.
+  - Refreshed `docs/fix_plan.md` status/Attempts History to show Phase C in progress and created artifacts hub `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T232107Z/`.
+  - Rewrote `input.md` with the doc updates (docs/index.md entry + scripts/simulation/README.md cache guidance) and the three mapped pytest selectors (including `--collect-only` evidence).
+- Next Action: Ralph updates the two docs, reruns the synthetic helper selectors, archives logs under the new report directory, and reports back for C3 closure.
+- <Action State>: [ready_for_implementation]
+- focus=REFACTOR-MEMOIZE-CORE-001 state=ready_for_implementation dwell=1 ralph_last_commit=d29efc91 artifacts=plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T232107Z/ next_action=doc updates (docs/index.md + scripts/simulation/README.md) + rerun pytest selectors + archive logs
+
 ---
 
 # 2026-01-09T03:00:00Z: PARALLEL-API-INFERENCE — Task 1 verified, Task 2-3 handoff

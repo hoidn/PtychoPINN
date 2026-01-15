@@ -1,6 +1,6 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-13 (pruned to single active initiative)
+**Last Updated:** 2026-01-15 (Phase C doc/test cleanup in flight)
 **Active Focus:** REFACTOR-MEMOIZE-CORE-001 — Move RawData memoization decorator into core module
 
 ---
@@ -18,7 +18,7 @@
 ### [REFACTOR-MEMOIZE-CORE-001] Move RawData memoization decorator into core module
 - Depends on: None
 - Priority: Low
-- Status: in_progress — Phase B1-B3 delegated to Ralph
+- Status: in_progress — Phase C (docs + regression evidence) delegated to Ralph
 - Owner/Date: TBD/2026-01-13
 - Working Plan: `plans/active/REFACTOR-MEMOIZE-CORE-001/implementation.md`
 - Summary: `plans/active/REFACTOR-MEMOIZE-CORE-001/summary.md`
@@ -37,3 +37,4 @@
   - *2026-01-13T202358Z:* Drafted implementation plan and initialized initiative summary. Artifacts: `plans/active/REFACTOR-MEMOIZE-CORE-001/implementation.md`, `plans/active/REFACTOR-MEMOIZE-CORE-001/summary.md`.
   - *2026-01-15T225850Z:* Phase A inventory + compatibility design completed; handed off Phase B move/shim work with pytest coverage instructions. Artifacts: `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/`
   - *2026-01-15T231710Z:* Added `ptycho/cache.py` with the memoize helpers, updated synthetic_helpers to import it, and converted `scripts/simulation/cache_utils.py` into a DeprecationWarning shim. Tests: `pytest tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded -v`, `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v`. Artifacts: `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/`
+  - *2026-01-15T232107Z:* Confirmed Phase B landed in commit `d29efc91` and staged Phase C cleanup: refresh docs (`docs/index.md`, `scripts/simulation/README.md`), rerun the two synthetic helper selectors, and archive logs under `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T232107Z/`.

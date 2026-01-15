@@ -1,72 +1,73 @@
-# REFACTOR-MEMOIZE-CORE-001 — Phase B1-B3: Lift memoize_raw_data into ptycho/cache
+# REFACTOR-MEMOIZE-CORE-001 — Phase C: document core cache helper + capture regression logs
 
-**Summary:** Promote the RawData memoization decorator into a new core module (`ptycho/cache.py`) plus a scripts shim so caching stays reusable inside the package.
+**Summary:** Close out the memoization refactor by documenting the new `ptycho/cache.py` module and producing the missing pytest evidence for the synthetic helper selectors.
 
 **Focus:** REFACTOR-MEMOIZE-CORE-001 — Move RawData memoization decorator into core module
 
 **Branch:** paper
 
 **Mapped tests:**
+- `pytest --collect-only tests/scripts/test_synthetic_helpers.py -q`
 - `pytest tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded -v`
 - `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v`
 
-**Artifacts:** `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/`
+**Artifacts:** `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T232107Z/`
 
 ---
 
 ## Do Now
 
-- REFACTOR-MEMOIZE-CORE-001.B1-B3
-  - Implement: `ptycho/cache.py::memoize_raw_data` — move `_hash_numpy`, `_normalize_for_hash`, `_hash_payload`, and `memoize_raw_data` into a new `ptycho/cache.py` module (no side effects), switch `scripts/simulation/synthetic_helpers.py::simulate_nongrid_raw_data` to import from the new module, and turn `scripts/simulation/cache_utils.py` into a thin shim that re-exports the decorator (emit a `DeprecationWarning` once so legacy imports keep working).
-  - Validate: `pytest tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded -v` and `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v`
-  - Artifacts: `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/`
+- REFACTOR-MEMOIZE-CORE-001.C1-C2
+  - Implement: `docs/index.md::Core Module Documentation` — insert a `ptycho/cache.py` entry (just below `ptycho/diffsim.py`) explaining that RawData caching lives there now, cite `docs/architecture.md §Data Pipeline`, and cross-link the shim for legacy scripts.
+  - Implement: `scripts/simulation/README.md::Key Scripts/Cache Notes` — update the `synthetic_helpers.py` row (or add a short subsection) to state that nongrid simulation caching is provided by `ptycho.cache.memoize_raw_data`, describe the default cache root `.artifacts/synthetic_helpers/cache`, and include guidance for overriding with `--cache-dir` / `use_cache=False`.
+  - Validate: `pytest --collect-only tests/scripts/test_synthetic_helpers.py -q`, `pytest tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded -v`, `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v` (archive logs under the artifacts path).
+  - Artifacts: `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T232107Z/`
 
 ## How-To Map
-1. `mkdir -p ptycho && touch ptycho/cache.py`; copy the helper functions from `scripts/simulation/cache_utils.py` verbatim, add a short module docstring, import `RawData` from `ptycho.raw_data`, and expose `__all__ = ["memoize_raw_data"]`.
-2. Update `scripts/simulation/synthetic_helpers.py` line 14 to `from ptycho.cache import memoize_raw_data` and ensure the decorator usage stays identical.
-3. Replace the body of `scripts/simulation/cache_utils.py` with a shim:
-   ```python
-   """Compatibility wrapper for legacy imports."""
-   from __future__ import annotations
-   import warnings
-   from ptycho.cache import memoize_raw_data
-
-   warnings.warn(
-       "scripts.simulation.cache_utils is deprecated; use ptycho.cache",
-       DeprecationWarning,
-       stacklevel=2,
-   )
-   __all__ = ["memoize_raw_data"]
+1. Edit `docs/index.md` under **Core Module Documentation** and add a `ptycho/cache.py` subsection that (a) states the module hosts `memoize_raw_data`, (b) references `docs/architecture.md` (data loading pipeline) for normative behavior, and (c) mentions the compatibility shim (`scripts/simulation/cache_utils.py`).
+2. Update `scripts/simulation/README.md` — within the "Key Scripts" table plus the paragraph that introduces `synthetic_helpers.py`, describe how the helpers use `ptycho.cache.memoize_raw_data`, clarify the cache directory (`.artifacts/synthetic_helpers/cache`), and explain how to bypass caching via `--no-cache`/`use_cache=False` or a custom `cache_dir`.
+3. Collect selectors once to satisfy the guardrail:
+   ```bash
+   pytest --collect-only tests/scripts/test_synthetic_helpers.py -q \
+     | tee plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T232107Z/pytest_collect.log
    ```
-   Keep the file in place so downstream scripts continue to work.
-4. Run `pytest tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded -v 2>&1 | tee plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/pytest_synthetic_helpers.log`.
-5. Run `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v 2>&1 | tee plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/pytest_cli_smoke.log` to ensure CLI entrypoints and help text still import the shim cleanly.
+4. Run the focused unit and CLI smoke tests, capturing stdout/stderr per TESTING_GUIDE:
+   ```bash
+   pytest tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded -v \
+     | tee plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T232107Z/pytest_synthetic_helpers.log
+   pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v \
+     | tee plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T232107Z/pytest_cli_smoke.log
+   ```
+5. If warnings about `DeprecationWarning` surface, document them in the logs (no filter changes) so reviewers can confirm the shim only fires once.
 
 ## Pitfalls To Avoid
-1. Do **not** change the excluded-key set (`use_cache`, `cache_dir`, plus caller-provided `exclude_keys`) when copying the decorator.
-2. Keep the hashing logic byte-for-byte identical so cache files stay valid; no new kwargs, no dtype coercions.
-3. Ensure `ptycho/cache.py` has zero side effects (no `Path.mkdir()` or logging) at import time per ANTIPATTERN-001.
-4. The shim should only warn once; avoid re-running the expensive decorator logic there.
-5. Preserve typing: `default_cache_dir` remains a `Path`, and the decorator must raise `TypeError` when the wrapped function returns a non-`RawData`.
-6. When editing `synthetic_helpers`, avoid touching unrelated helper functions so existing tests remain stable.
-7. Keep pytest invocations from the repo root so fixtures resolve correctly (PYTHON-ENV-001).
+1. Do not move or delete `scripts/simulation/cache_utils.py`; it must stay as the shim until downstream scripts migrate.
+2. Keep `docs/index.md` edits scoped to the new entry—no reformatting of unrelated sections.
+3. Avoid changing `ptycho/cache.py`; this loop is docs/tests only.
+4. Use repo-root paths when running pytest so fixtures resolve (per PYTHON-ENV-001).
+5. Capture raw pytest output with `tee`; no truncation or `-q` on the execution runs.
+6. Treat `DeprecationWarning` as informational; do not silence it via `filterwarnings`.
+7. Ensure `.artifacts/` paths stay gitignored—never add cache outputs to version control.
+8. Resist adding new tests; reuse the mapped selectors unless a regression forces additional coverage.
+9. If documentation references an authoritative spec, cite the exact section instead of paraphrasing the math/contract.
+10. Verify the collect-only selector actually lists at least one node; failure requires stopping and reporting before running the full tests.
 
 ## If Blocked
-- If importing `ptycho.cache` causes a circular import with `RawData`, capture the traceback, revert the new module (leave shim untouched), and note the cycle in `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/blocker.md` before updating `docs/fix_plan.md` Attempts History.
-- If the shim’s `DeprecationWarning` disrupts the tests (e.g., treated as error), downgrade the warning within the shim and document the exact pytest output.
+- If the docs disagree on where caching lives, stop editing, capture the conflicting text snippet in `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T232107Z/blocker.md`, and update `docs/fix_plan.md` Attempts History with the citation.
+- If either pytest command fails, keep the log file, leave the repo untouched, and add the failure summary + command to the same blocker file so we can triage before the next loop.
 
 ## Findings Applied
 | Finding ID | Adherence |
 |------------|-----------|
-| ANTIPATTERN-001 | New `ptycho/cache.py` stays side-effect free and only exposes explicit APIs, avoiding hidden script-side behavior.
-| MIGRATION-001 | Moving the decorator into `ptycho/` reduces duplicated script-level helpers and keeps RawData helpers centralized without expanding `params.cfg` usage.
+| ANTIPATTERN-001 | Documentation will call out that `ptycho/cache.py` is a side-effect-free core module per the stable-module policy. |
+| MIGRATION-001 | Centralizes RawData helpers in `ptycho/` and documents the shim so no new script-level copies creep in. |
 
 ## Pointers
-- `docs/fix_plan.md:7-31` — ledger entry + exit criteria for REFACTOR-MEMOIZE-CORE-001
-- `plans/active/REFACTOR-MEMOIZE-CORE-001/implementation.md:53-120` — phase checklist and Phase A notes
-- `scripts/simulation/cache_utils.py:1-85` — source decorator that needs to move into core
-- `scripts/simulation/synthetic_helpers.py:14-99` — only in-repo usage of `memoize_raw_data`
-- `docs/TESTING_GUIDE.md:1-120` & `docs/development/TEST_SUITE_INDEX.md:1-120` — canonical guidance for running the mapped script tests
+- `docs/architecture.md:1` — shared architecture + stable-module policy referenced in the new docs entry.
+- `plans/active/REFACTOR-MEMOIZE-CORE-001/implementation.md:84` — checklist detailing Phase C requirements.
+- `ptycho/cache.py:1` — canonical implementation of `memoize_raw_data` to summarize in docs.
+- `scripts/simulation/synthetic_helpers.py:14` — shows current decorator usage and cache root to describe in README.
+- `docs/TESTING_GUIDE.md:1` — command formatting + evidence requirements for pytest logs.
 
 ## Next Up
-- Phase C: Update documentation references in `docs/index.md` / `scripts/simulation/README.md` once the core module lands.
+- After docs/tests land, mark C3 done by refreshing `plans/active/REFACTOR-MEMOIZE-CORE-001/summary.md` and `docs/fix_plan.md` with the final evidence pointer.

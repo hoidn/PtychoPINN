@@ -83,20 +83,23 @@
 
 ## Phase B — Migration
 ### Checklist
-- [ ] B1: Move `memoize_raw_data` + helpers into `ptycho/cache.py` with docstring and type hints
-      Test: `tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded`
-- [ ] B2: Update `scripts/simulation/synthetic_helpers.py` to import from `ptycho/cache`
-      Test: `tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded`
-- [ ] B3: Replace `scripts/simulation/cache_utils.py` with a thin shim or remove and update references
-      Test: `tests/scripts/test_synthetic_helpers_cli_smoke.py`
+- [x] B1: Move `memoize_raw_data` + helpers into `ptycho/cache.py` with docstring and type hints  
+      Test: `tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded`  
+      Notes: Landed in commit `d29efc91`; `_hash_numpy`, `_normalize_for_hash`, `_hash_payload`, and `memoize_raw_data` moved verbatim into the new module with no behavioral drift.
+- [x] B2: Update `scripts/simulation/synthetic_helpers.py` to import from `ptycho/cache`  
+      Test: `tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded`  
+      Notes: `simulate_nongrid_raw_data` now decorates with `from ptycho.cache import memoize_raw_data`, preserving `CACHE_ROOT = .artifacts/synthetic_helpers/cache`.
+- [x] B3: Replace `scripts/simulation/cache_utils.py` with a thin shim or remove and update references  
+      Test: `tests/scripts/test_synthetic_helpers_cli_smoke.py`  
+      Notes: Shim re-exports the decorator and emits a one-time `DeprecationWarning` for legacy imports.
 
 ### Notes & Risks
 - Keep behavior identical for `use_cache` and `cache_dir` handling.
 
 ## Phase C — Verification & Docs
 ### Checklist
-- [ ] C1: Run existing synthetic helper tests and archive logs
-      Test: `tests/scripts/test_synthetic_helpers.py`, `tests/scripts/test_synthetic_helpers_cli_smoke.py`
+- [ ] C1: Re-run synthetic helper selectors and capture both execution and `--collect-only` logs under `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/<timestamp>/`  
+      Test: `tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded`, `tests/scripts/test_synthetic_helpers_cli_smoke.py`, `pytest --collect-only tests/scripts/test_synthetic_helpers.py -q`
 - [ ] C2: Update documentation references to the new core module
       Test: N/A: docs update
 - [ ] C3: Update ledger + initiative summary with results

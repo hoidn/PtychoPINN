@@ -1,0 +1,652 @@
+2026-01-11 02:33:11.974834: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1768127591.986071  925414 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1768127591.989676  925414 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1768127591.999584  925414 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768127591.999597  925414 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768127591.999599  925414 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768127591.999600  925414 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-11 02:33:12.002412: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-01-11 02:33:14,336 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
+2026-01-11 02:33:14,336 - INFO - Registration: disabled
+2026-01-11 02:33:14,336 - INFO - NPZ output: raw=enabled, aligned=enabled
+2026-01-11 02:33:14,336 - INFO - Loading PtychoPINN inference model (diffraction_to_obj) to restore configuration...
+2026-01-11 02:33:14,336 - INFO - Loading model from: gs2_full_subsample_study_20260111_0230/train_subsample_64_groups_64/trial_1/pinn_run
+I0000 00:00:1768127594.584673  925414 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1768127594.585917  925414 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+2026-01-11 02:33:15,294 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+2026-01-11 02:33:15,295 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+2026-01-11 02:33:15,953 - INFO - Successfully loaded model from gs2_full_subsample_study_20260111_0230/train_subsample_64_groups_64/trial_1/pinn_run
+2026-01-11 02:33:15,955 - INFO - Restored configuration from model: gridsize=2, N=64
+2026-01-11 02:33:15,955 - INFO - Loading test data from prepare_1e4_photons_5k/dataset/test.npz with restored gridsize=2...
+2026-01-11 02:33:15,955 - INFO - Using independent sampling control: n_subsample=2424, n_groups=606
+2026-01-11 02:33:15,955 - WARNING - n_test_subsample (2424) > n_test_groups (606), may use more data than expected
+2026-01-11 02:33:15,955 - INFO - Loading data from prepare_1e4_photons_5k/dataset/test.npz with n_images=606, n_subsample=2424
+2026-01-11 02:33:16,254 - INFO - Independent sampling: subsampling 2424 images from 2424 total
+diff3d shape: (2424, 64, 64)2026-01-11 02:33:16,269 - INFO - diff3d shape: (2424, 64, 64)
+
+probeGuess shape: (64, 64)2026-01-11 02:33:16,269 - INFO - probeGuess shape: (64, 64)
+
+scan_index shape: (2424,)2026-01-11 02:33:16,269 - INFO - scan_index shape: (2424,)
+
+objectGuess shape: (232, 232)2026-01-11 02:33:16,269 - INFO - objectGuess shape: (232, 232)
+
+xcoords shape: (2424,)2026-01-11 02:33:16,269 - INFO - xcoords shape: (2424,)
+
+ycoords shape: (2424,)2026-01-11 02:33:16,269 - INFO - ycoords shape: (2424,)
+
+xcoords_start shape: (2424,)2026-01-11 02:33:16,269 - INFO - xcoords_start shape: (2424,)
+
+ycoords_start shape: (2424,)2026-01-11 02:33:16,269 - INFO - ycoords_start shape: (2424,)
+
+2026-01-11 02:33:16,270 - INFO - Final configuration: gridsize=2, N=64, n_images=2424
+2026-01-11 02:33:16,270 - INFO - Using stitch_crop_size M=20 (N=64)
+2026-01-11 02:33:16,270 - INFO - Loading Baseline model from gs2_full_subsample_study_20260111_0230/train_subsample_64_groups_64/trial_1/baseline_run/01-11-2026-02.31.43_baseline_gs2...
+2026-01-11 02:33:16,270 - INFO - Found baseline model at: gs2_full_subsample_study_20260111_0230/train_subsample_64_groups_64/trial_1/baseline_run/01-11-2026-02.31.43_baseline_gs2/baseline_model.h5
+2026-01-11 02:33:16,367 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-01-11 02:33:16,372 - INFO - Running two-way comparison (PtychoPINN vs. Baseline)
+2026-01-11 02:33:16,372 - INFO - Running inference with PtychoPINN (diffraction_to_obj)...
+2026-01-11 02:33:16,372 - INFO - Using single-shot PINN inference: 2424 groups (batch_size=32)
+2026-01-11 02:33:16,372 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=606, n_points=2424, C=4, K=7
+2026-01-11 02:33:16,372 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
+2026-01-11 02:33:16,372 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
+2026-01-11 02:33:16,372 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 606 > 2424 = False
+2026-01-11 02:33:16,372 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2026-01-11 02:33:16,372 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+DEBUG:2026-01-11 02:33:16,372 - INFO - DEBUG:
+ nsamples: 606, gridsize: 2 (using efficient random sample-then-group strategy)2026-01-11 02:33:16,372 - INFO - nsamples: 606, gridsize: 2 (using efficient random sample-then-group strategy)
+
+2026-01-11 02:33:16,372 - INFO - Using efficient random sampling strategy for gridsize=2
+2026-01-11 02:33:16,372 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2026-01-11 02:33:16,372 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=606, K=7, C=4
+2026-01-11 02:33:16,372 - INFO - Generating 606 groups efficiently from 2424 points (K=7, C=4)
+2026-01-11 02:33:16,372 - INFO - [OVERSAMPLING DEBUG] Standard case: using 606 groups from 2424 points
+2026-01-11 02:33:16,373 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 606 seed points
+2026-01-11 02:33:16,373 - INFO - Sampled 606 seed points from 2424 total points
+2026-01-11 02:33:16,377 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 606 groups
+2026-01-11 02:33:16,377 - INFO - Successfully generated 606 groups with shape (606, 4)
+2026-01-11 02:33:16,377 - INFO - [OVERSAMPLING DEBUG] Generated 606 groups in total
+2026-01-11 02:33:16,377 - INFO - Generated 606 groups efficiently
+INFO: Using pre-computed 'Y' array from the input file.2026-01-11 02:33:16,383 - INFO - INFO: Using pre-computed 'Y' array from the input file.
+
+neighbor-sampled diffraction shape2026-01-11 02:33:16,464 - INFO - neighbor-sampled diffraction shape
+ (606, 64, 64, 4)2026-01-11 02:33:16,465 - INFO - (606, 64, 64, 4)
+
+loader: using provided ground truth patches.2026-01-11 02:33:16,567 - INFO - loader: using provided ground truth patches.
+
+INFO:2026-01-11 02:33:16,891 - INFO - INFO:
+ None2026-01-11 02:33:16,891 - INFO - None
+
+<PtychoDataContainer X=(606, 64, 64, 4) mean=0.406 Y_I=(606, 64, 64, 4) mean=0.563 Y_phi=(606, 64, 64, 4) mean=-0.031 coords_nominal=(606, 1, 2, 4) mean=-0.000 coords_true=(606, 1, 2, 4) mean=-0.000 probe=(64, 64) mean_amplitude=0.006 norm_Y_I=<scalar> nn_indices=(606, 4) global_offsets=(606, 1, 2, 1) local_offsets=(606, 1, 2, 4)>2026-01-11 02:33:16,896 - INFO - <PtychoDataContainer X=(606, 64, 64, 4) mean=0.406 Y_I=(606, 64, 64, 4) mean=0.563 Y_phi=(606, 64, 64, 4) mean=-0.031 coords_nominal=(606, 1, 2, 4) mean=-0.000 coords_true=(606, 1, 2, 4) mean=-0.000 probe=(64, 64) mean_amplitude=0.006 norm_Y_I=<scalar> nn_indices=(606, 4) global_offsets=(606, 1, 2, 1) local_offsets=(606, 1, 2, 4)>
+
+2026-01-11 02:33:16,957 - INFO - Gridsize validated: params.cfg['gridsize']=2 matches 4 channels
+DEBUG _flat_to_channel: gridsize from parameter: 22026-01-11 02:33:17,251 - INFO - DEBUG _flat_to_channel: gridsize from parameter: 2
+
+DEBUG _flat_to_channel: N from parameter: 782026-01-11 02:33:17,252 - INFO - DEBUG _flat_to_channel: N from parameter: 78
+
+DEBUG _flat_to_channel: input shape=(128, 78, 78, 1), reshaping to (-1, 4, 78, 78)2026-01-11 02:33:17,252 - INFO - DEBUG _flat_to_channel: input shape=(128, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+
+DEBUG _flat_to_channel: gridsize from parameter: 22026-01-11 02:33:17,419 - INFO - DEBUG _flat_to_channel: gridsize from parameter: 2
+
+DEBUG _flat_to_channel: N from parameter: 782026-01-11 02:33:17,419 - INFO - DEBUG _flat_to_channel: N from parameter: 78
+
+DEBUG _flat_to_channel: input shape=(128, 78, 78, 1), reshaping to (-1, 4, 78, 78)2026-01-11 02:33:17,419 - INFO - DEBUG _flat_to_channel: input shape=(128, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+
+DEBUG _flat_to_channel: gridsize from parameter: 22026-01-11 02:33:17,575 - INFO - DEBUG _flat_to_channel: gridsize from parameter: 2
+
+DEBUG _flat_to_channel: N from parameter: 782026-01-11 02:33:17,575 - INFO - DEBUG _flat_to_channel: N from parameter: 78
+
+DEBUG _flat_to_channel: input shape=(128, 78, 78, 1), reshaping to (-1, 4, 78, 78)2026-01-11 02:33:17,575 - INFO - DEBUG _flat_to_channel: input shape=(128, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+
+DEBUG _flat_to_channel: gridsize from parameter: 22026-01-11 02:33:17,739 - INFO - DEBUG _flat_to_channel: gridsize from parameter: 2
+
+DEBUG _flat_to_channel: N from parameter: 782026-01-11 02:33:17,740 - INFO - DEBUG _flat_to_channel: N from parameter: 78
+
+DEBUG _flat_to_channel: input shape=(128, 78, 78, 1), reshaping to (-1, 4, 78, 78)2026-01-11 02:33:17,740 - INFO - DEBUG _flat_to_channel: input shape=(128, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1768127598.184828  925569 service.cc:152] XLA service 0x7d1b5c02df40 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1768127598.184848  925569 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2026-01-11 02:33:18.241163: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+2026-01-11 02:33:18.352176: W tensorflow/core/framework/op_kernel.cc:1857] OP_REQUIRES failed at sequence_ops.cc:98 : INVALID_ARGUMENT: Input 0 to node `functional_1_1/padded_obj_2_1/cond/while/cond/range_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0` with op Range must be a compile-time constant.
+
+XLA compilation requires that operator arguments that represent shapes or dimensions be evaluated to concrete values at compile time. This error means that a shape or dimension argument could not be evaluated at compile time, usually because the value of the argument depends on a parameter to the computation, on a variable, or on a stateful operation such as a random number generator.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+2026-01-11 02:33:18.352263: W tensorflow/core/framework/op_kernel.cc:1857] OP_REQUIRES failed at if_op.cc:285 : INVALID_ARGUMENT: Input 0 to node `functional_1_1/padded_obj_2_1/cond/while/cond/range_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0` with op Range must be a compile-time constant.
+
+XLA compilation requires that operator arguments that represent shapes or dimensions be evaluated to concrete values at compile time. This error means that a shape or dimension argument could not be evaluated at compile time, usually because the value of the argument depends on a parameter to the computation, on a variable, or on a stateful operation such as a random number generator.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[{{node functional_1_1/padded_obj_2_1/cond/while/cond/range_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0}}]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_while_cond_true_4774_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_while_cond_tfg_inlined_functional_1_1_padded_obj_2_1_cond_while_tfg_inlined_functional_1_1_padded_obj_2_1_cond_1_1_0_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+2026-01-11 02:33:18.352296: W tensorflow/core/framework/op_kernel.cc:1857] OP_REQUIRES failed at while_op.cc:403 : INVALID_ARGUMENT: Input 0 to node `functional_1_1/padded_obj_2_1/cond/while/cond/range_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0` with op Range must be a compile-time constant.
+
+XLA compilation requires that operator arguments that represent shapes or dimensions be evaluated to concrete values at compile time. This error means that a shape or dimension argument could not be evaluated at compile time, usually because the value of the argument depends on a parameter to the computation, on a variable, or on a stateful operation such as a random number generator.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[{{node functional_1_1/padded_obj_2_1/cond/while/cond/range_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0}}]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_while_cond_true_4774_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_while_cond_tfg_inlined_functional_1_1_padded_obj_2_1_cond_while_tfg_inlined_functional_1_1_padded_obj_2_1_cond_1_1_0_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[functional_1_1/padded_obj_2_1/cond/while/cond_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while_tfg_inlined_functional_1_1/padded_obj_2_1/cond_1_1]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_while_body_4740_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_while_tfg_inlined_functional_1_1_padded_obj_2_1_cond_1_1_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+2026-01-11 02:33:18.352344: W tensorflow/core/framework/op_kernel.cc:1857] OP_REQUIRES failed at if_op.cc:291 : INVALID_ARGUMENT: Input 0 to node `functional_1_1/padded_obj_2_1/cond/while/cond/range_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0` with op Range must be a compile-time constant.
+
+XLA compilation requires that operator arguments that represent shapes or dimensions be evaluated to concrete values at compile time. This error means that a shape or dimension argument could not be evaluated at compile time, usually because the value of the argument depends on a parameter to the computation, on a variable, or on a stateful operation such as a random number generator.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[{{node functional_1_1/padded_obj_2_1/cond/while/cond/range_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0}}]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_while_cond_true_4774_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_while_cond_tfg_inlined_functional_1_1_padded_obj_2_1_cond_while_tfg_inlined_functional_1_1_padded_obj_2_1_cond_1_1_0_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[functional_1_1/padded_obj_2_1/cond/while/cond_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while_tfg_inlined_functional_1_1/padded_obj_2_1/cond_1_1]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_while_body_4740_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_while_tfg_inlined_functional_1_1_padded_obj_2_1_cond_1_1_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[functional_1_1/padded_obj_2_1/cond/while_tfg_inlined_functional_1_1/padded_obj_2_1/cond_1]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_false_4478_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_1_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/compare_models.py", line 1774, in <module>
+File "Documents/PtychoPINN/scripts/compare_models.py", line 1166, in main
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 566, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 260, in one_step_on_data_distributed
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 250, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 105, in predict_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1100, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1350, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1027, in _reassemble_position_batched
+
+2026-01-11 02:33:18.356079: W tensorflow/core/framework/op_kernel.cc:1857] OP_REQUIRES failed at xla_ops.cc:591 : INVALID_ARGUMENT: Input 0 to node `functional_1_1/padded_obj_2_1/cond/while/cond/range_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0` with op Range must be a compile-time constant.
+
+XLA compilation requires that operator arguments that represent shapes or dimensions be evaluated to concrete values at compile time. This error means that a shape or dimension argument could not be evaluated at compile time, usually because the value of the argument depends on a parameter to the computation, on a variable, or on a stateful operation such as a random number generator.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[{{node functional_1_1/padded_obj_2_1/cond/while/cond/range_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0}}]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_while_cond_true_4774_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_while_cond_tfg_inlined_functional_1_1_padded_obj_2_1_cond_while_tfg_inlined_functional_1_1_padded_obj_2_1_cond_1_1_0_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[functional_1_1/padded_obj_2_1/cond/while/cond_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while_tfg_inlined_functional_1_1/padded_obj_2_1/cond_1_1]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_while_body_4740_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_while_tfg_inlined_functional_1_1_padded_obj_2_1_cond_1_1_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[functional_1_1/padded_obj_2_1/cond/while_tfg_inlined_functional_1_1/padded_obj_2_1/cond_1]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_false_4478_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_1_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/compare_models.py", line 1774, in <module>
+File "Documents/PtychoPINN/scripts/compare_models.py", line 1166, in main
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 566, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 260, in one_step_on_data_distributed
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 250, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 105, in predict_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1100, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1350, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1027, in _reassemble_position_batched
+
+	 [[functional_1_1/padded_obj_2_1/cond]]
+	tf2xla conversion failed while converting __inference_one_step_on_data_7352[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+2026-01-11 02:33:18.356112: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: INVALID_ARGUMENT: Input 0 to node `functional_1_1/padded_obj_2_1/cond/while/cond/range_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0` with op Range must be a compile-time constant.
+
+XLA compilation requires that operator arguments that represent shapes or dimensions be evaluated to concrete values at compile time. This error means that a shape or dimension argument could not be evaluated at compile time, usually because the value of the argument depends on a parameter to the computation, on a variable, or on a stateful operation such as a random number generator.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[{{node functional_1_1/padded_obj_2_1/cond/while/cond/range_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0}}]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_while_cond_true_4774_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_while_cond_tfg_inlined_functional_1_1_padded_obj_2_1_cond_while_tfg_inlined_functional_1_1_padded_obj_2_1_cond_1_1_0_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[functional_1_1/padded_obj_2_1/cond/while/cond_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while_tfg_inlined_functional_1_1/padded_obj_2_1/cond_1_1]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_while_body_4740_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_while_tfg_inlined_functional_1_1_padded_obj_2_1_cond_1_1_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[functional_1_1/padded_obj_2_1/cond/while_tfg_inlined_functional_1_1/padded_obj_2_1/cond_1]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_false_4478_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_1_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/compare_models.py", line 1774, in <module>
+File "Documents/PtychoPINN/scripts/compare_models.py", line 1166, in main
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 566, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 260, in one_step_on_data_distributed
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 250, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 105, in predict_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1100, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1350, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1027, in _reassemble_position_batched
+
+	 [[functional_1_1/padded_obj_2_1/cond]]
+	tf2xla conversion failed while converting __inference_one_step_on_data_7352[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall]]
+2026-01-11 02:33:18,427 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1774, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1166, in main
+    pinn_patches = pinn_model.predict(
+                   ^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+    return self._model.predict(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 122, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/execute.py", line 59, in quick_execute
+    except TypeError as e:
+tensorflow.python.framework.errors_impl.InvalidArgumentError: Graph execution error:
+
+Detected at node functional_1_1/padded_obj_2_1/cond/while/cond/range_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0 defined at (most recent call last):
+<stack traces unavailable>
+Input 0 to node `functional_1_1/padded_obj_2_1/cond/while/cond/range_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0` with op Range must be a compile-time constant.
+
+XLA compilation requires that operator arguments that represent shapes or dimensions be evaluated to concrete values at compile time. This error means that a shape or dimension argument could not be evaluated at compile time, usually because the value of the argument depends on a parameter to the computation, on a variable, or on a stateful operation such as a random number generator.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[{{node functional_1_1/padded_obj_2_1/cond/while/cond/range_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0}}]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_while_cond_true_4774_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_while_cond_tfg_inlined_functional_1_1_padded_obj_2_1_cond_while_tfg_inlined_functional_1_1_padded_obj_2_1_cond_1_1_0_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[functional_1_1/padded_obj_2_1/cond/while/cond_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while_tfg_inlined_functional_1_1/padded_obj_2_1/cond_1_1]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_while_body_4740_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_while_tfg_inlined_functional_1_1_padded_obj_2_1_cond_1_1_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[functional_1_1/padded_obj_2_1/cond/while_tfg_inlined_functional_1_1/padded_obj_2_1/cond_1]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_false_4478_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_1_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/compare_models.py", line 1774, in <module>
+File "Documents/PtychoPINN/scripts/compare_models.py", line 1166, in main
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 566, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 260, in one_step_on_data_distributed
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 250, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 105, in predict_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1100, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1350, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1027, in _reassemble_position_batched
+
+	 [[functional_1_1/padded_obj_2_1/cond]]
+	tf2xla conversion failed while converting __inference_one_step_on_data_7352[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall]] [Op:__inference_one_step_on_data_distributed_7445]
+Traceback (most recent call last):
+2026-01-11 02:33:18,428 - ERROR - Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1774, in <module>
+2026-01-11 02:33:18,428 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1774, in <module>
+    main()2026-01-11 02:33:18,428 - ERROR - main()
+
+  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1166, in main
+2026-01-11 02:33:18,428 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1166, in main
+    pinn_patches = pinn_model.predict(2026-01-11 02:33:18,428 - ERROR - pinn_patches = pinn_model.predict(
+
+                   ^2026-01-11 02:33:18,428 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+
+  File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+2026-01-11 02:33:18,429 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+    return self._model.predict(*args, **kwargs)2026-01-11 02:33:18,429 - ERROR - return self._model.predict(*args, **kwargs)
+
+           ^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,429 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 122, in error_handler
+2026-01-11 02:33:18,430 - ERROR - File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 122, in error_handler
+    raise e.with_traceback(filtered_tb) from None2026-01-11 02:33:18,430 - ERROR - raise e.with_traceback(filtered_tb) from None
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/execute.py", line 53, in quick_execute
+2026-01-11 02:33:18,430 - ERROR - File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/execute.py", line 53, in quick_execute
+    tensors = pywrap_tfe.TFE_Py_Execute(ctx._handle, device_name, op_name,2026-01-11 02:33:18,430 - ERROR - tensors = pywrap_tfe.TFE_Py_Execute(ctx._handle, device_name, op_name,
+
+  ^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,430 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+^2026-01-11 02:33:18,431 - ERROR - ^
+
+tensorflow.python.framework.errors_impl2026-01-11 02:33:18,431 - ERROR - tensorflow.python.framework.errors_impl
+.2026-01-11 02:33:18,431 - ERROR - .
+InvalidArgumentError2026-01-11 02:33:18,431 - ERROR - InvalidArgumentError
+: 2026-01-11 02:33:18,431 - ERROR - :
+Graph execution error:
+
+Detected at node functional_1_1/padded_obj_2_1/cond/while/cond/range_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0 defined at (most recent call last):
+<stack traces unavailable>
+Input 0 to node `functional_1_1/padded_obj_2_1/cond/while/cond/range_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0` with op Range must be a compile-time constant.
+
+XLA compilation requires that operator arguments that represent shapes or dimensions be evaluated to concrete values at compile time. This error means that a shape or dimension argument could not be evaluated at compile time, usually because the value of the argument depends on a parameter to the computation, on a variable, or on a stateful operation such as a random number generator.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[{{node functional_1_1/padded_obj_2_1/cond/while/cond/range_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0}}]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_while_cond_true_4774_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_while_cond_tfg_inlined_functional_1_1_padded_obj_2_1_cond_while_tfg_inlined_functional_1_1_padded_obj_2_1_cond_1_1_0_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[functional_1_1/padded_obj_2_1/cond/while/cond_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while_tfg_inlined_functional_1_1/padded_obj_2_1/cond_1_1]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_while_body_4740_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_while_tfg_inlined_functional_1_1_padded_obj_2_1_cond_1_1_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[functional_1_1/padded_obj_2_1/cond/while_tfg_inlined_functional_1_1/padded_obj_2_1/cond_1]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_false_4478_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_1_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/compare_models.py", line 1774, in <module>
+File "Documents/PtychoPINN/scripts/compare_models.py", line 1166, in main
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 566, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 260, in one_step_on_data_distributed
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 250, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 105, in predict_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1100, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1350, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1027, in _reassemble_position_batched
+
+	 [[functional_1_1/padded_obj_2_1/cond]]
+	tf2xla conversion failed while converting __inference_one_step_on_data_7352[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall]] [Op:__inference_one_step_on_data_distributed_7445]2026-01-11 02:33:18,431 - ERROR - Graph execution error:
+
+Detected at node functional_1_1/padded_obj_2_1/cond/while/cond/range_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0 defined at (most recent call last):
+<stack traces unavailable>
+Input 0 to node `functional_1_1/padded_obj_2_1/cond/while/cond/range_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0` with op Range must be a compile-time constant.
+
+XLA compilation requires that operator arguments that represent shapes or dimensions be evaluated to concrete values at compile time. This error means that a shape or dimension argument could not be evaluated at compile time, usually because the value of the argument depends on a parameter to the computation, on a variable, or on a stateful operation such as a random number generator.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[{{node functional_1_1/padded_obj_2_1/cond/while/cond/range_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0}}]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_while_cond_true_4774_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_while_cond_tfg_inlined_functional_1_1_padded_obj_2_1_cond_while_tfg_inlined_functional_1_1_padded_obj_2_1_cond_1_1_0_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[functional_1_1/padded_obj_2_1/cond/while/cond_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while_tfg_inlined_functional_1_1/padded_obj_2_1/cond_1_1]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_while_body_4740_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_while_tfg_inlined_functional_1_1_padded_obj_2_1_cond_1_1_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+dummy_file_name:10:dummy_function_name
+
+	 [[functional_1_1/padded_obj_2_1/cond/while_tfg_inlined_functional_1_1/padded_obj_2_1/cond_1]]
+	tf2xla conversion failed while converting functional_1_1_padded_obj_2_1_cond_false_4478_tfg_region_specialized_functional_1_1_padded_obj_2_1_cond_1_const_0[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+
+Stack trace for op definition: 
+File "Documents/PtychoPINN/scripts/compare_models.py", line 1774, in <module>
+File "Documents/PtychoPINN/scripts/compare_models.py", line 1166, in main
+File "Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 566, in predict
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 260, in one_step_on_data_distributed
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 250, in one_step_on_data
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 105, in predict_step
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+File "miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+File "Documents/PtychoPINN/ptycho/custom_layers.py", line 172, in call
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1100, in reassemble_patches
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 692, in newf
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1350, in reassemble_patches_position_batched_real
+File "Documents/PtychoPINN/ptycho/tf_helper.py", line 1027, in _reassemble_position_batched
+
+	 [[functional_1_1/padded_obj_2_1/cond]]
+	tf2xla conversion failed while converting __inference_one_step_on_data_7352[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall]] [Op:__inference_one_step_on_data_distributed_7445]
+

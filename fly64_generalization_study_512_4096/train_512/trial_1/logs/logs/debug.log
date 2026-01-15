@@ -1,0 +1,294 @@
+2026-01-07 15:08:15,137 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
+2026-01-07 15:08:15,137 - INFO - Registration: enabled
+2026-01-07 15:08:15,137 - INFO - NPZ output: raw=disabled, aligned=disabled
+2026-01-07 15:08:15,137 - INFO - Loading PtychoPINN inference model (diffraction_to_obj) to restore configuration...
+2026-01-07 15:08:15,137 - INFO - Loading model from: fly64_generalization_study_512_4096/train_512/trial_1/pinn_run
+2026-01-07 15:08:15,137 - DEBUG - Model archive path: fly64_generalization_study_512_4096/train_512/trial_1/pinn_run/wts.h5.zip
+2026-01-07 15:08:16,098 - INFO - Loading SavedModel from: /tmp/tmpz3munnzt/autoencoder
+2026-01-07 15:08:16,098 - INFO - Failed to load as Keras model: File format not supported: filepath=/tmp/tmpz3munnzt/autoencoder. Keras 3 only supports V3 `.keras` files and legacy H5 format files (`.h5` extension). Note that the legacy SavedModel format is not supported by `load_model()` in Keras 3. In order to reload a TensorFlow SavedModel as an inference-only layer in Keras 3, use `keras.layers.TFSMLayer(/tmp/tmpz3munnzt/autoencoder, call_endpoint='serving_default')` (note that your `call_endpoint` might have a different name).
+2026-01-07 15:08:16,098 - INFO - Falling back to raw SavedModel loading...
+2026-01-07 15:08:17,220 - INFO - Loading SavedModel from: /tmp/tmpz3munnzt/diffraction_to_obj
+2026-01-07 15:08:17,221 - INFO - Failed to load as Keras model: File format not supported: filepath=/tmp/tmpz3munnzt/diffraction_to_obj. Keras 3 only supports V3 `.keras` files and legacy H5 format files (`.h5` extension). Note that the legacy SavedModel format is not supported by `load_model()` in Keras 3. In order to reload a TensorFlow SavedModel as an inference-only layer in Keras 3, use `keras.layers.TFSMLayer(/tmp/tmpz3munnzt/diffraction_to_obj, call_endpoint='serving_default')` (note that your `call_endpoint` might have a different name).
+2026-01-07 15:08:17,221 - INFO - Falling back to raw SavedModel loading...
+2026-01-07 15:08:17,683 - INFO - Successfully loaded model from fly64_generalization_study_512_4096/train_512/trial_1/pinn_run
+2026-01-07 15:08:17,684 - DEBUG - Model configuration: {'N': 64, 'offset': 4, 'gridsize': 1, 'outer_offset_train': None, 'outer_offset_test': None, 'batch_size': 16, 'nepochs': 50, 'n_filters_scale': 2, 'output_prefix': 'fly64_generalization_study_512_4096/train_512/trial_1/pinn_run', 'big_gridsize': 10, 'max_position_jitter': 10, 'sim_jitter_scale': 0.0, 'default_probe_scale': 0.7, 'mae_weight': 0.0, 'nll_weight': 1.0, 'tv_weight': 0.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'nimgs_train': 9, 'nimgs_test': 3, 'data_source': 'generic', 'probe.trainable': False, 'intensity_scale.trainable': True, 'positions.provided': True, 'object.big': True, 'probe.big': True, 'probe_scale': 4.0, 'set_phi': False, 'probe.mask': False, 'pad_object': True, 'model_type': 'pinn', 'label': '', 'size': 392, 'amp_activation': 'sigmoid', 'h5_path': 'wts.h5', 'npseed': 42, 'debug': True, 'gaussian_smoothing_sigma': 0.0, 'use_xla_translate': True, 'n_images': 512, 'train_data_file_path': 'datasets/fly64/fly001_64_train_converted.npz', 'test_data_file_path': 'datasets/fly64/fly001_64_train_converted.npz', 'probe': <tf.Tensor: shape=(64, 64, 1), dtype=complex64, numpy=
+array([[[ 0.05078768+0.03908647j],
+        [-0.00147524+0.02986646j],
+        [-0.04124447-0.02018933j],
+        ...,
+        [ 0.02548227+0.01806978j],
+        [ 0.04268315+0.0188654j ],
+        [ 0.04516761+0.01956229j]],
+
+       [[ 0.0220891 -0.01188079j],
+        [ 0.03835767+0.03358509j],
+        [-0.00142893+0.02197503j],
+        ...,
+        [-0.01391465-0.00432523j],
+        [ 0.03996065+0.03697475j],
+        [ 0.02918082+0.03941054j]],
+
+       [[ 0.02744894-0.00778296j],
+        [-0.02554526+0.00479967j],
+        [-0.01781248-0.02643128j],
+        ...,
+        [-0.03899888+0.05420399j],
+        [-0.02644318+0.00979219j],
+        [ 0.03697952-0.08437678j]],
+
+       ...,
+
+       [[-0.03238868-0.01856977j],
+        [ 0.04393906+0.0009207j ],
+        [-0.0523303 +0.16835369j],
+        ...,
+        [ 0.07663022+0.06388126j],
+        [-0.10884623+0.05475416j],
+        [-0.09921163-0.09906429j]],
+
+       [[-0.00452902-0.01962221j],
+        [-0.03836754+0.03825318j],
+        [-0.0233613 +0.0739998j ],
+        ...,
+        [ 0.0232537 +0.04757752j],
+        [-0.06083298-0.04434002j],
+        [-0.0041243 -0.0299162j ]],
+
+       [[ 0.02184559+0.02220817j],
+        [-0.04714252-0.0093401j ],
+        [-0.01891536-0.00193338j],
+        ...,
+        [-0.10183024-0.00715991j],
+        [ 0.0541427 -0.08391279j],
+        [ 0.03675748+0.03997286j]]], dtype=complex64)>, 'intensity_scale': np.float32(988.21173)}
+2026-01-07 15:08:17,684 - INFO - Restored configuration from model: gridsize=1, N=64
+2026-01-07 15:08:17,684 - INFO - Loading test data from datasets/fly64/fly001_64_train_converted.npz with restored gridsize=1...
+2026-01-07 15:08:17,684 - WARNING - --n-test-images is deprecated. Use --n-test-groups instead.
+2026-01-07 15:08:17,684 - INFO - Using n_test_groups=512 (controls grouping)
+2026-01-07 15:08:17,684 - INFO - Loading data from datasets/fly64/fly001_64_train_converted.npz with n_images=512, n_subsample=None
+2026-01-07 15:08:18,112 - INFO - Legacy sampling: using 512 images from 10304 total
+2026-01-07 15:08:18,112 - INFO - Randomly subsampled 512 images
+2026-01-07 15:08:18,116 - INFO - diff3d shape: (512, 64, 64)
+2026-01-07 15:08:18,116 - INFO - probeGuess shape: (64, 64)
+2026-01-07 15:08:18,116 - INFO - scan_index shape: (512,)
+2026-01-07 15:08:18,116 - INFO - objectGuess shape: (232, 232)
+2026-01-07 15:08:18,116 - INFO - xcoords shape: (512,)
+2026-01-07 15:08:18,116 - INFO - ycoords shape: (512,)
+2026-01-07 15:08:18,116 - INFO - xcoords_start shape: (512,)
+2026-01-07 15:08:18,116 - INFO - ycoords_start shape: (512,)
+2026-01-07 15:08:18,124 - INFO - Final configuration: gridsize=1, N=64, n_images=512
+2026-01-07 15:08:18,124 - INFO - Using stitch_crop_size M=20 (N=64)
+2026-01-07 15:08:18,124 - INFO - Loading Baseline model from fly64_generalization_study_512_4096/train_512/trial_1/baseline_run...
+2026-01-07 15:08:18,124 - INFO - Found baseline model at: fly64_generalization_study_512_4096/train_512/trial_1/baseline_run/07-15-2025-21.52.17_baseline_gs1/baseline_model.h5
+2026-01-07 15:08:18,125 - DEBUG - Creating converter from 3 to 5
+2026-01-07 15:08:18,227 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-01-07 15:08:18,232 - WARNING - Error in loading the saved optimizer state. As a result, your model is starting with a freshly initialized optimizer.
+2026-01-07 15:08:18,232 - INFO - Running two-way comparison (PtychoPINN vs. Baseline)
+2026-01-07 15:08:18,232 - INFO - Running inference with PtychoPINN (diffraction_to_obj)...
+2026-01-07 15:08:18,232 - INFO - Using single-shot PINN inference: 512 groups (batch_size=32)
+2026-01-07 15:08:18,232 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=512, n_points=512, C=1, K=7
+2026-01-07 15:08:18,232 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
+2026-01-07 15:08:18,233 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
+2026-01-07 15:08:18,233 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 512 > 512 = False
+2026-01-07 15:08:18,233 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+2026-01-07 15:08:18,233 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2026-01-07 15:08:18,233 - INFO - DEBUG:
+2026-01-07 15:08:18,233 - INFO - nsamples: 512, gridsize: 1 (using efficient random sample-then-group strategy)
+2026-01-07 15:08:18,233 - INFO - Using efficient random sampling strategy for gridsize=1
+2026-01-07 15:08:18,233 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2026-01-07 15:08:18,233 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=512, K=7, C=1
+2026-01-07 15:08:18,233 - INFO - Generating 512 groups efficiently from 512 points (K=7, C=1)
+2026-01-07 15:08:18,233 - INFO - [OVERSAMPLING DEBUG] Standard case: using 512 groups from 512 points
+2026-01-07 15:08:18,233 - INFO - [OVERSAMPLING DEBUG] Using all 512 points as seeds (no sampling needed)
+2026-01-07 15:08:18,233 - INFO - Using all 512 points as seeds
+2026-01-07 15:08:18,233 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2026-01-07 15:08:18,233 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 512 groups
+2026-01-07 15:08:18,233 - INFO - Successfully generated 512 groups with shape (512, 1)
+2026-01-07 15:08:18,233 - INFO - [OVERSAMPLING DEBUG] Generated 512 groups in total
+2026-01-07 15:08:18,233 - INFO - Generated 512 groups efficiently
+2026-01-07 15:08:18,237 - INFO - INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+2026-01-07 15:08:21,719 - INFO - neighbor-sampled diffraction shape
+2026-01-07 15:08:21,719 - INFO - (512, 64, 64, 1)
+2026-01-07 15:08:21,758 - INFO - loader: using provided ground truth patches.
+2026-01-07 15:08:22,043 - INFO - INFO:
+2026-01-07 15:08:22,043 - INFO - None
+2026-01-07 15:08:22,045 - INFO - <PtychoDataContainer X=(512, 64, 64, 1) mean=0.340 Y_I=(512, 64, 64, 1) mean=1.227 Y_phi=(512, 64, 64, 1) mean=-2.338 coords_nominal=(512, 1, 2, 1) mean=0.000 coords_true=(512, 1, 2, 1) mean=0.000 probe=(64, 64) mean_amplitude=0.086 norm_Y_I=<scalar> nn_indices=(512, 1) global_offsets=(512, 1, 2, 1) local_offsets=(512, 1, 2, 1)>
+2026-01-07 15:08:22,050 - INFO - Gridsize validated: params.cfg['gridsize']=1 matches 1 channels
+2026-01-07 15:08:22,267 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1774, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1166, in main
+    pinn_patches = pinn_model.predict(
+                   ^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+    return self._model.predict(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 122, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/execute.py", line 59, in quick_execute
+    except TypeError as e:
+tensorflow.python.framework.errors_impl.InvalidArgumentError: Graph execution error:
+
+Detected at node translate/transform/ImageProjectiveTransformV3 defined at (most recent call last):
+<stack traces unavailable>
+Detected at node translate/transform/ImageProjectiveTransformV3 defined at (most recent call last):
+<stack traces unavailable>
+Detected unsupported operations when trying to compile graph __inference_one_step_on_data_62282[] on XLA_GPU_JIT: ImageProjectiveTransformV3 (No registered 'ImageProjectiveTransformV3' OpKernel for XLA_GPU_JIT devices compatible with node {{node translate/transform/ImageProjectiveTransformV3}}){{node translate/transform/ImageProjectiveTransformV3}}
+The op is created at: 
+dummy_file_name:10:dummy_function_name
+	tf2xla conversion failed while converting __inference_one_step_on_data_62282[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall]] [Op:__inference_one_step_on_data_distributed_62391]
+2026-01-07 15:08:22,268 - ERROR - Traceback (most recent call last):
+2026-01-07 15:08:22,269 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1774, in <module>
+2026-01-07 15:08:22,269 - ERROR - main()
+2026-01-07 15:08:22,269 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1166, in main
+2026-01-07 15:08:22,269 - ERROR - pinn_patches = pinn_model.predict(
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,269 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 163, in predict
+2026-01-07 15:08:22,269 - ERROR - return self._model.predict(*args, **kwargs)
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,269 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 122, in error_handler
+2026-01-07 15:08:22,270 - ERROR - raise e.with_traceback(filtered_tb) from None
+2026-01-07 15:08:22,270 - ERROR - File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/execute.py", line 53, in quick_execute
+2026-01-07 15:08:22,270 - ERROR - tensors = pywrap_tfe.TFE_Py_Execute(ctx._handle, device_name, op_name,
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,270 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - ^
+2026-01-07 15:08:22,271 - ERROR - tensorflow.python.framework.errors_impl
+2026-01-07 15:08:22,271 - ERROR - .
+2026-01-07 15:08:22,271 - ERROR - InvalidArgumentError
+2026-01-07 15:08:22,271 - ERROR - :
+2026-01-07 15:08:22,272 - ERROR - Graph execution error:
+
+Detected at node translate/transform/ImageProjectiveTransformV3 defined at (most recent call last):
+<stack traces unavailable>
+Detected at node translate/transform/ImageProjectiveTransformV3 defined at (most recent call last):
+<stack traces unavailable>
+Detected unsupported operations when trying to compile graph __inference_one_step_on_data_62282[] on XLA_GPU_JIT: ImageProjectiveTransformV3 (No registered 'ImageProjectiveTransformV3' OpKernel for XLA_GPU_JIT devices compatible with node {{node translate/transform/ImageProjectiveTransformV3}}){{node translate/transform/ImageProjectiveTransformV3}}
+The op is created at: 
+dummy_file_name:10:dummy_function_name
+	tf2xla conversion failed while converting __inference_one_step_on_data_62282[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall]] [Op:__inference_one_step_on_data_distributed_62391]

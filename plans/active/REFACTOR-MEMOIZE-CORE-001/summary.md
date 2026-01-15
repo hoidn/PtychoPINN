@@ -1,4 +1,10 @@
 ### Turn Summary
+Staged Phase C cleanup for REFACTOR-MEMOIZE-CORE-001 by updating docs/fix_plan + implementation plan and rewriting input.md with the doc/test Do Now.
+Documented the landed code (commit d29efc91) and scoped docs/index.md plus scripts/simulation/README.md updates alongside the missing pytest evidence.
+Next: Ralph refreshes those docs and reruns the synthetic helper selectors, archiving the logs under the new report timestamp.
+Artifacts: plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T232107Z/
+
+### Turn Summary
 Moved memoize_raw_data (with helper hashes) into ptycho/cache and pointed synthetic_helpers plus the legacy shim at the new module.
 Validated the refactor with pytest tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded -v and pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v (logs captured).
 Next: update docs references for the new cache module and close out Phase C once other imports are audited.
