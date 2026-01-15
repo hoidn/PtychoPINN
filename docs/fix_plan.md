@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
 **Last Updated:** 2026-01-13 (SIM-LINES-4X gs2 probe_scale sweep)
-**Active Focus:** STUDY-SYNTH-DOSE-COMPARISON-001 — Synthetic Dose Response & Loss Comparison Study
+**Active Focus:** DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy
 
 ---
 

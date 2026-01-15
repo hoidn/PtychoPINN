@@ -108,9 +108,9 @@
 
 ## Phase C -- Validation
 ### Checklist
-- [ ] C1: Run four scenarios (gs1 total_images=2000, gs2 total_images=8000; equal splits).
-- [ ] C2: Verify output artifacts (bundle, reconstructed_amplitude.png, reconstructed_phase.png).
-- [ ] C3: Capture per-scenario run summaries.
+- [x] C1: Run four scenarios (gs1 total_images=2000, gs2 total_images=8000; equal splits).
+- [x] C2: Verify output artifacts (bundle, reconstructed_amplitude.png, reconstructed_phase.png).
+- [x] C3: Capture per-scenario run summaries.
 - [ ] C4: Update docs/index.md and any relevant workflow READMEs if new scripts/flows are introduced.
 
 ### Notes & Risks

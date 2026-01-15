@@ -49,6 +49,19 @@ python scripts/studies/sim_lines_4x/run_gs2_ideal.py \
   --group-multiplier 5
 ```
 
+## Probe Scale Sweep (gs2 + idealized probe)
+
+Run a grid sweep over `probe_scale` and score each run with amplitude SSIM:
+
+```bash
+python scripts/studies/sim_lines_4x/run_gs2_ideal_probe_scale_sweep.py \
+  --output-root .artifacts/sim_lines_4x_probe_scale_sweep \
+  --probe-scales 2,4,6,8,10 \
+  --nepochs 5
+```
+
+Results are written to `probe_scale_sweep.json` under the output root.
+
 ## Outputs
 
 Each scenario writes to:

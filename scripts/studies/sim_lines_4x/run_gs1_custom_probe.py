@@ -30,7 +30,12 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    scenario = ScenarioSpec(name="gs1_custom", gridsize=1, probe_mode="custom")
+    scenario = ScenarioSpec(
+        name="gs1_custom",
+        gridsize=1,
+        probe_mode="custom",
+        probe_scale=4.0,
+    )
     run_scenario(scenario, output_root=args.output_root, nepochs=args.nepochs)
 
 

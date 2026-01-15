@@ -250,9 +250,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Running study workflows or comparing multiple models.
 
 #### [SIM-LINES-4X Runner](../scripts/studies/sim_lines_4x/README.md)
-**Description:** Four-scenario nongrid "lines" simulation with TensorFlow training and reconstruction (gs1/gs2 x idealized/custom probes).  
-**Keywords:** lines, nongrid, simulation, reconstruction, gs1, gs2  
-**Use this when:** Generating the SIM-LINES-4X datasets and reconstructions for lines objects.
+**Description:** Four-scenario nongrid "lines" simulation with TensorFlow training and reconstruction (gs1/gs2 x idealized/custom probes), plus a gs2 ideal probe-scale sweep helper.  
+**Keywords:** lines, nongrid, simulation, reconstruction, gs1, gs2, probe-scale  
+**Use this when:** Generating the SIM-LINES-4X datasets, reconstructions, or a gs2 ideal probe-scale sweep.
 
 ## Datasets & Experiments
 

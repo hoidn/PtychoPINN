@@ -65,6 +65,24 @@ def make_probe(
     return probe_guess.astype(np.complex64)
 
 
+def normalize_probe_guess(
+    probe_guess: np.ndarray,
+    *,
+    probe_scale: float,
+    N: int,
+) -> np.ndarray:
+    from ptycho.probe import get_probe_mask_real
+
+    if probe_guess.shape != (N, N):
+        raise ValueError(f"Expected probe shape {(N, N)}, got {probe_guess.shape}")
+    mask = get_probe_mask_real(N)[..., 0]
+    tamped_probe = mask * probe_guess
+    norm = float(probe_scale * np.mean(np.abs(tamped_probe)))
+    if norm == 0.0:
+        raise ValueError("Probe normalization failed: zero mean amplitude")
+    return (probe_guess / norm).astype(np.complex64)
+
+
 @memoize_raw_data(default_cache_dir=CACHE_ROOT, cache_prefix="nongrid_sim")
 def simulate_nongrid_raw_data(
     object_guess: np.ndarray,

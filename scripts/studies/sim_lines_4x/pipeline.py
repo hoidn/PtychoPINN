@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 import json
@@ -13,6 +13,7 @@ import numpy as np
 from scripts.simulation.synthetic_helpers import (
     make_lines_object,
     make_probe,
+    normalize_probe_guess,
     simulate_nongrid_raw_data,
     split_raw_data_by_axis,
 )
@@ -25,6 +26,9 @@ class ScenarioSpec:
     name: str
     gridsize: int
     probe_mode: str  # "idealized" or "custom"
+    probe_scale: float
+    probe_big: Optional[bool] = None
+    probe_mask: Optional[bool] = None
 
 
 @dataclass(frozen=True)
@@ -32,6 +36,7 @@ class RunParams:
     N: int = 64
     object_size: int = 392
     object_seed: int = 42
+    sim_seed: int = 42
     buffer: float = 10.0
     split_fraction: float = 0.5
     base_total_images: int = 2000
@@ -75,10 +80,20 @@ def build_training_config(
     group_count: int,
     output_dir: Path,
     nepochs: int,
+    probe_scale: float,
+    probe_big: bool,
+    probe_mask: bool,
 ):
     from ptycho.config.config import ModelConfig, TrainingConfig
 
-    model_config = ModelConfig(N=params.N, gridsize=gridsize, model_type="pinn")
+    model_config = ModelConfig(
+        N=params.N,
+        gridsize=gridsize,
+        model_type="pinn",
+        probe_scale=probe_scale,
+        probe_big=probe_big,
+        probe_mask=probe_mask,
+    )
     return TrainingConfig(
         model=model_config,
         n_groups=group_count,
@@ -109,6 +124,9 @@ def run_inference(
     gridsize: int,
     params: RunParams,
     group_count: int,
+    probe_scale: float,
+    probe_big: bool,
+    probe_mask: bool,
 ) -> Tuple[np.ndarray, np.ndarray]:
     from ptycho.config.config import InferenceConfig, ModelConfig
     from ptycho.workflows.backend_selector import load_inference_bundle_with_backend
@@ -117,7 +135,13 @@ def run_inference(
     from ptycho import tf_helper
 
     infer_config = InferenceConfig(
-        model=ModelConfig(N=params.N, gridsize=gridsize),
+        model=ModelConfig(
+            N=params.N,
+            gridsize=gridsize,
+            probe_scale=probe_scale,
+            probe_big=probe_big,
+            probe_mask=probe_mask,
+        ),
         model_path=model_dir,
         test_data_file=CUSTOM_PROBE_PATH,
         n_groups=group_count,
@@ -154,8 +178,25 @@ def run_scenario(
     buffer: Optional[float] = None,
     image_multiplier: int = 1,
     group_multiplier: int = 1,
+    object_seed: Optional[int] = None,
+    sim_seed: Optional[int] = None,
 ) -> None:
     params = RunParams()
+    if object_seed is not None or sim_seed is not None:
+        params = replace(
+            params,
+            object_seed=params.object_seed if object_seed is None else object_seed,
+            sim_seed=params.sim_seed if sim_seed is None else sim_seed,
+        )
+    if scenario.probe_mode == "idealized":
+        probe_big = False if scenario.probe_big is None else scenario.probe_big
+        probe_mask = True if scenario.probe_mask is None else scenario.probe_mask
+    else:
+        from ptycho.config.config import ModelConfig
+
+        defaults = ModelConfig()
+        probe_big = defaults.probe_big if scenario.probe_big is None else scenario.probe_big
+        probe_mask = defaults.probe_mask if scenario.probe_mask is None else scenario.probe_mask
     total_images, train_count, test_count = derive_counts(
         params,
         scenario.gridsize,
@@ -183,14 +224,17 @@ def run_scenario(
     if group_count > train_count or group_count > test_count:
         raise ValueError("group_count must be <= train/test image counts")
     logger.info(
-        "Run parameters: N=%s object_size=%s split_fraction=%s total_images=%s train_images=%s test_images=%s group_count=%s",
+        "Run parameters: N=%s object_size=%s object_seed=%s sim_seed=%s split_fraction=%s total_images=%s train_images=%s test_images=%s group_count=%s probe_scale=%s",
         params.N,
         params.object_size,
+        params.object_seed,
+        params.sim_seed,
         params.split_fraction,
         total_images,
         train_count,
         test_count,
         group_count,
+        scenario.probe_scale,
     )
 
     object_guess = make_lines_object(params.object_size, seed=params.object_seed)
@@ -200,6 +244,11 @@ def run_scenario(
         probe_guess = make_probe(params.N, mode="idealized")
     else:
         raise ValueError(f"Unknown probe_mode: {scenario.probe_mode}")
+    probe_guess = normalize_probe_guess(
+        probe_guess,
+        probe_scale=scenario.probe_scale,
+        N=params.N,
+    )
 
     if buffer is None:
         buffer = params.buffer
@@ -210,7 +259,7 @@ def run_scenario(
         N=params.N,
         n_images=total_images,
         nphotons=params.nphotons,
-        seed=42,
+        seed=params.sim_seed,
         buffer=buffer,
     )
     train_raw, test_raw = split_raw_data_by_axis(
@@ -225,14 +274,18 @@ def run_scenario(
         group_count=group_count,
         output_dir=train_dir,
         nepochs=nepochs,
+        probe_scale=scenario.probe_scale,
+        probe_big=probe_big,
+        probe_mask=probe_mask,
     )
     logger.info(
-        "Training config: N=%s gridsize=%s n_groups=%s nphotons=%s nepochs=%s",
+        "Training config: N=%s gridsize=%s n_groups=%s nphotons=%s nepochs=%s probe_scale=%s",
         train_config.model.N,
         train_config.model.gridsize,
         train_config.n_groups,
         train_config.nphotons,
         train_config.nepochs,
+        train_config.model.probe_scale,
     )
 
     start_time = time.time()
@@ -245,16 +298,23 @@ def run_scenario(
         gridsize=scenario.gridsize,
         params=params,
         group_count=group_count,
+        probe_scale=scenario.probe_scale,
+        probe_big=probe_big,
+        probe_mask=probe_mask,
     )
     save_reconstruction(inference_dir, amp, phase)
 
     metadata = {
         "scenario": scenario.name,
         "probe_mode": scenario.probe_mode,
+        "probe_scale": scenario.probe_scale,
+        "probe_big": probe_big,
+        "probe_mask": probe_mask,
         "gridsize": scenario.gridsize,
         "N": params.N,
         "object_size": params.object_size,
         "object_seed": params.object_seed,
+        "sim_seed": params.sim_seed,
         "buffer": buffer,
         "split_fraction": params.split_fraction,
         "base_total_images": params.base_total_images,

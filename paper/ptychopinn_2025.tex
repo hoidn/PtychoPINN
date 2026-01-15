@@ -19,7 +19,7 @@
 \usepackage{url}
 \usepackage{hyperref}
 \usepackage{tikz}
-\usetikzlibrary{calc,positioning,fit,backgrounds,matrix}
+\usetikzlibrary{calc,positioning,fit,backgrounds,matrix,arrows.meta}
 \usepackage{ifthen}
 \usepackage[margin=1in]{geometry}
 \usepackage{booktabs}
@@ -379,7 +379,9 @@ Evaluation of both models on datasets of varying size (Figure~\ref{fig:ssim}) de
 
 \subsection{Overlap-Free Reconstruction}
 
-In overlap-free operation, we set the group size to a single diffraction frame ($C_g = 1$), removing overlap-based real-space consistency. Reconstruction then relies entirely on the diffraction likelihood and the known probe structure (defocused probe/Fresnel geometry). Figure~\ref{fig:recon_2x2} illustrates this single-frame mode compared with multi-position ptychography. While the overlap-free reconstruction shows a slight reduction in fidelity compared to the highly redundant ptychographic case, it successfully resolves the object features, enabling high-throughput imaging without mechanical scanning overhead.
+In overlap-free operation, we set the group size to a single diffraction frame ($C_g = 1$), removing overlap-based real-space consistency. Reconstruction then relies entirely on the diffraction likelihood and the known probe structure (defocused probe/Fresnel geometry). Figure~\ref{fig:recon_2x2} illustrates this single-frame mode compared with multi-position ptychography. While the overlap-free reconstruction shows a slight reduction in fidelity compared to the highly redundant ptychographic case, it successfully resolves the object features, enabling high-throughput imaging without mechanical scanning overhead. Table~\ref{tab:sim_lines_metrics} provides a quantitative summary across overlap and probe-structuring variants.
+
+\input{tables/sim_lines_4x_metrics.tex}
 
 \subsection{Data Efficiency}
 
@@ -495,7 +497,7 @@ Enforcing the diffraction forward model with a photon-counting likelihood change
 
 \subsection*{Dose efficiency: why Poisson NLL helps at low counts}
 
-Poisson NLL matches the photon statistics and improves dose efficiency relative to amplitude MAE (Fig.~\ref{fig:dose}). For counts $N$ and predicted rate $\lambda$, the per‑pixel negative log‑likelihood is $L(\lambda)=\lambda - N\log\lambda$. To second order, this provides a weighted least‑squares penalty on \emph{intensity} residuals with inverse‑variance weights $1/N$ (equivalently $1/\lambda$). Low‑count (high‑$q$) pixels therefore carry larger statistical weight and their high‑frequency content is preserved. In contrast, amplitude MAE applies a uniform penalty in amplitude space $|A-\sqrt{N}|$; bright regions (large $A$) dominate the loss while low‑count pixels are comparatively underweighted, reducing high‑$q$ detail at the same dose. Consistent with this, Poisson‑trained models achieve higher SSIM/FRC at fixed photons per pattern (Figs.~\ref{fig:dose}, \ref{fig:lowcounts}). When absolute counts (or a calibrated scale) are unavailable, MAE is a practical surrogate but does not provide inverse‑variance weighting.
+Poisson NLL matches the photon statistics and improves dose efficiency relative to amplitude MAE (Fig.~\ref{fig:dose}). For counts $N$ and predicted rate $\lambda$, the per‑pixel negative log‑likelihood is $L(\lambda)=\lambda - N\log\lambda$. To second order, this provides a weighted least‑squares penalty on \emph{intensity} residuals with inverse‑variance weights $1/N$ (equivalently $1/\lambda$). Low‑count (high‑$q$) pixels therefore carry larger statistical weight and their high‑frequency content is preserved. In contrast, amplitude MAE applies a uniform penalty in amplitude space $|A-\sqrt{N}|$; bright regions (large $A$) dominate the loss while low‑count pixels are comparatively underweighted, reducing high‑$q$ detail at the same dose. Consistent with this, Poisson‑trained models achieve higher SSIM/FRC at fixed photons per pattern (Figs.~\ref{fig:dose}, \ref{fig:lowcounts}). When absolute counts (or a calibrated scale) are unavailable, MAE is a practical surrogate but does not provide inverse‑variance weighting. This Poisson-versus-MAE comparison serves as a direct ablation of the likelihood term (Figs.~\ref{fig:dose}, \ref{fig:lowcounts}).
 
 
 \subsection*{Robustness to sparse sampling and low overlap}
@@ -513,16 +515,13 @@ Notably, the Siemens‑star data are collected with a \emph{curved/defocused pro
 
 
 \subsection*{Single-shot Fresnel CDI}
-In Fresnel geometry, probe curvature acts as coded illumination that provides phase diversity sufficient for $C_g{=}1$. With the diffraction constraint and dual-resolution decoding, we obtain stable single-shot reconstructions with modest quality loss relative to overlapped scans (Fig.~\ref{fig:recon_2x2}). This unifies ptychography and single-shot CDI in one self-supervised solver: overlap is a design resource, not an algorithmic requirement.
+In Fresnel geometry, probe curvature acts as structured illumination that provides phase diversity sufficient for reconstruction without overlap constraints. We obtain stable single-shot reconstructions with modest quality loss relative to overlapped scans (Fig.~\ref{fig:recon_2x2}). This unifies ptychography and single-shot CDI in one self-supervised solver, making overlaps an option instead of an algorithmic requirement. 
 
 \subsection*{Data efficiency and inductive bias}
-PtychoPINN reaches a given SSIM with roughly an order of magnitude fewer training patterns than the supervised baseline (Fig.~\ref{fig:ssim}). From an ML perspective, incorporating the forward physics reduces the hypothesis space to measurement‑consistent functions, lowering sample complexity. From a physics perspective, the model exploits redundancy already present in the measurements (Fourier magnitudes and known probe) rather than relearning it from labels. This holds even with a few hundred training images.
+PtychoPINN reaches a given SSIM with roughly an order of magnitude fewer training patterns than the supervised baseline (Fig.~\ref{fig:ssim}), such that even a few hundred training images is sufficient to extract coherent features (todo language?). We found previously that this gain in generalization is primarily a result of the unsupervised training procedure's better fit to the problem's physical invariants \cite{Hoidn2023PtychoPINN}. 
 
-\subsection*{Implications for experiment design}
-\emph{Dose}: Poisson‑consistent training achieves similar resolution at lower photons per pattern, benefiting radiation‑sensitive samples. \emph{Throughput}: feed‑forward inference at thousands of patterns per second on a single GPU enables on‑the‑fly steering; training can use hundreds to low‑thousands of frames. \emph{Scan strategy}: irregular, sparse, and adaptive scans are supported because grouping and merging do not assume a raster.
-
-\subsection*{Ablations}
-Ablations are consistent with these interpretations. Removing the Poisson loss degrades high-$q$ detail at low dose; removing dual-resolution decoding introduces exit-wave truncation artifacts and destabilizes training with extended probes; removing coordinate-aware grouping reduces effective augmentation and hurts small-data performance. These components interact and jointly ensure numerical and statistical well-posedness.
+\subsection*{Practical performance}
+At $\sim10^4$ photons/frame, Poisson NLL preserves high-$q$ detail relative to MAE (Fig.~\ref{fig:dose}, Fig.~\ref{fig:lowcounts}). Inference runs at $\sim$2000 patterns/s on an RTX 3090, and stable reconstructions are obtained with a few hundred--low-thousands frames (Fig.~\ref{fig:ssim}). Overlap-free operation ($C_g{=}1$) yields recognizable structure with modest fidelity loss compared to overlapped scans (Fig.~\ref{fig:recon_2x2}, Table~\ref{tab:sim_lines_metrics}).
 
 \subsection*{Limitations and extensions}
 We assume a pre‑estimated probe; joint probe retrieval within the self‑supervised loop is a natural extension. At high flux or with read noise, a mixed Poisson–Gaussian likelihood may be preferable. Extending to Bragg CDI and reflection geometries requires only forward‑model and sampling modifications. Motion and position errors are neglected; explicit stochastic position models or differentiable refinement could help when jitter dominates. 

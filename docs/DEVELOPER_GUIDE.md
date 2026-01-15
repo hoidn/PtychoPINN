@@ -307,7 +307,9 @@ To ensure fair and consistent model comparison, the project must use single, aut
 
 **The Principle:** The logic for aligning a reconstruction with its ground truth for metric calculation must be centralized.
 
-**The Correct Function:** `<code-ref type="function">ptycho.image.cropping.align_for_evaluation</code-ref>`
+**The Correct Functions:**
+- `<code-ref type="function">ptycho.image.cropping.align_for_evaluation</code-ref>` for scan-coordinate cropping.
+- `<code-ref type="function">ptycho.image.cropping.align_for_evaluation_with_registration</code-ref>` for full evaluation alignment (coordinate crop + fine-scale registration).
 *   **Interface Documentation:**
     ```python
     def align_for_evaluation(
@@ -322,7 +324,24 @@ To ensure fair and consistent model comparison, the project must use single, aut
         to calculate the precise bounding box for a physically correct comparison.
         """
     ```
-*   **The Rule:** Any script that calculates metrics (e.g., `run_baseline.py`, `compare_models.py`) **must** use this function to prepare its inputs for `eval_reconstruction`. This guarantees that the comparison is fair and physically meaningful.
+    ```python
+    def align_for_evaluation_with_registration(
+        reconstruction_image: np.ndarray,
+        ground_truth_image: np.ndarray,
+        scan_coords_yx: np.ndarray,
+        stitch_patch_size: int,
+        *,
+        upsample_factor: int = 50,
+        border_crop: int = 2,
+        skip_registration: bool = False,
+    ) -> tuple[np.ndarray, np.ndarray, tuple[float, float] | None]:
+        """
+        Runs align_for_evaluation, then applies fine-scale registration (phase cross-correlation)
+        to remove residual translation before metrics/PNGs are computed.
+        """
+    ```
+*   **The Rule:** Any script that calculates metrics (e.g., `run_baseline.py`, `compare_models.py`) **must** use `align_for_evaluation_with_registration` (or call `align_for_evaluation` plus the same registration logic) to prepare inputs for `eval_reconstruction`. This guarantees that the comparison is fair and physically meaningful.
+*   **When in doubt:** Use `align_for_evaluation_with_registration` for evaluation outputs, and reserve `align_for_evaluation` for debugging alignment without registration.
 
 ---
 
