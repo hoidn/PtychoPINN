@@ -1,0 +1,151 @@
+{
+  "cases": [
+    {
+      "id": "gs1_ideal",
+      "label": "gs1 + idealized probe",
+      "metrics": {
+        "frc50": [
+          11.0,
+          null
+        ],
+        "mae": [
+          0.2746150572912734,
+          0.08543833086427872
+        ],
+        "ms_ssim": [
+          0.7293876185659203,
+          0.8627081861010283
+        ],
+        "mse": [
+          0.1749199689423676,
+          0.07360852624008482
+        ],
+        "psnr": [
+          55.70240969146309,
+          59.46152238872874
+        ],
+        "ssim": [
+          0.6206687730055797,
+          0.9332184210271915
+        ]
+      },
+      "registration_offset": [
+        -1.6800000667572021,
+        2.4800000190734863
+      ]
+    },
+    {
+      "id": "gs1_custom",
+      "label": "gs1 + custom probe",
+      "metrics": {
+        "frc50": [
+          39.0,
+          null
+        ],
+        "mae": [
+          0.17313787431246516,
+          0.047742955929946665
+        ],
+        "ms_ssim": [
+          0.8901668953779948,
+          0.9325972697456997
+        ],
+        "mse": [
+          0.12274459325451595,
+          0.0751330781729152
+        ],
+        "psnr": [
+          57.24077990016855,
+          59.3724917635737
+        ],
+        "ssim": [
+          0.7852030384103381,
+          0.9730289475797101
+        ]
+      },
+      "registration_offset": [
+        -1.7000000476837158,
+        2.4800000190734863
+      ]
+    },
+    {
+      "id": "gs2_ideal",
+      "label": "gs2 + idealized probe",
+      "metrics": {
+        "frc50": [
+          9.0,
+          null
+        ],
+        "mae": [
+          0.29408866839488357,
+          0.02757807370284121
+        ],
+        "ms_ssim": [
+          0.6723875360619446,
+          0.960420558796094
+        ],
+        "mse": [
+          0.2031286303581186,
+          0.06739688932734002
+        ],
+        "psnr": [
+          55.05309221064859,
+          59.84440507864888
+        ],
+        "ssim": [
+          0.505577538013526,
+          0.9790237080944725
+        ]
+      },
+      "registration_offset": [
+        3.059999942779541,
+        3.799999952316284
+      ]
+    },
+    {
+      "id": "gs2_custom",
+      "label": "gs2 + custom probe",
+      "metrics": {
+        "frc50": [
+          15.0,
+          null
+        ],
+        "mae": [
+          0.1889845635213498,
+          0.052159739620088665
+        ],
+        "ms_ssim": [
+          0.8720821864677899,
+          0.9286520915152215
+        ],
+        "mse": [
+          0.13799139832180995,
+          0.0629014036823575
+        ],
+        "psnr": [
+          56.73228345186261,
+          60.14420022710595
+        ],
+        "ssim": [
+          0.7122713790463,
+          0.9769267352940487
+        ]
+      },
+      "registration_offset": [
+        2.940000057220459,
+        3.799999952316284
+      ]
+    }
+  ],
+  "notes": {
+    "alignment": "align_for_evaluation using scan coordinates from global_offsets and stitch_patch_size=20",
+    "ground_truth": "simulated lines object (objectGuess) cropped to scanned region",
+    "metric_source": "ptycho.evaluation.eval_reconstruction",
+    "registration": "enabled",
+    "registration_border_crop": 2,
+    "registration_upsample": 50,
+    "test_sampling": "random subsample of test split (nsamples=1000, seed=7)",
+    "test_split": "bottom-half spatial split (y-axis)"
+  },
+  "title": "SIM-LINES-4X reconstruction metrics"
+}

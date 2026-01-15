@@ -1,0 +1,167 @@
+{
+  "best": {
+    "error": null,
+    "metrics": {
+      "frc50": [
+        1.0,
+        null
+      ],
+      "mae": [
+        0.6096746749380285,
+        0.07758592650627466
+      ],
+      "ms_ssim": [
+        0.06905382611916862,
+        0.8352614332100744
+      ],
+      "mse": [
+        0.6814519305695436,
+        0.14145972330099926
+      ],
+      "psnr": [
+        49.796451348152175,
+        56.62447556424999
+      ],
+      "ssim": [
+        0.24926199344623404,
+        0.9447528949907593
+      ]
+    },
+    "probe_scale": 6.0,
+    "registration_fallback": false,
+    "scenario": "gs2_ideal_scale_6",
+    "ssim_amplitude": 0.24926199344623404,
+    "ssim_phase": 0.9447528949907593
+  },
+  "metric": "ssim_amplitude",
+  "probe_scales": [
+    2.0,
+    4.0,
+    6.0,
+    8.0,
+    10.0
+  ],
+  "results": [
+    {
+      "error": null,
+      "metrics": {
+        "frc50": [
+          1.0,
+          null
+        ],
+        "mae": [
+          0.722842967848403,
+          0.06746718142948151
+        ],
+        "ms_ssim": [
+          0.024700462699605352,
+          0.8367796243106391
+        ],
+        "mse": [
+          0.9069508830613341,
+          0.14257511465703174
+        ],
+        "psnr": [
+          48.55496592893461,
+          56.590366318702515
+        ],
+        "ssim": [
+          0.21175522395061974,
+          0.9449283511714905
+        ]
+      },
+      "probe_scale": 2.0,
+      "registration_fallback": false,
+      "scenario": "gs2_ideal_scale_2",
+      "ssim_amplitude": 0.21175522395061974,
+      "ssim_phase": 0.9449283511714905
+    },
+    {
+      "error": null,
+      "metrics": {
+        "frc50": [
+          2.0,
+          null
+        ],
+        "mae": [
+          0.587303855813007,
+          0.07465684000961997
+        ],
+        "ms_ssim": [
+          0.14972412640859933,
+          0.8685639653378765
+        ],
+        "mse": [
+          0.6106839627331255,
+          0.17773717721046414
+        ],
+        "psnr": [
+          50.27263845519484,
+          55.63302081954959
+        ],
+        "ssim": [
+          0.19681144817051813,
+          0.9343881652492864
+        ]
+      },
+      "probe_scale": 4.0,
+      "registration_fallback": false,
+      "scenario": "gs2_ideal_scale_4",
+      "ssim_amplitude": 0.19681144817051813,
+      "ssim_phase": 0.9343881652492864
+    },
+    {
+      "error": null,
+      "metrics": {
+        "frc50": [
+          1.0,
+          null
+        ],
+        "mae": [
+          0.6096746749380285,
+          0.07758592650627466
+        ],
+        "ms_ssim": [
+          0.06905382611916862,
+          0.8352614332100744
+        ],
+        "mse": [
+          0.6814519305695436,
+          0.14145972330099926
+        ],
+        "psnr": [
+          49.796451348152175,
+          56.62447556424999
+        ],
+        "ssim": [
+          0.24926199344623404,
+          0.9447528949907593
+        ]
+      },
+      "probe_scale": 6.0,
+      "registration_fallback": false,
+      "scenario": "gs2_ideal_scale_6",
+      "ssim_amplitude": 0.24926199344623404,
+      "ssim_phase": 0.9447528949907593
+    },
+    {
+      "error": "",
+      "metrics": {},
+      "probe_scale": 8.0,
+      "registration_fallback": false,
+      "scenario": "gs2_ideal_scale_8",
+      "ssim_amplitude": null,
+      "ssim_phase": null
+    },
+    {
+      "error": "",
+      "metrics": {},
+      "probe_scale": 10.0,
+      "registration_fallback": false,
+      "scenario": "gs2_ideal_scale_10",
+      "ssim_amplitude": null,
+      "ssim_phase": null
+    }
+  ],
+  "title": "SIM-LINES-4X gs2_ideal probe_scale sweep"
+}

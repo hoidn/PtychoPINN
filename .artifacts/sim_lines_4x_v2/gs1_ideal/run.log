@@ -1,0 +1,4 @@
+2026-01-11 00:36:41,156 - INFO - Starting scenario: gs1_ideal
+2026-01-11 00:36:41,156 - INFO - Run parameters: N=64 object_size=392 split_fraction=0.5 total_images=2000 train_images=1000 test_images=1000 group_count=1000
+2026-01-11 00:36:57,601 - INFO - Training config: N=64 gridsize=1 n_groups=1000 nphotons=1000000000.0 nepochs=5
+2026-01-11 00:37:28,543 - INFO - Completed scenario: gs1_ideal

@@ -11,7 +11,7 @@ from ptycho.diffsim import sim_object_image
 from ptycho.nongrid_simulation import generate_simulated_data
 from ptycho.probe import get_default_probe
 from ptycho.raw_data import RawData
-from scripts.simulation.cache_utils import memoize_raw_data
+from ptycho.cache import memoize_raw_data
 
 CACHE_ROOT = Path(".artifacts/synthetic_helpers/cache")
 

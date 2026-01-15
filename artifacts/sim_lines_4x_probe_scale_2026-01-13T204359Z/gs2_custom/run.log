@@ -1,0 +1,4 @@
+2026-01-13 12:47:17,837 - INFO - Starting scenario: gs2_custom
+2026-01-13 12:47:17,837 - INFO - Run parameters: N=64 object_size=392 split_fraction=0.5 total_images=8000 train_images=4000 test_images=4000 group_count=1000 probe_scale=4.0
+2026-01-13 12:48:03,250 - INFO - Training config: N=64 gridsize=2 n_groups=1000 nphotons=1000000000.0 nepochs=5 probe_scale=4.0
+2026-01-13 12:48:29,297 - INFO - Completed scenario: gs2_custom

@@ -1,0 +1,8 @@
+2026-01-11 00:26:01,533 - INFO - Starting scenario: gs1_integration
+2026-01-11 00:26:01,533 - INFO - Run parameters: N=64 object_size=392 split_fraction=0.5 test_count=1000 total_images=2000
+2026-01-11 00:26:17,280 - INFO - Training config: N=64 gridsize=1 n_groups=1000 nphotons=1000000000.0 nepochs=5
+2026-01-11 00:26:48,369 - INFO - Completed scenario: gs1_integration
+2026-01-11 00:32:08,657 - INFO - Starting scenario: gs1_integration
+2026-01-11 00:32:08,658 - INFO - Run parameters: N=64 object_size=392 split_fraction=0.5 test_count=1000 total_images=2000
+2026-01-11 00:32:24,365 - INFO - Training config: N=64 gridsize=1 n_groups=1000 nphotons=1000000000.0 nepochs=5
+2026-01-11 00:32:55,238 - INFO - Completed scenario: gs1_integration

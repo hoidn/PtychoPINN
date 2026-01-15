@@ -36,3 +36,4 @@
 - Attempts History:
   - *2026-01-13T202358Z:* Drafted implementation plan and initialized initiative summary. Artifacts: `plans/active/REFACTOR-MEMOIZE-CORE-001/implementation.md`, `plans/active/REFACTOR-MEMOIZE-CORE-001/summary.md`.
   - *2026-01-15T225850Z:* Phase A inventory + compatibility design completed; handed off Phase B move/shim work with pytest coverage instructions. Artifacts: `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/`
+  - *2026-01-15T231710Z:* Added `ptycho/cache.py` with the memoize helpers, updated synthetic_helpers to import it, and converted `scripts/simulation/cache_utils.py` into a DeprecationWarning shim. Tests: `pytest tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded -v`, `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v`. Artifacts: `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/`

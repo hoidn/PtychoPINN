@@ -1,0 +1,23 @@
+{
+  "N": 64,
+  "base_total_images": 2000,
+  "buffer": 10.0,
+  "elapsed_seconds": 83.07,
+  "gridsize": 2,
+  "group_count": 1000,
+  "group_multiplier": 1,
+  "image_multiplier": 1,
+  "neighbor_count": 4,
+  "nepochs": 5,
+  "nphotons": 1000000000.0,
+  "object_seed": 42,
+  "object_size": 392,
+  "probe_mode": "idealized",
+  "probe_scale": 2.0,
+  "scenario": "gs2_ideal_scale_2",
+  "sim_seed": 42,
+  "split_fraction": 0.5,
+  "test_count": 4000,
+  "total_images": 8000,
+  "train_count": 4000
+}

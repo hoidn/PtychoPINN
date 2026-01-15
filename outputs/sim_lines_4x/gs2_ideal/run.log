@@ -1,0 +1,14 @@
+2026-01-13 14:58:30,838 - INFO - Starting scenario: gs2_ideal
+2026-01-13 14:58:30,839 - INFO - Run parameters: N=64 object_size=392 object_seed=42 sim_seed=42 split_fraction=0.5 total_images=8000 train_images=4000 test_images=4000 group_count=1000 probe_scale=10.0
+2026-01-13 14:58:49,542 - INFO - Starting scenario: gs2_ideal
+2026-01-13 14:58:49,542 - INFO - Run parameters: N=64 object_size=392 object_seed=42 sim_seed=42 split_fraction=0.5 total_images=8000 train_images=4000 test_images=4000 group_count=1000 probe_scale=10.0
+2026-01-13 14:59:38,745 - INFO - Training config: N=64 gridsize=2 n_groups=1000 nphotons=1000000000.0 nepochs=5 probe_scale=10.0
+2026-01-13 15:00:02,960 - INFO - Completed scenario: gs2_ideal
+2026-01-13 15:07:25,646 - INFO - Starting scenario: gs2_ideal
+2026-01-13 15:07:25,646 - INFO - Run parameters: N=64 object_size=392 object_seed=42 sim_seed=42 split_fraction=0.5 total_images=8000 train_images=4000 test_images=4000 group_count=1000 probe_scale=10.0
+2026-01-13 15:07:25,952 - INFO - Training config: N=64 gridsize=2 n_groups=1000 nphotons=1000000000.0 nepochs=5 probe_scale=10.0
+2026-01-13 15:08:47,057 - INFO - Completed scenario: gs2_ideal
+2026-01-13 15:19:34,330 - INFO - Starting scenario: gs2_ideal
+2026-01-13 15:19:34,330 - INFO - Run parameters: N=64 object_size=392 object_seed=42 sim_seed=42 split_fraction=0.5 total_images=8000 train_images=4000 test_images=4000 group_count=1000 probe_scale=10.0
+2026-01-13 15:19:34,635 - INFO - Training config: N=64 gridsize=2 n_groups=1000 nphotons=1000000000.0 nepochs=50 probe_scale=10.0
+2026-01-13 15:21:28,752 - INFO - Completed scenario: gs2_ideal

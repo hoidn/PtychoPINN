@@ -1,0 +1,23 @@
+2026-01-13 11:08:13.751890: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1768331293.763175 1623156 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1768331293.766744 1623156 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1768331293.776616 1623156 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768331293.776627 1623156 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768331293.776628 1623156 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768331293.776630 1623156 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-13 11:08:13.779375: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+Traceback (most recent call last):
+  File "/home/ollie/Documents/tmp/PtychoPINN/scripts/studies/sim_lines_4x/evaluate_metrics.py", line 178, in <module>
+    main()
+  File "/home/ollie/Documents/tmp/PtychoPINN/scripts/studies/sim_lines_4x/evaluate_metrics.py", line 154, in main
+    metrics = _evaluate_case(model_dir, metadata, args.nsamples, args.seed)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/tmp/PtychoPINN/scripts/studies/sim_lines_4x/evaluate_metrics.py", line 99, in _evaluate_case
+    test_raw, object_guess = _make_test_split(metadata)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/tmp/PtychoPINN/scripts/studies/sim_lines_4x/evaluate_metrics.py", line 36, in _make_test_split
+    seed=int(metadata["object_seed"]),
+             ~~~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'object_seed'

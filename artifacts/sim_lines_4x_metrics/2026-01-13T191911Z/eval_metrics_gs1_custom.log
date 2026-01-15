@@ -1,0 +1,130 @@
+2026-01-13 11:19:23.362809: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1768331963.374364 1627591 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1768331963.378288 1627591 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1768331963.388456 1627591 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768331963.388468 1627591 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768331963.388469 1627591 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768331963.388471 1627591 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-13 11:19:23.391288: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+I0000 00:00:1768331966.315860 1627591 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1768331966.317268 1627591 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1768331967.066514 1627591 service.cc:152] XLA service 0x3d2a46c0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1768331967.066535 1627591 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2026-01-13 11:19:27.086747: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1768331967.105879 1627591 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1768331967.259894 1627591 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+WARNING:tensorflow:From /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow_probability/python/distributions/distribution.py:342: calling _Independent.__init__ (from tensorflow_probability.python.distributions.independent) with reinterpreted_batch_ndims=None is deprecated and will be removed after 2022-03-01.
+Instructions for updating:
+Please pass an integer value for `reinterpreted_batch_ndims`. The current behavior corresponds to `reinterpreted_batch_ndims=tf.size(distribution.batch_shape_tensor()) - 1`.
+2026-01-13 11:21:04.825205: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence
+2026-01-13 11:21:06,405 - INFO - Loading model from: outputs/sim_lines_4x_rerun_20260113T025238Z/gs1_custom/train_outputs
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+2026-01-13 11:21:07,888 - INFO - Successfully loaded model from outputs/sim_lines_4x_rerun_20260113T025238Z/gs1_custom/train_outputs
+2026-01-13 11:21:07,890 - INFO - Backend dispatcher: inference bundle loaded (backend=tensorflow)
+2026-01-13 11:21:07,890 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=9000, C=1, K=4
+2026-01-13 11:21:07,890 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
+2026-01-13 11:21:07,890 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
+2026-01-13 11:21:07,890 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 9000 = False
+2026-01-13 11:21:07,890 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+2026-01-13 11:21:07,890 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2026-01-13 11:21:07,890 - INFO - Using efficient random sampling strategy for gridsize=1
+2026-01-13 11:21:07,890 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2026-01-13 11:21:07,890 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
+2026-01-13 11:21:07,890 - INFO - Generating 1000 groups efficiently from 9000 points (K=4, C=1)
+2026-01-13 11:21:07,890 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 9000 points
+2026-01-13 11:21:07,891 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 1000 seed points
+2026-01-13 11:21:07,891 - INFO - Sampled 1000 seed points from 9000 total points
+2026-01-13 11:21:07,891 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2026-01-13 11:21:07,891 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
+2026-01-13 11:21:07,891 - INFO - Successfully generated 1000 groups with shape (1000, 1)
+2026-01-13 11:21:07,891 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
+2026-01-13 11:21:07,891 - INFO - Generated 1000 groups efficiently
+DEBUG: Setting data_source to lines in params
+DEBUG: Setting data_source to generic in params
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 1000000000.0 in params
+input shape (None, 64, 64, 1)
+diff3d shape: (18000, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (18000,)
+objectGuess shape: (392, 392)
+xcoords shape: (18000,)
+ycoords shape: (18000,)
+xcoords_start shape: (18000,)
+ycoords_start shape: (18000,)
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 1000000000.0 in params
+diff3d shape: (9000, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (9000,)
+objectGuess shape: (392, 392)
+xcoords shape: (9000,)
+ycoords shape: (9000,)
+xcoords_start shape: (9000,)
+ycoords_start shape: (9000,)
+diff3d shape: (9000, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (9000,)
+objectGuess shape: (392, 392)
+xcoords shape: (9000,)
+ycoords shape: (9000,)
+xcoords_start shape: (9000,)
+ycoords_start shape: (9000,)
+DEBUG: nsamples: 1000, gridsize: 1 (using efficient random sample-then-group strategy)
+INFO: Using pre-computed 'Y' array from the input file.
+neighbor-sampled diffraction shape (1000, 64, 64, 1)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(1000, 64, 64, 1) mean=0.375 Y_I=(1000, 64, 64, 1) mean=2.623 Y_phi=(1000, 64, 64, 1) mean=0.000 coords_nominal=(1000, 1, 2, 1) mean=0.000 coords_true=(1000, 1, 2, 1) mean=0.000 probe=(64, 64) mean_amplitude=0.322 norm_Y_I=<scalar> nn_indices=(1000, 1) global_offsets=(1000, 1, 2, 1) local_offsets=(1000, 1, 2, 1)>
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(32, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(32, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(32, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(32, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+[1m 1/32[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m55s[0m 2s/step[1m12/32[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m0s[0m 5ms/step[1m23/32[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 5ms/stepDEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+[1m32/32[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 51ms/step[1m32/32[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m3s[0m 51ms/step
+2026-01-13 11:21:12,498 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
+2026-01-13 11:21:12,498 - INFO - Calculated ground truth crop region: rows [187:391], cols [0:391]
+2026-01-13 11:21:12,498 - INFO - Initial shapes: Recon=(396, 396), Cropped GT=(204, 391)
+2026-01-13 11:21:12,498 - INFO - Center-cropping from (396, 396) to (204, 391)
+2026-01-13 11:21:12,498 - INFO - Final aligned shape: (204, 391)
+2026-01-13 11:21:12,498 - INFO - --- Alignment complete ---
+Amplitude normalization scale factor: 3.755865
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [gs1_custom]: amp_target stats: mean=2.652922, std=0.660088, shape=(200, 387, 1)
+DEBUG eval_reconstruction [gs1_custom]: amp_pred stats: mean=0.706341, std=0.188159, shape=(200, 387, 1)
+DEBUG eval_reconstruction [gs1_custom]: phi_target stats: mean=0.000000, std=0.000000, shape=(200, 387)
+DEBUG eval_reconstruction [gs1_custom]: phi_pred stats: mean=0.000000, std=0.036172, shape=(200, 387)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [0.000, 0.000] -> scaled range [0.500, 0.500]

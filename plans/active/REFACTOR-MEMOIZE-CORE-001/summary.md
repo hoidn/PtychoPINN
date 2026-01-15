@@ -1,4 +1,10 @@
 ### Turn Summary
+Moved memoize_raw_data (with helper hashes) into ptycho/cache and pointed synthetic_helpers plus the legacy shim at the new module.
+Validated the refactor with pytest tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded -v and pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v (logs captured).
+Next: update docs references for the new cache module and close out Phase C once other imports are audited.
+Artifacts: plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/ (pytest_synthetic_helpers.log, pytest_cli_smoke.log)
+
+### Turn Summary
 Phase A inventory confirmed memoize_raw_data is only used by synthetic_helpers and now needs a core home (`ptycho/cache.py`) plus a compatibility shim to keep imports stable.
 docs/fix_plan.md, the implementation plan, and input.md now capture the move/shim scope along with the mapped pytest selectors and artifacts hub for Phase B1-B3.
 Next: Ralph creates `ptycho/cache.py`, converts the scripts shim, updates synthetic_helpers, and runs the two synthetic helper pytest selectors.
