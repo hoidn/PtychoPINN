@@ -1,6 +1,6 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-13 (STUDY-SYNTH-DOSE-COMPARISON-001 rerun)
+**Last Updated:** 2026-01-13 (SIM-LINES-4X gs2 probe_scale sweep)
 **Active Focus:** STUDY-SYNTH-DOSE-COMPARISON-001 — Synthetic Dose Response & Loss Comparison Study
 
 ---
@@ -13,6 +13,28 @@
 ---
 
 ## Active / Pending Initiatives
+
+### [DEBUG-SIM-LINES-DOSE-001] Isolate sim_lines_4x vs dose_experiments discrepancy
+- Depends on: None
+- Priority: **Critical** (Highest Priority)
+- Status: pending — plan drafted
+- Owner/Date: Codex/2026-01-13
+- Working Plan: `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md`
+- Summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md`
+- Reports Hub: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/`
+- Spec Owner: `docs/specs/spec-ptycho-workflow.md`
+- Test Strategy: `plans/active/DEBUG-SIM-LINES-DOSE-001/test_strategy.md`
+- Goals:
+  - Identify whether the sim_lines_4x failure stems from a core regression, nongrid pipeline differences, or a workflow/config mismatch.
+  - Produce a minimal repro that isolates grid vs nongrid and probe normalization effects.
+  - Apply a targeted fix and verify success via visual inspection if metrics are unavailable.
+- Exit Criteria:
+  - A/B results captured for grid vs nongrid, probe normalization, and grouping parameters.
+  - Root-cause statement with evidence (logs + params snapshot + artifacts).
+  - Targeted fix or workflow change applied, with recon success and no NaNs.
+  - Visual inspection success gate satisfied if metrics are unavailable.
+- Attempts History:
+  - *2026-01-13T000000Z:* Drafted phased debugging plan, summary, and test strategy. Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md`, `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md`, `plans/active/DEBUG-SIM-LINES-DOSE-001/test_strategy.md`.
 
 ### [SIM-LINES-4X-001] Four-scenario nongrid sim + TF reconstruction (lines object)
 - Depends on: None
@@ -31,13 +53,40 @@
   - Run logs capture N=64, object_size=392, split=0.5, base_total_images=2000, group_count=1000 (gs2 total_images=8000).
   - Ledger and initiative summary updated.
 - Attempts History:
+  - *2026-01-13T220032Z:* Added gs2 ideal probe_scale sweep runner safeguards for NaN metrics (sanitize + registration fallback) and executed a 20‑epoch sweep across probe_scale {2,4,6,8,10}. **Result:** best amplitude SSIM at probe_scale=6.0 (ssim_amp≈0.2493); scales 8/10 produced NaN recon amplitudes, so metrics were recorded as null. **Static analysis:** `ruff check scripts/studies/sim_lines_4x/run_gs2_ideal_probe_scale_sweep.py` passed. **Artifacts:** `plans/active/SIM-LINES-4X-001/reports/2026-01-13T220032Z/ruff_check.log`, `plans/active/SIM-LINES-4X-001/reports/2026-01-13T220032Z/run_probe_scale_sweep_20epochs.log`, `.artifacts/sim_lines_4x_probe_scale_sweep_2026-01-13T220032Z/probe_scale_sweep.json`.
+  - *2026-01-13T205123Z:* Reran SIM-LINES-4X gs2 ideal/custom with 50 epochs (output root `.artifacts/sim_lines_4x_probe_scale_2026-01-13T205123Z_gs2_50`). **Observation:** gs2_ideal losses went NaN early; gs2_custom completed after a longer rerun. **Artifacts:** `plans/active/SIM-LINES-4X-001/reports/2026-01-13T205123Z/run_gs2_ideal_50epochs.log`, `plans/active/SIM-LINES-4X-001/reports/2026-01-13T205123Z/run_gs2_custom_probe_50epochs.log`.
+  - *2026-01-13T204359Z:* Set gs2 runners to pass probe_scale (ideal=10.0, custom=4.0) and reran all four SIM-LINES-4X scenarios to refresh outputs under `.artifacts/sim_lines_4x_probe_scale_2026-01-13T204359Z`. **Static analysis:** `ruff check scripts/studies/sim_lines_4x/run_gs2_ideal.py scripts/studies/sim_lines_4x/run_gs2_custom_probe.py` passed. **Artifacts:** `plans/active/SIM-LINES-4X-001/reports/2026-01-13T204359Z/ruff_check.log`, `plans/active/SIM-LINES-4X-001/reports/2026-01-13T204359Z/run_gs1_ideal.log`, `plans/active/SIM-LINES-4X-001/reports/2026-01-13T204359Z/run_gs1_custom_probe.log`, `plans/active/SIM-LINES-4X-001/reports/2026-01-13T204359Z/run_gs2_ideal.log`, `plans/active/SIM-LINES-4X-001/reports/2026-01-13T204359Z/run_gs2_custom_probe.log`.
   - *2026-01-11T081911Z:* Implemented SIM-LINES-4X pipeline + scenario runners. Added core pipeline module and four runner scripts under `scripts/studies/sim_lines_4x/` with a README; updated `docs/index.md` and `scripts/studies/README.md`. **Static analysis:** `ruff check scripts/studies/sim_lines_4x` passed. **Tests:** `pytest -m integration` passed (1 passed, 2 skipped pre-existing). Artifacts: `plans/active/SIM-LINES-4X-001/reports/2026-01-11T081911Z/ruff_check.log`, `plans/active/SIM-LINES-4X-001/reports/2026-01-11T081911Z/pytest_integration.log`. Next: execute four scenarios (C1-C3) and capture outputs.
   - *2026-01-11T083629Z:* Updated SIM-LINES-4X pipeline to scale `total_images` by `gridsize^2` while keeping `group_count=1000` per split. Reran gs2 scenarios with `total_images=8000` and `train/test=4000/4000`; outputs saved under `.artifacts/sim_lines_4x/{gs2_ideal,gs2_integration}`. **Static analysis:** `ruff check scripts/studies/sim_lines_4x` passed. Artifacts: `plans/active/SIM-LINES-4X-001/reports/2026-01-11T083629Z/ruff_check.log`, `plans/active/SIM-LINES-4X-001/reports/2026-01-11T083629Z/run_gs2_ideal.log`, `plans/active/SIM-LINES-4X-001/reports/2026-01-11T083629Z/run_gs2_integration_probe.log`. Notes: stitch warnings logged during inference but outputs written.
   - *2026-01-12T231841Z:* Updated sim_lines_4x figure presentation (square crop + nonzero vmin colormap scaling) and regenerated inference outputs for gs1/gs2 ideal/custom scenarios. Artifacts: `outputs/sim_lines_4x_rerun_20260113T025238Z/gs1_ideal/inference_outputs/`, `outputs/sim_lines_4x_rerun_20260113T025238Z/gs1_custom/inference_outputs/`, `outputs/sim_lines_4x_rerun_20260113T025238Z/gs2_ideal/inference_outputs/`, `outputs/sim_lines_4x_rerun_20260113T025238Z/gs2_custom/inference_outputs/`.
   - *2026-01-13T184723Z:* Drafted SIM-LINES-4X quantitative metrics table for the paper with a script-backed generator and JSON source data; inserted the table into the Overlap-Free Reconstruction section. Artifacts: `paper/tables/sim_lines_4x_metrics.tex`, `paper/tables/scripts/generate_sim_lines_4x_metrics.py`, `paper/data/sim_lines_4x_metrics.json`.
   - *2026-01-13T192409Z:* Recomputed SIM-LINES-4X metrics with correct ground truth (simulated object) and random test subsampling (nsamples=1000, seed=7). Added `scripts/studies/sim_lines_4x/evaluate_metrics.py`, updated JSON notes, and regenerated the paper table. Artifacts: `.artifacts/sim_lines_4x_metrics/2026-01-13T191658Z/`, `.artifacts/sim_lines_4x_metrics/2026-01-13T191911Z/`, `.artifacts/sim_lines_4x_metrics/2026-01-13T192119Z/`, `.artifacts/sim_lines_4x_metrics/2026-01-13T192409Z/`, `paper/data/sim_lines_4x_metrics.json`, `paper/tables/sim_lines_4x_metrics.tex`.
+  - *2026-01-13T193350Z:* Regenerated evaluation PNGs (aligned recon + ground truth) for all four scenarios at nsamples=1000/seed=7. Artifacts: `.artifacts/sim_lines_4x_metrics/2026-01-13T193350Z/`, `outputs/sim_lines_4x_rerun_20260113T025238Z/{gs1_ideal,gs1_custom,gs2_ideal,gs2_custom}/eval_outputs_nsamples1000_seed7/`.
+  - *2026-01-13T194447Z:* Added compare_models-style registration to sim_lines_4x evaluation (find_translation_offset + apply_shift_and_crop), regenerated metrics/PNG outputs, and refreshed JSON/table notes. Artifacts: `.artifacts/sim_lines_4x_metrics/2026-01-13T194447Z/`, `outputs/sim_lines_4x_rerun_20260113T025238Z/{gs1_ideal,gs1_custom,gs2_ideal,gs2_custom}/eval_outputs_nsamples1000_seed7/`, `paper/data/sim_lines_4x_metrics.json`, `paper/tables/sim_lines_4x_metrics.tex`.
+  - *2026-01-13T195436Z:* Modularized evaluation alignment with `align_for_evaluation_with_registration`, updated sim_lines_4x evaluation to call it, and documented the alignment+registration pattern in the developer guide. Artifacts: `ptycho/image/cropping.py`, `scripts/studies/sim_lines_4x/evaluate_metrics.py`, `docs/DEVELOPER_GUIDE.md`.
   - *2026-01-13T192310Z:* Refactored nongrid simulation caching into a reusable memoization decorator and applied it to `simulate_nongrid_raw_data`. Cache files default to `.artifacts/synthetic_helpers/cache` (generated on next run). Artifacts: `.artifacts/synthetic_helpers/cache/`.
   - *2026-01-13T193346Z:* Verified cache hit behavior with a two-call smoke test and ran synthetic helper unit + CLI smoke tests. Artifacts: `plans/active/SIM-LINES-4X-001/reports/2026-01-13T193346Z/pytest_synthetic_helpers.log`, `plans/active/SIM-LINES-4X-001/reports/2026-01-13T193346Z/pytest_synthetic_helpers_cli.log`.
+
+### [REFACTOR-MEMOIZE-CORE-001] Move RawData memoization decorator into core module
+- Depends on: None
+- Priority: Low
+- Status: pending — plan drafted
+- Owner/Date: TBD/2026-01-13
+- Working Plan: `plans/active/REFACTOR-MEMOIZE-CORE-001/implementation.md`
+- Summary: `plans/active/REFACTOR-MEMOIZE-CORE-001/summary.md`
+- Reports Hub: `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/`
+- Spec Owner: `docs/architecture.md`
+- Test Strategy: Inline test annotations (refactor only; reuse existing tests)
+- Goals:
+  - Move `memoize_raw_data` from `scripts/simulation/cache_utils.py` into a core module under `ptycho/`.
+  - Preserve cache hashing and default cache paths used by synthetic helpers.
+  - Keep script imports working via direct update or a thin shim.
+- Exit Criteria:
+  - Core module provides `memoize_raw_data` with unchanged behavior.
+  - Synthetic helpers use the core module; shim or removal completed without regressions.
+  - Existing synthetic helper tests pass and logs archived.
+- Attempts History:
+  - *2026-01-13T202358Z:* Drafted implementation plan and initialized initiative summary. Artifacts: `plans/active/REFACTOR-MEMOIZE-CORE-001/implementation.md`, `plans/active/REFACTOR-MEMOIZE-CORE-001/summary.md`.
 
 ### [SYNTH-HELPERS-001] Script-level synthetic simulation helpers
 - Depends on: None
