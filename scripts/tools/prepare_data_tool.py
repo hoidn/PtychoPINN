@@ -36,7 +36,7 @@ def load_and_identify_arrays(npz_path: str) -> Tuple[Dict[str, np.ndarray], str,
         raise FileNotFoundError(f"Input file not found: {npz_path}")
 
     print(f"Loading data from: {npz_path}")
-    with np.load(npz_path) as f:
+    with np.load(npz_path, allow_pickle=True) as f:
         data_dict = {key: f[key] for key in f.files}
 
     if 'probeGuess' not in data_dict or 'objectGuess' not in data_dict:
