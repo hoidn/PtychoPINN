@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-15 (Phase C doc/test cleanup in flight)
-**Active Focus:** REFACTOR-MEMOIZE-CORE-001 — Move RawData memoization decorator into core module
+**Last Updated:** 2026-01-15 (REFACTOR-MEMOIZE-CORE-001 closed; pivoting to PARALLEL-API-INFERENCE Tasks 2-3)
+**Active Focus:** PARALLEL-API-INFERENCE — Programmatic TF/PyTorch API parity (demo script parity + smoke test)
 
 ---
 
@@ -18,7 +18,7 @@
 ### [REFACTOR-MEMOIZE-CORE-001] Move RawData memoization decorator into core module
 - Depends on: None
 - Priority: Low
-- Status: in_progress — Phase C (docs + regression evidence) delegated to Ralph
+- Status: done — Phase C docs/tests landed; ready for archive after a short soak
 - Owner/Date: TBD/2026-01-13
 - Working Plan: `plans/active/REFACTOR-MEMOIZE-CORE-001/implementation.md`
 - Summary: `plans/active/REFACTOR-MEMOIZE-CORE-001/summary.md`
@@ -39,3 +39,28 @@
   - *2026-01-15T231710Z:* Added `ptycho/cache.py` with the memoize helpers, updated synthetic_helpers to import it, and converted `scripts/simulation/cache_utils.py` into a DeprecationWarning shim. Tests: `pytest tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded -v`, `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v`. Artifacts: `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/`
   - *2026-01-15T232107Z:* Confirmed Phase B landed in commit `d29efc91` and staged Phase C cleanup: refresh docs (`docs/index.md`, `scripts/simulation/README.md`), rerun the two synthetic helper selectors, and archive logs under `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T232107Z/`.
   - *2026-01-15T233050Z:* Documented the new `ptycho/cache.py` core helper in `docs/index.md`, refreshed `scripts/simulation/README.md` with cache-root/override guidance, and captured the required pytest evidence (`pytest --collect-only tests/scripts/test_synthetic_helpers.py -q`, `pytest tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded -v`, `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v`). Artifacts: `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T232107Z/pytest_collect.log`, `.../pytest_synthetic_helpers.log`, `.../pytest_cli_smoke.log`.
+  - *2026-01-15T233622Z:* Verified Phase C evidence (docs updated, selectors rerun), checked plan checkboxes, and logged completion so the initiative can be archived after the soak window. Artifacts: `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T232107Z/`, `plans/active/REFACTOR-MEMOIZE-CORE-001/implementation.md`
+
+### [PARALLEL-API-INFERENCE] Programmatic TF/PyTorch API parity
+- Depends on: None
+- Priority: Medium
+- Status: in_progress — Task 2 (demo script parity + smoke test) ready for implementation
+- Owner/Date: TBD/2026-01-09
+- Working Plan: `plans/active/PARALLEL-API-INFERENCE/plan.md`
+- Summary: `plans/active/PARALLEL-API-INFERENCE/summary.md`
+- Reports Hub: `plans/active/PARALLEL-API-INFERENCE/reports/`
+- Spec Owner: `specs/ptychodus_api_spec.md`
+- Test Strategy: `tests/scripts/test_tf_inference_helper.py`, `tests/scripts/test_api_demo.py`
+- Goals:
+  - Provide a single programmatic entry point that can train + infer via TensorFlow or PyTorch without shell wrappers.
+  - Extract reusable TensorFlow inference helper so `_run_tf_inference_and_reconstruct()` mirrors the PyTorch helper.
+  - Update `scripts/pytorch_api_demo.py` to exercise both backends and add smoke tests.
+- Exit Criteria:
+  - `_run_tf_inference_and_reconstruct()` helper exposed (done) and consumed by new programmatic flows.
+  - `scripts/pytorch_api_demo.py` drives both backends, uses core helpers (TF + PyTorch), and captures outputs under `tmp/api_demo/<backend>/`.
+  - `tests/scripts/test_api_demo.py` exercises imports/signatures plus marked slow end-to-end runs for both backends; helper tests continue to pass.
+- Attempts History:
+  - *2026-01-09T010000Z:* Completed exploration + extraction design for TF helper. Artifacts: `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T010000Z/extraction_design.md`.
+  - *2026-01-09T020000Z:* Implemented `_run_tf_inference_and_reconstruct()` and `extract_ground_truth()`, deprecated `perform_inference`, and added 7 regression tests + integration workflow run (all green). Artifacts: `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T020000Z/`.
+  - *2026-01-09T030000Z:* Reviewed Task 1 results and scoped Task 2-3 (demo script + smoke test). Artifacts: `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/`.
+  - *2026-01-15T225312Z:* Added initial smoke tests for `scripts/pytorch_api_demo.py` (import + signature) and reran TF helper regression suite; slow execution tests still deselected pending demo parity. Artifacts: `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-15T225312Z/pytest_collect.log`, `pytest_tf_helper_regression.log`, `pytest_api_demo.log`.

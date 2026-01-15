@@ -14,6 +14,21 @@
 - <Action State>: [ready_for_implementation]
 - focus=REFACTOR-MEMOIZE-CORE-001 state=ready_for_implementation dwell=0 ralph_last_commit=none artifacts=plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/ next_action=move memoize_raw_data into ptycho/cache with shim + run synthetic helper script tests
 
+# 2026-01-15T23:36:22Z: PARALLEL-API-INFERENCE — Task 2 implementation handoff
+
+- dwell: 0 (new focus after closing REFACTOR-MEMOIZE-CORE-001)
+- Focus issue: PARALLEL-API-INFERENCE — Programmatic TF/PyTorch API parity (Task 2 demo parity + smoke test)
+- Action type: Planning → Implementation handoff
+- Mode: Implementation
+- Git sync: `git pull --rebase` → Already up to date.
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, ANTIPATTERN-001), docs/architecture.md, docs/DEVELOPER_GUIDE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/workflows/pytorch.md, specs/ptychodus_api_spec.md:200-360, plans/active/PARALLEL-API-INFERENCE/plan.md, plans/active/PARALLEL-API-INFERENCE/summary.md, scripts/pytorch_api_demo.py, tests/scripts/test_api_demo.py, scripts/inference/inference.py
+- Key decisions:
+  - Verified REFACTOR-MEMOIZE-CORE-001 Phase C docs/tests landed and marked the initiative done in `docs/fix_plan.md`.
+  - Activated PARALLEL-API-INFERENCE Task 2, refreshed the initiative summary, and opened a new artifacts hub `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-15T233622Z/`.
+  - Wrote `input.md` instructing Ralph to swap the demo’s TensorFlow path over to `_run_tf_inference_and_reconstruct` + `extract_ground_truth` and run the quick pytest selectors.
+- <Action State>: [ready_for_implementation]
+- focus=PARALLEL-API-INFERENCE state=ready_for_implementation dwell=0 ralph_last_commit=d053d049 artifacts=plans/active/PARALLEL-API-INFERENCE/reports/2026-01-15T233622Z/ next_action=update scripts/pytorch_api_demo.py TF branch to call _run_tf_inference_and_reconstruct + run mapped pytest selectors
+
 # 2026-01-15T23:21:07Z: REFACTOR-MEMOIZE-CORE-001 — Phase C doc/test handoff
 
 - dwell: 1 (second loop on this focus; still no production evidence)

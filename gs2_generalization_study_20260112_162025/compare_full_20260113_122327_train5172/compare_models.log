@@ -1,0 +1,317 @@
+2026-01-13 12:23:29,940 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
+2026-01-13 12:23:29,940 - INFO - Registration: enabled
+2026-01-13 12:23:29,940 - INFO - NPZ output: raw=enabled, aligned=enabled
+2026-01-13 12:23:29,941 - INFO - Loading PtychoPINN inference model (diffraction_to_obj) to restore configuration...
+2026-01-13 12:23:29,941 - INFO - Loading model from: gs2_generalization_study_20260112_162025/train_subsample_5172_groups_2048/trial_1/pinn_run
+2026-01-13 12:23:30,894 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+2026-01-13 12:23:30,895 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+2026-01-13 12:23:31,557 - INFO - Successfully loaded model from gs2_generalization_study_20260112_162025/train_subsample_5172_groups_2048/trial_1/pinn_run
+2026-01-13 12:23:31,559 - INFO - Restored configuration from model: gridsize=2, N=64
+2026-01-13 12:23:31,559 - INFO - Loading test data from datasets/fly64/fly64_top_half_shuffled.npz with restored gridsize=2...
+2026-01-13 12:23:31,559 - INFO - Using independent sampling control: n_subsample=4096, n_groups=2048
+2026-01-13 12:23:31,559 - WARNING - n_test_subsample (4096) > n_test_groups (2048), may use more data than expected
+2026-01-13 12:23:31,559 - INFO - Loading data from datasets/fly64/fly64_top_half_shuffled.npz with n_images=2048, n_subsample=4096
+2026-01-13 12:23:31,591 - INFO - Independent sampling: subsampling 4096 images from 5172 total
+2026-01-13 12:23:31,591 - INFO - Randomly subsampled 4096 images
+diff3d shape: (4096, 64, 64)2026-01-13 12:23:31,600 - INFO - diff3d shape: (4096, 64, 64)
+
+probeGuess shape: (64, 64)2026-01-13 12:23:31,600 - INFO - probeGuess shape: (64, 64)
+
+scan_index shape: (4096,)2026-01-13 12:23:31,600 - INFO - scan_index shape: (4096,)
+
+objectGuess shape: (232, 232)2026-01-13 12:23:31,600 - INFO - objectGuess shape: (232, 232)
+
+xcoords shape: (4096,)2026-01-13 12:23:31,600 - INFO - xcoords shape: (4096,)
+
+ycoords shape: (4096,)2026-01-13 12:23:31,600 - INFO - ycoords shape: (4096,)
+
+xcoords_start shape: (4096,)2026-01-13 12:23:31,600 - INFO - xcoords_start shape: (4096,)
+
+ycoords_start shape: (4096,)2026-01-13 12:23:31,600 - INFO - ycoords_start shape: (4096,)
+
+2026-01-13 12:23:31,601 - INFO - Final configuration: gridsize=2, N=64, n_images=4096
+2026-01-13 12:23:31,601 - INFO - Using stitch_crop_size M=20 (N=64)
+2026-01-13 12:23:31,601 - INFO - Loading Baseline model from gs2_generalization_study_20260112_162025/train_subsample_2048_groups_2048/trial_1/baseline_run/01-12-2026-16.23.54_baseline_gs2...
+2026-01-13 12:23:31,601 - INFO - Found baseline model at: gs2_generalization_study_20260112_162025/train_subsample_2048_groups_2048/trial_1/baseline_run/01-12-2026-16.23.54_baseline_gs2/baseline_model.h5
+2026-01-13 12:23:31,698 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-01-13 12:23:31,704 - INFO - Running two-way comparison (PtychoPINN vs. Baseline)
+2026-01-13 12:23:31,704 - INFO - Running inference with PtychoPINN (diffraction_to_obj)...
+2026-01-13 12:23:31,704 - INFO - Using single-shot PINN inference: 4096 groups (batch_size=32)
+2026-01-13 12:23:31,704 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=2048, n_points=4096, C=4, K=7
+2026-01-13 12:23:31,704 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
+2026-01-13 12:23:31,704 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
+2026-01-13 12:23:31,704 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 2048 > 4096 = False
+2026-01-13 12:23:31,704 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2026-01-13 12:23:31,704 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+DEBUG:2026-01-13 12:23:31,704 - INFO - DEBUG:
+ nsamples: 2048, gridsize: 2 (using efficient random sample-then-group strategy)2026-01-13 12:23:31,704 - INFO - nsamples: 2048, gridsize: 2 (using efficient random sample-then-group strategy)
+
+2026-01-13 12:23:31,704 - INFO - Using efficient random sampling strategy for gridsize=2
+2026-01-13 12:23:31,704 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2026-01-13 12:23:31,704 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=2048, K=7, C=4
+2026-01-13 12:23:31,704 - INFO - Generating 2048 groups efficiently from 4096 points (K=7, C=4)
+2026-01-13 12:23:31,704 - INFO - [OVERSAMPLING DEBUG] Standard case: using 2048 groups from 4096 points
+2026-01-13 12:23:31,704 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 2048 seed points
+2026-01-13 12:23:31,704 - INFO - Sampled 2048 seed points from 4096 total points
+2026-01-13 12:23:31,717 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 2048 groups
+2026-01-13 12:23:31,717 - INFO - Successfully generated 2048 groups with shape (2048, 4)
+2026-01-13 12:23:31,717 - INFO - [OVERSAMPLING DEBUG] Generated 2048 groups in total
+2026-01-13 12:23:31,717 - INFO - Generated 2048 groups efficiently
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.2026-01-13 12:23:31,734 - INFO - INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+
+neighbor-sampled diffraction shape2026-01-13 12:24:08,630 - INFO - neighbor-sampled diffraction shape
+ (2048, 64, 64, 4)2026-01-13 12:24:08,630 - INFO - (2048, 64, 64, 4)
+
+loader: using provided ground truth patches.2026-01-13 12:24:09,187 - INFO - loader: using provided ground truth patches.
+
+INFO:2026-01-13 12:24:09,653 - INFO - INFO:
+ None2026-01-13 12:24:09,653 - INFO - None
+
+<PtychoDataContainer X=(2048, 64, 64, 4) mean=0.339 Y_I=(2048, 64, 64, 4) mean=1.226 Y_phi=(2048, 64, 64, 4) mean=-2.319 coords_nominal=(2048, 1, 2, 4) mean=0.000 coords_true=(2048, 1, 2, 4) mean=0.000 probe=(64, 64) mean_amplitude=0.086 norm_Y_I=<scalar> nn_indices=(2048, 4) global_offsets=(2048, 1, 2, 1) local_offsets=(2048, 1, 2, 4)>2026-01-13 12:24:09,670 - INFO - <PtychoDataContainer X=(2048, 64, 64, 4) mean=0.339 Y_I=(2048, 64, 64, 4) mean=1.226 Y_phi=(2048, 64, 64, 4) mean=-2.319 coords_nominal=(2048, 1, 2, 4) mean=0.000 coords_true=(2048, 1, 2, 4) mean=0.000 probe=(64, 64) mean_amplitude=0.086 norm_Y_I=<scalar> nn_indices=(2048, 4) global_offsets=(2048, 1, 2, 1) local_offsets=(2048, 1, 2, 4)>
+
+2026-01-13 12:24:09,887 - INFO - Gridsize validated: params.cfg['gridsize']=2 matches 4 channels
+DEBUG _flat_to_channel: gridsize from global params: 22026-01-13 12:24:10,284 - INFO - DEBUG _flat_to_channel: gridsize from global params: 2
+
+DEBUG _flat_to_channel: N from parameter: 782026-01-13 12:24:10,284 - INFO - DEBUG _flat_to_channel: N from parameter: 78
+
+DEBUG _flat_to_channel: input shape=(128, 78, 78, 1), reshaping to (-1, 4, 78, 78)2026-01-13 12:24:10,284 - INFO - DEBUG _flat_to_channel: input shape=(128, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+
+DEBUG _flat_to_channel: gridsize from global params: 22026-01-13 12:24:10,322 - INFO - DEBUG _flat_to_channel: gridsize from global params: 2
+
+DEBUG _flat_to_channel: N from parameter: 782026-01-13 12:24:10,322 - INFO - DEBUG _flat_to_channel: N from parameter: 78
+
+DEBUG _flat_to_channel: input shape=(128, 78, 78, 1), reshaping to (-1, 4, 78, 78)2026-01-13 12:24:10,322 - INFO - DEBUG _flat_to_channel: input shape=(128, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+
+DEBUG _flat_to_channel: gridsize from global params: 22026-01-13 12:24:10,350 - INFO - DEBUG _flat_to_channel: gridsize from global params: 2
+
+DEBUG _flat_to_channel: N from parameter: 782026-01-13 12:24:10,351 - INFO - DEBUG _flat_to_channel: N from parameter: 78
+
+DEBUG _flat_to_channel: input shape=(128, 78, 78, 1), reshaping to (-1, 4, 78, 78)2026-01-13 12:24:10,351 - INFO - DEBUG _flat_to_channel: input shape=(128, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+
+DEBUG _flat_to_channel: gridsize from global params: 22026-01-13 12:24:10,388 - INFO - DEBUG _flat_to_channel: gridsize from global params: 2
+
+DEBUG _flat_to_channel: N from parameter: 782026-01-13 12:24:10,388 - INFO - DEBUG _flat_to_channel: N from parameter: 78
+
+DEBUG _flat_to_channel: input shape=(128, 78, 78, 1), reshaping to (-1, 4, 78, 78)2026-01-13 12:24:10,388 - INFO - DEBUG _flat_to_channel: input shape=(128, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+
+[1m 1/64[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m2:41[0m 3s/step2026-01-13 12:24:12,527 - INFO - [1m 1/64[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m2:41[0m 3s/step
+[1m10/64[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m0s[0m 6ms/step 2026-01-13 12:24:12,578 - INFO - [1m10/64[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m0s[0m 6ms/step
+[1m20/64[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m0s[0m 6ms/step2026-01-13 12:24:12,633 - INFO - [1m20/64[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m0s[0m 6ms/step
+[1m30/64[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 5ms/step2026-01-13 12:24:12,687 - INFO - [1m30/64[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 5ms/step
+[1m40/64[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 5ms/step2026-01-13 12:24:12,740 - INFO - [1m40/64[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 5ms/step
+[1m50/64[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 5ms/step2026-01-13 12:24:12,794 - INFO - [1m50/64[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 5ms/step
+[1m60/64[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 5ms/step2026-01-13 12:24:12,848 - INFO - [1m60/64[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 5ms/step
+[1m64/64[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m3s[0m 6ms/step
+2026-01-13 12:24:12,882 - INFO - [1m64/64[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m3s[0m 6ms/step
+2026-01-13 12:24:12,961 - INFO - PtychoPINN inference completed in 41.26s
+2026-01-13 12:24:12,961 - INFO - PINN patches shape before reassembly: (2048, 64, 64, 1), dtype: complex64
+2026-01-13 12:24:12,961 - INFO - Reassembling PINN patches...
+2026-01-13 12:24:12,961 - INFO - PINN offsets shape before reassembly: (2048, 1, 2, 1), dtype: float64
+2026-01-13 12:24:14,143 - INFO - PINN reconstruction shape after reassembly: (188, 188, 1), dtype: <dtype: 'complex64'>
+2026-01-13 12:24:14,143 - INFO - Running inference with Baseline model...
+2026-01-13 12:24:14,143 - INFO - Reusing test_container from PINN single-shot path for Baseline inference
+2026-01-13 12:24:14,143 - INFO - Flattening grouped diffraction for baseline model: X (2048, 64, 64, 4) → channels merged; resolved gridsize=2 (from 4 channels)
+DEBUG: Setting2026-01-13 12:24:14,143 - INFO - DEBUG: Setting
+ gridsize2026-01-13 12:24:14,143 - INFO - gridsize
+ to2026-01-13 12:24:14,143 - INFO - to
+ 22026-01-13 12:24:14,143 - INFO - 2
+ in params2026-01-13 12:24:14,143 - INFO - in params
+
+2026-01-13 12:24:14,143 - INFO - Forced params.cfg['gridsize']=2 for baseline grouped inference
+2026-01-13 12:24:14,146 - INFO - Centered baseline offsets: original mean=137.10, std=43.71 → centered mean=0.000000, std=43.71
+2026-01-13 12:24:14,236 - INFO - Baseline inference input shape: (8192, 64, 64, 1)
+2026-01-13 12:24:14,237 - INFO - Baseline inference offsets shape: (8192, 1, 2, 1)
+2026-01-13 12:24:14,258 - INFO - DIAGNOSTIC baseline_input stats: mean=0.339006, max=3.261158, nonzero_count=33343934/33554432
+2026-01-13 12:24:14,258 - INFO - Using single-shot baseline inference: 8192 groups (batch_size=32)
+[1m  1/256[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m2:39[0m 627ms/step2026-01-13 12:24:15,141 - INFO - [1m  1/256[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m2:39[0m 627ms/step
+[1m 14/256[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step    2026-01-13 12:24:15,193 - INFO - [1m 14/256[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step
+[1m 27/256[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step2026-01-13 12:24:15,246 - INFO - [1m 27/256[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step
+[1m 40/256[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step2026-01-13 12:24:15,298 - INFO - [1m 40/256[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step
+[1m 53/256[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step2026-01-13 12:24:15,351 - INFO - [1m 53/256[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step
+[1m 66/256[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step2026-01-13 12:24:15,404 - INFO - [1m 66/256[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step
+[1m 79/256[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step2026-01-13 12:24:15,456 - INFO - [1m 79/256[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step
+[1m 92/256[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step2026-01-13 12:24:15,508 - INFO - [1m 92/256[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step
+[1m105/256[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m0s[0m 4ms/step2026-01-13 12:24:15,560 - INFO - [1m105/256[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m0s[0m 4ms/step
+[1m118/256[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 4ms/step2026-01-13 12:24:15,612 - INFO - [1m118/256[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 4ms/step
+[1m131/256[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 4ms/step2026-01-13 12:24:15,664 - INFO - [1m131/256[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 4ms/step
+[1m144/256[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 4ms/step2026-01-13 12:24:15,716 - INFO - [1m144/256[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 4ms/step
+[1m157/256[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 4ms/step2026-01-13 12:24:15,769 - INFO - [1m157/256[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 4ms/step
+[1m170/256[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 4ms/step2026-01-13 12:24:15,821 - INFO - [1m170/256[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 4ms/step
+[1m183/256[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 4ms/step2026-01-13 12:24:15,873 - INFO - [1m183/256[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 4ms/step
+[1m196/256[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 4ms/step2026-01-13 12:24:15,925 - INFO - [1m196/256[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 4ms/step
+[1m209/256[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 4ms/step2026-01-13 12:24:15,977 - INFO - [1m209/256[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 4ms/step
+[1m222/256[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 4ms/step2026-01-13 12:24:16,028 - INFO - [1m222/256[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 4ms/step
+[1m235/256[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 4ms/step2026-01-13 12:24:16,080 - INFO - [1m235/256[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 4ms/step
+[1m248/256[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 4ms/step2026-01-13 12:24:16,132 - INFO - [1m248/256[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 4ms/step
+[1m256/256[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m2s[0m 4ms/step
+2026-01-13 12:24:16,176 - INFO - [1m256/256[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m2s[0m 4ms/step
+2026-01-13 12:24:16,475 - INFO - Baseline inference completed in 2.22s
+2026-01-13 12:24:16,614 - INFO - DIAGNOSTIC baseline_output stats: mean=1.736547, max=2.304333, nonzero_count=67108864/67108864
+2026-01-13 12:24:16,615 - INFO - Baseline output format: list with 2 elements
+2026-01-13 12:24:16,615 - INFO -   Element 0 shape: (8192, 64, 64, 1), dtype: float32
+2026-01-13 12:24:16,615 - INFO -   Element 1 shape: (8192, 64, 64, 1), dtype: float32
+2026-01-13 12:24:16,615 - INFO - Converting baseline output from [amplitude, phase] list format
+2026-01-13 12:24:17,637 - INFO - After conversion - amplitude shape: (8192, 64, 64, 1), phase shape: (8192, 64, 64, 1)
+2026-01-13 12:24:17,637 - INFO - Complex patches shape: (8192, 64, 64, 1), dtype: complex64
+2026-01-13 12:24:17,637 - INFO - DIAGNOSTIC first patch amplitude: shape=(64, 64, 1), mean=1.236861, max=1.244334, nonzero=4096/4096
+2026-01-13 12:24:17,637 - INFO - DIAGNOSTIC first patch phase: shape=(64, 64, 1), mean=-2.236234, std=0.010849, min=-2.304333, max=-2.117304
+2026-01-13 12:24:17,637 - INFO - Reassembling baseline patches...
+2026-01-13 12:24:18,728 - INFO - Saving NPZ files of raw reconstructions...
+2026-01-13 12:24:18,781 - INFO - Unified reconstructions saved to gs2_generalization_study_20260112_162025/compare_full_20260113_122327_train5172/reconstructions.npz
+2026-01-13 12:24:18,782 - INFO - Metadata saved to gs2_generalization_study_20260112_162025/compare_full_20260113_122327_train5172/reconstructions_metadata.txt
+2026-01-13 12:24:18,782 - INFO - Unified NPZ reconstruction file saved successfully!
+2026-01-13 12:24:18,782 - INFO - Performing coordinate-based alignment of ground truth...
+2026-01-13 12:24:18,782 - INFO - Ground truth original shape: (232, 232)
+2026-01-13 12:24:18,782 - INFO - Using test_container.global_offsets for alignment (single-shot mode): shape=(2048, 1, 2, 1)
+2026-01-13 12:24:18,782 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
+2026-01-13 12:24:18,782 - INFO - Calculated ground truth crop region: rows [104:208], cols [24:208]
+2026-01-13 12:24:18,782 - INFO - Initial shapes: Recon=(188, 188), Cropped GT=(104, 184)
+2026-01-13 12:24:18,782 - INFO - Center-cropping from (188, 188) to (104, 184)
+2026-01-13 12:24:18,782 - INFO - Final aligned shape: (104, 184)
+2026-01-13 12:24:18,782 - INFO - --- Alignment complete ---
+2026-01-13 12:24:18,782 - INFO - --- Aligning reconstruction with ground truth for evaluation ---
+2026-01-13 12:24:18,782 - INFO - Calculated ground truth crop region: rows [104:208], cols [24:208]
+2026-01-13 12:24:18,782 - INFO - Initial shapes: Recon=(192, 192), Cropped GT=(104, 184)
+2026-01-13 12:24:18,782 - INFO - Center-cropping from (192, 192) to (104, 184)
+2026-01-13 12:24:18,782 - INFO - Final aligned shape: (104, 184)
+2026-01-13 12:24:18,782 - INFO - --- Alignment complete ---
+2026-01-13 12:24:18,782 - INFO - Performing fine-scale registration to correct pixel-level misalignments...
+2026-01-13 12:24:18,784 - INFO - PtychoPINN detected offset: (1.360, 2.380)
+2026-01-13 12:24:18,785 - INFO - Baseline detected offset: (50.220, -74.760)
+2026-01-13 12:24:18,786 - INFO - Registration completed. PtychoPINN offset: (1.3600000143051147, 2.380000114440918), Baseline offset: (50.220001220703125, -74.76000213623047)
+2026-01-13 12:24:18,786 - INFO - Final aligned shapes - PINN: (100, 180), Baseline: (100, 180), GT: (100, 180)
+2026-01-13 12:24:18,786 - INFO - Final evaluation shapes: PINN (100, 180), Baseline (100, 180), GT (100, 180)
+Amplitude normalization scale factor: 1.4737502026-01-13 12:24:18,789 - INFO - Amplitude normalization scale factor: 1.473750
+
+mean scale adjustment:2026-01-13 12:24:18,790 - INFO - mean scale adjustment:
+ 12026-01-13 12:24:18,790 - INFO - 1
+
+mean scale adjustment:2026-01-13 12:24:18,790 - INFO - mean scale adjustment:
+ 12026-01-13 12:24:18,790 - INFO - 1
+
+DEBUG eval_reconstruction [PtychoPINN]: amp_target stats: mean=1.231867, std=0.097925, shape=(96, 176, 1)2026-01-13 12:24:18,790 - INFO - DEBUG eval_reconstruction [PtychoPINN]: amp_target stats: mean=1.231867, std=0.097925, shape=(96, 176, 1)
+
+DEBUG eval_reconstruction [PtychoPINN]: amp_pred stats: mean=0.835873, std=0.127697, shape=(96, 176, 1)2026-01-13 12:24:18,791 - INFO - DEBUG eval_reconstruction [PtychoPINN]: amp_pred stats: mean=0.835873, std=0.127697, shape=(96, 176, 1)
+
+DEBUG eval_reconstruction [PtychoPINN]: phi_target stats: mean=-0.000000, std=0.289831, shape=(96, 176)2026-01-13 12:24:18,791 - INFO - DEBUG eval_reconstruction [PtychoPINN]: phi_target stats: mean=-0.000000, std=0.289831, shape=(96, 176)
+
+DEBUG eval_reconstruction [PtychoPINN]: phi_pred stats: mean=-0.000000, std=0.401991, shape=(96, 176)2026-01-13 12:24:18,791 - INFO - DEBUG eval_reconstruction [PtychoPINN]: phi_pred stats: mean=-0.000000, std=0.401991, shape=(96, 176)
+
+performed by index method2026-01-13 12:24:18,791 - INFO - performed by index method
+
+performed by index method2026-01-13 12:24:18,793 - INFO - performed by index method
+
+performed by index method2026-01-13 12:24:18,795 - INFO - performed by index method
+
+mean scale adjustment:2026-01-13 12:24:18,797 - INFO - mean scale adjustment:
+ 12026-01-13 12:24:18,797 - INFO - 1
+
+mean scale adjustment:2026-01-13 12:24:18,797 - INFO - mean scale adjustment:
+ 12026-01-13 12:24:18,797 - INFO - 1
+
+Phase preprocessing: plane-fitted range [-0.739, 0.501] -> scaled range [0.382, 0.580]2026-01-13 12:24:18,797 - INFO - Phase preprocessing: plane-fitted range [-0.739, 0.501] -> scaled range [0.382, 0.580]
+
+performed by index method2026-01-13 12:24:18,801 - INFO - performed by index method
+
+performed by index method2026-01-13 12:24:18,803 - INFO - performed by index method
+
+performed by index method2026-01-13 12:24:18,805 - INFO - performed by index method
+
+2026-01-13 12:24:18,807 - INFO - PtychoPINN evaluation complete. SSIM: amp=0.568, phase=0.908, MS-SSIM: amp=0.731, phase=0.888
+Amplitude normalization scale factor: 0.9952872026-01-13 12:24:18,809 - INFO - Amplitude normalization scale factor: 0.995287
+
+mean scale adjustment:2026-01-13 12:24:18,809 - INFO - mean scale adjustment:
+ 12026-01-13 12:24:18,809 - INFO - 1
+
+mean scale adjustment:2026-01-13 12:24:18,809 - INFO - mean scale adjustment:
+ 12026-01-13 12:24:18,809 - INFO - 1
+
+DEBUG eval_reconstruction [Baseline]: amp_target stats: mean=1.231867, std=0.097925, shape=(96, 176, 1)2026-01-13 12:24:18,809 - INFO - DEBUG eval_reconstruction [Baseline]: amp_target stats: mean=1.231867, std=0.097925, shape=(96, 176, 1)
+
+DEBUG eval_reconstruction [Baseline]: amp_pred stats: mean=1.237700, std=0.051324, shape=(96, 176, 1)2026-01-13 12:24:18,809 - INFO - DEBUG eval_reconstruction [Baseline]: amp_pred stats: mean=1.237700, std=0.051324, shape=(96, 176, 1)
+
+DEBUG eval_reconstruction [Baseline]: phi_target stats: mean=-0.000000, std=0.289831, shape=(96, 176)2026-01-13 12:24:18,810 - INFO - DEBUG eval_reconstruction [Baseline]: phi_target stats: mean=-0.000000, std=0.289831, shape=(96, 176)
+
+DEBUG eval_reconstruction [Baseline]: phi_pred stats: mean=0.000000, std=0.056929, shape=(96, 176)2026-01-13 12:24:18,810 - INFO - DEBUG eval_reconstruction [Baseline]: phi_pred stats: mean=0.000000, std=0.056929, shape=(96, 176)
+
+performed by index method2026-01-13 12:24:18,810 - INFO - performed by index method
+
+performed by index method2026-01-13 12:24:18,812 - INFO - performed by index method
+
+performed by index method2026-01-13 12:24:18,814 - INFO - performed by index method
+
+mean scale adjustment:2026-01-13 12:24:18,816 - INFO - mean scale adjustment:
+ 12026-01-13 12:24:18,816 - INFO - 1
+
+mean scale adjustment:2026-01-13 12:24:18,816 - INFO - mean scale adjustment:
+ 12026-01-13 12:24:18,816 - INFO - 1
+
+Phase preprocessing: plane-fitted range [-0.739, 0.501] -> scaled range [0.382, 0.580]2026-01-13 12:24:18,816 - INFO - Phase preprocessing: plane-fitted range [-0.739, 0.501] -> scaled range [0.382, 0.580]
+
+performed by index method2026-01-13 12:24:18,819 - INFO - performed by index method
+
+performed by index method2026-01-13 12:24:18,821 - INFO - performed by index method
+
+performed by index method2026-01-13 12:24:18,823 - INFO - performed by index method
+
+2026-01-13 12:24:18,825 - INFO - Baseline evaluation complete. SSIM: amp=0.077, phase=0.493, MS-SSIM: amp=0.151, phase=0.213
+2026-01-13 12:24:18,826 - INFO - Metrics saved to gs2_generalization_study_20260112_162025/compare_full_20260113_122327_train5172/comparison_metrics.csv
+
+--- Comparison Metrics ---2026-01-13 12:24:18,826 - INFO - --- Comparison Metrics ---
+
+     model                 metric  amplitude     phase      value
+PtychoPINN                    mae   0.105264  0.137425        NaN
+PtychoPINN                    mse   0.015872  0.027643        NaN
+PtychoPINN                   psnr  66.124456 63.715030        NaN
+PtychoPINN                   ssim   0.567901  0.907767        NaN
+PtychoPINN                ms_ssim   0.730724  0.887967        NaN
+PtychoPINN                  frc50   1.000000  1.000000        NaN
+  Baseline                    mae   0.087313  0.256166        NaN
+  Baseline                    mse   0.011790  0.087611        NaN
+  Baseline                   psnr  67.415714 58.705199        NaN
+  Baseline                   ssim   0.076922  0.492992        NaN
+  Baseline                ms_ssim   0.151174  0.213083        NaN
+  Baseline                  frc50   1.000000  1.000000        NaN
+PtychoPINN registration_offset_dy        NaN       NaN   1.360000
+PtychoPINN registration_offset_dx        NaN       NaN   2.380000
+  Baseline registration_offset_dy        NaN       NaN  50.220001
+  Baseline registration_offset_dx        NaN       NaN -74.760002
+PtychoPINN     computation_time_s        NaN       NaN  41.256879
+  Baseline     computation_time_s        NaN       NaN   2.2174732026-01-13 12:24:18,828 - INFO - model                 metric  amplitude     phase      value
+PtychoPINN                    mae   0.105264  0.137425        NaN
+PtychoPINN                    mse   0.015872  0.027643        NaN
+PtychoPINN                   psnr  66.124456 63.715030        NaN
+PtychoPINN                   ssim   0.567901  0.907767        NaN
+PtychoPINN                ms_ssim   0.730724  0.887967        NaN
+PtychoPINN                  frc50   1.000000  1.000000        NaN
+  Baseline                    mae   0.087313  0.256166        NaN
+  Baseline                    mse   0.011790  0.087611        NaN
+  Baseline                   psnr  67.415714 58.705199        NaN
+  Baseline                   ssim   0.076922  0.492992        NaN
+  Baseline                ms_ssim   0.151174  0.213083        NaN
+  Baseline                  frc50   1.000000  1.000000        NaN
+PtychoPINN registration_offset_dy        NaN       NaN   1.360000
+PtychoPINN registration_offset_dx        NaN       NaN   2.380000
+  Baseline registration_offset_dy        NaN       NaN  50.220001
+  Baseline registration_offset_dx        NaN       NaN -74.760002
+PtychoPINN     computation_time_s        NaN       NaN  41.256879
+  Baseline     computation_time_s        NaN       NaN   2.217473
+
+2026-01-13 12:24:18,828 - INFO - FRC curves saved to gs2_generalization_study_20260112_162025/compare_full_20260113_122327_train5172/pinn_frc_curves.csv
+2026-01-13 12:24:18,829 - INFO - FRC curves saved to gs2_generalization_study_20260112_162025/compare_full_20260113_122327_train5172/baseline_frc_curves.csv
+2026-01-13 12:24:18,829 - INFO - Saving NPZ files of aligned reconstructions...
+2026-01-13 12:24:18,882 - INFO - Unified aligned reconstructions saved to gs2_generalization_study_20260112_162025/compare_full_20260113_122327_train5172/reconstructions_aligned.npz
+2026-01-13 12:24:18,882 - INFO - Aligned metadata saved to gs2_generalization_study_20260112_162025/compare_full_20260113_122327_train5172/reconstructions_aligned_metadata.txt
+2026-01-13 12:24:18,882 - INFO - Unified aligned NPZ reconstruction file saved successfully!
+2026-01-13 12:24:18,912 - INFO - PtychoPINN amplitude color scale (vmin, vmax) set to: (0.658, 1.014) using 10.0/90.0 percentiles [per-panel].
+2026-01-13 12:24:18,912 - INFO - Baseline amplitude color scale (vmin, vmax) set to: (1.239, 1.241) using 10.0/90.0 percentiles [per-panel].
+2026-01-13 12:24:18,912 - INFO - PtychoPINN phase color scale (vmin, vmax) set to: (-0.360, 0.713) using 10.0/90.0 percentiles [per-panel].
+2026-01-13 12:24:18,913 - INFO - Baseline phase color scale (vmin, vmax) set to: (-2.236, -2.234) using 10.0/90.0 percentiles [per-panel].
+2026-01-13 12:24:18,917 - INFO - Ground Truth amplitude color scale (vmin, vmax) set to: (1.097, 1.353) using 10.0/90.0 percentiles [per-panel].
+2026-01-13 12:24:18,918 - INFO - Ground Truth phase color scale (vmin, vmax) set to: (-2.786, -1.994) using 10.0/90.0 percentiles [per-panel].
+2026-01-13 12:24:19,541 - INFO - Visual comparison saved to gs2_generalization_study_20260112_162025/compare_full_20260113_122327_train5172/comparison_plot.png
+2026-01-13 12:24:19,541 - INFO - 
+Comparison complete!
+2026-01-13 12:24:19,541 - INFO - Results saved to: gs2_generalization_study_20260112_162025/compare_full_20260113_122327_train5172

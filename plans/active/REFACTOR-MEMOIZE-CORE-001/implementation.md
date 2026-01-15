@@ -98,11 +98,11 @@
 
 ## Phase C — Verification & Docs
 ### Checklist
-- [ ] C1: Re-run synthetic helper selectors and capture both execution and `--collect-only` logs under `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/<timestamp>/`  
+- [x] C1: Re-run synthetic helper selectors and capture both execution and `--collect-only` logs under `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/<timestamp>/`  
       Test: `tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded`, `tests/scripts/test_synthetic_helpers_cli_smoke.py`, `pytest --collect-only tests/scripts/test_synthetic_helpers.py -q`
-- [ ] C2: Update documentation references to the new core module
+- [x] C2: Update documentation references to the new core module
       Test: N/A: docs update
-- [ ] C3: Update ledger + initiative summary with results
+- [x] C3: Update ledger + initiative summary with results
       Test: N/A: tracking update
 
 ### Notes & Risks

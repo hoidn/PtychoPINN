@@ -1,0 +1,435 @@
+2026-01-12 16:42:12,066 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
+2026-01-12 16:42:12,066 - INFO - Registration: enabled
+2026-01-12 16:42:12,066 - INFO - NPZ output: raw=enabled, aligned=enabled
+2026-01-12 16:42:12,066 - INFO - Loading PtychoPINN inference model (diffraction_to_obj) to restore configuration...
+2026-01-12 16:42:12,066 - INFO - Loading model from: gs2_generalization_study_20260112_163247/train_subsample_2048_groups_2048/trial_1/pinn_run
+2026-01-12 16:42:12,066 - DEBUG - Model archive path: gs2_generalization_study_20260112_163247/train_subsample_2048_groups_2048/trial_1/pinn_run/wts.h5.zip
+2026-01-12 16:42:13,036 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+2026-01-12 16:42:13,037 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+2026-01-12 16:42:13,705 - INFO - Successfully loaded model from gs2_generalization_study_20260112_163247/train_subsample_2048_groups_2048/trial_1/pinn_run
+2026-01-12 16:42:13,707 - DEBUG - Model configuration: {'N': 64, 'offset': 4, 'gridsize': 2, 'outer_offset_train': None, 'outer_offset_test': None, 'batch_size': 16, 'nepochs': 50, 'n_filters_scale': 2, 'output_prefix': 'gs2_generalization_study_20260112_163247/train_subsample_2048_groups_2048/trial_1/pinn_run', 'big_gridsize': 10, 'max_position_jitter': 10, 'sim_jitter_scale': 0.0, 'default_probe_scale': 0.7, 'mae_weight': 0.0, 'nll_weight': 1.0, 'tv_weight': 0.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'nimgs_train': 9, 'nimgs_test': 3, 'data_source': 'generic', 'probe.trainable': False, 'intensity_scale.trainable': True, 'positions.provided': True, 'object.big': True, 'probe.big': True, 'probe_scale': 4.0, 'set_phi': False, 'probe.mask': False, 'pad_object': True, 'model_type': 'pinn', 'label': '', 'size': 392, 'amp_activation': 'sigmoid', 'h5_path': 'wts.h5', 'npseed': 42, 'debug': True, 'gaussian_smoothing_sigma': 0.0, 'use_xla_translate': True, 'n_groups': 2048, 'n_images': 2048, 'n_subsample': 2048, 'neighbor_count': 7, 'enable_oversampling': False, 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'train_data_file_path': 'datasets/fly64/fly64_top_half_shuffled.npz', 'test_data_file_path': 'datasets/fly64/fly64_top_half_shuffled.npz', 'probe': <tf.Tensor: shape=(64, 64, 1), dtype=complex64, numpy=
+array([[[ 0.05078768+0.03908647j],
+        [-0.00147524+0.02986646j],
+        [-0.04124447-0.02018933j],
+        ...,
+        [ 0.02548227+0.01806978j],
+        [ 0.04268315+0.0188654j ],
+        [ 0.04516761+0.01956229j]],
+
+       [[ 0.0220891 -0.01188079j],
+        [ 0.03835767+0.03358509j],
+        [-0.00142893+0.02197503j],
+        ...,
+        [-0.01391465-0.00432523j],
+        [ 0.03996065+0.03697475j],
+        [ 0.02918082+0.03941054j]],
+
+       [[ 0.02744894-0.00778296j],
+        [-0.02554526+0.00479967j],
+        [-0.01781248-0.02643128j],
+        ...,
+        [-0.03899888+0.05420399j],
+        [-0.02644318+0.00979219j],
+        [ 0.03697952-0.08437678j]],
+
+       ...,
+
+       [[-0.03238868-0.01856977j],
+        [ 0.04393906+0.0009207j ],
+        [-0.0523303 +0.16835369j],
+        ...,
+        [ 0.07663022+0.06388126j],
+        [-0.10884623+0.05475416j],
+        [-0.09921163-0.09906429j]],
+
+       [[-0.00452902-0.01962221j],
+        [-0.03836754+0.03825318j],
+        [-0.0233613 +0.0739998j ],
+        ...,
+        [ 0.0232537 +0.04757752j],
+        [-0.06083298-0.04434002j],
+        [-0.0041243 -0.0299162j ]],
+
+       [[ 0.02184559+0.02220817j],
+        [-0.04714252-0.0093401j ],
+        [-0.01891536-0.00193338j],
+        ...,
+        [-0.10183024-0.00715991j],
+        [ 0.0541427 -0.08391279j],
+        [ 0.03675748+0.03997286j]]], shape=(64, 64, 1), dtype=complex64)>, 'intensity_scale': 988.211669921875}
+2026-01-12 16:42:13,707 - INFO - Restored configuration from model: gridsize=2, N=64
+2026-01-12 16:42:13,707 - INFO - Loading test data from datasets/fly64/fly64_top_half_shuffled.npz with restored gridsize=2...
+2026-01-12 16:42:13,707 - INFO - Using independent sampling control: n_subsample=2048, n_groups=2048
+2026-01-12 16:42:13,707 - INFO - Loading data from datasets/fly64/fly64_top_half_shuffled.npz with n_images=2048, n_subsample=2048
+2026-01-12 16:42:13,740 - INFO - Independent sampling: subsampling 2048 images from 5172 total
+2026-01-12 16:42:13,741 - INFO - Randomly subsampled 2048 images
+2026-01-12 16:42:13,746 - INFO - diff3d shape: (2048, 64, 64)
+2026-01-12 16:42:13,746 - INFO - probeGuess shape: (64, 64)
+2026-01-12 16:42:13,746 - INFO - scan_index shape: (2048,)
+2026-01-12 16:42:13,746 - INFO - objectGuess shape: (232, 232)
+2026-01-12 16:42:13,746 - INFO - xcoords shape: (2048,)
+2026-01-12 16:42:13,746 - INFO - ycoords shape: (2048,)
+2026-01-12 16:42:13,746 - INFO - xcoords_start shape: (2048,)
+2026-01-12 16:42:13,746 - INFO - ycoords_start shape: (2048,)
+2026-01-12 16:42:13,746 - INFO - Final configuration: gridsize=2, N=64, n_images=2048
+2026-01-12 16:42:13,746 - INFO - Using stitch_crop_size M=20 (N=64)
+2026-01-12 16:42:13,746 - INFO - Loading Baseline model from gs2_generalization_study_20260112_163247/train_subsample_2048_groups_2048/trial_1/baseline_run/01-12-2026-16.36.17_baseline_gs2...
+2026-01-12 16:42:13,747 - INFO - Found baseline model at: gs2_generalization_study_20260112_163247/train_subsample_2048_groups_2048/trial_1/baseline_run/01-12-2026-16.36.17_baseline_gs2/baseline_model.h5
+2026-01-12 16:42:13,747 - DEBUG - Creating converter from 3 to 5
+2026-01-12 16:42:13,841 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-01-12 16:42:13,847 - INFO - Running two-way comparison (PtychoPINN vs. Baseline)
+2026-01-12 16:42:13,847 - INFO - Running inference with PtychoPINN (diffraction_to_obj)...
+2026-01-12 16:42:13,847 - INFO - Using single-shot PINN inference: 2048 groups (batch_size=32)
+2026-01-12 16:42:13,847 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=2048, n_points=2048, C=4, K=7
+2026-01-12 16:42:13,847 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
+2026-01-12 16:42:13,847 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=7
+2026-01-12 16:42:13,847 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 2048 > 2048 = False
+2026-01-12 16:42:13,847 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2026-01-12 16:42:13,847 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2026-01-12 16:42:13,847 - INFO - DEBUG:
+2026-01-12 16:42:13,847 - INFO - nsamples: 2048, gridsize: 2 (using efficient random sample-then-group strategy)
+2026-01-12 16:42:13,847 - INFO - Using efficient random sampling strategy for gridsize=2
+2026-01-12 16:42:13,847 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2026-01-12 16:42:13,847 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=2048, K=7, C=4
+2026-01-12 16:42:13,847 - INFO - Generating 2048 groups efficiently from 2048 points (K=7, C=4)
+2026-01-12 16:42:13,847 - INFO - [OVERSAMPLING DEBUG] Standard case: using 2048 groups from 2048 points
+2026-01-12 16:42:13,847 - INFO - [OVERSAMPLING DEBUG] Using all 2048 points as seeds (no sampling needed)
+2026-01-12 16:42:13,847 - INFO - Using all 2048 points as seeds
+2026-01-12 16:42:13,859 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 2048 groups
+2026-01-12 16:42:13,859 - INFO - Successfully generated 2048 groups with shape (2048, 4)
+2026-01-12 16:42:13,860 - INFO - [OVERSAMPLING DEBUG] Generated 2048 groups in total
+2026-01-12 16:42:13,860 - INFO - Generated 2048 groups efficiently
+2026-01-12 16:42:13,875 - INFO - INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+2026-01-12 16:45:21,454 - INFO - neighbor-sampled diffraction shape
+2026-01-12 16:45:21,454 - INFO - (2048, 64, 64, 4)
+2026-01-12 16:45:21,760 - INFO - loader: using provided ground truth patches.
+2026-01-12 16:45:22,230 - INFO - INFO:
+2026-01-12 16:45:22,230 - INFO - None
+2026-01-12 16:45:22,247 - INFO - <PtychoDataContainer X=(2048, 64, 64, 4) mean=0.339 Y_I=(2048, 64, 64, 4) mean=0.000 Y_phi=(2048, 64, 64, 4) mean=0.000 coords_nominal=(2048, 1, 2, 4) mean=0.000 coords_true=(2048, 1, 2, 4) mean=0.000 probe=(64, 64) mean_amplitude=0.086 norm_Y_I=<scalar> nn_indices=(2048, 4) global_offsets=(2048, 1, 2, 1) local_offsets=(2048, 1, 2, 4)>
+2026-01-12 16:45:22,474 - INFO - Gridsize validated: params.cfg['gridsize']=2 matches 4 channels
+2026-01-12 16:45:22,837 - INFO - DEBUG _flat_to_channel: gridsize from global params: 2
+2026-01-12 16:45:22,837 - INFO - DEBUG _flat_to_channel: N from parameter: 78
+2026-01-12 16:45:22,837 - INFO - DEBUG _flat_to_channel: input shape=(128, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+2026-01-12 16:45:22,934 - INFO - DEBUG _flat_to_channel: gridsize from global params: 2
+2026-01-12 16:45:22,934 - INFO - DEBUG _flat_to_channel: N from parameter: 78
+2026-01-12 16:45:22,934 - INFO - DEBUG _flat_to_channel: input shape=(128, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+2026-01-12 16:45:23,018 - INFO - DEBUG _flat_to_channel: gridsize from global params: 2
+2026-01-12 16:45:23,018 - INFO - DEBUG _flat_to_channel: N from parameter: 78
+2026-01-12 16:45:23,018 - INFO - DEBUG _flat_to_channel: input shape=(128, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+2026-01-12 16:45:23,115 - INFO - DEBUG _flat_to_channel: gridsize from global params: 2
+2026-01-12 16:45:23,115 - INFO - DEBUG _flat_to_channel: N from parameter: 78
+2026-01-12 16:45:23,115 - INFO - DEBUG _flat_to_channel: input shape=(128, 78, 78, 1), reshaping to (-1, 4, 78, 78)
+2026-01-12 16:45:25,176 - INFO - [1m 1/64[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m2:44[0m 3s/step
+2026-01-12 16:45:25,230 - INFO - [1m11/64[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m0s[0m 5ms/step
+2026-01-12 16:45:25,284 - INFO - [1m21/64[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m0s[0m 5ms/step
+2026-01-12 16:45:25,338 - INFO - [1m31/64[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 5ms/step
+2026-01-12 16:45:25,391 - INFO - [1m41/64[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 5ms/step
+2026-01-12 16:45:25,445 - INFO - [1m51/64[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 5ms/step
+2026-01-12 16:45:25,498 - INFO - [1m61/64[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 5ms/step
+2026-01-12 16:45:25,527 - INFO - [1m64/64[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m3s[0m 6ms/step
+2026-01-12 16:45:25,607 - INFO - PtychoPINN inference completed in 191.76s
+2026-01-12 16:45:25,607 - INFO - PINN patches shape before reassembly: (2048, 64, 64, 1), dtype: complex64
+2026-01-12 16:45:25,607 - INFO - Reassembling PINN patches...
+2026-01-12 16:45:25,607 - INFO - PINN offsets shape before reassembly: (2048, 1, 2, 1), dtype: float64
+2026-01-12 16:45:40,600 - INFO - PINN reconstruction shape after reassembly: (188, 188, 1), dtype: <dtype: 'complex64'>
+2026-01-12 16:45:40,600 - INFO - Running inference with Baseline model...
+2026-01-12 16:45:40,600 - INFO - Reusing test_container from PINN single-shot path for Baseline inference
+2026-01-12 16:45:40,600 - INFO - Flattening grouped diffraction for baseline model: X (2048, 64, 64, 4) → channels merged; resolved gridsize=2 (from 4 channels)
+2026-01-12 16:45:40,600 - INFO - DEBUG: Setting
+2026-01-12 16:45:40,600 - INFO - gridsize
+2026-01-12 16:45:40,600 - INFO - to
+2026-01-12 16:45:40,601 - INFO - 2
+2026-01-12 16:45:40,601 - INFO - in params
+2026-01-12 16:45:40,601 - INFO - Forced params.cfg['gridsize']=2 for baseline grouped inference
+2026-01-12 16:45:40,604 - INFO - Centered baseline offsets: original mean=136.32, std=43.20 → centered mean=0.000000, std=43.20
+2026-01-12 16:45:40,694 - INFO - Baseline inference input shape: (8192, 64, 64, 1)
+2026-01-12 16:45:40,694 - INFO - Baseline inference offsets shape: (8192, 1, 2, 1)
+2026-01-12 16:45:40,716 - INFO - DIAGNOSTIC baseline_input stats: mean=0.339285, max=3.366634, nonzero_count=33346363/33554432
+2026-01-12 16:45:40,716 - INFO - Using single-shot baseline inference: 8192 groups (batch_size=32)
+2026-01-12 16:45:41,627 - INFO - [1m  1/256[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m2:45[0m 649ms/step
+2026-01-12 16:45:41,678 - INFO - [1m 14/256[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step
+2026-01-12 16:45:41,732 - INFO - [1m 27/256[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step
+2026-01-12 16:45:41,785 - INFO - [1m 40/256[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step
+2026-01-12 16:45:41,838 - INFO - [1m 53/256[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step
+2026-01-12 16:45:41,891 - INFO - [1m 66/256[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step
+2026-01-12 16:45:41,944 - INFO - [1m 79/256[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step
+2026-01-12 16:45:41,998 - INFO - [1m 92/256[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step
+2026-01-12 16:45:42,051 - INFO - [1m105/256[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m0s[0m 4ms/step
+2026-01-12 16:45:42,104 - INFO - [1m118/256[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 4ms/step
+2026-01-12 16:45:42,157 - INFO - [1m131/256[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 4ms/step
+2026-01-12 16:45:42,209 - INFO - [1m144/256[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 4ms/step
+2026-01-12 16:45:42,262 - INFO - [1m157/256[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 4ms/step
+2026-01-12 16:45:42,316 - INFO - [1m170/256[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 4ms/step
+2026-01-12 16:45:42,369 - INFO - [1m183/256[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 4ms/step
+2026-01-12 16:45:42,422 - INFO - [1m196/256[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 4ms/step
+2026-01-12 16:45:42,475 - INFO - [1m209/256[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 4ms/step
+2026-01-12 16:45:42,527 - INFO - [1m222/256[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 4ms/step
+2026-01-12 16:45:42,581 - INFO - [1m235/256[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 4ms/step
+2026-01-12 16:45:42,634 - INFO - [1m248/256[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 4ms/step
+2026-01-12 16:45:42,679 - INFO - [1m256/256[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m2s[0m 4ms/step
+2026-01-12 16:45:42,985 - INFO - Baseline inference completed in 2.27s
+2026-01-12 16:45:43,125 - INFO - DIAGNOSTIC baseline_output stats: mean=1.749308, max=2.997566, nonzero_count=67108864/67108864
+2026-01-12 16:45:43,125 - INFO - Baseline output format: list with 2 elements
+2026-01-12 16:45:43,125 - INFO -   Element 0 shape: (8192, 64, 64, 1), dtype: float32
+2026-01-12 16:45:43,125 - INFO -   Element 1 shape: (8192, 64, 64, 1), dtype: float32
+2026-01-12 16:45:43,125 - INFO - Converting baseline output from [amplitude, phase] list format
+2026-01-12 16:45:44,182 - INFO - After conversion - amplitude shape: (8192, 64, 64, 1), phase shape: (8192, 64, 64, 1)
+2026-01-12 16:45:44,182 - INFO - Complex patches shape: (8192, 64, 64, 1), dtype: complex64
+2026-01-12 16:45:44,182 - INFO - DIAGNOSTIC first patch amplitude: shape=(64, 64, 1), mean=1.231237, max=1.385553, nonzero=4096/4096
+2026-01-12 16:45:44,182 - INFO - DIAGNOSTIC first patch phase: shape=(64, 64, 1), mean=-2.248971, std=0.174717, min=-2.749166, max=-1.920960
+2026-01-12 16:45:44,182 - INFO - Reassembling baseline patches...
+2026-01-12 16:45:58,229 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1774, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1447, in main
+    baseline_recon = reassemble_position(baseline_patches_complex, baseline_offsets, M=args.stitch_crop_size)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 1316, in reassemble_position
+    return shift_and_sum(obj_tensor, global_offsets, M = M) /\
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py", line 153, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/execute.py", line 59, in quick_execute
+    except TypeError as e:
+tensorflow.python.framework.errors_impl.ResourceExhaustedError: Graph execution error:
+
+Detected at node while/body/_1/while/stack_6/_72 defined at (most recent call last):
+<stack traces unavailable>
+SameWorkerRecvDone unable to allocate output tensor. Key: /job:localhost/replica:0/task:0/device:GPU:0;408327e4fb181251;/job:localhost/replica:0/task:0/device:GPU:0;edge_576_while/body/_1/while/stack_6;6315961604705615773:1
+	 [[{{node while/body/_1/while/stack_6/_72}}]]
+Hint: If you want to see a list of allocated tensors when OOM happens, add report_tensor_allocations_upon_oom to RunOptions for current allocation info. This isn't available when running in Eager mode.
+ [Op:__inference_shift_and_sum_3190080]
+2026-01-12 16:45:58,230 - ERROR - Traceback (most recent call last):
+2026-01-12 16:45:58,230 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1774, in <module>
+2026-01-12 16:45:58,230 - ERROR - main()
+2026-01-12 16:45:58,230 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1447, in main
+2026-01-12 16:45:58,231 - ERROR - baseline_recon = reassemble_position(baseline_patches_complex, baseline_offsets, M=args.stitch_crop_size)
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,231 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 1316, in reassemble_position
+2026-01-12 16:45:58,232 - ERROR - return shift_and_sum(obj_tensor, global_offsets, M = M) /\
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,232 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py", line 153, in error_handler
+2026-01-12 16:45:58,233 - ERROR - raise e.with_traceback(filtered_tb) from None
+2026-01-12 16:45:58,233 - ERROR - File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/execute.py", line 53, in quick_execute
+2026-01-12 16:45:58,233 - ERROR - tensors = pywrap_tfe.TFE_Py_Execute(ctx._handle, device_name, op_name,
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,233 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - ^
+2026-01-12 16:45:58,234 - ERROR - tensorflow.python.framework.errors_impl
+2026-01-12 16:45:58,234 - ERROR - .
+2026-01-12 16:45:58,234 - ERROR - ResourceExhaustedError
+2026-01-12 16:45:58,234 - ERROR - :
+2026-01-12 16:45:58,234 - ERROR - Graph execution error:
+
+Detected at node while/body/_1/while/stack_6/_72 defined at (most recent call last):
+<stack traces unavailable>
+SameWorkerRecvDone unable to allocate output tensor. Key: /job:localhost/replica:0/task:0/device:GPU:0;408327e4fb181251;/job:localhost/replica:0/task:0/device:GPU:0;edge_576_while/body/_1/while/stack_6;6315961604705615773:1
+	 [[{{node while/body/_1/while/stack_6/_72}}]]
+Hint: If you want to see a list of allocated tensors when OOM happens, add report_tensor_allocations_upon_oom to RunOptions for current allocation info. This isn't available when running in Eager mode.
+ [Op:__inference_shift_and_sum_3190080]
