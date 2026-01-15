@@ -1,0 +1,48 @@
+2026-01-13 14:55:52.533997: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1768344952.545609 1795446 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1768344952.549289 1795446 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1768344952.559337 1795446 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768344952.559346 1795446 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768344952.559348 1795446 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768344952.559349 1795446 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-13 14:55:52.562130: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+usage: train.py [-h] [--config CONFIG] [--do_stitching] [--quiet | --verbose]
+                [--console-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}]
+                [--N {64,128,256}] [--gridsize GRIDSIZE]
+                [--n_filters_scale N_FILTERS_SCALE]
+                [--model_type {pinn,supervised}]
+                [--amp_activation {sigmoid,swish,softplus,relu}]
+                [--object_big OBJECT_BIG] [--probe_big PROBE_BIG]
+                [--probe_mask PROBE_MASK] [--pad_object PAD_OBJECT]
+                [--probe_scale PROBE_SCALE]
+                [--gaussian_smoothing_sigma GAUSSIAN_SMOOTHING_SIGMA]
+                [--train_data_file TRAIN_DATA_FILE]
+                [--test_data_file TEST_DATA_FILE] [--batch_size BATCH_SIZE]
+                [--nepochs NEPOCHS] [--mae_weight MAE_WEIGHT]
+                [--nll_weight NLL_WEIGHT]
+                [--realspace_mae_weight REALSPACE_MAE_WEIGHT]
+                [--realspace_weight REALSPACE_WEIGHT] [--nphotons NPHOTONS]
+                [--n_groups N_GROUPS] [--n_images N_IMAGES]
+                [--n_subsample N_SUBSAMPLE] [--subsample_seed SUBSAMPLE_SEED]
+                [--neighbor_count NEIGHBOR_COUNT]
+                [--enable_oversampling ENABLE_OVERSAMPLING]
+                [--neighbor_pool_size NEIGHBOR_POOL_SIZE]
+                [--positions_provided POSITIONS_PROVIDED]
+                [--probe_trainable PROBE_TRAINABLE]
+                [--intensity_scale_trainable INTENSITY_SCALE_TRAINABLE]
+                [--output_dir OUTPUT_DIR]
+                [--sequential_sampling SEQUENTIAL_SAMPLING]
+                [--backend {tensorflow,pytorch}]
+                [--torch_loss_mode {poisson,mae}]
+                [--torch-accelerator {auto,cpu,cuda,gpu,mps,tpu}]
+                [--torch-deterministic]
+                [--torch-num-workers TORCH_NUM_WORKERS]
+                [--torch-accumulate-grad-batches TORCH_ACCUMULATE_GRAD_BATCHES]
+                [--torch-learning-rate TORCH_LEARNING_RATE]
+                [--torch-scheduler {Default,ReduceLROnPlateau,CosineAnnealing}]
+                [--torch-logger {csv,tensorboard,mlflow,none}]
+                [--torch-enable-checkpointing]
+                [--torch-checkpoint-save-top-k TORCH_CHECKPOINT_SAVE_TOP_K]
+train.py: error: argument --N: invalid choice: '64' (choose from 64, 128, 256)

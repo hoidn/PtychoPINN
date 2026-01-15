@@ -1,0 +1,137 @@
+[2026-01-07 15:06:12] === Starting Complete Generalization Study ===
+[2026-01-07 15:06:12] Training group sizes: 512 1024 2048 4096
+[2026-01-07 15:06:12] Training subsample sizes: 512 1024 2048 4096
+[2026-01-07 15:06:12] Test groups: 2048
+[2026-01-07 15:06:12] Test subsample: 4096
+[2026-01-07 15:06:12] Number of trials per size: 5
+[2026-01-07 15:06:12] Output directory: fly64_generalization_study_512_4096
+[2026-01-07 15:06:12] Total training runs planned: 40
+[2026-01-07 15:06:12] Validating environment...
+[2026-01-07 15:06:12] Environment validation passed
+[2026-01-07 15:06:12] Configuration saved to: fly64_generalization_study_512_4096/study_config.txt
+[2026-01-07 15:06:12] Skipping dataset preparation (--skip-data-prep)
+[2026-01-07 15:06:12] ERROR: --train-data must be specified when using --skip-data-prep
+[2026-01-07 15:06:23] === Starting Complete Generalization Study ===
+[2026-01-07 15:06:23] Training group sizes: 512 1024 2048 4096
+[2026-01-07 15:06:23] Training subsample sizes: 512 1024 2048 4096
+[2026-01-07 15:06:23] Test groups: 2048
+[2026-01-07 15:06:23] Test subsample: 4096
+[2026-01-07 15:06:23] Number of trials per size: 5
+[2026-01-07 15:06:23] Output directory: fly64_generalization_study_512_4096
+[2026-01-07 15:06:23] Total training runs planned: 40
+[2026-01-07 15:06:23] Validating environment...
+[2026-01-07 15:06:23] Environment validation passed
+[2026-01-07 15:06:23] Configuration saved to: fly64_generalization_study_512_4096/study_config.txt
+[2026-01-07 15:06:23] Skipping dataset preparation (--skip-data-prep)
+[2026-01-07 15:06:23] Skipping model training (--skip-training)
+[2026-01-07 15:06:23] === STEP 3: Model Comparison ===
+[2026-01-07 15:06:23] Running comparisons for train_subsample=512, train_groups=512 (5 trials)
+[2026-01-07 15:06:23] WARNING: PtychoPINN model not found for trial=1: fly64_generalization_study_512_4096/train_subsample_512_groups_512/trial_1/pinn_run/wts.h5.zip
+[2026-01-07 15:06:23] WARNING: PtychoPINN model not found for trial=2: fly64_generalization_study_512_4096/train_subsample_512_groups_512/trial_2/pinn_run/wts.h5.zip
+[2026-01-07 15:06:23] WARNING: PtychoPINN model not found for trial=3: fly64_generalization_study_512_4096/train_subsample_512_groups_512/trial_3/pinn_run/wts.h5.zip
+[2026-01-07 15:06:23] WARNING: PtychoPINN model not found for trial=4: fly64_generalization_study_512_4096/train_subsample_512_groups_512/trial_4/pinn_run/wts.h5.zip
+[2026-01-07 15:06:23] WARNING: PtychoPINN model not found for trial=5: fly64_generalization_study_512_4096/train_subsample_512_groups_512/trial_5/pinn_run/wts.h5.zip
+[2026-01-07 15:06:23] Completed comparisons for train_groups=512
+[2026-01-07 15:06:23] Running comparisons for train_subsample=1024, train_groups=1024 (5 trials)
+[2026-01-07 15:06:23] WARNING: PtychoPINN model not found for trial=1: fly64_generalization_study_512_4096/train_subsample_1024_groups_1024/trial_1/pinn_run/wts.h5.zip
+[2026-01-07 15:06:23] WARNING: PtychoPINN model not found for trial=2: fly64_generalization_study_512_4096/train_subsample_1024_groups_1024/trial_2/pinn_run/wts.h5.zip
+[2026-01-07 15:06:23] WARNING: PtychoPINN model not found for trial=3: fly64_generalization_study_512_4096/train_subsample_1024_groups_1024/trial_3/pinn_run/wts.h5.zip
+[2026-01-07 15:06:23] WARNING: PtychoPINN model not found for trial=4: fly64_generalization_study_512_4096/train_subsample_1024_groups_1024/trial_4/pinn_run/wts.h5.zip
+[2026-01-07 15:06:23] WARNING: PtychoPINN model not found for trial=5: fly64_generalization_study_512_4096/train_subsample_1024_groups_1024/trial_5/pinn_run/wts.h5.zip
+[2026-01-07 15:06:23] Completed comparisons for train_groups=1024
+[2026-01-07 15:06:23] Running comparisons for train_subsample=2048, train_groups=2048 (5 trials)
+[2026-01-07 15:06:23] WARNING: PtychoPINN model not found for trial=1: fly64_generalization_study_512_4096/train_subsample_2048_groups_2048/trial_1/pinn_run/wts.h5.zip
+[2026-01-07 15:06:23] WARNING: PtychoPINN model not found for trial=2: fly64_generalization_study_512_4096/train_subsample_2048_groups_2048/trial_2/pinn_run/wts.h5.zip
+[2026-01-07 15:06:23] WARNING: PtychoPINN model not found for trial=3: fly64_generalization_study_512_4096/train_subsample_2048_groups_2048/trial_3/pinn_run/wts.h5.zip
+[2026-01-07 15:06:23] WARNING: PtychoPINN model not found for trial=4: fly64_generalization_study_512_4096/train_subsample_2048_groups_2048/trial_4/pinn_run/wts.h5.zip
+[2026-01-07 15:06:23] WARNING: PtychoPINN model not found for trial=5: fly64_generalization_study_512_4096/train_subsample_2048_groups_2048/trial_5/pinn_run/wts.h5.zip
+[2026-01-07 15:06:23] Completed comparisons for train_groups=2048
+[2026-01-07 15:06:23] Running comparisons for train_subsample=4096, train_groups=4096 (5 trials)
+[2026-01-07 15:06:23] WARNING: PtychoPINN model not found for trial=1: fly64_generalization_study_512_4096/train_subsample_4096_groups_4096/trial_1/pinn_run/wts.h5.zip
+[2026-01-07 15:06:23] WARNING: PtychoPINN model not found for trial=2: fly64_generalization_study_512_4096/train_subsample_4096_groups_4096/trial_2/pinn_run/wts.h5.zip
+[2026-01-07 15:06:23] WARNING: PtychoPINN model not found for trial=3: fly64_generalization_study_512_4096/train_subsample_4096_groups_4096/trial_3/pinn_run/wts.h5.zip
+[2026-01-07 15:06:23] WARNING: PtychoPINN model not found for trial=4: fly64_generalization_study_512_4096/train_subsample_4096_groups_4096/trial_4/pinn_run/wts.h5.zip
+[2026-01-07 15:06:23] WARNING: PtychoPINN model not found for trial=5: fly64_generalization_study_512_4096/train_subsample_4096_groups_4096/trial_5/pinn_run/wts.h5.zip
+[2026-01-07 15:06:23] Completed comparisons for train_groups=4096
+[2026-01-07 15:06:23] Model comparison phase completed
+[2026-01-07 15:06:23] === STEP 4: Results Aggregation ===
+[2026-01-07 15:06:23] EXECUTING: PSNR phase generalization plot
+[2026-01-07 15:06:23] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'fly64_generalization_study_512_4096' \
+        --metric psnr \
+        --part phase \
+        --output psnr_phase_generalization.png
+15:06:24 - INFO - Processing study directory: fly64_generalization_study_512_4096
+15:06:24 - INFO - Analyzing psnr_phase
+15:06:24 - ERROR - Failed to process results: No valid comparison files found in fly64_generalization_study_512_4096
+[2026-01-07 15:06:24] SUCCESS: PSNR phase generalization plot
+[2026-01-07 15:06:24] EXECUTING: FRC amplitude generalization plot
+[2026-01-07 15:06:24] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'fly64_generalization_study_512_4096' \
+        --metric frc50 \
+        --part amp \
+        --output frc50_amp_generalization.png
+15:06:24 - INFO - Processing study directory: fly64_generalization_study_512_4096
+15:06:24 - INFO - Analyzing frc50_amp
+15:06:24 - ERROR - Failed to process results: No valid comparison files found in fly64_generalization_study_512_4096
+[2026-01-07 15:06:24] SUCCESS: FRC amplitude generalization plot
+[2026-01-07 15:06:24] EXECUTING: MAE amplitude generalization plot
+[2026-01-07 15:06:24] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'fly64_generalization_study_512_4096' \
+        --metric mae \
+        --part amp \
+        --output mae_amp_generalization.png
+15:06:25 - INFO - Processing study directory: fly64_generalization_study_512_4096
+15:06:25 - INFO - Analyzing mae_amp
+15:06:25 - ERROR - Failed to process results: No valid comparison files found in fly64_generalization_study_512_4096
+[2026-01-07 15:06:25] SUCCESS: MAE amplitude generalization plot
+[2026-01-07 15:06:25] EXECUTING: SSIM amplitude generalization plot
+[2026-01-07 15:06:25] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'fly64_generalization_study_512_4096' \
+        --metric ssim \
+        --part amp \
+        --output ssim_amp_generalization.png
+15:06:25 - INFO - Processing study directory: fly64_generalization_study_512_4096
+15:06:25 - INFO - Analyzing ssim_amp
+15:06:25 - ERROR - Failed to process results: No valid comparison files found in fly64_generalization_study_512_4096
+[2026-01-07 15:06:25] SUCCESS: SSIM amplitude generalization plot
+[2026-01-07 15:06:25] EXECUTING: SSIM phase generalization plot
+[2026-01-07 15:06:25] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'fly64_generalization_study_512_4096' \
+        --metric ssim \
+        --part phase \
+        --output ssim_phase_generalization.png
+15:06:26 - INFO - Processing study directory: fly64_generalization_study_512_4096
+15:06:26 - INFO - Analyzing ssim_phase
+15:06:26 - ERROR - Failed to process results: No valid comparison files found in fly64_generalization_study_512_4096
+[2026-01-07 15:06:26] SUCCESS: SSIM phase generalization plot
+[2026-01-07 15:06:26] EXECUTING: MS-SSIM amplitude generalization plot
+[2026-01-07 15:06:26] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'fly64_generalization_study_512_4096' \
+        --metric ms_ssim \
+        --part amp \
+        --output ms_ssim_amp_generalization.png
+15:06:26 - INFO - Processing study directory: fly64_generalization_study_512_4096
+15:06:26 - INFO - Analyzing ms_ssim_amp
+15:06:26 - ERROR - Failed to process results: No valid comparison files found in fly64_generalization_study_512_4096
+[2026-01-07 15:06:26] SUCCESS: MS-SSIM amplitude generalization plot
+[2026-01-07 15:06:26] EXECUTING: MS-SSIM phase generalization plot
+[2026-01-07 15:06:26] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'fly64_generalization_study_512_4096' \
+        --metric ms_ssim \
+        --part phase \
+        --output ms_ssim_phase_generalization.png
+15:06:27 - INFO - Processing study directory: fly64_generalization_study_512_4096
+15:06:27 - INFO - Analyzing ms_ssim_phase
+15:06:27 - ERROR - Failed to process results: No valid comparison files found in fly64_generalization_study_512_4096
+[2026-01-07 15:06:27] SUCCESS: MS-SSIM phase generalization plot
+[2026-01-07 15:06:27] Results aggregation completed
+[2026-01-07 15:06:27] === Generating Summary Report ===
+[2026-01-07 15:06:27] Summary report generated: fly64_generalization_study_512_4096/STUDY_SUMMARY.md
+[2026-01-07 15:06:27] === Study Completed Successfully ===
+[2026-01-07 15:06:27] Training sizes tested: 4
+[2026-01-07 15:06:27] Trials per size: 5
+[2026-01-07 15:06:27] Total trials completed: 20
+[2026-01-07 15:06:27] Total runtime: 00:00:04
+[2026-01-07 15:06:27] Results directory: fly64_generalization_study_512_4096
+[2026-01-07 15:06:27] Summary report: fly64_generalization_study_512_4096/STUDY_SUMMARY.md

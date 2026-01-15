@@ -1,0 +1,37 @@
+# Complete Generalization Study Configuration
+# Generated: Sun Jan 11 02:22:55 AM PST 2026
+
+# Training Configuration
+TRAIN_GROUP_SIZES=64
+TRAIN_SUBSAMPLE_SIZES=64
+TEST_GROUPS=606
+TEST_SUBSAMPLE=2424
+PARALLEL_JOBS=1
+
+# Paths
+OUTPUT_DIR=gs2_full_subsample_study_20260111_0222
+TRAIN_DATA=prepare_1e4_photons_5k/dataset/train.npz
+TEST_DATA=prepare_1e4_photons_5k/dataset/test.npz
+
+# Workflow Flags
+SKIP_DATA_PREP=true
+SKIP_TRAINING=false
+SKIP_COMPARISON=false
+ADD_TIKE_ARM=false
+TIKE_ITERATIONS=1000
+ADD_PTYCHI_ARM=false
+PTYCHI_ALGORITHM=ePIE
+PTYCHI_ITERATIONS=200
+PTYCHI_BATCH_SIZE=8
+DRY_RUN=false
+
+# Environment Info
+PROJECT_ROOT=/home/ollie/Documents/PtychoPINN
+USER=ollie
+HOSTNAME=ollie-System-Product-Name
+PWD=/home/ollie/Documents/PtychoPINN
+
+# System Info
+PYTHON_VERSION=Python 3.11.13
+CONDA_ENV=ptycho311
+GPU_INFO=NVIDIA GeForce RTX 3090, 24576

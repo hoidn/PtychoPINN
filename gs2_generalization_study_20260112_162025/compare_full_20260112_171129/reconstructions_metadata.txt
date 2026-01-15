@@ -1,0 +1,19 @@
+NPZ File Contents:
+==================
+
+Arrays saved in reconstructions.npz:
+- ptychopinn_amplitude: (188, 188) float32
+- ptychopinn_phase: (188, 188) float32
+- ptychopinn_complex: (188, 188) complex64
+- baseline_amplitude: (192, 192) float32
+- baseline_phase: (192, 192) float32
+- baseline_complex: (192, 192) complex64
+- ground_truth_amplitude: (232, 232) float32
+- ground_truth_phase: (232, 232) float32
+- ground_truth_complex: (232, 232) complex64
+
+Description:
+- *_amplitude: Real-valued amplitude data
+- *_phase: Real-valued phase data in radians
+- *_complex: Complex-valued reconstruction data
+- Data saved BEFORE registration correction

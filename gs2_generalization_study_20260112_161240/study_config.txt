@@ -1,0 +1,37 @@
+# Complete Generalization Study Configuration
+# Generated: Mon Jan 12 04:12:45 PM PST 2026
+
+# Training Configuration
+TRAIN_GROUP_SIZES=2048
+TRAIN_SUBSAMPLE_SIZES=2048
+TEST_GROUPS=2048
+TEST_SUBSAMPLE=2048
+PARALLEL_JOBS=1
+
+# Paths
+OUTPUT_DIR=gs2_generalization_study_20260112_161240
+TRAIN_DATA=datasets/fly64/fly64_top_half_shuffled.npz
+TEST_DATA=datasets/fly64/fly64_top_half_shuffled.npz
+
+# Workflow Flags
+SKIP_DATA_PREP=true
+SKIP_TRAINING=false
+SKIP_COMPARISON=false
+ADD_TIKE_ARM=false
+TIKE_ITERATIONS=1000
+ADD_PTYCHI_ARM=false
+PTYCHI_ALGORITHM=ePIE
+PTYCHI_ITERATIONS=200
+PTYCHI_BATCH_SIZE=8
+DRY_RUN=false
+
+# Environment Info
+PROJECT_ROOT=/home/ollie/Documents/PtychoPINN
+USER=ollie
+HOSTNAME=ollie-System-Product-Name
+PWD=/home/ollie/Documents/PtychoPINN
+
+# System Info
+PYTHON_VERSION=Python 3.11.13
+CONDA_ENV=ptycho311
+GPU_INFO=NVIDIA GeForce RTX 3090, 24576

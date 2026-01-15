@@ -1,0 +1,121 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split FAILED [100%]
+
+=================================== FAILURES ===================================
+____________ test_pinn_reconstruction_reassembles_full_train_split _____________
+
+    def test_pinn_reconstruction_reassembles_full_train_split():
+        """
+        Test that ReassemblePatchesLayer can handle large dense datasets (>=5k patches)
+        without Translation layer shape mismatches.
+    
+        Exit criteria:
+        - Layer processes >=5k patches successfully via batched reassembly path
+        - Translation layer receives matching patch/offset tensor shapes in each batch
+        - Output shape is correct (B, padded_size, padded_size, 1) for complex tensors
+        - No ValueError from Translation layer about mismatched input shapes
+    
+        This regression test guards the fix in ptycho/custom_layers.py:ReassemblePatchesLayer
+        that switches to batched processing for large patch counts to avoid the Translation
+        ValueError that blocked dense Phase G comparisons.
+        """
+        import pytest
+        import tensorflow as tf
+        import numpy as np
+        from ptycho.custom_layers import ReassemblePatchesLayer
+        from ptycho import params
+    
+        # Simulate dense dataset dimensions matching Phase G dense train split
+        # Dense fly64 has ~5088 patches (B=159 batches of 32 patches each, C=4 channels)
+        B = 159  # Number of prediction batches
+        N = 138  # Patch size (fly64 reconstruction size)
+        C = 4    # gridsize² = 2² = 4 channels for overlapping patches
+    
+        # Create synthetic patches in channel format (B, N, N, C)
+        # Use small random values to keep memory reasonable
+        patches = tf.random.normal((B, N, N, C), dtype=tf.float32)
+    
+        # Create synthetic positions in channel format (B, 1, 2, C)
+        # Positions should be in range that makes sense for reassembly
+        positions = tf.random.uniform((B, 1, 2, C), minval=-50, maxval=50, dtype=tf.float32)
+    
+        # Set up params.cfg for the layer (required by reassembly helpers)
+        params.set('gridsize', 2)
+        params.set('N', N)
+        params.set('offset', 4)  # Typical offset value for gridsize=2
+        params.set('max_position_jitter', 0)  # Required by get_padded_size()
+    
+        # Get actual padded size from params calculation (not an arbitrary value)
+        # This is what the reassembly functions will actually use
+        expected_padded_size = params.get_padded_size()
+    
+        # Create layer - batching happens automatically inside _reassemble_position_batched
+        # when total patch count (B*C = 159*4 = 636) exceeds the internal batch_size threshold (64)
+        layer = ReassemblePatchesLayer()
+    
+        try:
+            # Call layer - this should use batched reassembly internally
+            # since B*C = 159*4 = 636 > 64
+>           result = layer([patches, positions])
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/study/test_dose_overlap_comparison.py:799: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py:122: in error_handler
+    raise e.with_traceback(filtered_tb) from None
+ptycho/custom_layers.py:172: in call
+    return hh.reassemble_patches(patches, fn_reassemble_real=fn_reassemble,
+ptycho/tf_helper.py:1100: in reassemble_patches
+    assembled_real = fn_reassemble_real(real, average = average, **kwargs) / mk_norm(real,
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ptycho/tf_helper.py:692: in newf
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+ptycho/tf_helper.py:1351: in reassemble_patches_position_batched_real
+    return _reassemble_position_batched(imgs, input_positions, padded_size, batch_size, **merged_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ptycho/tf_helper.py:1027: in _reassemble_position_batched
+    return tf.cond(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def batched_approach():
+        # Initialize the canvas with zeros
+>       final_canvas = tf.zeros((batch_count, padded_size, padded_size, 1), dtype=imgs_flat.dtype)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: Exception encountered when calling ReassemblePatchesLayer.call().
+E       
+E       [1mAttempt to convert a value (None) with an unsupported type (<class 'NoneType'>) to a Tensor.[0m
+E       
+E       Arguments received by ReassemblePatchesLayer.call():
+E         • inputs=['tf.Tensor(shape=(159, 138, 138, 4), dtype=float32)', 'tf.Tensor(shape=(159, 1, 2, 4), dtype=float32)']
+
+ptycho/tf_helper.py:938: ValueError
+----------------------------- Captured stdout call -----------------------------
+DEBUG: Setting gridsize to 2 in params
+DEBUG: Setting N to 138 in params
+DEBUG: Setting offset to 4 in params
+DEBUG: Setting max_position_jitter to 0 in params
+----------------------------- Captured stderr call -----------------------------
+2026-01-11 02:03:58.768690: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1768125838.779902  892160 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1768125838.783715  892160 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1768125838.794298  892160 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768125838.794309  892160 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768125838.794311  892160 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768125838.794312  892160 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-11 02:03:58.797151: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+I0000 00:00:1768125841.297263  892160 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split
+============================== 1 failed in 4.67s ===============================

@@ -1,200 +1,72 @@
-# PARALLEL-API-INFERENCE — Task 2: Update Demo Script to Use New TF Helper
+# REFACTOR-MEMOIZE-CORE-001 — Phase B1-B3: Lift memoize_raw_data into ptycho/cache
 
-**Summary:** Update `scripts/pytorch_api_demo.py` to use `_run_tf_inference_and_reconstruct` and add smoke test.
+**Summary:** Promote the RawData memoization decorator into a new core module (`ptycho/cache.py`) plus a scripts shim so caching stays reusable inside the package.
 
-**Focus:** PARALLEL-API-INFERENCE — Programmatic TF/PyTorch API parity (Task 2-3)
+**Focus:** REFACTOR-MEMOIZE-CORE-001 — Move RawData memoization decorator into core module
 
-**Branch:** feature/torchapi-newprompt-2
+**Branch:** paper
 
 **Mapped tests:**
-- `tests/scripts/test_api_demo.py::TestPyTorchApiDemo` — new smoke test (to be created)
-- `tests/scripts/test_tf_inference_helper.py::TestTFInferenceHelper` — regression (existing, 7 tests)
+- `pytest tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded -v`
+- `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v`
 
-**Artifacts:** `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/`
+**Artifacts:** `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/`
 
 ---
 
 ## Do Now
 
-### Task 2: Update demo script to use new TF helper
-
-**Implement: `scripts/pytorch_api_demo.py::run_backend`**
-
-The demo script currently uses the old TF inference path (`tf_components.perform_inference`). Update it to use the new `_run_tf_inference_and_reconstruct` helper for API parity.
-
-1. **Add import for new helper** (replace `tf_components.perform_inference`):
-
-   ```python
-   from scripts.inference.inference import (
-       _run_tf_inference_and_reconstruct as tf_infer,
-       extract_ground_truth,
-   )
-   ```
-
-2. **Update TF inference call** in `run_backend()` (lines 79-82):
-
-   Replace:
-   ```python
-   else:
-       container = tf_components.create_ptycho_data_container(test_data, infer_cfg.model)
-       amp, phase = tf_components.perform_inference(model, container, params_dict, infer_cfg, quiet=True)
-       tf_components.save_outputs(amp, phase, {}, infer_cfg.output_dir)
-   ```
-
-   With:
-   ```python
-   else:
-       # Use new helper for API parity with PyTorch path
-       config = {'N': infer_cfg.model.N, 'gridsize': infer_cfg.model.gridsize}
-       amp, phase = tf_infer(
-           model=model,
-           raw_data=RawData.from_file(str(DATA)),
-           config=config,
-           K=7,  # neighbor_count
-           nsamples=infer_cfg.n_groups,
-           quiet=True,
-       )
-       # Save outputs
-       import numpy as np
-       out_path = infer_cfg.output_dir
-       out_path.mkdir(parents=True, exist_ok=True)
-       np.savez(out_path / "reconstruction.npz", amplitude=amp, phase=phase)
-   ```
-
-3. **Remove unused import** `tf_components` if no longer needed.
-
-### Task 3: Add smoke test
-
-**Implement: `tests/scripts/test_api_demo.py`**
-
-Create minimal smoke test that verifies the demo script's `run_backend` function works for both backends.
-
-```python
-"""Smoke tests for scripts/pytorch_api_demo.py (PARALLEL-API-INFERENCE)."""
-import pytest
-from pathlib import Path
-import shutil
-
-
-class TestPyTorchApiDemo:
-    """Smoke tests for the unified API demo script."""
-
-    @pytest.fixture
-    def work_dir(self, tmp_path):
-        """Create temporary work directory."""
-        return tmp_path / "api_demo_test"
-
-    def test_demo_module_importable(self):
-        """Demo script can be imported without side effects."""
-        from scripts import pytorch_api_demo
-        assert hasattr(pytorch_api_demo, 'run_backend')
-        assert hasattr(pytorch_api_demo, 'main')
-
-    def test_run_backend_function_signature(self):
-        """run_backend function has expected signature."""
-        import inspect
-        from scripts.pytorch_api_demo import run_backend
-        sig = inspect.signature(run_backend)
-        params = list(sig.parameters.keys())
-        assert 'backend' in params
-        assert 'out_dir' in params
-
-    @pytest.mark.slow
-    def test_tensorflow_backend_runs(self, work_dir):
-        """TensorFlow backend executes without error (slow)."""
-        from scripts.pytorch_api_demo import run_backend
-
-        out_dir = work_dir / "tf"
-        run_backend("tensorflow", out_dir)
-
-        # Verify outputs exist
-        assert (out_dir / "train_outputs").exists()
-        assert (out_dir / "inference_outputs").exists()
-        assert (out_dir / "inference_outputs" / "reconstruction.npz").exists()
-
-    @pytest.mark.slow
-    @pytest.mark.skipif(
-        not pytest.importorskip("torch", reason="PyTorch not available"),
-        reason="PyTorch required"
-    )
-    def test_pytorch_backend_runs(self, work_dir):
-        """PyTorch backend executes without error (slow)."""
-        from scripts.pytorch_api_demo import run_backend
-
-        out_dir = work_dir / "pytorch"
-        run_backend("pytorch", out_dir)
-
-        # Verify outputs exist
-        assert (out_dir / "train_outputs").exists()
-        assert (out_dir / "inference_outputs").exists()
-```
-
-### Verification
-
-```bash
-# Run new smoke tests (imports only, fast)
-pytest tests/scripts/test_api_demo.py -v -k "not slow" 2>&1 | tee plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/pytest_api_demo.log
-
-# Run TF helper regression
-pytest tests/scripts/test_tf_inference_helper.py -v 2>&1 | tee plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/pytest_tf_helper_regression.log
-
-# Collect test count
-pytest tests/scripts/ --collect-only 2>&1 | tee plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/pytest_collect.log
-```
-
----
+- REFACTOR-MEMOIZE-CORE-001.B1-B3
+  - Implement: `ptycho/cache.py::memoize_raw_data` — move `_hash_numpy`, `_normalize_for_hash`, `_hash_payload`, and `memoize_raw_data` into a new `ptycho/cache.py` module (no side effects), switch `scripts/simulation/synthetic_helpers.py::simulate_nongrid_raw_data` to import from the new module, and turn `scripts/simulation/cache_utils.py` into a thin shim that re-exports the decorator (emit a `DeprecationWarning` once so legacy imports keep working).
+  - Validate: `pytest tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded -v` and `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v`
+  - Artifacts: `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/`
 
 ## How-To Map
+1. `mkdir -p ptycho && touch ptycho/cache.py`; copy the helper functions from `scripts/simulation/cache_utils.py` verbatim, add a short module docstring, import `RawData` from `ptycho.raw_data`, and expose `__all__ = ["memoize_raw_data"]`.
+2. Update `scripts/simulation/synthetic_helpers.py` line 14 to `from ptycho.cache import memoize_raw_data` and ensure the decorator usage stays identical.
+3. Replace the body of `scripts/simulation/cache_utils.py` with a shim:
+   ```python
+   """Compatibility wrapper for legacy imports."""
+   from __future__ import annotations
+   import warnings
+   from ptycho.cache import memoize_raw_data
 
-| Step | Command | Artifact |
-|------|---------|----------|
-| Run smoke tests (fast) | `pytest tests/scripts/test_api_demo.py -v -k "not slow"` | `pytest_api_demo.log` |
-| Run TF helper regression | `pytest tests/scripts/test_tf_inference_helper.py -v` | `pytest_tf_helper_regression.log` |
-| Collect test count | `pytest tests/scripts/ --collect-only` | `pytest_collect.log` |
-
----
+   warnings.warn(
+       "scripts.simulation.cache_utils is deprecated; use ptycho.cache",
+       DeprecationWarning,
+       stacklevel=2,
+   )
+   __all__ = ["memoize_raw_data"]
+   ```
+   Keep the file in place so downstream scripts continue to work.
+4. Run `pytest tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded -v 2>&1 | tee plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/pytest_synthetic_helpers.log`.
+5. Run `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v 2>&1 | tee plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/pytest_cli_smoke.log` to ensure CLI entrypoints and help text still import the shim cleanly.
 
 ## Pitfalls To Avoid
-
-1. **DO NOT** break the existing PyTorch path — only update TF path
-2. **DO NOT** change the `DATA` path or fixture requirements
-3. **DO** ensure params.cfg is populated before TF inference (CONFIG-001)
-4. **DO** use `from __future__ import annotations` for forward references
-5. **DO** preserve the training step — only update inference
-6. **DO** add `# noqa: F401` if imports appear unused (they're for CLI/main)
-7. **DO** mark slow tests with `@pytest.mark.slow` for CI gating
-
----
+1. Do **not** change the excluded-key set (`use_cache`, `cache_dir`, plus caller-provided `exclude_keys`) when copying the decorator.
+2. Keep the hashing logic byte-for-byte identical so cache files stay valid; no new kwargs, no dtype coercions.
+3. Ensure `ptycho/cache.py` has zero side effects (no `Path.mkdir()` or logging) at import time per ANTIPATTERN-001.
+4. The shim should only warn once; avoid re-running the expensive decorator logic there.
+5. Preserve typing: `default_cache_dir` remains a `Path`, and the decorator must raise `TypeError` when the wrapped function returns a non-`RawData`.
+6. When editing `synthetic_helpers`, avoid touching unrelated helper functions so existing tests remain stable.
+7. Keep pytest invocations from the repo root so fixtures resolve correctly (PYTHON-ENV-001).
 
 ## If Blocked
-
-If imports fail or the demo script errors:
-1. Check `params.cfg` initialization via `update_legacy_dict`
-2. Verify the minimal fixture exists at `tests/fixtures/pytorch_integration/minimal_dataset_v1.npz`
-3. Log exact error to `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/blocker.md`
-
----
+- If importing `ptycho.cache` causes a circular import with `RawData`, capture the traceback, revert the new module (leave shim untouched), and note the cycle in `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/blocker.md` before updating `docs/fix_plan.md` Attempts History.
+- If the shim’s `DeprecationWarning` disrupts the tests (e.g., treated as error), downgrade the warning within the shim and document the exact pytest output.
 
 ## Findings Applied
-
 | Finding ID | Adherence |
 |------------|-----------|
-| CONFIG-001 | Ensure params.cfg populated before TF inference |
-| POLICY-001 | PyTorch path unchanged, torch available |
-| ANTIPATTERN-001 | Lazy imports inside function; no module-level side effects |
-
----
+| ANTIPATTERN-001 | New `ptycho/cache.py` stays side-effect free and only exposes explicit APIs, avoiding hidden script-side behavior.
+| MIGRATION-001 | Moving the decorator into `ptycho/` reduces duplicated script-level helpers and keeps RawData helpers centralized without expanding `params.cfg` usage.
 
 ## Pointers
+- `docs/fix_plan.md:7-31` — ledger entry + exit criteria for REFACTOR-MEMOIZE-CORE-001
+- `plans/active/REFACTOR-MEMOIZE-CORE-001/implementation.md:53-120` — phase checklist and Phase A notes
+- `scripts/simulation/cache_utils.py:1-85` — source decorator that needs to move into core
+- `scripts/simulation/synthetic_helpers.py:14-99` — only in-repo usage of `memoize_raw_data`
+- `docs/TESTING_GUIDE.md:1-120` & `docs/development/TEST_SUITE_INDEX.md:1-120` — canonical guidance for running the mapped script tests
 
-- New TF helper: `scripts/inference/inference.py:353-457`
-- PyTorch helper: `ptycho_torch/inference.py:426-632`
-- Demo script: `scripts/pytorch_api_demo.py:33-84`
-- Fix plan item: `docs/fix_plan.md` § PARALLEL-API-INFERENCE
-- Testing guide: `docs/TESTING_GUIDE.md` § Integration Tests
-
----
-
-## Next Up (if finished early)
-
-- Task 4: Document in `docs/workflows/pytorch.md` (add "Programmatic usage" section)
+## Next Up
+- Phase C: Update documentation references in `docs/index.md` / `scripts/simulation/README.md` once the core module lands.

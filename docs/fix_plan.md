@@ -18,7 +18,7 @@
 ### [REFACTOR-MEMOIZE-CORE-001] Move RawData memoization decorator into core module
 - Depends on: None
 - Priority: Low
-- Status: pending — plan drafted
+- Status: in_progress — Phase B1-B3 delegated to Ralph
 - Owner/Date: TBD/2026-01-13
 - Working Plan: `plans/active/REFACTOR-MEMOIZE-CORE-001/implementation.md`
 - Summary: `plans/active/REFACTOR-MEMOIZE-CORE-001/summary.md`
@@ -35,3 +35,4 @@
   - Existing synthetic helper tests pass and logs archived.
 - Attempts History:
   - *2026-01-13T202358Z:* Drafted implementation plan and initialized initiative summary. Artifacts: `plans/active/REFACTOR-MEMOIZE-CORE-001/implementation.md`, `plans/active/REFACTOR-MEMOIZE-CORE-001/summary.md`.
+  - *2026-01-15T225850Z:* Phase A inventory + compatibility design completed; handed off Phase B move/shim work with pytest coverage instructions. Artifacts: `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/`

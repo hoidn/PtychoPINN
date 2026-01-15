@@ -62,12 +62,15 @@
 
 ## Phase A — Inventory & Design
 ### Checklist
-- [ ] A1: Inventory memoize_raw_data usage and decide core module location (e.g., `ptycho/cache.py`)
+- [x] A1: Inventory memoize_raw_data usage and decide core module location (e.g., `ptycho/cache.py`)
       Test: N/A: analysis
-- [ ] A2: Decide compatibility strategy for `scripts/simulation/cache_utils.py` (shim vs removal)
+      Notes: Only `scripts/simulation/synthetic_helpers.py::simulate_nongrid_raw_data` uses the decorator, so adding `ptycho/cache.py` keeps the logic close to `RawData` without new dependencies.
+- [x] A2: Decide compatibility strategy for `scripts/simulation/cache_utils.py` (shim vs removal)
       Test: N/A: design task
-- [ ] A3: Confirm no stable module changes are required; update scope if needed
+      Notes: Convert `scripts/simulation/cache_utils.py` into a thin shim that re-exports `memoize_raw_data` from `ptycho.cache` and emits a DeprecationWarning so downstream scripts never break.
+- [x] A3: Confirm no stable module changes are required; update scope if needed
       Test: N/A: scope check
+      Notes: Work only touches new `ptycho/cache.py`, the synthetic helper import, and the shim file—no forbidden modules (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`) are impacted.
 
 ### Dependency Analysis (Required for Refactors)
 - **Touched Modules:** `scripts/simulation/cache_utils.py`, `scripts/simulation/synthetic_helpers.py`, new `ptycho/cache.py`

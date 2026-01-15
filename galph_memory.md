@@ -1,3 +1,21 @@
+# 2026-01-15T22:58:50Z: REFACTOR-MEMOIZE-CORE-001 — Phase A inventory + B-stage handoff
+
+- dwell: 0 (new focus; no prior loops for this initiative)
+- Focus issue: REFACTOR-MEMOIZE-CORE-001 — Move RawData memoization decorator into a core module
+- Action type: Planning → Implementation handoff (Phase A complete, Phase B scoped)
+- Mode: Implementation
+- Git sync: `git pull --rebase` → Already up to date.
+- Documents reviewed: docs/index.md, docs/findings.md, docs/architecture.md, docs/DEVELOPER_GUIDE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/fix_plan.md, plans/active/REFACTOR-MEMOIZE-CORE-001/implementation.md, scripts/simulation/cache_utils.py, scripts/simulation/synthetic_helpers.py
+- Key decisions:
+  - Add `ptycho/cache.py` with `_hash_numpy`, `_normalize_for_hash`, `_hash_payload`, and `memoize_raw_data` to keep caching logic in the core package.
+  - Convert `scripts/simulation/cache_utils.py` into a shim that re-exports the decorator and emits a DeprecationWarning.
+  - Update `scripts/simulation/synthetic_helpers.py` to import from the new module; no other production files touched.
+- input.md updated with Do Now (Phase B1-B3) + pytest selectors + artifacts hub `plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/`.
+- <Action State>: [ready_for_implementation]
+- focus=REFACTOR-MEMOIZE-CORE-001 state=ready_for_implementation dwell=0 ralph_last_commit=none artifacts=plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T225850Z/ next_action=move memoize_raw_data into ptycho/cache with shim + run synthetic helper script tests
+
+---
+
 # 2026-01-09T03:00:00Z: PARALLEL-API-INFERENCE — Task 1 verified, Task 2-3 handoff
 
 - dwell: 2 (continuing focus; dwell incremented since last loop was implementation)
