@@ -1,0 +1,416 @@
+2026-01-13 12:44:16.960025: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1768337056.971280 1672858 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1768337056.974857 1672858 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1768337056.984636 1672858 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768337056.984647 1672858 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768337056.984649 1672858 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768337056.984650 1672858 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-13 12:44:16.987386: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-01-13 12:44:19,574 - INFO - Starting scenario: gs1_ideal
+2026-01-13 12:44:19,574 - INFO - Run parameters: N=64 object_size=392 split_fraction=0.5 total_images=2000 train_images=1000 test_images=1000 group_count=1000 probe_scale=10.0
+I0000 00:00:1768337059.922814 1672858 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1768337059.924013 1672858 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1768337060.674045 1672858 service.cc:152] XLA service 0x2fe190b0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1768337060.674071 1672858 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2026-01-13 12:44:20.693872: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1768337060.712871 1672858 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1768337060.873533 1672858 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+WARNING:tensorflow:From /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow_probability/python/distributions/distribution.py:342: calling _Independent.__init__ (from tensorflow_probability.python.distributions.independent) with reinterpreted_batch_ndims=None is deprecated and will be removed after 2022-03-01.
+Instructions for updating:
+Please pass an integer value for `reinterpreted_batch_ndims`. The current behavior corresponds to `reinterpreted_batch_ndims=tf.size(distribution.batch_shape_tensor()) - 1`.
+2026-01-13 12:44:32.624316: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence
+DEBUG: Setting data_source to lines in params
+DEBUG: Setting data_source to generic in params
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 1000000000.0 in params
+input shape (None, 64, 64, 1)
+diff3d shape: (2000, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (2000,)
+objectGuess shape: (392, 392)
+xcoords shape: (2000,)
+ycoords shape: (2000,)
+xcoords_start shape: (2000,)
+ycoords_start shape: (2000,)
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 1000000000.0 in params
+diff3d shape: (1000, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (1000,)
+objectGuess shape: (392, 392)
+xcoords shape: (1000,)
+ycoords shape: (1000,)
+xcoords_start shape: (1000,)
+ycoords_start shape: (1000,)
+diff3d shape: (1000, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (1000,)
+objectGuess shape: (392, 392)
+xcoords shape: (1000,)
+ycoords shape: (1000,)
+xcoords_start shape: (1000,)
+ycoords_start shape: (1000,)
+2026-01-13 12:44:32,845 - INFO - Training config: N=64 gridsize=1 n_groups=1000 nphotons=1000000000.0 nepochs=5 probe_scale=10.0
+DEBUG: nsamples: 1000, gridsize: 1 (using efficient random sample-then-group strategy)
+INFO: Using pre-computed 'Y' array from the input file.
+neighbor-sampled diffraction shape (1000, 64, 64, 1)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(1000, 64, 64, 1) mean=0.086 Y_I=(1000, 64, 64, 1) mean=2.690 Y_phi=(1000, 64, 64, 1) mean=0.000 coords_nominal=(1000, 1, 2, 1) mean=0.000 coords_true=(1000, 1, 2, 1) mean=0.000 probe=(64, 64) mean_amplitude=0.092 norm_Y_I=<scalar> nn_indices=(1000, 1) global_offsets=(1000, 1, 2, 1) local_offsets=(1000, 1, 2, 1)>
+DEBUG: nsamples: 1000, gridsize: 1 (using efficient random sample-then-group strategy)
+INFO: Using pre-computed 'Y' array from the input file.
+neighbor-sampled diffraction shape (1000, 64, 64, 1)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(1000, 64, 64, 1) mean=0.085 Y_I=(1000, 64, 64, 1) mean=2.601 Y_phi=(1000, 64, 64, 1) mean=0.000 coords_nominal=(1000, 1, 2, 1) mean=0.000 coords_true=(1000, 1, 2, 1) mean=0.000 probe=(64, 64) mean_amplitude=0.092 norm_Y_I=<scalar> nn_indices=(1000, 1) global_offsets=(1000, 1, 2, 1) local_offsets=(1000, 1, 2, 1)>
+DEBUG: Setting probe to tf.Tensor(
+[[[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ ...
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]], shape=(64, 64, 1), dtype=complex64) in params
+DEBUG: Setting intensity_scale to 988.21173 in params
+DEBUG: Setting probe to tf.Tensor(
+[[[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ ...
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]], shape=(64, 64, 1), dtype=complex64) in params
+Current Parameters:
+--------------------
+N: 64
+amp_activation: sigmoid
+backend: tensorflow
+batch_size: 16
+bigN: 64
+big_gridsize: 10
+data_source: generic
+debug: True
+default_probe_scale: 0.7
+enable_oversampling: False
+gaussian_smoothing_sigma: 0.0
+gridsize: 1
+h5_path: wts.h5
+intensity_scale: 988.2117309570312
+intensity_scale.trainable: True
+label: 
+mae_weight: 0.0
+max_position_jitter: 10
+model_type: pinn
+n_filters_scale: 2
+n_groups: 1000
+neighbor_count: 4
+nepochs: 5
+nimgs_test: 3
+nimgs_train: 9
+nll_weight: 1.0
+nphotons: 1000000000.0
+npseed: 42
+object.big: True
+offset: 4
+outer_offset_test: None
+outer_offset_train: None
+output_prefix: .artifacts/sim_lines_4x_probe_scale_2026-01-13T204359Z/gs1_ideal/train_outputs
+pad_object: True
+positions.provided: True
+probe:
+  shape: (64, 64, 1)
+  mean: 0.100+0.000j
+  std: 0.296
+  min: 0.000+0.000j
+  max: 1.089+0.000j
+probe.big: True
+probe.mask: False
+probe.trainable: False
+probe_scale: 10.0
+realspace_mae_weight: 0.0
+realspace_weight: 0.0
+sequential_sampling: False
+set_phi: False
+sim_jitter_scale: 0.0
+size: 392
+torch_loss_mode: poisson
+tv_weight: 0.0
+use_xla_translate: True
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from global params: 64
+DEBUG _flat_to_channel: input shape=(1000, 64, 64, 1), reshaping to (-1, 1, 64, 64)
+Epoch 1/5
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 1
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 1, 64, 64)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 1
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 1, 64, 64)
+[1m 1/60[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m5:41[0m 6s/step - intensity_scaler_inv_loss: 58.8915 - loss: -3656383.2500 - pred_intensity_loss: -3656383.2500 - trimmed_obj_loss: 0.0000e+00[1m 5/60[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 52.1324 - loss: -3576132.2500 - pred_intensity_loss: -3576132.2500 - trimmed_obj_loss: 0.0000e+00[1m 9/60[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 47.9138 - loss: -3623619.5000 - pred_intensity_loss: -3623619.5000 - trimmed_obj_loss: 0.0000e+00[1m13/60[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 44.3407 - loss: -3653249.7500 - pred_intensity_loss: -3653249.7500 - trimmed_obj_loss: 0.0000e+00[1m17/60[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 41.7373 - loss: -3679260.7500 - pred_intensity_loss: -3679260.7500 - trimmed_obj_loss: 0.0000e+00[1m21/60[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 39.7185 - loss: -3701601.2500 - pred_intensity_loss: -3701601.2500 - trimmed_obj_loss: 0.0000e+00[1m25/60[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 38.0737 - loss: -3724143.5000 - pred_intensity_loss: -3724143.5000 - trimmed_obj_loss: 0.0000e+00[1m29/60[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 36.6962 - loss: -3747553.7500 - pred_intensity_loss: -3747553.7500 - trimmed_obj_loss: 0.0000e+00[1m33/60[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 35.4998 - loss: -3767825.0000 - pred_intensity_loss: -3767825.0000 - trimmed_obj_loss: 0.0000e+00[1m37/60[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 34.4479 - loss: -3781852.2500 - pred_intensity_loss: -3781852.2500 - trimmed_obj_loss: 0.0000e+00[1m41/60[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 33.5210 - loss: -3795066.7500 - pred_intensity_loss: -3795066.7500 - trimmed_obj_loss: 0.0000e+00[1m45/60[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 32.6944 - loss: -3807347.0000 - pred_intensity_loss: -3807347.0000 - trimmed_obj_loss: 0.0000e+00[1m49/60[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 31.9555 - loss: -3817596.7500 - pred_intensity_loss: -3817596.7500 - trimmed_obj_loss: 0.0000e+00[1m53/60[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 31.2876 - loss: -3824577.7500 - pred_intensity_loss: -3824577.7500 - trimmed_obj_loss: 0.0000e+00[1m57/60[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 30.6786 - loss: -3829842.2500 - pred_intensity_loss: -3829842.2500 - trimmed_obj_loss: 0.0000e+00[1m60/60[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 32ms/step - intensity_scaler_inv_loss: 30.2548 - loss: -3833122.7500 - pred_intensity_loss: -3833146.2500 - trimmed_obj_loss: 0.0000e+00WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 1
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 1, 64, 64)
+[1m60/60[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m9s[0m 50ms/step - intensity_scaler_inv_loss: 22.1173 - loss: -3898754.5000 - pred_intensity_loss: -3900159.7500 - trimmed_obj_loss: 0.0000e+00 - val_intensity_scaler_inv_loss: 15.6216 - val_loss: -4639593.5000 - val_pred_intensity_loss: -4773307.0000 - val_trimmed_obj_loss: 0.0000e+00 - learning_rate: 0.0010
+Epoch 2/5
+[1m 1/60[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 36ms/step - intensity_scaler_inv_loss: 16.4721 - loss: -3703444.7500 - pred_intensity_loss: -3703444.7500 - trimmed_obj_loss: 0.0000e+00[1m 5/60[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 16.1056 - loss: -3906161.2500 - pred_intensity_loss: -3906161.2500 - trimmed_obj_loss: 0.0000e+00[1m 9/60[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 16.0491 - loss: -3942976.0000 - pred_intensity_loss: -3942976.0000 - trimmed_obj_loss: 0.0000e+00[1m13/60[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 15.9495 - loss: -3947823.7500 - pred_intensity_loss: -3947823.7500 - trimmed_obj_loss: 0.0000e+00[1m17/60[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 15.8680 - loss: -3939566.0000 - pred_intensity_loss: -3939566.0000 - trimmed_obj_loss: 0.0000e+00[1m21/60[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 15.8357 - loss: -3943074.5000 - pred_intensity_loss: -3943074.5000 - trimmed_obj_loss: 0.0000e+00[1m25/60[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 15.8445 - loss: -3944348.2500 - pred_intensity_loss: -3944348.2500 - trimmed_obj_loss: 0.0000e+00[1m29/60[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 15.8452 - loss: -3946261.0000 - pred_intensity_loss: -3946261.0000 - trimmed_obj_loss: 0.0000e+00[1m33/60[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 15.8356 - loss: -3947428.0000 - pred_intensity_loss: -3947428.0000 - trimmed_obj_loss: 0.0000e+00[1m37/60[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 15.8295 - loss: -3948655.2500 - pred_intensity_loss: -3948655.2500 - trimmed_obj_loss: 0.0000e+00[1m41/60[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 15.8225 - loss: -3949043.2500 - pred_intensity_loss: -3949043.2500 - trimmed_obj_loss: 0.0000e+00[1m45/60[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 15.8119 - loss: -3948549.7500 - pred_intensity_loss: -3948549.7500 - trimmed_obj_loss: 0.0000e+00[1m49/60[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 15.8057 - loss: -3950085.2500 - pred_intensity_loss: -3950085.2500 - trimmed_obj_loss: 0.0000e+00[1m53/60[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 15.7965 - loss: -3951034.0000 - pred_intensity_loss: -3951034.0000 - trimmed_obj_loss: 0.0000e+00[1m57/60[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 15.7828 - loss: -3949873.5000 - pred_intensity_loss: -3949873.5000 - trimmed_obj_loss: 0.0000e+00[1m60/60[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m1s[0m 17ms/step - intensity_scaler_inv_loss: 15.5083 - loss: -3920540.7500 - pred_intensity_loss: -3926851.5000 - trimmed_obj_loss: 0.0000e+00 - val_intensity_scaler_inv_loss: 15.3655 - val_loss: -4640430.5000 - val_pred_intensity_loss: -4773870.5000 - val_trimmed_obj_loss: 0.0000e+00 - learning_rate: 0.0010
+Epoch 3/5
+[1m 1/60[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 33ms/step - intensity_scaler_inv_loss: 15.1618 - loss: -4021579.0000 - pred_intensity_loss: -4021579.0000 - trimmed_obj_loss: 0.0000e+00[1m 4/60[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 17ms/step - intensity_scaler_inv_loss: 14.6860 - loss: -3907756.7500 - pred_intensity_loss: -3907756.7500 - trimmed_obj_loss: 0.0000e+00[1m 8/60[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 17ms/step - intensity_scaler_inv_loss: 14.5454 - loss: -3925805.5000 - pred_intensity_loss: -3925805.5000 - trimmed_obj_loss: 0.0000e+00[1m12/60[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 14.5138 - loss: -3938697.2500 - pred_intensity_loss: -3938697.2500 - trimmed_obj_loss: 0.0000e+00[1m16/60[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 14.4594 - loss: -3943509.7500 - pred_intensity_loss: -3943509.7500 - trimmed_obj_loss: 0.0000e+00[1m20/60[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 14.4065 - loss: -3950115.2500 - pred_intensity_loss: -3950115.2500 - trimmed_obj_loss: 0.0000e+00[1m24/60[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 14.3429 - loss: -3946360.2500 - pred_intensity_loss: -3946360.2500 - trimmed_obj_loss: 0.0000e+00[1m28/60[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 14.3457 - loss: -3951514.0000 - pred_intensity_loss: -3951514.0000 - trimmed_obj_loss: 0.0000e+00[1m32/60[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 14.4118 - loss: -3955775.0000 - pred_intensity_loss: -3955775.0000 - trimmed_obj_loss: 0.0000e+00[1m36/60[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 14.4844 - loss: -3955172.0000 - pred_intensity_loss: -3955172.0000 - trimmed_obj_loss: 0.0000e+00[1m40/60[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 14.5610 - loss: -3955133.0000 - pred_intensity_loss: -3955133.0000 - trimmed_obj_loss: 0.0000e+00[1m44/60[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 14.6288 - loss: -3955454.7500 - pred_intensity_loss: -3955454.7500 - trimmed_obj_loss: 0.0000e+00[1m48/60[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 14.6838 - loss: -3953829.7500 - pred_intensity_loss: -3953829.7500 - trimmed_obj_loss: 0.0000e+00[1m52/60[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 14.7288 - loss: -3951904.7500 - pred_intensity_loss: -3951904.7500 - trimmed_obj_loss: 0.0000e+00[1m56/60[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 14.7654 - loss: -3949441.5000 - pred_intensity_loss: -3949441.5000 - trimmed_obj_loss: 0.0000e+00[1m60/60[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 14.7924 - loss: -3947296.5000 - pred_intensity_loss: -3947263.7500 - trimmed_obj_loss: 0.0000e+00[1m60/60[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m1s[0m 17ms/step - intensity_scaler_inv_loss: 15.1588 - loss: -3920749.5000 - pred_intensity_loss: -3918789.5000 - trimmed_obj_loss: 0.0000e+00 - val_intensity_scaler_inv_loss: 14.1746 - val_loss: -4640680.5000 - val_pred_intensity_loss: -4774094.0000 - val_trimmed_obj_loss: 0.0000e+00 - learning_rate: 0.0010
+Epoch 4/5
+[1m 1/60[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 33ms/step - intensity_scaler_inv_loss: 14.0799 - loss: -3605533.2500 - pred_intensity_loss: -3605533.2500 - trimmed_obj_loss: 0.0000e+00[1m 5/60[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 14.0937 - loss: -3733865.0000 - pred_intensity_loss: -3733865.0000 - trimmed_obj_loss: 0.0000e+00[1m 9/60[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 14.0871 - loss: -3790164.7500 - pred_intensity_loss: -3790164.7500 - trimmed_obj_loss: 0.0000e+00[1m13/60[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 14.0297 - loss: -3822422.2500 - pred_intensity_loss: -3822422.2500 - trimmed_obj_loss: 0.0000e+00[1m17/60[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 13.9644 - loss: -3847900.0000 - pred_intensity_loss: -3847900.0000 - trimmed_obj_loss: 0.0000e+00[1m21/60[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 13.9050 - loss: -3855836.2500 - pred_intensity_loss: -3855836.2500 - trimmed_obj_loss: 0.0000e+00[1m25/60[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 13.8558 - loss: -3863029.0000 - pred_intensity_loss: -3863029.0000 - trimmed_obj_loss: 0.0000e+00[1m29/60[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 13.8204 - loss: -3871587.7500 - pred_intensity_loss: -3871587.7500 - trimmed_obj_loss: 0.0000e+00[1m33/60[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 13.7835 - loss: -3879225.2500 - pred_intensity_loss: -3879225.2500 - trimmed_obj_loss: 0.0000e+00[1m37/60[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 13.7512 - loss: -3886194.7500 - pred_intensity_loss: -3886194.7500 - trimmed_obj_loss: 0.0000e+00[1m41/60[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 13.7205 - loss: -3891612.5000 - pred_intensity_loss: -3891612.5000 - trimmed_obj_loss: 0.0000e+00[1m45/60[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 13.6901 - loss: -3895945.7500 - pred_intensity_loss: -3895945.7500 - trimmed_obj_loss: 0.0000e+00[1m49/60[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 13.6619 - loss: -3897877.7500 - pred_intensity_loss: -3897877.7500 - trimmed_obj_loss: 0.0000e+00[1m53/60[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 13.6347 - loss: -3900259.7500 - pred_intensity_loss: -3900259.7500 - trimmed_obj_loss: 0.0000e+00[1m57/60[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 13.6077 - loss: -3903218.7500 - pred_intensity_loss: -3903218.7500 - trimmed_obj_loss: 0.0000e+00[1m60/60[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m1s[0m 17ms/step - intensity_scaler_inv_loss: 13.1983 - loss: -3922977.0000 - pred_intensity_loss: -3915453.5000 - trimmed_obj_loss: 0.0000e+00 - val_intensity_scaler_inv_loss: 13.9753 - val_loss: -4640925.0000 - val_pred_intensity_loss: -4774306.5000 - val_trimmed_obj_loss: 0.0000e+00 - learning_rate: 0.0010
+Epoch 5/5
+[1m 1/60[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 33ms/step - intensity_scaler_inv_loss: 13.3650 - loss: -4139041.7500 - pred_intensity_loss: -4139041.7500 - trimmed_obj_loss: 0.0000e+00[1m 4/60[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 17ms/step - intensity_scaler_inv_loss: 13.2365 - loss: -4060127.2500 - pred_intensity_loss: -4060127.2500 - trimmed_obj_loss: 0.0000e+00[1m 7/60[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 17ms/step - intensity_scaler_inv_loss: 13.0751 - loss: -4057308.5000 - pred_intensity_loss: -4057308.5000 - trimmed_obj_loss: 0.0000e+00[1m11/60[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m0s[0m 17ms/step - intensity_scaler_inv_loss: 12.9585 - loss: -3991756.7500 - pred_intensity_loss: -3991756.7500 - trimmed_obj_loss: 0.0000e+00[1m15/60[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 17ms/step - intensity_scaler_inv_loss: 12.9027 - loss: -3964683.0000 - pred_intensity_loss: -3964683.0000 - trimmed_obj_loss: 0.0000e+00[1m19/60[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 12.8800 - loss: -3954098.5000 - pred_intensity_loss: -3954098.5000 - trimmed_obj_loss: 0.0000e+00[1m23/60[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 12.8713 - loss: -3955689.7500 - pred_intensity_loss: -3955689.7500 - trimmed_obj_loss: 0.0000e+00[1m27/60[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 12.8568 - loss: -3956032.2500 - pred_intensity_loss: -3956032.2500 - trimmed_obj_loss: 0.0000e+00[1m31/60[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 12.8398 - loss: -3957790.5000 - pred_intensity_loss: -3957790.5000 - trimmed_obj_loss: 0.0000e+00[1m35/60[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 12.8247 - loss: -3958934.0000 - pred_intensity_loss: -3958934.0000 - trimmed_obj_loss: 0.0000e+00[1m39/60[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 12.8099 - loss: -3957944.0000 - pred_intensity_loss: -3957944.0000 - trimmed_obj_loss: 0.0000e+00[1m43/60[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 12.7937 - loss: -3955800.5000 - pred_intensity_loss: -3955800.5000 - trimmed_obj_loss: 0.0000e+00[1m47/60[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 12.7801 - loss: -3954206.2500 - pred_intensity_loss: -3954206.2500 - trimmed_obj_loss: 0.0000e+00[1m51/60[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 12.7692 - loss: -3953109.5000 - pred_intensity_loss: -3953109.5000 - trimmed_obj_loss: 0.0000e+00[1m55/60[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 12.7616 - loss: -3950898.5000 - pred_intensity_loss: -3950898.5000 - trimmed_obj_loss: 0.0000e+00[1m59/60[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 16ms/step - intensity_scaler_inv_loss: 12.7574 - loss: -3948980.2500 - pred_intensity_loss: -3948980.2500 - trimmed_obj_loss: 0.0000e+00[1m60/60[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m1s[0m 17ms/step - intensity_scaler_inv_loss: 12.7013 - loss: -3923190.2500 - pred_intensity_loss: -3924275.7500 - trimmed_obj_loss: 0.0000e+00 - val_intensity_scaler_inv_loss: 12.9012 - val_loss: -4641056.5000 - val_pred_intensity_loss: -4774469.0000 - val_trimmed_obj_loss: 0.0000e+00 - learning_rate: 0.0010
+DEBUG: Setting probe to tf.Tensor(
+[[[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ ...
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]], shape=(64, 64, 1), dtype=complex64) in params
+INFO: setting probe from test data container. It MUST be consistent with the training probe
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(32, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(32, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(32, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(32, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+input shape (32, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 1
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(32, 64, 64, 1), reshaping to (-1, 1, 64, 64)
+[1m 1/32[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m27s[0m 898ms/step[1m12/32[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m0s[0m 5ms/step   [1m23/32[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 5ms/stepDEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 1
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 1, 64, 64)
+[1m32/32[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 29ms/step[1m32/32[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m2s[0m 30ms/step
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+Object stitching failed: Grid-based stitching is not supported for gridsize=1 (non-grid mode). Individual patches cannot be arranged in a regular grid.
+cannot reshape array of size 4096000 into shape (18,18,64,64,1)
+DEBUG: nsamples: 1000, gridsize: 1 (using efficient random sample-then-group strategy)
+INFO: Using pre-computed 'Y' array from the input file.
+neighbor-sampled diffraction shape (1000, 64, 64, 1)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(1000, 64, 64, 1) mean=0.085 Y_I=(1000, 64, 64, 1) mean=2.601 Y_phi=(1000, 64, 64, 1) mean=0.000 coords_nominal=(1000, 1, 2, 1) mean=0.000 coords_true=(1000, 1, 2, 1) mean=0.000 probe=(64, 64) mean_amplitude=0.092 norm_Y_I=<scalar> nn_indices=(1000, 1) global_offsets=(1000, 1, 2, 1) local_offsets=(1000, 1, 2, 1)>
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(32, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(32, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(32, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(32, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+[1m 1/32[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m51s[0m 2s/step[1m12/32[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m0s[0m 5ms/step[1m25/32[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 4ms/stepDEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+[1m32/32[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 48ms/step[1m32/32[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m3s[0m 48ms/step
+2026-01-13 12:44:55,743 - INFO - Completed scenario: gs1_ideal

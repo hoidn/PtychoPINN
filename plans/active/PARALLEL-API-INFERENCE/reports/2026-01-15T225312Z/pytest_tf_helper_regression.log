@@ -1,0 +1,19 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 7 items
+
+tests/scripts/test_tf_inference_helper.py::TestTFInferenceHelper::test_helper_is_importable PASSED [ 14%]
+tests/scripts/test_tf_inference_helper.py::TestTFInferenceHelper::test_helper_signature_matches_spec PASSED [ 28%]
+tests/scripts/test_tf_inference_helper.py::TestTFInferenceHelper::test_helper_has_correct_defaults PASSED [ 42%]
+tests/scripts/test_tf_inference_helper.py::TestTFInferenceHelper::test_extract_ground_truth_is_importable PASSED [ 57%]
+tests/scripts/test_tf_inference_helper.py::TestTFInferenceHelper::test_extract_ground_truth_signature PASSED [ 71%]
+tests/scripts/test_tf_inference_helper.py::TestTFInferenceHelper::test_deprecated_wrapper_still_works PASSED [ 85%]
+tests/scripts/test_tf_inference_helper.py::TestTFInferenceHelper::test_deprecated_wrapper_has_deprecation_docstring PASSED [100%]
+
+============================== 7 passed in 3.83s ===============================

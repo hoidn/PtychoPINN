@@ -286,6 +286,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Key Dependencies:** `params.cfg` for physics parameters (nphotons, N), `tf_helper` for differentiable operations  
 **Critical For:** Training data generation, physics loss constraints, synthetic dataset creation
 
+#### `ptycho/cache.py` - RawData Cache Helpers
+**Description:** Hosts `memoize_raw_data` and the hashing utilities that back the RawData caching workflow so nongrid simulations can reuse expensive `RawData.generate_grouped_data()` payloads without living in `scripts/`. Aligned with the shared **Data Pipeline** rules in [docs/architecture.md §3](architecture.md#3-a-deep-dive-the-data-loading--preprocessing-pipeline).
+**Key Dependencies:** `ptycho.raw_data.RawData` for grouped data construction and `.artifacts/synthetic_helpers/cache` as the default cache root.  
+**Critical For:** Synthetic helper scripts that enable quick iteration on nongrid simulations and any future workflows that need a stable, side-effect-free cache primitive. Legacy imports continue to work through the shim `scripts/simulation/cache_utils.py`, which now re-exports the core helper.
+
 ### Specifications
 
 #### [Inference Pipeline Specification](specs/spec-inference-pipeline.md) NEW

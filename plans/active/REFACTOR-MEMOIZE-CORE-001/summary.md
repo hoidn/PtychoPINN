@@ -1,4 +1,10 @@
 ### Turn Summary
+Documented `ptycho/cache.py` in docs/index.md so the core RawData memoization helper is discoverable and linked back to the Data Pipeline + shim guidance.
+Expanded scripts/simulation/README.md to explain how synthetic_helpers relies on the cache (default `.artifacts/synthetic_helpers/cache`) and how to override or disable it (`--cache-dir`, `use_cache=False`/`--no-cache`).
+Captured the required pytest evidence: collect-only listing plus the seeded unit and CLI smoke selectors, with logs archived under the active report hub.
+Artifacts: plans/active/REFACTOR-MEMOIZE-CORE-001/reports/2026-01-15T232107Z/ (pytest_collect.log, pytest_synthetic_helpers.log, pytest_cli_smoke.log)
+
+### Turn Summary
 Staged Phase C cleanup for REFACTOR-MEMOIZE-CORE-001 by updating docs/fix_plan + implementation plan and rewriting input.md with the doc/test Do Now.
 Documented the landed code (commit d29efc91) and scoped docs/index.md plus scripts/simulation/README.md updates alongside the missing pytest evidence.
 Next: Ralph refreshes those docs and reruns the synthetic helper selectors, archiving the logs under the new report timestamp.

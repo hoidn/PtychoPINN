@@ -23,9 +23,12 @@ This modular design allows you to simulate diffraction for any object you can cr
 |--------|---------|
 | `simulate_and_save.py` | **Core Tool.** The main, general-purpose script for running Stage 2. It takes an input `.npz` and generates a full simulated dataset. |
 | `run_with_synthetic_lines.py` | **Convenience Wrapper.** A high-level script that automates both Stage 1 and Stage 2 for the specific 'lines' object type. Ideal for quick tests. |
-| `synthetic_helpers.py` | **Helper Utilities.** Shared object/probe creation and nongrid simulation helpers used by study and simulation scripts. |
+| `synthetic_helpers.py` | **Helper Utilities.** Shared object/probe creation and nongrid simulation helpers built on top of `ptycho.cache.memoize_raw_data` so repeated runs transparently reuse cached RawData payloads. |
 
 ## Workflow Examples
+
+### Nongrid helper cache controls
+`synthetic_helpers.py` decorates `simulate_nongrid_raw_data` with `ptycho.cache.memoize_raw_data`, which stores cached RawData bundles under `.artifacts/synthetic_helpers/cache` by default. This keeps expensive nongrid simulations off the hot path for study CLIs. You can override the cache location with the `cache_dir` keyword argument (or the `--cache-dir` flag on wrappers that expose it), and you can opt out entirely with `use_cache=False` (e.g., `--no-cache` on the CLI) when you want a fresh simulation.
 
 ### Simple Workflow: Automated 'Lines' Simulation
 

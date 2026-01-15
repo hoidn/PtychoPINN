@@ -1,0 +1,26 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 9 items
+
+<Dir PtychoPINN>
+  <Package tests>
+    <Package scripts>
+      <Module test_synthetic_helpers.py>
+        <Function test_make_lines_object_seeded_restores_data_source>
+        <Function test_make_probe_integration_loads_probe>
+        <Function test_make_probe_integration_requires_key>
+        <Function test_simulate_nongrid_seeded>
+        <Function test_split_raw_data_by_axis>
+      <Module test_synthetic_helpers_cli_smoke.py>
+        <Function test_dose_response_study_help>
+        <Function test_sim_lines_gs1_ideal_help>
+        <Function test_run_with_synthetic_lines_help>
+        <Function test_sim_lines_pipeline_import_smoke>
+
+========================== 9 tests collected in 3.91s ==========================

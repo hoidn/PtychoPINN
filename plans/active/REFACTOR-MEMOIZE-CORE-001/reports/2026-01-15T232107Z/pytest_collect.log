@@ -1,0 +1,7 @@
+tests/scripts/test_synthetic_helpers.py::test_make_lines_object_seeded_restores_data_source
+tests/scripts/test_synthetic_helpers.py::test_make_probe_custom_loads_probe
+tests/scripts/test_synthetic_helpers.py::test_make_probe_custom_requires_key
+tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded
+tests/scripts/test_synthetic_helpers.py::test_split_raw_data_by_axis
+
+5 tests collected in 3.86s

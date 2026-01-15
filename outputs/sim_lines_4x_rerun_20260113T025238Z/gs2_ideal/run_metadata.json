@@ -1,0 +1,19 @@
+{
+  "N": 64,
+  "base_total_images": 2000,
+  "elapsed_seconds": 489.53,
+  "gridsize": 2,
+  "group_count": 9000,
+  "group_multiplier": 9,
+  "image_multiplier": 3,
+  "neighbor_count": 4,
+  "nepochs": 50,
+  "nphotons": 1000000000.0,
+  "object_size": 392,
+  "probe_mode": "idealized",
+  "scenario": "gs2_ideal",
+  "split_fraction": 0.5,
+  "test_count": 12000,
+  "total_images": 24000,
+  "train_count": 12000
+}

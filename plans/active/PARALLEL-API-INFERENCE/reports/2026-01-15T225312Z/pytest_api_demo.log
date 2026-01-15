@@ -1,0 +1,14 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 4 items / 2 deselected / 2 selected
+
+tests/scripts/test_api_demo.py::TestPyTorchApiDemo::test_demo_module_importable PASSED [ 50%]
+tests/scripts/test_api_demo.py::TestPyTorchApiDemo::test_run_backend_function_signature PASSED [100%]
+
+======================= 2 passed, 2 deselected in 3.76s ========================

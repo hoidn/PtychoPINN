@@ -1,0 +1,63 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collected 37 items
+
+<Dir PtychoPINN>
+  <Package tests>
+    <Package scripts>
+      <Module test_api_demo.py>
+        <Class TestPyTorchApiDemo>
+          <Function test_demo_module_importable>
+          <Function test_run_backend_function_signature>
+          <Function test_tensorflow_backend_runs>
+          <Function test_pytorch_backend_runs>
+      <Module test_dose_response_study.py>
+        <Function test_run_inference_caps_groups>
+      <Module test_inference_backend_selector.py>
+        <Class TestInferenceCliBackendDispatch>
+          <Function test_pytorch_backend_dispatch>
+          <Function test_tensorflow_backend_dispatch>
+          <Function test_backend_selector_preserves_config_001_compliance>
+          <Function test_cli_backend_argument_parsing>
+          <Function test_setup_inference_configuration_uses_backend>
+          <Function test_pytorch_inference_execution_path>
+          <Function test_pytorch_execution_config_flags>
+          <Function test_pytorch_backend_moves_model_to_execution_device>
+          <Function test_pytorch_backend_defaults_auto_execution_config>
+      <Module test_ptychi_reconstruct_tike.py>
+        <Function test_main_uses_cli_arguments>
+      <Module test_synthetic_helpers.py>
+        <Function test_make_lines_object_seeded_restores_data_source>
+        <Function test_make_probe_custom_loads_probe>
+        <Function test_make_probe_custom_requires_key>
+        <Function test_simulate_nongrid_seeded>
+        <Function test_split_raw_data_by_axis>
+      <Module test_synthetic_helpers_cli_smoke.py>
+        <Function test_dose_response_study_help>
+        <Function test_sim_lines_gs1_ideal_help>
+        <Function test_run_with_synthetic_lines_help>
+        <Function test_sim_lines_pipeline_import_smoke>
+      <Module test_tf_inference_helper.py>
+        <Class TestTFInferenceHelper>
+          <Function test_helper_is_importable>
+          <Function test_helper_signature_matches_spec>
+          <Function test_helper_has_correct_defaults>
+          <Function test_extract_ground_truth_is_importable>
+          <Function test_extract_ground_truth_signature>
+          <Function test_deprecated_wrapper_still_works>
+          <Function test_deprecated_wrapper_has_deprecation_docstring>
+      <Module test_training_backend_selector.py>
+        <Class TestTrainingCliBackendDispatch>
+          <Function test_pytorch_backend_dispatch>
+          <Function test_tensorflow_backend_persistence>
+          <Function test_pytorch_execution_config_flags>
+          <Function test_supervised_mode_enforces_mae_loss>
+          <Function test_manual_accumulation_guard>
+          <Function test_pytorch_backend_defaults_auto_execution_config>
+
+========================= 37 tests collected in 3.87s ==========================

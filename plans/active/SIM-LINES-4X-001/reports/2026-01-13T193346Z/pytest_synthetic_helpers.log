@@ -1,0 +1,17 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 5 items
+
+tests/scripts/test_synthetic_helpers.py::test_make_lines_object_seeded_restores_data_source PASSED [ 20%]
+tests/scripts/test_synthetic_helpers.py::test_make_probe_custom_loads_probe PASSED [ 40%]
+tests/scripts/test_synthetic_helpers.py::test_make_probe_custom_requires_key PASSED [ 60%]
+tests/scripts/test_synthetic_helpers.py::test_simulate_nongrid_seeded PASSED [ 80%]
+tests/scripts/test_synthetic_helpers.py::test_split_raw_data_by_axis PASSED [100%]
+
+============================== 5 passed in 6.03s ===============================

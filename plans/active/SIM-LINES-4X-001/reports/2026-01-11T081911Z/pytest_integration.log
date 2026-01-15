@@ -1,0 +1,40 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+testpaths: tests
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 554 items / 553 deselected / 2 skipped / 1 selected
+
+tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle PASSED [100%]
+
+=============================== warnings summary ===============================
+../../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow_addons/utils/tfa_eol_msg.py:23
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow_addons/utils/tfa_eol_msg.py:23: UserWarning: 
+  
+  TensorFlow Addons (TFA) has ended development and introduction of new features.
+  TFA has entered a minimal maintenance and release mode until a planned end of life in May 2024.
+  Please modify downstream libraries to take dependencies from other repositories in our TensorFlow community (e.g. Keras, Keras-CV, and Keras-NLP). 
+  
+  For more information see: https://github.com/tensorflow/addons/issues/2807 
+  
+    warnings.warn(
+
+../../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow_addons/utils/ensure_tf_install.py:53
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow_addons/utils/ensure_tf_install.py:53: UserWarning: Tensorflow Addons supports using Python ops for all Tensorflow versions above or equal to 2.13.0 and strictly below 2.16.0 (nightly versions are not supported). 
+   The versions of TensorFlow you are currently using is 2.19.0 and is not supported. 
+  Some things might work, some things might not.
+  If you were to encounter a bug, do not file an issue.
+  If you want to make sure you're using a tested and supported configuration, either change the TensorFlow version or the TensorFlow Addons's version. 
+  You can find the compatibility matrix in TensorFlow Addon's readme:
+  https://github.com/tensorflow/addons
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_benchmark_throughput.py:11: scripts/benchmark_inference_throughput.py not found. This is a pre-existing broken test dependency. Add to fix_plan.md for future resolution.
+SKIPPED [1] tests/test_run_baseline.py:4: tests/test_utilities.py not found. This is a pre-existing broken test dependency. Add to fix_plan.md for future resolution.
+========== 1 passed, 2 skipped, 553 deselected, 2 warnings in 39.95s ===========
