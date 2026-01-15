@@ -369,7 +369,7 @@ Figure~\ref{fig:siemens_comparison} compares PtychoPINN and PtychoNN on experime
 
 For evaluation, we use the top half of the Siemens star pattern for training and the bottom half for testing. PtychoPINN exhibits similar resolution in- and out-of-sample (Figure \ref{fig:smalldat}) independent of training set size. The supervised baseline tends to memorize the training samples but shows a considerable loss of image quality in the reconstruction of diffraction images unseen during training. 
 
-Semi-synthetic datasets derived from the conventionally-reconstructed object and probe are experimentally realistic and allow quantitative ground-truth comparisons. Here, PtychoPINN achieves an SSIM of $0.962$ in phase reconstruction compared to $0.912$ for the supervised-CNN baseline (Table~\ref{tab:config_params}).
+Semi-synthetic datasets derived from the conventionally-reconstructed object and probe are experimentally realistic and allow quantitative ground-truth comparisons. Here, PtychoPINN achieves an SSIM of $0.962$ in phase reconstruction compared to $0.912$ for the supervised-CNN baseline (Table~\ref{tab:results_16384}).
 
 Evaluation of both models on datasets of varying size (Figure~\ref{fig:ssim}) demonstrates their relative degrees of in-distribution generalization. At a training set size of 512 images---a stringent test---the supervised baseline (PtychoNN) fails to converge while PtychoPINN produces capable reconstructions.
 
@@ -442,14 +442,6 @@ PtychoPINN processes approximately 2000 diffraction patterns per second on an NV
     \label{fig:ssim}
 \end{figure}
 
-rPIE fails to converge due to 
-
-To compare the failure modes 
-
-In this separate study, we wanted to see 
-Looking at this other fig
-
-
 % \section{Discussion}
 
 % \subsection{New Imaging Modalities}
@@ -518,7 +510,7 @@ Notably, the Siemens‑star data are collected with a \emph{curved/defocused pro
 In Fresnel geometry, probe curvature acts as structured illumination that provides phase diversity sufficient for reconstruction without overlap constraints. We obtain stable single-shot reconstructions with modest quality loss relative to overlapped scans (Fig.~\ref{fig:recon_2x2}). This unifies ptychography and single-shot CDI in one self-supervised solver, making overlaps an option instead of an algorithmic requirement. 
 
 \subsection*{Data efficiency and inductive bias}
-PtychoPINN reaches a given SSIM with roughly an order of magnitude fewer training patterns than the supervised baseline (Fig.~\ref{fig:ssim}), such that even a few hundred training images is sufficient to extract coherent features (todo language?). We found previously that this gain in generalization is primarily a result of the unsupervised training procedure's better fit to the problem's physical invariants \cite{Hoidn2023PtychoPINN}. 
+PtychoPINN reaches a given SSIM with roughly an order of magnitude fewer training patterns than the supervised baseline (Fig.~\ref{fig:ssim}), such that even a few hundred training images are sufficient to extract coherent features. We found previously that this gain in generalization is primarily a result of the unsupervised training procedure's better fit to the problem's physical invariants \cite{Hoidn2023PtychoPINN}. 
 
 \subsection*{Practical performance}
 At $\sim10^4$ photons/frame, Poisson NLL preserves high-$q$ detail relative to MAE (Fig.~\ref{fig:dose}, Fig.~\ref{fig:lowcounts}). Inference runs at $\sim$2000 patterns/s on an RTX 3090, and stable reconstructions are obtained with a few hundred--low-thousands frames (Fig.~\ref{fig:ssim}). Overlap-free operation ($C_g{=}1$) yields recognizable structure with modest fidelity loss compared to overlapped scans (Fig.~\ref{fig:recon_2x2}, Table~\ref{tab:sim_lines_metrics}).
@@ -558,8 +550,6 @@ Coupling a Poisson photon‑counting likelihood with a differentiable forward mo
 \newpage
 \section*{Appendix A: Key Configuration Parameters}
 These parameters control critical aspects of the reconstruction process and should be tuned based on experimental conditions and computational constraints.
-\emph{question for Matt and Aashwin: should there be a figure illustrating the effects of probe truncation? That and the non-cartesian overlap constraint handling are the two main innovations that we're presenting but we currently have no related ablations or visual comparisons  }
-
 \begin{table}[h]
 \renewcommand{\arraystretch}{1.2}
 \centering
