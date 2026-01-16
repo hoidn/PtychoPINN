@@ -393,3 +393,18 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T031500Z/ next_action=implement probe normalization comparison CLI + archive stats + rerun CLI smoke guard
 
+# 2026-01-16T04:17:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase B2 review + B3 instrumentation plan
+
+- dwell: 2 (second consecutive planning/docs loop; next turn must deliver implementation evidence)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy
+- Action type: Review/Planning (confirm B2 outcome, scope B3 Do Now)
+- Mode: Implementation handoff
+- Git sync: `git pull --rebase` (already up to date).
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, MODULE-SINGLETON-001, NORMALIZATION-001, BUG-TF-001), docs/DATA_GENERATION_GUIDE.md, docs/specs/spec-ptycho-workflow.md, docs/DEVELOPER_GUIDE.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md,test_strategy.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T031500Z/*.
+- Key updates:
+  - Verified the probe normalization CLI outputs (gs1/gs2 × custom/ideal) are numerically identical (max amp delta ≈5e-7), so normalization is ruled out as the divergence source.
+  - Marked B2 complete in the plan, added a new Attempts entry plus summary block explaining the conclusion, and reserved artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T041700Z/` for the next telemetry batch.
+  - Scoped Phase B3 to extend `bin/grouping_summary.py` with per-axis offset + nn-index stats and to rerun the CLI for gs1 default, gs2 default, and gs2 neighbor-count=1 so we can capture success vs failure signatures; documented commands + pitfalls in input.md and updated docs/fix_plan.md accordingly.
+- input.md refreshed with the new Do Now (code touch on `grouping_summary.py`, three CLI runs, pytest guard) referencing the fresh artifacts hub.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=2 ralph_last_commit=a49c5d85 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T041700Z/ next_action=extend grouping_summary axis stats + rerun gs1/gs2 + neighbor-count=1 runs + archive pytest smoke log

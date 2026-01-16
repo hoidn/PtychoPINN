@@ -53,6 +53,7 @@
     - Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
     - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T031500Z/{probe_stats_gs1_custom.json,probe_stats_gs1_custom.md,probe_stats_gs1_ideal.json,probe_stats_gs1_ideal.md,probe_stats_gs2_custom.json,probe_stats_gs2_custom.md,probe_stats_gs2_ideal.json,probe_stats_gs2_ideal.md,probe_normalization_cli.log,pytest_sim_lines_pipeline_import.log}`
     - Next Actions: Compare the legacy vs sim_lines probe stats to decide if normalization explains the reconstruction gap or if grouping/reassembly experiments must proceed (Phase B3/B4).
+  - *2026-01-16T041700Z:* Supervisor review confirmed the probe stats are numerically identical (max delta ≈5e-7), so normalization is no longer a suspect. Scoped Phase B3 to extend `bin/grouping_summary.py` with per-axis offset stats + nn-index ranges and to capture three runs (gs1 default, gs2 default, gs2 neighbor-count=1) plus the CLI smoke guard under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T041700Z/`.
 
 ### [REFACTOR-MEMOIZE-CORE-001] Move RawData memoization decorator into core module
 - Depends on: None

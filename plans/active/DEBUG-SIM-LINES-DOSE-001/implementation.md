@@ -111,13 +111,19 @@ Guidelines:
         - `grouping_sim_lines_default.json`/`.md` show the snapshot defaults produce 1000/1000 groups with clean offset ranges.
         - `grouping_dose_experiments_legacy.json`/`.md` record the KDTree failure (`Dataset has only 2 points but 4 coordinates per group requested.`) when forcing `gridsize=2` and only two images per split, matching the legacy config.
       Test: N/A -- evidence run; log training stability + recon size
-- [ ] B2: Probe normalization A/B (set_default_probe path vs make_probe path) holding everything else constant.
+- [x] B2: Probe normalization A/B (set_default_probe path vs make_probe path) holding everything else constant.
       - Deliverable: plan-local CLI `bin/probe_normalization_report.py` that loads the Phase A snapshot, reconstructs both normalization paths (legacy `set_default_probe()` vs sim_lines `make_probe`/`normalize_probe_guess`), and emits JSON + Markdown summaries with amplitude min/max/mean, L2 norm, and ratio deltas.
       - Scenarios: run for `gs1_custom`, `gs1_ideal`, `gs2_custom`, `gs2_ideal` so we capture both custom-probe and idealized-probe cases.
-      - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<timestamp>/probe_stats_<scenario>.{json,md}` plus CLI log; reference the numbers in the summary to decide whether probe scaling alone explains the reconstruction gap.
+      - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T031500Z/probe_stats_<scenario>.{json,md}` plus CLI log; the branches are numerically identical (max amplitude delta ≈5e-7) so probe scaling is no longer a suspect.
       Test: N/A -- evidence run; log probe stats + intensity_scale
 - [ ] B3: Grouping A/B (neighbor_count, group_count, gridsize) with fixed seeds to compare offsets and grouping shapes.
-      Test: N/A -- evidence run; log coords ranges and offset distributions
+      - Extend `bin/grouping_summary.py` so each run records per-axis stats (min/max/mean/std) for `coords_offsets`/`coords_relative` and the min/max of `nn_indices`, giving us richer telemetry to compare gs1 vs gs2 behavior.
+      - Generate three runs (identical seeds) and archive the JSON/Markdown outputs under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T041700Z/`:
+        1. `gs1_custom` default to refresh the baseline with the new stats.
+        2. `gs2_custom` default (2000 images, gridsize=2) to prove KDTree grouping succeeds when enough raw points exist.
+        3. `gs2_custom` override `--neighbor-count 1` (keeping total images high) to capture the “insufficient neighbors” failure signature that mirrors the legacy grid assumption.
+      - Summarize the success/error contrast in the initiative summary; include the CLI log in the hub.
+      Test: N/A -- evidence run; log coords ranges and offset distributions; rerun `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 - [ ] B4: Reassembly A/B using a fixed synthetic container to isolate stitch math (M/padded_size).
       Test: N/A -- evidence run; add test in Phase C if fix touches core logic
 

@@ -1,53 +1,52 @@
-Summary: Build the probe normalization comparison CLI and capture stats for Phase B2.
+Summary: Extend the grouping instrumentation so B3 can log per-axis stats and capture gs1/gs2 A/B runs (including the neighbor-count failure) to pin whether grouping—not probe scaling—is the root cause.
 Focus: DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy
 Branch: paper (sync with origin/paper)
 Mapped tests: pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T031500Z/
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T041700Z/
 
 Do Now (hard validity contract)
-- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/probe_normalization_report.py::main — new CLI that loads the Phase A snapshot, reconstructs both probe normalization paths (legacy set_default_probe() vs sim_lines make_probe + normalize_probe_guess) for `gs1_custom`, `gs1_ideal`, `gs2_custom`, `gs2_ideal`, and emits JSON + Markdown summaries with amplitude min/max/mean, L2 norm, and ratio deltas; include scenario metadata and CLI log under the artifacts hub.
-- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/__init__.py (if needed) to keep plan-local scripts importable without polluting production modules; keep code under plans/active to honor non-production guardrails.
+- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/grouping_summary.py::describe_array,main — add per-axis stats (min/max/mean/std per coordinate axis plus nn_indices min/max), update the Markdown output accordingly, then rerun the CLI for gs1 default, gs2 default, and gs2 neighbor-count=1 so the refreshed summaries (and CLI log) land under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T041700Z/` as required by Phase B3.
 - Pytest: pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
-- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T031500Z/{probe_stats_gs1_custom.json, probe_stats_gs1_custom.md, ..., pytest_sim_lines_pipeline_import.log}
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T041700Z/{grouping_gs1_custom_default.json, grouping_gs1_custom_default.md, grouping_gs2_custom_default.json, grouping_gs2_custom_default.md, grouping_gs2_custom_neighbor1.json, grouping_gs2_custom_neighbor1.md, grouping_cli.log, pytest_sim_lines_pipeline_import.log}
 
 How-To Map
-1. Run `python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/probe_normalization_report.py --snapshot plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json --scenario <scenario> --output-json plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T031500Z/probe_stats_<scenario>.json --output-markdown plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T031500Z/probe_stats_<scenario>.md` for each scenario. The CLI should:
-   - Read RunParams + ScenarioSpec from the snapshot (reuse helpers from grouping_summary where possible).
-   - For the legacy branch: set `params.cfg['default_probe_scale']=scenario probe_scale`, call `probe.set_default_probe()` (idealized) or load the custom probe NPZ, then apply the legacy normalization (params-driven scale) to match dose_experiments behavior.
-   - For the sim_lines branch: use `make_probe()` + `normalize_probe_guess()` with matching arguments (mode, scale, mask/big flags) to mirror the modern pipeline.
-   - Compute stats: amp min/max/mean, std, L2 norm, normalization factor, difference ratios, optionally probe mask coverage; store them under clearly named JSON keys and human-friendly Markdown tables.
-2. Capture a CLI log (text file) summarizing commands + warnings in the artifacts hub.
-3. Run `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T031500Z/pytest_sim_lines_pipeline_import.log`.
+1. export ARTIFACT_DIR=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T041700Z && mkdir -p "$ARTIFACT_DIR".
+2. Update `describe_array()` to compute overall min/max/mean/std plus `axis_stats` whenever the array’s penultimate dimension is 2 (coords axes), and add nn_indices min/max reporting inside `summarize_subset()`; ensure Markdown tables include the new numbers.
+3. Run (identical seeds across all invocations):
+   - python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/grouping_summary.py --scenario gs1_custom --label gs1_custom_default --output-json "$ARTIFACT_DIR/grouping_gs1_custom_default.json" --output-markdown "$ARTIFACT_DIR/grouping_gs1_custom_default.md" | tee "$ARTIFACT_DIR/grouping_cli.log"
+   - python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/grouping_summary.py --scenario gs2_custom --label gs2_custom_default --output-json "$ARTIFACT_DIR/grouping_gs2_custom_default.json" --output-markdown "$ARTIFACT_DIR/grouping_gs2_custom_default.md" | tee -a "$ARTIFACT_DIR/grouping_cli.log"
+   - python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/grouping_summary.py --scenario gs2_custom --label gs2_custom_neighbor1 --neighbor-count 1 --output-json "$ARTIFACT_DIR/grouping_gs2_custom_neighbor1.json" --output-markdown "$ARTIFACT_DIR/grouping_gs2_custom_neighbor1.md" | tee -a "$ARTIFACT_DIR/grouping_cli.log"
+4. pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v | tee "$ARTIFACT_DIR/pytest_sim_lines_pipeline_import.log"
 
 Pitfalls To Avoid
-- Do not touch production modules (ptycho/, scripts/) — keep all new code under plans/active.
-- Respect CONFIG-001: call `update_legacy_dict(params.cfg, config)` before probe helpers that rely on params.cfg.
-- Avoid mutating global params.cfg state permanently; use context managers or restore prior values after generating probes.
-- Keep device/dtype neutral (numpy-based stats only); no TensorFlow-heavy deps.
-- Ensure CLI accepts custom probe path (from snapshot) and fails fast if the NPZ is missing.
-- Avoid ad-hoc scripts outside plans/active; reuse existing helper code through imports.
-- Do not skip the pytest guard even though this is a plan-local CLI.
+- Do not touch production modules under ptycho/ or scripts/; keep instrumentation in plans/active.
+- Run `update_legacy_dict(params.cfg, config)` before any RawData or probe helper so CONFIG-001 is satisfied.
+- Preserve deterministic seeds (object, sim, neighbor) so A/B comparisons are meaningful; capture them in the metadata block.
+- Only append fields to the JSON schema; do not rename/remove existing keys consumed by earlier artifacts.
+- Handle the neighbor-count failure by recording a clean `status:error` block—no stack traces to stdout.
+- Keep commands device-neutral (CPU-friendly) and avoid writing large raw arrays outside the artifacts hub.
+- Continue to invoke Python via `python` per PYTHON-ENV-001; no virtualenv-specific paths.
+- Archive every CLI + pytest log in the artifacts directory before exiting the loop.
 
 If Blocked
-- If the snapshot file or custom probe NPZ is missing, document the missing asset in docs/fix_plan.md Attempts History and capture the traceback under the artifacts hub.
-- If CLI raises import errors due to plan-local modules, re-export the needed helpers via a small shim (without touching production code) and note it in the plan before retrying.
+- If grouping fails for all scenarios or the snapshot file is missing, record the error string in `$ARTIFACT_DIR/blocker.log`, add the signature to docs/fix_plan.md Attempts History, set `<status>blocked</status>` in input.md, and stop after capturing the pytest output.
 
 Findings Applied (Mandatory)
-- CONFIG-001 — call `update_legacy_dict(params.cfg, config)` before using legacy probe helpers (`set_default_probe`, `simulate_nongrid_raw_data`).
-- MODULE-SINGLETON-001 — avoid relying on module-level singletons; construct probes explicitly per scenario and do not leak them into global state.
-- NORMALIZATION-001 — keep physics/statistical/display normalization stages distinct; the CLI should report amplitude stats without reusing Yon mixing of scales.
-- BUG-TF-001 — when gridsize differs between pipelines, ensure params.cfg is synchronized before any legacy grouping call to avoid shape mismatches.
+- CONFIG-001 — synchronize `params.cfg` via `update_legacy_dict` before hitting legacy grouping/probe helpers so gridsize and neighbor_count match the TrainingConfig inputs.
+- MODULE-SINGLETON-001 — avoid depending on implicit module-level state; instantiate probes/RawData inside the CLI and don’t let global singletons leak between runs.
+- NORMALIZATION-001 — we already proved probe normalization aligned; keep the grouping runs focused on KDTree behavior so physics/statistical normalization bindings stay untouched.
+- BUG-TF-001 — by holding seeds/config consistent we minimize surprise shape mismatches in TF grouping paths when toggling gridsize.
 
 Pointers
-- docs/specs/spec-ptycho-workflow.md — grouping + normalization contract lines 1–40, 80–120.
-- docs/DATA_GENERATION_GUIDE.md — grid vs nongrid simulation overview (sections “Grid-Based Pipeline” and “Nongrid Pipeline”).
-- scripts/simulation/synthetic_helpers.py:40-130 — make_probe + normalize_probe_guess implementations to mirror in the CLI.
-- ptycho/probe.py:94-150 — legacy `set_default_probe()` and normalization behavior.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T020000Z/grouping_*.json — evidence showing current grouping behavior that motivates B2.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:114 — Phase B3 checklist describing the richer telemetry + three scenarios required this loop.
+- docs/fix_plan.md:38-57 — Attempts History and new 2026-01-16T041700Z entry documenting why B3 instrumentation is next.
+- docs/specs/spec-ptycho-workflow.md:12-29 — Normative grouping + normalization contracts we must honor while instrumenting.
+- docs/DATA_GENERATION_GUIDE.md:5-120 — Grid vs nongrid simulation overview that explains why kd-tree needs ≥gridsize² neighbors.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T031500Z/probe_stats_gs1_custom.md — Prior evidence showing probe scaling parity; cite when writing the summary.
 
 Next Up (optional)
-- If time permits after completing B2, begin instrumenting `bin/grouping_summary.py` for Phase B3 neighbor-count sweeps (low priority until probe comparison lands).
+- Once B3 telemetry is in place, start sketching the B4 reassembly experiment that reuses a fixed synthetic container to compare stitch math.
 
-Doc Sync Plan (not needed — no test additions).
-Mapped Tests Guardrail satisfied via the CLI smoke test above.
-Normative Math/Physics — reference `spec-ptycho-workflow.md` §Normalization and §Probe setup for any formula citations inside the CLI.
+Doc Sync Plan — not needed (no new tests added or renamed).
+Mapped Tests Guardrail: the CLI smoke selector above already collects/passes (>0) and remains mandatory for every loop.
+Normative Math/Physics: cite `docs/specs/spec-ptycho-workflow.md` §2–3 for grouping/normalization math whenever referencing equations; do not restate the formulas inside the CLI.
