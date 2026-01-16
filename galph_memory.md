@@ -408,3 +408,17 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - input.md refreshed with the new Do Now (code touch on `grouping_summary.py`, three CLI runs, pytest guard) referencing the fresh artifacts hub.
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=2 ralph_last_commit=a49c5d85 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T041700Z/ next_action=extend grouping_summary axis stats + rerun gs1/gs2 + neighbor-count=1 runs + archive pytest smoke log
+
+# 2026-01-16T050500Z: DEBUG-SIM-LINES-DOSE-001 — Phase B4 reassembly limits handoff
+
+- dwell: 1 (first supervisor planning loop after B3 implementation)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy
+- Action type: Planning | Mode: Implementation handoff
+- Git sync: `git pull --rebase` (already up to date).
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, MODULE-SINGLETON-001, NORMALIZATION-001, BUG-TF-REASSEMBLE-001), docs/TESTING_GUIDE.md, docs/specs/spec-ptycho-workflow.md (§Reassembly), docs/INITIATIVE_WORKFLOW_GUIDE.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md,test_strategy.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T041700Z/{grouping_gs1_custom_default.md,grouping_gs2_custom_default.md,grouping_gs2_custom_neighbor1.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json.
+- Key updates:
+  - Confirmed B3 telemetry shows gs2 offsets up to ≈382 px (while gs1 stays ≤195 px) but the legacy padded-size derived from CONFIG-001 defaults is still ≈78 px, so reassembly clips most of the scan.
+  - Updated the working plan (B3 checked, B4 spelled out with the new CLI requirements), refreshed docs/fix_plan.md metadata/status, and prepended the initiative summary with the B4 scope + new artifacts hub (`plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T050500Z/`).
+  - Authored the new input.md delegating `reassembly_limits_report.py` (offset vs padded-size math + reassembly sum ratio) plus the CLI smoke pytest guard; mapped exact commands and pitfalls for Ralph.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 ralph_last_commit=a49c5d85 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T050500Z/ next_action=implement reassembly_limits_report CLI + run gs1/gs2 scenarios + archive pytest log

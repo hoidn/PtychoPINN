@@ -1,6 +1,6 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-15 (pivoted back to DEBUG-SIM-LINES-DOSE-001 Phase A evidence capture)
+**Last Updated:** 2026-01-16 (Phase B4 reassembly instrumentation scoped)
 **Active Focus:** DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy
 
 ---
@@ -18,7 +18,7 @@
 ### [DEBUG-SIM-LINES-DOSE-001] Isolate sim_lines_4x vs dose_experiments discrepancy
 - Depends on: None
 - Priority: **Critical** (Highest Priority)
-- Status: in_progress — Phase A evidence capture kickoff
+- Status: in_progress — Phase B instrumentation (B4 reassembly limits)
 - Owner/Date: Codex/2026-01-13
 - Working Plan: `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md`
 - Summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md`
@@ -58,6 +58,7 @@
     - Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
     - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T041700Z/{grouping_gs1_custom_default.json,grouping_gs1_custom_default.md,grouping_gs2_custom_default.json,grouping_gs2_custom_default.md,grouping_gs2_custom_neighbor1.json,grouping_gs2_custom_neighbor1.md,grouping_cli.log,pytest_sim_lines_pipeline_import.log}`
     - Next Actions: Analyze the richer per-axis telemetry to decide whether B4 needs additional grouping probes or if we can pivot directly to the reassembly experiments.
+  - *2026-01-16T050500Z:* Reviewed the B3 telemetry (coords offsets up to ~382 px on gs2) and compared it against the legacy padded-size math (`get_padded_size()` ≈ 78 px when `offset` remains 4 and `max_position_jitter` remains 10), confirming reassembly canvas under-allocation is the likely regression. Scoped Phase B4 around a `reassembly_limits_report.py` helper that contrasts observed offsets vs padded-size requirements and runs a sum-preservation probe via `reassemble_whole_object()`. Opened artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T050500Z/` for the next evidence batch and refreshed the Do Now accordingly.
 
 ### [REFACTOR-MEMOIZE-CORE-001] Move RawData memoization decorator into core module
 - Depends on: None

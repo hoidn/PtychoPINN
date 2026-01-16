@@ -6,6 +6,7 @@
 - Owner: Codex + user
 - Spec Owner: docs/specs/spec-ptycho-workflow.md
 - Status: pending
+ - Status: in_progress — Phase B instrumentation
 
 ## Goals
 - Identify whether the failure is caused by a core regression, nongrid pipeline differences, or a workflow/config mismatch.
@@ -116,15 +117,22 @@ Guidelines:
       - Scenarios: run for `gs1_custom`, `gs1_ideal`, `gs2_custom`, `gs2_ideal` so we capture both custom-probe and idealized-probe cases.
       - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T031500Z/probe_stats_<scenario>.{json,md}` plus CLI log; the branches are numerically identical (max amplitude delta ≈5e-7) so probe scaling is no longer a suspect.
       Test: N/A -- evidence run; log probe stats + intensity_scale
-- [ ] B3: Grouping A/B (neighbor_count, group_count, gridsize) with fixed seeds to compare offsets and grouping shapes.
+- [x] B3: Grouping A/B (neighbor_count, group_count, gridsize) with fixed seeds to compare offsets and grouping shapes.
       - Extend `bin/grouping_summary.py` so each run records per-axis stats (min/max/mean/std) for `coords_offsets`/`coords_relative` and the min/max of `nn_indices`, giving us richer telemetry to compare gs1 vs gs2 behavior.
       - Generate three runs (identical seeds) and archive the JSON/Markdown outputs under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T041700Z/`:
         1. `gs1_custom` default to refresh the baseline with the new stats.
         2. `gs2_custom` default (2000 images, gridsize=2) to prove KDTree grouping succeeds when enough raw points exist.
         3. `gs2_custom` override `--neighbor-count 1` (keeping total images high) to capture the “insufficient neighbors” failure signature that mirrors the legacy grid assumption.
       - Summarize the success/error contrast in the initiative summary; include the CLI log in the hub.
+      - Evidence in `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T041700Z/` shows gs2 offsets reach ~382 px on axis 0/1, while gs1 offsets remain ≤ 195 px. These magnitudes far exceed the default `get_padded_size()` (~78 px when `offset=4`, `buffer=10`), so B4 now focuses on proving the padded-size shortfall.
       Test: N/A -- evidence run; log coords ranges and offset distributions; rerun `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 - [ ] B4: Reassembly A/B using a fixed synthetic container to isolate stitch math (M/padded_size).
+      - Author `bin/reassembly_limits_report.py` to rebuild the nongrid simulation from the Phase A snapshot, regroup it, and emit JSON/Markdown summaries that compare:
+        - observed max offsets per axis (train/test, gs1 vs gs2) vs. the derived `get_padded_size()` after CONFIG-001 bridging
+        - the theoretical canvas requirement `ceil(N + 2·max_offset)` vs both the hard-coded `reassemble_M` from the snapshot and the legacy padded size
+        - sampled reassembly sums when `size=get_padded_size()` vs `size=required_canvas` (use dummy patches backed by actual `coords_relative` so we can quantify how much signal is clipped)
+      - Inputs: scenario name + overrides for gridsize/neighbor_count/total_images + `--group-limit` (default 64) to keep TensorFlow memory bounded when running `reassemble_whole_object`.
+      - Outputs: `{scenario}_{subset}_reassembly.json/.md` detailing offsets, padded-size math, `fits_canvas` booleans, and ratios such as `(sum_default / sum_required)` so we can prove the gs2 configs lose ~80% of the energy when `size` is too small.
       Test: N/A -- evidence run; add test in Phase C if fix touches core logic
 
 ### Notes & Risks
