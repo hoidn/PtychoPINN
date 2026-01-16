@@ -1,0 +1,147 @@
+{
+  "collected_at": "2026-01-16T00:26:56.901244+00:00",
+  "custom_probe_path": "ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz",
+  "run_params": {
+    "N": 64,
+    "base_total_images": 2000,
+    "buffer": 10.0,
+    "group_count": 1000,
+    "neighbor_count": 4,
+    "nphotons": 1000000000.0,
+    "object_seed": 42,
+    "object_size": 392,
+    "reassemble_M": 20,
+    "sim_seed": 42,
+    "split_fraction": 0.5
+  },
+  "scenarios": [
+    {
+      "defaults": {
+        "probe_big": false,
+        "probe_mask": true
+      },
+      "derived_counts": {
+        "test_count": 1000,
+        "total_images": 2000,
+        "train_count": 1000
+      },
+      "group_count": 1000,
+      "inputs": {
+        "gridsize": 1,
+        "name": "gs1_ideal",
+        "probe_big": null,
+        "probe_mask": null,
+        "probe_mode": "idealized",
+        "probe_scale": 10.0
+      },
+      "name": "gs1_ideal",
+      "neighbor_count": 4,
+      "paths": {
+        "default_output_root": "outputs/sim_lines_4x",
+        "inference_dir": "outputs/sim_lines_4x/gs1_ideal/inference_outputs",
+        "run_log": "outputs/sim_lines_4x/gs1_ideal/run.log",
+        "run_metadata": "outputs/sim_lines_4x/gs1_ideal/run_metadata.json",
+        "runner_script": "scripts/studies/sim_lines_4x/run_gs1_ideal.py",
+        "scenario_dir": "outputs/sim_lines_4x/gs1_ideal",
+        "train_dir": "outputs/sim_lines_4x/gs1_ideal/train_outputs"
+      },
+      "reassemble_M": 20
+    },
+    {
+      "defaults": {
+        "probe_big": true,
+        "probe_mask": false
+      },
+      "derived_counts": {
+        "test_count": 1000,
+        "total_images": 2000,
+        "train_count": 1000
+      },
+      "group_count": 1000,
+      "inputs": {
+        "gridsize": 1,
+        "name": "gs1_custom",
+        "probe_big": null,
+        "probe_mask": null,
+        "probe_mode": "custom",
+        "probe_scale": 4.0
+      },
+      "name": "gs1_custom",
+      "neighbor_count": 4,
+      "paths": {
+        "default_output_root": "outputs/sim_lines_4x",
+        "inference_dir": "outputs/sim_lines_4x/gs1_custom/inference_outputs",
+        "run_log": "outputs/sim_lines_4x/gs1_custom/run.log",
+        "run_metadata": "outputs/sim_lines_4x/gs1_custom/run_metadata.json",
+        "runner_script": "scripts/studies/sim_lines_4x/run_gs1_custom_probe.py",
+        "scenario_dir": "outputs/sim_lines_4x/gs1_custom",
+        "train_dir": "outputs/sim_lines_4x/gs1_custom/train_outputs"
+      },
+      "reassemble_M": 20
+    },
+    {
+      "defaults": {
+        "probe_big": false,
+        "probe_mask": true
+      },
+      "derived_counts": {
+        "test_count": 4000,
+        "total_images": 8000,
+        "train_count": 4000
+      },
+      "group_count": 1000,
+      "inputs": {
+        "gridsize": 2,
+        "name": "gs2_ideal",
+        "probe_big": null,
+        "probe_mask": null,
+        "probe_mode": "idealized",
+        "probe_scale": 10.0
+      },
+      "name": "gs2_ideal",
+      "neighbor_count": 4,
+      "paths": {
+        "default_output_root": "outputs/sim_lines_4x",
+        "inference_dir": "outputs/sim_lines_4x/gs2_ideal/inference_outputs",
+        "run_log": "outputs/sim_lines_4x/gs2_ideal/run.log",
+        "run_metadata": "outputs/sim_lines_4x/gs2_ideal/run_metadata.json",
+        "runner_script": "scripts/studies/sim_lines_4x/run_gs2_ideal.py",
+        "scenario_dir": "outputs/sim_lines_4x/gs2_ideal",
+        "train_dir": "outputs/sim_lines_4x/gs2_ideal/train_outputs"
+      },
+      "reassemble_M": 20
+    },
+    {
+      "defaults": {
+        "probe_big": true,
+        "probe_mask": false
+      },
+      "derived_counts": {
+        "test_count": 4000,
+        "total_images": 8000,
+        "train_count": 4000
+      },
+      "group_count": 1000,
+      "inputs": {
+        "gridsize": 2,
+        "name": "gs2_custom",
+        "probe_big": null,
+        "probe_mask": null,
+        "probe_mode": "custom",
+        "probe_scale": 4.0
+      },
+      "name": "gs2_custom",
+      "neighbor_count": 4,
+      "paths": {
+        "default_output_root": "outputs/sim_lines_4x",
+        "inference_dir": "outputs/sim_lines_4x/gs2_custom/inference_outputs",
+        "run_log": "outputs/sim_lines_4x/gs2_custom/run.log",
+        "run_metadata": "outputs/sim_lines_4x/gs2_custom/run_metadata.json",
+        "runner_script": "scripts/studies/sim_lines_4x/run_gs2_custom_probe.py",
+        "scenario_dir": "outputs/sim_lines_4x/gs2_custom",
+        "train_dir": "outputs/sim_lines_4x/gs2_custom/train_outputs"
+      },
+      "reassemble_M": 20
+    }
+  ]
+}
