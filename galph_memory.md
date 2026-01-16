@@ -362,3 +362,18 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=2 ralph_last_commit=none artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T003217Z/ next_action=implement comparison script + pytest log
 
+# 2026-01-16T020000Z: DEBUG-SIM-LINES-DOSE-001 — Phase B1 grouping instrumentation plan
+
+- dwell: 0 (Ralph delivered the A4 diff in the prior loop; resetting for the new implementation handoff)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy
+- Action type: Planning → Implementation handoff (Phase B1 instrumentation scope)
+- Mode: Implementation
+- Git sync: `git pull --rebase` → Already up to date.
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, MODULE-SINGLETON-001, NORMALIZATION-001, BUG-TF-001), docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/architecture.md, docs/workflows/pytorch.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T003217Z/{comparison_draft.md,comparison_diff.json}, scripts/studies/sim_lines_4x/pipeline.py, scripts/simulation/synthetic_helpers.py.
+- Key decisions:
+  - Marked Phase A4 complete in the working plan and logged the diff artifacts in docs/fix_plan.md Attempts.
+  - Scoped Phase B1 around a plan-local `grouping_summary.py` CLI that recreates the SIM-LINES pipeline up to RawData grouping with override knobs for gridsize/group_count/total_images so we can compare against the tiny dose_experiments defaults without touching production code.
+  - Reserved artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T020000Z/` for the two grouping summaries plus pytest evidence and rewrote input.md accordingly.
+- input.md refreshed with Do Now + How-To map for the new CLI, override runs, and pytest selector, pointing at the new artifacts hub.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 ralph_last_commit=a49c5d85 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T020000Z/ next_action=implement grouping_summary CLI + run sim_lines vs dose_experiments modes + archive pytest log

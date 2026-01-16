@@ -93,7 +93,9 @@ Guidelines:
       Test: N/A -- evidence capture only
 - [x] A3: Capture sim_lines_4x params snapshot with full config/params dump.
       Test: N/A -- evidence capture only
-- [ ] A4: Compare parameter tables (dose_experiments vs sim_lines_4x) and log probe stats + intensity_scale.
+- [x] A4: Compare parameter tables (dose_experiments vs sim_lines_4x) and log probe stats + intensity_scale.
+      - Outputs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T003217Z/{comparison_draft.md,comparison_diff.json}`
+      Test: N/A -- evidence capture only
       Test: N/A -- evidence capture only
 
 ### Notes & Risks
@@ -103,6 +105,8 @@ Guidelines:
 ## Phase B -- Differential Experiments
 ### Checklist
 - [ ] B1: Grid vs nongrid A/B in current codebase with identical seeds + probe settings.
+      - Instrument grouping/splitting so we can run gs1/gs2 scenarios with the legacy `gridsize=2, nimgs_train=test=2` constraints even if the sim_lines pipeline defaults to much larger counts.
+      - Target artifact: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<timestamp>/grouping_comparison_{mode}.json` (summary of requested vs achieved groups, coord ranges, offset stats for both configurations).
       Test: N/A -- evidence run; log training stability + recon size
 - [ ] B2: Probe normalization A/B (set_default_probe path vs make_probe path) holding everything else constant.
       Test: N/A -- evidence run; log probe stats + intensity_scale
