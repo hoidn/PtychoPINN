@@ -1,0 +1,177 @@
+{
+  "metadata": {
+    "label": "gs2_custom_default",
+    "overrides": {},
+    "parameters": {
+      "N": 64,
+      "gridsize": 2,
+      "group_count": 1000,
+      "neighbor_count": 4,
+      "object_seed": 42,
+      "probe_big": true,
+      "probe_mask": false,
+      "probe_mode": "custom",
+      "probe_scale": 4.0,
+      "sim_seed": 42,
+      "split_fraction": 0.5,
+      "test_count_estimate": 4000,
+      "total_images": 8000,
+      "train_count_estimate": 4000
+    },
+    "scenario": "gs2_custom",
+    "snapshot": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json",
+    "timestamp": "2026-01-16T01:19:21.325614+00:00"
+  },
+  "subsets": {
+    "test": {
+      "actual_groups": 1000,
+      "coords_offsets": {
+        "axis_stats": [
+          {
+            "axis": 0,
+            "max": 380.6925988870037,
+            "mean": 190.11437638024216,
+            "min": 12.10959153107564,
+            "std": 105.73351849494416
+          },
+          {
+            "axis": 1,
+            "max": 380.9807666539525,
+            "mean": 284.8520556108138,
+            "min": 195.03650199392825,
+            "std": 55.15954583314511
+          }
+        ],
+        "max": 380.9807666539525,
+        "mean": 237.48321599552798,
+        "min": 12.10959153107564,
+        "shape": [
+          1000,
+          1,
+          2,
+          1
+        ],
+        "std": 96.72064506308071
+      },
+      "coords_relative": {
+        "axis_stats": [
+          {
+            "axis": 0,
+            "max": 7.045207372536481,
+            "mean": 1.7452705947107462e-16,
+            "min": -6.96204738127156,
+            "std": 1.9535044037102947
+          },
+          {
+            "axis": 1,
+            "max": 7.382815910152033,
+            "mean": 8.100187187665142e-16,
+            "min": -7.6150255611609055,
+            "std": 1.941944819355763
+          }
+        ],
+        "max": 7.382815910152033,
+        "mean": 4.924949337237194e-16,
+        "min": -7.6150255611609055,
+        "shape": [
+          1000,
+          1,
+          2,
+          4
+        ],
+        "std": 1.9477331871611934
+      },
+      "diffraction_shape": [
+        1000,
+        64,
+        64,
+        4
+      ],
+      "nn_indices_max": 3999,
+      "nn_indices_min": 0,
+      "nn_indices_shape": [
+        1000,
+        4
+      ],
+      "point_count": 4000,
+      "requested_groups": 1000,
+      "status": "ok",
+      "subset": "test"
+    },
+    "train": {
+      "actual_groups": 1000,
+      "coords_offsets": {
+        "axis_stats": [
+          {
+            "axis": 0,
+            "max": 379.85383765725123,
+            "mean": 190.73099780974837,
+            "min": 12.005725658092928,
+            "std": 106.53040483298606
+          },
+          {
+            "axis": 1,
+            "max": 192.61860202827694,
+            "mean": 99.15618759930727,
+            "min": 11.36945177635755,
+            "std": 53.84837660007723
+          }
+        ],
+        "max": 379.85383765725123,
+        "mean": 144.94359270452784,
+        "min": 11.36945177635755,
+        "shape": [
+          1000,
+          1,
+          2,
+          1
+        ],
+        "std": 96.02434001044422
+      },
+      "coords_relative": {
+        "axis_stats": [
+          {
+            "axis": 0,
+            "max": 6.950046785071265,
+            "mean": -2.549072064539359e-16,
+            "min": -9.849958322010423,
+            "std": 1.9796388517782593
+          },
+          {
+            "axis": 1,
+            "max": 7.974825039849179,
+            "mean": -3.2951419370874646e-16,
+            "min": -8.517969609937673,
+            "std": 1.9483902467923602
+          }
+        ],
+        "max": 7.974825039849179,
+        "mean": -2.9110047705671603e-16,
+        "min": -9.849958322010423,
+        "shape": [
+          1000,
+          1,
+          2,
+          4
+        ],
+        "std": 1.964076696219567
+      },
+      "diffraction_shape": [
+        1000,
+        64,
+        64,
+        4
+      ],
+      "nn_indices_max": 3997,
+      "nn_indices_min": 0,
+      "nn_indices_shape": [
+        1000,
+        4
+      ],
+      "point_count": 4000,
+      "requested_groups": 1000,
+      "status": "ok",
+      "subset": "train"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "metadata": {
+    "label": "gs2_custom_neighbor1",
+    "overrides": {
+      "neighbor_count": 1
+    },
+    "parameters": {
+      "N": 64,
+      "gridsize": 2,
+      "group_count": 1000,
+      "neighbor_count": 1,
+      "object_seed": 42,
+      "probe_big": true,
+      "probe_mask": false,
+      "probe_mode": "custom",
+      "probe_scale": 4.0,
+      "sim_seed": 42,
+      "split_fraction": 0.5,
+      "test_count_estimate": 4000,
+      "total_images": 8000,
+      "train_count_estimate": 4000
+    },
+    "scenario": "gs2_custom",
+    "snapshot": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json",
+    "timestamp": "2026-01-16T01:19:28.443366+00:00"
+  },
+  "subsets": {
+    "test": {
+      "error": "K=1 must be >= C=4 (need at least C neighbors to form a group)",
+      "point_count": 4000,
+      "requested_groups": 1000,
+      "status": "error",
+      "subset": "test"
+    },
+    "train": {
+      "error": "K=1 must be >= C=4 (need at least C neighbors to form a group)",
+      "point_count": 4000,
+      "requested_groups": 1000,
+      "status": "error",
+      "subset": "train"
+    }
+  }
+}

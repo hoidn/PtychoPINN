@@ -3,6 +3,12 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
 ### Turn Summary
+Extended `bin/grouping_summary.py` so the grouping telemetry now includes overall mean/std plus per-axis coordinate stats and nn-index ranges, then reran gs1 default/gs2 default/gs2 neighbor-count=1 so B3 has refreshed evidence.
+Captured JSON+Markdown summaries for all three scenarios along with the CLI stream that records the expected neighbor-count failure signature, and the pytest guard stayed green.
+Next: mine the per-axis offset spread + nn-index histograms to decide whether B4 needs more grouping probes or if we can pivot directly to the reassembly experiment.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T041700Z/ (grouping_cli.log, grouping_gs2_custom_default.json, pytest_sim_lines_pipeline_import.log)
+
+### Turn Summary
 Reviewed the Phase B2 artifacts and confirmed legacy vs sim_lines probe normalization is numerically identical (≤5e-7 deltas), so normalization is no longer a suspect.
 Updated the working plan + fix ledger, scoped Phase B3 around richer grouping telemetry (per-axis offset stats + nn-index ranges), and prepared a new artifacts hub for the gs1/gs2 + neighbor-count runs.
 Next: extend `bin/grouping_summary.py` with the new stats, rerun it for the three scenarios, and archive the CLI log plus pytest guard under the fresh hub.

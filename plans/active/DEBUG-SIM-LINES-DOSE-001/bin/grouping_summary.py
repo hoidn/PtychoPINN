@@ -176,13 +176,47 @@ def describe_array(arr: Optional[np.ndarray]) -> Optional[Dict[str, Any]]:
         return None
     array = np.asarray(arr)
     flat = array.reshape(-1)
+    summary: Dict[str, Any] = {"shape": list(array.shape)}
     if flat.size == 0:
-        return {"shape": list(array.shape), "min": None, "max": None}
-    return {
-        "shape": list(array.shape),
-        "min": float(np.min(flat)),
-        "max": float(np.max(flat)),
-    }
+        summary.update({"min": None, "max": None, "mean": None, "std": None})
+        return summary
+
+    summary.update(
+        {
+            "min": float(np.min(flat)),
+            "max": float(np.max(flat)),
+            "mean": float(np.mean(flat)),
+            "std": float(np.std(flat)),
+        }
+    )
+
+    if array.ndim >= 2 and array.shape[-2] == 2:
+        axis_moved = np.moveaxis(array, -2, 0).reshape(2, -1)
+        axis_stats: List[Dict[str, Any]] = []
+        for axis_index, axis_values in enumerate(axis_moved):
+            if axis_values.size == 0:
+                axis_stats.append(
+                    {
+                        "axis": axis_index,
+                        "min": None,
+                        "max": None,
+                        "mean": None,
+                        "std": None,
+                    }
+                )
+                continue
+            axis_stats.append(
+                {
+                    "axis": axis_index,
+                    "min": float(np.min(axis_values)),
+                    "max": float(np.max(axis_values)),
+                    "mean": float(np.mean(axis_values)),
+                    "std": float(np.std(axis_values)),
+                }
+            )
+        summary["axis_stats"] = axis_stats
+
+    return summary
 
 
 @contextlib.contextmanager
@@ -233,6 +267,9 @@ def summarize_subset(
             "coords_relative": describe_array(grouped.get("coords_relative")),
         }
     )
+    if nn_indices is not None and nn_indices.size > 0:
+        summary["nn_indices_min"] = int(np.min(nn_indices))
+        summary["nn_indices_max"] = int(np.max(nn_indices))
     return summary
 
 
@@ -265,14 +302,38 @@ def build_markdown(metadata: Mapping[str, Any], subsets: Iterable[Mapping[str, A
             lines.append(f"- Actual groups: {subset.get('actual_groups')}")
             lines.append(f"- Diffraction shape: {subset.get('diffraction_shape')}")
             lines.append(f"- nn_indices shape: {subset.get('nn_indices_shape')}")
+            if subset.get("nn_indices_min") is not None:
+                lines.append(
+                    f"- nn_indices min/max: {subset.get('nn_indices_min')} / {subset.get('nn_indices_max')}"
+                )
             offsets = subset.get("coords_offsets") or {}
             rel = subset.get("coords_relative") or {}
             lines.append(
                 f"- coords_offsets min/max: {offsets.get('min')} / {offsets.get('max')}"
             )
             lines.append(
+                f"- coords_offsets mean/std: {offsets.get('mean')} / {offsets.get('std')}"
+            )
+            axis_offsets = offsets.get("axis_stats") or []
+            if axis_offsets:
+                axis_parts = ", ".join(
+                    f"axis{axis['axis']} min/max={axis.get('min')}/{axis.get('max')} mean/std={axis.get('mean')}/{axis.get('std')}"
+                    for axis in axis_offsets
+                )
+                lines.append(f"- coords_offsets axis stats: {axis_parts}")
+            lines.append(
                 f"- coords_relative min/max: {rel.get('min')} / {rel.get('max')}"
             )
+            lines.append(
+                f"- coords_relative mean/std: {rel.get('mean')} / {rel.get('std')}"
+            )
+            rel_axis = rel.get("axis_stats") or []
+            if rel_axis:
+                rel_parts = ", ".join(
+                    f"axis{axis['axis']} min/max={axis.get('min')}/{axis.get('max')} mean/std={axis.get('mean')}/{axis.get('std')}"
+                    for axis in rel_axis
+                )
+                lines.append(f"- coords_relative axis stats: {rel_parts}")
         else:
             lines.append(f"- Status: ERROR — {subset.get('error')}")
         lines.append("")
