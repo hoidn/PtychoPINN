@@ -377,3 +377,19 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - input.md refreshed with Do Now + How-To map for the new CLI, override runs, and pytest selector, pointing at the new artifacts hub.
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 ralph_last_commit=a49c5d85 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T020000Z/ next_action=implement grouping_summary CLI + run sim_lines vs dose_experiments modes + archive pytest log
+# 2026-01-16T03:15:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase B1 evidence review + B2 scope
+
+- dwell: 1 (first supervisor review loop after Ralph delivered Phase B1 CLI evidence)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy
+- Action type: Review/Planning handoff for Phase B2
+- Mode: Planning (next Do Now must hand off implementation per dwell guard)
+- Git sync: `git pull --rebase` (already up to date).
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, MODULE-SINGLETON-001, NORMALIZATION-001, BUG-TF-001), docs/DATA_GENERATION_GUIDE.md, docs/specs/spec-ptycho-workflow.md, docs/DEVELOPER_GUIDE.md §12, docs/TESTING_GUIDE.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md,test_strategy.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T020000Z/{grouping_sim_lines_default.json,grouping_dose_experiments_legacy.json,summary.md}, scripts/studies/sim_lines_4x/pipeline.py, scripts/simulation/synthetic_helpers.py.
+- Key observations:
+  - Confirmed B1 checklist complete: sim_lines defaults produce the requested 1000/1000 groups, while injecti ng the legacy `gridsize=2` and `nimgs=2` constraints triggers the KDTree failure (`Dataset has only 2 points but 4 coordinates per group requested.`). This captures the nongrid vs grid divergence without touching production code.
+  - Captured findings in `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T031500Z/analysis.md` and recorded Phase B1 completion + Phase B2 scope in the working plan.
+  - Scoped Phase B2: build a plan-local `probe_normalization_report.py` CLI comparing the legacy probe path (`set_default_probe()`, params-driven scaling) with the sim_lines pipeline’s `make_probe` + `normalize_probe_guess` workflow across all four scenarios. Outputs: JSON + Markdown summaries per scenario plus CLI log, with pytest guard `tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`.
+- input.md updated with Do Now for B2 (probe normalization CLI implementation + pytest guard) pointing to artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T031500Z/`.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T031500Z/ next_action=implement probe normalization comparison CLI + archive stats + rerun CLI smoke guard
+

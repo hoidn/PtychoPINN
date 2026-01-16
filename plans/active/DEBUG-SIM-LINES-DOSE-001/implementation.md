@@ -104,11 +104,17 @@ Guidelines:
 
 ## Phase B -- Differential Experiments
 ### Checklist
-- [ ] B1: Grid vs nongrid A/B in current codebase with identical seeds + probe settings.
+- [x] B1: Grid vs nongrid A/B in current codebase with identical seeds + probe settings.
       - Instrument grouping/splitting so we can run gs1/gs2 scenarios with the legacy `gridsize=2, nimgs_train=test=2` constraints even if the sim_lines pipeline defaults to much larger counts.
       - Target artifact: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<timestamp>/grouping_comparison_{mode}.json` (summary of requested vs achieved groups, coord ranges, offset stats for both configurations).
+      - Evidence captured in `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T020000Z/`:
+        - `grouping_sim_lines_default.json`/`.md` show the snapshot defaults produce 1000/1000 groups with clean offset ranges.
+        - `grouping_dose_experiments_legacy.json`/`.md` record the KDTree failure (`Dataset has only 2 points but 4 coordinates per group requested.`) when forcing `gridsize=2` and only two images per split, matching the legacy config.
       Test: N/A -- evidence run; log training stability + recon size
 - [ ] B2: Probe normalization A/B (set_default_probe path vs make_probe path) holding everything else constant.
+      - Deliverable: plan-local CLI `bin/probe_normalization_report.py` that loads the Phase A snapshot, reconstructs both normalization paths (legacy `set_default_probe()` vs sim_lines `make_probe`/`normalize_probe_guess`), and emits JSON + Markdown summaries with amplitude min/max/mean, L2 norm, and ratio deltas.
+      - Scenarios: run for `gs1_custom`, `gs1_ideal`, `gs2_custom`, `gs2_ideal` so we capture both custom-probe and idealized-probe cases.
+      - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<timestamp>/probe_stats_<scenario>.{json,md}` plus CLI log; reference the numbers in the summary to decide whether probe scaling alone explains the reconstruction gap.
       Test: N/A -- evidence run; log probe stats + intensity_scale
 - [ ] B3: Grouping A/B (neighbor_count, group_count, gridsize) with fixed seeds to compare offsets and grouping shapes.
       Test: N/A -- evidence run; log coords ranges and offset distributions
