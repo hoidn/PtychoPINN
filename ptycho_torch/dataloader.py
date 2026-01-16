@@ -195,6 +195,7 @@ class PtychoDataset(Dataset):
 
     """
     def __init__(self, ptycho_dir: str, model_config: 'ModelConfig', data_config: 'DataConfig',
+                 training_config: 'TrainingConfig' = None,
                  data_dir: str = 'data/memmap', remake_map: bool = False):
         
         # --- Initial loading ---
@@ -234,46 +235,91 @@ class PtychoDataset(Dataset):
                 print(f"[Rank 0] ERROR in calculate_length(): {e}")
                 raise
 
+        #Backwards compatibility
+        if not training_config:
+            training_config = TrainingConfig()
+            training_config.orchestrator = 'Mlflow'
+
         # --- Coordinated Memory Map Creation/Loading (Multi-GPU, Rank 0 orchestrates) ---
         # This is set up so the memory map is ONLY created from Rank 0 and isn't duplicated. All ranks 
         # (i.e. GPUs) will access the same memory map that was initialized by Rank 0.
-        if self.current_rank == 0:
-            create_the_map_on_rank_0 = False
-            map_files_exist = self.data_dir_path.exists() and any(self.data_dir_path.iterdir())
-            state_file_exists = self.state_path.exists()
 
-            if remake_map or not map_files_exist or not state_file_exists:
-                create_the_map_on_rank_0 = True
-            
-            if create_the_map_on_rank_0: #Creates memory map only at Rank 0. All other ranks wait at barrier
-                try:
-                    data_prefix_path.mkdir(parents=True, exist_ok=True)
-                    self.data_dir_path.mkdir(parents=True, exist_ok=True)
-                    self.memory_map_data(self.file_list)
-                    np.savez(self.state_path, data_dict=self.data_dict)
-                except Exception as e:
-                    print(f"[Rank 0] FATAL ERROR during map creation/saving: {e}")
-                    raise # This will halt rank 0; other ranks will time out at barrier.
+        #Old Mlflow setup
+        if training_config.orchestrator == 'Mlflow':
+            if self.current_rank == 0:
+                create_the_map_on_rank_0 = False
+                map_files_exist = self.data_dir_path.exists() and any(self.data_dir_path.iterdir())
+                state_file_exists = self.state_path.exists()
 
-        # --- Barrier for DDP synchronization ---
-        if self.is_ddp_active:
-            dist.barrier()
+                if remake_map or not map_files_exist or not state_file_exists:
+                    create_the_map_on_rank_0 = True
+                
+                if create_the_map_on_rank_0: #Creates memory map only at Rank 0. All other ranks wait at barrier
+                    try:
+                        data_prefix_path.mkdir(parents=True, exist_ok=True)
+                        self.data_dir_path.mkdir(parents=True, exist_ok=True)
+                        self.memory_map_data(self.file_list)
+                        np.savez(self.state_path, data_dict=self.data_dict)
+                    except Exception as e:
+                        print(f"[Rank 0] FATAL ERROR during map creation/saving: {e}")
+                        raise # This will halt rank 0; other ranks will time out at barrier.
 
-        # --- Load map and state for ALL ranks ---
-        # All ranks must execute this to get handles to the memory map.
-        try:
-            if not self.data_dir_path.exists() or not any(self.data_dir_path.iterdir()) or not self.state_path.exists():
-                # This indicates rank 0 failed to create the files, or they were deleted.
-                raise FileNotFoundError(f"[Rank {self.current_rank}] Critical map/state files missing after barrier. "
-                                        f"Map dir: {self.data_dir_path} (exists: {self.data_dir_path.exists()}), "
-                                        f"State file: {self.state_path} (exists: {self.state_path.exists()})")
-            self.mmap_ptycho = TensorDict.load_memmap(str(self.data_dir_path)) # Load memory map that was initialized by Rank 0
-            loaded_state = np.load(self.state_path, allow_pickle=True)
-            self.data_dict = loaded_state['data_dict'].item()
+            # --- Barrier for DDP synchronization ---
+            if self.is_ddp_active:
+                dist.barrier()
 
-        except Exception as e:
-            print(f"[Rank {self.current_rank}] FATAL ERROR loading map files or state AFTER barrier: {e}")
-            raise
+            # --- Load map and state for ALL ranks ---
+            # All ranks must execute this to get handles to the memory map.
+            try:
+                if not self.data_dir_path.exists() or not any(self.data_dir_path.iterdir()) or not self.state_path.exists():
+                    # This indicates rank 0 failed to create the files, or they were deleted.
+                    raise FileNotFoundError(f"[Rank {self.current_rank}] Critical map/state files missing after barrier. "
+                                            f"Map dir: {self.data_dir_path} (exists: {self.data_dir_path.exists()}), "
+                                            f"State file: {self.state_path} (exists: {self.state_path.exists()})")
+                self.mmap_ptycho = TensorDict.load_memmap(str(self.data_dir_path)) # Load memory map that was initialized by Rank 0
+                loaded_state = np.load(self.state_path, allow_pickle=True)
+                self.data_dict = loaded_state['data_dict'].item()
+
+            except Exception as e:
+                print(f"[Rank {self.current_rank}] FATAL ERROR loading map files or state AFTER barrier: {e}")
+                raise
+        
+        #Lightning-only setup
+        elif training_config.orchestrator == 'Lightning':
+            print("Lightning")
+            if remake_map:
+                # Rank 0 will enter here via prepare_data
+                print(f"Creating memory mapped tensor dictionary...")
+                self.memory_map_data(self.file_list)
+                np.savez(self.state_path, data_dict=self.data_dict)
+            else:
+                # All ranks will enter here via setup
+                print(f"Loading existing dataset on rank {self.current_rank}")
+                if not self.state_path.exists():
+                    raise FileNotFoundError(f"Map files missing. prepare_data should have created them.")
+                self.mmap_ptycho = TensorDict.load_memmap(str(self.data_dir_path))
+                sample_sum = self.mmap_ptycho["images"][:10].sum()
+                if sample_sum == 0:
+                    print(f"[Rank {self.current_rank}] WARNING: Loaded memory map contains only zeros!")
+                    # If Rank 1 sees zeros, it means the OS sync hasn't propagated.
+                    # In a real DDP scenario, you might want to raise an error here
+                    # so the process restarts, rather than training on garbage.
+                    raise RuntimeError(f"Rank {self.current_rank} loaded empty memory map data.")
+                loaded_state = np.load(self.state_path, allow_pickle=True)
+                self.data_dict = loaded_state['data_dict'].item()
+
+                # 1. Check a sample from the END of the file (Validation data area)
+                end_sample = self.mmap_ptycho["images"][-10:].sum()
+                
+                # 2. Check the scaling constants (If these are 0, loss collapses)
+                rms_sample = self.mmap_ptycho["rms_scaling_constant"][:10].sum()
+                
+                if end_sample == 0 or rms_sample == 0:
+                    print(f"[Rank {self.current_rank}] CRITICAL: Metadata or End-of-file data is ZERO.")
+                    print(f"  End images sum: {end_sample}")
+                    print(f"  RMS constant sum: {rms_sample}")
+                    raise RuntimeError(f"Rank {self.current_rank} loaded corrupted data.")
+        
         
         # Minimal success log, good for confirming init completion on all ranks
         if self.current_rank == 0:

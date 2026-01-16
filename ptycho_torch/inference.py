@@ -114,6 +114,7 @@ def load_and_predict(run_id,
         from ptycho_torch.utils import load_all_configs_from_mlflow
         from ptycho_torch.reassembly import reconstruct_image_barycentric
         from ptycho_torch.dataloader import PtychoDataset
+        from ptycho_torch.config_params import update_existing_config
     except ImportError as e:
         raise RuntimeError(
             "MLflow-based inference requires 'mlflow' and related dependencies. "

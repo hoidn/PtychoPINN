@@ -56,7 +56,7 @@ class ModelConfig:
     max_position_jitter: int = 10 # Random jitter for translation (robustness)
 
     #Model architecture parameters
-    C_model: int = 1
+    C_model: int = DataConfig.C
     n_filters_scale: int = 2 # Shrinking factor for channels in network layers
     amp_activation: str = 'silu' # Activation function for amplitude part
     batch_norm: bool = False # Whether to use batch normalization
@@ -69,7 +69,7 @@ class ModelConfig:
 
     #Attention
     eca_encoder: bool = False
-    cbam_encoder: bool = False #Whether CBAM module is turned on for encoder
+    cbam_encoder: bool = True #Whether CBAM module is turned on for encoder
     cbam_bottleneck: bool = False #CBAM bottleneck
     cbam_decoder: bool = False #CBAM for decoder
     eca_decoder: bool = False #ECA for decoder
@@ -109,6 +109,7 @@ class TrainingConfig:
 
     # Framework
     framework: Literal['Default', 'Lightning'] = 'Lightning' #Training framework. Most of work don in PT was done in lightning
+    orchestrator: Literal['Mlflow', 'Lightning'] = 'Mlflow'
 
     # Add other training-specific parameters here as needed, e.g.:
     learning_rate: float = 1e-3
@@ -139,6 +140,9 @@ class TrainingConfig:
     notes: str = ""
     model_name: str = "PtychoPINNv2"
 
+    #Lightning specific configs
+    output_dir: str = "lightning_outputs"
+
     # Spec-mandated lifecycle fields (align with TensorFlow backend)
     train_data_file: Optional[str] = None # Path to training NPZ dataset
     test_data_file: Optional[str] = None # Path to test NPZ dataset
@@ -168,12 +172,14 @@ class DatagenConfig:
 
 
 # Update the existing instance
-def update_existing_config(config_instance, updates_dict):
+def update_existing_config(config_instance, updates_dict, verbose = False):
     for key, value in updates_dict.items():
         if hasattr(config_instance, key):
             setattr(config_instance, key, value)
         else:
-            print(f"Warning: Attribute '{key}' not found in {type(config_instance).__name__}")
+            if verbose:
+            # Bypassing this for now since this function is being used as a generic updater for payloads
+                print(f"Warning: Attribute '{key}' not found in {type(config_instance).__name__}")
 
 
 # Example Usage (how users would now use these configs):

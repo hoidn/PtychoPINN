@@ -42,6 +42,36 @@ def config_from_json(json_path):
         "inference_config": inference_config,
     }, json_loaded
 
+def load_configs_from_local_dir(run_root_path):
+    """
+    Reads JSON files from the run directory and reconstructs the dataclasses.
+    """
+    config_dir = os.path.join(run_root_path, "configs")
+    
+    # Map file names to their respective Dataclasses
+    mapping = {
+        "data_config.json": DataConfig(),
+        "model_config.json": ModelConfig(),
+        "training_config.json": TrainingConfig(),
+        "inference_config.json": InferenceConfig(),
+        "datagen_config.json": DatagenConfig()
+    }
+    
+    loaded_configs = []
+    
+    for filename, instance in mapping.items():
+        file_path = os.path.join(config_dir, filename)
+        if os.path.exists(file_path):
+            with open(file_path, 'r') as f:
+                config_dict = json.load(f)
+            update_existing_config(instance, config_dict)
+            print(f"Loaded: {filename}")
+        else:
+            print(f"Warning: {filename} not found in {config_dir}, using defaults.")
+        loaded_configs.append(instance)
+        
+    return tuple(loaded_configs)
+
 def update_manager_with_json(mlflow_manager: ConfigManager,
                              json_loaded,
                              json_manager: ConfigManager = None):

@@ -475,7 +475,9 @@ def _build_lightning_dataloaders(
     if isinstance(train_container, PtychoDataset):
         #Data product either datamodule or dataloader (depending on configs)
         try: 
-            memory_mapped_data_product = _build_dataloaders_from_ptycho_dataset(train_container, test_container, payload)
+            memory_mapped_data_product = _build_dataloaders_from_ptycho_dataset(train_ptycho_dataset = train_container,
+                                                                                payload = payload,
+                                                                                test_ptycho_dataset = test_container)
         
         except Exception as e:
             print(f'Error occurred during memory-mapped data product creation: {e}')
@@ -666,10 +668,11 @@ def _build_inference_dataloader(
 
 
 def _train_with_lightning(
-    train_container: 'PtychoDataContainerTorch',
+    train_container: Union['PtychoDataContainerTorch','PtychoDataset'],
     test_container: Optional['PtychoDataContainerTorch'],
     config: TrainingConfig,
-    execution_config: Optional['PyTorchExecutionConfig'] = None
+    execution_config: Optional['PyTorchExecutionConfig'] = None,
+    overrides: Optional[dict] = None
 ) -> Dict[str, Any]:
     """
     Orchestrate Lightning trainer execution for PyTorch model training.
@@ -1220,7 +1223,7 @@ def _reassemble_cdi_image_torch(
 
 
 def train_cdi_model_torch(
-    train_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
+    train_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch', 'PtychoDataset'],
     test_data: Optional[Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch']],
     config: TrainingConfig,
     execution_config: Optional[Any] = None
