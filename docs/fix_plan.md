@@ -40,6 +40,10 @@
   - *2026-01-16T000353Z:* Reframed Phase A A0/A1/A3 handoff to build `collect_sim_lines_4x_params.py`, inventory `dose_experiments` defaults, and run the pipeline import smoke test. Artifacts hub: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/`.
   - *2026-01-16T002700Z:* Implemented `scripts/tools/collect_sim_lines_4x_params.py` (metadata-only snapshot CLI), captured the JSON snapshot, recorded the legacy `dose_experiments` tree + parameter script, and reran the sim_lines pipeline import smoke test. Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (pass). Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/{sim_lines_4x_params_snapshot.json,dose_experiments_tree.txt,dose_experiments_param_scan.md,pytest_sim_lines_pipeline_import.log}`. Next Actions: Compare sim_lines snapshot vs dose_experiments defaults (Phase A4) and plan the differential experiments.
   - *2026-01-16T003217Z:* Reviewed the captured artifacts, ticked A1/A3 in the plan, and authored the A4 comparison Do Now plus new artifacts hub (`plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T003217Z/`) so Ralph can implement the diff script with fresh pytest evidence.
+  - *2026-01-16T013500Z:* Implemented `bin/compare_sim_lines_params.py`, generated the Markdown + JSON diff artifacts for all four scenarios, and reran the synthetic helpers CLI smoke test to guard imports.
+    - Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (pass)
+    - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T003217Z/{comparison_draft.md,comparison_diff.json,pytest_sim_lines_pipeline_import.log}`
+    - Next Actions: Use the diff to scope the Phase B differential experiments (grid vs nongrid, probe normalization) or flag gaps if additional parameters need capture.
 
 ### [REFACTOR-MEMOIZE-CORE-001] Move RawData memoization decorator into core module
 - Depends on: None
