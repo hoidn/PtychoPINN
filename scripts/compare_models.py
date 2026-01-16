@@ -8,7 +8,10 @@ import argparse
 import os
 import sys
 import time
+import tempfile
+import zipfile
 from pathlib import Path
+import dill
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -19,11 +22,13 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# This CLI follows `specs/compare_models_spec.md` for interface and behavior.
+
 # Import ptycho components
 from ptycho.workflows.components import load_data, create_ptycho_data_container, logger, load_inference_bundle
 from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
 from ptycho import params as p
-from ptycho.tf_helper import reassemble_position
+from ptycho.tf_helper import reassemble_position, _channel_to_flat
 from ptycho.evaluation import eval_reconstruction
 from ptycho.image.cropping import align_for_evaluation
 from ptycho.image.registration import find_translation_offset, apply_shift_and_crop, register_and_align
@@ -31,6 +36,49 @@ from ptycho.cli_args import add_logging_arguments, get_logging_config
 from ptycho.log_config import setup_logging
 
 # NOTE: nbutils import is delayed until after models are loaded to prevent KeyError
+
+
+def _center_pad_or_crop(arr, target_h, target_w):
+    """Center-pad or center-crop an array to target_h x target_w."""
+    h, w = arr.shape[-2], arr.shape[-1]
+    pad_h = max(0, target_h - h)
+    pad_w = max(0, target_w - w)
+    if pad_h or pad_w:
+        pad_top = pad_h // 2
+        pad_bottom = pad_h - pad_top
+        pad_left = pad_w // 2
+        pad_right = pad_w - pad_left
+        arr = np.pad(arr, ((pad_top, pad_bottom), (pad_left, pad_right)), mode='constant')
+        h, w = arr.shape
+    if h > target_h or w > target_w:
+        start_h = (h - target_h) // 2
+        start_w = (w - target_w) // 2
+        arr = arr[start_h:start_h + target_h, start_w:start_w + target_w]
+    return arr
+
+
+def align_for_evaluation_fixed_canvas(reconstruction_image, ground_truth_image, full_scan_coords_yx, stitch_patch_size):
+    """
+    Align using the full test-data coordinate bounding box to keep canvas size consistent across subsets.
+    """
+    recon_2d = np.squeeze(reconstruction_image)
+    gt_2d = np.squeeze(ground_truth_image)
+
+    effective_radius = stitch_patch_size // 2
+    min_y, min_x = full_scan_coords_yx.min(axis=0)
+    max_y, max_x = full_scan_coords_yx.max(axis=0)
+
+    start_row = max(0, int(min_y) - effective_radius)
+    end_row = min(gt_2d.shape[0], int(max_y) + effective_radius)
+    start_col = max(0, int(min_x) - effective_radius)
+    end_col = min(gt_2d.shape[1], int(max_x) + effective_radius)
+
+    gt_cropped = gt_2d[start_row:end_row, start_col:end_col]
+    target_h, target_w = gt_cropped.shape
+
+    aligned_recon = _center_pad_or_crop(recon_2d, target_h, target_w)
+    aligned_gt = gt_cropped
+    return aligned_recon, aligned_gt
 
 
 def parse_args():
@@ -93,28 +141,77 @@ def parse_args():
                         help="Path to Tike reconstruction NPZ file for three-way comparison (optional).")
     parser.add_argument("--stitch-crop-size", type=int, default=20,
                         help="Crop size M for patch stitching (must be 0 < M <= N, default: 20).")
-    
+    parser.add_argument("--fixed-canvas", action="store_true", default=False,
+                        help="Use full test-data coordinate bounding box for GT/recon alignment to keep plots consistent across different subsets.")
+    parser.add_argument("--baseline-debug-limit", type=int, default=None,
+                        help="Limit baseline inference to first N groups for debugging (default: all groups).")
+    parser.add_argument("--baseline-debug-dir", type=Path, default=None,
+                        help="Directory to save baseline debug artifacts (NPZ with inputs/outputs/offsets, JSON with stats).")
+    parser.add_argument("--baseline-chunk-size", type=int, default=None,
+                        help="Process baseline inference in chunks of N groups to reduce GPU memory (default: None = all at once).")
+    parser.add_argument("--baseline-predict-batch-size", type=int, default=32,
+                        help="Batch size for baseline model.predict() within each chunk (default: 32).")
+    parser.add_argument("--pinn-chunk-size", type=int, default=None,
+                        help="Process PINN inference in chunks of N groups to reduce GPU memory (default: None = all at once).")
+    parser.add_argument("--pinn-predict-batch-size", type=int, default=32,
+                        help="Batch size for PINN model.predict() within each chunk (default: 32).")
+
     # Add logging arguments
     add_logging_arguments(parser)
     
     return parser.parse_args()
 
 
+def load_bundle_submodel(model_dir: Path, model_name: str) -> tf.keras.Model:
+    """Load a specific submodel (autoencoder/diffraction_to_obj) from a wts.h5.zip archive."""
+    model_dir = Path(model_dir)
+    archive = model_dir / "wts.h5.zip"
+    if not archive.exists():
+        raise FileNotFoundError(f"Model archive not found at: {archive}")
+
+    logger.info(f"Extracting {model_name} from bundle {archive}")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        with zipfile.ZipFile(archive, "r") as zf:
+            zf.extractall(tmp_dir)
+
+        subdir = Path(tmp_dir) / model_name
+        model_path = subdir / "model.keras"
+        params_path = subdir / "params.dill"
+        custom_objects_path = subdir / "custom_objects.dill"
+
+        if not model_path.exists():
+            raise FileNotFoundError(f"{model_name}/model.keras not found inside {archive}")
+
+        with open(params_path, "rb") as fh:
+            loaded_params = dill.load(fh)
+        loaded_params.pop("_version", None)
+        p.cfg.update(loaded_params)
+
+        with open(custom_objects_path, "rb") as fh:
+            custom_objects = dill.load(fh)
+
+        model = tf.keras.models.load_model(model_path, custom_objects=custom_objects, compile=False)
+
+    logger.info(f"Loaded {model_name} model from {model_dir}")
+    return model
+
+
 def load_pinn_model(model_dir: Path) -> tf.keras.Model:
-    """Load the inference-only PtychoPINN model using the centralized loader."""
-    logger.info(f"Loading PtychoPINN model from {model_dir}...")
-    
-    # Use the centralized function for loading
+    """Load the diffraction_to_obj inference model for PINN comparisons."""
     model, _ = load_inference_bundle(model_dir)
-    
     return model
 
 
 def load_baseline_model(baseline_dir: Path) -> tf.keras.Model:
-    """Load the Keras baseline model."""
+    """Load the baseline model.
+
+    Priority:
+    1) legacy Keras file baseline_model.h5 within baseline_dir
+    2) TF bundle via load_inference_bundle(baseline_dir) (expects wts.h5.zip)
+    """
     logger.info(f"Loading Baseline model from {baseline_dir}...")
-    
-    # Find the baseline model file
+
+    # Try legacy Keras path first
     baseline_model_path = None
     for root, dirs, files in os.walk(baseline_dir):
         for file in files:
@@ -123,12 +220,129 @@ def load_baseline_model(baseline_dir: Path) -> tf.keras.Model:
                 break
         if baseline_model_path:
             break
-    
-    if baseline_model_path is None or not baseline_model_path.exists():
-        raise FileNotFoundError(f"Baseline model not found in: {baseline_dir}")
-    
-    logger.info(f"Found baseline model at: {baseline_model_path}")
-    return tf.keras.models.load_model(baseline_model_path)
+
+    if baseline_model_path and baseline_model_path.exists():
+        logger.info(f"Found baseline model at: {baseline_model_path}")
+        return tf.keras.models.load_model(baseline_model_path)
+
+    # Fallback: treat baseline_dir as a TF bundle directory (wts.h5.zip)
+    logger.info("baseline_model.h5 not found; attempting to load TF bundle (wts.h5.zip)")
+    baseline_model, _ = load_inference_bundle(baseline_dir)
+    return baseline_model
+
+
+def tensor_to_numpy(value, dtype=None):
+    """Convert TensorFlow tensors or arrays to NumPy with optional dtype casting."""
+    if tf.is_tensor(value):
+        array = value.numpy()
+    else:
+        array = np.asarray(value)
+    if dtype is not None and array.dtype != dtype:
+        array = array.astype(dtype, copy=False)
+    return array
+
+
+def _compute_channel_offsets(container) -> tf.Tensor:
+    """Return combined offsets (global + local) in channel format."""
+    total_channels = int(container.X.shape[-1])
+    global_offsets = tf.convert_to_tensor(container.global_offsets, dtype=tf.float32)
+    if total_channels == 1:
+        return global_offsets
+    local_offsets = getattr(container, "local_offsets", None)
+    if local_offsets is None:
+        return tf.tile(global_offsets, [1, 1, 1, total_channels])
+    local_offsets = tf.convert_to_tensor(local_offsets, dtype=tf.float32)
+    if local_offsets.shape[-1] != total_channels:
+        divisor = int(local_offsets.shape[-1])
+        if divisor == 0 or total_channels % divisor != 0:
+            raise ValueError(
+                f"Incompatible local offset channels (got {divisor}) for total_channels={total_channels}"
+            )
+        repeats = total_channels // divisor
+        local_offsets = tf.tile(local_offsets, [1, 1, 1, repeats])
+    return global_offsets + local_offsets
+
+
+def slice_raw_data(raw_data, start_idx, end_idx):
+    """Slice a RawData object to get a subset of groups."""
+    from ptycho.raw_data import RawData
+
+    return RawData(
+        xcoords=raw_data.xcoords[start_idx:end_idx],
+        ycoords=raw_data.ycoords[start_idx:end_idx],
+        xcoords_start=raw_data.xcoords_start[start_idx:end_idx],
+        ycoords_start=raw_data.ycoords_start[start_idx:end_idx],
+        diff3d=raw_data.diff3d[start_idx:end_idx] if raw_data.diff3d is not None else None,
+        probeGuess=raw_data.probeGuess,  # Probe is shared across all groups
+        scan_index=raw_data.scan_index[start_idx:end_idx],
+        objectGuess=raw_data.objectGuess,  # Object guess is shared
+        Y=raw_data.Y[start_idx:end_idx] if raw_data.Y is not None else None,
+        norm_Y_I=raw_data.norm_Y_I[start_idx:end_idx] if raw_data.norm_Y_I is not None else None,
+        metadata=raw_data.metadata
+    )
+
+
+def prepare_baseline_inference_data(container):
+    """Flatten grouped diffraction + offsets for baseline stitching when needed.
+
+    For grouped runs (total_channels > 1), validates that channel count is a perfect
+    square (gridsize²), computes and logs the resolved gridsize, then flattens both
+    diffraction and offset tensors for baseline model inference.
+
+    Returns:
+        tuple: (baseline_input, baseline_offsets) - both as numpy arrays ready for
+               baseline_model.predict([baseline_input, baseline_offsets], ...)
+    """
+    total_channels = int(container.X.shape[-1])
+    if total_channels > 1:
+        # Assert perfect square channel count for grouped runs
+        import math
+        sqrt_channels = math.sqrt(total_channels)
+        if not sqrt_channels.is_integer():
+            raise ValueError(
+                f"Grouped diffraction channel count ({total_channels}) must be a perfect square "
+                f"(gridsize²). Got non-integer sqrt: {sqrt_channels}"
+            )
+
+        resolved_gridsize = int(sqrt_channels)
+        logger.info(
+            "Flattening grouped diffraction for baseline model: X %s → channels merged; "
+            "resolved gridsize=%d (from %d channels)",
+            container.X.shape,
+            resolved_gridsize,
+            total_channels,
+        )
+
+        # Force params.cfg gridsize sync for downstream Translation/reassembly
+        from ptycho import params as p
+        p.set('gridsize', resolved_gridsize)
+        logger.info(f"Forced params.cfg['gridsize']={resolved_gridsize} for baseline grouped inference")
+
+        flattened_input = _channel_to_flat(container.X)
+        offsets_channel = _compute_channel_offsets(container)
+        flattened_offsets = _channel_to_flat(offsets_channel)
+
+        # Center offsets to zero-mean for baseline model stability
+        flattened_offsets_np = tensor_to_numpy(flattened_offsets, dtype=np.float64)
+        offset_mean = flattened_offsets_np.mean()
+        centered_offsets = flattened_offsets_np - offset_mean
+
+        logger.info(
+            "Centered baseline offsets: original mean=%.2f, std=%.2f → centered mean=%.6f, std=%.2f",
+            offset_mean,
+            flattened_offsets_np.std(),
+            centered_offsets.mean(),
+            centered_offsets.std()
+        )
+
+        return (
+            tensor_to_numpy(flattened_input, dtype=np.float32),
+            centered_offsets,
+        )
+    return (
+        tensor_to_numpy(container.X, dtype=np.float32),
+        tensor_to_numpy(container.global_offsets, dtype=np.float64),
+    )
 
 
 def load_tike_reconstruction(tike_path: Path) -> tuple:
@@ -154,7 +368,7 @@ def load_tike_reconstruction(tike_path: Path) -> tuple:
         if 'reconstructed_object' not in data:
             available_keys = list(data.keys())
             raise KeyError(f"Missing 'reconstructed_object' key in reconstruction NPZ file: {tike_path}. "
-                          f"Available keys: {available_keys}. Expected format generated by 'run_tike_reconstruction.py' or 'run_ptychi_reconstruction.py'.")
+                          f"Available keys: {available_keys}. Expected format generated by 'run_tike_reconstruction.py' or 'ptychi_reconstruct_tike.py'.")
         
         reconstructed_object = data['reconstructed_object']
         
@@ -175,20 +389,17 @@ def load_tike_reconstruction(tike_path: Path) -> tuple:
         if 'algorithm' in data:
             try:
                 algorithm_str = str(data['algorithm'].item() if hasattr(data['algorithm'], 'item') else data['algorithm'])
-                # Map algorithm names to display format
-                if algorithm_str.lower() in ['epie', 'pie']:
-                    algorithm_name = f"Pty-chi (ePIE)"
-                elif algorithm_str.lower() == 'dm':
-                    algorithm_name = f"Pty-chi (DM)"
-                elif algorithm_str.lower() == 'ml':
-                    algorithm_name = f"Pty-chi (ML)"
-                elif algorithm_str.lower().startswith('ptychi'):
-                    algorithm_name = f"Pty-chi ({algorithm_str})"
+                # Map algorithm names to canonical IDs for metrics reporting (METRICS-NAMING-001)
+                # Use "PtyChi" as canonical ID, not "Pty-chi (algorithm)"
+                if algorithm_str.lower() in ['epie', 'pie', 'dm', 'ml'] or algorithm_str.lower().startswith('ptychi'):
+                    algorithm_name = "PtyChi"
+                    logger.debug(f"Detected pty-chi algorithm '{algorithm_str}', using canonical ID: PtyChi")
                 elif algorithm_str.lower() == 'tike':
                     algorithm_name = "Tike"
                 else:
-                    # Unknown algorithm, use as-is with Pty-chi prefix
-                    algorithm_name = f"Pty-chi ({algorithm_str})"
+                    # Unknown algorithm, default to PtyChi for pty-chi namespace
+                    algorithm_name = "PtyChi"
+                    logger.debug(f"Unknown algorithm '{algorithm_str}', defaulting to canonical ID: PtyChi")
                 logger.debug(f"Detected algorithm from 'algorithm' field: {algorithm_name}")
             except Exception as e:
                 logger.debug(f"Could not extract algorithm field: {e}")
@@ -203,19 +414,14 @@ def load_tike_reconstruction(tike_path: Path) -> tuple:
                 # Detect algorithm type from metadata (overrides direct algorithm field if present)
                 if 'algorithm' in metadata:
                     algorithm = metadata.get('algorithm', 'tike')
-                    if algorithm.startswith('ptychi'):
-                        # Extract specific pty-chi algorithm variant if available
-                        variant = metadata.get('parameters', {}).get('algorithm_variant', 'ePIE')
-                        algorithm_name = f"Pty-chi ({variant})"
+                    # Use canonical IDs for metrics reporting (METRICS-NAMING-001)
+                    if algorithm.startswith('ptychi') or 'ptychi' in algorithm.lower():
+                        algorithm_name = "PtyChi"
                     elif algorithm == 'tike':
                         algorithm_name = "Tike"
-                    elif '_' in algorithm and 'ptychi' in algorithm.lower():
-                        # Handle formats like 'ptychi_ePIE'
-                        parts = algorithm.split('_')
-                        if len(parts) > 1:
-                            algorithm_name = f"Pty-chi ({parts[-1]})"
-                        else:
-                            algorithm_name = f"Pty-chi ({algorithm})"
+                    else:
+                        # Default to PtyChi for unknown algorithms in pty-chi namespace
+                        algorithm_name = "PtyChi"
                 
                 if computation_time is not None:
                     logger.debug(f"Extracted {algorithm_name} computation time: {computation_time:.2f}s")
@@ -784,7 +990,7 @@ def main():
     # CRITICAL FIX: Initialize configuration BEFORE loading data
     # This ensures params.cfg is properly set up when load_data() checks gridsize
     # Load models FIRST to restore their saved configuration (including gridsize)
-    logger.info("Loading PtychoPINN model to restore configuration...")
+    logger.info("Loading PtychoPINN inference model (diffraction_to_obj) to restore configuration...")
     pinn_model = load_pinn_model(args.pinn_dir)
     
     # The model loading should have restored the correct gridsize to params.cfg
@@ -847,10 +1053,7 @@ def main():
     if not (0 < args.stitch_crop_size <= N):
         raise ValueError(f"Invalid stitch_crop_size: {args.stitch_crop_size}. Must be 0 < M <= N={N}")
     logger.info(f"Using stitch_crop_size M={args.stitch_crop_size} (N={N})")
-    
-    # Create data container AFTER legacy params are updated
-    test_container = create_ptycho_data_container(test_data_raw, final_config)
-    
+
     # Extract ground truth if available
     ground_truth_obj = test_data_raw.objectGuess[None, ..., None] if test_data_raw.objectGuess is not None else None
 
@@ -867,71 +1070,381 @@ def main():
         tike_recon, tike_computation_time, algorithm_name = None, None, None
         logger.info("Running two-way comparison (PtychoPINN vs. Baseline)")
 
-    # Run inference for PtychoPINN
-    logger.info("Running inference with PtychoPINN...")
-    # PtychoPINN model requires both diffraction patterns and position coordinates
-    # Scale the input data by intensity_scale to match training normalization
+    # Run inference for PtychoPINN with optional chunking
+    logger.info("Running inference with PtychoPINN (diffraction_to_obj)...")
+
+    n_groups = test_data_raw.diff3d.shape[0]
+    chunk_size = args.pinn_chunk_size if args.pinn_chunk_size is not None else n_groups
+
     pinn_start = time.time()
-    pinn_patches = pinn_model.predict(
-        [test_container.X * p.get('intensity_scale'), test_container.coords_nominal],
-        batch_size=32,
-        verbose=1
-    )
+
+    if chunk_size < n_groups:
+        # Chunked PINN inference to reduce GPU memory footprint
+        logger.info(f"Using chunked PINN inference: {n_groups} groups in chunks of {chunk_size} (batch_size={args.pinn_predict_batch_size})")
+        pinn_patches_chunks = []
+        pinn_offsets_chunks = []
+
+        for chunk_start in range(0, n_groups, chunk_size):
+            chunk_end = min(chunk_start + chunk_size, n_groups)
+            chunk_idx = chunk_start // chunk_size
+            logger.info(f"Processing PINN chunk {chunk_idx+1}/{(n_groups + chunk_size - 1) // chunk_size}: groups [{chunk_start}:{chunk_end}]")
+
+            # Slice raw data for this chunk
+            chunk_raw_data = slice_raw_data(test_data_raw, chunk_start, chunk_end)
+
+            # Create container for this chunk
+            chunk_container = create_ptycho_data_container(chunk_raw_data, final_config)
+
+            # Validate gridsize for chunk
+            import math
+            diffraction_channels = int(chunk_container.X.shape[-1])
+            required_gridsize = int(math.isqrt(diffraction_channels))
+            current_gridsize = p.cfg.get('gridsize', 1)
+
+            if current_gridsize != required_gridsize:
+                logger.warning(f"GRIDSIZE MISMATCH in chunk {chunk_idx+1}: params.cfg['gridsize']={current_gridsize} but diffraction has {diffraction_channels} channels (requires gridsize={required_gridsize})")
+                logger.warning(f"Forcing params.cfg['gridsize']={required_gridsize} before inference")
+                p.cfg['gridsize'] = required_gridsize
+
+            # Clear TF session before each chunk (except first) to release memory
+            if chunk_idx > 0:
+                tf.keras.backend.clear_session()
+
+            try:
+                chunk_patches = pinn_model.predict(
+                    [chunk_container.X * p.get('intensity_scale'), chunk_container.coords_nominal],
+                    batch_size=args.pinn_predict_batch_size,
+                    verbose=1
+                )
+
+                if isinstance(chunk_patches, (list, tuple)) and chunk_patches:
+                    chunk_patches = chunk_patches[0]
+                chunk_patches_np = np.asarray(chunk_patches)
+
+                # DIAGNOSTIC: Per-chunk stats
+                chunk_mean = np.abs(chunk_patches_np).mean()
+                chunk_max = np.abs(chunk_patches_np).max()
+                chunk_nonzero = np.count_nonzero(chunk_patches_np)
+                logger.info(f"DIAGNOSTIC chunk {chunk_idx+1} PINN patches stats: mean={chunk_mean:.6f}, max={chunk_max:.6f}, nonzero_count={chunk_nonzero}/{chunk_patches_np.size}")
+
+                pinn_patches_chunks.append(chunk_patches_np)
+
+                # Extract offsets for reassembly
+                chunk_offsets = np.asarray(chunk_container.global_offsets, dtype=np.float64)
+                pinn_offsets_chunks.append(chunk_offsets)
+
+            except tf.errors.ResourceExhaustedError as e:
+                logger.error(f"ResourceExhaustedError in PINN chunk {chunk_idx+1} at [{chunk_start}:{chunk_end}]: {e}")
+                logger.error(f"Try reducing --pinn-chunk-size (currently {chunk_size}) or --pinn-predict-batch-size (currently {args.pinn_predict_batch_size})")
+                raise
+
+        # Concatenate all chunks
+        pinn_patches = np.concatenate(pinn_patches_chunks, axis=0)
+        pinn_offsets = np.concatenate(pinn_offsets_chunks, axis=0)
+        logger.info(f"Concatenated {len(pinn_patches_chunks)} chunks into final PINN patches shape: {pinn_patches.shape}")
+
+    else:
+        # Single-shot PINN inference (original path)
+        logger.info(f"Using single-shot PINN inference: {n_groups} groups (batch_size={args.pinn_predict_batch_size})")
+
+        # Create data container AFTER legacy params are updated
+        test_container = create_ptycho_data_container(test_data_raw, final_config)
+
+        # CRITICAL FIX: Force gridsize from channel count before inference
+        import math
+        diffraction_channels = int(test_container.X.shape[-1])
+        required_gridsize = int(math.isqrt(diffraction_channels))
+        current_gridsize = p.cfg.get('gridsize', 1)
+
+        if current_gridsize != required_gridsize:
+            logger.warning(f"GRIDSIZE MISMATCH: params.cfg['gridsize']={current_gridsize} but diffraction has {diffraction_channels} channels (requires gridsize={required_gridsize})")
+            logger.warning(f"Forcing params.cfg['gridsize']={required_gridsize} before inference to prevent Translation layer crash")
+            p.cfg['gridsize'] = required_gridsize
+        else:
+            logger.info(f"Gridsize validated: params.cfg['gridsize']={current_gridsize} matches {diffraction_channels} channels")
+
+        pinn_patches = pinn_model.predict(
+            [test_container.X * p.get('intensity_scale'), test_container.coords_nominal],
+            batch_size=args.pinn_predict_batch_size,
+            verbose=1
+        )
+
+        if isinstance(pinn_patches, (list, tuple)) and pinn_patches:
+            pinn_patches = pinn_patches[0]
+        pinn_patches = np.asarray(pinn_patches)
+
+        # Extract offsets for reassembly
+        pinn_offsets = np.asarray(test_container.global_offsets, dtype=np.float64)
+
     pinn_inference_time = time.time() - pinn_start
     logger.info(f"PtychoPINN inference completed in {pinn_inference_time:.2f}s")
-    
-    # Reassemble patches
-    logger.info("Reassembling PtychoPINN patches...")
-    pinn_recon = reassemble_position(pinn_patches, test_container.global_offsets, M=args.stitch_crop_size)
+
+    # Log PINN patches shape before reassembly
+    logger.info(f"PINN patches shape before reassembly: {pinn_patches.shape}, dtype: {pinn_patches.dtype}")
+
+    # Reassemble PINN patches using global offsets
+    logger.info("Reassembling PINN patches...")
+    logger.info(f"PINN offsets shape before reassembly: {pinn_offsets.shape}, dtype: {pinn_offsets.dtype}")
+    pinn_recon = reassemble_position(pinn_patches, pinn_offsets, M=args.stitch_crop_size)
+    logger.info(f"PINN reconstruction shape after reassembly: {pinn_recon.shape}, dtype: {pinn_recon.dtype}")
 
     # Run inference for Baseline
+    # CRITICAL: In chunked mode, process Baseline per chunk to avoid full container OOM
     logger.info("Running inference with Baseline model...")
-    # Baseline model outputs amplitude and phase separately
-    
-    # CRITICAL FIX: Prepare baseline-specific input data
-    # Baseline models always expect single-channel input (batch, N, N, 1)
-    # When PINN uses gridsize > 1, test data is grouped into multiple channels
-    gridsize = p.cfg.get('gridsize', 1)
-    if gridsize > 1:
-        logger.info(f"Adapting grouped data (gridsize={gridsize}) for baseline model")
-        logger.info(f"Original test data shape: {test_container.X.shape}")
-        # Extract only the first channel for baseline inference
-        baseline_input = test_container.X[..., :1]
-        logger.info(f"Baseline input shape: {baseline_input.shape}")
+
+    # Determine if we should chunk Baseline inference
+    baseline_chunk_size = args.baseline_chunk_size if args.baseline_chunk_size is not None else n_groups
+    use_baseline_chunking = baseline_chunk_size < n_groups
+
+    if use_baseline_chunking:
+        # Chunked Baseline: slice RawData per chunk, create chunk-scoped containers
+        logger.info(f"Using chunked Baseline inference: {n_groups} groups in chunks of {baseline_chunk_size}")
+        baseline_input_chunks = []
+        baseline_offsets_chunks = []
+
+        for chunk_start in range(0, n_groups, baseline_chunk_size):
+            chunk_end = min(chunk_start + baseline_chunk_size, n_groups)
+            chunk_idx = chunk_start // baseline_chunk_size
+            logger.info(f"Preparing Baseline chunk {chunk_idx+1}/{(n_groups + baseline_chunk_size - 1) // baseline_chunk_size}: groups [{chunk_start}:{chunk_end}]")
+
+            # Slice raw data for this chunk
+            chunk_raw_data = slice_raw_data(test_data_raw, chunk_start, chunk_end)
+
+            # Create chunk-scoped config with correct n_groups
+            import dataclasses
+            chunk_n_groups = chunk_end - chunk_start
+            chunk_config = dataclasses.replace(final_config, n_groups=chunk_n_groups)
+
+            # Create container for this chunk
+            chunk_container = create_ptycho_data_container(chunk_raw_data, chunk_config)
+
+            # Prepare Baseline data from chunk container
+            chunk_input, chunk_offsets = prepare_baseline_inference_data(chunk_container)
+
+            baseline_input_chunks.append(chunk_input)
+            baseline_offsets_chunks.append(chunk_offsets)
+
+            # Log chunk stats
+            logger.info(f"Baseline chunk {chunk_idx+1} prepared: input shape={chunk_input.shape}, offsets shape={chunk_offsets.shape}")
+
+        # Concatenate all chunks
+        baseline_input = np.concatenate(baseline_input_chunks, axis=0)
+        baseline_offsets = np.concatenate(baseline_offsets_chunks, axis=0)
+        logger.info(f"Concatenated {len(baseline_input_chunks)} chunks into final Baseline input shape: {baseline_input.shape}, offsets shape: {baseline_offsets.shape}")
     else:
-        logger.info("Using original test data for baseline model (gridsize=1)")
-        baseline_input = test_container.X
-    
+        # Single-shot Baseline: create full container (only if not already created in PINN single-shot path)
+        if chunk_size >= n_groups:
+            # test_container was already created in PINN single-shot path
+            logger.info(f"Reusing test_container from PINN single-shot path for Baseline inference")
+        else:
+            # PINN was chunked but Baseline is single-shot (shouldn't happen, but handle it)
+            logger.warning(f"PINN was chunked but Baseline chunk size ({baseline_chunk_size}) >= n_groups ({n_groups}), creating full container")
+            test_container = create_ptycho_data_container(test_data_raw, final_config)
+
+        baseline_input, baseline_offsets = prepare_baseline_inference_data(test_container)
+
+    # Apply debug limit if requested
+    if args.baseline_debug_limit is not None:
+        original_shape = baseline_input.shape
+        baseline_input = baseline_input[:args.baseline_debug_limit]
+        baseline_offsets = baseline_offsets[:args.baseline_debug_limit]
+        logger.info(f"Applied --baseline-debug-limit={args.baseline_debug_limit}: limited {original_shape} → {baseline_input.shape}")
+
+    logger.info(f"Baseline inference input shape: {baseline_input.shape}")
+    logger.info(f"Baseline inference offsets shape: {baseline_offsets.shape}")
+
+    # DIAGNOSTIC: Check baseline input data stats
+    baseline_input_mean = baseline_input.mean()
+    baseline_input_max = baseline_input.max()
+    baseline_input_nonzero = np.count_nonzero(baseline_input)
+    logger.info(f"DIAGNOSTIC baseline_input stats: mean={baseline_input_mean:.6f}, max={baseline_input_max:.6f}, nonzero_count={baseline_input_nonzero}/{baseline_input.size}")
+    if baseline_input_mean == 0.0:
+        logger.error("CRITICAL: Baseline input data is all zeros! Data preparation may have failed.")
+
+    # Warn if offsets are missing (shouldn't happen after prepare_baseline_inference_data)
+    if baseline_offsets is None or baseline_offsets.size == 0:
+        logger.warning(
+            "Baseline offsets are missing or empty. Baseline model expects both diffraction and offsets."
+        )
+
     baseline_start = time.time()
-    baseline_output = baseline_model.predict(baseline_input, batch_size=32, verbose=1)
+
+    # Chunked inference to reduce GPU memory footprint
+    n_groups = baseline_input.shape[0]
+    chunk_size = args.baseline_chunk_size if args.baseline_chunk_size is not None else n_groups
+
+    if chunk_size < n_groups:
+        logger.info(f"Using chunked baseline inference: {n_groups} groups in chunks of {chunk_size} (batch_size={args.baseline_predict_batch_size})")
+        baseline_output_chunks = []
+
+        for chunk_start in range(0, n_groups, chunk_size):
+            chunk_end = min(chunk_start + chunk_size, n_groups)
+            chunk_idx = chunk_start // chunk_size
+            logger.info(f"Processing baseline chunk {chunk_idx+1}/{(n_groups + chunk_size - 1) // chunk_size}: groups [{chunk_start}:{chunk_end}]")
+
+            chunk_input = baseline_input[chunk_start:chunk_end]
+            chunk_offsets = baseline_offsets[chunk_start:chunk_end]
+
+            # Clear TF session before each chunk to release memory
+            if chunk_idx > 0:
+                tf.keras.backend.clear_session()
+
+            try:
+                model_inputs = [chunk_input, chunk_offsets] if len(baseline_model.inputs) > 1 else chunk_input
+                chunk_output = baseline_model.predict(
+                    model_inputs,
+                    batch_size=args.baseline_predict_batch_size,
+                    verbose=1
+                )
+
+                # DIAGNOSTIC: Per-chunk stats
+                chunk_output_np = np.asarray(chunk_output)
+                chunk_mean = np.abs(chunk_output_np).mean()
+                chunk_max = np.abs(chunk_output_np).max()
+                chunk_nonzero = np.count_nonzero(chunk_output_np)
+                logger.info(f"DIAGNOSTIC chunk {chunk_idx+1} baseline_output stats: mean={chunk_mean:.6f}, max={chunk_max:.6f}, nonzero_count={chunk_nonzero}/{chunk_output_np.size}")
+
+                baseline_output_chunks.append(chunk_output_np)
+
+            except tf.errors.ResourceExhaustedError as e:
+                logger.error(f"ResourceExhaustedError in chunk {chunk_idx+1} at [{chunk_start}:{chunk_end}]: {e}")
+                logger.error(f"Try reducing --baseline-chunk-size (currently {chunk_size}) or --baseline-predict-batch-size (currently {args.baseline_predict_batch_size})")
+                raise
+
+        # Concatenate all chunks
+        baseline_output = np.concatenate(baseline_output_chunks, axis=0)
+        logger.info(f"Concatenated {len(baseline_output_chunks)} chunks into final baseline_output shape: {baseline_output.shape}")
+    else:
+        # Single-shot inference (original path)
+        logger.info(f"Using single-shot baseline inference: {n_groups} groups (batch_size={args.baseline_predict_batch_size})")
+        model_inputs = [baseline_input, baseline_offsets] if len(baseline_model.inputs) > 1 else baseline_input
+        baseline_output = baseline_model.predict(
+            model_inputs,
+            batch_size=args.baseline_predict_batch_size,
+            verbose=1
+        )
+
     baseline_inference_time = time.time() - baseline_start
     logger.info(f"Baseline inference completed in {baseline_inference_time:.2f}s")
-    
+
+    # DIAGNOSTIC: Check if baseline output contains actual values
+    baseline_output_np_check = np.asarray(baseline_output)
+    baseline_output_mean = np.abs(baseline_output_np_check).mean()
+    baseline_output_max = np.abs(baseline_output_np_check).max()
+    baseline_output_nonzero = np.count_nonzero(baseline_output_np_check)
+    logger.info(f"DIAGNOSTIC baseline_output stats: mean={baseline_output_mean:.6f}, max={baseline_output_max:.6f}, nonzero_count={baseline_output_nonzero}/{baseline_output_np_check.size}")
+
+    # Save debug artifacts if requested
+    if args.baseline_debug_dir is not None:
+        import json
+        debug_dir = Path(args.baseline_debug_dir)
+        debug_dir.mkdir(parents=True, exist_ok=True)
+
+        debug_stats = {
+            "input": {
+                "shape": list(baseline_input.shape),
+                "mean": float(baseline_input_mean),
+                "max": float(baseline_input_max),
+                "nonzero_count": int(baseline_input_nonzero),
+                "size": int(baseline_input.size)
+            },
+            "offsets": {
+                "shape": list(baseline_offsets.shape),
+                "mean": float(baseline_offsets.mean()),
+                "std": float(baseline_offsets.std()),
+                "min": float(baseline_offsets.min()),
+                "max": float(baseline_offsets.max())
+            },
+            "output": {
+                "shape": list(baseline_output_np_check.shape),
+                "mean": float(baseline_output_mean),
+                "max": float(baseline_output_max),
+                "nonzero_count": int(baseline_output_nonzero),
+                "size": int(baseline_output_np_check.size)
+            },
+            "inference_time_seconds": float(baseline_inference_time)
+        }
+
+        debug_npz_path = debug_dir / "baseline_debug.npz"
+        debug_json_path = debug_dir / "baseline_debug_stats.json"
+
+        np.savez_compressed(
+            debug_npz_path,
+            baseline_input=baseline_input,
+            baseline_offsets=baseline_offsets,
+            baseline_output=baseline_output_np_check
+        )
+        with open(debug_json_path, 'w') as f:
+            json.dump(debug_stats, f, indent=2)
+
+        logger.info(f"Saved baseline debug artifacts to {debug_dir}:")
+        logger.info(f"  NPZ: {debug_npz_path}")
+        logger.info(f"  Stats: {debug_json_path}")
+
+    # CRITICAL ASSERTION: Halt execution if Baseline outputs are all zeros
+    if baseline_output_mean == 0.0 or baseline_output_nonzero == 0:
+        logger.error("CRITICAL: Baseline model returned all-zero predictions! Check model weights and input data.")
+        logger.error(f"Baseline input stats: mean={baseline_input_mean:.6f}, max={baseline_input_max:.6f}, nonzero={baseline_input_nonzero}")
+        logger.error(f"Baseline output stats: mean={baseline_output_mean:.6f}, max={baseline_output_max:.6f}, nonzero={baseline_output_nonzero}")
+        raise RuntimeError(
+            f"Baseline model inference failed: outputs are all zeros (mean={baseline_output_mean:.6f}, "
+            f"nonzero={baseline_output_nonzero}/{baseline_output_np_check.size}). "
+            f"This indicates a TensorFlow/model runtime issue. "
+            f"Inputs were valid (mean={baseline_input_mean:.6f}, nonzero={baseline_input_nonzero}). "
+            f"Investigation required before Phase G can proceed."
+        )
+
+    # Log baseline output shape before conversion
+    if isinstance(baseline_output, list):
+        logger.info(f"Baseline output format: list with {len(baseline_output)} elements")
+        for idx, elem in enumerate(baseline_output):
+            logger.info(f"  Element {idx} shape: {np.asarray(elem).shape}, dtype: {np.asarray(elem).dtype}")
+    else:
+        logger.info(f"Baseline output format: single tensor, shape: {np.asarray(baseline_output).shape}, dtype: {np.asarray(baseline_output).dtype}")
+
     # Handle different output formats
     if isinstance(baseline_output, list) and len(baseline_output) == 2:
+        # Legacy format: [amplitude, phase]
+        logger.info("Converting baseline output from [amplitude, phase] list format")
         baseline_patches_I, baseline_patches_phi = baseline_output
+        baseline_patches_I = np.asarray(baseline_patches_I, dtype=np.float32)
+        baseline_patches_phi = np.asarray(baseline_patches_phi, dtype=np.float32)
+        baseline_patches_complex = baseline_patches_I.astype(np.complex64) * \
+                                   np.exp(1j * baseline_patches_phi.astype(np.complex64))
+    elif isinstance(baseline_output, np.ndarray) or hasattr(baseline_output, 'numpy'):
+        # Single complex tensor format
+        logger.info("Converting baseline output from single complex tensor format")
+        baseline_output_np = np.asarray(baseline_output)
+        if np.iscomplexobj(baseline_output_np):
+            # Already complex
+            baseline_patches_complex = baseline_output_np.astype(np.complex64)
+            # Extract amplitude and phase for logging
+            baseline_patches_I = np.abs(baseline_patches_complex).astype(np.float32)
+            baseline_patches_phi = np.angle(baseline_patches_complex).astype(np.float32)
+        else:
+            # Single real tensor - interpret as complex (this shouldn't happen but handle it)
+            logger.warning("Baseline output is single real tensor, cannot convert to amplitude/phase")
+            raise ValueError(f"Unexpected baseline model output: single real tensor with shape {baseline_output_np.shape}")
     else:
-        # Some baseline models might output a single array
-        raise ValueError("Unexpected baseline model output format")
-    
-    # Convert to complex representation
-    baseline_patches_complex = tf.cast(baseline_patches_I, tf.complex64) * \
-                               tf.exp(1j * tf.cast(baseline_patches_phi, tf.complex64))
-    
+        raise ValueError(f"Unexpected baseline model output format: {type(baseline_output)}")
+
+    # Log shapes after conversion
+    logger.info(f"After conversion - amplitude shape: {baseline_patches_I.shape}, phase shape: {baseline_patches_phi.shape}")
+    logger.info(f"Complex patches shape: {baseline_patches_complex.shape}, dtype: {baseline_patches_complex.dtype}")
+
+    # DIAGNOSTIC: Log first patch statistics to help diagnose zero-output issues
+    if baseline_patches_I.size > 0:
+        first_patch_amp = baseline_patches_I[0]
+        first_patch_phase = baseline_patches_phi[0]
+        logger.info(f"DIAGNOSTIC first patch amplitude: shape={first_patch_amp.shape}, mean={first_patch_amp.mean():.6f}, "
+                   f"max={first_patch_amp.max():.6f}, nonzero={np.count_nonzero(first_patch_amp)}/{first_patch_amp.size}")
+        logger.info(f"DIAGNOSTIC first patch phase: shape={first_patch_phase.shape}, mean={first_patch_phase.mean():.6f}, "
+                   f"std={first_patch_phase.std():.6f}, min={first_patch_phase.min():.6f}, max={first_patch_phase.max():.6f}")
+
     # Reassemble patches
     logger.info("Reassembling baseline patches...")
     
-    # CRITICAL FIX: Handle baseline reconstruction reassembly based on gridsize
-    # When gridsize > 1: baseline processes single-channel data, so patches are already reconstructed
-    # When gridsize = 1: normal reassembly is needed
-    if gridsize > 1:
-        logger.info(f"Baseline used single-channel input with gridsize={gridsize} - patches are already individual reconstructions")
-        # For gridsize > 1, baseline sees individual diffraction patterns, so its output 
-        # represents individual patch reconstructions that need normal reassembly
-        baseline_recon = reassemble_position(baseline_patches_complex, test_container.global_offsets, M=args.stitch_crop_size)
-    else:
-        logger.info("Normal baseline patch reassembly (gridsize=1)")
-        baseline_recon = reassemble_position(baseline_patches_complex, test_container.global_offsets, M=args.stitch_crop_size)
+    baseline_recon = reassemble_position(baseline_patches_complex, baseline_offsets, M=args.stitch_crop_size)
 
     # Save NPZ files of reconstructions (before any alignment/registration) if requested
     if args.save_npz:
@@ -959,38 +1472,80 @@ def main():
         logger.info(f"Ground truth original shape: {gt_obj_squeezed.shape}")
         
         # --- COORDINATE-BASED ALIGNMENT + REGISTRATION WORKFLOW ---
-        
+
         # 1. Define the stitching parameter
         M_STITCH_SIZE = args.stitch_crop_size
 
         # 2. Extract scan coordinates in (y, x) format
-        global_offsets = test_container.global_offsets
+        # CRITICAL: When chunking, use concatenated pinn_offsets instead of test_container.global_offsets
+        if use_baseline_chunking:
+            # In chunked mode, we never created a full test_container, so use pinn_offsets
+            global_offsets = pinn_offsets
+            logger.info(f"Using concatenated pinn_offsets for alignment (chunked mode): shape={global_offsets.shape}")
+        else:
+            # In single-shot mode, test_container was created
+            global_offsets = test_container.global_offsets
+            logger.info(f"Using test_container.global_offsets for alignment (single-shot mode): shape={global_offsets.shape}")
+
         scan_coords_xy = np.squeeze(global_offsets)
         scan_coords_yx = scan_coords_xy[:, [1, 0]]
 
-        # 3. First stage: Coordinate-based alignment (crop to scanned region)
-        pinn_recon_cropped, gt_cropped_for_pinn = align_for_evaluation(
-            reconstruction_image=pinn_recon,
-            ground_truth_image=ground_truth_obj,
-            scan_coords_yx=scan_coords_yx,
-            stitch_patch_size=M_STITCH_SIZE
-        )
-        
-        baseline_recon_cropped, gt_cropped_for_baseline = align_for_evaluation(
-            reconstruction_image=baseline_recon,
-            ground_truth_image=ground_truth_obj,
-            scan_coords_yx=scan_coords_yx,
-            stitch_patch_size=M_STITCH_SIZE
-        )
-        
-        # Crop Tike reconstruction if available
-        if tike_recon is not None:
-            tike_recon_cropped, gt_cropped_for_tike = align_for_evaluation(
-                reconstruction_image=tike_recon,
+        # Optionally use full test-data coordinates to keep canvas size fixed across subsets
+        full_scan_coords_yx = None
+        if args.fixed_canvas:
+            try:
+                full_npz = np.load(args.test_data)
+                if 'ycoords' in full_npz and 'xcoords' in full_npz:
+                    full_scan_coords_yx = np.stack([full_npz['ycoords'], full_npz['xcoords']], axis=1)
+                    logger.info(f"Using full test-data coordinate bounding box for alignment: {full_scan_coords_yx.shape}")
+            except Exception as exc:
+                logger.warning(f"Failed to load full coords for fixed canvas: {exc}")
+
+        # 3. First stage: Coordinate-based alignment (crop/pad to scanned region)
+        if full_scan_coords_yx is not None:
+            pinn_recon_cropped, gt_cropped_for_pinn = align_for_evaluation_fixed_canvas(
+                reconstruction_image=pinn_recon,
+                ground_truth_image=ground_truth_obj,
+                full_scan_coords_yx=full_scan_coords_yx,
+                stitch_patch_size=M_STITCH_SIZE
+            )
+            baseline_recon_cropped, gt_cropped_for_baseline = align_for_evaluation_fixed_canvas(
+                reconstruction_image=baseline_recon,
+                ground_truth_image=ground_truth_obj,
+                full_scan_coords_yx=full_scan_coords_yx,
+                stitch_patch_size=M_STITCH_SIZE
+            )
+        else:
+            pinn_recon_cropped, gt_cropped_for_pinn = align_for_evaluation(
+                reconstruction_image=pinn_recon,
                 ground_truth_image=ground_truth_obj,
                 scan_coords_yx=scan_coords_yx,
                 stitch_patch_size=M_STITCH_SIZE
             )
+            
+            baseline_recon_cropped, gt_cropped_for_baseline = align_for_evaluation(
+                reconstruction_image=baseline_recon,
+                ground_truth_image=ground_truth_obj,
+                scan_coords_yx=scan_coords_yx,
+                stitch_patch_size=M_STITCH_SIZE
+            )
+        
+        # Crop Tike reconstruction if available
+        if tike_recon is not None:
+            if full_scan_coords_yx is not None:
+                tike_recon_cropped, gt_cropped_for_tike = align_for_evaluation_fixed_canvas(
+                    reconstruction_image=tike_recon,
+                    ground_truth_image=ground_truth_obj,
+                    full_scan_coords_yx=full_scan_coords_yx,
+                    stitch_patch_size=M_STITCH_SIZE
+                )
+            else:
+                tike_recon_cropped, gt_cropped_for_tike = align_for_evaluation(
+                    reconstruction_image=tike_recon,
+                    ground_truth_image=ground_truth_obj,
+                    scan_coords_yx=scan_coords_yx,
+                    stitch_patch_size=M_STITCH_SIZE
+                )
         else:
             tike_recon_cropped = None
         

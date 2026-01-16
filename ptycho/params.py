@@ -106,6 +106,8 @@ def validate():
         'testimg', 'diagonals', 'xpp', 'V', 'generic']
     assert cfg['data_source'] in valid_data_sources, \
         f"Invalid data source: {cfg['data_source']}. Must be one of {valid_data_sources}."
+    assert cfg['N'] % 4 == 0, \
+        f"Invalid N={cfg['N']}: must be divisible by 4 for reconstruction padding."
     if cfg['realspace_mae_weight'] > 0.:
         assert cfg['realspace_weight'] > 0
     return True

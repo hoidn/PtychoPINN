@@ -40,6 +40,7 @@ import dill
 import tempfile
 import zipfile
 import shutil
+import numpy as np
 import tensorflow as tf
 from typing import Dict, List, Any, Optional
 from ptycho import params
@@ -425,11 +426,17 @@ class ModelManager:
 def save(out_prefix: str) -> None:
     """Save models to a zip archive."""
     from ptycho import model
-    from ptycho.model import ProbeIllumination, IntensityScaler, IntensityScaler_inv, negloglik
+    from ptycho.model import ProbeIllumination, IntensityScaler, IntensityScaler_inv, negloglik, _get_log_scale
     from ptycho.tf_helper import Translation, CenterMaskLayer
     from ptycho.tf_helper import realspace_loss as hh_realspace_loss
 
     model_path = os.path.join(out_prefix, params.get('h5_path'))
+
+    # CRITICAL FIX (INTENSITY-SCALE-SAVE-001): Get trained intensity_scale from log_scale variable
+    # The log_scale tf.Variable is trained during training, but params.cfg['intensity_scale']
+    # is never updated. We must save the trained value, not the initial params value.
+    trained_log_scale = _get_log_scale()
+    trained_intensity_scale = float(np.exp(trained_log_scale.numpy()))
     # Import custom layers
     from ptycho.custom_layers import (CombineComplexLayer, ExtractPatchesPositionLayer,
                                      PadReconstructionLayer, ReassemblePatchesLayer,
@@ -463,5 +470,6 @@ def save(out_prefix: str) -> None:
         'autoencoder': model.autoencoder,
         'diffraction_to_obj': model.diffraction_to_obj
     }
-    
-    ModelManager.save_multiple_models(models_to_save, model_path, custom_objects, params.get('intensity_scale'))
+
+    # Use trained_intensity_scale (from log_scale variable), not params.get('intensity_scale')
+    ModelManager.save_multiple_models(models_to_save, model_path, custom_objects, trained_intensity_scale)

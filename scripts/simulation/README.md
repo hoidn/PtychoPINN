@@ -23,6 +23,7 @@ This modular design allows you to simulate diffraction for any object you can cr
 |--------|---------|
 | `simulate_and_save.py` | **Core Tool.** The main, general-purpose script for running Stage 2. It takes an input `.npz` and generates a full simulated dataset. |
 | `run_with_synthetic_lines.py` | **Convenience Wrapper.** A high-level script that automates both Stage 1 and Stage 2 for the specific 'lines' object type. Ideal for quick tests. |
+| `synthetic_helpers.py` | **Helper Utilities.** Shared object/probe creation and nongrid simulation helpers used by study and simulation scripts. |
 
 ## Workflow Examples
 
@@ -86,4 +87,4 @@ python scripts/simulation/simulate_and_save.py \
 
 ## Output Data Format
 
-The final output of the simulation workflow is an `.npz` file that conforms to the project's data standard. For full details on the required keys and array shapes, see the [Data Contracts Document](../../docs/data_contracts.md).
+The final output of the simulation workflow is an `.npz` file that conforms to the project's data standard. For full details on the required keys and array shapes, see the [Data Contracts Document](../../specs/data_contracts.md).

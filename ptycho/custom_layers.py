@@ -54,34 +54,52 @@ class CombineComplexLayer(layers.Layer):
 
 @tf.keras.utils.register_keras_serializable(package='ptycho')
 class ExtractPatchesPositionLayer(layers.Layer):
-    """Extract patches from object based on positions."""
+    """Extract patches from object based on positions.
+
+    Inputs
+    ------
+    - padded_obj: tf.complex64 or tf.float32, shape (B, M, M, 1)
+    - positions: tf.float32, shape (B, 1, 2, C)  # channel-format offsets
+
+    Output
+    ------
+    - patches: same dtype as input, shape (B, N, N, C)
+    """
     
-    def __init__(self, jitter: float = 0.0, **kwargs):
+    def __init__(self, jitter: float = 0.0, N: Optional[int] = None,
+                 gridsize: Optional[int] = None, **kwargs):
         super().__init__(**kwargs)
         self.jitter = jitter
-    
+        self._N = N
+        self._gridsize = gridsize
+
     def call(self, inputs: List[tf.Tensor]) -> tf.Tensor:
         """Extract patches at specified positions.
-        
         Args:
-            inputs: List of [padded_obj, positions] tensors
-            
+            inputs: [padded_obj (B,M,M,1), positions (B,1,2,C)]
         Returns:
-            Extracted patches
+            patches (B,N,N,C)
         """
         from . import tf_helper as hh
         padded_obj, positions = inputs
-        return hh.extract_patches_position(padded_obj, positions, self.jitter)
-    
+        return hh.extract_patches_position(padded_obj, positions, self.jitter,
+                                           N=self._N, gridsize=self._gridsize)
+
     def compute_output_shape(self, input_shape: List[tf.TensorShape]) -> tf.TensorShape:
         batch_size = input_shape[0][0]
-        N = input_shape[0][1] - 10  # Assuming padding of 5 on each side
+        # Use stored N if available, otherwise estimate from input shape
+        if self._N is not None:
+            N = self._N
+        else:
+            N = input_shape[0][1] - 10  # Fallback: assuming padding of 5 on each side
         channels = input_shape[0][-1]
         return tf.TensorShape([batch_size, N, N, channels])
-    
+
     def get_config(self) -> Dict[str, Any]:
         config = super().get_config()
         config['jitter'] = self.jitter
+        config['N'] = self._N
+        config['gridsize'] = self._gridsize
         return config
 
 
@@ -117,34 +135,51 @@ class PadReconstructionLayer(layers.Layer):
 
 @tf.keras.utils.register_keras_serializable(package='ptycho')
 class ReassemblePatchesLayer(layers.Layer):
-    """Reassemble patches into full object."""
-    
-    def __init__(self, **kwargs):
+    """Reassemble patches into full object.
+
+    Inputs: [patches (B, N, N, C), positions (B, 1, 2, C)]
+    Output: (B, padded_size, padded_size, 1)
+    """
+
+    def __init__(self, padded_size: Optional[int] = None, N: Optional[int] = None,
+                 gridsize: Optional[int] = None, **kwargs):
         super().__init__(**kwargs)
-    
+        self.padded_size = padded_size
+        self.N = N
+        self.gridsize = gridsize
+
     def call(self, inputs: List[tf.Tensor]) -> tf.Tensor:
         """Reassemble patches.
-        
+
         Args:
             inputs: List of [patches, positions] tensors
-            
+
         Returns:
             Reassembled object
         """
         from . import tf_helper as hh
         patches, positions = inputs
-        return hh.reassemble_patches(patches, 
-                                    fn_reassemble_real=hh.mk_reassemble_position_real(positions))
-    
+
+        # Use non-batched reassembly; outer training/inference controls batch size.
+        fn_reassemble = hh.mk_reassemble_position_real(
+            positions, padded_size=self.padded_size, N=self.N, gridsize=self.gridsize
+        )
+
+        return hh.reassemble_patches(patches, fn_reassemble_real=fn_reassemble,
+                                     N=self.N, gridsize=self.gridsize)
+
     def compute_output_shape(self, input_shape: List[tf.TensorShape]) -> tf.TensorShape:
         from . import params
-        padded_size = params.get_padded_size()
+        padded_size = self.padded_size or params.get_padded_size()
         batch_size = input_shape[0][0]
-        channels = input_shape[0][-1]
-        return tf.TensorShape([batch_size, padded_size, padded_size, channels])
-    
+        return tf.TensorShape([batch_size, padded_size, padded_size, 1])
+
     def get_config(self) -> Dict[str, Any]:
-        return super().get_config()
+        config = super().get_config()
+        config['padded_size'] = self.padded_size
+        config['N'] = self.N
+        config['gridsize'] = self.gridsize
+        return config
 
 
 @tf.keras.utils.register_keras_serializable(package='ptycho')
@@ -157,15 +192,15 @@ class TrimReconstructionLayer(layers.Layer):
     
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
         """Trim the reconstruction.
-        
+
         Args:
             inputs: Padded reconstruction tensor
-            
+
         Returns:
             Trimmed reconstruction
         """
         from . import tf_helper as hh
-        return hh.trim_reconstruction(inputs)
+        return hh.trim_reconstruction(inputs, N=self.output_size)
     
     def compute_output_shape(self, input_shape: tf.TensorShape) -> tf.TensorShape:
         from . import params
@@ -182,7 +217,11 @@ class TrimReconstructionLayer(layers.Layer):
 
 @tf.keras.utils.register_keras_serializable(package='ptycho')
 class PadAndDiffractLayer(layers.Layer):
-    """Apply padding and diffraction operation."""
+    """Apply padding and diffraction operation.
+
+    Input: images (B, N, N, C)
+    Output: (padded, amplitude) both with shape (B, h, w, C)
+    """
     
     def __init__(self, h: int, w: int, pad: bool = False, **kwargs):
         super().__init__(**kwargs)

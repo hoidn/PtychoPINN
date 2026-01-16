@@ -16,6 +16,7 @@ This directory contains essential tools for preparing ptychography datasets for 
 | `pad_to_even_tool.py` | Dimension padding to even numbers | When arrays have odd dimensions that cause processing issues |
 | `visualize_dataset.py` | Dataset inspection and visualization | For quality assurance and debugging dataset issues |
 | `update_tool.py` | NPZ file updating with new reconstructions | To add reconstruction results to existing datasets |
+| `generate_test_index.py` | Generates the Markdown test suite index | Run after adding or renaming tests to refresh documentation |
 
 ## Essential Preprocessing Pipeline
 
@@ -154,6 +155,16 @@ python scripts/tools/prepare_data_tool.py raw.npz enhanced.npz --smooth --target
 python scripts/tools/transpose_rename_convert_tool.py enhanced.npz simulation_ready.npz
 ```
 
+## Documentation Utilities
+
+Keep the developer-facing test documentation aligned with the repository by regenerating the automated index whenever tests are added, renamed, or removed:
+
+```bash
+python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md
+```
+
+Commit the regenerated Markdown alongside any test suite changes so humans and agents can discover the latest validation coverage.
+
 ## Troubleshooting
 
 ### Common Issues
@@ -256,6 +267,6 @@ print('Diffraction dtype:', data['diffraction'].dtype)
 
 ## See Also
 
-- <doc-ref type="contract">docs/data_contracts.md</doc-ref> - Official data format specifications
+- <doc-ref type="contract">specs/data_contracts.md</doc-ref> - Official data format specifications
 - <doc-ref type="guide">docs/FLY64_DATASET_GUIDE.md</doc-ref> - Experimental dataset preprocessing guide
 - <doc-ref type="workflow-guide">scripts/studies/GENERALIZATION_STUDY_GUIDE.md</doc-ref> - Model evaluation workflows

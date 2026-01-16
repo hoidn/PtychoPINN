@@ -70,6 +70,7 @@ Notes:
 """
 
 import argparse
+import math
 import yaml
 import os
 import numpy as np
@@ -98,6 +99,73 @@ logger = logging.getLogger(__name__)
 
 from dataclasses import fields
 from ptycho.config.config import ModelConfig, TrainingConfig
+
+
+class DiffractionToObjectAdapter(tf.keras.Model):
+    """
+    Wrapper that keeps params.cfg['gridsize'] aligned with grouped inference inputs.
+
+    Some exported bundles were trained with grouped data but load with lingering
+    gridsize=1 in params.cfg, causing Translation to see B vs B*C tensors.
+    By inspecting the diffraction input just before execution we can set the
+    legacy gridsize to sqrt(channel_count) and avoid Translation crashes.
+    """
+
+    def __init__(self, base_model: tf.keras.Model):
+        super().__init__(name=getattr(base_model, "name", "diffraction_to_obj"))
+        self._model = base_model
+
+    def _infer_channel_count(self, diffraction_input) -> Optional[int]:
+        if diffraction_input is None:
+            return None
+
+        # Try static shape first
+        shape = getattr(diffraction_input, "shape", None)
+        if shape is not None and shape[-1] not in (None, -1):
+            return int(shape[-1])
+
+        try:
+            array_view = np.asarray(diffraction_input)
+        except Exception:
+            return None
+
+        if array_view.size == 0 or array_view.ndim < 1:
+            return None
+        return int(array_view.shape[-1])
+
+    def _sync_gridsize(self, maybe_inputs) -> None:
+        if maybe_inputs is None:
+            return
+
+        if isinstance(maybe_inputs, (list, tuple)):
+            diffraction = maybe_inputs[0]
+        else:
+            diffraction = maybe_inputs
+
+        channels = self._infer_channel_count(diffraction)
+        if channels is None or channels <= 0:
+            return
+
+        gridsize = int(round(math.sqrt(channels)))
+        if gridsize * gridsize != channels or gridsize <= 0:
+            return
+
+        if p.cfg.get('gridsize') != gridsize:
+            p.cfg['gridsize'] = gridsize
+
+    def call(self, inputs, training=False, **kwargs):
+        self._sync_gridsize(inputs)
+        return self._model(inputs, training=training, **kwargs)
+
+    def predict(self, *args, **kwargs):
+        input_arg = args[0] if args else kwargs.get('x')
+        self._sync_gridsize(input_arg)
+        return self._model.predict(*args, **kwargs)
+
+    def __getattr__(self, item):
+        underlying = super().__getattribute__("_model")
+        return getattr(underlying, item)
+
 
 def load_inference_bundle(model_dir: Path) -> Tuple[tf.keras.Model, dict]:
     """Load a trained model bundle for inference from a directory.
@@ -168,7 +236,7 @@ def load_inference_bundle(model_dir: Path) -> Tuple[tf.keras.Model, dict]:
                 f"The 'diffraction_to_obj' model should be created during training."
             )
         
-        model = models_dict['diffraction_to_obj']
+        model = DiffractionToObjectAdapter(models_dict['diffraction_to_obj'])
         
         # ModelManager updates the global params.cfg when loading
         # Return a copy to avoid unintended modifications
@@ -267,9 +335,12 @@ def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=F
     probeGuess = data['probeGuess']
     objectGuess = data.get('objectGuess', None)
     
-    # --- FIX: Load the 'Y' array if it exists ---
+    # Optional ground-truth patches. Some NPZs (e.g., Phase C patched_*.npz)
+    # may include a singleton 'Y' with shape (1, N, N, 1) rather than one
+    # per image. Guard against shape mismatches by degrading to None unless
+    # the first axis matches the dataset size. This keeps TensorFlow loader
+    # behavior consistent (it will create a placeholder when Y is missing).
     Y_patches = data['Y'] if 'Y' in data else None
-    # ---------------------------------------------
 
     # Apply coordinate transformations
     if flip_x:
@@ -296,6 +367,21 @@ def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=F
 
     # Implement independent subsampling logic
     dataset_size = xcoords.shape[0]
+
+    # Validate optional Y shape before any indexing with selected_indices
+    if Y_patches is not None:
+        try:
+            if getattr(Y_patches, 'shape', None) is None or Y_patches.shape[0] != dataset_size:
+                # Shape mismatch (e.g., singleton); ignore Y to avoid index errors
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Ignoring NPZ 'Y' with incompatible shape %s (expected first axis %d)",
+                    getattr(Y_patches, 'shape', None), dataset_size,
+                )
+                Y_patches = None
+        except Exception:
+            # Defensive: if anything goes wrong with Y inspection, null it out
+            Y_patches = None
     
     # Determine how many images to use for subsampling
     if n_subsample is not None:
@@ -332,8 +418,23 @@ def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=F
                           xcoords_start[selected_indices], ycoords_start[selected_indices],
                           diff3d[selected_indices], probeGuess,
                           scan_index[selected_indices], objectGuess=objectGuess,
-                          # --- FIX: Pass the loaded Y array to the constructor ---
+                          # Pass Y only when it is per-image and shape-validated
                           Y=(Y_patches[selected_indices] if Y_patches is not None else None))
+
+    # Persist selected indices for reproducibility
+    ptycho_data.sample_indices = np.array(selected_indices, copy=True)
+    ptycho_data.subsample_seed = subsample_seed
+    if subsample_seed is not None:
+        try:
+            tmp_dir = Path('tmp')
+            tmp_dir.mkdir(parents=True, exist_ok=True)
+            indices_path = tmp_dir / f"subsample_seed{subsample_seed}_indices.txt"
+            with indices_path.open('w', encoding='utf-8') as handle:
+                for idx in ptycho_data.sample_indices:
+                    handle.write(f"{int(idx)}\n")
+            logger.info("Persisted subsample indices to %s", indices_path)
+        except Exception as exc:
+            logger.warning("Failed to persist subsample indices for seed %s: %s", subsample_seed, exc)
 
     return ptycho_data
 
@@ -425,6 +526,25 @@ def parse_arguments():
                         help="Number of nearest neighbors (K) for grouping. Use higher values (e.g., 7) "
                              "to enable more combinations when requesting more groups than available points."
                     )
+                elif field.name == 'backend':
+                    # Special handling for backend Literal type
+                    if hasattr(field.type, "__origin__") and field.type.__origin__ is Literal:
+                        choices = list(field.type.__args__)
+                        parser.add_argument(
+                            f"--{field.name}",
+                            type=str,
+                            choices=choices,
+                            default=field.default,
+                            help=f"Backend selection: {', '.join(choices)} (default: {field.default})"
+                        )
+                    else:
+                        # Fallback if not a Literal type
+                        parser.add_argument(
+                            f"--{field.name}",
+                            type=str,
+                            default=field.default,
+                            help="Backend selection for workflow orchestration"
+                        )
                 else:
                     # Handle Optional types
                     if get_origin(field.type) is Union:
@@ -436,6 +556,16 @@ def parse_arguments():
                             type=actual_type,
                             default=field.default,
                             help=f"Training parameter: {field.name}"
+                        )
+                    elif get_origin(field.type) is Literal:
+                        # Handle Literal types (e.g., torch_loss_mode)
+                        choices = list(get_args(field.type))
+                        parser.add_argument(
+                            f"--{field.name}",
+                            type=str,
+                            choices=choices,
+                            default=field.default,
+                            help=f"Training parameter: {field.name}, choices: {choices}"
                         )
                     else:
                         parser.add_argument(
@@ -564,7 +694,9 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
             nsamples=config.n_groups,  # Use n_groups (clearer naming)
             dataset_path=str(config.train_data_file) if config.train_data_file else None,
             sequential_sampling=config.sequential_sampling,  # Pass sequential sampling flag
-            gridsize=config.model.gridsize  # Pass gridsize explicitly (replaces global params dependency)
+            gridsize=config.model.gridsize,  # Pass gridsize explicitly (replaces global params dependency)
+            enable_oversampling=config.enable_oversampling,  # Explicit opt-in for K choose C oversampling
+            neighbor_pool_size=config.neighbor_pool_size  # Pool size for oversampling (if None, defaults to neighbor_count)
         )
         return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)
     else:
@@ -602,6 +734,21 @@ def train_cdi_model(
 
     # Train the model
     results = train_pinn.train_eval(PtychoDataset(train_container, test_container))
+
+    # Normalize history payload so downstream consumers always receive a dict.
+    history_payload = results.get('history')
+    normalized_history: Dict[str, Any] = {}
+    if isinstance(history_payload, dict):
+        normalized_history = history_payload
+    elif history_payload is not None and hasattr(history_payload, 'history'):
+        normalized_history = dict(history_payload.history or {})
+    # Maintain legacy key expected by study runners even if Keras only reports "loss".
+    if normalized_history and 'train_loss' not in normalized_history and 'loss' in normalized_history:
+        normalized_history['train_loss'] = normalized_history['loss']
+    results['history'] = normalized_history
+    if history_payload is not None and hasattr(history_payload, 'epoch'):
+        results['history_epochs'] = list(history_payload.epoch)
+
     results['train_container'] = train_container
     results['test_container'] = test_container
     #history = train_pinn.train(train_container)
@@ -723,7 +870,76 @@ def run_cdi_example(
     return recon_amp, recon_phase, train_results
 
 
-def save_outputs(amplitude: Optional[np.ndarray], phase: Optional[np.ndarray], results: Dict[str, Any], output_prefix: str) -> None:
+def _nonzero_mask(amplitude: np.ndarray) -> Optional[np.ndarray]:
+    if amplitude.size == 0:
+        return None
+    max_val = float(np.max(amplitude))
+    if max_val <= 0.0:
+        return None
+    threshold = max(max_val * 1e-6, 1e-12)
+    mask = amplitude > threshold
+    if not np.any(mask):
+        return None
+    return mask
+
+
+def _crop_nonzero_bbox(
+    amplitude: np.ndarray,
+    phase: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
+    if amplitude.ndim != 2 or phase.ndim != 2:
+        return amplitude, phase
+    mask = _nonzero_mask(amplitude)
+    if mask is None:
+        return amplitude, phase
+
+    rows, cols = np.where(mask)
+    rmin, rmax = int(rows.min()), int(rows.max())
+    cmin, cmax = int(cols.min()), int(cols.max())
+    return amplitude[rmin : rmax + 1, cmin : cmax + 1], phase[rmin : rmax + 1, cmin : cmax + 1]
+
+
+def _crop_square_nonzero(
+    amplitude: np.ndarray,
+    phase: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
+    if amplitude.ndim != 2 or phase.ndim != 2:
+        return amplitude, phase
+    mask = _nonzero_mask(amplitude)
+    if mask is None:
+        return amplitude, phase
+
+    rows, cols = np.where(mask)
+    rmin, rmax = int(rows.min()), int(rows.max())
+    cmin, cmax = int(cols.min()), int(cols.max())
+    height = rmax - rmin + 1
+    width = cmax - cmin + 1
+
+    if height == width:
+        return amplitude[rmin : rmax + 1, cmin : cmax + 1], phase[rmin : rmax + 1, cmin : cmax + 1]
+
+    if height > width:
+        size = width
+        r_start = rmin + (height - size) // 2
+        r_end = r_start + size
+        c_start, c_end = cmin, cmax + 1
+    else:
+        size = height
+        c_start = cmin + (width - size) // 2
+        c_end = c_start + size
+        r_start, r_end = rmin, rmax + 1
+
+    return amplitude[r_start:r_end, c_start:c_end], phase[r_start:r_end, c_start:c_end]
+
+
+def save_outputs(
+    amplitude: Optional[np.ndarray],
+    phase: Optional[np.ndarray],
+    results: Dict[str, Any],
+    output_prefix: str,
+    cmap: str = "jet",
+    crop_mode: Literal["square", "bbox", "none"] = "square",
+) -> None:
     """Save the generated images and results."""
     os.makedirs(output_prefix, exist_ok=True)
     
@@ -741,15 +957,41 @@ def save_outputs(amplitude: Optional[np.ndarray], phase: Optional[np.ndarray], r
         logger.info(f"Squeezed amplitude shape: {amplitude.shape}")
         logger.info(f"Squeezed phase shape: {phase.shape}")
         
+        if crop_mode == "square":
+            amplitude, phase = _crop_square_nonzero(amplitude, phase)
+        elif crop_mode == "bbox":
+            amplitude, phase = _crop_nonzero_bbox(amplitude, phase)
+        elif crop_mode != "none":
+            raise ValueError(f"Unknown crop_mode: {crop_mode}")
+
+        amp_mask = _nonzero_mask(amplitude)
+        amp_vmin = amp_vmax = None
+        if amp_mask is not None:
+            amp_values = amplitude[amp_mask]
+            if amp_values.size:
+                amp_vmin = float(np.min(amp_values))
+                amp_vmax = float(np.max(amp_values))
+                if amp_vmin == amp_vmax:
+                    amp_vmin = amp_vmax = None
+
+        phase_vmin = phase_vmax = None
+        if amp_mask is not None:
+            phase_values = phase[amp_mask]
+            if phase_values.size:
+                phase_vmin = float(np.min(phase_values))
+                phase_vmax = float(np.max(phase_values))
+                if phase_vmin == phase_vmax:
+                    phase_vmin = phase_vmax = None
+
         # Save as PNG files using plt.figure() to handle 2D arrays properly
-        plt.figure(figsize=(8,8))
-        plt.imshow(amplitude, cmap='gray')
+        plt.figure(figsize=(8, 8))
+        plt.imshow(amplitude, cmap=cmap, vmin=amp_vmin, vmax=amp_vmax)
         plt.colorbar()
         plt.savefig(os.path.join(output_prefix, "reconstructed_amplitude.png"))
         plt.close()
         
-        plt.figure(figsize=(8,8))
-        plt.imshow(phase, cmap='viridis')
+        plt.figure(figsize=(8, 8))
+        plt.imshow(phase, cmap=cmap, vmin=phase_vmin, vmax=phase_vmax)
         plt.colorbar()
         plt.savefig(os.path.join(output_prefix, "reconstructed_phase.png"))
         plt.close()

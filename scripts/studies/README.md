@@ -65,6 +65,15 @@ Analysis script that processes results from multiple training runs and generates
 python scripts/studies/aggregate_and_plot_results.py <study_output_dir> [--output-plot results.png]
 ```
 
+### `sim_lines_4x/`
+Scenario runners for SIM-LINES-4X: nongrid "lines" simulation with TF training and reconstruction
+across gs1/gs2 and idealized/custom probes.
+
+**Usage:**
+```bash
+python scripts/studies/sim_lines_4x/run_gs1_ideal.py --output-root outputs/sim_lines_4x --nepochs 5
+```
+
 ## Workflow Modes
 
 The generalization study script supports two primary modes:
@@ -237,7 +246,7 @@ The study tracks comprehensive metrics across training set sizes with statistica
 ### For Experimental Datasets:
 1. **Preprocessing Required**: Use `transpose_rename_convert_tool.py` for raw experimental data
 2. **Shuffling Critical**: For gridsize=1 studies, shuffle datasets with `shuffle_dataset_tool.py`
-3. **Format Compliance**: Must follow [Data Contracts](../../docs/data_contracts.md) specification
+3. **Format Compliance**: Must follow [Data Contracts](../../specs/data_contracts.md) specification
 4. **Sufficient Size**: Ensure dataset has enough images for largest training size requested
 
 ### Recommended Experimental Datasets:
@@ -273,5 +282,5 @@ The study tracks comprehensive metrics across training set sizes with statistica
 ## Requirements
 
 - All scripts in this directory require the main PtychoPINN environment to be activated
-- Input datasets must conform to the [Data Contracts](../../docs/data_contracts.md) specification
+- Input datasets must conform to the [Data Contracts](../../specs/data_contracts.md) specification
 - Sufficient disk space for multiple model checkpoints and intermediate results

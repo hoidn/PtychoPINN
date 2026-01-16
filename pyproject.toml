@@ -37,10 +37,11 @@ dependencies = [
 ]
 dynamic = ["version"]
 
+ 
+
 [project.scripts]
 ptycho_train = "scripts.training.train:main"
 ptycho_inference = "scripts.inference.inference:main"
-ptycho_evaluate = "scripts.evaluation.evaluate_model:main"
 
 [tool.setuptools.package-data]
 datasets = ["*.npz"]
@@ -60,7 +61,12 @@ testpaths = ["tests"]
 markers = [
     "torch: marks tests as requiring PyTorch (deselect with '-m \"not torch\"')",
     "optional: marks tests as requiring optional dependencies",
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "mvp: marks tests covering MVP (minimum viable product) field requirements",
+    "study: marks tests for study infrastructure (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001)",
+    "mini: marks tests as minimal/fast unit tests",
+    "integration: marks end-to-end integration smoke tests (project-level alias)",
+    "tf_integration: marks TensorFlow end-to-end workflow integration smoke test"
 ]
 # Configure test collection to handle import errors gracefully
 addopts = [

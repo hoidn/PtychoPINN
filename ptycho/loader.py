@@ -69,9 +69,13 @@ TensorFlow Integration:
     - All NumPy arrays undergo dtype conversion: float64→float32, complex128→complex64
     - Tensor shapes are validated for TensorFlow compatibility and GPU efficiency
     - Multi-channel dimensions preserved for gridsize > 1 neural network architectures
-    - Missing ground truth handled with properly-shaped complex dummy tensors
+    - Missing ground truth handled with properly-shaped complex dummy tensors (MAE losses should be disabled in this case)
     - Seamless integration with tf.data.Dataset and Keras model.fit() workflows
     - Primary consumers: ptycho.model, ptycho.train_pinn, ptycho.workflows.components
+
+Coordinate Semantics:
+    - Offsets use channel format `(B, 1, 2, C)` with axis order `[x, y]`
+    - Channel index `c` maps to `(row, col)` via row‑major: `row=c//gridsize`, `col=c%gridsize`
 """
 
 import numpy as np
@@ -92,65 +96,229 @@ class PtychoDataset:
 
 class PtychoDataContainer:
     """
-    TensorFlow tensor container for model-ready ptychographic data.
-    
-    This container holds the final NumPy->TensorFlow converted data structures
-    ready for neural network training and inference. All tensor attributes use
-    appropriate TensorFlow dtypes for efficient GPU computation.
-    
-    Tensor Attributes:
-        X: Diffraction patterns - tf.float32, shape (n_images, N, N, n_channels)
-           where n_channels = gridsize^2 for multi-channel configurations
-        Y_I: Ground truth amplitude patches - tf.float32, shape (n_images, patch_size, patch_size, n_channels)
-        Y_phi: Ground truth phase patches - tf.float32, shape (n_images, patch_size, patch_size, n_channels)
-        Y: Combined complex ground truth - tf.complex64, shape (n_images, patch_size, patch_size, n_channels)
-        coords_nominal: Scan coordinates - tf.float32, shape (n_images, 2)
-        coords_true: True scan coordinates - tf.float32, shape (n_images, 2)
-        probe: Probe function - tf.complex64, shape (N, N)
-        
+    Lazy-loading TensorFlow tensor container for model-ready ptychographic data.
+
+    This container stores data as NumPy arrays internally and converts to TensorFlow
+    tensors only on demand (lazy loading). This prevents GPU memory exhaustion when
+    working with large datasets (20k+ images).
+
+    LAZY LOADING BEHAVIOR:
+        Data is stored as NumPy arrays in private attributes (e.g., _X_np).
+        Accessing properties (e.g., .X) converts to TensorFlow tensor on first access
+        and caches the result. For large datasets, use as_tf_dataset(batch_size)
+        instead to stream data in batches without loading everything into GPU memory.
+
+    Property Attributes (lazy TensorFlow conversion):
+        X: Diffraction patterns — tf.float32, shape (B, N, N, C)
+           where C = gridsize^2 for multi‑channel configurations (channel = scan position)
+        Y_I: Ground truth amplitude patches — tf.float32, shape (B, N, N, C)
+        Y_phi: Ground truth phase patches — tf.float32, shape (B, N, N, C)
+        Y: Combined complex ground truth — tf.complex64, shape (B, N, N, C)
+        coords_nominal: Scan coordinates (channel format) — tf.float32, shape (B, 1, 2, C)
+        coords_true: True scan coordinates (channel format) — tf.float32, shape (B, 1, 2, C)
+        probe: Probe function — tf.complex64, shape (N, N)
+
     NumPy Attributes (preserved from raw_data grouping):
         norm_Y_I: Normalization factors for amplitude
         YY_full: Full object reconstruction (if available)
         nn_indices: Nearest neighbor indices for patch grouping
         global_offsets: Global coordinate offsets
         local_offsets: Local coordinate offsets within patches
-        
-    The container automatically handles complex tensor composition (Y = Y_I * exp(1j * Y_phi))
+
+    The container composes complex ground truth (Y = Y_I * exp(1j · Y_phi)) lazily
     and provides comprehensive debug representations showing tensor statistics.
+
+    See: docs/findings.md PINN-CHUNKED-001 for the OOM blocker this addresses.
     """
     @debug
     def __init__(self, X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, nn_indices, global_offsets, local_offsets, probeGuess):
-        self.X = X
-        self.Y_I = Y_I
-        self.Y_phi = Y_phi
+        # Store as numpy, convert lazily on property access
+        # Handle both tensor and array inputs
+        self._X_np = X.numpy() if tf.is_tensor(X) else X
+        self._Y_I_np = Y_I.numpy() if tf.is_tensor(Y_I) else Y_I
+        self._Y_phi_np = Y_phi.numpy() if tf.is_tensor(Y_phi) else Y_phi
+        self._coords_nominal_np = coords_nominal.numpy() if tf.is_tensor(coords_nominal) else coords_nominal
+        self._coords_true_np = coords_true.numpy() if tf.is_tensor(coords_true) else coords_true
+        self._probe_np = probeGuess.numpy() if tf.is_tensor(probeGuess) else probeGuess
+
+        # Lazy cache for tensorified data
+        self._tensor_cache = {}
+
+        # These remain as-is (NumPy only attributes)
         self.norm_Y_I = norm_Y_I
         self.YY_full = YY_full
-        self.coords_nominal = coords_nominal
-        self.coords = coords_nominal
-        self.coords_true = coords_true
         self.nn_indices = nn_indices
         self.global_offsets = global_offsets
         self.local_offsets = local_offsets
-        self.probe = probeGuess
 
-        from .tf_helper import combine_complex
-        self.Y = combine_complex(Y_I, Y_phi)
+    @property
+    def X(self):
+        """Diffraction patterns — tf.float32, shape (B, N, N, C).
+
+        WARNING: Accessing this property loads the full tensor into GPU memory.
+        For large datasets, use as_tf_dataset() instead.
+        """
+        if 'X' not in self._tensor_cache:
+            self._tensor_cache['X'] = tf.convert_to_tensor(self._X_np, dtype=tf.float32)
+        return self._tensor_cache['X']
+
+    @property
+    def Y_I(self):
+        """Ground truth amplitude — tf.float32, shape (B, N, N, C)."""
+        if 'Y_I' not in self._tensor_cache:
+            self._tensor_cache['Y_I'] = tf.convert_to_tensor(self._Y_I_np, dtype=tf.float32)
+        return self._tensor_cache['Y_I']
+
+    @property
+    def Y_phi(self):
+        """Ground truth phase — tf.float32, shape (B, N, N, C)."""
+        if 'Y_phi' not in self._tensor_cache:
+            self._tensor_cache['Y_phi'] = tf.convert_to_tensor(self._Y_phi_np, dtype=tf.float32)
+        return self._tensor_cache['Y_phi']
+
+    @property
+    def Y(self):
+        """Combined complex ground truth — tf.complex64, shape (B, N, N, C)."""
+        if 'Y' not in self._tensor_cache:
+            from .tf_helper import combine_complex
+            self._tensor_cache['Y'] = combine_complex(self.Y_I, self.Y_phi)
+        return self._tensor_cache['Y']
+
+    @property
+    def coords_nominal(self):
+        """Scan coordinates (channel format) — tf.float32, shape (B, 1, 2, C)."""
+        if 'coords_nominal' not in self._tensor_cache:
+            self._tensor_cache['coords_nominal'] = tf.convert_to_tensor(
+                self._coords_nominal_np, dtype=tf.float32
+            )
+        return self._tensor_cache['coords_nominal']
+
+    @property
+    def coords(self):
+        """Alias for coords_nominal (backward compatibility)."""
+        return self.coords_nominal
+
+    @property
+    def coords_true(self):
+        """True scan coordinates — tf.float32, shape (B, 1, 2, C)."""
+        if 'coords_true' not in self._tensor_cache:
+            self._tensor_cache['coords_true'] = tf.convert_to_tensor(
+                self._coords_true_np, dtype=tf.float32
+            )
+        return self._tensor_cache['coords_true']
+
+    @property
+    def probe(self):
+        """Probe function — tf.complex64, shape (N, N)."""
+        if 'probe' not in self._tensor_cache:
+            self._tensor_cache['probe'] = tf.convert_to_tensor(
+                self._probe_np, dtype=tf.complex64
+            )
+        return self._tensor_cache['probe']
 
     @debug
     def __repr__(self):
+        """Debug representation using underlying NumPy arrays (avoids GPU tensorification)."""
         repr_str = '<PtychoDataContainer'
-        for attr_name in ['X', 'Y_I', 'Y_phi', 'norm_Y_I', 'YY_full', 'coords_nominal', 'coords_true', 'nn_indices', 'global_offsets', 'local_offsets', 'probe']:
-            attr = getattr(self, attr_name)
+        # Map public names to private numpy arrays (avoid triggering lazy tensor conversion)
+        np_attr_map = {
+            'X': '_X_np', 'Y_I': '_Y_I_np', 'Y_phi': '_Y_phi_np',
+            'coords_nominal': '_coords_nominal_np', 'coords_true': '_coords_true_np',
+            'probe': '_probe_np'
+        }
+        # Direct numpy attributes
+        direct_attrs = ['norm_Y_I', 'YY_full', 'nn_indices', 'global_offsets', 'local_offsets']
+
+        for attr_name in ['X', 'Y_I', 'Y_phi', 'coords_nominal', 'coords_true', 'probe']:
+            np_name = np_attr_map.get(attr_name, attr_name)
+            attr = getattr(self, np_name, None)
+            if attr is not None:
+                if np.iscomplexobj(attr):
+                    repr_str += f' {attr_name}={attr.shape} mean_amplitude={np.mean(np.abs(attr)):.3f}'
+                else:
+                    repr_str += f' {attr_name}={attr.shape} mean={attr.mean():.3f}'
+
+        for attr_name in direct_attrs:
+            attr = getattr(self, attr_name, None)
             if attr is not None:
                 if isinstance(attr, np.ndarray):
-                    if np.iscomplexobj(attr):
-                        repr_str += f' {attr_name}={attr.shape} mean_amplitude={np.mean(np.abs(attr)):.3f}'
-                    else:
-                        repr_str += f' {attr_name}={attr.shape} mean={attr.mean():.3f}'
-                else:
                     repr_str += f' {attr_name}={attr.shape}'
+                else:
+                    repr_str += f' {attr_name}=<scalar>'
         repr_str += '>'
         return repr_str
+
+    def __len__(self):
+        """Return number of samples in the container."""
+        return len(self._X_np)
+
+    def as_tf_dataset(self, batch_size: int, shuffle: bool = True) -> tf.data.Dataset:
+        """Create a tf.data.Dataset for memory-efficient batched access.
+
+        This is the preferred method for large datasets as it streams data
+        in batches rather than loading everything into GPU memory.
+
+        Args:
+            batch_size: Number of samples per batch
+            shuffle: Whether to shuffle the dataset (default True)
+
+        Returns:
+            tf.data.Dataset yielding (inputs, outputs) tuples compatible
+            with model.fit()
+        """
+        from . import params as p
+        from . import tf_helper as hh
+
+        n_samples = len(self._X_np)
+        intensity_scale = p.get('intensity_scale')
+
+        def generator():
+            indices = np.arange(n_samples)
+            if shuffle:
+                np.random.shuffle(indices)
+
+            for start in range(0, n_samples, batch_size):
+                end = min(start + batch_size, n_samples)
+                batch_idx = indices[start:end]
+
+                # Convert batch to tensors
+                X_batch = tf.convert_to_tensor(
+                    self._X_np[batch_idx], dtype=tf.float32
+                )
+                coords_batch = tf.convert_to_tensor(
+                    self._coords_nominal_np[batch_idx], dtype=tf.float32
+                )
+                Y_I_batch = tf.convert_to_tensor(
+                    self._Y_I_np[batch_idx], dtype=tf.float32
+                )
+
+                # Prepare inputs: (X * intensity_scale, coords) as tuple
+                inputs = (X_batch * intensity_scale, coords_batch)
+
+                # Prepare outputs: (centered_Y_I[:,:,:,:1], X*s, (X*s)^2) as tuple
+                Y_I_centered = hh.center_channels(Y_I_batch, coords_batch)[:, :, :, :1]
+                X_scaled = intensity_scale * X_batch
+                outputs = (Y_I_centered, X_scaled, X_scaled ** 2)
+
+                yield inputs, outputs
+
+        # Define output signature for tf.data.Dataset
+        N = self._X_np.shape[1]
+        C = self._X_np.shape[3]
+
+        output_signature = (
+            (
+                tf.TensorSpec(shape=(None, N, N, C), dtype=tf.float32),  # X
+                tf.TensorSpec(shape=(None, 1, 2, C), dtype=tf.float32),  # coords
+            ),
+            (
+                tf.TensorSpec(shape=(None, N, N, 1), dtype=tf.float32),  # Y_I centered
+                tf.TensorSpec(shape=(None, N, N, C), dtype=tf.float32),  # X*s
+                tf.TensorSpec(shape=(None, N, N, C), dtype=tf.float32),  # (X*s)^2
+            )
+        )
+
+        return tf.data.Dataset.from_generator(generator, output_signature=output_signature)
 
     @staticmethod
     @debug
@@ -189,22 +357,24 @@ class PtychoDataContainer:
         """
         Write the underlying arrays to an npz file.
 
+        Uses internal NumPy arrays directly (avoids GPU tensorification).
+
         Args:
             file_path (str): Path to the output npz file.
         """
         np.savez(
             file_path,
-            X=self.X.numpy() if tf.is_tensor(self.X) else self.X,
-            Y_I=self.Y_I.numpy() if tf.is_tensor(self.Y_I) else self.Y_I,
-            Y_phi=self.Y_phi.numpy() if tf.is_tensor(self.Y_phi) else self.Y_phi,
+            X=self._X_np,
+            Y_I=self._Y_I_np,
+            Y_phi=self._Y_phi_np,
             norm_Y_I=self.norm_Y_I,
             YY_full=self.YY_full,
-            coords_nominal=self.coords_nominal.numpy() if tf.is_tensor(self.coords_nominal) else self.coords_nominal,
-            coords_true=self.coords_true.numpy() if tf.is_tensor(self.coords_true) else self.coords_true,
+            coords_nominal=self._coords_nominal_np,
+            coords_true=self._coords_true_np,
             nn_indices=self.nn_indices,
             global_offsets=self.global_offsets,
             local_offsets=self.local_offsets,
-            probe=self.probe.numpy() if tf.is_tensor(self.probe) else self.probe
+            probe=self._probe_np
         )
 
     # TODO is this deprecated, given the above method to_npz()?
@@ -249,51 +419,51 @@ def split_tensor(tensor, frac, which='test'):
 @debug
 def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) -> PtychoDataContainer:
     """
-    Convert grouped NumPy data to TensorFlow tensors in a PtychoDataContainer.
-    
-    This is the primary NumPy->TensorFlow conversion function in the data pipeline.
-    It takes a callback that returns grouped data (as produced by raw_data.py) and
-    converts all relevant arrays to appropriately-typed TensorFlow tensors.
-    
+    Convert grouped NumPy data to a lazy-loading PtychoDataContainer.
+
+    This function takes a callback that returns grouped data (as produced by raw_data.py)
+    and creates a PtychoDataContainer that stores data as NumPy arrays internally.
+    TensorFlow tensor conversion is deferred until property access (lazy loading).
+
     Args:
         cb: Callback function that returns grouped data dictionary from raw_data.
             The callback pattern allows lazy evaluation - data grouping only occurs
             when needed, which is crucial for memory efficiency with large datasets.
             Expected return: dict with keys 'X_full', 'Y', 'objectGuess', coordinate
             keys, and metadata from raw_data.generate_grouped_data().
-        probeGuess: Initial probe function as TensorFlow complex64 tensor, shape (N, N)
+        probeGuess: Initial probe function as TensorFlow complex64 tensor or NumPy array, shape (N, N)
         which: Data split selector - 'train' or 'test' (only used if create_split=True)
         create_split: If True, expects cb() to return (data_dict, train_fraction) tuple
                      and applies fraction-based splitting. If False, uses full dataset.
-    
+
     Returns:
-        PtychoDataContainer with all arrays converted to appropriate TensorFlow dtypes:
-        - Diffraction data (X) -> tf.float32
-        - Ground truth patches (Y_I, Y_phi) -> tf.float32
-        - Complex ground truth (Y) -> tf.complex64
-        - Coordinates -> tf.float32
-        
+        PtychoDataContainer with NumPy arrays stored internally. TensorFlow tensors
+        are created lazily on property access:
+        - Diffraction data (X) -> tf.float32 on access
+        - Ground truth patches (Y_I, Y_phi) -> tf.float32 on access
+        - Complex ground truth (Y) -> tf.complex64 on access
+        - Coordinates -> tf.float32 on access
+
     Notes:
+        - Data is stored as NumPy arrays to prevent GPU memory exhaustion (PINN-CHUNKED-001)
+        - Tensor conversion happens lazily on first property access
+        - For large datasets, use container.as_tf_dataset(batch_size) instead of
+          accessing .X, .Y directly to stream data in batches
         - Preserves multi-channel dimensions for gridsize > 1 configurations
-        - Creates dummy complex tensors if ground truth is missing
-        - Validates channel consistency between X and Y tensors
-        - Handles train/test splitting consistently across all tensor arrays
     """
-    from . import params as cfg
-    from . import probe
-    
+    train_frac = None  # Initialize to avoid possibly unbound warning
+
     if create_split:
         dset, train_frac = cb()
     else:
         dset = cb()
-        
-    gt_image = dset['objectGuess']
+
     X_full = dset['X_full']  # This is already in the correct multi-channel format.
     global_offsets = dset[key_coords_offsets]
-    
+
     coords_nominal = dset[key_coords_relative]
     coords_true = dset[key_coords_relative]
-    
+
     # Correctly handle splitting for both X and Y
     if create_split:
         global_offsets = split_tensor(global_offsets, train_frac, which)
@@ -301,15 +471,17 @@ def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) ->
     else:
         X_full_split = X_full
 
-    # Convert X to a tensor, preserving its multi-channel shape
-    X = tf.convert_to_tensor(X_full_split, dtype=tf.float32)
-    coords_nominal = tf.convert_to_tensor(coords_nominal, dtype=tf.float32)
-    coords_true = tf.convert_to_tensor(coords_true, dtype=tf.float32)
+    # Pass NumPy arrays directly — container will convert lazily on property access
+    # Ensure correct dtype for NumPy storage
+    X = X_full_split.astype(np.float32) if not np.issubdtype(X_full_split.dtype, np.float32) else X_full_split
+    coords_nominal = coords_nominal.astype(np.float32) if not np.issubdtype(coords_nominal.dtype, np.float32) else coords_nominal
+    coords_true = coords_true.astype(np.float32) if not np.issubdtype(coords_true.dtype, np.float32) else coords_true
 
     # Handle the Y array (ground truth patches)
     if dset['Y'] is None:
         # If Y is missing, create a placeholder with the same multi-channel shape as X.
-        Y = tf.ones_like(X, dtype=tf.complex64)
+        Y_I = np.ones(X.shape, dtype=np.float32)
+        Y_phi = np.zeros(X.shape, dtype=np.float32)
         print("loader: setting dummy Y ground truth with correct channel shape.")
     else:
         Y_full = dset['Y']
@@ -318,24 +490,23 @@ def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) ->
             Y_split, _, _ = split_data(Y_full, coords_nominal, coords_true, train_frac, which)
         else:
             Y_split = Y_full
-        Y = tf.convert_to_tensor(Y_split, dtype=tf.complex64)
+        # Extract amplitude and phase as NumPy arrays
+        Y_I = np.abs(Y_split).astype(np.float32)
+        Y_phi = np.angle(Y_split).astype(np.float32)
         print("loader: using provided ground truth patches.")
 
-    # Final validation check
-    if X.shape[-1] != Y.shape[-1]:
-        raise ValueError(f"Channel mismatch between X ({X.shape[-1]}) and Y ({Y.shape[-1]})")
+    # Final validation check (using NumPy shapes)
+    if X.shape[-1] != Y_I.shape[-1]:
+        raise ValueError(f"Channel mismatch between X ({X.shape[-1]}) and Y ({Y_I.shape[-1]})")
 
-    # Extract amplitude and phase, which will also have the correct multi-channel shape
-    Y_I = tf.math.abs(Y)
-    Y_phi = tf.math.angle(Y)
+    # scale_nphotons expects a tensor, so temporarily convert X
+    norm_Y_I = datasets.scale_nphotons(tf.convert_to_tensor(X, dtype=tf.float32))
 
-    norm_Y_I = datasets.scale_nphotons(X)
+    YY_full = None  # This is a placeholder
 
-    YY_full = None # This is a placeholder
-    
-    # Create the container with correctly shaped tensors
-    container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, 
-                                  dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess)
+    # Create the container with NumPy arrays (lazy tensor conversion)
+    container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true,
+                                    dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess)
     print('INFO:', which)
     print(container)
     return container

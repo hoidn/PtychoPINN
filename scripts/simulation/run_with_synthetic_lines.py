@@ -38,9 +38,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # Import necessary components from the ptycho library
-from ptycho import params as p
-from ptycho.diffsim import sim_object_image
-from ptycho.probe import get_default_probe
+from scripts.simulation.synthetic_helpers import make_lines_object, make_probe  # noqa: E402
 
 def generate_and_save_synthetic_input(
     output_dir: Path,
@@ -59,19 +57,13 @@ def generate_and_save_synthetic_input(
     print("--- Step 1: Generating Synthetic Input Data ---")
 
     print(f"Creating a default probe of size {probe_size}x{probe_size}...")
-    p.set('N', probe_size)
-    p.set('default_probe_scale', 0.7)
-    default_probe = get_default_probe(N=probe_size, fmt='np').astype(np.complex64)
+    default_probe = make_probe(probe_size, mode="idealized", scale=0.7)
     
     object_scale_factor = 3.5
     full_object_size = int(probe_size * object_scale_factor)
     
     print(f"Creating a synthetic 'lines' object of size {full_object_size}x{full_object_size}...")
-    p.set('data_source', 'lines')
-    p.set('size', full_object_size)
-    
-    synthetic_object = sim_object_image(size=full_object_size)
-    synthetic_object = synthetic_object.squeeze().astype(np.complex64)
+    synthetic_object = make_lines_object(full_object_size, data_source="lines")
     
     print(f"Generated probe: {default_probe.shape}, object: {synthetic_object.shape}")
 

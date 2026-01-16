@@ -22,12 +22,16 @@ Arguments:
     --nsamples: Number of samples for grouped data generation (default: 1)
 """
 
-from typing import Optional
+from __future__ import annotations
+
+from typing import Optional, Tuple
 import argparse
 import logging
 import os
 import sys
 import time
+import math
+import json
 import signal
 from pathlib import Path
 from dataclasses import fields
@@ -36,7 +40,8 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from ptycho import probe, params
 from ptycho.raw_data import RawData
-from ptycho.workflows.components import load_data, setup_configuration, parse_arguments, load_inference_bundle
+from ptycho.workflows.components import load_data, setup_configuration, parse_arguments
+from ptycho.workflows.backend_selector import load_inference_bundle_with_backend
 from ptycho.config.config import InferenceConfig, ModelConfig, validate_inference_config, update_legacy_dict
 
 # Set up logging
@@ -90,6 +95,32 @@ def parse_arguments() -> argparse.Namespace:
                        help="Minimum value for phase color scale (default: auto)")
     parser.add_argument("--phase_vmax", type=float, required=False, default=None,
                        help="Maximum value for phase color scale (default: auto)")
+    parser.add_argument("--debug_dump", nargs='?', const='__AUTO__', default=None,
+                       help="Directory to store inference debug artifacts (patch grid, offsets, stats). "
+                            "Defaults to <output_dir>/debug_dump when invoked without a value.")
+    # Backend selection (POLICY-001: PyTorch mandatory, CONFIG-001: update_legacy_dict required)
+    parser.add_argument("--backend", type=str, choices=['tensorflow', 'pytorch'],
+                       default='tensorflow',
+                       help="Backend to use for inference: 'tensorflow' (default) or 'pytorch'. "
+                            "PyTorch backend requires torch>=2.2 (POLICY-001). "
+                            "Both backends handle params.cfg restoration via CONFIG-001.")
+
+    # PyTorch-only execution flags (see docs/workflows/pytorch.md §12)
+    parser.add_argument("--torch-accelerator", type=str,
+                       choices=['auto', 'cpu', 'cuda', 'gpu', 'mps', 'tpu'],
+                       default='cuda',
+                       help="PyTorch accelerator for inference (only applies when --backend pytorch). "
+                            "Options: 'cuda' (default GPU baseline per POLICY-001), 'auto' (auto-detect with CUDA preference), "
+                            "'cpu' (fallback), 'gpu', 'mps', 'tpu'. "
+                            "Override with '--torch-accelerator cpu' for CPU-only runs. "
+                            "See docs/workflows/pytorch.md §12 for details.")
+    parser.add_argument("--torch-num-workers", type=int, default=0,
+                       help="Number of dataloader worker processes for PyTorch inference (default: 0). "
+                            "Set to 0 for main process only (CPU-safe). "
+                            "Only applies when --backend pytorch.")
+    parser.add_argument("--torch-inference-batch-size", type=int, default=None,
+                       help="Batch size for PyTorch inference (default: None, uses model default). "
+                            "Only applies when --backend pytorch.")
     return parser.parse_args()
 
 def interpret_sampling_parameters(config: InferenceConfig) -> tuple:
@@ -171,6 +202,7 @@ def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[
     final_model_config = ModelConfig(**model_defaults)
 
     # Create the InferenceConfig object with n_images and n_subsample support
+    # Backend selection per POLICY-001 (PyTorch >=2.2) and CONFIG-001 (params.cfg restoration)
     inference_config = InferenceConfig(
         model=final_model_config,
         model_path=Path(args.model_path),
@@ -179,7 +211,8 @@ def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[
         n_subsample=args.n_subsample,
         subsample_seed=args.subsample_seed,
         debug=args.debug,
-        output_dir=Path(args.output_dir)
+        output_dir=Path(args.output_dir),
+        backend=args.backend  # Populated from CLI argument
     )
     
     validate_inference_config(inference_config)
@@ -187,9 +220,251 @@ def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[
     return inference_config
 
 
-def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K: int, nsamples: int) -> tuple:
+def _dump_tf_inference_debug_artifacts(
+    debug_path: Path,
+    patch_tensor,
+    global_offsets,
+    canvas,
+    patch_limit: int = 16,
+):
+    """
+    Persist patch-level diagnostics for TensorFlow inference.
+
+    Args:
+        debug_path: Directory where artifacts will be written.
+        patch_tensor: Complex numpy array of predicted patches.
+        global_offsets: Offsets returned by reconstruct_image().
+        canvas: Complex numpy array of the stitched object.
+        patch_limit: Number of flattened patches to visualize.
+    """
+    debug_path = Path(debug_path)
+    debug_path.mkdir(parents=True, exist_ok=True)
+
+    patch_complex = np.asarray(patch_tensor)
+    if patch_complex.ndim >= 4 and patch_complex.shape[-1] == 1:
+        patch_complex = np.squeeze(patch_complex, axis=-1)
+    patch_amp = np.abs(patch_complex)
+    flat_patches = patch_amp.reshape(-1, patch_amp.shape[-2], patch_amp.shape[-1])
+    limit = max(0, min(patch_limit, flat_patches.shape[0]))
+
+    if limit > 0:
+        cols = 4
+        rows = math.ceil(limit / cols)
+        fig, axes = plt.subplots(rows, cols, figsize=(cols * 2.5, rows * 2.5))
+        axes = np.atleast_1d(axes).ravel()
+        for idx, ax in enumerate(axes):
+            ax.axis('off')
+            if idx >= limit:
+                continue
+            ax.imshow(flat_patches[idx], cmap='magma')
+            ax.set_title(f"Patch {idx}", fontsize=8)
+        fig.tight_layout()
+        fig.savefig(debug_path / "pred_patches_amp_grid.png", dpi=200)
+        plt.close(fig)
+
+    offsets_arr = np.asarray(global_offsets)
+    if offsets_arr.size == 0:
+        offsets_vec = np.zeros((0, 2), dtype=np.float32)
+    else:
+        offsets_vec = offsets_arr.reshape(-1, offsets_arr.shape[-1])
+        if offsets_vec.shape[-1] != 2:
+            offsets_vec = offsets_arr.reshape(-1, 2)
+    canvas_complex = np.squeeze(np.asarray(canvas))
+    canvas_amp = np.abs(canvas_complex)
+
+    centered_offsets = offsets_vec - np.mean(offsets_vec, axis=0, keepdims=True) if offsets_vec.size else offsets_vec
+    offsets_payload = {
+        "count": int(offsets_vec.shape[0]),
+        "first_offsets_px": [
+            {"dx": float(offsets_vec[i, 0]), "dy": float(offsets_vec[i, 1])}
+            for i in range(min(limit, offsets_vec.shape[0]))
+        ],
+        "mean_dx": float(np.mean(offsets_vec[:, 0])) if offsets_vec.size else 0.0,
+        "mean_dy": float(np.mean(offsets_vec[:, 1])) if offsets_vec.size else 0.0,
+        "std_dx": float(np.std(offsets_vec[:, 0])) if offsets_vec.size else 0.0,
+        "std_dy": float(np.std(offsets_vec[:, 1])) if offsets_vec.size else 0.0,
+        "centered_std_dx": float(np.std(centered_offsets[:, 0])) if offsets_vec.size else 0.0,
+        "centered_std_dy": float(np.std(centered_offsets[:, 1])) if offsets_vec.size else 0.0,
+    }
+    with open(debug_path / "offsets.json", "w", encoding="utf-8") as fp:
+        json.dump(offsets_payload, fp, indent=2)
+
+    patch_zero_mean = flat_patches - flat_patches.mean(axis=(-2, -1), keepdims=True)
+    patch_variance = float(np.mean(patch_zero_mean ** 2)) if flat_patches.size else 0.0
+    stats_payload = {
+        "patch_amplitude": {
+            "mean": float(np.mean(flat_patches)) if flat_patches.size else 0.0,
+            "std": float(np.std(flat_patches)) if flat_patches.size else 0.0,
+            "min": float(np.min(flat_patches)) if flat_patches.size else 0.0,
+            "max": float(np.max(flat_patches)) if flat_patches.size else 0.0,
+            "var_zero_mean": patch_variance,
+        },
+        "canvas_amplitude": {
+            "mean": float(np.mean(canvas_amp)) if canvas_amp.size else 0.0,
+            "std": float(np.std(canvas_amp)) if canvas_amp.size else 0.0,
+            "min": float(np.min(canvas_amp)) if canvas_amp.size else 0.0,
+            "max": float(np.max(canvas_amp)) if canvas_amp.size else 0.0,
+        },
+    }
+    with open(debug_path / "stats.json", "w", encoding="utf-8") as fp:
+        json.dump(stats_payload, fp, indent=2)
+
+    canvas_payload = {
+        "patch_size": int(flat_patches.shape[-1]) if flat_patches.size else 0,
+        "canvas_size": int(canvas_amp.shape[-1]) if canvas_amp.size else 0,
+        "num_patch_slots": int(flat_patches.shape[0]),
+        "max_abs_dx": float(np.max(np.abs(offsets_vec[:, 0]))) if offsets_vec.size else 0.0,
+        "max_abs_dy": float(np.max(np.abs(offsets_vec[:, 1]))) if offsets_vec.size else 0.0,
+    }
+    with open(debug_path / "canvas.json", "w", encoding="utf-8") as fp:
+        json.dump(canvas_payload, fp, indent=2)
+
+
+def extract_ground_truth(raw_data: "RawData") -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    """
+    Extract ground truth amplitude/phase from RawData if available and valid.
+
+    Args:
+        raw_data: RawData instance with potential ground truth in objectGuess.
+
+    Returns:
+        (amplitude, phase) tuple if valid ground truth exists, else None.
+
+    Notes:
+        - Returns None if objectGuess is missing, all zeros, or uniform.
+        - Uses crop_to_non_uniform_region_with_buffer for processing.
+    """
+    from ptycho.nbutils import crop_to_non_uniform_region_with_buffer
+
+    if not hasattr(raw_data, 'objectGuess') or raw_data.objectGuess is None:
+        return None
+    if np.allclose(raw_data.objectGuess, 0, atol=1e-10):
+        return None
+    obj_complex = raw_data.objectGuess
+    if (np.allclose(obj_complex.real, obj_complex.real.flat[0], atol=1e-10) and
+            np.allclose(obj_complex.imag, obj_complex.imag.flat[0], atol=1e-10)):
+        return None
+
+    epie_phase = crop_to_non_uniform_region_with_buffer(np.angle(obj_complex), buffer=-20)
+    epie_amplitude = crop_to_non_uniform_region_with_buffer(np.abs(obj_complex), buffer=-20)
+    return (epie_amplitude, epie_phase)
+
+
+def _run_tf_inference_and_reconstruct(
+    model: tf.keras.Model,
+    raw_data: "RawData",
+    config: dict,
+    K: int = 4,
+    nsamples: Optional[int] = None,
+    quiet: bool = False,
+    debug_dump_dir: Optional[Path] = None,
+    debug_patch_limit: int = 16,
+    seed: int = 45,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Core TensorFlow inference helper for programmatic use.
+
+    Mirrors PyTorch `_run_inference_and_reconstruct()` signature for API parity.
+    See docs/specs/spec-ptycho-interfaces.md for contract details.
+
+    Args:
+        model: Loaded TensorFlow model (from load_inference_bundle_with_backend).
+        raw_data: RawData instance with test data.
+        config: Dict with 'N', 'gridsize' keys (from model bundle).
+        K: Number of nearest neighbors (default: 4).
+        nsamples: Number of samples; if None, uses all available.
+        quiet: Suppress progress output.
+        debug_dump_dir: Optional directory for debug artifacts.
+        debug_patch_limit: Patches to visualize in debug mode.
+        seed: Random seed for reproducibility (default: 45).
+
+    Returns:
+        Tuple of (amplitude, phase) as numpy arrays.
+
+    Raises:
+        ValueError: If there's an error during inference.
+
+    Notes:
+        - Expects params.cfg to be populated via CONFIG-001 before call.
+        - Ground truth not returned (use extract_ground_truth separately).
+    """
+    from ptycho.nbutils import reconstruct_image
+    from ptycho import loader
+    from ptycho.tf_helper import reassemble_position
+
+    try:
+        # Set random seeds for reproducibility
+        tf.random.set_seed(seed)
+        np.random.seed(seed)
+
+        # Generate grouped data
+        if not quiet:
+            logger.info(f"DEBUG: Using gridsize={config.get('gridsize', 'NOT_SET')} for data generation")
+        test_dataset = raw_data.generate_grouped_data(
+            config['N'], K=K, nsamples=nsamples, gridsize=config.get('gridsize', 1)
+        )
+
+        # Debug: check shapes
+        if not quiet:
+            if 'diffraction' in test_dataset:
+                logger.info(f"DEBUG: Generated diffraction data shape: {test_dataset['diffraction'].shape}")
+            if 'Y' in test_dataset and test_dataset['Y'] is not None:
+                logger.info(f"DEBUG: Generated Y data shape: {test_dataset['Y'].shape}")
+
+        # Create PtychoDataContainer
+        test_data_container = loader.load(
+            lambda: test_dataset, raw_data.probeGuess, which=None, create_split=False
+        )
+
+        if not quiet:
+            logger.info(
+                f"DEBUG: PtychoDataContainer shapes - X (diffraction): {test_data_container.X.shape}, "
+                f"Y: {test_data_container.Y.shape if test_data_container.Y is not None else 'None'}"
+            )
+
+        # Perform reconstruction
+        start_time = time.time()
+        obj_tensor_full, global_offsets = reconstruct_image(test_data_container, diffraction_to_obj=model)
+        reconstruction_time = time.time() - start_time
+        if not quiet:
+            logger.info(f"Reconstruction completed in {reconstruction_time:.2f} seconds")
+
+        # Process the reconstructed image
+        obj_image = reassemble_position(obj_tensor_full, global_offsets, M=20)
+
+        # Extract amplitude and phase
+        reconstructed_amplitude = np.abs(obj_image)
+        reconstructed_phase = np.angle(obj_image)
+
+        if not quiet:
+            logger.info(f"Reconstructed amplitude shape: {reconstructed_amplitude.shape}")
+            logger.info(f"Reconstructed phase shape: {reconstructed_phase.shape}")
+
+        # Debug artifact dump (conditional)
+        if debug_dump_dir is not None:
+            _dump_tf_inference_debug_artifacts(
+                debug_dump_dir,
+                patch_tensor=obj_tensor_full,
+                global_offsets=global_offsets,
+                canvas=obj_image,
+                patch_limit=debug_patch_limit,
+            )
+
+        return reconstructed_amplitude, reconstructed_phase
+
+    except Exception as e:
+        logger.error(f"Error during inference: {str(e)}")
+        raise ValueError(f"Error during inference: {str(e)}")
+
+
+def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K: int, nsamples: int,
+                      debug_dump_dir: Path | None = None, debug_patch_limit: int = 16) -> tuple:
     """
     Perform inference using the loaded model and test data.
+
+    .. deprecated::
+        Use `_run_tf_inference_and_reconstruct()` for new code.
+        This wrapper maintains backward compatibility with the 4-tuple return.
 
     Args:
         model (tf.keras.Model): The loaded TensorFlow model.
@@ -197,94 +472,39 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
         config (dict): The model's configuration dictionary.
         K (int): Number of nearest neighbors for grouped data generation.
         nsamples (int): Number of samples for grouped data generation.
+        debug_dump_dir: Optional directory for debug artifacts.
+        debug_patch_limit: Number of patches to visualize in debug mode.
 
     Returns:
-        tuple: (np.ndarray, np.ndarray, np.ndarray, np.ndarray) - Reconstructed amplitude, 
+        tuple: (np.ndarray, np.ndarray, np.ndarray, np.ndarray) - Reconstructed amplitude,
                reconstructed phase, ePIE amplitude, and ePIE phase.
 
     Raises:
         ValueError: If there's an error during inference.
     """
-    from ptycho.nbutils import reconstruct_image, crop_to_non_uniform_region_with_buffer
-    try:
-        # The model loaded by the caller already contains the correct trained probe.
-        # There is no need to set it again from the test data, as that would be
-        # both misleading and ineffectual - the model's internal tf.Variable probe
-        # is not affected by changes to the global configuration after loading.
-        # [Removed: probe.set_probe_guess(None, test_data.probeGuess)]
+    import warnings
+    warnings.warn(
+        "perform_inference is deprecated; use _run_tf_inference_and_reconstruct",
+        DeprecationWarning,
+        stacklevel=2
+    )
 
-        # Set random seeds
-        tf.random.set_seed(45)
-        np.random.seed(45)
+    amp, phase = _run_tf_inference_and_reconstruct(
+        model=model,
+        raw_data=test_data,
+        config=config,
+        K=K,
+        nsamples=nsamples,
+        quiet=False,
+        debug_dump_dir=debug_dump_dir,
+        debug_patch_limit=debug_patch_limit,
+        seed=45,
+    )
 
-        # Generate grouped data
-        print(f"DEBUG: Using gridsize={config.get('gridsize', 'NOT_SET')} for data generation")
-        test_dataset = test_data.generate_grouped_data(config['N'], K=K, nsamples=nsamples, gridsize=config.get('gridsize', 1))
-        
-        # Debug: check the shape of the generated data
-        if 'diffraction' in test_dataset:
-            print(f"DEBUG: Generated diffraction data shape: {test_dataset['diffraction'].shape}")
-        if 'Y' in test_dataset and test_dataset['Y'] is not None:
-            print(f"DEBUG: Generated Y data shape: {test_dataset['Y'].shape}")
-        
-        # Create PtychoDataContainer
-        from ptycho import loader
-        test_data_container = loader.load(lambda: test_dataset, test_data.probeGuess, which=None, create_split=False)
-        
-        # Debug: check the data container
-        print(f"DEBUG: PtychoDataContainer shapes - X (diffraction): {test_data_container.X.shape}, Y: {test_data_container.Y.shape if test_data_container.Y is not None else 'None'}")
-        
-        # Perform reconstruction
-        start_time = time.time()
-        obj_tensor_full, global_offsets = reconstruct_image(test_data_container, diffraction_to_obj=model)
-        reconstruction_time = time.time() - start_time
-        print(f"Reconstruction completed in {reconstruction_time:.2f} seconds")
-
-        # Process the reconstructed image
-        from ptycho.tf_helper import reassemble_position
-        obj_image = reassemble_position(obj_tensor_full, global_offsets, M=20)
-        
-        # Extract amplitude and phase
-        reconstructed_amplitude = np.abs(obj_image)
-        reconstructed_phase = np.angle(obj_image)
-
-        # Check if ground truth object is available and valid
-        has_ground_truth = False
-        if hasattr(test_data, 'objectGuess') and test_data.objectGuess is not None:
-            # Check if the object is all zeros or very close to zero
-            if not np.allclose(test_data.objectGuess, 0, atol=1e-10):
-                # Check if the object is uniform (all values are the same)
-                obj_complex = test_data.objectGuess
-                if not (np.allclose(obj_complex.real, obj_complex.real.flat[0], atol=1e-10) and 
-                        np.allclose(obj_complex.imag, obj_complex.imag.flat[0], atol=1e-10)):
-                    has_ground_truth = True
-                    epie_phase = crop_to_non_uniform_region_with_buffer(np.angle(test_data.objectGuess), buffer=-20)
-                    epie_amplitude = crop_to_non_uniform_region_with_buffer(np.abs(test_data.objectGuess), buffer=-20)
-#                    epie_phase = np.angle(test_data.objectGuess)
-#                    epie_amplitude = np.abs(test_data.objectGuess)
-                    print(f"Ground truth available - ePIE amplitude shape: {epie_amplitude.shape}")
-                    print(f"Ground truth available - ePIE phase shape: {epie_phase.shape}")
-                else:
-                    print("Ground truth object is uniform (all same value), skipping ground truth processing")
-                    epie_phase = None
-                    epie_amplitude = None
-            else:
-                print("Ground truth object is all zeros, skipping ground truth processing")
-                epie_phase = None
-                epie_amplitude = None
-        else:
-            print("No ground truth object available")
-            epie_phase = None
-            epie_amplitude = None
-
-        print(f"Reconstructed amplitude shape: {reconstructed_amplitude.shape}")
-        print(f"Reconstructed phase shape: {reconstructed_phase.shape}")
-
-        return reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase
-
-    except Exception as e:
-        print(f"Error during inference: {str(e)}")
-        raise ValueError(f"Error during inference: {str(e)}")
+    gt = extract_ground_truth(test_data)
+    if gt:
+        return amp, phase, gt[0], gt[1]
+    return amp, phase, None, None
 
 def save_comparison_plot(reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase, output_dir, phase_vmin=None, phase_vmax=None):
     """
@@ -423,25 +643,74 @@ def main():
         print("Starting ptychography inference script...")
         args = parse_arguments()
         config = setup_inference_configuration(args, args.config)
-
+        debug_dump_dir = None
+        if args.debug_dump is not None:
+            debug_dump_dir = (
+                Path(config.output_dir) / "debug_dump"
+                if args.debug_dump == '__AUTO__'
+                else Path(args.debug_dump)
+            )
+        
         # Interpret sampling parameters with new independent control support
         n_subsample, n_images, interpretation_message = interpret_sampling_parameters(config)
         print(interpretation_message)
-
+        
         # Log warning if potentially problematic configuration
         if config.n_subsample is not None and config.model.gridsize > 1 and n_images is not None:
             min_required = n_images * config.model.gridsize * config.model.gridsize
             if n_subsample < min_required:
                 print(f"WARNING: n_subsample ({n_subsample}) may be too small to create {n_images} "
                      f"groups of size {config.model.gridsize}². Consider increasing n_subsample to at least {min_required}")
+        
+        # Note: update_legacy_dict() is called inside load_inference_bundle_with_backend
+        # (via the backend-specific loader) to restore params.cfg from the saved model artifact.
+        # The loaded model's params take precedence per CONFIG-001.
 
-        # Note: update_legacy_dict() removed - ModelManager.load_model() will restore
-        # the authoritative configuration from the saved model artifact, making this
-        # initial update redundant. The loaded model's params take precedence.
-
-        # Load model using centralized function
+        # Load model using backend selector
         print("Loading model...")
-        model, _ = load_inference_bundle(config.model_path)
+        model, _ = load_inference_bundle_with_backend(config.model_path, config)
+
+        # For PyTorch backend, move model to execution device and set to eval mode
+        if config.backend == 'pytorch':
+            # Determine if user explicitly provided any --torch-* flags
+            # We check against sys.argv to detect user overrides
+            torch_flags_explicitly_set = any([
+                'torch_accelerator' in sys.argv or '--torch-accelerator' in sys.argv,
+                'torch_num_workers' in sys.argv or '--torch-num-workers' in sys.argv,
+                'torch_inference_batch_size' in sys.argv or '--torch-inference-batch-size' in sys.argv,
+            ])
+
+            if not torch_flags_explicitly_set:
+                # No --torch-* flags provided: emit POLICY-001 info log
+                print("POLICY-001: No --torch-* execution flags provided. "
+                      "Backend will use GPU-first defaults (auto-detects CUDA if available, else CPU). "
+                      "CPU-only users should pass --torch-accelerator cpu.")
+
+            # Resolve device before loading data (will be used for tensors and model)
+            import argparse as arg_module
+            exec_args = arg_module.Namespace(
+                accelerator=getattr(args, 'torch_accelerator', 'auto'),
+                num_workers=getattr(args, 'torch_num_workers', 0),
+                inference_batch_size=getattr(args, 'torch_inference_batch_size', None),
+                quiet=getattr(args, 'debug', False) == False,
+                disable_mlflow=False
+            )
+
+            from ptycho_torch.cli.shared import build_execution_config_from_args
+            execution_config = build_execution_config_from_args(exec_args, mode='inference')
+
+            # Map Lightning accelerator convention to torch device string
+            if execution_config.accelerator in ('cuda', 'gpu'):
+                device_str = 'cuda'
+            elif execution_config.accelerator == 'mps':
+                device_str = 'mps'
+            else:
+                device_str = 'cpu'
+
+            # Move model to execution device and ensure eval mode (DEVICE-MISMATCH-001 fix)
+            model.to(device_str)
+            model.eval()
+            print(f"PyTorch model moved to device: {device_str}")
 
         # Load test data with new independent sampling parameters
         print("Loading test data...")
@@ -478,20 +747,55 @@ def main():
                     nsamples = 1  # Minimum of 1 group
                 print(f"Inference config: gridsize={gridsize}, using {nsamples} groups (≈{nsamples * gridsize**2} total patterns)")
 
-        # Perform inference
+        # Perform inference - branch based on backend
         print("Performing inference...")
-        reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase = perform_inference(
-            model, test_data, params.cfg, K=4, nsamples=nsamples)
+
+        if config.backend == 'pytorch':
+            # PyTorch inference path
+            from ptycho_torch.inference import _run_inference_and_reconstruct
+
+            # execution_config and device_str already resolved above after model loading
+            # to ensure model.to(device) happens before inference
+
+            print(f"PyTorch inference config: accelerator={execution_config.accelerator}, "
+                  f"num_workers={execution_config.num_workers}, "
+                  f"inference_batch_size={execution_config.inference_batch_size}")
+
+            # Call PyTorch-native inference helper
+            reconstructed_amplitude, reconstructed_phase = _run_inference_and_reconstruct(
+                model,
+                test_data,
+                config,
+                execution_config,
+                device_str,
+                quiet=False,
+                debug_dump_dir=debug_dump_dir,
+            )
+
+            # PyTorch path doesn't return ground truth comparison data (not in scope for Phase R)
+            epie_amplitude = None
+            epie_phase = None
+
+        else:
+            # TensorFlow inference path (legacy)
+            reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase = perform_inference(
+                model,
+                test_data,
+                params.cfg,
+                K=4,
+                nsamples=nsamples,
+                debug_dump_dir=debug_dump_dir,
+            )
 
         # Save separate reconstruction images
         print("Saving reconstruction images...")
-        save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, config.output_dir, 
+        save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, config.output_dir,
                                   phase_vmin=args.phase_vmin, phase_vmax=args.phase_vmax)
-        
+
         # Generate comparison plot if requested and ground truth is available
         if args.comparison_plot and epie_amplitude is not None and epie_phase is not None:
             print("Generating comparison plot...")
-            save_comparison_plot(reconstructed_amplitude, reconstructed_phase, 
+            save_comparison_plot(reconstructed_amplitude, reconstructed_phase,
                                 epie_amplitude, epie_phase, config.output_dir,
                                 phase_vmin=args.phase_vmin, phase_vmax=args.phase_vmax)
         elif args.comparison_plot:
@@ -504,7 +808,9 @@ def main():
         sys.exit(1)
     finally:
         print("Cleaning up resources...")
-        tf.keras.backend.clear_session()
+        # Only call TensorFlow cleanup if we used TensorFlow backend
+        if config.backend == 'tensorflow':
+            tf.keras.backend.clear_session()
 
 if __name__ == "__main__":
     main()

@@ -614,15 +614,13 @@ train_models() {
         
         # Run Pty-chi reconstruction if requested
         if [ "$ADD_PTYCHI_ARM" = true ]; then
-            local ptychi_cmd="python scripts/reconstruction/run_ptychi_reconstruction.py \\
-                '$TEST_DATA' \\
-                '$trial_output_dir/ptychi_run' \\
+            local ptychi_cmd="python scripts/reconstruction/ptychi_reconstruct_tike.py \\
+                --input-npz '$TEST_DATA' \\
+                --output-dir '$trial_output_dir/ptychi_run' \\
                 --algorithm $PTYCHI_ALGORITHM \\
                 --n-images $TEST_SUBSAMPLE \\
-                --iterations $PTYCHI_ITERATIONS \\
-                --batch-size $PTYCHI_BATCH_SIZE \\
-                --quiet"
-                
+                --num-epochs $PTYCHI_ITERATIONS"
+
             run_cmd "$ptychi_cmd" "Pty-chi reconstruction (algorithm=$PTYCHI_ALGORITHM, n_images=$TEST_SUBSAMPLE, trial=$trial)"
         fi
         
