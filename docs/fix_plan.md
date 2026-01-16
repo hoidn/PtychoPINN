@@ -39,6 +39,7 @@
   - *2026-01-15T235900Z:* Reactivated focus, set Phase A evidence capture Do Now, and opened new artifacts hub. Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-15T235900Z/`.
   - *2026-01-16T000353Z:* Reframed Phase A A0/A1/A3 handoff to build `collect_sim_lines_4x_params.py`, inventory `dose_experiments` defaults, and run the pipeline import smoke test. Artifacts hub: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/`.
   - *2026-01-16T002700Z:* Implemented `scripts/tools/collect_sim_lines_4x_params.py` (metadata-only snapshot CLI), captured the JSON snapshot, recorded the legacy `dose_experiments` tree + parameter script, and reran the sim_lines pipeline import smoke test. Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (pass). Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/{sim_lines_4x_params_snapshot.json,dose_experiments_tree.txt,dose_experiments_param_scan.md,pytest_sim_lines_pipeline_import.log}`. Next Actions: Compare sim_lines snapshot vs dose_experiments defaults (Phase A4) and plan the differential experiments.
+  - *2026-01-16T003217Z:* Reviewed the captured artifacts, ticked A1/A3 in the plan, and authored the A4 comparison Do Now plus new artifacts hub (`plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T003217Z/`) so Ralph can implement the diff script with fresh pytest evidence.
 
 ### [REFACTOR-MEMOIZE-CORE-001] Move RawData memoization decorator into core module
 - Depends on: None

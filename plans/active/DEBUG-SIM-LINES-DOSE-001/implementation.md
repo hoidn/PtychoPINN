@@ -84,14 +84,14 @@ Guidelines:
 ### Checklist
 - [ ] A0: **Nucleus / Test-first gate:** Capture minimal failing repro or justify deferral.
       Test: N/A -- evidence-only while reproducing the failure in code
-- [ ] A1: Extract dose_experiments codepath without checkout:
+- [x] A1: Extract dose_experiments codepath without checkout:
       - Use `git ls-tree -r dose_experiments` to locate files.
       - Use `git show dose_experiments:<path>` for sim, training, inference, stitching modules.
       - Record parameter defaults (probe_mask, probe_big, probe_scale, default_probe_scale, gridsize, nphotons, split, grouping).
       Test: N/A -- evidence capture only
 - [ ] A2: Verify data-contract expectations for any RawData/NPZ outputs used in comparison.
       Test: N/A -- evidence capture only
-- [ ] A3: Capture sim_lines_4x params snapshot with full config/params dump.
+- [x] A3: Capture sim_lines_4x params snapshot with full config/params dump.
       Test: N/A -- evidence capture only
 - [ ] A4: Compare parameter tables (dose_experiments vs sim_lines_4x) and log probe stats + intensity_scale.
       Test: N/A -- evidence capture only

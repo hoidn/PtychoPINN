@@ -345,3 +345,20 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Next: Ralph implements the snapshot tool, inventories the old defaults, and archives the smoke-test log.
 - <Action State>: [planning]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=planning dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/ next_action=ready_for_implementation
+
+---
+# 2026-01-16T00:32:17Z: DEBUG-SIM-LINES-DOSE-001 — Phase A4 comparison prep
+
+- dwell: 2 (second consecutive planning/document loop for this focus; next turn must hand off implementation)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Phase A evidence capture (sim_lines_4x vs dose_experiments)
+- Action type: Planning | Mode: Implementation handoff
+- Git sync: `git pull --rebase` (already up to date).
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, MODULE-SINGLETON-001, NORMALIZATION-001, BUG-TF-001), plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md,test_strategy.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/{sim_lines_4x_params_snapshot.json,dose_experiments_param_scan.md}, scripts/tools/collect_sim_lines_4x_params.py.
+- Key decisions:
+  - Confirmed Phase A1/A3 evidence is complete and marked the checklist accordingly in the working plan.
+  - Added a new Attempts History entry + artifacts hub (`plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T003217Z/`).
+  - Authored the Phase A4 Do Now for a comparison helper script plus pytest evidence, keeping production code untouched.
+- Next: Ralph implements the comparison CLI + markdown/json outputs and reruns the CLI smoke test per input.md instructions.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=2 ralph_last_commit=none artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T003217Z/ next_action=implement comparison script + pytest log
+
