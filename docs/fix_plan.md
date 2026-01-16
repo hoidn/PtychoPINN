@@ -59,6 +59,10 @@
     - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T041700Z/{grouping_gs1_custom_default.json,grouping_gs1_custom_default.md,grouping_gs2_custom_default.json,grouping_gs2_custom_default.md,grouping_gs2_custom_neighbor1.json,grouping_gs2_custom_neighbor1.md,grouping_cli.log,pytest_sim_lines_pipeline_import.log}`
     - Next Actions: Analyze the richer per-axis telemetry to decide whether B4 needs additional grouping probes or if we can pivot directly to the reassembly experiments.
   - *2026-01-16T050500Z:* Reviewed the B3 telemetry (coords offsets up to ~382 px on gs2) and compared it against the legacy padded-size math (`get_padded_size()` ≈ 78 px when `offset` remains 4 and `max_position_jitter` remains 10), confirming reassembly canvas under-allocation is the likely regression. Scoped Phase B4 around a `reassembly_limits_report.py` helper that contrasts observed offsets vs padded-size requirements and runs a sum-preservation probe via `reassemble_whole_object()`. Opened artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T050500Z/` for the next evidence batch and refreshed the Do Now accordingly.
+  - *2026-01-16T053600Z:* Added `bin/reassembly_limits_report.py`, generated JSON/Markdown + CLI evidence for `gs1_custom` and `gs2_custom`, and proved that the observed max offsets (~382 px) demand canvases ≥828–831 px while the legacy padded size stays at 74/78 px (loss fractions ≥94%). Pytest guard reran clean.
+    - Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (pass)
+    - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T050500Z/{reassembly_cli.log,reassembly_gs1_custom.json,reassembly_gs1_custom.md,reassembly_gs2_custom.json,reassembly_gs2_custom.md,pytest_sim_lines_pipeline_import.log}`
+    - Next Actions: Feed the reassembly deltas into Phase C to patch `get_padded_size()`/canvas sizing or open a dedicated backlog item if the fix crosses initiatives.
 
 ### [REFACTOR-MEMOIZE-CORE-001] Move RawData memoization decorator into core module
 - Depends on: None
