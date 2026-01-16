@@ -45,6 +45,10 @@
     - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T003217Z/{comparison_draft.md,comparison_diff.json,pytest_sim_lines_pipeline_import.log}`
     - Next Actions: Use the diff to scope the Phase B differential experiments (grid vs nongrid, probe normalization) or flag gaps if additional parameters need capture.
   - *2026-01-16T020000Z:* Reviewed the comparison diff, marked Phase A4 complete in the working plan, and scoped Phase B1 instrumentation to capture grouping stats for both the legacy (dose_experiments) and sim_lines parameter regimes. Created new artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T020000Z/` for the upcoming grouping summaries and refreshed the Do Now with the bin script plan plus pytest guard.
+  - *2026-01-16T005400Z:* Added `bin/grouping_summary.py` under the initiative, captured grouping summaries for the SIM-LINES defaults and the legacy gridsize=2 dose constraints (including failure diagnostics), and reran the synthetic helpers CLI smoke guard.
+    - Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+    - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T020000Z/{grouping_sim_lines_default.json,grouping_sim_lines_default.md,grouping_dose_experiments_legacy.json,grouping_dose_experiments_legacy.md,pytest_sim_lines_pipeline_import.log}`
+    - Next Actions: Mine the grouping stats to plan the remainder of Phase B (probe normalization and grouping differentials) or flag if additional parameter overrides are required.
 
 ### [REFACTOR-MEMOIZE-CORE-001] Move RawData memoization decorator into core module
 - Depends on: None

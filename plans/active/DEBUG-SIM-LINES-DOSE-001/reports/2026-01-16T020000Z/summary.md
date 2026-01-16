@@ -1,5 +1,5 @@
 ### Turn Summary
-Prepped Phase B1 by closing out the A4 diff work, refreshing the plan/ledger, and scoping a plan-local grouping_summary CLI so we can compare SIM-LINES vs dose_experiments grouping behavior without touching production code.
-Documented the new artifacts hub plus JSON/Markdown expectations and rewrote input.md with exact CLI runs + pytest evidence so Ralph can build the tool and capture both parameter regimes.
-Next: Ralph implements grouping_summary.py, runs the sim_lines_default and dose_experiments_legacy modes, and archives the summaries alongside the CLI smoke-test log.
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T020000Z/
+Built the new `grouping_summary.py` plan-local CLI so we can replay the SIM-LINES nongrid pipeline and emit JSON/Markdown grouping stats for any override set.
+Captured 1000/1000 grouped samples for both SIM-LINES train/test splits and recorded the expected 'only 2 points for 4-channel groups' failure signature for the dose_experiments-style gridsize=2 probe, then reran the synthetic helpers CLI smoke test.
+Next: analyze these summaries to decide which grouping/probe experiments should anchor Phase B2 and whether additional overrides are required.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T020000Z/ (grouping_sim_lines_default.json, grouping_dose_experiments_legacy.json, pytest_sim_lines_pipeline_import.log)

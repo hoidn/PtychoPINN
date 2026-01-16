@@ -1,0 +1,46 @@
+{
+  "metadata": {
+    "label": "dose_experiments_legacy",
+    "overrides": {
+      "gridsize": 2,
+      "group_count": 2,
+      "split_fraction": 0.5,
+      "total_images": 4
+    },
+    "parameters": {
+      "N": 64,
+      "gridsize": 2,
+      "group_count": 2,
+      "neighbor_count": 4,
+      "object_seed": 42,
+      "probe_big": true,
+      "probe_mask": false,
+      "probe_mode": "custom",
+      "probe_scale": 4.0,
+      "sim_seed": 42,
+      "split_fraction": 0.5,
+      "test_count_estimate": 2,
+      "total_images": 4,
+      "train_count_estimate": 2
+    },
+    "scenario": "gs1_custom",
+    "snapshot": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json",
+    "timestamp": "2026-01-16T00:53:44.827463+00:00"
+  },
+  "subsets": {
+    "test": {
+      "error": "Dataset has only 2 points but 4 coordinates per group requested.",
+      "point_count": 2,
+      "requested_groups": 2,
+      "status": "error",
+      "subset": "test"
+    },
+    "train": {
+      "error": "Dataset has only 2 points but 4 coordinates per group requested.",
+      "point_count": 2,
+      "requested_groups": 2,
+      "status": "error",
+      "subset": "train"
+    }
+  }
+}
