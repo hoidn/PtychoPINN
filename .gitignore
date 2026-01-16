@@ -1,12 +1,67 @@
+# Python
 *ipynb_checkpoints
 __pycache__
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Editor files
 *.swp
 *.swo
-*.swp
 .aider*
+.vscode/
+.idea/
+
+# Environment
+.env
+.venv/
+venv/
+
+# Logs
+*.log
+logs/
+
+# Data files - CRITICAL: Never commit these!
+*.npz
+*.h5
+*.hdf5
+*.groups_cache.npz
+*.dill
+
+# Data directories
+datasets/*.npz
+datasets/**/*.npz
+outputs/
+*_outputs/
+*_output/
+simulation_outputs/
+memoized_data/
+memoized_simulated_data/
+tmp/
+*.tmp
+
+# Model artifacts
+wts.h5.zip
+baseline_model.h5
+*.pb
+
+# Notebooks
 notebooks/untracked_notebooks*
 untracked*
+
+# Documentation build
 PlotNeuralNet*
+docs/_build/
+
+# Specific large files (legacy - covered by patterns above)
 datasets/Run1084_recon3_postPC_shrunk.npz
 datasets/Run1084_recon3_postPC_shrunk_2.npz
 datasets/Run1084_recon3_postPC_shrunk_lowpass.npz
+ptycho_torch/notebooks/manuscript_figures.ipynb
+ptycho_torch/mlruns/*
+ptycho_torch/configs/publication_configs/*
+ptycho_torch/configs/testing_configs/*
+.env
+.log

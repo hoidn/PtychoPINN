@@ -1,1 +1,0 @@
-train.py --model_type pinn --gridsize 2 --n_filters_scale 2 --object_big True --intensity_scale_trainable True --label "PINN,NLL,overlaps" --nimgs_train 9 --nimgs_test 3 --outer_offset_train  20 --outer_offset_test 8 --nepochs 60

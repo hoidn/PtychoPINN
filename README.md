@@ -1,9 +1,13 @@
-# Physics Constrained Unsupervised Deep Learning for Rapid, High Resolution Scanning Coherent Diffraction Reconstruction
+# Physics constrained machine learning for rapid, high resolution diffractive imaging
 
-This repository contains the codebase for the methods presented in the paper "[Physics Constrained Unsupervised Deep Learning for Rapid, High Resolution Scanning Coherent Diffraction Reconstruction](https://arxiv.org/pdf/2306.11014.pdf)". 
+This repository contains the codebase for the methods presented in the paper "[Physics Constrained Unsupervised Deep Learning for Rapid, High Resolution Scanning Coherent Diffraction Reconstruction](https://www.nature.com/articles/s41598-023-48351-7)". 
 
 ## Overview
 PtychoPINN is an unsupervised physics-informed neural network reconstruction method for scanning CDI designed to improve upon the speed of conventional reconstruction methods without sacrificing image quality. Compared to prior NN approaches, the main source of improvements in image quality are its combination of the diffraction forward map with real-space overlap constraints.
+
+## For Developers
+
+Developers looking to contribute to the codebase or understand its deeper architectural principles should first read the **[Unified Developer Guide](./docs/DEVELOPER_GUIDE.md)**. It contains critical information on the project's design, data pipeline, and best practices.
 
 ## Features
 - **Unsupervised / self-supervised learning**: There is no need for extensive labeled training data, making the model more practical to train.
@@ -16,71 +20,42 @@ PtychoPINN is an unsupervised physics-informed neural network reconstruction met
  -->
 
 
+## Installation
+`conda create -n ptycho python=3.10`
+
+`conda activate ptycho`
+
+`pip install .`
+
 ## Usage
-`python setup.py install`
+### Training
+`ptycho_train --train_data_file <train_path.npz> --test_data_file <test_path.npz> --output_dir <my_run>`
 
-```
-train.py
+### Evaluation
+`ptycho_evaluate --model-dir <my_run> --test-data <test_path.npz> --output-dir <eval_results>`
 
-usage: PtychoPINN [-h] [--model_type MODEL_TYPE] [--label LABEL]
-                  [--positions_provided POSITIONS_PROVIDED] [--data_source DATA_SOURCE] [--set_phi]
-                  [--nepochs NEPOCHS] [--offset OFFSET] [--max_position_jitter MAX_POSITION_JITTER]
-                  [--output_prefix OUTPUT_PREFIX] [--gridsize GRIDSIZE]
-                  [--n_filters_scale N_FILTERS_SCALE] [--object_big OBJECT_BIG]
-                  [--intensity_scale_trainable INTENSITY_SCALE_TRAINABLE] [--nll_weight NLL_WEIGHT]
-                  [--mae_weight MAE_WEIGHT] [--nimgs_train NIMGS_TRAIN] [--nimgs_test NIMGS_TEST]
-                  [--outer_offset_train OUTER_OFFSET_TRAIN] [--outer_offset_test OUTER_OFFSET_TEST]
+### Inference 
+`ptycho_inference --model_path <my_run> --test_data <test_path.npz> --output_dir <inference_out>`
 
-Generate / load data and train the model
+See examples and READMEs under scripts/.
 
-optional arguments:
-  -h, --help            show this help message and exit
-  --model_type MODEL_TYPE
-                        model type (pinn or supervised)
-  --output_prefix OUTPUT_PREFIX
-                        output directory prefix
-  --data_source DATA_SOURCE
-                        Dataset specification
-  --set_phi             If true, simulated objects are given non-zero phase
-  --nepochs NEPOCHS     Number of epochs
-  --offset OFFSET       Scan point spacing for simulated (grid-sampled) data
-  --gridsize GRIDSIZE   Solution region grid size (e.g. 2 -> 2x2, etc.)
-  --object_big OBJECT_BIG
-                        If true, reconstruct the entire solution region for each set of patterns, instead of just the central N x N region.
-  --intensity_scale_trainable INTENSITY_SCALE_TRAINABLE
-                        Whether intensity scale is trainable or not
-  --nll_weight NLL_WEIGHT
-                        Diffraction reconstruction NLL loss weight
-  --mae_weight MAE_WEIGHT
-                        Diffraction reconstruction MAE loss weight
-  --nimgs_train NIMGS_TRAIN
-                        Number of generated training images
-  --nimgs_test NIMGS_TEST
-                        Number of generated testing images
-  --outer_offset_train OUTER_OFFSET_TRAIN
-                        Scan point grid offset for (generated) training datasets
-  --outer_offset_test OUTER_OFFSET_TEST
-                        Scan point grid offset for (generated) testing datasets
-  --n_filters_scale N_FILTERS_SCALE
-                        Number of filters scale
-  --max_position_jitter MAX_POSITION_JITTER
-                        Solution region is expanded around the edges by this amount
-  --positions_provided POSITIONS_PROVIDED
-                        [deprecated] Whether nominal or true (nominal + jitter) positions are provided in simulation runs
-  --label LABEL         [deprecated] Name of this run
+For an example of interactive (Jupyter) usage, see notebooks/nongrid_simulations.ipynb. If you don't have inputs in the right .npz format you can simulate data.
+
+non_grid_CDI_example.ipynb shows interactive usage using a dataset that is provided with the repo.
+
+### Model Evaluation & Generalization Studies
+
+Run comprehensive generalization studies with statistical robustness:
+```bash
+# Multi-trial study with uncertainty quantification
+./scripts/studies/run_complete_generalization_study.sh \
+    --train-sizes "512 1024 2048" \
+    --num-trials 3 \
+    --output-dir robust_study
 ```
 
-For sample usage, see `scripts/example.sh` or `notebooks/`.
+See `scripts/studies/QUICK_REFERENCE.md` for detailed usage and options.
 
-### Checklist
-| Status | Task |
-|--------|------|
-| 🟡 | Reconstruction with non-grid scan patterns |
-| 🟡 | Position correction in CDI mode |
-| 🟡 | Workflow for experimental data |
-| 🟡 | Probe fitting |
-| 🔴 | Stochastic probe model |
-| 🔴 | 128 x 128 resolution |
 
 <!-- 
 * subpixel convolution (Depth-to-space)

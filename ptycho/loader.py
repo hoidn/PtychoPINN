@@ -1,270 +1,216 @@
-""" 'Generic' loader for datasets with non-rectangular scan point patterns."""
+"""
+NumPy-to-TensorFlow conversion layer for ptychographic neural networks.
+
+This module serves as the critical NumPy→TensorFlow bridge in PtychoPINN's data pipeline,
+transforming grouped NumPy arrays from ptycho.raw_data into GPU-ready TensorFlow tensors
+for neural network training and inference. As the most heavily used data pipeline module
+(consumed by 9+ modules), it handles the final dtype conversion, tensor shaping, and
+memory layout optimization required for efficient TensorFlow computation.
+
+Architecture Role:
+    NPZ files → raw_data.py (RawData/NumPy) → loader.py (TensorFlow tensors) → model.py
+
+Primary Components:
+    - PtychoDataContainer: Core data container holding model-ready TensorFlow tensors
+      including diffraction patterns (X), ground truth patches (Y_I, Y_phi), 
+      coordinates, and probe functions
+    - load(): Main entry point that transforms grouped data into PtychoDataContainer
+      via callback mechanism, handling train/test splits and tensor conversion
+    - PtychoDataset: Simple wrapper for train/test data pairs
+
+Key Tensor Conversion Features:
+    - NumPy float64/complex128 → TensorFlow float32/complex64 dtype optimization
+    - Multi-channel tensor reshaping for gridsize > 1 configurations  
+    - Automatic train/test data splitting with consistent tensor slicing
+    - Complex tensor decomposition (amplitude/phase separation) and recomposition
+    - Memory-efficient lazy evaluation via callback pattern
+    - Comprehensive tensor statistics and shape validation
+
+Public Interface:
+    load(cb, probeGuess, which, create_split) -> PtychoDataContainer
+        cb: Callback returning grouped data dictionary from raw_data
+        probeGuess: Initial probe function as TensorFlow tensor
+        which: 'train' or 'test' for data splitting
+        create_split: Boolean to enable train/test splitting
+        
+    PtychoDataContainer.from_raw_data_without_pc(xcoords, ycoords, diff3d, ...)
+        Static constructor combining raw_data grouping with tensor loading
+        
+    split_data(X_full, coords_nominal, coords_true, train_frac, which)
+        Utility for fraction-based data splitting
+
+Usage Example:
+    # Complete pipeline: raw data → grouped data → model tensors
+    from ptycho.raw_data import RawData
+    from ptycho.loader import load, PtychoDataContainer
+    
+    # Create raw data object
+    raw_data = RawData.from_coords_without_pc(
+        xcoords, ycoords, diff3d, probe, scan_idx
+    )
+    
+    # Generate grouped data and convert to tensors
+    def data_callback():
+        gridsize = params.get('gridsize', 1)
+        return raw_data.generate_grouped_data(N=64, K=7, gridsize=gridsize)
+    
+    train_container = load(data_callback, probe_tensor, 'train', True)
+    test_container = load(data_callback, probe_tensor, 'test', True)
+    
+    # Access model-ready tensors
+    X_train = train_container.X        # Diffraction patterns
+    Y_train = train_container.Y        # Complex ground truth
+    coords = train_container.coords    # Scan coordinates
+    
+    # Export for later use
+    train_container.to_npz("model_ready_train.npz")
+
+TensorFlow Integration:
+    - All NumPy arrays undergo dtype conversion: float64→float32, complex128→complex64
+    - Tensor shapes are validated for TensorFlow compatibility and GPU efficiency
+    - Multi-channel dimensions preserved for gridsize > 1 neural network architectures
+    - Missing ground truth handled with properly-shaped complex dummy tensors
+    - Seamless integration with tf.data.Dataset and Keras model.fit() workflows
+    - Primary consumers: ptycho.model, ptycho.train_pinn, ptycho.workflows.components
+"""
 
 import numpy as np
 import tensorflow as tf
-from scipy.spatial import cKDTree
-from ptycho import diffsim as datasets
-from .params import params
+from typing import Callable
 
-# If == 1, relative coordinates are (patch CM coordinate - solution region CM
-# coordinate)
-local_offset_sign = 1
-
-key_coords_offsets = 'coords_start_offsets'
-key_coords_relative = 'coords_start_relative'
-
-class RawData:
-    def __init__(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess,
-                 scan_index, objectGuess = None):
-        # Sanity checks
-        self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d,
-                    probeGuess, scan_index)
-
-        # Assigning values if checks pass
-        self.xcoords = xcoords
-        self.ycoords = ycoords
-        self.xcoords_start = xcoords_start
-        self.ycoords_start = ycoords_start
-        self.diff3d = diff3d
-        self.probeGuess = probeGuess
-        self.scan_index = scan_index
-        self.objectGuess = objectGuess
-
-    def to_file(self, file_path):
-        """
-        Method to write the RawData object to a file using numpy.savez.
-
-        Args:
-            file_path (str): Path to the file where the data will be saved.
-        """
-        np.savez(file_path,
-                 xcoords=self.xcoords,
-                 ycoords=self.ycoords,
-                 xcoords_start=self.xcoords_start,
-                 ycoords_start=self.ycoords_start,
-                 diff3d=self.diff3d,
-                 probeGuess=self.probeGuess,
-                 objectGuess=self.objectGuess,
-                 scan_index=self.scan_index)
-
-    @staticmethod
-    def from_file(train_data_file_path):
-        """
-        """
-        # Load training data
-        train_data = np.load(train_data_file_path)
-        train_raw_data = RawData(
-            xcoords=train_data['xcoords'],
-            ycoords=train_data['ycoords'],
-            xcoords_start=train_data['xcoords_start'],
-            ycoords_start=train_data['ycoords_start'],
-            diff3d=train_data['diff3d'],
-            probeGuess=train_data['probeGuess'],
-            objectGuess=train_data['objectGuess'],
-            scan_index=train_data['scan_index']
-        )
-        return train_raw_data
-
-    @staticmethod
-    def from_files(train_data_file_path, test_data_file_path):
-        """
-        Static method to instantiate RawData objects from training and test data files.
-
-        The data files should be NumPy .npz files with the following keys:
-        - 'xcoords': x coordinates of the scan points
-        - 'ycoords': y coordinates of the scan points
-        - 'xcoords_start': starting x coordinates for the scan
-        - 'ycoords_start': starting y coordinates for the scan
-        - 'diff3d': diffraction patterns
-        - 'probeGuess': initial guess of the probe function
-        - 'scan_index': array indicating the scan index for each diffraction pattern
-
-        Args:
-            train_data_file_path (str): Path to the training data file.
-            test_data_file_path (str): Path to the test data file.
-
-        Returns:
-            tuple: A tuple containing the instantiated RawData objects for training and test data.
-        """
-        # Load training data
-        train_raw_data = RawData.from_file(train_data_file_path)
-
-        # Load test data
-        test_raw_data = RawData.from_file(test_data_file_path)
-
-        return train_raw_data, test_raw_data
-
-    def generate_grouped_data(self, N, K = 7, nsamples = 1):
-        """
-        Generate nearest-neighbor solution region grouping.
-        """
-        return get_neighbor_diffraction_and_positions(self, N, K=K, nsamples=nsamples)
-
-    def _check_data_validity(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index):
-        # Check if all inputs are numpy arrays
-        if not all(isinstance(arr, np.ndarray) for arr in [xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index]):
-            raise ValueError("All inputs must be numpy arrays.")
-
-        # Check if coordinate arrays have matching shapes
-        if not (xcoords.shape == ycoords.shape == xcoords_start.shape == ycoords_start.shape):
-            raise ValueError("Coordinate arrays must have matching shapes.")
-
-        # Add more checks as necessary, for example:
-        # - Check if 'diff3d' has the expected number of dimensions
-        # - Check if 'probeGuess' has a specific shape or type criteria
-        # Check if 'scan_index' has the correct length
-        if len(scan_index) != diff3d.shape[0]:
-            raise ValueError("Length of scan_index array must match the number of diffraction patterns.")
+from .params import params, get
+from .autotest.debug import debug
+from . import diffsim as datasets
+from . import tf_helper as hh
+from .raw_data import RawData, key_coords_offsets, key_coords_relative 
 
 class PtychoDataset:
+    @debug
     def __init__(self, train_data, test_data):
         self.train_data = train_data
         self.test_data = test_data
 
-class PtychoData:
-    def __init__(self, X, Y_I, Y_phi, YY_full, coords_nominal, coords_true, probe, scan_index = None):
-        from .tf_helper import combine_complex
+class PtychoDataContainer:
+    """
+    TensorFlow tensor container for model-ready ptychographic data.
+    
+    This container holds the final NumPy->TensorFlow converted data structures
+    ready for neural network training and inference. All tensor attributes use
+    appropriate TensorFlow dtypes for efficient GPU computation.
+    
+    Tensor Attributes:
+        X: Diffraction patterns - tf.float32, shape (n_images, N, N, n_channels)
+           where n_channels = gridsize^2 for multi-channel configurations
+        Y_I: Ground truth amplitude patches - tf.float32, shape (n_images, patch_size, patch_size, n_channels)
+        Y_phi: Ground truth phase patches - tf.float32, shape (n_images, patch_size, patch_size, n_channels)
+        Y: Combined complex ground truth - tf.complex64, shape (n_images, patch_size, patch_size, n_channels)
+        coords_nominal: Scan coordinates - tf.float32, shape (n_images, 2)
+        coords_true: True scan coordinates - tf.float32, shape (n_images, 2)
+        probe: Probe function - tf.complex64, shape (N, N)
+        
+    NumPy Attributes (preserved from raw_data grouping):
+        norm_Y_I: Normalization factors for amplitude
+        YY_full: Full object reconstruction (if available)
+        nn_indices: Nearest neighbor indices for patch grouping
+        global_offsets: Global coordinate offsets
+        local_offsets: Local coordinate offsets within patches
+        
+    The container automatically handles complex tensor composition (Y = Y_I * exp(1j * Y_phi))
+    and provides comprehensive debug representations showing tensor statistics.
+    """
+    @debug
+    def __init__(self, X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, nn_indices, global_offsets, local_offsets, probeGuess):
         self.X = X
-        self.Y = combine_complex(Y_I, Y_phi)
+        self.Y_I = Y_I
+        self.Y_phi = Y_phi
+        self.norm_Y_I = norm_Y_I
         self.YY_full = YY_full
         self.coords_nominal = coords_nominal
+        self.coords = coords_nominal
         self.coords_true = coords_true
-        self.probe = probe
-        self.scan_index = scan_index
+        self.nn_indices = nn_indices
+        self.global_offsets = global_offsets
+        self.local_offsets = local_offsets
+        self.probe = probeGuess
 
-def get_neighbor_indices(xcoords, ycoords, K = 3):
-    # Combine x and y coordinates into a single array
-    points = np.column_stack((xcoords, ycoords))
+        from .tf_helper import combine_complex
+        self.Y = combine_complex(Y_I, Y_phi)
 
-    # Create a KDTree
-    tree = cKDTree(points)
+    @debug
+    def __repr__(self):
+        repr_str = '<PtychoDataContainer'
+        for attr_name in ['X', 'Y_I', 'Y_phi', 'norm_Y_I', 'YY_full', 'coords_nominal', 'coords_true', 'nn_indices', 'global_offsets', 'local_offsets', 'probe']:
+            attr = getattr(self, attr_name)
+            if attr is not None:
+                if isinstance(attr, np.ndarray):
+                    if np.iscomplexobj(attr):
+                        repr_str += f' {attr_name}={attr.shape} mean_amplitude={np.mean(np.abs(attr)):.3f}'
+                    else:
+                        repr_str += f' {attr_name}={attr.shape} mean={attr.mean():.3f}'
+                else:
+                    repr_str += f' {attr_name}={attr.shape}'
+        repr_str += '>'
+        return repr_str
 
-    # Query for K nearest neighbors for each point
-    distances, nn_indices = tree.query(points, k=K+1)  # +1 because the point itself is included in the results
-    return nn_indices
+    @staticmethod
+    @debug
+    def from_raw_data_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess=None, N=None, K=7, nsamples=1):
+        """
+        Static method constructor that composes a call to RawData.from_coords_without_pc() and loader.load,
+        then initializes attributes.
 
-def sample_rows(indices, n, m):
-    N = indices.shape[0]
-    result = np.zeros((N, m, n), dtype=int)
-    for i in range(N):
-        result[i] = np.array([np.random.choice(indices[i], size=n, replace=False) for _ in range(m)])
-    return result
+        Args:
+            xcoords (np.ndarray): x coordinates of the scan points.
+            ycoords (np.ndarray): y coordinates of the scan points.
+            diff3d (np.ndarray): diffraction patterns.
+            probeGuess (np.ndarray): initial guess of the probe function.
+            scan_index (np.ndarray): array indicating the scan index for each diffraction pattern.
+            objectGuess (np.ndarray, optional): initial guess of the object. Defaults to None.
+            N (int, optional): The size of the image. Defaults to None.
+            K (int, optional): The number of nearest neighbors. Defaults to 7.
+            nsamples (int, optional): The number of samples. Defaults to 1.
 
-def get_relative_coords(coords_nn):
-    assert len(coords_nn.shape) == 4
-    coords_offsets = np.mean(coords_nn, axis = 3)[..., None]
-    # IMPORTANT: sign
-    coords_relative = local_offset_sign * (coords_nn - np.mean(coords_nn, axis = 3)[..., None])
-    return coords_offsets, coords_relative
+        Returns:
+            PtychoDataContainer: An instance of the PtychoDataContainer class.
+        """
+        from . import params as cfg
+        if N is None:
+            N = cfg.get('N')
+        train_raw = RawData.from_coords_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess)
+        
+        gridsize = cfg.get('gridsize', 1)
+        dset_train = train_raw.generate_grouped_data(N, K=K, nsamples=nsamples, gridsize=gridsize)
 
-def crop12(arr, size):
-    N, M = arr.shape[1:3]
-    return arr[:, N // 2 - (size) // 2: N // 2+ (size) // 2, N // 2 - (size) // 2: N // 2 + (size) // 2, ...]
+        # Use loader.load() to handle the conversion to PtychoData
+        return load(lambda: dset_train, probeGuess, which=None, create_split=False)
 
-# TODO move to tf_helper, except the parts that are specific to xpp
-# should be in xpp.py
-from .tf_helper import complexify_function
-@complexify_function
-def get_image_patches(gt_image, global_offsets, local_offsets):
-    from . import tf_helper as hh
-    gridsize = params()['gridsize']
-    N = params()['N']
-    B = global_offsets.shape[0]
+    #@debug
+    def to_npz(self, file_path: str) -> None:
+        """
+        Write the underlying arrays to an npz file.
 
-    gt_repeat = tf.repeat(
-        tf.repeat(gt_image[None, ...], B, axis = 0)[..., None],
-        gridsize**2, axis = 3)
+        Args:
+            file_path (str): Path to the output npz file.
+        """
+        np.savez(
+            file_path,
+            X=self.X.numpy() if tf.is_tensor(self.X) else self.X,
+            Y_I=self.Y_I.numpy() if tf.is_tensor(self.Y_I) else self.Y_I,
+            Y_phi=self.Y_phi.numpy() if tf.is_tensor(self.Y_phi) else self.Y_phi,
+            norm_Y_I=self.norm_Y_I,
+            YY_full=self.YY_full,
+            coords_nominal=self.coords_nominal.numpy() if tf.is_tensor(self.coords_nominal) else self.coords_nominal,
+            coords_true=self.coords_true.numpy() if tf.is_tensor(self.coords_true) else self.coords_true,
+            nn_indices=self.nn_indices,
+            global_offsets=self.global_offsets,
+            local_offsets=self.local_offsets,
+            probe=self.probe.numpy() if tf.is_tensor(self.probe) else self.probe
+        )
 
-    gt_repeat = hh.pad(gt_repeat, N // 2)
+    # TODO is this deprecated, given the above method to_npz()?
 
-    gt_repeat_f = hh._channel_to_flat(gt_repeat)
 
-    offsets_c = tf.cast(
-            (global_offsets + local_offsets),
-            tf.float32)
-
-    offsets_f = hh._channel_to_flat(offsets_c)
-
-    gt_translated = hh.translate(tf.squeeze(gt_repeat_f)[..., None],
-        -tf.squeeze(offsets_f))[:, :N, :N, :]
-    gt_translated = hh._flat_to_channel(gt_translated)
-    return gt_translated
-
-# TODO move to tf_helper, except the parts that are specific to xpp
-# should be in xpp.py
-def tile_gt_object(gt_image, shape):
-    from . import tf_helper as hh
-    gridsize = params()['gridsize']
-    N = params()['N']
-    B = shape[0] #* gridsize**2
-
-    gt_repeat = tf.repeat(
-        tf.repeat(gt_image[None, ...], B, axis = 0)[..., None],
-        gridsize**2, axis = 3)
-
-    gt_repeat = hh.pad(gt_repeat, N // 2)
-    return gt_repeat
-
-def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples=10):
-    """
-    ptycho_data: an instance of the RawData class
-    """
-    gridsize = params()['gridsize']
-    if C is None:
-        C = gridsize**2
-
-    nn_indices = get_neighbor_indices(ptycho_data.xcoords, ptycho_data.ycoords, K=K)
-    nn_indices = sample_rows(nn_indices, C, nsamples).reshape(-1, C)
-
-    diff4d_nn = np.transpose(ptycho_data.diff3d[nn_indices], [0, 2, 3, 1])
-    coords_nn = np.transpose(np.array([ptycho_data.xcoords[nn_indices],
-                            ptycho_data.ycoords[nn_indices]]),
-                            [1, 0, 2])[:, None, :, :]
-    # IMPORTANT: coord swap
-    #coords_nn = coords_nn[:, :, ::-1, :]
-
-    coords_offsets, coords_relative = get_relative_coords(coords_nn)
-
-    if ptycho_data.xcoords_start is not None:
-        coords_start_nn = np.transpose(np.array([ptycho_data.xcoords_start[nn_indices], ptycho_data.ycoords_start[nn_indices]]),
-                                       [1, 0, 2])[:, None, :, :]
-        #coords_start_nn = coords_start_nn[:, :, ::-1, :]
-        coords_start_offsets, coords_start_relative = get_relative_coords(coords_start_nn)
-    else:
-        coords_start_offsets = coords_start_relative = None
-
-    dset = {
-        'diffraction': diff4d_nn,
-        'coords_offsets': coords_offsets,
-        'coords_relative': coords_relative,
-        'coords_start_offsets': coords_start_offsets,
-        'coords_start_relative': coords_start_relative,
-        'coords_nn': coords_nn,
-        'coords_start_nn': coords_start_nn,
-        'nn_indices': nn_indices,
-        'objectGuess': ptycho_data.objectGuess
-    }
-    X_full = normalize_data(dset, N)
-    dset['X_full'] = X_full
-    print('neighbor-sampled diffraction shape', X_full.shape)
-    return dset
-
-def shift_and_sum(obj_tensor, global_offsets, M = 10):
-    canvas_pad = 100
-    from . import tf_helper as hh
-    N = params()['N']
-    offsets_2d = tf.cast(tf.squeeze(global_offsets), tf.float32)
-    obj_tensor = obj_tensor[:, N // 2 - M // 2: N // 2 + M // 2, N // 2 - M // 2: N // 2 + M // 2, :]
-    obj_tensor = hh.pad(obj_tensor, canvas_pad)
-    obj_translated = hh.translate(obj_tensor, offsets_2d, interpolation = 'bilinear')
-    return tf.reduce_sum(obj_translated, 0)
-
-# TODO move to tf_helper?
-def reassemble_position(obj_tensor, global_offsets, M = 10):
-    ones = tf.ones_like(obj_tensor)
-    return shift_and_sum(obj_tensor, global_offsets, M = M) /\
-        (1e-9 + shift_and_sum(ones, global_offsets, M = M))
-
+@debug
 def split_data(X_full, coords_nominal, coords_true, train_frac, which):
     """
     Splits the data into training and testing sets based on the specified fraction.
@@ -287,6 +233,7 @@ def split_data(X_full, coords_nominal, coords_true, train_frac, which):
     else:
         raise ValueError("Invalid split type specified: must be 'train' or 'test'.")
 
+@debug
 def split_tensor(tensor, frac, which='test'):
     """
     Splits a tensor into training and test portions based on the specified fraction.
@@ -299,62 +246,170 @@ def split_tensor(tensor, frac, which='test'):
     n_train = int(len(tensor) * frac)
     return tensor[:n_train] if which == 'train' else tensor[n_train:]
 
-def load(cb, which=None, create_split=True, **kwargs):
+@debug
+def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) -> PtychoDataContainer:
+    """
+    Convert grouped NumPy data to TensorFlow tensors in a PtychoDataContainer.
+    
+    This is the primary NumPy->TensorFlow conversion function in the data pipeline.
+    It takes a callback that returns grouped data (as produced by raw_data.py) and
+    converts all relevant arrays to appropriately-typed TensorFlow tensors.
+    
+    Args:
+        cb: Callback function that returns grouped data dictionary from raw_data.
+            The callback pattern allows lazy evaluation - data grouping only occurs
+            when needed, which is crucial for memory efficiency with large datasets.
+            Expected return: dict with keys 'X_full', 'Y', 'objectGuess', coordinate
+            keys, and metadata from raw_data.generate_grouped_data().
+        probeGuess: Initial probe function as TensorFlow complex64 tensor, shape (N, N)
+        which: Data split selector - 'train' or 'test' (only used if create_split=True)
+        create_split: If True, expects cb() to return (data_dict, train_fraction) tuple
+                     and applies fraction-based splitting. If False, uses full dataset.
+    
+    Returns:
+        PtychoDataContainer with all arrays converted to appropriate TensorFlow dtypes:
+        - Diffraction data (X) -> tf.float32
+        - Ground truth patches (Y_I, Y_phi) -> tf.float32
+        - Complex ground truth (Y) -> tf.complex64
+        - Coordinates -> tf.float32
+        
+    Notes:
+        - Preserves multi-channel dimensions for gridsize > 1 configurations
+        - Creates dummy complex tensors if ground truth is missing
+        - Validates channel consistency between X and Y tensors
+        - Handles train/test splitting consistently across all tensor arrays
+    """
     from . import params as cfg
+    from . import probe
+    
     if create_split:
         dset, train_frac = cb()
     else:
         dset = cb()
+        
     gt_image = dset['objectGuess']
-    X_full = dset['X_full'] # normalized diffraction
+    X_full = dset['X_full']  # This is already in the correct multi-channel format.
     global_offsets = dset[key_coords_offsets]
-    # Define coords_nominal and coords_true before calling split_data
+    
     coords_nominal = dset[key_coords_relative]
     coords_true = dset[key_coords_relative]
+    
+    # Correctly handle splitting for both X and Y
     if create_split:
         global_offsets = split_tensor(global_offsets, train_frac, which)
-        X, coords_nominal, coords_true = split_data(X_full, coords_nominal, coords_true, train_frac, which)
+        X_full_split, coords_nominal, coords_true = split_data(X_full, coords_nominal, coords_true, train_frac, which)
     else:
-        X = X_full
+        X_full_split = X_full
+
+    # Convert X to a tensor, preserving its multi-channel shape
+    X = tf.convert_to_tensor(X_full_split, dtype=tf.float32)
+    coords_nominal = tf.convert_to_tensor(coords_nominal, dtype=tf.float32)
+    coords_true = tf.convert_to_tensor(coords_true, dtype=tf.float32)
+
+    # Handle the Y array (ground truth patches)
+    if dset['Y'] is None:
+        # If Y is missing, create a placeholder with the same multi-channel shape as X.
+        Y = tf.ones_like(X, dtype=tf.complex64)
+        print("loader: setting dummy Y ground truth with correct channel shape.")
+    else:
+        Y_full = dset['Y']
+        # CRITICAL: Apply the same split to Y as was applied to X
+        if create_split:
+            Y_split, _, _ = split_data(Y_full, coords_nominal, coords_true, train_frac, which)
+        else:
+            Y_split = Y_full
+        Y = tf.convert_to_tensor(Y_split, dtype=tf.complex64)
+        print("loader: using provided ground truth patches.")
+
+    # Final validation check
+    if X.shape[-1] != Y.shape[-1]:
+        raise ValueError(f"Channel mismatch between X ({X.shape[-1]}) and Y ({Y.shape[-1]})")
+
+    # Extract amplitude and phase, which will also have the correct multi-channel shape
+    Y_I = tf.math.abs(Y)
+    Y_phi = tf.math.angle(Y)
 
     norm_Y_I = datasets.scale_nphotons(X)
 
-    X = tf.convert_to_tensor(X)
-    coords_nominal = tf.convert_to_tensor(coords_nominal)
-    coords_true = tf.convert_to_tensor(coords_true)
+    YY_full = None # This is a placeholder
+    
+    # Create the container with correctly shaped tensors
+    container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, 
+                                  dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess)
+    print('INFO:', which)
+    print(container)
+    return container
 
-    Y_obj = get_image_patches(gt_image,
-        global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
-    Y_I = tf.math.abs(Y_obj)
-    Y_phi = tf.math.angle(Y_obj)
-    YY_full = None
+#@debug
+def normalize_data(dset: dict, N: int) -> np.ndarray:
+    # TODO this should be baked into the model pipeline. If we can
+    # assume consistent normalization, we can get rid of intensity_scale
+    # as a model parameter since the post normalization average L2 norm
+    # will be fixed. Normalizing in the model's dataloader will make
+    # things more self-contained and avoid the need for separately
+    # scaling simulated datasets. While we're at it we should get rid of
+    # all the unecessary multiiplying and dividing by intensity_scale.
+    # As long as nphotons is a dataset-level attribute (i.e. an attribute of RawData 
+    # and PtychoDataContainer), nothing is lost
+    # by keeping the diffraction in normalized format everywhere except
+    # before the Poisson NLL calculation in model.py.
 
-    # TODO complex
-    return {
-        'X': X,
-        'Y_I': Y_I,
-        'Y_phi': Y_phi,
-        'norm_Y_I': norm_Y_I,
-        'YY_full': YY_full,
-        'coords': (coords_nominal, coords_true),
-        'nn_indices': dset['nn_indices'],
-        'global_offsets': dset['coords_offsets'], # global coordinate offsets
-        'local_offsets': dset['coords_relative'] # local coordinate offsets
-
-    }
-
-# Images are amplitude, not intensity
-def normalize_data(dset, N):
+    # Images are amplitude, not intensity
     X_full = dset['diffraction']
-    X_full_norm = ((N / 2)**2) / np.mean(tf.reduce_sum(dset['diffraction']**2, axis=[1, 2]))
+    X_full_norm = np.sqrt(
+            ((N / 2)**2) / np.mean(tf.reduce_sum(dset['diffraction']**2, axis=[1, 2]))
+            )
+    #print('X NORM', X_full_norm)
     return X_full_norm * X_full
 
+#@debug
 def crop(arr2d, size):
     N, M = arr2d.shape
     return arr2d[N // 2 - (size) // 2: N // 2+ (size) // 2, N // 2 - (size) // 2: N // 2 + (size) // 2]
 
+@debug
 def get_gt_patch(offset, N, gt_image):
     from . import tf_helper as hh
     return crop(
         hh.translate(gt_image, offset),
         N // 2)
+
+def load_xpp_npz(file_path, train_size=512):
+    """
+    Load ptychography data from a file and return RawData objects.
+
+    Args:
+        file_path (str, optional): Path to the data file. Defaults to the package resource 'datasets/Run1084_recon3_postPC_shrunk_3.npz'.
+        train_size (int, optional): Number of data points to include in the training set. Defaults to 512.
+
+    Returns:
+        tuple: A tuple containing two RawData objects:
+            - ptycho_data: RawData object containing the full dataset.
+            - ptycho_data_train: RawData object containing a subset of the data for training.
+    """
+    # Load data from file
+    data = np.load(file_path)
+
+    # Extract required arrays from loaded data
+    xcoords = data['xcoords']
+    ycoords = data['ycoords']
+    xcoords_start = data['xcoords_start']
+    ycoords_start = data['ycoords_start']
+    diff3d = data['diffraction']#np.transpose(data['diffraction'], [2, 0, 1])
+    probeGuess = data['probeGuess']
+    objectGuess = data['objectGuess']
+
+    # Create scan_index array
+    scan_index = np.zeros(diff3d.shape[0], dtype=int)
+
+    # Create RawData object for the full dataset
+    ptycho_data = RawData(xcoords, ycoords, xcoords_start, ycoords_start,
+                                 diff3d, probeGuess, scan_index, objectGuess=objectGuess)
+
+    # Create RawData object for the training subset
+    ptycho_data_train = RawData(xcoords[:train_size], ycoords[:train_size],
+                                       xcoords_start[:train_size], ycoords_start[:train_size],
+                                       diff3d[:train_size], probeGuess,
+                                       scan_index[:train_size], objectGuess=objectGuess)
+
+    return ptycho_data, ptycho_data_train, data

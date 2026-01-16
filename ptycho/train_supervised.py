@@ -1,7 +1,16 @@
+"""Legacy supervised training module for baseline ptychography models.
+
+Provides reconstruction functions and training workflows for supervised baseline
+models with gridsize 1/2 support and patch-based object stitching.
+
+Example:
+    model, history = bl.train(X_train[:, :, :, :1], Y_I_train[:, :, :, :1], Y_phi_train[:, :, :, :1])
+"""
 from ptycho.generate_data import *
 from ptycho import tf_helper as hh
 from ptycho import baselines as bl
 from ptycho import params as p
+from ptycho.image import reassemble_patches
 
 offset = p.get('offset')
 
@@ -53,6 +62,20 @@ else:
     raise ValueError
 
 try:
-    stitched_obj = reassemble(reconstructed_obj, part='complex')
+    stitched_obj = reassemble_patches(reconstructed_obj, config, part='complex')
 except (ValueError, TypeError) as e:
     print('object stitching failed:', e)
+
+# New alternative implementation 
+from ptycho.image import reassemble_patches as _reassemble_patches
+
+def stitch_reconstruction(reconstructed_obj, config, **kwargs):
+    """
+    Alternative implementation using new stitching module.
+    Preserves existing behavior while allowing transition to new API.
+    """
+    try:
+        return _reassemble_patches(reconstructed_obj, config, part='complex', **kwargs)
+    except (ValueError, TypeError) as e:
+        print('object stitching failed:', e)
+        return None

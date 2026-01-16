@@ -1,3 +1,14 @@
+"""Generate synthetic objects with diagonal line patterns for ptychographic simulation.
+
+This module provides functions for creating test objects containing randomly positioned
+vertical, horizontal, and diagonal line patterns, primarily used by ptycho.diffsim.
+
+Usage Example:
+    ```python
+    from ptycho.datagen.diagonals import mk_diags
+    diagonal_pattern = mk_diags(N=64, sigma=0.75)
+    ```
+"""
 import numpy as np
 
 def draw_lines(shape, num):

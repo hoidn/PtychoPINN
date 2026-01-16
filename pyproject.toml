@@ -1,0 +1,79 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm[toml]>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ptychopinn"
+description = "PtychoPINN is an unsupervised physics-informed neural network reconstruction method for scanning CDI"
+readme = "README.md"
+requires-python = ">=3.10,<3.12"
+license = {file = "LICENSE"}
+dependencies = [
+    "Pillow",
+    "dill",
+    "imageio", 
+    "ipywidgets",
+    "jupyter",
+    "matplotlib",
+    "numba",
+    "numpy",
+    "opencv-python",
+    "pandas",
+    "pandas-datareader",
+    "pathos",
+    "scikit-image",
+    "scikit-learn",
+    "scipy",
+    "tensorflow[and-cuda]>=2.13.0",
+    "tensorflow-datasets",
+    "tensorflow-hub",
+    "tensorflow-metadata",
+    "tensorflow-probability",  # This version works with TF 2.15
+    #"tensorflow-probability<0.23.0",  # This version works with TF 2.15
+    #"torchmetrics",
+    #"torchvision",
+    "tqdm",
+    "ujson",
+]
+dynamic = ["version"]
+
+[project.scripts]
+ptycho_train = "scripts.training.train:main"
+ptycho_inference = "scripts.inference.inference:main"
+ptycho_evaluate = "scripts.evaluation.evaluate_model:main"
+
+[tool.setuptools.package-data]
+datasets = ["*.npz"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools_scm]
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = ["tests"]
+# Add markers for optional dependencies
+markers = [
+    "torch: marks tests as requiring PyTorch (deselect with '-m \"not torch\"')",
+    "optional: marks tests as requiring optional dependencies",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+]
+# Configure test collection to handle import errors gracefully
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--ignore-glob=**/test_*_backup.py",
+    "--ignore-glob=**/*.ipynb",  # Ignore Jupyter notebooks
+    "-ra"  # show extra test summary info for all except passed
+]
+# Configure warnings
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    # Don't show warnings for PyTorch import failures
+    "ignore:PyTorch not available.*:UserWarning"
+]

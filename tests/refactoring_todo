@@ -1,0 +1,10 @@
+Use PtychoData class
+get rid of nominal vs actual coordinates
+move 'lines' simulation into its own file
+split tf_helper into multiple files
+move some of the stuff in loader into tf_helper
+functional interface (probe should be an explicit
+	parameter instead of part of the configuration).
+don't divide by intensity scale, since we then have to multiply it back
+in
+clarify the role of c_outer and all that and clean up model.py
