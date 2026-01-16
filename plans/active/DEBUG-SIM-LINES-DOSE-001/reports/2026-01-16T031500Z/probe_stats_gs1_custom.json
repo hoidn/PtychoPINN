@@ -1,0 +1,49 @@
+{
+  "comparison": {
+    "amp_delta": {
+      "max": 2.384185791015625e-07,
+      "mean": -4.446434331839555e-10,
+      "min": -2.384185791015625e-07,
+      "std": 9.457793659350955e-09
+    },
+    "amp_ratio": {
+      "max": 1.0000001192092896,
+      "mean": 1.0,
+      "min": 0.9999998211860657,
+      "std": 1.2667356941165053e-08
+    },
+    "l2_delta": 5.158041176400729e-07,
+    "max_abs_delta": 2.4027400513659813e-07
+  },
+  "legacy": {
+    "amplitude": {
+      "l2": 42.6507682800293,
+      "max": 3.776010751724243,
+      "mean": 0.2923353910446167,
+      "min": 0.0005128049524500966,
+      "std": 0.5988767147064209
+    },
+    "normalization_factor": 1.1002997159957886
+  },
+  "metadata": {
+    "custom_probe_path": "ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz",
+    "gridsize": 1,
+    "nphotons": 1000000000.0,
+    "probe_big": true,
+    "probe_mask": false,
+    "probe_mode": "custom",
+    "probe_scale": 4.0,
+    "scenario": "gs1_custom",
+    "snapshot": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json"
+  },
+  "sim_lines": {
+    "amplitude": {
+      "l2": 42.6507682800293,
+      "max": 3.776010751724243,
+      "mean": 0.2923353910446167,
+      "min": 0.0005128049524500966,
+      "std": 0.5988767147064209
+    },
+    "normalization_factor": 1.1002997159957886
+  }
+}

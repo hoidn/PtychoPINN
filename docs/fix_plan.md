@@ -49,6 +49,10 @@
     - Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
     - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T020000Z/{grouping_sim_lines_default.json,grouping_sim_lines_default.md,grouping_dose_experiments_legacy.json,grouping_dose_experiments_legacy.md,pytest_sim_lines_pipeline_import.log}`
     - Next Actions: Mine the grouping stats to plan the remainder of Phase B (probe normalization and grouping differentials) or flag if additional parameter overrides are required.
+  - *2026-01-16T031700Z:* Implemented the plan-local `probe_normalization_report.py` CLI plus `plans/.../bin/__init__.py`, generated JSON/Markdown stats for gs1/gs2 × custom/ideal probes, captured the CLI log, and reran the synthetic helpers CLI smoke test.
+    - Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+    - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T031500Z/{probe_stats_gs1_custom.json,probe_stats_gs1_custom.md,probe_stats_gs1_ideal.json,probe_stats_gs1_ideal.md,probe_stats_gs2_custom.json,probe_stats_gs2_custom.md,probe_stats_gs2_ideal.json,probe_stats_gs2_ideal.md,probe_normalization_cli.log,pytest_sim_lines_pipeline_import.log}`
+    - Next Actions: Compare the legacy vs sim_lines probe stats to decide if normalization explains the reconstruction gap or if grouping/reassembly experiments must proceed (Phase B3/B4).
 
 ### [REFACTOR-MEMOIZE-CORE-001] Move RawData memoization decorator into core module
 - Depends on: None
