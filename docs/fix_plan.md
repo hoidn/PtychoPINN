@@ -37,6 +37,7 @@
 - Attempts History:
   - *2026-01-13T000000Z:* Drafted phased debugging plan, summary, and test strategy. Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md`, `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md`, `plans/active/DEBUG-SIM-LINES-DOSE-001/test_strategy.md`.
   - *2026-01-15T235900Z:* Reactivated focus, set Phase A evidence capture Do Now, and opened new artifacts hub. Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-15T235900Z/`.
+  - *2026-01-16T000353Z:* Reframed Phase A A0/A1/A3 handoff to build `collect_sim_lines_4x_params.py`, inventory `dose_experiments` defaults, and run the pipeline import smoke test. Artifacts hub: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/`.
 
 ### [REFACTOR-MEMOIZE-CORE-001] Move RawData memoization decorator into core module
 - Depends on: None

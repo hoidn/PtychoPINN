@@ -330,3 +330,18 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
   - Prepared `input.md` to add a lightweight params snapshot tool and archive Phase A artifacts.
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 ralph_last_commit=none artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-15T235900Z/ next_action=add sim_lines_4x params snapshot tool + capture dose_experiments defaults + run pipeline import smoke test
+
+# 2026-01-16T00:05:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase A Do Now refresh
+
+- dwell: 1 (first supervisor pass since reactivation)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Phase A evidence capture (sim_lines_4x vs dose_experiments)
+- Action type: Planning | Mode: Implementation handoff
+- Git sync: `git pull --rebase` (already up to date).
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, MODULE-SINGLETON-001, NORMALIZATION-001, BUG-TF-001), plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md,test_strategy.md}, scripts/studies/sim_lines_4x/pipeline.py, specs/data_contracts.md, docs/DATA_GENERATION_GUIDE.md, docs/debugging/debugging.md.
+- Key decisions:
+  - Created new artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/` and recorded the Do Now in docs/fix_plan.md Attempts.
+  - Delegated creation of `scripts/tools/collect_sim_lines_4x_params.py` (metadata-only snapshot CLI) plus git history capture for the legacy `dose_experiments` reference.
+  - Mapped pytest selector `tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke` for validation and captured explicit CLI commands in input.md.
+- Next: Ralph implements the snapshot tool, inventories the old defaults, and archives the smoke-test log.
+- <Action State>: [planning]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=planning dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/ next_action=ready_for_implementation
