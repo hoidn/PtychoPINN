@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-15 (REFACTOR-MEMOIZE-CORE-001 closed; pivoting to PARALLEL-API-INFERENCE Tasks 2-3)
-**Active Focus:** PARALLEL-API-INFERENCE — Programmatic TF/PyTorch API parity (demo script parity + smoke test)
+**Last Updated:** 2026-01-15 (pivoted back to DEBUG-SIM-LINES-DOSE-001 Phase A evidence capture)
+**Active Focus:** DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy
 
 ---
 
@@ -14,6 +14,29 @@
 ---
 
 ## Active / Pending Initiatives
+
+### [DEBUG-SIM-LINES-DOSE-001] Isolate sim_lines_4x vs dose_experiments discrepancy
+- Depends on: None
+- Priority: **Critical** (Highest Priority)
+- Status: in_progress — Phase A evidence capture kickoff
+- Owner/Date: Codex/2026-01-13
+- Working Plan: `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md`
+- Summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md`
+- Reports Hub: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/`
+- Spec Owner: `docs/specs/spec-ptycho-workflow.md`
+- Test Strategy: `plans/active/DEBUG-SIM-LINES-DOSE-001/test_strategy.md`
+- Goals:
+  - Identify whether the sim_lines_4x failure stems from a core regression, nongrid pipeline differences, or a workflow/config mismatch.
+  - Produce a minimal repro that isolates grid vs nongrid and probe normalization effects.
+  - Apply a targeted fix and verify success via visual inspection if metrics are unavailable.
+- Exit Criteria:
+  - A/B results captured for grid vs nongrid, probe normalization, and grouping parameters.
+  - Root-cause statement with evidence (logs + params snapshot + artifacts).
+  - Targeted fix or workflow change applied, with recon success and no NaNs.
+  - Visual inspection success gate satisfied if metrics are unavailable.
+- Attempts History:
+  - *2026-01-13T000000Z:* Drafted phased debugging plan, summary, and test strategy. Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md`, `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md`, `plans/active/DEBUG-SIM-LINES-DOSE-001/test_strategy.md`.
+  - *2026-01-15T235900Z:* Reactivated focus, set Phase A evidence capture Do Now, and opened new artifacts hub. Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-15T235900Z/`.
 
 ### [REFACTOR-MEMOIZE-CORE-001] Move RawData memoization decorator into core module
 - Depends on: None
@@ -44,7 +67,7 @@
 ### [PARALLEL-API-INFERENCE] Programmatic TF/PyTorch API parity
 - Depends on: None
 - Priority: Medium
-- Status: in_progress — Task 2 (demo script parity + smoke test) ready for implementation
+- Status: pending — paused while DEBUG-SIM-LINES-DOSE-001 is active
 - Owner/Date: TBD/2026-01-09
 - Working Plan: `plans/active/PARALLEL-API-INFERENCE/plan.md`
 - Summary: `plans/active/PARALLEL-API-INFERENCE/summary.md`

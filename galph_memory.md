@@ -316,3 +316,17 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - focus=FEAT-LAZY-LOADING-001 state=ready_for_implementation dwell=0 ralph_last_commit=37985157 artifacts=plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-08T030000Z/ next_action=implement Phase C (streaming training + integration tests)
 
 ---
+# 2026-01-15T23:59:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase A kickoff
+
+- dwell: 0 (new focus; reactivated from archive)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy
+- Action type: Planning → Implementation handoff (Phase A evidence capture)
+- Mode: Implementation
+- Git sync: not run (focus update only)
+- Documents reviewed: docs/index.md, docs/findings.md, docs/debugging/debugging.md, docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/fix_plan.md, prompts/main.md, prompts/supervisor.md, plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md, plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md, plans/active/DEBUG-SIM-LINES-DOSE-001/test_strategy.md
+- Key decisions:
+  - Reactivated DEBUG-SIM-LINES-DOSE-001 in `docs/fix_plan.md` and set it as the sole active focus.
+  - Paused PARALLEL-API-INFERENCE until Phase A evidence capture is underway.
+  - Prepared `input.md` to add a lightweight params snapshot tool and archive Phase A artifacts.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 ralph_last_commit=none artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-15T235900Z/ next_action=add sim_lines_4x params snapshot tool + capture dose_experiments defaults + run pipeline import smoke test

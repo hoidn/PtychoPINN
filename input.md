@@ -1,77 +1,73 @@
-# PARALLEL-API-INFERENCE — Task 2: align TF demo path with `_run_tf_inference_and_reconstruct`
+# DEBUG-SIM-LINES-DOSE-001 — Phase A: capture sim_lines_4x param snapshot
 
-**Summary:** Update the programmatic demo so its TensorFlow backend uses the new inference helper, keeping TF/PyTorch parity per the API spec and capturing quick regression evidence.
+**Summary:** Capture a deterministic sim_lines_4x parameter snapshot and inventory dose_experiments defaults to start the discrepancy triage.
 
-**Focus:** PARALLEL-API-INFERENCE — Programmatic TF/PyTorch API parity (Task 2 demo parity + smoke test)
+**Focus:** DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy
 
 **Branch:** paper
 
 **Mapped tests:**
-- `pytest tests/scripts/test_api_demo.py::TestPyTorchApiDemo::test_demo_module_importable -v`
-- `pytest tests/scripts/test_api_demo.py::TestPyTorchApiDemo::test_run_backend_function_signature -v`
-- `pytest tests/scripts/test_tf_inference_helper.py::TestTFInferenceHelper::test_helper_signature_matches_spec -v`
+- `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 
-**Artifacts:** `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-15T233622Z/`
+**Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-15T235900Z/`
 
 ---
 
 ## Do Now
 
-- PARALLEL-API-INFERENCE.Task2
-  - Implement: `scripts/pytorch_api_demo.py::run_backend` — import `_run_tf_inference_and_reconstruct` + `extract_ground_truth` from `scripts.inference.inference`, reuse the already-loaded `RawData`, and replace the TensorFlow branch so it calls the helper with the bundle’s restored config (`params_dict` from `load_inference_bundle_with_backend`), passes `nsamples=infer_cfg.n_groups` (or `None` for “all”), and pipes the resulting amplitude/phase through `tf_components.save_outputs`. Leave the PyTorch branch untouched aside from deleting now-unused TensorFlow-specific helpers.
-  - Validate: run the fast pytest selectors listed above and archive logs with `tee` under the artifacts hub (collect-only is covered by the TF helper suite); slow backend executions stay deselected for now.
+- DEBUG-SIM-LINES-DOSE-001.A0 + A1 + A3
+  - Implement: `scripts/tools/collect_sim_lines_4x_params.py` — new CLI that emits a JSON snapshot for all four sim_lines_4x scenarios (RunParams, ScenarioSpec, derived counts, probe_mask/probe_big defaults, nphotons, neighbor_count, reassemble_M, and CUSTOM_PROBE_PATH).
+  - Evidence: capture dose_experiments defaults via `git ls-tree`/`git show` into `dose_experiments_param_scan.md` under the artifacts hub.
+  - Validate: run the mapped pytest selector and archive logs under the artifacts hub.
 
 ## How-To Map
-1. In `scripts/pytorch_api_demo.py`, add:
-   ```python
-   from scripts.inference.inference import (
-       _run_tf_inference_and_reconstruct,
-       extract_ground_truth,
-   )
-   ```
-2. Within `run_backend`, keep the shared `train_data`/`test_data` setup. For the TF branch:
-   - Call `_run_tf_inference_and_reconstruct(model, test_data, params_dict, K=4, nsamples=infer_cfg.n_groups, quiet=True)` and capture `(amp, phase)`.
-   - Optionally fetch `gt = extract_ground_truth(test_data)` for future reporting; the current flow can still pass `{}` as the `results` dict when invoking `tf_components.save_outputs`.
-   - Remove the direct `tf_components.create_ptycho_data_container()`/`perform_inference()` usage so the demo exercises the helper specified in `specs/ptychodus_api_spec.md §4.8`.
-3. Keep the PyTorch execution path unchanged (still calls `_run_inference_and_reconstruct` + `save_individual_reconstructions`).
-4. Commands (repo root, PYTHON-ENV-001 compliant):
+1. Create `scripts/tools/collect_sim_lines_4x_params.py` with argparse:
+   - `--output <path>` (required) writes JSON.
+   - Builds the four ScenarioSpec definitions (gs1/gs2 x ideal/custom) and RunParams defaults from `scripts.studies.sim_lines_4x.pipeline`.
+   - Resolves probe defaults using the same rules as `run_scenario` (idealized => probe_big=False, probe_mask=True; custom => defaults from `ptycho.config.config.ModelConfig`).
+   - Emits a single JSON payload with `scenarios` list + top-level `run_params` + `custom_probe_path`.
+2. Run the snapshot tool:
    ```bash
-   pytest tests/scripts/test_api_demo.py::TestPyTorchApiDemo::test_demo_module_importable -v \
-     | tee plans/active/PARALLEL-API-INFERENCE/reports/2026-01-15T233622Z/pytest_api_demo_import.log
+   python scripts/tools/collect_sim_lines_4x_params.py \
+     --output plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-15T235900Z/sim_lines_4x_params_snapshot.json
+   ```
+3. Inventory dose_experiments defaults (if the ref exists) and store notes:
+   ```bash
+   git ls-tree -r dose_experiments \
+     > plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-15T235900Z/dose_experiments_tree.txt
 
-   pytest tests/scripts/test_api_demo.py::TestPyTorchApiDemo::test_run_backend_function_signature -v \
-     | tee plans/active/PARALLEL-API-INFERENCE/reports/2026-01-15T233622Z/pytest_api_demo_signature.log
-
-   pytest tests/scripts/test_tf_inference_helper.py::TestTFInferenceHelper::test_helper_signature_matches_spec -v \
-     | tee plans/active/PARALLEL-API-INFERENCE/reports/2026-01-15T233622Z/pytest_tf_helper_signature.log
+   # For each relevant file, extract defaults and summarize them in a short table.
+   git show dose_experiments:<path> \
+     >> plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-15T235900Z/dose_experiments_param_scan.md
+   ```
+4. Run the mapped pytest selector:
+   ```bash
+   pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v \
+     | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-15T235900Z/pytest_sim_lines_pipeline_import.log
    ```
 
 ## Pitfalls To Avoid
-1. Do not reintroduce `tf_components.perform_inference`; `_run_tf_inference_and_reconstruct` is the spec’d surface (see `scripts/inference/inference.py:353`).
-2. Keep `RawData` loading deterministic — no extra sampling or CLI flags inside the demo (ANTIPATTERN-001).
-3. Treat `params_dict` as read-only — CONFIG-001 compliance relies on the bundle restoring `params.cfg` before inference.
-4. Avoid importing heavy TensorFlow modules at top level beyond the helper import.
-5. Preserve the existing `WORKDIR` layout (`tmp/api_demo/<backend>/...`).
-6. Leave the PyTorch branch untouched; we’re only modernizing the TF path this loop.
-7. Run pytest from the repo root and capture full stdout/stderr via `tee`.
-8. If a selector unexpectedly runs the `@pytest.mark.slow` tests, abort and document rather than letting them hang.
+1. Do not run full training/inference loops in this phase; keep it metadata-only.
+2. Avoid importing TensorFlow-heavy modules in the new snapshot tool.
+3. Keep the snapshot tool deterministic (no RNG use, no filesystem side effects beyond JSON write).
+4. Do not touch `params.cfg` or call legacy loaders from the tool.
+5. Keep defaults aligned with `scripts/studies/sim_lines_4x/pipeline.py::run_scenario`.
+6. If the `dose_experiments` ref is missing, record the error and stop rather than guessing defaults.
 
 ## If Blocked
-- If `_run_tf_inference_and_reconstruct` raises due to missing config keys, capture the traceback plus the offending config dict in `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-15T233622Z/blocker.md`, add the reference to `docs/fix_plan.md` Attempts History, and stop.
-- If any mapped pytest selector fails, keep the log in the artifacts hub, summarize the failure (command + exit code) in the same blocker file, and halt so we can triage before continuing.
+- If `git ls-tree -r dose_experiments` fails, record the exact error in `dose_experiments_param_scan.md`, note the missing ref in `docs/fix_plan.md` Attempts History, and stop.
+- If the snapshot tool import triggers a missing dependency, capture the minimal error signature in `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-15T235900Z/blocker.md` and halt.
 
 ## Findings Applied
 | Finding ID | Adherence |
 |------------|-----------|
-| CONFIG-001 | Use the bundle-restored config (`params_dict`) when calling `_run_tf_inference_and_reconstruct` so legacy modules stay synchronized. |
-| ANTIPATTERN-001 | Keep all heavy processing inside functions; no new import-time data loading or implicit globals. |
+| CONFIG-001 | Snapshot tool avoids touching `params.cfg`; it only reads config defaults. |
+| MODULE-SINGLETON-001 | Tool does not import `ptycho.model` or other modules that trigger singleton creation. |
+| NORMALIZATION-001 | Snapshot captures probe_scale/normalization inputs without applying scaling. |
+| BUG-TF-001 | Snapshot records explicit gridsize to avoid silent mismatch. |
 
 ## Pointers
-- `scripts/pytorch_api_demo.py:1` — demo script that still calls the deprecated TF path.
-- `scripts/inference/inference.py:323-520` — canonical `_run_tf_inference_and_reconstruct` + `extract_ground_truth` implementation.
-- `tests/scripts/test_api_demo.py:1` — smoke tests you’ll re-run.
-- `tests/scripts/test_tf_inference_helper.py:1` — helper regression selector.
-- `specs/ptychodus_api_spec.md:200-360` — normative inference API & backend dispatch contract for programmatic callers.
-
-## Next Up
-- After the TF branch uses the helper and quick tests pass, schedule a loop to run the slow backend smoke tests and document the example flow in `docs/workflows/pytorch.md`.
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md` — Phase A checklist and evidence requirements.
+- `scripts/studies/sim_lines_4x/pipeline.py` — authoritative sim_lines_4x defaults and scenario logic.
+- `docs/DATA_GENERATION_GUIDE.md` — nongrid pipeline expectations.
+- `docs/debugging/debugging.md` — standard debugging workflow.
