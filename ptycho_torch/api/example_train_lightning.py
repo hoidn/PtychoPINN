@@ -48,8 +48,8 @@ json_dir = "/local/CDI-PINN/ptychopinn_torch/configs/publication_configs/4_q_mul
 
 config_manager, _= ConfigManager._from_json(json_path = json_dir)
 # Update config manager                                              
-training_update = {'epochs': 2,
-                   'epochs_fine_tune': 1,
+training_update = {'epochs': 40,
+                   'epochs_fine_tune': 10,
                    'orchestrator': 'Lightning'}
 config_manager.update(training_config = training_update)
 

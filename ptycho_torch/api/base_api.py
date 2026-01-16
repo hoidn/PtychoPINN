@@ -477,11 +477,10 @@ class PtychoModel:
         if strategy == Orchestration.MLFLOW:
             instance.model, instance.run_id = cls.load_from_mlflow(**kwargs)
             instance.mlflow_tracking_uri = kwargs.get('mlflow_tracking_uri')
-            return instance
         elif strategy == Orchestration.PYTORCH:
             instance.model = cls.load_from_pytorch(**kwargs)
-            return instance
         elif strategy == Orchestration.LIGHTNING:
+            print("Loading lightning model")
             instance.model = cls.load_from_lightning(data_config = config_manager.data_config,
                                                      model_config = config_manager.model_config,
                                                      training_config = config_manager.training_config,
@@ -490,6 +489,8 @@ class PtychoModel:
                                                      )
         else:
             raise ValueError(f"Unknown load strategy: {strategy}")
+        
+        return instance
 
     @classmethod    
     def _new_model(
@@ -1046,6 +1047,8 @@ class Trainer:
             self.training_config.n_devices,
             self.training_config.batch_size
         )
+
+        print(f"Updated learning rate is: {updated_lr}")
 
         self.ptycho_model.model.lr = updated_lr
         self.ptycho_model.model.training = True
