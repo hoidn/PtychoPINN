@@ -1,57 +1,54 @@
-Summary: Build the Phase B4 reassembly limits CLI so we can prove the gs2 offsets overflow the legacy padded-size math and record reassembly sum ratios for gs1 vs gs2.
+Summary: Update the workflow helper so grouped datasets inflate `max_position_jitter`/padded size from actual offsets, then prove the fix via pytest and refreshed reassembly telemetry.
 Focus: DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy
-Branch: paper (sync with origin/paper)
-Mapped tests: pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T050500Z/
+Branch: paper
+Mapped tests: pytest tests/test_workflow_components.py::TestCreatePtychoDataContainer::test_updates_max_position_jitter -v
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T060900Z/
 
 Do Now (hard validity contract)
-- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/reassembly_limits_report.py::main — add the B4 instrumentation script that rebuilds the SIM-LINES snapshot, logs padded-size math vs observed offsets, and runs the reassembly sum-preservation probe for `gs1_custom` and `gs2_custom`, saving JSON/Markdown plus the CLI log in the new hub.
-- Pytest: pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
-- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T050500Z/{reassembly_gs1_custom.json, reassembly_gs1_custom.md, reassembly_gs2_custom.json, reassembly_gs2_custom.md, reassembly_cli.log, pytest_sim_lines_pipeline_import.log}
+- Implement: ptycho/workflows/components.py::create_ptycho_data_container — derive `max_position_jitter` from grouped `coords_offsets` (train/test aware) so `get_padded_size()` satisfies the spec requirement before reassembly, and plumb the helper into the existing plan-local CLI for verification.
+- Pytest: pytest tests/test_workflow_components.py::TestCreatePtychoDataContainer::test_updates_max_position_jitter -v
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T060900Z/{git_diff.txt,pytest_workflow_components.log,reassembly_cli.log,reassembly_gs1_custom.json,reassembly_gs1_custom.md,reassembly_gs2_custom.json,reassembly_gs2_custom.md}
 
 How-To Map
-1. export ARTIFACT_DIR=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T050500Z && mkdir -p "$ARTIFACT_DIR".
-2. Implement `bin/reassembly_limits_report.py` (same snapshot-loading helpers as `grouping_summary.py`) so it:
-   - builds RawData for the requested scenario, runs `update_legacy_dict(params.cfg, TrainingConfig(...))`, and captures `get_padded_size()`, `cfg['offset']`, and `cfg['max_position_jitter']`;
-   - generates grouped data for train/test with consistent seeds, computes per-axis max offsets, and derives `required_canvas = math.ceil(N + 2 * max_offset)` alongside `fits_canvas = padded_size >= required_canvas` plus delta/ratio metrics;
-   - slices the first `--group-limit` (default 64) samples, creates dummy complex patches (np.ones) shaped like grouped diffraction, and calls `tf_helper.reassemble_whole_object()` twice (`size=padded_size` vs `size=required_canvas`) to record total sums and percent loss when the canvas is undersized;
-   - writes JSON + Markdown (metadata + per-subset stats + reassembly sum table) and prints a concise CLI stream (include both canvases’ sums) so we can tee it into `reassembly_cli.log`.
-3. Run the CLI twice (identical seeds) with the new script:
-   - python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/reassembly_limits_report.py --scenario gs1_custom --group-limit 64 --output-json "$ARTIFACT_DIR/reassembly_gs1_custom.json" --output-markdown "$ARTIFACT_DIR/reassembly_gs1_custom.md" | tee "$ARTIFACT_DIR/reassembly_cli.log"
-   - python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/reassembly_limits_report.py --scenario gs2_custom --group-limit 64 --output-json "$ARTIFACT_DIR/reassembly_gs2_custom.json" --output-markdown "$ARTIFACT_DIR/reassembly_gs2_custom.md" | tee -a "$ARTIFACT_DIR/reassembly_cli.log"
-4. pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v | tee "$ARTIFACT_DIR/pytest_sim_lines_pipeline_import.log"
+1. Edit `ptycho/workflows/components.py` inside `create_ptycho_data_container()`: after `dataset = data.generate_grouped_data(...)`, compute per-axis max absolute offsets from `dataset['coords_offsets']`, translate that to a required canvas (`required = math.ceil(config.model.N + 2 * max_abs)`), compare against `params.cfg['max_position_jitter']`, and bump jitter so the derived `get_padded_size()` equals `required` (only increase, never shrink). Log the adjustment for traceability.
+2. Export overrides into a helper (e.g., `_update_max_position_jitter_from_offsets(dataset, config)`) so the logic can be unit tested without RawData I/O; ensure both train/test invocations keep the maximum jitter observed in the process.
+3. Capture `git diff ptycho/workflows/components.py > "$ARTIFACT_DIR/git_diff.txt"` for review once edits are done.
+4. Run `pytest tests/test_workflow_components.py::TestCreatePtychoDataContainer::test_updates_max_position_jitter -v | tee "$ARTIFACT_DIR/pytest_workflow_components.log"` to prove the helper inflates jitter/padded size.
+5. Rebuild the SIM-LINES evidence with the updated workflow:
+   - `python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/reassembly_limits_report.py --scenario gs1_custom --group-limit 64 --output-json "$ARTIFACT_DIR/reassembly_gs1_custom.json" --output-markdown "$ARTIFACT_DIR/reassembly_gs1_custom.md" | tee "$ARTIFACT_DIR/reassembly_cli.log"`
+   - `python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/reassembly_limits_report.py --scenario gs2_custom --group-limit 64 --output-json "$ARTIFACT_DIR/reassembly_gs2_custom.json" --output-markdown "$ARTIFACT_DIR/reassembly_gs2_custom.md" | tee -a "$ARTIFACT_DIR/reassembly_cli.log"`
+   Confirm the `fits_canvas` flag is True and loss ratios drop ≈0% for both scenarios.
 
 Pitfalls To Avoid
-- No production edits: keep everything under plans/active/DEBUG-SIM-LINES-DOSE-001/bin/ and leave ptycho/ untouched.
-- Always call `update_legacy_dict(params.cfg, config)` before touching legacy params; CONFIG-001 is mandatory for accurate `get_padded_size()` output.
-- Limit the reassembly probe to ≤64 groups per subset so TensorFlow stays CPU-friendly; use float32 and avoid GPU-only assumptions.
-- When computing offset maxima, use absolute values per axis before deriving the canvas requirement; don’t mix coords_offsets (global) with coords_relative (local) in the same metric.
-- Ensure the CLI JSON schema extends existing patterns (metadata + per-subset dictionaries) so downstream analysis scripts can reuse them.
-- Keep CLI stdout deterministic and tee-friendly (no progress bars); capture numerical outputs with reasonable precision.
-- Do not delete previous artifact hubs or regenerate the Phase A snapshot; only write into 2026-01-16T050500Z/ for this loop.
-- Respect PYTHON-ENV-001: invoke Python via `python`, not `python3.11` or virtualenv wrappers.
-- Archive both CLI runs and the pytest log even if failures occur so the ledger has evidence.
-- Avoid reusing legacy globals outside the CLI (e.g., clean up temporary params if the script stores state that could leak into other tests).
+- Do not mutate core physics modules; keep changes inside workflows + plan-local tools.
+- Preserve CONFIG-001 ordering: `update_legacy_dict` must run before sampling/offset analysis.
+- Only increase `max_position_jitter`; downstream code may rely on prior minimums.
+- Keep helper CPU-friendly—no TensorFlow ops or GPU requirements inside workflow components.
+- Ensure `dataset['coords_offsets']` exists; raise a clear error if the snapshot is missing offsets.
+- Don’t bypass the pytest guard; evidence must show the new selector passes.
+- Re-run the SIM-LINES CLI with identical seeds so comparisons remain apples-to-apples.
+- Capture every log (pytest + CLI) under the artifacts hub even when failures arise.
+- Follow PYTHON-ENV-001: use `python`, not `python3.11` or virtualenv-specific binaries.
+- When writing JSON/Markdown, keep the schema identical so downstream automation keeps working.
 
 If Blocked
-- If the CLI cannot import (missing module, TensorFlow error) or reassembly raises due to dtype/device constraints, capture the full traceback in $ARTIFACT_DIR/blocker.log, update docs/fix_plan.md Attempts with the command + error signature, set `<status>blocked</status>` here, and stop after saving the pytest output (even if pytest fails).
+- If grouped data lacks offsets or jitter math fails, save the traceback to `$ARTIFACT_DIR/blocker.log`, update docs/fix_plan.md Attempts with the command + error, and set this focus to blocked until we know how to extract offsets reliably.
 
 Findings Applied (Mandatory)
-- CONFIG-001 — run `update_legacy_dict(params.cfg, TrainingConfig(...))` before RawData/grouping/reassembly so gridsize/neighbor_count/offsets reflect the scenario.
-- MODULE-SINGLETON-001 — keep probe/raw-data creation scoped within the CLI; never rely on module-level singletons that persist between runs.
-- NORMALIZATION-001 — do not change probe normalization; the CLI only reports geometry, so avoid rescaling diffraction beyond what synthetic_helpers already does.
-- BUG-TF-REASSEMBLE-001 — this probe exercises `_reassemble_position_batched`; treat errors as telemetry only and do not patch tf_helper while we’re still proving the padded-size mismatch.
+- CONFIG-001 — maintain the `update_legacy_dict` bridge before inspecting grouped offsets so gridsize/N stay authoritative.
+- MODULE-SINGLETON-001 — workflow helpers must not resurrect legacy singletons; keep logic stateless and scoped per call.
+- NORMALIZATION-001 — avoid touching intensity/probe scaling while adjusting jitter; this task only addresses geometry.
+- BUG-TF-REASSEMBLE-001 — padding fixes must keep `_reassemble_position_batched` stable; treat any tf_helper regression as a hard stop.
 
 Pointers
-- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:106-136 — Phase B checklist defining the B4 reassembly limits deliverable and required outputs.
-- docs/fix_plan.md:18-62 — Ledger status + latest Attempts History entry describing why B4 focuses on padded-size vs offsets.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T041700Z/grouping_gs2_custom_default.md:13-36 — Evidence that gs2 offsets reach ≈381 px even though the legacy padded size is ~78 px.
-- docs/specs/spec-ptycho-workflow.md:12-55 — Normative grouping + reassembly rules (`M ≥ N + 2·max(|dx|,|dy|)`), which the new CLI must cite rather than reinvent.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md:1-8 — Current initiative summary describing the B4 scope and artifact hub reserved this loop.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:120 — Phase C checklist + new C1 test requirement.
+- docs/fix_plan.md:18 — Active focus metadata + latest Attempts entry (2026-01-16T060156Z).
+- docs/specs/spec-ptycho-workflow.md:2 — Normative reassembly requirement (`M ≥ N + 2·max(|dx|,|dy|)`).
+- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/reassembly_limits_report.py — CLI used for telemetry verification.
 
 Next Up (optional)
-- If the reassembly limits evidence proves a padded-size deficit, prepare a C-phase Do Now to patch the legacy `get_padded_size()`/offset bridging logic.
+- Once jitter inflates correctly, re-run a small gs2 inference smoke test to confirm reconstructions stitch without clipping before moving to visual verification.
 
-Doc Sync Plan — not needed (no new pytest nodes added or renamed; guard already tracked).
-Mapped Tests Guardrail: The CLI smoke selector collects (>0) and must stay green; keep it as the validation step for every Phase B instrumentation handoff.
-Normative Math/Physics: Reference `docs/specs/spec-ptycho-workflow.md` §2–3 for grouping and §Reassembly Requirements for canvas math; don’t restate equations in ad-hoc prose—link to the spec in CLI output notes instead.
+Doc Sync Plan — N/A (existing selectors reused; no new pytest nodes introduced beyond the targeted workflow test).
+Mapped Tests Guardrail — The workflow-components selector above already collects >0 tests; keep it green to satisfy the gate.
+Normative Math/Physics — Cite `docs/specs/spec-ptycho-workflow.md §Reassembly Requirements` whenever referencing the `N + 2·max(|dx|,|dy|)` canvas rule.

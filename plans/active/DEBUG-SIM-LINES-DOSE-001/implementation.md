@@ -126,13 +126,14 @@ Guidelines:
       - Summarize the success/error contrast in the initiative summary; include the CLI log in the hub.
       - Evidence in `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T041700Z/` shows gs2 offsets reach ~382 px on axis 0/1, while gs1 offsets remain ≤ 195 px. These magnitudes far exceed the default `get_padded_size()` (~78 px when `offset=4`, `buffer=10`), so B4 now focuses on proving the padded-size shortfall.
       Test: N/A -- evidence run; log coords ranges and offset distributions; rerun `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
-- [ ] B4: Reassembly A/B using a fixed synthetic container to isolate stitch math (M/padded_size).
+- [x] B4: Reassembly A/B using a fixed synthetic container to isolate stitch math (M/padded_size).
       - Author `bin/reassembly_limits_report.py` to rebuild the nongrid simulation from the Phase A snapshot, regroup it, and emit JSON/Markdown summaries that compare:
         - observed max offsets per axis (train/test, gs1 vs gs2) vs. the derived `get_padded_size()` after CONFIG-001 bridging
         - the theoretical canvas requirement `ceil(N + 2·max_offset)` vs both the hard-coded `reassemble_M` from the snapshot and the legacy padded size
         - sampled reassembly sums when `size=get_padded_size()` vs `size=required_canvas` (use dummy patches backed by actual `coords_relative` so we can quantify how much signal is clipped)
       - Inputs: scenario name + overrides for gridsize/neighbor_count/total_images + `--group-limit` (default 64) to keep TensorFlow memory bounded when running `reassemble_whole_object`.
       - Outputs: `{scenario}_{subset}_reassembly.json/.md` detailing offsets, padded-size math, `fits_canvas` booleans, and ratios such as `(sum_default / sum_required)` so we can prove the gs2 configs lose ~80% of the energy when `size` is too small.
+      - Evidence captured under `reports/2026-01-16T050500Z/` shows gs1/gs2 offsets reach ≈382 px while the legacy padded size remains 74–78 px, and the dummy reassembly sums lose 95–100 % of the signal when `size` stays at the legacy value.
       Test: N/A -- evidence run; add test in Phase C if fix touches core logic
 
 ### Notes & Risks
@@ -141,8 +142,10 @@ Guidelines:
 
 ## Phase C -- Fix + Verification
 ### Checklist
-- [ ] C1: Implement minimal fix (probe normalization alignment, reassembly size handling, or workflow sync).
-      Test: If code changes, add targeted pytest selector in this phase; otherwise N/A with rationale
+- [ ] C1: Implement padded-size update at the workflow layer so grouped datasets derive `max_position_jitter` from actual `coords_offsets` before the Keras model is built, and add a regression test for the factory helper.
+      - Modify `ptycho/workflows/components.py::create_ptycho_data_container` to analyze grouped offsets, bump `params.cfg['max_position_jitter']` to cover `ceil(N + 2·max(|dx|,|dy|))`, and ensure repeated calls keep the maximum across train/test splits.
+      - Share the helper with the plan-local CLI so reassembly_limits_report proves the new padded size matches the spec requirement.
+      Test: `pytest tests/test_workflow_components.py::TestCreatePtychoDataContainer::test_updates_max_position_jitter -v`
 - [ ] C2: Rerun gs2_ideal + gs1_ideal and confirm:
       - no NaNs
       - expected canvas size

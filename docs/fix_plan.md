@@ -63,6 +63,7 @@
     - Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (pass)
     - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T050500Z/{reassembly_cli.log,reassembly_gs1_custom.json,reassembly_gs1_custom.md,reassembly_gs2_custom.json,reassembly_gs2_custom.md,pytest_sim_lines_pipeline_import.log}`
     - Next Actions: Feed the reassembly deltas into Phase C to patch `get_padded_size()`/canvas sizing or open a dedicated backlog item if the fix crosses initiatives.
+  - *2026-01-16T060156Z:* Supervisor planning loop to pivot into Phase C: mined the B4 telemetry, marked Phase B complete in the implementation plan, and scoped C1 around updating `create_ptycho_data_container()` (plus a targeted pytest) so grouped offsets automatically expand `max_position_jitter`/padded size before training/inference. Refreshed `plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}` and `input.md` with the new Do Now, no new production artifacts yet. Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T060156Z/`.
 
 ### [REFACTOR-MEMOIZE-CORE-001] Move RawData memoization decorator into core module
 - Depends on: None

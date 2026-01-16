@@ -422,3 +422,17 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
   - Authored the new input.md delegating `reassembly_limits_report.py` (offset vs padded-size math + reassembly sum ratio) plus the CLI smoke pytest guard; mapped exact commands and pitfalls for Ralph.
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 ralph_last_commit=a49c5d85 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T050500Z/ next_action=implement reassembly_limits_report CLI + run gs1/gs2 scenarios + archive pytest log
+# 2026-01-16T06:01:56Z: DEBUG-SIM-LINES-DOSE-001 — Phase C1 jitter auto-sizing plan
+
+- dwell: 2 (second consecutive planning/doc loop; next turn must deliver implementation evidence)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Use grouped offsets to auto-inflate padded size before reassembly
+- Action type: Planning | Mode: Implementation handoff
+- Git sync: `git pull --rebase` (already up to date).
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, MODULE-SINGLETON-001, NORMALIZATION-001, BUG-TF-REASSEMBLE-001), docs/specs/spec-ptycho-workflow.md §Reassembly Requirements, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/reassembly_limits_report.py, docs/TESTING_GUIDE.md.
+- Key decisions:
+  - Marked Phase B complete in the working plan and promoted C1 to cover a workflow-layer fix (inflate `max_position_jitter` from grouped offsets).
+  - Added a targeted pytest selector (`tests/test_workflow_components.py::TestCreatePtychoDataContainer::test_updates_max_position_jitter`) plus CLI reruns to verify padded-size compliance.
+  - Opened artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T060900Z/` for the upcoming implementation evidence and refreshed input.md accordingly.
+- Next: Ralph updates `create_ptycho_data_container` to bump jitter based on grouped offsets, runs the new pytest selector, and reruns the reassembly_limits CLI to prove the loss fraction drops to ≈0%.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=2 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T060156Z/ next_action=implement jitter-driven padded_size + workflow pytest + CLI reruns
