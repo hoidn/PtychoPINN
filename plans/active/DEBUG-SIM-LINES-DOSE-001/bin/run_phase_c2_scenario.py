@@ -372,6 +372,85 @@ def _format_stage_stats_markdown(stage: Mapping[str, Any]) -> list[str]:
     return lines
 
 
+STAGE_ORDER = [
+    "raw_diffraction",
+    "grouped_diffraction",
+    "grouped_X_full",
+    "container_X",
+]
+
+STAGE_LABELS = {
+    "raw_diffraction": "Raw diffraction",
+    "grouped_diffraction": "Grouped diffraction",
+    "grouped_X_full": "Grouped X (normalized)",
+    "container_X": "Container X",
+}
+
+RATIO_TRANSITIONS = [
+    ("raw_diffraction", "grouped_diffraction", "raw_to_grouped"),
+    ("grouped_diffraction", "grouped_X_full", "grouped_to_normalized"),
+    ("grouped_X_full", "container_X", "normalized_to_container"),
+]
+
+
+def _extract_stage_means(stages: list[Dict[str, Any]]) -> Dict[str, Optional[float]]:
+    """Extract mean values from recorded stages."""
+    means: Dict[str, Optional[float]] = {}
+    for stage in stages:
+        name = stage.get("name")
+        stats = stage.get("stats") or {}
+        mean = stats.get("mean")
+        if name and mean is not None:
+            means[name] = float(mean)
+    return means
+
+
+def _compute_stage_ratios(
+    stage_means: Dict[str, Optional[float]]
+) -> Tuple[Dict[str, Optional[float]], Optional[Dict[str, Any]]]:
+    """Compute stage-to-stage ratios and identify the largest drop."""
+    ratios: Dict[str, Optional[float]] = {}
+    transitions: list[Dict[str, Any]] = []
+
+    for from_stage, to_stage, ratio_key in RATIO_TRANSITIONS:
+        from_mean = stage_means.get(from_stage)
+        to_mean = stage_means.get(to_stage)
+        ratio: Optional[float] = None
+        if from_mean is not None and to_mean is not None and abs(from_mean) > 1e-12:
+            ratio = to_mean / from_mean
+        ratios[ratio_key] = ratio
+        transitions.append({
+            "key": ratio_key,
+            "from_stage": from_stage,
+            "to_stage": to_stage,
+            "from_mean": from_mean,
+            "to_mean": to_mean,
+            "ratio": ratio,
+        })
+
+    # Identify largest drop (ratio < 1 with smallest value)
+    valid_drops = [
+        t for t in transitions
+        if t["ratio"] is not None and t["ratio"] < 1.0
+    ]
+    if valid_drops:
+        largest_drop = min(valid_drops, key=lambda t: t["ratio"])
+    else:
+        largest_drop = None
+
+    return ratios, largest_drop
+
+
+def _compute_normalize_gain(stages: list[Dict[str, Any]]) -> Optional[float]:
+    """Compute the normalize_data gain as grouped_X_full.mean / grouped_diffraction.mean."""
+    stage_means = _extract_stage_means(stages)
+    grouped_mean = stage_means.get("grouped_diffraction")
+    normalized_mean = stage_means.get("grouped_X_full")
+    if grouped_mean is not None and normalized_mean is not None and abs(grouped_mean) > 1e-12:
+        return normalized_mean / grouped_mean
+    return None
+
+
 def write_intensity_stats_outputs(
     stages: list[Dict[str, Any]],
     bundle_intensity_scale: Any,
@@ -386,11 +465,21 @@ def write_intensity_stats_outputs(
             scale_delta = _serialize_scalar(bundle_intensity_scale - legacy_intensity_scale)
         except TypeError:
             scale_delta = None
+
+    # Compute stage ratios and normalize_data gain
+    stage_means = _extract_stage_means(stages)
+    ratios, largest_drop = _compute_stage_ratios(stage_means)
+    normalize_gain = _compute_normalize_gain(stages)
+
     payload = {
         "bundle_intensity_scale": bundle_scale_serialized,
         "legacy_params_intensity_scale": legacy_scale_serialized,
         "scale_delta": scale_delta,
         "stages": stages,
+        "stage_means": stage_means,
+        "ratios": ratios,
+        "largest_drop": largest_drop,
+        "normalize_gain": normalize_gain,
     }
     json_path = scenario_dir / "intensity_stats.json"
     json_path.write_text(json.dumps(payload, indent=2, sort_keys=True))
@@ -398,14 +487,67 @@ def write_intensity_stats_outputs(
     md_lines = [
         "# Intensity Statistics",
         "",
+        "**Spec Reference:** `specs/spec-ptycho-core.md §Normalization Invariants`",
+        "",
         f"- Bundle intensity_scale: {payload['bundle_intensity_scale']}",
         f"- Legacy params intensity_scale: {payload['legacy_params_intensity_scale']}",
         f"- bundle minus legacy delta: {payload['scale_delta']}",
+        f"- normalize_data gain: {_format_optional(normalize_gain)}",
         f"- Stage count: {len(stages)}",
         "",
     ]
+
+    # Add stage means table
+    md_lines.extend([
+        "## Stage Means",
+        "",
+        "| Stage | Mean |",
+        "| --- | ---: |",
+    ])
+    for stage_key in STAGE_ORDER:
+        label = STAGE_LABELS.get(stage_key, stage_key)
+        mean_val = stage_means.get(stage_key)
+        md_lines.append(f"| {label} | {_format_optional(mean_val)} |")
+    md_lines.append("")
+
+    # Add ratios table
+    md_lines.extend([
+        "## Stage Ratios",
+        "",
+        "| Transition | Ratio |",
+        "| --- | ---: |",
+    ])
+    for from_stage, to_stage, ratio_key in RATIO_TRANSITIONS:
+        from_label = STAGE_LABELS.get(from_stage, from_stage)
+        to_label = STAGE_LABELS.get(to_stage, to_stage)
+        ratio_val = ratios.get(ratio_key)
+        md_lines.append(f"| {from_label} → {to_label} | {_format_optional(ratio_val)} |")
+    md_lines.append("")
+
+    # Add largest drop marker
+    if largest_drop:
+        from_label = STAGE_LABELS.get(largest_drop["from_stage"], largest_drop["from_stage"])
+        to_label = STAGE_LABELS.get(largest_drop["to_stage"], largest_drop["to_stage"])
+        md_lines.extend([
+            "## Largest Drop",
+            "",
+            f"**{from_label} → {to_label}** (ratio={_format_optional(largest_drop['ratio'])})",
+            "",
+            "Per `specs/spec-ptycho-core.md §Normalization Invariants`, symmetry SHALL hold:",
+            "- Training inputs: `X_scaled = s · X`",
+            "- Labels: `Y_amp_scaled = s · X` (amplitude), `Y_int = (s · X)^2` (intensity)",
+            "",
+            "If the ratio deviates significantly from 1.0, investigate whether the normalization",
+            "pipeline preserves the intensity_scale symmetry mandated by the spec.",
+            "",
+        ])
+
+    # Add per-stage stats
+    md_lines.append("## Per-Stage Statistics")
+    md_lines.append("")
     for stage in stages:
         md_lines.extend(_format_stage_stats_markdown(stage))
+
     md_path = scenario_dir / "intensity_stats.md"
     md_path.write_text("\n".join(md_lines))
 
@@ -413,6 +555,10 @@ def write_intensity_stats_outputs(
         "json_path": str(json_path),
         "markdown_path": str(md_path),
         "stages": stages,
+        "stage_means": stage_means,
+        "ratios": ratios,
+        "largest_drop": largest_drop,
+        "normalize_gain": normalize_gain,
         "bundle_intensity_scale": bundle_scale_serialized,
         "legacy_params_intensity_scale": legacy_scale_serialized,
         "scale_delta": scale_delta,

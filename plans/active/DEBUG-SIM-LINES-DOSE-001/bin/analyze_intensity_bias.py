@@ -415,6 +415,7 @@ def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
         "bundle": intensity_stats.get("bundle_intensity_scale"),
         "legacy_params": intensity_stats.get("legacy_params_intensity_scale"),
         "scale_delta": intensity_stats.get("scale_delta"),
+        "normalize_gain": intensity_stats.get("normalize_gain"),
         "run_metadata": run_metadata.get("intensity_stats"),
     }
 
@@ -590,6 +591,9 @@ def fmt_value(value: Any, precision: int = 3) -> str:
 def render_markdown(summary: Mapping[str, Any]) -> str:
     lines: List[str] = []
     lines.append("# Intensity Bias Summary")
+    lines.append("")
+    lines.append("**Spec Reference:** `specs/spec-ptycho-core.md §Normalization Invariants`")
+    lines.append("")
     lines.append(f"- Generated at: {summary.get('generated_at')}")
     lines.append(f"- Scenario count: {summary.get('scenario_count')}")
     lines.append("")
@@ -640,6 +644,9 @@ def render_markdown(summary: Mapping[str, Any]) -> str:
             f"{fmt_value(intensity.get('legacy_params'))} "
             f"(Δ={fmt_value(intensity.get('absolute_delta'))})"
         )
+        normalize_gain = intensity.get("normalize_gain")
+        if normalize_gain is not None:
+            lines.append(f"- normalize_data gain: {fmt_value(normalize_gain)}")
         scale_meta = payload.get("prediction_scale") or {}
         if scale_meta:
             lines.append(
@@ -668,11 +675,15 @@ def render_markdown(summary: Mapping[str, Any]) -> str:
         largest_drop = derived.get("largest_drop")
         if largest_drop:
             lines.append(
-                "- Largest drop: "
+                f"- **Largest drop:** "
                 f"{_format_stage_label(largest_drop.get('from_stage'))} → "
                 f"{_format_stage_label(largest_drop.get('to_stage'))} "
                 f"(ratio={fmt_value(largest_drop.get('ratio'))}, "
                 f"Δ={fmt_value(largest_drop.get('delta'))})"
+            )
+            lines.append(
+                "  - Per `specs/spec-ptycho-core.md §Normalization Invariants`: "
+                "symmetry SHALL hold for X_scaled = s · X"
             )
         lines.append("")
         stage_means_payload = derived.get("stage_means") or {}

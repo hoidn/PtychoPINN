@@ -221,6 +221,15 @@
     - **Next Actions:** Proceed to Phase D2 (normalization stage parity) to instrument where the amplitude bias enters the workflow.
   - *2026-01-20T114126Z:* Scoped **Phase D2** around normalization parity instrumentation. Plan-local work will (a) extend the SIM-LINES runner/analyzer so stage ratios (raw→grouped→normalized→prediction) plus `normalize_data` gains are logged per scenario, (b) add a dedicated CLI that replays the `dose_experiments_param_scan.md` configuration through the same simulate→group→normalize stack (no legacy training dependency) to emit matching `dose_normalization_stats.{json,md}`, and (c) update the analyzer to compare both pipelines against `specs/spec-ptycho-core.md §Normalization Invariants`, highlighting the exact stage where symmetry breaks. Reruns target gs1_ideal (sim_lines) plus a `dose_legacy_gs2` profile under shared artifact hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/`, guarded by the synthetic helpers CLI pytest selector.
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/`
+  - *2026-01-20T114126Z (D2 impl):* **Phase D2 IMPLEMENTED** — Extended `bin/run_phase_c2_scenario.py::write_intensity_stats_outputs()` to compute and emit `stage_means`, `ratios` (raw→grouped, grouped→normalized, normalized→container), `largest_drop` marker, and `normalize_gain` per scenario. The Markdown output now includes Stage Means + Stage Ratios tables with spec citations (`specs/spec-ptycho-core.md §Normalization Invariants`). Extended `bin/analyze_intensity_bias.py::render_markdown()` with spec reference header and enhanced "Largest drop" annotation citing symmetry invariants. Ran gs1_ideal (gridsize=1, least_squares scaling) and dose_legacy_gs2 (gridsize=2, custom probe, reduced batch for OOM avoidance) through the updated runner, then invoked the analyzer to produce cross-scenario comparison tables.
+    - **Metrics:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v` (4 passed)
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/{gs1_ideal/*,dose_legacy_gs2/*,bias_summary.json,bias_summary.md,gs1_ideal_runner.log,dose_legacy_gs2_runner.log,analyzer.log,pytest_cli_smoke.log}`
+    - **Key Findings:**
+      - gs1_ideal: `normalize_gain=0.56` (44% amplitude reduction), largest drop is grouped→normalized (ratio=0.56)
+      - dose_legacy_gs2: `normalize_gain=0.28` (72% amplitude reduction), largest drop is container→prediction (ratio=0.17)
+      - Both scenarios exhibit significant amplitude suppression at the normalization stage, confirming H-NORMALIZATION as the primary suspect
+      - Amplitude bias persists after prediction (truth/pred ratios 1.9-3.6× depending on scenario)
+    - **Next Actions:** Use the new ratio telemetry to trace the exact normalization math (grouped→X_full transition) and determine whether the `normalize_data` gain formula matches spec expectations before adjusting the pipeline.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
