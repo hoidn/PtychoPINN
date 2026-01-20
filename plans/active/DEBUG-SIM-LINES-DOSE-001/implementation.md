@@ -317,6 +317,38 @@ gs2_ideal healthy, gs1_ideal NaN after CONFIG-001 fix
 ### Notes & Risks
 - Keep changes scoped; do not modify stable physics modules unless evidence pins regression there.
 
+## Phase D -- Amplitude Bias Root Cause
+
+**Problem Statement:** Even after CONFIG-001 bridging and padded-canvas fixes, every sim_lines_4x scenario undershoots ground-truth amplitude by ≈2.3–2.6× and needs ≈1.7–2.0× least-squares scaling to partially close the gap, while dose_experiments reconstructions at comparable doses did not exhibit this failure. Phase D reopens the initiative to find the actual workflow mismatch (loss configuration, normalization pipeline, hyperparameters, or architecture deltas) and recover dose_experiments-quality reconstructions instead of treating “no NaNs” as success.
+
+**Open Hypotheses (tracked from fix_plan.md §DEBUG-SIM-LINES-DOSE-001 Phase D):**
+- H-LOSS-WEIGHT — Loss weights/regression targets differ between pipelines.
+- H-NORMALIZATION — Intensity normalization introduces bias in sim_lines_4x only.
+- H-TRAINING-PARAMS — Hyperparameters (lr, epochs, batch size) diverge from legacy runs.
+- H-ARCHITECTURE — Model/forward-path wiring changed between repositories.
+
+### Checklist
+- [ ] D1: **Loss configuration diff against dose_experiments.**
+      - Extend `bin/compare_sim_lines_params.py` (or add a focused helper) so it surfaces loss weights (`mae_weight`, `nll_weight`, `realspace_weight`, `realspace_mae_weight`) for each sim_lines scenario by instantiating the same `TrainingConfig` objects the pipeline uses, then contrasts them with the captured `dose_experiments_param_scan.md` defaults.
+      - Emit Markdown + JSON artifacts under the active hub summarizing where sim_lines omits MAE/realspace supervision while dose_experiments used `mae_weight=1`/`nll_weight=0` for the working runs.
+      - Gate with the synthetic helpers CLI smoke selector to ensure the runner imports still succeed.
+      Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+- [ ] D2: **Normalization pipeline parity.**
+      - Once loss weights are reconciled/documented, add instrumentation (plan-local first) to log normalization gains for both the simulator and loader across sim_lines and the legacy dose_experiments scripts so we can prove whether scaling symmetry (spec-ptycho-core.md §Normalization Invariants) holds end-to-end.
+      - Capture RawData → grouped → normalized → container stage distributions side-by-side with the legacy pipeline, including any pre-scaling applied inside loss wiring.
+      Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+- [ ] D3: **Hyperparameter delta audit.**
+      - Diff nepochs, batch sizes, group limits, optimizer knobs, and scheduler behavior between dose_experiments and sim_lines_4x for each scenario profile; document any mismatches and run targeted re-trains (plan-local scope) if differences plausibly explain the amplitude collapse.
+      - Archive training-history overlays plus config dumps under a fresh hub.
+      Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+- [ ] D4: **Architecture / loss-wiring verification.**
+      - If loss weights + normalization still match legacy behavior, inspect the current TensorFlow training graph (loss composition, intensity scaler placement, probe application) against the `dose_experiments` script to identify code-level divergences; add focused diagnostic tests as needed.
+      Test: `pytest -m integration`
+
+### Notes & Risks
+- Avoid touching `ptycho/model.py`, `ptycho/diffsim.py`, or other core physics modules without explicit approval (per CLAUDE.md directive #6). Start with plan-local instrumentation and documentation diffs.
+- Legacy dose_experiments scripts are frozen to TensorFlow 1-era semantics; keep compatibility wrappers under `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/` and do not reintroduce TF addons as production deps.
+
 ## Artifacts Index
 - Reports root: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/
 - Latest run: <YYYY-MM-DDTHHMMSSZ>/

@@ -769,3 +769,17 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/{gs1_custom/*,summary.md}
 - <Action State>: [complete]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=B0f_complete dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/ next_action=close B0f checklist and proceed to amplitude bias investigation (separate from NaN debugging)
+# 2026-01-20T11:02:27Z: DEBUG-SIM-LINES-DOSE-001 — Phase D1 loss-config scope
+
+- dwell: 1 (planning loop after manual override reset)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Phase D amplitude bias investigation
+- Action type: Planning (scoped Phase D1 + delegation)
+- Mode: Implementation handoff
+- Git sync: `git stash push -u -m 'galph-20260120-phaseD-1'` → `timeout 30 git pull --rebase` → `git stash pop`
+- Documents reviewed: docs/index.md, docs/findings.md, docs/fix_plan.md, docs/TESTING_GUIDE.md, docs/debugging/debugging.md, specs/spec-ptycho-core.md, specs/spec-ptycho-workflow.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/compare_sim_lines_params.py, reports/2026-01-16T003217Z/comparison_diff.json
+- Key updates:
+  - Added Phase D section + checklist (D1–D4) to the implementation plan and recorded the new hub/timestamp in docs/fix_plan.md Attempts History so the amplitude bias initiative has an explicit plan again.
+  - Created artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/`, refreshed plans/active summary with the Phase D1 scope, and rewrote input.md with the concrete Do Now + pytest guard.
+  - Clarified that the immediate task is to extend `bin/compare_sim_lines_params.py` to emit MAE/NLL/realspace weights for each scenario vs the dose_experiments defaults so we can confirm or rule out H-LOSS-WEIGHT before touching normalization.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/ next_action=extend compare_sim_lines_params.py with loss weights + run CLI diff + pytest guard

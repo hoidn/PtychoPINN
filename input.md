@@ -1,10 +1,10 @@
-# DEBUG-SIM-LINES-DOSE-001 — Final Documentation + Archive Prep
+# DEBUG-SIM-LINES-DOSE-001 — Phase D1 Loss Config Diff
 
 ## Summary
-Finalize documentation for the completed NaN debugging initiative and prepare for archive.
+Compare loss-function configuration between sim_lines_4x and dose_experiments so we know whether MAE/NLL weighting differences explain the amplitude bias before touching normalization.
 
 ## Focus
-DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy (**NaN DEBUGGING COMPLETE**)
+DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy (Phase D amplitude bias investigation)
 
 ## Branch
 paper
@@ -13,60 +13,47 @@ paper
 `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 
 ## Artifacts
-`plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143500Z/`
+`plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/`
 
-## Do Now (Documentation Tasks)
-
-### 1. Add Knowledge Base Entry (docs/findings.md)
-
-Add a new finding ID `DEBUG-SIM-LINES-DOSE-001-COMPLETE` documenting:
-- **Root Cause:** CONFIG-001 violation (stale `params.cfg` values not synced before training/inference)
-- **Fix:** C4f bridging — `update_legacy_dict(params.cfg, config)` calls added to `scripts/studies/sim_lines_4x/pipeline.py` and plan-local runner before all training/inference handoffs
-- **Verification:** All four scenarios (gs1_ideal, gs1_custom, gs2_ideal, gs2_custom) train without NaN
-- **Remaining Issue:** Amplitude bias (~3-6x undershoot) is separate from NaN debugging; may require future investigation
-
-### 2. Update Initiative Summary (plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md)
-
-Prepend a final turn summary:
-```markdown
-### Turn Summary — 2026-01-20T14:35:00Z (Final)
-NaN debugging initiative COMPLETE. A1b ground-truth run blocked by Keras 3.x incompatibility (legacy model uses `tf.shape()` on KerasTensors); documented closure rationale showing A1b is no longer required since CONFIG-001 root cause already confirmed and fixed. Initiative ready for archive after soak period.
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143500Z/
-```
-
-### 3. Run CLI Smoke Guard
-
-```bash
-AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v 2>&1 | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143500Z/pytest_cli_smoke.log
-```
+## Do Now (Phase D1)
+- Implement: `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/compare_sim_lines_params.py::main` — extend the parameter diff CLI so it instantiates each sim_lines scenario’s `TrainingConfig`, records `mae_weight`, `nll_weight`, `realspace_weight`, and `realspace_mae_weight`, and surfaces those values in both the Markdown table and JSON diff next to the legacy `dose_experiments_param_scan.md` defaults.
+- Run: `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/compare_sim_lines_params.py --snapshot plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json --dose-config plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/dose_experiments_param_scan.md --output-markdown plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/loss_config_diff.md --output-json plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/loss_config_diff.json` and summarize the observed MAE/NLL deltas in `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/summary.md`.
+- Guard: `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v 2>&1 | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/pytest_cli_smoke.log`
 
 ## How-To Map
-
-| Step | Command/Action |
-|------|----------------|
-| Knowledge base entry | Edit `docs/findings.md`, add new entry after existing findings |
-| Initiative summary | Edit `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md`, prepend turn summary |
-| Pytest guard | Run the CLI smoke selector and archive the log |
+1. Extend the CLI
+   - Edit `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/compare_sim_lines_params.py` to:
+     - Import `RunParams`, `ScenarioSpec`, and `build_training_config` from `scripts/studies/sim_lines_4x/pipeline.py`.
+     - Materialize scenario specs from the snapshot (name, gridsize, probe mode/scale, optional probe_big/mask) and instantiate a real `TrainingConfig` per scenario to read its loss weights.
+     - Append `mae_weight`, `nll_weight`, `realspace_weight`, and `realspace_mae_weight` to both the diff JSON payload and Markdown table (keep existing formatting and columns order consistent).
+2. Generate the diff artifacts
+   - Run the provided `python ... --snapshot ... --dose-config ...` command; the CLI already writes Markdown/JSON — just point both outputs at the new hub paths.
+   - Write a brief note (2–3 sentences) in `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/summary.md` capturing whether the MAE/NLL weights match or diverge between pipelines.
+3. Run the pytest guard
+   - Execute the provided pytest selector and tee the output into `pytest_cli_smoke.log` inside the same hub.
 
 ## Pitfalls To Avoid
-- Do not modify core physics/model modules
-- Do not delete any reports or artifacts
-- Ensure knowledge base entry cites the correct fix (C4f CONFIG-001 bridging)
-- Keep the amplitude bias separate from the NaN debugging scope
+- No edits under `ptycho/` core modules or `scripts/studies/sim_lines_4x/pipeline.py` beyond safe imports; keep logic inside the plan-local script.
+- Do not hard-code probe metadata; always derive from the snapshot to keep scenarios in sync when seeds/configs change.
+- Ensure the CLI still works for previously generated parameters (backward compatible flags, JSON schema remains stable apart from the new keys).
+- Keep Markdown tables human-readable; align new columns with existing heading rows rather than appending ad-hoc prose.
+- Use the authoritative pytest selector and archive the log exactly at the mapped path; no ad-hoc tests.
+- Respect `AUTHORITATIVE_CMDS_DOC` policy when executing commands.
+- Capture stdout/stderr for the CLI command via tee if you need additional logging (store under the hub if saved).
+- Do not delete or overwrite prior evidence in `reports/2026-01-20T110227Z/` — append beside existing files.
 
 ## If Blocked
-If pytest fails unexpectedly, archive the error log and document the failure signature in the summary without marking the initiative incomplete.
+- If the CLI import fails (e.g., missing dependency or attribute), capture the traceback in `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/blocker.log`, mark Phase D1 blocked in docs/fix_plan.md Attempts History, and note the blocker plus reproduction steps in `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md`.
 
 ## Findings Applied (Mandatory)
-- CONFIG-001: The root cause of all NaN failures — stale params.cfg values
-- POLICY-001: PyTorch environment requirements (not directly applicable here)
-- NORMALIZATION-001: Amplitude bias is separate; not addressed in this initiative
+- CONFIG-001 — keep legacy `params.cfg` synced before instantiating TrainingConfig/InferenceConfig helpers (already satisfied by importing from the pipeline; no additional singleton edits required).
+- NORMALIZATION-001 — intensity normalization must remain symmetric; this comparison isolates whether loss weights (not normalization) are responsible before touching loader math.
 
 ## Pointers
-- Root cause evidence: `docs/fix_plan.md` lines 175-184 (NaN DEBUGGING MILESTONE COMPLETE)
-- A1b closure rationale: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143500Z/a1b_closure_rationale.md`
-- Implementation plan: `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md` (A1b status at lines 99-108)
-- Test strategy: `plans/active/DEBUG-SIM-LINES-DOSE-001/test_strategy.md`
+- `docs/fix_plan.md:192` — Phase D goals, hypotheses, and course-correction notes.
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:320` — Phase D checklist (D1–D4 breakdown).
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/compare_sim_lines_params.py:1` — existing snapshot vs legacy parameter diff CLI to extend.
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T003217Z/comparison_diff.json:1` — prior diff output (pre-loss-weight columns) for reference.
 
 ## Next Up (Optional)
-After this documentation handoff, the initiative is ready to be marked `done` in `docs/fix_plan.md` and moved to archive after a short soak period. Focus can then shift to PARALLEL-API-INFERENCE or FIX-DEVICE-TOGGLE-001.
+1. Phase D2 — add normalization telemetry parity between sim_lines and dose_experiments once loss weights are reconciled.

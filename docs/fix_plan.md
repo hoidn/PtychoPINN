@@ -200,6 +200,8 @@
       - H-TRAINING-PARAMS: Hyperparameters (lr, epochs, batch size) insufficient
       - H-ARCHITECTURE: Model architecture mismatch vs legacy
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T200000Z/`
+  - *2026-01-20T110227Z:* Scoped **Phase D1** around an explicit loss-configuration diff between sim_lines_4x and dose_experiments so we can confirm or rule out H-LOSS-WEIGHT before tweaking normalization. Updated the implementation plan (Phase D checklist) and queued a Do Now for Ralph to extend `bin/compare_sim_lines_params.py` with MAE/NLL/realspace weights, run it against the existing snapshot + legacy param scan, and archive the Markdown/JSON report plus pytest guard under the new artifacts hub.
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/`
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
