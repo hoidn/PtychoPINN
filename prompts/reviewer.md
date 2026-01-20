@@ -41,13 +41,12 @@ Output requirement (conditional):
   - The exact next steps you want the supervisor to take
 - Otherwise, create a new report directory under `.artifacts/reviewer/<timestamp>/` and write
   `.artifacts/reviewer/<timestamp>/reviewer_result.md` with:
-  - PASS/FAIL verdict
-  - Whether the failure was reproduced once or twice
+  - Description of all issues identified
+  - PASS or FAIL integration test outcome
   - The test command used
   - Key error excerpt (if failed)
   - The review_every_n (or fallback) window inspected and the files/logs referenced
   - The state_file and logs_dir values used
-  - Your best hypothesis on the cause (if failed)
 
 If the test passes on the first or second run, still write the report with a brief success explanation and the output
 location (user_input.md if actionable; .artifacts otherwise).
