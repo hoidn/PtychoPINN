@@ -9,7 +9,7 @@ Required steps:
 3) If it fails again, investigate the failure reason, focusing on the last review_every_n iterations (or the fallback window below).
 4) Write a success or failure report (with explanation) as an output artifact.
 5) 
-- Do a deep analysis of code and documentation changes since the previous review. (git diff, filter by extension: just .md, .py, .yaml)
+- Do a deep analysis of code and documentation changes since the previous review. (git diff, filter by extension: just .md, .py, .yaml). Ignore 'noisy' files such as logs, reports and artifacts.
 - Evaluate the design quality of plans worked on since the last review.
 - Evaluate the implementation quality of changes since the last review.
 - Evaluate project spec and architecture self-consistency and accuracy in light of recent changes.
