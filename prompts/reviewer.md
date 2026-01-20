@@ -10,6 +10,8 @@ Required steps:
 4) Write a success or failure report (with explanation) as an output artifact.
 5) 
 - Do a deep analysis of code and documentation changes since the previous review. (git diff, filter by extension: just .md, .py, .yaml). Ignore 'noisy' files such as logs, reports and artifacts unless you discover specific reasons to analyze particular ones. Ignore prompts/.
+- For every Markdown file changed since the last review, validate all outbound links/anchors (including repo‑root vs docs/ paths) and report any missing targets or misrooted links.
+- For every behavior/format claim touched in changed docs/specs or core modules in the diff, open the referenced spec/implementation and verify the claim still holds; log any divergence as conceptual drift.
 - Evaluate the design quality of plans worked on since the last review; report findings
 - Evaluate the implementation quality of changes since the last review in context of associated plans, architectural conventions, developement guidelines, and any relevant specs and normative project documentation; report findings
 - Evaluate project spec and architecture self-consistency and accuracy in light of recent changes; report findings
