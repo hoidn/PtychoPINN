@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
 **Last Updated:** 2026-01-20 (ORCH-ORCHESTRATOR plan drafted)
-**Active Focus:** ORCH-ROUTER-001 — Router prompt + orchestration dispatch layer
+**Active Focus:** DEBUG-SIM-LINES-DOSE-001 — Phase C2 ideal-scenario verification
 
 ---
 
@@ -18,7 +18,7 @@
 ### [DEBUG-SIM-LINES-DOSE-001] Isolate sim_lines_4x vs dose_experiments discrepancy
 - Depends on: None
 - Priority: **Critical** (Highest Priority)
-- Status: in_progress — Phase B instrumentation (B4 reassembly limits)
+- Status: in_progress — Phase C verification (C2 ideal scenarios)
 - Owner/Date: Codex/2026-01-13
 - Working Plan: `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md`
 - Summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md`
@@ -68,6 +68,29 @@
     - Metrics: `ruff check ptycho/workflows/components.py plans/active/DEBUG-SIM-LINES-DOSE-001/bin/reassembly_limits_report.py tests/test_workflow_components.py`, `pytest --collect-only tests/test_workflow_components.py -q`, `pytest tests/test_workflow_components.py::TestCreatePtychoDataContainer::test_updates_max_position_jitter -v`, `pytest -v -m integration`
     - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T060900Z/{git_diff.txt,ruff_check.log,pytest_collect_workflow_components.log,pytest_workflow_components.log,pytest_integration.log,reassembly_cli.log,reassembly_gs1_custom.json,reassembly_gs1_custom.md,reassembly_gs2_custom.json,reassembly_gs2_custom.md}`
     - Next Actions: Run the Phase C2 gs1/gs2 ideal telemetry (if required) or proceed to the inference smoke validation once the padded-size update is accepted.
+  - *2026-01-20T041420Z:* Reviewed the C1 landing evidence, marked the checklist entries complete, and queued Phase C2 handoff to rerun the gs1_ideal + gs2_ideal scenarios with the jitter fix. Do Now captures end-to-end runs, NaN/canvas inspection, and manual visual checks with artifacts staged under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T041420Z/`.
+  - *2026-01-20T052730Z:* Prepared the Phase C2 supervisor loop (this turn) with a fresh artifacts hub, scoped a plan-local runner (`bin/run_phase_c2_scenario.py`) to capture amplitude/phase arrays + NaN stats, and refreshed `input.md` with commands for gs1_ideal + gs2_ideal runs plus reassembly telemetry.
+
+### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
+- Depends on: None
+- Priority: High
+- Status: pending
+- Owner/Date: Codex/2026-01-20
+- Working Plan: `plans/active/FIX-DEVICE-TOGGLE-001/implementation.md`
+- Summary: `plans/active/FIX-DEVICE-TOGGLE-001/summary.md`
+- Reports Hub: `plans/active/FIX-DEVICE-TOGGLE-001/reports/`
+- Spec Owner: `specs/ptychodus_api_spec.md`
+- Test Strategy: `plans/active/FIX-DEVICE-TOGGLE-001/test_strategy.md`
+- Goals:
+  - Remove GPU/CPU toggles from PyTorch CLI + execution config.
+  - Enforce GPU-only runtime with actionable errors on missing CUDA.
+  - Align specs/docs/tests with GPU-only contract.
+- Exit Criteria:
+  - CLI no longer exposes `--device`, `--accelerator`, `--torch-accelerator`.
+  - Execution config defaults to GPU-only values; no CPU fallback.
+  - Spec/doc updates merged; tests updated with passing pytest logs archived.
+- Attempts History:
+  - *2026-01-20:* Drafted implementation plan, test strategy, and summary. Artifacts: `plans/active/FIX-DEVICE-TOGGLE-001/{implementation.md,test_strategy.md,summary.md}`.
 
 ### [REFACTOR-MEMOIZE-CORE-001] Move RawData memoization decorator into core module
 - Depends on: None
