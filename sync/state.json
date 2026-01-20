@@ -1,10 +1,10 @@
 {
-  "iteration": 415,
-  "expected_actor": "ralph",
-  "status": "waiting-ralph",
-  "last_update": "2026-01-20T06:57:03Z",
-  "lease_expires_at": "2026-01-20T07:07:03Z",
+  "iteration": 416,
+  "expected_actor": "galph",
+  "status": "complete",
+  "last_update": "2026-01-20T07:03:47Z",
+  "lease_expires_at": "2026-01-20T07:13:47Z",
   "galph_commit": "9b5e0aa9",
-  "ralph_commit": "2ae180d1",
-  "last_prompt": "supervisor.md"
+  "ralph_commit": "12625a1d",
+  "last_prompt": "main.md"
 }

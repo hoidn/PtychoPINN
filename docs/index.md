@@ -298,7 +298,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 
 ### Specifications
 
-#### [Inference Pipeline Specification](specs/spec-inference-pipeline.md) NEW
+Specs live in two authoritative roots: `docs/specs/` (PtychoPINN core specs) and `specs/` (cross-project/API contracts). Links below point to both.
+
+#### [Inference Pipeline Specification](../specs/spec-inference-pipeline.md) NEW
 **Description:** Normative IDL-style contracts for the inference pipeline: function signatures, preconditions/postconditions, tensor shape invariants, data container contracts (RawData, GroupedDataDict, PtychoDataContainer), model loading, inference, and stitching APIs with error taxonomy.
 **Keywords:** spec, inference, contracts, IDL, shapes, invariants, API
 **Use this when:** Need authoritative API contracts for inference functions, debugging shape mismatches, implementing new inference workflows, or understanding data container requirements.
@@ -353,8 +355,8 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** config, bridge, translation, params.cfg, dataclasses, pytorch  
 **Use this when:** Translating configuration between backends, ensuring CONFIG‑001 compliance, or verifying field mappings.
 
-#### [Overlap Metrics Spec](specs/overlap_metrics.md)
-**Description:** Overlap-driven sampling and reporting for Phase D. Defines three 2D disc-overlap metrics (group-based, image-based, and group↔group COM-based), explicit controls via `s_img` and `n_groups`, and removes spacing/packing acceptance gates.  
+#### [Overlap Metrics Spec](../specs/overlap_metrics.md)
+**Description:** Overlap-driven sampling and reporting for Phase D. Defines three 2D disc-overlap metrics (group-based, image-based, and group↔group COM-based), explicit controls via `s_img` and `n_groups`, and removes spacing/packing acceptance gates. Also see `specs/overlap_metrics.md` for the `docs/specs/` copy.  
 **Keywords:** overlap, metrics, s_img, n_groups, probe-diameter, gridsize  
 **Use this when:** Implementing or validating Phase D overlap behavior and reporting measured overlaps instead of geometry gating.
 

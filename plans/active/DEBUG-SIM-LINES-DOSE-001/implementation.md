@@ -4,8 +4,8 @@
 - ID: DEBUG-SIM-LINES-DOSE-001
 - Title: Isolate sim_lines_4x vs dose_experiments sim->recon discrepancy
 - Owner: Codex + user
-- Spec Owner: docs/specs/spec-ptycho-workflow.md
-- Status: in_progress — Phase C verification (C2 ideal scenarios)
+- Spec Owners: docs/specs/spec-ptycho-workflow.md; docs/specs/spec-ptycho-core.md; specs/spec-inference-pipeline.md; specs/data_contracts.md
+- Status: in_progress — Phase C verification (C3d intensity-scale inspection)
 
 ## Goals
 - Identify whether the failure is caused by a core regression, nongrid pipeline differences, or a workflow/config mismatch.
@@ -21,29 +21,35 @@
 1. A/B results captured for grid vs nongrid, probe normalization, and grouping parameters.
 2. Clear root-cause statement with evidence (logs + params snapshot + artifacts).
 3. Targeted fix or workflow change applied, with recon success and no NaNs.
-4. Visual inspection success gate (when metrics are unavailable):
+4. Amplitude bias/intensity-scale alignment verified (metrics + scaler evidence or corrective fix).
+5. Visual inspection success gate (when metrics are unavailable):
    - Reconstructed amplitude/phase show coherent structure (non-blank, non-NaN).
    - Correct canvas size and no obvious shifts/tiling artifacts.
    - Side-by-side PNGs captured with brief inspection notes.
-5. **Test coverage verified:**
+6. **Test coverage verified:**
    - All cited selectors collect >0 tests (`pytest --collect-only`)
    - All cited selectors pass
    - Logs saved to `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<timestamp>/`
 
 ## Compliance Matrix (Mandatory)
-- [ ] Spec Constraint: docs/specs/spec-ptycho-core.md (Forward model + normalization invariants)
-- [ ] Spec Constraint: docs/specs/spec-ptycho-workflow.md (load->group->infer->stitch sequence)
-- [ ] Spec Constraint: specs/spec-inference-pipeline.md (stitching/offset contracts)
-- [ ] Spec Constraint: specs/data_contracts.md (RawData/NPZ requirements)
-- [ ] Fix-Plan Link: docs/fix_plan.md -- SIM-LINES-4X-001
-- [ ] Finding/Policy ID: CONFIG-001
-- [ ] Finding/Policy ID: MODULE-SINGLETON-001
-- [ ] Finding/Policy ID: NORMALIZATION-001
-- [ ] Finding/Policy ID: BUG-TF-001
-- [ ] Test Strategy: plans/active/DEBUG-SIM-LINES-DOSE-001/test_strategy.md
+- [x] Spec Authority: Both `docs/specs/` and `specs/` are authoritative; list applicable specs from each root.
+- [x] Spec Constraint: docs/specs/spec-ptycho-core.md (Forward model + normalization invariants)
+- [x] Spec Constraint: docs/specs/spec-ptycho-workflow.md (load->group->infer->stitch sequence)
+- [x] Spec Constraint: specs/spec-inference-pipeline.md (stitching/offset contracts)
+- [x] Spec Constraint: specs/data_contracts.md (RawData/NPZ requirements)
+- [x] Fix-Plan Link: docs/fix_plan.md -- SIM-LINES-4X-001
+- [x] Finding/Policy ID: CONFIG-001
+- [x] Finding/Policy ID: MODULE-SINGLETON-001
+- [x] Finding/Policy ID: NORMALIZATION-001
+- [x] Finding/Policy ID: BUG-TF-001
+- [x] Test Strategy: plans/active/DEBUG-SIM-LINES-DOSE-001/test_strategy.md
 
 ## Spec Alignment
-- Normative Spec: docs/specs/spec-ptycho-core.md, docs/specs/spec-ptycho-workflow.md
+- Normative Specs (authoritative across `docs/specs/` and `specs/`):
+  - docs/specs/spec-ptycho-core.md
+  - docs/specs/spec-ptycho-workflow.md
+  - specs/spec-inference-pipeline.md
+  - specs/data_contracts.md
 - Key Clauses: forward model + normalization rules; inference load->group->stitch contracts.
 
 ## Testing Integration
@@ -90,6 +96,7 @@ Guidelines:
       - Record parameter defaults (probe_mask, probe_big, probe_scale, default_probe_scale, gridsize, nphotons, split, grouping).
       Test: N/A -- evidence capture only
 - [ ] A1b: Run dose_experiments ground truth from the local checkout at `/home/ollie/Documents/PtychoPINN`.
+      - Required unless a written proof shows the run is redundant; skipping requires 100% certainty and explicit justification in the report hub.
       - Keep the working directory inside `/home/ollie/Documents/PtychoPINN` (already on `dose_experiments`).
       - Guard against the global editable install by verifying the import path first:
         ```bash

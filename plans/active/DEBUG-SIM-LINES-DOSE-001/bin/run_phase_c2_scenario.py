@@ -266,15 +266,121 @@ def ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
-def compute_array_stats(array: np.ndarray) -> Dict[str, float | int]:
+def compute_array_stats(array: np.ndarray) -> Dict[str, float | int | None]:
+    arr = np.asarray(array)
+    nan_count = int(np.isnan(arr).sum())
+    finite_mask = np.isfinite(arr)
+    if not finite_mask.any():
+        return {
+            "min": None,
+            "max": None,
+            "mean": None,
+            "std": None,
+            "nan_count": nan_count,
+        }
+    finite_vals = arr[finite_mask]
     stats = {
-        "min": float(np.nanmin(array)),
-        "max": float(np.nanmax(array)),
-        "mean": float(np.nanmean(array)),
-        "std": float(np.nanstd(array)),
-        "nan_count": int(np.isnan(array).sum()),
+        "min": float(np.min(finite_vals)),
+        "max": float(np.max(finite_vals)),
+        "mean": float(np.mean(finite_vals)),
+        "std": float(np.std(finite_vals)),
+        "nan_count": nan_count,
     }
     return stats
+
+
+def format_array_stats(array: np.ndarray) -> Dict[str, Any]:
+    arr = np.asarray(array)
+    payload = compute_array_stats(arr)
+    payload.update(
+        {
+            "shape": list(arr.shape),
+            "dtype": str(arr.dtype),
+            "finite_count": int(np.isfinite(arr).sum()),
+            "total_count": int(arr.size),
+        }
+    )
+    return payload
+
+
+def _serialize_scalar(value: Any) -> Any:
+    if isinstance(value, (np.floating, np.integer)):
+        return value.item()
+    return value
+
+
+def record_intensity_stage(
+    stages: list[Dict[str, Any]],
+    name: str,
+    array: np.ndarray,
+    metadata: Dict[str, Any] | None = None,
+) -> None:
+    stats = format_array_stats(array)
+    sanitized_stats = {key: _serialize_scalar(val) for key, val in stats.items()}
+    entry: Dict[str, Any] = {"name": name, "stats": sanitized_stats}
+    if metadata:
+        entry["metadata"] = metadata
+    stages.append(entry)
+
+
+def _format_stage_stats_markdown(stage: Mapping[str, Any]) -> list[str]:
+    stats = stage.get("stats", {})
+    metadata = stage.get("metadata", {})
+    fmt = lambda key: _format_optional(stats.get(key))
+    lines = [f"### {stage.get('name', 'unknown')}\n"]
+    if metadata:
+        for key, value in metadata.items():
+            lines.append(f"- {key}: {value}")
+        lines.append("")
+    lines.extend(
+        [
+            "| Metric | Value |",
+            "| --- | --- |",
+            f"| shape | {stats.get('shape')} |",
+            f"| dtype | {stats.get('dtype')} |",
+            f"| min | {fmt('min')} |",
+            f"| max | {fmt('max')} |",
+            f"| mean | {fmt('mean')} |",
+            f"| std | {fmt('std')} |",
+            f"| finite_count | {stats.get('finite_count')} |",
+            f"| total_count | {stats.get('total_count')} |",
+            f"| nan_count | {stats.get('nan_count')} |",
+            "",
+        ]
+    )
+    return lines
+
+
+def write_intensity_stats_outputs(
+    stages: list[Dict[str, Any]],
+    intensity_scale: Any,
+    scenario_dir: Path,
+) -> Dict[str, Any]:
+    payload = {
+        "intensity_scale_recorded": _serialize_scalar(intensity_scale),
+        "stages": stages,
+    }
+    json_path = scenario_dir / "intensity_stats.json"
+    json_path.write_text(json.dumps(payload, indent=2, sort_keys=True))
+
+    md_lines = [
+        "# Intensity Statistics",
+        "",
+        f"- Recorded intensity_scale: {payload['intensity_scale_recorded']}",
+        f"- Stage count: {len(stages)}",
+        "",
+    ]
+    for stage in stages:
+        md_lines.extend(_format_stage_stats_markdown(stage))
+    md_path = scenario_dir / "intensity_stats.md"
+    md_path.write_text("\n".join(md_lines))
+
+    return {
+        "json_path": str(json_path),
+        "markdown_path": str(md_path),
+        "stages": stages,
+        "intensity_scale": payload["intensity_scale_recorded"],
+    }
 
 
 def summarize_bias(pred: np.ndarray, truth: np.ndarray) -> Dict[str, float | None]:
@@ -738,7 +844,18 @@ def run_inference_and_reassemble(
     group_count: int,
     group_limit: int,
     custom_probe_path: Path,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Dict[str, Any]]:
+    intensity_stages: list[Dict[str, Any]] = []
+    if getattr(test_raw, "diff3d", None) is not None:
+        record_intensity_stage(
+        intensity_stages,
+        "raw_diffraction",
+        test_raw.diff3d,
+        metadata={
+            "source": "RawData",
+            "count": int(test_raw.diff3d.shape[0]),
+        },
+    )
     infer_config = InferenceConfig(
         model=ModelConfig(
             N=params.N,
@@ -754,6 +871,7 @@ def run_inference_and_reassemble(
         backend="tensorflow",
     )
     model, params_dict = load_inference_bundle_with_backend(model_dir, infer_config)
+    recorded_scale = params_dict.get("intensity_scale", legacy_params.cfg.get("intensity_scale"))
     nsamples = min(group_count, group_limit) if group_limit else group_count
     grouped = test_raw.generate_grouped_data(
         params_dict.get("N", params.N),
@@ -761,10 +879,49 @@ def run_inference_and_reassemble(
         nsamples=nsamples,
         gridsize=params_dict.get("gridsize", scenario.gridsize),
     )
+    grouped_diff = grouped.get("diffraction")
+    if grouped_diff is not None:
+        record_intensity_stage(
+            intensity_stages,
+            "grouped_diffraction",
+            grouped_diff,
+            metadata={
+                "source": "RawData.generate_grouped_data",
+                "count": int(grouped_diff.shape[0]),
+                "gridsize": scenario.gridsize,
+            },
+        )
+    if grouped.get("X_full") is not None:
+        record_intensity_stage(
+            intensity_stages,
+            "grouped_X_full",
+            grouped["X_full"],
+            metadata={
+                "source": "normalize_data",
+                "count": int(grouped["X_full"].shape[0]),
+            },
+        )
     container = loader.load(lambda: grouped, test_raw.probeGuess, which=None, create_split=False)
+    try:
+        container_X = container.X.numpy()
+    except Exception:  # pragma: no cover - diagnostics only
+        container_X = container.X
+    record_intensity_stage(
+        intensity_stages,
+        "container_X",
+        container_X,
+        metadata={
+            "source": "PtychoDataContainer",
+            "group_limit": group_limit,
+        },
+    )
     obj_tensor_full, global_offsets = nbutils.reconstruct_image(container, diffraction_to_obj=model)
     obj_image = tf_helper.reassemble_position(obj_tensor_full, global_offsets, M=params.reassemble_M)
-    return np.abs(obj_image), np.angle(obj_image), global_offsets
+    intensity_info = {
+        "stages": intensity_stages,
+        "recorded_scale": recorded_scale,
+    }
+    return np.abs(obj_image), np.angle(obj_image), global_offsets, intensity_info
 
 
 def save_stats(
@@ -910,7 +1067,7 @@ def main() -> None:
         summary_md_path,
     )
 
-    amp, phase, global_offsets = run_inference_and_reassemble(
+    amp, phase, global_offsets, intensity_info = run_inference_and_reassemble(
         test_raw=test_raw,
         scenario=scenario,
         params=params,
@@ -1049,6 +1206,14 @@ def main() -> None:
         "diff_pngs": comparison_payload["artifacts"],
         "summary_markdown": str(comparison_summary_path),
     }
+    intensity_record = write_intensity_stats_outputs(
+        stages=intensity_info.get("stages", []),
+        intensity_scale=intensity_info.get("recorded_scale"),
+        scenario_dir=scenario_dir,
+    )
+    metadata["intensity_stats"] = intensity_record
+    metadata["intensity_stats_path"] = intensity_record.get("json_path")
+    metadata["intensity_stats_markdown"] = intensity_record.get("markdown_path")
     metadata["crop_metadata"] = crop_metadata
     if profile_metadata:
         metadata["profile"] = profile_metadata
