@@ -8,6 +8,15 @@ Required steps:
 3) If it fails again, investigate the failure reason, focusing on the last review_every_n iterations (or the fallback window below).
 4) Write a success or failure report (with explanation) as an output artifact.
 
+Additional review responsibilities (include in the report):
+- Do a deep analysis of code changes since the previous review.
+- Evaluate the design quality of plans worked on since the last review.
+- Evaluate the implementation quality of changes since the last review.
+- Evaluate project spec and architecture self-consistency and accuracy in light of recent changes.
+- Evaluate plan self-consistency with other plans and existing architectural conventions.
+- Evaluate whether tech debt increased or decreased since the last review.
+- Assess whether the agent is off-track, tunnel-visioned, or stuck; if so, recommend plan or approach revisions.
+
 Test command (use a fresh UTC timestamp per run):
 RUN_TS=$(date -u +%Y-%m-%dT%H%M%SZ) RUN_LONG_INTEGRATION=1 INTEGRATION_OUTPUT_DIR=.artifacts/integration_manual_1000_512/${RUN_TS}/output pytest tests/test_integration_manual_1000_512.py -v
 

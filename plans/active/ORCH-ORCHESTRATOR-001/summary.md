@@ -1,6 +1,11 @@
 # ORCH-ORCHESTRATOR-001 Summary
 
 ### Turn Summary (2026-01-20)
+Expanded `prompts/reviewer.md` to require deeper change analysis and plan/architecture consistency checks in reviewer reports.
+No tests run (prompt-only update).
+Artifacts: prompts/reviewer.md
+
+### Turn Summary (2026-01-20)
 Updated combined auto-commit prefixes to include the role (SUPERVISOR AUTO / RALPH AUTO) alongside iteration tags.
 Added test coverage for role-prefixed commits and refreshed combined auto-commit docs.
 Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T055542Z/
