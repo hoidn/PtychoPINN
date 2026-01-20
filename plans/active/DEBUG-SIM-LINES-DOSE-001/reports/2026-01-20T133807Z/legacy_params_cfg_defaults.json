@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-01-20T05:44:30.094585",
+  "captured_at": "2026-01-20T05:59:11.567619",
   "conclusion": "Legacy params.cfg defaults match TrainingConfig defaults (mae_weight=0, nll_weight=1). H-LOSS-WEIGHT ruled out.",
   "defaults": {
     "mae_weight": 0.0,

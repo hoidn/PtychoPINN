@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-01-20T05:44:30.094362",
+  "captured_at": "2026-01-20T05:59:11.567345",
   "dose_config_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/dose_experiments_param_scan.md",
   "interpretation": {
     "mae": "Override mode: explicitly sets mae_weight=1.0, nll_weight=0.0",
