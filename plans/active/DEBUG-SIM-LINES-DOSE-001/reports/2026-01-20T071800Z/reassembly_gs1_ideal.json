@@ -23,7 +23,7 @@
     },
     "scenario": "gs1_ideal",
     "snapshot": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json",
-    "timestamp": "2026-01-20T05:52:31.764785+00:00"
+    "timestamp": "2026-01-20T06:04:07.543778+00:00"
   },
   "subsets": {
     "test": {

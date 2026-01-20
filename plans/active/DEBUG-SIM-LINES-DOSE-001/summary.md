@@ -1,5 +1,13 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
+# DEBUG-SIM-LINES-DOSE-001 Summary
+
+### Turn Summary
+Extended `run_phase_c2_scenario.py` so `run_metadata.json` now exposes explicit `training_history_path`/`training_summary_path` entries (relative to the scenario hub), reran the baked gs1_ideal/gs2_ideal runs, and captured the new history JSON/Markdown summaries with NaN detection embedded in both metadata and Markdown tables.
+Regenerated the gs1/gs2 reassembly telemetry (CLI log + JSON/Markdown) to confirm padded canvases remain at 828/826 px with `fits_canvas=true`, and reran the synthetic helpers CLI smoke selector (collect + targeted test) to guard the plan-local runner.
+Next: inspect the gs1 history vs gs2 to isolate the first NaN stage (if any) and decide whether additional diagnostics or PyTorch parity probes are required before Phase C4.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T071800Z/ (gs*_ideal_runner.log, history.json/history_summary.json, gs*_ideal_training_summary.md, reassembly_cli.log, pytest logs)
+
 ### Turn Summary
 Embedded the gs1_ideal/gs2_ideal “stable profiles” directly into the plan-local runner so reduced loads now apply automatically and are captured in `run_metadata.json`.
 Reran both scenarios under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T063500Z/`, refreshed the inspection notes + reassembly telemetry, and recorded that gs1 remains NaN-heavy while gs2 produces healthy amplitude/phase; the synthetic helpers CLI smoke selector stayed green.

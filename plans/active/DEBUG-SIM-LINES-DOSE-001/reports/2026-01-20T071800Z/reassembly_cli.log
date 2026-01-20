@@ -1,59 +1,59 @@
-2026-01-19 21:52:17.970311: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2026-01-19 22:03:53.952686: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1768888337.981719 1056835 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1768888337.985625 1056835 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1768888337.995447 1056835 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1768888337.995456 1056835 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1768888337.995457 1056835 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1768888337.995459 1056835 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2026-01-19 21:52:17.998491: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+E0000 00:00:1768889033.963770 1075812 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1768889033.967439 1075812 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1768889033.977402 1075812 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768889033.977411 1075812 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768889033.977412 1075812 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768889033.977414 1075812 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-19 22:03:53.980204: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
 To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2026-01-19 21:52:20,837 - INFO - Loading cached nongrid_sim: .artifacts/synthetic_helpers/cache/nongrid_sim_ce679cf9585e5391528fd19df96bb01fe962d74a52b64239845ec3728653fb06.npz
-2026-01-19 21:52:20,858 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1000, C=1, K=4
-2026-01-19 21:52:20,858 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
-2026-01-19 21:52:20,858 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
-2026-01-19 21:52:20,858 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1000 = False
-2026-01-19 21:52:20,858 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
-2026-01-19 21:52:20,858 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
-2026-01-19 21:52:20,858 - INFO - Using efficient random sampling strategy for gridsize=1
-2026-01-19 21:52:20,858 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
-2026-01-19 21:52:20,858 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
-2026-01-19 21:52:20,858 - INFO - Generating 1000 groups efficiently from 1000 points (K=4, C=1)
-2026-01-19 21:52:20,858 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1000 points
-2026-01-19 21:52:20,858 - INFO - [OVERSAMPLING DEBUG] Using all 1000 points as seeds (no sampling needed)
-2026-01-19 21:52:20,858 - INFO - Using all 1000 points as seeds
-2026-01-19 21:52:20,858 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
-2026-01-19 21:52:20,858 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
-2026-01-19 21:52:20,858 - INFO - Successfully generated 1000 groups with shape (1000, 1)
-2026-01-19 21:52:20,858 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
-2026-01-19 21:52:20,858 - INFO - Generated 1000 groups efficiently
-I0000 00:00:1768888340.974435 1056835 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
-I0000 00:00:1768888340.975779 1056835 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+2026-01-19 22:03:56,811 - INFO - Loading cached nongrid_sim: .artifacts/synthetic_helpers/cache/nongrid_sim_ce679cf9585e5391528fd19df96bb01fe962d74a52b64239845ec3728653fb06.npz
+2026-01-19 22:03:56,831 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1000, C=1, K=4
+2026-01-19 22:03:56,832 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
+2026-01-19 22:03:56,832 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
+2026-01-19 22:03:56,832 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1000 = False
+2026-01-19 22:03:56,832 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+2026-01-19 22:03:56,832 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2026-01-19 22:03:56,832 - INFO - Using efficient random sampling strategy for gridsize=1
+2026-01-19 22:03:56,832 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2026-01-19 22:03:56,832 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
+2026-01-19 22:03:56,832 - INFO - Generating 1000 groups efficiently from 1000 points (K=4, C=1)
+2026-01-19 22:03:56,832 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1000 points
+2026-01-19 22:03:56,832 - INFO - [OVERSAMPLING DEBUG] Using all 1000 points as seeds (no sampling needed)
+2026-01-19 22:03:56,832 - INFO - Using all 1000 points as seeds
+2026-01-19 22:03:56,832 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2026-01-19 22:03:56,832 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
+2026-01-19 22:03:56,832 - INFO - Successfully generated 1000 groups with shape (1000, 1)
+2026-01-19 22:03:56,832 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
+2026-01-19 22:03:56,832 - INFO - Generated 1000 groups efficiently
+I0000 00:00:1768889036.949128 1075812 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1768889036.950317 1075812 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-I0000 00:00:1768888341.743858 1056835 service.cc:152] XLA service 0x17babe30 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
-I0000 00:00:1768888341.743877 1056835 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
-2026-01-19 21:52:21.763599: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
-I0000 00:00:1768888341.782327 1056835 cuda_dnn.cc:529] Loaded cuDNN version 91002
-I0000 00:00:1768888341.938211 1056835 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
-2026-01-19 21:52:26,594 - INFO - Updated max_position_jitter from 10 to 764 based on coords_offsets max_abs=381.782 (required_canvas=828, old_padded=74, new_padded=828).
-2026-01-19 21:52:27,034 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1000, C=1, K=4
-2026-01-19 21:52:27,034 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
-2026-01-19 21:52:27,034 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
-2026-01-19 21:52:27,034 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1000 = False
-2026-01-19 21:52:27,034 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
-2026-01-19 21:52:27,034 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
-2026-01-19 21:52:27,034 - INFO - Using efficient random sampling strategy for gridsize=1
-2026-01-19 21:52:27,034 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
-2026-01-19 21:52:27,034 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
-2026-01-19 21:52:27,034 - INFO - Generating 1000 groups efficiently from 1000 points (K=4, C=1)
-2026-01-19 21:52:27,034 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1000 points
-2026-01-19 21:52:27,034 - INFO - [OVERSAMPLING DEBUG] Using all 1000 points as seeds (no sampling needed)
-2026-01-19 21:52:27,034 - INFO - Using all 1000 points as seeds
-2026-01-19 21:52:27,034 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
-2026-01-19 21:52:27,034 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
-2026-01-19 21:52:27,034 - INFO - Successfully generated 1000 groups with shape (1000, 1)
-2026-01-19 21:52:27,034 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
-2026-01-19 21:52:27,034 - INFO - Generated 1000 groups efficiently
+I0000 00:00:1768889037.694894 1075812 service.cc:152] XLA service 0x44b2e9e0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1768889037.694915 1075812 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2026-01-19 22:03:57.714586: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1768889037.733246 1075812 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1768889037.887005 1075812 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+2026-01-19 22:04:02,476 - INFO - Updated max_position_jitter from 10 to 764 based on coords_offsets max_abs=381.782 (required_canvas=828, old_padded=74, new_padded=828).
+2026-01-19 22:04:02,899 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1000, C=1, K=4
+2026-01-19 22:04:02,899 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
+2026-01-19 22:04:02,899 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
+2026-01-19 22:04:02,899 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1000 = False
+2026-01-19 22:04:02,899 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+2026-01-19 22:04:02,899 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2026-01-19 22:04:02,899 - INFO - Using efficient random sampling strategy for gridsize=1
+2026-01-19 22:04:02,899 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2026-01-19 22:04:02,899 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
+2026-01-19 22:04:02,899 - INFO - Generating 1000 groups efficiently from 1000 points (K=4, C=1)
+2026-01-19 22:04:02,899 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1000 points
+2026-01-19 22:04:02,899 - INFO - [OVERSAMPLING DEBUG] Using all 1000 points as seeds (no sampling needed)
+2026-01-19 22:04:02,899 - INFO - Using all 1000 points as seeds
+2026-01-19 22:04:02,899 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2026-01-19 22:04:02,899 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
+2026-01-19 22:04:02,899 - INFO - Successfully generated 1000 groups with shape (1000, 1)
+2026-01-19 22:04:02,899 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
+2026-01-19 22:04:02,899 - INFO - Generated 1000 groups efficiently
 DEBUG _flat_to_channel: gridsize from global params: 1
 DEBUG _flat_to_channel: N from parameter: 828
 DEBUG _flat_to_channel: input shape=(64, 828, 828, 1), reshaping to (-1, 1, 828, 828)
@@ -104,61 +104,61 @@ DEBUG _flat_to_channel: gridsize from global params: 1
 DEBUG _flat_to_channel: N from parameter: 828
 DEBUG _flat_to_channel: input shape=(64, 828, 828, 1), reshaping to (-1, 1, 828, 828)
 [test] required_canvas=828 padded_size=828 fits=True loss_fraction=0.0
-2026-01-19 21:52:37.403598: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2026-01-19 22:04:17.474896: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1768888357.415142 1057228 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1768888357.419089 1057228 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1768888357.429183 1057228 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1768888357.429193 1057228 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1768888357.429194 1057228 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1768888357.429196 1057228 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2026-01-19 21:52:37.431981: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+E0000 00:00:1768889057.486139 1076216 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1768889057.489929 1076216 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1768889057.499928 1076216 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768889057.499937 1076216 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768889057.499939 1076216 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768889057.499940 1076216 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-19 22:04:17.502731: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
 To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2026-01-19 21:52:40,282 - INFO - Loading cached nongrid_sim: .artifacts/synthetic_helpers/cache/nongrid_sim_5d647f9b17f00a8010f80133bfde6b1c36d5b9b934336f4b6e399f1ddd4a2c51.npz
-2026-01-19 21:52:40,349 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=4000, C=4, K=4
-2026-01-19 21:52:40,349 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
-2026-01-19 21:52:40,349 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
-2026-01-19 21:52:40,349 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 4000 = False
-2026-01-19 21:52:40,349 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
-2026-01-19 21:52:40,349 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
-2026-01-19 21:52:40,349 - INFO - Using efficient random sampling strategy for gridsize=2
-2026-01-19 21:52:40,349 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
-2026-01-19 21:52:40,349 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=4
-2026-01-19 21:52:40,349 - INFO - Generating 1000 groups efficiently from 4000 points (K=4, C=4)
-2026-01-19 21:52:40,349 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 4000 points
-2026-01-19 21:52:40,349 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 1000 seed points
-2026-01-19 21:52:40,349 - INFO - Sampled 1000 seed points from 4000 total points
-2026-01-19 21:52:40,358 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
-2026-01-19 21:52:40,358 - INFO - Successfully generated 1000 groups with shape (1000, 4)
-2026-01-19 21:52:40,358 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
-2026-01-19 21:52:40,358 - INFO - Generated 1000 groups efficiently
-I0000 00:00:1768888360.478096 1057228 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
-I0000 00:00:1768888360.479310 1057228 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+2026-01-19 22:04:20,306 - INFO - Loading cached nongrid_sim: .artifacts/synthetic_helpers/cache/nongrid_sim_5d647f9b17f00a8010f80133bfde6b1c36d5b9b934336f4b6e399f1ddd4a2c51.npz
+2026-01-19 22:04:20,374 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=4000, C=4, K=4
+2026-01-19 22:04:20,374 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
+2026-01-19 22:04:20,374 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
+2026-01-19 22:04:20,374 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 4000 = False
+2026-01-19 22:04:20,374 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2026-01-19 22:04:20,374 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2026-01-19 22:04:20,374 - INFO - Using efficient random sampling strategy for gridsize=2
+2026-01-19 22:04:20,374 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2026-01-19 22:04:20,374 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=4
+2026-01-19 22:04:20,374 - INFO - Generating 1000 groups efficiently from 4000 points (K=4, C=4)
+2026-01-19 22:04:20,374 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 4000 points
+2026-01-19 22:04:20,374 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 1000 seed points
+2026-01-19 22:04:20,374 - INFO - Sampled 1000 seed points from 4000 total points
+2026-01-19 22:04:20,382 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
+2026-01-19 22:04:20,382 - INFO - Successfully generated 1000 groups with shape (1000, 4)
+2026-01-19 22:04:20,382 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
+2026-01-19 22:04:20,382 - INFO - Generated 1000 groups efficiently
+I0000 00:00:1768889060.502082 1076216 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1768889060.503411 1076216 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-I0000 00:00:1768888361.225379 1057228 service.cc:152] XLA service 0x3beab800 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
-I0000 00:00:1768888361.225399 1057228 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
-2026-01-19 21:52:41.244908: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
-I0000 00:00:1768888361.263356 1057228 cuda_dnn.cc:529] Loaded cuDNN version 91002
-I0000 00:00:1768888361.420348 1057228 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
-2026-01-19 21:53:00,005 - INFO - Updated max_position_jitter from 10 to 756 based on coords_offsets max_abs=379.854 (required_canvas=824, old_padded=78, new_padded=824).
-2026-01-19 21:53:00,585 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=4000, C=4, K=4
-2026-01-19 21:53:00,585 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
-2026-01-19 21:53:00,585 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
-2026-01-19 21:53:00,585 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 4000 = False
-2026-01-19 21:53:00,585 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
-2026-01-19 21:53:00,585 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
-2026-01-19 21:53:00,585 - INFO - Using efficient random sampling strategy for gridsize=2
-2026-01-19 21:53:00,585 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
-2026-01-19 21:53:00,585 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=4
-2026-01-19 21:53:00,585 - INFO - Generating 1000 groups efficiently from 4000 points (K=4, C=4)
-2026-01-19 21:53:00,585 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 4000 points
-2026-01-19 21:53:00,585 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 1000 seed points
-2026-01-19 21:53:00,585 - INFO - Sampled 1000 seed points from 4000 total points
-2026-01-19 21:53:00,593 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
-2026-01-19 21:53:00,593 - INFO - Successfully generated 1000 groups with shape (1000, 4)
-2026-01-19 21:53:00,593 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
-2026-01-19 21:53:00,593 - INFO - Generated 1000 groups efficiently
-2026-01-19 21:53:19,208 - INFO - Updated max_position_jitter from 756 to 758 based on coords_offsets max_abs=380.981 (required_canvas=826, old_padded=824, new_padded=826).
+I0000 00:00:1768889061.245146 1076216 service.cc:152] XLA service 0x106f3740 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1768889061.245168 1076216 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2026-01-19 22:04:21.264683: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1768889061.282980 1076216 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1768889061.436357 1076216 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+2026-01-19 22:04:39,702 - INFO - Updated max_position_jitter from 10 to 756 based on coords_offsets max_abs=379.854 (required_canvas=824, old_padded=78, new_padded=824).
+2026-01-19 22:04:40,273 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=4000, C=4, K=4
+2026-01-19 22:04:40,273 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=2, N=64, sequential_sampling=False
+2026-01-19 22:04:40,273 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
+2026-01-19 22:04:40,273 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 4000 = False
+2026-01-19 22:04:40,273 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 4 > 1 = True
+2026-01-19 22:04:40,273 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2026-01-19 22:04:40,273 - INFO - Using efficient random sampling strategy for gridsize=2
+2026-01-19 22:04:40,273 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2026-01-19 22:04:40,273 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=4
+2026-01-19 22:04:40,273 - INFO - Generating 1000 groups efficiently from 4000 points (K=4, C=4)
+2026-01-19 22:04:40,273 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 4000 points
+2026-01-19 22:04:40,273 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 1000 seed points
+2026-01-19 22:04:40,273 - INFO - Sampled 1000 seed points from 4000 total points
+2026-01-19 22:04:40,281 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
+2026-01-19 22:04:40,281 - INFO - Successfully generated 1000 groups with shape (1000, 4)
+2026-01-19 22:04:40,281 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
+2026-01-19 22:04:40,281 - INFO - Generated 1000 groups efficiently
+2026-01-19 22:04:58,569 - INFO - Updated max_position_jitter from 756 to 758 based on coords_offsets max_abs=380.981 (required_canvas=826, old_padded=824, new_padded=826).
 DEBUG _flat_to_channel: gridsize from global params: 2
 DEBUG _flat_to_channel: N from parameter: 824
 DEBUG _flat_to_channel: input shape=(256, 824, 824, 1), reshaping to (-1, 4, 824, 824)

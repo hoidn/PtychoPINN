@@ -632,6 +632,7 @@ def main() -> None:
     summary_md_path = scenario_dir / f"{scenario.name}_training_summary.md"
     history_rel = os.path.relpath(history_path, scenario_dir)
     summary_rel = os.path.relpath(history_summary_path, scenario_dir)
+    summary_md_rel = os.path.relpath(summary_md_path, scenario_dir)
     write_training_summary_markdown(
         scenario.name,
         history_summary,
@@ -725,6 +726,9 @@ def main() -> None:
         "nan_overview": history_summary.get("nan_overview", {}),
     }
     metadata["training_nan_overview"] = history_summary.get("nan_overview", {})
+    metadata["training_history_path"] = history_rel
+    metadata["training_summary_path"] = summary_rel
+    metadata["training_summary_markdown_path"] = summary_md_rel
     if profile_metadata:
         metadata["profile"] = profile_metadata
     (scenario_dir / "run_metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True))

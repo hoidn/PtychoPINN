@@ -1,6 +1,6 @@
 {
   "amp_png_range": {
-    "vmax": 2.304405689239502,
+    "vmax": 2.1254608631134033,
     "vmin": 0.0
   },
   "artifacts": {
@@ -37,7 +37,7 @@
     "snapshot": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json",
     "split_fraction": null
   },
-  "elapsed_seconds": 92.02,
+  "elapsed_seconds": 91.77,
   "group_count": 256,
   "group_limit": 64,
   "neighbor_count": 4,
@@ -70,7 +70,7 @@
   "sim_seed": 42,
   "split_fraction": 0.5,
   "test_count": 256,
-  "timestamp": "2026-01-20T05:51:33.419831+00:00",
+  "timestamp": "2026-01-20T06:03:07.773294+00:00",
   "total_images": 512,
   "train_count": 256,
   "training_history": {
@@ -82,8 +82,11 @@
     "summary_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T071800Z/gs1_ideal/train_outputs/history_summary.json",
     "summary_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T071800Z/gs1_ideal/gs1_ideal_training_summary.md"
   },
+  "training_history_path": "train_outputs/history.json",
   "training_nan_overview": {
     "has_nan": false,
     "metrics": {}
-  }
+  },
+  "training_summary_markdown_path": "gs1_ideal_training_summary.md",
+  "training_summary_path": "train_outputs/history_summary.json"
 }

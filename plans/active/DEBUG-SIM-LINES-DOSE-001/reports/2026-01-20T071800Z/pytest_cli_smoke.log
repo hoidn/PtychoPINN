@@ -10,4 +10,4 @@ collecting ... collected 1 item
 
 tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke PASSED [100%]
 
-============================== 1 passed in 3.82s ===============================
+============================== 1 passed in 3.79s ===============================
