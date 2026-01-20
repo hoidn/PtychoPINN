@@ -74,6 +74,7 @@
     - Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
     - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T061530Z/{gs1_ideal_runner.log,gs2_ideal_runner.log,gs1_ideal/inference_outputs/*,gs2_ideal/inference_outputs/*,gs1_ideal_notes.md,gs2_ideal_notes.md,reassembly_cli.log,reassembly_gs1_ideal.json,reassembly_gs2_ideal.json,pytest_cli_smoke.log}`
     - Notes: gs1 needed reduced group_count to avoid NaNs; both reassembly JSONs report `fits_canvas=true` with jitter-expanded padded sizes.
+  - *2026-01-20T062804Z:* Reviewed the Phase C2 evidence, confirmed the jitter-driven padded size passes (`fits_canvas=true`, 0 NaNs) on both ideal scenarios, and logged a follow-up checklist (C2b) to bake the reduced-load profile (gs1: 512/256/8, gs2: 256/128/4) into `run_phase_c2_scenario.py` so reruns no longer depend on manual CLI overrides. New hub and telemetry updates will accompany that rerun.
   - *2026-01-20T061530Z:* Current loop — revisited the C2 scope, updated the working plan/status to Phase C verification, opened artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T061530Z/`, and drafted the Do Now for implementing `bin/run_phase_c2_scenario.py`, running gs1_ideal + gs2_ideal with PNG/NaN evidence, rerunning the reassembly telemetry, and guarding the flow with the synthetic helpers CLI pytest selector.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
@@ -235,5 +236,5 @@
     - Metrics: `pytest --collect-only scripts/orchestration/tests/test_orchestrator.py -v`, `pytest scripts/orchestration/tests/test_orchestrator.py -v`
     - Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T051859Z/{pytest_collect_orchestrator.log,pytest_orchestrator.log}`
   - *2026-01-20T052323Z:* Ran integration marker gate for combined auto-commit changes.
-    - Metrics: `pytest -v -m integration`
+    - Metrics: `pytest -v -m integration` (1 passed, 3 skipped)
     - Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T052323Z/pytest_integration.log`

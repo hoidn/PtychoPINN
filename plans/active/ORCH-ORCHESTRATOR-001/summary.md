@@ -33,4 +33,5 @@ Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T051859Z/
 
 ### Update (2026-01-20)
 Ran integration marker gate for the combined auto-commit changes.
+Results: 1 passed, 3 skipped (manual long integration skipped); warnings from TensorFlow Addons compatibility.
 Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T052323Z/
