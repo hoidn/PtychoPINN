@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-20 (DEBUG-SIM-LINES-DOSE-001 B0f isolation test)
-**Active Focus:** DEBUG-SIM-LINES-DOSE-001 — B0f isolation test (probe-type vs workflow-wide)
+**Last Updated:** 2026-01-20 (DEBUG-SIM-LINES-DOSE-001 B0f complete)
+**Active Focus:** DEBUG-SIM-LINES-DOSE-001 — B0f complete; NaN issue resolved via CONFIG-001 bridging
 
 ---
 
@@ -18,7 +18,7 @@
 ### [DEBUG-SIM-LINES-DOSE-001] Isolate sim_lines_4x vs dose_experiments discrepancy
 - Depends on: None
 - Priority: **Critical** (Highest Priority)
-- Status: in_progress — Phase B0 hypothesis verification (B0f isolation test)
+- Status: in_progress — Phase B0 complete; NaN stability verified via CONFIG-001 bridging
 - Owner/Date: Codex/2026-01-13
 - Working Plan: `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md`
 - Summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md`
@@ -160,9 +160,18 @@
     - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/{gs1_ideal/*,gs2_ideal/*,bias_summary.json,bias_summary.md,gs1_ideal_runner.log,gs2_ideal_runner.log,pytest_cli_smoke.log,analyze_intensity_bias.log}`
     - Findings: **Both scenarios now complete without training NaNs** (all metrics `has_nan=false`), fits_canvas=true for both, bundle vs legacy intensity_scale delta=0. Amplitude bias remains ≈-2.29 (gs1) and ≈-2.30 (gs2) with least_squares scalars 1.71 and 2.06 respectively; pearson_r improved slightly (0.103 gs1, 0.138 gs2).
     - Next Actions: CONFIG-001 bridging verified and NaNs eliminated; remaining amplitude bias is workflow-level (normalization or loss weighting) and unrelated to param drift. Consider auditing the normalization math or loss weighting to close the ≈2.3 amplitude gap.
-  - *2026-01-20T102300Z:* Supervisor planning for B0f isolation test — run gs1_custom (gridsize=1 + custom probe) to determine whether the amplitude bias is probe-type-specific or workflow-wide. Since both gs1_ideal and gs2_ideal show identical failure patterns (~-2.3 bias, ~0.1 pearson_r) after C4f, the decision tree recommends comparing custom-probe metrics to isolate the variable.
-    - Do Now: Run Phase C2 runner for gs1_custom scenario, compare against gs1_ideal/gs2_ideal baselines via analyzer, and record decision branch (H-PROBE-IDEAL-REGRESSION vs H-LOSS-WIRING).
-    - Artifacts hub: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/`
+  - *2026-01-20T102300Z:* Executed B0f isolation test — ran gs1_custom (gridsize=1 + custom probe) via Phase C2 runner with same workload as gs1_ideal (512 images, 256 groups, batch_size=8) to determine whether NaN failures were probe-specific or gridsize-specific.
+    - Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (pass)
+    - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/{gs1_custom/*,summary.md,gs1_custom_runner.log}`
+    - Findings:
+      - **gs1_custom trains without NaN** (has_nan=false), matching gs1_ideal after CONFIG-001 bridging
+      - gs1_custom pearson_r=0.155 (vs gs1_ideal 0.102) — custom probe slightly better correlation
+      - gs1_custom amplitude pred mean=0.704, truth mean=2.71 (~3.8x undershoot)
+      - gs1_ideal amplitude pred mean=0.417, truth mean=2.71 (~6.5x undershoot)
+      - Both probe types exhibit amplitude bias; custom probe has less bias than ideal
+    - Conclusion: **NaN failures were caused by CONFIG-001 violations, not probe type.** The C4f bridging fix resolved NaN instability for both probe types. The amplitude bias persists independently and requires separate investigation.
+    - Decision tree resolution: H-PROBE-IDEAL-REGRESSION NOT confirmed; problem was workflow-wide (CONFIG-001) not probe-specific.
+    - Next Actions: Close B0f as confirming CONFIG-001 fix; remaining amplitude bias is a separate issue from NaN debugging.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

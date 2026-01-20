@@ -5,7 +5,7 @@
 - Title: Isolate sim_lines_4x vs dose_experiments sim->recon discrepancy
 - Owner: Codex + user
 - Spec Owners: specs/spec-ptycho-workflow.md; specs/spec-ptycho-core.md; specs/spec-inference-pipeline.md; specs/data_contracts.md
-- Status: in_progress — Phase C verification (C3d intensity-scale inspection)
+- Status: in_progress — Phase B0 complete; NaN stability confirmed via CONFIG-001 bridging (C4f)
 
 ## Goals
 - Identify whether the failure is caused by a core regression, nongrid pipeline differences, or a workflow/config mismatch.
@@ -219,10 +219,17 @@ gs2_ideal healthy, gs1_ideal NaN after CONFIG-001 fix
 - [x] B0c: Rank hypotheses by likelihood and testability.
 - [x] B0d: Identify gaps in existing tests (B2 did not test cross-probe scaling).
 - [x] B0e: Add critical context: ideal probe worked in dose_experiments → regression, not inherent numeric issue.
-- [ ] B0f: **Isolation test:** Run gs1_custom (gridsize=1 + custom probe) to determine if problem is probe-specific or gridsize-specific.
+- [x] B0f: **Isolation test:** Run gs1_custom (gridsize=1 + custom probe) to determine if problem is probe-specific or gridsize-specific.
+      - Executed gs1_custom with same workload as gs1_ideal (512 images, 256 groups, batch_size=8)
+      - Result: **gs1_custom trains without NaN** (has_nan=false), matching gs1_ideal after CONFIG-001 bridging
+      - gs1_custom pearson_r=0.155 (vs gs1_ideal 0.102) — slightly better correlation with custom probe
+      - gs1_custom amplitude pred mean=0.704, truth mean=2.71 (~3.8x undershoot)
+      - Conclusion: **NaN failures were caused by CONFIG-001 violations, not probe type**
+      - Decision tree resolution: H-PROBE-IDEAL-REGRESSION NOT confirmed; problem was workflow-wide
+      - Evidence: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/{gs1_custom/*,summary.md}`
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
-- [ ] B0g: If B0f points to ideal probe → Execute H-PROBE-IDEAL-REGRESSION (diff dose_experiments vs sim_lines ideal probe code paths).
-- [ ] B0h: If B0f points to gridsize → Execute H-GRIDSIZE-NUMERIC (gradient/activation logging for gs1).
+- [x] B0g: Closed — B0f showed both probe types work after CONFIG-001 bridging; no ideal-probe-specific regression to investigate.
+- [x] B0h: Closed — B0f showed both gridsize=1 scenarios work after CONFIG-001 bridging; no gridsize-specific numeric issue to investigate.
 
 ## Phase B -- Differential Experiments
 ### Checklist

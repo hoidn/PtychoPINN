@@ -695,3 +695,30 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Commit: e1e84dba
 - Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/ (bias_summary.*, gs*_ideal/*, pytest_cli_smoke.log)
 - Next: Investigate gs1_ideal NaN collapse root cause (gridsize=1 hypothesis) or pivot to core workflow normalization audit if amplitude bias persists.
+
+# 2026-01-20T10:31:44Z: DEBUG-SIM-LINES-DOSE-001 — B0f isolation test results (CRITICAL FINDING)
+
+- dwell: 0 (fresh implementation loop)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — B0f isolation test (probe-type vs workflow-wide)
+- Action type: Implementation (scenario run + evidence collection)
+- Mode: Implementation
+- Key findings (correction to prior understanding):
+  - **gs1_custom trains WITHOUT NaN** (has_nan=false), matching gs1_ideal after CONFIG-001 bridging
+  - **gs1_ideal ALSO trains WITHOUT NaN** (has_nan=false) — prior conclusion was WRONG
+  - The gs1_ideal NaN at epoch 3 was a stale observation from BEFORE C4f CONFIG-001 bridging
+  - CONFIG-001 bridging (C4f) **RESOLVED the NaN instability** for both probe types
+  - Both scenarios now complete training successfully with identical failure pattern (amplitude bias)
+- Metrics comparison:
+  - gs1_ideal: pearson_r=0.102, amplitude pred mean=0.417, truth mean=2.71, LS scalar=1.71
+  - gs1_custom: pearson_r=0.155, amplitude pred mean=0.704, truth mean=2.71, LS scalar=3.75
+  - Custom probe shows BETTER correlation (0.155 vs 0.102) and LESS amplitude undershoot
+- Conclusion:
+  - **NaN failures were caused by CONFIG-001 violations, NOT probe type or gridsize**
+  - H-PROBE-IDEAL-REGRESSION hypothesis NOT confirmed — both probe types work after CONFIG-001 fix
+  - H-GRIDSIZE-NUMERIC hypothesis NOT confirmed — gridsize=1 works fine after CONFIG-001 fix
+  - The remaining amplitude bias (~3-6x undershoot) is a separate issue from NaN debugging
+  - C4f CONFIG-001 bridging is the definitive fix for NaN instability
+- Tests: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (pass)
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/{gs1_custom/*,summary.md}
+- <Action State>: [complete]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=B0f_complete dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/ next_action=close B0f checklist and proceed to amplitude bias investigation (separate from NaN debugging)
