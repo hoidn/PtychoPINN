@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Unit tests for ptycho.workflows.components module."""
 
+import math
 import unittest
 import tempfile
 import shutil
@@ -17,7 +18,10 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from ptycho.workflows.components import load_inference_bundle
+from ptycho.workflows.components import load_inference_bundle  # noqa: E402
+from ptycho.workflows.components import _update_max_position_jitter_from_offsets  # noqa: E402
+from ptycho.config.config import ModelConfig, TrainingConfig, update_legacy_dict  # noqa: E402
+from ptycho import params as legacy_params  # noqa: E402
 
 
 class TestLoadInferenceBundle(unittest.TestCase):
@@ -156,6 +160,30 @@ class TestLoadInferenceBundle(unittest.TestCase):
                 load_inference_bundle(self.model_dir)
                 
             self.assertIn("Mock loading error", str(context.exception))
+
+
+class TestCreatePtychoDataContainer:
+    def test_updates_max_position_jitter(self):
+        original_cfg = dict(legacy_params.cfg)
+        try:
+            config = TrainingConfig(model=ModelConfig(N=64, gridsize=2), n_groups=1, neighbor_count=1)
+            update_legacy_dict(legacy_params.cfg, config)
+            legacy_params.cfg["offset"] = 4
+            legacy_params.cfg["max_position_jitter"] = 10
+
+            dataset = {"coords_offsets": np.array([[[[20.0], [-5.0]]]], dtype=np.float32)}
+            expected_required = math.ceil(config.model.N + (2.0 * 20.0))
+            if (expected_required - config.model.N) % 2 != 0:
+                expected_required += 1
+            expected_buffer = expected_required - legacy_params.get_bigN()
+
+            updated = _update_max_position_jitter_from_offsets(dataset, config)
+
+            assert updated == expected_buffer
+            assert legacy_params.cfg["max_position_jitter"] == expected_buffer
+        finally:
+            legacy_params.cfg.clear()
+            legacy_params.cfg.update(original_cfg)
 
 
 if __name__ == '__main__':
