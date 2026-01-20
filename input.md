@@ -1,4 +1,4 @@
-Summary: Pull the Lightning intensity-scaler weights from the gs1_ideal/gs2_ideal checkpoints so we can explain the shared ~2.47 amplitude bias before touching workflow code.
+Summary: Pull the TensorFlow/Keras intensity-scaler weights from the gs1_ideal/gs2_ideal checkpoints so we can explain the shared ~2.47 amplitude bias before touching workflow code.
 Focus: DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy
 Branch: paper
 Mapped tests:
