@@ -89,6 +89,7 @@ Comprehensive tests that validate end-to-end workflows and interactions between 
   - Trains for 50 epochs with 1000 images, then infers 512 images.
   - Skipped by default; set `RUN_LONG_INTEGRATION=1` to enable.
   - Run: `RUN_LONG_INTEGRATION=1 pytest tests/test_integration_manual_1000_512.py -v`
+  - Optional: set `INTEGRATION_OUTPUT_DIR=/path` to persist outputs and logs.
 
 ## The Critical Integration Test
 

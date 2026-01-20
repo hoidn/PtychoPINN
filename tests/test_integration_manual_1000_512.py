@@ -20,6 +20,13 @@ def _run_command(command, cwd, log_path):
     return result
 
 
+def _resolve_output_root(tmp_path):
+    output_root = os.getenv("INTEGRATION_OUTPUT_DIR")
+    if output_root:
+        return Path(output_root).expanduser()
+    return tmp_path
+
+
 @pytest.mark.skipif(
     os.getenv("RUN_LONG_INTEGRATION") != "1",
     reason="Long-running integration test; set RUN_LONG_INTEGRATION=1 to enable.",
@@ -27,12 +34,14 @@ def _run_command(command, cwd, log_path):
 def test_train_infer_cycle_1000_train_512_test(tmp_path):
     repo_root = Path(__file__).resolve().parents[1]
     data_file = repo_root / "ptycho" / "datasets" / "Run1084_recon3_postPC_shrunk_3.npz"
-    train_dir = tmp_path / "training_outputs"
-    infer_dir = tmp_path / "inference_outputs"
+    output_root = _resolve_output_root(tmp_path)
+    output_root.mkdir(parents=True, exist_ok=True)
+    train_dir = output_root / "training_outputs"
+    infer_dir = output_root / "inference_outputs"
     train_dir.mkdir(parents=True, exist_ok=True)
     infer_dir.mkdir(parents=True, exist_ok=True)
 
-    train_log = tmp_path / "train.log"
+    train_log = output_root / "train.log"
     train_command = [
         "python",
         str(repo_root / "scripts" / "training" / "train.py"),
@@ -59,7 +68,7 @@ def test_train_infer_cycle_1000_train_512_test(tmp_path):
     model_artifact_path = train_dir / "wts.h5.zip"
     assert model_artifact_path.exists()
 
-    inference_log = tmp_path / "inference.log"
+    inference_log = output_root / "inference.log"
     inference_command = [
         "python",
         str(repo_root / "scripts" / "inference" / "inference.py"),
