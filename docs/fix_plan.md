@@ -100,6 +100,10 @@
     - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/{gs*_ideal/*,reassembly_cli.log,reassembly_gs1_ideal.json,reassembly_gs2_ideal.json,pytest_cli_smoke.log}`
     - Notes: Both scenarios report amplitude bias mean ≈-2.47 (median ≈-2.53, P95 ≈-0.98) with prediction means ≈0.23–0.25 while ground truth mean stays 2.71. Phase bias shows the same zero-vs-offset behavior, confirming the remaining failure is a shared intensity offset rather than gs1-specific NaNs.
   - *2026-01-20T094500Z:* Scoped Phase C3d to dump the `IntensityScaler`/`IntensityScaler_inv` weights and `params.cfg['intensity_scale']` from the gs1_ideal/gs2_ideal checkpoints (plan-local inspector script) so we can trace the constant bias back to the intensity-scaling workflow before modifying shared modules. Will open artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T103000Z/` for the inspector outputs + pytest log.
+  - *2026-01-20T103000Z:* Added `bin/inspect_intensity_scaler.py`, ran it for `gs1_ideal` and `gs2_ideal`, and recorded IntensityScaler/IntensityScaler_inv gains along with the archived `intensity_scale` under the new hub. Both scenarios load `exp(log_scale)=988.211666` (delta vs recorded scale `-3.9e-06`, ratio `0.999999996`), eliminating scaler weights as the source of the shared ≈2.47 amplitude bias.
+    - Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+    - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T103000Z/{intensity_scaler_gs1_ideal.json,intensity_scaler_gs1_ideal.md,intensity_scaler_gs2_ideal.json,intensity_scaler_gs2_ideal.md,pytest_cli_smoke.log,summary.md}`
+    - Next Actions: Pivot Phase C3d toward the upstream workflow math (intensity normalization + stats) since both checkpoints share the same scaler weights despite diverging outputs.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

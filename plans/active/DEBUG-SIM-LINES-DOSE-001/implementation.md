@@ -89,6 +89,19 @@ Guidelines:
       - Use `git show dose_experiments:<path>` for sim, training, inference, stitching modules.
       - Record parameter defaults (probe_mask, probe_big, probe_scale, default_probe_scale, gridsize, nphotons, split, grouping).
       Test: N/A -- evidence capture only
+- [ ] A1b: Run dose_experiments ground truth from the local checkout at `/home/ollie/Documents/PtychoPINN`.
+      - Keep the working directory inside `/home/ollie/Documents/PtychoPINN` (already on `dose_experiments`).
+      - Guard against the global editable install by verifying the import path first:
+        ```bash
+        PYTHONNOUSERSITE=1 python - <<'PY'
+        import pathlib
+        import ptycho
+        print(pathlib.Path(ptycho.__file__).resolve())
+        PY
+        ```
+        (must resolve under `/home/ollie/Documents/PtychoPINN`).
+      - Run the dose_experiments entrypoints identified in A1 (simulate → train → infer) and archive outputs/logs under a new reports hub so we can treat those artifacts as the ground-truth baseline.
+      Test: N/A -- evidence capture only
 - [ ] A2: Verify data-contract expectations for any RawData/NPZ outputs used in comparison.
       Test: N/A -- evidence capture only
 - [x] A3: Capture sim_lines_4x params snapshot with full config/params dump.

@@ -513,6 +513,10 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
   - Updated docs/fix_plan.md Attempts, summary.md, and input.md with the new Do Now plus pytest/reassembly guard instructions.
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T083000Z/ next_action=Ralph extends run_phase_c2_scenario.py with ground-truth diff metrics and reruns gs1_ideal/gs2_ideal + reassembly + pytest
+# 2026-01-20T10:30:00Z: DEBUG-SIM-LINES-DOSE-001 — Intensity scaler inspection results
+
+- Inspector script (`bin/inspect_intensity_scaler.py`) confirms both `gs1_ideal` and `gs2_ideal` checkpoints store the same trained `log_scale` (`exp(log_scale)=988.211666`, delta vs archived `intensity_scale` = `-3.9e-06`), so the shared ≈2.47 amplitude bias is **not** caused by diverging IntensityScaler/IntensityScaler_inv weights.
+- Next debugging steps should focus on upstream normalization/workflow math (intensity_scale derivation, stats capture, or data preprocessing) instead of adjusting the scaler layers themselves.
 # 2026-01-20T09:40:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase C3c bias telemetry landing
 
 - dwell: 0 (implementation loop resets the non-doc counter)

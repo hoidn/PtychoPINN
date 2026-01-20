@@ -1,0 +1,28 @@
+{
+  "scenario": "gs2_ideal",
+  "scenario_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs2_ideal",
+  "model_archive": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs2_ideal/train_outputs/wts.h5.zip",
+  "log_scale": 6.895896911621094,
+  "exp_log_scale": 988.2116659768321,
+  "recorded_params": {
+    "intensity_scale": 988.211669921875,
+    "intensity_scale.trainable": true,
+    "nphotons": 1000000000.0,
+    "N": 64,
+    "gridsize": 2
+  },
+  "intensity_scaler": {
+    "operation": "x / exp(log_scale)",
+    "gain": 0.0010119289565474977,
+    "bias": 0.0
+  },
+  "intensity_scaler_inv": {
+    "operation": "exp(log_scale) * x",
+    "gain": 988.2116659768321,
+    "bias": 0.0
+  },
+  "diff_vs_recorded": {
+    "absolute_delta": -3.94504286305164e-06,
+    "ratio": 0.9999999960078969
+  }
+}
