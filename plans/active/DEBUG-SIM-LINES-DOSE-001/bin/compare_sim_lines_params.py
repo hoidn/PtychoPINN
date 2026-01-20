@@ -2,6 +2,10 @@
 """
 Compare sim_lines_4x snapshot metadata against the legacy dose_experiments
 parameter scan. Emits a Markdown table plus a structured JSON diff.
+
+Extended for Phase D1 to include loss configuration weights (mae_weight,
+nll_weight, realspace_weight, realspace_mae_weight) by instantiating
+TrainingConfig for each scenario.
 """
 
 from __future__ import annotations
@@ -33,6 +37,11 @@ PARAMETERS: List[Tuple[str, str]] = [
     ("reassemble_M", "reassemble_M"),
     ("intensity_scale.trainable", "intensity_scale.trainable"),
     ("total_images", "total_images"),
+    # Phase D1: Loss configuration weights
+    ("mae_weight", "mae_weight"),
+    ("nll_weight", "nll_weight"),
+    ("realspace_weight", "realspace_weight"),
+    ("realspace_mae_weight", "realspace_mae_weight"),
 ]
 
 
@@ -83,6 +92,50 @@ def coalesce(*values: Any) -> Any:
         if value is not None:
             return value
     return None
+
+
+def get_loss_weights_from_training_config(
+    gridsize: int,
+    probe_scale: float,
+    probe_big: bool,
+    probe_mask: bool,
+    nphotons: float,
+    group_count: int,
+    neighbor_count: int,
+) -> Dict[str, float]:
+    """
+    Instantiate a TrainingConfig to extract the actual loss weights that would
+    be used for the given scenario parameters. This ensures we capture the real
+    defaults from the dataclass definition.
+
+    Returns dict with keys: mae_weight, nll_weight, realspace_weight, realspace_mae_weight
+    """
+    from pathlib import Path
+    from ptycho.config.config import ModelConfig, TrainingConfig
+
+    model_config = ModelConfig(
+        N=64,
+        gridsize=gridsize,
+        model_type="pinn",
+        probe_scale=probe_scale,
+        probe_big=probe_big,
+        probe_mask=probe_mask,
+    )
+    # Create a minimal TrainingConfig to read its loss weight defaults
+    config = TrainingConfig(
+        model=model_config,
+        n_groups=group_count,
+        nphotons=nphotons,
+        neighbor_count=neighbor_count,
+        nepochs=10,  # placeholder
+        output_dir=Path("/tmp"),  # placeholder
+    )
+    return {
+        "mae_weight": config.mae_weight,
+        "nll_weight": config.nll_weight,
+        "realspace_weight": config.realspace_weight,
+        "realspace_mae_weight": config.realspace_mae_weight,
+    }
 
 
 def load_sim_lines_snapshot(path: pathlib.Path) -> Tuple[Dict[str, Any], Dict[str, Dict[str, Any]]]:
@@ -203,6 +256,34 @@ def ensure_all_keys(
             scenario.setdefault(key, None)
 
 
+def enrich_scenario_with_loss_weights(
+    scenario: Dict[str, Any],
+    run_params: Dict[str, Any],
+) -> None:
+    """
+    Instantiate TrainingConfig for the scenario and extract loss weights.
+    Updates scenario dict in-place with mae_weight, nll_weight, etc.
+    """
+    gridsize = scenario.get("gridsize", 1)
+    probe_scale = scenario.get("probe_scale", 4.0)
+    probe_big = scenario.get("probe_big", True)
+    probe_mask = scenario.get("probe_mask", False)
+    nphotons = scenario.get("nphotons") or run_params.get("nphotons", 1e9)
+    group_count = scenario.get("group_count") or run_params.get("group_count", 1000)
+    neighbor_count = scenario.get("neighbor_count") or run_params.get("neighbor_count", 4)
+
+    loss_weights = get_loss_weights_from_training_config(
+        gridsize=int(gridsize),
+        probe_scale=float(probe_scale),
+        probe_big=bool(probe_big),
+        probe_mask=bool(probe_mask),
+        nphotons=float(nphotons),
+        group_count=int(group_count),
+        neighbor_count=int(neighbor_count),
+    )
+    scenario.update(loss_weights)
+
+
 def main() -> None:
     args = parse_args()
     dose_params = parse_dose_config(args.dose_config)
@@ -216,6 +297,8 @@ def main() -> None:
         scenario.setdefault("outer_offset_train", run_params.get("outer_offset_train"))
         scenario.setdefault("outer_offset_test", run_params.get("outer_offset_test"))
         scenario.setdefault("intensity_scale.trainable", run_params.get("intensity_scale.trainable"))
+        # Phase D1: Enrich scenario with loss weights from TrainingConfig
+        enrich_scenario_with_loss_weights(scenario, run_params)
 
     ensure_all_keys(dose_params, scenarios)
     markdown = build_markdown(dose_params, scenarios, args.snapshot, args.dose_config)

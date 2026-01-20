@@ -328,11 +328,12 @@ gs2_ideal healthy, gs1_ideal NaN after CONFIG-001 fix
 - H-ARCHITECTURE — Model/forward-path wiring changed between repositories.
 
 ### Checklist
-- [ ] D1: **Loss configuration diff against dose_experiments.**
-      - Extend `bin/compare_sim_lines_params.py` (or add a focused helper) so it surfaces loss weights (`mae_weight`, `nll_weight`, `realspace_weight`, `realspace_mae_weight`) for each sim_lines scenario by instantiating the same `TrainingConfig` objects the pipeline uses, then contrasts them with the captured `dose_experiments_param_scan.md` defaults.
-      - Emit Markdown + JSON artifacts under the active hub summarizing where sim_lines omits MAE/realspace supervision while dose_experiments used `mae_weight=1`/`nll_weight=0` for the working runs.
-      - Gate with the synthetic helpers CLI smoke selector to ensure the runner imports still succeed.
-      Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+- [x] D1: **Loss configuration diff against dose_experiments.** ✅ COMPLETE (2026-01-20T112000Z)
+      - Extended `bin/compare_sim_lines_params.py` to surface loss weights (`mae_weight`, `nll_weight`, `realspace_weight`, `realspace_mae_weight`) by instantiating TrainingConfig per scenario.
+      - **KEY FINDING:** dose_experiments uses `mae_weight=1.0, nll_weight=0.0` (MAE loss); sim_lines_4x uses `mae_weight=0.0, nll_weight=1.0` (NLL loss) — **opposite loss configurations**.
+      - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/{loss_config_diff.md,loss_config_diff.json,pytest_cli_smoke.log,summary.md}`
+      - H-LOSS-WEIGHT is now the **primary suspect** for amplitude bias; MAE loss directly supervises amplitude recovery.
+      Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
 - [ ] D2: **Normalization pipeline parity.**
       - Once loss weights are reconciled/documented, add instrumentation (plan-local first) to log normalization gains for both the simulator and loader across sim_lines and the legacy dose_experiments scripts so we can prove whether scaling symmetry (spec-ptycho-core.md §Normalization Invariants) holds end-to-end.
       - Capture RawData → grouped → normalized → container stage distributions side-by-side with the legacy pipeline, including any pre-scaling applied inside loss wiring.

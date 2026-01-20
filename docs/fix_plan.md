@@ -202,6 +202,11 @@
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T200000Z/`
   - *2026-01-20T110227Z:* Scoped **Phase D1** around an explicit loss-configuration diff between sim_lines_4x and dose_experiments so we can confirm or rule out H-LOSS-WEIGHT before tweaking normalization. Updated the implementation plan (Phase D checklist) and queued a Do Now for Ralph to extend `bin/compare_sim_lines_params.py` with MAE/NLL/realspace weights, run it against the existing snapshot + legacy param scan, and archive the Markdown/JSON report plus pytest guard under the new artifacts hub.
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/`
+  - *2026-01-20T112000Z:* **Phase D1 COMPLETE** — Extended `bin/compare_sim_lines_params.py` with loss weight extraction (mae_weight, nll_weight, realspace_weight, realspace_mae_weight) by instantiating TrainingConfig per scenario. Generated Markdown + JSON diff artifacts revealing **critical loss configuration inversion**: dose_experiments uses `mae_weight=1.0, nll_weight=0.0` (MAE loss) while sim_lines_4x uses `mae_weight=0.0, nll_weight=1.0` (NLL loss). This is a **primary suspect** for the amplitude bias — MAE loss directly supervises amplitude recovery.
+    - **Metrics:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/{loss_config_diff.md,loss_config_diff.json,pytest_cli_smoke.log,summary.md}`
+    - **Key Finding:** dose_experiments=MAE, sim_lines=NLL — opposite loss configurations
+    - **Next Actions:** D2 to either (a) add `mae_weight`/`nll_weight` overrides to the sim_lines pipeline and rerun with MAE to test the hypothesis, or (b) proceed to normalization parity if loss weights alone don't explain the ~3x amplitude drop
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
