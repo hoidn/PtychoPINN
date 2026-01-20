@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-20 (ORCH-ORCHESTRATOR reviewer prompt depth)
-**Active Focus:** ORCH-ORCHESTRATOR-001 — expand reviewer prompt analysis requirements
+**Last Updated:** 2026-01-20 (ORCH-ORCHESTRATOR prompt-tagged auto-commit)
+**Active Focus:** ORCH-ORCHESTRATOR-001 — include prompt names in combined auto-commit messages
 
 ---
 
@@ -261,6 +261,9 @@
   - *2026-01-20T061629Z:* Expanded reviewer prompt requirements to include deeper change analysis, plan/design/implementation quality, and architecture consistency checks.
     - Metrics: N/A (prompt-only update)
     - Artifacts: `prompts/reviewer.md`
+  - *2026-01-20T061929Z:* Added prompt names to combined auto-commit commit messages, updated auto-commit tests, and refreshed combined-mode documentation.
+    - Metrics: `pytest --collect-only scripts/orchestration/tests/test_orchestrator.py -v`, `pytest scripts/orchestration/tests/test_orchestrator.py -v`
+    - Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T061929Z/{pytest_collect_orchestrator.log,pytest_orchestrator.log}`
 
 ### [ORCH-AGENT-DISPATCH-001] Per-role/per-prompt agent dispatch (codex vs claude)
 - Depends on: ORCH-ORCHESTRATOR-001 (combined mode baseline)
