@@ -253,6 +253,7 @@
       - Largest drop: grouped→normalized (ratio=0.26, ~74% amplitude reduction at normalize_data)
       - Confirms the normalize_data step is the primary amplitude suppression point
     - **Next Actions:** Compare dose_legacy_gs2 stats with sim_lines gs1_ideal/gs2_ideal runs to identify which normalization parameters diverge.
+  - *2026-01-20T133807Z:* Scoped **Phase D3 hyperparameter audit** — extend `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/compare_sim_lines_params.py` so the Markdown/JSON diff also surfaces training knobs (nepochs, batch_size, probe/intensity-scale trainability), add CLI controls for sim_lines epoch overrides, rerun it against the archived snapshot + legacy param scan, and archive outputs under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T133807Z/` alongside the synthetic helpers CLI pytest guard. Evidence will show whether the sim_lines five-epoch runs (vs the legacy 60-epoch defaults) plausibly explain the amplitude collapse before scheduling retrains.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

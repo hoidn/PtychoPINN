@@ -1,5 +1,11 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
+### Turn Summary — 2026-01-20T13:38:07Z (Phase D3 hyperparameter audit planning)
+Framed the Phase D3 scope: expand `bin/compare_sim_lines_params.py` so the diff also captures training knobs (nepochs, batch_size, probe/intensity-scale trainability) and accepts per-scenario epoch overrides, then regenerate Markdown/JSON evidence under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T133807Z/` with the synthetic helpers CLI pytest guard.
+The new artifacts hub will document whether the sim_lines five-epoch runs (vs the legacy 60-epoch defaults) plausibly explain the amplitude collapse before we queue retrains.
+Next: Ralph lands the script updates, reruns the diff with `--default-sim-lines-nepochs 5`, and archives the refreshed outputs + pytest log under the new hub.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T133807Z/
+
 ### Turn Summary — 2026-01-20T12:42:12Z (Phase D2b normalization parity capture CLI)
 Implemented `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/capture_dose_normalization.py` — a plan-local CLI that loads dose_experiments_param_scan.md defaults (gridsize=2, probe_scale=4, neighbor_count=5), simulates the nongrid dataset via make_lines_object/simulate_nongrid_raw_data, splits along y-axis, and records stage telemetry using the existing `record_intensity_stage` helper.
 The CLI computes both dataset-derived intensity scale (`s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])`) and closed-form fallback (`s ≈ sqrt(nphotons) / (N/2)`) per specs/spec-ptycho-core.md §Normalization Invariants, then emits JSON + Markdown outputs with `--overwrite` support for safe re-runs.

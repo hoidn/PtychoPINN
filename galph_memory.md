@@ -987,3 +987,16 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T132349Z/
 - <Action State>: [ready_for_implementation]
 - focus=ORCH-ORCHESTRATOR-001 state=ready_for_implementation dwell=0 artifacts=plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T132349Z/ next_action=Add combined-mode review cadence regression + doc/test registry sync and keep both pytest selectors green
+# 2026-01-20T13:38:07Z: DEBUG-SIM-LINES-DOSE-001 — Phase D3 hyperparameter audit planning
+
+- dwell: 1 (planning loop after the earlier Do Now handoff)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 Phase D3 — hyperparameter delta audit (nepochs/batch_size parity)
+- Action type: Planning | Mode: Implementation
+- Documents reviewed: docs/index.md, docs/fix_plan.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, docs/findings.md (CONFIG-001, SIM-LINES-CONFIG-001), docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, specs/spec-ptycho-workflow.md §Training Outputs
+- Key updates:
+  - Added the Phase D3 attempt entry to docs/fix_plan.md and refreshed the initiative summary with the new scope/hub.
+  - Created artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T133807Z/` and captured the plan summary + galph turn summary notes.
+  - Rewrote input.md with the concrete Do Now (compare_sim_lines_params.py hyperparameter capture + CLI rerun + pytest guard).
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T133807Z/
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T133807Z/ next_action=Ralph extends compare_sim_lines_params.py with training hyperparameter capture, regenerates the diff, and runs the CLI pytest guard
