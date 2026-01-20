@@ -1,0 +1,272 @@
+2026-01-20 01:50:37.933651: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1768902637.944563 1319069 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1768902637.948184 1319069 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1768902637.957850 1319069 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768902637.957859 1319069 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768902637.957861 1319069 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768902637.957862 1319069 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-20 01:50:37.960566: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-01-20 01:50:40,360 - INFO - Configuration setup complete
+2026-01-20 01:50:40,360 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4), train_data_file=PosixPath('/home/ollie/Documents/PtychoPINN/notebooks/train_data.npz'), test_data_file=PosixPath('/home/ollie/Documents/PtychoPINN/notebooks/test_data.npz'), batch_size=16, nepochs=60, mae_weight=1, nll_weight=0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, positions_provided=True, data_source='lines', probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('.artifacts/DEBUG-SIM-LINES-DOSE-001/2026-01-20T092411Z/simulation'))
+I0000 00:00:1768902640.628147 1319069 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1768902640.629448 1319069 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+/home/ollie/Documents/PtychoPINN/ptycho/raw_data.py:296: ComplexWarning: Casting complex values to real discards the imaginary part
+  canvas[i // c, :, :, i % c] = np.array(translated_patch)[0, :N, :N, 0]
+WARNING:tensorflow:From /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow_probability/python/distributions/distribution.py:342: calling _Independent.__init__ (from tensorflow_probability.python.distributions.independent) with reinterpreted_batch_ndims=None is deprecated and will be removed after 2022-03-01.
+Instructions for updating:
+Please pass an integer value for `reinterpreted_batch_ndims`. The current behavior corresponds to `reinterpreted_batch_ndims=tf.size(distribution.batch_shape_tensor()) - 1`.
+2026-01-20 01:50:42,833 - WARNING - From /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow_probability/python/distributions/distribution.py:342: calling _Independent.__init__ (from tensorflow_probability.python.distributions.independent) with reinterpreted_batch_ndims=None is deprecated and will be removed after 2022-03-01.
+Instructions for updating:
+Please pass an integer value for `reinterpreted_batch_ndims`. The current behavior corresponds to `reinterpreted_batch_ndims=tf.size(distribution.batch_shape_tensor()) - 1`.
+2026-01-20 01:50:43.551179: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence
+/home/ollie/Documents/PtychoPINN/ptycho/nongrid_simulation.py:180: RuntimeWarning: divide by zero encountered in log
+  im = ax.imshow(np.log(data['diffraction_patterns'][i]), cmap='viridis')
+2026-01-20 01:50:51,628 - INFO - Configuration setup complete
+2026-01-20 01:50:51,629 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4), train_data_file=PosixPath('/home/ollie/Documents/PtychoPINN/notebooks/train_data.npz'), test_data_file=PosixPath('/home/ollie/Documents/PtychoPINN/notebooks/test_data.npz'), batch_size=16, nepochs=60, mae_weight=1, nll_weight=0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, positions_provided=True, data_source='lines', probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('.artifacts/DEBUG-SIM-LINES-DOSE-001/2026-01-20T092411Z/simulation'))
+[run_dose_stage] WARNING: Forcing --gridsize=1 for simulation (was 2). RawData.from_simulation requires gridsize=1.
+[run_dose_stage] WARNING: Forcing --N=64 for simulation (was 128). N must match probe size from NPZ file.
+6 items had no tests:
+    __main__
+    __main__.clamp_nimages_in_argv
+    __main__.extract_nimages_from_argv
+    __main__.main
+    __main__.patch_components
+    __main__.patch_raw_data
+0 tests in 6 items.
+0 passed and 0 failed.
+Test passed.
+[run_dose_stage] WARNING: Forcing gridsize=1 for simulation stage (was 2). RawData.from_simulation requires gridsize=1.
+[run_dose_stage] Clamping neighbor_count: original=5, nimages=512, safe_k=511, clamped=5
+[run_dose_stage] Running: /home/ollie/Documents/PtychoPINN/scripts/simulation/simulation.py
+[run_dose_stage] Args: ['/home/ollie/Documents/PtychoPINN/notebooks/train_data.npz', '.artifacts/DEBUG-SIM-LINES-DOSE-001/2026-01-20T092411Z/simulation', '--seed', '42', '--nepochs', '60', '--output_prefix', 'dose_experiments', '--data_source', 'lines', '--intensity_scale_trainable', '--probe_scale', '4', '--train_data_file_path', '/home/ollie/Documents/PtychoPINN/notebooks/train_data.npz', '--test_data_file_path', '/home/ollie/Documents/PtychoPINN/notebooks/test_data.npz', '--nimages', '512', '--gridsize', '1', '--N', '64']
+[run_dose_stage.from_simulation] gridsize at call time: 1
+[run_dose_stage.from_simulation] xcoords.shape: (512,)
+input shape (None, 64, 64, 1)
+diff3d shape: (512, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (512,)
+objectGuess shape: (232, 232)
+xcoords shape: (512,)
+ycoords shape: (512,)
+xcoords_start shape: (512,)
+ycoords_start shape: (512,)
+DEBUG: Setting probe to tf.Tensor(
+[[[ 0.2439176 -0.08340841j]
+  [-0.15334016-0.02022034j]
+  [ 0.09241346+0.0011082j ]
+  ...
+  [-0.02631152+0.06727955j]
+  [ 0.09241346+0.0011082j ]
+  [-0.15334016-0.02022034j]]
+
+ [[-0.15334016-0.02022034j]
+  [ 0.15800314-0.05954654j]
+  [-0.0807294 +0.01716277j]
+  ...
+  [-0.01330203+0.06116205j]
+  [-0.0807294 +0.01716277j]
+  [ 0.15800314-0.05954654j]]
+
+ [[ 0.09241346+0.0011082j ]
+  [-0.0807294 +0.01716277j]
+  [ 0.02987642-0.0004351j ]
+  ...
+  [ 0.02865356-0.06024491j]
+  [ 0.02987642-0.0004351j ]
+  [-0.0807294 +0.01716277j]]
+
+ ...
+
+ [[-0.02631152+0.06727955j]
+  [-0.01330203+0.06116205j]
+  [ 0.02865356-0.06024491j]
+  ...
+  [-0.05017986-0.01257323j]
+  [ 0.02865356-0.06024491j]
+  [-0.01330203+0.06116205j]]
+
+ [[ 0.09241346+0.0011082j ]
+  [-0.0807294 +0.01716277j]
+  [ 0.02987642-0.0004351j ]
+  ...
+  [ 0.02865356-0.06024491j]
+  [ 0.02987642-0.0004351j ]
+  [-0.0807294 +0.01716277j]]
+
+ [[-0.15334016-0.02022034j]
+  [ 0.15800314-0.05954654j]
+  [-0.0807294 +0.01716277j]
+  ...
+  [-0.01330203+0.06116205j]
+  [-0.0807294 +0.01716277j]
+  [ 0.15800314-0.05954654j]]], shape=(64, 64, 1), dtype=complex64) in params
+All plots have been saved to: .artifacts/DEBUG-SIM-LINES-DOSE-001/2026-01-20T092411Z/simulation/simulated_data_visualization.png
+DEBUG: nsamples: 1
+neighbor-sampled diffraction shape (512, 64, 64, 1)
+loader: using provided ground truth patches
+INFO: None
+<PtychoDataContainer X=(512, 64, 64, 1) Y_I=(512, 64, 64, 1) Y_phi=(512, 64, 64, 1) norm_Y_I=() coords_nominal=(512, 1, 2, 1) coords_true=(512, 1, 2, 1) nn_indices=(512, 1) mean=255.500 global_offsets=(512, 1, 2, 1) mean=115.507 local_offsets=(512, 1, 2, 1) mean=0.000 probe=(64, 64) mean_amplitude=0.009>
+DEBUG: Setting probe to tf.Tensor(
+[[[ 0.2439176 -0.08340841j]
+  [-0.15334016-0.02022034j]
+  [ 0.09241346+0.0011082j ]
+  ...
+  [-0.02631152+0.06727955j]
+  [ 0.09241346+0.0011082j ]
+  [-0.15334016-0.02022034j]]
+
+ [[-0.15334016-0.02022034j]
+  [ 0.15800314-0.05954654j]
+  [-0.0807294 +0.01716277j]
+  ...
+  [-0.01330203+0.06116205j]
+  [-0.0807294 +0.01716277j]
+  [ 0.15800314-0.05954654j]]
+
+ [[ 0.09241346+0.0011082j ]
+  [-0.0807294 +0.01716277j]
+  [ 0.02987642-0.0004351j ]
+  ...
+  [ 0.02865356-0.06024491j]
+  [ 0.02987642-0.0004351j ]
+  [-0.0807294 +0.01716277j]]
+
+ ...
+
+ [[-0.02631152+0.06727955j]
+  [-0.01330203+0.06116205j]
+  [ 0.02865356-0.06024491j]
+  ...
+  [-0.05017986-0.01257323j]
+  [ 0.02865356-0.06024491j]
+  [-0.01330203+0.06116205j]]
+
+ [[ 0.09241346+0.0011082j ]
+  [-0.0807294 +0.01716277j]
+  [ 0.02987642-0.0004351j ]
+  ...
+  [ 0.02865356-0.06024491j]
+  [ 0.02987642-0.0004351j ]
+  [-0.0807294 +0.01716277j]]
+
+ [[-0.15334016-0.02022034j]
+  [ 0.15800314-0.05954654j]
+  [-0.0807294 +0.01716277j]
+  ...
+  [-0.01330203+0.06116205j]
+  [-0.0807294 +0.01716277j]
+  [ 0.15800314-0.05954654j]]], shape=(64, 64, 1), dtype=complex64) in params
+DEBUG: Setting intensity_scale to 988.21173 in params
+DEBUG: Setting probe to tf.Tensor(
+[[[ 0.2439176 -0.08340841j]
+  [-0.15334016-0.02022034j]
+  [ 0.09241346+0.0011082j ]
+  ...
+  [-0.02631152+0.06727955j]
+  [ 0.09241346+0.0011082j ]
+  [-0.15334016-0.02022034j]]
+
+ [[-0.15334016-0.02022034j]
+  [ 0.15800314-0.05954654j]
+  [-0.0807294 +0.01716277j]
+  ...
+  [-0.01330203+0.06116205j]
+  [-0.0807294 +0.01716277j]
+  [ 0.15800314-0.05954654j]]
+
+ [[ 0.09241346+0.0011082j ]
+  [-0.0807294 +0.01716277j]
+  [ 0.02987642-0.0004351j ]
+  ...
+  [ 0.02865356-0.06024491j]
+  [ 0.02987642-0.0004351j ]
+  [-0.0807294 +0.01716277j]]
+
+ ...
+
+ [[-0.02631152+0.06727955j]
+  [-0.01330203+0.06116205j]
+  [ 0.02865356-0.06024491j]
+  ...
+  [-0.05017986-0.01257323j]
+  [ 0.02865356-0.06024491j]
+  [-0.01330203+0.06116205j]]
+
+ [[ 0.09241346+0.0011082j ]
+  [-0.0807294 +0.01716277j]
+  [ 0.02987642-0.0004351j ]
+  ...
+  [ 0.02865356-0.06024491j]
+  [ 0.02987642-0.0004351j ]
+  [-0.0807294 +0.01716277j]]
+
+ [[-0.15334016-0.02022034j]
+  [ 0.15800314-0.05954654j]
+  [-0.0807294 +0.01716277j]
+  ...
+  [-0.01330203+0.06116205j]
+  [-0.0807294 +0.01716277j]
+  [ 0.15800314-0.05954654j]]], shape=(64, 64, 1), dtype=complex64) in params
+Traceback (most recent call last):
+  File "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_dose_stage.py", line 212, in <module>
+    main()
+  File "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_dose_stage.py", line 208, in main
+    runpy.run_path(str(script_path), run_name="__main__")
+  File "<frozen runpy>", line 291, in run_path
+  File "<frozen runpy>", line 98, in _run_module_code
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/ollie/Documents/PtychoPINN/scripts/simulation/simulation.py", line 275, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN/scripts/simulation/simulation.py", line 249, in main
+    recon_amp, recon_phase, results = run_cdi_example(train_data, train_data, config)
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 369, in run_cdi_example
+    train_results = train_cdi_model(train_data, test_data, config)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 266, in train_cdi_model
+    results = train_pinn.train_eval(PtychoDataset(train_container, test_container))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/train_pinn.py", line 24, in train_eval
+    model_instance, history = train(ptycho_dataset.train_data)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/train_pinn.py", line 15, in train
+    from ptycho import model
+  File "/home/ollie/Documents/PtychoPINN/ptycho/model.py", line 350, in <module>
+    decoded1, decoded2 = create_autoencoder(normed_input, n_filters_scale, gridsize,
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/model.py", line 320, in create_autoencoder
+    decoded_amp = create_decoder_amp(encoded, n_filters_scale)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/model.py", line 345, in create_decoder_amp
+    outputs = create_decoder_last(x, n_filters_scale, conv1, conv2, act=act,
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/model.py", line 258, in create_decoder_last
+    center_mask = hh.mk_centermask(x2, N, 1, kind='border')
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 450, in mk_centermask
+    b = tf.shape(inputs)[0]
+        ^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py", line 153, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/common/keras_tensor.py", line 194, in __tf_tensor__
+    raise ValueError(
+ValueError: A KerasTensor cannot be used as input to a TensorFlow function. A KerasTensor is a symbolic placeholder for a shape and dtype, used when constructing Keras Functional models or Keras Functions. You can only use it as input to a Keras layer or a Keras operation (from the namespaces `keras.layers` and `keras.ops`). You are likely doing something like:
+
+```
+x = Input(...)
+...
+tf_fn(x)  # Invalid.
+```
+
+What you should do instead is wrap `tf_fn` in a layer:
+
+```
+class MyLayer(Layer):
+    def call(self, x):
+        return tf_fn(x)
+
+x = MyLayer()(x)
+```
+

@@ -1,0 +1,65 @@
+2026-01-20 01:43:40.826841: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1768902220.838057 1315979 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1768902220.841647 1315979 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1768902220.851497 1315979 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768902220.851507 1315979 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768902220.851508 1315979 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768902220.851509 1315979 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-20 01:43:40.854259: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-01-20 01:43:43,283 - INFO - Configuration setup complete
+2026-01-20 01:43:43,283 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=128, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4), train_data_file=PosixPath('/home/ollie/Documents/PtychoPINN/notebooks/train_data.npz'), test_data_file=PosixPath('/home/ollie/Documents/PtychoPINN/notebooks/test_data.npz'), batch_size=16, nepochs=60, mae_weight=1, nll_weight=0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, positions_provided=True, data_source='lines', probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('.artifacts/DEBUG-SIM-LINES-DOSE-001/2026-01-20T092411Z/simulation'))
+I0000 00:00:1768902223.573435 1315979 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1768902223.574676 1315979 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+/home/ollie/Documents/PtychoPINN/ptycho/raw_data.py:296: ComplexWarning: Casting complex values to real discards the imaginary part
+  canvas[i // c, :, :, i % c] = np.array(translated_patch)[0, :N, :N, 0]
+2026-01-20 01:44:49.571116: W tensorflow/core/framework/op_kernel.cc:1844] INVALID_ARGUMENT: required broadcastable shapes
+2026-01-20 01:44:49.571134: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: INVALID_ARGUMENT: required broadcastable shapes
+6 items had no tests:
+    __main__
+    __main__.clamp_nimages_in_argv
+    __main__.extract_nimages_from_argv
+    __main__.main
+    __main__.patch_components
+    __main__.patch_raw_data
+0 tests in 6 items.
+0 passed and 0 failed.
+Test passed.
+[run_dose_stage] Clamping neighbor_count: original=5, nimages=512, safe_k=511, clamped=5
+[run_dose_stage] Running: /home/ollie/Documents/PtychoPINN/scripts/simulation/simulation.py
+[run_dose_stage] Args: ['/home/ollie/Documents/PtychoPINN/notebooks/train_data.npz', '.artifacts/DEBUG-SIM-LINES-DOSE-001/2026-01-20T092411Z/simulation', '--seed', '42', '--nepochs', '60', '--output_prefix', 'dose_experiments', '--data_source', 'lines', '--gridsize', '2', '--intensity_scale_trainable', '--probe_scale', '4', '--train_data_file_path', '/home/ollie/Documents/PtychoPINN/notebooks/train_data.npz', '--test_data_file_path', '/home/ollie/Documents/PtychoPINN/notebooks/test_data.npz', '--nimages', '512']
+Traceback (most recent call last):
+  File "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_dose_stage.py", line 163, in <module>
+    main()
+  File "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_dose_stage.py", line 159, in main
+    runpy.run_path(str(script_path), run_name="__main__")
+  File "<frozen runpy>", line 291, in run_path
+  File "<frozen runpy>", line 98, in _run_module_code
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/ollie/Documents/PtychoPINN/scripts/simulation/simulation.py", line 275, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN/scripts/simulation/simulation.py", line 209, in main
+    simulated_data, ground_truth_patches = simulate_from_npz(
+                                           ^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/nongrid_simulation.py", line 124, in simulate_from_npz
+    return generate_simulated_data(objectGuess, probeGuess, nimages, buffer, random_seed, return_patches=return_patches)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/nongrid_simulation.py", line 94, in generate_simulated_data
+    return RawData.from_simulation(xcoords, ycoords, probeGuess, objectGuess, scan_index, return_patches=return_patches)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_dose_stage.py", line 85, in from_simulation
+    raw = original_from_sim(xcoords, ycoords, probeGuess, objectGuess, scan_index)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/raw_data.py", line 106, in from_simulation
+    X, Y_I_xprobe, Y_phi_xprobe, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
+                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/diffsim.py", line 61, in illuminate_and_diffract
+    intensity_scale = scale_nphotons(Y_I * probe_amplitude[None, ...]).numpy()
+                                     ~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py", line 153, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/framework/ops.py", line 6006, in raise_from_not_ok_status
+    raise core._status_to_exception(e) from None  # pylint: disable=protected-access
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tensorflow.python.framework.errors_impl.InvalidArgumentError: {{function_node __wrapped__Mul_device_/job:localhost/replica:0/task:0/device:GPU:0}} required broadcastable shapes [Op:Mul] name: 
