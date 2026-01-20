@@ -10,7 +10,6 @@ import io
 import json
 import math
 import os
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, Mapping, Optional, Tuple
@@ -23,6 +22,7 @@ os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 from ptycho import params as legacy_params
 from ptycho.config.config import ModelConfig, TrainingConfig, update_legacy_dict
 from ptycho.tf_helper import reassemble_whole_object
+from ptycho.workflows.components import _update_max_position_jitter_from_offsets
 from scripts.simulation.synthetic_helpers import (
     make_lines_object,
     make_probe,
@@ -229,7 +229,7 @@ def bootstrap_config(
     *,
     probe_big: bool,
     probe_mask: bool,
-) -> None:
+) -> TrainingConfig:
     config = TrainingConfig(
         model=ModelConfig(
             N=params.N,
@@ -243,6 +243,7 @@ def bootstrap_config(
         nphotons=params.nphotons,
     )
     update_legacy_dict(legacy_params.cfg, config)
+    return config
 
 
 def simulate_raw_dataset(
@@ -285,11 +286,11 @@ def subset_summary(
     raw_data,
     *,
     params: RunParams,
+    config: TrainingConfig,
     gridsize: int,
     group_count: int,
     neighbor_count: int,
     neighbor_seed: Optional[int],
-    padded_size: int,
     group_limit: int,
 ) -> Dict[str, Any]:
     point_count = int(raw_data.diff3d.shape[0]) if raw_data.diff3d is not None else 0
@@ -313,6 +314,8 @@ def subset_summary(
     summary["status"] = "ok"
     summary["actual_groups"] = actual_groups
     summary["diffraction_shape"] = list(diffraction.shape) if diffraction is not None else None
+    _update_max_position_jitter_from_offsets(grouped, config)
+    padded_size = int(legacy_params.get_padded_size())
 
     coords_offsets = grouped.get("coords_offsets")
     coords_relative = grouped.get("coords_relative")
@@ -330,9 +333,14 @@ def subset_summary(
     padded_delta = None
     padded_ratio = None
     max_abs_axis = None
+    combined_max_abs = None
     if summary["offsets"]["combined"] and summary["offsets"]["combined"]["max_abs"] is not None:
-        max_abs_axis = float(summary["offsets"]["combined"]["max_abs"])
+        combined_max_abs = float(summary["offsets"]["combined"]["max_abs"])
+    if summary["offsets"]["coords_offsets"] and summary["offsets"]["coords_offsets"]["max_abs"] is not None:
+        max_abs_axis = float(summary["offsets"]["coords_offsets"]["max_abs"])
         required_canvas = int(math.ceil(params.N + (2.0 * max_abs_axis)))
+        if (required_canvas - params.N) % 2 != 0:
+            required_canvas += 1
         fits_canvas = padded_size >= required_canvas
         padded_delta = padded_size - required_canvas
         padded_ratio = float(padded_size) / float(required_canvas)
@@ -342,7 +350,7 @@ def subset_summary(
         "padded_size": padded_size,
         "padded_minus_required": padded_delta,
         "padded_to_required_ratio": padded_ratio,
-        "max_combined_abs_offset": max_abs_axis,
+        "max_combined_abs_offset": combined_max_abs,
     }
 
     limit = min(group_limit, actual_groups)
@@ -510,7 +518,7 @@ def main() -> None:
         total_images=total_images,
     )
 
-    bootstrap_config(
+    config = bootstrap_config(
         params,
         gridsize,
         group_count,
@@ -519,7 +527,6 @@ def main() -> None:
         probe_big=probe_big,
         probe_mask=probe_mask,
     )
-    padded_size = int(legacy_params.get_padded_size())
     neighbor_seed = args.neighbor_seed if args.neighbor_seed is not None else params.sim_seed
 
     subsets = []
@@ -528,11 +535,11 @@ def main() -> None:
             subset_name,
             subset_raw,
             params=params,
+            config=config,
             gridsize=gridsize,
             group_count=group_count,
             neighbor_count=neighbor_count,
             neighbor_seed=neighbor_seed,
-            padded_size=padded_size,
             group_limit=args.group_limit,
         )
         subsets.append(subset)
@@ -540,10 +547,11 @@ def main() -> None:
         reassembly = subset.get("reassembly") or {}
         print(
             f"[{subset_name}] required_canvas={canvas.get('required_canvas')} "
-            f"padded_size={padded_size} fits={canvas.get('fits_canvas')} "
+            f"padded_size={canvas.get('padded_size')} fits={canvas.get('fits_canvas')} "
             f"loss_fraction={reassembly.get('loss_fraction')}"
         )
 
+    padded_size = int(legacy_params.get_padded_size())
     metadata = {
         "label": label,
         "scenario": spec.name,

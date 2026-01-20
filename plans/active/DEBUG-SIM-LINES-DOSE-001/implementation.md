@@ -142,7 +142,7 @@ Guidelines:
 
 ## Phase C -- Fix + Verification
 ### Checklist
-- [ ] C1: Implement padded-size update at the workflow layer so grouped datasets derive `max_position_jitter` from actual `coords_offsets` before the Keras model is built, and add a regression test for the factory helper.
+- [x] C1: Implement padded-size update at the workflow layer so grouped datasets derive `max_position_jitter` from actual `coords_offsets` before the Keras model is built, and add a regression test for the factory helper.
       - Modify `ptycho/workflows/components.py::create_ptycho_data_container` to analyze grouped offsets, bump `params.cfg['max_position_jitter']` to cover `ceil(N + 2·max(|dx|,|dy|))`, and ensure repeated calls keep the maximum across train/test splits.
       - Share the helper with the plan-local CLI so reassembly_limits_report proves the new padded size matches the spec requirement.
       Test: `pytest tests/test_workflow_components.py::TestCreatePtychoDataContainer::test_updates_max_position_jitter -v`
