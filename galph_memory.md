@@ -1015,3 +1015,19 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/` (planning hub)
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/ next_action=Ralph runs gs2_ideal with --nepochs 60 + analyzer + pytest guard to confirm/refute H-NEPOCHS
+# 2026-01-20T16:05:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase D4 loss diagnostics planning
+
+- dwell: 1 (planning loop after documenting the D3b retrain)
+- Focus issue: Phase D4 kickoff — inspect loss wiring/architecture now that H-NEPOCHS is ruled out and make reviewer-requested doc fixes (ORCH-ORCHESTRATOR plan status + D3b ledger entry) before delegating new code work.
+- Action type: Planning | Mode: Implementation
+- Documents reviewed: docs/index.md (active focus map), docs/fix_plan.md (§DEBUG-SIM-LINES-DOSE-001, §ORCH-ORCHESTRATOR-001), docs/findings.md (CONFIG-001, NORMALIZATION-001, SIM-LINES-CONFIG-001, new H-NEPOCHS-001 entry), plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/ORCH-ORCHESTRATOR-001/implementation.md, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/{run_phase_c2_scenario.py,analyze_intensity_bias.py}, specs/spec-ptycho-core.md §Normalization Invariants, specs/spec-ptycho-workflow.md §Training Outputs.
+- Key observations:
+  - gs2_ideal 60-epoch retrain barely moved metrics (MAE +0.5%, pearson_r +0.0039), so training length is definitively not the problem; added H-NEPOCHS-001 finding + docs/fix_plan attempts entry.
+  - ORCH-ORCHESTRATOR-001 plan still said “Phase E in_progress” even though fix_plan marked it done; updated the plan header + E1–E3 checkboxes with evidence so reviewer addendum is satisfied.
+  - Analyzer already records stage ratios but it doesn’t summarize loss composition, so D4 can start by extending that tooling to highlight which loss terms are active and which stage (normalized→prediction vs prediction→truth) causes the ~6.7× amplitude drop.
+- Decisions:
+  - Reserve artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T162500Z/` for the upgraded analyzer run comparing gs2 baseline vs 60-epoch scenarios.
+  - Next Do Now directs Ralph to extend `bin/analyze_intensity_bias.py` with loss-composition parsing + richer stage-ratio Markdown, then rerun it across the two gs2 scenarios and keep the CLI smoke test guard green.
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T162500Z/ (planning hub)
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T162500Z/ next_action=Extend analyzer with loss-composition + stage-ratio summaries for gs2 baseline vs 60-epoch runs and rerun the CLI guard

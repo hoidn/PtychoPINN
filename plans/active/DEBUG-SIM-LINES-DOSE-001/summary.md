@@ -6,6 +6,12 @@ Reserved hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/`
 Next: Ralph executes the 60-epoch retrain, archives training histories + analyzer outputs under the new hub, and reports whether the longer training run recovers amplitude parity; then Phase D3c will document the outcome and decide whether sim_lines defaults must change.
 Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/ (planning hub)
 
+### Turn Summary — 2026-01-20T14:15:00Z (Phase D3b execution — H-NEPOCHS rejected)
+Reran `gs2_ideal` with `--nepochs 60` (stable profile defaults) under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/`; EarlyStopping halted at epoch 30 after the loss plateaued by epoch ~20.
+Metrics barely changed relative to the 5-epoch baseline (MAE 2.3646→2.3774, pearson_r 0.1353→0.1392, amplitude bias mean ≈-2.30). Analyzer still reports a ~6.7× prediction↔truth gap with `full_chain_product=18.571`, so extending training length does **not** fix the amplitude collapse.
+Next: Record the verdict in docs/fix_plan.md + docs/findings.md (H-NEPOCHS ruled out) and advance to Phase D4 architecture/loss-wiring diagnostics since normalization and epoch count no longer explain the failure.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/{gs2_ideal_nepochs60/**,bias_summary.json,bias_summary.md,analyze_intensity_bias.log,pytest_cli_smoke.log}
+
 ### Turn Summary — 2026-01-20T13:38:07Z (Phase D3 hyperparameter audit planning)
 Framed the Phase D3 scope: expand `bin/compare_sim_lines_params.py` so the diff also captures training knobs (nepochs, batch_size, probe/intensity-scale trainability) and accepts per-scenario epoch overrides, then regenerate Markdown/JSON evidence under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T133807Z/` with the synthetic helpers CLI pytest guard.
 The new artifacts hub will document whether the sim_lines five-epoch runs (vs the legacy 60-epoch defaults) plausibly explain the amplitude collapse before we queue retrains.

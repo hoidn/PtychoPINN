@@ -5,7 +5,7 @@
 - Title: Combined orchestrator entrypoint + shared runner refactor + combined auto-commit
 - Owner: user + Codex
 - Spec Owner: scripts/orchestration/README.md
-- Status: in_progress (Phase E — sync router review cadence parity)
+- Status: **complete — Phase E review cadence parity landed 2026-01-20**
 
 ## Goals
 - Add a single orchestrator entrypoint that can drive both supervisor and main prompts using the router.
@@ -143,12 +143,16 @@
 
 ## Phase E — Sync Review Cadence Parity
 ### Checklist
-- [ ] E1: Add combined-mode regression tests proving reviewer cadence fires once per iteration and `last_prompt_actor` toggles appropriately when router review iterations hit.
-      Test: `scripts/orchestration/tests/test_orchestrator.py::test_combined_review_last_prompt_actor`
-- [ ] E2: Update orchestration testing docs (`docs/TESTING_GUIDE.md`, `docs/development/TEST_SUITE_INDEX.md`) with the new combined review cadence selector.
+- [x] E1: Add combined-mode regression tests proving reviewer cadence fires once per iteration and `last_prompt_actor` toggles appropriately when router review iterations hit.
+      - Implementation: Added `scripts/orchestration/tests/test_orchestrator.py::test_combined_review_last_prompt_actor`, which drives `run_combined_iteration` with `review_every_n=2`, asserts reviewer fires on galph only, and verifies `state.last_prompt_actor` toggles galph→ralph so ralph selects `main.md`.
+      - Evidence: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T132349Z/pytest_combined_review.log`
+      Test: `pytest scripts/orchestration/tests/test_orchestrator.py::test_combined_review_last_prompt_actor -v`
+- [x] E2: Update orchestration testing docs (`docs/TESTING_GUIDE.md`, `docs/development/TEST_SUITE_INDEX.md`) with the new combined review cadence selector.
+      - Evidence: Doc updates captured alongside the collect-only run (`pytest_collect_orchestrator.log`) in the same hub.
       Test: `pytest --collect-only scripts/orchestration/tests/test_orchestrator.py -v`
-- [ ] E3: Run the new orchestrator test plus the sync router review module to confirm supervisor/loop + combined entrypoints stay in parity.
-      Test: `pytest scripts/orchestration/tests/test_orchestrator.py::test_combined_review_last_prompt_actor -v`, `pytest scripts/orchestration/tests/test_sync_router_review.py -v`
+- [x] E3: Run the new orchestrator test plus the sync router review module to confirm supervisor/loop + combined entrypoints stay in parity.
+      - Evidence: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T132349Z/{pytest_combined_review.log,pytest_sync_router_review.log,pytest_orchestrator.log}`
+      Test: `pytest scripts/orchestration/tests/test_orchestrator.py -v`, `pytest scripts/orchestration/tests/test_sync_router_review.py -v`
 
 ### Notes & Risks
 - Combined mode shares router context with supervisor/loop; missing `last_prompt_actor` annotations would reintroduce duplicate reviewer runs.
