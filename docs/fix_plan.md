@@ -219,6 +219,8 @@
     - **Key Finding:** Legacy `ptycho/params.py:64` defines `mae_weight=0.0, nll_weight=1.0` (pure NLL loss), which **matches exactly** with `TrainingConfig` dataclass defaults. All four loss weights (mae, nll, realspace, realspace_mae) are identical between pipelines.
     - **Conclusion:** **H-LOSS-WEIGHT hypothesis RULED OUT.** Both pipelines use identical loss weights under default operation. The remaining amplitude bias (~3-6x undershoot) must stem from normalization (H-NORMALIZATION), training hyperparameters (H-TRAINING-PARAMS), or architecture differences (H-ARCHITECTURE).
     - **Next Actions:** Proceed to Phase D2 (normalization stage parity) to instrument where the amplitude bias enters the workflow.
+  - *2026-01-20T114126Z:* Scoped **Phase D2** around normalization parity instrumentation. Plan-local work will (a) extend the SIM-LINES runner/analyzer so stage ratios (raw→grouped→normalized→prediction) plus `normalize_data` gains are logged per scenario, (b) add a dedicated CLI that replays the `dose_experiments_param_scan.md` configuration through the same simulate→group→normalize stack (no legacy training dependency) to emit matching `dose_normalization_stats.{json,md}`, and (c) update the analyzer to compare both pipelines against `specs/spec-ptycho-core.md §Normalization Invariants`, highlighting the exact stage where symmetry breaks. Reruns target gs1_ideal (sim_lines) plus a `dose_legacy_gs2` profile under shared artifact hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/`, guarded by the synthetic helpers CLI pytest selector.
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/`
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

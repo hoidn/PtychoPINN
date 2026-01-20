@@ -882,3 +882,17 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T170000Z/`
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=2 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T170000Z/ next_action=Ralph updates compare_sim_lines_params.py to capture params.cfg defaults, regenerates diff outputs + summary, and reruns the CLI pytest guard
+
+# 2026-01-20T11:46:27Z: DEBUG-SIM-LINES-DOSE-001 — Phase D2 normalization parity handoff
+
+- dwell: 0 (planning loop handing off a concrete implementation task after the prior dwell=2 warning)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Phase D2 normalization parity (D2a telemetry refresh + D2b dose-like capture)
+- Action type: Planning → Implementation handoff | Mode: Implementation
+- Git sync: `git stash push -u -m 'galph-20260120-loop' && timeout 30 git pull --rebase && git stash pop`
+- Documents reviewed: docs/index.md, docs/findings.md (CONFIG-001, NORMALIZATION-001, SIM-LINES-CONFIG-001), docs/fix_plan.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, specs/spec-ptycho-core.md §Normalization Invariants, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/{run_phase_c2_scenario.py,analyze_intensity_bias.py,grouping_summary.py}, reports/2026-01-20T170000Z/summary.md, input.md
+- Key updates:
+  - Marked D1 complete in the implementation plan, recorded the loss-weight parity result, and set up the D2 sub-checklist (sim_lines ratios, dose-like capture, analyzer comparison).
+  - Added a new attempts-history entry in docs/fix_plan.md describing the D2 scope plus artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/`.
+  - Rewrote input.md with a concrete Do Now covering the runner/analyzer instrumentation plus two scenario reruns (gs1_ideal + dose_legacy_gs2 overrides) and the pytest guard.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/ next_action=Implement D2a/D2b (runner/analyzer ratio logging + gs1_ideal & dose_legacy_gs2 reruns + analyzer + pytest)
