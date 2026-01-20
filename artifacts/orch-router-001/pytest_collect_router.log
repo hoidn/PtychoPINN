@@ -1,0 +1,23 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 8 items
+
+<Dir PtychoPINN>
+  <Dir scripts>
+    <Package orchestration>
+      <Dir tests>
+        <Module test_router.py>
+          <Function test_router_deterministic[1-galph-supervisor.md]>
+          <Function test_router_deterministic[1-ralph-main.md]>
+          <Function test_router_deterministic[2-galph-reviewer.md]>
+          <Function test_router_prompt_override>
+          <Function test_router_config_loads>
+          <Function test_router_logs_decision>
+          <Function test_router_mode_selection>
+          <Function test_router_only_enforces_actor>
+
+========================== 8 tests collected in 0.04s ==========================

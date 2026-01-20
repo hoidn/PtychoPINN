@@ -436,3 +436,40 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Next: Ralph updates `create_ptycho_data_container` to bump jitter based on grouped offsets, runs the new pytest selector, and reruns the reassembly_limits CLI to prove the loss fraction drops to ≈0%.
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=2 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T060156Z/ next_action=implement jitter-driven padded_size + workflow pytest + CLI reruns
+
+# 2026-01-20T06:15:30Z: DEBUG-SIM-LINES-DOSE-001 — Phase C2 runner handoff
+
+- dwell: 0 (new implementation handoff after the prior planning loops stalled)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy (Phase C2 ideal scenarios)
+- Action type: Planning → Implementation handoff (scoped runner + reruns)
+- Mode: Implementation
+- Git sync: `git pull --rebase --autostash`
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, MODULE-SINGLETON-001, NORMALIZATION-001, BUG-TF-REASSEMBLE-001), docs/specs/spec-ptycho-workflow.md, docs/TESTING_GUIDE.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T041420Z/{summary.md,gs1_ideal_run.log,gs2_ideal_run.log}, scripts/studies/sim_lines_4x/pipeline.py
+- Key updates:
+  - Promoted the working plan status to Phase C verification, detailed the C2 checklist (runner requirements, PNG/JSON outputs, reassembly telemetry, pytest guard), and logged the new artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T061530Z/` inside docs/fix_plan.md.
+  - Authored the supervisor summary + reporting stub for the new hub and pre-created `summary.md` so evidence from Ralph lands in a predictable location.
+  - Rewrote `input.md` with the concrete Do Now: implement `bin/run_phase_c2_scenario.py`, run gs1_ideal/gs2_ideal with amplitude/phase dumps + PNGs + notes, refresh `reassembly_limits_report.py` for the ideal probes, and rerun the synthetic helpers CLI pytest selector with logs under the new hub.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T061530Z/ next_action=Ralph builds run_phase_c2_scenario.py, executes gs1_ideal/gs2_ideal with PNG/NaN stats, reruns reassembly_limits_report, and archives the CLI smoke pytest output
+
+# 2026-01-20T05:20:10Z: DEBUG-SIM-LINES-DOSE-001 — Phase C2 execution notes
+
+- dwell: 0
+- Observation: Running the gs1_ideal scenario with the full 1000-group workload repeatedly blows up the Lightning training loss (nan) even after the jitter fix, which propagates NaNs into the stitched amplitude/phase tensors. Reducing the workload (`--base-total-images 512 --group-count 256 --batch-size 8 --group-limit 64`) keeps the kernel launches under control and yields clean reconstructions that still satisfy the padded-size requirement (required canvas 818 vs padded 828).
+- Implication: Ideal-scenario smoke tests should document and reuse the reduced workload when we just need geometry evidence; otherwise the verifier sees nan stats despite the padding fix. Consider capturing this constraint in the initiative summary/test strategy so future reruns don’t retry the unstable 1000-group config.
+
+# 2026-01-20T05:29:06Z: DEBUG-SIM-LINES-DOSE-001 — Phase C2 evidence review + C2b follow-up
+
+- dwell: 1 (first supervisor review loop after Ralph delivered the Phase C2 runner evidence)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy (Phase C2 refinement)
+- Action type: Review/Planning (validate artifacts, scope C2b)
+- Mode: Implementation handoff
+- Git sync: `git pull --rebase --autostash` (clean; autostash reapplied existing worktree changes)
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, MODULE-SINGLETON-001, NORMALIZATION-001, BUG-TF-REASSEMBLE-001), plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T061530Z/*, scripts/studies/sim_lines_4x/pipeline.py, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py.
+- Key observations:
+  - gs1_ideal (512→256 groups, batch_size=8) and gs2_ideal (256→128, batch_size=4) runs succeeded with zero NaNs and `fits_canvas=true`, but both relied on manual CLI overrides to downshift workloads.
+  - Archived amplitude/phase `.npy`, PNGs, stats, inspection notes, and reassembly telemetry under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T061530Z/`.
+  - To keep the evidence reproducible without ad-hoc overrides, added checklist C2b to bake the reduced-load profile into `run_phase_c2_scenario.py`, tag `run_metadata` with the applied profile, and rerun both scenarios under a fresh hub.
+- input.md rewritten with the C2b Do Now (code change + reruns + pytest guard) targeting artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T063500Z/`.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 ralph_last_commit=a49c5d85 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T061530Z/ next_action=bake stable profiles into run_phase_c2_scenario.py (C2b) and rerun gs1_ideal/gs2_ideal with refreshed evidence

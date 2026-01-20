@@ -1,0 +1,8 @@
+2026-01-19 20:27:05,088 - INFO - Starting scenario: gs1_ideal
+2026-01-19 20:27:05,088 - INFO - Run parameters: N=64 object_size=392 object_seed=42 sim_seed=42 split_fraction=0.5 total_images=2000 train_images=1000 test_images=1000 group_count=1000 probe_scale=10.0
+2026-01-19 20:27:18,574 - INFO - Training config: N=64 gridsize=1 n_groups=1000 nphotons=1000000000.0 nepochs=5 probe_scale=10.0
+2026-01-19 20:28:57,748 - INFO - Completed scenario: gs1_ideal
+2026-01-19 20:29:16,246 - INFO - Starting scenario: gs1_ideal
+2026-01-19 20:29:16,246 - INFO - Run parameters: N=64 object_size=392 object_seed=42 sim_seed=42 split_fraction=0.5 total_images=2000 train_images=1000 test_images=1000 group_count=1000 probe_scale=10.0
+2026-01-19 20:29:16,507 - INFO - Training config: N=64 gridsize=1 n_groups=1000 nphotons=1000000000.0 nepochs=5 probe_scale=10.0
+2026-01-19 20:31:11,738 - INFO - Completed scenario: gs1_ideal

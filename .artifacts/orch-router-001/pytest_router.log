@@ -1,0 +1,18 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 8 items
+
+scripts/orchestration/tests/test_router.py::test_router_deterministic[1-galph-supervisor.md] PASSED [ 12%]
+scripts/orchestration/tests/test_router.py::test_router_deterministic[1-ralph-main.md] PASSED [ 25%]
+scripts/orchestration/tests/test_router.py::test_router_deterministic[2-galph-reviewer.md] PASSED [ 37%]
+scripts/orchestration/tests/test_router.py::test_router_prompt_override PASSED [ 50%]
+scripts/orchestration/tests/test_router.py::test_router_config_loads PASSED [ 62%]
+scripts/orchestration/tests/test_router.py::test_router_logs_decision PASSED [ 75%]
+scripts/orchestration/tests/test_router.py::test_router_mode_selection PASSED [ 87%]
+scripts/orchestration/tests/test_router.py::test_router_only_enforces_actor PASSED [100%]
+
+============================== 8 passed in 0.05s ===============================

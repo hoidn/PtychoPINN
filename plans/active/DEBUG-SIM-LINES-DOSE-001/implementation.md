@@ -5,8 +5,7 @@
 - Title: Isolate sim_lines_4x vs dose_experiments sim->recon discrepancy
 - Owner: Codex + user
 - Spec Owner: docs/specs/spec-ptycho-workflow.md
-- Status: pending
- - Status: in_progress — Phase B instrumentation
+- Status: in_progress — Phase C verification (C2 ideal scenarios)
 
 ## Goals
 - Identify whether the failure is caused by a core regression, nongrid pipeline differences, or a workflow/config mismatch.
@@ -146,11 +145,16 @@ Guidelines:
       - Modify `ptycho/workflows/components.py::create_ptycho_data_container` to analyze grouped offsets, bump `params.cfg['max_position_jitter']` to cover `ceil(N + 2·max(|dx|,|dy|))`, and ensure repeated calls keep the maximum across train/test splits.
       - Share the helper with the plan-local CLI so reassembly_limits_report proves the new padded size matches the spec requirement.
       Test: `pytest tests/test_workflow_components.py::TestCreatePtychoDataContainer::test_updates_max_position_jitter -v`
-- [ ] C2: Rerun gs2_ideal + gs1_ideal and confirm:
-      - no NaNs
-      - expected canvas size
-      - visual inspection pass
-      Test: N/A -- evidence run
+- [x] C2: Rerun gs2_ideal + gs1_ideal and confirm:
+      - Author `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py` to replay any snapshot scenario end-to-end (simulate → split → train → infer) while emitting:
+        * `.npy` dumps for amplitude/phase plus lightweight PNGs for manual inspection
+        * JSON stats (min/max/mean/std, NaN counts, padded size / `fits_canvas` flag) and a streaming log
+      - Execute the runner for `gs1_ideal` and `gs2_ideal`, archiving both CLI logs and inspection notes in the current report hub.
+      - Re-run `bin/reassembly_limits_report.py` for each scenario (same seeds, `--group-limit 64`) to prove the jitter-driven padded size keeps `fits_canvas=True`.
+      - Record visual inspection notes (what structure is visible, any artifacts) in Markdown alongside thumbnails.
+      Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+- [ ] C2b: Encode the reduced-load profile (`gs1_ideal`: base_total_images=512, group_count=256, batch_size=8; `gs2_ideal`: base_total_images=256, group_count=128, batch_size=4, neighbor_count=4) directly into `run_phase_c2_scenario.py` so reruns don’t require manual overrides, then regenerate both scenarios under a new hub with refreshed reassembly telemetry/logs and metadata tags documenting the profile.
+      Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 - [ ] C3: Update docs/fix_plan.md Attempts History with evidence and root-cause summary.
       Test: N/A
 

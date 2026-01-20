@@ -1,0 +1,1001 @@
+2026-01-19 20:31:27.889780: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1768883487.900910  989289 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1768883487.904627  989289 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1768883487.914527  989289 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768883487.914537  989289 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768883487.914538  989289 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768883487.914540  989289 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-19 20:31:27.917307: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-01-19 20:31:30,470 - INFO - Starting scenario: gs2_ideal
+2026-01-19 20:31:30,470 - INFO - Run parameters: N=64 object_size=392 object_seed=42 sim_seed=42 split_fraction=0.5 total_images=8000 train_images=4000 test_images=4000 group_count=1000 probe_scale=10.0
+DEBUG: Setting data_source to lines in params
+DEBUG: Setting data_source to generic in params
+diff3d shape: (8000, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (8000,)
+objectGuess shape: (392, 392)
+xcoords shape: (8000,)
+ycoords shape: (8000,)
+xcoords_start shape: (8000,)
+ycoords_start shape: (8000,)
+diff3d shape: (4000, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (4000,)
+objectGuess shape: (392, 392)
+xcoords shape: (4000,)
+ycoords shape: (4000,)
+xcoords_start shape: (4000,)
+ycoords_start shape: (4000,)
+diff3d shape: (4000, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (4000,)
+objectGuess shape: (392, 392)
+xcoords shape: (4000,)
+ycoords shape: (4000,)
+xcoords_start shape: (4000,)
+ycoords_start shape: (4000,)
+2026-01-19 20:31:30,777 - INFO - Training config: N=64 gridsize=2 n_groups=1000 nphotons=1000000000.0 nepochs=5 probe_scale=10.0
+I0000 00:00:1768883490.907618  989289 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1768883490.908798  989289 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1768883491.679150  989289 service.cc:152] XLA service 0x2ce2a1d0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1768883491.679170  989289 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2026-01-19 20:31:31.698740: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1768883491.716994  989289 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1768883491.872281  989289 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+DEBUG: nsamples: 1000, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (1000, 64, 64, 4)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(1000, 64, 64, 4) mean=0.086 Y_I=(1000, 64, 64, 4) mean=2.699 Y_phi=(1000, 64, 64, 4) mean=0.000 coords_nominal=(1000, 1, 2, 4) mean=-0.000 coords_true=(1000, 1, 2, 4) mean=-0.000 probe=(64, 64) mean_amplitude=0.100 norm_Y_I=<scalar> nn_indices=(1000, 4) global_offsets=(1000, 1, 2, 1) local_offsets=(1000, 1, 2, 4)>
+DEBUG: nsamples: 1000, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (1000, 64, 64, 4)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(1000, 64, 64, 4) mean=0.085 Y_I=(1000, 64, 64, 4) mean=2.587 Y_phi=(1000, 64, 64, 4) mean=0.000 coords_nominal=(1000, 1, 2, 4) mean=-0.000 coords_true=(1000, 1, 2, 4) mean=-0.000 probe=(64, 64) mean_amplitude=0.100 norm_Y_I=<scalar> nn_indices=(1000, 4) global_offsets=(1000, 1, 2, 1) local_offsets=(1000, 1, 2, 4)>
+DEBUG: Setting probe to tf.Tensor(
+[[[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ ...
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]], shape=(64, 64, 1), dtype=complex64) in params
+DEBUG: Setting intensity_scale to 988.21173 in params
+DEBUG: Setting probe to tf.Tensor(
+[[[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ ...
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]], shape=(64, 64, 1), dtype=complex64) in params
+Current Parameters:
+--------------------
+N: 64
+amp_activation: sigmoid
+backend: tensorflow
+batch_size: 16
+bigN: 68
+big_gridsize: 10
+data_source: generic
+debug: True
+default_probe_scale: 0.7
+enable_oversampling: False
+gaussian_smoothing_sigma: 0.0
+gridsize: 2
+h5_path: wts.h5
+intensity_scale: 988.2117309570312
+intensity_scale.trainable: True
+label: 
+mae_weight: 0.0
+max_position_jitter: 758
+model_type: pinn
+n_filters_scale: 2
+n_groups: 1000
+neighbor_count: 4
+nepochs: 5
+nimgs_test: 3
+nimgs_train: 9
+nll_weight: 1.0
+nphotons: 1000000000.0
+npseed: 42
+object.big: True
+offset: 4
+outer_offset_test: None
+outer_offset_train: None
+output_prefix: outputs/sim_lines_4x/gs2_ideal/train_outputs
+pad_object: True
+positions.provided: True
+probe:
+  shape: (64, 64, 1)
+  mean: 0.100+0.000j
+  std: 0.296
+  min: 0.000+0.000j
+  max: 1.089+0.000j
+probe.big: False
+probe.mask: True
+probe.trainable: False
+probe_scale: 10.0
+realspace_mae_weight: 0.0
+realspace_weight: 0.0
+sequential_sampling: False
+set_phi: False
+sim_jitter_scale: 0.0
+size: 392
+torch_loss_mode: poisson
+tv_weight: 0.0
+use_xla_translate: True
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from global params: 64
+DEBUG _flat_to_channel: input shape=(4000, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+Epoch 1/5
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2026-01-19 20:32:15.172816: W external/local_xla/xla/hlo/transforms/simplifiers/hlo_rematerialization.cc:3021] Can't reduce memory use below 8.63GiB (9266222548 bytes) by rematerialization; only reduced to 9.77GiB (10490682036 bytes), down from 9.77GiB (10490682036 bytes) originally
+2026-01-19 20:32:15.404225: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:359] gpu_async_0 cuMemAllocAsync failed to allocate 174662656 bytes: RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
+ Reported by CUDA: Free memory/Total memory: 127401984/25298927616
+2026-01-19 20:32:15.404241: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:364] Stats: Limit:                     23340777472
+InUse:                     24649143880
+MaxInUse:                  24649143880
+NumAllocs:                      265038
+MaxAllocSize:                640221184
+Reserved:                            0
+PeakReserved:                        0
+LargestFreeBlock:                    0
+
+2026-01-19 20:32:15.404250: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:68] Histogram of current allocation: (allocation_size_in_bytes, nb_allocation_of_that_sizes), ...;
+2026-01-19 20:32:15.404252: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 4, 85
+2026-01-19 20:32:15.404254: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 8, 8
+2026-01-19 20:32:15.404257: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 16, 3
+2026-01-19 20:32:15.404258: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 256, 31
+2026-01-19 20:32:15.404260: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 512, 7
+2026-01-19 20:32:15.404261: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1024, 3
+2026-01-19 20:32:15.404262: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1028, 1
+2026-01-19 20:32:15.404264: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1600, 1
+2026-01-19 20:32:15.404265: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 2304, 4
+2026-01-19 20:32:15.404266: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 8640, 3
+2026-01-19 20:32:15.404268: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 9216, 2
+2026-01-19 20:32:15.404269: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 30400, 1
+2026-01-19 20:32:15.404270: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 32000, 1
+2026-01-19 20:32:15.404272: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 32768, 4
+2026-01-19 20:32:15.404273: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 147456, 4
+2026-01-19 20:32:15.404274: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 262144, 2
+2026-01-19 20:32:15.404276: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 294912, 5
+2026-01-19 20:32:15.404277: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 524288, 4
+2026-01-19 20:32:15.404279: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 589824, 4
+2026-01-19 20:32:15.404280: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1048576, 8
+2026-01-19 20:32:15.404281: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1179648, 5
+2026-01-19 20:32:15.404283: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 2097152, 3
+2026-01-19 20:32:15.404284: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 2359296, 2
+2026-01-19 20:32:15.404285: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 2729104, 4
+2026-01-19 20:32:15.404287: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 3932160, 2
+2026-01-19 20:32:15.404288: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 4194304, 3
+2026-01-19 20:32:15.404289: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 8388608, 2
+2026-01-19 20:32:15.404291: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 16384000, 1
+2026-01-19 20:32:15.404292: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 16777216, 2
+2026-01-19 20:32:15.404293: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 43665664, 2
+2026-01-19 20:32:15.404295: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 65536000, 5
+2026-01-19 20:32:15.404296: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 174662656, 138
+2026-01-19 20:32:15.404304: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:104] CU_MEMPOOL_ATTR_RESERVED_MEM_CURRENT: 24796725248
+2026-01-19 20:32:15.404307: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:106] CU_MEMPOOL_ATTR_USED_MEM_CURRENT: 24649143880
+2026-01-19 20:32:15.404308: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:107] CU_MEMPOOL_ATTR_RESERVED_MEM_HIGH: 24897388544
+2026-01-19 20:32:15.404310: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:108] CU_MEMPOOL_ATTR_USED_MEM_HIGH: 24649143880
+2026-01-19 20:32:15.412228: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:359] gpu_async_0 cuMemAllocAsync failed to allocate 174662656 bytes: RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
+ Reported by CUDA: Free memory/Total memory: 127401984/25298927616
+2026-01-19 20:32:15.412240: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:364] Stats: Limit:                     23340777472
+InUse:                     24649143880
+MaxInUse:                  24649143880
+NumAllocs:                      265038
+MaxAllocSize:                640221184
+Reserved:                            0
+PeakReserved:                        0
+LargestFreeBlock:                    0
+
+2026-01-19 20:32:15.412257: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:68] Histogram of current allocation: (allocation_size_in_bytes, nb_allocation_of_that_sizes), ...;
+2026-01-19 20:32:15.412260: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 4, 85
+2026-01-19 20:32:15.412263: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 8, 8
+2026-01-19 20:32:15.412264: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 16, 3
+2026-01-19 20:32:15.412266: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 256, 31
+2026-01-19 20:32:15.412268: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 512, 7
+2026-01-19 20:32:15.412270: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1024, 3
+2026-01-19 20:32:15.412272: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1028, 1
+2026-01-19 20:32:15.412275: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1600, 1
+2026-01-19 20:32:15.412276: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 2304, 4
+2026-01-19 20:32:15.412278: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 8640, 3
+2026-01-19 20:32:15.412280: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 9216, 2
+2026-01-19 20:32:15.412282: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 30400, 1
+2026-01-19 20:32:15.412284: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 32000, 1
+2026-01-19 20:32:15.412286: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 32768, 4
+2026-01-19 20:32:15.412287: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 147456, 4
+2026-01-19 20:32:15.412289: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 262144, 2
+2026-01-19 20:32:15.412291: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 294912, 5
+2026-01-19 20:32:15.412293: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 524288, 4
+2026-01-19 20:32:15.412295: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 589824, 4
+2026-01-19 20:32:15.412297: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1048576, 8
+2026-01-19 20:32:15.412299: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1179648, 5
+2026-01-19 20:32:15.412301: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 2097152, 3
+2026-01-19 20:32:15.412303: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 2359296, 2
+2026-01-19 20:32:15.412305: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 2729104, 4
+2026-01-19 20:32:15.412307: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 3932160, 2
+2026-01-19 20:32:15.412309: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 4194304, 3
+2026-01-19 20:32:15.412311: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 8388608, 2
+2026-01-19 20:32:15.412313: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 16384000, 1
+2026-01-19 20:32:15.412315: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 16777216, 2
+2026-01-19 20:32:15.412318: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 43665664, 2
+2026-01-19 20:32:15.412320: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 65536000, 5
+2026-01-19 20:32:15.412322: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 174662656, 138
+2026-01-19 20:32:15.412325: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:104] CU_MEMPOOL_ATTR_RESERVED_MEM_CURRENT: 24796725248
+2026-01-19 20:32:15.412327: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:106] CU_MEMPOOL_ATTR_USED_MEM_CURRENT: 24649143880
+2026-01-19 20:32:15.412329: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:107] CU_MEMPOOL_ATTR_RESERVED_MEM_HIGH: 24897388544
+2026-01-19 20:32:15.412331: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:108] CU_MEMPOOL_ATTR_USED_MEM_HIGH: 24649143880
+2026-01-19 20:32:15.412352: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 174662656 bytes.
+	 [[{{function_node __inference_one_step_on_data_763509}}{{node functional_1/padded_objs_with_offsets_1/translation_10_1/PartitionedCall}}]]
+Hint: If you want to see a list of allocated tensors when OOM happens, add report_tensor_allocations_upon_oom to RunOptions for current allocation info. This isn't available when running in Eager mode.
+ [tf-allocator-allocation-error='']
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+Traceback (most recent call last):
+  File "/home/ollie/Documents/tmp/PtychoPINN/scripts/studies/sim_lines_4x/run_gs2_ideal.py", line 74, in <module>
+    main()
+  File "/home/ollie/Documents/tmp/PtychoPINN/scripts/studies/sim_lines_4x/run_gs2_ideal.py", line 63, in main
+    run_scenario(
+  File "/home/ollie/Documents/tmp/PtychoPINN/scripts/studies/sim_lines_4x/pipeline.py", line 292, in run_scenario
+    run_training(train_raw, test_raw, train_config)
+  File "/home/ollie/Documents/tmp/PtychoPINN/scripts/studies/sim_lines_4x/pipeline.py", line 110, in run_training
+    results = train_cdi_model_with_backend(train_data, test_data, config)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/tmp/PtychoPINN/ptycho/workflows/backend_selector.py", line 227, in train_cdi_model_with_backend
+    results = tf_components.train_cdi_model(train_data, test_data, config)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/tmp/PtychoPINN/ptycho/workflows/components.py", line 760, in train_cdi_model
+    results = train_pinn.train_eval(PtychoDataset(train_container, test_container))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/tmp/PtychoPINN/ptycho/train_pinn.py", line 98, in train_eval
+    model_instance, history = train(ptycho_dataset.train_data)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/tmp/PtychoPINN/ptycho/train_pinn.py", line 94, in train
+    return model_instance, model.train(nepochs, train_data, model_instance=model_instance)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/tmp/PtychoPINN/ptycho/model.py", line 674, in train
+    history = model_instance.fit(
+              ^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 122, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/execute.py", line 53, in quick_execute
+    tensors = pywrap_tfe.TFE_Py_Execute(ctx._handle, device_name, op_name,
+  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tensorflow.python.framework.errors_impl.ResourceExhaustedError: Graph execution error:
+
+Detected at node functional_1/padded_objs_with_offsets_1/translation_10_1/PartitionedCall defined at (most recent call last):
+  File "/home/ollie/Documents/tmp/PtychoPINN/scripts/studies/sim_lines_4x/run_gs2_ideal.py", line 74, in <module>
+
+  File "/home/ollie/Documents/tmp/PtychoPINN/scripts/studies/sim_lines_4x/run_gs2_ideal.py", line 63, in main
+
+  File "/home/ollie/Documents/tmp/PtychoPINN/scripts/studies/sim_lines_4x/pipeline.py", line 292, in run_scenario
+
+  File "/home/ollie/Documents/tmp/PtychoPINN/scripts/studies/sim_lines_4x/pipeline.py", line 110, in run_training
+
+  File "/home/ollie/Documents/tmp/PtychoPINN/ptycho/workflows/backend_selector.py", line 227, in train_cdi_model_with_backend
+
+  File "/home/ollie/Documents/tmp/PtychoPINN/ptycho/workflows/components.py", line 760, in train_cdi_model
+
+  File "/home/ollie/Documents/tmp/PtychoPINN/ptycho/train_pinn.py", line 98, in train_eval
+
+  File "/home/ollie/Documents/tmp/PtychoPINN/ptycho/train_pinn.py", line 94, in train
+
+  File "/home/ollie/Documents/tmp/PtychoPINN/ptycho/model.py", line 674, in train
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 377, in fit
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 220, in function
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 133, in multi_step_on_iterator
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 114, in one_step_on_data
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py", line 58, in train_step
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 183, in call
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/function.py", line 206, in _run_through_graph
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/models/functional.py", line 644, in call
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+
+  File "/home/ollie/Documents/tmp/PtychoPINN/ptycho/custom_layers.py", line 85, in call
+
+  File "/home/ollie/Documents/tmp/PtychoPINN/ptycho/tf_helper.py", line 656, in extract_patches_position
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py", line 941, in __call__
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 117, in error_handler
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/ops/operation.py", line 59, in __call__
+
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 156, in error_handler
+
+  File "/home/ollie/Documents/tmp/PtychoPINN/ptycho/tf_helper.py", line 850, in call
+
+  File "/home/ollie/Documents/tmp/PtychoPINN/ptycho/tf_helper.py", line 688, in newf
+
+  File "/home/ollie/Documents/tmp/PtychoPINN/ptycho/tf_helper.py", line 814, in translate
+
+  File "/home/ollie/Documents/tmp/PtychoPINN/ptycho/tf_helper.py", line 736, in translate_core
+
+  File "/home/ollie/Documents/tmp/PtychoPINN/ptycho/projective_warp_xla.py", line 311, in translate_xla
+
+Out of memory while trying to allocate 174662656 bytes.
+	 [[{{node functional_1/padded_objs_with_offsets_1/translation_10_1/PartitionedCall}}]]
+Hint: If you want to see a list of allocated tensors when OOM happens, add report_tensor_allocations_upon_oom to RunOptions for current allocation info. This isn't available when running in Eager mode.
+ [Op:__inference_multi_step_on_iterator_763734]
+2026-01-19 20:32:35.533110: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1768883555.544363  990051 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1768883555.548226  990051 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1768883555.558018  990051 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768883555.558032  990051 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768883555.558033  990051 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768883555.558035  990051 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-19 20:32:35.561270: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-01-19 20:32:37.432040: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2026-01-19 20:32:37.432072: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2026-01-19 20:32:37.432076: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2026-01-19 20:32:37.432079: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2026-01-19 20:32:37.432082: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2026-01-19 20:32:37.432084: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2026-01-19 20:32:37.432170: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.195.3
+2026-01-19 20:32:37.432185: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.195.3
+2026-01-19 20:32:37.432187: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.195.3
+No GPU found, using CPU instead.
+2026-01-19 20:32:37,959 - INFO - Starting scenario: gs2_ideal
+2026-01-19 20:32:37,959 - INFO - Run parameters: N=64 object_size=392 object_seed=42 sim_seed=42 split_fraction=0.5 total_images=8000 train_images=4000 test_images=4000 group_count=1000 probe_scale=10.0
+DEBUG: Setting data_source to lines in params
+DEBUG: Setting data_source to generic in params
+diff3d shape: (8000, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (8000,)
+objectGuess shape: (392, 392)
+xcoords shape: (8000,)
+ycoords shape: (8000,)
+xcoords_start shape: (8000,)
+ycoords_start shape: (8000,)
+diff3d shape: (4000, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (4000,)
+objectGuess shape: (392, 392)
+xcoords shape: (4000,)
+ycoords shape: (4000,)
+xcoords_start shape: (4000,)
+ycoords_start shape: (4000,)
+diff3d shape: (4000, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (4000,)
+objectGuess shape: (392, 392)
+xcoords shape: (4000,)
+ycoords shape: (4000,)
+xcoords_start shape: (4000,)
+ycoords_start shape: (4000,)
+2026-01-19 20:32:38,267 - INFO - Training config: N=64 gridsize=2 n_groups=1000 nphotons=1000000000.0 nepochs=5 probe_scale=10.0
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1768883558.959390  990051 service.cc:152] XLA service 0x335c5270 initialized for platform Host (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1768883558.959421  990051 service.cc:160]   StreamExecutor device (0): Host, Default Version
+2026-01-19 20:32:38.979363: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1768883559.081089  990051 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+DEBUG: nsamples: 1000, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (1000, 64, 64, 4)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(1000, 64, 64, 4) mean=0.086 Y_I=(1000, 64, 64, 4) mean=2.699 Y_phi=(1000, 64, 64, 4) mean=0.000 coords_nominal=(1000, 1, 2, 4) mean=-0.000 coords_true=(1000, 1, 2, 4) mean=-0.000 probe=(64, 64) mean_amplitude=0.100 norm_Y_I=<scalar> nn_indices=(1000, 4) global_offsets=(1000, 1, 2, 1) local_offsets=(1000, 1, 2, 4)>
+DEBUG: nsamples: 1000, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (1000, 64, 64, 4)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(1000, 64, 64, 4) mean=0.085 Y_I=(1000, 64, 64, 4) mean=2.587 Y_phi=(1000, 64, 64, 4) mean=0.000 coords_nominal=(1000, 1, 2, 4) mean=-0.000 coords_true=(1000, 1, 2, 4) mean=-0.000 probe=(64, 64) mean_amplitude=0.100 norm_Y_I=<scalar> nn_indices=(1000, 4) global_offsets=(1000, 1, 2, 1) local_offsets=(1000, 1, 2, 4)>
+DEBUG: Setting probe to tf.Tensor(
+[[[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ ...
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]], shape=(64, 64, 1), dtype=complex64) in params
+DEBUG: Setting intensity_scale to 988.2118 in params
+DEBUG: Setting probe to tf.Tensor(
+[[[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ ...
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]], shape=(64, 64, 1), dtype=complex64) in params
+Current Parameters:
+--------------------
+N: 64
+amp_activation: sigmoid
+backend: tensorflow
+batch_size: 16
+bigN: 68
+big_gridsize: 10
+data_source: generic
+debug: True
+default_probe_scale: 0.7
+enable_oversampling: False
+gaussian_smoothing_sigma: 0.0
+gridsize: 2
+h5_path: wts.h5
+intensity_scale: 988.2117919921875
+intensity_scale.trainable: True
+label: 
+mae_weight: 0.0
+max_position_jitter: 758
+model_type: pinn
+n_filters_scale: 2
+n_groups: 1000
+neighbor_count: 4
+nepochs: 5
+nimgs_test: 3
+nimgs_train: 9
+nll_weight: 1.0
+nphotons: 1000000000.0
+npseed: 42
+object.big: True
+offset: 4
+outer_offset_test: None
+outer_offset_train: None
+output_prefix: outputs/sim_lines_4x/gs2_ideal/train_outputs
+pad_object: True
+positions.provided: True
+probe:
+  shape: (64, 64, 1)
+  mean: 0.100+0.000j
+  std: 0.296
+  min: 0.000+0.000j
+  max: 1.089+0.000j
+probe.big: False
+probe.mask: True
+probe.trainable: False
+probe_scale: 10.0
+realspace_mae_weight: 0.0
+realspace_weight: 0.0
+sequential_sampling: False
+set_phi: False
+sim_jitter_scale: 0.0
+size: 392
+torch_loss_mode: poisson
+tv_weight: 0.0
+use_xla_translate: True
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from global params: 64
+DEBUG _flat_to_channel: input shape=(4000, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+Epoch 1/5
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+[1m 1/60[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m32:45[0m 33s/step - intensity_scaler_inv_loss: 55.2354 - loss: -3276212.2500 - pred_intensity_loss: -3276212.2500 - trimmed_obj_loss: 0.0000e+00[1m 2/60[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m28:26[0m 29s/step - intensity_scaler_inv_loss: 49.6520 - loss: -3395734.5000 - pred_intensity_loss: -3395734.5000 - trimmed_obj_loss: 0.0000e+002026-01-19 20:34:43.055509: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1768883683.066402  990847 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1768883683.069964  990847 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1768883683.079519  990847 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768883683.079530  990847 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768883683.079532  990847 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768883683.079533  990847 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-19 20:34:43.082256: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-01-19 20:34:44.954466: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2026-01-19 20:34:44.954488: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2026-01-19 20:34:44.954493: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2026-01-19 20:34:44.954495: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2026-01-19 20:34:44.954499: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2026-01-19 20:34:44.954500: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2026-01-19 20:34:44.954588: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.195.3
+2026-01-19 20:34:44.954603: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.195.3
+2026-01-19 20:34:44.954605: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.195.3
+No GPU found, using CPU instead.
+2026-01-19 20:34:45,481 - INFO - Starting scenario: gs2_ideal
+2026-01-19 20:34:45,482 - INFO - Run parameters: N=64 object_size=392 object_seed=42 sim_seed=42 split_fraction=0.5 total_images=8000 train_images=4000 test_images=4000 group_count=1000 probe_scale=10.0
+DEBUG: Setting data_source to lines in params
+DEBUG: Setting data_source to generic in params
+diff3d shape: (8000, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (8000,)
+objectGuess shape: (392, 392)
+xcoords shape: (8000,)
+ycoords shape: (8000,)
+xcoords_start shape: (8000,)
+ycoords_start shape: (8000,)
+diff3d shape: (4000, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (4000,)
+objectGuess shape: (392, 392)
+xcoords shape: (4000,)
+ycoords shape: (4000,)
+xcoords_start shape: (4000,)
+ycoords_start shape: (4000,)
+diff3d shape: (4000, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (4000,)
+objectGuess shape: (392, 392)
+xcoords shape: (4000,)
+ycoords shape: (4000,)
+xcoords_start shape: (4000,)
+ycoords_start shape: (4000,)
+2026-01-19 20:34:45,785 - INFO - Training config: N=64 gridsize=2 n_groups=1000 nphotons=1000000000.0 nepochs=5 probe_scale=10.0
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1768883686.463954  990847 service.cc:152] XLA service 0x410f7d40 initialized for platform Host (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1768883686.463978  990847 service.cc:160]   StreamExecutor device (0): Host, Default Version
+2026-01-19 20:34:46.483840: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1768883686.587352  990847 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+DEBUG: nsamples: 1000, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (1000, 64, 64, 4)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(1000, 64, 64, 4) mean=0.086 Y_I=(1000, 64, 64, 4) mean=2.699 Y_phi=(1000, 64, 64, 4) mean=0.000 coords_nominal=(1000, 1, 2, 4) mean=-0.000 coords_true=(1000, 1, 2, 4) mean=-0.000 probe=(64, 64) mean_amplitude=0.100 norm_Y_I=<scalar> nn_indices=(1000, 4) global_offsets=(1000, 1, 2, 1) local_offsets=(1000, 1, 2, 4)>
+DEBUG: nsamples: 1000, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (1000, 64, 64, 4)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(1000, 64, 64, 4) mean=0.085 Y_I=(1000, 64, 64, 4) mean=2.587 Y_phi=(1000, 64, 64, 4) mean=0.000 coords_nominal=(1000, 1, 2, 4) mean=-0.000 coords_true=(1000, 1, 2, 4) mean=-0.000 probe=(64, 64) mean_amplitude=0.100 norm_Y_I=<scalar> nn_indices=(1000, 4) global_offsets=(1000, 1, 2, 1) local_offsets=(1000, 1, 2, 4)>
+DEBUG: Setting probe to tf.Tensor(
+[[[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ ...
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]], shape=(64, 64, 1), dtype=complex64) in params
+DEBUG: Setting intensity_scale to 988.2118 in params
+DEBUG: Setting probe to tf.Tensor(
+[[[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ ...
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]
+
+ [[1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  ...
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]
+  [1.0893617e-09+0.j]]], shape=(64, 64, 1), dtype=complex64) in params
+Current Parameters:
+--------------------
+N: 64
+amp_activation: sigmoid
+backend: tensorflow
+batch_size: 16
+bigN: 68
+big_gridsize: 10
+data_source: generic
+debug: True
+default_probe_scale: 0.7
+enable_oversampling: False
+gaussian_smoothing_sigma: 0.0
+gridsize: 2
+h5_path: wts.h5
+intensity_scale: 988.2117919921875
+intensity_scale.trainable: True
+label: 
+mae_weight: 0.0
+max_position_jitter: 758
+model_type: pinn
+n_filters_scale: 2
+n_groups: 1000
+neighbor_count: 4
+nepochs: 5
+nimgs_test: 3
+nimgs_train: 9
+nll_weight: 1.0
+nphotons: 1000000000.0
+npseed: 42
+object.big: True
+offset: 4
+outer_offset_test: None
+outer_offset_train: None
+output_prefix: outputs/sim_lines_4x/gs2_ideal/train_outputs
+pad_object: True
+positions.provided: True
+probe:
+  shape: (64, 64, 1)
+  mean: 0.100+0.000j
+  std: 0.296
+  min: 0.000+0.000j
+  max: 1.089+0.000j
+probe.big: False
+probe.mask: True
+probe.trainable: False
+probe_scale: 10.0
+realspace_mae_weight: 0.0
+realspace_weight: 0.0
+sequential_sampling: False
+set_phi: False
+sim_jitter_scale: 0.0
+size: 392
+torch_loss_mode: poisson
+tv_weight: 0.0
+use_xla_translate: True
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from global params: 64
+DEBUG _flat_to_channel: input shape=(4000, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+Epoch 1/5
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(None, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+[1m 1/60[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m32:34[0m 33s/step - intensity_scaler_inv_loss: 64.3786 - loss: -4136044.5000 - pred_intensity_loss: -4136044.5000 - trimmed_obj_loss: 0.0000e+00[1m 2/60[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m28:23[0m 29s/step - intensity_scaler_inv_loss: 59.9558 - loss: -3915654.5000 - pred_intensity_loss: -3915654.5000 - trimmed_obj_loss: 0.0000e+00[1m 3/60[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m27:55[0m 29s/step - intensity_scaler_inv_loss: 58.7606 - loss: -3796383.0000 - pred_intensity_loss: -3796383.0000 - trimmed_obj_loss: 0.0000e+00[1m 4/60[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m27:23[0m 29s/step - intensity_scaler_inv_loss: 56.0535 - loss: -3763552.5000 - pred_intensity_loss: -3763552.5000 - trimmed_obj_loss: 0.0000e+00[1m 5/60[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m26:53[0m 29s/step - intensity_scaler_inv_loss: 53.6304 - loss: -3759973.0000 - pred_intensity_loss: -3759973.0000 - trimmed_obj_loss: 0.0000e+00[1m 6/60[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m26:24[0m 29s/step - intensity_scaler_inv_loss: 51.5113 - loss: -3769846.0000 - pred_intensity_loss: -3769846.0000 - trimmed_obj_loss: 0.0000e+00[1m 7/60[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m25:56[0m 29s/step - intensity_scaler_inv_loss: 49.5820 - loss: -3783696.7500 - pred_intensity_loss: -3783696.7500 - trimmed_obj_loss: 0.0000e+00[1m 8/60[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m25:27[0m 29s/step - intensity_scaler_inv_loss: 47.8449 - loss: -3797205.2500 - pred_intensity_loss: -3797205.2500 - trimmed_obj_loss: 0.0000e+00[1m 9/60[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m24:57[0m 29s/step - intensity_scaler_inv_loss: 46.3388 - loss: -3807866.2500 - pred_intensity_loss: -3807866.2500 - trimmed_obj_loss: 0.0000e+00[1m10/60[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m24:28[0m 29s/step - intensity_scaler_inv_loss: 45.0212 - loss: -3812483.0000 - pred_intensity_loss: -3812483.0000 - trimmed_obj_loss: 0.0000e+00[1m11/60[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m24:00[0m 29s/step - intensity_scaler_inv_loss: 43.8535 - loss: -3814545.5000 - pred_intensity_loss: -3814545.5000 - trimmed_obj_loss: 0.0000e+00[1m12/60[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m23:31[0m 29s/step - intensity_scaler_inv_loss: 42.7995 - loss: -3817922.2500 - pred_intensity_loss: -3817922.2500 - trimmed_obj_loss: 0.0000e+00[1m13/60[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m23:02[0m 29s/step - intensity_scaler_inv_loss: 41.8340 - loss: -3821376.2500 - pred_intensity_loss: -3821376.2500 - trimmed_obj_loss: 0.0000e+00[1m14/60[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m22:33[0m 29s/step - intensity_scaler_inv_loss: 40.9708 - loss: -3822884.7500 - pred_intensity_loss: -3822884.7500 - trimmed_obj_loss: 0.0000e+00[1m15/60[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m22:03[0m 29s/step - intensity_scaler_inv_loss: 40.1802 - loss: -3825821.0000 - pred_intensity_loss: -3825821.0000 - trimmed_obj_loss: 0.0000e+00[1m16/60[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m21:38[0m 30s/step - intensity_scaler_inv_loss: 39.4429 - loss: -3830763.7500 - pred_intensity_loss: -3830763.7500 - trimmed_obj_loss: 0.0000e+00[1m17/60[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m21:16[0m 30s/step - intensity_scaler_inv_loss: 38.7640 - loss: -3835656.0000 - pred_intensity_loss: -3835656.0000 - trimmed_obj_loss: 0.0000e+00[1m18/60[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m20:46[0m 30s/step - intensity_scaler_inv_loss: 38.1249 - loss: -3840753.7500 - pred_intensity_loss: -3840753.7500 - trimmed_obj_loss: 0.0000e+00[1m19/60[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m20:16[0m 30s/step - intensity_scaler_inv_loss: 37.5269 - loss: -3844692.2500 - pred_intensity_loss: -3844692.2500 - trimmed_obj_loss: 0.0000e+00[1m20/60[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m19:46[0m 30s/step - intensity_scaler_inv_loss: 36.9713 - loss: -3848634.2500 - pred_intensity_loss: -3848634.2500 - trimmed_obj_loss: 0.0000e+00[1m21/60[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m19:16[0m 30s/step - intensity_scaler_inv_loss: 36.4520 - loss: -3851475.0000 - pred_intensity_loss: -3851475.0000 - trimmed_obj_loss: 0.0000e+00[1m22/60[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m18:46[0m 30s/step - intensity_scaler_inv_loss: 35.9625 - loss: -3853612.0000 - pred_intensity_loss: -3853612.0000 - trimmed_obj_loss: 0.0000e+00[1m23/60[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m18:16[0m 30s/step - intensity_scaler_inv_loss: 35.5018 - loss: -3855607.7500 - pred_intensity_loss: -3855607.7500 - trimmed_obj_loss: 0.0000e+00[1m24/60[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m17:46[0m 30s/step - intensity_scaler_inv_loss: 35.0668 - loss: -3857342.0000 - pred_intensity_loss: -3857342.0000 - trimmed_obj_loss: 0.0000e+00[1m25/60[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m17:16[0m 30s/step - intensity_scaler_inv_loss: 34.6585 - loss: -3858933.5000 - pred_intensity_loss: -3858933.5000 - trimmed_obj_loss: 0.0000e+00[1m26/60[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m16:47[0m 30s/step - intensity_scaler_inv_loss: 34.2729 - loss: -3861446.5000 - pred_intensity_loss: -3861446.5000 - trimmed_obj_loss: 0.0000e+00[1m27/60[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m16:17[0m 30s/step - intensity_scaler_inv_loss: 33.9089 - loss: -3863598.7500 - pred_intensity_loss: -3863598.7500 - trimmed_obj_loss: 0.0000e+00[1m28/60[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m15:47[0m 30s/step - intensity_scaler_inv_loss: 33.5625 - loss: -3865859.5000 - pred_intensity_loss: -3865859.5000 - trimmed_obj_loss: 0.0000e+00[1m29/60[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m15:17[0m 30s/step - intensity_scaler_inv_loss: 33.2323 - loss: -3868143.5000 - pred_intensity_loss: -3868143.5000 - trimmed_obj_loss: 0.0000e+00[1m30/60[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m14:47[0m 30s/step - intensity_scaler_inv_loss: 32.9180 - loss: -3869668.0000 - pred_intensity_loss: -3869668.0000 - trimmed_obj_loss: 0.0000e+00

@@ -1,6 +1,18 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
 ### Turn Summary
+Validated the new Phase C2 runner outputs for gs1_ideal (512→256 groups) and gs2_ideal (256→128 groups), capturing amplitude/phase `.npy` dumps, PNGs, stats JSON, and run_metadata that show zero NaNs and jitter-expanded padded sizes meeting the spec.
+Confirmed `reassembly_limits_report.py` now reports `fits_canvas=true` for both ideal probes and the CLI smoke guard remained green, so the padded-size fix behaves as expected end-to-end.
+Next: bake the reduced-load profile directly into `run_phase_c2_scenario.py` (C2b), rerun both scenarios under a fresh artifacts hub, and refresh the reassembly telemetry/logs without manual overrides.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T061530Z/ (gs1_ideal_runner.log, gs2_ideal_runner.log, reassembly_cli.log)
+
+### Turn Summary
+Scoped the Phase C2 verification handoff: promoted the plan to Phase C status, opened the 2026-01-20T061530Z artifacts hub, and defined the `run_phase_c2_scenario.py` runner + CLI/test matrix for gs1_ideal and gs2_ideal evidence collection.
+Captured the Do Now details in docs/fix_plan.md and input.md (runner implementation, scenario reruns, reassembly telemetry, visual notes, pytest guard) so Ralph can execute without touching production modules.
+Next: Ralph builds the runner, executes both scenarios with PNG/NaN evidence, reruns the reassembly_limits CLI, and archives pytest output under the new hub.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T061530Z/ (planning notes)
+
+### Turn Summary
 Implemented `_update_max_position_jitter_from_offsets()` with padded-size parity handling, wired it into the workflow container factory, and aligned the SIM-LINES reassembly telemetry to use the new jitter updates.
 Resolved the integration test failure caused by odd padded sizes by enforcing N-parity in the required canvas calculation, then added pytest coverage and refreshed test docs.
 Re-ran the targeted workflow selector, the integration marker, and the gs1/gs2 custom reassembly CLI to confirm `fits_canvas=True` with zero loss.
