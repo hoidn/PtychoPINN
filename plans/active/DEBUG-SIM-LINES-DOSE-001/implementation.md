@@ -185,11 +185,11 @@ Guidelines:
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 - [ ] C3d: Inspect the intensity-scaling pipeline by loading the gs1_ideal/gs2_ideal training checkpoints, dumping the `IntensityScaler`/`IntensityScaler_inv` weights and params (`params.cfg['intensity_scale']`), and comparing them to the observed amplitude bias so we can decide whether the workflow or the model needs the fix.
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
-- [ ] C4a: Instrument the Phase C2 runner with intensity-normalization stats (raw `diff3d`, grouped diffraction, container tensors, recorded `intensity_scale`) so each scenario writes a JSON summary alongside the existing bias metrics.
+- [x] C4a: Instrument the Phase C2 runner with intensity-normalization stats (raw `diff3d`, grouped diffraction, container tensors, recorded `intensity_scale`) so each scenario writes a JSON summary alongside the existing bias metrics.
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
-- [ ] C4b: Re-run the gs1_ideal and gs2_ideal scenarios under a fresh artifacts hub with the new instrumentation enabled so the intensity stats, amplitude/phase metrics, and training evidence all live together for analysis.
+- [x] C4b: Re-run the gs1_ideal and gs2_ideal scenarios under a fresh artifacts hub with the new instrumentation enabled so the intensity stats, amplitude/phase metrics, and training evidence all live together for analysis.
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
-- [ ] C4c: Update docs/fix_plan.md Attempts History (plus summary.md) with the new intensity telemetry and document the decision tree for the next remediation step.
+- [x] C4c: Update docs/fix_plan.md Attempts History (plus summary.md) with the new intensity telemetry and document the decision tree for the next remediation step.
       Test: N/A
 
 ### Notes & Risks

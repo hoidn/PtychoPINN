@@ -1,5 +1,7 @@
 {
-  "intensity_scale_recorded": 988.211669921875,
+  "bundle_intensity_scale": 988.211669921875,
+  "legacy_params_intensity_scale": 988.211669921875,
+  "scale_delta": 0.0,
   "stages": [
     {
       "metadata": {

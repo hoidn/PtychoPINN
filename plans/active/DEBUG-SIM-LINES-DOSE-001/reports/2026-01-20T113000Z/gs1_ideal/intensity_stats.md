@@ -1,6 +1,8 @@
 # Intensity Statistics
 
-- Recorded intensity_scale: 988.211669921875
+- Bundle intensity_scale: 988.211669921875
+- Legacy params intensity_scale: 988.211669921875
+- bundle minus legacy delta: 0.0
 - Stage count: 4
 
 ### raw_diffraction

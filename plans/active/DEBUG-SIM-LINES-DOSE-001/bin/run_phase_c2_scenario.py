@@ -366,11 +366,22 @@ def _format_stage_stats_markdown(stage: Mapping[str, Any]) -> list[str]:
 
 def write_intensity_stats_outputs(
     stages: list[Dict[str, Any]],
-    intensity_scale: Any,
+    bundle_intensity_scale: Any,
+    legacy_intensity_scale: Any,
     scenario_dir: Path,
 ) -> Dict[str, Any]:
+    bundle_scale_serialized = _serialize_scalar(bundle_intensity_scale)
+    legacy_scale_serialized = _serialize_scalar(legacy_intensity_scale)
+    scale_delta = None
+    if bundle_intensity_scale is not None and legacy_intensity_scale is not None:
+        try:
+            scale_delta = _serialize_scalar(bundle_intensity_scale - legacy_intensity_scale)
+        except TypeError:
+            scale_delta = None
     payload = {
-        "intensity_scale_recorded": _serialize_scalar(intensity_scale),
+        "bundle_intensity_scale": bundle_scale_serialized,
+        "legacy_params_intensity_scale": legacy_scale_serialized,
+        "scale_delta": scale_delta,
         "stages": stages,
     }
     json_path = scenario_dir / "intensity_stats.json"
@@ -379,7 +390,9 @@ def write_intensity_stats_outputs(
     md_lines = [
         "# Intensity Statistics",
         "",
-        f"- Recorded intensity_scale: {payload['intensity_scale_recorded']}",
+        f"- Bundle intensity_scale: {payload['bundle_intensity_scale']}",
+        f"- Legacy params intensity_scale: {payload['legacy_params_intensity_scale']}",
+        f"- bundle minus legacy delta: {payload['scale_delta']}",
         f"- Stage count: {len(stages)}",
         "",
     ]
@@ -392,7 +405,10 @@ def write_intensity_stats_outputs(
         "json_path": str(json_path),
         "markdown_path": str(md_path),
         "stages": stages,
-        "intensity_scale": payload["intensity_scale_recorded"],
+        "bundle_intensity_scale": bundle_scale_serialized,
+        "legacy_params_intensity_scale": legacy_scale_serialized,
+        "scale_delta": scale_delta,
+        "intensity_scale": bundle_scale_serialized or legacy_scale_serialized,
     }
 
 
@@ -884,7 +900,11 @@ def run_inference_and_reassemble(
         backend="tensorflow",
     )
     model, params_dict = load_inference_bundle_with_backend(model_dir, infer_config)
-    recorded_scale = params_dict.get("intensity_scale", legacy_params.cfg.get("intensity_scale"))
+    bundle_intensity_scale = params_dict.get("intensity_scale")
+    legacy_intensity_scale = legacy_params.cfg.get("intensity_scale")
+    recorded_scale = (
+        bundle_intensity_scale if bundle_intensity_scale is not None else legacy_intensity_scale
+    )
     nsamples = min(group_count, group_limit) if group_limit else group_count
     grouped = test_raw.generate_grouped_data(
         params_dict.get("N", params.N),
@@ -928,6 +948,8 @@ def run_inference_and_reassemble(
     obj_image = tf_helper.reassemble_position(obj_tensor_full, global_offsets, M=params.reassemble_M)
     intensity_info = {
         "stages": intensity_stages,
+        "bundle_intensity_scale": bundle_intensity_scale,
+        "legacy_params_intensity_scale": legacy_intensity_scale,
         "recorded_scale": recorded_scale,
     }
     return np.abs(obj_image), np.angle(obj_image), global_offsets, intensity_info
@@ -1217,7 +1239,8 @@ def main() -> None:
     }
     intensity_record = write_intensity_stats_outputs(
         stages=intensity_info.get("stages", []),
-        intensity_scale=intensity_info.get("recorded_scale"),
+        bundle_intensity_scale=intensity_info.get("bundle_intensity_scale"),
+        legacy_intensity_scale=intensity_info.get("legacy_params_intensity_scale"),
         scenario_dir=scenario_dir,
     )
     metadata["intensity_stats"] = intensity_record

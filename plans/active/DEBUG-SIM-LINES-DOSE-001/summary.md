@@ -1,6 +1,12 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
 ### Turn Summary
+Extended the Phase C2 runner so intensity telemetry now records scalar stats for the raw snapshot, grouped diffraction/X_full tensors, and the plan-local container along with both the bundle-recorded and current `legacy_params['intensity_scale']` values.
+Reran the baked `gs1_ideal`/`gs2_ideal` scenarios under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/`, archived the new `intensity_stats.json/.md` plus run_metadata links, and captured that both scenarios log identical bundle vs legacy scales (988.21167, delta 0.0) even though `gs1` still shows the ≈-2.5 amplitude bias while `gs2`’s training history now flags NaNs from the first step.
+Next: mine the telemetry vs the bias summaries to determine whether the scaler math or upstream normalization causes the shared under-scale signal, and investigate the newly observed gs2 NaNs before tightening any gates.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/ (gs*_ideal/**, intensity_stats.json/.md, gs*_ideal_runner.log, pytest_cli_smoke.log)
+
+### Turn Summary
 Extended `run_phase_c2_scenario.py` with prediction vs ground-truth stats (mean/min/max/std), bias percentiles, and Markdown summaries, then reran the gs1_ideal/gs2_ideal stable profiles under the new 2026-01-20T093000Z hub alongside reassembly limits and the CLI pytest guard.
 The new metrics show both scenarios undershoot the ground-truth amplitude by ≈2.47 (median bias ≈-2.53, P95 ≈-0.98), confirming the collapse is a shared intensity offset rather than a gs1-only failure.
 Next: trace how the training/inference intensity scaler is applied so we can tie the constant bias back to the workflow and patch it in Phase C4.
