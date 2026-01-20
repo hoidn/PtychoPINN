@@ -73,6 +73,8 @@ Format for checklist items:
       Test: N/A -- planning artifact (`plans/active/ORCH-ROUTER-001/test_strategy.md`)
 - [ ] A3: Update orchestration README with router contract + failure behavior and explicit function location.
       Test: N/A -- documentation-only
+- [ ] A4: Update docs/index.md to reference the router contract and orchestration updates once drafted.
+      Test: N/A -- documentation-only
 
 ### Notes & Risks
 - Ensure reviewer prompt routing stays compatible with expected_actor semantics.
@@ -97,6 +99,8 @@ Format for checklist items:
       Test: pytest tests/tools/test_orchestration_router.py -v
 - [ ] C2: Update docs/TESTING_GUIDE.md + TEST_SUITE_INDEX if new tests are added.
       Test: pytest --collect-only tests/tools/test_orchestration_router.py -v
+- [ ] C3: Update docs/index.md entry metadata if a new orchestration doc is added.
+      Test: N/A -- documentation-only
 
 ### Notes & Risks
 - Keep tests CPU-only; avoid invoking external LLM binaries.

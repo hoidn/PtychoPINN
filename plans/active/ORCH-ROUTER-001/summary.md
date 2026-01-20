@@ -1,6 +1,14 @@
 # ORCH-ROUTER-001 Summary
 
 ### Turn Summary
+Expanded documentation steps in the plan to include docs/index.md updates once router docs land.
+Added explicit checklist items for docs/index.md in Phase A and Phase C.
+Next: update scripts/orchestration/README.md with the routing contract and last_prompt note.
+Artifacts: plans/active/ORCH-ROUTER-001/implementation.md
+
+# ORCH-ROUTER-001 Summary
+
+### Turn Summary
 Drafted the Phase A routing contract artifact, including deterministic review cadence, actor gating, and router override rules.
 Constrained state.json persistence to a single `last_prompt` field and captured failure behavior for invalid routing output.
 Marked Phase A checklist items A0-A2 complete in the implementation plan.
