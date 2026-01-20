@@ -49,6 +49,9 @@ RATIO_LABELS = [
     ("prediction_to_truth", "Prediction → truth"),
 ]
 
+# Normalization invariant tolerance per specs/spec-ptycho-core.md §Normalization Invariants
+NORMALIZATION_INVARIANT_TOLERANCE = 0.05  # 5%
+
 
 @dataclass(frozen=True)
 class ScenarioInput:
@@ -207,6 +210,97 @@ def extract_stage_means(stages: List[Mapping[str, Any]]) -> Dict[str, Optional[f
         if name:
             stage_means[name] = mean
     return stage_means
+
+
+def compute_normalization_invariant_check(
+    ratios: Mapping[str, Optional[float]],
+    tolerance: float = NORMALIZATION_INVARIANT_TOLERANCE,
+) -> Dict[str, Any]:
+    """Compute the product of stage ratios and check normalization invariants.
+
+    Per `specs/spec-ptycho-core.md §Normalization Invariants`:
+    - Symmetry SHALL hold: X_scaled = s · X
+    - Training inputs, labels, and model outputs must maintain consistent scaling
+
+    This function multiplies the chain of ratios (raw→grouped→normalized→prediction→truth)
+    to determine the cumulative scaling factor and flags deviations vs tolerance.
+    """
+    ratio_keys = [
+        "raw_to_grouped",
+        "grouped_to_normalized",
+        "normalized_to_prediction",
+        "prediction_to_truth",
+    ]
+
+    # Gather individual ratios
+    ratio_values: Dict[str, Optional[float]] = {}
+    for key in ratio_keys:
+        ratio_values[key] = ratios.get(key)
+
+    # Compute cumulative products at each stage
+    cumulative_products: Dict[str, Optional[float]] = {}
+    running_product: Optional[float] = 1.0
+
+    for key in ratio_keys:
+        val = ratio_values.get(key)
+        if running_product is not None and val is not None and np.isfinite(val):
+            running_product = running_product * val
+            cumulative_products[key] = running_product
+        else:
+            running_product = None
+            cumulative_products[key] = None
+
+    # The full chain product (raw→truth)
+    full_chain_product = cumulative_products.get("prediction_to_truth")
+
+    # For normalization invariance, the product should ideally be 1.0 (symmetric scaling)
+    # Deviation from 1.0 indicates asymmetric normalization
+    if full_chain_product is not None and np.isfinite(full_chain_product):
+        deviation_from_unity = abs(full_chain_product - 1.0)
+        relative_deviation = deviation_from_unity  # Since ideal is 1.0, relative deviation = absolute
+        passes_tolerance = relative_deviation <= tolerance
+    else:
+        deviation_from_unity = None
+        relative_deviation = None
+        passes_tolerance = None
+
+    # Identify which stages contribute most to deviation
+    stage_deviations: List[Dict[str, Any]] = []
+    for key in ratio_keys:
+        val = ratio_values.get(key)
+        if val is not None and np.isfinite(val):
+            stage_dev = abs(val - 1.0)
+            stage_deviations.append({
+                "stage": key,
+                "ratio": val,
+                "deviation_from_unity": stage_dev,
+                "contributes_loss": val < 1.0,  # <1.0 means amplitude reduction
+                "contributes_gain": val > 1.0,  # >1.0 means amplitude amplification
+            })
+
+    # Sort by deviation magnitude (largest first)
+    stage_deviations.sort(key=lambda x: x["deviation_from_unity"], reverse=True)
+
+    # Identify the primary deviation source
+    primary_deviation_stage = stage_deviations[0] if stage_deviations else None
+
+    return {
+        "spec_reference": "specs/spec-ptycho-core.md §Normalization Invariants",
+        "tolerance": tolerance,
+        "individual_ratios": ratio_values,
+        "cumulative_products": cumulative_products,
+        "full_chain_product": full_chain_product,
+        "deviation_from_unity": deviation_from_unity,
+        "relative_deviation": relative_deviation,
+        "passes_tolerance": passes_tolerance,
+        "stage_deviations": stage_deviations,
+        "primary_deviation_stage": primary_deviation_stage,
+        "symmetry_violated": (
+            passes_tolerance is False
+            if passes_tolerance is not None
+            else None
+        ),
+    }
 
 
 def build_stage_ratio_summary(
@@ -442,6 +536,8 @@ def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
         scenario.ground_truth_amplitude,
         amplitude_metrics,
     )
+    # Compute normalization invariant check per specs/spec-ptycho-core.md §Normalization Invariants
+    normalization_invariant = compute_normalization_invariant_check(stage_ratios)
     prediction_scale_meta = run_metadata.get("prediction_scale")
 
     offsets = (inference_stats.get("offsets") or {}).copy()
@@ -501,6 +597,7 @@ def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
             "ratios": stage_ratios,
             "largest_drop": largest_drop,
             "scaling_analysis": scaling_analysis,
+            "normalization_invariant": normalization_invariant,
         },
     }
 
@@ -714,6 +811,75 @@ def render_markdown(summary: Mapping[str, Any]) -> str:
                     continue
                 lines.append(f"| {key} | {fmt_value(value)} |")
             lines.append("")
+
+        # Normalization Invariant section per specs/spec-ptycho-core.md §Normalization Invariants
+        norm_inv = derived.get("normalization_invariant") or {}
+        if norm_inv:
+            lines.append("### Normalization Invariant Check")
+            lines.append("")
+            lines.append(f"**Spec Reference:** `{norm_inv.get('spec_reference', 'specs/spec-ptycho-core.md §Normalization Invariants')}`")
+            lines.append("")
+            lines.append(
+                "Per the spec, symmetry SHALL hold: `X_scaled = s · X`. "
+                "The product of stage ratios (raw→truth) should ideally equal 1.0 for symmetric normalization."
+            )
+            lines.append("")
+
+            # Show cumulative products table
+            cumulative = norm_inv.get("cumulative_products") or {}
+            individual = norm_inv.get("individual_ratios") or {}
+            lines.append("| Stage Transition | Individual Ratio | Cumulative Product |")
+            lines.append("| --- | ---: | ---: |")
+            for key, label in RATIO_LABELS:
+                ind_val = individual.get(key)
+                cum_val = cumulative.get(key)
+                lines.append(f"| {label} | {fmt_value(ind_val)} | {fmt_value(cum_val)} |")
+            lines.append("")
+
+            # Show invariant summary
+            full_product = norm_inv.get("full_chain_product")
+            deviation = norm_inv.get("deviation_from_unity")
+            tolerance = norm_inv.get("tolerance", NORMALIZATION_INVARIANT_TOLERANCE)
+            passes = norm_inv.get("passes_tolerance")
+            symmetry_violated = norm_inv.get("symmetry_violated")
+
+            status_emoji = "✅" if passes else ("❌" if passes is False else "⚠️")
+            lines.append(f"**Full chain product (raw→truth):** {fmt_value(full_product)}")
+            lines.append(f"**Deviation from unity:** {fmt_value(deviation)}")
+            lines.append(f"**Tolerance:** {fmt_value(tolerance, precision=2)} ({tolerance*100:.0f}%)")
+            lines.append(f"**Passes tolerance:** {status_emoji} {'Yes' if passes else ('No' if passes is False else 'N/A')}")
+            if symmetry_violated:
+                lines.append("")
+                lines.append(
+                    "⚠️ **Symmetry violated:** The normalization chain does not preserve amplitude "
+                    "as required by `specs/spec-ptycho-core.md §Normalization Invariants`."
+                )
+            lines.append("")
+
+            # Show stage deviations breakdown
+            stage_devs = norm_inv.get("stage_deviations") or []
+            if stage_devs:
+                lines.append("**Stage Deviation Breakdown** (sorted by impact):")
+                lines.append("")
+                lines.append("| Stage | Ratio | Deviation | Effect |")
+                lines.append("| --- | ---: | ---: | --- |")
+                for sd in stage_devs:
+                    effect = "loss" if sd.get("contributes_loss") else "gain"
+                    lines.append(
+                        f"| {sd.get('stage')} | {fmt_value(sd.get('ratio'))} | "
+                        f"{fmt_value(sd.get('deviation_from_unity'))} | {effect} |"
+                    )
+                lines.append("")
+
+            primary = norm_inv.get("primary_deviation_stage")
+            if primary:
+                lines.append(
+                    f"**Primary deviation source:** `{primary.get('stage')}` "
+                    f"(ratio={fmt_value(primary.get('ratio'))}, "
+                    f"deviation={fmt_value(primary.get('deviation_from_unity'))})"
+                )
+                lines.append("")
+
         lines.append("")
         scaling = derived.get("scaling_analysis") or {}
         if scaling:
