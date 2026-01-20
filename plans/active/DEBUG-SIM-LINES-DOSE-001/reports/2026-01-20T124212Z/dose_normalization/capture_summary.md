@@ -1,7 +1,7 @@
 # Capture Summary
 
 **Scenario:** dose_legacy_gs2
-**Timestamp:** 2026-01-20T12:51:27.505993+00:00
+**Timestamp:** 2026-01-20T13:03:46.034605+00:00
 
 ## Configuration
 
