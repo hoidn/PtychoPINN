@@ -64,6 +64,10 @@
     - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T050500Z/{reassembly_cli.log,reassembly_gs1_custom.json,reassembly_gs1_custom.md,reassembly_gs2_custom.json,reassembly_gs2_custom.md,pytest_sim_lines_pipeline_import.log}`
     - Next Actions: Feed the reassembly deltas into Phase C to patch `get_padded_size()`/canvas sizing or open a dedicated backlog item if the fix crosses initiatives.
   - *2026-01-16T060156Z:* Supervisor planning loop to pivot into Phase C: mined the B4 telemetry, marked Phase B complete in the implementation plan, and scoped C1 around updating `create_ptycho_data_container()` (plus a targeted pytest) so grouped offsets automatically expand `max_position_jitter`/padded size before training/inference. Refreshed `plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}` and `input.md` with the new Do Now, no new production artifacts yet. Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T060156Z/`.
+  - *2026-01-20T011212Z:* Implemented `_update_max_position_jitter_from_offsets()` with padded-size parity handling, wired it into `create_ptycho_data_container`, and updated `reassembly_limits_report.py` to apply the helper while basing the required canvas on `coords_offsets`. Added the regression pytest, refreshed test docs, and confirmed SIM-LINES reassembly telemetry now reports `fits_canvas=True` with zero loss for gs1/gs2 custom runs.
+    - Metrics: `ruff check ptycho/workflows/components.py plans/active/DEBUG-SIM-LINES-DOSE-001/bin/reassembly_limits_report.py tests/test_workflow_components.py`, `pytest --collect-only tests/test_workflow_components.py -q`, `pytest tests/test_workflow_components.py::TestCreatePtychoDataContainer::test_updates_max_position_jitter -v`, `pytest -v -m integration`
+    - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T060900Z/{git_diff.txt,ruff_check.log,pytest_collect_workflow_components.log,pytest_workflow_components.log,pytest_integration.log,reassembly_cli.log,reassembly_gs1_custom.json,reassembly_gs1_custom.md,reassembly_gs2_custom.json,reassembly_gs2_custom.md}`
+    - Next Actions: Run the Phase C2 gs1/gs2 ideal telemetry (if required) or proceed to the inference smoke validation once the padded-size update is accepted.
 
 ### [REFACTOR-MEMOIZE-CORE-001] Move RawData memoization decorator into core module
 - Depends on: None
@@ -114,3 +118,26 @@
   - *2026-01-09T020000Z:* Implemented `_run_tf_inference_and_reconstruct()` and `extract_ground_truth()`, deprecated `perform_inference`, and added 7 regression tests + integration workflow run (all green). Artifacts: `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T020000Z/`.
   - *2026-01-09T030000Z:* Reviewed Task 1 results and scoped Task 2-3 (demo script + smoke test). Artifacts: `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/`.
   - *2026-01-15T225312Z:* Added initial smoke tests for `scripts/pytorch_api_demo.py` (import + signature) and reran TF helper regression suite; slow execution tests still deselected pending demo parity. Artifacts: `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-15T225312Z/pytest_collect.log`, `pytest_tf_helper_regression.log`, `pytest_api_demo.log`.
+
+### [ORCH-ROUTER-001] Router prompt + orchestration dispatch layer
+- Depends on: None
+- Priority: Medium
+- Status: pending
+- Owner/Date: Codex/2026-01-20
+- Working Plan: `plans/active/ORCH-ROUTER-001/implementation.md`
+- Summary: `plans/active/ORCH-ROUTER-001/summary.md`
+- Reports Hub: `.artifacts/orch-router-001/`
+- Spec Owner: `scripts/orchestration/README.md`
+- Test Strategy: `plans/active/ORCH-ROUTER-001/test_strategy.md`
+- Goals:
+  - Add a router loop with deterministic routing + optional prompt override.
+  - Preserve sync semantics while enforcing allowlist and crash behavior.
+- Exit Criteria:
+  - Deterministic routing + router override verified.
+  - Allowlist and failure behavior documented and tested.
+  - Logging/state annotations captured as specified in the plan.
+- Attempts History:
+  - *2026-01-20T011707Z:* Drafted implementation plan, test strategy, and summary. Artifacts: `plans/active/ORCH-ROUTER-001/{implementation.md,test_strategy.md,summary.md}`.
+  - *2026-01-20T012145Z:* Refined the plan to locate the routing function in `scripts/orchestration/router.py`, document YAML-as-parameters-only, and clarify review cadence/state.json decisions. Artifacts: `plans/active/ORCH-ROUTER-001/{implementation.md,summary.md}`.
+  - *2026-01-20T012303Z:* Clarified routing contract to use review cadence every N iterations with actor gating and router precedence, and constrained state.json persistence to the last selected prompt only. Artifacts: `plans/active/ORCH-ROUTER-001/{implementation.md,summary.md}`.
+  - *2026-01-20T012542Z:* Drafted the Phase A routing contract artifact and marked A0-A2 complete in the plan (routing contract + state.json field + test strategy linkage). Artifacts: `plans/active/ORCH-ROUTER-001/{routing_contract.md,implementation.md,summary.md}`.
