@@ -3,12 +3,12 @@
 You are the reviewer. Your job is to validate the long integration test and report a clear success/failure result.
 
 Required steps:
+0) read index.md and identify all plans with recent activity
 1) Create a fresh output directory for this run and execute the test command below.
 2) If the test fails, run the same command one more time with a new output directory.
 3) If it fails again, investigate the failure reason, focusing on the last review_every_n iterations (or the fallback window below).
 4) Write a success or failure report (with explanation) as an output artifact.
-
-Additional review responsibilities (include in the report):
+5) 
 - Do a deep analysis of code changes since the previous review.
 - Evaluate the design quality of plans worked on since the last review.
 - Evaluate the implementation quality of changes since the last review.
