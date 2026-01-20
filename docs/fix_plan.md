@@ -286,6 +286,15 @@
       - **Both scenarios:** Full chain product 18.571 (vs ideal 1.0), symmetry violated per spec. Primary deviation source is `prediction_to_truth` (ratio ≈6.6-6.7×), NOT the loss composition — the loss wiring is correct but the model's output scale is inherently ~6× lower than ground truth.
     - **Interpretation:** The loss makeup is identical between short and long runs; the amplitude collapse is upstream of the loss function. Next hypothesis: the `IntensityScaler_inv` output scaling or the model architecture's output normalization is the culprit.
     - **Next Actions:** Investigate `IntensityScaler`/`IntensityScaler_inv` output scaling in `ptycho/model.py` to determine if prediction amplitudes are being inversely scaled by intensity_scale when they shouldn't be, or vice versa.
+  - *2026-01-20T173500Z:* **Phase D4 IntensityScaler state telemetry IMPLEMENTED.** Extended `run_phase_c2_scenario.py` with `extract_intensity_scaler_state()` to capture the trained `log_scale` tf.Variable value, compute `exp(log_scale)`, and compare against `params.cfg['intensity_scale']`. Also added training-container X stats capture. Extended `write_intensity_stats_outputs()` and `analyze_intensity_bias.py::render_markdown()` to emit the new section.
+    - **Metrics:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T173500Z/{gs2_ideal/*,gs2_ideal_nepochs60/*,bias_summary.json,bias_summary.md,analyze_intensity_scaler.log,pytest_cli_smoke.log,gs2_ideal_runner.log,gs2_ideal_nepochs60_runner.log}`
+    - **Key Findings:**
+      - IntensityScaler delta is ~6.5e-05 (negligible): `exp(log_scale)=988.2116` vs `params.cfg=988.2117`
+      - The `log_scale` variable is NOT drifting during training — it matches the params.cfg value almost exactly
+      - Full chain product remains 18.571 (vs ideal 1.0), confirming the bias originates in the normalization stages, NOT the IntensityScaler layer
+      - **H-SCALER-DRIFT RULED OUT:** The IntensityScaler is not the source of the amplitude bias
+    - **Next Actions:** With IntensityScaler ruled out, pivot investigation to the `grouped_to_normalized` stage (normalize_data math) or the `normalized_to_prediction` stage (model output scaling) to find the actual source of the ~6.7× amplitude gap.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
