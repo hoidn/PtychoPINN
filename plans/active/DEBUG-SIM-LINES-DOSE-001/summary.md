@@ -1,6 +1,11 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
 ### Turn Summary
+Removed the duplicated 2026-01-20T121500Z fix-plan entry flagged by the reviewer, logged the documentation hygiene in the ledger, and scoped the next Phase C4 increment to derive stage-by-stage amplitude ratios (raw → grouped → normalized → reconstruction) from the existing telemetry with outputs landing under the new 2026-01-20T132500Z hub.
+Next: extend `bin/analyze_intensity_bias.py` with the ratio diagnostics, rerun it for gs1_ideal + gs2_ideal, and capture the refreshed JSON/Markdown plus the CLI pytest guard in the new hub.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T132500Z/ (planning notes placeholder)
+
+### Turn Summary
 Authored the plan-local `analyze_intensity_bias.py` CLI that ingests scenario hubs and emits aggregated bias/intensity summaries, then ran it on the gs1_ideal + gs2_ideal bundles to capture JSON/Markdown evidence for Phase C4.
 The analyzer confirms both scenarios still undershoot amplitude by ≈2.5 despite identical bundle vs legacy `intensity_scale` values and highlights that gs2’s training metrics now hit NaN on every primary loss while normalization stage stats remain stable (RawData mean ≈0.146 → container mean ≈0.085).
 Next: use the consolidated telemetry to trace where the constant amplitude drop enters the workflow (likely upstream of the IntensityScaler) before touching shared modules.

@@ -567,3 +567,14 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Next Action: ready_for_implementation — implement analyzer CLI + run gs1/gs2 inputs + archive pytest guard.
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=2 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T121500Z/ next_action=build analyzer CLI + run gs1/gs2 inputs + pytest guard
+# 2026-01-20T07:46:03Z: DEBUG-SIM-LINES-DOSE-001 — Doc hygiene + ratio diagnostics plan
+
+- dwell: 1 (manual override reset the counter; this loop handled doc hygiene + planning)
+- Action type: Review/Planning — deduped the duplicate 2026-01-20T121500Z attempts entry, logged the maintenance task, and planned the next Phase C4 increment.
+- Documents reviewed: docs/index.md, docs/findings.md, docs/TESTING_GUIDE.md, docs/fix_plan.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py, specs/spec-ptycho-core.md §Normalization, input.md.
+- Key updates:
+  - Removed the duplicated attempts bullet in docs/fix_plan.md, added a doc-hygiene entry, and recorded the new ratio-diagnostics plan (artifacts hub 2026-01-20T132500Z).
+  - Synced plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md plus galph notes with the doc fix + next-step scope.
+  - Rewrote input.md with the stage-ratio Do Now (extend analyzer, rerun gs1_ideal/gs2_ideal, pytest guard) so Ralph has a production task queued.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T132500Z/ next_action=extend analyzer with per-stage ratios + rerun gs1_ideal/gs2_ideal analyzer + pytest guard
