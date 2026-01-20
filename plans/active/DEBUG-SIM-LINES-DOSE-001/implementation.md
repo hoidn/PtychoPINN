@@ -300,7 +300,7 @@ gs2_ideal healthy, gs1_ideal NaN after CONFIG-001 fix
       Test: N/A
 - [x] C4d: Extend the bias analyzer to compute per-scenario prediction↔truth scaling diagnostics (best-fit scalar, ratio distribution, rescaled error) so we can prove whether a constant amplitude factor explains the ≈12× drop before touching loader/workflow code.
       - Evidence: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143000Z/{bias_summary.json,bias_summary.md}` now records ratio distributions + least-squares scalars (gs1_ideal best scalar≈1.878, gs2_ideal ratios empty due to NaNs).
-      - Guard: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (`pytest_cli_smoke.log` in the same hub).
+      - Guard: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 - [x] C4e: Prototype amplitude rescaling in the workflow layer by applying the recorded scaling factor (bundle `intensity_scale` or analyzer least-squares scalar) before saving stitched outputs, then rerun gs1_ideal + gs2_ideal to confirm whether a deterministic scalar closes the ≈12× gap.
       - Implementation: add an opt-in rescaling hook to `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py` (and mirror it in `scripts/studies/sim_lines_4x/pipeline.py::run_inference`) so predictions can be multiplied by either the bundle `intensity_scale` or the analyzer-derived scalar before stats/PNG emission, then persist the chosen scalar in `run_metadata`.
@@ -328,13 +328,13 @@ gs2_ideal healthy, gs1_ideal NaN after CONFIG-001 fix
 - H-ARCHITECTURE — Model/forward-path wiring changed between repositories.
 
 ### Checklist
-- [ ] D1: **Validate loss configuration parity vs dose_experiments.** *(REOPENED 2026-01-20 reviewer override — D1a–D1c pending)*  
-      The earlier D1 artifacts misrepresented the default (`loss_fn='nll'`) loss weights because the CLI treated conditional `cfg[...]` assignments as defaults. Re-opened to capture the actual runtime configs and refresh the comparison evidence before touching loss weights in sim_lines.
-      - [ ] **D1a — Capture legacy runtime configs.** Execute the `dose_experiments_param_scan.md` `init()` function in-process with a stubbed `ptycho.params.cfg`, snapshot the resulting `cfg` dictionary for both `loss_fn='nll'` (default) and `loss_fn='mae'`, and persist JSON + Markdown under the current report hub.
-      - [ ] **D1b — Fix the comparison CLI.** Update `bin/compare_sim_lines_params.py` so conditional assignments from the legacy script are labeled explicitly instead of treated as defaults. Emit a `dose_loss_modes` section (per loss_fn) in the JSON diff plus a Markdown table summarizing runtime-configured weights alongside the sim_lines snapshots.
-      - [ ] **D1c — Re-evaluate the hypothesis.** Rerun the diff with the corrected CLI, summarize the true runtime loss weights in `reports/<timestamp>/summary.md`, and update this plan + docs/fix_plan.md so Phase D decisions cite the new evidence rather than the superseded inversion claim.
-      - Evidence path: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/{dose_loss_weights.json,dose_loss_weights.md,loss_config_diff.md,loss_config_diff.json,pytest_cli_smoke.log,summary.md}` (awaiting refresh once D1b/D1c complete).
-      - Guard: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+- [x] D1: **Validate loss configuration parity vs dose_experiments.** *(COMPLETE 2026-01-20T121449Z — H-LOSS-WEIGHT ruled out)*  
+      Extended `bin/compare_sim_lines_params.py` with runtime cfg capture and `--output-dose-loss-weights-markdown` flag. Regenerated all artifacts under `reports/2026-01-20T121449Z/`. **Corrected finding:** legacy dose_experiments does NOT set explicit loss weights under default NLL mode — it relies on `ptycho/params.cfg` defaults (`mae_weight=0.0, nll_weight=1.0`), which match sim_lines TrainingConfig defaults exactly.
+      - [x] **D1a — Capture legacy runtime configs.** Executed with stubbed cfg for both `loss_fn='nll'` and `loss_fn='mae'`; persisted JSON + Markdown.
+      - [x] **D1b — Fix the comparison CLI.** Added `--output-dose-loss-weights-markdown` flag and runtime cfg capture; conditional assignments labeled explicitly.
+      - [x] **D1c — Re-evaluate the hypothesis.** Reran the diff; both pipelines use identical loss weights (`mae_weight=0.0, nll_weight=1.0`). H-LOSS-WEIGHT is ruled out.
+      - Evidence path: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T121449Z/{dose_loss_weights.json,dose_loss_weights.md,loss_config_diff.md,loss_config_diff.json,legacy_params_cfg_defaults.json,pytest_cli_smoke.log,summary.md}`
+      - Guard: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
 - [ ] D2: **Normalization pipeline parity.**
       - Once loss weights are reconciled/documented, add instrumentation (plan-local first) to log normalization gains for both the simulator and loader across sim_lines and the legacy dose_experiments scripts so we can prove whether scaling symmetry (spec-ptycho-core.md §Normalization Invariants) holds end-to-end.
       - Capture RawData → grouped → normalized → container stage distributions side-by-side with the legacy pipeline, including any pre-scaling applied inside loss wiring.

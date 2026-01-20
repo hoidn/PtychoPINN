@@ -173,6 +173,11 @@ def parse_args() -> argparse.Namespace:
         help="Output JSON with runtime cfg snapshots for both loss_fn modes",
     )
     parser.add_argument(
+        "--output-dose-loss-weights-markdown",
+        type=pathlib.Path,
+        help="Output Markdown with runtime cfg snapshots for both loss_fn modes (labels conditional fields)",
+    )
+    parser.add_argument(
         "--nphotons",
         type=float,
         default=1e9,
@@ -565,6 +570,12 @@ def main() -> None:
             args.output_dose_loss_weights.write_text(
                 json.dumps(loss_weights_data, indent=2, sort_keys=True)
             )
+
+        # Write separate dose_loss_weights.md if requested
+        if args.output_dose_loss_weights_markdown:
+            args.output_dose_loss_weights_markdown.parent.mkdir(parents=True, exist_ok=True)
+            loss_modes_md = build_loss_modes_markdown(dose_loss_modes)
+            args.output_dose_loss_weights_markdown.write_text(loss_modes_md)
 
     # Phase D1 (new): Add legacy params.cfg defaults section
     if legacy_defaults is not None:
