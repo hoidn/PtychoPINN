@@ -95,7 +95,7 @@ Guidelines:
       - Use `git show dose_experiments:<path>` for sim, training, inference, stitching modules.
       - Record parameter defaults (probe_mask, probe_big, probe_scale, default_probe_scale, gridsize, nphotons, split, grouping).
       Test: N/A -- evidence capture only
-- [x] A1b: Run dose_experiments ground truth from the local checkout at `/home/ollie/Documents/PtychoPINN`.
+- [ ] A1b: Run dose_experiments ground truth from the local checkout at `/home/ollie/Documents/PtychoPINN`.
       - Required unless a written proof shows the run is redundant; skipping requires 100% certainty and explicit justification in the report hub.
       - Keep the working directory inside `/home/ollie/Documents/PtychoPINN` (already on `dose_experiments`).
       - Guard against the global editable install by verifying the import path first:
@@ -109,7 +109,7 @@ Guidelines:
         (must resolve under `/home/ollie/Documents/PtychoPINN`).
       - Run the dose_experiments entrypoints identified in A1 (simulate → train → infer) and archive outputs/logs under a new reports hub so we can treat those artifacts as the ground-truth baseline.
       - Copy or symlink logs/params snapshots into this repo’s `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<timestamp>/`; store bulky outputs under `.artifacts/DEBUG-SIM-LINES-DOSE-001/<timestamp>/` and link them from the report notes.
-      - **Status:** Waived. The parameter inventory + import smoke evidence stored in `reports/2026-01-16T000353Z/` already document the legacy defaults we need for comparison, and re-running the private checkout would only re-emit identical configs without improving the repro; justification recorded in the hub + summary.
+      - **Status:** Required (unwaivable). The private checkout has a different code structure, so static parameter scans are insufficient; a full run is required to establish ground-truth behavior and outputs.
       Test: N/A -- evidence capture only
 - [x] A2: Verify data-contract expectations for any RawData/NPZ outputs used in comparison.
       - Completed alongside the Phase A4 comparison diff: `reports/2026-01-16T003217Z/{comparison_draft.md,comparison_diff.json}` enumerate the RawData/grouped dict keys + dtypes pulled from the SIM-LINES snapshot.
