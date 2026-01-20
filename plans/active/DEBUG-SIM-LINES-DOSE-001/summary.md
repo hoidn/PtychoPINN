@@ -1,6 +1,12 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
 ### Turn Summary
+Embedded the gs1_ideal/gs2_ideal “stable profiles” directly into the plan-local runner so reduced loads now apply automatically and are captured in `run_metadata.json`.
+Reran both scenarios under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T063500Z/`, refreshed the inspection notes + reassembly telemetry, and recorded that gs1 remains NaN-heavy while gs2 produces healthy amplitude/phase; the synthetic helpers CLI smoke selector stayed green.
+Next: follow up on the gs1 NaN failure vs gs2 success (Phase C3) and decide whether to add diagnostics or tighten the workload further now that the profiles are baked in.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T063500Z/ (gs1_ideal_runner.log, gs2_ideal_runner.log, reassembly_cli.log, pytest_cli_smoke.log)
+
+### Turn Summary
 Validated the new Phase C2 runner outputs for gs1_ideal (512→256 groups) and gs2_ideal (256→128 groups), capturing amplitude/phase `.npy` dumps, PNGs, stats JSON, and run_metadata that show zero NaNs and jitter-expanded padded sizes meeting the spec.
 Confirmed `reassembly_limits_report.py` now reports `fits_canvas=true` for both ideal probes and the CLI smoke guard remained green, so the padded-size fix behaves as expected end-to-end.
 Next: bake the reduced-load profile directly into `run_phase_c2_scenario.py` (C2b), rerun both scenarios under a fresh artifacts hub, and refresh the reassembly telemetry/logs without manual overrides.
@@ -18,8 +24,6 @@ Resolved the integration test failure caused by odd padded sizes by enforcing N-
 Re-ran the targeted workflow selector, the integration marker, and the gs1/gs2 custom reassembly CLI to confirm `fits_canvas=True` with zero loss.
 Next: run the Phase C2 gs1/gs2 ideal telemetry or move to the inference smoke validation once this padded-size update is accepted.
 Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T060900Z/ (reassembly_cli.log, pytest_integration.log)
-
-# DEBUG-SIM-LINES-DOSE-001 Summary
 
 ### Turn Summary
 Authored `bin/reassembly_limits_report.py` to replay the SIM-LINES snapshot, log padded-size inputs, and probe `reassemble_whole_object()` with both the legacy `get_padded_size()` and a spec-sized canvas.

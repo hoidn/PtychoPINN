@@ -1,0 +1,276 @@
+{
+  "metadata": {
+    "label": "gs2_ideal",
+    "legacy_max_position_jitter": 758,
+    "legacy_offset": 4,
+    "overrides": {},
+    "padded_size": 826,
+    "parameters": {
+      "N": 64,
+      "gridsize": 2,
+      "group_count": 1000,
+      "neighbor_count": 4,
+      "object_seed": 42,
+      "probe_big": false,
+      "probe_mask": true,
+      "probe_mode": "idealized",
+      "probe_scale": 10.0,
+      "sim_seed": 42,
+      "split_fraction": 0.5,
+      "test_count_estimate": 4000,
+      "total_images": 8000,
+      "train_count_estimate": 4000
+    },
+    "scenario": "gs2_ideal",
+    "snapshot": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json",
+    "timestamp": "2026-01-20T05:37:22.808030+00:00"
+  },
+  "subsets": {
+    "test": {
+      "actual_groups": 1000,
+      "canvas": {
+        "fits_canvas": true,
+        "max_combined_abs_offset": 383.1471172660616,
+        "padded_minus_required": 0,
+        "padded_size": 826,
+        "padded_to_required_ratio": 1.0,
+        "required_canvas": 826
+      },
+      "diffraction_shape": [
+        1000,
+        64,
+        64,
+        4
+      ],
+      "offsets": {
+        "combined": {
+          "axis_abs_max": [
+            382.69657868378783,
+            383.1471172660616
+          ],
+          "axis_stats": [
+            {
+              "abs_max": 382.69657868378783,
+              "axis": 0,
+              "max": 382.69657868378783,
+              "mean": 190.11437638024216,
+              "min": 10.03830960557492,
+              "std": 105.75156316942088
+            },
+            {
+              "abs_max": 383.1471172660616,
+              "axis": 1,
+              "max": 383.1471172660616,
+              "mean": 284.8520556108138,
+              "min": 190.23333979229912,
+              "std": 55.193719264063546
+            }
+          ],
+          "max_abs": 383.1471172660616,
+          "shape": [
+            1000,
+            1,
+            2,
+            4
+          ]
+        },
+        "coords_offsets": {
+          "axis_abs_max": [
+            380.6925988870037,
+            380.9807666539525
+          ],
+          "axis_stats": [
+            {
+              "abs_max": 380.6925988870037,
+              "axis": 0,
+              "max": 380.6925988870037,
+              "mean": 190.11437638024216,
+              "min": 12.10959153107564,
+              "std": 105.73351849494416
+            },
+            {
+              "abs_max": 380.9807666539525,
+              "axis": 1,
+              "max": 380.9807666539525,
+              "mean": 284.8520556108138,
+              "min": 195.03650199392825,
+              "std": 55.15954583314511
+            }
+          ],
+          "max_abs": 380.9807666539525,
+          "shape": [
+            1000,
+            1,
+            2,
+            1
+          ]
+        },
+        "coords_relative": {
+          "axis_abs_max": [
+            7.045207372536481,
+            7.6150255611609055
+          ],
+          "axis_stats": [
+            {
+              "abs_max": 7.045207372536481,
+              "axis": 0,
+              "max": 7.045207372536481,
+              "mean": 1.7452705947107462e-16,
+              "min": -6.96204738127156,
+              "std": 1.9535044037102947
+            },
+            {
+              "abs_max": 7.6150255611609055,
+              "axis": 1,
+              "max": 7.382815910152033,
+              "mean": 8.100187187665142e-16,
+              "min": -7.6150255611609055,
+              "std": 1.941944819355763
+            }
+          ],
+          "max_abs": 7.6150255611609055,
+          "shape": [
+            1000,
+            1,
+            2,
+            4
+          ]
+        }
+      },
+      "point_count": 4000,
+      "reassembly": {
+        "group_limit_used": 64,
+        "loss_fraction": 0.0,
+        "padded_sum": 689582208.0,
+        "reassembly_canvas_size": 826,
+        "required_sum": 689582208.0
+      },
+      "requested_groups": 1000,
+      "status": "ok",
+      "subset": "test"
+    },
+    "train": {
+      "actual_groups": 1000,
+      "canvas": {
+        "fits_canvas": true,
+        "max_combined_abs_offset": 383.230018915455,
+        "padded_minus_required": 0,
+        "padded_size": 824,
+        "padded_to_required_ratio": 1.0,
+        "required_canvas": 824
+      },
+      "diffraction_shape": [
+        1000,
+        64,
+        64,
+        4
+      ],
+      "offsets": {
+        "combined": {
+          "axis_abs_max": [
+            383.230018915455,
+            197.38487910538117
+          ],
+          "axis_stats": [
+            {
+              "abs_max": 383.230018915455,
+              "axis": 0,
+              "max": 383.230018915455,
+              "mean": 190.7309978097484,
+              "min": 9.885677918497862,
+              "std": 106.54879691419968
+            },
+            {
+              "abs_max": 197.38487910538117,
+              "axis": 1,
+              "max": 197.38487910538117,
+              "mean": 99.15618759930727,
+              "min": 9.035656668497705,
+              "std": 53.8836142720358
+            }
+          ],
+          "max_abs": 383.230018915455,
+          "shape": [
+            1000,
+            1,
+            2,
+            4
+          ]
+        },
+        "coords_offsets": {
+          "axis_abs_max": [
+            379.85383765725123,
+            192.61860202827694
+          ],
+          "axis_stats": [
+            {
+              "abs_max": 379.85383765725123,
+              "axis": 0,
+              "max": 379.85383765725123,
+              "mean": 190.73099780974837,
+              "min": 12.005725658092928,
+              "std": 106.53040483298606
+            },
+            {
+              "abs_max": 192.61860202827694,
+              "axis": 1,
+              "max": 192.61860202827694,
+              "mean": 99.15618759930727,
+              "min": 11.36945177635755,
+              "std": 53.84837660007723
+            }
+          ],
+          "max_abs": 379.85383765725123,
+          "shape": [
+            1000,
+            1,
+            2,
+            1
+          ]
+        },
+        "coords_relative": {
+          "axis_abs_max": [
+            9.849958322010423,
+            8.517969609937673
+          ],
+          "axis_stats": [
+            {
+              "abs_max": 9.849958322010423,
+              "axis": 0,
+              "max": 6.950046785071265,
+              "mean": -2.549072064539359e-16,
+              "min": -9.849958322010423,
+              "std": 1.9796388517782593
+            },
+            {
+              "abs_max": 8.517969609937673,
+              "axis": 1,
+              "max": 7.974825039849179,
+              "mean": -3.2951419370874646e-16,
+              "min": -8.517969609937673,
+              "std": 1.9483902467923602
+            }
+          ],
+          "max_abs": 9.849958322010423,
+          "shape": [
+            1000,
+            1,
+            2,
+            4
+          ]
+        }
+      },
+      "point_count": 4000,
+      "reassembly": {
+        "group_limit_used": 64,
+        "loss_fraction": 0.0,
+        "padded_sum": 694371392.0,
+        "reassembly_canvas_size": 824,
+        "required_sum": 694371392.0
+      },
+      "requested_groups": 1000,
+      "status": "ok",
+      "subset": "train"
+    }
+  }
+}

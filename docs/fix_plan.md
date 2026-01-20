@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-20 (ORCH-ORCHESTRATOR integration gate)
-**Active Focus:** ORCH-ORCHESTRATOR-001 — Phase D combined auto-commit
+**Last Updated:** 2026-01-20 (ORCH-AGENT-DISPATCH plan drafted)
+**Active Focus:** ORCH-AGENT-DISPATCH-001 — plan drafted
 
 ---
 
@@ -76,6 +76,10 @@
     - Notes: gs1 needed reduced group_count to avoid NaNs; both reassembly JSONs report `fits_canvas=true` with jitter-expanded padded sizes.
   - *2026-01-20T062804Z:* Reviewed the Phase C2 evidence, confirmed the jitter-driven padded size passes (`fits_canvas=true`, 0 NaNs) on both ideal scenarios, and logged a follow-up checklist (C2b) to bake the reduced-load profile (gs1: 512/256/8, gs2: 256/128/4) into `run_phase_c2_scenario.py` so reruns no longer depend on manual CLI overrides. New hub and telemetry updates will accompany that rerun.
   - *2026-01-20T061530Z:* Current loop — revisited the C2 scope, updated the working plan/status to Phase C verification, opened artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T061530Z/`, and drafted the Do Now for implementing `bin/run_phase_c2_scenario.py`, running gs1_ideal + gs2_ideal with PNG/NaN evidence, rerunning the reassembly telemetry, and guarding the flow with the synthetic helpers CLI pytest selector.
+  - *2026-01-20T063500Z:* Baked the `gs1_ideal`/`gs2_ideal` “stable profiles” directly into `run_phase_c2_scenario.py`, reran both scenarios under the new artifacts hub, refreshed the manual inspection notes + reassembly telemetry, and re-ran the synthetic helpers CLI smoke guard.
+    - Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+    - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T063500Z/{gs1_ideal_runner.log,gs2_ideal_runner.log,gs*_ideal/inference_outputs/*,gs*_ideal_notes.md,reassembly_cli.log,reassembly_gs1_ideal.json,reassembly_gs2_ideal.json,pytest_cli_smoke.log}`
+    - Notes: run_metadata now records the baked overrides (base_total_images/group_count/batch_size/neighbor_count) without CLI hacks; `gs2_ideal` stayed healthy with `fits_canvas=true`, while `gs1_ideal` still collapses to NaNs despite the reduced profile, so the NaN root cause remains open even though the workload knobs are fixed in-code.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
@@ -238,3 +242,24 @@
   - *2026-01-20T052323Z:* Ran integration marker gate for combined auto-commit changes.
     - Metrics: `pytest -v -m integration` (1 passed, 3 skipped)
     - Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T052323Z/pytest_integration.log`
+
+### [ORCH-AGENT-DISPATCH-001] Per-role/per-prompt agent dispatch (codex vs claude)
+- Depends on: ORCH-ORCHESTRATOR-001 (combined mode baseline)
+- Priority: Medium
+- Status: pending — plan drafted
+- Owner/Date: Codex/2026-01-20
+- Working Plan: `plans/active/ORCH-AGENT-DISPATCH-001/implementation.md`
+- Summary: `plans/active/ORCH-AGENT-DISPATCH-001/summary.md`
+- Reports Hub: `plans/active/ORCH-AGENT-DISPATCH-001/reports/`
+- Spec Owner: `scripts/orchestration/README.md`
+- Test Strategy: `plans/active/ORCH-AGENT-DISPATCH-001/test_strategy.md`
+- Goals:
+  - Allow selecting different agent CLIs by role or prompt (ex: codex for supervisor.md, claude for main.md).
+  - Preserve default behavior when no agent mapping is configured.
+  - Make combined mode resolve agent per selected prompt with explicit logging.
+- Exit Criteria:
+  - Agent resolution precedence implemented and documented.
+  - Combined mode uses router-selected prompt to resolve agent.
+  - Tests pass and orchestration docs/test registry updated with evidence.
+- Attempts History:
+  - *2026-01-20T053513Z:* Drafted implementation plan, summary, and test strategy for agent dispatch. Artifacts: `plans/active/ORCH-AGENT-DISPATCH-001/{implementation.md,summary.md,test_strategy.md}`.

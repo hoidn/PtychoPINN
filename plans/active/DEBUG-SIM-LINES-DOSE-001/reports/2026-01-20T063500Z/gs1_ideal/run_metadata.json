@@ -1,0 +1,76 @@
+{
+  "amp_png_range": {
+    "vmax": 1e-09,
+    "vmin": 0.0
+  },
+  "artifacts": {
+    "amplitude_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T063500Z/gs1_ideal/inference_outputs/amplitude.npy",
+    "amplitude_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T063500Z/gs1_ideal/inference_outputs/amplitude.png",
+    "inference_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T063500Z/gs1_ideal/inference_outputs",
+    "phase_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T063500Z/gs1_ideal/inference_outputs/phase.npy",
+    "phase_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T063500Z/gs1_ideal/inference_outputs/phase.png",
+    "stats_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T063500Z/gs1_ideal/inference_outputs/stats.json",
+    "train_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T063500Z/gs1_ideal/train_outputs"
+  },
+  "buffer": 10.0,
+  "cli_args": {
+    "amp_vmax": null,
+    "base_total_images": null,
+    "batch_size": null,
+    "buffer": null,
+    "gridsize": null,
+    "group_count": null,
+    "group_limit": 64,
+    "group_multiplier": 1,
+    "image_multiplier": 1,
+    "neighbor_count": null,
+    "nepochs": 5,
+    "nphotons": null,
+    "object_seed": null,
+    "output_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T063500Z/gs1_ideal",
+    "probe_big": null,
+    "probe_mask": null,
+    "probe_mode": null,
+    "probe_scale": null,
+    "scenario": "gs1_ideal",
+    "sim_seed": null,
+    "snapshot": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json",
+    "split_fraction": null
+  },
+  "elapsed_seconds": 89.92,
+  "group_count": 256,
+  "group_limit": 64,
+  "neighbor_count": 4,
+  "nepochs": 5,
+  "nphotons": 1000000000.0,
+  "object_seed": 42,
+  "probe_big": null,
+  "probe_mask": null,
+  "probe_mode": "idealized",
+  "probe_scale": 10.0,
+  "profile": {
+    "active": true,
+    "applied": {
+      "base_total_images": 512,
+      "batch_size": 8,
+      "group_count": 256
+    },
+    "defaults": {
+      "base_total_images": 512,
+      "batch_size": 8,
+      "group_count": 256
+    },
+    "effective_batch_size": 8,
+    "effective_group_count": 256,
+    "label": "stable_profile_gs1_ideal",
+    "name": "gs1_ideal",
+    "skipped": {}
+  },
+  "scenario": "gs1_ideal",
+  "sim_seed": 42,
+  "split_fraction": 0.5,
+  "test_count": 256,
+  "timestamp": "2026-01-20T05:35:19.565156+00:00",
+  "total_images": 512,
+  "train_count": 256
+}

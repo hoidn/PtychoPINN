@@ -44,6 +44,22 @@ DEFAULT_SNAPSHOT = Path(
     "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json"
 )
 
+STABLE_PROFILES: Dict[str, Dict[str, Any]] = {
+    "gs1_ideal": {
+        "label": "stable_profile_gs1_ideal",
+        "base_total_images": 512,
+        "group_count": 256,
+        "batch_size": 8,
+    },
+    "gs2_ideal": {
+        "label": "stable_profile_gs2_ideal",
+        "base_total_images": 256,
+        "group_count": 128,
+        "batch_size": 4,
+        "neighbor_count": 4,
+    },
+}
+
 
 def str2bool(value: str) -> bool:
     lowered = value.strip().lower()
@@ -122,6 +138,83 @@ def load_snapshot(
         raise ValueError(f"No scenarios found in snapshot: {snapshot_path}")
     custom_probe_path = Path(data.get("custom_probe_path", str(CUSTOM_PROBE_PATH)))
     return run_params, scenarios, custom_probe_path
+
+
+def _warn_profile_override(field: str, preferred: Any, override: Any, label: str) -> None:
+    flag = "--" + field.replace("_", "-")
+    print(
+        f"[runner][profile][warn] manual override {flag}={override} "
+        f"disables {label} default {preferred}"
+    )
+
+
+def apply_stable_profile_if_needed(
+    scenario_name: str,
+    args: argparse.Namespace,
+    params: RunParams,
+    default_group_count: int,
+) -> Tuple[RunParams, Dict[str, Any]]:
+    profile = STABLE_PROFILES.get(scenario_name)
+    if not profile:
+        return params, {}
+    label = profile.get("label", scenario_name)
+    applied: Dict[str, Any] = {}
+    skipped: Dict[str, Dict[str, Any]] = {}
+    new_params = params
+    profile_group_count: int | None = None
+    profile_batch_size: int | None = None
+
+    for field in ("base_total_images", "neighbor_count"):
+        if field not in profile:
+            continue
+        preferred = profile[field]
+        arg_value = getattr(args, field, None)
+        if arg_value is None:
+            new_params = dataclasses.replace(new_params, **{field: preferred})
+            applied[field] = preferred
+        else:
+            skipped[field] = {"preferred": preferred, "override": arg_value, "reason": "cli_override"}
+            _warn_profile_override(field, preferred, arg_value, label)
+
+    if "group_count" in profile:
+        preferred_group_count = profile["group_count"]
+        if args.group_count is None:
+            profile_group_count = preferred_group_count
+            applied["group_count"] = preferred_group_count
+        else:
+            skipped["group_count"] = {
+                "preferred": preferred_group_count,
+                "override": args.group_count,
+                "reason": "cli_override",
+            }
+            _warn_profile_override("group_count", preferred_group_count, args.group_count, label)
+
+    if "batch_size" in profile:
+        preferred_batch = profile["batch_size"]
+        if args.batch_size is None:
+            profile_batch_size = preferred_batch
+            applied["batch_size"] = preferred_batch
+        else:
+            skipped["batch_size"] = {
+                "preferred": preferred_batch,
+                "override": args.batch_size,
+                "reason": "cli_override",
+            }
+            _warn_profile_override("batch_size", preferred_batch, args.batch_size, label)
+
+    metadata = {
+        "name": scenario_name,
+        "label": label,
+        "defaults": {k: v for k, v in profile.items() if k != "label"},
+        "applied": applied,
+        "skipped": skipped,
+        "active": bool(applied),
+        "effective_group_count": profile_group_count or default_group_count,
+        "effective_batch_size": profile_batch_size,
+    }
+    if applied:
+        print(f"[runner][profile] Applied {label}: {applied}")
+    return new_params, metadata
 
 
 def scenario_spec_from_entry(entry: Mapping[str, Any], args: argparse.Namespace) -> ScenarioSpec:
@@ -288,7 +381,16 @@ def main() -> None:
     ensure_dir(inference_dir)
 
     group_count_snapshot = scenario_entry.get("group_count") or params.group_count
-    group_count = args.group_count if args.group_count is not None else group_count_snapshot
+    params, profile_metadata = apply_stable_profile_if_needed(
+        scenario.name,
+        args,
+        params,
+        group_count_snapshot,
+    )
+    profile_group_count = profile_metadata.get("effective_group_count", group_count_snapshot)
+    profile_batch_size = profile_metadata.get("effective_batch_size")
+
+    group_count = args.group_count if args.group_count is not None else profile_group_count
     group_count = int(group_count * args.group_multiplier)
 
     total_images, train_count, test_count = derive_counts(
@@ -343,6 +445,8 @@ def main() -> None:
     )
     if args.batch_size is not None:
         train_config = dataclasses.replace(train_config, batch_size=args.batch_size)
+    elif profile_batch_size is not None:
+        train_config = dataclasses.replace(train_config, batch_size=profile_batch_size)
 
     start_time = time.time()
     run_training(train_raw, test_raw, train_config)
@@ -428,6 +532,8 @@ def main() -> None:
             "stats_json": str(inference_dir / "stats.json"),
         },
     }
+    if profile_metadata:
+        metadata["profile"] = profile_metadata
     (scenario_dir / "run_metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True))
     print(f"[runner] Inference complete; stats saved to {inference_dir / 'stats.json'}")
     print(f"[runner] Outputs written to {scenario_dir}")

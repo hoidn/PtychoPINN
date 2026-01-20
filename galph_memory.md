@@ -473,3 +473,10 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - input.md rewritten with the C2b Do Now (code change + reruns + pytest guard) targeting artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T063500Z/`.
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 ralph_last_commit=a49c5d85 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T061530Z/ next_action=bake stable profiles into run_phase_c2_scenario.py (C2b) and rerun gs1_ideal/gs2_ideal with refreshed evidence
+
+# 2026-01-20T06:35:00Z: DEBUG-SIM-LINES-DOSE-001 — C2b stable profile reruns
+
+- dwell: 0 (fresh loop after the C2b planning)
+- Focus: DEBUG-SIM-LINES-DOSE-001 (Phase C2b verification)
+- Observation: Embedding the reduced-load “stable profile” into `run_phase_c2_scenario.py` ensures the runner auto-applies the gs1/gs2 overrides and records them in `run_metadata.json`/`reassembly_limits` logs, but gs1_ideal still collapses to NaNs even with the lighter workload whereas gs2_ideal remains healthy with `fits_canvas=true`.
+- Implication: The gs1 failure is no longer tied to forgotten CLI overrides—there’s a gs1-specific instability that needs investigation in Phase C3 (likely training dynamics or per-scenario configuration) while gs2 evidence can serve as the control case.
