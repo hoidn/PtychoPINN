@@ -1,34 +1,18 @@
-# User Input
+# Reviewer Findings — Action Required
 
-## Priority Override
+## Summary
+Phase D1 concluded that `dose_experiments` uses MAE loss while `sim_lines_4x` uses NLL, but that comparison is based on a parsing bug. The new `compare_sim_lines_params.py` records the branch inside `dose_experiments`’ `init()` that only fires when `loss_fn == 'mae'`. The default path (`loss_fn='nll'`) leaves the weights untouched, so the Markdown/JSON diff and docs/fix_plan.md now cite a MAE/NLL inversion that may not exist. We need to fix the tooling (or capture actual runtime configs) before reconfiguring loss weights.
 
-**Resume DEBUG-SIM-LINES-DOSE-001 Phase D — Amplitude Bias Investigation**
+## Evidence
+- `notebooks/dose.py:3-34` — `cfg['mae_weight'] = 1.` and `cfg['nll_weight'] = 0.` live under `if loss_fn == 'mae'`; defaults remain NLL unless the caller overrides the argument.
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/compare_sim_lines_params.py` — Phase D1 change blindly captures the first assignment per key.
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/loss_config_diff.md` and `docs/fix_plan.md` now promote the incorrect MAE conclusion.
 
-The initiative was prematurely marked as complete. "Training without NaN" is NOT a valid success condition — the exit criterion requires "recon success" = actual working reconstructions matching dose_experiments behavior.
+## Requested Plan Update
+- Update the Phase D checklist to add a task that validates the actual loss weights used by `dose_experiments` (e.g., record the `loss_fn` argument during the legacy run or parse the `params.dill` artifacts) before touching sim_lines losses.
+- Fix or replace `compare_sim_lines_params.py` so conditional assignments in `dose_experiments_param_scan.md` aren’t misinterpreted as defaults.
 
-### Current State
-- NaN crashes fixed (CONFIG-001 bridging applied in C4f)
-- **Amplitude bias (~3-6x undershoot) remains** — this is the actual problem
-- Reconstructions do NOT match dose_experiments quality
-
-### Phase D Goals
-1. Identify why reconstructed amplitude undershoots ground truth by 3-6x
-2. Compare sim_lines_4x output quality against dose_experiments baseline
-3. Apply fix to achieve reconstruction parity (not just "no crashes")
-
-### Hypotheses to Investigate
-- **H-LOSS-WEIGHT**: Loss function weighting differs from dose_experiments
-- **H-NORMALIZATION**: Intensity normalization pipeline introduces bias
-- **H-TRAINING-PARAMS**: Hyperparameters (lr, epochs, batch size) insufficient
-- **H-ARCHITECTURE**: Model architecture mismatch vs legacy
-
-### Key Evidence
-- All scenarios show amplitude bias: gs1_ideal, gs1_custom, gs2_ideal, gs2_custom
-- Least-squares scaling factors (~1.7-2.0) cannot fully explain the gap
-- Both probe types fail equally after CONFIG-001 fix (so not probe-specific)
-
-### Artifacts Hub
-`plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T200000Z/`
-
-### Do Now
-Start Phase D investigation. First step: compare loss function configuration between sim_lines_4x and dose_experiments to identify any weighting differences.
+## Next Steps for Supervisor
+1. Decide whether to modify the plan-local CLI (e.g., execute the legacy `init()` with both `loss_fn` options and capture resulting cfg) or to mine existing `params.dill` logs to learn the real loss weights.
+2. Ensure docs/fix_plan.md and the plan summary stop claiming MAE/NLL inversion until that evidence exists.
+3. Only after the loss mode is verified should we schedule any sim_lines reruns with MAE.
