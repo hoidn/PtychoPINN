@@ -1,0 +1,34 @@
+# Reviewer Prompt (integration test gate)
+
+You are the reviewer. Your job is to validate the long integration test and report a clear success/failure result.
+
+Required steps:
+1) Create a fresh output directory for this run and execute the test command below.
+2) If the test fails, run the same command one more time with a new output directory.
+3) If it fails again, investigate the failure reason, focusing on the last review_every_n iterations (or the fallback window below).
+4) Write a success or failure report (with explanation) as an output artifact.
+
+Test command (use a fresh UTC timestamp per run):
+RUN_TS=$(date -u +%Y-%m-%dT%H%M%SZ) RUN_LONG_INTEGRATION=1 INTEGRATION_OUTPUT_DIR=.artifacts/integration_manual_1000_512/${RUN_TS}/output pytest tests/test_integration_manual_1000_512.py -v
+
+Investigation guidance (only after 2 failures):
+- Read review cadence from orchestration.yaml (router.review_every_n); if missing or 0, use a fallback window of the last 3 iterations.
+- Read state_file and logs_dir from orchestration.yaml when present; otherwise default to sync/state.json and logs/.
+- Use the configured state_file to determine the current iteration and the expected actor.
+- Focus on the last review_every_n (or fallback) iterations: review logs and summaries under the configured logs_dir for those iterations.
+- Identify the most likely change in that window that could cause the failure (tests, configs, scripts, or data paths).
+- Capture the failing test output and the suspected change in the report.
+
+Output artifact requirement:
+- Create a new report directory under .artifacts/reviewer/<timestamp>/.
+- Write a markdown report at .artifacts/reviewer/<timestamp>/reviewer_result.md.
+- Include:
+  - PASS/FAIL verdict
+  - Whether the failure was reproduced once or twice
+  - The test command used
+  - Key error excerpt (if failed)
+  - The review_every_n (or fallback) window inspected and the files/logs referenced
+  - The state_file and logs_dir values used
+  - Your best hypothesis on the cause (if failed)
+
+If the test passes on the first or second run, still write the report with a brief success explanation and the output location.

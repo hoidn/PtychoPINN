@@ -27,10 +27,10 @@
 7. Router-only mode (if enabled) is documented and tested with allowlist + expected_actor enforcement.
 
 ## Compliance Matrix (Mandatory)
-- [ ] **Spec Constraint:** scripts/orchestration/README.md -- sync state + dispatch contract
-- [ ] **Fix-Plan Link:** docs/fix_plan.md -- ORCH-ROUTER-001
-- [ ] **Finding/Policy ID:** PYTHON-ENV-001 (docs/DEVELOPER_GUIDE.md)
-- [ ] **Test Strategy:** plans/active/ORCH-ROUTER-001/test_strategy.md
+- [x] **Spec Constraint:** scripts/orchestration/README.md -- sync state + dispatch contract
+- [x] **Fix-Plan Link:** docs/fix_plan.md -- ORCH-ROUTER-001
+- [x] **Finding/Policy ID:** PYTHON-ENV-001 (docs/DEVELOPER_GUIDE.md)
+- [x] **Test Strategy:** plans/active/ORCH-ROUTER-001/test_strategy.md
 
 ## Spec Alignment
 - **Normative Spec:** scripts/orchestration/README.md

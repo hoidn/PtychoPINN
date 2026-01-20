@@ -3,7 +3,7 @@
 **Initiative:** ORCH-ROUTER-001
 **Phase:** Phase 0 / Pre-Implementation
 **Date:** 2026-01-20
-**Status:** Draft
+**Status:** Approved
 
 ---
 
@@ -21,7 +21,7 @@
 
 **Decision:**
 ```
-Use pytest in tests/tools/test_orchestration_router.py. No unittest.TestCase usage.
+Use pytest in scripts/orchestration/tests/test_router.py. No unittest.TestCase usage.
 ```
 
 ---
@@ -54,14 +54,14 @@ Use pytest in tests/tools/test_orchestration_router.py. No unittest.TestCase usa
 
 ### Unit Tests
 - **Scope:** Router decision logic, allowlist validation, override precedence.
-- **Location:** tests/tools/test_orchestration_router.py
+- **Location:** scripts/orchestration/tests/test_router.py
 - **Dependencies:** Temporary files (state.json, fake prompts) only.
 - **Execution time:** <1 second per test
 - **Run frequency:** Every commit
 
 ### Integration Tests
 - **Scope:** End-to-end router dispatch with temp state + config + prompt output.
-- **Location:** tests/tools/test_orchestration_router.py
+- **Location:** scripts/orchestration/tests/test_router.py
 - **Dependencies:** Temporary files only (no external binaries)
 - **Execution time:** <1 second per test
 - **Run frequency:** Pre-merge, CI
@@ -122,16 +122,16 @@ Unit and light integration tests in a single module. No slow or external-process
 
 ### Phase A: Red Tests (TDD)
 1. Write failing tests for deterministic routing + override
-2. Run: pytest tests/tools/test_orchestration_router.py -v
+2. Run: pytest scripts/orchestration/tests/test_router.py -v
 3. Expected: FAILED before implementation
 
 ### Phase B: Implementation
 1. Implement router logic
-2. Run: pytest tests/tools/test_orchestration_router.py -v
+2. Run: pytest scripts/orchestration/tests/test_router.py -v
 3. Expected: PASSED
 
 ### Phase C: Validation
-1. Run collect-only: pytest --collect-only tests/tools/test_orchestration_router.py -v
+1. Run collect-only: pytest --collect-only scripts/orchestration/tests/test_router.py -v
 2. Save logs to .artifacts/orch-router-001/
 
 ---
