@@ -1,0 +1,32 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 17 items
+
+<Dir PtychoPINN>
+  <Dir scripts>
+    <Package orchestration>
+      <Dir tests>
+        <Module test_orchestrator.py>
+          <Function test_combined_sequence>
+          <Function test_review_cadence_single>
+          <Function test_router_override_galph_only>
+          <Function test_router_disabled_uses_actor_prompts>
+          <Function test_combined_missing_prompt_marks_failed>
+          <Function test_router_only_without_output_marks_failed>
+          <Function test_combined_autocommit_after_turns>
+          <Function test_combined_autocommit_no_git>
+          <Function test_combined_autocommit_dry_run>
+          <Function test_combined_autocommit_includes_iteration>
+          <Function test_combined_autocommit_role_prefix>
+          <Function test_combined_autocommit_flag_plumbing>
+          <Function test_combined_autocommit_best_effort>
+          <Function test_role_mode_requires_role>
+          <Function test_role_mode_requires_sync>
+          <Function test_role_mode_forwards_supervisor_prompt>
+          <Function test_role_mode_forwards_loop_prompt>
+
+========================= 17 tests collected in 0.08s ==========================

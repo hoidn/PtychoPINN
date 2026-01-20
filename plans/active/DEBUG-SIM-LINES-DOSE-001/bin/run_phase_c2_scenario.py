@@ -278,8 +278,12 @@ def compute_array_stats(array: np.ndarray) -> Dict[str, float | int]:
 
 
 def save_png(data: np.ndarray, path: Path, title: str, cmap: str, vmin: float, vmax: float) -> None:
+    """Persist a 2D heatmap using matplotlib."""
+    array2d = data
+    if data.ndim > 2 and data.shape[-1] == 1:
+        array2d = np.squeeze(data, axis=-1)
     fig, ax = plt.subplots(figsize=(6, 5))
-    img = ax.imshow(data, cmap=cmap, vmin=vmin, vmax=vmax)
+    img = ax.imshow(array2d, cmap=cmap, vmin=vmin, vmax=vmax)
     ax.set_title(title)
     ax.axis("off")
     fig.colorbar(img, ax=ax, fraction=0.046, pad=0.04)
@@ -298,6 +302,195 @@ def describe_offsets(global_offsets: np.ndarray) -> Dict[str, Any]:
     axis_max = abs_offsets.max(axis=0)
     max_abs = float(abs_offsets.max())
     return {"axis_max_abs": [float(axis_max[0]), float(axis_max[1])], "max_abs": max_abs}
+
+
+def center_crop(array: np.ndarray, size: int) -> Tuple[np.ndarray, Dict[str, Any]]:
+    """Symmetrically crop an array to ``size`` keeping parity notes."""
+    data = np.asarray(array)
+    if size <= 0:
+        raise ValueError(f"Center crop size must be positive (got {size})")
+    if data.ndim < 2:
+        raise ValueError("Center crop requires at least 2 dimensions")
+    height, width = data.shape[0], data.shape[1]
+    if size > height or size > width:
+        raise ValueError(
+            f"Center crop size {size} exceeds array dimensions {(height, width)}"
+        )
+    start_y = (height - size) // 2
+    start_x = (width - size) // 2
+    end_y = start_y + size
+    end_x = start_x + size
+    parity_warning = ((height - size) % 2 != 0) or ((width - size) % 2 != 0)
+    if parity_warning:
+        print(
+            "[runner][crop][warn] Padded canvas minus object_size is odd; "
+            f"cropping uses floor start (array_shape={(height, width)}, size={size})"
+        )
+    slices = (slice(start_y, end_y), slice(start_x, end_x))
+    if data.ndim > 2:
+        slices = slices + (slice(None),) * (data.ndim - 2)
+    cropped = data[slices]
+    metadata = {
+        "input_shape": list(data.shape),
+        "target_size": int(size),
+        "start": [int(start_y), int(start_x)],
+        "end": [int(end_y), int(end_x)],
+        "parity_warning": parity_warning,
+    }
+    return cropped, metadata
+
+
+def save_ground_truth_artifacts(
+    object_guess: np.ndarray,
+    scenario_dir: Path,
+    amp_bounds: Tuple[float, float],
+    target_size: int,
+) -> Tuple[Dict[str, str], np.ndarray, np.ndarray]:
+    """Persist ground-truth amplitude/phase arrays + PNGs."""
+    amp_truth = np.abs(object_guess).astype(np.float32, copy=False)
+    phase_truth = np.angle(object_guess).astype(np.float32, copy=False)
+    amp_truth, _ = center_crop(amp_truth, target_size)
+    phase_truth, _ = center_crop(phase_truth, target_size)
+
+    amp_path = scenario_dir / "ground_truth_amp.npy"
+    phase_path = scenario_dir / "ground_truth_phase.npy"
+    np.save(amp_path, amp_truth)
+    np.save(phase_path, phase_truth)
+
+    amp_png = scenario_dir / "ground_truth_amp.png"
+    phase_png = scenario_dir / "ground_truth_phase.png"
+    amp_vmin, amp_vmax = amp_bounds
+    save_png(
+        amp_truth,
+        amp_png,
+        "Ground truth amplitude",
+        cmap="magma",
+        vmin=amp_vmin,
+        vmax=amp_vmax,
+    )
+    save_png(
+        phase_truth,
+        phase_png,
+        "Ground truth phase",
+        cmap="twilight",
+        vmin=-math.pi,
+        vmax=math.pi,
+    )
+    artifact_map = {
+        "amplitude_npy": str(amp_path),
+        "phase_npy": str(phase_path),
+        "amplitude_png": str(amp_png),
+        "phase_png": str(phase_png),
+    }
+    return artifact_map, amp_truth, phase_truth
+
+
+def _pearson_r(pred: np.ndarray, truth: np.ndarray) -> float | None:
+    pred_flat = np.asarray(pred, dtype=float).ravel()
+    truth_flat = np.asarray(truth, dtype=float).ravel()
+    mask = np.isfinite(pred_flat) & np.isfinite(truth_flat)
+    if not mask.any():
+        return None
+    pred_vals = pred_flat[mask]
+    truth_vals = truth_flat[mask]
+    if pred_vals.size < 2 or truth_vals.size < 2:
+        return None
+    pred_std = np.std(pred_vals)
+    truth_std = np.std(truth_vals)
+    if pred_std == 0.0 or truth_std == 0.0:
+        return None
+    cov = np.mean((pred_vals - pred_vals.mean()) * (truth_vals - truth_vals.mean()))
+    return float(cov / (pred_std * truth_std))
+
+
+def _compute_diff_metrics(
+    diff: np.ndarray, pred: np.ndarray, truth: np.ndarray
+) -> Dict[str, Any]:
+    diff_vals = np.asarray(diff, dtype=float)
+    pred_vals = np.asarray(pred, dtype=float)
+    truth_vals = np.asarray(truth, dtype=float)
+    mask = np.isfinite(diff_vals) & np.isfinite(pred_vals) & np.isfinite(truth_vals)
+    if not mask.any():
+        return {"count": 0, "mae": None, "rmse": None, "max_abs": None, "pearson_r": None}
+    diff_use = diff_vals[mask]
+    metrics = {
+        "count": int(diff_use.size),
+        "mae": float(np.mean(np.abs(diff_use))),
+        "rmse": float(np.sqrt(np.mean(np.square(diff_use)))),
+        "max_abs": float(np.max(np.abs(diff_use))),
+        "pearson_r": _pearson_r(pred_vals[mask], truth_vals[mask]),
+    }
+    return metrics
+
+
+def _extract_scalar_metrics(metrics: Mapping[str, Any]) -> Dict[str, float | None]:
+    scalars: Dict[str, float | None] = {}
+    for key in ("mae", "rmse", "max_abs", "pearson_r"):
+        value = metrics.get(key)
+        scalars[key] = float(value) if value is not None else None
+    return scalars
+
+
+def write_diff_artifacts(
+    amplitude_pred: np.ndarray,
+    amplitude_truth: np.ndarray,
+    phase_pred: np.ndarray,
+    phase_truth: np.ndarray,
+    output_dir: Path,
+) -> Dict[str, Any]:
+    """Generate diff PNGs + metrics JSON for amplitude/phase."""
+    comparison_path = output_dir / "comparison_metrics.json"
+    amp_pred = np.squeeze(amplitude_pred)
+    amp_truth = np.squeeze(amplitude_truth)
+    phase_pred = np.squeeze(phase_pred)
+    phase_truth = np.squeeze(phase_truth)
+
+    amp_diff = amp_pred - amp_truth
+    amp_diff_npy = output_dir / "amplitude_diff.npy"
+    np.save(amp_diff_npy, amp_diff.astype(np.float32))
+    amp_diff_png = output_dir / "amplitude_diff.png"
+    amp_range = max(float(np.nanmax(np.abs(amp_truth))), 1e-9)
+    save_png(
+        amp_diff,
+        amp_diff_png,
+        "Amplitude difference",
+        cmap="coolwarm",
+        vmin=-amp_range,
+        vmax=amp_range,
+    )
+    amp_metrics = _compute_diff_metrics(amp_diff, amp_pred, amp_truth)
+    amp_metrics["color_range"] = [-amp_range, amp_range]
+
+    phase_diff = np.angle(np.exp(1j * (phase_pred - phase_truth)))
+    phase_diff_npy = output_dir / "phase_diff.npy"
+    np.save(phase_diff_npy, phase_diff.astype(np.float32))
+    phase_diff_png = output_dir / "phase_diff.png"
+    save_png(
+        phase_diff,
+        phase_diff_png,
+        "Phase difference",
+        cmap="twilight",
+        vmin=-math.pi,
+        vmax=math.pi,
+    )
+    phase_metrics = _compute_diff_metrics(phase_diff, phase_pred, phase_truth)
+    phase_metrics["color_range"] = [-math.pi, math.pi]
+
+    metrics_payload = {
+        "amplitude": amp_metrics,
+        "phase": phase_metrics,
+    }
+    comparison_path.write_text(json.dumps(metrics_payload, indent=2, sort_keys=True))
+    return {
+        "metrics_path": str(comparison_path),
+        "metrics": metrics_payload,
+        "artifacts": {
+            "amplitude_diff_npy": str(amp_diff_npy),
+            "amplitude_diff_png": str(amp_diff_png),
+            "phase_diff_npy": str(phase_diff_npy),
+            "phase_diff_png": str(phase_diff_png),
+        },
+    }
 
 
 def _coerce_value(value: Any) -> float:
@@ -650,6 +843,9 @@ def main() -> None:
         group_limit=args.group_limit,
         custom_probe_path=custom_probe_path,
     )
+    target_size = params.object_size
+    amp, crop_metadata = center_crop(amp, target_size)
+    phase, _ = center_crop(phase, target_size)
     amplitude_path = inference_dir / "amplitude.npy"
     phase_path = inference_dir / "phase.npy"
     np.save(amplitude_path, amp.astype(np.float32))
@@ -664,6 +860,7 @@ def main() -> None:
         padded_size=int(legacy_params.get_padded_size()),
         N_value=params.N,
     )
+    stats["crop_metadata"] = crop_metadata
 
     amp_vmin = 0.0
     amp_vmax = args.amp_vmax if args.amp_vmax is not None else max(stats["amplitude"]["max"], 1e-9)
@@ -686,6 +883,24 @@ def main() -> None:
         vmin=phase_vmin,
         vmax=phase_vmax,
     )
+
+    ground_truth_artifacts, amp_truth, phase_truth = save_ground_truth_artifacts(
+        object_guess,
+        scenario_dir,
+        amp_bounds=(amp_vmin, amp_vmax),
+        target_size=target_size,
+    )
+    comparison_payload = write_diff_artifacts(
+        amplitude_pred=amp,
+        amplitude_truth=amp_truth,
+        phase_pred=phase,
+        phase_truth=phase_truth,
+        output_dir=scenario_dir,
+    )
+    comparison_summary = {
+        "amplitude": _extract_scalar_metrics(comparison_payload["metrics"]["amplitude"]),
+        "phase": _extract_scalar_metrics(comparison_payload["metrics"]["phase"]),
+    }
 
     metadata = {
         "scenario": scenario.name,
@@ -717,6 +932,15 @@ def main() -> None:
             "amplitude_png": str(inference_dir / "amplitude.png"),
             "phase_png": str(inference_dir / "phase.png"),
             "stats_json": str(inference_dir / "stats.json"),
+            "ground_truth_amplitude_npy": ground_truth_artifacts["amplitude_npy"],
+            "ground_truth_phase_npy": ground_truth_artifacts["phase_npy"],
+            "ground_truth_amplitude_png": ground_truth_artifacts["amplitude_png"],
+            "ground_truth_phase_png": ground_truth_artifacts["phase_png"],
+            "comparison_metrics": comparison_payload["metrics_path"],
+            "amplitude_diff_npy": comparison_payload["artifacts"]["amplitude_diff_npy"],
+            "amplitude_diff_png": comparison_payload["artifacts"]["amplitude_diff_png"],
+            "phase_diff_npy": comparison_payload["artifacts"]["phase_diff_npy"],
+            "phase_diff_png": comparison_payload["artifacts"]["phase_diff_png"],
         },
     }
     metadata["training_history"] = {
@@ -729,6 +953,18 @@ def main() -> None:
     metadata["training_history_path"] = history_rel
     metadata["training_summary_path"] = summary_rel
     metadata["training_summary_markdown_path"] = summary_md_rel
+    metadata["ground_truth_amp_path"] = ground_truth_artifacts["amplitude_npy"]
+    metadata["ground_truth_phase_path"] = ground_truth_artifacts["phase_npy"]
+    metadata["comparison_metrics_path"] = comparison_payload["metrics_path"]
+    metadata["comparison_metrics_summary"] = comparison_summary
+    metadata["ground_truth"] = ground_truth_artifacts
+    metadata["comparison"] = {
+        "metrics_json": comparison_payload["metrics_path"],
+        "metrics": comparison_payload["metrics"],
+        "metrics_summary": comparison_summary,
+        "diff_pngs": comparison_payload["artifacts"],
+    }
+    metadata["crop_metadata"] = crop_metadata
     if profile_metadata:
         metadata["profile"] = profile_metadata
     (scenario_dir / "run_metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True))
