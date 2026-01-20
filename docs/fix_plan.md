@@ -306,6 +306,21 @@
       - This scale mismatch explains a significant portion of the ~6.7× amplitude gap
     - **Interpretation:** The pipeline computes intensity_scale using the closed-form fallback formula `sqrt(nphotons)/(N/2)` rather than deriving it from actual data statistics. Per `specs/spec-ptycho-core.md §Normalization Invariants`, dataset-derived mode is preferred. The 1.7× scale mismatch combined with the normalization chain products could explain the observed amplitude bias.
     - **Next Actions:** Investigate where `intensity_scale` is computed in the pipeline (likely `ptycho/params.py` or `scripts/simulation/synthetic_helpers.py`) and determine whether switching to dataset-derived mode would correct the amplitude bias.
+  - *2026-01-20T234500Z:* **Phase D4b ROOT CAUSE IDENTIFIED — `calculate_intensity_scale()` uses fallback instead of dataset-derived scale.**
+    - **Analysis:** Traced the `intensity_scale` computation path through the codebase:
+      1. **`ptycho/diffsim.py:scale_nphotons()` (lines 68-77)** — Correctly implements dataset-derived scale: `s = sqrt(nphotons / mean(count_photons(X)))` where `count_photons = sum(X², axis=(1,2))`
+      2. **`ptycho/train_pinn.py:calculate_intensity_scale()` (lines 165-180)** — Uses **closed-form fallback ONLY**: `sqrt(nphotons) / (N/2)` — ignores the actual data statistics even though it receives `ptycho_data_container.X` as input!
+      3. The fallback formula assumes `mean(sum(X², axis=(1,2))) = (N/2)² = 1024`, but actual data shows `E_batch[Σ|Ψ|²] = 2995.97` — a 2.9× discrepancy.
+    - **Root Cause:** `calculate_intensity_scale()` in `train_pinn.py:173-175` has dead code: it accepts `ptycho_data_container` but doesn't use `.X` to compute actual statistics. The function contains a TODO comment (`# TODO assumes X is already normalized`) that was never implemented.
+    - **Spec Violation:** Per `specs/spec-ptycho-core.md §Normalization Invariants` lines 87-89: "Dataset-derived mode (preferred): `s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])` computed from illuminated objects over the dataset." The current implementation always uses the fallback.
+    - **Impact:** The 1.7× scale mismatch (988.21 / 577.74 = 1.71) propagates through the normalization chain, contributing to the observed amplitude bias. Since symmetry requires `X_scaled = s · X` and `Y_amp_scaled = s · X`, using the wrong `s` value breaks the model's ability to learn correct amplitude relationships.
+    - **Proposed Fix (D4c):** Modify `ptycho/train_pinn.py:calculate_intensity_scale()` to compute the actual dataset-derived scale from `ptycho_data_container.X` instead of using the closed-form fallback. This change affects a core module and requires CLAUDE.md approval per directive #6.
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/` (prior D4a telemetry), code analysis in this session.
+    - **Next Actions:**
+      1. Obtain approval to modify `ptycho/train_pinn.py` (core module change)
+      2. Implement the fix in `calculate_intensity_scale()` to use actual data statistics
+      3. Rerun gs2_ideal scenario with the fixed scale computation
+      4. Verify amplitude bias is reduced
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

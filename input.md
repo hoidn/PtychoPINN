@@ -1,57 +1,64 @@
-Summary: Capture dataset-derived vs fallback intensity scales so we can confirm whether a gain mismatch explains the ≈6.7× amplitude bias before changing normalization code.
-Focus: DEBUG-SIM-LINES-DOSE-001 — Phase D4 architecture/loss diagnostics (dataset intensity-scale telemetry)
+Summary: Phase D4b ROOT CAUSE IDENTIFIED — `train_pinn.py:calculate_intensity_scale()` uses fallback instead of dataset-derived scale. Prepare D4c fix proposal for supervisor approval.
+Focus: DEBUG-SIM-LINES-DOSE-001 — Phase D4c fix preparation (requires core module approval)
 Branch: paper
 Mapped tests: pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
 Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/
 
-Do Now (hard validity contract):
-- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py::{run_inference_and_reassemble,write_intensity_stats_outputs} — compute the dataset-derived intensity scale (`s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])` from `specs/spec-ptycho-core.md §Normalization Invariants`), retain the existing closed-form fallback, and persist both values plus their deltas/ratios inside `intensity_stats.json`, `run_metadata.json`, and the Markdown summary for each scenario.
-- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py::{load_intensity_stats,render_markdown} — parse the new dataset/fallback fields, expose them in the JSON payload, and render a “Intensity Scale Comparison” table ahead of the stage-ratio section so reviewers can see whether sim_lines is stuck on the fallback gain (988.21).
-- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py::main — rerun `gs2_ideal` (stable profile, 5 epochs) and `gs2_ideal` with `--nepochs 60` under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/{gs2_ideal,gs2_ideal_nepochs60}/`, regenerate `bias_summary.{json,md}` with the updated analyzer, and archive the CLI smoke pytest log.
-- Validate: pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
-- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/
+ROOT CAUSE SUMMARY:
+- `ptycho/train_pinn.py:calculate_intensity_scale()` (lines 165-180) uses closed-form fallback `sqrt(nphotons)/(N/2)` instead of dataset-derived scale
+- The function receives `ptycho_data_container.X` but ignores it — dead code at lines 173-175 with unimplemented TODO
+- Dataset-derived scale=577.74 vs Fallback scale=988.21 (ratio=0.585) — a 1.7× mismatch
+- Per `specs/spec-ptycho-core.md §Normalization Invariants` lines 87-89: dataset-derived mode is preferred
 
-How-To Map:
-1. `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md HUB=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z`.
-2. Update `run_phase_c2_scenario.py`:
-   - In `run_inference_and_reassemble`, compute `dataset_intensity_scale = sqrt(params.nphotons / np.mean(np.sum(test_raw.diff3d**2, axis=(1,2))))`, stash it in `intensity_info`, and pass it into `write_intensity_stats_outputs`.
-   - Extend `write_intensity_stats_outputs` so `intensity_stats.json`/Markdown (and `run_metadata.json`) include dataset scale, fallback scale, bundle scale, deltas, and ratios.
-3. Update `bin/analyze_intensity_bias.py` to read the new fields and render a dataset-vs-recorded table for each scenario in both JSON and Markdown before the stage-ratio narrative.
-4. Re-run the scenarios:
-   - Baseline: `python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py --scenario gs2_ideal --group-limit 64 --prediction-scale-source least_squares --output-dir "$HUB"/gs2_ideal | tee "$HUB"/gs2_ideal_runner.log`
-   - 60-epoch: `python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py --scenario gs2_ideal --nepochs 60 --group-limit 64 --prediction-scale-source least_squares --output-dir "$HUB"/gs2_ideal_nepochs60 | tee "$HUB"/gs2_ideal_nepochs60_runner.log`
-5. Regenerate the analyzer bundle with the updated script: `python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py --scenario gs2_base="$HUB"/gs2_ideal --scenario gs2_ne60="$HUB"/gs2_ideal_nepochs60 --output-dir "$HUB" | tee "$HUB"/analyze_dataset_scale.log`.
-6. Guard selector: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v | tee "$HUB"/pytest_cli_smoke.log`.
+PROPOSED FIX (D4c):
+Modify `ptycho/train_pinn.py:calculate_intensity_scale()` to compute actual dataset-derived scale:
 
-Pitfalls To Avoid:
-- Stay plan-local — do not touch `ptycho/model.py`, `ptycho/diffsim.py`, or `ptycho/tf_helper.py` (CLAUDE.md §2.6).
-- Keep CONFIG-001 bridging in place; dataset telemetry must not reorder `update_legacy_dict`.
-- Serialize new fields with plain Python scalars (`_serialize_scalar`) so `json.dump` works.
-- Cite the normative spec sections verbatim in Markdown rather than paraphrasing math.
-- Ensure analyzer changes degrade gracefully when older hubs lack the new fields.
-- Training must remain on GPU; stop if CUDA is unavailable rather than falling back to CPU (policy §12).
-- Write artifacts exclusively under the new hub; do not overwrite prior evidence.
-- Capture stdout/stderr with `tee` for every CLI/pytest invocation per TEST-CLI-001.
-- Reuse the baked gs2 profiles so diffs reflect instrumentation changes only.
-- Do not alter prediction-scale behavior beyond telemetry — we are measuring gain mismatches, not patching them yet.
+```python
+def calculate_intensity_scale(ptycho_data_container: PtychoDataContainer) -> float:
+    import tensorflow as tf
+    import numpy as np
+    from . import params as p
 
-If Blocked:
-- If either scenario rerun OOMs or crashes, stop immediately, dump the command + stack trace into `$HUB/blocker.md`, and record the blocker (with log path) in docs/fix_plan.md Attempts History before retrying smaller workloads or switching focus.
+    # Dataset-derived mode (preferred) per specs/spec-ptycho-core.md §Normalization Invariants
+    # s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])
+    X = ptycho_data_container.X
+    mean_photons = np.mean(np.sum(X.numpy()**2, axis=(1, 2)))
+    intensity_scale = np.sqrt(p.get('nphotons') / mean_photons)
+
+    return float(intensity_scale)
+```
+
+APPROVAL REQUIRED:
+- This change modifies `ptycho/train_pinn.py` which is a core module
+- Per CLAUDE.md directive #6: "Treat core physics/model code as stable. Do not modify [...] unless the active plan explicitly authorizes it."
+- The implementation plan (D4c) documents the approval requirement
+
+Do Now (Supervisor scope — NOT implementation):
+1. Review the root cause analysis documented in:
+   - docs/fix_plan.md (2026-01-20T234500Z entry)
+   - plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md (D4b checklist)
+   - plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md (latest turn summary)
+2. Decide whether to:
+   a) APPROVE D4c fix in `ptycho/train_pinn.py` (core module modification)
+   b) REQUEST additional evidence (e.g., run scenarios with manually patched scale)
+   c) DEFER to a separate initiative for core module changes
+3. If approving, update input.md with explicit authorization for D4c implementation
+
+Evidence Supporting Fix:
+- D4a telemetry in plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/
+- Dataset scale=577.74 vs Fallback=988.21 (ratio=0.585)
+- E_batch[Σ|Ψ|²]=2995.97 vs assumed (N/2)²=1024 — 2.9× discrepancy
+- diffsim.py:scale_nphotons() correctly implements dataset-derived scale (reference implementation)
 
 Findings Applied (Mandatory):
-- CONFIG-001 — Always sync `params.cfg` before legacy modules touch grouped data (docs/debugging/QUICK_REFERENCE_PARAMS.md).
-- SIM-LINES-CONFIG-001 — Maintain the plan-local CONFIG-001 bridge so NaN fixes remain active.
-- NORMALIZATION-001 — Treat dataset vs fallback scales as physics normalization only; cite `specs/spec-ptycho-core.md §Normalization Invariants`.
-- H-NEPOCHS-001 — Training-length hypothesis already rejected; telemetry must isolate gain mismatches instead of tweaking epochs/batch size.
-- TEST-CLI-001 — Archive CLI + pytest logs beside scenario outputs so reviewers can audit the guard selector.
+- CONFIG-001 — Always sync `params.cfg` before legacy modules touch grouped data.
+- SIM-LINES-CONFIG-001 — Maintain the plan-local CONFIG-001 bridge.
+- NORMALIZATION-001 — Dataset vs fallback scales are physics normalization; cite spec.
+- H-SCALE-MISMATCH — CONFIRMED: `train_pinn.py:calculate_intensity_scale()` uses fallback instead of dataset-derived scale.
 
 Pointers:
-- docs/fix_plan.md:180-320 — Phase D attempts history + new dataset-scale entry.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:320 — Phase D checklist (see D4a instrumentation task).
-- plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md:1-15 — Latest supervisor note describing this increment.
-- specs/spec-ptycho-core.md:70-110 — Normative intensity-scale math to cite in Markdown.
-- specs/spec-ptycho-workflow.md:1-80 — Loss/IntensityScaler architecture references for analyzer commentary.
-
-Next Up (optional):
-1. If dataset vs fallback scales match, pivot to gs1_ideal instrumentation to see whether gridsize=1 diverges post-normalization.
-2. If a mismatch appears, prep follow-up probing of `normalize_data` vs `IntensityScaler_inv` wiring in the training graph before proposing fixes.
+- ptycho/train_pinn.py:165-180 — Current `calculate_intensity_scale()` implementation (broken)
+- ptycho/diffsim.py:68-77 — Reference `scale_nphotons()` implementation (correct)
+- specs/spec-ptycho-core.md:87-89 — Normative dataset-derived mode definition
+- docs/fix_plan.md:309-323 — D4b root cause analysis entry
+- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:374-378 — D4c task definition

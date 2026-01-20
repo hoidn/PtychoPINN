@@ -363,6 +363,19 @@ gs2_ideal healthy, gs1_ideal NaN after CONFIG-001 fix
             - **Key Finding:** Dataset-derived scale=577.74 vs Fallback scale=988.21 (ratio=0.585). The pipeline uses the closed-form fallback instead of the preferred dataset-derived scale, causing a ~1.7× scale mismatch that could explain a significant portion of the amplitude bias.
             - Evidence: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/{gs2_ideal/*,gs2_ideal_nepochs60/*,bias_summary.md,pytest_cli_smoke.log}`
             - Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
+      - [x] **D4b — ROOT CAUSE IDENTIFIED:** *(COMPLETE 2026-01-20T234500Z)* Traced `intensity_scale` computation through the codebase and identified root cause in `ptycho/train_pinn.py:calculate_intensity_scale()`.
+            - **Analysis:**
+              1. `ptycho/diffsim.py:scale_nphotons()` (lines 68-77) — Correctly implements dataset-derived scale.
+              2. `ptycho/train_pinn.py:calculate_intensity_scale()` (lines 165-180) — Uses **closed-form fallback ONLY** (`sqrt(nphotons) / (N/2)`), ignoring actual data statistics!
+            - **Root Cause:** `calculate_intensity_scale()` has dead code — it accepts `ptycho_data_container` but doesn't use `.X` to compute actual statistics. Contains TODO comment that was never implemented.
+            - **Spec Violation:** Per `specs/spec-ptycho-core.md §Normalization Invariants` lines 87-89: dataset-derived mode is preferred.
+            - **Impact:** 1.7× scale mismatch (988.21 / 577.74) breaks normalization symmetry.
+            - Evidence: Code analysis + D4a telemetry in `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/`
+      - [ ] **D4c — Fix `calculate_intensity_scale()` to use dataset-derived scale:** Modify `ptycho/train_pinn.py` to compute actual dataset-derived scale from `ptycho_data_container.X` instead of fallback.
+            - **REQUIRES APPROVAL:** This change affects `ptycho/train_pinn.py` (core module). Per CLAUDE.md directive #6, explicit approval needed before modifying.
+            - **Implementation:** Replace lines 173-175 with: `mean_photons = np.mean(np.sum(X.numpy()**2, axis=(1,2)))` followed by `return np.sqrt(p.get('nphotons') / mean_photons)`
+            - **Validation:** Rerun gs2_ideal scenario, verify dataset_scale matches fallback_scale (ratio≈1.0), measure amplitude bias reduction.
+            - Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 
 ### Notes & Risks
 - Avoid touching `ptycho/model.py`, `ptycho/diffsim.py`, or other core physics modules without explicit approval (per CLAUDE.md directive #6). Start with plan-local instrumentation and documentation diffs.

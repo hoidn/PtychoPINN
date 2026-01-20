@@ -1101,3 +1101,28 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - <Action State>: [implementation_complete]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=implementation_complete dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/ next_action=Trace intensity_scale computation location and evaluate dataset-derived mode adoption
 
+---
+# 2026-01-20T23:45:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase D4b ROOT CAUSE IDENTIFIED
+
+- dwell: 0 (follow-up implementation loop)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 Phase D4b — trace intensity_scale computation and identify root cause
+- Action type: Code Analysis / Documentation
+- Mode: Implementation
+- Git sync: `timeout 30 git pull --rebase` → Already up to date.
+- Documents reviewed: ptycho/diffsim.py, ptycho/train_pinn.py, ptycho_torch/workflows/components.py, specs/spec-ptycho-core.md §Normalization Invariants
+- Key findings:
+  1. **`ptycho/diffsim.py:scale_nphotons()` (lines 68-77)** — Correctly implements dataset-derived scale: `s = sqrt(nphotons / mean(count_photons(X)))` where `count_photons = sum(X², axis=(1,2))`
+  2. **`ptycho/train_pinn.py:calculate_intensity_scale()` (lines 165-180)** — Uses **closed-form fallback ONLY**: `sqrt(nphotons) / (N/2)` — ignores actual data statistics even though it receives `ptycho_data_container.X` as input!
+  3. The function at train_pinn.py:173-175 contains dead code with TODO comment that was never implemented
+- **ROOT CAUSE:** `calculate_intensity_scale()` in `train_pinn.py` has the dataset container but doesn't use `.X` to compute actual statistics. It always uses the fallback formula which assumes `mean(sum(X², axis=(1,2))) = (N/2)² = 1024`, but actual data shows ~2995.97.
+- **Spec Violation:** Per `specs/spec-ptycho-core.md §Normalization Invariants` lines 87-89: "Dataset-derived mode (preferred)" should be used when data is available.
+- **Impact Analysis:**
+  - Scale mismatch: 988.21 / 577.74 = 1.71× — predictions are being normalized by wrong factor
+  - Since symmetry requires `X_scaled = s · X` and `Y_amp_scaled = s · X`, using wrong `s` breaks model's ability to learn correct amplitude relationships
+- **Hypothesis resolution:**
+  - H-SCALE-MISMATCH: **CONFIRMED** — root cause identified in `train_pinn.py:calculate_intensity_scale()`
+- Artifacts: Code analysis documented in docs/fix_plan.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}
+- Next Action: Obtain approval to modify `ptycho/train_pinn.py` (core module per CLAUDE.md #6), implement D4c fix to use dataset-derived scale, rerun scenarios.
+- <Action State>: [root_cause_identified]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=root_cause_identified dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/ next_action=D4c: Obtain approval + implement fix in train_pinn.py:calculate_intensity_scale()
+

@@ -1,5 +1,12 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
+### Turn Summary — 2026-01-20T23:45:00Z (Phase D4b ROOT CAUSE IDENTIFIED)
+Traced `intensity_scale` computation through the codebase and identified root cause in `ptycho/train_pinn.py:calculate_intensity_scale()`.
+The function uses the closed-form fallback (`sqrt(nphotons)/(N/2)`) instead of the dataset-derived scale, even though it receives the data container as input. Dead code at lines 173-175 contains an unimplemented TODO.
+**Key Finding:** `diffsim.py:scale_nphotons()` correctly computes dataset-derived scale; `train_pinn.py:calculate_intensity_scale()` incorrectly uses fallback only. This 1.7× scale mismatch (988.21/577.74) violates `specs/spec-ptycho-core.md §Normalization Invariants`.
+Next: Obtain approval to modify `ptycho/train_pinn.py` (core module), implement fix in D4c, rerun scenarios to verify amplitude bias reduction.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/ (D4a telemetry + code analysis)
+
 ### Turn Summary — 2026-01-20T23:17:45Z (Phase D4 dataset intensity-scale planning)
 The IntensityScaler snapshot proved log_scale matches `params.cfg`, so the next D4 increment shifts to verifying whether the sim_lines runner is stuck on the closed-form intensity scale (988.21) instead of the dataset-derived gain mandated by `specs/spec-ptycho-core.md §Normalization Invariants`.
 Reserved artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/`, updated the implementation plan with checklist D4a, and drafted input.md instructing Ralph to extend `bin/run_phase_c2_scenario.py` / `bin/analyze_intensity_bias.py` so each scenario records dataset vs fallback intensity scales and renders the deltas in JSON/Markdown before rerunning the gs2 baseline + `gs2_ideal_nepochs60` scenarios with the CLI smoke pytest guard.
