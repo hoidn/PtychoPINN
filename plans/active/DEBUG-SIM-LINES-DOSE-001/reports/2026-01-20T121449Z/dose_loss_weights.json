@@ -1,0 +1,51 @@
+{
+  "captured_at": "2026-01-20T04:20:03.420802",
+  "dose_config_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/dose_experiments_param_scan.md",
+  "interpretation": {
+    "mae": "Override mode: explicitly sets mae_weight=1.0, nll_weight=0.0",
+    "nll": "Default mode: uses framework loss weight defaults (mae_weight/nll_weight not explicitly set)"
+  },
+  "loss_modes": {
+    "mae": {
+      "data_source": "lines",
+      "gridsize": 2,
+      "intensity_scale.trainable": true,
+      "mae_weight": 1.0,
+      "max_position_jitter": 3,
+      "n_filters_scale": 2,
+      "nepochs": 60,
+      "nimgs_test": 2,
+      "nimgs_train": 2,
+      "nll_weight": 0.0,
+      "nphotons": 1000000000.0,
+      "object.big": true,
+      "offset": 4,
+      "outer_offset_test": 20,
+      "outer_offset_train": 8,
+      "output_prefix": "lines3",
+      "positions.provided": false,
+      "probe.trainable": false,
+      "set_phi": false
+    },
+    "nll": {
+      "data_source": "lines",
+      "gridsize": 2,
+      "intensity_scale.trainable": true,
+      "max_position_jitter": 3,
+      "n_filters_scale": 2,
+      "nepochs": 60,
+      "nimgs_test": 2,
+      "nimgs_train": 2,
+      "nphotons": 1000000000.0,
+      "object.big": true,
+      "offset": 4,
+      "outer_offset_test": 20,
+      "outer_offset_train": 8,
+      "output_prefix": "lines3",
+      "positions.provided": false,
+      "probe.trainable": false,
+      "set_phi": false
+    }
+  },
+  "nphotons": 1000000000.0
+}

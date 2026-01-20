@@ -1,0 +1,23 @@
+{
+  "captured_at": "2026-01-20T04:20:03.421037",
+  "conclusion": "Legacy params.cfg defaults match TrainingConfig defaults (mae_weight=0, nll_weight=1). H-LOSS-WEIGHT ruled out.",
+  "defaults": {
+    "mae_weight": 0.0,
+    "nll_weight": 1.0,
+    "realspace_mae_weight": 0.0,
+    "realspace_weight": 0.0
+  },
+  "match_status": {
+    "mae_weight": true,
+    "nll_weight": true,
+    "realspace_mae_weight": true,
+    "realspace_weight": true
+  },
+  "source": "ptycho/params.py:64",
+  "training_config_defaults": {
+    "mae_weight": 0.0,
+    "nll_weight": 1.0,
+    "realspace_mae_weight": 0.0,
+    "realspace_weight": 0.0
+  }
+}
