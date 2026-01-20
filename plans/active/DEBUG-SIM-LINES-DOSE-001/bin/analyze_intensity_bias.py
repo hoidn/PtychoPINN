@@ -371,14 +371,17 @@ def compute_scaling_analysis(
     baseline_mae = _as_float(amplitude_metrics.get("mae"))
     baseline_rmse = _as_float(amplitude_metrics.get("rmse"))
 
+    best_scalar_value: Optional[float]
     if best_name and best_metrics:
+        best_scalar_value = candidate_scalars[best_name]
         best_scalar_payload: Optional[Dict[str, Any]] = {
             "name": best_name,
-            "value": candidate_scalars[best_name],
+            "value": best_scalar_value,
             "mae": best_metrics["mae"],
             "rmse": best_metrics["rmse"],
         }
     else:
+        best_scalar_value = None
         best_scalar_payload = None
 
     return {
@@ -391,6 +394,10 @@ def compute_scaling_analysis(
             "mae": baseline_mae,
             "rmse": baseline_rmse,
         },
+        "mae_scaled": best_metrics["mae"] if best_metrics else None,
+        "rmse_scaled": best_metrics["rmse"] if best_metrics else None,
+        "best_scalar_name": best_name,
+        "best_scalar_value": best_scalar_value,
     }
 
 
@@ -677,30 +684,39 @@ def render_markdown(summary: Mapping[str, Any]) -> str:
         if scaling:
             ratio_stats = scaling.get("ratio_stats") or {}
             lines.append("### Prediction ↔ Truth Scaling")
+            lines.append("| Metric | Value |")
+            lines.append("| --- | ---: |")
             lines.append(
-                f"* truth/pred ratio mean={fmt_value(ratio_stats.get('mean'))}, "
-                f"median={fmt_value(ratio_stats.get('median'))}, "
-                f"p05={fmt_value(ratio_stats.get('p05'))}, "
-                f"p95={fmt_value(ratio_stats.get('p95'))}"
+                f"| Ratio mean | {fmt_value(ratio_stats.get('mean'))} |"
             )
+            lines.append(
+                f"| Ratio median | {fmt_value(ratio_stats.get('median'))} |"
+            )
+            lines.append(
+                f"| Ratio p05 | {fmt_value(ratio_stats.get('p05'))} |"
+            )
+            lines.append(
+                f"| Ratio p95 | {fmt_value(ratio_stats.get('p95'))} |"
+            )
+            lines.append(
+                f"| Ratio count | {fmt_value(ratio_stats.get('count'), precision=0)} |"
+            )
+            lines.append("")
             best_scalar = scaling.get("best_scalar") or {}
-            if best_scalar:
-                lines.append(
-                    f"* Best scalar ({best_scalar.get('name')}): "
-                    f"{fmt_value(best_scalar.get('value'))} "
-                    f"(MAE={fmt_value(best_scalar.get('mae'))}, "
-                    f"RMSE={fmt_value(best_scalar.get('rmse'))})"
-                )
             baseline_errors = scaling.get("baseline_errors") or {}
             lines.append(
-                f"* Baseline vs rescaled MAE: {fmt_value(baseline_errors.get('mae'))} "
-                f"→ {fmt_value((best_scalar or {}).get('mae'))}, "
-                f"RMSE: {fmt_value(baseline_errors.get('rmse'))} "
-                f"→ {fmt_value((best_scalar or {}).get('rmse'))}"
+                f"* Best scalar: {(best_scalar.get('name') or 'n/a')} "
+                f"({fmt_value(best_scalar.get('value'))})"
+            )
+            lines.append(
+                f"* MAE baseline {fmt_value(baseline_errors.get('mae'))} → "
+                f"{fmt_value(scaling.get('mae_scaled'))}; "
+                f"RMSE baseline {fmt_value(baseline_errors.get('rmse'))} → "
+                f"{fmt_value(scaling.get('rmse_scaled'))}"
             )
             candidates = scaling.get("candidate_scalars") or {}
             per_scalar_metrics = scaling.get("per_scalar_metrics") or {}
-            lines.append("| Scalar | Value | MAE | RMSE |")
+            lines.append("| Scalar | Value | Scaled MAE | Scaled RMSE |")
             lines.append("| --- | ---: | ---: | ---: |")
             for key, label in [
                 ("ratio_mean", "Ratio mean"),

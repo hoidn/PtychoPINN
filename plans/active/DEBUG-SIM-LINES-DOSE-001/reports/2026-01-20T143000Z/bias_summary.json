@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-01-20T08:06:55.792491+00:00",
+  "generated_at": "2026-01-20T08:35:05.485901+00:00",
   "scenario_count": 2,
   "scenarios": {
     "gs1_ideal": {
@@ -320,7 +320,11 @@
           "baseline_errors": {
             "mae": 2.4876604176683816,
             "rmse": 2.610640164973739
-          }
+          },
+          "mae_scaled": 2.373367074086594,
+          "rmse_scaled": 2.5602942849366555,
+          "best_scalar_name": "least_squares",
+          "best_scalar_value": 1.8784477810384261
         }
       }
     },
@@ -653,7 +657,11 @@
           "baseline_errors": {
             "mae": 2.6731222054138,
             "rmse": 2.7493273817519617
-          }
+          },
+          "mae_scaled": null,
+          "rmse_scaled": null,
+          "best_scalar_name": null,
+          "best_scalar_value": null
         }
       }
     }

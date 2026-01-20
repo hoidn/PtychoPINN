@@ -79,6 +79,15 @@
 - <Action State>: [ready_for_implementation]
 - focus=PARALLEL-API-INFERENCE state=ready_for_implementation dwell=2 ralph_last_commit=781ec2f2 artifacts=plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/ next_action=implement Task 2-3 (demo script update + smoke test)
 
+# 2026-01-20T14:35:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase C4d scaling telemetry
+
+- dwell: n/a (recording fresh telemetry insight)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Phase C4 diagnostics
+- Key observations:
+  - The new scaling analyzer proves gs1_ideal’s truth/pred ratios cluster around ≈2.0 (p05≈1.19, p95≈3.09) and the least-squares scalar 1.88 only nudges MAE from 2.49 → 2.37, so a constant factor cannot close the ≈12× amplitude gap.
+  - gs2_ideal now emits zero finite ratios because NaNs wipe out every prediction sample, confirming the collapse happens before any rescaling can help.
+- Implication: Phase C4d remediation must focus on the normalization/loss wiring rather than inserting a post hoc scalar; gs2 requires debugging the NaN root cause before further bias analysis is meaningful.
+
 ---
 
 # 2026-01-09T02:00:00Z: PARALLEL-API-INFERENCE — Task 1 implementation handoff

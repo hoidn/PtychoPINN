@@ -1,5 +1,5 @@
 # Intensity Bias Summary
-- Generated at: 2026-01-20T08:35:05.485901+00:00
+- Generated at: 2026-01-20T07:42:05.355802+00:00
 - Scenario count: 2
 
 | Scenario | Amp bias mean | Amp median | Phase bias mean | Phase median | Bundle scale | Legacy scale | Δscale | Training NaN |
@@ -12,43 +12,6 @@
 - Intensity scale: bundle 988.212 vs legacy 988.212 (Δ=0.000)
 - Training NaNs: no
 - Inference canvas: padded=828 required=828 fits_canvas=True
-- Largest drop: Grouped diffraction → Container X (ratio=0.560, Δ=-0.440)
-
-### Stage Means
-| Stage | Mean |
-| --- | ---: |
-| Raw diffraction | 0.147 |
-| Grouped diffraction | 0.153 |
-| Grouped X (normalized) | 0.085 |
-| Container X | 0.085 |
-
-### Stage Ratios
-| Transition | Ratio |
-| --- | ---: |
-| Raw → grouped | 1.041 |
-| Grouped → normalized | 0.560 |
-| Normalized → prediction | 2.586 |
-| Prediction → truth | 12.256 |
-
-
-### Prediction ↔ Truth Scaling
-| Metric | Value |
-| --- | ---: |
-| Ratio mean | 2.010 |
-| Ratio median | 1.928 |
-| Ratio p05 | 1.194 |
-| Ratio p95 | 3.092 |
-| Ratio count | 23065 |
-
-* Best scalar: least_squares (1.878)
-* MAE baseline 2.488 → 2.373; RMSE baseline 2.611 → 2.560
-| Scalar | Value | Scaled MAE | Scaled RMSE |
-| --- | ---: | ---: | ---: |
-| Ratio mean | 2.010 | 2.377 | 2.561 |
-| Ratio median | 1.928 | 2.374 | 2.560 |
-| Ratio p05 | 1.194 | 2.447 | 2.591 |
-| Ratio p95 | 3.092 | 2.540 | 2.656 |
-| Least squares | 1.878 | 2.373 | 2.560 |
 
 ### Amplitude Bias
 * mean=-2.487, median=-2.538, p05=-3.702, p95=-1.036
@@ -73,43 +36,6 @@
 - Intensity scale: bundle 988.212 vs legacy 988.212 (Δ=0.000)
 - Training NaNs: YES (metrics: intensity_scaler_inv_loss, loss, pred_intensity_loss, train_loss, val_intensity_scaler_inv_loss, val_loss, val_pred_intensity_loss)
 - Inference canvas: padded=822 required=817 fits_canvas=True
-- Largest drop: Container X → Prediction (ratio=0.000, Δ=-1.000)
-
-### Stage Means
-| Stage | Mean |
-| --- | ---: |
-| Raw diffraction | 0.146 |
-| Grouped diffraction | 0.147 |
-| Grouped X (normalized) | 0.085 |
-| Container X | 0.085 |
-
-### Stage Ratios
-| Transition | Ratio |
-| --- | ---: |
-| Raw → grouped | 1.010 |
-| Grouped → normalized | 0.577 |
-| Normalized → prediction | 0.000 |
-| Prediction → truth | n/a |
-
-
-### Prediction ↔ Truth Scaling
-| Metric | Value |
-| --- | ---: |
-| Ratio mean | n/a |
-| Ratio median | n/a |
-| Ratio p05 | n/a |
-| Ratio p95 | n/a |
-| Ratio count | 0 |
-
-* Best scalar: n/a (n/a)
-* MAE baseline 2.673 → n/a; RMSE baseline 2.749 → n/a
-| Scalar | Value | Scaled MAE | Scaled RMSE |
-| --- | ---: | ---: | ---: |
-| Ratio mean | n/a | n/a | n/a |
-| Ratio median | n/a | n/a | n/a |
-| Ratio p05 | n/a | n/a | n/a |
-| Ratio p95 | n/a | n/a | n/a |
-| Least squares | n/a | n/a | n/a |
 
 ### Amplitude Bias
 * mean=-2.673, median=-2.667, p05=-3.742, p95=-1.619

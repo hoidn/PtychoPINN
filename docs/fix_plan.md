@@ -131,6 +131,11 @@
     - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143000Z/{bias_summary.json,bias_summary.md,analyze_intensity_bias.log,pytest_cli_smoke.log}`
     - Findings: gs1_ideal’s best-fit least-squares scalar (≈1.88) still leaves MAE ≈2.37 vs baseline 2.49, proving a constant factor cannot fully recover the ≈12× prediction shortfall, while gs2_ideal ratios continue to diverge due to NaNs.
     - Next Actions: Use the new scaling section to determine whether loader normalization or downstream loss wiring needs correction before shipping the Phase C4 fix.
+  - *2026-01-20T143500Z:* Refined the scaling analyzer output so `bias_summary.{json,md}` now expose explicit ratio-count tables plus baseline→scaled MAE/RMSE callouts, then regenerated the gs1_ideal/gs2_ideal summaries under the 2026-01-20T143000Z hub with the pytest CLI guard.
+    - Metrics: `python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py --scenario gs1_ideal=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal --scenario gs2_ideal=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs2_ideal --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143000Z > plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143000Z/analyze_intensity_bias.log`, `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143000Z/pytest_cli_smoke.log`
+    - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143000Z/{bias_summary.json,bias_summary.md,analyze_intensity_bias.log,pytest_cli_smoke.log}`
+    - Findings: Tables now spell out gs1_ideal’s truth/pred ratio spread (mean≈2.01, p05≈1.19, p95≈3.09) and baseline→scaled MAE deltas (2.49→2.37) while gs2_ideal reports zero usable ratios due to NaNs, reinforcing that normalization fixes alone cannot close the ≈12× gap.
+    - Next Actions: Feed these quantified ratios back into Phase C4d planning to decide whether loader normalization or downstream loss wiring must change before touching shared workflow code.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
