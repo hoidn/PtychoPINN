@@ -480,3 +480,17 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Focus: DEBUG-SIM-LINES-DOSE-001 (Phase C2b verification)
 - Observation: Embedding the reduced-load “stable profile” into `run_phase_c2_scenario.py` ensures the runner auto-applies the gs1/gs2 overrides and records them in `run_metadata.json`/`reassembly_limits` logs, but gs1_ideal still collapses to NaNs even with the lighter workload whereas gs2_ideal remains healthy with `fits_canvas=true`.
 - Implication: The gs1 failure is no longer tied to forgotten CLI overrides—there’s a gs1-specific instability that needs investigation in Phase C3 (likely training dynamics or per-scenario configuration) while gs2 evidence can serve as the control case.
+
+# 2026-01-20T07:18:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase C3 telemetry plan
+
+- dwell: 1 (planning loop to scope the next implementation handoff)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Capture gs1_ideal vs gs2_ideal training telemetry under the baked profiles
+- Action type: Planning | Mode: Implementation handoff
+- Git sync: `git stash push -u` → `timeout 30 git pull --rebase` (up to date) → `git stash pop`
+- Documents reviewed: docs/index.md, docs/findings.md (CONFIG-001 / MODULE-SINGLETON-001 / NORMALIZATION-001 / BUG-TF-REASSEMBLE-001), docs/specs/spec-ptycho-workflow.md §Reassembly, docs/TESTING_GUIDE.md, docs/fix_plan.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T063500Z/{gs*_ideal_runner.log,gs*_ideal/inference_outputs/stats.json,gs*_ideal_notes.md}, input.md
+- Key updates:
+  - Marked C2b complete in the working plan, added a C3 checklist item for training-history instrumentation, and recorded the new focus in docs/fix_plan.md Attempts.
+  - Opened artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T071800Z/`, refreshed `input.md` with the telemetry Do Now (runner instrumentation + gs1/gs2 reruns + pytest guard), and listed the required outputs (history.json, history_summary, Markdown notes, reassembly logs, pytest logs).
+  - Confirmed gs1_ideal continues to emit NaNs immediately after the bake while gs2_ideal remains healthy, motivating the per-epoch telemetry capture before touching core workflows again.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T071800Z/ next_action=instrument run_phase_c2_scenario.py to persist training history + NaN summaries and rerun gs1_ideal/gs2_ideal with pytest + reassembly evidence

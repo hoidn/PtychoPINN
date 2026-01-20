@@ -153,9 +153,11 @@ Guidelines:
       - Re-run `bin/reassembly_limits_report.py` for each scenario (same seeds, `--group-limit 64`) to prove the jitter-driven padded size keeps `fits_canvas=True`.
       - Record visual inspection notes (what structure is visible, any artifacts) in Markdown alongside thumbnails.
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
-- [ ] C2b: Encode the reduced-load profile (`gs1_ideal`: base_total_images=512, group_count=256, batch_size=8; `gs2_ideal`: base_total_images=256, group_count=128, batch_size=4, neighbor_count=4) directly into `run_phase_c2_scenario.py` so reruns don’t require manual overrides, then regenerate both scenarios under a new hub with refreshed reassembly telemetry/logs and metadata tags documenting the profile.
+- [x] C2b: Encode the reduced-load profile (`gs1_ideal`: base_total_images=512, group_count=256, batch_size=8; `gs2_ideal`: base_total_images=256, group_count=128, batch_size=4, neighbor_count=4) directly into `run_phase_c2_scenario.py` so reruns don’t require manual overrides, then regenerate both scenarios under a new hub with refreshed reassembly telemetry/logs and metadata tags documenting the profile. Evidence in `reports/2026-01-20T063500Z/` shows gs2 remains healthy while gs1 still collapses to NaNs even with the baked profile.
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
-- [ ] C3: Update docs/fix_plan.md Attempts History with evidence and root-cause summary.
+- [ ] C3: Instrument the Phase C2 runner to persist per-epoch training history + NaN detection (JSON + Markdown summary), rerun gs1_ideal and gs2_ideal under the baked profiles, and archive the new telemetry so we can pinpoint when gs1 diverges relative to gs2.
+      Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+- [ ] C4: Update docs/fix_plan.md Attempts History with evidence and root-cause summary.
       Test: N/A
 
 ### Notes & Risks

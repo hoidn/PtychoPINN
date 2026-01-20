@@ -80,6 +80,7 @@
     - Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
     - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T063500Z/{gs1_ideal_runner.log,gs2_ideal_runner.log,gs*_ideal/inference_outputs/*,gs*_ideal_notes.md,reassembly_cli.log,reassembly_gs1_ideal.json,reassembly_gs2_ideal.json,pytest_cli_smoke.log}`
     - Notes: run_metadata now records the baked overrides (base_total_images/group_count/batch_size/neighbor_count) without CLI hacks; `gs2_ideal` stayed healthy with `fits_canvas=true`, while `gs1_ideal` still collapses to NaNs despite the reduced profile, so the NaN root cause remains open even though the workload knobs are fixed in-code.
+  - *2026-01-20T071800Z:* Logged the gs1 vs gs2 divergence after the stable-profile reruns, marked C2b complete in the working plan, and scoped Phase C3 around instrumenting `run_phase_c2_scenario.py` to persist per-epoch training history and NaN detection. Reserved artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T071800Z/` for the telemetry reruns (gs1_ideal + gs2_ideal), refreshed `input.md`, and prepped the new Do Now with the pytest guard plus reassembly CLI instructions.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
