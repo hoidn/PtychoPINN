@@ -10,11 +10,11 @@ Required steps:
 4) Write a success or failure report (with explanation) as an output artifact.
 5) 
 - Do a deep analysis of code and documentation changes since the previous review. (git diff, filter by extension: just .md, .py, .yaml). Ignore 'noisy' files such as logs, reports and artifacts unless you discover specific reasons to analyze particular ones.
-- Evaluate the design quality of plans worked on since the last review.
-- Evaluate the implementation quality of changes since the last review.
-- Evaluate project spec and architecture self-consistency and accuracy in light of recent changes.
-- Evaluate plan self-consistency with other plans and existing architectural conventions.
-- Evaluate whether tech debt increased or decreased since the last review.
+- Evaluate the design quality of plans worked on since the last review; report findings
+- Evaluate the implementation quality of changes since the last review; report findings
+- Evaluate project spec and architecture self-consistency and accuracy in light of recent changes; report findings
+- Evaluate plan self-consistency with other plans and existing architectural conventions; report findings
+- Evaluate whether tech debt increased or decreased since the last review; report findings
 - identify the most important plan with progress since the last review. review / critique that plan in its entirety (not just the changes since the last review). investigate carefully and then report your findings. IMMPORTANT while doing the review and investigation, infer the INTENTION of the plan and clarify whether the plan
   approaches it correctly IMPORTANT
 - Assess whether the agent is off-track, tunnel-visioned, or stuck; if so, recommend plan or approach revisions. perpetual plan changes, documentation, and artifact collection does NOT count as not being stuck. Actual progress means: real debugging progress OR implementation progress
