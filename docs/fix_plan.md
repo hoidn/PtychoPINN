@@ -89,6 +89,7 @@
     - Metrics: `pytest --collect-only tests/scripts/test_synthetic_helpers_cli_smoke.py -q`, `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
     - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T071800Z/{gs1_ideal_runner.log,gs2_ideal_runner.log,gs*_ideal/train_outputs/history.json,gs*_ideal/train_outputs/history_summary.json,gs*_ideal_training_summary.md,reassembly_cli.log,reassembly_gs1_ideal.json,reassembly_gs1_ideal.md,reassembly_gs2_ideal.json,reassembly_gs2_ideal.md,pytest_collect_cli_smoke.log,pytest_cli_smoke.log}`
     - Notes: `run_metadata.json` now points directly to the history/summary artifacts (relative paths) and both scenarios continue to report `fits_canvas=true` with zero NaNs detected in the stored metrics.
+  - *2026-01-20T083000Z:* Reviewed the C3 telemetry, confirmed both scenarios report finite metrics, and scoped Phase C3b around extending the Phase C2 runner with ground-truth comparison outputs (object amplitude/phase dumps, center-cropped diff metrics/PNGs, and run_metadata pointers) so we can quantify gs1 vs gs2 reconstruction error instead of relying on visual inspection. Reserved artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T083000Z/` and refreshed `input.md` with the new Do Now plus pytest/reassembly instructions.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

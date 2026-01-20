@@ -500,3 +500,16 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - dwell: 0 (first execution loop after the telemetry plan)
 - Observation: After instrumenting the runner and rerunning gs1_ideal/gs2_ideal, every Lightning metric stayed finite—no NaNs/Infs appeared in either scenario, and the NaN summary JSON/Markdown backs that up even though gs1_ideal still converges to a visually useless reconstruction.
 - Implication: The remaining gs1 instability is not caused by NaN explosions; we now have per-epoch histories to compare against gs2, so Phase C3 debugging should focus on loss dynamics, scaling, or geometry differences instead of NaN handling.
+# 2026-01-20T08:30:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase C3b ground-truth comparison plan
+
+- dwell: 1 (planning loop to hand off the next implementation unit after the C3 telemetry landed)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Use ground-truth comparisons to quantify gs1_ideal vs gs2_ideal divergence
+- Action type: Planning | Mode: Implementation handoff
+- Git sync: `git stash push -u` → `timeout 30 git pull --rebase` → `git stash pop`
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T071800Z/{gs1_ideal_training_summary.md,gs2_ideal_training_summary.md,gs1_ideal_runner.log}, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py, scripts/simulation/synthetic_helpers.py, ptycho/train_pinn.py, ptycho/data_preprocessing.py, ptycho/inference.py
+- Key decisions:
+  - Marked C3 complete in the working plan, logged a new C3b checklist item, and opened artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T083000Z/` for the next evidence batch.
+  - Scoped the implementation to plan-local runner changes: persist simulated ground truth, center-crop stitched outputs, emit amp/phase diff metrics + PNGs, and surface the metrics in `run_metadata.json` so gs1 vs gs2 error can be quantified.
+  - Updated docs/fix_plan.md Attempts, summary.md, and input.md with the new Do Now plus pytest/reassembly guard instructions.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T083000Z/ next_action=Ralph extends run_phase_c2_scenario.py with ground-truth diff metrics and reruns gs1_ideal/gs2_ideal + reassembly + pytest

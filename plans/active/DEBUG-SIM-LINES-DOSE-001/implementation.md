@@ -155,7 +155,9 @@ Guidelines:
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 - [x] C2b: Encode the reduced-load profile (`gs1_ideal`: base_total_images=512, group_count=256, batch_size=8; `gs2_ideal`: base_total_images=256, group_count=128, batch_size=4, neighbor_count=4) directly into `run_phase_c2_scenario.py` so reruns don’t require manual overrides, then regenerate both scenarios under a new hub with refreshed reassembly telemetry/logs and metadata tags documenting the profile. Evidence in `reports/2026-01-20T063500Z/` shows gs2 remains healthy while gs1 still collapses to NaNs even with the baked profile.
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
-- [ ] C3: Instrument the Phase C2 runner to persist per-epoch training history + NaN detection (JSON + Markdown summary), rerun gs1_ideal and gs2_ideal under the baked profiles, and archive the new telemetry so we can pinpoint when gs1 diverges relative to gs2.
+- [x] C3: Instrument the Phase C2 runner to persist per-epoch training history + NaN detection (JSON + Markdown summary), rerun gs1_ideal and gs2_ideal under the baked profiles, and archive the new telemetry so we can pinpoint when gs1 diverges relative to gs2.
+      Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+- [ ] C3b: Extend the Phase C2 runner with ground-truth comparison utilities that crop the stitched reconstructions to the simulated object size, compute amplitude/phase error metrics (MAE/RMSE/max/pearson), emit diff PNGs, and surface the metrics + artifact paths in `run_metadata.json` so gs1 vs gs2 divergence can be quantified without manual inspection.
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 - [ ] C4: Update docs/fix_plan.md Attempts History with evidence and root-cause summary.
       Test: N/A
