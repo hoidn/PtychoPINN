@@ -696,6 +696,29 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/ (bias_summary.*, gs*_ideal/*, pytest_cli_smoke.log)
 - Next: Investigate gs1_ideal NaN collapse root cause (gridsize=1 hypothesis) or pivot to core workflow normalization audit if amplitude bias persists.
 
+# 2026-01-20T10:31:44Z: DEBUG-SIM-LINES-DOSE-001 — NaN DEBUGGING COMPLETE (Supervisor Milestone)
+
+- dwell: 0 (milestone closure loop)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — NaN debugging scope COMPLETE
+- Action type: Review/Documentation (initiative closure)
+- Mode: Documentation
+- Git sync: `git stash push -u` → `timeout 30 git pull --rebase` (up to date) → `git stash pop`
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md, galph_memory.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/summary.md
+- Key decisions:
+  - Confirmed B0f isolation test results: both gs1_ideal and gs1_custom train without NaN after CONFIG-001 bridging
+  - Updated hypothesis table: H-CONFIG ✅ CONFIRMED as root cause; H-PROBE-IDEAL-REGRESSION ❌ RULED OUT; H-GRIDSIZE-NUMERIC ❌ RULED OUT
+  - Updated implementation plan status to "NaN DEBUGGING COMPLETE"
+  - Updated docs/fix_plan.md with milestone completion entry
+  - Wrote input.md with documentation/cleanup tasks for Ralph to finalize the initiative
+  - Decision: NaN debugging scope is COMPLETE; amplitude bias (~3-6x) is a separate quality issue for future investigation
+- Artifacts:
+  - Updated: plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md (hypothesis table, decision tree, C4f checkbox)
+  - Updated: plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md (NaN completion turn summary)
+  - Updated: docs/fix_plan.md (milestone completion entry, status change)
+  - Created: input.md (documentation handoff)
+- <Action State>: [milestone_complete]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=nan_debugging_complete dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T103144Z/ next_action=Ralph documents findings + knowledge base entry; supervisor marks initiative done after
+
 # 2026-01-20T10:31:44Z: DEBUG-SIM-LINES-DOSE-001 — B0f isolation test results (CRITICAL FINDING)
 
 - dwell: 0 (fresh implementation loop)

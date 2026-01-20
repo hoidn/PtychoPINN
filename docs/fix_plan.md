@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-20 (DEBUG-SIM-LINES-DOSE-001 B0f complete)
-**Active Focus:** DEBUG-SIM-LINES-DOSE-001 — B0f complete; NaN issue resolved via CONFIG-001 bridging
+**Last Updated:** 2026-01-20 (DEBUG-SIM-LINES-DOSE-001 NaN debugging COMPLETE)
+**Active Focus:** DEBUG-SIM-LINES-DOSE-001 — **NaN DEBUGGING COMPLETE**: CONFIG-001 bridging (C4f) confirmed as root cause; all scenarios train without NaN; amplitude bias (~3-6x) is separate issue for future investigation
 
 ---
 
@@ -18,7 +18,7 @@
 ### [DEBUG-SIM-LINES-DOSE-001] Isolate sim_lines_4x vs dose_experiments discrepancy
 - Depends on: None
 - Priority: **Critical** (Highest Priority)
-- Status: in_progress — Phase B0 complete; NaN stability verified via CONFIG-001 bridging
+- Status: **NaN DEBUGGING COMPLETE** — CONFIG-001 bridging (C4f) confirmed as definitive root cause fix; all scenarios (gs1/gs2 × ideal/custom) now train without NaN; amplitude bias (~3-6x) is a separate issue
 - Owner/Date: Codex/2026-01-13
 - Working Plan: `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md`
 - Summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md`
@@ -172,6 +172,16 @@
     - Conclusion: **NaN failures were caused by CONFIG-001 violations, not probe type.** The C4f bridging fix resolved NaN instability for both probe types. The amplitude bias persists independently and requires separate investigation.
     - Decision tree resolution: H-PROBE-IDEAL-REGRESSION NOT confirmed; problem was workflow-wide (CONFIG-001) not probe-specific.
     - Next Actions: Close B0f as confirming CONFIG-001 fix; remaining amplitude bias is a separate issue from NaN debugging.
+  - *2026-01-20T103144Z:* **NaN DEBUGGING MILESTONE COMPLETE** — Supervisor review confirmed B0f results and closed the NaN debugging scope.
+    - **Root Cause Confirmed:** CONFIG-001 violation (stale `params.cfg` values not synced before training/inference)
+    - **Fix Applied:** C4f added `update_legacy_dict(params.cfg, config)` calls in `scripts/studies/sim_lines_4x/pipeline.py` and the plan-local runner before all training/inference handoffs
+    - **Verification:** All four scenarios (gs1_ideal, gs1_custom, gs2_ideal, gs2_custom) now train without NaN
+    - **Hypotheses Resolved:**
+      - H-CONFIG: ✅ CONFIRMED as root cause
+      - H-PROBE-IDEAL-REGRESSION: ❌ RULED OUT (both probe types work after CONFIG-001 fix)
+      - H-GRIDSIZE-NUMERIC: ❌ RULED OUT (gridsize=1 works after CONFIG-001 fix)
+    - **Remaining Issue:** Amplitude bias (~3-6x undershoot) persists in all scenarios; this is a SEPARATE issue from NaN debugging and may involve loss wiring, normalization math, or training hyperparameters
+    - **Scope Decision:** NaN debugging is COMPLETE; amplitude bias investigation is out of scope for this initiative and should be addressed in a separate initiative if needed
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

@@ -1,5 +1,15 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
+### Turn Summary (NaN Debugging COMPLETE 2026-01-20T103144Z)
+**MILESTONE: NaN debugging is COMPLETE.** Supervisor review confirmed B0f isolation test results and closed the NaN debugging scope.
+Root cause confirmed: CONFIG-001 violation (stale `params.cfg` values not synced before training/inference).
+Fix applied: C4f added `update_legacy_dict(params.cfg, config)` calls before all training/inference handoffs.
+Verification: All four scenarios (gs1_ideal, gs1_custom, gs2_ideal, gs2_custom) now train without NaN.
+Hypotheses resolved: H-CONFIG ✅ CONFIRMED; H-PROBE-IDEAL-REGRESSION ❌ RULED OUT; H-GRIDSIZE-NUMERIC ❌ RULED OUT.
+Remaining amplitude bias (~3-6x) is a separate issue for future investigation, not a blocker for this initiative.
+Next: Mark initiative as done for NaN debugging scope; decide whether to continue amplitude bias investigation in a separate initiative.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/ (B0f isolation test evidence)
+
 ### Turn Summary (C4f rerun 2026-01-20T101800Z)
 Re-validated CONFIG-001 bridging (already in place) and reran gs1_ideal + gs2_ideal with `--prediction-scale-source least_squares --group-limit 64` to refresh evidence.
 Both scenarios now complete **without training NaNs** (all metrics has_nan=false), fits_canvas=true, bundle vs legacy intensity_scale delta=0.

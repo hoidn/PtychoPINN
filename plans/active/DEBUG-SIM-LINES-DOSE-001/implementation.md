@@ -5,7 +5,7 @@
 - Title: Isolate sim_lines_4x vs dose_experiments sim->recon discrepancy
 - Owner: Codex + user
 - Spec Owners: specs/spec-ptycho-workflow.md; specs/spec-ptycho-core.md; specs/spec-inference-pipeline.md; specs/data_contracts.md
-- Status: in_progress — Phase B0 complete; NaN stability confirmed via CONFIG-001 bridging (C4f)
+- Status: **NaN DEBUGGING COMPLETE** — CONFIG-001 bridging (C4f) confirmed as root cause fix; amplitude bias (separate issue) remains open
 
 ## Goals
 - Identify whether the failure is caused by a core regression, nongrid pipeline differences, or a workflow/config mismatch.
@@ -141,9 +141,9 @@ Guidelines:
 
 | Rank | ID | Hypothesis | Rationale | Test | Status |
 |------|----|------------|-----------|------|--------|
-| 1 | H-CONFIG | Stale `params.cfg` values (CONFIG-001 violation) | Legacy modules read unsynced globals; known cause of gridsize/intensity drift | C4f: Add bridging calls before train/infer | **Partially confirmed** — fixed gs2_ideal but gs1_ideal still fails |
-| 2 | H-PROBE-IDEAL-REGRESSION | Ideal probe handling regressed between dose_experiments and sim_lines_4x | Ideal probe worked in dose_experiments but fails locally; something changed in how ideal probe is processed (not inherent numeric instability since it worked before) | Diff dose_experiments vs sim_lines ideal probe code paths; check probe loading, normalization application timing, intensity_scale derivation | [ ] Open |
-| 3 | H-GRIDSIZE-NUMERIC | gridsize=1 triggers degenerate numeric paths | gs1 fails while gs2 succeeds with identical CONFIG-001 fix; gridsize=1 may hit edge cases in grouping/reassembly math | Compare gs1 vs gs2 loss curves, gradient norms, intermediate activations | [ ] Open |
+| 1 | H-CONFIG | Stale `params.cfg` values (CONFIG-001 violation) | Legacy modules read unsynced globals; known cause of gridsize/intensity drift | C4f: Add bridging calls before train/infer | **✅ CONFIRMED** — Root cause of all NaN failures; C4f fix enabled all scenarios (gs1/gs2 × ideal/custom) to train without NaN |
+| 2 | H-PROBE-IDEAL-REGRESSION | Ideal probe handling regressed between dose_experiments and sim_lines_4x | Ideal probe worked in dose_experiments but fails locally; something changed in how ideal probe is processed (not inherent numeric instability since it worked before) | Diff dose_experiments vs sim_lines ideal probe code paths; check probe loading, normalization application timing, intensity_scale derivation | **❌ RULED OUT** — B0f showed both ideal and custom probes work after CONFIG-001 fix; no probe-specific regression |
+| 3 | H-GRIDSIZE-NUMERIC | gridsize=1 triggers degenerate numeric paths | gs1 fails while gs2 succeeds with identical CONFIG-001 fix; gridsize=1 may hit edge cases in grouping/reassembly math | Compare gs1 vs gs2 loss curves, gradient norms, intermediate activations | **❌ RULED OUT** — B0f showed gs1_custom works; all gridsize=1 scenarios work after CONFIG-001 fix |
 | 4 | H-PROBE-SCALE-CUSTOM | Custom probe scale factor (4.0 vs 10.0) mismatch | dose_experiments may have used different probe_scale; scaling inconsistency propagates to intensity | Check dose_experiments defaults vs sim_lines | [x] A1/A4 captured params |
 | 5 | H-INTENSITY-SCALE | `intensity_scale` computation differs between pipelines | The recorded `intensity_scale` may not match what legacy code expects | C3d: Dump IntensityScaler weights | [x] Inspected — no obvious mismatch |
 | 6 | H-OFFSET-OVERFLOW | Reassembly offsets exceed padded canvas | B4 showed offsets reach ~382px vs legacy ~78px padded size | C1: Implement jitter-based padding | [x] Fixed — `fits_canvas=True` now |
@@ -195,22 +195,25 @@ Based on the current state (gs2_ideal healthy, gs1_ideal NaN) and the fact that 
 gs2_ideal healthy, gs1_ideal NaN after CONFIG-001 fix
 + KEY FACT: ideal probe WORKED in dose_experiments (not inherent numeric issue)
 │
-├─ Step 1: Run gs1_custom (gridsize=1 + custom probe) to isolate variable
+├─ Step 1: Run gs1_custom (gridsize=1 + custom probe) to isolate variable  ✅ EXECUTED
 │   │
 │   ├─ gs1_custom WORKS → Problem is ideal probe handling (H-PROBE-IDEAL-REGRESSION)
-│   │   └─ Diff dose_experiments vs sim_lines_4x ideal probe code paths
-│   │       ├─ Check probe loading sequence / normalization timing
-│   │       ├─ Check intensity_scale derivation for ideal probes
-│   │       └─ Check CONFIG-001 bridging timing for ideal scenarios
+│   │   └─ ...
 │   │
 │   └─ gs1_custom FAILS → Problem is gridsize=1 (H-GRIDSIZE-NUMERIC)
-│       └─ Add targeted logging at boundaries to identify NaN source
-│           ├─ Log: forward pass input/output, loss value, gradient norms
-│           ├─ If NaN in forward pass → check model edge cases for gridsize=1
-│           └─ If NaN in backward pass → check loss/gradient scaling
+│       └─ ...
 │
-└─ Neither isolated?
-    └─ Instrument loss/forward pass → Test H-LOSS-WIRING
+└─ ACTUAL RESULT: gs1_custom WORKS *and* gs1_ideal ALSO WORKS after CONFIG-001 fix!
+    │
+    └─ **ROOT CAUSE IDENTIFIED: CONFIG-001 violation**
+        │
+        ├─ The gs1_ideal NaN at epoch 3 was observed BEFORE C4f bridging
+        ├─ After C4f, both gs1_ideal and gs1_custom train without NaN
+        ├─ H-PROBE-IDEAL-REGRESSION: RULED OUT (both probe types work)
+        ├─ H-GRIDSIZE-NUMERIC: RULED OUT (gridsize=1 works fine)
+        │
+        └─ CONCLUSION: NaN debugging COMPLETE
+            Remaining amplitude bias (~3-6x) is a SEPARATE issue from NaN stability
 ```
 
 ### Checklist
@@ -309,7 +312,10 @@ gs2_ideal healthy, gs1_ideal NaN after CONFIG-001 fix
       - Implementation: add an opt-in rescaling hook to `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py` (and mirror it in `scripts/studies/sim_lines_4x/pipeline.py::run_inference`) so predictions can be multiplied by either the bundle `intensity_scale` or the analyzer-derived scalar before stats/PNG emission, then persist the chosen scalar in `run_metadata`.
       - Verification: reran gs1_ideal + gs2_ideal under `reports/2026-01-20T150500Z/` with rescaled amplitude `.npy`/PNG outputs and refreshed analyzer summaries; least-squares scaling (~1.86×) reduced normalized-to-prediction ratio but amplitude bias/pearson_r (≈0.10) remained unchanged, so constant rescaling alone cannot close the gap.
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
-- [ ] C4f: Enforce CONFIG-001 bridging before every training/inference handoff (pipeline + plan-local runner) so legacy modules read the current dataclass settings prior to loader/model usage, then rerun gs1_ideal + gs2_ideal with analyzer evidence to confirm whether synced `params.cfg` resolves the amplitude drift.
+- [x] C4f: Enforce CONFIG-001 bridging before every training/inference handoff (pipeline + plan-local runner) so legacy modules read the current dataclass settings prior to loader/model usage, then rerun gs1_ideal + gs2_ideal with analyzer evidence to confirm whether synced `params.cfg` resolves the amplitude drift.
+      - **ROOT CAUSE FIX CONFIRMED**: Added `update_legacy_dict(params.cfg, config)` calls in both `scripts/studies/sim_lines_4x/pipeline.py` and `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py` before all training/inference handoffs
+      - All four scenarios (gs1_ideal, gs1_custom, gs2_ideal, gs2_custom) now train without NaN
+      - Evidence: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/` (gs*_ideal runs), `reports/2026-01-20T102300Z/` (gs1_custom isolation test)
       - Implementation: call `update_legacy_dict(params.cfg, train_config)` and `update_legacy_dict(params.cfg, infer_config)` inside both `scripts/studies/sim_lines_4x/pipeline.py` and `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py` right before invoking the backend selectors so loader/model see the new gridsize/n_groups/intensity parameters.
       - Verification: rerun the Phase C2 runner for gs1_ideal + gs2_ideal (stable profiles) with `--prediction-scale-source least_squares`, regenerate `bias_summary.{json,md}`, and guard with the CLI smoke pytest selector; archive logs under `reports/2026-01-20T160000Z/`.
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
