@@ -10,6 +10,8 @@ from typing import Any, Dict, Mapping, Optional, Tuple
 
 import numpy as np
 
+from ptycho import params as legacy_params
+from ptycho.config.config import update_legacy_dict
 from scripts.simulation.synthetic_helpers import (
     make_lines_object,
     make_probe,
@@ -245,6 +247,8 @@ def run_inference(
         neighbor_count=params.neighbor_count,
         backend="tensorflow",
     )
+    # CONFIG-001: Sync legacy params.cfg before loader/grouped-data (spec-inference-pipeline.md §1.1)
+    update_legacy_dict(legacy_params.cfg, infer_config)
     model, params_dict = load_inference_bundle_with_backend(model_dir, infer_config)
     grouped = test_data.generate_grouped_data(
         params_dict.get("N", params.N),
@@ -403,6 +407,9 @@ def run_scenario(
         train_config.nepochs,
         train_config.model.probe_scale,
     )
+
+    # CONFIG-001: Sync legacy params.cfg before training/loader (spec-inference-pipeline.md §1.1)
+    update_legacy_dict(legacy_params.cfg, train_config)
 
     start_time = time.time()
     run_training(train_raw, test_raw, train_config)

@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from ptycho import loader, nbutils, params as legacy_params, tf_helper
-from ptycho.config.config import InferenceConfig, ModelConfig
+from ptycho.config.config import InferenceConfig, ModelConfig, update_legacy_dict
 from ptycho.workflows.backend_selector import load_inference_bundle_with_backend
 from scripts.simulation.synthetic_helpers import (
     make_lines_object,
@@ -907,6 +907,8 @@ def run_inference_and_reassemble(
         neighbor_count=params.neighbor_count,
         backend="tensorflow",
     )
+    # CONFIG-001: Sync legacy params.cfg before loader/grouped-data (spec-inference-pipeline.md §1.1)
+    update_legacy_dict(legacy_params.cfg, infer_config)
     model, params_dict = load_inference_bundle_with_backend(model_dir, infer_config)
     bundle_intensity_scale = params_dict.get("intensity_scale")
     legacy_intensity_scale = legacy_params.cfg.get("intensity_scale")
@@ -1076,6 +1078,9 @@ def main() -> None:
         train_config = dataclasses.replace(train_config, batch_size=args.batch_size)
     elif profile_batch_size is not None:
         train_config = dataclasses.replace(train_config, batch_size=profile_batch_size)
+
+    # CONFIG-001: Sync legacy params.cfg before training/loader (spec-inference-pipeline.md §1.1)
+    update_legacy_dict(legacy_params.cfg, train_config)
 
     start_time = time.time()
     training_results = run_training(train_raw, test_raw, train_config)

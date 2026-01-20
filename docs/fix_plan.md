@@ -150,6 +150,11 @@
     - Notes: Original IndexError root cause = KD-tree querying K+1 neighbors with K=5 but only 4 scan positions; N vs probe shape mismatch = N=128 patches vs 64x64 probe.
     - Next Actions: Decide whether to provision legacy TF/Keras env for full training or document simulation-only capability for A1b ground-truth runs.
   - *2026-01-20T160000Z:* Reviewed the C4e evidence (bias_summary shows least-squares scalars ≈1.86–1.99 yet amplitude MAE/pearson_r unchanged) and concluded constant prediction scaling cannot close the gap; scoped C4f to enforce CONFIG-001 bridging before every training/inference call and rerun gs1_ideal/gs2_ideal under hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/` with analyzer + pytest evidence after syncing params.cfg.
+  - *2026-01-20T100500Z:* Implemented CONFIG-001 bridging in `scripts/studies/sim_lines_4x/pipeline.py` (run_scenario + run_inference) and `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py` (main + run_inference_and_reassemble). Reran gs1_ideal + gs2_ideal with `--prediction-scale-source least_squares` under the new hub and refreshed the analyzer outputs.
+    - Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (pass)
+    - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/{gs1_ideal/*,gs2_ideal/*,bias_summary.json,bias_summary.md,gs1_ideal_runner.log,gs2_ideal_runner.log,pytest_cli_smoke.log,analyze_intensity_bias.log}`
+    - Findings: Both scenarios now sync params.cfg before training/inference; gs2_ideal healthy (no training NaNs, fits_canvas=true, least_squares scalar=1.91), gs1_ideal still collapses to NaNs at epoch 3 despite CONFIG-001 bridging (normalized→prediction ratio=0, amplitude bias mean=-2.68). Amplitude undershoot persists (≈2.3–2.7) but bundle/legacy intensity_scale delta now confirms zero drift.
+    - Next Actions: Investigate gs1_ideal's NaN instability (gridsize=1 numeric collapse hypothesis) or pivot to core workflow normalization audit if amplitude bias remains the primary blocker.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
