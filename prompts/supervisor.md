@@ -29,8 +29,7 @@
     - docs/index.md
     - docs/fix_plan.md
     - docs/findings.md
-    - docs/architecture.md
-    - docs/architecture_torch.md
+    - docs/architecture*md
     - docs/workflows/pytorch.md
     - docs/TESTING_GUIDE.md
     - docs/development/TEST_SUITE_INDEX.md
