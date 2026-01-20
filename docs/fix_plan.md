@@ -213,6 +213,12 @@
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/{dose_loss_weights.json,loss_config_diff.md,loss_config_diff.json,pytest_cli_smoke.log,summary.md}`
     - **Key Finding (CORRECTED):** dose_experiments (loss_fn='nll') does **not** explicitly set loss weights; sim_lines uses NLL defaults (`mae_weight=0.0, nll_weight=1.0`). No MAE/NLL inversion under default operation. H-LOSS-WEIGHT cannot be confirmed without inspecting the legacy `ptycho.params.cfg` framework defaults.
     - **Next Actions:** Either (a) inspect the legacy `ptycho.params.cfg` to determine its default loss weights, or (b) proceed to D2 (normalization parity) if H-LOSS-WEIGHT is deprioritized.
+  - *2026-01-20T170000Z:* **Phase D1 COMPLETE — H-LOSS-WEIGHT RULED OUT** — Extended `bin/compare_sim_lines_params.py` with `capture_legacy_params_defaults()` to deep-copy the actual `ptycho.params.cfg` dictionary and extract framework defaults. Added `--output-legacy-defaults` flag and `build_legacy_defaults_markdown()` to generate comparison tables.
+    - **Metrics:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T170000Z/{legacy_params_cfg_defaults.json,loss_config_diff.md,loss_config_diff.json,dose_loss_weights.json,pytest_cli_smoke.log,summary.md}`
+    - **Key Finding:** Legacy `ptycho/params.py:64` defines `mae_weight=0.0, nll_weight=1.0` (pure NLL loss), which **matches exactly** with `TrainingConfig` dataclass defaults. All four loss weights (mae, nll, realspace, realspace_mae) are identical between pipelines.
+    - **Conclusion:** **H-LOSS-WEIGHT hypothesis RULED OUT.** Both pipelines use identical loss weights under default operation. The remaining amplitude bias (~3-6x undershoot) must stem from normalization (H-NORMALIZATION), training hyperparameters (H-TRAINING-PARAMS), or architecture differences (H-ARCHITECTURE).
+    - **Next Actions:** Proceed to Phase D2 (normalization stage parity) to instrument where the amplitude bias enters the workflow.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

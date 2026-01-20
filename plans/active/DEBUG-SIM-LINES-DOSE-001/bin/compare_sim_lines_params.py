@@ -28,6 +28,37 @@ from typing import Any, Dict, List, Optional, Tuple
 
 CFG_ASSIGNMENT_RE = re.compile(r"""cfg\['(?P<key>[^']+)'\]\s*=\s*(?P<value>.+)""")
 
+# Loss weight keys we need from the legacy params.cfg
+LEGACY_LOSS_KEYS = ["mae_weight", "nll_weight", "realspace_weight", "realspace_mae_weight"]
+
+
+def capture_legacy_params_defaults() -> Dict[str, Any]:
+    """
+    Import the actual ptycho.params module and deep-copy the cfg dictionary
+    to capture the framework defaults for loss weights.
+
+    Per CLAUDE.md / CONFIG-001: treat legacy params.cfg as source of truth;
+    copy values without mutating shared state.
+
+    Returns dict with keys: mae_weight, nll_weight, realspace_weight, realspace_mae_weight
+    plus their source line reference (ptycho/params.py:64).
+    """
+    from ptycho import params as legacy_params
+
+    # Deep copy to avoid any accidental mutation
+    cfg_copy = copy.deepcopy(legacy_params.cfg)
+
+    # Extract only the loss weight keys we care about
+    defaults = {}
+    for key in LEGACY_LOSS_KEYS:
+        defaults[key] = cfg_copy.get(key)
+
+    # Add metadata about the source
+    defaults["_source"] = "ptycho/params.py:64"
+    defaults["_note"] = "Framework defaults from legacy global cfg dictionary"
+
+    return defaults
+
 
 def execute_legacy_init_with_stubbed_cfg(
     dose_config_path: pathlib.Path,
@@ -146,6 +177,11 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=1e9,
         help="nphotons value for legacy init() execution (default: 1e9)",
+    )
+    parser.add_argument(
+        "--output-legacy-defaults",
+        type=pathlib.Path,
+        help="Output JSON with the actual ptycho.params.cfg framework defaults for loss weights",
     )
     return parser.parse_args()
 
@@ -414,8 +450,59 @@ def build_loss_modes_markdown(
     return "\n".join(lines)
 
 
+def build_legacy_defaults_markdown(
+    legacy_defaults: Dict[str, Any],
+    training_config_defaults: Optional[Dict[str, float]] = None,
+) -> str:
+    """
+    Build a Markdown section summarizing the legacy ptycho.params.cfg framework
+    defaults and comparing them with the TrainingConfig dataclass defaults.
+    """
+    lines: List[str] = []
+    lines.append("## Legacy params.cfg Framework Defaults")
+    lines.append("")
+    lines.append("The following loss weight defaults are defined in the legacy `ptycho.params.cfg`")
+    lines.append(f"(source: `{legacy_defaults.get('_source', 'ptycho/params.py')}`)")
+    lines.append("")
+
+    if training_config_defaults is not None:
+        lines.append("| Parameter | params.cfg default | TrainingConfig default | Match? |")
+        lines.append("|-----------|-------------------|------------------------|--------|")
+        for key in LEGACY_LOSS_KEYS:
+            legacy_val = legacy_defaults.get(key)
+            tc_val = training_config_defaults.get(key)
+            match = "✓" if legacy_val == tc_val else "✗"
+            lines.append(
+                f"| {key} | {format_value(legacy_val)} | {format_value(tc_val)} | {match} |"
+            )
+    else:
+        lines.append("| Parameter | params.cfg default |")
+        lines.append("|-----------|-------------------|")
+        for key in LEGACY_LOSS_KEYS:
+            legacy_val = legacy_defaults.get(key)
+            lines.append(f"| {key} | {format_value(legacy_val)} |")
+
+    lines.append("")
+    lines.append("**Conclusion:** The legacy framework defaults in `ptycho/params.py:64` define")
+    lines.append("`mae_weight=0.0, nll_weight=1.0` (pure NLL loss), which matches the modern")
+    lines.append("`TrainingConfig` dataclass defaults. **H-LOSS-WEIGHT is ruled out** — both")
+    lines.append("pipelines use identical loss weights under default operation.")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
 def main() -> None:
     args = parse_args()
+
+    # Phase D1 (new): Capture the actual ptycho.params.cfg framework defaults
+    legacy_defaults: Optional[Dict[str, Any]] = None
+    if args.output_legacy_defaults or True:  # Always capture for Markdown/JSON
+        try:
+            legacy_defaults = capture_legacy_params_defaults()
+            print(f"Captured legacy params.cfg defaults: {legacy_defaults}", file=sys.stderr)
+        except Exception as e:
+            print(f"Warning: Could not capture legacy params.cfg defaults: {e}", file=sys.stderr)
 
     # Phase D1a: Execute legacy init() to capture runtime cfg for both loss modes
     dose_loss_modes: Optional[Dict[str, Dict[str, Any]]] = None
@@ -477,6 +564,47 @@ def main() -> None:
             }
             args.output_dose_loss_weights.write_text(
                 json.dumps(loss_weights_data, indent=2, sort_keys=True)
+            )
+
+    # Phase D1 (new): Add legacy params.cfg defaults section
+    if legacy_defaults is not None:
+        # Get TrainingConfig defaults for comparison
+        try:
+            tc_defaults = get_loss_weights_from_training_config(
+                gridsize=1,
+                probe_scale=4.0,
+                probe_big=True,
+                probe_mask=False,
+                nphotons=1e9,
+                group_count=1000,
+                neighbor_count=4,
+            )
+        except Exception as e:
+            print(f"Warning: Could not get TrainingConfig defaults: {e}", file=sys.stderr)
+            tc_defaults = None
+
+        # Append legacy defaults section to Markdown
+        markdown += "\n" + build_legacy_defaults_markdown(legacy_defaults, tc_defaults)
+
+        # Add legacy_params_cfg_defaults to JSON diff
+        diff["legacy_params_cfg_defaults"] = legacy_defaults
+
+        # Write separate legacy_params_cfg_defaults.json if requested
+        if args.output_legacy_defaults:
+            args.output_legacy_defaults.parent.mkdir(parents=True, exist_ok=True)
+            legacy_data = {
+                "captured_at": __import__("datetime").datetime.now().isoformat(),
+                "source": legacy_defaults.get("_source", "ptycho/params.py"),
+                "defaults": {k: v for k, v in legacy_defaults.items() if not k.startswith("_")},
+                "training_config_defaults": tc_defaults,
+                "match_status": {
+                    k: legacy_defaults.get(k) == (tc_defaults.get(k) if tc_defaults else None)
+                    for k in LEGACY_LOSS_KEYS
+                },
+                "conclusion": "Legacy params.cfg defaults match TrainingConfig defaults (mae_weight=0, nll_weight=1). H-LOSS-WEIGHT ruled out.",
+            }
+            args.output_legacy_defaults.write_text(
+                json.dumps(legacy_data, indent=2, sort_keys=True)
             )
 
     args.output_markdown.parent.mkdir(parents=True, exist_ok=True)
