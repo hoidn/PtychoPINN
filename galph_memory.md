@@ -920,3 +920,15 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/` (bias_summary.md, intensity_stats.md per scenario, pytest_cli_smoke.log)
 - <Action State>: [completed]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=completed dwell=0 pytest=4_passed artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/ next_action=Inspect normalize_data formula and intensity_scale derivation for mismatch
+# 2026-01-20T12:14:49Z: DEBUG-SIM-LINES-DOSE-001 — Phase D1 reopen + orchestration config
+
+- dwell: 0 (manual override reset — first planning/doc loop on this focus)
+- Action type: Planning / documentation sweep | Mode: Implementation handoff
+- Documents reviewed: docs/index.md, docs/findings.md, docs/fix_plan.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/compare_sim_lines_params.py, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/{sim_lines_4x_params_snapshot.json,dose_experiments_param_scan.md}, prompts/reviewer.md, scripts/orchestration/README.md, input.md
+- Key updates:
+  - Reopened Phase D1 in the implementation plan (now shows D1a–D1c unchecked with explicit evidence path) and rewrote docs/fix_plan.md so the Attempts History no longer claims D1 is complete; added clear pending steps for runtime loss-weight capture.
+  - Authored a new Do Now (input.md) directing Ralph to extend `compare_sim_lines_params.py` so `--output-dose-loss-weights` emits JSON+Markdown, rerun the CLI with the archived snapshot, refresh the summary, and rerun the CLI pytest guard.
+  - Added the missing root-level `orchestration.yaml` documenting router.review_every_n/state_file/logs_dir, and logged the reviewer-doc hygiene update under DOC-HYGIENE-20260120.
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T121449Z/`
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T121449Z/ next_action=Ralph updates compare_sim_lines_params.py to emit JSON+Markdown loss snapshots, reruns the diff, and archives the pytest guard under the new hub
