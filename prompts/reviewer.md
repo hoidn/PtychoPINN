@@ -15,8 +15,10 @@ Additional review responsibilities (include in the report):
 - Evaluate project spec and architecture self-consistency and accuracy in light of recent changes.
 - Evaluate plan self-consistency with other plans and existing architectural conventions.
 - Evaluate whether tech debt increased or decreased since the last review.
-- Assess whether the agent is off-track, tunnel-visioned, or stuck; if so, recommend plan or approach revisions.
-    -- perpetual plan changes, documentation, and artifact collection does NOT count as not being stuck. Actual progress means: real debugging progress OR implementation progress
+- identify the most important plan with progress since the last review. review / critique that plan. investigate carefully and then report your findings. IMMPORTANT while doing the review and investigation, infer the INTENTION of the plan and clarify whether the plan
+  approaches it correctly IMPORTANT
+- Assess whether the agent is off-track, tunnel-visioned, or stuck; if so, recommend plan or approach revisions. perpetual plan changes, documentation, and artifact collection does NOT count as not being stuck. Actual progress means: real debugging progress OR implementation progress
+
 
 Test command (use a fresh UTC timestamp per run):
 RUN_TS=$(date -u +%Y-%m-%dT%H%M%SZ) RUN_LONG_INTEGRATION=1 INTEGRATION_OUTPUT_DIR=.artifacts/integration_manual_1000_512/${RUN_TS}/output pytest tests/test_integration_manual_1000_512.py -v
