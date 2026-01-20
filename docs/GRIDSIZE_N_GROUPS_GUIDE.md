@@ -145,7 +145,7 @@ Grouping guarantees tight intra‑group neighborhoods (C = gridsize² from each 
 - Control: use image subsampling fraction (`s_img`) and number of groups (`n_groups`).
 - Measure: compute 2D disc‑overlap metrics as defined in `specs/overlap_metrics.md` (Metric 2 and Metric 3); for `gridsize=2`, Metric 1 (group‑based) is also defined.
 
-Note: Phase D now writes filtered NPZs per `s_img` and `rng_seed_subsample` and records per‑split metrics JSON and a bundle; see `docs/specs/overlap_metrics.md` for the normative API and outputs. This ensures Phase E training consumes exactly the subsampled datasets that the metrics were computed on (no additional training‑side sampling required).
+Note: Phase D now writes filtered NPZs per `s_img` and `rng_seed_subsample` and records per‑split metrics JSON and a bundle; see `specs/overlap_metrics.md` for the normative API and outputs. This ensures Phase E training consumes exactly the subsampled datasets that the metrics were computed on (no additional training‑side sampling required).
 - Behavior: no geometry/packing acceptance gates; the pipeline proceeds and records the measured overlaps.
 
 Dense/sparse labels are deprecated for this study; prefer explicit `s_img`/`n_groups` and report the measured overlaps per the spec.

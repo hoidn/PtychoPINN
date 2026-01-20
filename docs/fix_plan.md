@@ -23,7 +23,7 @@
 - Working Plan: `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md`
 - Summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md`
 - Reports Hub: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/`
-- Spec Owner: `docs/specs/spec-ptycho-workflow.md`
+- Spec Owner: `specs/spec-ptycho-workflow.md`
 - Test Strategy: `plans/active/DEBUG-SIM-LINES-DOSE-001/test_strategy.md`
 - Goals:
   - Identify whether the sim_lines_4x failure stems from a core regression, nongrid pipeline differences, or a workflow/config mismatch.

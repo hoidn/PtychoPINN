@@ -17,7 +17,7 @@ This diagram shows the primary modules in the `ptycho/` library and their relati
 
 **Note:** The component highlighted in red (`params.py`) is a legacy part of the system that is being actively phased out.
 
-**Backend Selection:** PtychoPINN supports dual backends via a `backend` configuration field (`'tensorflow'` or `'pytorch'`). The dispatcher routes to `ptycho.workflows.components` (TensorFlow) or, when available, to the PyTorch orchestration described in `docs/workflows/pytorch.md`. Both paths share the same data pipeline (`raw_data.py`, `loader.py`) and configuration system (`config/config.py` with a legacy `params.py` bridge). For API surface and contracts, see `docs/specs/spec-ptycho-interfaces.md`.
+**Backend Selection:** PtychoPINN supports dual backends via a `backend` configuration field (`'tensorflow'` or `'pytorch'`). The dispatcher routes to `ptycho.workflows.components` (TensorFlow) or, when available, to the PyTorch orchestration described in `docs/workflows/pytorch.md`. Both paths share the same data pipeline (`raw_data.py`, `loader.py`) and configuration system (`config/config.py` with a legacy `params.py` bridge). For API surface and contracts, see `specs/spec-ptycho-interfaces.md`.
 
 ```mermaid
 graph TD
@@ -50,7 +50,7 @@ graph TD
     style B fill:#ffcdd2,stroke:#b71c1c,stroke-width:2px
 ```
 
-Note on coordinates: The data pipeline standardizes scan positions in channel format `(B, 1, 2, C)` with axis order `[x, y]`; channel index `c` maps to `(row, col)` via row‑major (`row=c//gridsize`, `col=c%gridsize`). See `docs/specs/spec-ptycho-interfaces.md` for the full contract.
+Note on coordinates: The data pipeline standardizes scan positions in channel format `(B, 1, 2, C)` with axis order `[x, y]`; channel index `c` maps to `(row, col)` via row‑major (`row=c//gridsize`, `col=c%gridsize`). See `specs/spec-ptycho-interfaces.md` for the full contract.
 
 ## Inference Model I/O (Shapes Overview)
 
@@ -168,7 +168,7 @@ This final stage prepares the data for the selected backend by converting groupe
 
 -   **Explicit over Implicit**: New code should favor passing configuration and data as explicit arguments rather than relying on global state. This principle is explained in detail in the **<doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref>**.
 
--   **Data Contracts**: All data exchange between components must adhere to the formats defined in **<doc-ref type="contract">docs/specs/spec-ptycho-interfaces.md</doc-ref>**.
+-   **Data Contracts**: All data exchange between components must adhere to the formats defined in **<doc-ref type="contract">specs/spec-ptycho-interfaces.md</doc-ref>**.
 
 -   **Separation of Concerns**: Physics simulation (`diffsim`), model architecture (`model`), and data handling (`loader`) are kept in separate, specialized modules.
 

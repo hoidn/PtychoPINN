@@ -103,7 +103,7 @@ sequenceDiagram
 - `model_manager.py`: Multi-model bundle persistence (`wts.h5.zip`)
 
 Config Bridging:
-- Backends share canonical dataclasses; see the config bridge mapping: <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref>
+- Backends share canonical dataclasses; see the config bridge mapping: <doc-ref type="spec">specs/spec-ptycho-config-bridge.md</doc-ref>
 
 ## 5. Stable Modules & Config Lifecycle
 

@@ -10,8 +10,8 @@ Pre-flight
 3. Confirm the ledger item is `in_progress` and already lists reproduction commands.
 
 Required references
-- Spec parity & tracing shards: `docs/specs/spec-ptycho-conformance.md`, `docs/specs/spec-ptycho-tracing.md`
-- Physics/runtime guardrails: `docs/specs/spec-ptycho-core.md`, `docs/specs/spec-ptycho-runtime.md`
+- Spec parity & tracing shards: `specs/spec-ptycho-conformance.md`, `specs/spec-ptycho-tracing.md`
+- Physics/runtime guardrails: `specs/spec-ptycho-core.md`, `specs/spec-ptycho-runtime.md`
 - Architecture guides: `docs/architecture.md`, `docs/architecture_torch.md`, `docs/architecture_tf.md`
 - Testing guidance: `docs/TESTING_GUIDE.md`, `docs/development/TEST_SUITE_INDEX.md`
 - Agent workflow: `CLAUDE.md`, `AGENTS.md`
@@ -23,9 +23,9 @@ Loop policy
 - Documentation after fix: If the root cause is likely to recur, add an entry to `docs/debugging/TROUBLESHOOTING.md` in the same loop (Symptom, Root Cause, Solution). Only create a follow-up task in `docs/fix_plan.md` when in-loop documentation isn't feasible.
 
 Procedure
-1. **Reproduce** the failing selector(s) exactly as listed in `input.md` (selectors should come from `docs/TESTING_GUIDE.md` / `docs/specs/spec-ptycho-conformance.md`). Capture console output to the artifact directory.
+1. **Reproduce** the failing selector(s) exactly as listed in `input.md` (selectors should come from `docs/TESTING_GUIDE.md` / `specs/spec-ptycho-conformance.md`). Capture console output to the artifact directory.
 2. **Callchain snapshot (optional)**: If the failure locus is unclear, run `prompts/callchain.md` to map candidate functions and tap points before modifying code.
-3. **Trace instrumentation**: follow `docs/specs/spec-ptycho-tracing.md` to log paired traces (TensorFlow vs PyTorch). Collect values for targeted variables (e.g., forward model outputs, loss components, probe/object tensors).
+3. **Trace instrumentation**: follow `specs/spec-ptycho-tracing.md` to log paired traces (TensorFlow vs PyTorch). Collect values for targeted variables (e.g., forward model outputs, loss components, probe/object tensors).
 4. **Isolation**: identify the first divergent value/operation. Document variable names, file:line, and the magnitude of divergence.
 5. **Fix**: implement the smallest change that addresses the root cause. Do not weaken tests or thresholds.
 6. **Metrics & visuals**: recompute correlation, MSE, RMSE, max|Δ|, sum ratios, and generate diff heatmaps. Store under the artifact directory (`metrics.json`, `diff_heatmap.png`, `trace.log`).

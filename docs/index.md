@@ -298,44 +298,44 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 
 ### Specifications
 
-Specs live in two authoritative roots: `docs/specs/` (PtychoPINN core specs) and `specs/` (cross-project/API contracts). Links below point to both.
+Specs live in `specs/` as the single authoritative root for normative contracts.
 
 #### [Inference Pipeline Specification](../specs/spec-inference-pipeline.md) NEW
 **Description:** Normative IDL-style contracts for the inference pipeline: function signatures, preconditions/postconditions, tensor shape invariants, data container contracts (RawData, GroupedDataDict, PtychoDataContainer), model loading, inference, and stitching APIs with error taxonomy.
 **Keywords:** spec, inference, contracts, IDL, shapes, invariants, API
 **Use this when:** Need authoritative API contracts for inference functions, debugging shape mismatches, implementing new inference workflows, or understanding data container requirements.
 
-#### [PtychoPINN Spec — Index](specs/spec-ptychopinn.md)
+#### [PtychoPINN Spec — Index](../specs/spec-ptychopinn.md)
 **Description:** Index of normative spec shards for the TensorFlow‑based physics‑informed ptychography pipeline (core physics, runtime, workflow, interfaces, conformance, tracing).
 **Keywords:** spec, ptychography, TensorFlow, physics‑informed, index
 **Use this when:** You need the top‑level map of all PtychoPINN specifications.
 
-#### [PtychoPINN Core Physics & Data Contracts](specs/spec-ptycho-core.md)
+#### [PtychoPINN Core Physics & Data Contracts](../specs/spec-ptycho-core.md)
 **Description:** Normative definition of the forward model (object·probe→FFT→|F|²/N²→sqrt), Poisson observation, intensity scaling symmetry, coordinates/patch extraction, probe/masking/smoothing, valid inputs, losses, and outputs.  
 **Keywords:** physics, FFT, Poisson, scaling, offsets, probe, contracts  
 **Use this when:** Implementing or auditing the physical/mathematical operations and strict data shapes.
 
-#### [PtychoPINN Runtime & Execution](specs/spec-ptycho-runtime.md)
+#### [PtychoPINN Runtime & Execution](../specs/spec-ptycho-runtime.md)
 **Description:** TensorFlow runtime guardrails: dtype/device policy, XLA translation/compile modes, vectorization/streaming, graph hygiene, environment flags, and error conditions.  
 **Keywords:** runtime, TensorFlow, XLA, vectorization, determinism  
 **Use this when:** Tuning performance, enabling XLA, or validating execution safety constraints.
 
-#### [PtychoPINN Workflow](specs/spec-ptycho-workflow.md)
+#### [PtychoPINN Workflow](../specs/spec-ptycho-workflow.md)
 **Description:** End‑to‑end pipeline: NPZ ingest → grouping → normalization → model → loss/optimization → inference → stitching → evaluation; staging knobs and guards.  
 **Keywords:** workflow, grouping, normalization, training, inference, stitching, evaluation  
 **Use this when:** Building or verifying the full training/inference pipeline.
 
-#### [PtychoPINN Interfaces](specs/spec-ptycho-interfaces.md)
+#### [PtychoPINN Interfaces](../specs/spec-ptycho-interfaces.md)
 **Description:** Public API surface and data/file interfaces (RawData, loader, models, training/eval), model I/O contracts, precedence rules for params/env, and error conditions.  
 **Keywords:** API, data‑contracts, shapes, params, precedence  
 **Use this when:** Integrating modules, writing loaders, or consuming model interfaces.
 
-#### [PtychoPINN Conformance Tests](specs/spec-ptycho-conformance.md)
+#### [PtychoPINN Conformance Tests](../specs/spec-ptycho-conformance.md)
 **Description:** Acceptance tests PTY‑AT‑XXX: forward amplitude equivalence, Poisson semantics, grouping/coords shapes, translation round‑trip, intensity scaling symmetry, positive intensity for NLL, loader contracts, inference determinism, stitch border math.  
 **Keywords:** conformance, acceptance‑tests, parity, validation  
 **Use this when:** Certifying a build or diagnosing regressions against the spec.
 
-#### [PtychoPINN Tracing & Debug](specs/spec-ptycho-tracing.md)
+#### [PtychoPINN Tracing & Debug](../specs/spec-ptycho-tracing.md)
 **Description:** Tracing obligations for physics/intermediate tensors, coordinate/translation traces, scaling invariants, and first‑divergence workflow with artifact guidance.  
 **Keywords:** tracing, debug, parity, diagnostics  
 **Use this when:** Investigating numerical/physics divergences or instrumentation gaps.
@@ -350,13 +350,13 @@ Specs live in two authoritative roots: `docs/specs/` (PtychoPINN core specs) and
 **Keywords:** data-contracts, HDF5, product, metadata, probe, object  
 **Use this when:** Writing/reading product files or converting datasets to the Ptychodus product format.
 
-#### [Config Bridge (TensorFlow ↔ PyTorch)](specs/spec-ptycho-config-bridge.md)
+#### [Config Bridge (TensorFlow ↔ PyTorch)](../specs/spec-ptycho-config-bridge.md)
 **Description:** Normative mapping between TensorFlow dataclass configs and PyTorch config singletons, including field transformations (grid_size→gridsize, epochs→nepochs, mode→model_type), defaults/overrides, update_legacy_dict flow, and validation rules.  
 **Keywords:** config, bridge, translation, params.cfg, dataclasses, pytorch  
 **Use this when:** Translating configuration between backends, ensuring CONFIG‑001 compliance, or verifying field mappings.
 
 #### [Overlap Metrics Spec](../specs/overlap_metrics.md)
-**Description:** Overlap-driven sampling and reporting for Phase D. Defines three 2D disc-overlap metrics (group-based, image-based, and group↔group COM-based), explicit controls via `s_img` and `n_groups`, and removes spacing/packing acceptance gates. Also see `specs/overlap_metrics.md` for the `docs/specs/` copy.  
+**Description:** Overlap-driven sampling and reporting for Phase D. Defines three 2D disc-overlap metrics (group-based, image-based, and group↔group COM-based), explicit controls via `s_img` and `n_groups`, and removes spacing/packing acceptance gates.  
 **Keywords:** overlap, metrics, s_img, n_groups, probe-diameter, gridsize  
 **Use this when:** Implementing or validating Phase D overlap behavior and reporting measured overlaps instead of geometry gating.
 
@@ -415,7 +415,7 @@ Specs live in two authoritative roots: `docs/specs/` (PtychoPINN core specs) and
 - **Understanding data**: [Data Contracts](../specs/data_contracts.md) → [Data Normalization](DATA_NORMALIZATION_GUIDE.md)
 - **Fixing shape mismatches**: [Quick Reference Params](debugging/QUICK_REFERENCE_PARAMS.md) → [Troubleshooting](debugging/TROUBLESHOOTING.md)
 - **Training models**: [Training README](../scripts/training/README.md) → [Configuration Guide](CONFIGURATION.md)
-- **Running inference**: [Developer Guide §12](DEVELOPER_GUIDE.md#12-inference-pipeline-patterns) → [Inference Spec](specs/spec-inference-pipeline.md) → [Inference Architecture](architecture_inference.md)
+- **Running inference**: [Developer Guide §12](DEVELOPER_GUIDE.md#12-inference-pipeline-patterns) → [Inference Spec](../specs/spec-inference-pipeline.md) → [Inference Architecture](architecture_inference.md)
 - **Creating data without NPZ**: [Data Generation Guide §4](DATA_GENERATION_GUIDE.md#4-alternative-data-creation-flows-no-npz-required)
 - **Evaluating models**: [Evaluation README](../scripts/evaluation/README.md) → [Model Comparison](../scripts/studies/README.md)
 

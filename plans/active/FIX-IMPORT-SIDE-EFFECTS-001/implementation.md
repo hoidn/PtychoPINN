@@ -14,7 +14,7 @@
 > See `plans/active/REFACTOR-MODEL-SINGLETON-001/implementation.md` for the active plan.
 
 ## Context Priming
-- `docs/specs/spec-ptycho-config-bridge.md` (Normative): Defines "Compliance & Prohibitions" regarding import-time side effects.
+- `specs/spec-ptycho-config-bridge.md` (Normative): Defines "Compliance & Prohibitions" regarding import-time side effects.
 - `docs/debugging/QUICK_REFERENCE_PARAMS.md` (Guide): Explains the correct `update_legacy_dict` lifecycle.
 - `ptycho/model.py` (Target): The module currently violating the spec.
 

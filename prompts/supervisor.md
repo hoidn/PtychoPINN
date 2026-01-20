@@ -36,7 +36,7 @@
     - specs/data_contracts.md
     - specs/ptychodus_api_spec.md
     - specs/compare_models_spec.md
-    - docs/specs/spec-ptycho-*.md  <!-- Core, runtime, workflow, interfaces, conformance, tracing, config-bridge -->
+    - specs/spec-ptycho-*.md  <!-- Core, runtime, workflow, interfaces, conformance, tracing, config-bridge -->
     - prompts/callchain.md
     - CLAUDE.md, AGENTS.md, galph_memory.md
   </primary_references>
@@ -191,7 +191,7 @@
 
     - <strong>Hard Gate</strong>: If any selector marked "Active" collects 0 due to changes made this loop, do not finish as `done`. Either downgrade the selector to "Planned" with rationale or author the missing tests before completion (after the code passes).
 
-    - <strong>Normative Math/Physics</strong>: Do not paraphrase spec equations into pseudo-code or sample math. Reference the exact Spec section (e.g., "See `docs/specs/spec-ptycho-core.md §Forward Model`") so the engineer reads the normative source.
+    - <strong>Normative Math/Physics</strong>: Do not paraphrase spec equations into pseudo-code or sample math. Reference the exact Spec section (e.g., "See `specs/spec-ptycho-core.md §Forward Model`") so the engineer reads the normative source.
   </input_md_requirements>
 
   <evidence_parameter_sourcing>

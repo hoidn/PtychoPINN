@@ -9,7 +9,7 @@
     and only then adjust enforcement/tests (selectors, gates, tolerances) or implementation. Never weaken verification
     until you have proof the implementation already satisfies the spec; otherwise fix the code.
     **Hierarchy of Truth:**
-    1. **SPEC** (`docs/spec-*.md`) — Normative. Overrides everything.
+    1. **SPEC** (`specs/spec-*.md`) — Normative. Overrides everything.
     2. **INPUT** (`input.md`) — Immediate command.
     3. **PLAN** (`plans/active/...`) — Context/Checklist.
     If PLAN conflicts with SPEC, **follow SPEC** and note the divergence.
@@ -29,7 +29,7 @@
     - specs/data_contracts.md
     - specs/ptychodus_api_spec.md
     - specs/compare_models_spec.md
-    - docs/specs/spec-ptycho-*.md  <!-- Core, runtime, workflow, interfaces, conformance, tracing, config-bridge -->
+    - specs/spec-ptycho-*.md  <!-- Core, runtime, workflow, interfaces, conformance, tracing, config-bridge -->
     - CLAUDE.md, AGENTS.md
     - Any plan files referenced by `input.md` or the fix-plan item
   </required_reading>
@@ -118,7 +118,7 @@
 
     9. **Artifacts**
        - Save `pytest.log`, `summary.md`, metrics JSONs under the loop's reports directory.
-       - For parity/debug work, include correlation, MSE/RMSE, max|Δ|, sum ratios, and diff heatmaps per `docs/specs/spec-ptycho-tracing.md`.
+       - For parity/debug work, include correlation, MSE/RMSE, max|Δ|, sum ratios, and diff heatmaps per `specs/spec-ptycho-tracing.md`.
 
     10. **Documentation & ledgers**
         - Update user/dev docs touched by the change to remain consistent.

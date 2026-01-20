@@ -899,7 +899,7 @@ class TestPatchStatsCLI:
 
         # Phase C3c: Run inference CLI to verify forward-path parity (gridsize>=2)
         # Rationale: analysis/phase_c2_pytorch_only_metrics.txt and
-        # docs/specs/spec-ptycho-workflow.md require that inference patches retain
+        # specs/spec-ptycho-workflow.md require that inference patches retain
         # variance when gridsize>=2, ensuring forward reassembly produces structured
         # patches before stitching (POLICY-001/CONFIG-001).
         from ptycho_torch.inference import cli_main as inference_cli_main
@@ -957,7 +957,7 @@ class TestPatchStatsCLI:
         # shows that gridsize=2 baseline retains patch.var_zero_mean=8.97e9, while gridsize=1
         # collapsed to 0.0. Inference forward path must preserve variance for gridsize>=2.
         # References: POLICY-001 (PyTorch mandatory), CONFIG-001 (config bridge),
-        # docs/specs/spec-ptycho-workflow.md (forward reassembly parity requirement)
+        # specs/spec-ptycho-workflow.md (forward reassembly parity requirement)
         inference_first_batch = inference_stats[0]
 
         assert 'var_zero_mean' in inference_first_batch, \

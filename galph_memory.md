@@ -266,7 +266,7 @@ FEAT-LAZY-LOADING-001 is DONE. All phases complete:
 - Action type: Evidence collection (targeted pytest)
 - Mode: Planning
 - Git sync: `git pull --rebase` → Already up to date.
-- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (REASSEMBLY-BATCH-001, BUG-TF-REASSEMBLE-001), docs/debugging/debugging.md, docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/specs/spec-ptycho-workflow.md, specs/spec-inference-pipeline.md, plans/active/FIX-REASSEMBLE-BATCH-DIM-001/{implementation.md,summary.md,test_strategy.md}
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (REASSEMBLY-BATCH-001, BUG-TF-REASSEMBLE-001), docs/debugging/debugging.md, docs/INITIATIVE_WORKFLOW_GUIDE.md, specs/spec-ptycho-workflow.md, specs/spec-inference-pipeline.md, plans/active/FIX-REASSEMBLE-BATCH-DIM-001/{implementation.md,summary.md,test_strategy.md}
 
 **Test Result:**
 - Ran `pytest tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split -v`
@@ -384,7 +384,7 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Action type: Review/Planning handoff for Phase B2
 - Mode: Planning (next Do Now must hand off implementation per dwell guard)
 - Git sync: `git pull --rebase` (already up to date).
-- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, MODULE-SINGLETON-001, NORMALIZATION-001, BUG-TF-001), docs/DATA_GENERATION_GUIDE.md, docs/specs/spec-ptycho-workflow.md, docs/DEVELOPER_GUIDE.md §12, docs/TESTING_GUIDE.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md,test_strategy.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T020000Z/{grouping_sim_lines_default.json,grouping_dose_experiments_legacy.json,summary.md}, scripts/studies/sim_lines_4x/pipeline.py, scripts/simulation/synthetic_helpers.py.
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, MODULE-SINGLETON-001, NORMALIZATION-001, BUG-TF-001), docs/DATA_GENERATION_GUIDE.md, specs/spec-ptycho-workflow.md, docs/DEVELOPER_GUIDE.md §12, docs/TESTING_GUIDE.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md,test_strategy.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T020000Z/{grouping_sim_lines_default.json,grouping_dose_experiments_legacy.json,summary.md}, scripts/studies/sim_lines_4x/pipeline.py, scripts/simulation/synthetic_helpers.py.
 - Key observations:
   - Confirmed B1 checklist complete: sim_lines defaults produce the requested 1000/1000 groups, while injecti ng the legacy `gridsize=2` and `nimgs=2` constraints triggers the KDTree failure (`Dataset has only 2 points but 4 coordinates per group requested.`). This captures the nongrid vs grid divergence without touching production code.
   - Captured findings in `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T031500Z/analysis.md` and recorded Phase B1 completion + Phase B2 scope in the working plan.
@@ -400,7 +400,7 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Action type: Review/Planning (confirm B2 outcome, scope B3 Do Now)
 - Mode: Implementation handoff
 - Git sync: `git pull --rebase` (already up to date).
-- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, MODULE-SINGLETON-001, NORMALIZATION-001, BUG-TF-001), docs/DATA_GENERATION_GUIDE.md, docs/specs/spec-ptycho-workflow.md, docs/DEVELOPER_GUIDE.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md,test_strategy.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T031500Z/*.
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, MODULE-SINGLETON-001, NORMALIZATION-001, BUG-TF-001), docs/DATA_GENERATION_GUIDE.md, specs/spec-ptycho-workflow.md, docs/DEVELOPER_GUIDE.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md,test_strategy.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T031500Z/*.
 - Key updates:
   - Verified the probe normalization CLI outputs (gs1/gs2 × custom/ideal) are numerically identical (max amp delta ≈5e-7), so normalization is ruled out as the divergence source.
   - Marked B2 complete in the plan, added a new Attempts entry plus summary block explaining the conclusion, and reserved artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T041700Z/` for the next telemetry batch.
@@ -415,7 +415,7 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Focus issue: DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy
 - Action type: Planning | Mode: Implementation handoff
 - Git sync: `git pull --rebase` (already up to date).
-- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, MODULE-SINGLETON-001, NORMALIZATION-001, BUG-TF-REASSEMBLE-001), docs/TESTING_GUIDE.md, docs/specs/spec-ptycho-workflow.md (§Reassembly), docs/INITIATIVE_WORKFLOW_GUIDE.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md,test_strategy.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T041700Z/{grouping_gs1_custom_default.md,grouping_gs2_custom_default.md,grouping_gs2_custom_neighbor1.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json.
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, MODULE-SINGLETON-001, NORMALIZATION-001, BUG-TF-REASSEMBLE-001), docs/TESTING_GUIDE.md, specs/spec-ptycho-workflow.md (§Reassembly), docs/INITIATIVE_WORKFLOW_GUIDE.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md,test_strategy.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T041700Z/{grouping_gs1_custom_default.md,grouping_gs2_custom_default.md,grouping_gs2_custom_neighbor1.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json.
 - Key updates:
   - Confirmed B3 telemetry shows gs2 offsets up to ≈382 px (while gs1 stays ≤195 px) but the legacy padded-size derived from CONFIG-001 defaults is still ≈78 px, so reassembly clips most of the scan.
   - Updated the working plan (B3 checked, B4 spelled out with the new CLI requirements), refreshed docs/fix_plan.md metadata/status, and prepended the initiative summary with the B4 scope + new artifacts hub (`plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T050500Z/`).
@@ -428,7 +428,7 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Focus issue: DEBUG-SIM-LINES-DOSE-001 — Use grouped offsets to auto-inflate padded size before reassembly
 - Action type: Planning | Mode: Implementation handoff
 - Git sync: `git pull --rebase` (already up to date).
-- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, MODULE-SINGLETON-001, NORMALIZATION-001, BUG-TF-REASSEMBLE-001), docs/specs/spec-ptycho-workflow.md §Reassembly Requirements, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/reassembly_limits_report.py, docs/TESTING_GUIDE.md.
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, MODULE-SINGLETON-001, NORMALIZATION-001, BUG-TF-REASSEMBLE-001), specs/spec-ptycho-workflow.md §Reassembly Requirements, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/reassembly_limits_report.py, docs/TESTING_GUIDE.md.
 - Key decisions:
   - Marked Phase B complete in the working plan and promoted C1 to cover a workflow-layer fix (inflate `max_position_jitter` from grouped offsets).
   - Added a targeted pytest selector (`tests/test_workflow_components.py::TestCreatePtychoDataContainer::test_updates_max_position_jitter`) plus CLI reruns to verify padded-size compliance.
@@ -444,7 +444,7 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Action type: Planning → Implementation handoff (scoped runner + reruns)
 - Mode: Implementation
 - Git sync: `git pull --rebase --autostash`
-- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, MODULE-SINGLETON-001, NORMALIZATION-001, BUG-TF-REASSEMBLE-001), docs/specs/spec-ptycho-workflow.md, docs/TESTING_GUIDE.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T041420Z/{summary.md,gs1_ideal_run.log,gs2_ideal_run.log}, scripts/studies/sim_lines_4x/pipeline.py
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, MODULE-SINGLETON-001, NORMALIZATION-001, BUG-TF-REASSEMBLE-001), specs/spec-ptycho-workflow.md, docs/TESTING_GUIDE.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T041420Z/{summary.md,gs1_ideal_run.log,gs2_ideal_run.log}, scripts/studies/sim_lines_4x/pipeline.py
 - Key updates:
   - Promoted the working plan status to Phase C verification, detailed the C2 checklist (runner requirements, PNG/JSON outputs, reassembly telemetry, pytest guard), and logged the new artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T061530Z/` inside docs/fix_plan.md.
   - Authored the supervisor summary + reporting stub for the new hub and pre-created `summary.md` so evidence from Ralph lands in a predictable location.
@@ -487,7 +487,7 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Focus issue: DEBUG-SIM-LINES-DOSE-001 — Capture gs1_ideal vs gs2_ideal training telemetry under the baked profiles
 - Action type: Planning | Mode: Implementation handoff
 - Git sync: `git stash push -u` → `timeout 30 git pull --rebase` (up to date) → `git stash pop`
-- Documents reviewed: docs/index.md, docs/findings.md (CONFIG-001 / MODULE-SINGLETON-001 / NORMALIZATION-001 / BUG-TF-REASSEMBLE-001), docs/specs/spec-ptycho-workflow.md §Reassembly, docs/TESTING_GUIDE.md, docs/fix_plan.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T063500Z/{gs*_ideal_runner.log,gs*_ideal/inference_outputs/stats.json,gs*_ideal_notes.md}, input.md
+- Documents reviewed: docs/index.md, docs/findings.md (CONFIG-001 / MODULE-SINGLETON-001 / NORMALIZATION-001 / BUG-TF-REASSEMBLE-001), specs/spec-ptycho-workflow.md §Reassembly, docs/TESTING_GUIDE.md, docs/fix_plan.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T063500Z/{gs*_ideal_runner.log,gs*_ideal/inference_outputs/stats.json,gs*_ideal_notes.md}, input.md
 - Key updates:
   - Marked C2b complete in the working plan, added a C3 checklist item for training-history instrumentation, and recorded the new focus in docs/fix_plan.md Attempts.
   - Opened artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T071800Z/`, refreshed `input.md` with the telemetry Do Now (runner instrumentation + gs1/gs2 reruns + pytest guard), and listed the required outputs (history.json, history_summary, Markdown notes, reassembly logs, pytest logs).
@@ -541,7 +541,7 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Action type: Planning → Implementation handoff (Phase C4 intensity normalization audit)
 - Mode: Implementation
 - Git sync: `git pull --rebase` → Already up to date.
-- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md, docs/specs/spec-ptycho-core.md, docs/specs/spec-ptycho-workflow.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/inspect_intensity_scaler.py, reports/2026-01-20T093000Z/*
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md, specs/spec-ptycho-core.md, specs/spec-ptycho-workflow.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/inspect_intensity_scaler.py, reports/2026-01-20T093000Z/*
 - Key updates:
   - Marked C3c/C3d complete in the working plan, added Phase C4 checklist items for the intensity stats instrumentation/reruns/doc sync, and updated docs/fix_plan.md status + attempts to reflect the new scope and artifacts hub (`2026-01-20T113000Z`).
   - Authored input.md instructing Ralph to add the intensity-scale telemetry in `run_phase_c2_scenario.py`, rerun gs1_ideal + gs2_ideal under the new hub, and capture the pytest CLI smoke log.

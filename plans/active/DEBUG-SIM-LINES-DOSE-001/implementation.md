@@ -4,7 +4,7 @@
 - ID: DEBUG-SIM-LINES-DOSE-001
 - Title: Isolate sim_lines_4x vs dose_experiments sim->recon discrepancy
 - Owner: Codex + user
-- Spec Owners: docs/specs/spec-ptycho-workflow.md; docs/specs/spec-ptycho-core.md; specs/spec-inference-pipeline.md; specs/data_contracts.md
+- Spec Owners: specs/spec-ptycho-workflow.md; specs/spec-ptycho-core.md; specs/spec-inference-pipeline.md; specs/data_contracts.md
 - Status: in_progress — Phase C verification (C3d intensity-scale inspection)
 
 ## Goals
@@ -32,12 +32,12 @@
    - Logs saved to `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<timestamp>/`
 
 ## Compliance Matrix (Mandatory)
-- [x] Spec Authority: Both `docs/specs/` and `specs/` are authoritative; list applicable specs from each root.
-- [x] Spec Constraint: docs/specs/spec-ptycho-core.md (Forward model + normalization invariants)
-- [x] Spec Constraint: docs/specs/spec-ptycho-workflow.md (load->group->infer->stitch sequence)
+- [x] Spec Authority: Both `specs/` and `specs/` are authoritative; list applicable specs from each root.
+- [x] Spec Constraint: specs/spec-ptycho-core.md (Forward model + normalization invariants)
+- [x] Spec Constraint: specs/spec-ptycho-workflow.md (load->group->infer->stitch sequence)
 - [x] Spec Constraint: specs/spec-inference-pipeline.md (stitching/offset contracts)
 - [x] Spec Constraint: specs/data_contracts.md (RawData/NPZ requirements)
-- [x] Fix-Plan Link: docs/fix_plan.md -- SIM-LINES-4X-001
+- [x] Fix-Plan Link: docs/fix_plan.md -- DEBUG-SIM-LINES-DOSE-001
 - [x] Finding/Policy ID: CONFIG-001
 - [x] Finding/Policy ID: MODULE-SINGLETON-001
 - [x] Finding/Policy ID: NORMALIZATION-001
@@ -45,9 +45,9 @@
 - [x] Test Strategy: plans/active/DEBUG-SIM-LINES-DOSE-001/test_strategy.md
 
 ## Spec Alignment
-- Normative Specs (authoritative across `docs/specs/` and `specs/`):
-  - docs/specs/spec-ptycho-core.md
-  - docs/specs/spec-ptycho-workflow.md
+- Normative Specs (authoritative across `specs/` and `specs/`):
+  - specs/spec-ptycho-core.md
+  - specs/spec-ptycho-workflow.md
   - specs/spec-inference-pipeline.md
   - specs/data_contracts.md
 - Key Clauses: forward model + normalization rules; inference load->group->stitch contracts.
@@ -108,6 +108,7 @@ Guidelines:
         ```
         (must resolve under `/home/ollie/Documents/PtychoPINN`).
       - Run the dose_experiments entrypoints identified in A1 (simulate → train → infer) and archive outputs/logs under a new reports hub so we can treat those artifacts as the ground-truth baseline.
+      - Copy or symlink logs/params snapshots into this repo’s `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<timestamp>/`; store bulky outputs under `.artifacts/DEBUG-SIM-LINES-DOSE-001/<timestamp>/` and link them from the report notes.
       Test: N/A -- evidence capture only
 - [ ] A2: Verify data-contract expectations for any RawData/NPZ outputs used in comparison.
       Test: N/A -- evidence capture only
@@ -180,8 +181,9 @@ Guidelines:
 - [x] C3b: Extend the Phase C2 runner with ground-truth comparison utilities that crop the stitched reconstructions to the simulated object size, compute amplitude/phase error metrics (MAE/RMSE/max/pearson), emit diff PNGs, and surface the metrics + artifact paths in `run_metadata.json` so gs1 vs gs2 divergence can be quantified without manual inspection. (`reports/2026-01-20T083000Z/` contains comparison_metrics.json, diff PNGs, and metadata pointers for gs1_ideal/gs2_ideal plus refreshed reassembly telemetry.)
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 - [x] C3c: Quantify amplitude/phase bias versus ground truth by augmenting `run_phase_c2_scenario.py` to record per-scenario prediction vs truth stats (mean, median, percentiles) and emit Markdown summaries so we can prove whether the gs1/gs2 collapses stem from a shared intensity offset.
+      Evidence: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/` (bias summaries + metrics)
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
-- [x] C3d: Inspect the intensity-scaling pipeline by loading the gs1_ideal/gs2_ideal training checkpoints, dumping the `IntensityScaler`/`IntensityScaler_inv` weights and params (`params.cfg['intensity_scale']`), and comparing them to the observed amplitude bias so we can decide whether the workflow or the model needs the fix.
+- [ ] C3d: Inspect the intensity-scaling pipeline by loading the gs1_ideal/gs2_ideal training checkpoints, dumping the `IntensityScaler`/`IntensityScaler_inv` weights and params (`params.cfg['intensity_scale']`), and comparing them to the observed amplitude bias so we can decide whether the workflow or the model needs the fix.
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 - [ ] C4a: Instrument the Phase C2 runner with intensity-normalization stats (raw `diff3d`, grouped diffraction, container tensors, recorded `intensity_scale`) so each scenario writes a JSON summary alongside the existing bias metrics.
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`

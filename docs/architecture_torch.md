@@ -94,10 +94,10 @@ See details and current status in **<doc-ref type="guide">docs/workflows/pytorch
 - `ptycho_torch/model_manager.py`: Torch model bundle persistence and load
 - `ptycho_torch/workflows/components.py`: Orchestration entry points (`run_cdi_example_torch`, etc.)
 - Reassembly: Currently reuses TF helper for parity; native Torch reassembly planned
-- Shared modules: `ptycho/raw_data.py`, `config/config.py`, `docs/specs/spec-ptycho-interfaces.md`
+- Shared modules: `ptycho/raw_data.py`, `config/config.py`, `specs/spec-ptycho-interfaces.md`
 
 Config Bridging:
-- Normative config mapping and bridge flow: <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref>
+- Normative config mapping and bridge flow: <doc-ref type="spec">specs/spec-ptycho-config-bridge.md</doc-ref>
 
 ## 5. Function & Container Mapping (PyTorch ↔ TF)
 

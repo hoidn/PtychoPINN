@@ -9,7 +9,7 @@ Checklist
    - Ensure the header includes `Depends on`, `Status`, `Owner/Date`, `Exit Criteria`, and `Artifact Hub` when applicable.
    - Append a new bullet to `Attempts History` describing what changed.
    - Include `Metrics:` and `Artifacts:` lines (even if placeholders) for future loops.
-   - Reference specs/tests (e.g., `docs/specs/spec-ptycho-conformance.md`) when clarifying exit criteria.
+   - Reference specs/tests (e.g., `specs/spec-ptycho-conformance.md`) when clarifying exit criteria.
 4. If you add a new item, assign a unique ID (slug), list dependencies, and seed exit criteria tied to spec/test clauses.
 5. Update `docs/index.md` if the structure of the ledger changes or if you add new supporting documents.
 6. Record the update in `docs/findings.md` if it encodes a durable lesson.

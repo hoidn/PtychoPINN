@@ -47,8 +47,8 @@ Your task specifies a MODULE to document:
       "RankShardedSubset"
     ],
     "spec_references": [
-      "docs/specs/spec-ptycho-workflow.md § Data Loading",
-      "docs/specs/spec-ptycho-interfaces.md § Data Contracts"
+      "specs/spec-ptycho-workflow.md § Data Loading",
+      "specs/spec-ptycho-interfaces.md § Data Contracts"
     ]
   }
 }
@@ -254,8 +254,8 @@ Link to behavioral specs:
 ### Behavioral Specification
 
 This module implements behaviors specified in:
-- [SPEC-WORKFLOW § Data Loading](docs/specs/spec-ptycho-workflow.md#data-loading)
-- [SPEC-INTERFACES § Data Contracts](docs/specs/spec-ptycho-interfaces.md#data-contracts)
+- [SPEC-WORKFLOW § Data Loading](specs/spec-ptycho-workflow.md#data-loading)
+- [SPEC-INTERFACES § Data Contracts](specs/spec-ptycho-interfaces.md#data-contracts)
 
 **Contract compliance:**
 - Data loading satisfies [SPEC-INTERFACES § RawData Contract]
@@ -629,8 +629,8 @@ thousands of files without exhausting file handles.
 ## Behavioral Specification
 
 Implements behaviors from:
-- [SPEC-WORKFLOW § Data Loading](docs/specs/spec-ptycho-workflow.md#data-loading)
-- [SPEC-INTERFACES § Data Contracts](docs/specs/spec-ptycho-interfaces.md#data-contracts)
+- [SPEC-WORKFLOW § Data Loading](specs/spec-ptycho-workflow.md#data-loading)
+- [SPEC-INTERFACES § Data Contracts](specs/spec-ptycho-interfaces.md#data-contracts)
 ```
 
 ## Bad Architecture Documentation

@@ -16,8 +16,8 @@
 - [x] docs/findings.md — POLICY-001, CONFIG-001, and known PyTorch/translation findings that constrain this work.
 - [x] docs/workflows/pytorch.md — Canonical PyTorch training/inference workflow, CLI expectations, and reporting policy.
 - [x] docs/DEVELOPER_GUIDE.md — Two-system architecture; highlights forbidden core files (`ptycho/model.py`, etc.).
-- [x] docs/specs/spec-ptycho-workflow.md — Normative forward pipeline semantics (reassembly, scaling, offsets).
-- [x] docs/specs/spec-ptycho-interfaces.md — Data contracts for grouped tensors, offsets, and stitching inputs.
+- [x] specs/spec-ptycho-workflow.md — Normative forward pipeline semantics (reassembly, scaling, offsets).
+- [x] specs/spec-ptycho-interfaces.md — Data contracts for grouped tensors, offsets, and stitching inputs.
 
 ## Problem Statement
 PyTorch forward inference currently produces impulse-like patches with extremely low variance even after per-patch normalization, diverging from TensorFlow behavior before stitching occurs. Scaling telemetry shows training and inference operate with different normalization, and we lack a structured plan to instrument, align, and test the PyTorch forward path to achieve TF-level patch quality.
@@ -110,7 +110,7 @@ PyTorch forward inference currently produces impulse-like patches with extremely
 ### Action Plan — B2 (Intensity Scale Persistence)
 1. **Capture the real scale during training.**
    - Inspect `PtychoPINN_Lightning` and `PtychoPINN` (`ptycho_torch/model.py`) to read the learned value from `model.scaler.log_scale` after `trainer.fit`.
-   - When `intensity_scale_trainable` is false or the parameter is missing, compute a fallback using the spec formula (`s ≈ sqrt(config.nphotons) / (config.model.N / 2)`, see `docs/specs/spec-ptycho-core.md:80-110`).
+   - When `intensity_scale_trainable` is false or the parameter is missing, compute a fallback using the spec formula (`s ≈ sqrt(config.nphotons) / (config.model.N / 2)`, see `specs/spec-ptycho-core.md:80-110`).
    - Expose the resolved scalar through `_train_with_lightning` (e.g., stash under `train_results['intensity_scale']`).
 2. **Persist the value inside bundles.**
    - Thread the captured scalar into `save_torch_bundle(...)` via the existing `intensity_scale` argument so that `params_snapshot['intensity_scale']` holds the real value instead of `1.0`.
@@ -361,7 +361,7 @@ TensorFlow training previously crashed with `values[0].shape=[4] != values[2].sh
    - `tf_baseline/phase_c1_scaled/analysis/` is currently empty and the CLI log is 0 bytes, so the rerun must capture `stats.json`, `offsets.json`, PNG grids, and env captures under this hub.
 
 2. **Authorized code change (`ptycho/tf_helper.py`).**
-   - ✅ Already complete (commit `801780b6`); do not re-edit `ptycho/tf_helper.py` unless the rerun surfaces a new failure signature. The current guard broadcasts translations when the batches disagree and falls back to `_translate_images_simple`. Cite `docs/specs/spec-ptycho-workflow.md` §Reassembly Requirements + the original blocker if future edits are required.
+   - ✅ Already complete (commit `801780b6`); do not re-edit `ptycho/tf_helper.py` unless the rerun surfaces a new failure signature. The current guard broadcasts translations when the batches disagree and falls back to `_translate_images_simple`. Cite `specs/spec-ptycho-workflow.md` §Reassembly Requirements + the original blocker if future edits are required.
 
 3. **Regression test (fast CPU).**
    - ✅ `tests/tf_helper/test_translation_shape_guard.py` already exists with three selectors that cover the guard. Re-run `pytest tests/tf_helper/test_translation_shape_guard.py::test_non_xla_translation_guard -vv` before the TF CLI to prove the guard is still GREEN (log to `$HUB/green/pytest_tf_translation_guard.log`).
@@ -430,7 +430,7 @@ _Status recap_: C3a/C3b (training guard) landed in commit `392a44ea` — keep th
 
 3. **Inference CLI guard (landed via commit `f85a9150`).**
    - After the training CLI run completes, invoke `ptycho_torch.inference.cli_main` with the saved tmp outputs (`--model_path <train_out> --test_data <tmp_path>/train_test.npz --output_dir <tmp_path>/outputs_infer --n_images 8 --log-patch-stats --patch-stats-limit 2 --accelerator cpu --quiet`) so the PyTorch inference workflow produces `analysis/torch_patch_stats_inference.json` and `torch_patch_grid_inference.png`.
-   - Parse the first batch of `torch_patch_stats_inference.json` and enforce the same thresholds as training: `patch_amplitude.var_zero_mean > 1e-6` and `abs(global_mean) > 1e-9`. Cite `analysis/phase_c2_pytorch_only_metrics.txt` and `docs/specs/spec-ptycho-workflow.md` (forward-path parity) in the inline comment to explain why inference must retain variance for gridsize ≥ 2.
+   - Parse the first batch of `torch_patch_stats_inference.json` and enforce the same thresholds as training: `patch_amplitude.var_zero_mean > 1e-6` and `abs(global_mean) > 1e-9`. Cite `analysis/phase_c2_pytorch_only_metrics.txt` and `specs/spec-ptycho-workflow.md` (forward-path parity) in the inline comment to explain why inference must retain variance for gridsize ≥ 2.
    - Fail fast with an actionable assertion (POLICY-001/CONFIG-001) if the inference CLI does not emit the stats/PNG artifacts.
 
 4. **Pytest execution + hub capture (rerun).**

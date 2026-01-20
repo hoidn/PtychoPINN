@@ -10,7 +10,7 @@ TensorFlow workflows while providing Lightning-based training execution.
   physics stack described in <doc-ref type="guide">docs/architecture.md</doc-ref>.
 - **Configuration**: Uses the same TensorFlow dataclass configs (`TrainingConfig`, `ModelConfig`)
   bridged from PyTorch config singletons via `ptycho_torch.config_bridge`. See the
-  normative mapping: <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref>.
+  normative mapping: <doc-ref type="spec">specs/spec-ptycho-config-bridge.md</doc-ref>.
 - **Execution engine**: Training uses PyTorch Lightning (`PtychoPINN_Lightning`) with
   deterministic settings and checkpoint management.
 - **Data contract**: Identical `.npz` requirements as documented in
@@ -72,7 +72,7 @@ update_legacy_dict(params.cfg, config)
 
 ### Config Mappings (subset)
 
-Small subset of the TF ↔ PyTorch configuration mapping. See the full spec for all fields and rules: <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref>
+Small subset of the TF ↔ PyTorch configuration mapping. See the full spec for all fields and rules: <doc-ref type="spec">specs/spec-ptycho-config-bridge.md</doc-ref>
 
 | PyTorch (config_params) | TensorFlow (dataclass) | Transform / Notes |
 |---|---|---|
@@ -171,7 +171,7 @@ During training, the PyTorch workflow captures the `intensity_scale` parameter a
 
 1. **Learned scale (trainable case)**: If `model.scaler.log_scale` is a trainable parameter, the learned value is extracted after `trainer.fit()` completes: `intensity_scale = exp(log_scale)`
 
-2. **Fallback scale (non-trainable case)**: When `intensity_scale_trainable=False` or the parameter is missing, the scale is computed using the spec formula from `docs/specs/spec-ptycho-core.md:80-110`:
+2. **Fallback scale (non-trainable case)**: When `intensity_scale_trainable=False` or the parameter is missing, the scale is computed using the spec formula from `specs/spec-ptycho-core.md:80-110`:
    ```
    intensity_scale ≈ sqrt(nphotons) / (N / 2)
    ```

@@ -15,7 +15,7 @@
 - [ ] docs/TESTING_GUIDE.md — Authoritative instructions for running/recording pytest evidence and updating the test registry.
 - [ ] docs/findings.md — Capture CONFIG-001, POLICY-001, DEVICE-MISMATCH-001, EXEC-ACCUM-001; these findings govern CLI config bridging, PyTorch requirements, and Lightning trainer behavior.
 - [ ] docs/architecture.md & docs/architecture_torch.md — High-level data/workflow diagrams covering CLI configuration flow, PyTorch workflows, and legacy params bridge.
-- [ ] docs/specs/spec-ptycho-workflow.md & docs/specs/ptychodus_api_spec.md — Contract for workflow orchestration, CLI interfaces, and reconstructor lifecycle that the PyTorch tests assert against.
+- [ ] specs/spec-ptycho-workflow.md & specs/ptychodus_api_spec.md — Contract for workflow orchestration, CLI interfaces, and reconstructor lifecycle that the PyTorch tests assert against.
 - [ ] plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py — Current Phase G orchestrator whose behavior the failing Phase G tests target.
 - [ ] prompts/main.md & prompts/supervisor.md — Loop execution format and dwell/test evidence policies that apply when implementing this plan.
 

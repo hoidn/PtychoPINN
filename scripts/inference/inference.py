@@ -365,7 +365,7 @@ def _run_tf_inference_and_reconstruct(
     Core TensorFlow inference helper for programmatic use.
 
     Mirrors PyTorch `_run_inference_and_reconstruct()` signature for API parity.
-    See docs/specs/spec-ptycho-interfaces.md for contract details.
+    See specs/spec-ptycho-interfaces.md for contract details.
 
     Args:
         model: Loaded TensorFlow model (from load_inference_bundle_with_backend).

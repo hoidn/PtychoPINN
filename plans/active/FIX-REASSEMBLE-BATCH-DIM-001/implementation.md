@@ -4,7 +4,7 @@
 - ID: FIX-REASSEMBLE-BATCH-DIM-001
 - Title: Preserve batch dimension in batched patch reassembly
 - Owner: Codex
-- Spec Owner: docs/specs/spec-ptycho-workflow.md (Reassembly Requirements)
+- Spec Owner: specs/spec-ptycho-workflow.md (Reassembly Requirements)
 - Status: done
 
 ## Goals
@@ -18,7 +18,7 @@
 3. `tests/study/test_dose_overlap_comparison.py::test_pinn_reconstruction_reassembles_full_train_split` passes.
 
 ## Compliance Matrix (Mandatory)
-- [ ] **Spec Constraint:** `docs/specs/spec-ptycho-workflow.md` (Reassembly Requirements)
+- [ ] **Spec Constraint:** `specs/spec-ptycho-workflow.md` (Reassembly Requirements)
 - [ ] **Spec Constraint:** `specs/spec-inference-pipeline.md` §7 (reassemble_position contracts)
 - [ ] **Finding/Policy ID:** CONFIG-001 (legacy params sync), POLICY-001 (torch required, no changes needed)
 

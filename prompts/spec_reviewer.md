@@ -118,7 +118,7 @@ Are specs coherent, discoverable, and well-structured?
 - Undefined terms used in normative statements
 
 **Discoverability Checks:**
-- Every spec shard is listed in docs/specs/spec-ptychopinn.md (the shard index)
+- Every spec shard is listed in specs/spec-ptychopinn.md (the shard index)
 - Every spec shard is referenced from docs/index.md
 - Cross-references exist between related sections
 - Cross-references are valid (target files and sections exist)

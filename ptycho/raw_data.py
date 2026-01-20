@@ -94,7 +94,7 @@ State Dependencies:
 - Caching behavior eliminated - no dependency on dataset_path for cache files
 
 Data Contract Compliance:
-Adheres to normative specs in `docs/specs/spec-ptycho-interfaces.md` and `docs/specs/spec-ptycho-core.md`.
+Adheres to normative specs in `specs/spec-ptycho-interfaces.md` and `specs/spec-ptycho-core.md`.
 Expected NPZ keys and dtypes:
 - `xcoords (M,) float64`, `ycoords (M,) float64` — pixel coordinates on the object grid
 - `diff3d (M, N, N) float32` — amplitude (sqrt of counts), not intensity

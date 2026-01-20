@@ -4,7 +4,7 @@
 **Created:** 2026-01-06
 **Completed:** 2026-01-07
 **Owner:** Ralph
-**Spec Owner:** docs/specs/spec-ptycho-core.md
+**Spec Owner:** specs/spec-ptycho-core.md
 
 ## Problem
 

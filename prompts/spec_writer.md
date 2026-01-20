@@ -469,7 +469,7 @@ Confidence: [high|medium|low]
 ## Discoverability Checklist
 
 - [ ] New spec shard added to docs/index.md
-- [ ] New spec shard added to docs/specs/spec-ptychopinn.md (shard index)
+- [ ] New spec shard added to specs/spec-ptychopinn.md (shard index)
 - [ ] Cross-references to related specs included
 - [ ] Cross-references are valid (target files and sections exist)
 

@@ -4,7 +4,7 @@
 - **ID:** FIX-GRIDSIZE-TRANSLATE-BATCH-001
 - **Title:** Fix Translation Layer Batch Dimension Mismatch for gridsize>1
 - **Owner:** Ralph
-- **Spec Owner:** `docs/specs/spec-ptycho-core.md` (Forward Model, Reassembly)
+- **Spec Owner:** `specs/spec-ptycho-core.md` (Forward Model, Reassembly)
 - **Status:** pending
 - **Unblocks:** STUDY-SYNTH-DOSE-COMPARISON-001
 - **Priority:** Critical
@@ -67,7 +67,7 @@ Translation(...)([imgs_flat_padded, -offsets_flat])
 
 ## Spec Alignment
 
-- **Normative Spec:** `docs/specs/spec-ptycho-core.md`
+- **Normative Spec:** `specs/spec-ptycho-core.md`
 - **Key Clauses:**
   - "Forward semantics: When gridsize > 1, forward-path reassembly semantics MUST match..."
   - Channel flattening/unflattening must preserve batch × channel correspondence

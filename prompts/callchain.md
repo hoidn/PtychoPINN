@@ -8,7 +8,7 @@ Inputs
 - Optional hints: `scope_hints`, `roi_hint`, `namespace_filter` for narrowing search.
 
 Preparation
-- Required references: `docs/index.md`, `docs/architecture.md`, `docs/architecture_torch.md`, `docs/architecture_tf.md`, `docs/specs/spec-ptycho-workflow.md`, `docs/specs/spec-ptycho-tracing.md`, `docs/specs/spec-ptycho-core.md`, `docs/TESTING_GUIDE.md`.
+- Required references: `docs/index.md`, `docs/architecture.md`, `docs/architecture_torch.md`, `docs/architecture_tf.md`, `specs/spec-ptycho-workflow.md`, `specs/spec-ptycho-tracing.md`, `specs/spec-ptycho-core.md`, `docs/TESTING_GUIDE.md`.
 - Create a report directory: `plans/active/<initiative_id>/reports/<timestamp>/` (UTC ISO8601 with `Z`).
 
 Procedure
@@ -17,7 +17,7 @@ Procedure
 3. Trace forward and backward:
    - Map data lineage from ingestion (`ptycho/raw_data.py`) through configuration to model invocation (`ptycho/model.py`, `ptycho_torch/`).
    - Record file:line anchors and important arguments/state transitions.
-4. Identify instrumentation tap points recommended by `docs/specs/spec-ptycho-tracing.md` (e.g., forward model outputs, loss components, probe/object tensors).
+4. Identify instrumentation tap points recommended by `specs/spec-ptycho-tracing.md` (e.g., forward model outputs, loss components, probe/object tensors).
 5. Highlight potential divergence or extension sites and list related spec clauses.
 
 Deliverables (write to the report directory)

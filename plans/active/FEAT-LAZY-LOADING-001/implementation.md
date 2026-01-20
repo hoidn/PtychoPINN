@@ -8,7 +8,7 @@
 - **Reports Hub:** `plans/active/FEAT-LAZY-LOADING-001/reports/`
 
 ## Context Priming
-- `docs/specs/spec-ptycho-workflow.md` (Normative): See "Resource Constraints" section.
+- `specs/spec-ptycho-workflow.md` (Normative): See "Resource Constraints" section.
 - `docs/findings.md` (Knowledge Base): See `PINN-CHUNKED-001` (OOM error details).
 - `ptycho/loader.py` (Target): The `PtychoDataContainer` class.
 

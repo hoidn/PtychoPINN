@@ -4,7 +4,7 @@
 - **ID:** REFACTOR-MODEL-SINGLETON-001
 - **Title:** Remove Global State Pollution in ptycho/model.py
 - **Owner:** Ralph
-- **Spec Owner:** docs/specs/spec-ptycho-core.md
+- **Spec Owner:** specs/spec-ptycho-core.md
 - **Status:** in_progress
 
 ## Problem Statement
@@ -53,7 +53,7 @@ but the requested shape has 24336
 
 ## Compliance Matrix (Mandatory)
 
-- [ ] **Spec Constraint:** `docs/specs/spec-ptycho-core.md` (Model Sizes — N, gridsize, offset must be configurable)
+- [ ] **Spec Constraint:** `specs/spec-ptycho-core.md` (Model Sizes — N, gridsize, offset must be configurable)
 - [ ] **Finding/Policy ID:** `MODULE-SINGLETON-001` (Global state capture at import time)
 - [ ] **Finding/Policy ID:** `ANTIPATTERN-001` (Import-time side effects)
 - [ ] **Finding/Policy ID:** `TF-NON-XLA-SHAPE-001` (Non-XLA translation path bug)
@@ -291,5 +291,5 @@ The following changes were applied but require verification/integration:
 ## References
 
 - Issue discovered in: `scripts/studies/dose_response_study.py`
-- Related spec: `docs/specs/spec-ptycho-core.md`
+- Related spec: `specs/spec-ptycho-core.md`
 - Related guide: `docs/GRIDSIZE_N_GROUPS_GUIDE.md`

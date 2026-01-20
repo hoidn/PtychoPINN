@@ -143,7 +143,7 @@ Phase R objectives:
 
 ### References
 - Commit: dd0a5b0e
-- Spec: docs/specs/spec-ptycho-config-bridge.md
+- Spec: specs/spec-ptycho-config-bridge.md
 - Plan: plans/ptychodus_pytorch_integration_plan.md (Phase R section)
 - Finding: CONFIG-001 (config bridge flow)
 

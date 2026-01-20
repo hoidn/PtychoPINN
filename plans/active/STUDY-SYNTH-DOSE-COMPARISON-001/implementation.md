@@ -4,7 +4,7 @@
 - **ID:** STUDY-SYNTH-DOSE-COMPARISON-001
 - **Title:** Synthetic Dose Response & Loss Comparison Study
 - **Owner:** Ralph
-- **Spec Owner:** `docs/specs/spec-ptycho-core.md` (Physics/Normalization)
+- **Spec Owner:** `specs/spec-ptycho-core.md` (Physics/Normalization)
 - **Status:** pending
 - **Unblocked By:** REFACTOR-MODEL-SINGLETON-001 complete (2026-01-07) — lazy loading fixes multi-N shape mismatch
 - **Priority:** High (Scientific Validation)
@@ -51,7 +51,7 @@
 - [ ] **Finding/Policy ID:** `PINN-CHUNKED-001` — Guard against OOM if test set size exceeds limits (mitigated: small test sets used).
 
 ## Spec Alignment
-- **Normative Spec:** `docs/specs/spec-ptycho-workflow.md`
+- **Normative Spec:** `specs/spec-ptycho-workflow.md`
 - **Key Clauses:**
     - "Forward semantics: When gridsize > 1, forward-path reassembly semantics MUST match..."
     - "Loss and Optimization: ... Positivity guard: Y_pred (intensity) fed to log SHALL be strictly positive..."
@@ -80,7 +80,7 @@
 - **Primary docs/specs:**
     - `docs/DEVELOPER_GUIDE.md` Section 3.5 (Normalization Architecture)
     - `docs/debugging/QUICK_REFERENCE_PARAMS.md` (params.cfg initialization)
-    - `docs/specs/spec-ptycho-core.md` (photon scaling, intensity_scale)
+    - `specs/spec-ptycho-core.md` (photon scaling, intensity_scale)
 - **Required findings:**
     - `CONFIG-001`: update_legacy_dict before legacy import
     - `NORMALIZATION-001`: Three distinct normalization systems

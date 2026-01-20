@@ -168,7 +168,7 @@ def main(argv: List[str]) -> int:
                     stripped = raw.lstrip()
                     if stripped.startswith("-"):
                         # Bullets may be either:
-                        #   - A link to a spec/arch/data-contract file, e.g. `docs/specs/spec-ptycho-workflow.md:42`
+                        #   - A link to a spec/arch/data-contract file, e.g. `specs/spec-ptycho-workflow.md:42`
                         #   - Or an inline contract (no path), e.g. "translations batch must match images batch"
                         text = stripped.lstrip("-").strip()
                         if not text:

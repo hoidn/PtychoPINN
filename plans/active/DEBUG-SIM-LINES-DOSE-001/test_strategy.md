@@ -12,7 +12,7 @@ This initiative is primarily evidence-driven. Tests are only added if a concrete
 ## Test Style
 - Prefer a single, minimal pytest with a tiny synthetic input (<= 8 patches).
 - Mark slow paths with `@pytest.mark.slow`.
-- Avoid GPU-only assumptions; tests must run on CPU.
+- Do not train on CPU; tests should avoid training/inference or require GPU and skip on CPU-only hosts.
 
 ## Evidence First
 - Phase A/B evidence runs do not require pytest.

@@ -25,7 +25,7 @@ PtychoPINN uses the same canonical configuration dataclasses for both TensorFlow
 PyTorch config_params → ptycho_torch/config_bridge.py → TF dataclasses → update_legacy_dict(params.cfg, config)
 ```
 
-- See the normative mapping: <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref>
+- See the normative mapping: <doc-ref type="spec">specs/spec-ptycho-config-bridge.md</doc-ref>
 - Critical rule (CONFIG‑001): always call `update_legacy_dict(params.cfg, config)` before data loading or legacy module usage.
 
 ## Usage

@@ -598,5 +598,5 @@ performance_contract PtychoDataContainer {
 - `docs/architecture_inference.md` — Data flow diagrams and design rationale
 - `docs/DEVELOPER_GUIDE.md` §12 — Practical usage patterns
 - `docs/DATA_GENERATION_GUIDE.md` §4 — Alternative data creation flows
-- `docs/specs/data_contracts.md` — NPZ format specification
+- `specs/data_contracts.md` — NPZ format specification
 - `docs/findings.md` — Known issues and policies (CONFIG-001, MODULE-SINGLETON-001)

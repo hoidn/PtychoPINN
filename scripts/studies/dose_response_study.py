@@ -22,7 +22,7 @@ Usage:
 
 References:
     - Implementation plan: plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/implementation.md
-    - Spec: docs/specs/spec-ptycho-core.md (Physics/Normalization)
+    - Spec: specs/spec-ptycho-core.md (Physics/Normalization)
 """
 import argparse
 import logging

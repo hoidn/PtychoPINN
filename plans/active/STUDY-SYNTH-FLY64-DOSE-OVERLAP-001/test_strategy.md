@@ -49,7 +49,7 @@ Validates:
 **Status:** 11/11 tests PASSED — RED/GREEN/collect evidence captured
 - Working Plan: `reports/2025-11-04T025541Z/phase_b_test_infra/plan.md`
 - Validator: `studies/fly64_dose_overlap/validation.py::validate_dataset_contract` checks ✅
-  - DATA-001 NPZ keys/dtypes and amplitude requirement (`diffraction` as amplitude float32, complex64 fields for object/probe) per `docs/specs/spec-ptycho-interfaces.md`.
+  - DATA-001 NPZ keys/dtypes and amplitude requirement (`diffraction` as amplitude float32, complex64 fields for object/probe) per `specs/spec-ptycho-interfaces.md`.
   - Train/test split axis `'y'` using StudyDesign constants.
   - Geometry metadata (`geometry_acceptance_bound`, `effective_min_acceptance`) recorded for observability (no abort gate).
   - Oversampling preconditions (neighbor_count ≥ gridsize²) aligned with OVERSAMPLING-001.
@@ -68,7 +68,7 @@ Validates:
 - Unit: Metric 1 (gs=2 only) central-to-neighbors average per sample; global mean; skipped for gs=1.
 - Unit: Metric 2 (global) with exact coord dedup; KNN average; global mean.
 - Unit: Metric 3 (group↔group) COM computation; neighbor detection via `d < probe_diameter_px`; global mean.
-- Integration: explicit `--gridsize`, `--s_img`, `--n_groups`, `--neighbor-count`, `--probe-diameter-px` produce per-split metrics JSON + aggregated bundle per `docs/specs/overlap_metrics.md`. No spacing/packing gates; non-degenerate runs do not abort on “insufficient spacing”.
+- Integration: explicit `--gridsize`, `--s_img`, `--n_groups`, `--neighbor-count`, `--probe-diameter-px` produce per-split metrics JSON + aggregated bundle per `specs/overlap_metrics.md`. No spacing/packing gates; non-degenerate runs do not abort on “insufficient spacing”.
 **Bundle fields (Planned):**
 - `gridsize`, `s_img`, `n_groups`, `neighbor_count` (default 6), `probe_diameter_px`, RNG seeds.
 - `metric_1_group_based_avg` (gs=2 only), `metric_2_image_based_avg`, `metric_3_group_to_group_avg`.

@@ -37,7 +37,7 @@ Findings Applied (Mandatory):
 - POLICY-001 — workflows assume TensorFlow dependencies are present; do not try to downshift to a CPU-only or torch-free path when rerunning the scenarios.
 
 Pointers:
-- docs/specs/spec-ptycho-core.md:20 (Normalization invariants + intensity_scale contract)
+- specs/spec-ptycho-core.md:20 (Normalization invariants + intensity_scale contract)
 - plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:170 (Phase C4 checklist)
 - docs/fix_plan.md:90 (Latest Attempts and C4 scope)
 - plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py:260 (stats helpers and runner entry point)
@@ -46,4 +46,4 @@ Pointers:
 Next Up (optional): If time remains, start comparing the logged stats vs recorded `intensity_scale` to decide whether C5 needs config tweaks or workflow math changes.
 Doc Sync Plan (Conditional): Not needed this loop (no new/renamed tests).
 Mapped Tests Guardrail: Selector above already collects (>0) and must be kept up to date.
-Normative Math/Physics: Use docs/specs/spec-ptycho-core.md §Normalization Invariants and docs/DEVELOPER_GUIDE.md §3.5 to keep the telemetry grounded in the official intensity-scaling math.
+Normative Math/Physics: Use specs/spec-ptycho-core.md §Normalization Invariants and docs/DEVELOPER_GUIDE.md §3.5 to keep the telemetry grounded in the official intensity-scaling math.

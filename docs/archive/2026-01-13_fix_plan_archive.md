@@ -22,7 +22,7 @@
 - Working Plan: `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md`
 - Summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md`
 - Reports Hub: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/`
-- Spec Owner: `docs/specs/spec-ptycho-workflow.md`
+- Spec Owner: `specs/spec-ptycho-workflow.md`
 - Test Strategy: `plans/active/DEBUG-SIM-LINES-DOSE-001/test_strategy.md`
 - Goals:
   - Identify whether the sim_lines_4x failure stems from a core regression, nongrid pipeline differences, or a workflow/config mismatch.
@@ -118,7 +118,7 @@
 - Working Plan: `plans/active/REFACTOR-MODEL-SINGLETON-001/implementation.md`
 - Summary: `plans/active/REFACTOR-MODEL-SINGLETON-001/summary.md`
 - Reports Hub: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/`
-- Spec Owner: `docs/specs/spec-ptycho-core.md` (Model Sizes)
+- Spec Owner: `specs/spec-ptycho-core.md` (Model Sizes)
 - Goals:
   - Fix non-XLA `translate_core` broadcasting bug (Phase A). ✅ Complete
   - Move model construction into factory functions, eliminating import-time side effects (Phase B). ✅ Complete
@@ -148,7 +148,7 @@
 - Working Plan: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/implementation.md`
 - Test Strategy: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/test_strategy.md`
 - Reports Hub: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/`
-- Spec Owner: `docs/specs/spec-ptycho-core.md` (Physics/Normalization)
+- Spec Owner: `specs/spec-ptycho-core.md` (Physics/Normalization)
 - Goals:
   - Compare PtychoPINN reconstruction quality under High Dose (1e9 photons) vs. Low Dose (1e4 photons). ✅
   - Evaluate Poisson NLL vs. MAE loss robustness across dose regimes. ✅
@@ -235,7 +235,7 @@
 - Summary: `plans/active/FIX-REASSEMBLE-BATCH-DIM-001/summary.md`
 - Test Strategy: `plans/active/FIX-REASSEMBLE-BATCH-DIM-001/test_strategy.md`
 - Artifacts: `.artifacts/FIX-REASSEMBLE-BATCH-DIM-001/`
-- Spec Owner: `docs/specs/spec-ptycho-workflow.md` (Reassembly Requirements)
+- Spec Owner: `specs/spec-ptycho-workflow.md` (Reassembly Requirements)
 - Goals:
   - Preserve batch dimension in `_reassemble_position_batched` for per-sample canvases.
   - Align `ReassemblePatchesLayer` output shape metadata.

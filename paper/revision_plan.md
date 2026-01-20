@@ -10,17 +10,17 @@ Keep:
 ### Methods: Core physics + Dual-resolution decoder
 - Codebase Ref: ptycho/model.py (Search create_decoder_last to see probe.big logic verifying the dual-resolution claim).
 - Codebase Ref: ptycho/tf_helper.py (Search pad_and_diffract to verify the Far-Field/FFT physics model).
-- Doc Ref: docs/specs/spec-ptycho-core.md (Normative forward model definition, lines 18-36; FFT amplitude formula lines 22-27).
+- Doc Ref: specs/spec-ptycho-core.md (Normative forward model definition, lines 18-36; FFT amplitude formula lines 22-27).
 - Doc Ref: docs/architecture_tf.md (TensorFlow component diagram and training sequence).
 
 ### Poisson NLL Loss (Paper §2.4, Discussion)
 - Codebase Ref: ptycho/model.py (negloglik function implements the loss).
-- Doc Ref: docs/specs/spec-ptycho-core.md §Losses lines 77-84 (Normative: "L_poisson = Y_pred − Y_true · log(Y_pred)").
+- Doc Ref: specs/spec-ptycho-core.md §Losses lines 77-84 (Normative: "L_poisson = Y_pred − Y_true · log(Y_pred)").
 - Doc Ref: docs/DATA_NORMALIZATION_GUIDE.md (CRITICAL: defines three normalization types - physics/statistical/display. Paper must not conflate these).
 
 ### Single-Shot: The Fresnel/Overlap-free argument (Fig 1)
 - Doc Ref: docs/GRIDSIZE_N_GROUPS_GUIDE.md (Read "GridSize = 1" section to confirm how n_groups works without overlap).
-- Doc Ref: docs/specs/overlap_metrics.md (Defines overlap metrics: group-based, image-based, COM-based).
+- Doc Ref: specs/overlap_metrics.md (Defines overlap metrics: group-based, image-based, COM-based).
 
 ### Data Efficiency: The SSIM vs Training Size argument (Fig 4)
 - Script Ref: scripts/studies/run_complete_generalization_study.sh (Source of the training size sweep logic).
@@ -265,7 +265,7 @@ Figure \ref{fig:lowcounts} compares reconstructions trained with a standard Mean
 Before submission, verify each paper claim against the authoritative project documentation:
 
 ### D1. Physics & Forward Model
-- [ ] Paper Eq. 2-5 (forward model) matches `docs/specs/spec-ptycho-core.md` lines 18-36
+- [ ] Paper Eq. 2-5 (forward model) matches `specs/spec-ptycho-core.md` lines 18-36
 - [ ] FFT normalization `|F|²/(N·N)` matches spec line 24
 - [ ] Poisson loss formula matches spec lines 77-80
 - [ ] Intensity scale symmetry assertion matches spec lines 87-93
@@ -281,7 +281,7 @@ Before submission, verify each paper claim against the authoritative project doc
 
 ### D4. Single-Shot / Overlap-Free
 - [ ] Paper uses Cg=1 (NOT Cg=0) per `docs/GRIDSIZE_N_GROUPS_GUIDE.md`
-- [ ] Overlap definitions align with `docs/specs/overlap_metrics.md`
+- [ ] Overlap definitions align with `specs/overlap_metrics.md`
 
 ### D5. Cross-Facility Generalization
 - [ ] Claims verified against `docs/FLY64_GENERALIZATION_STUDY_ANALYSIS.md`
