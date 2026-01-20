@@ -659,6 +659,24 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/ next_action=add CONFIG-001 hooks + rerun gs1_ideal/gs2_ideal + analyzer + pytest guard
 
+# 2026-01-20T10:23:00Z: DEBUG-SIM-LINES-DOSE-001 — B0f isolation test handoff
+
+- dwell: 0 (planning loop after C4f implementation)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — B0f isolation test (probe-type vs workflow-wide)
+- Action type: Planning → Implementation handoff (evidence-only run)
+- Mode: Implementation
+- Git sync: `git stash push -u` → `timeout 30 git pull --rebase` → `git stash pop`
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/bias_summary.md
+- Key observations:
+  - C4f CONFIG-001 bridging eliminated NaNs in both scenarios (gs1_ideal and gs2_ideal)
+  - Both scenarios now show identical failure pattern: amplitude bias ≈-2.3, pearson_r ≈0.1
+  - Per B0 decision tree, need to run gs1_custom (gridsize=1 + custom probe) to isolate whether failure is probe-specific (H-PROBE-IDEAL-REGRESSION) or workflow-wide (H-LOSS-WIRING)
+  - If gs1_custom shows similar metrics → workflow/normalization issue
+  - If gs1_custom shows better metrics → ideal probe handling regression
+- input.md updated with Do Now for B0f (gs1_custom runner + analyzer comparison + pytest guard) targeting artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/`
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 ralph_last_commit=e1e84dba artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/ next_action=run gs1_custom scenario via Phase C2 runner and compare metrics against ideal baselines
+
 # 2026-01-20T10:05:00Z: DEBUG-SIM-LINES-DOSE-001 — C4f CONFIG-001 implementation complete
 
 - dwell: 0 (implementation loop executed the handed-off Do Now)

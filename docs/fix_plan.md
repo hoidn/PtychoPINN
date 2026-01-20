@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-20 (ORCH-ORCHESTRATOR reviewer user_input routing)
-**Active Focus:** ORCH-ORCHESTRATOR-001 — route actionable reviewer findings to user_input.md
+**Last Updated:** 2026-01-20 (DEBUG-SIM-LINES-DOSE-001 B0f isolation test)
+**Active Focus:** DEBUG-SIM-LINES-DOSE-001 — B0f isolation test (probe-type vs workflow-wide)
 
 ---
 
@@ -18,7 +18,7 @@
 ### [DEBUG-SIM-LINES-DOSE-001] Isolate sim_lines_4x vs dose_experiments discrepancy
 - Depends on: None
 - Priority: **Critical** (Highest Priority)
-- Status: in_progress — Phase C diagnostics (C4 intensity normalization audit)
+- Status: in_progress — Phase B0 hypothesis verification (B0f isolation test)
 - Owner/Date: Codex/2026-01-13
 - Working Plan: `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md`
 - Summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md`
@@ -160,6 +160,9 @@
     - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/{gs1_ideal/*,gs2_ideal/*,bias_summary.json,bias_summary.md,gs1_ideal_runner.log,gs2_ideal_runner.log,pytest_cli_smoke.log,analyze_intensity_bias.log}`
     - Findings: **Both scenarios now complete without training NaNs** (all metrics `has_nan=false`), fits_canvas=true for both, bundle vs legacy intensity_scale delta=0. Amplitude bias remains ≈-2.29 (gs1) and ≈-2.30 (gs2) with least_squares scalars 1.71 and 2.06 respectively; pearson_r improved slightly (0.103 gs1, 0.138 gs2).
     - Next Actions: CONFIG-001 bridging verified and NaNs eliminated; remaining amplitude bias is workflow-level (normalization or loss weighting) and unrelated to param drift. Consider auditing the normalization math or loss weighting to close the ≈2.3 amplitude gap.
+  - *2026-01-20T102300Z:* Supervisor planning for B0f isolation test — run gs1_custom (gridsize=1 + custom probe) to determine whether the amplitude bias is probe-type-specific or workflow-wide. Since both gs1_ideal and gs2_ideal show identical failure patterns (~-2.3 bias, ~0.1 pearson_r) after C4f, the decision tree recommends comparing custom-probe metrics to isolate the variable.
+    - Do Now: Run Phase C2 runner for gs1_custom scenario, compare against gs1_ideal/gs2_ideal baselines via analyzer, and record decision branch (H-PROBE-IDEAL-REGRESSION vs H-LOSS-WIRING).
+    - Artifacts hub: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/`
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

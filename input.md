@@ -1,52 +1,79 @@
-**Summary**: Enforce CONFIG-001 bridging for the sim_lines runner + pipeline, then rerun gs1_ideal/gs2_ideal (least_squares scaling) and refresh analyzer + CLI evidence under the reserved 2026-01-20T160000Z hub.
-**Focus**: DEBUG-SIM-LINES-DOSE-001 — C4f CONFIG-001 sync (Phase C intensity audit)
+**Summary**: Execute B0f isolation test — run gs1_custom (gridsize=1 + custom probe) and compare metrics against gs1_ideal/gs2_ideal to determine if the amplitude bias is probe-type-specific or workflow-wide.
+**Focus**: DEBUG-SIM-LINES-DOSE-001 — B0f isolation test (Phase B0 hypothesis verification)
 **Branch**: paper
-**Mapped tests**: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
-**Artifacts**: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/
+**Mapped tests**: `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+**Artifacts**: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/`
 
 **Do Now**
-- Implement: scripts/studies/sim_lines_4x/pipeline.py::{run_scenario, run_inference} — import `update_legacy_dict` + `params as legacy_params`, then call `update_legacy_dict(legacy_params.cfg, train_config)` before `run_training(...)` and `update_legacy_dict(legacy_params.cfg, infer_config)` inside `run_inference(...)` immediately before `load_inference_bundle_with_backend(...)` so loader/grouping see the active ModelConfig values (specs/spec-inference-pipeline.md §1.1).
-- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py::{main, run_inference_and_reassemble} — add the same import, call the bridging helper right before invoking `run_training(...)`, and inside `run_inference_and_reassemble(...)` before the grouped-data call so `legacy_params.get_padded_size()` reflects the current scenario overrides.
-- Run: `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py --scenario gs1_ideal --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs1_ideal --prediction-scale-source least_squares --group-limit 64` (uses baked stable profile). Archive stdout/stderr as `gs1_ideal_runner.log` under the hub and ensure all generated JSON/PNG/NPY files live beneath the gs1_ideal directory.
-- Run: same command for `--scenario gs2_ideal --output-dir .../gs2_ideal --prediction-scale-source least_squares --group-limit 64` so both scenarios share the new CONFIG-001 plumbing; capture `gs2_ideal_runner.log` alongside outputs.
-- Run: `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py --scenario gs1_ideal=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs1_ideal --scenario gs2_ideal=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs2_ideal --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/` to regenerate `bias_summary.{json,md}` with the fresh telemetry.
-- Run: `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` and save the log as `pytest_cli_smoke.log` in the same hub.
-- Update `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md` + `docs/fix_plan.md` Attempts with the new bridging evidence, noting the artifact paths (`2026-01-20T160000Z/gs*_ideal`, analyzer outputs, pytest log); mention that CONFIG-001 is now enforced prior to every training/inference dispatch.
+- Run: Execute the Phase C2 runner for `gs1_custom` scenario (gridsize=1 with the repository's custom probe instead of ideal probe):
+  ```bash
+  AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py \
+    --scenario gs1_custom \
+    --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/gs1_custom \
+    --prediction-scale-source least_squares \
+    --group-limit 64 \
+    2>&1 | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/gs1_custom_runner.log
+  ```
+- Run: Execute the analyzer to compare gs1_custom against the existing gs1_ideal and gs2_ideal baselines:
+  ```bash
+  AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py \
+    --scenario gs1_custom=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/gs1_custom \
+    --scenario gs1_ideal=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs1_ideal \
+    --scenario gs2_ideal=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs2_ideal \
+    --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/ \
+    2>&1 | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/analyze_intensity_bias.log
+  ```
+- Run: Guard the imports with the synthetic helpers CLI smoke test:
+  ```bash
+  AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v \
+    2>&1 | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/pytest_cli_smoke.log
+  ```
+- Analyze: Compare gs1_custom metrics against gs1_ideal/gs2_ideal in the analyzer output:
+  - **If gs1_custom shows similar amplitude bias (~-2.3) and low pearson_r (~0.1)**: Problem is workflow/normalization-level, not probe-type-specific. Next step: investigate loss wiring or normalization math.
+  - **If gs1_custom shows significantly better metrics (lower bias, higher pearson_r)**: Problem IS ideal-probe-specific. Next step: investigate H-PROBE-IDEAL-REGRESSION (diff dose_experiments vs sim_lines ideal probe code paths).
+- Update: Record the findings in `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/summary.md` with:
+  1. gs1_custom metrics table (amplitude bias, pearson_r, least_squares scalar)
+  2. Comparison against gs1_ideal and gs2_ideal baselines
+  3. Decision: which hypothesis branch (probe-specific vs workflow-wide) is confirmed
+  4. Recommended next action based on the decision tree
+- Update: Mark B0f complete in `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md` and record the finding.
+- Update: Add a new Attempts entry to `docs/fix_plan.md` under DEBUG-SIM-LINES-DOSE-001 documenting the B0f results.
 
 **How-To Map**
-1. scripts/studies/sim_lines_4x/pipeline.py — add `from ptycho import params as legacy_params` and `from ptycho.config.config import update_legacy_dict` near the imports (or alongside the existing inline imports) and drop in the two bridging calls before `run_training` and before the grouped-data path inside `run_inference`.
-2. plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py — extend the existing `from ptycho.config.config import InferenceConfig, ModelConfig` import to include `update_legacy_dict`; call it after the final `train_config` dataclass adjustments (before `run_training(...)`) and inside `run_inference_and_reassemble(...)` right after constructing `infer_config` but before fetching grouped data.
-3. Create the hub directory `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/` if it does not already exist; ensure each runner invocation writes into child directories (`gs1_ideal`, `gs2_ideal`). Use `tee` or shell redirection to capture `gs*_ideal_runner.log` next to the scenario outputs.
-4. Analyzer command (above) expects the scenario directories to contain `run_metadata.json`, `intensity_stats.json`, `train_outputs/history_summary.json`, etc. Verify these files exist before running.
-5. After analyzer + pytest complete, prepend a new entry in `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/summary.md` summarizing what changed (CONFIG-001 hook, rerun results, analyzer highlights) and mirror the same snippet into `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md`. Update `docs/fix_plan.md` Attempts History under DEBUG-SIM-LINES-DOSE-001 with the timestamp, focus (C4f), and evidence paths.
+1. The `--scenario gs1_custom` flag selects gridsize=1 with the custom probe (as opposed to `gs1_ideal` which uses the ideal probe). The runner should already support this scenario via its stable profiles.
+2. The analyzer compares multiple scenarios side-by-side; include all three (gs1_custom, gs1_ideal, gs2_ideal) so the comparison table is complete.
+3. Decision criteria for the output analysis:
+   - "Similar" means amplitude bias within ±0.3 of the ideal scenarios (~-2.3 baseline)
+   - "Similar" pearson_r means within ±0.05 of ~0.1-0.14 baseline
+   - "Significantly better" would be amplitude bias < -1.0 or pearson_r > 0.5
 
 **Pitfalls To Avoid**
-1. Don’t mutate the plan-local runner’s scenario metadata paths—only add CONFIG-001 bridging; leave amplitude-scaling and telemetry wiring intact.
-2. Ensure `update_legacy_dict` targets `legacy_params.cfg`; do not create a new dict copy or the legacy modules will still read stale values.
-3. Keep the scenario directories under the specified artifacts hub; do not spill outputs into repo root or tmp/ beyond plan-local expectations.
-4. Make sure both runner commands use `--prediction-scale-source least_squares` so the analyzer sees consistent scaling metadata for this loop.
-5. Preserve existing plan-local CLI flags (group_limit, stable profiles); avoid reverting to large workloads that could OOM.
-6. Analyzer output must overwrite `bias_summary.{json,md}` in the 2026-01-20T160000Z hub; don’t leave stale data from 150500Z.
-7. When updating docs, record only the new attempt details—do not rewrite historical entries or archive logs from prior loops.
-8. Always invoke the pytest selector from repo root with `AUTHORITATIVE_CMDS_DOC` set; omitting the env var violates the testing guide contract.
-9. Do not edit `docs/index.md` or other specs this loop; scope is limited to CONFIG-001 bridging + evidence refresh.
-10. Keep GPU utilization low by limiting parallel runs; complete gs1 before starting gs2.
+1. Do not modify the Phase C2 runner code — this is an evidence-only run using existing tooling.
+2. Ensure the scenario name is exactly `gs1_custom` (not `gs1_custom_probe` or similar) to match the runner's stable profile lookup.
+3. Keep `--group-limit 64` to avoid GPU OOM while still getting representative statistics.
+4. Use `--prediction-scale-source least_squares` for consistency with the prior gs1_ideal/gs2_ideal runs.
+5. Do not touch the 2026-01-20T160000Z hub artifacts — those are the baseline for comparison.
+6. If the runner fails with an unknown scenario error, check `run_phase_c2_scenario.py::STABLE_PROFILES` for the supported scenario names and adapt accordingly.
+7. Archive all logs even if the run fails — the error signature is valuable evidence.
 
 **If Blocked**
-- Record the failing command + stack trace under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/blocked.log`, update `docs/fix_plan.md` Attempts with the blocker (e.g., unexpected sim failure or analyzer missing files), and ping the supervisor before retrying.
+- If `gs1_custom` is not a recognized scenario in the runner, check what custom-probe scenarios ARE available by inspecting the `STABLE_PROFILES` dict in `bin/run_phase_c2_scenario.py`. Run whichever custom-probe + gridsize=1 scenario exists.
+- If the runner OOMs, reduce `--group-limit` to 32 and retry.
+- Record the blocker in `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T102300Z/blocked.log` and update docs/fix_plan.md Attempts.
 
 **Findings Applied (Mandatory)**
-- CONFIG-001 — specs/spec-inference-pipeline.md §1.1 requires every legacy entrypoint to run `update_legacy_dict(params.cfg, config)` before loader/training/inference.
-- NORMALIZATION-001 — keep the analyzer outputs intact so we can continue verifying amplitude/intensity symmetry after the reruns.
-- POLICY-001 — no environment swaps; continue using the existing TensorFlow stack and document any GPU pressure in the hub logs.
+- CONFIG-001 — already enforced in the runner as of C4f; no additional bridging needed.
+- NORMALIZATION-001 — preserve telemetry outputs for downstream comparison.
+- H-PROBE-IDEAL-REGRESSION (B0) — this test determines whether to pursue this hypothesis.
+- H-GRIDSIZE-NUMERIC (B0) — already deprioritized since both gs1_ideal and gs2_ideal show identical failure patterns after C4f.
 
 **Pointers**
-- scripts/studies/sim_lines_4x/pipeline.py:287-371 — builds train_config + inference config for the nongrid study runner.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py:940-1240 — orchestrates training/inference and writes stats for each scenario.
-- specs/spec-inference-pipeline.md:1-80 — CONFIG-001 contract governing params.cfg synchronization.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py:1-200 — analyzer CLI invoked after reruns.
-- docs/fix_plan.md: DEBUG-SIM-LINES-DOSE-001 section — record new Attempts entry referencing hub 2026-01-20T160000Z.
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:218-226` — B0f checklist item
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:193-214` — Decision tree for interpreting B0f results
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py` — Phase C2 runner with stable profiles
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py` — Multi-scenario analyzer
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/bias_summary.md` — Baseline gs1_ideal/gs2_ideal metrics
 
 **Next Up (optional)**
-1. If CONFIG-001 bridging still doesn’t close the amplitude gap, scope C4g around loader normalization corrections using the refreshed telemetry.
-
+1. If gs1_custom shows similar failure → scope H-LOSS-WIRING investigation (instrument loss function inputs)
+2. If gs1_custom shows better metrics → scope H-PROBE-IDEAL-REGRESSION (diff ideal probe code paths)
