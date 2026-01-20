@@ -1,10 +1,10 @@
 {
   "amplitude": {
-    "max": 3.777890682220459,
-    "mean": 0.4122011661529541,
+    "max": 3.758528232574463,
+    "mean": 0.41152992844581604,
     "min": 0.0,
     "nan_count": 0,
-    "std": 1.017208218574524
+    "std": 1.017395257949829
   },
   "fits_canvas": true,
   "offsets": {
@@ -17,22 +17,22 @@
   "padded_size": 822,
   "phase": {
     "max": 0.0,
-    "mean": -0.1209462359547615,
-    "min": -1.040547251701355,
+    "mean": -0.10967488586902618,
+    "min": -0.9907998442649841,
     "nan_count": 0,
-    "std": 0.29839736223220825
+    "std": 0.2716628313064575
   },
   "prediction_scale": {
     "applied": true,
     "least_squares": {
-      "denominator": 50680.21327801717,
+      "denominator": 43584.790462644785,
       "finite_count": 153664,
-      "numerator": 96856.94077505922
+      "numerator": 89814.81544872264
     },
     "mode": "least_squares",
     "recorded_scale": 988.211669921875,
     "source": "least_squares",
-    "value": 1.9111391707002046
+    "value": 2.0606916884388884
   },
   "required_canvas": 817
 }

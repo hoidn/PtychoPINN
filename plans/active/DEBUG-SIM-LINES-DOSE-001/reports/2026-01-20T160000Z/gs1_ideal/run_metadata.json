@@ -1,6 +1,6 @@
 {
   "amp_png_range": {
-    "vmax": 1e-09,
+    "vmax": 4.317224502563477,
     "vmin": 0.0
   },
   "artifacts": {
@@ -62,27 +62,27 @@
     "metrics": {
       "amplitude": {
         "bias_summary": {
-          "mean": -2.6816206856592113,
-          "median": -2.6713526248931885,
-          "p05": -3.7540420293807983,
-          "p95": -1.6366970181465152
+          "mean": -2.2912851154202225,
+          "median": -2.524417996406555,
+          "p05": -3.7023458957672117,
+          "p95": 0.2592103481292728
         },
         "color_range": [
           -4.85612678527832,
           4.85612678527832
         ],
-        "count": 130599,
-        "mae": 2.6816206856592113,
+        "count": 153664,
+        "mae": 2.3704394556419834,
         "max_abs": 4.7676825523376465,
-        "pearson_r": null,
+        "pearson_r": 0.10251087479750193,
         "pred_stats": {
-          "max": 0.0,
-          "mean": 0.0,
+          "max": 4.317224502563477,
+          "mean": 0.4169623553752899,
           "min": 0.0,
-          "nan_count": 23065,
-          "std": 0.0
+          "nan_count": 0,
+          "std": 1.0108436346054077
         },
-        "rmse": 2.757292229684781,
+        "rmse": 2.55926980940393,
         "truth_stats": {
           "max": 4.85612678527832,
           "mean": 2.708247423171997,
@@ -93,27 +93,27 @@
       },
       "phase": {
         "bias_summary": {
-          "mean": 0.0,
+          "mean": 0.13110905655542204,
           "median": 0.0,
           "p05": 0.0,
-          "p95": 0.0
+          "p95": 0.9427855461835861
         },
         "color_range": [
           -3.141592653589793,
           3.141592653589793
         ],
-        "count": 130599,
-        "mae": 0.0,
-        "max_abs": 0.0,
+        "count": 153664,
+        "mae": 0.13110905653059712,
+        "max_abs": 1.164018154144287,
         "pearson_r": null,
         "pred_stats": {
-          "max": 0.0,
-          "mean": 0.0,
+          "max": 1.164018154144287,
+          "mean": 0.1311090588569641,
           "min": 0.0,
-          "nan_count": 23065,
-          "std": 0.0
+          "nan_count": 0,
+          "std": 0.31756776571273804
         },
-        "rmse": 0.0,
+        "rmse": 0.34356787036229974,
         "truth_stats": {
           "max": 0.0,
           "mean": 0.0,
@@ -126,16 +126,16 @@
     "metrics_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs1_ideal/comparison_metrics.json",
     "metrics_summary": {
       "amplitude": {
-        "mae": 2.6816206856592113,
+        "mae": 2.3704394556419834,
         "max_abs": 4.7676825523376465,
-        "pearson_r": null,
-        "rmse": 2.757292229684781
+        "pearson_r": 0.10251087479750193,
+        "rmse": 2.55926980940393
       },
       "phase": {
-        "mae": 0.0,
-        "max_abs": 0.0,
+        "mae": 0.13110905653059712,
+        "max_abs": 1.164018154144287,
         "pearson_r": null,
-        "rmse": 0.0
+        "rmse": 0.34356787036229974
       }
     },
     "summary_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs1_ideal/gs1_ideal_comparison_summary.md"
@@ -143,16 +143,16 @@
   "comparison_metrics_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs1_ideal/comparison_metrics.json",
   "comparison_metrics_summary": {
     "amplitude": {
-      "mae": 2.6816206856592113,
+      "mae": 2.3704394556419834,
       "max_abs": 4.7676825523376465,
-      "pearson_r": null,
-      "rmse": 2.757292229684781
+      "pearson_r": 0.10251087479750193,
+      "rmse": 2.55926980940393
     },
     "phase": {
-      "mae": 0.0,
-      "max_abs": 0.0,
+      "mae": 0.13110905653059712,
+      "max_abs": 1.164018154144287,
       "pearson_r": null,
-      "rmse": 0.0
+      "rmse": 0.34356787036229974
     }
   },
   "crop_metadata": {
@@ -172,7 +172,7 @@
     ],
     "target_size": 392
   },
-  "elapsed_seconds": 91.83,
+  "elapsed_seconds": 95.51,
   "ground_truth": {
     "amplitude_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs1_ideal/ground_truth_amp.npy",
     "amplitude_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs1_ideal/ground_truth_amp.png",
@@ -190,17 +190,16 @@
     "legacy_params_intensity_scale": 988.211669921875,
     "markdown_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs1_ideal/intensity_stats.md",
     "prediction_scale": {
-      "applied": false,
+      "applied": true,
       "least_squares": {
-        "denominator": 0.0,
-        "finite_count": 130599,
-        "numerator": 0.0
+        "denominator": 62845.70136291237,
+        "finite_count": 153664,
+        "numerator": 107455.37539582007
       },
       "mode": "least_squares",
-      "reason": "least_squares_undefined",
       "recorded_scale": 988.211669921875,
-      "source": null,
-      "value": null
+      "source": "least_squares",
+      "value": 1.7098285652872602
     },
     "scale_delta": 0.0,
     "stages": [
@@ -305,18 +304,18 @@
   "nphotons": 1000000000.0,
   "object_seed": 42,
   "prediction_scale": {
-    "applied": false,
+    "applied": true,
     "least_squares": {
-      "denominator": 0.0,
-      "finite_count": 130599,
-      "numerator": 0.0
+      "denominator": 62845.70136291237,
+      "finite_count": 153664,
+      "numerator": 107455.37539582007
     },
     "mode": "least_squares",
-    "reason": "least_squares_undefined",
     "recorded_scale": 988.211669921875,
-    "source": null,
-    "value": null
+    "source": "least_squares",
+    "value": 1.7098285652872602
   },
+  "prediction_scale_note": "least_squares=1.71",
   "probe_big": null,
   "probe_mask": null,
   "probe_mode": "idealized",
@@ -343,80 +342,22 @@
   "sim_seed": 42,
   "split_fraction": 0.5,
   "test_count": 256,
-  "timestamp": "2026-01-20T10:02:50.720838+00:00",
+  "timestamp": "2026-01-20T10:16:55.505193+00:00",
   "total_images": 512,
   "train_count": 256,
   "training_history": {
     "history_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs1_ideal/train_outputs/history.json",
     "nan_overview": {
-      "has_nan": true,
-      "metrics": {
-        "intensity_scaler_inv_loss": {
-          "first_nan_epoch": 3.0,
-          "first_nan_step": 3
-        },
-        "loss": {
-          "first_nan_epoch": 3.0,
-          "first_nan_step": 3
-        },
-        "pred_intensity_loss": {
-          "first_nan_epoch": 3.0,
-          "first_nan_step": 3
-        },
-        "train_loss": {
-          "first_nan_epoch": 3.0,
-          "first_nan_step": 3
-        },
-        "val_intensity_scaler_inv_loss": {
-          "first_nan_epoch": 3.0,
-          "first_nan_step": 3
-        },
-        "val_loss": {
-          "first_nan_epoch": 3.0,
-          "first_nan_step": 3
-        },
-        "val_pred_intensity_loss": {
-          "first_nan_epoch": 3.0,
-          "first_nan_step": 3
-        }
-      }
+      "has_nan": false,
+      "metrics": {}
     },
     "summary_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs1_ideal/train_outputs/history_summary.json",
     "summary_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs1_ideal/gs1_ideal_training_summary.md"
   },
   "training_history_path": "train_outputs/history.json",
   "training_nan_overview": {
-    "has_nan": true,
-    "metrics": {
-      "intensity_scaler_inv_loss": {
-        "first_nan_epoch": 3.0,
-        "first_nan_step": 3
-      },
-      "loss": {
-        "first_nan_epoch": 3.0,
-        "first_nan_step": 3
-      },
-      "pred_intensity_loss": {
-        "first_nan_epoch": 3.0,
-        "first_nan_step": 3
-      },
-      "train_loss": {
-        "first_nan_epoch": 3.0,
-        "first_nan_step": 3
-      },
-      "val_intensity_scaler_inv_loss": {
-        "first_nan_epoch": 3.0,
-        "first_nan_step": 3
-      },
-      "val_loss": {
-        "first_nan_epoch": 3.0,
-        "first_nan_step": 3
-      },
-      "val_pred_intensity_loss": {
-        "first_nan_epoch": 3.0,
-        "first_nan_step": 3
-      }
-    }
+    "has_nan": false,
+    "metrics": {}
   },
   "training_summary_markdown_path": "gs1_ideal_training_summary.md",
   "training_summary_path": "train_outputs/history_summary.json"

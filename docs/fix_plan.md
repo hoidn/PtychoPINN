@@ -155,6 +155,11 @@
     - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/{gs1_ideal/*,gs2_ideal/*,bias_summary.json,bias_summary.md,gs1_ideal_runner.log,gs2_ideal_runner.log,pytest_cli_smoke.log,analyze_intensity_bias.log}`
     - Findings: Both scenarios now sync params.cfg before training/inference; gs2_ideal healthy (no training NaNs, fits_canvas=true, least_squares scalar=1.91), gs1_ideal still collapses to NaNs at epoch 3 despite CONFIG-001 bridging (normalized→prediction ratio=0, amplitude bias mean=-2.68). Amplitude undershoot persists (≈2.3–2.7) but bundle/legacy intensity_scale delta now confirms zero drift.
     - Next Actions: Investigate gs1_ideal's NaN instability (gridsize=1 numeric collapse hypothesis) or pivot to core workflow normalization audit if amplitude bias remains the primary blocker.
+  - *2026-01-20T101800Z:* Reran C4f evidence collection (CONFIG-001 bridging already in place). Executed gs1_ideal + gs2_ideal with `--prediction-scale-source least_squares --group-limit 64`, refreshed analyzer bias summary, and captured pytest CLI smoke guard.
+    - Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (pass)
+    - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/{gs1_ideal/*,gs2_ideal/*,bias_summary.json,bias_summary.md,gs1_ideal_runner.log,gs2_ideal_runner.log,pytest_cli_smoke.log,analyze_intensity_bias.log}`
+    - Findings: **Both scenarios now complete without training NaNs** (all metrics `has_nan=false`), fits_canvas=true for both, bundle vs legacy intensity_scale delta=0. Amplitude bias remains ≈-2.29 (gs1) and ≈-2.30 (gs2) with least_squares scalars 1.71 and 2.06 respectively; pearson_r improved slightly (0.103 gs1, 0.138 gs2).
+    - Next Actions: CONFIG-001 bridging verified and NaNs eliminated; remaining amplitude bias is workflow-level (normalization or loss weighting) and unrelated to param drift. Consider auditing the normalization math or loss weighting to close the ≈2.3 amplitude gap.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

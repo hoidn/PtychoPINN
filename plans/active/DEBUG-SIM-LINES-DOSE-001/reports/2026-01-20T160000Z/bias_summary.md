@@ -1,19 +1,20 @@
 # Intensity Bias Summary
-- Generated at: 2026-01-20T10:04:09.846915+00:00
+- Generated at: 2026-01-20T10:18:18.890471+00:00
 - Scenario count: 2
 
 | Scenario | Amp bias mean | Amp median | Phase bias mean | Phase median | Bundle scale | Legacy scale | Δscale | Scale mode | Training NaN |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| gs1_ideal | -2.682 | -2.671 | 0.000 | 0.000 | 988.212 | 988.212 | 0.000 | least_squares | Yes |
-| gs2_ideal | -2.296 | -2.531 | -0.121 | 0.000 | 988.212 | 988.212 | 0.000 | least_squares | No |
+| gs1_ideal | -2.291 | -2.524 | 0.131 | 0.000 | 988.212 | 988.212 | 0.000 | least_squares | No |
+| gs2_ideal | -2.297 | -2.531 | -0.110 | 0.000 | 988.212 | 988.212 | 0.000 | least_squares | No |
 
 ## Scenario: gs1_ideal
 - Base directory: `/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs1_ideal`
 - Intensity scale: bundle 988.212 vs legacy 988.212 (Δ=0.000)
-- Prediction scale: mode=least_squares value=n/a source=None
-- Training NaNs: YES (metrics: intensity_scaler_inv_loss, loss, pred_intensity_loss, train_loss, val_intensity_scaler_inv_loss, val_loss, val_pred_intensity_loss)
+- Prediction scale: mode=least_squares value=1.710 source=least_squares
+  * Note: least_squares=1.71
+- Training NaNs: no
 - Inference canvas: padded=828 required=828 fits_canvas=True
-- Largest drop: Container X → Prediction (ratio=0.000, Δ=-1.000)
+- Largest drop: Grouped diffraction → Container X (ratio=0.560, Δ=-0.440)
 
 ### Stage Means
 | Stage | Mean |
@@ -28,36 +29,36 @@
 | --- | ---: |
 | Raw → grouped | 1.041 |
 | Grouped → normalized | 0.560 |
-| Normalized → prediction | 0.000 |
-| Prediction → truth | n/a |
+| Normalized → prediction | 4.879 |
+| Prediction → truth | 6.495 |
 
 
 ### Prediction ↔ Truth Scaling
 | Metric | Value |
 | --- | ---: |
-| Ratio mean | n/a |
-| Ratio median | n/a |
-| Ratio p05 | n/a |
-| Ratio p95 | n/a |
-| Ratio count | 0 |
+| Ratio mean | 1.811 |
+| Ratio median | 1.749 |
+| Ratio p05 | 1.094 |
+| Ratio p95 | 2.758 |
+| Ratio count | 23065 |
 
-* Best scalar: n/a (n/a)
-* MAE baseline 2.682 → n/a; RMSE baseline 2.757 → n/a
+* Best scalar: least_squares (1.710)
+* MAE baseline 2.370 → 2.370; RMSE baseline 2.559 → 2.559
 | Scalar | Value | Scaled MAE | Scaled RMSE |
 | --- | ---: | ---: | ---: |
-| Ratio mean | n/a | n/a | n/a |
-| Ratio median | n/a | n/a | n/a |
-| Ratio p05 | n/a | n/a | n/a |
-| Ratio p95 | n/a | n/a | n/a |
-| Least squares | n/a | n/a | n/a |
+| Ratio mean | 1.811 | 2.373 | 2.560 |
+| Ratio median | 1.749 | 2.371 | 2.559 |
+| Ratio p05 | 1.094 | 2.445 | 2.589 |
+| Ratio p95 | 2.758 | 2.528 | 2.646 |
+| Least squares | 1.710 | 2.370 | 2.559 |
 
 ### Amplitude Bias
-* mean=-2.682, median=-2.671, p05=-3.754, p95=-1.637
-* MAE=2.682, RMSE=2.757, max_abs=4.768, pearson_r=n/a
+* mean=-2.291, median=-2.524, p05=-3.702, p95=0.259
+* MAE=2.370, RMSE=2.559, max_abs=4.768, pearson_r=0.103
 
 ### Phase Bias
-* mean=0.000, median=0.000, p05=0.000, p95=0.000
-* MAE=0.000, RMSE=0.000, max_abs=0.000
+* mean=0.131, median=0.000, p05=0.000, p95=0.943
+* MAE=0.131, RMSE=0.344, max_abs=1.164
 
 ### Normalization Stage Stats
 | Stage | Source | Count | Mean | Std | Min | Max |
@@ -72,8 +73,8 @@
 ## Scenario: gs2_ideal
 - Base directory: `/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs2_ideal`
 - Intensity scale: bundle 988.212 vs legacy 988.212 (Δ=0.000)
-- Prediction scale: mode=least_squares value=1.911 source=least_squares
-  * Note: least_squares=1.911
+- Prediction scale: mode=least_squares value=2.061 source=least_squares
+  * Note: least_squares=2.061
 - Training NaNs: no
 - Inference canvas: padded=822 required=817 fits_canvas=True
 - Largest drop: Grouped diffraction → Container X (ratio=0.577, Δ=-0.423)
@@ -91,36 +92,36 @@
 | --- | ---: |
 | Raw → grouped | 1.010 |
 | Grouped → normalized | 0.577 |
-| Normalized → prediction | 4.844 |
-| Prediction → truth | 6.570 |
+| Normalized → prediction | 4.837 |
+| Prediction → truth | 6.581 |
 
 
 ### Prediction ↔ Truth Scaling
 | Metric | Value |
 | --- | ---: |
-| Ratio mean | 1.921 |
-| Ratio median | 1.882 |
-| Ratio p05 | 1.326 |
-| Ratio p95 | 2.622 |
+| Ratio mean | 2.077 |
+| Ratio median | 2.038 |
+| Ratio p05 | 1.431 |
+| Ratio p95 | 2.824 |
 | Ratio count | 21737 |
 
-* Best scalar: ratio_median (1.882)
+* Best scalar: ratio_median (2.038)
 * MAE baseline 2.364 → 2.364; RMSE baseline 2.558 → 2.558
 | Scalar | Value | Scaled MAE | Scaled RMSE |
 | --- | ---: | ---: | ---: |
-| Ratio mean | 1.921 | 2.364 | 2.558 |
-| Ratio median | 1.882 | 2.364 | 2.558 |
-| Ratio p05 | 1.326 | 2.425 | 2.580 |
-| Ratio p95 | 2.622 | 2.451 | 2.590 |
-| Least squares | 1.911 | 2.364 | 2.558 |
+| Ratio mean | 2.077 | 2.364 | 2.558 |
+| Ratio median | 2.038 | 2.364 | 2.558 |
+| Ratio p05 | 1.431 | 2.425 | 2.579 |
+| Ratio p95 | 2.824 | 2.449 | 2.590 |
+| Least squares | 2.061 | 2.364 | 2.558 |
 
 ### Amplitude Bias
-* mean=-2.296, median=-2.531, p05=-3.696, p95=0.267
-* MAE=2.364, RMSE=2.558, max_abs=4.768, pearson_r=0.135
+* mean=-2.297, median=-2.531, p05=-3.696, p95=0.254
+* MAE=2.364, RMSE=2.558, max_abs=4.768, pearson_r=0.138
 
 ### Phase Bias
-* mean=-0.121, median=0.000, p05=-0.869, p95=0.000
-* MAE=0.121, RMSE=0.322, max_abs=1.041
+* mean=-0.110, median=0.000, p05=-0.805, p95=0.000
+* MAE=0.110, RMSE=0.293, max_abs=0.991
 
 ### Normalization Stage Stats
 | Stage | Source | Count | Mean | Std | Min | Max |

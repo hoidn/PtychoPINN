@@ -3,5 +3,5 @@
   "mode": "least_squares",
   "recorded_scale": 988.211669921875,
   "source": "least_squares",
-  "value": 1.9111391707002046
+  "value": 2.0606916884388884
 }

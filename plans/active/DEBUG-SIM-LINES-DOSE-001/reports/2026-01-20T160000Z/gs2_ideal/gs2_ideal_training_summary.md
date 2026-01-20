@@ -6,13 +6,13 @@
 
 | Metric | Last | Min | Max | First NaN Step | First NaN Epoch |
 | --- | --- | --- | --- | --- | --- |
-| intensity_scaler_inv_loss | 17.6797 | 17.6797 | 50.7972 | — | — |
+| intensity_scaler_inv_loss | 16.2472 | 16.2223 | 25.8771 | — | — |
 | learning_rate | 0.001 | 0.001 | 0.001 | — | — |
-| loss | -3.92049e+06 | -3.92049e+06 | -3.8247e+06 | — | — |
-| pred_intensity_loss | -3.88698e+06 | -3.90673e+06 | -3.83841e+06 | — | — |
-| train_loss | -3.92049e+06 | -3.92049e+06 | -3.8247e+06 | — | — |
+| loss | -3.92354e+06 | -3.92399e+06 | -3.88683e+06 | — | — |
+| pred_intensity_loss | -3.89277e+06 | -3.91808e+06 | -3.85456e+06 | — | — |
+| train_loss | -3.92354e+06 | -3.92399e+06 | -3.88683e+06 | — | — |
 | trimmed_obj_loss | 0 | 0 | 0 | — | — |
-| val_intensity_scaler_inv_loss | 16.8672 | 16.7302 | 48.6982 | — | — |
-| val_loss | -4.43268e+06 | -4.43622e+06 | -4.35017e+06 | — | — |
-| val_pred_intensity_loss | -4.32102e+06 | -4.32364e+06 | -4.23799e+06 | — | — |
+| val_intensity_scaler_inv_loss | 18.2446 | 15.2629 | 20.7893 | — | — |
+| val_loss | -4.42681e+06 | -4.43923e+06 | -4.41896e+06 | — | — |
+| val_pred_intensity_loss | -4.31548e+06 | -4.3267e+06 | -4.30828e+06 | — | — |
 | val_trimmed_obj_loss | 0 | 0 | 0 | — | — |
