@@ -31,6 +31,20 @@ REQUIRED_FILES = {
     "training_summary": "train_outputs/history_summary.json",
 }
 
+STAGE_LABELS = [
+    ("raw_diffraction", "Raw diffraction"),
+    ("grouped_diffraction", "Grouped diffraction"),
+    ("grouped_X_full", "Grouped X (normalized)"),
+    ("container_X", "Container X"),
+]
+
+RATIO_LABELS = [
+    ("raw_to_grouped", "Raw → grouped"),
+    ("grouped_to_normalized", "Grouped → normalized"),
+    ("normalized_to_prediction", "Normalized → prediction"),
+    ("prediction_to_truth", "Prediction → truth"),
+]
+
 
 @dataclass(frozen=True)
 class ScenarioInput:
@@ -145,6 +159,127 @@ def build_normalization_summary(
     return summaries
 
 
+def _as_float(value: Any) -> Optional[float]:
+    if isinstance(value, (int, float)):
+        return float(value)
+    return None
+
+
+def _safe_ratio(numerator: Optional[float], denominator: Optional[float]) -> Optional[float]:
+    if numerator is None or denominator in (None, 0):
+        return None
+    if abs(denominator) <= 1e-12:
+        return None
+    return numerator / denominator
+
+
+def _format_stage_label(name: Optional[str]) -> str:
+    if not name:
+        return "n/a"
+    for key, label in STAGE_LABELS:
+        if key == name:
+            return label
+    lower = name.lower()
+    if lower == "prediction":
+        return "Prediction"
+    if lower == "truth":
+        return "Truth"
+    return name
+
+
+def extract_stage_means(stages: List[Mapping[str, Any]]) -> Dict[str, Optional[float]]:
+    stage_means: Dict[str, Optional[float]] = {}
+    for stage in stages:
+        name = stage.get("name")
+        stats = stage.get("stats") or {}
+        mean = _as_float(stats.get("mean"))
+        if name:
+            stage_means[name] = mean
+    return stage_means
+
+
+def build_stage_ratio_summary(
+    stage_means: Mapping[str, Optional[float]],
+    amplitude_metrics: Mapping[str, Any],
+) -> Tuple[Dict[str, Optional[float]], Optional[Dict[str, Any]]]:
+    ratios: Dict[str, Optional[float]] = {}
+    transitions: List[Dict[str, Any]] = []
+
+    def add_transition(
+        key: str,
+        from_label: str,
+        to_label: str,
+        from_value: Optional[float],
+        to_value: Optional[float],
+    ) -> None:
+        ratio = _safe_ratio(to_value, from_value)
+        ratios[key] = ratio
+        transitions.append(
+            {
+                "key": key,
+                "from_stage": from_label,
+                "to_stage": to_label,
+                "ratio": ratio,
+            }
+        )
+
+    raw_mean = stage_means.get("raw_diffraction")
+    grouped_mean = stage_means.get("grouped_diffraction")
+    normalized_mean = stage_means.get("container_X")
+    if normalized_mean is None:
+        normalized_mean = stage_means.get("grouped_X_full")
+
+    add_transition("raw_to_grouped", "raw_diffraction", "grouped_diffraction", raw_mean, grouped_mean)
+    add_transition(
+        "grouped_to_normalized",
+        "grouped_diffraction",
+        "container_X",
+        grouped_mean,
+        normalized_mean,
+    )
+
+    pred_stats = amplitude_metrics.get("pred_stats") or {}
+    truth_stats = amplitude_metrics.get("truth_stats") or {}
+    prediction_mean = _as_float(pred_stats.get("mean"))
+    truth_mean = _as_float(truth_stats.get("mean"))
+
+    add_transition(
+        "normalized_to_prediction",
+        "container_X",
+        "prediction",
+        normalized_mean,
+        prediction_mean,
+    )
+    add_transition(
+        "prediction_to_truth",
+        "prediction",
+        "truth",
+        prediction_mean,
+        truth_mean,
+    )
+
+    enriched: List[Dict[str, Any]] = []
+    for entry in transitions:
+        ratio = entry.get("ratio")
+        if not isinstance(ratio, (int, float)):
+            continue
+        delta = ratio - 1.0
+        updated = entry.copy()
+        updated["delta"] = delta
+        updated["abs_delta"] = abs(delta)
+        enriched.append(updated)
+
+    drops = [entry for entry in enriched if entry["delta"] < 0]
+    if drops:
+        largest_drop = min(drops, key=lambda entry: entry["delta"])
+    elif enriched:
+        largest_drop = max(enriched, key=lambda entry: entry["abs_delta"])
+    else:
+        largest_drop = None
+
+    return ratios, largest_drop
+
+
 def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
     run_metadata = load_json(scenario.run_metadata)
     intensity_stats = load_json(scenario.intensity_stats)
@@ -173,7 +308,10 @@ def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
     amplitude_metrics = build_metric_summary(comparison_metrics.get("amplitude", {}))
     phase_metrics = build_metric_summary(comparison_metrics.get("phase", {}))
 
-    normalization = build_normalization_summary(intensity_stats.get("stages", []))
+    raw_stage_payloads = intensity_stats.get("stages", [])
+    normalization = build_normalization_summary(raw_stage_payloads)
+    stage_means = extract_stage_means(raw_stage_payloads)
+    stage_ratios, largest_drop = build_stage_ratio_summary(stage_means, amplitude_metrics)
 
     offsets = (inference_stats.get("offsets") or {}).copy()
     inference_info = {
@@ -218,6 +356,11 @@ def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
         "normalization": normalization,
         "inference": inference_info,
         "training": training_info,
+        "derived": {
+            "stage_means": stage_means,
+            "ratios": stage_ratios,
+            "largest_drop": largest_drop,
+        },
     }
 
 
@@ -368,6 +511,45 @@ def render_markdown(summary: Mapping[str, Any]) -> str:
             f"required={inference.get('required_canvas')} "
             f"fits_canvas={inference.get('fits_canvas')}"
         )
+        derived = payload.get("derived") or {}
+        largest_drop = derived.get("largest_drop")
+        if largest_drop:
+            lines.append(
+                "- Largest drop: "
+                f"{_format_stage_label(largest_drop.get('from_stage'))} → "
+                f"{_format_stage_label(largest_drop.get('to_stage'))} "
+                f"(ratio={fmt_value(largest_drop.get('ratio'))}, "
+                f"Δ={fmt_value(largest_drop.get('delta'))})"
+            )
+        lines.append("")
+        stage_means_payload = derived.get("stage_means") or {}
+        if stage_means_payload:
+            lines.append("### Stage Means")
+            lines.append("| Stage | Mean |")
+            lines.append("| --- | ---: |")
+            seen = set()
+            for key, label in STAGE_LABELS:
+                lines.append(f"| {label} | {fmt_value(stage_means_payload.get(key))} |")
+                seen.add(key)
+            for key, value in stage_means_payload.items():
+                if key in seen:
+                    continue
+                lines.append(f"| {_format_stage_label(key)} | {fmt_value(value)} |")
+            lines.append("")
+        ratio_payload = derived.get("ratios") or {}
+        if ratio_payload:
+            lines.append("### Stage Ratios")
+            lines.append("| Transition | Ratio |")
+            lines.append("| --- | ---: |")
+            seen = set()
+            for key, label in RATIO_LABELS:
+                lines.append(f"| {label} | {fmt_value(ratio_payload.get(key))} |")
+                seen.add(key)
+            for key, value in ratio_payload.items():
+                if key in seen:
+                    continue
+                lines.append(f"| {key} | {fmt_value(value)} |")
+            lines.append("")
         lines.append("")
         lines.append("### Amplitude Bias")
         amp_metrics = payload.get("comparison", {}).get("amplitude", {})

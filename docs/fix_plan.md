@@ -117,6 +117,12 @@
     - Findings: Amplitude bias means remain -2.49 (gs1) vs -2.67 (gs2) with matching bundle/legacy intensity scales (Δ=0); gs2 training metrics now show immediate NaN contamination while normalization stats confirm loader scaling is stable (raw mean ≈0.146 → container mean ≈0.085).
   - *2026-01-20T130000Z:* Documentation hygiene per reviewer request — removed the duplicated *2026-01-20T121500Z* attempts entry, ensured plan/summary references now point to the single analyzer-planning record, and logged this maintenance action. (Docs-only; no tests required.)
   - *2026-01-20T132500Z:* Scoped the next Phase C4 increment around deriving stage-by-stage amplitude ratios (raw → grouped → normalized → reconstruction) from the existing telemetry. Updated `input.md` with instructions to extend `bin/analyze_intensity_bias.py` accordingly, rerun the analyzer for gs1_ideal/gs2_ideal, and archive outputs under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T132500Z/` alongside the CLI pytest guard so we can pinpoint where the ≈2.5 drop enters the workflow.
+  - *2026-01-20T132500Z:* Extended `bin/analyze_intensity_bias.py` with stage-mean telemetry, stage-to-stage ratios, and “largest drop” detection, then reran it for the gs1_ideal + gs2_ideal hubs and refreshed the CLI smoke guard so the Markdown/JSON summaries now highlight that the grouped→normalized stage slashes amplitude by ≈44 %.
+    - Metrics: `python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py --scenario gs1_ideal=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal --scenario gs2_ideal=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs2_ideal --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T132500Z`
+    - Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+    - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T132500Z/{bias_summary.json,bias_summary.md,analyze_intensity_bias.log,pytest_cli_smoke.log}`
+    - Findings: Both scenarios now report per-stage amplitude tables plus ratio bullets; the largest drop occurs during grouped→normalized (ratio ≈0.56) with identical bundle/legacy intensity scales, confirming normalization as the current suspect.
+    - Next Actions: Use the new ratio telemetry to trace the normalization drop inside `normalize_data`/loader before touching shared workflows or adjusting loss weights.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
