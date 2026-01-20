@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-20 (ORCH-ORCHESTRATOR plan drafted)
-**Active Focus:** DEBUG-SIM-LINES-DOSE-001 — Phase C2 ideal-scenario verification
+**Last Updated:** 2026-01-20 (ORCH-ORCHESTRATOR integration gate)
+**Active Focus:** ORCH-ORCHESTRATOR-001 — Phase D combined auto-commit
 
 ---
 
@@ -70,6 +70,11 @@
     - Next Actions: Run the Phase C2 gs1/gs2 ideal telemetry (if required) or proceed to the inference smoke validation once the padded-size update is accepted.
   - *2026-01-20T041420Z:* Reviewed the C1 landing evidence, marked the checklist entries complete, and queued Phase C2 handoff to rerun the gs1_ideal + gs2_ideal scenarios with the jitter fix. Do Now captures end-to-end runs, NaN/canvas inspection, and manual visual checks with artifacts staged under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T041420Z/`.
   - *2026-01-20T052730Z:* Prepared the Phase C2 supervisor loop (this turn) with a fresh artifacts hub, scoped a plan-local runner (`bin/run_phase_c2_scenario.py`) to capture amplitude/phase arrays + NaN stats, and refreshed `input.md` with commands for gs1_ideal + gs2_ideal runs plus reassembly telemetry.
+  - *2026-01-20T052010Z:* Implemented the Phase C2 runner (`bin/run_phase_c2_scenario.py`) with CLI arg overrides, stats PNG generation, and run_metadata tracking, then executed the gs1_ideal (512 images/256 groups/`batch_size=8`) and gs2_ideal (256 base images/128 groups/`batch_size=4`) scenarios. Archived amplitude/phase `.npy`, PNGs, stats JSON, CLI logs, updated reassembly telemetry for both scenarios, and re-ran the synthetic helpers CLI smoke pytest selector.
+    - Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+    - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T061530Z/{gs1_ideal_runner.log,gs2_ideal_runner.log,gs1_ideal/inference_outputs/*,gs2_ideal/inference_outputs/*,gs1_ideal_notes.md,gs2_ideal_notes.md,reassembly_cli.log,reassembly_gs1_ideal.json,reassembly_gs2_ideal.json,pytest_cli_smoke.log}`
+    - Notes: gs1 needed reduced group_count to avoid NaNs; both reassembly JSONs report `fits_canvas=true` with jitter-expanded padded sizes.
+  - *2026-01-20T061530Z:* Current loop — revisited the C2 scope, updated the working plan/status to Phase C verification, opened artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T061530Z/`, and drafted the Do Now for implementing `bin/run_phase_c2_scenario.py`, running gs1_ideal + gs2_ideal with PNG/NaN evidence, rerunning the reassembly telemetry, and guarding the flow with the synthetic helpers CLI pytest selector.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
@@ -223,3 +228,12 @@
     - Metrics: `ruff check scripts/orchestration/tests/test_orchestrator.py`, `pytest --collect-only scripts/orchestration/tests/test_orchestrator.py -v`, `pytest scripts/orchestration/tests/test_orchestrator.py -v`
     - Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T034858Z/{ruff_check.log,pytest_collect_orchestrator.log,pytest_orchestrator.log,summary.md}`
     - Next Actions: decide whether to run the broader regression suite to satisfy the full-suite exit criterion.
+  - *2026-01-20T050619Z:* Updated the plan to add Phase D combined-mode auto-commit (local-only, dry-run/no-git) and expanded the test strategy for new auto-commit coverage.
+    - Metrics: N/A — planning update only
+    - Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/{implementation.md,test_strategy.md,summary.md}`
+  - *2026-01-20T051859Z:* Implemented combined auto-commit helpers + flags, wired best-effort auto-commit after galph/ralph, added Phase D tests, and updated orchestration/testing docs.
+    - Metrics: `pytest --collect-only scripts/orchestration/tests/test_orchestrator.py -v`, `pytest scripts/orchestration/tests/test_orchestrator.py -v`
+    - Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T051859Z/{pytest_collect_orchestrator.log,pytest_orchestrator.log}`
+  - *2026-01-20T052323Z:* Ran integration marker gate for combined auto-commit changes.
+    - Metrics: `pytest -v -m integration`
+    - Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T052323Z/pytest_integration.log`

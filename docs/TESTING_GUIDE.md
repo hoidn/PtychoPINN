@@ -66,12 +66,24 @@ Lightweight tests for script-level helpers and CLI `--help` smoke coverage.
 Lightweight tests for the orchestration submodule (located under `scripts/orchestration/`).
 
 - **Location:** `scripts/orchestration/tests/test_router.py`, `scripts/orchestration/tests/test_orchestrator.py`
-- **Purpose:** Validate deterministic routing decisions, router modes/overrides, and combined orchestrator sequencing/cadence.
+- **Purpose:** Validate deterministic routing decisions, router modes/overrides, combined orchestrator sequencing/cadence, and combined auto-commit dry-run/no-git behavior.
 - **Selectors:**
   ```bash
   pytest scripts/orchestration/tests/test_router.py -v
   pytest scripts/orchestration/tests/test_orchestrator.py -v
   ```
+
+### Plan-Local Script Policy (Guidance)
+
+Plan-local scripts under `plans/active/**/bin/` are permitted for initiative-specific
+probes or thin wrappers, but they should not grow into shadow pipelines.
+
+- Keep plan-local scripts small and focused; prefer delegation to canonical modules.
+- Promote reusable or logic-heavy scripts to `scripts/tools/` and add pytest coverage.
+- Use `scripts/tools/` for CLI utilities that are expected to live beyond the initiative.
+
+Reference: `prompts/supervisor.md` (Evidence Collection, How-To Map) and
+`docs/iteration_prompt_attribution_map.md` (nucleus surfaces).
 
 ### Integration Tests
 

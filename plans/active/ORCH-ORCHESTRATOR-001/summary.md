@@ -23,3 +23,14 @@ Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T034106Z/
 ### Update (2026-01-20)
 Added role-mode guardrail/forwarding tests and refreshed the test suite index for the new selectors.
 Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T034858Z/
+
+### Update (2026-01-20)
+Extended the plan to include combined-mode auto-commit (local-only, dry-run/no-git) and updated the test strategy for new auto-commit coverage.
+
+### Update (2026-01-20)
+Implemented combined auto-commit (doc/meta, reports, tracked outputs) with dry-run/no-git support and best-effort warnings, plus new orchestrator tests and doc updates.
+Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T051859Z/
+
+### Update (2026-01-20)
+Ran integration marker gate for the combined auto-commit changes.
+Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T052323Z/

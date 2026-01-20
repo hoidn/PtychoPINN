@@ -1,7 +1,7 @@
 # Test Strategy: Combined Orchestrator
 
 **Initiative:** ORCH-ORCHESTRATOR-001
-**Phase:** Phase 0 / Pre-Implementation
+**Phase:** Phase D / Auto-Commit
 **Date:** 2026-01-20
 **Status:** Active
 
@@ -53,14 +53,14 @@ Use pytest in scripts/orchestration/tests/test_orchestrator.py with tmp_path fix
 ## 3. Test Tier Definitions
 
 ### Unit Tests
-- **Scope:** Combined orchestrator state transitions, galph-only review cadence, galph-only router override, allowlist/actor gating.
+- **Scope:** Combined orchestrator state transitions, galph-only review cadence, galph-only router override, allowlist/actor gating, combined auto-commit gating (best-effort, dry-run/no-git).
 - **Location:** `scripts/orchestration/tests/test_orchestrator.py`
 - **Dependencies:** tmp_path + stubbed PromptExecutor only.
 - **Execution time:** <1 second per test
 - **Run frequency:** Every commit
 
 ### Integration Tests
-- **Scope:** Orchestrator CLI wiring (argument parsing, log path selection) without external process calls.
+- **Scope:** Orchestrator CLI wiring (argument parsing, log path selection, auto-commit flags) without external process calls.
 - **Location:** `scripts/orchestration/tests/test_orchestrator.py`
 - **Dependencies:** Temporary config + state files, mocked prompt executor.
 - **Execution time:** <1 second per test
@@ -103,7 +103,7 @@ Unit + light integration tests in a single module with full stubbing of prompt e
 | Dependency | Reason | Mock Strategy |
 |------------|--------|---------------|
 | Prompt execution | Avoid external LLM calls | Inject PromptExecutor stub |
-| Git sync | Avoid modifying repo state | Stub sync helpers or guard paths |
+| Git operations | Avoid modifying repo state | Stub add/commit helpers or autocommit entrypoints |
 
 ### Mock Implementation
 ```python
@@ -134,6 +134,18 @@ Unit + light integration tests in a single module with full stubbing of prompt e
 1. Run collect-only: `pytest --collect-only scripts/orchestration/tests/test_orchestrator.py -v`
 2. Save logs to `plans/active/ORCH-ORCHESTRATOR-001/reports/<timestamp>/`
 
+### Phase D: Auto-Commit Coverage
+1. Add tests for combined auto-commit plumbing and best-effort behavior.
+2. Run: `pytest scripts/orchestration/tests/test_orchestrator.py -v`
+3. Expected: PASSED with git ops stubbed/mocked.
+
+**Phase D selectors (auto-commit):**
+- `scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_after_turns`
+- `scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_no_git`
+- `scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_dry_run`
+- `scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_flag_plumbing`
+- `scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_best_effort`
+
 ---
 
 ## 7. Risk Mitigation
@@ -144,6 +156,8 @@ Unit + light integration tests in a single module with full stubbing of prompt e
 | Review cadence runs twice per iteration | Medium | Gate review cadence to galph in combined mode |
 | Router override applied on ralph | Low | Assert ralph uses deterministic routing only |
 | Tests depend on external processes | Medium | Use PromptExecutor stubs + tmp_path fixtures |
+| Auto-commit touches logs/tmp | Medium | Use skip predicates + tests asserting no staging for logs/tmp |
+| Auto-commit fails on dirty tree | Medium | Best-effort behavior; test with mocked failures |
 
 ---
 
