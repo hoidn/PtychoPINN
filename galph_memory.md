@@ -628,3 +628,19 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Tests: `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (log in `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T150500Z/pytest_cli_smoke.log`)
 - Artifacts/staging: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T150500Z/`
 - Next action: Continue Phase C4e validation (gs1/gs2 reruns with prediction-scale hook, analyzer refresh, pytest guard) now that stats capture the applied scalar.
+# 2026-01-20T09:40:00Z: DEBUG-SIM-LINES-DOSE-001 — A1b legacy runner attempt
+
+- dwell: 0 (manual override reset + implementation attempt)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Run dose_experiments ground truth (A1b)
+- Action type: Implementation / evidence collection (compatibility shim + legacy CLI run)
+- Mode: Implementation
+- Git sync: `git stash push -u -m 'galph-a1b-compat'` → `timeout 30 git pull --rebase` → `git stash pop`
+- Documents reviewed: docs/index.md, docs/fix_plan.md (DEBUG attempt log), docs/findings.md (CONFIG-001, NORMALIZATION-001, POLICY-001), plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, reports/2026-01-20T092411Z/, scripts/simulation/simulation.py, ptycho/raw_data.py, ptycho/nongrid_simulation.py.
+- Key updates:
+  - Added non-production compatibility runner `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_dose_stage.py` plus stub `tensorflow_addons`/components modules under `bin/tfa_stub/` so the legacy `/home/ollie/Documents/PtychoPINN` scripts import under the frozen environment.
+  - Verified imports via `import_path.log`, then drove the simulate CLI repeatedly (logs saved as `simulation_attempt*.log`). Created stub translate/gaussian-filter functions to replace tensorflow-addons features.
+  - Despite the shims, the simulation stage still fails: full-size runs (nimages=2000) OOM the RTX 3090 (`simulation_attempt16.log`), and smoke runs with tiny nimages crash in `RawData.group_coords` (`simulation_smoke.log`) because the legacy neighbor_count exceeds available scan positions.
+  - Logged all evidence under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T092411Z/` and opened `.artifacts/.../2026-01-20T092411Z/` for eventual outputs.
+- Next action: ready_for_implementation — extend the compatibility runner to clamp neighbor_count/group_count and cap nimages so we can rerun the legacy simulate→train→infer flow without OOMs; rerun the CLI stages and archive the outputs/logs.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T092411Z/ next_action=finish A1b legacy runner (clamp neighbor_count + nimages, rerun simulate→train→infer, archive logs)

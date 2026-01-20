@@ -1,0 +1,52 @@
+2026-01-20 01:38:59.908764: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1768901939.920425 1313360 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1768901939.924124 1313360 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1768901939.934298 1313360 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768901939.934309 1313360 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768901939.934311 1313360 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768901939.934313 1313360 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-20 01:38:59.937149: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-01-20 01:39:02,455 - INFO - Configuration setup complete
+2026-01-20 01:39:02,455 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=128, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4), train_data_file=PosixPath('/home/ollie/Documents/PtychoPINN/notebooks/train_data.npz'), test_data_file=PosixPath('/home/ollie/Documents/PtychoPINN/notebooks/test_data.npz'), batch_size=16, nepochs=60, mae_weight=1, nll_weight=0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, positions_provided=True, data_source='lines', probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/.artifacts/DEBUG-SIM-LINES-DOSE-001/2026-01-20T092411Z/simulation_smoke'))
+4 items had no tests:
+    __main__
+    __main__.main
+    __main__.patch_components
+    __main__.patch_raw_data
+0 tests in 4 items.
+0 passed and 0 failed.
+Test passed.
+Traceback (most recent call last):
+  File "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_dose_stage.py", line 80, in <module>
+    main()
+  File "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_dose_stage.py", line 76, in main
+    runpy.run_path(str(script_path), run_name="__main__")
+  File "<frozen runpy>", line 291, in run_path
+  File "<frozen runpy>", line 98, in _run_module_code
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/ollie/Documents/PtychoPINN/scripts/simulation/simulation.py", line 275, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN/scripts/simulation/simulation.py", line 209, in main
+    simulated_data, ground_truth_patches = simulate_from_npz(
+                                           ^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/nongrid_simulation.py", line 124, in simulate_from_npz
+    return generate_simulated_data(objectGuess, probeGuess, nimages, buffer, random_seed, return_patches=return_patches)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/nongrid_simulation.py", line 94, in generate_simulated_data
+    return RawData.from_simulation(xcoords, ycoords, probeGuess, objectGuess, scan_index, return_patches=return_patches)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_dose_stage.py", line 41, in from_simulation
+    raw = original_from_sim(xcoords, ycoords, probeGuess, objectGuess, scan_index)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/raw_data.py", line 100, in from_simulation
+    global_offsets, local_offsets, nn_indices = calculate_relative_coords(
+                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/raw_data.py", line 259, in calculate_relative_coords
+    nn_indices, coords_nn = group_coords(xcoords, ycoords, K = K, C = C, nsamples = nsamples)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/raw_data.py", line 327, in group_coords
+    coords_nn = np.transpose(np.array([xcoords[nn_indices],
+                                       ~~~~~~~^^^^^^^^^^^^
+IndexError: index 4 is out of bounds for axis 0 with size 4

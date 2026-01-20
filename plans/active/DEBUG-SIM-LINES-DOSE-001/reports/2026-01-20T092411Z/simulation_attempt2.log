@@ -1,0 +1,52 @@
+2026-01-20 01:24:53.578264: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1768901093.589126 1305380 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1768901093.592680 1305380 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1768901093.602302 1305380 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768901093.602313 1305380 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768901093.602315 1305380 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768901093.602317 1305380 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-20 01:24:53.605087: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow_addons/utils/tfa_eol_msg.py:23: UserWarning: 
+
+TensorFlow Addons (TFA) has ended development and introduction of new features.
+TFA has entered a minimal maintenance and release mode until a planned end of life in May 2024.
+Please modify downstream libraries to take dependencies from other repositories in our TensorFlow community (e.g. Keras, Keras-CV, and Keras-NLP). 
+
+For more information see: https://github.com/tensorflow/addons/issues/2807 
+
+  warnings.warn(
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow_addons/utils/ensure_tf_install.py:53: UserWarning: Tensorflow Addons supports using Python ops for all Tensorflow versions above or equal to 2.13.0 and strictly below 2.16.0 (nightly versions are not supported). 
+ The versions of TensorFlow you are currently using is 2.19.0 and is not supported. 
+Some things might work, some things might not.
+If you were to encounter a bug, do not file an issue.
+If you want to make sure you're using a tested and supported configuration, either change the TensorFlow version or the TensorFlow Addons's version. 
+You can find the compatibility matrix in TensorFlow Addon's readme:
+https://github.com/tensorflow/addons
+  warnings.warn(
+1 items had no tests:
+    __main__
+0 tests in 1 items.
+0 passed and 0 failed.
+Test passed.
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/scripts/simulation/simulation.py", line 8, in <module>
+    from ptycho.workflows.components import (
+  File "/home/ollie/Documents/PtychoPINN/ptycho/workflows/components.py", line 8, in <module>
+    from ptycho.loader import RawData, PtychoDataContainer
+  File "/home/ollie/Documents/PtychoPINN/ptycho/loader.py", line 9, in <module>
+    from . import diffsim as datasets
+  File "/home/ollie/Documents/PtychoPINN/ptycho/diffsim.py", line 9, in <module>
+    from . import tf_helper as hh
+  File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 397, in <module>
+    from tensorflow_addons.image import translate as _translate
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow_addons/__init__.py", line 23, in <module>
+    from tensorflow_addons import activations
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow_addons/activations/__init__.py", line 17, in <module>
+    from tensorflow_addons.activations.gelu import gelu
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow_addons/activations/gelu.py", line 19, in <module>
+    from tensorflow_addons.utils.types import TensorLike
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow_addons/utils/types.py", line 29, in <module>
+    from keras.src.engine import keras_tensor
+ModuleNotFoundError: No module named 'keras.src.engine'

@@ -1,0 +1,4 @@
+  File "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_dose_stage.py", line 1
+    "\"\"\"Legacy dose_experiments runner with compatibility patches.\"\"\"
+    ^
+SyntaxError: unterminated string literal (detected at line 1)

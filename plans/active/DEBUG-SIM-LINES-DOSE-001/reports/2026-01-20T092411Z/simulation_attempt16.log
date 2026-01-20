@@ -1,0 +1,82 @@
+2026-01-20 01:32:59.452109: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1768901579.463492 1311245 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1768901579.467372 1311245 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1768901579.477491 1311245 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768901579.477502 1311245 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768901579.477504 1311245 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768901579.477506 1311245 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-20 01:32:59.480298: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-01-20 01:33:01,955 - INFO - Configuration setup complete
+2026-01-20 01:33:01,955 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=128, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4), train_data_file=PosixPath('/home/ollie/Documents/PtychoPINN/notebooks/train_data.npz'), test_data_file=PosixPath('/home/ollie/Documents/PtychoPINN/notebooks/test_data.npz'), batch_size=16, nepochs=60, mae_weight=1, nll_weight=0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, positions_provided=True, data_source='lines', probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/.artifacts/DEBUG-SIM-LINES-DOSE-001/2026-01-20T092411Z/simulation'))
+I0000 00:00:1768901582.322313 1311245 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1768901582.323540 1311245 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+/home/ollie/Documents/PtychoPINN/ptycho/raw_data.py:296: ComplexWarning: Casting complex values to real discards the imaginary part
+  canvas[i // c, :, :, i % c] = np.array(translated_patch)[0, :N, :N, 0]
+2026-01-20 01:37:02.604149: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 10485760000 exceeds 10% of free system memory.
+2026-01-20 01:37:14.574679: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:359] gpu_async_0 cuMemAllocAsync failed to allocate 10485760000 bytes: RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
+ Reported by CUDA: Free memory/Total memory: 1631059968/25298927616
+2026-01-20 01:37:14.574713: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:364] Stats: Limit:                     23340777472
+InUse:                     22282241048
+MaxInUse:                  22282241048
+NumAllocs:                     2080012
+MaxAllocSize:              10485760000
+Reserved:                            0
+PeakReserved:                        0
+LargestFreeBlock:                    0
+
+2026-01-20 01:37:14.574719: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:68] Histogram of current allocation: (allocation_size_in_bytes, nb_allocation_of_that_sizes), ...;
+2026-01-20 01:37:14.574732: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 4, 1
+2026-01-20 01:37:14.574734: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 8, 2
+2026-01-20 01:37:14.574736: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1028, 1
+2026-01-20 01:37:14.574738: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1310720000, 1
+2026-01-20 01:37:14.574740: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 10485760000, 2
+2026-01-20 01:37:14.574744: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:104] CU_MEMPOOL_ATTR_RESERVED_MEM_CURRENT: 23320330240
+2026-01-20 01:37:14.574746: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:106] CU_MEMPOOL_ATTR_USED_MEM_CURRENT: 22282241048
+2026-01-20 01:37:14.574749: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:107] CU_MEMPOOL_ATTR_RESERVED_MEM_HIGH: 24930942976
+2026-01-20 01:37:14.574751: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:108] CU_MEMPOOL_ATTR_USED_MEM_HIGH: 22282241048
+2026-01-20 01:37:14.574757: W tensorflow/core/framework/op_kernel.cc:1857] OP_REQUIRES failed at constant_op.cc:176 : RESOURCE_EXHAUSTED: OOM when allocating tensor with shape[20000,128,128,4] and type double on /job:localhost/replica:0/task:0/device:GPU:0 by allocator gpu_async_0
+2026-01-20 01:37:14.574762: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: RESOURCE_EXHAUSTED: OOM when allocating tensor with shape[20000,128,128,4] and type double on /job:localhost/replica:0/task:0/device:GPU:0 by allocator gpu_async_0
+4 items had no tests:
+    __main__
+    __main__.main
+    __main__.patch_components
+    __main__.patch_raw_data
+0 tests in 4 items.
+0 passed and 0 failed.
+Test passed.
+Traceback (most recent call last):
+  File "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_dose_stage.py", line 80, in <module>
+    main()
+  File "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_dose_stage.py", line 76, in main
+    runpy.run_path(str(script_path), run_name="__main__")
+  File "<frozen runpy>", line 291, in run_path
+  File "<frozen runpy>", line 98, in _run_module_code
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/ollie/Documents/PtychoPINN/scripts/simulation/simulation.py", line 275, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN/scripts/simulation/simulation.py", line 209, in main
+    simulated_data, ground_truth_patches = simulate_from_npz(
+                                           ^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/nongrid_simulation.py", line 124, in simulate_from_npz
+    return generate_simulated_data(objectGuess, probeGuess, nimages, buffer, random_seed, return_patches=return_patches)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/nongrid_simulation.py", line 94, in generate_simulated_data
+    return RawData.from_simulation(xcoords, ycoords, probeGuess, objectGuess, scan_index, return_patches=return_patches)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_dose_stage.py", line 41, in from_simulation
+    raw = original_from_sim(xcoords, ycoords, probeGuess, objectGuess, scan_index)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN/ptycho/raw_data.py", line 105, in from_simulation
+    Y_phi = tf.math.angle(Y_obj)
+            ^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/ops/weak_tensor_ops.py", line 88, in wrapper
+    return op(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py", line 153, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/dtensor/python/api.py", line 64, in call_with_layout
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+tensorflow.python.framework.errors_impl.ResourceExhaustedError: {{function_node __wrapped__Fill_device_/job:localhost/replica:0/task:0/device:GPU:0}} OOM when allocating tensor with shape[20000,128,128,4] and type double on /job:localhost/replica:0/task:0/device:GPU:0 by allocator gpu_async_0 [Op:Fill] name: 

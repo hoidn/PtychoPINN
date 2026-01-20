@@ -1,6 +1,17 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
 ### Turn Summary
+Rescale hook landed (reports/2026-01-20T150500Z/) and analyzer shows least-squares factors ≈1.86–1.99 but amplitude bias/pearson_r stay at ≈-2.29 / 0.10, so constant scaling cannot solve the gs1_ideal/gs2_ideal collapse.
+Root cause likely stems from stale legacy params because neither the runner nor the sim_lines pipeline call `update_legacy_dict` before invoking the backend, so params.cfg may still reflect the earlier simulation snapshot when loader/model execute.
+Next: patch both entry points to call `update_legacy_dict(params.cfg, train_config/InferenceConfig)` before training/inference, rerun gs1_ideal + gs2_ideal under artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/`, and re-run analyzer + CLI pytest guard to verify whether synced configs recover amplitude.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T150500Z/ (bias_summary.md, gs*_ideal/**, pytest_cli_smoke.log)
+
+### Turn Summary
+Manual override for checklist A1b: attempted to run the legacy `/home/ollie/Documents/PtychoPINN` `dose_experiments` simulate→train→infer flow using the new compatibility runner (`plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_dose_stage.py`) plus stub `tensorflow_addons`/`components` modules under `bin/tfa_stub/`. The shims fixed the missing `keras.src` and `update_params` imports, but simulation still fails — full-size runs OOM the RTX 3090 even after chunking (`simulation_attempt16.log`) and smaller smoke runs die in `group_coords` because `neighbor_count=5` exceeds the tiny image count (see `simulation_smoke.log`). Evidence archived under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T092411Z/`.
+Next: decide whether to provision a legacy environment or add loader guards/CLI knobs (clamping neighbor_count, chunking nimages) so the ground-truth run can complete before closing A1b.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T092411Z/ (import_path.log, simulation_attempt*.log, smoke logs)
+
+### Turn Summary
 Synced the implementation plan with reality by checking off Phase A (A0/A1b/A2) and C4d using the previously archived artifacts and documenting the waivers directly in the checklist.
 Captured the new C4e objective to prototype a workflow-layer amplitude rescaling hook (runner + sim_lines pipeline) and opened artifacts hub `2026-01-20T150500Z/` for the upcoming evidence.
 Next: Ralph wires the rescaling option, reruns gs1_ideal/gs2_ideal with analyzer + CLI pytest guard, and compares rescaled outputs against the existing scaling ratios.
