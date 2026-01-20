@@ -156,9 +156,9 @@ Tips:
 
 ## Related Documentation
 
-- [Configuration Guide](CONFIGURATION_GUIDE.md) - Full configuration parameter reference
-- [Data Contracts](data_contracts.md) - NPZ dataset format requirements
-- [Tool Selection Guide](TOOL_SELECTION_GUIDE.md) - Choosing the right scripts
+- [Configuration Guide](CONFIGURATION.md) - Full configuration parameter reference
+- [Data Contracts](../specs/data_contracts.md) - NPZ dataset format requirements
+- [Commands Reference](COMMANDS_REFERENCE.md) - Choosing the right scripts
 
 ## Summary
 

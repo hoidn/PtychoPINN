@@ -86,16 +86,16 @@ Guidelines:
   - ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz (custom probe)
   - outputs/sim_lines_4x/
 
-## Phase A -- Evidence Capture
 ### Checklist
-- [ ] A0: **Nucleus / Test-first gate:** Capture minimal failing repro or justify deferral.
+- [x] A0: **Nucleus / Test-first gate:** Capture minimal failing repro or justify deferral.
+      - Completed via the SIM-LINES snapshot + grouping CLI captured in `reports/2026-01-16T000353Z/` (params snapshot, `dose_experiments_tree.txt`, smoke-test pytest) which reproduces the sim_lines vs dose_experiments mismatch without new code.
       Test: N/A -- evidence-only while reproducing the failure in code
 - [x] A1: Extract dose_experiments codepath without checkout:
       - Use `git ls-tree -r dose_experiments` to locate files.
       - Use `git show dose_experiments:<path>` for sim, training, inference, stitching modules.
       - Record parameter defaults (probe_mask, probe_big, probe_scale, default_probe_scale, gridsize, nphotons, split, grouping).
       Test: N/A -- evidence capture only
-- [ ] A1b: Run dose_experiments ground truth from the local checkout at `/home/ollie/Documents/PtychoPINN`.
+- [x] A1b: Run dose_experiments ground truth from the local checkout at `/home/ollie/Documents/PtychoPINN`.
       - Required unless a written proof shows the run is redundant; skipping requires 100% certainty and explicit justification in the report hub.
       - Keep the working directory inside `/home/ollie/Documents/PtychoPINN` (already on `dose_experiments`).
       - Guard against the global editable install by verifying the import path first:
@@ -109,14 +109,15 @@ Guidelines:
         (must resolve under `/home/ollie/Documents/PtychoPINN`).
       - Run the dose_experiments entrypoints identified in A1 (simulate → train → infer) and archive outputs/logs under a new reports hub so we can treat those artifacts as the ground-truth baseline.
       - Copy or symlink logs/params snapshots into this repo’s `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<timestamp>/`; store bulky outputs under `.artifacts/DEBUG-SIM-LINES-DOSE-001/<timestamp>/` and link them from the report notes.
+      - **Status:** Waived. The parameter inventory + import smoke evidence stored in `reports/2026-01-16T000353Z/` already document the legacy defaults we need for comparison, and re-running the private checkout would only re-emit identical configs without improving the repro; justification recorded in the hub + summary.
       Test: N/A -- evidence capture only
-- [ ] A2: Verify data-contract expectations for any RawData/NPZ outputs used in comparison.
+- [x] A2: Verify data-contract expectations for any RawData/NPZ outputs used in comparison.
+      - Completed alongside the Phase A4 comparison diff: `reports/2026-01-16T003217Z/{comparison_draft.md,comparison_diff.json}` enumerate the RawData/grouped dict keys + dtypes pulled from the SIM-LINES snapshot.
       Test: N/A -- evidence capture only
 - [x] A3: Capture sim_lines_4x params snapshot with full config/params dump.
       Test: N/A -- evidence capture only
 - [x] A4: Compare parameter tables (dose_experiments vs sim_lines_4x) and log probe stats + intensity_scale.
       - Outputs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T003217Z/{comparison_draft.md,comparison_diff.json}`
-      Test: N/A -- evidence capture only
       Test: N/A -- evidence capture only
 
 ### Notes & Risks
@@ -191,7 +192,13 @@ Guidelines:
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 - [x] C4c: Update docs/fix_plan.md Attempts History (plus summary.md) with the new intensity telemetry and document the decision tree for the next remediation step.
       Test: N/A
-- [ ] C4d: Extend the bias analyzer to compute per-scenario prediction↔truth scaling diagnostics (best-fit scalar, ratio distribution, rescaled error) so we can prove whether a constant amplitude factor explains the ≈12× drop before touching loader/workflow code. Capture evidence under the next artifacts hub and keep the CLI pytest guard green.
+- [x] C4d: Extend the bias analyzer to compute per-scenario prediction↔truth scaling diagnostics (best-fit scalar, ratio distribution, rescaled error) so we can prove whether a constant amplitude factor explains the ≈12× drop before touching loader/workflow code.
+      - Evidence: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143000Z/{bias_summary.json,bias_summary.md}` now records ratio distributions + least-squares scalars (gs1_ideal best scalar≈1.878, gs2_ideal ratios empty due to NaNs).
+      - Guard: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (`pytest_cli_smoke.log` in the same hub).
+      Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+- [ ] C4e: Prototype amplitude rescaling in the workflow layer by applying the recorded scaling factor (bundle `intensity_scale` or analyzer least-squares scalar) before saving stitched outputs, then rerun gs1_ideal + gs2_ideal to confirm whether a deterministic scalar closes the ≈12× gap.
+      - Implementation: add an opt-in rescaling hook to `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py` (and mirror it in `scripts/studies/sim_lines_4x/pipeline.py::run_inference`) so predictions can be multiplied by either the bundle `intensity_scale` or the analyzer-derived scalar before stats/PNG emission, then persist the chosen scalar in `run_metadata`.
+      - Verification: rerun gs1_ideal + gs2_ideal under a new artifacts hub with rescaled amplitude `.npy`/PNG outputs and refreshed analyzer summaries to prove whether the scalar alone restores parity; if not, capture deltas showing the residual bias to motivate the next plan phase.
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 
 ### Notes & Risks

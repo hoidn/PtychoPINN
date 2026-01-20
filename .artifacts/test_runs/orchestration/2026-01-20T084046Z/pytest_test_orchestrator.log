@@ -1,0 +1,27 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python
+cachedir: .pytest_cache
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 17 items
+
+scripts/orchestration/tests/test_orchestrator.py::test_combined_sequence PASSED [  5%]
+scripts/orchestration/tests/test_orchestrator.py::test_review_cadence_single PASSED [ 11%]
+scripts/orchestration/tests/test_orchestrator.py::test_router_override_galph_only PASSED [ 17%]
+scripts/orchestration/tests/test_orchestrator.py::test_router_disabled_uses_actor_prompts PASSED [ 23%]
+scripts/orchestration/tests/test_orchestrator.py::test_combined_missing_prompt_marks_failed PASSED [ 29%]
+scripts/orchestration/tests/test_orchestrator.py::test_router_only_without_output_marks_failed PASSED [ 35%]
+scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_after_turns PASSED [ 41%]
+scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_no_git PASSED [ 47%]
+scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_dry_run PASSED [ 52%]
+scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_includes_iteration PASSED [ 58%]
+scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_role_prefix PASSED [ 64%]
+scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_flag_plumbing PASSED [ 70%]
+scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_best_effort PASSED [ 76%]
+scripts/orchestration/tests/test_orchestrator.py::test_role_mode_requires_role PASSED [ 82%]
+scripts/orchestration/tests/test_orchestrator.py::test_role_mode_requires_sync PASSED [ 88%]
+scripts/orchestration/tests/test_orchestrator.py::test_role_mode_forwards_supervisor_prompt PASSED [ 94%]
+scripts/orchestration/tests/test_orchestrator.py::test_role_mode_forwards_loop_prompt PASSED [100%]
+
+============================== 17 passed in 0.11s ==============================

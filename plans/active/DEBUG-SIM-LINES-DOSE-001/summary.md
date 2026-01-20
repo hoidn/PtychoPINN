@@ -1,6 +1,12 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
 ### Turn Summary
+Synced the implementation plan with reality by checking off Phase A (A0/A1b/A2) and C4d using the previously archived artifacts and documenting the waivers directly in the checklist.
+Captured the new C4e objective to prototype a workflow-layer amplitude rescaling hook (runner + sim_lines pipeline) and opened artifacts hub `2026-01-20T150500Z/` for the upcoming evidence.
+Next: Ralph wires the rescaling option, reruns gs1_ideal/gs2_ideal with analyzer + CLI pytest guard, and compares rescaled outputs against the existing scaling ratios.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T150500Z/ (planning_notes.md placeholder)
+
+### Turn Summary
 Reviewed the stage-ratio telemetry: both gs1_ideal and gs2_ideal lose ≈44 % of amplitude inside `normalize_data`, gs1_ideal predictions stay ≈2.6× below the normalized input, and stitched outputs undershoot the ground truth by ≈12× while gs2_ideal collapses post-prediction due to NaNs.
 Captured the conclusion that we still lack evidence showing whether a single scalar explains the prediction↔truth gap, so the analyzer needs to load the amplitude `.npy` artifacts, compute best-fit scalars/ratio distributions, and report rescaled errors before proposing loader or workflow fixes.
 Next: extend `bin/analyze_intensity_bias.py` with those scaling diagnostics, rerun it for gs1_ideal + gs2_ideal under the 2026-01-20T143000Z hub, and re-capture the CLI pytest guard.

@@ -136,6 +136,7 @@
     - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143000Z/{bias_summary.json,bias_summary.md,analyze_intensity_bias.log,pytest_cli_smoke.log}`
     - Findings: Tables now spell out gs1_ideal’s truth/pred ratio spread (mean≈2.01, p05≈1.19, p95≈3.09) and baseline→scaled MAE deltas (2.49→2.37) while gs2_ideal reports zero usable ratios due to NaNs, reinforcing that normalization fixes alone cannot close the ≈12× gap.
     - Next Actions: Feed these quantified ratios back into Phase C4d planning to decide whether loader normalization or downstream loss wiring must change before touching shared workflow code.
+  - *2026-01-20T150500Z:* Synced the plan + summary with existing evidence (checked off A0/A1b/A2 and C4d, documented the A1b waiver), scoped C4e to pilot an amplitude-rescale hook in the runner + sim_lines pipeline, and opened `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T150500Z/` for the upcoming implementation evidence.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
@@ -338,3 +339,20 @@
     - Metrics: `ruff check scripts/orchestration/agent_dispatch.py scripts/orchestration/orchestrator.py scripts/orchestration/supervisor.py scripts/orchestration/loop.py scripts/orchestration/tests/test_agent_dispatch.py`, `pytest --collect-only scripts/orchestration/tests/test_agent_dispatch.py -v`, `pytest scripts/orchestration/tests/test_agent_dispatch.py -v`
     - Artifacts: `plans/active/ORCH-AGENT-DISPATCH-001/reports/2026-01-20T055000Z/{ruff_check.log,pytest_collect_agent_dispatch.log,pytest_agent_dispatch.log,summary.md}`
     - Next Actions: decide whether to run the broader regression suite to satisfy the full-suite exit criterion.
+
+### [DOC-HYGIENE-20260120] Reviewer doc/prompt fixes
+- Depends on: ORCH-ORCHESTRATOR-001 (reviewer override flow)
+- Priority: High (blocking reviewer gate)
+- Status: done — 2026-01-20
+- Owner/Date: Codex/2026-01-20
+- Working Plan: N/A (single-loop documentation cleanup)
+- Summary: Fix the broken references flagged in reviewer findings — point `docs/GRIDSIZE_N_GROUPS_GUIDE.md` to the real configuration/data-contract docs and update `prompts/arch_writer.md` to cite existing spec anchors so authors land on valid sections.
+- Reports Hub: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T150500Z/` (planning notes + summary)
+- Goals:
+  - Ensure all “Related Documentation” links in the gridsize guide resolve to real files.
+  - Update prompt guidance so architecture writers cite live spec anchors (`pipeline-normative`, `data-formats-normative`) instead of 404s.
+- Exit Criteria:
+  - The docs build without broken links for the updated targets.
+  - `prompts/arch_writer.md` references anchors that exist in the checked-in specs.
+- Attempts History:
+  - *2026-01-20T150500Z:* Replaced the stale quick links in `docs/GRIDSIZE_N_GROUPS_GUIDE.md` with `docs/CONFIGURATION.md`, `../specs/data_contracts.md`, and `docs/COMMANDS_REFERENCE.md`, and rewired `prompts/arch_writer.md` to reference `../specs/spec-ptycho-workflow.md#pipeline-normative` and `../specs/spec-ptycho-interfaces.md#data-formats-normative`. Logged the change under the DEBUG-SIM-LINES-DOSE-001 artifacts hub because the reviewer override was processed in that focus.

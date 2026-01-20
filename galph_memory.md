@@ -605,3 +605,16 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143000Z/
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=2 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143000Z/ next_action=Implement C4d analyzer scaling diagnostics + rerun analyzer + pytest
+# 2026-01-20T15:05:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase C4e rescale planning + doc hygiene
+
+- dwell: 1 (manual override reset to 0; this is the first planning loop afterward)
+- Action type: Review/Planning (doc fixes + plan sync)
+- Mode: Implementation handoff
+- Git sync: `git stash push -u -m 'galph-20260120-loop'` → `timeout 30 git pull --rebase` → `git stash pop`
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, NORMALIZATION-001, POLICY-001), docs/DATA_NORMALIZATION_GUIDE.md, specs/spec-ptycho-core.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, prompts/arch_writer.md, docs/GRIDSIZE_N_GROUPS_GUIDE.md, docs/TESTING_GUIDE.md
+- Key updates:
+  - Fixed the broken quick-links in `docs/GRIDSIZE_N_GROUPS_GUIDE.md` (now points at `docs/CONFIGURATION.md`, `../specs/data_contracts.md`, and `docs/COMMANDS_REFERENCE.md`) and updated `prompts/arch_writer.md` to cite real spec anchors (`pipeline-normative`, `data-formats-normative`). Logged this as DOC-HYGIENE-20260120 in the fix plan.
+  - Marked Phase A0/A1b/A2 and C4d complete in the DEBUG plan, documented the A1b waiver rationale, and added the Phase C4e checklist item to prototype an amplitude-rescale hook. Opened artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T150500Z/` with planning notes + summary entry.
+  - Refreshed input.md with the new Do Now instructing Ralph to add the prediction-scale hook to `run_phase_c2_scenario.py` + `scripts/studies/sim_lines_4x/pipeline.py`, rerun gs1_ideal/gs2_ideal with least-squares scaling, and rerun the analyzer + pytest guard.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T150500Z/ next_action=Implement C4e rescale hook + gs1/gs2 reruns + analyzer + CLI pytest guard

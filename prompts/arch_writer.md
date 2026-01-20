@@ -254,8 +254,8 @@ Link to behavioral specs:
 ### Behavioral Specification
 
 This module implements behaviors specified in:
-- [SPEC-WORKFLOW § Data Loading](/specs/spec-ptycho-workflow.md#data-loading)
-- [SPEC-INTERFACES § Data Contracts](/specs/spec-ptycho-interfaces.md#data-contracts)
+- [SPEC-WORKFLOW § Pipeline](../specs/spec-ptycho-workflow.md#pipeline-normative)
+- [SPEC-INTERFACES § Data Formats](../specs/spec-ptycho-interfaces.md#data-formats-normative)
 
 **Contract compliance:**
 - Data loading satisfies [SPEC-INTERFACES § RawData Contract]
@@ -629,8 +629,8 @@ thousands of files without exhausting file handles.
 ## Behavioral Specification
 
 Implements behaviors from:
-- [SPEC-WORKFLOW § Data Loading](/specs/spec-ptycho-workflow.md#data-loading)
-- [SPEC-INTERFACES § Data Contracts](/specs/spec-ptycho-interfaces.md#data-contracts)
+- [SPEC-WORKFLOW § Pipeline](../specs/spec-ptycho-workflow.md#pipeline-normative)
+- [SPEC-INTERFACES § Data Formats](../specs/spec-ptycho-interfaces.md#data-formats-normative)
 ```
 
 ## Bad Architecture Documentation
