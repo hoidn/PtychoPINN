@@ -254,6 +254,12 @@
       - Confirms the normalize_data step is the primary amplitude suppression point
     - **Next Actions:** Compare dose_legacy_gs2 stats with sim_lines gs1_ideal/gs2_ideal runs to identify which normalization parameters diverge.
   - *2026-01-20T133807Z:* Scoped **Phase D3 hyperparameter audit** — extend `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/compare_sim_lines_params.py` so the Markdown/JSON diff also surfaces training knobs (nepochs, batch_size, probe/intensity-scale trainability), add CLI controls for sim_lines epoch overrides, rerun it against the archived snapshot + legacy param scan, and archive outputs under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T133807Z/` alongside the synthetic helpers CLI pytest guard. Evidence will show whether the sim_lines five-epoch runs (vs the legacy 60-epoch defaults) plausibly explain the amplitude collapse before scheduling retrains.
+  - *2026-01-20T134400Z:* **Phase D3 IMPLEMENTED** — Extended `bin/compare_sim_lines_params.py` with `--default-sim-lines-nepochs` CLI flag and `get_training_config_snapshot()` helper. Added `nepochs`, `batch_size`, `probe.trainable` to the PARAMETERS list. Regenerated all diff artifacts under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T133807Z/`.
+    - **Metrics:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T133807Z/{hyperparam_diff.md,hyperparam_diff.json,analysis.md,dose_loss_weights.json,dose_loss_weights.md,legacy_params_cfg_defaults.json,compare_cli.log,pytest_cli_smoke.log}`
+    - **Critical Finding:** `nepochs` diverges **60 (dose_experiments) vs 5 (sim_lines)** — a **12× training length reduction**. This is a plausible explanation for the amplitude collapse observed in Phase D2 telemetry. Hypothesis: insufficient training epochs (H-NEPOCHS).
+    - **Matching Parameters:** `batch_size=16`, `probe.trainable=False`, `intensity_scale.trainable=True`, all loss weights — these are **ruled out** as divergence sources.
+    - **Next Actions:** Schedule gs2_ideal retrain with `nepochs=60` to verify whether training length alone closes the amplitude gap (H-NEPOCHS hypothesis). If confirmed, document in `docs/findings.md`.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

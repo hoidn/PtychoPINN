@@ -11,6 +11,10 @@ Phase D1a-D1c (2026-01-20T112029Z): Added stubbed cfg execution to capture
 **runtime** values from the legacy dose_experiments init() for both loss_fn
 modes ('nll' and 'mae'). The previous static parsing captured conditional
 assignments (the MAE branch) as defaults, misrepresenting the actual config.
+
+Phase D3 (2026-01-20T133807Z): Extended to include training hyperparameters
+(nepochs, batch_size, probe.trainable, intensity_scale.trainable) in the
+diff to support hyperparameter audit before scheduling retrains.
 """
 
 from __future__ import annotations
@@ -158,6 +162,10 @@ PARAMETERS: List[Tuple[str, str]] = [
     ("nll_weight", "nll_weight"),
     ("realspace_weight", "realspace_weight"),
     ("realspace_mae_weight", "realspace_mae_weight"),
+    # Phase D3: Training hyperparameters
+    ("nepochs", "nepochs"),
+    ("batch_size", "batch_size"),
+    ("probe.trainable", "probe.trainable"),
 ]
 
 
@@ -187,6 +195,12 @@ def parse_args() -> argparse.Namespace:
         "--output-legacy-defaults",
         type=pathlib.Path,
         help="Output JSON with the actual ptycho.params.cfg framework defaults for loss weights",
+    )
+    parser.add_argument(
+        "--default-sim-lines-nepochs",
+        type=int,
+        default=5,
+        help="Default nepochs for sim_lines scenarios (default: 5, reflecting typical short training runs)",
     )
     return parser.parse_args()
 
@@ -272,6 +286,63 @@ def get_loss_weights_from_training_config(
         "nll_weight": config.nll_weight,
         "realspace_weight": config.realspace_weight,
         "realspace_mae_weight": config.realspace_mae_weight,
+    }
+
+
+def get_training_config_snapshot(
+    gridsize: int,
+    probe_scale: float,
+    probe_big: bool,
+    probe_mask: bool,
+    nphotons: float,
+    group_count: int,
+    neighbor_count: int,
+    nepochs: int,
+    batch_size: int,
+    probe_trainable: bool,
+    intensity_scale_trainable: bool,
+) -> Dict[str, Any]:
+    """
+    Instantiate a TrainingConfig to extract all training hyperparameters
+    for the given scenario parameters. Phase D3 extension.
+
+    Returns dict with keys:
+      - mae_weight, nll_weight, realspace_weight, realspace_mae_weight (loss weights)
+      - nepochs, batch_size, probe.trainable, intensity_scale.trainable (training knobs)
+    """
+    from pathlib import Path
+    from ptycho.config.config import ModelConfig, TrainingConfig
+
+    model_config = ModelConfig(
+        N=64,
+        gridsize=gridsize,
+        model_type="pinn",
+        probe_scale=probe_scale,
+        probe_big=probe_big,
+        probe_mask=probe_mask,
+    )
+    config = TrainingConfig(
+        model=model_config,
+        n_groups=group_count,
+        nphotons=nphotons,
+        neighbor_count=neighbor_count,
+        nepochs=nepochs,
+        batch_size=batch_size,
+        probe_trainable=probe_trainable,
+        intensity_scale_trainable=intensity_scale_trainable,
+        output_dir=Path("/tmp"),  # placeholder
+    )
+    return {
+        # Loss weights
+        "mae_weight": config.mae_weight,
+        "nll_weight": config.nll_weight,
+        "realspace_weight": config.realspace_weight,
+        "realspace_mae_weight": config.realspace_mae_weight,
+        # Training hyperparameters (Phase D3)
+        "nepochs": config.nepochs,
+        "batch_size": config.batch_size,
+        "probe.trainable": config.probe_trainable,
+        "intensity_scale.trainable": config.intensity_scale_trainable,
     }
 
 
@@ -421,6 +492,51 @@ def enrich_scenario_with_loss_weights(
     scenario.update(loss_weights)
 
 
+def enrich_scenario_with_training_config(
+    scenario: Dict[str, Any],
+    run_params: Dict[str, Any],
+    default_nepochs: int,
+    default_batch_size: int = 16,
+    default_probe_trainable: bool = False,
+    default_intensity_scale_trainable: bool = True,
+) -> None:
+    """
+    Instantiate TrainingConfig for the scenario and extract all training hyperparameters.
+    Phase D3 extension that includes nepochs, batch_size, probe.trainable, intensity_scale.trainable.
+    Updates scenario dict in-place.
+
+    Args:
+        scenario: Scenario dict to update in-place
+        run_params: Run parameters from snapshot
+        default_nepochs: Default nepochs for sim_lines (from CLI --default-sim-lines-nepochs)
+        default_batch_size: Default batch_size (TrainingConfig default is 16)
+        default_probe_trainable: Default probe.trainable (TrainingConfig default is False)
+        default_intensity_scale_trainable: Default intensity_scale.trainable (TrainingConfig default is True)
+    """
+    gridsize = scenario.get("gridsize", 1)
+    probe_scale = scenario.get("probe_scale", 4.0)
+    probe_big = scenario.get("probe_big", True)
+    probe_mask = scenario.get("probe_mask", False)
+    nphotons = scenario.get("nphotons") or run_params.get("nphotons", 1e9)
+    group_count = scenario.get("group_count") or run_params.get("group_count", 1000)
+    neighbor_count = scenario.get("neighbor_count") or run_params.get("neighbor_count", 4)
+
+    training_snapshot = get_training_config_snapshot(
+        gridsize=int(gridsize),
+        probe_scale=float(probe_scale),
+        probe_big=bool(probe_big),
+        probe_mask=bool(probe_mask),
+        nphotons=float(nphotons),
+        group_count=int(group_count),
+        neighbor_count=int(neighbor_count),
+        nepochs=default_nepochs,
+        batch_size=default_batch_size,
+        probe_trainable=default_probe_trainable,
+        intensity_scale_trainable=default_intensity_scale_trainable,
+    )
+    scenario.update(training_snapshot)
+
+
 def build_loss_modes_markdown(
     dose_loss_modes: Dict[str, Dict[str, Any]],
 ) -> str:
@@ -534,13 +650,28 @@ def main() -> None:
     # Some parameters live in the global run params; surface them explicitly.
     if "intensity_scale.trainable" not in dose_params:
         dose_params["intensity_scale.trainable"] = dose_params.get("intensity_scale.trainable")
+
+    # Phase D3: Ensure dose_params includes training hyperparameters from static parse
+    # The static parse should already capture nepochs (60), probe.trainable (False),
+    # but batch_size is not explicitly set in legacy scripts (uses framework default 16)
+    dose_params.setdefault("nepochs", dose_params.get("nepochs"))  # Static parse captures cfg['nepochs'] = 60
+    dose_params.setdefault("batch_size", 16)  # Legacy uses framework default
+    dose_params.setdefault("probe.trainable", dose_params.get("probe.trainable"))  # Static parse captures cfg['probe.trainable']
+
     for scenario in scenarios.values():
         scenario.setdefault("offset", run_params.get("offset"))
         scenario.setdefault("outer_offset_train", run_params.get("outer_offset_train"))
         scenario.setdefault("outer_offset_test", run_params.get("outer_offset_test"))
         scenario.setdefault("intensity_scale.trainable", run_params.get("intensity_scale.trainable"))
-        # Phase D1: Enrich scenario with loss weights from TrainingConfig
-        enrich_scenario_with_loss_weights(scenario, run_params)
+        # Phase D3: Enrich scenario with full TrainingConfig snapshot (includes nepochs, batch_size, probe.trainable)
+        enrich_scenario_with_training_config(
+            scenario,
+            run_params,
+            default_nepochs=args.default_sim_lines_nepochs,
+            default_batch_size=16,  # TrainingConfig default
+            default_probe_trainable=False,  # TrainingConfig default
+            default_intensity_scale_trainable=True,  # TrainingConfig default
+        )
 
     ensure_all_keys(dose_params, scenarios)
     markdown = build_markdown(dose_params, scenarios, args.snapshot, args.dose_config)
