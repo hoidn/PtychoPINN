@@ -961,3 +961,17 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T124212Z/` (input.md, summary.md)
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T124212Z/ next_action=Ralph implements capture_dose_normalization.py, runs the CLI + pytest guard, and updates docs/fix_plan/plan entries with the new D2b evidence
+# 2026-01-20T13:09:41Z: ORCH-ROUTER-001 — Phase E review cadence restart
+
+- dwell: 0 (planning loop after manual override reset)
+- Focus issue: ORCH-ROUTER-001 — router cadence skip broken in sync supervisor/loop (last_prompt_actor missing)
+- Action type: Planning | Mode: Implementation
+- Documents reviewed: docs/index.md, docs/findings.md, docs/fix_plan.md, scripts/orchestration/README.md (§Router review cadence), plans/active/ORCH-ROUTER-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md (doc hygiene), scripts/orchestration/{supervisor.py,loop.py,router.py}, scripts/orchestration/tests/{test_router.py,test_orchestrator.py}
+- Key updates:
+  - Reopened ORCH-ROUTER-001 in docs/fix_plan with a new Phase E scope, switched the reports hub to plans/active/…/reports, and blocked ORCH-ORCHESTRATOR-001 until the router fix lands.
+  - Updated the ORCH-ROUTER plan + summary with Phase E checklist (state writes + regression tests) and clarified exit criteria to require `last_prompt_actor` persistence.
+  - Brought the DEBUG-SIM-LINES implementation plan status back in sync with docs/fix_plan (emphasizing Phase D amplitude bias) per reviewer instructions.
+  - Authored input.md delegating the concrete code/tests (supervisor.py, loop.py, new pytest module) plus pytest selectors + doc sync plan.
+- Artifacts: plans/active/ORCH-ROUTER-001/reports/2026-01-20T130941Z/
+- <Action State>: [ready_for_implementation]
+- focus=ORCH-ROUTER-001 state=ready_for_implementation dwell=0 artifacts=plans/active/ORCH-ROUTER-001/reports/2026-01-20T130941Z/ next_action=Ralph updates supervisor.py + loop.py to persist last_prompt_actor and adds the sync router review cadence pytest module + docs/test registry updates

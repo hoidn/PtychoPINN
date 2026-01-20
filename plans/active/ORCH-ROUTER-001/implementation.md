@@ -5,7 +5,7 @@
 - Title: Router prompt + orchestration dispatch layer
 - Owner: user + Codex
 - Spec Owner: scripts/orchestration/README.md
-- Status: done
+- Status: **in_progress — Phase E review cadence persistence (router state last_prompt_actor fix)**
 
 ## Goals
 - Add a router layer that deterministically selects prompts based on sync state + iteration, with optional router-prompt override.
@@ -25,6 +25,7 @@
 5. Test coverage verified (targeted selectors + collect-only as needed), logs archived under `.artifacts/orch-router-001/`.
 6. Test registry updated when tests are added/renamed (docs/TESTING_GUIDE.md §2, docs/development/TEST_SUITE_INDEX.md).
 7. Router-only mode (if enabled) is documented and tested with allowlist + expected_actor enforcement.
+8. Sync supervisor/loop flows persist both `last_prompt` **and** `last_prompt_actor` so review cadence fires only once per iteration, guarded by pytest coverage.
 
 ## Compliance Matrix (Mandatory)
 - [x] **Spec Constraint:** scripts/orchestration/README.md -- sync state + dispatch contract
@@ -125,6 +126,19 @@ Format for checklist items:
 ### Notes & Risks
 - Router-only mode must still fail fast on invalid prompt output.
 
+## Phase E -- Review Cadence Persistence
+### Checklist
+- [ ] E1: Update `scripts/orchestration/supervisor.py` and `scripts/orchestration/loop.py` so sync-via-git runs persist both `last_prompt` and `last_prompt_actor` whenever the router is enabled (galph + ralph turns).
+      Test: `pytest scripts/orchestration/tests/test_sync_router_review.py::TestSyncRouterReview::test_supervisor_records_actor`
+- [ ] E2: Add regression tests proving reviewer cadence fires exactly once per iteration (galph hits reviewer, ralph skips) and capture CLI/log evidence for both actors.
+      Test: `pytest scripts/orchestration/tests/test_sync_router_review.py::TestSyncRouterReview::test_review_runs_once`
+- [ ] E3: Update orchestration docs/test registries to reference the new review-cadence regression test module.
+      Test: `pytest --collect-only scripts/orchestration/tests/test_sync_router_review.py -q`
+
+### Notes & Risks
+- Tests must avoid real git operations; use temporary directories and stub state/log writers.
+- Router prompt output should be deterministic so cadence skip assertions are reliable.
+
 ## Artifacts Index
-- Reports root: .artifacts/orch-router-001/
+- Reports root: plans/active/ORCH-ROUTER-001/reports/
 - Latest run: <YYYY-MM-DDTHHMMSSZ>/

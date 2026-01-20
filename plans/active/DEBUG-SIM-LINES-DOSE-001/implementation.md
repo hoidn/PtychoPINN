@@ -5,7 +5,7 @@
 - Title: Isolate sim_lines_4x vs dose_experiments sim->recon discrepancy
 - Owner: Codex + user
 - Spec Owners: specs/spec-ptycho-workflow.md; specs/spec-ptycho-core.md; specs/spec-inference-pipeline.md; specs/data_contracts.md
-- Status: **NaN DEBUGGING COMPLETE** — CONFIG-001 bridging (C4f) confirmed as root cause fix; amplitude bias (separate issue) remains open
+- Status: **in_progress — Phase D amplitude bias investigation** (CONFIG-001 bridging fixed NaNs; recon amplitude parity still outstanding)
 
 ## Goals
 - Identify whether the failure is caused by a core regression, nongrid pipeline differences, or a workflow/config mismatch.

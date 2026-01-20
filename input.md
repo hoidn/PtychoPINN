@@ -1,54 +1,41 @@
-## Summary
-Add a dose_experiments-style normalization capture CLI so we can gather RawData→grouped→normalized→container stage stats plus dataset-vs-fallback intensity scales without rerunning the full sim_lines training loop.
-
-## Focus
-DEBUG-SIM-LINES-DOSE-001 — Phase D2 normalization parity instrumentation (D2b CLI)
-
-## Branch
-paper
-
-## Mapped tests
-- pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
-
-## Artifacts
-plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T124212Z/
-
-## Do Now — DEBUG-SIM-LINES-DOSE-001.D2b normalization parity
-- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/capture_dose_normalization.py::main — add a plan-local CLI that loads the legacy `dose_experiments_param_scan.md` defaults (gridsize=2, probe_scale=4, neighbor_count=5, etc.), simulates the nongrid dataset via `make_lines_object`/`simulate_nongrid_raw_data`, splits along `y`, and records stage telemetry using the existing `record_intensity_stage` helper so `write_intensity_stats_outputs` can emit both JSON + Markdown. The CLI must compute the dataset-derived intensity scale (per `specs/spec-ptycho-core.md §Normalization Invariants`) and the closed-form fallback `sqrt(nphotons)/(N/2)`, feed both into the payload, duplicate the outputs to `dose_normalization_stats.{json,md}`, and persist `capture_config.json` + `capture_summary.md` with the scenario parameters, normalization ratios, and spec citation. Support `--overwrite` to clear existing outputs safely.
-- Implement: docs/fix_plan.md — log this D2b attempt (timestamp, CLI path, artifact hub) under DEBUG-SIM-LINES-DOSE-001, ensuring the Dependencies/Status fields reflect that normalization parity capture is underway and referencing the new `dose_normalization_stats` artifacts.
-- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md — update the Phase D checklist so D2b describes the new CLI entry point (and mark as completed once artifacts exist), plus refresh `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md` with a note that the normalization-only CLI now exists for quick parity captures.
-
-## How-To Map
-1. `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/capture_dose_normalization.py --scenario dose_legacy_gs2 --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T124212Z/dose_normalization --total-images 1024 --group-count 64 --neighbor-count 5 --nphotons 1e9 --buffer 10 --object-size 392 --sim-seed 42 --object-seed 42 --custom-probe-path ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz --probe-mode custom --probe-scale 4.0 --gridsize 2 --split-fraction 0.5 | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T124212Z/dose_normalization/capture.log`
-2. `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T124212Z/pytest_cli_smoke.log`
-
-## Pitfalls To Avoid
-- Keep the new CLI plan-local; do not modify production modules under `ptycho/` or `scripts/studies/`.
-- Reference `specs/spec-ptycho-core.md §Normalization Invariants` verbatim in the capture summary; avoid paraphrasing equations.
-- Compute both dataset-derived and closed-form intensity scales and serialize them (JSON + Markdown) so analyzer diffs stay meaningful.
-- Preserve the exact stage order (`raw_diffraction`, `grouped_diffraction`, `grouped_X_full`, `container_X`) used by `run_phase_c2_scenario` so comparisons are apples-to-apples.
-- Default to fail-fast if the output directory already contains stats; only delete files when `--overwrite` is passed and log the action.
-- Keep seeds and scenario counts deterministic (object seed, sim seed, total images) for reproducibility and caching.
-- Capture all CLI stdout/stderr plus `capture_config.json` inside the artifacts hub before touching docs.
-- Do not kick off training/inference workloads; the CLI should stop after loader-based normalization stats.
-- Leave the memoized RawData cache enabled unless the CLI exposes a flag; avoid bespoke cache directories.
-- When updating docs, describe the actual CLI behavior and artifact paths after verifying files exist.
-
-## If Blocked
-If the CLI fails (e.g., missing probe NPZ or loader import error), write the full traceback to `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T124212Z/dose_normalization/blocker.log`, add a DEBUG-SIM-LINES-DOSE-001 Attempts History note in docs/fix_plan.md summarizing the blocker, and stop rather than guessing at parameters.
-
-## Findings Applied (Mandatory)
-- CONFIG-001 — keep params.cfg synchronized via `update_legacy_dict` before calling loader/generator helpers.
-- SIM-LINES-CONFIG-001 — plan-local runners must bridge legacy params prior to grouping/inference to avoid NaNs; document the bridge in the CLI summary.
-- NORMALIZATION-001 — track all three normalization systems explicitly and cite the spec when presenting the dataset-scale vs fallback numbers.
-
-## Pointers
-- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:330 — Phase D checklist + D2b requirements.
-- docs/fix_plan.md:218 — D2 Attempts History describing the normalization parity plan.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py:333 — intensity stage helpers to reuse.
-- specs/spec-ptycho-core.md:86 — Normalization invariant clauses.
-- docs/findings.md:22 — NORMALIZATION-001 guidance.
-- docs/TESTING_GUIDE.md:1 — pytest command policy for plan-local work.
-
-## Next Up (optional)
-If the CLI + docs land quickly, start scoping D3 (hyperparameter deltas) by cataloging nepochs, batch sizes, and scheduler settings between dose_experiments and sim_lines.
+Summary: Fix sync supervisor/loop router review cadence so reviewer fires once per iteration by persisting `last_prompt_actor` and adding regression tests.
+Focus: ORCH-ROUTER-001 — Router prompt + orchestration dispatch layer
+Branch: paper
+Mapped tests: pytest scripts/orchestration/tests/test_sync_router_review.py::TestSyncRouterReview::test_review_runs_once -v; pytest scripts/orchestration/tests/test_router.py -v
+Artifacts: plans/active/ORCH-ROUTER-001/reports/2026-01-20T130941Z/
+Do Now:
+- Implement:
+  - scripts/orchestration/supervisor.py::main — when `args.use_router` and sync-via-git are active, persist both `last_prompt` and `last_prompt_actor="galph"` before stamping state so deterministic routing can skip the reviewer on the next ralph turn.
+  - scripts/orchestration/loop.py::main — mirror the supervisor change so the ralph turn records `last_prompt_actor="ralph"` whenever router selection runs, ensuring state.json parity across actors.
+  - scripts/orchestration/tests/test_sync_router_review.py::TestSyncRouterReview::test_review_runs_once — add a new regression module that stubs the git/prompt executors, simulates a review cadence hit on galph, and asserts the second actor skips reviewer selection because `last_prompt_actor` is present; include an additional test that fails without the new state annotations to prove coverage.
+- Validate: pytest scripts/orchestration/tests/test_sync_router_review.py::TestSyncRouterReview::test_review_runs_once -v; pytest scripts/orchestration/tests/test_router.py -v (after edits)
+How-To Map:
+- Edit both CLI entry points right after `_select_prompt` returns: reuse the existing `selected_prompt` variable and set `st.last_prompt_actor = "galph"`/`"ralph"` in the same branch where `last_prompt` is written so stamping captures the actor before pushing state.
+- Keep deterministic routing unchanged; the skip logic already lives in scripts/orchestration/router.py:88-112 — only the state annotations are missing in sync mode.
+- Author tests under scripts/orchestration/tests/test_sync_router_review.py using temporary directories and fake executors (see test_orchestrator.py for patterns). Seed OrchestrationState(iteration divisible by review_every_n) so galph hits reviewer and ralph confirms skip; assert `state.last_prompt_actor` toggles.
+- Run `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest scripts/orchestration/tests/test_sync_router_review.py::TestSyncRouterReview::test_review_runs_once -v` to exercise the new module, then rerun the existing router suite via `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest scripts/orchestration/tests/test_router.py -v`.
+- Archive logs for both selectors plus git diffs under plans/active/ORCH-ROUTER-001/reports/2026-01-20T130941Z/ (name them pytest_sync_router_review.log, pytest_router.log, git_diff.txt).
+Pitfalls To Avoid:
+- Do not mutate state when router is disabled; guard writes under `if args.use_router`.
+- Avoid touching combined orchestrator files—this loop only fixes sync supervisor/loop; orchestrator stays blocked until this lands.
+- Keep router prompt execution network-neutral (no real CLI calls) inside tests; stub executors to avoid accidental subprocess launches.
+- Maintain deterministic prompt allowlist/paths; use tmp_path / "prompts" fixtures like the existing router/orchestrator tests.
+- Ensure new tests do not rely on global git state—use temporary state.json paths and avoid touching real repos.
+- Keep `AUTHORITATIVE_CMDS_DOC` set via env when running pytest selectors to honor PYTHON-ENV-001.
+- Capture artifacts only under the provided reports hub; no stray files in repo root.
+- Update docs/test indexes after tests pass; do not skip the registry work.
+If Blocked:
+- If router skip logic still triggers reviewer twice after the state writes, capture the exact state.json before/after plus pytest failure logs in the artifacts directory and log the blocker in docs/fix_plan.md Attempts History before stopping.
+Findings Applied:
+- No relevant findings in the knowledge base (router review cadence has no prior entry).
+Pointers:
+- scripts/orchestration/README.md:130 — authoritative description of review cadence behavior (reviewer should run only once per iteration).
+- scripts/orchestration/router.py:88 — deterministic routing skip guard that needs `last_prompt_actor` populated.
+- plans/active/ORCH-ROUTER-001/implementation.md:8 — Phase E checklist for this fix.
+- docs/fix_plan.md:327 — current ledger entry describing the reopened focus and reporting requirements.
+Next Up:
+- Once sync supervisor/loop are fixed, unblock ORCH-ORCHESTRATOR-001 and rerun scripts/orchestration/tests/test_orchestrator.py to ensure combined mode inherits the new state annotations.
+Doc Sync Plan:
+- After the new test module lands, run `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest --collect-only scripts/orchestration/tests/test_sync_router_review.py -q` and archive the log.
+- Append the selector to docs/TESTING_GUIDE.md §2 and docs/development/TEST_SUITE_INDEX.md under the orchestration section so the registry reflects the new coverage.
+- Reference the collect-only log plus doc diffs in the artifacts hub before marking the loop complete.

@@ -1,6 +1,14 @@
 # ORCH-ROUTER-001 Summary
 
 ### Turn Summary
+Reopened the initiative for Phase E after review cadence failures surfaced; plan status/exit criteria now require `last_prompt_actor` persistence and sync-mode coverage.
+Documented the new Phase E checklist (state writes + regression tests) and logged the refresh in docs/fix_plan so Ralph has a concrete Do Now.
+Next: implement the supervisor/loop state annotations and land the sync review cadence pytest module, then rerun the router/orchestrator selectors.
+Artifacts: plans/active/ORCH-ROUTER-001/reports/2026-01-20T130941Z/
+
+# ORCH-ROUTER-001 Summary
+
+### Turn Summary
 Executed the long integration test with the new loss gate; val_intensity_scaler_inv_loss=38.9062 and train_metrics.json persisted.
 Captured pytest evidence and logs under the integration artifacts directory.
 Next: stage and commit the integration loss gate change when ready.

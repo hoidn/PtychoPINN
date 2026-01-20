@@ -189,6 +189,7 @@
     - **Metrics:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143500Z/{pytest_cli_smoke.log,summary.md}`
     - **Status:** Initiative documentation complete; ready for archive after soak period.
+  - *2026-01-20T130941Z:* Documentation hygiene — realigned the implementation plan + status block with the reopened Phase D amplitude-bias scope, removing the misleading "NaN debugging complete" headline so downstream reviewers see the initiative is still active. Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md`.
   - *2026-01-20T200000Z:* **Course correction** — User review identified premature closure: "training without NaN" is not a valid success condition. Exit criterion requires "recon success" = actual working reconstructions matching dose_experiments behavior. Amplitude bias (~3-6x) IS the core problem, not a "separate issue". Reverted status to in_progress, scoped Phase D to investigate amplitude bias root cause.
     - **Phase D Goals:**
       - Identify why reconstructed amplitude undershoots ground truth by 3-6x
@@ -327,11 +328,11 @@
 ### [ORCH-ROUTER-001] Router prompt + orchestration dispatch layer
 - Depends on: None
 - Priority: Medium
-- Status: done — Phase C verification complete (ready for archive)
+- Status: **in_progress — Phase E review cadence persistence (router state last_prompt_actor fix)**
 - Owner/Date: Codex/2026-01-20
 - Working Plan: `plans/active/ORCH-ROUTER-001/implementation.md`
 - Summary: `plans/active/ORCH-ROUTER-001/summary.md`
-- Reports Hub: `.artifacts/orch-router-001/`
+- Reports Hub: `plans/active/ORCH-ROUTER-001/reports/`
 - Spec Owner: `scripts/orchestration/README.md`
 - Test Strategy: `plans/active/ORCH-ROUTER-001/test_strategy.md`
 - Goals:
@@ -367,11 +368,12 @@
     - Artifacts: `.artifacts/integration_manual_1000_512/2026-01-20T023226Z/{pytest_manual_1000_512_run.log,output/train_metrics.json,output/train.log,output/inference.log}`
   - *2026-01-20T013743Z:* Added Phase B checklist item to create `prompts/router.md` with a strict single-line output contract. Artifacts: `plans/active/ORCH-ROUTER-001/{implementation.md,summary.md}`.
   - *2026-01-20T015415Z:* Added Phase D for router-first/router-only mode support, with config + tests + doc updates and exit criteria coverage. Artifacts: `plans/active/ORCH-ROUTER-001/{implementation.md,summary.md}`.
+  - *2026-01-20T130941Z:* Manual override follow-up — reopened Phase E to fix sync supervisor/loop review cadence. Updated the plan/summary with last_prompt_actor persistence requirements, switched the reports hub to `plans/active/ORCH-ROUTER-001/reports/`, and logged the new checklist so Ralph can land the code/tests. Artifacts: `plans/active/ORCH-ROUTER-001/{implementation.md,summary.md}`.
 
 ### [ORCH-ORCHESTRATOR-001] Combined orchestrator entrypoint + shared runner refactor
 - Depends on: ORCH-ROUTER-001 (router selection logic)
 - Priority: Medium
-- Status: in_progress — Phase C complete; full-suite regression gate pending
+- Status: **blocked — awaiting ORCH-ROUTER-001 Phase E review cadence fix (last_prompt_actor persistence)**
 - Owner/Date: user+Codex/2026-01-20
 - Working Plan: `plans/active/ORCH-ORCHESTRATOR-001/implementation.md`
 - Summary: `plans/active/ORCH-ORCHESTRATOR-001/summary.md`
@@ -388,6 +390,7 @@
   - Review cadence runs once per iteration in combined mode.
   - Orchestrator tests pass and docs updated.
 - Attempts History:
+  - *2026-01-20T130941Z:* **Blocked** — router review cadence bug uncovered in ORCH-ROUTER-001. Combined orchestrator shares the same state annotations, so further work pauses until Phase E (last_prompt_actor persistence + tests) lands. Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/implementation.md`.
   - *2026-01-20T025735Z:* Drafted minimal design + implementation plan + test strategy. Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/{design.md,implementation.md,test_strategy.md}`.
   - *2026-01-20T032058Z:* Implemented shared runner + combined orchestrator + wrapper, refactored supervisor/loop to use runner utilities, added combined-mode tests, and updated orchestration docs/test registries.
     - Metrics: `ruff check scripts/orchestration/runner.py scripts/orchestration/orchestrator.py scripts/orchestration/supervisor.py scripts/orchestration/loop.py scripts/orchestration/tests/test_orchestrator.py`, `pytest --collect-only scripts/orchestration/tests/test_orchestrator.py -v`, `pytest scripts/orchestration/tests/test_orchestrator.py -v`
