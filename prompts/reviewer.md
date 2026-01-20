@@ -35,7 +35,7 @@ Investigation guidance (only after 2 failures):
 
 Output requirement (conditional):
 - If the review surfaces actionable findings not already captured in existing plans/roadmap, write a `user_input.md`
-  in the repo root instead of creating a .artifacts report. Actionable means new issues or plan gaps not reflected in
+  in the repo root in addition to creating a .artifacts report. Actionable means new issues or plan gaps not reflected in
   `docs/fix_plan.md` or `plans/active/**`. Include:
   - A concise summary of the findings
   - Evidence pointers (files/logs/tests)
@@ -51,4 +51,4 @@ Output requirement (conditional):
   - The state_file and logs_dir values used
 
 If the test passes on the first or second run, still write the report with a brief success explanation and the output
-location (user_input.md if actionable; .artifacts otherwise).
+location (user_input.md if actionable; .artifacts ).
