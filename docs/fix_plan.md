@@ -1,6 +1,6 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-20 (ORCH-ROUTER Phase D router-only mode complete)
+**Last Updated:** 2026-01-20 (ORCH-ORCHESTRATOR plan drafted)
 **Active Focus:** ORCH-ROUTER-001 — Router prompt + orchestration dispatch layer
 
 ---
@@ -162,3 +162,25 @@
     - Artifacts: `.artifacts/integration_manual_1000_512/2026-01-20T023226Z/{pytest_manual_1000_512_run.log,output/train_metrics.json,output/train.log,output/inference.log}`
   - *2026-01-20T013743Z:* Added Phase B checklist item to create `prompts/router.md` with a strict single-line output contract. Artifacts: `plans/active/ORCH-ROUTER-001/{implementation.md,summary.md}`.
   - *2026-01-20T015415Z:* Added Phase D for router-first/router-only mode support, with config + tests + doc updates and exit criteria coverage. Artifacts: `plans/active/ORCH-ROUTER-001/{implementation.md,summary.md}`.
+
+### [ORCH-ORCHESTRATOR-001] Combined orchestrator entrypoint + shared runner refactor
+- Depends on: ORCH-ROUTER-001 (router selection logic)
+- Priority: Medium
+- Status: pending — Phase A design + test strategy drafted
+- Owner/Date: user+Codex/2026-01-20
+- Working Plan: `plans/active/ORCH-ORCHESTRATOR-001/implementation.md`
+- Summary: `plans/active/ORCH-ORCHESTRATOR-001/summary.md`
+- Reports Hub: `plans/active/ORCH-ORCHESTRATOR-001/reports/`
+- Spec Owner: `scripts/orchestration/README.md`
+- Test Strategy: `plans/active/ORCH-ORCHESTRATOR-001/test_strategy.md`
+- Goals:
+  - Add a single orchestrator entrypoint that can run supervisor/main prompts via router selection.
+  - Refactor shared logic out of supervisor/loop to reuse runner utilities.
+  - Preserve sync-via-git semantics and logging conventions.
+- Exit Criteria:
+  - Combined mode executes supervisor/main in sequence with router cadence.
+  - Sync-via-git role mode respects expected_actor and state handoff semantics.
+  - Review cadence runs once per iteration in combined mode.
+  - Orchestrator tests pass and docs updated.
+- Attempts History:
+  - *2026-01-20T025735Z:* Drafted minimal design + implementation plan + test strategy. Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/{design.md,implementation.md,test_strategy.md}`.
