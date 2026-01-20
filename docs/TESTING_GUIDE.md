@@ -73,6 +73,10 @@ Comprehensive tests that validate end-to-end workflows and interactions between 
   - This is the ultimate check for the model persistence layer
 - **Execution time:** Can take several seconds to minutes
 - **Dependencies:** Requires actual data files and complete environment setup
+- **Long-running integration (manual):** `tests/test_integration_manual_1000_512.py`
+  - Trains for 50 epochs with 1000 images, then infers 512 images.
+  - Skipped by default; set `RUN_LONG_INTEGRATION=1` to enable.
+  - Run: `RUN_LONG_INTEGRATION=1 pytest tests/test_integration_manual_1000_512.py -v`
 
 ## The Critical Integration Test
 
