@@ -1,5 +1,12 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
+### Turn Summary — 2026-01-20T12:42:12Z (Phase D2b normalization parity capture CLI)
+Implemented `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/capture_dose_normalization.py` — a plan-local CLI that loads dose_experiments_param_scan.md defaults (gridsize=2, probe_scale=4, neighbor_count=5), simulates the nongrid dataset via make_lines_object/simulate_nongrid_raw_data, splits along y-axis, and records stage telemetry using the existing `record_intensity_stage` helper.
+The CLI computes both dataset-derived intensity scale (`s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])`) and closed-form fallback (`s ≈ sqrt(nphotons) / (N/2)`) per specs/spec-ptycho-core.md §Normalization Invariants, then emits JSON + Markdown outputs with `--overwrite` support for safe re-runs.
+Ran dose_legacy_gs2 scenario: dataset intensity_scale=262.78 vs fallback=988.21 (ratio=0.266). Stage means: raw=1.41, grouped=1.45, normalized=0.38, container=0.38. Largest drop: grouped→normalized (ratio=0.26), confirming ~74% amplitude reduction at normalize_data.
+Next: Compare dose_legacy_gs2 stats with sim_lines gs1_ideal/gs2_ideal runs to identify which normalization parameters diverge.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T124212Z/dose_normalization/ (capture_config.json, dose_normalization_stats.json, dose_normalization_stats.md, intensity_stats.json, intensity_stats.md, capture_summary.md)
+
 ### Turn Summary — 2026-01-20T12:29:37Z (Phase D2 normalization invariants planning)
 Reviewed the Phase D2 telemetry (stage ratios + intensity stats) and scoped the follow-up increment: extend `bin/analyze_intensity_bias.py` so it computes explicit normalization-invariant checks (raw→truth ratio products, tolerance flags referencing `specs/spec-ptycho-core.md §Normalization Invariants`) and surface the results in both JSON + Markdown.
 Reserved artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T122937Z/` for the refreshed analyzer outputs, then drafted the new Do Now directing Ralph to land the analyzer changes, rerun it for `gs1_ideal` + `dose_legacy_gs2`, and keep the CLI smoke selector green.

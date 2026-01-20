@@ -243,6 +243,15 @@
       - **dose_legacy_gs2:** Full chain product=1.986, deviation from unity=0.986, **passes_tolerance=False** (symmetry violated). Stage breakdown: prediction_to_truth ratio=26.02 (deviation=25.02) is the primary deviation source, followed by grouped_to_normalized=0.27 (deviation=0.73) and normalized_to_prediction=0.28 (deviation=0.72).
       - **Symmetry violation confirmed:** The normalization chain does NOT preserve amplitude as required by the spec. The model output (`prediction`) is ~26× smaller than ground truth, while the normalize_data step alone contributes ~73% amplitude reduction.
     - **Next Actions:** Trace the `normalize_data` gain formula in `scripts/simulation/synthetic_helpers.py` and `ptycho/loader.py` to determine whether the intensity_scale is being incorrectly applied (double-division) or if the reconstruction model inherently predicts scaled-down amplitudes that require inverse-scaling at output.
+  - *2026-01-20T124212Z:* **Phase D2b normalization parity capture CLI IMPLEMENTED.** Created `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/capture_dose_normalization.py` — a plan-local CLI that loads dose_experiments_param_scan.md defaults (gridsize=2, probe_scale=4, neighbor_count=5, etc.), simulates the nongrid dataset via `make_lines_object`/`simulate_nongrid_raw_data`, splits along y-axis, and records stage telemetry using the existing `record_intensity_stage` helper from `run_phase_c2_scenario.py`. The CLI computes both dataset-derived and closed-form fallback intensity scales per `specs/spec-ptycho-core.md §Normalization Invariants`, emits JSON + Markdown outputs, and supports `--overwrite` for safe re-runs. CONFIG-001 bridging applied per SIM-LINES-CONFIG-001.
+    - **Metrics:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T124212Z/dose_normalization/{capture_config.json,capture_summary.md,dose_normalization_stats.json,dose_normalization_stats.md,intensity_stats.json,intensity_stats.md,capture.log,pytest_cli_smoke.log}`
+    - **Key Findings:**
+      - **dose_legacy_gs2:** Dataset-derived intensity_scale=262.78 vs closed-form fallback=988.21 (ratio=0.266)
+      - Stage means: raw=1.41, grouped=1.45, normalized=0.38, container=0.38
+      - Largest drop: grouped→normalized (ratio=0.26, ~74% amplitude reduction at normalize_data)
+      - Confirms the normalize_data step is the primary amplitude suppression point
+    - **Next Actions:** Compare dose_legacy_gs2 stats with sim_lines gs1_ideal/gs2_ideal runs to identify which normalization parameters diverge.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
