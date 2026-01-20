@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-20 (ORCH-ORCHESTRATOR iteration tag)
-**Active Focus:** ORCH-ORCHESTRATOR-001 — add iteration tags to combined auto-commit
+**Last Updated:** 2026-01-20 (ORCH-ORCHESTRATOR role prefix)
+**Active Focus:** ORCH-ORCHESTRATOR-001 — add role-prefixed combined auto-commit messages
 
 ---
 
@@ -250,6 +250,9 @@
   - *2026-01-20T055056Z:* Added iteration tags to combined auto-commit commit messages, wired the iteration through combined mode, and added test coverage plus README updates.
     - Metrics: `pytest --collect-only scripts/orchestration/tests/test_orchestrator.py -v`, `pytest scripts/orchestration/tests/test_orchestrator.py -v`
     - Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T055056Z/{pytest_collect_orchestrator.log,pytest_orchestrator.log}`
+  - *2026-01-20T055542Z:* Added role-prefixed combined auto-commit messages (SUPERVISOR AUTO / RALPH AUTO), expanded auto-commit tests, and refreshed README guidance.
+    - Metrics: `pytest --collect-only scripts/orchestration/tests/test_orchestrator.py -v`, `pytest scripts/orchestration/tests/test_orchestrator.py -v`
+    - Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T055542Z/{pytest_collect_orchestrator.log,pytest_orchestrator.log}`
 
 ### [ORCH-AGENT-DISPATCH-001] Per-role/per-prompt agent dispatch (codex vs claude)
 - Depends on: ORCH-ORCHESTRATOR-001 (combined mode baseline)

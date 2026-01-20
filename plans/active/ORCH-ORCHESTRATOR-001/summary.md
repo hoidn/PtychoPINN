@@ -1,6 +1,11 @@
 # ORCH-ORCHESTRATOR-001 Summary
 
 ### Turn Summary (2026-01-20)
+Updated combined auto-commit prefixes to include the role (SUPERVISOR AUTO / RALPH AUTO) alongside iteration tags.
+Added test coverage for role-prefixed commits and refreshed combined auto-commit docs.
+Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T055542Z/
+
+### Turn Summary (2026-01-20)
 Added iteration tagging to combined-mode auto-commit commit messages and wired the iteration through the combined loop.
 Expanded auto-commit tests to assert the iteration tag and refreshed combined auto-commit docs.
 Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T055056Z/
