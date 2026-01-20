@@ -1,0 +1,16 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 6 items
+
+scripts/orchestration/tests/test_orchestrator.py::test_combined_sequence PASSED [ 16%]
+scripts/orchestration/tests/test_orchestrator.py::test_review_cadence_single PASSED [ 33%]
+scripts/orchestration/tests/test_orchestrator.py::test_router_override_galph_only PASSED [ 50%]
+scripts/orchestration/tests/test_orchestrator.py::test_router_disabled_uses_actor_prompts PASSED [ 66%]
+scripts/orchestration/tests/test_orchestrator.py::test_combined_missing_prompt_marks_failed PASSED [ 83%]
+scripts/orchestration/tests/test_orchestrator.py::test_router_only_without_output_marks_failed PASSED [100%]
+
+============================== 6 passed in 0.07s ===============================

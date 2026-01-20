@@ -107,10 +107,10 @@
 ### Checklist
 - [x] C1: Complete orchestrator tests + collect-only verification.
       Test: `pytest --collect-only scripts/orchestration/tests/test_orchestrator.py -v`
-      Evidence: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T032929Z/pytest_collect_orchestrator.log`
+      Evidence: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T034106Z/pytest_collect_orchestrator.log`
 - [x] C2: Run orchestrator test module.
       Test: `pytest scripts/orchestration/tests/test_orchestrator.py -v`
-      Evidence: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T032929Z/pytest_orchestrator.log`
+      Evidence: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T034106Z/pytest_orchestrator.log`
 - [x] C3: Update docs (`scripts/orchestration/README.md`, `docs/index.md`, `docs/TESTING_GUIDE.md`, `docs/development/TEST_SUITE_INDEX.md`).
       Test: N/A — documentation-only
 

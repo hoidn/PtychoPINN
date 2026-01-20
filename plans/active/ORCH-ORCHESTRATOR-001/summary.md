@@ -15,3 +15,7 @@ Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T032058Z/
 ### Update (2026-01-20)
 Added router-override and router-disabled coverage to the orchestrator tests and refreshed plan evidence links.
 Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T032929Z/
+
+### Update (2026-01-20)
+Hardened combined-mode error handling (prompt/router selection failures), aligned logdir defaults with config, and forwarded role-mode prompt overrides. Added regression tests for missing prompt and router_only-without-output.
+Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T034106Z/

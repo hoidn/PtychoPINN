@@ -192,3 +192,7 @@
     - Metrics: `ruff check scripts/orchestration/tests/test_orchestrator.py`, `pytest --collect-only scripts/orchestration/tests/test_orchestrator.py -v`, `pytest scripts/orchestration/tests/test_orchestrator.py -v`
     - Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T032929Z/{ruff_check.log,pytest_collect_orchestrator.log,pytest_orchestrator.log}`
     - Next Actions: decide whether to run the broader regression suite to satisfy the full-suite exit criterion.
+  - *2026-01-20T034106Z:* Debugged combined-mode error handling (non-data-contract issue): validated config expectation for `logs_dir`, isolated `run_combined_iteration` prompt-selection failures, added failing tests for missing prompt/router_only output, and implemented failure stamping + logging plus role-mode prompt override forwarding.
+    - Metrics: `ruff check scripts/orchestration/orchestrator.py scripts/orchestration/tests/test_orchestrator.py`, `pytest --collect-only scripts/orchestration/tests/test_orchestrator.py -v`, `pytest scripts/orchestration/tests/test_orchestrator.py -v`
+    - Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T034106Z/{ruff_check.log,pytest_collect_orchestrator.log,pytest_orchestrator.log,summary.md}`
+    - Next Actions: decide whether to run the broader regression suite to satisfy the full-suite exit criterion.
