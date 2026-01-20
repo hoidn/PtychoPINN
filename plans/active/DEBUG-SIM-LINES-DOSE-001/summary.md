@@ -1,5 +1,21 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
+### Turn Summary — 2026-01-20T20:00:00Z (Course Correction)
+**INITIATIVE NOT COMPLETE — PREMATURE CLOSURE REVERTED.**
+User review identified that "training without NaN" is not a valid success condition. Exit criterion requires "recon success" = actual working reconstructions matching dose_experiments behavior. The amplitude bias (~3-6x undershoot) IS the core problem that needs solving, not a "separate issue".
+Status reverted to in_progress. Phase D scoped to investigate amplitude bias root cause and achieve reconstruction parity.
+**Phase D Hypotheses:**
+- H-LOSS-WEIGHT: Loss function weighting differs from dose_experiments
+- H-NORMALIZATION: Intensity normalization pipeline introduces bias
+- H-TRAINING-PARAMS: Hyperparameters (lr, epochs, batch size) insufficient
+- H-ARCHITECTURE: Model architecture mismatch vs legacy
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T200000Z/
+
+### Turn Summary — 2026-01-20T14:35:00Z (Premature "Final" — SUPERSEDED)
+~~NaN debugging initiative COMPLETE.~~ **RETRACTED** — see 2026-01-20T20:00:00Z above.
+A1b ground-truth run blocked by Keras 3.x incompatibility (legacy model uses `tf.shape()` on KerasTensors); documented closure rationale showing A1b is no longer required since CONFIG-001 root cause already confirmed and fixed. ~~Initiative ready for archive after soak period.~~
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143500Z/
+
 ### Turn Summary (Documentation Handoff 2026-01-20 — Ralph)
 Created final_summary.md documenting the initiative outcome, root cause (CONFIG-001), fix (C4f bridging), and verification evidence.
 Added SIM-LINES-CONFIG-001 to docs/findings.md as a knowledge base entry with links to the final summary.

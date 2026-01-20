@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-20 (DEBUG-SIM-LINES-DOSE-001 NaN debugging COMPLETE)
-**Active Focus:** DEBUG-SIM-LINES-DOSE-001 — **NaN DEBUGGING COMPLETE**: CONFIG-001 bridging (C4f) confirmed as root cause; all scenarios train without NaN; amplitude bias (~3-6x) is separate issue for future investigation
+**Last Updated:** 2026-01-20 (DEBUG-SIM-LINES-DOSE-001 Phase D amplitude bias investigation)
+**Active Focus:** DEBUG-SIM-LINES-DOSE-001 — **in_progress**: CONFIG-001 fix (C4f) eliminated NaN crashes; now investigating amplitude bias (~3-6x) to achieve actual reconstruction parity with dose_experiments
 
 ---
 
@@ -18,7 +18,7 @@
 ### [DEBUG-SIM-LINES-DOSE-001] Isolate sim_lines_4x vs dose_experiments discrepancy
 - Depends on: None
 - Priority: **Critical** (Highest Priority)
-- Status: **NaN DEBUGGING COMPLETE** — CONFIG-001 bridging (C4f) confirmed as definitive root cause fix; all scenarios (gs1/gs2 × ideal/custom) now train without NaN; amplitude bias (~3-6x) is a separate issue
+- Status: **in_progress** — Phase D: investigating amplitude bias (~3-6x undershoot) to achieve reconstruction parity with dose_experiments; CONFIG-001 fix (C4f) resolved NaN crashes
 - Owner/Date: Codex/2026-01-13
 - Working Plan: `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md`
 - Summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md`
@@ -180,11 +180,26 @@
       - H-CONFIG: ✅ CONFIRMED as root cause
       - H-PROBE-IDEAL-REGRESSION: ❌ RULED OUT (both probe types work after CONFIG-001 fix)
       - H-GRIDSIZE-NUMERIC: ❌ RULED OUT (gridsize=1 works after CONFIG-001 fix)
-    - **Remaining Issue:** Amplitude bias (~3-6x undershoot) persists in all scenarios; this is a SEPARATE issue from NaN debugging and may involve loss wiring, normalization math, or training hyperparameters
-    - **Scope Decision:** NaN debugging is COMPLETE; amplitude bias investigation is out of scope for this initiative and should be addressed in a separate initiative if needed
+    - **Remaining Issue:** Amplitude bias (~3-6x undershoot) persists in all scenarios; root cause unknown — may involve loss wiring, normalization math, or training hyperparameters
+    - **Scope Decision (REVISED):** Amplitude bias IS in scope — "recon success" exit criterion requires actual working reconstructions, not just "no NaN"
   - *2026-01-20T143500Z:* **A1b closure** — Processed `user_input.md` override requesting A1b ground-truth run. After reviewing prior attempts, confirmed A1b is **blocked by Keras 3.x API incompatibility** (legacy `ptycho/model.py` uses `tf.shape()` directly on Keras tensors). Simulation stage works (512 patterns generated), but training fails at model construction. Documented closure rationale in `reports/2026-01-20T143500Z/a1b_closure_rationale.md`. Since NaN debugging scope is already COMPLETE (CONFIG-001 root cause fixed in C4f, all scenarios train without NaN), A1b ground-truth comparison is no longer required for this initiative.
     - **Decision:** A1b marked as BLOCKED but no longer required; the primary objective (NaN debugging) is complete
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143500Z/a1b_closure_rationale.md`
+  - *2026-01-20T143500Z:* **Final documentation + archive prep** — Added `DEBUG-SIM-LINES-DOSE-001-COMPLETE` knowledge base entry to `docs/findings.md` documenting root cause (CONFIG-001), fix (C4f bridging), verification (all four scenarios train without NaN), and remaining issue (amplitude bias is separate). Updated initiative summary with final turn summary. CLI smoke guard passed.
+    - **Metrics:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143500Z/{pytest_cli_smoke.log,summary.md}`
+    - **Status:** Initiative documentation complete; ready for archive after soak period.
+  - *2026-01-20T200000Z:* **Course correction** — User review identified premature closure: "training without NaN" is not a valid success condition. Exit criterion requires "recon success" = actual working reconstructions matching dose_experiments behavior. Amplitude bias (~3-6x) IS the core problem, not a "separate issue". Reverted status to in_progress, scoped Phase D to investigate amplitude bias root cause.
+    - **Phase D Goals:**
+      - Identify why reconstructed amplitude undershoots ground truth by 3-6x
+      - Compare sim_lines_4x output quality against dose_experiments baseline
+      - Apply fix to achieve reconstruction parity (not just "no crashes")
+    - **Hypotheses to investigate:**
+      - H-LOSS-WEIGHT: Loss function weighting differs from dose_experiments
+      - H-NORMALIZATION: Intensity normalization pipeline introduces bias
+      - H-TRAINING-PARAMS: Hyperparameters (lr, epochs, batch size) insufficient
+      - H-ARCHITECTURE: Model architecture mismatch vs legacy
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T200000Z/`
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
