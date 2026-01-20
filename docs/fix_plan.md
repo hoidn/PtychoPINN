@@ -374,7 +374,7 @@
 ### [ORCH-ORCHESTRATOR-001] Combined orchestrator entrypoint + shared runner refactor
 - Depends on: ORCH-ROUTER-001 (router selection logic — satisfied 2026-01-20)
 - Priority: Medium
-- Status: **in_progress — Phase E sync review cadence parity + regression gate**
+- Status: **done — Phase E sync review cadence parity complete 2026-01-20**
 - Owner/Date: user+Codex/2026-01-20
 - Working Plan: `plans/active/ORCH-ORCHESTRATOR-001/implementation.md`
 - Summary: `plans/active/ORCH-ORCHESTRATOR-001/summary.md`
@@ -433,7 +433,10 @@
   - *2026-01-20T062508Z:* Updated reviewer prompt output requirements to write `user_input.md` when new actionable findings are discovered.
     - Metrics: N/A (prompt-only update)
     - Artifacts: `prompts/reviewer.md`
-  - *2026-01-20T132349Z:* Reopened Phase E now that ORCH-ROUTER-001 landed. Scoped a new regression to ensure combined mode also honors the `last_prompt_actor` annotation so reviewer cadence still fires once per iteration. Reserved artifacts hub `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T132349Z/` for the upcoming test additions (`scripts/orchestration/tests/test_orchestrator.py`) plus docs/test registry updates. Pending: add combined review cadence tests + rerun orchestrator + sync router review selectors.
+  - *2026-01-20T132349Z:* Reopened Phase E now that ORCH-ROUTER-001 landed. Scoped a new regression to ensure combined mode also honors the `last_prompt_actor` annotation so reviewer cadence still fires once per iteration. Reserved artifacts hub `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T132349Z/` for the upcoming test additions (`scripts/orchestration/tests/test_orchestrator.py`) plus docs/test registry updates. Pending: add combined review cadence tests + rerun orchestrator + sync router review selectors.
+  - *2026-01-20T133500Z:* Added `test_combined_review_last_prompt_actor` regression test to `scripts/orchestration/tests/test_orchestrator.py`. The test drives `run_combined_iteration` with router review cadence enabled (review_every_n=2, iteration=2), asserts reviewer runs only on galph turn, and verifies `state.last_prompt_actor` toggles galph→ralph so ralph selects `main.md`. Updated `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md` with the new selector reference. **Status:** Phase E complete; combined mode now mirrors sync router cadence tests.
+    - Metrics: `pytest scripts/orchestration/tests/test_orchestrator.py::test_combined_review_last_prompt_actor -v` (1 passed), `pytest scripts/orchestration/tests/test_sync_router_review.py -v` (4 passed), `pytest scripts/orchestration/tests/test_orchestrator.py -v` (18 passed)
+    - Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T132349Z/{pytest_combined_review.log,pytest_sync_router_review.log,pytest_orchestrator.log,pytest_collect_orchestrator.log}`
 
 ### [ORCH-AGENT-DISPATCH-001] Per-role/per-prompt agent dispatch (codex vs claude)
 - Depends on: ORCH-ORCHESTRATOR-001 (combined mode baseline)

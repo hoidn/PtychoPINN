@@ -67,10 +67,12 @@ Lightweight tests for the orchestration submodule (located under `scripts/orches
 
 - **Location:** `scripts/orchestration/tests/test_router.py`, `scripts/orchestration/tests/test_orchestrator.py`, `scripts/orchestration/tests/test_agent_dispatch.py`, `scripts/orchestration/tests/test_sync_router_review.py`
 - **Purpose:** Validate deterministic routing decisions, router modes/overrides, combined orchestrator sequencing/cadence, combined auto-commit dry-run/no-git behavior, per-role/prompt agent dispatch, and sync supervisor/loop router review cadence.
+- **Combined mode review cadence:** The `test_combined_review_last_prompt_actor` test in `test_orchestrator.py` validates that combined mode honors the `last_prompt_actor` annotation so reviewer runs once per iteration (mirrors the sync router cadence tests in `test_sync_router_review.py`).
 - **Selectors:**
   ```bash
   pytest scripts/orchestration/tests/test_router.py -v
   pytest scripts/orchestration/tests/test_orchestrator.py -v
+  pytest scripts/orchestration/tests/test_orchestrator.py::test_combined_review_last_prompt_actor -v
   pytest scripts/orchestration/tests/test_agent_dispatch.py -v
   pytest scripts/orchestration/tests/test_sync_router_review.py -v
   ```
