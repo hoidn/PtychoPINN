@@ -828,3 +828,39 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Tests: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
 - <Action State>: [complete]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=D1_complete dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/ next_action=D2 to add mae_weight/nll_weight overrides to sim_lines pipeline and test MAE loss hypothesis
+# 2026-01-20T11:25:26Z: DEBUG-SIM-LINES-DOSE-001 — Phase D1a-D1c CORRECTION (runtime cfg capture)
+
+- dwell: 0 (implementation loop following supervisor D1 reopening)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Phase D1 loss configuration **correction**
+- Action type: Implementation (CLI fix + evidence regeneration)
+- Mode: Implementation
+- Git sync: `git stash && git pull --rebase && git stash pop` (clean)
+- Key observation from supervisor review:
+  - **CRITICAL BUG IN PRIOR D1**: The Phase D1 loss diff incorrectly captured `mae_weight=1.0, nll_weight=0.0` as dose_experiments defaults
+  - Those values only apply when `loss_fn='mae'` is passed to `init()`
+  - The default `loss_fn='nll'` path does NOT set loss weights at all (`pass` statement)
+- Implementation:
+  - Extended `bin/compare_sim_lines_params.py` with:
+    - `execute_legacy_init_with_stubbed_cfg()`: Creates a stub `ptycho.params` module, executes the legacy `init()`, and captures the resulting cfg dictionary
+    - `capture_legacy_loss_modes()`: Calls init() twice (loss_fn='nll' and 'mae') to capture both runtime configs
+    - Updated `main()` to use runtime nll config for loss weights instead of static parsing
+    - Added `build_loss_modes_markdown()` to generate clear documentation of both modes
+    - Added `--output-dose-loss-weights` and `--nphotons` CLI flags
+  - Generated corrected artifacts:
+    - `dose_loss_weights.json`: Raw runtime cfg snapshots for both loss modes
+    - `loss_config_diff.md`: Updated diff with corrected loss weights (now shows "—" for dose_experiments loss weights under default nll mode)
+    - `loss_config_diff.json`: Updated JSON with `dose_loss_modes` section
+- **CORRECTED FINDING:**
+  - dose_experiments (loss_fn='nll'): Does NOT set mae_weight or nll_weight — relies on framework defaults
+  - sim_lines_4x: Uses TrainingConfig defaults (`mae_weight=0.0, nll_weight=1.0`)
+  - **NO MAE/NLL INVERSION under default operation** — the prior finding was incorrect
+  - H-LOSS-WEIGHT cannot be confirmed without inspecting the actual `ptycho.params.cfg` framework defaults
+- Hypothesis refinement:
+  - The legacy `ptycho.params.cfg` default values for loss weights are unknown
+  - If the framework defaults are `mae_weight=0.0, nll_weight=1.0` (same as TrainingConfig), then loss weights are NOT the cause
+  - If the framework defaults differ, loss weights could still be the cause
+  - Need to either inspect the production params module or proceed to D2 (normalization)
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/{dose_loss_weights.json,loss_config_diff.md,loss_config_diff.json,pytest_cli_smoke.log,summary.md}
+- Tests: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
+- <Action State>: [complete]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=D1_corrected dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/ next_action=either inspect legacy params.cfg defaults or proceed to D2 (normalization parity)

@@ -206,8 +206,13 @@
   - *2026-01-20T112029Z:* **Phase D1 REOPENED** — Reviewer findings revealed the CLI parsed the `cfg['mae_weight']=1.0` / `cfg['nll_weight']=0.0` assignments that only execute when `loss_fn == 'mae'`, so the Markdown/JSON diff misrepresented the default (`loss_fn='nll'`) weights. Updated the implementation plan and summary to add D1a–D1c tasks: capture runtime `cfg` snapshots for both loss_fn branches, teach the comparison CLI to label conditional assignments explicitly, rerun the diff, and refresh docs/fix_plan.md with the corrected evidence before altering sim_lines loss weights. New artifacts hub reserved at `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/`; guard selector unchanged (`pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`).
     - **Metrics:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/{loss_config_diff.md,loss_config_diff.json,pytest_cli_smoke.log,summary.md}`
-    - **Key Finding:** dose_experiments=MAE, sim_lines=NLL — opposite loss configurations
-    - **Next Actions:** D2 to either (a) add `mae_weight`/`nll_weight` overrides to the sim_lines pipeline and rerun with MAE to test the hypothesis, or (b) proceed to normalization parity if loss weights alone don't explain the ~3x amplitude drop
+    - **Key Finding (SUPERSEDED):** Prior claim of MAE/NLL inversion was incorrect — see D1a–D1c below.
+    - **Next Actions:** D1a–D1c to capture runtime cfg snapshots and regenerate the diff with corrected loss weights.
+  - *2026-01-20T112029Z (D1a–D1c):* **Phase D1 CORRECTED** — Implemented stubbed cfg execution in `bin/compare_sim_lines_params.py` to capture runtime loss weights from the legacy `dose_experiments_param_scan.md` `init()` function for both `loss_fn='nll'` and `loss_fn='mae'` modes. Key finding: the legacy script does **NOT** set `mae_weight` or `nll_weight` when using the default `loss_fn='nll'` — it relies on framework defaults. The `mae_weight=1.0, nll_weight=0.0` values only apply when explicitly calling `init(nphotons, loss_fn='mae')`.
+    - **Metrics:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/{dose_loss_weights.json,loss_config_diff.md,loss_config_diff.json,pytest_cli_smoke.log,summary.md}`
+    - **Key Finding (CORRECTED):** dose_experiments (loss_fn='nll') does **not** explicitly set loss weights; sim_lines uses NLL defaults (`mae_weight=0.0, nll_weight=1.0`). No MAE/NLL inversion under default operation. H-LOSS-WEIGHT cannot be confirmed without inspecting the legacy `ptycho.params.cfg` framework defaults.
+    - **Next Actions:** Either (a) inspect the legacy `ptycho.params.cfg` to determine its default loss weights, or (b) proceed to D2 (normalization parity) if H-LOSS-WEIGHT is deprioritized.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

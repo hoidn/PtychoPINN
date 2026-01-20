@@ -6,19 +6,104 @@ parameter scan. Emits a Markdown table plus a structured JSON diff.
 Extended for Phase D1 to include loss configuration weights (mae_weight,
 nll_weight, realspace_weight, realspace_mae_weight) by instantiating
 TrainingConfig for each scenario.
+
+Phase D1a-D1c (2026-01-20T112029Z): Added stubbed cfg execution to capture
+**runtime** values from the legacy dose_experiments init() for both loss_fn
+modes ('nll' and 'mae'). The previous static parsing captured conditional
+assignments (the MAE branch) as defaults, misrepresenting the actual config.
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import copy
 import json
 import math
 import pathlib
 import re
-from typing import Any, Dict, List, Tuple
+import sys
+import types
+from typing import Any, Dict, List, Optional, Tuple
 
 CFG_ASSIGNMENT_RE = re.compile(r"""cfg\['(?P<key>[^']+)'\]\s*=\s*(?P<value>.+)""")
+
+
+def execute_legacy_init_with_stubbed_cfg(
+    dose_config_path: pathlib.Path,
+    nphotons: float = 1e9,
+    loss_fn: str = "nll",
+) -> Dict[str, Any]:
+    """
+    Execute the legacy dose_experiments init() function in-process with a
+    stubbed ptycho.params module so we can capture the runtime cfg dictionary
+    without touching the production environment.
+
+    Per How-To Map (D1a):
+    - Save sys.modules['ptycho.params'], register a lightweight stub exposing cfg={}
+    - Load and call init() with the given nphotons and loss_fn
+    - Deep-copy the resulting cfg and restore the original module in finally block
+
+    Returns the cfg dictionary after init() completes.
+    """
+    original_params_module = sys.modules.get("ptycho.params")
+
+    # Create a stub module with an empty cfg dict
+    stub_module = types.ModuleType("ptycho.params")
+    stub_cfg: Dict[str, Any] = {}
+    stub_module.cfg = stub_cfg
+
+    try:
+        # Register the stub so `from ptycho.params import cfg` sees it
+        sys.modules["ptycho.params"] = stub_module
+
+        # Extract the init function source from the captured script
+        script_text = dose_config_path.read_text()
+
+        # Find the code block before the markdown table (ends at "---")
+        code_end = script_text.find("\n---")
+        if code_end == -1:
+            code_block = script_text
+        else:
+            code_block = script_text[:code_end]
+
+        # Compile and exec the code to get the init function
+        module_globals: Dict[str, Any] = {"__name__": "__dose_stub__"}
+        exec(compile(code_block, str(dose_config_path), "exec"), module_globals)
+
+        init_func = module_globals.get("init")
+        if init_func is None:
+            raise ValueError(f"No init() function found in {dose_config_path}")
+
+        # Call init with the specified parameters
+        init_func(nphotons, loss_fn=loss_fn)
+
+        # Deep-copy the cfg to preserve the snapshot
+        return copy.deepcopy(stub_cfg)
+
+    finally:
+        # Always restore the original module
+        if original_params_module is not None:
+            sys.modules["ptycho.params"] = original_params_module
+        elif "ptycho.params" in sys.modules:
+            del sys.modules["ptycho.params"]
+
+
+def capture_legacy_loss_modes(
+    dose_config_path: pathlib.Path,
+    nphotons: float = 1e9,
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Capture the runtime cfg dictionaries for both loss_fn modes ('nll' and 'mae')
+    by executing the legacy init() function twice with a stubbed cfg.
+
+    Returns: {"nll": {...cfg...}, "mae": {...cfg...}}
+    """
+    return {
+        "nll": execute_legacy_init_with_stubbed_cfg(dose_config_path, nphotons, "nll"),
+        "mae": execute_legacy_init_with_stubbed_cfg(dose_config_path, nphotons, "mae"),
+    }
+
 
 # Parameters we care about along with a human-friendly label
 PARAMETERS: List[Tuple[str, str]] = [
@@ -51,6 +136,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dose-config", required=True, type=pathlib.Path, help="dose_experiments_param_scan.md file")
     parser.add_argument("--output-markdown", required=True, type=pathlib.Path, help="Output Markdown file")
     parser.add_argument("--output-json", required=True, type=pathlib.Path, help="Output comparison JSON")
+    parser.add_argument(
+        "--output-dose-loss-weights",
+        type=pathlib.Path,
+        help="Output JSON with runtime cfg snapshots for both loss_fn modes",
+    )
+    parser.add_argument(
+        "--nphotons",
+        type=float,
+        default=1e9,
+        help="nphotons value for legacy init() execution (default: 1e9)",
+    )
     return parser.parse_args()
 
 
@@ -284,10 +380,64 @@ def enrich_scenario_with_loss_weights(
     scenario.update(loss_weights)
 
 
+def build_loss_modes_markdown(
+    dose_loss_modes: Dict[str, Dict[str, Any]],
+) -> str:
+    """
+    Build a Markdown section summarizing the runtime-captured loss weights
+    for both loss_fn modes (nll and mae).
+    """
+    lines: List[str] = []
+    lines.append("## Legacy dose_experiments Loss Configuration (Runtime Captured)")
+    lines.append("")
+    lines.append("The following weights were captured by executing the legacy `init()` function")
+    lines.append("with a stubbed `ptycho.params.cfg` for each `loss_fn` mode.")
+    lines.append("")
+    lines.append("| Parameter | loss_fn='nll' (default) | loss_fn='mae' (conditional) |")
+    lines.append("|-----------|-------------------------|----------------------------|")
+
+    loss_keys = ["mae_weight", "nll_weight", "realspace_weight", "realspace_mae_weight"]
+    nll_cfg = dose_loss_modes.get("nll", {})
+    mae_cfg = dose_loss_modes.get("mae", {})
+
+    for key in loss_keys:
+        nll_val = nll_cfg.get(key, "—")
+        mae_val = mae_cfg.get(key, "—")
+        lines.append(f"| {key} | {format_value(nll_val)} | {format_value(mae_val)} |")
+
+    lines.append("")
+    lines.append("**Key insight:** When `loss_fn='nll'` (the default), the legacy script does **not**")
+    lines.append("set `mae_weight` or `nll_weight` explicitly — it relies on the underlying framework")
+    lines.append("defaults. The `mae_weight=1.0, nll_weight=0.0` values only apply when `loss_fn='mae'`.")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
 def main() -> None:
     args = parse_args()
+
+    # Phase D1a: Execute legacy init() to capture runtime cfg for both loss modes
+    dose_loss_modes: Optional[Dict[str, Dict[str, Any]]] = None
+    try:
+        dose_loss_modes = capture_legacy_loss_modes(args.dose_config, args.nphotons)
+    except Exception as e:
+        print(f"Warning: Could not capture runtime loss modes: {e}", file=sys.stderr)
+        print("Falling back to static parsing.", file=sys.stderr)
+
+    # Static parsing for non-loss parameters (still useful for nepochs, offset, etc.)
     dose_params = parse_dose_config(args.dose_config)
     run_params, scenarios = load_sim_lines_snapshot(args.snapshot)
+
+    # Phase D1b: Use runtime nll config for loss weights instead of static parse
+    # The static parse incorrectly captured the MAE branch values as defaults
+    if dose_loss_modes is not None:
+        nll_cfg = dose_loss_modes["nll"]
+        # Override loss weights with runtime-captured values (nll mode = default)
+        dose_params["mae_weight"] = nll_cfg.get("mae_weight")
+        dose_params["nll_weight"] = nll_cfg.get("nll_weight")
+        dose_params["realspace_weight"] = nll_cfg.get("realspace_weight")
+        dose_params["realspace_mae_weight"] = nll_cfg.get("realspace_mae_weight")
 
     # Some parameters live in the global run params; surface them explicitly.
     if "intensity_scale.trainable" not in dose_params:
@@ -303,6 +453,31 @@ def main() -> None:
     ensure_all_keys(dose_params, scenarios)
     markdown = build_markdown(dose_params, scenarios, args.snapshot, args.dose_config)
     diff = build_diff_json(dose_params, scenarios)
+
+    # Phase D1c: Add dose_loss_modes section to both Markdown and JSON
+    if dose_loss_modes is not None:
+        # Append loss modes section to Markdown
+        markdown += "\n" + build_loss_modes_markdown(dose_loss_modes)
+
+        # Add dose_loss_modes to JSON diff
+        diff["dose_loss_modes"] = dose_loss_modes
+
+        # Write separate dose_loss_weights.json if requested
+        if args.output_dose_loss_weights:
+            args.output_dose_loss_weights.parent.mkdir(parents=True, exist_ok=True)
+            loss_weights_data = {
+                "captured_at": __import__("datetime").datetime.now().isoformat(),
+                "nphotons": args.nphotons,
+                "dose_config_path": str(args.dose_config),
+                "loss_modes": dose_loss_modes,
+                "interpretation": {
+                    "nll": "Default mode: uses framework loss weight defaults (mae_weight/nll_weight not explicitly set)",
+                    "mae": "Override mode: explicitly sets mae_weight=1.0, nll_weight=0.0",
+                },
+            }
+            args.output_dose_loss_weights.write_text(
+                json.dumps(loss_weights_data, indent=2, sort_keys=True)
+            )
 
     args.output_markdown.parent.mkdir(parents=True, exist_ok=True)
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
