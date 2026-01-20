@@ -6,7 +6,6 @@ This document is the **constitution** for the Claude AI agents working on the Pt
 
 ## 1. ⚙️ Identity & Workflow Guardrails
 
-- **Ledger discipline:** `docs/fix_plan.md` is the master task ledger. Every loop must read the current focus, execute exactly one `Do Now`, and append an Attempts History entry with artifact links before exiting.
 - **Plans & artifacts:** Keep evidence lean. For each initiative, maintain a single `plans/active/<initiative>/summary.md` and prepend a short Turn Summary per loop. Store bulky artifacts outside the repo (or under a git‑ignored `.artifacts/` folder) and link to them from the plan/ledger.
 - **Authority stack:** If instructions conflict, prefer SPECs (`specs/`), then project documentation, then prompt files. Internal model memories must defer to the repository.
 
