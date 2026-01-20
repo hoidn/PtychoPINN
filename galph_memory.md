@@ -533,3 +533,18 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Next: run the new inspector script for C3d to dump `IntensityScaler`/`IntensityScaler_inv` weights from the gs1_ideal/gs2_ideal checkpoints before proposing the workflow fix.
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/ next_action=implement C3d intensity-scaler inspector + pytest guard under hub 2026-01-20T103000Z/
+
+# 2026-01-20T11:00:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase C4 instrumentation handoff
+
+- dwell: 1 (planning/doc loop to scope next implementation increment)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy
+- Action type: Planning → Implementation handoff (Phase C4 intensity normalization audit)
+- Mode: Implementation
+- Git sync: `git pull --rebase` → Already up to date.
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md, docs/specs/spec-ptycho-core.md, docs/specs/spec-ptycho-workflow.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/inspect_intensity_scaler.py, reports/2026-01-20T093000Z/*
+- Key updates:
+  - Marked C3c/C3d complete in the working plan, added Phase C4 checklist items for the intensity stats instrumentation/reruns/doc sync, and updated docs/fix_plan.md status + attempts to reflect the new scope and artifacts hub (`2026-01-20T113000Z`).
+  - Authored input.md instructing Ralph to add the intensity-scale telemetry in `run_phase_c2_scenario.py`, rerun gs1_ideal + gs2_ideal under the new hub, and capture the pytest CLI smoke log.
+  - Created the new artifacts directory + supervisor summary stub at `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/` so evidence has a landing zone.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/ next_action=instrument run_phase_c2_scenario.py with intensity stats + rerun gs1_ideal/gs2_ideal + archive pytest CLI log

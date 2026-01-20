@@ -1,44 +1,49 @@
-Summary: Pull the TensorFlow/Keras intensity-scaler weights from the gs1_ideal/gs2_ideal checkpoints so we can explain the shared ~2.47 amplitude bias before touching workflow code.
-Focus: DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy
+Summary: Add intensity-normalization telemetry to the sim_lines runner and rerun the gs1/gs2 ideal scenarios so we can see where amplitude scaling drifts.
+Focus: DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy (Phase C4 intensity stats)
 Branch: paper
-Mapped tests:
-- pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
-Artifacts:
-- plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T103000Z/
+Mapped tests: pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/
 
 Do Now:
-- DEBUG-SIM-LINES-DOSE-001 C3d — Implement: `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/inspect_intensity_scaler.py::main` to load an existing scenario run directory, read its saved TensorFlow checkpoint + `params.cfg`, and dump the `IntensityScaler`/`IntensityScaler_inv` weights (gain/bias) plus the recorded `intensity_scale` into JSON + Markdown artifacts. Run it for `gs1_ideal` and `gs2_ideal` from `reports/2026-01-20T093000Z/`, write outputs under the new artifacts hub, and add summary pointers into the hub’s `summary.md`. Validate with `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`.
+- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py::main (add intensity-scale stats for raw/grouped/container tensors + recorded `legacy_params['intensity_scale']` and thread the new JSON/markdown paths into run_metadata) so each rerun emits an `intensity_stats.json` alongside the bias outputs.
+- Validate: pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/
 
 How-To Map:
-1. AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/inspect_intensity_scaler.py --scenario-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal --output-json plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T103000Z/intensity_scaler_gs1_ideal.json --output-markdown plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T103000Z/intensity_scaler_gs1_ideal.md
-2. Repeat for gs2: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python .../inspect_intensity_scaler.py --scenario-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs2_ideal --output-json plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T103000Z/intensity_scaler_gs2_ideal.json --output-markdown plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T103000Z/intensity_scaler_gs2_ideal.md
-3. AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T103000Z/pytest_cli_smoke.log
+1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
+2. export RUN_HUB=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z && mkdir -p "$RUN_HUB/gs1_ideal" "$RUN_HUB/gs2_ideal"
+3. python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py --scenario gs1_ideal --output-dir "$RUN_HUB/gs1_ideal" --group-limit 64 --nepochs 5 (stable profile will fill in base images / batch); archive updated run_metadata.json, stats JSON, intensity_stats.json, amplitude/phase PNGs, and training logs into the hub.
+4. python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py --scenario gs2_ideal --output-dir "$RUN_HUB/gs2_ideal" --group-limit 64 --nepochs 5; confirm the new intensity telemetry emits scalar stats only (no raw arrays) and that summary markdown links are updated.
+5. pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v | tee "$RUN_HUB/pytest_cli_smoke.log"
 
 Pitfalls To Avoid:
-- Do not modify `ptycho/model.py`, `ptycho/diffsim.py`, or `ptycho/tf_helper.py` yet; keep this loop inspector-only.
-- Reuse the existing Phase A snapshot + run outputs; do NOT retrain the scenarios.
-- Ensure inspector loads weights via TensorFlow’s saved model API so the bias/gain reflects the trained values (no manual recomputation).
-- Capture both gain and offset for `IntensityScaler` and `IntensityScaler_inv`; omitting one makes bias math unusable.
-- Keep computations device-neutral (CPU is fine) and don’t force GPU-only operations inside the inspector.
-- Preserve the original `comparison_metrics` artifacts; write new files under the fresh hub only.
-- Don’t derive fixes yet—this step is evidence collection only.
-- Avoid hard-coding absolute paths; accept `--scenario-dir` so future hubs can reuse the tool.
-- If TensorFlow warns about missing CUDA backends, note it but continue unless the inspector actually fails.
-- Always prefix commands with AUTHORITATIVE_CMDS_DOC per CLAUDE instructions.
+- Do not reuse the 2026-01-20T093000Z directories; every rerun must write into the 2026-01-20T113000Z hub so evidence stays grouped.
+- Keep intensity_stats limited to scalar summaries (min/max/mean/std); never dump full tensors to JSON/Markdown.
+- Make sure the new telemetry leaves existing run_metadata keys untouched (additive fields only) so downstream parsers stay stable.
+- Continue exporting AUTHORITATIVE_CMDS_DOC before invoking the runner or pytest to satisfy governance checks.
+- Stable profiles must remain in effect—avoid overriding base_total_images, group_count, or batch_size unless explicitly instructed.
+- Remember CONFIG-001: the runner must continue to build configs via the existing helpers so params.cfg stays in sync; do not short-circuit that flow while adding stats.
+- Capture a fresh pytest log even if the selector feels redundant; attach it to the new hub with the other evidence.
+- Clean up matplotlib figures in the stats helper to avoid leaking file handles (use `plt.close`).
 
 If Blocked:
-- If the inspector cannot load the saved model (e.g., missing files), capture the stack trace + offending path under the new hub, log the blocker in docs/fix_plan.md Attempts, and skip straight to updating summary.md/input.md so we can triage in the next loop.
+- Document the blocker in docs/fix_plan.md under DEBUG-SIM-LINES-DOSE-001 (Attempts History) and drop a short note in plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md describing what failed.
+- Tag the exact command + stderr and leave the partial artifacts in the RUN_HUB with a `_blocked.txt` note so we can pick up next loop.
+- Ping me only after the blocker is recorded; the next supervisor loop will decide whether to pivot or escalate.
 
-Findings Applied:
-- CONFIG-001 — The inspector must respect `update_legacy_dict` ordering by reading params via the scenario’s saved `params.json` rather than reinitializing legacy modules.
-- POLICY-001 — Use the repo’s default `python` executable (no custom wrappers) when running the inspector + pytest.
-- NORMALIZATION-001 — Keep the analysis read-only so we do not accidentally mix physics/statistical/display scaling paths while extracting the intensity scaler state.
+Findings Applied (Mandatory):
+- CONFIG-001 — ensure every call to `run_phase_c2_scenario.py` keeps using update_legacy_dict via the Training/InferenceConfig factories before touching grouped data.
+- NORMALIZATION-001 — keep physics/statistical/display scaling separate when logging new telemetry (record raw diffraction stats plus `intensity_scale` without mutating data).
+- POLICY-001 — workflows assume TensorFlow dependencies are present; do not try to downshift to a CPU-only or torch-free path when rerunning the scenarios.
 
 Pointers:
-- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:142-167 (Phase C3 checklist / new C3d item)
-- docs/fix_plan.md:90-104 (Attempts history + latest hub reference)
-- plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/comparison_metrics.json (recorded amplitude bias stats)
-- plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs2_ideal/comparison_metrics.json (gs2 bias mirror for comparison)
+- docs/specs/spec-ptycho-core.md:20 (Normalization invariants + intensity_scale contract)
+- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:170 (Phase C4 checklist)
+- docs/fix_plan.md:90 (Latest Attempts and C4 scope)
+- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py:260 (stats helpers and runner entry point)
+- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/inspect_intensity_scaler.py:1 (reference for recent telemetry style)
 
-Next Up:
-- After the inspector proves where the offset is coming from, design the actual intensity-scaling fix (Phase C4) and rerun gs1_ideal/gs2_ideal to verify the bias disappears.
+Next Up (optional): If time remains, start comparing the logged stats vs recorded `intensity_scale` to decide whether C5 needs config tweaks or workflow math changes.
+Doc Sync Plan (Conditional): Not needed this loop (no new/renamed tests).
+Mapped Tests Guardrail: Selector above already collects (>0) and must be kept up to date.
+Normative Math/Physics: Use docs/specs/spec-ptycho-core.md §Normalization Invariants and docs/DEVELOPER_GUIDE.md §3.5 to keep the telemetry grounded in the official intensity-scaling math.

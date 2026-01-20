@@ -18,7 +18,7 @@
 ### [DEBUG-SIM-LINES-DOSE-001] Isolate sim_lines_4x vs dose_experiments discrepancy
 - Depends on: None
 - Priority: **Critical** (Highest Priority)
-- Status: in_progress — Phase C diagnostics (C3 bias telemetry)
+- Status: in_progress — Phase C diagnostics (C4 intensity normalization audit)
 - Owner/Date: Codex/2026-01-13
 - Working Plan: `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md`
 - Summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md`
@@ -104,6 +104,7 @@
     - Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
     - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T103000Z/{intensity_scaler_gs1_ideal.json,intensity_scaler_gs1_ideal.md,intensity_scaler_gs2_ideal.json,intensity_scaler_gs2_ideal.md,pytest_cli_smoke.log,summary.md}`
     - Next Actions: Pivot Phase C3d toward the upstream workflow math (intensity normalization + stats) since both checkpoints share the same scaler weights despite diverging outputs.
+  - *2026-01-20T110000Z:* Scoped Phase C4 to add intensity-normalization telemetry inside `run_phase_c2_scenario.py` (raw/grouped/container stats + recorded `intensity_scale`) and to rerun the gs1_ideal / gs2_ideal scenarios under a fresh hub so the new JSON lives alongside the bias summaries. Updated the implementation plan (C3c/C3d complete, C4a–C4c added) and reserved `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/` for the reruns + pytest evidence.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
