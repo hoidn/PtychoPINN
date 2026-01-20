@@ -123,6 +123,9 @@
     - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T132500Z/{bias_summary.json,bias_summary.md,analyze_intensity_bias.log,pytest_cli_smoke.log}`
     - Findings: Both scenarios now report per-stage amplitude tables plus ratio bullets; the largest drop occurs during grouped→normalized (ratio ≈0.56) with identical bundle/legacy intensity scales, confirming normalization as the current suspect.
     - Next Actions: Use the new ratio telemetry to trace the normalization drop inside `normalize_data`/loader before touching shared workflows or adjusting loss weights.
+  - *2026-01-20T143000Z:* Analyzed the new ratio summaries and confirmed gs1_ideal loses ≈44 % of amplitude at `normalize_data` (grouped→normalized 0.56×) and another ≈12× before reaching ground-truth amplitude, while gs2_ideal collapses completely after prediction due to NaNs. Scoped the next increment (C4d) around extending `analyze_intensity_bias.py` to ingest the amplitude `.npy` files, compute best-fit prediction↔truth scaling factors, and report whether a single scalar explains the ≈12× gap before planning fixes.
+    - Artifacts hub reserved for evidence: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143000Z/`
+    - Next Actions: Extend the analyzer with prediction↔truth scaling diagnostics, rerun it for gs1_ideal + gs2_ideal, and archive the CLI pytest guard log under the new hub.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

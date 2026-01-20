@@ -183,7 +183,7 @@ Guidelines:
 - [x] C3c: Quantify amplitude/phase bias versus ground truth by augmenting `run_phase_c2_scenario.py` to record per-scenario prediction vs truth stats (mean, median, percentiles) and emit Markdown summaries so we can prove whether the gs1/gs2 collapses stem from a shared intensity offset.
       Evidence: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/` (bias summaries + metrics)
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
-- [ ] C3d: Inspect the intensity-scaling pipeline by loading the gs1_ideal/gs2_ideal training checkpoints, dumping the `IntensityScaler`/`IntensityScaler_inv` weights and params (`params.cfg['intensity_scale']`), and comparing them to the observed amplitude bias so we can decide whether the workflow or the model needs the fix.
+- [x] C3d: Inspect the intensity-scaling pipeline by loading the gs1_ideal/gs2_ideal training checkpoints, dumping the `IntensityScaler`/`IntensityScaler_inv` weights and params (`params.cfg['intensity_scale']`), and comparing them to the observed amplitude bias so we can decide whether the workflow or the model needs the fix. (Evidence: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T103000Z/`)
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 - [x] C4a: Instrument the Phase C2 runner with intensity-normalization stats (raw `diff3d`, grouped diffraction, container tensors, recorded `intensity_scale`) so each scenario writes a JSON summary alongside the existing bias metrics.
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
@@ -191,6 +191,8 @@ Guidelines:
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 - [x] C4c: Update docs/fix_plan.md Attempts History (plus summary.md) with the new intensity telemetry and document the decision tree for the next remediation step.
       Test: N/A
+- [ ] C4d: Extend the bias analyzer to compute per-scenario prediction↔truth scaling diagnostics (best-fit scalar, ratio distribution, rescaled error) so we can prove whether a constant amplitude factor explains the ≈12× drop before touching loader/workflow code. Capture evidence under the next artifacts hub and keep the CLI pytest guard green.
+      Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 
 ### Notes & Risks
 - Keep changes scoped; do not modify stable physics modules unless evidence pins regression there.

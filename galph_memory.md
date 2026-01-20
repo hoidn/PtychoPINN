@@ -578,3 +578,21 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
   - Rewrote input.md with the stage-ratio Do Now (extend analyzer, rerun gs1_ideal/gs2_ideal, pytest guard) so Ralph has a production task queued.
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T132500Z/ next_action=extend analyzer with per-stage ratios + rerun gs1_ideal/gs2_ideal analyzer + pytest guard
+
+# 2026-01-20T14:30:00Z: DEBUG-SIM-LINES-DOSE-001 — Stage-ratio audit + scaling diagnostics plan
+
+- dwell: 2 (second consecutive planning loop; next turn must hand off an implementation Do Now)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy (Phase C4d scaling diagnostics)
+- Action type: Planning / evidence synthesis (analysis of new ratio telemetry + next-increment scoping)
+- Mode: Implementation handoff
+- Git sync: `git stash push -u -m 'galph-temp-20260120-1'` → `timeout 30 git pull --rebase` → `git stash pop`
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, NORMALIZATION-001, POLICY-001), specs/spec-ptycho-core.md §Normalization Invariants, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md (§Scripts tests), docs/debugging/debugging.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py, reports/2026-01-20T132500Z/{bias_summary.json,bias_summary.md}, specs data cited via run_metadata.
+- Key observations:
+  - Analyzer outputs show both gs1_ideal and gs2_ideal lose ≈44 % of amplitude during `normalize_data`, gs1 predictions remain ≈2.6× below the normalized input, and the stitched amplitude undershoots ground truth by ≈12×; gs2 predictions go fully NaN after the prediction stage.
+  - Intensity scaler weights remain identical between bundle and legacy params (per earlier 2026-01-20T103000Z evidence), so the remaining bias likely stems from missing/incorrect rescaling between inference outputs and the stored ground truth.
+  - Current analyzer only reports mean ratios, so we lack proof that a single scalar would align predictions with truth; we need best-fit scalar + ratio distributions derived from the amplitude `.npy` artifacts.
+  - Updated the implementation plan (C3d marked complete, C4d added) and fix_plan attempts with the new scaling-diagnostics scope; opened artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143000Z/`.
+- Next Action: ready_for_implementation — extend `bin/analyze_intensity_bias.py` to load amplitude `.npy` files, compute prediction↔truth scaling stats (best-fit scalar, ratio percentiles, rescaled MAE), rerun analyzer for gs1_ideal + gs2_ideal, and capture the CLI pytest guard under the 2026-01-20T143000Z hub.
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143000Z/
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=2 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143000Z/ next_action=Implement C4d analyzer scaling diagnostics + rerun analyzer + pytest

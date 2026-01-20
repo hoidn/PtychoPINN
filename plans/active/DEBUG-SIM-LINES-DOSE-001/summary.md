@@ -1,6 +1,12 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
 ### Turn Summary
+Reviewed the stage-ratio telemetry: both gs1_ideal and gs2_ideal lose ≈44 % of amplitude inside `normalize_data`, gs1_ideal predictions stay ≈2.6× below the normalized input, and stitched outputs undershoot the ground truth by ≈12× while gs2_ideal collapses post-prediction due to NaNs.
+Captured the conclusion that we still lack evidence showing whether a single scalar explains the prediction↔truth gap, so the analyzer needs to load the amplitude `.npy` artifacts, compute best-fit scalars/ratio distributions, and report rescaled errors before proposing loader or workflow fixes.
+Next: extend `bin/analyze_intensity_bias.py` with those scaling diagnostics, rerun it for gs1_ideal + gs2_ideal under the 2026-01-20T143000Z hub, and re-capture the CLI pytest guard.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143000Z/ (planning notes placeholder)
+
+### Turn Summary
 Removed the duplicated 2026-01-20T121500Z fix-plan entry flagged by the reviewer, logged the documentation hygiene in the ledger, and scoped the next Phase C4 increment to derive stage-by-stage amplitude ratios (raw → grouped → normalized → reconstruction) from the existing telemetry with outputs landing under the new 2026-01-20T132500Z hub.
 Next: extend `bin/analyze_intensity_bias.py` with the ratio diagnostics, rerun it for gs1_ideal + gs2_ideal, and capture the refreshed JSON/Markdown plus the CLI pytest guard in the new hub.
 Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T132500Z/ (planning notes placeholder)
@@ -34,8 +40,6 @@ Mapped the next Phase C3b increment to extend the Phase C2 runner with ground-
 Scoped the code touch to plan-local runner helpers (ground-truth dumps, center-crop diff metrics, metadata updates) plus reassembly/test reruns, updated the implementation plan/fix ledger, and rewrote input.md pointing Ralph at the new artifacts hub.
 Next: Ralph updates the runner, reruns gs1_ideal and gs2_ideal with the new comparison outputs, refreshes reassembly telemetry, and archives the pytest evidence.
 Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T083000Z/ (planning notes placeholder)
-
-# DEBUG-SIM-LINES-DOSE-001 Summary
 
 ### Turn Summary
 Extended `run_phase_c2_scenario.py` so `run_metadata.json` now exposes explicit `training_history_path`/`training_summary_path` entries (relative to the scenario hub), reran the baked gs1_ideal/gs2_ideal runs, and captured the new history JSON/Markdown summaries with NaN detection embedded in both metadata and Markdown tables.
