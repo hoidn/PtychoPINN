@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-20 (ORCH-ORCHESTRATOR prompt-tagged auto-commit)
-**Active Focus:** ORCH-ORCHESTRATOR-001 — include prompt names in combined auto-commit messages
+**Last Updated:** 2026-01-20 (ORCH-ORCHESTRATOR reviewer user_input routing)
+**Active Focus:** ORCH-ORCHESTRATOR-001 — route actionable reviewer findings to user_input.md
 
 ---
 
@@ -268,6 +268,9 @@
   - *2026-01-20T061929Z:* Added prompt names to combined auto-commit commit messages, updated auto-commit tests, and refreshed combined-mode documentation.
     - Metrics: `pytest --collect-only scripts/orchestration/tests/test_orchestrator.py -v`, `pytest scripts/orchestration/tests/test_orchestrator.py -v`
     - Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T061929Z/{pytest_collect_orchestrator.log,pytest_orchestrator.log}`
+  - *2026-01-20T062508Z:* Updated reviewer prompt output requirements to write `user_input.md` when new actionable findings are discovered.
+    - Metrics: N/A (prompt-only update)
+    - Artifacts: `prompts/reviewer.md`
 
 ### [ORCH-AGENT-DISPATCH-001] Per-role/per-prompt agent dispatch (codex vs claude)
 - Depends on: ORCH-ORCHESTRATOR-001 (combined mode baseline)

@@ -28,10 +28,16 @@ Investigation guidance (only after 2 failures):
 - Identify the most likely change in that window that could cause the failure (tests, configs, scripts, or data paths).
 - Capture the failing test output and the suspected change in the report.
 
-Output artifact requirement:
-- Create a new report directory under .artifacts/reviewer/<timestamp>/.
-- Write a markdown report at .artifacts/reviewer/<timestamp>/reviewer_result.md.
-- Include:
+Output requirement (conditional):
+- If the review surfaces actionable findings not already captured in existing plans/roadmap, write a `user_input.md`
+  in the repo root instead of creating a .artifacts report. Actionable means new issues or plan gaps not reflected in
+  `docs/fix_plan.md` or `plans/active/**`. Include:
+  - A concise summary of the findings
+  - Evidence pointers (files/logs/tests)
+  - The plan update needed or the new plan you recommend
+  - The exact next steps you want the supervisor to take
+- Otherwise, create a new report directory under `.artifacts/reviewer/<timestamp>/` and write
+  `.artifacts/reviewer/<timestamp>/reviewer_result.md` with:
   - PASS/FAIL verdict
   - Whether the failure was reproduced once or twice
   - The test command used
@@ -40,4 +46,5 @@ Output artifact requirement:
   - The state_file and logs_dir values used
   - Your best hypothesis on the cause (if failed)
 
-If the test passes on the first or second run, still write the report with a brief success explanation and the output location.
+If the test passes on the first or second run, still write the report with a brief success explanation and the output
+location (user_input.md if actionable; .artifacts otherwise).

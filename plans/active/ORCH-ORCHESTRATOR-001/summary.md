@@ -1,6 +1,11 @@
 # ORCH-ORCHESTRATOR-001 Summary
 
 ### Turn Summary (2026-01-20)
+Updated `prompts/reviewer.md` to route actionable review findings into `user_input.md` instead of the reviewer artifacts folder.
+No tests run (prompt-only update).
+Artifacts: prompts/reviewer.md
+
+### Turn Summary (2026-01-20)
 Added prompt names to combined auto-commit prefixes so logs show the dispatched prompt per turn.
 Updated auto-commit tests to assert prompt tags and refreshed combined auto-commit docs.
 Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T061929Z/
