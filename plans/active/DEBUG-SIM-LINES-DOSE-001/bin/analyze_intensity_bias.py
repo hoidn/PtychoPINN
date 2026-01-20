@@ -678,6 +678,17 @@ def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
     # Parse loss composition per specs/spec-ptycho-workflow.md §Loss and Optimization
     loss_composition = build_loss_composition(training_summary)
 
+    # Extract IntensityScaler state if available (D4 architecture diagnostics)
+    # Per specs/spec-ptycho-workflow.md §Loss and Optimization, the log_scale variable
+    # is trained during training. This state helps trace any divergence.
+    intensity_scaler_state = (
+        intensity_stats.get("intensity_scaler_state")
+        or run_metadata.get("intensity_scaler_state")
+    )
+
+    # Extract training container X stats if available
+    training_container_stats = intensity_stats.get("training_container_stats")
+
     return {
         "name": scenario.name,
         "paths": {
@@ -706,6 +717,8 @@ def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
         "prediction_scale_note": run_metadata.get("prediction_scale_note"),
         "training": training_info,
         "loss_composition": loss_composition,
+        "intensity_scaler_state": intensity_scaler_state,
+        "training_container_stats": training_container_stats,
         "derived": {
             "stage_means": stage_means,
             "ratios": stage_ratios,
@@ -929,6 +942,57 @@ def render_markdown(summary: Mapping[str, Any]) -> str:
                     "  - Per `specs/spec-ptycho-workflow.md §Loss and Optimization`: "
                     "`trimmed_obj_loss=0` indicates `realspace_weight=0` (TV/MAE disabled)"
                 )
+            lines.append("")
+
+        # IntensityScaler State section (D4 architecture diagnostics)
+        scaler_state = payload.get("intensity_scaler_state")
+        if scaler_state:
+            lines.append("### IntensityScaler State")
+            lines.append("")
+            lines.append(
+                f"**Spec Reference:** `{scaler_state.get('spec_reference', 'specs/spec-ptycho-core.md §Normalization Invariants')}`"
+            )
+            lines.append("")
+            lines.append(
+                "Per the architecture, `IntensityScaler` and `IntensityScaler_inv` layers use a shared `log_scale` tf.Variable. "
+                "The effective scaling factor is `exp(log_scale)`. If this diverges from the recorded bundle/params.cfg value, "
+                "it may indicate double-scaling or a training-time drift that contributes to amplitude bias."
+            )
+            lines.append("")
+            lines.append("| Property | Value |")
+            lines.append("| --- | ---: |")
+            lines.append(f"| log_scale (raw) | {fmt_value(scaler_state.get('log_scale_value'))} |")
+            lines.append(f"| exp(log_scale) | {fmt_value(scaler_state.get('exp_log_scale'))} |")
+            lines.append(f"| trainable | {scaler_state.get('trainable')} |")
+            lines.append(f"| params.cfg intensity_scale | {fmt_value(scaler_state.get('params_cfg_intensity_scale'))} |")
+            lines.append(f"| params.cfg trainable | {scaler_state.get('params_cfg_trainable')} |")
+            lines.append(f"| delta (exp - cfg) | {fmt_value(scaler_state.get('delta'))} |")
+            lines.append(f"| ratio (exp / cfg) | {fmt_value(scaler_state.get('ratio'))} |")
+            lines.append("")
+
+            # Diagnostic assessment
+            delta = scaler_state.get("delta")
+            if delta is not None and abs(delta) > 1e-3:
+                lines.append(
+                    f"⚠️ **IntensityScaler divergence detected:** delta={fmt_value(delta)} "
+                    "may indicate that the log_scale variable drifted during training."
+                )
+                lines.append("")
+
+        # Training Container X Stats section
+        container_stats = payload.get("training_container_stats")
+        if container_stats:
+            lines.append("### Training Container X Stats")
+            lines.append("")
+            lines.append("| Metric | Value |")
+            lines.append("| --- | ---: |")
+            lines.append(f"| shape | {container_stats.get('shape')} |")
+            lines.append(f"| dtype | {container_stats.get('dtype')} |")
+            lines.append(f"| min | {fmt_value(container_stats.get('min'))} |")
+            lines.append(f"| max | {fmt_value(container_stats.get('max'))} |")
+            lines.append(f"| mean | {fmt_value(container_stats.get('mean'))} |")
+            lines.append(f"| std | {fmt_value(container_stats.get('std'))} |")
+            lines.append(f"| nan_count | {container_stats.get('nan_count', 0)} |")
             lines.append("")
 
         inference = payload.get("inference", {})

@@ -23,6 +23,7 @@ import numpy as np
 from ptycho import loader, nbutils, params as legacy_params, tf_helper
 from ptycho.config.config import InferenceConfig, ModelConfig, update_legacy_dict
 from ptycho.workflows.backend_selector import load_inference_bundle_with_backend
+from ptycho.model import _get_log_scale
 from scripts.simulation.synthetic_helpers import (
     make_lines_object,
     make_probe,
@@ -330,6 +331,58 @@ def _serialize_scalar(value: Any) -> Any:
     return value
 
 
+def extract_intensity_scaler_state() -> Dict[str, Any]:
+    """Extract IntensityScaler state for diagnostics.
+
+    Per `specs/spec-ptycho-core.md §Normalization Invariants`:
+    - Captures the trained log_scale tf.Variable value
+    - Computes exp(log_scale) to show the effective intensity scale multiplier
+    - Records the trainable flag from params.cfg
+    - Records the original params.cfg intensity_scale for comparison
+
+    Returns dict with:
+        log_scale_value: The current log_scale variable value
+        exp_log_scale: exp(log_scale) - the effective scaling factor
+        trainable: Whether the intensity_scale is trainable
+        params_cfg_intensity_scale: The value from legacy_params.cfg['intensity_scale']
+        delta: Difference between exp(log_scale) and params.cfg value
+        ratio: Ratio of exp(log_scale) to params.cfg value
+    """
+    try:
+        log_scale_var = _get_log_scale()
+        log_scale_value = float(log_scale_var.numpy())
+        exp_log_scale = float(np.exp(log_scale_value))
+        trainable = bool(log_scale_var.trainable)
+    except Exception as e:
+        print(f"[runner][scaler_state][warn] Could not extract log_scale: {e}")
+        log_scale_value = None
+        exp_log_scale = None
+        trainable = None
+
+    params_cfg_scale = legacy_params.cfg.get("intensity_scale")
+    params_cfg_trainable = legacy_params.cfg.get("intensity_scale.trainable")
+
+    delta = None
+    ratio = None
+    if exp_log_scale is not None and params_cfg_scale is not None:
+        try:
+            delta = exp_log_scale - float(params_cfg_scale)
+            ratio = exp_log_scale / float(params_cfg_scale) if float(params_cfg_scale) != 0 else None
+        except (TypeError, ValueError):
+            pass
+
+    return {
+        "log_scale_value": log_scale_value,
+        "exp_log_scale": exp_log_scale,
+        "trainable": trainable,
+        "params_cfg_intensity_scale": _serialize_scalar(params_cfg_scale),
+        "params_cfg_trainable": params_cfg_trainable,
+        "delta": delta,
+        "ratio": ratio,
+        "spec_reference": "specs/spec-ptycho-core.md §Normalization Invariants",
+    }
+
+
 def record_intensity_stage(
     stages: list[Dict[str, Any]],
     name: str,
@@ -456,6 +509,8 @@ def write_intensity_stats_outputs(
     bundle_intensity_scale: Any,
     legacy_intensity_scale: Any,
     scenario_dir: Path,
+    intensity_scaler_state: Optional[Dict[str, Any]] = None,
+    training_container_stats: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     bundle_scale_serialized = _serialize_scalar(bundle_intensity_scale)
     legacy_scale_serialized = _serialize_scalar(legacy_intensity_scale)
@@ -471,7 +526,7 @@ def write_intensity_stats_outputs(
     ratios, largest_drop = _compute_stage_ratios(stage_means)
     normalize_gain = _compute_normalize_gain(stages)
 
-    payload = {
+    payload: Dict[str, Any] = {
         "bundle_intensity_scale": bundle_scale_serialized,
         "legacy_params_intensity_scale": legacy_scale_serialized,
         "scale_delta": scale_delta,
@@ -481,6 +536,15 @@ def write_intensity_stats_outputs(
         "largest_drop": largest_drop,
         "normalize_gain": normalize_gain,
     }
+
+    # Add IntensityScaler state if provided (D4 architecture diagnostics)
+    if intensity_scaler_state is not None:
+        payload["intensity_scaler_state"] = intensity_scaler_state
+
+    # Add training container X stats if provided
+    if training_container_stats is not None:
+        payload["training_container_stats"] = training_container_stats
+
     json_path = scenario_dir / "intensity_stats.json"
     json_path.write_text(json.dumps(payload, indent=2, sort_keys=True))
 
@@ -542,6 +606,49 @@ def write_intensity_stats_outputs(
             "",
         ])
 
+    # Add IntensityScaler state section (D4 architecture diagnostics)
+    if intensity_scaler_state:
+        md_lines.extend([
+            "## IntensityScaler State",
+            "",
+            "**Spec Reference:** `specs/spec-ptycho-workflow.md §Loss and Optimization`",
+            "",
+            "Per the architecture, `IntensityScaler` and `IntensityScaler_inv` layers use a shared `log_scale` tf.Variable.",
+            "The effective scaling factor is `exp(log_scale)`. If this diverges from the recorded bundle/params.cfg value,",
+            "it may indicate double-scaling or a training-time drift that contributes to amplitude bias.",
+            "",
+            "| Property | Value |",
+            "| --- | ---: |",
+            f"| log_scale (raw) | {_format_optional(intensity_scaler_state.get('log_scale_value'))} |",
+            f"| exp(log_scale) | {_format_optional(intensity_scaler_state.get('exp_log_scale'))} |",
+            f"| trainable | {intensity_scaler_state.get('trainable')} |",
+            f"| params.cfg intensity_scale | {_format_optional(intensity_scaler_state.get('params_cfg_intensity_scale'))} |",
+            f"| params.cfg trainable | {intensity_scaler_state.get('params_cfg_trainable')} |",
+            f"| delta (exp - cfg) | {_format_optional(intensity_scaler_state.get('delta'))} |",
+            f"| ratio (exp / cfg) | {_format_optional(intensity_scaler_state.get('ratio'))} |",
+            "",
+        ])
+
+    # Add training container X stats section
+    if training_container_stats:
+        md_lines.extend([
+            "## Training Container X Stats",
+            "",
+            "Statistics of the training container's X tensor after normalization.",
+            "Per `specs/spec-ptycho-core.md §Normalization Invariants`, this should reflect `X_scaled = s · X`.",
+            "",
+            "| Metric | Value |",
+            "| --- | ---: |",
+            f"| shape | {training_container_stats.get('shape')} |",
+            f"| dtype | {training_container_stats.get('dtype')} |",
+            f"| min | {_format_optional(training_container_stats.get('min'))} |",
+            f"| max | {_format_optional(training_container_stats.get('max'))} |",
+            f"| mean | {_format_optional(training_container_stats.get('mean'))} |",
+            f"| std | {_format_optional(training_container_stats.get('std'))} |",
+            f"| nan_count | {training_container_stats.get('nan_count', 0)} |",
+            "",
+        ])
+
     # Add per-stage stats
     md_lines.append("## Per-Stage Statistics")
     md_lines.append("")
@@ -551,7 +658,7 @@ def write_intensity_stats_outputs(
     md_path = scenario_dir / "intensity_stats.md"
     md_path.write_text("\n".join(md_lines))
 
-    return {
+    result: Dict[str, Any] = {
         "json_path": str(json_path),
         "markdown_path": str(md_path),
         "stages": stages,
@@ -564,6 +671,11 @@ def write_intensity_stats_outputs(
         "scale_delta": scale_delta,
         "intensity_scale": bundle_scale_serialized or legacy_scale_serialized,
     }
+    if intensity_scaler_state is not None:
+        result["intensity_scaler_state"] = intensity_scaler_state
+    if training_container_stats is not None:
+        result["training_container_stats"] = training_container_stats
+    return result
 
 
 def summarize_bias(pred: np.ndarray, truth: np.ndarray) -> Dict[str, float | None]:
@@ -1234,6 +1346,16 @@ def main() -> None:
     train_elapsed = time.time() - start_time
     print(f"[runner] Training complete in {train_elapsed:.2f}s; bundle saved to {train_dir}")
 
+    # Capture IntensityScaler state after training (D4 architecture diagnostics)
+    # Per specs/spec-ptycho-workflow.md §Loss and Optimization, the log_scale variable
+    # is trained during training. We capture its state to trace any divergence.
+    intensity_scaler_state = extract_intensity_scaler_state()
+    print(
+        f"[runner][scaler] exp(log_scale)={intensity_scaler_state.get('exp_log_scale')} "
+        f"vs params.cfg={intensity_scaler_state.get('params_cfg_intensity_scale')} "
+        f"(delta={intensity_scaler_state.get('delta')})"
+    )
+
     history_payload_raw = training_results.get("history") or {}
     history_epochs_raw = training_results.get("history_epochs")
     coerced_history = coerce_history_for_json(history_payload_raw)
@@ -1437,11 +1559,20 @@ def main() -> None:
         "diff_pngs": comparison_payload["artifacts"],
         "summary_markdown": str(comparison_summary_path),
     }
+    # Extract training container X stats from the stages if available
+    training_container_stats = None
+    for stage in intensity_info.get("stages", []):
+        if stage.get("name") == "container_X":
+            training_container_stats = stage.get("stats")
+            break
+
     intensity_record = write_intensity_stats_outputs(
         stages=intensity_info.get("stages", []),
         bundle_intensity_scale=intensity_info.get("bundle_intensity_scale"),
         legacy_intensity_scale=intensity_info.get("legacy_params_intensity_scale"),
         scenario_dir=scenario_dir,
+        intensity_scaler_state=intensity_scaler_state,
+        training_container_stats=training_container_stats,
     )
     intensity_record["prediction_scale"] = scale_info
     metadata["intensity_stats"] = intensity_record
@@ -1453,6 +1584,8 @@ def main() -> None:
     if intensity_record.get("markdown_path"):
         artifacts["intensity_stats_markdown"] = intensity_record["markdown_path"]
     metadata["crop_metadata"] = crop_metadata
+    # Add IntensityScaler state to run_metadata for D4 architecture diagnostics
+    metadata["intensity_scaler_state"] = intensity_scaler_state
     if profile_metadata:
         metadata["profile"] = profile_metadata
     (scenario_dir / "run_metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True))
