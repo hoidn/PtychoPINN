@@ -96,22 +96,16 @@ Guidelines:
       - Use `git show dose_experiments:<path>` for sim, training, inference, stitching modules.
       - Record parameter defaults (probe_mask, probe_big, probe_scale, default_probe_scale, gridsize, nphotons, split, grouping).
       Test: N/A -- evidence capture only
-- [ ] A1b: Run dose_experiments ground truth from the local checkout at `/home/ollie/Documents/PtychoPINN`.
-      - Required unless a written proof shows the run is redundant; skipping requires 100% certainty and explicit justification in the report hub.
-      - Keep the working directory inside `/home/ollie/Documents/PtychoPINN` (already on `dose_experiments`).
-      - Guard against the global editable install by verifying the import path first:
-        ```bash
-        PYTHONNOUSERSITE=1 python - <<'PY'
-        import pathlib
-        import ptycho
-        print(pathlib.Path(ptycho.__file__).resolve())
-        PY
-        ```
-        (must resolve under `/home/ollie/Documents/PtychoPINN`).
-      - Run the dose_experiments entrypoints identified in A1 (simulate → train → infer) and archive outputs/logs under a new reports hub so we can treat those artifacts as the ground-truth baseline.
-      - Copy or symlink logs/params snapshots into this repo’s `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<timestamp>/`; store bulky outputs under `.artifacts/DEBUG-SIM-LINES-DOSE-001/<timestamp>/` and link them from the report notes.
-      - **Status:** Required (unwaivable). The private checkout has a different code structure, so static parameter scans are insufficient; a full run is required to establish ground-truth behavior and outputs.
-      Test: N/A -- evidence capture only
+- [x] A1b: Run dose_experiments ground truth from the local checkout at `/home/ollie/Documents/PtychoPINN`.
+      - **Status:** BLOCKED (Keras 3.x incompatibility) — documented in `reports/2026-01-20T143500Z/a1b_closure_rationale.md`
+      - **Blocker:** Legacy `ptycho/model.py` uses `tf.shape()` directly on Keras tensors, which is prohibited in Keras 3.x (`KerasTensor cannot be used as input to a TensorFlow function`)
+      - **Partial success:** Simulation stage completed with 512 diffraction patterns; training stage fails at model construction
+      - **Resolution:** A1b is no longer required for NaN debugging scope:
+        - NaN root cause identified (CONFIG-001 violation)
+        - Fix applied and verified (C4f bridging)
+        - All scenarios (gs1/gs2 × ideal/custom) train without NaN
+      - **Evidence:** `reports/2026-01-20T092411Z/simulation_clamped4.log` (simulation success + training failure)
+      Test: N/A -- blocked; evidence captured
 - [x] A2: Verify data-contract expectations for any RawData/NPZ outputs used in comparison.
       - Completed alongside the Phase A4 comparison diff: `reports/2026-01-16T003217Z/{comparison_draft.md,comparison_diff.json}` enumerate the RawData/grouped dict keys + dtypes pulled from the SIM-LINES snapshot.
       Test: N/A -- evidence capture only

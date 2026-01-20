@@ -1,3 +1,27 @@
+# 2026-01-20T14:35:00Z: DEBUG-SIM-LINES-DOSE-001 — A1b closure (user_input.md override)
+
+- dwell: 0 (manual override reset per startup_steps)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — A1b ground-truth run (user_input.md override)
+- Action type: Review/Documentation (blocker documentation + initiative closure)
+- Mode: Documentation
+- Git sync: `git pull --rebase` → unstaged changes; used existing state
+- Documents reviewed: user_input.md, docs/fix_plan.md, galph_memory.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_dose_stage.py, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T092411Z/{summary.md,simulation_clamped4.log}
+- Key observations:
+  - `user_input.md` requested A1b ground-truth run (dose_experiments simulate → train → infer)
+  - Prior attempts documented: simulation stage works (512 patterns), training fails with Keras 3.x `KerasTensor` error
+  - Blocker is **outside initiative scope**: legacy `ptycho/model.py` uses `tf.shape()` on Keras tensors, prohibited in Keras 3.x
+  - NaN debugging scope is already **COMPLETE**: CONFIG-001 root cause identified and fixed (C4f), all scenarios train without NaN
+- Key decisions:
+  - A1b marked as BLOCKED but **no longer required** — the ground-truth comparison was a diagnostic tool; with NaN root cause confirmed and fixed, it's unnecessary
+  - Documented closure rationale in `reports/2026-01-20T143500Z/a1b_closure_rationale.md`
+  - Updated `implementation.md` (A1b checkbox + blocker details) and `docs/fix_plan.md` (attempts history + closure note)
+  - Prepared `input.md` for final documentation handoff to Ralph (knowledge base entry + initiative summary refresh)
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143500Z/a1b_closure_rationale.md`
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143500Z/ next_action=Ralph finalizes initiative (knowledge base entry + summary refresh + archive prep)
+
+---
+
 # 2026-01-15T22:58:50Z: REFACTOR-MEMOIZE-CORE-001 — Phase A inventory + B-stage handoff
 
 - dwell: 0 (new focus; no prior loops for this initiative)

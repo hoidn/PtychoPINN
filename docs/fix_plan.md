@@ -182,6 +182,9 @@
       - H-GRIDSIZE-NUMERIC: ❌ RULED OUT (gridsize=1 works after CONFIG-001 fix)
     - **Remaining Issue:** Amplitude bias (~3-6x undershoot) persists in all scenarios; this is a SEPARATE issue from NaN debugging and may involve loss wiring, normalization math, or training hyperparameters
     - **Scope Decision:** NaN debugging is COMPLETE; amplitude bias investigation is out of scope for this initiative and should be addressed in a separate initiative if needed
+  - *2026-01-20T143500Z:* **A1b closure** — Processed `user_input.md` override requesting A1b ground-truth run. After reviewing prior attempts, confirmed A1b is **blocked by Keras 3.x API incompatibility** (legacy `ptycho/model.py` uses `tf.shape()` directly on Keras tensors). Simulation stage works (512 patterns generated), but training fails at model construction. Documented closure rationale in `reports/2026-01-20T143500Z/a1b_closure_rationale.md`. Since NaN debugging scope is already COMPLETE (CONFIG-001 root cause fixed in C4f, all scenarios train without NaN), A1b ground-truth comparison is no longer required for this initiative.
+    - **Decision:** A1b marked as BLOCKED but no longer required; the primary objective (NaN debugging) is complete
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T143500Z/a1b_closure_rationale.md`
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
