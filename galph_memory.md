@@ -658,3 +658,22 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
   - Rewrote input.md with concrete edit instructions, CLI commands, artifact expectations, and fix-plan summary requirements so Ralph can execute Phase C4f in one pass.
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/ next_action=add CONFIG-001 hooks + rerun gs1_ideal/gs2_ideal + analyzer + pytest guard
+
+# 2026-01-20T10:05:00Z: DEBUG-SIM-LINES-DOSE-001 — C4f CONFIG-001 implementation complete
+
+- dwell: 0 (implementation loop executed the handed-off Do Now)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Phase C4f CONFIG-001 bridging enforcement
+- Action type: Implementation (code edits + evidence collection)
+- Mode: Implementation
+- Git sync: `git pull --rebase` (clean after prior stash operations)
+- Key implementation:
+  - Added `from ptycho import params as legacy_params; from ptycho.config.config import update_legacy_dict` to `scripts/studies/sim_lines_4x/pipeline.py` and called `update_legacy_dict(legacy_params.cfg, train_config)` before `run_training()` and `update_legacy_dict(legacy_params.cfg, infer_config)` before `load_inference_bundle_with_backend()`.
+  - Extended the import in `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py` and inserted the same bridging calls in `main()` and `run_inference_and_reassemble()`.
+  - Reran gs1_ideal + gs2_ideal with `--prediction-scale-source least_squares` under hub `2026-01-20T160000Z/`, refreshed the analyzer outputs, and captured the pytest CLI smoke log.
+- Key findings:
+  - CONFIG-001 now enforced; bundle/legacy intensity_scale delta confirmed 0.0 in both scenarios.
+  - gs2_ideal healthy: no training NaNs, pearson_r=0.135, least_squares=1.911, fits_canvas=true.
+  - gs1_ideal still collapses at epoch 3 (normalized→prediction ratio=0, amplitude bias mean=-2.68) despite CONFIG-001 bridging, suggesting the issue is gridsize=1-specific numeric instability unrelated to params.cfg drift.
+- Commit: e1e84dba
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/ (bias_summary.*, gs*_ideal/*, pytest_cli_smoke.log)
+- Next: Investigate gs1_ideal NaN collapse root cause (gridsize=1 hypothesis) or pivot to core workflow normalization audit if amplitude bias persists.
