@@ -1,0 +1,30 @@
+{
+  "buffer": 10.0,
+  "custom_probe_path": "ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz",
+  "dose_experiments_defaults": {
+    "gridsize": 2,
+    "intensity_scale_trainable": true,
+    "max_position_jitter": 10,
+    "n_filters_scale": 2,
+    "nimgs_test": 2,
+    "nimgs_train": 2,
+    "object_big": true,
+    "offset": 4,
+    "outer_offset_test": 20,
+    "outer_offset_train": 8,
+    "probe_trainable": false
+  },
+  "gridsize": 2,
+  "group_count": 64,
+  "neighbor_count": 5,
+  "nphotons": 1000000000.0,
+  "object_seed": 42,
+  "object_size": 392,
+  "output_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T124212Z/dose_normalization",
+  "probe_mode": "custom",
+  "probe_scale": 4.0,
+  "scenario": "dose_legacy_gs2",
+  "sim_seed": 42,
+  "split_fraction": 0.5,
+  "total_images": 1024
+}
