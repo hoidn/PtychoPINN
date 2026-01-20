@@ -63,6 +63,7 @@ class ScenarioInput:
     training_summary: Path
     prediction_amplitude: Path
     ground_truth_amplitude: Path
+    prediction_amplitude_unscaled: Optional[Path] = None
 
 
 def parse_args() -> argparse.Namespace:
@@ -114,6 +115,7 @@ def build_scenario_input(name: str, base_dir: Path) -> ScenarioInput:
             )
         resolved[key] = candidate
 
+    unscaled_path = base_dir / "inference_outputs/amplitude_unscaled.npy"
     return ScenarioInput(
         name=name,
         base_dir=base_dir,
@@ -124,6 +126,7 @@ def build_scenario_input(name: str, base_dir: Path) -> ScenarioInput:
         training_summary=resolved["training_summary"],
         prediction_amplitude=resolved["prediction_amplitude"],
         ground_truth_amplitude=resolved["ground_truth_amplitude"],
+        prediction_amplitude_unscaled=unscaled_path if unscaled_path.exists() else None,
     )
 
 
@@ -434,10 +437,11 @@ def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
     stage_means = extract_stage_means(raw_stage_payloads)
     stage_ratios, largest_drop = build_stage_ratio_summary(stage_means, amplitude_metrics)
     scaling_analysis = compute_scaling_analysis(
-        scenario.prediction_amplitude,
+        scenario.prediction_amplitude_unscaled or scenario.prediction_amplitude,
         scenario.ground_truth_amplitude,
         amplitude_metrics,
     )
+    prediction_scale_meta = run_metadata.get("prediction_scale")
 
     offsets = (inference_stats.get("offsets") or {}).copy()
     inference_info = {
@@ -475,6 +479,11 @@ def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
             "training_summary": str(scenario.training_summary),
             "prediction_amplitude": str(scenario.prediction_amplitude),
             "ground_truth_amplitude": str(scenario.ground_truth_amplitude),
+            "prediction_amplitude_unscaled": (
+                str(scenario.prediction_amplitude_unscaled)
+                if scenario.prediction_amplitude_unscaled
+                else None
+            ),
         },
         "intensity": intensity_info,
         "comparison": {
@@ -483,6 +492,8 @@ def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
         },
         "normalization": normalization,
         "inference": inference_info,
+        "prediction_scale": prediction_scale_meta,
+        "prediction_scale_note": run_metadata.get("prediction_scale_note"),
         "training": training_info,
         "derived": {
             "stage_means": stage_means,
@@ -587,10 +598,10 @@ def render_markdown(summary: Mapping[str, Any]) -> str:
     if scenarios:
         lines.append(
             "| Scenario | Amp bias mean | Amp median | Phase bias mean | "
-            "Phase median | Bundle scale | Legacy scale | Δscale | Training NaN |"
+            "Phase median | Bundle scale | Legacy scale | Δscale | Scale mode | Training NaN |"
         )
         lines.append(
-            "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |"
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |"
         )
         for name, payload in scenarios.items():
             amp_bias = (payload.get("comparison", {})
@@ -600,10 +611,11 @@ def render_markdown(summary: Mapping[str, Any]) -> str:
                           .get("phase", {})
                           .get("bias_summary", {}) or {})
             intensity = payload.get("intensity", {})
+            scale_meta = payload.get("prediction_scale") or {}
             training = payload.get("training", {})
             lines.append(
                 "| {name} | {amp_mean} | {amp_med} | {phase_mean} | {phase_med} | "
-                "{bundle} | {legacy} | {delta} | {nan_flag} |".format(
+                "{bundle} | {legacy} | {delta} | {scale_mode} | {nan_flag} |".format(
                     name=name,
                     amp_mean=fmt_value(amp_bias.get("mean")),
                     amp_med=fmt_value(amp_bias.get("median")),
@@ -612,6 +624,7 @@ def render_markdown(summary: Mapping[str, Any]) -> str:
                     bundle=fmt_value(intensity.get("bundle")),
                     legacy=fmt_value(intensity.get("legacy_params")),
                     delta=fmt_value(intensity.get("absolute_delta")),
+                    scale_mode=scale_meta.get("mode") or "n/a",
                     nan_flag="Yes" if training.get("has_nan") else "No",
                 )
             )
@@ -627,6 +640,17 @@ def render_markdown(summary: Mapping[str, Any]) -> str:
             f"{fmt_value(intensity.get('legacy_params'))} "
             f"(Δ={fmt_value(intensity.get('absolute_delta'))})"
         )
+        scale_meta = payload.get("prediction_scale") or {}
+        if scale_meta:
+            lines.append(
+                "- Prediction scale: "
+                f"mode={scale_meta.get('mode')} "
+                f"value={fmt_value(scale_meta.get('value'))} "
+                f"source={scale_meta.get('source')}"
+            )
+        scale_note = payload.get("prediction_scale_note")
+        if scale_note:
+            lines.append(f"  * Note: {scale_note}")
         training = payload.get("training", {})
         nan_metrics = training.get("metrics_with_nan") or []
         lines.append(

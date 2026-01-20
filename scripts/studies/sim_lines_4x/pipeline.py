@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
-from pathlib import Path
-from typing import Dict, Optional, Tuple
 import json
 import logging
 import sys
 import time
+from dataclasses import dataclass, replace
+from pathlib import Path
+from typing import Any, Dict, Mapping, Optional, Tuple
 
 import numpy as np
 
@@ -19,6 +19,7 @@ from scripts.simulation.synthetic_helpers import (
 )
 
 CUSTOM_PROBE_PATH = Path("ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz")
+PREDICTION_SCALE_CHOICES = ("none", "recorded", "least_squares")
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,102 @@ class RunParams:
     nphotons: float = 1e9
     neighbor_count: int = 4
     reassemble_M: int = 20
+
+
+def _as_float(value: Any) -> Optional[float]:
+    if isinstance(value, (int, float)):
+        return float(value)
+    return None
+
+
+def compute_least_squares_scalar(
+    prediction: np.ndarray, truth: np.ndarray
+) -> Tuple[Optional[float], Dict[str, Any]]:
+    pred_vals = np.asarray(prediction, dtype=float).ravel()
+    truth_vals = np.asarray(truth, dtype=float).ravel()
+    mask = np.isfinite(pred_vals) & np.isfinite(truth_vals)
+    payload = {
+        "finite_count": int(mask.sum()),
+        "numerator": None,
+        "denominator": None,
+    }
+    if not mask.any():
+        return None, payload
+    pred_sel = pred_vals[mask]
+    truth_sel = truth_vals[mask]
+    numerator = float(np.sum(pred_sel * truth_sel))
+    denominator = float(np.sum(pred_sel * pred_sel))
+    payload.update({"numerator": numerator, "denominator": denominator})
+    if abs(denominator) <= 1e-12:
+        return None, payload
+    return numerator / denominator, payload
+
+
+def determine_prediction_scale(
+    mode: str,
+    recorded_scale: Optional[float],
+    prediction: np.ndarray,
+    truth: Optional[np.ndarray],
+) -> Dict[str, Any]:
+    info: Dict[str, Any] = {
+        "mode": mode,
+        "value": None,
+        "applied": False,
+        "source": None,
+        "recorded_scale": recorded_scale,
+    }
+    if mode == "none":
+        return info
+    if mode == "recorded":
+        if recorded_scale is None:
+            info["reason"] = "recorded_scale_unavailable"
+            return info
+        info.update({"value": recorded_scale, "applied": True, "source": "bundle"})
+        return info
+    if mode == "least_squares":
+        if truth is None:
+            info["reason"] = "least_squares_requires_ground_truth"
+            return info
+        scalar, payload = compute_least_squares_scalar(prediction, truth)
+        info["least_squares"] = payload
+        if scalar is None:
+            info["reason"] = "least_squares_undefined"
+            return info
+        info.update({"value": scalar, "applied": True, "source": "least_squares"})
+        return info
+    info["reason"] = f"unsupported_mode_{mode}"
+    return info
+
+
+def format_prediction_scale_note(scale_info: Optional[Mapping[str, Any]]) -> str:
+    if not scale_info:
+        return ""
+    if not scale_info.get("applied"):
+        return ""
+    value = _as_float(scale_info.get("value"))
+    mode = scale_info.get("mode") or "unknown"
+    if value is None:
+        return str(mode)
+    return f"{mode}={value:.4g}"
+
+
+def center_crop_square(array: np.ndarray, size: int) -> np.ndarray:
+    data = np.asarray(array)
+    if size <= 0:
+        raise ValueError("center crop size must be positive")
+    height, width = data.shape[:2]
+    if size > height or size > width:
+        raise ValueError(
+            f"center crop size {size} exceeds array dimensions {(height, width)}"
+        )
+    start_y = (height - size) // 2
+    start_x = (width - size) // 2
+    end_y = start_y + size
+    end_x = start_x + size
+    slices = (slice(start_y, end_y), slice(start_x, end_x))
+    if data.ndim > 2:
+        slices = slices + (slice(None),) * (data.ndim - 2)
+    return data[slices]
 
 
 def derive_counts(
@@ -127,7 +224,7 @@ def run_inference(
     probe_scale: float,
     probe_big: bool,
     probe_mask: bool,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, Dict[str, Optional[float]]]:
     from ptycho.config.config import InferenceConfig, ModelConfig
     from ptycho.workflows.backend_selector import load_inference_bundle_with_backend
     from ptycho import loader
@@ -156,9 +253,23 @@ def run_inference(
         gridsize=params_dict.get("gridsize", gridsize),
     )
     container = loader.load(lambda: grouped, test_data.probeGuess, which=None, create_split=False)
-    obj_tensor_full, global_offsets = nbutils.reconstruct_image(container, diffraction_to_obj=model)
-    obj_image = tf_helper.reassemble_position(obj_tensor_full, global_offsets, M=params.reassemble_M)
-    return np.abs(obj_image), np.angle(obj_image)
+    obj_tensor_full, global_offsets = nbutils.reconstruct_image(
+        container, diffraction_to_obj=model
+    )
+    obj_image = tf_helper.reassemble_position(
+        obj_tensor_full, global_offsets, M=params.reassemble_M
+    )
+    amplitude = np.abs(obj_image)
+    parameter_scale = params_dict.get("intensity_scale")
+    legacy_scale = None
+    metadata = container.metadata if hasattr(container, "metadata") else {}
+    if isinstance(metadata, dict):
+        legacy_scale = metadata.get("intensity_scale")
+    scale_meta: Dict[str, Optional[float]] = {
+        "bundle": _as_float(parameter_scale),
+        "legacy": _as_float(legacy_scale),
+    }
+    return amplitude, np.angle(obj_image), scale_meta
 
 
 def save_reconstruction(output_dir: Path, amplitude: np.ndarray, phase: np.ndarray) -> None:
@@ -180,6 +291,7 @@ def run_scenario(
     group_multiplier: int = 1,
     object_seed: Optional[int] = None,
     sim_seed: Optional[int] = None,
+    prediction_scale_source: str = "none",
 ) -> None:
     params = RunParams()
     if object_seed is not None or sim_seed is not None:
@@ -202,6 +314,10 @@ def run_scenario(
         scenario.gridsize,
         image_multiplier=image_multiplier,
     )
+    if prediction_scale_source not in PREDICTION_SCALE_CHOICES:
+        raise ValueError(
+            f"prediction_scale_source must be one of {PREDICTION_SCALE_CHOICES}"
+        )
     group_count = params.group_count * group_multiplier
     scenario_dir = output_root / scenario.name
     train_dir = scenario_dir / "train_outputs"
@@ -292,7 +408,7 @@ def run_scenario(
     run_training(train_raw, test_raw, train_config)
     save_training_bundle(train_dir)
 
-    amp, phase = run_inference(
+    amp, phase, scale_meta = run_inference(
         test_raw,
         model_dir=train_dir,
         gridsize=scenario.gridsize,
@@ -302,7 +418,35 @@ def run_scenario(
         probe_big=probe_big,
         probe_mask=probe_mask,
     )
-    save_reconstruction(inference_dir, amp, phase)
+    amplitude_unscaled = np.array(amp, copy=True)
+    amplitude_unscaled_path = inference_dir / "amplitude_unscaled.npy"
+    np.save(amplitude_unscaled_path, amplitude_unscaled.astype(np.float32))
+
+    amp_truth_full = np.abs(object_guess).astype(np.float32, copy=False)
+    pair_size = min(amplitude_unscaled.shape[0], amp_truth_full.shape[0])
+    amp_for_scale = center_crop_square(amplitude_unscaled, pair_size)
+    truth_for_scale = center_crop_square(amp_truth_full, pair_size)
+    recorded_scale = scale_meta.get("bundle")
+    if recorded_scale is None:
+        recorded_scale = scale_meta.get("legacy")
+    scale_info = determine_prediction_scale(
+        prediction_scale_source,
+        recorded_scale,
+        amp_for_scale,
+        truth_for_scale,
+    )
+    amp_scaled = amplitude_unscaled
+    scale_note = ""
+    if scale_info.get("applied") and _as_float(scale_info.get("value")) is not None:
+        amp_scaled = amplitude_unscaled * float(scale_info["value"])
+        scale_note = format_prediction_scale_note(scale_info)
+    save_reconstruction(inference_dir, amp_scaled, phase)
+    (inference_dir / "prediction_scale.txt").write_text(
+        f"Mode: {scale_info.get('mode')}\n"
+        f"Applied: {scale_info.get('applied')}\n"
+        f"Value: {scale_info.get('value')}\n"
+        f"Recorded scale: {scale_info.get('recorded_scale')}\n"
+    )
 
     metadata = {
         "scenario": scenario.name,
@@ -328,6 +472,13 @@ def run_scenario(
         "neighbor_count": params.neighbor_count,
         "nepochs": nepochs,
         "elapsed_seconds": round(time.time() - start_time, 2),
+        "prediction_scale": scale_info,
+        "amplitude_unscaled_path": str(amplitude_unscaled_path),
+        "prediction_scale_source": prediction_scale_source,
     }
+    if scale_note:
+        metadata["prediction_scale_note"] = scale_note
+    if scale_note:
+        metadata["prediction_scale_note"] = scale_note
     write_run_metadata(scenario_dir / "run_metadata.json", metadata)
     logger.info("Completed scenario: %s", scenario.name)

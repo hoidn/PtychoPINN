@@ -10,7 +10,11 @@ from typing import Dict, List, Tuple
 project_root = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(project_root))
 
-from scripts.studies.sim_lines_4x.pipeline import ScenarioSpec, run_scenario  # noqa: E402
+from scripts.studies.sim_lines_4x.pipeline import (  # noqa: E402
+    PREDICTION_SCALE_CHOICES,
+    ScenarioSpec,
+    run_scenario,
+)
 from scripts.studies.sim_lines_4x import evaluate_metrics  # noqa: E402
 
 
@@ -140,6 +144,12 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional path to write JSON summary (defaults to output-root).",
     )
+    parser.add_argument(
+        "--prediction-scale-source",
+        choices=PREDICTION_SCALE_CHOICES,
+        default="none",
+        help="Prediction scaling strategy applied during each scenario.",
+    )
     return parser.parse_args()
 
 
@@ -170,6 +180,7 @@ def main() -> None:
             group_multiplier=args.group_multiplier,
             object_seed=args.object_seed,
             sim_seed=args.sim_seed,
+            prediction_scale_source=args.prediction_scale_source,
         )
         scenario_dir = output_root / scenario_name
         metrics = None

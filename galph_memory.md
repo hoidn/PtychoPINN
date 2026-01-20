@@ -618,3 +618,13 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
   - Refreshed input.md with the new Do Now instructing Ralph to add the prediction-scale hook to `run_phase_c2_scenario.py` + `scripts/studies/sim_lines_4x/pipeline.py`, rerun gs1_ideal/gs2_ideal with least-squares scaling, and rerun the analyzer + pytest guard.
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T150500Z/ next_action=Implement C4e rescale hook + gs1/gs2 reruns + analyzer + CLI pytest guard
+
+# 2026-01-20T15:24:00Z: DEBUG-SIM-LINES-DOSE-001 — Prediction-scale stats persistence fix
+
+- dwell: 0 (fresh implementation loop)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 Phase C4e rescale prototype
+- Action type: Implementation (bug fix + regression test)
+- Summary: The Phase C2 runner appended `prediction_scale` to the in-memory stats dict after `save_stats()` had already written `stats.json`, so the file never reflected which scaling mode/value was applied. Extended `save_stats()` to accept optional `extra_fields` and updated the caller to pass the selected prediction-scale metadata so the JSON now records the scalar alongside amplitude/phase stats.
+- Tests: `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (log in `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T150500Z/pytest_cli_smoke.log`)
+- Artifacts/staging: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T150500Z/`
+- Next action: Continue Phase C4e validation (gs1/gs2 reruns with prediction-scale hook, analyzer refresh, pytest guard) now that stats capture the applied scalar.

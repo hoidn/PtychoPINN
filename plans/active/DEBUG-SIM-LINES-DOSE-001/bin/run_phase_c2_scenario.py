@@ -12,7 +12,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Mapping, Sequence, Tuple
+from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 import matplotlib
 
@@ -32,10 +32,13 @@ from scripts.simulation.synthetic_helpers import (
 )
 from scripts.studies.sim_lines_4x.pipeline import (
     CUSTOM_PROBE_PATH,
+    PREDICTION_SCALE_CHOICES,
     RunParams,
     ScenarioSpec,
     build_training_config,
     derive_counts,
+    determine_prediction_scale,
+    format_prediction_scale_note,
     run_training,
     save_training_bundle,
 )
@@ -59,7 +62,6 @@ STABLE_PROFILES: Dict[str, Dict[str, Any]] = {
         "neighbor_count": 4,
     },
 }
-
 
 def str2bool(value: str) -> bool:
     lowered = value.strip().lower()
@@ -121,6 +123,12 @@ def parse_args() -> argparse.Namespace:
         help="Override RunParams.base_total_images before gridsize scaling",
     )
     parser.add_argument("--batch-size", type=int, help="Override training batch size")
+    parser.add_argument(
+        "--prediction-scale-source",
+        choices=PREDICTION_SCALE_CHOICES,
+        default="none",
+        help="Prediction scaling strategy (none, recorded, least_squares).",
+    )
     return parser.parse_args()
 
 
@@ -962,6 +970,7 @@ def save_stats(
     offsets_summary: Dict[str, Any],
     padded_size: int,
     N_value: int,
+    extra_fields: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     amplitude_stats = compute_array_stats(amplitude)
     phase_stats = compute_array_stats(phase)
@@ -974,6 +983,8 @@ def save_stats(
         "required_canvas": required_canvas,
         "fits_canvas": required_canvas <= padded_size,
     }
+    if extra_fields:
+        stats.update(extra_fields)
     stats_path = output_dir / "stats.json"
     stats_path.write_text(json.dumps(stats, indent=2, sort_keys=True))
     return stats
@@ -1110,6 +1121,22 @@ def main() -> None:
     target_size = params.object_size
     amp, crop_metadata = center_crop(amp, target_size)
     phase, _ = center_crop(phase, target_size)
+    amplitude_unscaled = np.array(amp, copy=True)
+    amplitude_unscaled_path = inference_dir / "amplitude_unscaled.npy"
+    np.save(amplitude_unscaled_path, amplitude_unscaled.astype(np.float32))
+    recorded_scale = intensity_info.get("recorded_scale")
+    amp_truth_for_scale, _ = center_crop(np.abs(object_guess), target_size)
+    scale_info = determine_prediction_scale(
+        args.prediction_scale_source,
+        recorded_scale,
+        amplitude_unscaled,
+        amp_truth_for_scale,
+    )
+    scale_note = format_prediction_scale_note(scale_info)
+    if scale_info.get("applied") and isinstance(scale_info.get("value"), (int, float)):
+        amp = amplitude_unscaled * float(scale_info["value"])
+    else:
+        amp = amplitude_unscaled
     amplitude_path = inference_dir / "amplitude.npy"
     phase_path = inference_dir / "phase.npy"
     np.save(amplitude_path, amp.astype(np.float32))
@@ -1123,6 +1150,7 @@ def main() -> None:
         offsets_summary,
         padded_size=int(legacy_params.get_padded_size()),
         N_value=params.N,
+        extra_fields={"prediction_scale": scale_info},
     )
     stats["crop_metadata"] = crop_metadata
 
@@ -1134,7 +1162,7 @@ def main() -> None:
     save_png(
         amp,
         inference_dir / "amplitude.png",
-        f"{scenario.name} amplitude (vmax={amp_vmax:.3f})",
+        f"{scenario.name} amplitude {f'[{scale_note}]' if scale_note else ''} (vmax={amp_vmax:.3f})",
         cmap="magma",
         vmin=amp_vmin,
         vmax=amp_vmax,
@@ -1171,6 +1199,22 @@ def main() -> None:
         comparison_payload["metrics"]["amplitude"],
         comparison_payload["metrics"]["phase"],
         comparison_summary_path,
+    )
+
+    scale_note_path = inference_dir / "prediction_scale.txt"
+    scale_note_path.write_text(
+        json.dumps(
+            {
+                "mode": scale_info.get("mode"),
+                "value": scale_info.get("value"),
+                "applied": scale_info.get("applied"),
+                "source": scale_info.get("source"),
+                "recorded_scale": scale_info.get("recorded_scale"),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
     )
 
     metadata = {
@@ -1213,8 +1257,13 @@ def main() -> None:
             "phase_diff_npy": comparison_payload["artifacts"]["phase_diff_npy"],
             "phase_diff_png": comparison_payload["artifacts"]["phase_diff_png"],
             "comparison_summary": str(comparison_summary_path),
+            "prediction_scale_json": str(scale_note_path),
         },
     }
+    metadata["prediction_scale"] = scale_info
+    metadata["artifacts"]["amplitude_unscaled_npy"] = str(amplitude_unscaled_path)
+    if scale_note:
+        metadata["prediction_scale_note"] = scale_note
     metadata["training_history"] = {
         "history_json": str(history_path),
         "summary_json": str(history_summary_path),
@@ -1243,6 +1292,7 @@ def main() -> None:
         legacy_intensity_scale=intensity_info.get("legacy_params_intensity_scale"),
         scenario_dir=scenario_dir,
     )
+    intensity_record["prediction_scale"] = scale_info
     metadata["intensity_stats"] = intensity_record
     metadata["intensity_stats_path"] = intensity_record.get("json_path")
     metadata["intensity_stats_markdown"] = intensity_record.get("markdown_path")
