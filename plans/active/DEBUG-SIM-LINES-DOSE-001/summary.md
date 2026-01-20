@@ -1,5 +1,12 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
+### Turn Summary (Documentation Handoff 2026-01-20 — Ralph)
+Created final_summary.md documenting the initiative outcome, root cause (CONFIG-001), fix (C4f bridging), and verification evidence.
+Added SIM-LINES-CONFIG-001 to docs/findings.md as a knowledge base entry with links to the final summary.
+CLI smoke test passed confirming all sim_lines imports remain healthy after documentation updates.
+Next: Supervisor marks DEBUG-SIM-LINES-DOSE-001 as done in docs/fix_plan.md and selects the next focus.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T103144Z/ (final_summary.md, pytest_cli_smoke.log)
+
 ### Turn Summary (NaN Debugging COMPLETE 2026-01-20T103144Z)
 **MILESTONE: NaN debugging is COMPLETE.** Supervisor review confirmed B0f isolation test results and closed the NaN debugging scope.
 Root cause confirmed: CONFIG-001 violation (stale `params.cfg` values not synced before training/inference).
