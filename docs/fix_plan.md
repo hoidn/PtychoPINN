@@ -196,3 +196,7 @@
     - Metrics: `ruff check scripts/orchestration/orchestrator.py scripts/orchestration/tests/test_orchestrator.py`, `pytest --collect-only scripts/orchestration/tests/test_orchestrator.py -v`, `pytest scripts/orchestration/tests/test_orchestrator.py -v`
     - Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T034106Z/{ruff_check.log,pytest_collect_orchestrator.log,pytest_orchestrator.log,summary.md}`
     - Next Actions: decide whether to run the broader regression suite to satisfy the full-suite exit criterion.
+  - *2026-01-20T034858Z:* Added role-mode guard/forwarding tests (role required, sync required, prompt env forwarding) and refreshed test registry.
+    - Metrics: `ruff check scripts/orchestration/tests/test_orchestrator.py`, `pytest --collect-only scripts/orchestration/tests/test_orchestrator.py -v`, `pytest scripts/orchestration/tests/test_orchestrator.py -v`
+    - Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T034858Z/{ruff_check.log,pytest_collect_orchestrator.log,pytest_orchestrator.log,summary.md}`
+    - Next Actions: decide whether to run the broader regression suite to satisfy the full-suite exit criterion.

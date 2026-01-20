@@ -19,3 +19,7 @@ Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T032929Z/
 ### Update (2026-01-20)
 Hardened combined-mode error handling (prompt/router selection failures), aligned logdir defaults with config, and forwarded role-mode prompt overrides. Added regression tests for missing prompt and router_only-without-output.
 Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T034106Z/
+
+### Update (2026-01-20)
+Added role-mode guardrail/forwarding tests and refreshed the test suite index for the new selectors.
+Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T034858Z/
