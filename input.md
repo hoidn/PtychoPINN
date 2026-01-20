@@ -1,48 +1,50 @@
-Summary: Extend the Phase D4 analyzer so we can see exactly how the gs2 baseline vs 60-epoch runs allocate loss weight and where the normalized→prediction pipeline drops amplitude.
+Summary: Capture IntensityScaler + training-container telemetry so Phase D4 can prove whether the architecture is double-scaling normalized inputs before we touch production physics.
 Focus: DEBUG-SIM-LINES-DOSE-001 — Phase D4 architecture/loss diagnostics
 Branch: paper
 Mapped tests: pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T162500Z/
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T173500Z/
 
 Do Now (hard validity contract):
-- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py::main — teach the analyzer to parse each scenario’s `train_outputs/history_summary.json`, compute a loss-composition section (pred_intensity_loss vs intensity_scaler_inv_loss vs trimmed_obj_loss and learning-rate context per `specs/spec-ptycho-workflow.md §Training Outputs`), and expand the stage-ratio summary so normalized→prediction and prediction→truth deltas cite `specs/spec-ptycho-core.md §Normalization Invariants`. After updating the script, run `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py --scenario gs2_base=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs2_ideal --scenario gs2_ne60=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60 --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T162500Z | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T162500Z/analyze_loss_wiring.log` so we get refreshed `bias_summary.{json,md}` plus Markdown blocks highlighting the loss makeup and the stage where amplitude collapses.
+- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py::{run_scenario,write_intensity_stats_outputs} — add helpers that snapshot the trained IntensityScaler state (params.cfg value, trainable flag, exp(log_scale)) plus the training-container X stats into `run_metadata.json` and `intensity_stats.{json,md}`, then re-run the gs2 baseline (5-epoch) and gs2_ideal_nepochs60 scenarios under the new hub so both runs emit the enriched telemetry alongside their existing inference artifacts.
+- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py::render_markdown — parse the new scaler/train-container fields, fold them into the JSON payload, and surface an “IntensityScaler state” section in the Markdown before regenerating the gs2_base vs gs2_ne60 comparison for the fresh evidence hub.
 - Validate: pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T173500Z/
 
 How-To Map:
-1. `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md HUB=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T162500Z BASE=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs2_ideal LONG=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60`
-2. Implement analyzer updates (loss-composition parsing + stage-ratio Markdown). Keep changes scoped to `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py` and add any helper functions within the same file.
-3. Re-run the analyzer: `python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py --scenario gs2_base="$BASE" --scenario gs2_ne60="$LONG" --output-dir "$HUB" | tee "$HUB"/analyze_loss_wiring.log`. Confirm the generated `bias_summary.json` now contains `loss_composition` and the Markdown highlights which stage ratio deviates most.
-4. Copy the refreshed Markdown/JSON plus the tee’d log into `$HUB` and mention the findings in `summary.md` when the loop closes.
-5. Guard selector: `python -m pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v | tee "$HUB"/pytest_cli_smoke.log`.
+1. `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md HUB=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T173500Z`.
+2. After coding, run the baseline scenario: `python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py --scenario gs2_ideal --output-dir "$HUB"/gs2_ideal --group-limit 64 --prediction-scale-source least_squares | tee "$HUB"/gs2_ideal_runner.log`.
+3. Run the 60-epoch variant: `python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py --scenario gs2_ideal --nepochs 60 --output-dir "$HUB"/gs2_ideal_nepochs60 --group-limit 64 --prediction-scale-source least_squares | tee "$HUB"/gs2_ideal_nepochs60_runner.log`.
+4. Regenerate the analyzer report with the new metadata: `python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py --scenario gs2_base="$HUB"/gs2_ideal --scenario gs2_ne60="$HUB"/gs2_ideal_nepochs60 --output-dir "$HUB" | tee "$HUB"/analyze_intensity_scaler.log`.
+5. Guard selector: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v | tee "$HUB"/pytest_cli_smoke.log`.
 
 Pitfalls To Avoid:
-- Do not touch production modules under `ptycho/` or `scripts/studies/`; all diagnostics stay inside plan-local tooling.
-- Reuse the existing scenario outputs; do **not** retrain — the analyzer can read the saved `train_outputs/` bundles directly.
-- Keep ratios/metrics float-safe (guard against divide-by-zero) and cite the exact spec sections in Markdown so reviewers can trace requirements.
-- Preserve prior analyzer outputs; write new files under the fresh hub instead of overwriting older evidence.
-- Ensure CLI args remain backwards compatible (no behavioral change when new section disabled) so downstream automation keeps working.
-- Remember SIM-LINES-CONFIG-001: never remove the CONFIG-001 bridge calls from the runner even though we’re only updating the analyzer.
-- Avoid CPU training/inference — we’re only reading artifacts so no new GPU work is required.
-- Keep JSON deterministic (sort keys) so diffs stay reviewable.
-- Include scenario names in the new Markdown tables so gs2_base vs gs2_ne60 comparisons are obvious.
-- Update docs/fix_plan.md only after analyzer artifacts exist; don’t pre-emptively mark D4 progress without evidence.
+- Stay plan-local: do not modify `ptycho/model.py`, `ptycho/diffsim.py`, or `ptycho/tf_helper.py` (Directive #6).
+- Keep CONFIG-001 bridging intact; never move the `update_legacy_dict` calls or reuse stale params when rerunning the scenarios.
+- Avoid double-writing artifacts — write only under the new hub and leave prior evidence untouched for diffability.
+- Training must stay on GPU; if CUDA is unavailable, stop and report instead of attempting CPU runs.
+- Ensure new JSON fields are serializable scalars (use `_serialize_scalar`) to prevent NumPy types from leaking into metadata.
+- Reference the exact spec clauses (`specs/spec-ptycho-core.md §Normalization Invariants`, `specs/spec-ptycho-workflow.md §Loss and Optimization`) in Markdown so reviewers can trace requirements.
+- Rerun commands with deterministic seeds (reuse the snapshot and baked profiles) so diffs isolate the instrumentation, not random noise.
+- Don’t forget to include the new scaler metadata inside both `run_metadata.json` and `intensity_stats.json`; analyzer relies on both for cross-checks.
+- Keep analyzer extensions backwards compatible — existing scenario bundles without the new fields should still render without exploding.
+- Capture stdout/stderr via `tee` so we have logs ready for the artifacts folder per TEST-CLI-001.
 
 If Blocked:
-- If either scenario directory is missing files, record the missing path + stack trace in `$HUB/blocker.md`, update docs/fix_plan.md Attempts History with the blocker, and stop so we can restage the evidence rather than guessing.
+- If either scenario rerun OOMs or TensorFlow crashes, stop immediately, copy the failing command + stack trace into `$HUB/blocker.md`, and note the blocker (with log paths) in docs/fix_plan.md Attempts History so we can decide whether to shrink workloads before retrying.
 
 Findings Applied (Mandatory):
-- CONFIG-001 — Analyzer must continue to respect the params.cfg bridge; do not remove the runner sync points.
-- SIM-LINES-CONFIG-001 — All sim_lines tooling assumes CONFIG-001 bridging before loader/model usage; analyzer updates cannot change that contract.
-- NORMALIZATION-001 — Stage-ratio reporting must keep normalization invariants separated from loss scaling to avoid mixing the three normalization domains.
-- H-NEPOCHS-001 — Training length was ruled out as the root cause, so D4 instrumentation must pivot to loss/architecture diagnostics rather than proposing another retrain.
+- CONFIG-001 — Bridge params.cfg before every training/inference call to keep legacy modules in sync.
+- SIM-LINES-CONFIG-001 — The sim_lines runner must continue calling `update_legacy_dict` inside the helper so NaN fixes remain active.
+- NORMALIZATION-001 — Treat normalization telemetry as physics-normalization only; do not mix statistical/display scaling while summarizing stage ratios.
+- TEST-CLI-001 — Archive the CLI/pytest logs under the hub and cite the selector so reviewers can audit the guard evidence.
 
 Pointers:
-- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:359 — D4 checklist + architecture/loss verification scope.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md:1-20 — Current status + D3b outcome (H-NEPOCHS rejected).
-- docs/fix_plan.md:3-20,256-268 — Active focus description + Phase D3 attempts history.
-- specs/spec-ptycho-core.md#Normalization-Invariants — Stage ratio + invariant requirements.
-- specs/spec-ptycho-workflow.md#training-outputs — Loss component logging obligations for training telemetry.
+- docs/fix_plan.md:1-200 — Active focus description + Phase D Attempts History for context.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:320 — Phase D checklist (D4 scope + exit criteria).
+- plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T162500Z/summary.md:1 — Latest D4 findings (loss composition + next steps).
+- specs/spec-ptycho-core.md:86 — Normalization invariant contract (defines how stage ratios should behave).
+- specs/spec-ptycho-workflow.md:1-80 — Loss & intensity-scaler architecture references that the new Markdown section must cite.
 
 Next Up (optional):
-1. If the loss-composition data shows normalized→prediction collapse, plan a plan-local probe that taps into `nbutils.reconstruct_image` to capture pre/post IntensityScaler tensors.
-2. If analyzer proves only the intensity-scaler loss is active, prepare a follow-up loop to compare the sim_lines loss wiring vs the legacy `dose_experiments` script at the code level.
+1. If scaler telemetry still shows symmetry, pivot to gs1_ideal to see whether gridsize=1 diverges before prediction.
+2. If a mismatch appears between bundle vs layer scale, prep a follow-up loop to bisect `_get_log_scale()` usage inside `ptycho/train_pinn.prepare_inputs`.

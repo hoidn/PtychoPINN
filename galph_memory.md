@@ -1031,3 +1031,26 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T162500Z/ (planning hub)
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T162500Z/ next_action=Extend analyzer with loss-composition + stage-ratio summaries for gs2 baseline vs 60-epoch runs and rerun the CLI guard
+# 2026-01-20T17:35:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase D4 IntensityScaler instrumentation handoff
+
+- dwell: 2 (second consecutive planning/docs loop on this focus — next loop must execute the delegated code/tests)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 Phase D4 — need IntensityScaler + training-container telemetry before changing physics
+- Action type: Planning → Implementation handoff (instrumentation scope)
+- Mode: Implementation
+- Git sync: `git stash push -u -m 'galph-20260121-loop' && timeout 30 git pull --rebase && git stash pop`
+- Documents reviewed: docs/index.md; docs/fix_plan.md; docs/findings.md (CONFIG-001, NORMALIZATION-001, SIM-LINES-CONFIG-001, H-NEPOCHS-001); plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md,test_strategy.md}; specs/spec-ptycho-core.md §Normalization Invariants; specs/spec-ptycho-workflow.md §Loss and Optimization; docs/TESTING_GUIDE.md; scripts/plan-local bin tools (run_phase_c2_scenario.py, analyze_intensity_bias.py)
+- Key updates:
+  - Chose the next D4 increment: add plan-local instrumentation that snapshots the trained IntensityScaler value and the training-container X stats so we can prove whether the architecture is double-scaling inputs.
+  - Reserved artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T173500Z/` for the rerun logs, analyzer outputs, and pytest guard.
+  - Authored `input.md` with concrete commands covering runner/analyzer edits, gs2 baseline + 60-epoch reruns, analyzer regeneration, and the CLI smoke selector.
+- Decisions:
+  - Keep all changes in plan-local tooling; production physics modules remain untouched until telemetry proves a mismatch.
+  - Reuse the gs2_ideal scenarios (5-epoch and 60-epoch) so we can compare IntensityScaler state across identical workloads.
+- Next Actions for Ralph:
+  1. Update `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py` to capture IntensityScaler metadata (`params.cfg` value, log_scale, exp(log_scale), trainable flag) plus training-container stats into `run_metadata.json` and `intensity_stats.{json,md}`.
+  2. Extend `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py` so it parses the new fields, includes them in JSON, and renders an “IntensityScaler state” section in Markdown.
+  3. Rerun gs2_ideal (5-epoch) and `gs2_ideal_nepochs60` with `--prediction-scale-source least_squares`, then regenerate the analyzer report under the new hub and capture the CLI smoke pytest log.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=2 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T173500Z/ next_action=Instrument run_phase_c2_scenario.py + analyzer, rerun gs2 baseline vs 60-epoch scenarios, and archive analyzer/pytest evidence under the new hub
+
+---
