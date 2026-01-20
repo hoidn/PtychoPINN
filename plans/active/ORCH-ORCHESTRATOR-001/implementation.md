@@ -5,7 +5,7 @@
 - Title: Combined orchestrator entrypoint + shared runner refactor
 - Owner: user + Codex
 - Spec Owner: scripts/orchestration/README.md
-- Status: pending
+- Status: in_progress (Phase C tests complete; full-suite regression gate pending)
 
 ## Goals
 - Add a single orchestrator entrypoint that can drive both supervisor and main prompts using the router.
@@ -78,6 +78,7 @@
       Test: N/A — planning artifact (`plans/active/ORCH-ORCHESTRATOR-001/test_strategy.md`)
 - [x] A2: Add failing tests for combined-mode ordering and review cadence (TDD nucleus).
       Test: `scripts/orchestration/tests/test_orchestrator.py::test_combined_sequence`
+      Evidence: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T032929Z/pytest_orchestrator.log`
 
 ### Dependency Analysis (Required for Refactors)
 - **Touched Modules:** `scripts/orchestration/supervisor.py`, `scripts/orchestration/loop.py`, `scripts/orchestration/router.py`, new `scripts/orchestration/runner.py`, new `scripts/orchestration/orchestrator.py`
@@ -90,11 +91,14 @@
 ## Phase B — Implementation
 ### Checklist
 - [x] B1: Extract shared prompt execution + router selection into `runner.py`; update supervisor/loop to call shared helper.
-      Test: `scripts/orchestration/tests/test_router.py::test_router_deterministic`
+      Test: `scripts/orchestration/tests/test_router.py::test_router_deterministic`, `scripts/orchestration/tests/test_orchestrator.py::test_router_disabled_uses_actor_prompts`
+      Evidence: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T032929Z/pytest_orchestrator.log`
 - [x] B2: Implement `orchestrator.py` CLI with combined mode + role-gated sync mode; add wrapper script.
       Test: `scripts/orchestration/tests/test_orchestrator.py::test_combined_sequence`
+      Evidence: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T032929Z/pytest_orchestrator.log`
 - [x] B3: Enforce galph-only review cadence + router override (ralph deterministic only).
-      Test: `scripts/orchestration/tests/test_orchestrator.py::test_review_cadence_single`
+      Test: `scripts/orchestration/tests/test_orchestrator.py::test_review_cadence_single`, `scripts/orchestration/tests/test_orchestrator.py::test_router_override_galph_only`
+      Evidence: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T032929Z/pytest_orchestrator.log`
 
 ### Notes & Risks
 - Ensure sync-via-git guardrails mirror supervisor/loop (pull/push + dirty-tree handling).
@@ -103,8 +107,10 @@
 ### Checklist
 - [x] C1: Complete orchestrator tests + collect-only verification.
       Test: `pytest --collect-only scripts/orchestration/tests/test_orchestrator.py -v`
+      Evidence: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T032929Z/pytest_collect_orchestrator.log`
 - [x] C2: Run orchestrator test module.
       Test: `pytest scripts/orchestration/tests/test_orchestrator.py -v`
+      Evidence: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T032929Z/pytest_orchestrator.log`
 - [x] C3: Update docs (`scripts/orchestration/README.md`, `docs/index.md`, `docs/TESTING_GUIDE.md`, `docs/development/TEST_SUITE_INDEX.md`).
       Test: N/A — documentation-only
 

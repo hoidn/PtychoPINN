@@ -68,7 +68,7 @@ This document provides a comprehensive index of the automated tests in the `test
 | :--- | :--- | :--- | :--- | :--- |
 
 | `scripts/orchestration/tests/test_router.py` | Deterministic routing decisions, router modes, and override behavior. | `test_router_deterministic`, `test_router_prompt_override` | `pytest scripts/orchestration/tests/test_router.py -v` | Lightweight router coverage for orchestration submodule. |
-| `scripts/orchestration/tests/test_orchestrator.py` | Combined orchestrator sequencing and review cadence gating. | `test_combined_sequence`, `test_review_cadence_single` | `pytest scripts/orchestration/tests/test_orchestrator.py -v` | Uses stubbed prompt execution; no external processes. |
+| `scripts/orchestration/tests/test_orchestrator.py` | Combined orchestrator sequencing, router override gating, and review cadence handling. | `test_combined_sequence`, `test_review_cadence_single`, `test_router_override_galph_only`, `test_router_disabled_uses_actor_prompts` | `pytest scripts/orchestration/tests/test_orchestrator.py -v` | Uses stubbed prompt execution; no external processes. |
 
 ### Image Tests (`tests/image/`)
 

@@ -11,3 +11,7 @@ Artifacts: plans/active/ORCH-ORCHESTRATOR-001/{design.md,implementation.md,test_
 Implemented the shared runner, combined orchestrator entrypoint + wrapper, and updated supervisor/loop to reuse the runner utilities.
 Added orchestrator tests for combined sequencing and review cadence; refreshed orchestration docs and test registries.
 Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T032058Z/
+
+### Update (2026-01-20)
+Added router-override and router-disabled coverage to the orchestrator tests and refreshed plan evidence links.
+Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T032929Z/
