@@ -864,3 +864,21 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Tests: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
 - <Action State>: [complete]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=D1_corrected dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/ next_action=either inspect legacy params.cfg defaults or proceed to D2 (normalization parity)
+
+# 2026-01-20T16:40:00Z: DEBUG-SIM-LINES-DOSE-001 — D1 legacy defaults handoff
+
+- dwell: 2 (second consecutive planning/docs loop on this focus; next turn must ship code)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 Phase D1 — prove loss-config parity by capturing `ptycho.params.cfg` defaults
+- Action type: Planning → Implementation handoff | Mode: Implementation
+- Git sync: `git stash push -u -m 'galph-20260120-loop' && timeout 30 git pull --rebase && git stash pop`
+- Documents reviewed: docs/index.md, docs/findings.md, docs/fix_plan.md, docs/DEVELOPER_GUIDE.md (§3.5 normalization), docs/DATA_NORMALIZATION_GUIDE.md, docs/debugging/debugging.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, specs/spec-ptycho-workflow.md, specs/spec-ptycho-core.md (§Normalization Invariants), plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/compare_sim_lines_params.py, ptycho/params.py:64.
+- Key observations:
+  - The Phase D1 runtime capture now shows `loss_fn='nll'` leaves mae/nll weights unset, so we still need authoritative evidence that the framework defaults match TrainingConfig.
+  - `ptycho/params.py:64` defines `mae_weight=0.0` / `nll_weight=1.0` (plus realspace weights 0), matching the dataclass defaults; once we record these values in the diff artifacts we can formally close D1 and move to normalization parity.
+- Key decisions:
+  - Extend the plan-local `compare_sim_lines_params.py` CLI with a helper that deep-copies `ptycho.params.cfg` so the Markdown/JSON report includes the real defaults, plus emit a standalone `legacy_params_cfg_defaults.json` artifact.
+  - Allocate artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T170000Z/` for the refreshed diff, defaults snapshot, pytest log, and summary citing `ptycho/params.py`.
+  - Hand off an implementation Do Now (input.md) directing Ralph to land the CLI changes, rerun the diff, write the summary, and keep the sim_lines CLI smoke test green.
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T170000Z/`
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=2 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T170000Z/ next_action=Ralph updates compare_sim_lines_params.py to capture params.cfg defaults, regenerates diff outputs + summary, and reruns the CLI pytest guard

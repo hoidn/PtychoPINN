@@ -1,57 +1,65 @@
-# DEBUG-SIM-LINES-DOSE-001 — Phase D1 Loss Config Validation
-
 ## Summary
-Capture the actual `dose_experiments` loss weights (default `loss_fn='nll'` plus the MAE override branch) and fix the comparison CLI so conditional assignments stop masquerading as defaults before we adjust sim_lines losses.
+Close Phase D1 by proving the legacy `ptycho.params.cfg` defaults match the sim_lines loss weights so we can move on to normalization work.
 
 ## Focus
-DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy (Phase D amplitude bias investigation)
+DEBUG-SIM-LINES-DOSE-001 — Phase D amplitude bias investigation
 
 ## Branch
 paper
 
-## Mapped Tests
-`pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+## Mapped tests
+- pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
 
 ## Artifacts
-`plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/`
+plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T170000Z/
 
-## Do Now (Phase D1a–D1c)
-- Implement: `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/compare_sim_lines_params.py::main` — add helpers that execute the captured `dose_experiments_param_scan.md` module in-process with a stubbed `ptycho.params.cfg`, call `init()` twice (`loss_fn='nll'` and `'mae'`), and record the resulting cfg dictionaries without touching the production environment. Use the `loss_fn='nll'` snapshot as the canonical legacy baseline in the existing Markdown/JSON diff and add a new section emitting both loss modes so conditional assignments (MAE branch) are clearly labeled.
-- Capture: Write the raw legacy snapshots to `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/dose_loss_weights.json` plus a short Markdown summary explaining which weights change between `nll` and `mae`. Rerun the CLI command: `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/compare_sim_lines_params.py --snapshot plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json --dose-config plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/dose_experiments_param_scan.md --output-markdown plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/loss_config_diff.md --output-json plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/loss_config_diff.json`.
-- Validate: Re-run the CLI smoke guard via `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v 2>&1 | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/pytest_cli_smoke.log`, then update `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/summary.md` with the corrected loss-weight interpretation and note whether H-LOSS-WEIGHT remains viable.
+## Do Now — DEBUG-SIM-LINES-DOSE-001.D1 (Loss-config parity)
+- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/compare_sim_lines_params.py::main — extend the CLI with a helper that deep-copies `ptycho.params.cfg` so the Markdown/JSON diff includes the real framework defaults (mae_weight/nll_weight/realspace_*); add a `--output-legacy-defaults` flag that writes those values to the artifacts hub alongside the existing runtime loss snapshots.
+- Verify: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T170000Z/pytest_cli_smoke.log
+- Archive: Re-run `compare_sim_lines_params.py` with the sim_lines snapshot + `dose_experiments_param_scan.md`, writing the refreshed `loss_config_diff.{md,json}`, `dose_loss_weights.json`, new `legacy_params_cfg_defaults.json`, and a short `summary.md` noting the matching defaults (cite ptycho/params.py:64) under plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T170000Z/.
 
 ## How-To Map
-1. **Stub the legacy cfg safely** — Import `sys`, `types`, and `importlib.util`. Before executing the captured script, save `sys.modules['ptycho.params']`, register a lightweight module (`types.ModuleType('ptycho.params')`) exposing a dict `cfg = {}` plus any attributes the script expects, and restore the original module in a `finally` block so the real `params.cfg` stays untouched.
-2. **Load and call `init()` twice** — Use `runpy.run_path` or `exec(compile(...), module_dict)` to load `dose_experiments_param_scan.md`, retrieve its `init` function, and call it with `nphotons=1e9` (matches the snapshot) for both `loss_fn` options. Deep-copy the stub cfg after each call so you can emit JSON (keys sorted for repeatability) and Markdown tables describing the legacy defaults.
-3. **Integrate with the diff** — Replace the previous `parse_dose_config()` output with the captured `loss_fn='nll'` snapshot, add a `dose_loss_modes` entry in the JSON payload (`{"nll": {...}, "mae": {...}}`), and append a Markdown section that tabulates `mae_weight/nll_weight/realspace_*` per loss_fn with clear labels such as “legacy override when loss_fn='mae'”. Keep the existing scenario table unchanged except for removing the misleading MAE delta.
-4. **Archive evidence** — Save `dose_loss_weights.json` + `.md` beside the refreshed diff outputs, mention the corrected interpretation in `summary.md`, and ensure the pytest log lands under the same hub for traceability.
+1. Edit plans/active/DEBUG-SIM-LINES-DOSE-001/bin/compare_sim_lines_params.py: add `capture_legacy_params_defaults()` (imports `from ptycho import params as legacy_params`, returns deep copy of cfg keys), wire `--output-legacy-defaults`, and update the Markdown/JSON builders to append a "Legacy params.cfg defaults" table + JSON node when defaults are captured.
+2. Re-run the diff:
+   ```bash
+   AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/compare_sim_lines_params.py \
+     --snapshot plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json \
+     --dose-config plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/dose_experiments_param_scan.md \
+     --output-markdown plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T170000Z/loss_config_diff.md \
+     --output-json plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T170000Z/loss_config_diff.json \
+     --output-dose-loss-weights plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T170000Z/dose_loss_weights.json \
+     --output-legacy-defaults plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T170000Z/legacy_params_cfg_defaults.json
+   ```
+3. Summarize findings in plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T170000Z/summary.md (reference that `ptycho/params.py:64` sets mae_weight=0, nll_weight=1, matching TrainingConfig defaults) so we can mark D1 complete.
+4. Run the pytest selector and stash the log as noted above.
 
 ## Pitfalls To Avoid
-- Do not leave the stubbed `ptycho.params` module in `sys.modules`; always restore it even if `init()` raises.
-- Never mutate or serialize the real `params.cfg`; work with copies inside the stub so production code stays untouched.
-- Avoid executing heavy functions from the legacy script (only call `init()`), otherwise you may import unavailable TensorFlow Addons stubs.
-- Keep the CLI backward compatible: flags and JSON schema should extend rather than break earlier consumers.
-- Clearly mark conditional values in Markdown; do not imply MAE branch weights apply to default runs.
-- Remember to set `AUTHORITATIVE_CMDS_DOC` on every CLI/pytest command.
-- Store every generated artifact (JSON/MD/pytest log) under the 2026-01-20T112029Z hub without overwriting prior evidence.
-- Use deterministic ordering when dumping JSON so future diffs stay stable.
-- Run the pytest guard after regenerating the diff to prove imports still work.
+- Do NOT mutate `ptycho.params.cfg`; copy values then leave globals untouched.
+- Keep the stubbed `execute_legacy_init_with_stubbed_cfg` path intact—new defaults capture must not break Phase D1a logic.
+- Reference file paths via repo root; no absolute `/tmp` outputs except existing TrainingConfig placeholders.
+- Maintain JSON determinism (sort keys) so diffs stay reviewable.
+- Ensure new CLI args have defaults so existing automation (reports/2026-01-20T110227Z) can be reproduced later.
+- Avoid introducing dependency on environment-specific interpreters; run via PATH `python` per PYTHON-ENV-001.
+- Guard new markdown sections with clear headings; reviewers expect separate “runtime vs defaults” sections.
+- Remember CONFIG-001: never call legacy modules with partially constructed configs (read-only copy is safe).
+- Don’t skip the pytest guard even though changes touch only plan-local tooling.
+- Keep artifacts small/plaintext; large raw dumps belong under .artifacts/ per hygiene rules.
 
 ## If Blocked
-Capture the failing command plus traceback under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/blocker.log`, note whether the blocker is due to module import or script execution, and update docs/fix_plan.md Attempts History + plan summary before pausing the focus.
+Capture the exact failure (traceback or CLI output) in plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T170000Z/blocker.log, note whether the import of `ptycho.params` or the CLI run failed, and ping me so we can decide whether to fall back to manual code citation.
 
-## Findings Applied (Mandatory)
-- CONFIG-001 — Stubbed execution must not desync the real `params.cfg`; restore the module immediately after snapshotting.
-- NORMALIZATION-001 — We are validating loss weights before touching normalization, preserving the policy of changing one axis at a time.
-- SIM-LINES-CONFIG-001 — Keep the sim_lines pipeline import guard running to ensure CONFIG-001 bridging stays intact while the CLI evolves.
+## Findings Applied
+- CONFIG-001 — treat legacy `params.cfg` as source of truth; copy values without mutating shared state before comparing against dataclass configs.
+- NORMALIZATION-001 — reiterates that amplitude bias stems from normalization/loss pathways, hence we must prove loss weights truly match before moving to normalization probes.
+- SIM-LINES-CONFIG-001 — all sim_lines runners/scripts must continue calling `update_legacy_dict` before legacy hand-offs; today’s tooling update should reinforce that assumption by showing defaults already align.
 
 ## Pointers
-- `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:320` — Phase D checklist with new D1a–D1c tasks.
-- `docs/fix_plan.md:205` — Attempts history entries describing the D1 correction.
-- `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/compare_sim_lines_params.py:1` — CLI to update with legacy snapshot logic.
-- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/dose_experiments_param_scan.md:1` — Captured legacy script whose `init()` we need to execute.
+- specs/spec-ptycho-core.md:86 — Normative loss composition + normalization invariants.
+- docs/DEVELOPER_GUIDE.md:157 — Three-tier normalization architecture (physics vs statistical vs display).
+- docs/DATA_NORMALIZATION_GUIDE.md:1 — Detailed normalization responsibilities and pitfalls.
+- docs/findings.md:CONFIG-001/SIM-LINES-CONFIG-001 entries — prior evidence that cfg sync fixes NaNs.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:320 — Phase D checklist defining D1 deliverables.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/summary.md — Existing runtime loss-mode evidence that needs the params.cfg corroboration.
 
-## Next Up (Optional)
-1. Phase D2 — instrumentation for normalization parity once loss weights are confirmed.
-2. Phase D3 — hyperparameter delta audit (epochs, batch size, scheduler) if H-LOSS-WEIGHT is cleared.
-
+## Next Up (optional)
+- DEBUG-SIM-LINES-DOSE-001.D2 — instrument normalization stage parity once loss weights are definitively ruled out.
