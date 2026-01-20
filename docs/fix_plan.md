@@ -1,6 +1,6 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-16 (Phase B4 reassembly instrumentation scoped)
+**Last Updated:** 2026-01-20 (ORCH-ROUTER Phase D router-only mode complete)
 **Active Focus:** ORCH-ROUTER-001 — Router prompt + orchestration dispatch layer
 
 ---
@@ -122,7 +122,7 @@
 ### [ORCH-ROUTER-001] Router prompt + orchestration dispatch layer
 - Depends on: None
 - Priority: Medium
-- Status: in_progress — Phase B implementation (B1 deterministic router)
+- Status: done — Phase C verification complete (ready for archive)
 - Owner/Date: Codex/2026-01-20
 - Working Plan: `plans/active/ORCH-ROUTER-001/implementation.md`
 - Summary: `plans/active/ORCH-ROUTER-001/summary.md`
@@ -146,4 +146,14 @@
   - *2026-01-20T013928Z:* Implemented deterministic router entrypoint + wrapper, added pytest coverage, and updated test registry docs.
     - Metrics: `ruff check scripts/orchestration/router.py tests/tools/test_orchestration_router.py`, `pytest --collect-only tests/tools/test_orchestration_router.py -v`, `pytest tests/tools/test_orchestration_router.py -v`
     - Artifacts: `.artifacts/orch-router-001/{ruff_check.log,pytest_collect_router.log,pytest_router.log}`
+  - *2026-01-20T015442Z:* Implemented router prompt overrides, config wiring, logging + `last_prompt` state annotation, and documented router behavior in the orchestration README/index while expanding router tests.
+    - Metrics: `ruff check scripts/orchestration/router.py scripts/orchestration/config.py scripts/orchestration/state.py scripts/orchestration/loop.py scripts/orchestration/supervisor.py tests/tools/test_orchestration_router.py`, `pytest --collect-only tests/tools/test_orchestration_router.py -v`, `pytest tests/tools/test_orchestration_router.py -v`
+    - Artifacts: `.artifacts/orch-router-001/{ruff_check.log,pytest_collect_router.log,pytest_router.log}`
+  - *2026-01-20T020234Z:* Added router mode config (`router_first`/`router_only`), router-only enforcement, router prompt template, and documented mode precedence; expanded router tests for mode selection and router-only gating.
+    - Metrics: `ruff check scripts/orchestration/router.py scripts/orchestration/config.py scripts/orchestration/state.py scripts/orchestration/loop.py scripts/orchestration/supervisor.py tests/tools/test_orchestration_router.py`, `pytest --collect-only tests/tools/test_orchestration_router.py -v`, `pytest tests/tools/test_orchestration_router.py -v`
+    - Artifacts: `.artifacts/orch-router-001/{ruff_check.log,pytest_collect_router.log,pytest_router.log}`
+  - *2026-01-20T020954Z:* Relocated router tests into the orchestration submodule, removed the main-repo test entry, and updated testing docs to reference the submodule selector.
+    - Metrics: `ruff check scripts/orchestration/tests/test_router.py`, `pytest --collect-only scripts/orchestration/tests/test_router.py -v`, `pytest scripts/orchestration/tests/test_router.py -v`
+    - Artifacts: `.artifacts/orch-router-001/{ruff_check.log,pytest_collect_router.log,pytest_router.log}`
   - *2026-01-20T013743Z:* Added Phase B checklist item to create `prompts/router.md` with a strict single-line output contract. Artifacts: `plans/active/ORCH-ROUTER-001/{implementation.md,summary.md}`.
+  - *2026-01-20T015415Z:* Added Phase D for router-first/router-only mode support, with config + tests + doc updates and exit criteria coverage. Artifacts: `plans/active/ORCH-ROUTER-001/{implementation.md,summary.md}`.

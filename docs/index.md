@@ -84,6 +84,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** git-hygiene, submodules, ignore, CI, rerere, autosquash  
 **Use this when:** Maintaining multiple repos that run the same supervisor/loop and you want consistent, low-friction Git behavior.
 
+### [Orchestration Guide](../scripts/orchestration/README.md)
+**Description:** Supervisor/loop orchestration mechanics, sync state contract, logging, auto-commit guards, and optional router-based prompt dispatch (default/first/only modes).  
+**Keywords:** orchestration, supervisor, loop, router, sync-state  
+**Use this when:** Operating the galph/ralph loops or configuring router-based prompt selection.
+
 ## Architecture & Development
 
 ### Core Documentation

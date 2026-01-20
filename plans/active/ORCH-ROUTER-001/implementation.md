@@ -5,7 +5,7 @@
 - Title: Router prompt + orchestration dispatch layer
 - Owner: user + Codex
 - Spec Owner: scripts/orchestration/README.md
-- Status: in_progress
+- Status: done
 
 ## Goals
 - Add a router layer that deterministically selects prompts based on sync state + iteration, with optional router-prompt override.
@@ -15,6 +15,7 @@
 - Phase A -- Design: routing contract, config schema, and state.json extension decision.
 - Phase B -- Implementation: router loop + prompt, dispatch wiring, and logging.
 - Phase C -- Verification: tests and documentation updates.
+- Phase D -- Router-First/Only: enable router prompt control mode with safety guards.
 
 ## Exit Criteria
 1. Deterministic routing maps `state.json` + iteration to a prompt path with actor gating.
@@ -23,6 +24,7 @@
 4. Router decisions are logged and `state.json` persists **only** `last_prompt` (no additional metadata).
 5. Test coverage verified (targeted selectors + collect-only as needed), logs archived under `.artifacts/orch-router-001/`.
 6. Test registry updated when tests are added/renamed (docs/TESTING_GUIDE.md §2, docs/development/TEST_SUITE_INDEX.md).
+7. Router-only mode (if enabled) is documented and tested with allowlist + expected_actor enforcement.
 
 ## Compliance Matrix (Mandatory)
 - [ ] **Spec Constraint:** scripts/orchestration/README.md -- sync state + dispatch contract
@@ -75,9 +77,9 @@ Format for checklist items:
       Test: N/A -- design artifact (`plans/active/ORCH-ROUTER-001/routing_contract.md`)
 - [x] A2: Create test strategy doc and link it in docs/fix_plan.md.
       Test: N/A -- planning artifact (`plans/active/ORCH-ROUTER-001/test_strategy.md`)
-- [ ] A3: Update orchestration README with router contract + failure behavior and explicit function location.
+- [x] A3: Update orchestration README with router contract + failure behavior and explicit function location.
       Test: N/A -- documentation-only
-- [ ] A4: Update docs/index.md to reference the router contract and orchestration updates once drafted.
+- [x] A4: Update docs/index.md to reference the router contract and orchestration updates once drafted.
       Test: N/A -- documentation-only
 
 ### Notes & Risks
@@ -86,30 +88,42 @@ Format for checklist items:
 ## Phase B -- Implementation
 ### Checklist
 - [x] B1: Add router loop entrypoint + wrapper; deterministic routing function in scripts/orchestration/router.py using state.json + iteration.
-      Test: tests/tools/test_orchestration_router.py::test_router_deterministic
-- [ ] B1.1: Create prompts/router.md template with a strict single-line prompt selection contract.
+      Test: scripts/orchestration/tests/test_router.py::test_router_deterministic
+- [x] B1.1: Create prompts/router.md template with a strict single-line prompt selection contract.
       Test: N/A -- documentation-only
-- [ ] B2: Add router prompt override, allowlist enforcement, and invalid-output crash path.
-      Test: tests/tools/test_orchestration_router.py::test_router_prompt_override
-- [ ] B3: Extend orchestration config for router settings (prompt path, allowlist, review cadence, mode).
-      Test: tests/tools/test_orchestration_router.py::test_router_config_loads
-- [ ] B4: Logging + optional state.json annotation of routing decisions.
-      Test: tests/tools/test_orchestration_router.py::test_router_logs_decision
+- [x] B2: Add router prompt override, allowlist enforcement, and invalid-output crash path.
+      Test: scripts/orchestration/tests/test_router.py::test_router_prompt_override
+- [x] B3: Extend orchestration config for router settings (prompt path, allowlist, review cadence, mode).
+      Test: scripts/orchestration/tests/test_router.py::test_router_config_loads
+- [x] B4: Logging + optional state.json annotation of routing decisions.
+      Test: scripts/orchestration/tests/test_router.py::test_router_logs_decision
 
 ### Notes & Risks
 - Preserve backward-compatible defaults when orchestration.yaml is absent.
 
 ## Phase C -- Verification
 ### Checklist
-- [ ] C1: Run router test module and verify collection.
-      Test: pytest tests/tools/test_orchestration_router.py -v
-- [ ] C2: Update docs/TESTING_GUIDE.md + TEST_SUITE_INDEX if new tests are added.
-      Test: pytest --collect-only tests/tools/test_orchestration_router.py -v
-- [ ] C3: Update docs/index.md entry metadata if a new orchestration doc is added.
+- [x] C1: Run router test module and verify collection.
+      Test: pytest scripts/orchestration/tests/test_router.py -v
+- [x] C2: Update docs/TESTING_GUIDE.md + TEST_SUITE_INDEX if new tests are added.
+      Test: pytest --collect-only scripts/orchestration/tests/test_router.py -v
+- [x] C3: Update docs/index.md entry metadata if a new orchestration doc is added.
       Test: N/A -- documentation-only
 
 ### Notes & Risks
 - Keep tests CPU-only; avoid invoking external LLM binaries.
+
+## Phase D -- Router-First/Only
+### Checklist
+- [x] D1: Add routing mode config (`router_first` / `router_only`) and document precedence rules.
+      Test: scripts/orchestration/tests/test_router.py::test_router_mode_selection
+- [x] D2: Implement router-only dispatch with allowlist + expected_actor enforcement.
+      Test: scripts/orchestration/tests/test_router.py::test_router_only_enforces_actor
+- [x] D3: Update orchestration README and docs/index.md with router-only mode behavior.
+      Test: N/A -- documentation-only
+
+### Notes & Risks
+- Router-only mode must still fail fast on invalid prompt output.
 
 ## Artifacts Index
 - Reports root: .artifacts/orch-router-001/

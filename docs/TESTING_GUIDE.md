@@ -43,6 +43,7 @@ Fast, focused tests that validate individual components and functions in isolati
   - `test_cli_args.py` - Tests command-line argument parsing
   - `test_misc.py` - Tests utility functions
   - `test_model_manager.py` - Tests model management functionality
+  - `test_workflow_components.py` - Tests workflow helper utilities and config plumbing
   - `test_tf_helper.py` - Tests TensorFlow helper functions
 - **Execution time:** Typically < 1 second per test
 - **Dependencies:** Minimal, often using mocks or small test fixtures
@@ -58,6 +59,17 @@ Lightweight tests for script-level helpers and CLI `--help` smoke coverage.
   pytest tests/scripts/test_synthetic_helpers.py -v
   pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v
   pytest tests/scripts/test_dose_response_study.py -v
+  ```
+
+### Tools Tests
+
+Lightweight tests for the orchestration submodule (located under `scripts/orchestration/`).
+
+- **Location:** `scripts/orchestration/tests/test_router.py`
+- **Purpose:** Validate deterministic routing decisions, router modes, and overrides.
+- **Selector:**
+  ```bash
+  pytest scripts/orchestration/tests/test_router.py -v
   ```
 
 ### Integration Tests

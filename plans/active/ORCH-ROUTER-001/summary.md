@@ -1,6 +1,14 @@
 # ORCH-ROUTER-001 Summary
 
 ### Turn Summary
+Added Phase D to support router-first/router-only modes with explicit precedence and safety tests.
+Expanded exit criteria to cover router-only documentation and enforcement requirements.
+Next: decide whether to prioritize Phase D after Phase C or keep it optional until router override lands.
+Artifacts: plans/active/ORCH-ROUTER-001/implementation.md
+
+# ORCH-ROUTER-001 Summary
+
+### Turn Summary
 Added an explicit Phase B checklist item to create a router prompt template at prompts/router.md with a strict single-line output contract.
 Kept the change scoped to documentation-only work in the plan.
 Next: update scripts/orchestration/README.md with the routing contract and last_prompt field note.
@@ -9,8 +17,25 @@ Artifacts: plans/active/ORCH-ROUTER-001/implementation.md
 # ORCH-ROUTER-001 Summary
 
 ### Turn Summary
+Moved router tests into the orchestration submodule (`scripts/orchestration/tests/`) and removed the main-repo test file.
+Updated testing docs to point at the submodule selector while keeping router functionality unchanged.
+Tests: `pytest scripts/orchestration/tests/test_router.py -v` (8 passed).
+Artifacts: .artifacts/orch-router-001/ (ruff_check.log, pytest_collect_router.log, pytest_router.log)
+
+# ORCH-ROUTER-001 Summary
+
+### Turn Summary
+Implemented router modes (default/first/only) with router-only enforcement, added a `prompts/router.md` template, and persisted `last_prompt` in sync state.
+Updated orchestration documentation for router modes and expanded router tests to cover mode selection + router-only enforcement.
+Tests: `pytest scripts/orchestration/tests/test_router.py -v` (8 passed).
+Artifacts: .artifacts/orch-router-001/ (ruff_check.log, pytest_collect_router.log, pytest_router.log)
+
+# ORCH-ROUTER-001 Summary
+
+### Turn Summary
 Implemented the deterministic router entrypoint (`scripts/orchestration/router.py`) plus shell wrapper, and added pytest coverage for the routing decision logic.
 Registered the new router test in the testing guide + test suite index to keep selector docs in sync.
+Tests: `pytest scripts/orchestration/tests/test_router.py -v` (3 passed).
 Artifacts: .artifacts/orch-router-001/ (ruff_check.log, pytest_collect_router.log, pytest_router.log)
 
 # ORCH-ROUTER-001 Summary
