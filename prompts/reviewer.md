@@ -19,6 +19,7 @@ Required steps:
 - Evaluate whether tech debt increased or decreased since the last review; report findings
 - identify the most important plan with progress since the last review. review / critique that plan in its entirety (not just the changes since the last review). investigate carefully and then report your findings. IMMPORTANT while doing the review and investigation, infer the INTENTION of the plan and clarify whether the plan
   approaches it correctly IMPORTANT
+- Review the selected plan again. Are there assumptions or unjustified claims? If so, skeptically analyze them
 - Assess whether the agent is off-track, tunnel-visioned, or stuck; if so, recommend plan or approach revisions. perpetual plan changes, documentation, and artifact collection does NOT count as not being stuck. Actual progress means: real debugging progress OR implementation progress
 - Verify `docs/index.md`’s authoritative map matches actual repo structure (spec root + architecture doc locations); report mismatches as actionable.
 - Include prompts/ in the doc/spec/arch cross-reference scan; flag any references to deprecated roots like `docs/spec*`  `docs/architecture/` or missing files.
