@@ -1000,3 +1000,18 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T133807Z/
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T133807Z/ next_action=Ralph extends compare_sim_lines_params.py with training hyperparameter capture, regenerates the diff, and runs the CLI pytest guard
+# 2026-01-20T14:05:31Z: DEBUG-SIM-LINES-DOSE-001 — Phase D3b 60-epoch retrain planning
+
+- dwell: 0 (manual override reset)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 Phase D3b — validate H-NEPOCHS by rerunning gs2_ideal for 60 epochs
+- Action type: Planning | Mode: Implementation handoff
+- Documents reviewed: docs/index.md, docs/findings.md (CONFIG-001, SIM-LINES-CONFIG-001, NORMALIZATION-001), docs/fix_plan.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T133807Z/{analysis.md,hyperparam_diff.md}, specs/spec-ptycho-core.md §Normalization Invariants, docs/TESTING_GUIDE.md §Script helper selectors, docs/development/TEST_SUITE_INDEX.md:62, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/{run_phase_c2_scenario.py,analyze_intensity_bias.py}, input.md
+- Key observations:
+  - D3 hyperparameter diff proved sim_lines only trains 5 epochs vs the legacy 60-epoch default (12× shorter) while all other knobs (batch_size, probe/intensity scale trainability, loss weights) match.
+  - Existing plan/summary still described D3 generically; needed explicit D3a completion logging plus D3b/D3c subtasks.
+- Key decisions:
+  - Added D3a completion note + D3b/D3c checklist to the implementation plan and recorded the retrain requirements in docs/fix_plan.md.
+  - Opened hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/`, refreshed the initiative summary, and rewrote input.md with the concrete Do Now (run `run_phase_c2_scenario.py --scenario gs2_ideal --nepochs 60`, rerun analyzer, archive logs, execute the CLI smoke pytest guard).
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/` (planning hub)
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/ next_action=Ralph runs gs2_ideal with --nepochs 60 + analyzer + pytest guard to confirm/refute H-NEPOCHS

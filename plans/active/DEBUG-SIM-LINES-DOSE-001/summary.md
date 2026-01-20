@@ -1,5 +1,11 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
+### Turn Summary — 2026-01-20T14:05:31Z (Phase D3b 60-epoch retrain planning)
+Hyperparameter diff artifacts (reports/2026-01-20T133807Z/) proved sim_lines trains for only 5 epochs while dose_experiments runs 60, so we re-scoped Phase D3 around validating the H-NEPOCHS hypothesis with a targeted gs2_ideal rerun.
+Reserved hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/`, updated the plan/fix ledger with D3b/D3c subtasks, and drafted the Do Now instructing Ralph to run `bin/run_phase_c2_scenario.py --scenario gs2_ideal --nepochs 60 --group-limit 64 --prediction-scale-source least_squares`, rerun `analyze_intensity_bias.py`, and re-execute the CLI smoke pytest guard so we can measure amplitude/pearson_r deltas against the 5-epoch baseline.
+Next: Ralph executes the 60-epoch retrain, archives training histories + analyzer outputs under the new hub, and reports whether the longer training run recovers amplitude parity; then Phase D3c will document the outcome and decide whether sim_lines defaults must change.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/ (planning hub)
+
 ### Turn Summary — 2026-01-20T13:38:07Z (Phase D3 hyperparameter audit planning)
 Framed the Phase D3 scope: expand `bin/compare_sim_lines_params.py` so the diff also captures training knobs (nepochs, batch_size, probe/intensity-scale trainability) and accepts per-scenario epoch overrides, then regenerate Markdown/JSON evidence under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T133807Z/` with the synthetic helpers CLI pytest guard.
 The new artifacts hub will document whether the sim_lines five-epoch runs (vs the legacy 60-epoch defaults) plausibly explain the amplitude collapse before we queue retrains.

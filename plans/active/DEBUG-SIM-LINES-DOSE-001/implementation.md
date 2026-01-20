@@ -345,6 +345,16 @@ gs2_ideal healthy, gs1_ideal NaN after CONFIG-001 fix
 - [ ] D3: **Hyperparameter delta audit.**
       - Diff nepochs, batch sizes, group limits, optimizer knobs, and scheduler behavior between dose_experiments and sim_lines_4x for each scenario profile; document any mismatches and run targeted re-trains (plan-local scope) if differences plausibly explain the amplitude collapse.
       - Archive training-history overlays plus config dumps under a fresh hub.
+      - [x] **D3a — Hyperparameter comparison artifacts.** *(COMPLETE 2026-01-20T133807Z)*  
+        Extended `bin/compare_sim_lines_params.py` with `--default-sim-lines-nepochs`, regenerated Markdown/JSON diffs, and captured `analysis.md` summarizing the findings. Evidence: `reports/2026-01-20T133807Z/{hyperparam_diff.md,hyperparam_diff.json,analysis.md,compare_cli.log,pytest_cli_smoke.log}`. Result: sim_lines trains for 5 epochs vs dose_experiments 60 epochs (12× shorter); other knobs match exactly.
+      - [ ] **D3b — 60-epoch gs2_ideal retrain (H-NEPOCHS validation).**  
+        Use the plan-local runner (`bin/run_phase_c2_scenario.py`) to rerun `gs2_ideal` with `--nepochs 60` (other stable-profile defaults unchanged) so we can test whether training length alone closes the amplitude gap. Capture the full training history (`history.json`, `history_summary.json`, Markdown summaries), analyzer outputs (`bias_summary.{json,md}`), and stitched artifacts under a fresh hub. Compare amplitude/phase metrics vs the 5-epoch baseline and note whether pearson_r / MAE improve materially.  
+        - Scenario command template:  
+          `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py --scenario gs2_ideal --output-dir <hub>/gs2_ideal_nepochs60 --nepochs 60 --group-limit 64 --prediction-scale-source least_squares`  
+        - Analyzer: `python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py --scenario gs2_ideal=<hub>/gs2_ideal_nepochs60 --output-dir <hub>`  
+        - Guard: rerun the CLI smoke pytest selector so Phase D evidence stays certified.
+      - [ ] **D3c — Document retrain outcome + decide escalation.**  
+        Summarize the 60-epoch results (metrics deltas, training curves, analyzer verdict) inside the working plan, summary, docs/fix_plan.md, and galph_memory. If amplitude parity improves substantially, promote the change (update sim_lines pipeline defaults or open a follow-up initiative); otherwise proceed to D4 architecture/loss wiring.
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 - [ ] D4: **Architecture / loss-wiring verification.**
       - If loss weights + normalization still match legacy behavior, inspect the current TensorFlow training graph (loss composition, intensity scaler placement, probe application) against the `dose_experiments` script to identify code-level divergences; add focused diagnostic tests as needed.
