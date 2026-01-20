@@ -6,7 +6,6 @@ This document is the **constitution** for the Claude AI agents working on the Pt
 
 ## 1. ⚙️ Identity & Workflow Guardrails
 
-- **Plans & artifacts:** Keep evidence lean. For each initiative, maintain a single `plans/active/<initiative>/summary.md` and prepend a short Turn Summary per loop. Store bulky artifacts outside the repo (or under a git‑ignored `.artifacts/` folder) and link to them from the plan/ledger.
 - **Authority stack:** If instructions conflict, prefer SPECs (`specs/`), then project documentation, then prompt files. Internal model memories must defer to the repository.
 
 ---
@@ -29,7 +28,6 @@ This document is the **constitution** for the Claude AI agents working on the Pt
 ## 3. 📚 Required Reference Map
 
 - **Documentation hub:** `docs/index.md` – complete map of guides, specs, and workflows.
-- **Workflow guide:** `docs/INITIATIVE_WORKFLOW_GUIDE.md` – details on initiative planning, artifact storage, and ledger updates.
 - **Developer guide:** `docs/DEVELOPER_GUIDE.md` – architecture, anti-patterns, and TDD methodology.
 - **Data generation:** `docs/DATA_GENERATION_GUIDE.md` – grid vs nongrid simulation pipelines, parameter mappings.
 - **Testing references:** `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md` – authoritative test commands and selectors.
@@ -46,8 +44,6 @@ Use the index to locate any additional document cited by the active plan.
 - **Command library (git, training, inference, tests):** Use `docs/COMMANDS_REFERENCE.md` for all CLI recipes. The prompts enforce running tests via `pytest` selectors; align with that doc and archive logs per their instructions.
 - **Git setup & hygiene:** See `prompts/git_setup_agent.md` and `prompts/git_hygiene.md` for automation-safe Git workflows.
 
-- Remove “evidence‑only” git exceptions. Always perform normal pull/rebase hygiene. Do not commit bulky artifacts; store them externally or under `.artifacts/` and link from the plan/ledger.
-
 If a command or troubleshooting step is missing from those references, update the canonical document first; CLAUDE.md should only point to authoritative sources, not duplicate their content.
 
 ---
@@ -61,5 +57,4 @@ If a command or troubleshooting step is missing from those references, update th
 
 ### Simulation Checklist
 - **Before editing:** ensure `documents_read` mirrors every file you opened after consulting `docs/index.md`.
-- **After editing:** confirm the XML, plan diff, and ledger entry all cite the same focus ID and plan path.
 - **If blocked:** set `<status>blocked</status>` and describe the blocker under `<impacts>`; the next loop repeats the XML with updated context.
