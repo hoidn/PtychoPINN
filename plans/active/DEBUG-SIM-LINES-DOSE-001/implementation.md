@@ -32,7 +32,7 @@
    - Logs saved to `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<timestamp>/`
 
 ## Compliance Matrix (Mandatory)
-- [x] Spec Authority: Both `specs/` and `specs/` are authoritative; list applicable specs from each root.
+- [x] Spec Authority: Specs are consolidated under `specs/`; list applicable specs from this root.
 - [x] Spec Constraint: specs/spec-ptycho-core.md (Forward model + normalization invariants)
 - [x] Spec Constraint: specs/spec-ptycho-workflow.md (load->group->infer->stitch sequence)
 - [x] Spec Constraint: specs/spec-inference-pipeline.md (stitching/offset contracts)
@@ -45,7 +45,7 @@
 - [x] Test Strategy: plans/active/DEBUG-SIM-LINES-DOSE-001/test_strategy.md
 
 ## Spec Alignment
-- Normative Specs (authoritative across `specs/` and `specs/`):
+- Normative Specs (authoritative under `specs/`):
   - specs/spec-ptycho-core.md
   - specs/spec-ptycho-workflow.md
   - specs/spec-inference-pipeline.md
