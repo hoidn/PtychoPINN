@@ -328,7 +328,7 @@
 ### [ORCH-ROUTER-001] Router prompt + orchestration dispatch layer
 - Depends on: None
 - Priority: Medium
-- Status: **in_progress — Phase E review cadence persistence (router state last_prompt_actor fix)**
+- Status: **done — Phase E review cadence persistence landed**
 - Owner/Date: Codex/2026-01-20
 - Working Plan: `plans/active/ORCH-ROUTER-001/implementation.md`
 - Summary: `plans/active/ORCH-ROUTER-001/summary.md`
@@ -369,11 +369,12 @@
   - *2026-01-20T013743Z:* Added Phase B checklist item to create `prompts/router.md` with a strict single-line output contract. Artifacts: `plans/active/ORCH-ROUTER-001/{implementation.md,summary.md}`.
   - *2026-01-20T015415Z:* Added Phase D for router-first/router-only mode support, with config + tests + doc updates and exit criteria coverage. Artifacts: `plans/active/ORCH-ROUTER-001/{implementation.md,summary.md}`.
   - *2026-01-20T130941Z:* Manual override follow-up — reopened Phase E to fix sync supervisor/loop review cadence. Updated the plan/summary with last_prompt_actor persistence requirements, switched the reports hub to `plans/active/ORCH-ROUTER-001/reports/`, and logged the new checklist so Ralph can land the code/tests. Artifacts: `plans/active/ORCH-ROUTER-001/{implementation.md,summary.md}`.
+  - *2026-01-20T130941Z:* Implemented the Phase E fix: supervisor/loop now persist `last_prompt_actor` alongside `last_prompt` whenever the router is active, and a dedicated regression module (`scripts/orchestration/tests/test_sync_router_review.py`) proves reviewer cadence fires exactly once per iteration. Updated `docs/TESTING_GUIDE.md` + `docs/development/TEST_SUITE_INDEX.md` for the new selector. Artifacts: `plans/active/ORCH-ROUTER-001/reports/2026-01-20T130941Z/{git_diff.txt,pytest_sync_router_review.log,pytest_router.log}`. **Status:** Complete; dependency for ORCH-ORCHESTRATOR-001 cleared.
 
 ### [ORCH-ORCHESTRATOR-001] Combined orchestrator entrypoint + shared runner refactor
-- Depends on: ORCH-ROUTER-001 (router selection logic)
+- Depends on: ORCH-ROUTER-001 (router selection logic — satisfied 2026-01-20)
 - Priority: Medium
-- Status: **blocked — awaiting ORCH-ROUTER-001 Phase E review cadence fix (last_prompt_actor persistence)**
+- Status: **in_progress — Phase E sync review cadence parity + regression gate**
 - Owner/Date: user+Codex/2026-01-20
 - Working Plan: `plans/active/ORCH-ORCHESTRATOR-001/implementation.md`
 - Summary: `plans/active/ORCH-ORCHESTRATOR-001/summary.md`
@@ -432,6 +433,7 @@
   - *2026-01-20T062508Z:* Updated reviewer prompt output requirements to write `user_input.md` when new actionable findings are discovered.
     - Metrics: N/A (prompt-only update)
     - Artifacts: `prompts/reviewer.md`
+  - *2026-01-20T132349Z:* Reopened Phase E now that ORCH-ROUTER-001 landed. Scoped a new regression to ensure combined mode also honors the `last_prompt_actor` annotation so reviewer cadence still fires once per iteration. Reserved artifacts hub `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T132349Z/` for the upcoming test additions (`scripts/orchestration/tests/test_orchestrator.py`) plus docs/test registry updates. Pending: add combined review cadence tests + rerun orchestrator + sync router review selectors.
 
 ### [ORCH-AGENT-DISPATCH-001] Per-role/per-prompt agent dispatch (codex vs claude)
 - Depends on: ORCH-ORCHESTRATOR-001 (combined mode baseline)

@@ -5,7 +5,7 @@
 - Title: Combined orchestrator entrypoint + shared runner refactor + combined auto-commit
 - Owner: user + Codex
 - Spec Owner: scripts/orchestration/README.md
-- Status: in_progress (Phase D complete; full-suite regression gate pending)
+- Status: in_progress (Phase E — sync router review cadence parity)
 
 ## Goals
 - Add a single orchestrator entrypoint that can drive both supervisor and main prompts using the router.
@@ -140,6 +140,19 @@
 - Ensure combined auto-commit never stages `logs/` or `tmp/`.
 - Keep git ops local-only; no pulls/pushes in combined mode.
 - Avoid regressions in supervisor/loop auto-commit behavior when sharing helpers.
+
+## Phase E — Sync Review Cadence Parity
+### Checklist
+- [ ] E1: Add combined-mode regression tests proving reviewer cadence fires once per iteration and `last_prompt_actor` toggles appropriately when router review iterations hit.
+      Test: `scripts/orchestration/tests/test_orchestrator.py::test_combined_review_last_prompt_actor`
+- [ ] E2: Update orchestration testing docs (`docs/TESTING_GUIDE.md`, `docs/development/TEST_SUITE_INDEX.md`) with the new combined review cadence selector.
+      Test: `pytest --collect-only scripts/orchestration/tests/test_orchestrator.py -v`
+- [ ] E3: Run the new orchestrator test plus the sync router review module to confirm supervisor/loop + combined entrypoints stay in parity.
+      Test: `pytest scripts/orchestration/tests/test_orchestrator.py::test_combined_review_last_prompt_actor -v`, `pytest scripts/orchestration/tests/test_sync_router_review.py -v`
+
+### Notes & Risks
+- Combined mode shares router context with supervisor/loop; missing `last_prompt_actor` annotations would reintroduce duplicate reviewer runs.
+- Ensure new tests keep prompt execution fully stubbed (no external CLI).
 
 ## Artifacts Index
 - Reports root: `plans/active/ORCH-ORCHESTRATOR-001/reports/`

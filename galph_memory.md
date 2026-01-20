@@ -975,3 +975,15 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: plans/active/ORCH-ROUTER-001/reports/2026-01-20T130941Z/
 - <Action State>: [ready_for_implementation]
 - focus=ORCH-ROUTER-001 state=ready_for_implementation dwell=0 artifacts=plans/active/ORCH-ROUTER-001/reports/2026-01-20T130941Z/ next_action=Ralph updates supervisor.py + loop.py to persist last_prompt_actor and adds the sync router review cadence pytest module + docs/test registry updates
+# 2026-01-20T13:23:49Z: ORCH-ORCHESTRATOR-001 — Phase E combined review cadence regression planning
+
+- dwell: 0 (new focus now that ORCH-ROUTER-001 dependency is satisfied)
+- Action type: Planning | Mode: Implementation
+- Documents reviewed: docs/index.md; docs/findings.md (PYTHON-ENV-001, TEST-CLI-001); docs/fix_plan.md (§ORCH-ROUTER-001, §ORCH-ORCHESTRATOR-001); plans/active/ORCH-ORCHESTRATOR-001/implementation.md (Phase E checklist); scripts/orchestration/README.md §Router; scripts/orchestration/tests/test_orchestrator.py; scripts/orchestration/tests/test_sync_router_review.py
+- Key decisions:
+  - Marked ORCH-ROUTER-001 complete in docs/fix_plan.md and recorded the Phase E evidence bundle.
+  - Reopened ORCH-ORCHESTRATOR-001 with a Phase E checklist targeting combined-mode review cadence parity and mandated a new orchestrator-level regression.
+  - Reserved artifacts hub `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T132349Z/` and drafted input.md directing Ralph to add the new test plus docs/test registry updates and pytest proof.
+- Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T132349Z/
+- <Action State>: [ready_for_implementation]
+- focus=ORCH-ORCHESTRATOR-001 state=ready_for_implementation dwell=0 artifacts=plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T132349Z/ next_action=Add combined-mode review cadence regression + doc/test registry sync and keep both pytest selectors green
