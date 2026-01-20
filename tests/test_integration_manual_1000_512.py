@@ -1,10 +1,15 @@
+import json
 import os
+import re
 import subprocess
 from pathlib import Path
 
 import pytest
 
 pytestmark = [pytest.mark.integration, pytest.mark.tf_integration]
+
+_MAX_VAL_INTENSITY_SCALER_INV_LOSS = 50.0
+_METRIC_PATTERN = r"{metric}:\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)"
 
 
 def _run_command(command, cwd, log_path):
@@ -25,6 +30,18 @@ def _resolve_output_root(tmp_path):
     if output_root:
         return Path(output_root).expanduser()
     return tmp_path
+
+
+def _extract_last_metric(log_text, metric_name):
+    sanitized = log_text.replace("\r", "\n")
+    pattern = re.compile(_METRIC_PATTERN.format(metric=re.escape(metric_name)))
+    last_value = None
+    for match in pattern.finditer(sanitized):
+        try:
+            last_value = float(match.group(1))
+        except ValueError:
+            continue
+    return last_value
 
 
 @pytest.mark.skipif(
@@ -67,6 +84,32 @@ def test_train_infer_cycle_1000_train_512_test(tmp_path):
     assert "subsampling 1000 images" in train_log_text
     model_artifact_path = train_dir / "wts.h5.zip"
     assert model_artifact_path.exists()
+    train_loss = _extract_last_metric(train_log_text, "intensity_scaler_inv_loss")
+    val_loss = _extract_last_metric(train_log_text, "val_intensity_scaler_inv_loss")
+    assert train_loss is not None, (
+        "Missing intensity_scaler_inv_loss in training log. "
+        f"See log: {train_log}"
+    )
+    assert val_loss is not None, (
+        "Missing val_intensity_scaler_inv_loss in training log. "
+        f"See log: {train_log}"
+    )
+    metrics_path = output_root / "train_metrics.json"
+    metrics_path.write_text(
+        json.dumps(
+            {
+                "intensity_scaler_inv_loss": train_loss,
+                "val_intensity_scaler_inv_loss": val_loss,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    assert val_loss <= _MAX_VAL_INTENSITY_SCALER_INV_LOSS, (
+        "val_intensity_scaler_inv_loss exceeded threshold. "
+        f"Got {val_loss:.4f}, max {_MAX_VAL_INTENSITY_SCALER_INV_LOSS:.1f}. "
+        f"See log: {train_log}"
+    )
 
     inference_log = output_root / "inference.log"
     inference_command = [

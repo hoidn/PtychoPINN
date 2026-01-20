@@ -155,5 +155,10 @@
   - *2026-01-20T020954Z:* Relocated router tests into the orchestration submodule, removed the main-repo test entry, and updated testing docs to reference the submodule selector.
     - Metrics: `ruff check scripts/orchestration/tests/test_router.py`, `pytest --collect-only scripts/orchestration/tests/test_router.py -v`, `pytest scripts/orchestration/tests/test_router.py -v`
     - Artifacts: `.artifacts/orch-router-001/{ruff_check.log,pytest_collect_router.log,pytest_router.log}`
+  - *2026-01-20T023143Z:* Added loss gating to the long integration test by extracting final intensity_scaler_inv_loss metrics, writing train_metrics.json, and failing when val_intensity_scaler_inv_loss > 50 (no long integration run yet).
+    - Artifacts: `.artifacts/orch-router-001/2026-01-20_integration_loss_gate_note.md`
+  - *2026-01-20T023226Z:* Ran the long integration test with loss gating; val_intensity_scaler_inv_loss=38.9062 (<= 50) and train_metrics.json recorded.
+    - Metrics: `RUN_LONG_INTEGRATION=1 INTEGRATION_OUTPUT_DIR=.artifacts/integration_manual_1000_512/2026-01-20T023226Z/output pytest tests/test_integration_manual_1000_512.py -v`
+    - Artifacts: `.artifacts/integration_manual_1000_512/2026-01-20T023226Z/{pytest_manual_1000_512_run.log,output/train_metrics.json,output/train.log,output/inference.log}`
   - *2026-01-20T013743Z:* Added Phase B checklist item to create `prompts/router.md` with a strict single-line output contract. Artifacts: `plans/active/ORCH-ROUTER-001/{implementation.md,summary.md}`.
   - *2026-01-20T015415Z:* Added Phase D for router-first/router-only mode support, with config + tests + doc updates and exit criteria coverage. Artifacts: `plans/active/ORCH-ROUTER-001/{implementation.md,summary.md}`.

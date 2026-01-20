@@ -1,6 +1,22 @@
 # ORCH-ROUTER-001 Summary
 
 ### Turn Summary
+Executed the long integration test with the new loss gate; val_intensity_scaler_inv_loss=38.9062 and train_metrics.json persisted.
+Captured pytest evidence and logs under the integration artifacts directory.
+Next: stage and commit the integration loss gate change when ready.
+Artifacts: .artifacts/integration_manual_1000_512/2026-01-20T023226Z/
+
+# ORCH-ROUTER-001 Summary
+
+### Turn Summary
+Added loss gating to the long integration test by parsing intensity_scaler_inv_loss metrics and persisting train_metrics.json.
+Enforced failure when final val_intensity_scaler_inv_loss exceeds 50, with explicit log parsing guardrails.
+No long integration run executed yet for this change.
+Artifacts: .artifacts/orch-router-001/2026-01-20_integration_loss_gate_note.md
+
+# ORCH-ROUTER-001 Summary
+
+### Turn Summary
 Added Phase D to support router-first/router-only modes with explicit precedence and safety tests.
 Expanded exit criteria to cover router-only documentation and enforcement requirements.
 Next: decide whether to prioritize Phase D after Phase C or keep it optional until router override lands.
