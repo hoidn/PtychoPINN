@@ -783,3 +783,28 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
   - Clarified that the immediate task is to extend `bin/compare_sim_lines_params.py` to emit MAE/NLL/realspace weights for each scenario vs the dose_experiments defaults so we can confirm or rule out H-LOSS-WEIGHT before touching normalization.
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/ next_action=extend compare_sim_lines_params.py with loss weights + run CLI diff + pytest guard
+# 2026-01-20T11:20:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase D1 COMPLETE (loss config diff)
+
+- dwell: 0 (implementation loop completed the handed-off Do Now)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Phase D1 loss configuration diff
+- Action type: Implementation (code edits + evidence collection)
+- Mode: Implementation
+- Git sync: `git stash && git pull --rebase && git stash pop` (clean)
+- Key implementation:
+  - Extended `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/compare_sim_lines_params.py` with:
+    - Added loss weight parameters to PARAMETERS list (mae_weight, nll_weight, realspace_weight, realspace_mae_weight)
+    - Added `get_loss_weights_from_training_config()` function to instantiate TrainingConfig and extract loss weights
+    - Added `enrich_scenario_with_loss_weights()` to update scenario dicts with loss weights
+    - Updated main() to call the enrichment function for each scenario
+  - Generated Markdown + JSON diff artifacts under `reports/2026-01-20T110227Z/`
+  - Ran pytest CLI smoke guard (1 passed)
+- **KEY FINDING: LOSS WEIGHT INVERSION**
+  - dose_experiments: `mae_weight=1.0, nll_weight=0.0` (MAE loss)
+  - sim_lines_4x: `mae_weight=0.0, nll_weight=1.0` (NLL loss)
+  - This is the **opposite loss configuration** and is the **primary suspect** for the amplitude bias
+  - MAE loss directly supervises amplitude recovery; NLL loss optimizes for diffraction pattern fit
+- Commit: a88bb2ae
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/{loss_config_diff.md,loss_config_diff.json,pytest_cli_smoke.log,summary.md}
+- Tests: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
+- <Action State>: [complete]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=D1_complete dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/ next_action=D2 to add mae_weight/nll_weight overrides to sim_lines pipeline and test MAE loss hypothesis
