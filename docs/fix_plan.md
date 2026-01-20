@@ -234,6 +234,7 @@
       - **dose_legacy_gs2:** `normalize_gain=0.27` (73% reduction at grouped→normalized). Training healthy (no NaNs). Prediction→truth ratio ~3.9×, least-squares scalar 3.9, scaled MAE=2.37. Amplitude bias mean=-2.60. fits_canvas=False (required=824 > padded=820) flagging mild canvas undershoot.
       - **Shared observation:** Both scenarios lose 40-70% of amplitude at `normalize_data` (grouped_diffraction→grouped_X_full), then an additional ~3-4× during prediction. The `normalize_data` gain formula is the primary suspect; the spec-mandated symmetry (`X_scaled = s · X`) may not be preserved through the current workflow.
     - **Next Actions:** Inspect `scripts/simulation/synthetic_helpers.py::normalize_data()` and `ptycho/loader.py::normalize_data()` to compare gain formulas against `specs/spec-ptycho-core.md §Normalization Invariants` and determine whether a scale factor is being double-applied or incorrectly derived.
+  - *2026-01-20T122937Z:* Scoped the next D2 increment to extend `bin/analyze_intensity_bias.py` with explicit normalization-invariant checks (products of raw→truth stage ratios, tolerance flags per `specs/spec-ptycho-core.md §Normalization Invariants`) and rerun it for the gs1_ideal + dose_legacy_gs2 hubs. Artifacts hub reserved at `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T122937Z/`; guard selector unchanged (`pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`).
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

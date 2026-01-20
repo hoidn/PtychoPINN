@@ -932,3 +932,16 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T121449Z/`
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T121449Z/ next_action=Ralph updates compare_sim_lines_params.py to emit JSON+Markdown loss snapshots, reruns the diff, and archives the pytest guard under the new hub
+
+# 2026-01-20T12:29:37Z: DEBUG-SIM-LINES-DOSE-001 — Phase D2 normalization invariants planning
+
+- dwell: 1 (planning loop)
+- Action type: Planning | Mode: Implementation
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, NORMALIZATION-001), specs/spec-ptycho-core.md §Normalization Invariants, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/{analyze_intensity_bias.py,run_phase_c2_scenario.py}, reports/2026-01-20T114126Z/{bias_summary.md,intensity_stats.*}, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md
+- Key decisions:
+  - D2 needs explicit spec-referenced invariant checks rather than ad-hoc stage ratio eyeballing; extend `bin/analyze_intensity_bias.py` so it multiplies the raw→truth ratios, flags deviations beyond tolerance, and surfaces the findings in JSON/Markdown.
+  - Artifacts hub reserved at `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T122937Z/` for the refreshed analyzer run covering `gs1_ideal` and `dose_legacy_gs2`.
+  - Do Now will direct Ralph to land the analyzer update, rerun the CLI for both scenarios, and rerun the synthetic helpers CLI smoke selector.
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T122937Z/ (planning hub)
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T122937Z/ next_action=Extend analyzer with normalization invariant diagnostics, rerun it for gs1_ideal + dose_legacy_gs2, and keep pytest guard green

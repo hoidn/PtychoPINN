@@ -1,5 +1,11 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
+### Turn Summary — 2026-01-20T12:29:37Z (Phase D2 normalization invariants planning)
+Reviewed the Phase D2 telemetry (stage ratios + intensity stats) and scoped the follow-up increment: extend `bin/analyze_intensity_bias.py` so it computes explicit normalization-invariant checks (raw→truth ratio products, tolerance flags referencing `specs/spec-ptycho-core.md §Normalization Invariants`) and surface the results in both JSON + Markdown.
+Reserved artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T122937Z/` for the refreshed analyzer outputs, then drafted the new Do Now directing Ralph to land the analyzer changes, rerun it for `gs1_ideal` + `dose_legacy_gs2`, and keep the CLI smoke selector green.
+Next: Ralph implements the analyzer invariants section, reprocesses the two scenarios under the new hub, and archives the pytest guard log.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T122937Z/ (planning hub)
+
 ### Turn Summary — 2026-01-20T112029Z (Phase D1 correction)
 Reviewer findings showed the Phase D1 diff misinterpreted the `dose_experiments` script: the captured `cfg['mae_weight']=1` / `cfg['nll_weight']=0` assignments only execute when `loss_fn == 'mae'`, so the Markdown/JSON artifacts now overstate a MAE/NLL inversion that may not exist.
 Reopened D1 and added D1a–D1c tasks in the implementation plan: (a) capture runtime `cfg` snapshots for both loss_fn branches without executing the legacy training loop, (b) update the plan-local comparison CLI to label conditional assignments explicitly and emit per-loss-mode weights, and (c) rerun the diff plus summary so docs/fix_plan.md cite corrected evidence.
