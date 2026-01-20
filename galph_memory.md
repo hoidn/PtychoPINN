@@ -1073,3 +1073,31 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/ next_action=Add dataset-scale telemetry + analyzer table, rerun gs2 scenarios, archive analyzer/pytest evidence under the new hub
 ---
+
+---
+# 2026-01-20T23:28:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase D4a dataset intensity-scale telemetry IMPLEMENTED
+
+- dwell: 0 (implementation loop following planning handoff)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 Phase D4a — verify dataset vs fallback intensity scales
+- Action type: Implementation | Mode: Implementation
+- Git sync: `timeout 30 git pull --rebase` → Already up to date.
+- Documents reviewed: input.md, docs/fix_plan.md, specs/spec-ptycho-core.md §Normalization Invariants, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/{run_phase_c2_scenario.py,analyze_intensity_bias.py}
+- Key updates:
+  - Added `_compute_dataset_intensity_scale()` to `run_phase_c2_scenario.py` implementing `s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])` per spec
+  - Extended `write_intensity_stats_outputs()` with `dataset_scale_info` parameter and new Markdown section "Intensity Scale Comparison"
+  - Extended `analyze_intensity_bias.py::render_markdown()` with matching table rendering
+  - Ran gs2_ideal (5-epoch) and gs2_ideal_nepochs60 (60-epoch) with the new instrumentation
+  - Regenerated bias_summary.{json,md} with the updated analyzer
+- Key findings:
+  - **Dataset-derived scale=577.74 vs Fallback scale=988.21** (ratio=0.585)
+  - **E_batch[Σ|Ψ|²]=2995.97** vs assumed **(N/2)²=1024** — actual mean intensity is ~2.9× higher than assumed
+  - This confirms the pipeline uses the closed-form fallback instead of the preferred dataset-derived scale
+  - The 1.7× scale mismatch could explain a significant portion of the ~6.7× amplitude gap
+- **Hypothesis status:**
+  - H-SCALE-MISMATCH: PLAUSIBLE — the fallback/dataset ratio of 0.585 means predictions are being normalized by a scale factor ~1.7× larger than appropriate
+- Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/{gs2_ideal/*,gs2_ideal_nepochs60/*,bias_summary.json,bias_summary.md,analyze_dataset_scale.log,pytest_cli_smoke.log}`
+- Next Action: Investigate where `intensity_scale` is computed in the pipeline and determine whether switching to dataset-derived mode would correct the amplitude bias.
+- <Action State>: [implementation_complete]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=implementation_complete dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/ next_action=Trace intensity_scale computation location and evaluate dataset-derived mode adoption
+

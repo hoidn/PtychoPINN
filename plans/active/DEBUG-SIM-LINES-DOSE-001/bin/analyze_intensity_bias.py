@@ -689,6 +689,15 @@ def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
     # Extract training container X stats if available
     training_container_stats = intensity_stats.get("training_container_stats")
 
+    # Extract dataset-derived vs fallback intensity scale comparison (D4 dataset-scale telemetry)
+    # Per specs/spec-ptycho-core.md §Normalization Invariants:
+    # - Dataset-derived: s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])
+    # - Closed-form fallback: s ≈ sqrt(nphotons) / (N/2)
+    dataset_scale_info = (
+        intensity_stats.get("dataset_scale_info")
+        or run_metadata.get("dataset_scale_info")
+    )
+
     return {
         "name": scenario.name,
         "paths": {
@@ -719,6 +728,7 @@ def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
         "loss_composition": loss_composition,
         "intensity_scaler_state": intensity_scaler_state,
         "training_container_stats": training_container_stats,
+        "dataset_scale_info": dataset_scale_info,
         "derived": {
             "stage_means": stage_means,
             "ratios": stage_ratios,
@@ -943,6 +953,63 @@ def render_markdown(summary: Mapping[str, Any]) -> str:
                     "`trimmed_obj_loss=0` indicates `realspace_weight=0` (TV/MAE disabled)"
                 )
             lines.append("")
+
+        # Dataset Scale Comparison section (D4 dataset-scale telemetry)
+        # Per specs/spec-ptycho-core.md §Normalization Invariants:
+        # - Dataset-derived: s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])
+        # - Closed-form fallback: s ≈ sqrt(nphotons) / (N/2)
+        dataset_scale_info = payload.get("dataset_scale_info")
+        if dataset_scale_info:
+            lines.append("### Intensity Scale Comparison")
+            lines.append("")
+            lines.append(
+                f"**Spec Reference:** `{dataset_scale_info.get('spec_reference', 'specs/spec-ptycho-core.md §Normalization Invariants')}`"
+            )
+            lines.append("")
+            lines.append(
+                "Per the spec, two compliant intensity scale calculation modes are allowed:"
+            )
+            lines.append("1. **Dataset-derived (preferred):** `s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])`")
+            lines.append("2. **Closed-form fallback:** `s ≈ sqrt(nphotons) / (N/2)`")
+            lines.append("")
+            lines.append(
+                "If the dataset-derived scale differs significantly from the fallback value (988.21), "
+                "this indicates the actual data statistics differ from the assumed model."
+            )
+            lines.append("")
+            lines.append("| Property | Value |")
+            lines.append("| --- | ---: |")
+            lines.append(f"| Dataset-derived scale | {fmt_value(dataset_scale_info.get('dataset_scale'))} |")
+            lines.append(f"| Fallback scale | {fmt_value(dataset_scale_info.get('fallback_scale'))} |")
+            lines.append(f"| nphotons | {fmt_value(dataset_scale_info.get('nphotons'))} |")
+            lines.append(f"| N (patch size) | {dataset_scale_info.get('N')} |")
+            lines.append(f"| E_batch[Σ|Ψ|²] | {fmt_value(dataset_scale_info.get('batch_mean_sum_intensity'))} |")
+            lines.append(f"| Delta (dataset - fallback) | {fmt_value(dataset_scale_info.get('delta'))} |")
+            lines.append(f"| Ratio (dataset / fallback) | {fmt_value(dataset_scale_info.get('ratio'))} |")
+            lines.append("")
+
+            # Diagnostic assessment: flag scale mismatch
+            ratio = dataset_scale_info.get("ratio")
+            delta = dataset_scale_info.get("delta")
+            if ratio is not None and abs(ratio - 1.0) > 0.01:
+                expected_intensity = (dataset_scale_info.get("N", 64) / 2) ** 2
+                actual_intensity = dataset_scale_info.get("batch_mean_sum_intensity")
+                lines.append(
+                    f"⚠️ **Dataset vs fallback scale mismatch:** ratio={fmt_value(ratio)} "
+                    f"indicates that the actual mean intensity per sample ({fmt_value(actual_intensity)}) "
+                    f"differs from the assumed (N/2)² = {expected_intensity:.0f}."
+                )
+                if delta is not None and delta > 0:
+                    lines.append(
+                        f"   - The dataset-derived scale is **larger** than the fallback, meaning the raw diffraction "
+                        "has lower average intensity than assumed → predictions will be underscaled."
+                    )
+                elif delta is not None and delta < 0:
+                    lines.append(
+                        f"   - The dataset-derived scale is **smaller** than the fallback, meaning the raw diffraction "
+                        "has higher average intensity than assumed → predictions may be overscaled."
+                    )
+                lines.append("")
 
         # IntensityScaler State section (D4 architecture diagnostics)
         scaler_state = payload.get("intensity_scaler_state")

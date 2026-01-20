@@ -511,6 +511,7 @@ def write_intensity_stats_outputs(
     scenario_dir: Path,
     intensity_scaler_state: Optional[Dict[str, Any]] = None,
     training_container_stats: Optional[Dict[str, Any]] = None,
+    dataset_scale_info: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     bundle_scale_serialized = _serialize_scalar(bundle_intensity_scale)
     legacy_scale_serialized = _serialize_scalar(legacy_intensity_scale)
@@ -545,6 +546,13 @@ def write_intensity_stats_outputs(
     if training_container_stats is not None:
         payload["training_container_stats"] = training_container_stats
 
+    # Add dataset-derived vs fallback intensity scale comparison (D4 dataset-scale telemetry)
+    # Per specs/spec-ptycho-core.md §Normalization Invariants:
+    # - Dataset-derived: s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])
+    # - Closed-form fallback: s ≈ sqrt(nphotons) / (N/2)
+    if dataset_scale_info is not None:
+        payload["dataset_scale_info"] = dataset_scale_info
+
     json_path = scenario_dir / "intensity_stats.json"
     json_path.write_text(json.dumps(payload, indent=2, sort_keys=True))
 
@@ -560,6 +568,41 @@ def write_intensity_stats_outputs(
         f"- Stage count: {len(stages)}",
         "",
     ]
+
+    # Add dataset-derived vs fallback intensity scale comparison (D4 dataset-scale telemetry)
+    if dataset_scale_info is not None:
+        md_lines.extend([
+            "## Intensity Scale Comparison",
+            "",
+            "**Spec Reference:** `specs/spec-ptycho-core.md §Normalization Invariants`",
+            "",
+            "Per the spec, two compliant intensity scale calculation modes are allowed:",
+            "1. **Dataset-derived (preferred):** `s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])`",
+            "2. **Closed-form fallback:** `s ≈ sqrt(nphotons) / (N/2)`",
+            "",
+            "If the dataset-derived scale differs significantly from the fallback value (988.21),",
+            "this indicates the actual data statistics differ from the assumed model.",
+            "",
+            "| Property | Value |",
+            "| --- | ---: |",
+            f"| Dataset-derived scale | {_format_optional(dataset_scale_info.get('dataset_scale'))} |",
+            f"| Fallback scale | {_format_optional(dataset_scale_info.get('fallback_scale'))} |",
+            f"| nphotons | {_format_optional(dataset_scale_info.get('nphotons'))} |",
+            f"| N (patch size) | {dataset_scale_info.get('N')} |",
+            f"| E_batch[Σ|Ψ|²] | {_format_optional(dataset_scale_info.get('batch_mean_sum_intensity'))} |",
+            f"| Delta (dataset - fallback) | {_format_optional(dataset_scale_info.get('delta'))} |",
+            f"| Ratio (dataset / fallback) | {_format_optional(dataset_scale_info.get('ratio'))} |",
+            "",
+        ])
+        # Add diagnostic assessment
+        ratio = dataset_scale_info.get("ratio")
+        if ratio is not None and abs(ratio - 1.0) > 0.01:
+            md_lines.extend([
+                f"⚠️ **Dataset vs fallback scale mismatch:** ratio={_format_optional(ratio)} ",
+                f"indicates that the actual mean intensity per sample ({_format_optional(dataset_scale_info.get('batch_mean_sum_intensity'))}) ",
+                f"differs from the assumed (N/2)² = {(dataset_scale_info.get('N', 64)/2)**2:.0f}.",
+                "",
+            ])
 
     # Add stage means table
     md_lines.extend([
@@ -675,6 +718,8 @@ def write_intensity_stats_outputs(
         result["intensity_scaler_state"] = intensity_scaler_state
     if training_container_stats is not None:
         result["training_container_stats"] = training_container_stats
+    if dataset_scale_info is not None:
+        result["dataset_scale_info"] = dataset_scale_info
     return result
 
 
@@ -1131,6 +1176,65 @@ def write_training_summary_markdown(
     output_path.write_text("\n".join(lines) + "\n")
 
 
+def _compute_dataset_intensity_scale(
+    diff3d: np.ndarray,
+    nphotons: float,
+) -> Dict[str, Any]:
+    """Compute dataset-derived intensity scale per specs/spec-ptycho-core.md §Normalization Invariants.
+
+    The spec defines two compliant calculation modes:
+    1) Dataset-derived (preferred): `s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])`
+    2) Closed-form fallback: `s ≈ sqrt(nphotons) / (N/2)`
+
+    This function computes the dataset-derived scale from the raw diffraction data.
+    The diff3d array contains amplitude (sqrt of counts), so |Ψ|² = diff3d²
+    and Σ_xy |Ψ|² is the sum over spatial dimensions.
+
+    Returns dict with:
+        dataset_scale: The dataset-derived intensity scale
+        batch_mean_sum_intensity: E_batch[Σ_xy |Ψ|²] - average total intensity per sample
+        nphotons: The input photon count
+        N: Inferred patch size from the diffraction array
+        fallback_scale: The closed-form fallback value sqrt(nphotons) / (N/2)
+        delta: Difference dataset_scale - fallback_scale
+        ratio: Ratio dataset_scale / fallback_scale
+        spec_reference: Citation of the normative spec section
+    """
+    diff_arr = np.asarray(diff3d, dtype=np.float64)
+    # diff3d is amplitude (sqrt of counts), shape (M, N, N)
+    # |Ψ|² = diff3d²; Σ_xy |Ψ|² sums over spatial dimensions
+    intensity_per_sample = np.sum(diff_arr ** 2, axis=(1, 2))  # shape (M,)
+    batch_mean = float(np.mean(intensity_per_sample))
+
+    # Dataset-derived scale: s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])
+    if batch_mean > 1e-12:
+        dataset_scale = float(np.sqrt(nphotons / batch_mean))
+    else:
+        dataset_scale = None
+
+    # Closed-form fallback: s ≈ sqrt(nphotons) / (N/2)
+    N = diff_arr.shape[1]  # Patch size from diffraction array
+    fallback_scale = float(np.sqrt(nphotons) / (N / 2))
+
+    # Compute delta and ratio for comparison
+    delta = None
+    ratio = None
+    if dataset_scale is not None:
+        delta = dataset_scale - fallback_scale
+        ratio = dataset_scale / fallback_scale if abs(fallback_scale) > 1e-12 else None
+
+    return {
+        "dataset_scale": dataset_scale,
+        "batch_mean_sum_intensity": batch_mean,
+        "nphotons": float(nphotons),
+        "N": int(N),
+        "fallback_scale": fallback_scale,
+        "delta": delta,
+        "ratio": ratio,
+        "spec_reference": "specs/spec-ptycho-core.md §Normalization Invariants",
+    }
+
+
 def run_inference_and_reassemble(
     test_raw,
     scenario: ScenarioSpec,
@@ -1141,7 +1245,20 @@ def run_inference_and_reassemble(
     custom_probe_path: Path,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Dict[str, Any]]:
     intensity_stages: list[Dict[str, Any]] = []
+
+    # Compute dataset-derived intensity scale from raw diffraction data
+    # per specs/spec-ptycho-core.md §Normalization Invariants
+    dataset_scale_info: Optional[Dict[str, Any]] = None
     if getattr(test_raw, "diff3d", None) is not None:
+        dataset_scale_info = _compute_dataset_intensity_scale(
+            test_raw.diff3d,
+            params.nphotons,
+        )
+        print(
+            f"[runner][scale] dataset_scale={dataset_scale_info.get('dataset_scale'):.6f} "
+            f"vs fallback={dataset_scale_info.get('fallback_scale'):.6f} "
+            f"(ratio={dataset_scale_info.get('ratio'):.6f})"
+        )
         record_intensity_stage(
             intensity_stages,
             "raw_diffraction",
@@ -1219,6 +1336,7 @@ def run_inference_and_reassemble(
         "bundle_intensity_scale": bundle_intensity_scale,
         "legacy_params_intensity_scale": legacy_intensity_scale,
         "recorded_scale": recorded_scale,
+        "dataset_scale_info": dataset_scale_info,  # D4 architecture diagnostics: dataset vs fallback scale
     }
     return np.abs(obj_image), np.angle(obj_image), global_offsets, intensity_info
 
@@ -1573,6 +1691,7 @@ def main() -> None:
         scenario_dir=scenario_dir,
         intensity_scaler_state=intensity_scaler_state,
         training_container_stats=training_container_stats,
+        dataset_scale_info=intensity_info.get("dataset_scale_info"),
     )
     intensity_record["prediction_scale"] = scale_info
     metadata["intensity_stats"] = intensity_record
@@ -1586,6 +1705,9 @@ def main() -> None:
     metadata["crop_metadata"] = crop_metadata
     # Add IntensityScaler state to run_metadata for D4 architecture diagnostics
     metadata["intensity_scaler_state"] = intensity_scaler_state
+    # D4 architecture diagnostics: dataset vs fallback intensity scale
+    if intensity_info.get("dataset_scale_info") is not None:
+        metadata["dataset_scale_info"] = intensity_info["dataset_scale_info"]
     if profile_metadata:
         metadata["profile"] = profile_metadata
     (scenario_dir / "run_metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True))
