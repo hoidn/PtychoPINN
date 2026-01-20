@@ -5,7 +5,7 @@
 - Title: Per-role / per-prompt agent dispatch (codex vs claude)
 - Owner: user + Codex
 - Spec Owner: scripts/orchestration/README.md
-- Status: pending
+- Status: in_progress (Phase C tests complete; full-suite regression gate pending)
 
 ## Goals
 - Allow selecting different model CLIs per role or per prompt (for example, codex for supervisor.md, claude for main.md).
@@ -29,10 +29,10 @@
    - Logs saved to `plans/active/ORCH-AGENT-DISPATCH-001/reports/<timestamp>/`
 
 ## Compliance Matrix (Mandatory)
-- [ ] **Spec Constraint:** `scripts/orchestration/README.md` (routing + combined orchestration behavior)
-- [ ] **Fix-Plan Link:** `docs/fix_plan.md` — ORCH-AGENT-DISPATCH-001
-- [ ] **Finding/Policy ID:** PYTHON-ENV-001 (use PATH `python` for subprocesses/docs)
-- [ ] **Test Strategy:** `plans/active/ORCH-AGENT-DISPATCH-001/test_strategy.md`
+- [x] **Spec Constraint:** `scripts/orchestration/README.md` (routing + combined orchestration behavior)
+- [x] **Fix-Plan Link:** `docs/fix_plan.md` — ORCH-AGENT-DISPATCH-001
+- [x] **Finding/Policy ID:** PYTHON-ENV-001 (use PATH `python` for subprocesses/docs)
+- [x] **Test Strategy:** `plans/active/ORCH-AGENT-DISPATCH-001/test_strategy.md`
 
 ## Spec Alignment
 - **Normative Spec:** `scripts/orchestration/README.md`
@@ -64,12 +64,14 @@
 
 ## Phase A — Design & Tests
 ### Checklist
-- [ ] A0: Define agent resolution precedence and config shape (YAML + CLI) and add a failing resolver test.
+- [x] A0: Define agent resolution precedence and config shape (YAML + CLI) and add a failing resolver test.
       Test: `scripts/orchestration/tests/test_agent_dispatch.py::test_agent_prompt_override_precedence`
-- [ ] A1: Add test strategy doc and link in plan/fix_plan.
+      Evidence: `plans/active/ORCH-AGENT-DISPATCH-001/reports/2026-01-20T055000Z/pytest_agent_dispatch.log`
+- [x] A1: Add test strategy doc and link in plan/fix_plan.
       Test: N/A — planning artifact
-- [ ] A2: Seed tests for router-selected prompt using a different agent in combined mode.
+- [x] A2: Seed tests for router-selected prompt using a different agent in combined mode.
       Test: `scripts/orchestration/tests/test_agent_dispatch.py::test_router_prompt_drives_agent`
+      Evidence: `plans/active/ORCH-AGENT-DISPATCH-001/reports/2026-01-20T055000Z/pytest_agent_dispatch.log`
 
 ### Dependency Analysis (Required for Refactors)
 - **Touched Modules:** `scripts/orchestration/config.py`, `scripts/orchestration/runner.py`, `scripts/orchestration/orchestrator.py`, `scripts/orchestration/supervisor.py`, `scripts/orchestration/loop.py`
@@ -81,23 +83,28 @@
 
 ## Phase B — Implementation
 ### Checklist
-- [ ] B1: Extend config loader for `agent` block (default/roles/prompts) and CLI overrides.
+- [x] B1: Extend config loader for `agent` block (default/roles/prompts) and CLI overrides.
       Test: `scripts/orchestration/tests/test_agent_dispatch.py::test_agent_config_parsing`
-- [ ] B2: Implement `AgentResolver` and cmd builder; log selected agent per turn.
+      Evidence: `plans/active/ORCH-AGENT-DISPATCH-001/reports/2026-01-20T055000Z/pytest_agent_dispatch.log`
+- [x] B2: Implement `AgentResolver` and cmd builder; log selected agent per turn.
       Test: `scripts/orchestration/tests/test_agent_dispatch.py::test_agent_role_fallback`
-- [ ] B3: Wire resolver into combined mode (per prompt) and supervisor/loop (per role).
+      Evidence: `plans/active/ORCH-AGENT-DISPATCH-001/reports/2026-01-20T055000Z/pytest_agent_dispatch.log`
+- [x] B3: Wire resolver into combined mode (per prompt) and supervisor/loop (per role).
       Test: `scripts/orchestration/tests/test_agent_dispatch.py::test_combined_uses_prompt_agent`
+      Evidence: `plans/active/ORCH-AGENT-DISPATCH-001/reports/2026-01-20T055000Z/pytest_agent_dispatch.log`
 
 ### Notes & Risks
 - Ensure agent resolution occurs after router selection in combined mode so router overrides can change agent.
 
 ## Phase C — Verification & Docs
 ### Checklist
-- [ ] C1: Run collect-only and module tests for agent dispatch.
+- [x] C1: Run collect-only and module tests for agent dispatch.
       Test: `pytest --collect-only scripts/orchestration/tests/test_agent_dispatch.py -v`
-- [ ] C2: Run agent dispatch test module.
+      Evidence: `plans/active/ORCH-AGENT-DISPATCH-001/reports/2026-01-20T055000Z/pytest_collect_agent_dispatch.log`
+- [x] C2: Run agent dispatch test module.
       Test: `pytest scripts/orchestration/tests/test_agent_dispatch.py -v`
-- [ ] C3: Update docs (`scripts/orchestration/README.md`, `docs/TESTING_GUIDE.md`, `docs/development/TEST_SUITE_INDEX.md`).
+      Evidence: `plans/active/ORCH-AGENT-DISPATCH-001/reports/2026-01-20T055000Z/pytest_agent_dispatch.log`
+- [x] C3: Update docs (`scripts/orchestration/README.md`, `docs/TESTING_GUIDE.md`, `docs/development/TEST_SUITE_INDEX.md`).
       Test: N/A — documentation-only
 
 ### Notes & Risks

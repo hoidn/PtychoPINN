@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-20 (ORCH-AGENT-DISPATCH plan drafted)
-**Active Focus:** ORCH-AGENT-DISPATCH-001 — plan drafted
+**Last Updated:** 2026-01-20 (ORCH-ORCHESTRATOR iteration tag)
+**Active Focus:** ORCH-ORCHESTRATOR-001 — add iteration tags to combined auto-commit
 
 ---
 
@@ -243,11 +243,14 @@
   - *2026-01-20T052323Z:* Ran integration marker gate for combined auto-commit changes.
     - Metrics: `pytest -v -m integration` (1 passed, 3 skipped)
     - Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T052323Z/pytest_integration.log`
+  - *2026-01-20T055056Z:* Added iteration tags to combined auto-commit commit messages, wired the iteration through combined mode, and added test coverage plus README updates.
+    - Metrics: `pytest --collect-only scripts/orchestration/tests/test_orchestrator.py -v`, `pytest scripts/orchestration/tests/test_orchestrator.py -v`
+    - Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T055056Z/{pytest_collect_orchestrator.log,pytest_orchestrator.log}`
 
 ### [ORCH-AGENT-DISPATCH-001] Per-role/per-prompt agent dispatch (codex vs claude)
 - Depends on: ORCH-ORCHESTRATOR-001 (combined mode baseline)
 - Priority: Medium
-- Status: pending — plan drafted
+- Status: in_progress — Phase C tests complete; full-suite regression gate pending
 - Owner/Date: Codex/2026-01-20
 - Working Plan: `plans/active/ORCH-AGENT-DISPATCH-001/implementation.md`
 - Summary: `plans/active/ORCH-AGENT-DISPATCH-001/summary.md`
@@ -264,3 +267,7 @@
   - Tests pass and orchestration docs/test registry updated with evidence.
 - Attempts History:
   - *2026-01-20T053513Z:* Drafted implementation plan, summary, and test strategy for agent dispatch. Artifacts: `plans/active/ORCH-AGENT-DISPATCH-001/{implementation.md,summary.md,test_strategy.md}`.
+  - *2026-01-20T055000Z:* Implemented per-role/per-prompt agent dispatch (config + CLI), added resolver tests, wired supervisor/loop/orchestrator logging, and updated orchestration docs/test registry.
+    - Metrics: `ruff check scripts/orchestration/agent_dispatch.py scripts/orchestration/orchestrator.py scripts/orchestration/supervisor.py scripts/orchestration/loop.py scripts/orchestration/tests/test_agent_dispatch.py`, `pytest --collect-only scripts/orchestration/tests/test_agent_dispatch.py -v`, `pytest scripts/orchestration/tests/test_agent_dispatch.py -v`
+    - Artifacts: `plans/active/ORCH-AGENT-DISPATCH-001/reports/2026-01-20T055000Z/{ruff_check.log,pytest_collect_agent_dispatch.log,pytest_agent_dispatch.log,summary.md}`
+    - Next Actions: decide whether to run the broader regression suite to satisfy the full-suite exit criterion.

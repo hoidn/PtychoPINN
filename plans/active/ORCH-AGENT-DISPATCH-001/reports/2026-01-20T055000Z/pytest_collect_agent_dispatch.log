@@ -1,0 +1,20 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 5 items
+
+<Dir PtychoPINN>
+  <Dir scripts>
+    <Package orchestration>
+      <Dir tests>
+        <Module test_agent_dispatch.py>
+          <Function test_agent_prompt_override_precedence>
+          <Function test_agent_config_parsing>
+          <Function test_agent_role_fallback>
+          <Function test_router_prompt_drives_agent>
+          <Function test_combined_uses_prompt_agent>
+
+========================== 5 tests collected in 0.05s ==========================

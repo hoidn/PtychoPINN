@@ -3,7 +3,7 @@
 **Initiative:** ORCH-AGENT-DISPATCH-001
 **Phase:** Phase A / Planning
 **Date:** 2026-01-20
-**Status:** Draft
+**Status:** Active
 
 ---
 

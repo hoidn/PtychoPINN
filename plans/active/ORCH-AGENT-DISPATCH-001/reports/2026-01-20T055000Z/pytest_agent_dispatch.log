@@ -1,0 +1,15 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 5 items
+
+scripts/orchestration/tests/test_agent_dispatch.py::test_agent_prompt_override_precedence PASSED [ 20%]
+scripts/orchestration/tests/test_agent_dispatch.py::test_agent_config_parsing PASSED [ 40%]
+scripts/orchestration/tests/test_agent_dispatch.py::test_agent_role_fallback PASSED [ 60%]
+scripts/orchestration/tests/test_agent_dispatch.py::test_router_prompt_drives_agent PASSED [ 80%]
+scripts/orchestration/tests/test_agent_dispatch.py::test_combined_uses_prompt_agent PASSED [100%]
+
+============================== 5 passed in 0.05s ===============================
