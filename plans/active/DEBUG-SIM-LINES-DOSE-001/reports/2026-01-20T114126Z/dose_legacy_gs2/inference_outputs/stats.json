@@ -1,0 +1,33 @@
+{
+  "amplitude": {
+    "max": 0.9664711952209473,
+    "mean": 0.06332952529191971,
+    "min": 0.0,
+    "nan_count": 0,
+    "std": 0.2157665193080902
+  },
+  "fits_canvas": true,
+  "offsets": {
+    "axis_max_abs": [
+      370.01518972033625,
+      369.37237917192147
+    ],
+    "max_abs": 370.01518972033625
+  },
+  "padded_size": 814,
+  "phase": {
+    "max": 2.007056713104248,
+    "mean": 0.015086368657648563,
+    "min": -0.04494032263755798,
+    "nan_count": 0,
+    "std": 0.06947910040616989
+  },
+  "prediction_scale": {
+    "applied": false,
+    "mode": "none",
+    "recorded_scale": 988.211669921875,
+    "source": null,
+    "value": null
+  },
+  "required_canvas": 805
+}

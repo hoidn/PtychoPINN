@@ -1,0 +1,119 @@
+{
+  "bundle_intensity_scale": 988.211669921875,
+  "largest_drop": {
+    "from_mean": 1.3160916566848755,
+    "from_stage": "grouped_diffraction",
+    "key": "grouped_to_normalized",
+    "ratio": 0.28433112983605247,
+    "to_mean": 0.3742058277130127,
+    "to_stage": "grouped_X_full"
+  },
+  "legacy_params_intensity_scale": 988.211669921875,
+  "normalize_gain": 0.28433112983605247,
+  "ratios": {
+    "grouped_to_normalized": 0.28433112983605247,
+    "normalized_to_container": 1.0,
+    "raw_to_grouped": 0.9848799268631327
+  },
+  "scale_delta": 0.0,
+  "stage_means": {
+    "container_X": 0.3742058277130127,
+    "grouped_X_full": 0.3742058277130127,
+    "grouped_diffraction": 1.3160916566848755,
+    "raw_diffraction": 1.336296558380127
+  },
+  "stages": [
+    {
+      "metadata": {
+        "count": 128,
+        "source": "RawData"
+      },
+      "name": "raw_diffraction",
+      "stats": {
+        "dtype": "float32",
+        "finite_count": 524288,
+        "max": 5.758124828338623,
+        "mean": 1.336296558380127,
+        "min": 0.0,
+        "nan_count": 0,
+        "shape": [
+          128,
+          64,
+          64
+        ],
+        "std": 1.18587327003479,
+        "total_count": 524288
+      }
+    },
+    {
+      "metadata": {
+        "count": 32,
+        "gridsize": 2,
+        "source": "RawData.generate_grouped_data"
+      },
+      "name": "grouped_diffraction",
+      "stats": {
+        "dtype": "float32",
+        "finite_count": 524288,
+        "max": 5.758124828338623,
+        "mean": 1.3160916566848755,
+        "min": 0.0,
+        "nan_count": 0,
+        "shape": [
+          32,
+          64,
+          64,
+          4
+        ],
+        "std": 1.1663066148757935,
+        "total_count": 524288
+      }
+    },
+    {
+      "metadata": {
+        "count": 32,
+        "source": "normalize_data"
+      },
+      "name": "grouped_X_full",
+      "stats": {
+        "dtype": "float32",
+        "finite_count": 524288,
+        "max": 1.6372140645980835,
+        "mean": 0.3742058277130127,
+        "min": 0.0,
+        "nan_count": 0,
+        "shape": [
+          32,
+          64,
+          64,
+          4
+        ],
+        "std": 0.3316172659397125,
+        "total_count": 524288
+      }
+    },
+    {
+      "metadata": {
+        "group_limit": 32,
+        "source": "PtychoDataContainer"
+      },
+      "name": "container_X",
+      "stats": {
+        "dtype": "float32",
+        "finite_count": 524288,
+        "max": 1.6372140645980835,
+        "mean": 0.3742058277130127,
+        "min": 0.0,
+        "nan_count": 0,
+        "shape": [
+          32,
+          64,
+          64,
+          4
+        ],
+        "std": 0.3316172659397125,
+        "total_count": 524288
+      }
+    }
+  ]
+}

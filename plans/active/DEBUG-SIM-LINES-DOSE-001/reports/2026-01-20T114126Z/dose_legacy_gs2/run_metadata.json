@@ -1,0 +1,355 @@
+{
+  "amp_png_range": {
+    "vmax": 0.9664711952209473,
+    "vmin": 0.0
+  },
+  "artifacts": {
+    "amplitude_diff_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/amplitude_diff.npy",
+    "amplitude_diff_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/amplitude_diff.png",
+    "amplitude_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/inference_outputs/amplitude.npy",
+    "amplitude_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/inference_outputs/amplitude.png",
+    "amplitude_unscaled_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/inference_outputs/amplitude_unscaled.npy",
+    "comparison_metrics": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/comparison_metrics.json",
+    "comparison_summary": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/gs1_custom_comparison_summary.md",
+    "ground_truth_amplitude_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/ground_truth_amp.npy",
+    "ground_truth_amplitude_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/ground_truth_amp.png",
+    "ground_truth_phase_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/ground_truth_phase.npy",
+    "ground_truth_phase_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/ground_truth_phase.png",
+    "inference_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/inference_outputs",
+    "intensity_stats_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/intensity_stats.json",
+    "intensity_stats_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/intensity_stats.md",
+    "phase_diff_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/phase_diff.npy",
+    "phase_diff_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/phase_diff.png",
+    "phase_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/inference_outputs/phase.npy",
+    "phase_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/inference_outputs/phase.png",
+    "prediction_scale_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/inference_outputs/prediction_scale.txt",
+    "stats_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/inference_outputs/stats.json",
+    "train_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/train_outputs"
+  },
+  "buffer": 10.0,
+  "cli_args": {
+    "amp_vmax": null,
+    "base_total_images": 64,
+    "batch_size": 8,
+    "buffer": null,
+    "gridsize": 2,
+    "group_count": 32,
+    "group_limit": 32,
+    "group_multiplier": 1,
+    "image_multiplier": 1,
+    "neighbor_count": 4,
+    "nepochs": 5,
+    "nphotons": null,
+    "object_seed": null,
+    "output_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2",
+    "prediction_scale_source": "none",
+    "probe_big": true,
+    "probe_mask": false,
+    "probe_mode": "custom",
+    "probe_scale": 4.0,
+    "scenario": "gs1_custom",
+    "sim_seed": null,
+    "snapshot": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json",
+    "split_fraction": null
+  },
+  "comparison": {
+    "diff_pngs": {
+      "amplitude_diff_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/amplitude_diff.npy",
+      "amplitude_diff_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/amplitude_diff.png",
+      "phase_diff_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/phase_diff.npy",
+      "phase_diff_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/phase_diff.png"
+    },
+    "metrics": {
+      "amplitude": {
+        "bias_summary": {
+          "mean": -2.6449179724477516,
+          "median": -2.6367310285568237,
+          "p05": -3.7559924840927126,
+          "p95": -1.5689694285392757
+        },
+        "color_range": [
+          -4.85612678527832,
+          4.85612678527832
+        ],
+        "count": 153664,
+        "mae": 2.6449179725080687,
+        "max_abs": 4.85612678527832,
+        "pearson_r": 0.052341757182380995,
+        "pred_stats": {
+          "max": 0.9664711952209473,
+          "mean": 0.06332952529191971,
+          "min": 0.0,
+          "nan_count": 0,
+          "std": 0.2157665193080902
+        },
+        "rmse": 2.7273773286029965,
+        "truth_stats": {
+          "max": 4.85612678527832,
+          "mean": 2.708247423171997,
+          "min": 0.6128976941108704,
+          "nan_count": 0,
+          "std": 0.6410303115844727
+        }
+      },
+      "phase": {
+        "bias_summary": {
+          "mean": 0.015086369100851657,
+          "median": 0.0,
+          "p05": 0.0,
+          "p95": 0.14686674922704712
+        },
+        "color_range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "count": 153664,
+        "mae": 0.015088910081289804,
+        "max_abs": 2.007056713104248,
+        "pearson_r": null,
+        "pred_stats": {
+          "max": 2.007056713104248,
+          "mean": 0.015086368657648563,
+          "min": -0.04494032263755798,
+          "nan_count": 0,
+          "std": 0.06947910040616989
+        },
+        "rmse": 0.07109812853971162,
+        "truth_stats": {
+          "max": 0.0,
+          "mean": 0.0,
+          "min": 0.0,
+          "nan_count": 0,
+          "std": 0.0
+        }
+      }
+    },
+    "metrics_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/comparison_metrics.json",
+    "metrics_summary": {
+      "amplitude": {
+        "mae": 2.6449179725080687,
+        "max_abs": 4.85612678527832,
+        "pearson_r": 0.052341757182380995,
+        "rmse": 2.7273773286029965
+      },
+      "phase": {
+        "mae": 0.015088910081289804,
+        "max_abs": 2.007056713104248,
+        "pearson_r": null,
+        "rmse": 0.07109812853971162
+      }
+    },
+    "summary_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/gs1_custom_comparison_summary.md"
+  },
+  "comparison_metrics_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/comparison_metrics.json",
+  "comparison_metrics_summary": {
+    "amplitude": {
+      "mae": 2.6449179725080687,
+      "max_abs": 4.85612678527832,
+      "pearson_r": 0.052341757182380995,
+      "rmse": 2.7273773286029965
+    },
+    "phase": {
+      "mae": 0.015088910081289804,
+      "max_abs": 2.007056713104248,
+      "pearson_r": null,
+      "rmse": 0.07109812853971162
+    }
+  },
+  "crop_metadata": {
+    "end": [
+      396,
+      396
+    ],
+    "input_shape": [
+      400,
+      400,
+      1
+    ],
+    "parity_warning": false,
+    "start": [
+      4,
+      4
+    ],
+    "target_size": 392
+  },
+  "elapsed_seconds": 20.25,
+  "ground_truth": {
+    "amplitude_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/ground_truth_amp.npy",
+    "amplitude_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/ground_truth_amp.png",
+    "phase_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/ground_truth_phase.npy",
+    "phase_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/ground_truth_phase.png"
+  },
+  "ground_truth_amp_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/ground_truth_amp.npy",
+  "ground_truth_phase_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/ground_truth_phase.npy",
+  "group_count": 32,
+  "group_limit": 32,
+  "intensity_stats": {
+    "bundle_intensity_scale": 988.211669921875,
+    "intensity_scale": 988.211669921875,
+    "json_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/intensity_stats.json",
+    "largest_drop": {
+      "from_mean": 1.3160916566848755,
+      "from_stage": "grouped_diffraction",
+      "key": "grouped_to_normalized",
+      "ratio": 0.28433112983605247,
+      "to_mean": 0.3742058277130127,
+      "to_stage": "grouped_X_full"
+    },
+    "legacy_params_intensity_scale": 988.211669921875,
+    "markdown_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/intensity_stats.md",
+    "normalize_gain": 0.28433112983605247,
+    "prediction_scale": {
+      "applied": false,
+      "mode": "none",
+      "recorded_scale": 988.211669921875,
+      "source": null,
+      "value": null
+    },
+    "ratios": {
+      "grouped_to_normalized": 0.28433112983605247,
+      "normalized_to_container": 1.0,
+      "raw_to_grouped": 0.9848799268631327
+    },
+    "scale_delta": 0.0,
+    "stage_means": {
+      "container_X": 0.3742058277130127,
+      "grouped_X_full": 0.3742058277130127,
+      "grouped_diffraction": 1.3160916566848755,
+      "raw_diffraction": 1.336296558380127
+    },
+    "stages": [
+      {
+        "metadata": {
+          "count": 128,
+          "source": "RawData"
+        },
+        "name": "raw_diffraction",
+        "stats": {
+          "dtype": "float32",
+          "finite_count": 524288,
+          "max": 5.758124828338623,
+          "mean": 1.336296558380127,
+          "min": 0.0,
+          "nan_count": 0,
+          "shape": [
+            128,
+            64,
+            64
+          ],
+          "std": 1.18587327003479,
+          "total_count": 524288
+        }
+      },
+      {
+        "metadata": {
+          "count": 32,
+          "gridsize": 2,
+          "source": "RawData.generate_grouped_data"
+        },
+        "name": "grouped_diffraction",
+        "stats": {
+          "dtype": "float32",
+          "finite_count": 524288,
+          "max": 5.758124828338623,
+          "mean": 1.3160916566848755,
+          "min": 0.0,
+          "nan_count": 0,
+          "shape": [
+            32,
+            64,
+            64,
+            4
+          ],
+          "std": 1.1663066148757935,
+          "total_count": 524288
+        }
+      },
+      {
+        "metadata": {
+          "count": 32,
+          "source": "normalize_data"
+        },
+        "name": "grouped_X_full",
+        "stats": {
+          "dtype": "float32",
+          "finite_count": 524288,
+          "max": 1.6372140645980835,
+          "mean": 0.3742058277130127,
+          "min": 0.0,
+          "nan_count": 0,
+          "shape": [
+            32,
+            64,
+            64,
+            4
+          ],
+          "std": 0.3316172659397125,
+          "total_count": 524288
+        }
+      },
+      {
+        "metadata": {
+          "group_limit": 32,
+          "source": "PtychoDataContainer"
+        },
+        "name": "container_X",
+        "stats": {
+          "dtype": "float32",
+          "finite_count": 524288,
+          "max": 1.6372140645980835,
+          "mean": 0.3742058277130127,
+          "min": 0.0,
+          "nan_count": 0,
+          "shape": [
+            32,
+            64,
+            64,
+            4
+          ],
+          "std": 0.3316172659397125,
+          "total_count": 524288
+        }
+      }
+    ]
+  },
+  "intensity_stats_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/intensity_stats.md",
+  "intensity_stats_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/intensity_stats.json",
+  "neighbor_count": 4,
+  "nepochs": 5,
+  "nphotons": 1000000000.0,
+  "object_seed": 42,
+  "prediction_scale": {
+    "applied": false,
+    "mode": "none",
+    "recorded_scale": 988.211669921875,
+    "source": null,
+    "value": null
+  },
+  "probe_big": true,
+  "probe_mask": false,
+  "probe_mode": "custom",
+  "probe_scale": 4.0,
+  "scenario": "gs1_custom",
+  "sim_seed": 42,
+  "split_fraction": 0.5,
+  "test_count": 128,
+  "timestamp": "2026-01-20T11:53:41.251885+00:00",
+  "total_images": 256,
+  "train_count": 128,
+  "training_history": {
+    "history_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/train_outputs/history.json",
+    "nan_overview": {
+      "has_nan": false,
+      "metrics": {}
+    },
+    "summary_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/train_outputs/history_summary.json",
+    "summary_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/gs1_custom_training_summary.md"
+  },
+  "training_history_path": "train_outputs/history.json",
+  "training_nan_overview": {
+    "has_nan": false,
+    "metrics": {}
+  },
+  "training_summary_markdown_path": "gs1_custom_training_summary.md",
+  "training_summary_path": "train_outputs/history_summary.json"
+}

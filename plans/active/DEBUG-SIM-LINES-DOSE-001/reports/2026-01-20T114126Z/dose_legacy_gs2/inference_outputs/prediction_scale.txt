@@ -1,0 +1,7 @@
+{
+  "applied": false,
+  "mode": "none",
+  "recorded_scale": 988.211669921875,
+  "source": null,
+  "value": null
+}

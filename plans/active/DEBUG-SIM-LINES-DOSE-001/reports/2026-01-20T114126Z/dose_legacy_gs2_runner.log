@@ -1,0 +1,389 @@
+2026-01-20 03:53:15.075956: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1768909995.086904 1415679 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1768909995.090493 1415679 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1768909995.100460 1415679 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768909995.100469 1415679 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768909995.100470 1415679 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768909995.100471 1415679 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-20 03:53:15.103217: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+I0000 00:00:1768909997.895485 1415679 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1768909997.896816 1415679 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1768909998.646054 1415679 service.cc:152] XLA service 0x411ba330 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1768909998.646074 1415679 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2026-01-20 03:53:18.665817: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1768909998.684280 1415679 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1768909998.837078 1415679 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+WARNING:tensorflow:From /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow_probability/python/distributions/distribution.py:342: calling _Independent.__init__ (from tensorflow_probability.python.distributions.independent) with reinterpreted_batch_ndims=None is deprecated and will be removed after 2022-03-01.
+Instructions for updating:
+Please pass an integer value for `reinterpreted_batch_ndims`. The current behavior corresponds to `reinterpreted_batch_ndims=tf.size(distribution.batch_shape_tensor()) - 1`.
+2026-01-20 03:53:20.974837: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence
+[runner] Scenario=gs1_custom gridsize=2 probe_mode=custom probe_scale=4.0
+[runner] total_images=256 train_count=128 test_count=128 group_count=32 nepochs=5
+DEBUG: Setting data_source to lines in params
+DEBUG: Setting data_source to generic in params
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 1000000000.0 in params
+input shape (None, 64, 64, 1)
+diff3d shape: (256, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (256,)
+objectGuess shape: (392, 392)
+xcoords shape: (256,)
+ycoords shape: (256,)
+xcoords_start shape: (256,)
+ycoords_start shape: (256,)
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 1000000000.0 in params
+diff3d shape: (128, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (128,)
+objectGuess shape: (392, 392)
+xcoords shape: (128,)
+ycoords shape: (128,)
+xcoords_start shape: (128,)
+ycoords_start shape: (128,)
+diff3d shape: (128, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (128,)
+objectGuess shape: (392, 392)
+xcoords shape: (128,)
+ycoords shape: (128,)
+xcoords_start shape: (128,)
+ycoords_start shape: (128,)
+DEBUG: nsamples: 32, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: Using pre-computed 'Y' array from the input file.
+neighbor-sampled diffraction shape (32, 64, 64, 4)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(32, 64, 64, 4) mean=0.375 Y_I=(32, 64, 64, 4) mean=2.658 Y_phi=(32, 64, 64, 4) mean=0.000 coords_nominal=(32, 1, 2, 4) mean=0.000 coords_true=(32, 1, 2, 4) mean=0.000 probe=(64, 64) mean_amplitude=0.292 norm_Y_I=<scalar> nn_indices=(32, 4) global_offsets=(32, 1, 2, 1) local_offsets=(32, 1, 2, 4)>
+DEBUG: nsamples: 32, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: Using pre-computed 'Y' array from the input file.
+neighbor-sampled diffraction shape (32, 64, 64, 4)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(32, 64, 64, 4) mean=0.376 Y_I=(32, 64, 64, 4) mean=2.375 Y_phi=(32, 64, 64, 4) mean=0.000 coords_nominal=(32, 1, 2, 4) mean=0.000 coords_true=(32, 1, 2, 4) mean=0.000 probe=(64, 64) mean_amplitude=0.292 norm_Y_I=<scalar> nn_indices=(32, 4) global_offsets=(32, 1, 2, 1) local_offsets=(32, 1, 2, 4)>
+DEBUG: Setting probe to tf.Tensor(
+[[[-0.00399459+8.81725922e-03j]
+  [ 0.00787074+1.04518672e-02j]
+  [-0.01909852+2.85197329e-03j]
+  ...
+  [-0.00430549-1.44718047e-02j]
+  [ 0.00670903+2.63100304e-02j]
+  [-0.01938361-6.67245360e-03j]]
+
+ [[ 0.00921909+5.32836141e-03j]
+  [ 0.00422684-1.61591489e-02j]
+  [-0.00324812+1.62756350e-02j]
+  ...
+  [-0.00462818-2.68168072e-03j]
+  [ 0.01194528-6.69307355e-03j]
+  [ 0.0090712 -3.79238278e-03j]]
+
+ [[ 0.0029482 -1.10371104e-02j]
+  [-0.01489174+5.26464824e-03j]
+  [-0.00083129+1.31990444e-02j]
+  ...
+  [ 0.00208769+1.68677475e-02j]
+  [ 0.00556216-3.03630810e-02j]
+  [ 0.01604221+1.45274084e-02j]]
+
+ ...
+
+ [[ 0.01654117+3.83263193e-02j]
+  [-0.01336122+7.02320365e-04j]
+  [-0.00380601-8.65837932e-03j]
+  ...
+  [ 0.01785212+2.66705058e-03j]
+  [-0.01791506+7.16461660e-03j]
+  [ 0.01052329-2.80616116e-02j]]
+
+ [[-0.02582748-2.17778888e-05j]
+  [ 0.0098637 -3.15875164e-03j]
+  [-0.0156169 +2.47947779e-02j]
+  ...
+  [-0.01378679-1.89308310e-03j]
+  [ 0.00439025-1.43125653e-02j]
+  [ 0.02400579-1.19637549e-02j]]
+
+ [[-0.00013256-1.32157737e-02j]
+  [ 0.03951043+1.84629709e-02j]
+  [-0.00848375+3.90608120e-03j]
+  ...
+  [-0.00414446+2.40438167e-04j]
+  [ 0.01858319+1.01260375e-02j]
+  [ 0.01299333+1.25071155e-02j]]], shape=(64, 64, 1), dtype=complex64) in params
+DEBUG: Setting intensity_scale to 988.21173 in params
+DEBUG: Setting probe to tf.Tensor(
+[[[-0.00399459+8.81725922e-03j]
+  [ 0.00787074+1.04518672e-02j]
+  [-0.01909852+2.85197329e-03j]
+  ...
+  [-0.00430549-1.44718047e-02j]
+  [ 0.00670903+2.63100304e-02j]
+  [-0.01938361-6.67245360e-03j]]
+
+ [[ 0.00921909+5.32836141e-03j]
+  [ 0.00422684-1.61591489e-02j]
+  [-0.00324812+1.62756350e-02j]
+  ...
+  [-0.00462818-2.68168072e-03j]
+  [ 0.01194528-6.69307355e-03j]
+  [ 0.0090712 -3.79238278e-03j]]
+
+ [[ 0.0029482 -1.10371104e-02j]
+  [-0.01489174+5.26464824e-03j]
+  [-0.00083129+1.31990444e-02j]
+  ...
+  [ 0.00208769+1.68677475e-02j]
+  [ 0.00556216-3.03630810e-02j]
+  [ 0.01604221+1.45274084e-02j]]
+
+ ...
+
+ [[ 0.01654117+3.83263193e-02j]
+  [-0.01336122+7.02320365e-04j]
+  [-0.00380601-8.65837932e-03j]
+  ...
+  [ 0.01785212+2.66705058e-03j]
+  [-0.01791506+7.16461660e-03j]
+  [ 0.01052329-2.80616116e-02j]]
+
+ [[-0.02582748-2.17778888e-05j]
+  [ 0.0098637 -3.15875164e-03j]
+  [-0.0156169 +2.47947779e-02j]
+  ...
+  [-0.01378679-1.89308310e-03j]
+  [ 0.00439025-1.43125653e-02j]
+  [ 0.02400579-1.19637549e-02j]]
+
+ [[-0.00013256-1.32157737e-02j]
+  [ 0.03951043+1.84629709e-02j]
+  [-0.00848375+3.90608120e-03j]
+  ...
+  [-0.00414446+2.40438167e-04j]
+  [ 0.01858319+1.01260375e-02j]
+  [ 0.01299333+1.25071155e-02j]]], shape=(64, 64, 1), dtype=complex64) in params
+Current Parameters:
+--------------------
+N: 64
+amp_activation: sigmoid
+backend: tensorflow
+batch_size: 8
+bigN: 68
+big_gridsize: 10
+data_source: generic
+debug: True
+default_probe_scale: 0.7
+enable_oversampling: False
+gaussian_smoothing_sigma: 0.0
+gridsize: 2
+h5_path: wts.h5
+intensity_scale: 988.2117309570312
+intensity_scale.trainable: True
+label: 
+mae_weight: 0.0
+max_position_jitter: 746
+model_type: pinn
+n_filters_scale: 2
+n_groups: 32
+neighbor_count: 4
+nepochs: 5
+nimgs_test: 3
+nimgs_train: 9
+nll_weight: 1.0
+nphotons: 1000000000.0
+npseed: 42
+object.big: True
+offset: 4
+outer_offset_test: None
+outer_offset_train: None
+output_prefix: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/train_outputs
+pad_object: True
+positions.provided: True
+probe:
+  shape: (64, 64, 1)
+  mean: -0.016-0.002j
+  std: 0.666
+  min: -3.769-0.236j
+  max: 2.823-0.116j
+probe.big: True
+probe.mask: False
+probe.trainable: False
+probe_scale: 4.0
+realspace_mae_weight: 0.0
+realspace_weight: 0.0
+sequential_sampling: False
+set_phi: False
+sim_jitter_scale: 0.0
+size: 392
+torch_loss_mode: poisson
+tv_weight: 0.0
+use_xla_translate: True
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from global params: 64
+DEBUG _flat_to_channel: input shape=(128, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+Epoch 1/5
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 814
+DEBUG _flat_to_channel: input shape=(None, 814, 814, 1), reshaping to (-1, 4, 814, 814)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 814
+DEBUG _flat_to_channel: input shape=(None, 814, 814, 1), reshaping to (-1, 4, 814, 814)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 814
+DEBUG _flat_to_channel: input shape=(None, 814, 814, 1), reshaping to (-1, 4, 814, 814)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 814
+DEBUG _flat_to_channel: input shape=(None, 814, 814, 1), reshaping to (-1, 4, 814, 814)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 814
+DEBUG _flat_to_channel: input shape=(None, 814, 814, 1), reshaping to (-1, 4, 814, 814)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 814
+DEBUG _flat_to_channel: input shape=(None, 814, 814, 1), reshaping to (-1, 4, 814, 814)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 814
+DEBUG _flat_to_channel: input shape=(None, 814, 814, 1), reshaping to (-1, 4, 814, 814)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 814
+DEBUG _flat_to_channel: input shape=(None, 814, 814, 1), reshaping to (-1, 4, 814, 814)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+[1m1/4[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m18s[0m 6s/step - intensity_scaler_inv_loss: 127.7717 - loss: -2869944.0000 - pred_intensity_loss: -2869944.0000 - trimmed_obj_loss: 0.0000e+00[1m2/4[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 88ms/step - intensity_scaler_inv_loss: 189.9182 - loss: -2794538.5000 - pred_intensity_loss: -2794538.5000 - trimmed_obj_loss: 0.0000e+00[1m3/4[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 88ms/step - intensity_scaler_inv_loss: 195.5590 - loss: -2783701.0000 - pred_intensity_loss: -2783701.0000 - trimmed_obj_loss: 0.0000e+00[1m4/4[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 461ms/step - intensity_scaler_inv_loss: 192.3011 - loss: -2792386.2500 - pred_intensity_loss: -2795912.2500 - trimmed_obj_loss: 0.0000e+00WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+WARNING:tensorflow:You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 814
+DEBUG _flat_to_channel: input shape=(None, 814, 814, 1), reshaping to (-1, 4, 814, 814)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 814
+DEBUG _flat_to_channel: input shape=(None, 814, 814, 1), reshaping to (-1, 4, 814, 814)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 814
+DEBUG _flat_to_channel: input shape=(None, 814, 814, 1), reshaping to (-1, 4, 814, 814)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 814
+DEBUG _flat_to_channel: input shape=(None, 814, 814, 1), reshaping to (-1, 4, 814, 814)
+input shape (None, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(None, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+[1m4/4[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m9s[0m 841ms/step - intensity_scaler_inv_loss: 182.5273 - loss: -2818441.7500 - pred_intensity_loss: -2832545.7500 - trimmed_obj_loss: 0.0000e+00 - val_intensity_scaler_inv_loss: 237.5062 - val_loss: -2509550.5000 - val_pred_intensity_loss: -2509550.5000 - val_trimmed_obj_loss: 0.0000e+00 - learning_rate: 0.0010
+Epoch 2/5
+[1m1/4[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 101ms/step - intensity_scaler_inv_loss: 210.9727 - loss: -2836531.0000 - pred_intensity_loss: -2836531.0000 - trimmed_obj_loss: 0.0000e+00[1m2/4[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 87ms/step - intensity_scaler_inv_loss: 185.9877 - loss: -2822282.5000 - pred_intensity_loss: -2822282.5000 - trimmed_obj_loss: 0.0000e+00 [1m3/4[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 87ms/step - intensity_scaler_inv_loss: 172.5260 - loss: -2782693.5000 - pred_intensity_loss: -2782693.5000 - trimmed_obj_loss: 0.0000e+00[1m4/4[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 80ms/step - intensity_scaler_inv_loss: 166.9121 - loss: -2806212.2500 - pred_intensity_loss: -2817040.5000 - trimmed_obj_loss: 0.0000e+00[1m4/4[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 99ms/step - intensity_scaler_inv_loss: 150.0703 - loss: -2876768.5000 - pred_intensity_loss: -2920081.7500 - trimmed_obj_loss: 0.0000e+00 - val_intensity_scaler_inv_loss: 111.0891 - val_loss: -2658251.7500 - val_pred_intensity_loss: -2658251.7500 - val_trimmed_obj_loss: 0.0000e+00 - learning_rate: 0.0010
+Epoch 3/5
+[1m1/4[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 100ms/step - intensity_scaler_inv_loss: 119.5680 - loss: -2813531.2500 - pred_intensity_loss: -2813531.2500 - trimmed_obj_loss: 0.0000e+00[1m2/4[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 87ms/step - intensity_scaler_inv_loss: 120.4553 - loss: -2872258.5000 - pred_intensity_loss: -2872258.5000 - trimmed_obj_loss: 0.0000e+00 [1m3/4[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 87ms/step - intensity_scaler_inv_loss: 119.4869 - loss: -2890091.7500 - pred_intensity_loss: -2890091.7500 - trimmed_obj_loss: 0.0000e+00[1m4/4[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 80ms/step - intensity_scaler_inv_loss: 117.9509 - loss: -2896530.7500 - pred_intensity_loss: -2895911.2500 - trimmed_obj_loss: 0.0000e+00[1m4/4[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 99ms/step - intensity_scaler_inv_loss: 113.3427 - loss: -2915847.5000 - pred_intensity_loss: -2913369.7500 - trimmed_obj_loss: 0.0000e+00 - val_intensity_scaler_inv_loss: 105.3247 - val_loss: -2687663.5000 - val_pred_intensity_loss: -2687663.5000 - val_trimmed_obj_loss: 0.0000e+00 - learning_rate: 0.0010
+Epoch 4/5
+[1m1/4[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 102ms/step - intensity_scaler_inv_loss: 95.9269 - loss: -2743061.0000 - pred_intensity_loss: -2743061.0000 - trimmed_obj_loss: 0.0000e+00[1m2/4[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 87ms/step - intensity_scaler_inv_loss: 91.7444 - loss: -2852317.7500 - pred_intensity_loss: -2852317.7500 - trimmed_obj_loss: 0.0000e+00 [1m3/4[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 87ms/step - intensity_scaler_inv_loss: 89.6534 - loss: -2859753.5000 - pred_intensity_loss: -2859753.5000 - trimmed_obj_loss: 0.0000e+00[1m4/4[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 81ms/step - intensity_scaler_inv_loss: 87.9059 - loss: -2882713.0000 - pred_intensity_loss: -2887523.5000 - trimmed_obj_loss: 0.0000e+00[1m4/4[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 99ms/step - intensity_scaler_inv_loss: 82.6635 - loss: -2951591.7500 - pred_intensity_loss: -2970833.5000 - trimmed_obj_loss: 0.0000e+00 - val_intensity_scaler_inv_loss: 75.8660 - val_loss: -2698478.5000 - val_pred_intensity_loss: -2698478.5000 - val_trimmed_obj_loss: 0.0000e+00 - learning_rate: 0.0010
+Epoch 5/5
+[1m1/4[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 103ms/step - intensity_scaler_inv_loss: 80.9205 - loss: -2670456.5000 - pred_intensity_loss: -2670456.5000 - trimmed_obj_loss: 0.0000e+00[1m2/4[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 88ms/step - intensity_scaler_inv_loss: 78.3822 - loss: -2741561.2500 - pred_intensity_loss: -2741561.2500 - trimmed_obj_loss: 0.0000e+00 [1m3/4[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 87ms/step - intensity_scaler_inv_loss: 77.2325 - loss: -2810317.7500 - pred_intensity_loss: -2810317.7500 - trimmed_obj_loss: 0.0000e+00[1m4/4[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 81ms/step - intensity_scaler_inv_loss: 76.3318 - loss: -2846554.5000 - pred_intensity_loss: -2847019.0000 - trimmed_obj_loss: 0.0000e+00[1m4/4[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 100ms/step - intensity_scaler_inv_loss: 73.6297 - loss: -2955264.0000 - pred_intensity_loss: -2957122.5000 - trimmed_obj_loss: 0.0000e+00 - val_intensity_scaler_inv_loss: 87.4846 - val_loss: -2694006.0000 - val_pred_intensity_loss: -2694006.0000 - val_trimmed_obj_loss: 0.0000e+00 - learning_rate: 0.0010
+DEBUG: Setting probe to tf.Tensor(
+[[[-0.00399459+8.81725922e-03j]
+  [ 0.00787074+1.04518672e-02j]
+  [-0.01909852+2.85197329e-03j]
+  ...
+  [-0.00430549-1.44718047e-02j]
+  [ 0.00670903+2.63100304e-02j]
+  [-0.01938361-6.67245360e-03j]]
+
+ [[ 0.00921909+5.32836141e-03j]
+  [ 0.00422684-1.61591489e-02j]
+  [-0.00324812+1.62756350e-02j]
+  ...
+  [-0.00462818-2.68168072e-03j]
+  [ 0.01194528-6.69307355e-03j]
+  [ 0.0090712 -3.79238278e-03j]]
+
+ [[ 0.0029482 -1.10371104e-02j]
+  [-0.01489174+5.26464824e-03j]
+  [-0.00083129+1.31990444e-02j]
+  ...
+  [ 0.00208769+1.68677475e-02j]
+  [ 0.00556216-3.03630810e-02j]
+  [ 0.01604221+1.45274084e-02j]]
+
+ ...
+
+ [[ 0.01654117+3.83263193e-02j]
+  [-0.01336122+7.02320365e-04j]
+  [-0.00380601-8.65837932e-03j]
+  ...
+  [ 0.01785212+2.66705058e-03j]
+  [-0.01791506+7.16461660e-03j]
+  [ 0.01052329-2.80616116e-02j]]
+
+ [[-0.02582748-2.17778888e-05j]
+  [ 0.0098637 -3.15875164e-03j]
+  [-0.0156169 +2.47947779e-02j]
+  ...
+  [-0.01378679-1.89308310e-03j]
+  [ 0.00439025-1.43125653e-02j]
+  [ 0.02400579-1.19637549e-02j]]
+
+ [[-0.00013256-1.32157737e-02j]
+  [ 0.03951043+1.84629709e-02j]
+  [-0.00848375+3.90608120e-03j]
+  ...
+  [-0.00414446+2.40438167e-04j]
+  [ 0.01858319+1.01260375e-02j]
+  [ 0.01299333+1.25071155e-02j]]], shape=(64, 64, 1), dtype=complex64) in params
+INFO: setting probe from test data container. It MUST be consistent with the training probe
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 814
+DEBUG _flat_to_channel: input shape=(128, 814, 814, 1), reshaping to (-1, 4, 814, 814)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 814
+DEBUG _flat_to_channel: input shape=(128, 814, 814, 1), reshaping to (-1, 4, 814, 814)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 814
+DEBUG _flat_to_channel: input shape=(128, 814, 814, 1), reshaping to (-1, 4, 814, 814)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 814
+DEBUG _flat_to_channel: input shape=(128, 814, 814, 1), reshaping to (-1, 4, 814, 814)
+input shape (128, 64, 64, 1)
+DEBUG _flat_to_channel: gridsize from parameter: 2
+DEBUG _flat_to_channel: N from parameter: 64
+DEBUG _flat_to_channel: input shape=(128, 64, 64, 1), reshaping to (-1, 4, 64, 64)
+[1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 2s/step[1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m2s[0m 2s/step
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+Object stitching failed: cannot reshape array of size 131072 into shape (3,3,64,64,1)
+cannot reshape array of size 131072 into shape (3,3,64,64,1)
+[runner] Training complete in 14.46s; bundle saved to plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/train_outputs
+DEBUG: nsamples: 32, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: Using pre-computed 'Y' array from the input file.
+neighbor-sampled diffraction shape (32, 64, 64, 4)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(32, 64, 64, 4) mean=0.374 Y_I=(32, 64, 64, 4) mean=2.509 Y_phi=(32, 64, 64, 4) mean=0.000 coords_nominal=(32, 1, 2, 4) mean=0.000 coords_true=(32, 1, 2, 4) mean=0.000 probe=(64, 64) mean_amplitude=0.292 norm_Y_I=<scalar> nn_indices=(32, 4) global_offsets=(32, 1, 2, 1) local_offsets=(32, 1, 2, 4)>
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 814
+DEBUG _flat_to_channel: input shape=(128, 814, 814, 1), reshaping to (-1, 4, 814, 814)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 814
+DEBUG _flat_to_channel: input shape=(128, 814, 814, 1), reshaping to (-1, 4, 814, 814)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 814
+DEBUG _flat_to_channel: input shape=(128, 814, 814, 1), reshaping to (-1, 4, 814, 814)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 814
+DEBUG _flat_to_channel: input shape=(128, 814, 814, 1), reshaping to (-1, 4, 814, 814)
+[1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 2s/step[1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m2s[0m 2s/step
+[runner] Inference complete; stats saved to plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/inference_outputs/stats.json
+[runner] Outputs written to plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2
