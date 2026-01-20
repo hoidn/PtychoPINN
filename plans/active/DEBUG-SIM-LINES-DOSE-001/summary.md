@@ -1,6 +1,12 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
 ### Turn Summary
+Authored the plan-local `analyze_intensity_bias.py` CLI that ingests scenario hubs and emits aggregated bias/intensity summaries, then ran it on the gs1_ideal + gs2_ideal bundles to capture JSON/Markdown evidence for Phase C4.
+The analyzer confirms both scenarios still undershoot amplitude by ≈2.5 despite identical bundle vs legacy `intensity_scale` values and highlights that gs2’s training metrics now hit NaN on every primary loss while normalization stage stats remain stable (RawData mean ≈0.146 → container mean ≈0.085).
+Next: use the consolidated telemetry to trace where the constant amplitude drop enters the workflow (likely upstream of the IntensityScaler) before touching shared modules.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T121500Z/ (bias_summary.json, bias_summary.md, analyzer log, pytest_cli_smoke.log)
+
+### Turn Summary
 Audited the Phase C4 telemetry bundle and confirmed both gs1/gs2 scenarios still undershoot amplitude by ≈2.5 even though bundle vs legacy `intensity_scale` values match to machine precision, while gs2 now logs NaNs from the very first optimizer step.
 Traced the signal path across RawData → grouped_diffraction → normalize_data → container.X and verified stats remain steady (≈0.15 mean raw, ≈0.085 post-normalize) so the shared collapse must be downstream of loader scaling or missing loss terms (e.g., realspace weight=0, MAE disabled).
 Next: add a plan-local analyzer script that ingests existing scenario hubs, correlates amplitude bias vs probe/intensity stats, and summarizes NaN telemetry so we can pinpoint whether the failure is purely loss weighting or a deeper physics mismatch before touching shared workflows.
