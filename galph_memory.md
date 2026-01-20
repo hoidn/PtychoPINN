@@ -1,3 +1,23 @@
+
+# 2026-01-20T11:20:29Z: DEBUG-SIM-LINES-DOSE-001 — Phase D1 correction & handoff
+
+- dwell: 1 (manual override reset to 0, this is the first planning/docs loop afterward)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 Phase D1 — loss configuration validation before amplitude-bias reruns
+- Action type: Planning / documentation sweep (reviewed reviewer override and updated plan + ledger)
+- Mode: Implementation handoff (preparing concrete code/test work for Ralph)
+- Git sync: `git stash push -u -m 'galph-20260120-loop' && timeout 30 git pull --rebase && git stash pop`
+- Documents reviewed: docs/index.md, docs/findings.md, docs/fix_plan.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/compare_sim_lines_params.py, reports/2026-01-16T000353Z/dose_experiments_param_scan.md, input.md
+- Key observations:
+  - Reviewer finding: Phase D1 CLI grabbed `cfg['mae_weight']=1.0` / `cfg['nll_weight']=0.0` assignments that only fire under `loss_fn == 'mae'`, so the loss diff incorrectly advertised a MAE/NLL inversion.
+  - Need runtime evidence for both legacy loss branches before touching sim_lines losses.
+- Key decisions:
+  - Reopened D1 and created D1a–D1c tasks (capture runtime cfg snapshots, fix the CLI to label conditional assignments, rerun diff + pytest guard).
+  - Updated implementation plan, docs/fix_plan.md, initiative summary, artifacts hub, and input.md to point Ralph at the concrete CLI work plus guard selector.
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/`
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/ next_action=Ralph fixes compare_sim_lines_params.py to capture real dose_experiments loss weights + reruns CLI diff + pytest guard
+
+---
 # 2026-01-20T14:35:00Z: DEBUG-SIM-LINES-DOSE-001 — A1b closure (user_input.md override)
 
 - dwell: 0 (manual override reset per startup_steps)

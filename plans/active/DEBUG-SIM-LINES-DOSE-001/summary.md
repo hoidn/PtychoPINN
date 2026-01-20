@@ -1,5 +1,11 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
+### Turn Summary — 2026-01-20T112029Z (Phase D1 correction)
+Reviewer findings showed the Phase D1 diff misinterpreted the `dose_experiments` script: the captured `cfg['mae_weight']=1` / `cfg['nll_weight']=0` assignments only execute when `loss_fn == 'mae'`, so the Markdown/JSON artifacts now overstate a MAE/NLL inversion that may not exist.
+Reopened D1 and added D1a–D1c tasks in the implementation plan: (a) capture runtime `cfg` snapshots for both loss_fn branches without executing the legacy training loop, (b) update the plan-local comparison CLI to label conditional assignments explicitly and emit per-loss-mode weights, and (c) rerun the diff plus summary so docs/fix_plan.md cite corrected evidence.
+Next: Ralph fixes the CLI, re-captures the legacy loss weights, regenerates the Markdown/JSON diff under `reports/2026-01-20T112029Z/`, and reruns the CLI pytest guard before revisiting the H-LOSS-WEIGHT hypothesis.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/ (pending)
+
 ### Turn Summary — 2026-01-20T11:02:27Z (Phase D1 scope)
 Reopened the initiative under Phase D, added the new checklist to the implementation plan, and documented the course-correction entry in docs/fix_plan.md so amplitude bias investigation is the active focus again.
 Scoped D1 around a loss-weight comparison, created artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/`, and rewrote input.md instructing Ralph to extend the plan-local parameter diff CLI, capture MAE/NLL/realspace weights, and rerun the CLI smoke pytest guard.
