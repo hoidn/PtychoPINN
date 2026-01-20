@@ -1,5 +1,15 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
+### Turn Summary (Reviewer 2026-01-20T100804Z)
+Added **Phase B0 — Hypothesis Enumeration** to the implementation plan to systematically enumerate root-cause candidates before differential experiments.
+Key findings from B0 review:
+- B2 (probe normalization A/B) only proved legacy vs sim_lines *code paths* are equivalent; it did NOT test cross-probe scaling effects.
+- **Critical insight:** Ideal probe WORKED in dose_experiments but fails in sim_lines_4x → this is a REGRESSION, not inherent numeric instability with small norm factors.
+- Reframed H-PROBE-SCALE-IDEAL → H-PROBE-IDEAL-REGRESSION to investigate what changed between the two pipelines.
+- Decision tree added: first run gs1_custom (gridsize=1 + custom probe) to isolate whether the failure is probe-specific (regression) or gridsize-specific.
+Next: Execute B0f isolation test (run gs1_custom) to determine root cause branch.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md (Phase B0 section added)
+
 ### Turn Summary
 Implemented CONFIG-001 bridging in `scripts/studies/sim_lines_4x/pipeline.py` (run_scenario + run_inference) and `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py` (main + run_inference_and_reassemble).
 Reran gs1_ideal + gs2_ideal with `--prediction-scale-source least_squares` and captured refreshed analyzer outputs confirming bundle/legacy intensity_scale delta=0.

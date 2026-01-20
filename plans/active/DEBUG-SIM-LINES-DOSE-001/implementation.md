@@ -14,6 +14,7 @@
 
 ## Phases Overview
 - Phase A -- Evidence capture: pin down baseline behavior and parameters.
+- Phase B0 -- Hypothesis enumeration: systematically enumerate and rank root-cause candidates.
 - Phase B -- Differential experiments: isolate the breaking dimension(s).
 - Phase C -- Fix + verification: implement minimal correction and validate.
 
@@ -124,6 +125,105 @@ Guidelines:
 - Ensure CONFIG-001 sync before any param readout.
 - Avoid editing core modules during evidence-only steps.
 
+## Phase B0 -- Hypothesis Enumeration (Root Cause Brainstorm)
+
+**Purpose:** Systematically enumerate all plausible root causes before running differential experiments. This prevents tunnel vision and ensures test ordering reflects likelihood/impact.
+
+**Observed Symptoms (as of 2026-01-20):**
+- sim_lines_4x reconstructions show ~12× amplitude undershoot vs ground truth
+- gs1_ideal (gridsize=1) collapses to NaN at epoch 3
+- gs2_ideal (gridsize=2) healthy after CONFIG-001 bridging fix
+- Constant rescaling (C4e) does not close the amplitude gap (pearson_r stuck at ~0.10)
+
+**Critical Context:** Ideal probe **worked in dose_experiments** but is broken locally. This rules out inherent numeric instability with ideal probe normalization and points to a **regression or code divergence** between dose_experiments and sim_lines_4x.
+
+### Hypothesis Candidates (Ranked by Likelihood)
+
+| Rank | ID | Hypothesis | Rationale | Test | Status |
+|------|----|------------|-----------|------|--------|
+| 1 | H-CONFIG | Stale `params.cfg` values (CONFIG-001 violation) | Legacy modules read unsynced globals; known cause of gridsize/intensity drift | C4f: Add bridging calls before train/infer | **Partially confirmed** — fixed gs2_ideal but gs1_ideal still fails |
+| 2 | H-PROBE-IDEAL-REGRESSION | Ideal probe handling regressed between dose_experiments and sim_lines_4x | Ideal probe worked in dose_experiments but fails locally; something changed in how ideal probe is processed (not inherent numeric instability since it worked before) | Diff dose_experiments vs sim_lines ideal probe code paths; check probe loading, normalization application timing, intensity_scale derivation | [ ] Open |
+| 3 | H-GRIDSIZE-NUMERIC | gridsize=1 triggers degenerate numeric paths | gs1 fails while gs2 succeeds with identical CONFIG-001 fix; gridsize=1 may hit edge cases in grouping/reassembly math | Compare gs1 vs gs2 loss curves, gradient norms, intermediate activations | [ ] Open |
+| 4 | H-PROBE-SCALE-CUSTOM | Custom probe scale factor (4.0 vs 10.0) mismatch | dose_experiments may have used different probe_scale; scaling inconsistency propagates to intensity | Check dose_experiments defaults vs sim_lines | [x] A1/A4 captured params |
+| 5 | H-INTENSITY-SCALE | `intensity_scale` computation differs between pipelines | The recorded `intensity_scale` may not match what legacy code expects | C3d: Dump IntensityScaler weights | [x] Inspected — no obvious mismatch |
+| 6 | H-OFFSET-OVERFLOW | Reassembly offsets exceed padded canvas | B4 showed offsets reach ~382px vs legacy ~78px padded size | C1: Implement jitter-based padding | [x] Fixed — `fits_canvas=True` now |
+| 7 | H-GROUPING-KDTREE | KDTree grouping fails with small datasets | B1 showed "only 2 points but 4 coordinates per group requested" | B1/B3 grouping A/B | [x] Confirmed — nongrid grouping works with sufficient points |
+| 8 | H-LOSS-WIRING | Loss function receives incorrectly scaled inputs | Double-scaling or missing normalization in loss computation | Instrument loss inputs pre/post normalization | [ ] Open |
+| 9 | H-LEGACY-CODEPATH | Legacy sim/train/infer codepath differs fundamentally | dose_experiments may use different module versions | A1b: Run ground-truth from legacy checkout | [ ] Blocked — Keras 3.x incompatibility |
+| 10 | H-SEED-DIVERGENCE | Random seed handling differs between pipelines | Probe/noise initialization may diverge | Control seeds in A/B experiments | [x] Seeds controlled in B1-B4 |
+
+### Hypotheses NOT Tested by B2 (Probe Normalization A/B)
+
+**Critical gap identified:** B2 tested whether `set_default_probe()` vs `make_probe/normalize_probe_guess` produce identical outputs. They do (≤5e-7 delta). **But B2 did NOT test:**
+
+1. **H-PROBE-IDEAL-REGRESSION:** What changed between dose_experiments (where ideal probe worked) and sim_lines_4x (where it fails)? The issue is NOT inherent numeric instability with small norm factors — it's a regression.
+
+2. **Cross-probe comparison:** The test compared legacy vs sim_lines *within* each probe type, not *across* probe types. The dramatic differences between ideal and custom probes were never analyzed for causal impact:
+
+   | Probe | Norm factor | Amp mean | L2 norm |
+   |-------|-------------|----------|---------|
+   | ideal | 0.009766 | 0.100 | 102.77 |
+   | custom | 1.100300 | 0.292 | 42.65 |
+
+3. **Regression candidates to investigate:**
+   - Probe loading sequence (when is probe applied relative to intensity normalization?)
+   - `intensity_scale` derivation (does sim_lines compute it differently for ideal vs custom?)
+   - Forward model probe application (any changes to how probe amplitude is used?)
+   - CONFIG-001 timing (is `update_legacy_dict` called at the right point for ideal probe scenarios?)
+
+### Test Priority (Recommended Order)
+
+Based on the current state (gs2_ideal healthy, gs1_ideal NaN) and the fact that **ideal probe worked in dose_experiments**, the next experiments should be:
+
+1. **H-PROBE-IDEAL-REGRESSION:** Diff the ideal probe code paths between dose_experiments and sim_lines_4x:
+   - Compare probe loading/normalization timing
+   - Compare `intensity_scale` computation for ideal vs custom probes
+   - Check if CONFIG-001 bridging happens at the same point in both pipelines
+   - Look for any conditional logic that treats ideal probes differently
+
+2. **Isolation test:** Run gs1_custom (gridsize=1 with custom probe) to determine whether:
+   - If gs1_custom works → problem is specific to ideal probe handling (regression)
+   - If gs1_custom also fails → problem is gridsize=1 (H-GRIDSIZE-NUMERIC)
+
+3. **H-GRIDSIZE-NUMERIC:** If isolation test points to gridsize, add targeted logging at pipeline boundaries (forward pass input/output, loss value, gradient norms) to identify where NaN first appears. Escalate to full instrumentation (e.g., `tf.debugging.enable_check_numerics()`) only if boundary logging is insufficient.
+
+4. **H-LOSS-WIRING:** Instrument the loss function to log input/output scales and verify NORMALIZATION-001 compliance.
+
+### Decision Tree
+
+```
+gs2_ideal healthy, gs1_ideal NaN after CONFIG-001 fix
++ KEY FACT: ideal probe WORKED in dose_experiments (not inherent numeric issue)
+│
+├─ Step 1: Run gs1_custom (gridsize=1 + custom probe) to isolate variable
+│   │
+│   ├─ gs1_custom WORKS → Problem is ideal probe handling (H-PROBE-IDEAL-REGRESSION)
+│   │   └─ Diff dose_experiments vs sim_lines_4x ideal probe code paths
+│   │       ├─ Check probe loading sequence / normalization timing
+│   │       ├─ Check intensity_scale derivation for ideal probes
+│   │       └─ Check CONFIG-001 bridging timing for ideal scenarios
+│   │
+│   └─ gs1_custom FAILS → Problem is gridsize=1 (H-GRIDSIZE-NUMERIC)
+│       └─ Add targeted logging at boundaries to identify NaN source
+│           ├─ Log: forward pass input/output, loss value, gradient norms
+│           ├─ If NaN in forward pass → check model edge cases for gridsize=1
+│           └─ If NaN in backward pass → check loss/gradient scaling
+│
+└─ Neither isolated?
+    └─ Instrument loss/forward pass → Test H-LOSS-WIRING
+```
+
+### Checklist
+- [x] B0a: Document observed symptoms and failure modes.
+- [x] B0b: Enumerate hypothesis candidates with rationale.
+- [x] B0c: Rank hypotheses by likelihood and testability.
+- [x] B0d: Identify gaps in existing tests (B2 did not test cross-probe scaling).
+- [x] B0e: Add critical context: ideal probe worked in dose_experiments → regression, not inherent numeric issue.
+- [ ] B0f: **Isolation test:** Run gs1_custom (gridsize=1 + custom probe) to determine if problem is probe-specific or gridsize-specific.
+      Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+- [ ] B0g: If B0f points to ideal probe → Execute H-PROBE-IDEAL-REGRESSION (diff dose_experiments vs sim_lines ideal probe code paths).
+- [ ] B0h: If B0f points to gridsize → Execute H-GRIDSIZE-NUMERIC (gradient/activation logging for gs1).
+
 ## Phase B -- Differential Experiments
 ### Checklist
 - [x] B1: Grid vs nongrid A/B in current codebase with identical seeds + probe settings.
@@ -136,7 +236,9 @@ Guidelines:
 - [x] B2: Probe normalization A/B (set_default_probe path vs make_probe path) holding everything else constant.
       - Deliverable: plan-local CLI `bin/probe_normalization_report.py` that loads the Phase A snapshot, reconstructs both normalization paths (legacy `set_default_probe()` vs sim_lines `make_probe`/`normalize_probe_guess`), and emits JSON + Markdown summaries with amplitude min/max/mean, L2 norm, and ratio deltas.
       - Scenarios: run for `gs1_custom`, `gs1_ideal`, `gs2_custom`, `gs2_ideal` so we capture both custom-probe and idealized-probe cases.
-      - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T031500Z/probe_stats_<scenario>.{json,md}` plus CLI log; the branches are numerically identical (max amplitude delta ≈5e-7) so probe scaling is no longer a suspect.
+      - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T031500Z/probe_stats_<scenario>.{json,md}` plus CLI log; the branches are numerically identical (max amplitude delta ≈5e-7).
+      - **Scope limitation (B0 review):** This test proved legacy vs sim_lines *code paths* are equivalent for a given probe type. It did NOT test whether the dramatically different normalization characteristics between ideal (norm=0.0098) and custom (norm=1.1) probes cause downstream amplitude issues. See H-PROBE-SCALE-IDEAL in Phase B0.
+      - **Corrected conclusion:** "Legacy vs sim_lines code paths are equivalent" — the ideal vs custom probe scaling question remains open (B0e).
       Test: N/A -- evidence run; log probe stats + intensity_scale
 - [x] B3: Grouping A/B (neighbor_count, group_count, gridsize) with fixed seeds to compare offsets and grouping shapes.
       - Extend `bin/grouping_summary.py` so each run records per-axis stats (min/max/mean/std) for `coords_offsets`/`coords_relative` and the min/max of `nn_indices`, giving us richer telemetry to compare gs1 vs gs2 behavior.
