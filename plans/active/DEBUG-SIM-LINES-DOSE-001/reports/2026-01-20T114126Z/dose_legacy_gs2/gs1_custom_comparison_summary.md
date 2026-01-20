@@ -7,31 +7,31 @@ Bias values are reported as `(prediction - ground_truth)` to make shared intensi
 | Metric | Prediction | Ground Truth |
 | --- | --- | --- |
 | min | 0 | 0.612898 |
-| max | 0.966471 | 4.85613 |
-| mean | 0.0633295 | 2.70825 |
-| std | 0.215767 | 0.64103 |
+| max | 0.963841 | 4.85613 |
+| mean | 0.104068 | 2.70825 |
+| std | 0.261939 | 0.64103 |
 | nan_count | 0 | 0 |
 
 | Bias Metric (pred - truth) | Value |
 | --- | --- |
-| mean | -2.64492 |
-| median | -2.63673 |
-| p05 | -3.75599 |
-| p95 | -1.56897 |
+| mean | -2.60418 |
+| median | -2.59435 |
+| p05 | -3.69474 |
+| p95 | -1.55761 |
 
 ## Phase
 
 | Metric | Prediction | Ground Truth |
 | --- | --- | --- |
-| min | -0.0449403 | 0 |
-| max | 2.00706 | 0 |
-| mean | 0.0150864 | 0 |
-| std | 0.0694791 | 0 |
+| min | -0.0383337 | 0 |
+| max | 0.181061 | 0 |
+| mean | 0.00822905 | 0 |
+| std | 0.0226832 | 0 |
 | nan_count | 0 | 0 |
 
 | Bias Metric (pred - truth) | Value |
 | --- | --- |
-| mean | 0.0150864 |
+| mean | 0.00822905 |
 | median | 0 |
 | p05 | 0 |
-| p95 | 0.146867 |
+| p95 | 0.06619 |

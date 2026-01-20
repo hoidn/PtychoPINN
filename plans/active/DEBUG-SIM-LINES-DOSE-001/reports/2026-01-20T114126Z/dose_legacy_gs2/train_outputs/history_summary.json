@@ -5,9 +5,9 @@
       "first_nan_epoch": null,
       "first_nan_step": null,
       "has_nan": false,
-      "last": 73.62969207763672,
-      "max": 182.52728271484375,
-      "min": 73.62969207763672
+      "last": 52.10934066772461,
+      "max": 103.52945709228516,
+      "min": 52.10934066772461
     },
     "learning_rate": {
       "count": 5,
@@ -23,27 +23,27 @@
       "first_nan_epoch": null,
       "first_nan_step": null,
       "has_nan": false,
-      "last": -2955264.0,
-      "max": -2818441.75,
-      "min": -2955264.0
+      "last": -2938287.75,
+      "max": -2896307.25,
+      "min": -2938287.75
     },
     "pred_intensity_loss": {
       "count": 5,
       "first_nan_epoch": null,
       "first_nan_step": null,
       "has_nan": false,
-      "last": -2957122.5,
-      "max": -2832545.75,
-      "min": -2970833.5
+      "last": -2938287.75,
+      "max": -2896307.25,
+      "min": -2938287.75
     },
     "train_loss": {
       "count": 5,
       "first_nan_epoch": null,
       "first_nan_step": null,
       "has_nan": false,
-      "last": -2955264.0,
-      "max": -2818441.75,
-      "min": -2955264.0
+      "last": -2938287.75,
+      "max": -2896307.25,
+      "min": -2938287.75
     },
     "trimmed_obj_loss": {
       "count": 5,
@@ -59,27 +59,27 @@
       "first_nan_epoch": null,
       "first_nan_step": null,
       "has_nan": false,
-      "last": 87.48455810546875,
-      "max": 237.50619506835938,
-      "min": 75.86602783203125
+      "last": 42.56877136230469,
+      "max": 61.34248352050781,
+      "min": 42.56877136230469
     },
     "val_loss": {
       "count": 5,
       "first_nan_epoch": null,
       "first_nan_step": null,
       "has_nan": false,
-      "last": -2694006.0,
-      "max": -2509550.5,
-      "min": -2698478.5
+      "last": -3098368.0,
+      "max": -3090113.75,
+      "min": -3098368.0
     },
     "val_pred_intensity_loss": {
       "count": 5,
       "first_nan_epoch": null,
       "first_nan_step": null,
       "has_nan": false,
-      "last": -2694006.0,
-      "max": -2509550.5,
-      "min": -2698478.5
+      "last": -3098368.0,
+      "max": -3090113.75,
+      "min": -3098368.0
     },
     "val_trimmed_obj_loss": {
       "count": 5,
