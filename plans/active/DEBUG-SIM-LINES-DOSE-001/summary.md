@@ -1,6 +1,12 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
 ### Turn Summary
+Extended `run_dose_stage.py` with parameter clamping to fix the KD-tree IndexError: neighbor_count is now clamped to `min(current, nimages - 1)` so the tree never requests more neighbors than exist, nimages is capped at 512 to avoid GPU OOM, and gridsize+N are forced to 1 and 64 respectively for simulation stage since `RawData.from_simulation` requires gridsize=1 and the NPZ probe is 64x64.
+Simulation stage now completes successfully, producing `simulated_data_visualization.png` and `random_groups_*.png` artifacts with 512 diffraction patterns.
+Training stage fails with `KerasTensor cannot be used as input to a TensorFlow function` — this is a known Keras 3.x compatibility issue in the legacy model code, not related to the IndexError fix.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T092411Z/ (simulation_clamped4.log, .artifacts/simulation/)
+
+### Turn Summary
 Rescale hook landed (reports/2026-01-20T150500Z/) and analyzer shows least-squares factors ≈1.86–1.99 but amplitude bias/pearson_r stay at ≈-2.29 / 0.10, so constant scaling cannot solve the gs1_ideal/gs2_ideal collapse.
 Root cause likely stems from stale legacy params because neither the runner nor the sim_lines pipeline call `update_legacy_dict` before invoking the backend, so params.cfg may still reflect the earlier simulation snapshot when loader/model execute.
 Next: patch both entry points to call `update_legacy_dict(params.cfg, train_config/InferenceConfig)` before training/inference, rerun gs1_ideal + gs2_ideal under artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/`, and re-run analyzer + CLI pytest guard to verify whether synced configs recover amplitude.
