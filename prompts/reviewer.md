@@ -11,7 +11,7 @@ Required steps:
 5) 
 - Do a deep analysis of code and documentation changes since the previous review. (git diff, filter by extension: just .md, .py, .yaml). Ignore 'noisy' files such as logs, reports and artifacts unless you discover specific reasons to analyze particular ones. Ignore prompts/.
 - Evaluate the design quality of plans worked on since the last review; report findings
-- Evaluate the implementation quality of changes since the last review; report findings
+- Evaluate the implementation quality of changes since the last review in context of associated plans, architectural conventions, developement guidelines, and any relevant specs and normative project documentation; report findings
 - Evaluate project spec and architecture self-consistency and accuracy in light of recent changes; report findings
 - Evaluate plan self-consistency with other plans and existing architectural conventions; report findings
 - Evaluate whether tech debt increased or decreased since the last review; report findings
