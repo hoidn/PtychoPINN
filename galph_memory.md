@@ -513,3 +513,19 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
   - Updated docs/fix_plan.md Attempts, summary.md, and input.md with the new Do Now plus pytest/reassembly guard instructions.
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T083000Z/ next_action=Ralph extends run_phase_c2_scenario.py with ground-truth diff metrics and reruns gs1_ideal/gs2_ideal + reassembly + pytest
+# 2026-01-20T09:40:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase C3c bias telemetry landing
+
+- dwell: 0 (implementation loop resets the non-doc counter)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Quantify gs1_ideal vs gs2_ideal amplitude bias (Phase C3c)
+- Action type: Implementation (runner instrumentation + reruns)
+- Mode: Implementation
+- Git sync: `git pull --rebase` (clean; auto-stash preserved existing work)
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, POLICY-001, NORMALIZATION-001), plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, prior hub artifacts under reports/2026-01-20T083000Z/
+- Key decisions:
+  - Extended `run_phase_c2_scenario.py` with prediction vs truth stats + bias percentiles and Markdown summaries (per-scenario) and reran gs1_ideal/gs2_ideal under hub `2026-01-20T093000Z/`.
+  - Confirmed both scenarios share the same amplitude bias (mean≈-2.47, median≈-2.53) so the collapse is an intensity-scaling issue, not gs1-specific NaNs.
+  - Logged reassembly reruns and refreshed the CLI pytest guard; prepared C3d plan entry to inspect the scaler weights before touching workflow code.
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/ (gs*_ideal comparison summaries, reassembly logs, pytest log)
+- Next: run the new inspector script for C3d to dump `IntensityScaler`/`IntensityScaler_inv` weights from the gs1_ideal/gs2_ideal checkpoints before proposing the workflow fix.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/ next_action=implement C3d intensity-scaler inspector + pytest guard under hub 2026-01-20T103000Z/

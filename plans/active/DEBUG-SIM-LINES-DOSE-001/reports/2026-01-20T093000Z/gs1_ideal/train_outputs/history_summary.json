@@ -1,0 +1,98 @@
+{
+  "metrics": {
+    "intensity_scaler_inv_loss": {
+      "count": 5,
+      "first_nan_epoch": null,
+      "first_nan_step": null,
+      "has_nan": false,
+      "last": 13.844059944152832,
+      "max": 36.10774230957031,
+      "min": 13.844059944152832
+    },
+    "learning_rate": {
+      "count": 5,
+      "first_nan_epoch": null,
+      "first_nan_step": null,
+      "has_nan": false,
+      "last": 0.0010000000474974513,
+      "max": 0.0010000000474974513,
+      "min": 0.0010000000474974513
+    },
+    "loss": {
+      "count": 5,
+      "first_nan_epoch": null,
+      "first_nan_step": null,
+      "has_nan": false,
+      "last": -3946770.0,
+      "max": -3866558.25,
+      "min": -3946770.0
+    },
+    "pred_intensity_loss": {
+      "count": 5,
+      "first_nan_epoch": null,
+      "first_nan_step": null,
+      "has_nan": false,
+      "last": -3960002.25,
+      "max": -3886551.75,
+      "min": -3960002.25
+    },
+    "train_loss": {
+      "count": 5,
+      "first_nan_epoch": null,
+      "first_nan_step": null,
+      "has_nan": false,
+      "last": -3946770.0,
+      "max": -3866558.25,
+      "min": -3946770.0
+    },
+    "trimmed_obj_loss": {
+      "count": 5,
+      "first_nan_epoch": null,
+      "first_nan_step": null,
+      "has_nan": false,
+      "last": 0.0,
+      "max": 0.0,
+      "min": 0.0
+    },
+    "val_intensity_scaler_inv_loss": {
+      "count": 5,
+      "first_nan_epoch": null,
+      "first_nan_step": null,
+      "has_nan": false,
+      "last": 12.23725700378418,
+      "max": 16.658483505249023,
+      "min": 12.23725700378418
+    },
+    "val_loss": {
+      "count": 5,
+      "first_nan_epoch": null,
+      "first_nan_step": null,
+      "has_nan": false,
+      "last": -4120963.0,
+      "max": -4114562.75,
+      "min": -4120963.0
+    },
+    "val_pred_intensity_loss": {
+      "count": 5,
+      "first_nan_epoch": null,
+      "first_nan_step": null,
+      "has_nan": false,
+      "last": -4050804.0,
+      "max": -4044650.5,
+      "min": -4050804.0
+    },
+    "val_trimmed_obj_loss": {
+      "count": 5,
+      "first_nan_epoch": null,
+      "first_nan_step": null,
+      "has_nan": false,
+      "last": 0.0,
+      "max": 0.0,
+      "min": 0.0
+    }
+  },
+  "nan_overview": {
+    "has_nan": false,
+    "metrics": {}
+  }
+}

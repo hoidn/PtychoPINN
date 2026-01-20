@@ -2,7 +2,7 @@
 
 - Scenario: `gs1_ideal`
 - Snapshot: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json`
-- Timestamp: 2026-01-20T06:21:14.679976+00:00
+- Timestamp: 2026-01-20T06:24:36.906115+00:00
 - Gridsize: 1
 - Group count: 1000
 - Neighbor count: 4

@@ -157,7 +157,11 @@ Guidelines:
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 - [x] C3: Instrument the Phase C2 runner to persist per-epoch training history + NaN detection (JSON + Markdown summary), rerun gs1_ideal and gs2_ideal under the baked profiles, and archive the new telemetry so we can pinpoint when gs1 diverges relative to gs2.
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
-- [ ] C3b: Extend the Phase C2 runner with ground-truth comparison utilities that crop the stitched reconstructions to the simulated object size, compute amplitude/phase error metrics (MAE/RMSE/max/pearson), emit diff PNGs, and surface the metrics + artifact paths in `run_metadata.json` so gs1 vs gs2 divergence can be quantified without manual inspection.
+- [x] C3b: Extend the Phase C2 runner with ground-truth comparison utilities that crop the stitched reconstructions to the simulated object size, compute amplitude/phase error metrics (MAE/RMSE/max/pearson), emit diff PNGs, and surface the metrics + artifact paths in `run_metadata.json` so gs1 vs gs2 divergence can be quantified without manual inspection. (`reports/2026-01-20T083000Z/` contains comparison_metrics.json, diff PNGs, and metadata pointers for gs1_ideal/gs2_ideal plus refreshed reassembly telemetry.)
+      Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+- [ ] C3c: Quantify amplitude/phase bias versus ground truth by augmenting `run_phase_c2_scenario.py` to record per-scenario prediction vs truth stats (mean, median, percentiles) and emit Markdown summaries so we can prove whether the gs1/gs2 collapses stem from a shared intensity offset.
+      Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+- [ ] C3d: Inspect the intensity-scaling pipeline by loading the gs1_ideal/gs2_ideal training checkpoints, dumping the `IntensityScaler`/`IntensityScaler_inv` weights and params (`params.cfg['intensity_scale']`), and comparing them to the observed amplitude bias so we can decide whether the workflow or the model needs the fix.
       Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 - [ ] C4: Update docs/fix_plan.md Attempts History with evidence and root-cause summary.
       Test: N/A

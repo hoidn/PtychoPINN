@@ -18,7 +18,7 @@
 ### [DEBUG-SIM-LINES-DOSE-001] Isolate sim_lines_4x vs dose_experiments discrepancy
 - Depends on: None
 - Priority: **Critical** (Highest Priority)
-- Status: in_progress — Phase C verification (C2 ideal scenarios)
+- Status: in_progress — Phase C diagnostics (C3 bias telemetry)
 - Owner/Date: Codex/2026-01-13
 - Working Plan: `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md`
 - Summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md`
@@ -94,6 +94,12 @@
     - Metrics: `pytest --collect-only tests/scripts/test_synthetic_helpers_cli_smoke.py -q`, `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
     - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T083000Z/{gs1_ideal_runner.log,gs2_ideal_runner.log,gs1_ideal/comparison_metrics.json,gs2_ideal/comparison_metrics.json,gs1_ideal/ground_truth_amp.npy,gs1_ideal/amplitude_diff.png,gs2_ideal/amplitude_diff.png,reassembly_cli.log,reassembly_gs1_ideal.json,reassembly_gs2_ideal.json,pytest_collect_cli_smoke.log,pytest_cli_smoke.log}`
     - Notes: `run_metadata.json` for each scenario now records ground-truth artifact paths, comparison metrics (MAE/RMSE/max/pearson), diff PNGs, and crop metadata so downstream consumers can quantify gs1 vs gs2 divergence without replaying the runner. Both reassembly limit reports still show `fits_canvas=true` with jitter-updated padded sizes (828 px gs1, 826 px gs2).
+  - *2026-01-20T090600Z:* Reviewed the C3b comparison metrics and computed direct amplitude stats showing both gs1_ideal and gs2_ideal undershoot the ground truth by ≈2.5 (mean/median bias) despite clean reassembly telemetry. Scoped Phase C3c around augmenting `run_phase_c2_scenario.py` with per-scenario prediction vs truth stats (mean/min/max/std plus bias percentiles) and Markdown summaries so we can prove whether the collapse is a shared intensity offset before touching core workflows. Opened artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/` and refreshed `input.md` with the bias telemetry Do Now + pytest/reassembly commands.
+  - *2026-01-20T093000Z:* Implemented the C3c instrumentation: `run_phase_c2_scenario.py` now records prediction vs truth stats, bias percentiles, and Markdown summaries per scenario (gs1_ideal + gs2_ideal) and persists the paths in run_metadata/comparison_metrics. Reran both scenarios under the new hub, refreshed reassembly limits, and reran the CLI pytest guard.
+    - Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+    - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/{gs*_ideal/*,reassembly_cli.log,reassembly_gs1_ideal.json,reassembly_gs2_ideal.json,pytest_cli_smoke.log}`
+    - Notes: Both scenarios report amplitude bias mean ≈-2.47 (median ≈-2.53, P95 ≈-0.98) with prediction means ≈0.23–0.25 while ground truth mean stays 2.71. Phase bias shows the same zero-vs-offset behavior, confirming the remaining failure is a shared intensity offset rather than gs1-specific NaNs.
+  - *2026-01-20T094500Z:* Scoped Phase C3d to dump the `IntensityScaler`/`IntensityScaler_inv` weights and `params.cfg['intensity_scale']` from the gs1_ideal/gs2_ideal checkpoints (plan-local inspector script) so we can trace the constant bias back to the intensity-scaling workflow before modifying shared modules. Will open artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T103000Z/` for the inspector outputs + pytest log.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

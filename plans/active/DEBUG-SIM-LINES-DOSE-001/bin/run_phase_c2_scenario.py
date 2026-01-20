@@ -277,6 +277,23 @@ def compute_array_stats(array: np.ndarray) -> Dict[str, float | int]:
     return stats
 
 
+def summarize_bias(pred: np.ndarray, truth: np.ndarray) -> Dict[str, float | None]:
+    """Summarize prediction minus ground-truth bias."""
+    pred_vals = np.asarray(pred, dtype=float)
+    truth_vals = np.asarray(truth, dtype=float)
+    diff = pred_vals - truth_vals
+    mask = np.isfinite(diff)
+    if not mask.any():
+        return {"mean": None, "median": None, "p05": None, "p95": None}
+    diff_use = diff[mask]
+    return {
+        "mean": float(np.mean(diff_use)),
+        "median": float(np.median(diff_use)),
+        "p05": float(np.percentile(diff_use, 5)),
+        "p95": float(np.percentile(diff_use, 95)),
+    }
+
+
 def save_png(data: np.ndarray, path: Path, title: str, cmap: str, vmin: float, vmax: float) -> None:
     """Persist a 2D heatmap using matplotlib."""
     array2d = data
@@ -460,6 +477,9 @@ def write_diff_artifacts(
     )
     amp_metrics = _compute_diff_metrics(amp_diff, amp_pred, amp_truth)
     amp_metrics["color_range"] = [-amp_range, amp_range]
+    amp_metrics["pred_stats"] = compute_array_stats(amp_pred)
+    amp_metrics["truth_stats"] = compute_array_stats(amp_truth)
+    amp_metrics["bias_summary"] = summarize_bias(amp_pred, amp_truth)
 
     phase_diff = np.angle(np.exp(1j * (phase_pred - phase_truth)))
     phase_diff_npy = output_dir / "phase_diff.npy"
@@ -475,6 +495,9 @@ def write_diff_artifacts(
     )
     phase_metrics = _compute_diff_metrics(phase_diff, phase_pred, phase_truth)
     phase_metrics["color_range"] = [-math.pi, math.pi]
+    phase_metrics["pred_stats"] = compute_array_stats(phase_pred)
+    phase_metrics["truth_stats"] = compute_array_stats(phase_truth)
+    phase_metrics["bias_summary"] = summarize_bias(phase_pred, phase_truth)
 
     metrics_payload = {
         "amplitude": amp_metrics,
@@ -491,6 +514,59 @@ def write_diff_artifacts(
             "phase_diff_png": str(phase_diff_png),
         },
     }
+
+
+def write_comparison_summary_markdown(
+    scenario: str,
+    amp_metrics: Mapping[str, Any],
+    phase_metrics: Mapping[str, Any],
+    output_path: Path,
+) -> None:
+    """Emit a Markdown summary of prediction vs truth stats."""
+    def fmt(value: Any) -> str:
+        if value is None or (isinstance(value, float) and np.isnan(value)):
+            return "—"
+        if isinstance(value, (int, np.integer)):
+            return str(int(value))
+        return f"{float(value):.6g}"
+
+    def _stat_table_lines(label: str, metrics: Mapping[str, Any]) -> list[str]:
+        pred_stats = metrics.get("pred_stats", {})
+        truth_stats = metrics.get("truth_stats", {})
+        rows = [
+            f"## {label}",
+            "",
+            "| Metric | Prediction | Ground Truth |",
+            "| --- | --- | --- |",
+        ]
+        for key in ("min", "max", "mean", "std", "nan_count"):
+            rows.append(
+                f"| {key} | {fmt(pred_stats.get(key))} | {fmt(truth_stats.get(key))} |"
+            )
+        rows.append("")
+        bias_stats = metrics.get("bias_summary", {})
+        rows.extend(
+            [
+                "| Bias Metric (pred - truth) | Value |",
+                "| --- | --- |",
+                f"| mean | {fmt(bias_stats.get('mean'))} |",
+                f"| median | {fmt(bias_stats.get('median'))} |",
+                f"| p05 | {fmt(bias_stats.get('p05'))} |",
+                f"| p95 | {fmt(bias_stats.get('p95'))} |",
+                "",
+            ]
+        )
+        return rows
+
+    lines = [
+        f"# {scenario} Ground-Truth Comparison Summary",
+        "",
+        "Bias values are reported as `(prediction - ground_truth)` to make shared intensity offsets obvious.",
+        "",
+    ]
+    lines.extend(_stat_table_lines("Amplitude", amp_metrics))
+    lines.extend(_stat_table_lines("Phase", phase_metrics))
+    output_path.write_text("\n".join(lines))
 
 
 def _coerce_value(value: Any) -> float:
@@ -901,6 +977,13 @@ def main() -> None:
         "amplitude": _extract_scalar_metrics(comparison_payload["metrics"]["amplitude"]),
         "phase": _extract_scalar_metrics(comparison_payload["metrics"]["phase"]),
     }
+    comparison_summary_path = scenario_dir / f"{scenario.name}_comparison_summary.md"
+    write_comparison_summary_markdown(
+        scenario.name,
+        comparison_payload["metrics"]["amplitude"],
+        comparison_payload["metrics"]["phase"],
+        comparison_summary_path,
+    )
 
     metadata = {
         "scenario": scenario.name,
@@ -941,6 +1024,7 @@ def main() -> None:
             "amplitude_diff_png": comparison_payload["artifacts"]["amplitude_diff_png"],
             "phase_diff_npy": comparison_payload["artifacts"]["phase_diff_npy"],
             "phase_diff_png": comparison_payload["artifacts"]["phase_diff_png"],
+            "comparison_summary": str(comparison_summary_path),
         },
     }
     metadata["training_history"] = {
@@ -963,6 +1047,7 @@ def main() -> None:
         "metrics": comparison_payload["metrics"],
         "metrics_summary": comparison_summary,
         "diff_pngs": comparison_payload["artifacts"],
+        "summary_markdown": str(comparison_summary_path),
     }
     metadata["crop_metadata"] = crop_metadata
     if profile_metadata:

@@ -1,0 +1,100 @@
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 828
+DEBUG _flat_to_channel: input shape=(64, 828, 828, 1), reshaping to (-1, 1, 828, 828)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 828
+DEBUG _flat_to_channel: input shape=(64, 828, 828, 1), reshaping to (-1, 1, 828, 828)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 828
+DEBUG _flat_to_channel: input shape=(64, 828, 828, 1), reshaping to (-1, 1, 828, 828)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 828
+DEBUG _flat_to_channel: input shape=(64, 828, 828, 1), reshaping to (-1, 1, 828, 828)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 828
+DEBUG _flat_to_channel: input shape=(64, 828, 828, 1), reshaping to (-1, 1, 828, 828)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 828
+DEBUG _flat_to_channel: input shape=(64, 828, 828, 1), reshaping to (-1, 1, 828, 828)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 828
+DEBUG _flat_to_channel: input shape=(64, 828, 828, 1), reshaping to (-1, 1, 828, 828)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 828
+DEBUG _flat_to_channel: input shape=(64, 828, 828, 1), reshaping to (-1, 1, 828, 828)
+[train] required_canvas=828 padded_size=828 fits=True loss_fraction=0.0
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 828
+DEBUG _flat_to_channel: input shape=(64, 828, 828, 1), reshaping to (-1, 1, 828, 828)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 828
+DEBUG _flat_to_channel: input shape=(64, 828, 828, 1), reshaping to (-1, 1, 828, 828)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 828
+DEBUG _flat_to_channel: input shape=(64, 828, 828, 1), reshaping to (-1, 1, 828, 828)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 828
+DEBUG _flat_to_channel: input shape=(64, 828, 828, 1), reshaping to (-1, 1, 828, 828)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 828
+DEBUG _flat_to_channel: input shape=(64, 828, 828, 1), reshaping to (-1, 1, 828, 828)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 828
+DEBUG _flat_to_channel: input shape=(64, 828, 828, 1), reshaping to (-1, 1, 828, 828)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 828
+DEBUG _flat_to_channel: input shape=(64, 828, 828, 1), reshaping to (-1, 1, 828, 828)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 828
+DEBUG _flat_to_channel: input shape=(64, 828, 828, 1), reshaping to (-1, 1, 828, 828)
+[test] required_canvas=828 padded_size=828 fits=True loss_fraction=0.0
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 824
+DEBUG _flat_to_channel: input shape=(256, 824, 824, 1), reshaping to (-1, 4, 824, 824)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 824
+DEBUG _flat_to_channel: input shape=(256, 824, 824, 1), reshaping to (-1, 4, 824, 824)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 824
+DEBUG _flat_to_channel: input shape=(256, 824, 824, 1), reshaping to (-1, 4, 824, 824)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 824
+DEBUG _flat_to_channel: input shape=(256, 824, 824, 1), reshaping to (-1, 4, 824, 824)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 824
+DEBUG _flat_to_channel: input shape=(256, 824, 824, 1), reshaping to (-1, 4, 824, 824)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 824
+DEBUG _flat_to_channel: input shape=(256, 824, 824, 1), reshaping to (-1, 4, 824, 824)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 824
+DEBUG _flat_to_channel: input shape=(256, 824, 824, 1), reshaping to (-1, 4, 824, 824)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 824
+DEBUG _flat_to_channel: input shape=(256, 824, 824, 1), reshaping to (-1, 4, 824, 824)
+[train] required_canvas=824 padded_size=824 fits=True loss_fraction=0.0
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(256, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(256, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(256, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(256, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(256, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(256, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(256, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+DEBUG _flat_to_channel: gridsize from global params: 2
+DEBUG _flat_to_channel: N from parameter: 826
+DEBUG _flat_to_channel: input shape=(256, 826, 826, 1), reshaping to (-1, 4, 826, 826)
+[test] required_canvas=826 padded_size=826 fits=True loss_fraction=0.0

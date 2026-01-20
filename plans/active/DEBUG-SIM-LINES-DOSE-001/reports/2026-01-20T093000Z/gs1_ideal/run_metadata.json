@@ -1,0 +1,230 @@
+{
+  "amp_png_range": {
+    "vmax": 2.194725275039673,
+    "vmin": 0.0
+  },
+  "artifacts": {
+    "amplitude_diff_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/amplitude_diff.npy",
+    "amplitude_diff_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/amplitude_diff.png",
+    "amplitude_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/inference_outputs/amplitude.npy",
+    "amplitude_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/inference_outputs/amplitude.png",
+    "comparison_metrics": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/comparison_metrics.json",
+    "comparison_summary": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/gs1_ideal_comparison_summary.md",
+    "ground_truth_amplitude_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/ground_truth_amp.npy",
+    "ground_truth_amplitude_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/ground_truth_amp.png",
+    "ground_truth_phase_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/ground_truth_phase.npy",
+    "ground_truth_phase_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/ground_truth_phase.png",
+    "inference_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/inference_outputs",
+    "phase_diff_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/phase_diff.npy",
+    "phase_diff_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/phase_diff.png",
+    "phase_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/inference_outputs/phase.npy",
+    "phase_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/inference_outputs/phase.png",
+    "stats_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/inference_outputs/stats.json",
+    "train_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/train_outputs"
+  },
+  "buffer": 10.0,
+  "cli_args": {
+    "amp_vmax": null,
+    "base_total_images": null,
+    "batch_size": null,
+    "buffer": null,
+    "gridsize": null,
+    "group_count": null,
+    "group_limit": 64,
+    "group_multiplier": 1,
+    "image_multiplier": 1,
+    "neighbor_count": null,
+    "nepochs": 5,
+    "nphotons": null,
+    "object_seed": null,
+    "output_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal",
+    "probe_big": null,
+    "probe_mask": null,
+    "probe_mode": null,
+    "probe_scale": null,
+    "scenario": "gs1_ideal",
+    "sim_seed": null,
+    "snapshot": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json",
+    "split_fraction": null
+  },
+  "comparison": {
+    "diff_pngs": {
+      "amplitude_diff_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/amplitude_diff.npy",
+      "amplitude_diff_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/amplitude_diff.png",
+      "phase_diff_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/phase_diff.npy",
+      "phase_diff_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/phase_diff.png"
+    },
+    "metrics": {
+      "amplitude": {
+        "bias_summary": {
+          "mean": -2.4741731156602422,
+          "median": -2.5341979265213013,
+          "p05": -3.7023458957672117,
+          "p95": -0.9794471800327296
+        },
+        "color_range": [
+          -4.85612678527832,
+          4.85612678527832
+        ],
+        "count": 153664,
+        "mae": 2.4750876144460654,
+        "max_abs": 4.7676825523376465,
+        "pearson_r": 0.10139528310004386,
+        "pred_stats": {
+          "max": 2.194725275039673,
+          "mean": 0.23407436907291412,
+          "min": 0.0,
+          "nan_count": 0,
+          "std": 0.5630156993865967
+        },
+        "rmse": 2.603123122624782,
+        "truth_stats": {
+          "max": 4.85612678527832,
+          "mean": 2.708247423171997,
+          "min": 0.6128976941108704,
+          "nan_count": 0,
+          "std": 0.6410303115844727
+        }
+      },
+      "phase": {
+        "bias_summary": {
+          "mean": 0.16279043521427985,
+          "median": 0.0,
+          "p05": 0.0,
+          "p95": 1.1546511054039001
+        },
+        "color_range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "count": 153664,
+        "mae": 0.16279043521001307,
+        "max_abs": 1.3159099817276,
+        "pearson_r": null,
+        "pred_stats": {
+          "max": 1.3159099817276,
+          "mean": 0.1627904325723648,
+          "min": 0.0,
+          "nan_count": 0,
+          "std": 0.390095055103302
+        },
+        "rmse": 0.4226995148914508,
+        "truth_stats": {
+          "max": 0.0,
+          "mean": 0.0,
+          "min": 0.0,
+          "nan_count": 0,
+          "std": 0.0
+        }
+      }
+    },
+    "metrics_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/comparison_metrics.json",
+    "metrics_summary": {
+      "amplitude": {
+        "mae": 2.4750876144460654,
+        "max_abs": 4.7676825523376465,
+        "pearson_r": 0.10139528310004386,
+        "rmse": 2.603123122624782
+      },
+      "phase": {
+        "mae": 0.16279043521001307,
+        "max_abs": 1.3159099817276,
+        "pearson_r": null,
+        "rmse": 0.4226995148914508
+      }
+    },
+    "summary_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/gs1_ideal_comparison_summary.md"
+  },
+  "comparison_metrics_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/comparison_metrics.json",
+  "comparison_metrics_summary": {
+    "amplitude": {
+      "mae": 2.4750876144460654,
+      "max_abs": 4.7676825523376465,
+      "pearson_r": 0.10139528310004386,
+      "rmse": 2.603123122624782
+    },
+    "phase": {
+      "mae": 0.16279043521001307,
+      "max_abs": 1.3159099817276,
+      "pearson_r": null,
+      "rmse": 0.4226995148914508
+    }
+  },
+  "crop_metadata": {
+    "end": [
+      392,
+      392
+    ],
+    "input_shape": [
+      392,
+      392,
+      1
+    ],
+    "parity_warning": false,
+    "start": [
+      0,
+      0
+    ],
+    "target_size": 392
+  },
+  "elapsed_seconds": 92.32,
+  "ground_truth": {
+    "amplitude_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/ground_truth_amp.npy",
+    "amplitude_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/ground_truth_amp.png",
+    "phase_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/ground_truth_phase.npy",
+    "phase_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/ground_truth_phase.png"
+  },
+  "ground_truth_amp_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/ground_truth_amp.npy",
+  "ground_truth_phase_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/ground_truth_phase.npy",
+  "group_count": 256,
+  "group_limit": 64,
+  "neighbor_count": 4,
+  "nepochs": 5,
+  "nphotons": 1000000000.0,
+  "object_seed": 42,
+  "probe_big": null,
+  "probe_mask": null,
+  "probe_mode": "idealized",
+  "probe_scale": 10.0,
+  "profile": {
+    "active": true,
+    "applied": {
+      "base_total_images": 512,
+      "batch_size": 8,
+      "group_count": 256
+    },
+    "defaults": {
+      "base_total_images": 512,
+      "batch_size": 8,
+      "group_count": 256
+    },
+    "effective_batch_size": 8,
+    "effective_group_count": 256,
+    "label": "stable_profile_gs1_ideal",
+    "name": "gs1_ideal",
+    "skipped": {}
+  },
+  "scenario": "gs1_ideal",
+  "sim_seed": 42,
+  "split_fraction": 0.5,
+  "test_count": 256,
+  "timestamp": "2026-01-20T06:36:40.342194+00:00",
+  "total_images": 512,
+  "train_count": 256,
+  "training_history": {
+    "history_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/train_outputs/history.json",
+    "nan_overview": {
+      "has_nan": false,
+      "metrics": {}
+    },
+    "summary_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/train_outputs/history_summary.json",
+    "summary_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/gs1_ideal/gs1_ideal_training_summary.md"
+  },
+  "training_history_path": "train_outputs/history.json",
+  "training_nan_overview": {
+    "has_nan": false,
+    "metrics": {}
+  },
+  "training_summary_markdown_path": "gs1_ideal_training_summary.md",
+  "training_summary_path": "train_outputs/history_summary.json"
+}

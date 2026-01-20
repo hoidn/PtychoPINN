@@ -1,6 +1,12 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
 ### Turn Summary
+Extended `run_phase_c2_scenario.py` with prediction vs ground-truth stats (mean/min/max/std), bias percentiles, and Markdown summaries, then reran the gs1_ideal/gs2_ideal stable profiles under the new 2026-01-20T093000Z hub alongside reassembly limits and the CLI pytest guard.
+The new metrics show both scenarios undershoot the ground-truth amplitude by ≈2.47 (median bias ≈-2.53, P95 ≈-0.98), confirming the collapse is a shared intensity offset rather than a gs1-only failure.
+Next: trace how the training/inference intensity scaler is applied so we can tie the constant bias back to the workflow and patch it in Phase C4.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T093000Z/ (gs*_ideal comparison summaries, reassembly logs, pytest_cli_smoke.log)
+
+### Turn Summary
 Mapped the next Phase C3b increment to extend the Phase C2 runner with ground-truth comparison artifacts so gs1_ideal vs gs2_ideal can be quantified instead of relying on screenshots.
 Scoped the code touch to plan-local runner helpers (ground-truth dumps, center-crop diff metrics, metadata updates) plus reassembly/test reruns, updated the implementation plan/fix ledger, and rewrote input.md pointing Ralph at the new artifacts hub.
 Next: Ralph updates the runner, reruns gs1_ideal and gs2_ideal with the new comparison outputs, refreshes reassembly telemetry, and archives the pytest evidence.
