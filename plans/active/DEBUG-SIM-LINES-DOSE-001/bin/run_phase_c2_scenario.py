@@ -266,8 +266,21 @@ def ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
+def _ensure_numpy(value: Any) -> np.ndarray:
+    """Return a NumPy view of ``value`` even if it is a TensorFlow tensor."""
+
+    if isinstance(value, np.ndarray):
+        return value
+    if hasattr(value, "numpy"):
+        try:
+            return value.numpy()
+        except Exception:  # pragma: no cover - diagnostics only
+            pass
+    return np.asarray(value)
+
+
 def compute_array_stats(array: np.ndarray) -> Dict[str, float | int | None]:
-    arr = np.asarray(array)
+    arr = _ensure_numpy(array)
     nan_count = int(np.isnan(arr).sum())
     finite_mask = np.isfinite(arr)
     if not finite_mask.any():
@@ -290,7 +303,7 @@ def compute_array_stats(array: np.ndarray) -> Dict[str, float | int | None]:
 
 
 def format_array_stats(array: np.ndarray) -> Dict[str, Any]:
-    arr = np.asarray(array)
+    arr = _ensure_numpy(array)
     payload = compute_array_stats(arr)
     payload.update(
         {
@@ -848,14 +861,14 @@ def run_inference_and_reassemble(
     intensity_stages: list[Dict[str, Any]] = []
     if getattr(test_raw, "diff3d", None) is not None:
         record_intensity_stage(
-        intensity_stages,
-        "raw_diffraction",
-        test_raw.diff3d,
-        metadata={
-            "source": "RawData",
-            "count": int(test_raw.diff3d.shape[0]),
-        },
-    )
+            intensity_stages,
+            "raw_diffraction",
+            test_raw.diff3d,
+            metadata={
+                "source": "RawData",
+                "count": int(test_raw.diff3d.shape[0]),
+            },
+        )
     infer_config = InferenceConfig(
         model=ModelConfig(
             N=params.N,
@@ -902,14 +915,10 @@ def run_inference_and_reassemble(
             },
         )
     container = loader.load(lambda: grouped, test_raw.probeGuess, which=None, create_split=False)
-    try:
-        container_X = container.X.numpy()
-    except Exception:  # pragma: no cover - diagnostics only
-        container_X = container.X
     record_intensity_stage(
         intensity_stages,
         "container_X",
-        container_X,
+        container.X,
         metadata={
             "source": "PtychoDataContainer",
             "group_limit": group_limit,
@@ -1214,6 +1223,11 @@ def main() -> None:
     metadata["intensity_stats"] = intensity_record
     metadata["intensity_stats_path"] = intensity_record.get("json_path")
     metadata["intensity_stats_markdown"] = intensity_record.get("markdown_path")
+    artifacts = metadata.setdefault("artifacts", {})
+    if intensity_record.get("json_path"):
+        artifacts["intensity_stats_json"] = intensity_record["json_path"]
+    if intensity_record.get("markdown_path"):
+        artifacts["intensity_stats_markdown"] = intensity_record["markdown_path"]
     metadata["crop_metadata"] = crop_metadata
     if profile_metadata:
         metadata["profile"] = profile_metadata

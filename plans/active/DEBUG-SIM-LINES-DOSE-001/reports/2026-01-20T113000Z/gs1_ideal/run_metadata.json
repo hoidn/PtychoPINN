@@ -1,0 +1,333 @@
+{
+  "amp_png_range": {
+    "vmax": 2.4450905323028564,
+    "vmin": 0.0
+  },
+  "artifacts": {
+    "amplitude_diff_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/amplitude_diff.npy",
+    "amplitude_diff_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/amplitude_diff.png",
+    "amplitude_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/inference_outputs/amplitude.npy",
+    "amplitude_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/inference_outputs/amplitude.png",
+    "comparison_metrics": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/comparison_metrics.json",
+    "comparison_summary": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/gs1_ideal_comparison_summary.md",
+    "ground_truth_amplitude_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/ground_truth_amp.npy",
+    "ground_truth_amplitude_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/ground_truth_amp.png",
+    "ground_truth_phase_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/ground_truth_phase.npy",
+    "ground_truth_phase_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/ground_truth_phase.png",
+    "inference_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/inference_outputs",
+    "intensity_stats_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/intensity_stats.json",
+    "intensity_stats_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/intensity_stats.md",
+    "phase_diff_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/phase_diff.npy",
+    "phase_diff_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/phase_diff.png",
+    "phase_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/inference_outputs/phase.npy",
+    "phase_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/inference_outputs/phase.png",
+    "stats_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/inference_outputs/stats.json",
+    "train_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/train_outputs"
+  },
+  "buffer": 10.0,
+  "cli_args": {
+    "amp_vmax": null,
+    "base_total_images": null,
+    "batch_size": null,
+    "buffer": null,
+    "gridsize": null,
+    "group_count": null,
+    "group_limit": 64,
+    "group_multiplier": 1,
+    "image_multiplier": 1,
+    "neighbor_count": null,
+    "nepochs": 5,
+    "nphotons": null,
+    "object_seed": null,
+    "output_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal",
+    "probe_big": null,
+    "probe_mask": null,
+    "probe_mode": null,
+    "probe_scale": null,
+    "scenario": "gs1_ideal",
+    "sim_seed": null,
+    "snapshot": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json",
+    "split_fraction": null
+  },
+  "comparison": {
+    "diff_pngs": {
+      "amplitude_diff_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/amplitude_diff.npy",
+      "amplitude_diff_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/amplitude_diff.png",
+      "phase_diff_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/phase_diff.npy",
+      "phase_diff_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/phase_diff.png"
+    },
+    "metrics": {
+      "amplitude": {
+        "bias_summary": {
+          "mean": -2.455425872107109,
+          "median": -2.5317180156707764,
+          "p05": -3.7023458957672117,
+          "p95": -0.8592917680740355
+        },
+        "color_range": [
+          -4.85612678527832,
+          4.85612678527832
+        ],
+        "count": 153664,
+        "mae": 2.4571744233915975,
+        "max_abs": 4.7676825523376465,
+        "pearson_r": 0.1028455535793592,
+        "pred_stats": {
+          "max": 2.4450905323028564,
+          "mean": 0.25282159447669983,
+          "min": 0.0,
+          "nan_count": 0,
+          "std": 0.6091404557228088
+        },
+        "rmse": 2.5943728439364513,
+        "truth_stats": {
+          "max": 4.85612678527832,
+          "mean": 2.708247423171997,
+          "min": 0.6128976941108704,
+          "nan_count": 0,
+          "std": 0.6410303115844727
+        }
+      },
+      "phase": {
+        "bias_summary": {
+          "mean": 0.13738411706020867,
+          "median": 0.0,
+          "p05": 0.0,
+          "p95": 0.9607247918844224
+        },
+        "color_range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "count": 153664,
+        "mae": 0.13738411707300902,
+        "max_abs": 1.1499049663543701,
+        "pearson_r": null,
+        "pred_stats": {
+          "max": 1.1499049663543701,
+          "mean": 0.13738411664962769,
+          "min": 0.0,
+          "nan_count": 0,
+          "std": 0.3298228681087494
+        },
+        "rmse": 0.35729191895883916,
+        "truth_stats": {
+          "max": 0.0,
+          "mean": 0.0,
+          "min": 0.0,
+          "nan_count": 0,
+          "std": 0.0
+        }
+      }
+    },
+    "metrics_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/comparison_metrics.json",
+    "metrics_summary": {
+      "amplitude": {
+        "mae": 2.4571744233915975,
+        "max_abs": 4.7676825523376465,
+        "pearson_r": 0.1028455535793592,
+        "rmse": 2.5943728439364513
+      },
+      "phase": {
+        "mae": 0.13738411707300902,
+        "max_abs": 1.1499049663543701,
+        "pearson_r": null,
+        "rmse": 0.35729191895883916
+      }
+    },
+    "summary_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/gs1_ideal_comparison_summary.md"
+  },
+  "comparison_metrics_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/comparison_metrics.json",
+  "comparison_metrics_summary": {
+    "amplitude": {
+      "mae": 2.4571744233915975,
+      "max_abs": 4.7676825523376465,
+      "pearson_r": 0.1028455535793592,
+      "rmse": 2.5943728439364513
+    },
+    "phase": {
+      "mae": 0.13738411707300902,
+      "max_abs": 1.1499049663543701,
+      "pearson_r": null,
+      "rmse": 0.35729191895883916
+    }
+  },
+  "crop_metadata": {
+    "end": [
+      392,
+      392
+    ],
+    "input_shape": [
+      392,
+      392,
+      1
+    ],
+    "parity_warning": false,
+    "start": [
+      0,
+      0
+    ],
+    "target_size": 392
+  },
+  "elapsed_seconds": 92.72,
+  "ground_truth": {
+    "amplitude_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/ground_truth_amp.npy",
+    "amplitude_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/ground_truth_amp.png",
+    "phase_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/ground_truth_phase.npy",
+    "phase_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/ground_truth_phase.png"
+  },
+  "ground_truth_amp_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/ground_truth_amp.npy",
+  "ground_truth_phase_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/ground_truth_phase.npy",
+  "group_count": 256,
+  "group_limit": 64,
+  "intensity_stats": {
+    "intensity_scale": 988.211669921875,
+    "json_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/intensity_stats.json",
+    "markdown_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/intensity_stats.md",
+    "stages": [
+      {
+        "metadata": {
+          "count": 256,
+          "source": "RawData"
+        },
+        "name": "raw_diffraction",
+        "stats": {
+          "dtype": "float32",
+          "finite_count": 1048576,
+          "max": 26.895893096923828,
+          "mean": 0.14668205380439758,
+          "min": 0.0,
+          "nan_count": 0,
+          "shape": [
+            256,
+            64,
+            64
+          ],
+          "std": 0.8442895412445068,
+          "total_count": 1048576
+        }
+      },
+      {
+        "metadata": {
+          "count": 64,
+          "gridsize": 1,
+          "source": "RawData.generate_grouped_data"
+        },
+        "name": "grouped_diffraction",
+        "stats": {
+          "dtype": "float32",
+          "finite_count": 262144,
+          "max": 26.895893096923828,
+          "mean": 0.15274183452129364,
+          "min": 0.0,
+          "nan_count": 0,
+          "shape": [
+            64,
+            64,
+            64,
+            1
+          ],
+          "std": 0.8804562091827393,
+          "total_count": 262144
+        }
+      },
+      {
+        "metadata": {
+          "count": 64,
+          "source": "normalize_data"
+        },
+        "name": "grouped_X_full",
+        "stats": {
+          "dtype": "float32",
+          "finite_count": 262144,
+          "max": 15.049065589904785,
+          "mean": 0.08546368777751923,
+          "min": 0.0,
+          "nan_count": 0,
+          "shape": [
+            64,
+            64,
+            64,
+            1
+          ],
+          "std": 0.4926418960094452,
+          "total_count": 262144
+        }
+      },
+      {
+        "metadata": {
+          "group_limit": 64,
+          "source": "PtychoDataContainer"
+        },
+        "name": "container_X",
+        "stats": {
+          "dtype": "float32",
+          "finite_count": 262144,
+          "max": 15.049065589904785,
+          "mean": 0.08546368777751923,
+          "min": 0.0,
+          "nan_count": 0,
+          "shape": [
+            64,
+            64,
+            64,
+            1
+          ],
+          "std": 0.4926418960094452,
+          "total_count": 262144
+        }
+      }
+    ]
+  },
+  "intensity_stats_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/intensity_stats.md",
+  "intensity_stats_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/intensity_stats.json",
+  "neighbor_count": 4,
+  "nepochs": 5,
+  "nphotons": 1000000000.0,
+  "object_seed": 42,
+  "probe_big": null,
+  "probe_mask": null,
+  "probe_mode": "idealized",
+  "probe_scale": 10.0,
+  "profile": {
+    "active": true,
+    "applied": {
+      "base_total_images": 512,
+      "batch_size": 8,
+      "group_count": 256
+    },
+    "defaults": {
+      "base_total_images": 512,
+      "batch_size": 8,
+      "group_count": 256
+    },
+    "effective_batch_size": 8,
+    "effective_group_count": 256,
+    "label": "stable_profile_gs1_ideal",
+    "name": "gs1_ideal",
+    "skipped": {}
+  },
+  "scenario": "gs1_ideal",
+  "sim_seed": 42,
+  "split_fraction": 0.5,
+  "test_count": 256,
+  "timestamp": "2026-01-20T07:15:27.121679+00:00",
+  "total_images": 512,
+  "train_count": 256,
+  "training_history": {
+    "history_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/train_outputs/history.json",
+    "nan_overview": {
+      "has_nan": false,
+      "metrics": {}
+    },
+    "summary_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/train_outputs/history_summary.json",
+    "summary_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal/gs1_ideal_training_summary.md"
+  },
+  "training_history_path": "train_outputs/history.json",
+  "training_nan_overview": {
+    "has_nan": false,
+    "metrics": {}
+  },
+  "training_summary_markdown_path": "gs1_ideal_training_summary.md",
+  "training_summary_path": "train_outputs/history_summary.json"
+}

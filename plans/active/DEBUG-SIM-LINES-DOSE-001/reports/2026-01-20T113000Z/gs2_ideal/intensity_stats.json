@@ -1,0 +1,97 @@
+{
+  "intensity_scale_recorded": 988.211669921875,
+  "stages": [
+    {
+      "metadata": {
+        "count": 512,
+        "source": "RawData"
+      },
+      "name": "raw_diffraction",
+      "stats": {
+        "dtype": "float32",
+        "finite_count": 2097152,
+        "max": 27.523099899291992,
+        "mean": 0.14583083987236023,
+        "min": 0.0,
+        "nan_count": 0,
+        "shape": [
+          512,
+          64,
+          64
+        ],
+        "std": 0.8427172899246216,
+        "total_count": 2097152
+      }
+    },
+    {
+      "metadata": {
+        "count": 64,
+        "gridsize": 2,
+        "source": "RawData.generate_grouped_data"
+      },
+      "name": "grouped_diffraction",
+      "stats": {
+        "dtype": "float32",
+        "finite_count": 1048576,
+        "max": 27.523099899291992,
+        "mean": 0.14735829830169678,
+        "min": 0.0,
+        "nan_count": 0,
+        "shape": [
+          64,
+          64,
+          64,
+          4
+        ],
+        "std": 0.8532971739768982,
+        "total_count": 1048576
+      }
+    },
+    {
+      "metadata": {
+        "count": 64,
+        "source": "normalize_data"
+      },
+      "name": "grouped_X_full",
+      "stats": {
+        "dtype": "float32",
+        "finite_count": 1048576,
+        "max": 15.892265319824219,
+        "mean": 0.08508697152137756,
+        "min": 0.0,
+        "nan_count": 0,
+        "shape": [
+          64,
+          64,
+          64,
+          4
+        ],
+        "std": 0.4927070438861847,
+        "total_count": 1048576
+      }
+    },
+    {
+      "metadata": {
+        "group_limit": 64,
+        "source": "PtychoDataContainer"
+      },
+      "name": "container_X",
+      "stats": {
+        "dtype": "float32",
+        "finite_count": 1048576,
+        "max": 15.892265319824219,
+        "mean": 0.08508697152137756,
+        "min": 0.0,
+        "nan_count": 0,
+        "shape": [
+          64,
+          64,
+          64,
+          4
+        ],
+        "std": 0.4927070438861847,
+        "total_count": 1048576
+      }
+    }
+  ]
+}
