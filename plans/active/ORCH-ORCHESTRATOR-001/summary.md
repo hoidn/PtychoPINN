@@ -1,5 +1,10 @@
 # ORCH-ORCHESTRATOR-001 Summary
 
+### Turn Summary (2026-01-20)
+Added iteration tagging to combined-mode auto-commit commit messages and wired the iteration through the combined loop.
+Expanded auto-commit tests to assert the iteration tag and refreshed combined auto-commit docs.
+Artifacts: plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T055056Z/
+
 ### Turn Summary
 Drafted a minimal design and phased implementation plan for the combined orchestrator, including a shared runner refactor.
 Captured a draft test strategy focused on stubbed prompt execution and local/sync mode state transitions.

@@ -12,7 +12,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Mapping, Tuple
+from typing import Any, Dict, Mapping, Sequence, Tuple
 
 import matplotlib
 
@@ -300,6 +300,167 @@ def describe_offsets(global_offsets: np.ndarray) -> Dict[str, Any]:
     return {"axis_max_abs": [float(axis_max[0]), float(axis_max[1])], "max_abs": max_abs}
 
 
+def _coerce_value(value: Any) -> float:
+    if value is None:
+        return float("nan")
+    if isinstance(value, (np.floating, np.integer)):
+        return float(value)
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return float("nan")
+    if isinstance(value, (list, tuple)):
+        coerced = [_coerce_value(v) for v in value]
+        return float(coerced[-1]) if coerced else float("nan")
+    return float(value)
+
+
+def _coerce_sequence(seq: Any) -> list[float]:
+    if seq is None:
+        return []
+    if isinstance(seq, np.ndarray):
+        return [_coerce_value(v) for v in seq.tolist()]
+    if isinstance(seq, (list, tuple)):
+        return [_coerce_value(v) for v in seq]
+    return [_coerce_value(seq)]
+
+
+def coerce_history_for_json(history: Mapping[str, Any]) -> Dict[str, list[float]]:
+    sanitized: Dict[str, list[float]] = {}
+    for key, values in history.items():
+        sanitized[key] = _coerce_sequence(values)
+    return sanitized
+
+
+def summarize_history(
+    history: Mapping[str, Sequence[float]],
+    epochs: Sequence[float] | None = None,
+) -> Dict[str, Any]:
+    metrics_summary: Dict[str, Any] = {}
+    nan_metrics: Dict[str, Dict[str, Any]] = {}
+    epoch_list = list(epochs) if epochs is not None else None
+
+    for metric, values in history.items():
+        series = _coerce_sequence(values)
+        if not series:
+            metrics_summary[metric] = {
+                "count": 0,
+                "last": None,
+                "min": None,
+                "max": None,
+                "first_nan_step": None,
+                "first_nan_epoch": None,
+                "has_nan": False,
+            }
+            continue
+        arr = np.asarray(series, dtype=float)
+        first_bad_idx: int | None = None
+        if arr.size:
+            mask = ~np.isfinite(arr)
+            bad_indices = np.where(mask)[0]
+            if bad_indices.size:
+                first_bad_idx = int(bad_indices[0])
+
+        first_bad_epoch = None
+        if first_bad_idx is not None and epoch_list and len(epoch_list) > first_bad_idx:
+            first_bad_epoch = epoch_list[first_bad_idx]
+
+        try:
+            min_val = float(np.nanmin(arr))
+        except (ValueError, FloatingPointError):
+            min_val = None
+        try:
+            max_val = float(np.nanmax(arr))
+        except (ValueError, FloatingPointError):
+            max_val = None
+        last_val = float(arr[-1]) if arr.size else None
+        metric_summary = {
+            "count": int(arr.size),
+            "last": last_val,
+            "min": min_val,
+            "max": max_val,
+            "first_nan_step": first_bad_idx,
+            "first_nan_epoch": first_bad_epoch,
+            "has_nan": first_bad_idx is not None,
+        }
+        metrics_summary[metric] = metric_summary
+        if first_bad_idx is not None:
+            nan_metrics[metric] = {
+                "first_nan_step": first_bad_idx,
+                "first_nan_epoch": first_bad_epoch,
+            }
+            print(
+                f"[runner][history][warn] Metric '{metric}' reported NaN/inf at step "
+                f"{first_bad_idx}{f' (epoch {first_bad_epoch})' if first_bad_epoch is not None else ''}"
+            )
+
+    if nan_metrics:
+        metrics_list = ", ".join(sorted(nan_metrics))
+        print(f"[runner][history][warn] NaN/inf detected in metrics: {metrics_list}")
+
+    return {
+        "metrics": metrics_summary,
+        "nan_overview": {
+            "has_nan": bool(nan_metrics),
+            "metrics": nan_metrics,
+        },
+    }
+
+
+def _format_optional(value: Any, precision: int = 6) -> str:
+    if value is None or (isinstance(value, float) and not math.isfinite(value)):
+        return "—"
+    return f"{float(value):.{precision}g}"
+
+
+def write_training_summary_markdown(
+    scenario_name: str,
+    summary: Mapping[str, Any],
+    history_rel_path: str,
+    summary_rel_path: str,
+    output_path: Path,
+) -> None:
+    metrics = summary.get("metrics", {})
+    nan_overview = summary.get("nan_overview", {})
+    lines = [
+        f"# {scenario_name} Training Summary",
+        "",
+        f"- History JSON: `{history_rel_path}`",
+        f"- Summary JSON: `{summary_rel_path}`",
+    ]
+    if nan_overview.get("has_nan"):
+        affected = ", ".join(sorted(nan_overview.get("metrics", {}).keys()))
+        lines.append(f"- ⚠️ NaN/inf detected in metrics: {affected}")
+    else:
+        lines.append("- ✅ No NaN/inf detected in training history.")
+    lines.append("")
+    if metrics:
+        lines.append("| Metric | Last | Min | Max | First NaN Step | First NaN Epoch |")
+        lines.append("| --- | --- | --- | --- | --- | --- |")
+        for metric in sorted(metrics):
+            entry = metrics[metric]
+            lines.append(
+                "| {metric} | {last} | {minv} | {maxv} | {step} | {epoch} |".format(
+                    metric=metric,
+                    last=_format_optional(entry.get("last")),
+                    minv=_format_optional(entry.get("min")),
+                    maxv=_format_optional(entry.get("max")),
+                    step=entry.get("first_nan_step", "—")
+                    if entry.get("first_nan_step") is not None
+                    else "—",
+                    epoch=entry.get("first_nan_epoch", "—")
+                    if entry.get("first_nan_epoch") is not None
+                    else "—",
+                )
+            )
+    else:
+        lines.append("No history metrics were reported for this run.")
+    output_path.write_text("\n".join(lines) + "\n")
+
+
 def run_inference_and_reassemble(
     test_raw,
     scenario: ScenarioSpec,
@@ -449,10 +610,35 @@ def main() -> None:
         train_config = dataclasses.replace(train_config, batch_size=profile_batch_size)
 
     start_time = time.time()
-    run_training(train_raw, test_raw, train_config)
+    training_results = run_training(train_raw, test_raw, train_config)
     save_training_bundle(train_dir)
     train_elapsed = time.time() - start_time
     print(f"[runner] Training complete in {train_elapsed:.2f}s; bundle saved to {train_dir}")
+
+    history_payload_raw = training_results.get("history") or {}
+    history_epochs_raw = training_results.get("history_epochs")
+    coerced_history = coerce_history_for_json(history_payload_raw)
+    coerced_epochs = _coerce_sequence(history_epochs_raw) if history_epochs_raw is not None else []
+    history_json = {"metrics": coerced_history}
+    if coerced_epochs:
+        history_json["epochs"] = coerced_epochs
+    history_path = train_dir / "history.json"
+    history_path.write_text(json.dumps(history_json, indent=2, sort_keys=True))
+
+    history_summary = summarize_history(coerced_history, coerced_epochs if coerced_epochs else None)
+    history_summary_path = train_dir / "history_summary.json"
+    history_summary_path.write_text(json.dumps(history_summary, indent=2, sort_keys=True))
+
+    summary_md_path = scenario_dir / f"{scenario.name}_training_summary.md"
+    history_rel = os.path.relpath(history_path, scenario_dir)
+    summary_rel = os.path.relpath(history_summary_path, scenario_dir)
+    write_training_summary_markdown(
+        scenario.name,
+        history_summary,
+        history_rel,
+        summary_rel,
+        summary_md_path,
+    )
 
     amp, phase, global_offsets = run_inference_and_reassemble(
         test_raw=test_raw,
@@ -532,6 +718,13 @@ def main() -> None:
             "stats_json": str(inference_dir / "stats.json"),
         },
     }
+    metadata["training_history"] = {
+        "history_json": str(history_path),
+        "summary_json": str(history_summary_path),
+        "summary_markdown": str(summary_md_path),
+        "nan_overview": history_summary.get("nan_overview", {}),
+    }
+    metadata["training_nan_overview"] = history_summary.get("nan_overview", {})
     if profile_metadata:
         metadata["profile"] = profile_metadata
     (scenario_dir / "run_metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True))

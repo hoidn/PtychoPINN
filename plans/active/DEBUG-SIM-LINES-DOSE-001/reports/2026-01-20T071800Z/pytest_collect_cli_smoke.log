@@ -1,0 +1,6 @@
+tests/scripts/test_synthetic_helpers_cli_smoke.py::test_dose_response_study_help
+tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_gs1_ideal_help
+tests/scripts/test_synthetic_helpers_cli_smoke.py::test_run_with_synthetic_lines_help
+tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke
+
+4 tests collected in 0.88s

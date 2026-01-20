@@ -1,0 +1,26 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 16 items
+
+scripts/orchestration/tests/test_orchestrator.py::test_combined_sequence PASSED [  6%]
+scripts/orchestration/tests/test_orchestrator.py::test_review_cadence_single PASSED [ 12%]
+scripts/orchestration/tests/test_orchestrator.py::test_router_override_galph_only PASSED [ 18%]
+scripts/orchestration/tests/test_orchestrator.py::test_router_disabled_uses_actor_prompts PASSED [ 25%]
+scripts/orchestration/tests/test_orchestrator.py::test_combined_missing_prompt_marks_failed PASSED [ 31%]
+scripts/orchestration/tests/test_orchestrator.py::test_router_only_without_output_marks_failed PASSED [ 37%]
+scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_after_turns PASSED [ 43%]
+scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_no_git PASSED [ 50%]
+scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_dry_run PASSED [ 56%]
+scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_includes_iteration PASSED [ 62%]
+scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_flag_plumbing PASSED [ 68%]
+scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_best_effort PASSED [ 75%]
+scripts/orchestration/tests/test_orchestrator.py::test_role_mode_requires_role PASSED [ 81%]
+scripts/orchestration/tests/test_orchestrator.py::test_role_mode_requires_sync PASSED [ 87%]
+scripts/orchestration/tests/test_orchestrator.py::test_role_mode_forwards_supervisor_prompt PASSED [ 93%]
+scripts/orchestration/tests/test_orchestrator.py::test_role_mode_forwards_loop_prompt PASSED [100%]
+
+============================== 16 passed in 0.09s ==============================

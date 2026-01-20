@@ -494,3 +494,9 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
   - Confirmed gs1_ideal continues to emit NaNs immediately after the bake while gs2_ideal remains healthy, motivating the per-epoch telemetry capture before touching core workflows again.
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T071800Z/ next_action=instrument run_phase_c2_scenario.py to persist training history + NaN summaries and rerun gs1_ideal/gs2_ideal with pytest + reassembly evidence
+
+# 2026-01-20T07:40:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase C3 telemetry runs
+
+- dwell: 0 (first execution loop after the telemetry plan)
+- Observation: After instrumenting the runner and rerunning gs1_ideal/gs2_ideal, every Lightning metric stayed finite—no NaNs/Infs appeared in either scenario, and the NaN summary JSON/Markdown backs that up even though gs1_ideal still converges to a visually useless reconstruction.
+- Implication: The remaining gs1 instability is not caused by NaN explosions; we now have per-epoch histories to compare against gs2, so Phase C3 debugging should focus on loss dynamics, scaling, or geometry differences instead of NaN handling.

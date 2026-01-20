@@ -143,6 +143,8 @@ Unit + light integration tests in a single module with full stubbing of prompt e
 - `scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_after_turns`
 - `scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_no_git`
 - `scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_dry_run`
+- `scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_includes_iteration`
+- `scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_role_prefix`
 - `scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_flag_plumbing`
 - `scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_best_effort`
 
