@@ -359,9 +359,10 @@ gs2_ideal healthy, gs1_ideal NaN after CONFIG-001 fix
 - [ ] D4: **Architecture / loss-wiring verification.**
       - If loss weights + normalization still match legacy behavior, inspect the current TensorFlow training graph (loss composition, intensity scaler placement, probe application) against the `dose_experiments` script to identify code-level divergences; add focused diagnostic tests as needed.
       Test: `pytest -m integration`
-      - [ ] **D4a — Dataset intensity-scale telemetry:** Extend the plan-local runner/analyzer so each scenario records the dataset-derived intensity scale (`s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])` per `specs/spec-ptycho-core.md §Normalization Invariants`), the closed-form fallback, and their deltas inside `intensity_stats.json`, `run_metadata.json`, and the Markdown summary. Rerun gs2 baseline + `gs2_ideal_nepochs60` under a new hub and regenerate `bias_summary.*` to determine whether a gain mismatch (dataset vs recorded 988.21) explains the ≈6.7× amplitude gap.
-            - Implementation scope: `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py` (stage capture + metadata) and `bin/analyze_intensity_bias.py` (render dataset-vs-recorded table).
-            - Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+      - [x] **D4a — Dataset intensity-scale telemetry:** *(COMPLETE 2026-01-20T232800Z)* Extended the plan-local runner/analyzer so each scenario records the dataset-derived intensity scale (`s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])` per `specs/spec-ptycho-core.md §Normalization Invariants`), the closed-form fallback, and their deltas inside `intensity_stats.json`, `run_metadata.json`, and the Markdown summary.
+            - **Key Finding:** Dataset-derived scale=577.74 vs Fallback scale=988.21 (ratio=0.585). The pipeline uses the closed-form fallback instead of the preferred dataset-derived scale, causing a ~1.7× scale mismatch that could explain a significant portion of the amplitude bias.
+            - Evidence: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/{gs2_ideal/*,gs2_ideal_nepochs60/*,bias_summary.md,pytest_cli_smoke.log}`
+            - Test: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
 
 ### Notes & Risks
 - Avoid touching `ptycho/model.py`, `ptycho/diffsim.py`, or other core physics modules without explicit approval (per CLAUDE.md directive #6). Start with plan-local instrumentation and documentation diffs.
