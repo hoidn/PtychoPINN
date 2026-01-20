@@ -1,8 +1,8 @@
 ## Summary
-Add normalization-invariant diagnostics to the Phase D analyzer so we can prove exactly where the symmetry in §Normalization Invariants breaks, then regenerate the gs1_ideal + dose_legacy_gs2 evidence under the new hub.
+Add a dose_experiments-style normalization capture CLI so we can gather RawData→grouped→normalized→container stage stats plus dataset-vs-fallback intensity scales without rerunning the full sim_lines training loop.
 
 ## Focus
-DEBUG-SIM-LINES-DOSE-001 — Phase D2 normalization parity instrumentation
+DEBUG-SIM-LINES-DOSE-001 — Phase D2 normalization parity instrumentation (D2b CLI)
 
 ## Branch
 paper
@@ -11,43 +11,44 @@ paper
 - pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
 
 ## Artifacts
-plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T122937Z/
+plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T124212Z/
 
-## Do Now — DEBUG-SIM-LINES-DOSE-001.D2 normalization invariants
-- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py::{build_stage_ratio_summary,gather_scenario_data,render_markdown} — add a normalization-invariant section that multiplies the raw→grouped→normalized→prediction→truth ratios, flags deviations vs a 5% tolerance, and surfaces the results (JSON + Markdown) with an explicit citation to `specs/spec-ptycho-core.md §Normalization Invariants`.
-- Implement: rerun the analyzer with the updated script for the existing D2 scenarios so the new JSON/Markdown land in `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T122937Z/` (include analyzer stdout in `analyzer.log`).
-- Test: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T122937Z/pytest_cli_smoke.log
+## Do Now — DEBUG-SIM-LINES-DOSE-001.D2b normalization parity
+- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/capture_dose_normalization.py::main — add a plan-local CLI that loads the legacy `dose_experiments_param_scan.md` defaults (gridsize=2, probe_scale=4, neighbor_count=5, etc.), simulates the nongrid dataset via `make_lines_object`/`simulate_nongrid_raw_data`, splits along `y`, and records stage telemetry using the existing `record_intensity_stage` helper so `write_intensity_stats_outputs` can emit both JSON + Markdown. The CLI must compute the dataset-derived intensity scale (per `specs/spec-ptycho-core.md §Normalization Invariants`) and the closed-form fallback `sqrt(nphotons)/(N/2)`, feed both into the payload, duplicate the outputs to `dose_normalization_stats.{json,md}`, and persist `capture_config.json` + `capture_summary.md` with the scenario parameters, normalization ratios, and spec citation. Support `--overwrite` to clear existing outputs safely.
+- Implement: docs/fix_plan.md — log this D2b attempt (timestamp, CLI path, artifact hub) under DEBUG-SIM-LINES-DOSE-001, ensuring the Dependencies/Status fields reflect that normalization parity capture is underway and referencing the new `dose_normalization_stats` artifacts.
+- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md — update the Phase D checklist so D2b describes the new CLI entry point (and mark as completed once artifacts exist), plus refresh `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md` with a note that the normalization-only CLI now exists for quick parity captures.
 
 ## How-To Map
-- Analyzer rerun:
-  ```bash
-  AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py \
-    --scenario gs1_ideal=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/gs1_ideal \
-    --scenario dose_legacy_gs2=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2 \
-    --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T122937Z \
-    > plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T122937Z/analyze_intensity_bias.log
-  ```
-- Pytest guard already listed under Do Now.
+1. `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/capture_dose_normalization.py --scenario dose_legacy_gs2 --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T124212Z/dose_normalization --total-images 1024 --group-count 64 --neighbor-count 5 --nphotons 1e9 --buffer 10 --object-size 392 --sim-seed 42 --object-seed 42 --custom-probe-path ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz --probe-mode custom --probe-scale 4.0 --gridsize 2 --split-fraction 0.5 | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T124212Z/dose_normalization/capture.log`
+2. `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T124212Z/pytest_cli_smoke.log`
 
 ## Pitfalls To Avoid
-- Keep the normalization-invariant math tolerant to missing stage ratios—fallback gracefully instead of raising.
-- Do not hardcode scenario names; analyzer changes must work for any directories produced by the runner.
-- Preserve deterministic JSON ordering (e.g., `sort_keys=True`) so future diffs stay reviewable.
-- Reference the spec verbatim; do not paraphrase the normalization equations inside the code comments.
-- Leave production modules untouched; all changes stay under `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/`.
+- Keep the new CLI plan-local; do not modify production modules under `ptycho/` or `scripts/studies/`.
+- Reference `specs/spec-ptycho-core.md §Normalization Invariants` verbatim in the capture summary; avoid paraphrasing equations.
+- Compute both dataset-derived and closed-form intensity scales and serialize them (JSON + Markdown) so analyzer diffs stay meaningful.
+- Preserve the exact stage order (`raw_diffraction`, `grouped_diffraction`, `grouped_X_full`, `container_X`) used by `run_phase_c2_scenario` so comparisons are apples-to-apples.
+- Default to fail-fast if the output directory already contains stats; only delete files when `--overwrite` is passed and log the action.
+- Keep seeds and scenario counts deterministic (object seed, sim seed, total images) for reproducibility and caching.
+- Capture all CLI stdout/stderr plus `capture_config.json` inside the artifacts hub before touching docs.
+- Do not kick off training/inference workloads; the CLI should stop after loader-based normalization stats.
+- Leave the memoized RawData cache enabled unless the CLI exposes a flag; avoid bespoke cache directories.
+- When updating docs, describe the actual CLI behavior and artifact paths after verifying files exist.
 
 ## If Blocked
-Capture the failing command + stack trace into `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T122937Z/blocker.log`, note the exact scenario path, and update docs/fix_plan.md Attempts History with the blocker details before stopping.
+If the CLI fails (e.g., missing probe NPZ or loader import error), write the full traceback to `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T124212Z/dose_normalization/blocker.log`, add a DEBUG-SIM-LINES-DOSE-001 Attempts History note in docs/fix_plan.md summarizing the blocker, and stop rather than guessing at parameters.
 
 ## Findings Applied (Mandatory)
-- NORMALIZATION-001 — analyzer output must explicitly show whether the loader obeys the three normalization systems.
-- CONFIG-001 — keep the analyzer read-only; do not touch params.cfg or legacy modules.
+- CONFIG-001 — keep params.cfg synchronized via `update_legacy_dict` before calling loader/generator helpers.
+- SIM-LINES-CONFIG-001 — plan-local runners must bridge legacy params prior to grouping/inference to avoid NaNs; document the bridge in the CLI summary.
+- NORMALIZATION-001 — track all three normalization systems explicitly and cite the spec when presenting the dataset-scale vs fallback numbers.
 
 ## Pointers
-- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:338 — Phase D2 checklist and evidence requirements.
-- docs/fix_plan.md:200 — D2 Attempts History + new 2026-01-20T122937Z entry.
-- specs/spec-ptycho-core.md §Normalization Invariants — normative symmetry definition.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py — target script for the new diagnostics.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:330 — Phase D checklist + D2b requirements.
+- docs/fix_plan.md:218 — D2 Attempts History describing the normalization parity plan.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py:333 — intensity stage helpers to reuse.
+- specs/spec-ptycho-core.md:86 — Normalization invariant clauses.
+- docs/findings.md:22 — NORMALIZATION-001 guidance.
+- docs/TESTING_GUIDE.md:1 — pytest command policy for plan-local work.
 
 ## Next Up (optional)
-If the analyzer work finishes early, start designing the plan-local CLI that replays the dose_experiments normalization stack (D2b) so we no longer rely on sim_lines overrides.
+If the CLI + docs land quickly, start scoping D3 (hyperparameter deltas) by cataloging nepochs, batch sizes, and scheduler settings between dose_experiments and sim_lines.

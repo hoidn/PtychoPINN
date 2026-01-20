@@ -945,3 +945,19 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T122937Z/ (planning hub)
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T122937Z/ next_action=Extend analyzer with normalization invariant diagnostics, rerun it for gs1_ideal + dose_legacy_gs2, and keep pytest guard green
+# 2026-01-20T12:43:43Z: DEBUG-SIM-LINES-DOSE-001 — D2b normalization CLI handoff
+
+- dwell: 0 (reset after issuing an implementation Do Now)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 Phase D2b — capture legacy normalization stats without rerunning the full sim_lines pipeline
+- Action type: Planning → Implementation handoff | Mode: Implementation
+- Documents reviewed: docs/index.md, docs/findings.md (CONFIG-001, NORMALIZATION-001, SIM-LINES-CONFIG-001), docs/fix_plan.md (§DEBUG-SIM-LINES-DOSE-001 Phase D), plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, specs/spec-ptycho-core.md §Normalization Invariants, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py, run_dose_stage logs
+- Key observations:
+  - D2b remained unchecked; we still lacked a fast way to replay the `dose_experiments_param_scan.md` normalization stack without kicking off full training.
+  - The existing runner already exposes `record_intensity_stage`/`write_intensity_stats_outputs`, so a thin plan-local CLI can reuse those helpers to log RawData→container stats.
+- Key decisions:
+  - Handed off a new artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T124212Z/` plus a Do Now directing Ralph to author `capture_dose_normalization.py`, run it for the dose_legacy_gs2 profile, and update docs/test evidence under that hub.
+  - The CLI must emit both dataset-derived and closed-form intensity scales (per `specs/spec-ptycho-core.md §Normalization Invariants`), duplicate outputs to `dose_normalization_stats.{json,md}`, log `capture_config.json`/`capture_summary.md`, and keep everything plan-local.
+  - Docs/fix_plan.md + implementation plan must record that D2b now has a concrete CLI, and the usual CLI smoke pytest remains the guard gate.
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T124212Z/` (input.md, summary.md)
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T124212Z/ next_action=Ralph implements capture_dose_normalization.py, runs the CLI + pytest guard, and updates docs/fix_plan/plan entries with the new D2b evidence

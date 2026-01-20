@@ -1,11 +1,11 @@
 {
   "iteration": 435,
-  "expected_actor": "galph",
-  "status": "complete",
-  "last_update": "2026-01-20T12:36:00Z",
-  "lease_expires_at": "2026-01-20T12:46:00Z",
-  "galph_commit": "deeae37b",
+  "expected_actor": "ralph",
+  "status": "waiting-ralph",
+  "last_update": "2026-01-20T12:44:13Z",
+  "lease_expires_at": "2026-01-20T12:54:13Z",
+  "galph_commit": "c50e540d",
   "ralph_commit": "eada5bfc",
-  "last_prompt": "main.md",
-  "last_prompt_actor": "ralph"
+  "last_prompt": "supervisor.md",
+  "last_prompt_actor": "galph"
 }
