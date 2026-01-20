@@ -166,7 +166,7 @@
 ### [ORCH-ORCHESTRATOR-001] Combined orchestrator entrypoint + shared runner refactor
 - Depends on: ORCH-ROUTER-001 (router selection logic)
 - Priority: Medium
-- Status: pending — Phase A design + test strategy drafted
+- Status: in_progress — Phase C complete; full-suite regression gate pending
 - Owner/Date: user+Codex/2026-01-20
 - Working Plan: `plans/active/ORCH-ORCHESTRATOR-001/implementation.md`
 - Summary: `plans/active/ORCH-ORCHESTRATOR-001/summary.md`
@@ -184,3 +184,7 @@
   - Orchestrator tests pass and docs updated.
 - Attempts History:
   - *2026-01-20T025735Z:* Drafted minimal design + implementation plan + test strategy. Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/{design.md,implementation.md,test_strategy.md}`.
+  - *2026-01-20T032058Z:* Implemented shared runner + combined orchestrator + wrapper, refactored supervisor/loop to use runner utilities, added combined-mode tests, and updated orchestration docs/test registries.
+    - Metrics: `ruff check scripts/orchestration/runner.py scripts/orchestration/orchestrator.py scripts/orchestration/supervisor.py scripts/orchestration/loop.py scripts/orchestration/tests/test_orchestrator.py`, `pytest --collect-only scripts/orchestration/tests/test_orchestrator.py -v`, `pytest scripts/orchestration/tests/test_orchestrator.py -v`
+    - Artifacts: `plans/active/ORCH-ORCHESTRATOR-001/reports/2026-01-20T032058Z/{ruff_check.log,pytest_collect_orchestrator.log,pytest_orchestrator.log}`
+    - Next Actions: decide whether to run the broader regression suite to satisfy the full-suite exit criterion.

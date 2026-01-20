@@ -32,10 +32,10 @@
    - Logs saved to `plans/active/ORCH-ORCHESTRATOR-001/reports/<timestamp>/`
 
 ## Compliance Matrix (Mandatory)
-- [ ] **Spec Constraint:** `scripts/orchestration/README.md` — state contract, router cadence, logging
-- [ ] **Fix-Plan Link:** `docs/fix_plan.md` — ORCH-ORCHESTRATOR-001
-- [ ] **Finding/Policy ID:** PYTHON-ENV-001 (docs/DEVELOPER_GUIDE.md)
-- [ ] **Test Strategy:** `plans/active/ORCH-ORCHESTRATOR-001/test_strategy.md`
+- [x] **Spec Constraint:** `scripts/orchestration/README.md` — state contract, router cadence, logging
+- [x] **Fix-Plan Link:** `docs/fix_plan.md` — ORCH-ORCHESTRATOR-001
+- [x] **Finding/Policy ID:** PYTHON-ENV-001 (docs/DEVELOPER_GUIDE.md)
+- [x] **Test Strategy:** `plans/active/ORCH-ORCHESTRATOR-001/test_strategy.md`
 
 ## Spec Alignment
 - **Normative Spec:** `scripts/orchestration/README.md`
@@ -72,11 +72,11 @@
 
 ## Phase A — Design & Prep
 ### Checklist
-- [ ] A0: Draft minimal design + interfaces (runner/orchestrator) and confirm review cadence behavior.
+- [x] A0: Draft minimal design + interfaces (runner/orchestrator) and confirm review cadence behavior.
       Test: N/A — design artifact (`plans/active/ORCH-ORCHESTRATOR-001/design.md`)
-- [ ] A1: Create test strategy + link in fix plan.
+- [x] A1: Create test strategy + link in fix plan.
       Test: N/A — planning artifact (`plans/active/ORCH-ORCHESTRATOR-001/test_strategy.md`)
-- [ ] A2: Add failing tests for combined-mode ordering and review cadence (TDD nucleus).
+- [x] A2: Add failing tests for combined-mode ordering and review cadence (TDD nucleus).
       Test: `scripts/orchestration/tests/test_orchestrator.py::test_combined_sequence`
 
 ### Dependency Analysis (Required for Refactors)
@@ -89,11 +89,11 @@
 
 ## Phase B — Implementation
 ### Checklist
-- [ ] B1: Extract shared prompt execution + router selection into `runner.py`; update supervisor/loop to call shared helper.
+- [x] B1: Extract shared prompt execution + router selection into `runner.py`; update supervisor/loop to call shared helper.
       Test: `scripts/orchestration/tests/test_router.py::test_router_deterministic`
-- [ ] B2: Implement `orchestrator.py` CLI with combined mode + role-gated sync mode; add wrapper script.
+- [x] B2: Implement `orchestrator.py` CLI with combined mode + role-gated sync mode; add wrapper script.
       Test: `scripts/orchestration/tests/test_orchestrator.py::test_combined_sequence`
-- [ ] B3: Enforce galph-only review cadence + router override (ralph deterministic only).
+- [x] B3: Enforce galph-only review cadence + router override (ralph deterministic only).
       Test: `scripts/orchestration/tests/test_orchestrator.py::test_review_cadence_single`
 
 ### Notes & Risks
@@ -101,11 +101,11 @@
 
 ## Phase C — Verification & Docs
 ### Checklist
-- [ ] C1: Complete orchestrator tests + collect-only verification.
+- [x] C1: Complete orchestrator tests + collect-only verification.
       Test: `pytest --collect-only scripts/orchestration/tests/test_orchestrator.py -v`
-- [ ] C2: Run orchestrator test module.
+- [x] C2: Run orchestrator test module.
       Test: `pytest scripts/orchestration/tests/test_orchestrator.py -v`
-- [ ] C3: Update docs (`scripts/orchestration/README.md`, `docs/index.md`, `docs/TESTING_GUIDE.md`, `docs/development/TEST_SUITE_INDEX.md`).
+- [x] C3: Update docs (`scripts/orchestration/README.md`, `docs/index.md`, `docs/TESTING_GUIDE.md`, `docs/development/TEST_SUITE_INDEX.md`).
       Test: N/A — documentation-only
 
 ### Notes & Risks

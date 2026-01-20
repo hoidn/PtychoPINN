@@ -65,11 +65,12 @@ Lightweight tests for script-level helpers and CLI `--help` smoke coverage.
 
 Lightweight tests for the orchestration submodule (located under `scripts/orchestration/`).
 
-- **Location:** `scripts/orchestration/tests/test_router.py`
-- **Purpose:** Validate deterministic routing decisions, router modes, and overrides.
-- **Selector:**
+- **Location:** `scripts/orchestration/tests/test_router.py`, `scripts/orchestration/tests/test_orchestrator.py`
+- **Purpose:** Validate deterministic routing decisions, router modes/overrides, and combined orchestrator sequencing/cadence.
+- **Selectors:**
   ```bash
   pytest scripts/orchestration/tests/test_router.py -v
+  pytest scripts/orchestration/tests/test_orchestrator.py -v
   ```
 
 ### Integration Tests

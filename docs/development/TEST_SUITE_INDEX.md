@@ -62,6 +62,14 @@ This document provides a comprehensive index of the automated tests in the `test
 | `scripts/test_synthetic_helpers_cli_smoke.py` | CLI `--help` smoke coverage for study/simulation scripts and pipeline import. | `test_dose_response_study_help`, `test_run_with_synthetic_lines_help` | `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v` | Ensures script entry points remain callable. |
 | `scripts/test_dose_response_study.py` | Regression test for dose_response_study inference group-count capping. | `test_run_inference_caps_groups` | `pytest tests/scripts/test_dose_response_study.py -v` | Uses mocks to avoid heavy inference. |
 
+### Orchestration Tests (`scripts/orchestration/tests/`)
+
+| Test File | Purpose / Scope | Key Tests | Usage / Command | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+
+| `scripts/orchestration/tests/test_router.py` | Deterministic routing decisions, router modes, and override behavior. | `test_router_deterministic`, `test_router_prompt_override` | `pytest scripts/orchestration/tests/test_router.py -v` | Lightweight router coverage for orchestration submodule. |
+| `scripts/orchestration/tests/test_orchestrator.py` | Combined orchestrator sequencing and review cadence gating. | `test_combined_sequence`, `test_review_cadence_single` | `pytest scripts/orchestration/tests/test_orchestrator.py -v` | Uses stubbed prompt execution; no external processes. |
+
 ### Image Tests (`tests/image/`)
 
 | Test File | Purpose / Scope | Key Tests | Usage / Command | Notes |
