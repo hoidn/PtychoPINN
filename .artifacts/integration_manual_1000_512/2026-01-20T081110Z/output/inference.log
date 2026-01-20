@@ -1,0 +1,97 @@
+2026-01-20 00:12:35.681959: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1768896755.693593 1242524 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1768896755.697319 1242524 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1768896755.707396 1242524 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768896755.707409 1242524 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768896755.707411 1242524 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1768896755.707412 1242524 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-20 00:12:35.710209: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-01-20 00:12:38,160 - INFO - Starting ptychography inference script...
+2026-01-20 00:12:38,160 - INFO - Final inference config - gridsize: 1
+2026-01-20 00:12:38,160 - INFO - Legacy mode: using 512 individual images (gridsize=1)
+2026-01-20 00:12:38,160 - INFO - Loading model...
+2026-01-20 00:12:38,160 - INFO - Backend dispatcher: loading TensorFlow model (ptycho.workflows.components)
+2026-01-20 00:12:38,161 - INFO - Loading model from: .artifacts/integration_manual_1000_512/2026-01-20T081110Z/output/training_outputs
+I0000 00:00:1768896758.406311 1242524 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1768896758.407546 1242524 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+2026-01-20 00:12:39,770 - INFO - Successfully loaded model from .artifacts/integration_manual_1000_512/2026-01-20T081110Z/output/training_outputs
+2026-01-20 00:12:39,772 - INFO - Backend dispatcher: inference bundle loaded (backend=tensorflow)
+2026-01-20 00:12:39,772 - INFO - Loading test data...
+2026-01-20 00:12:39,772 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=512, n_subsample=512
+2026-01-20 00:12:39,787 - INFO - Independent sampling: subsampling 512 images from 1087 total
+2026-01-20 00:12:39,787 - INFO - Randomly subsampled 512 images
+2026-01-20 00:12:39,794 - INFO - Inference config: gridsize=1, using 512 individual patterns
+2026-01-20 00:12:39,794 - INFO - Performing inference...
+/home/ollie/Documents/tmp/PtychoPINN/scripts/inference/inference.py:781: DeprecationWarning: perform_inference is deprecated; use _run_tf_inference_and_reconstruct
+  reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase = perform_inference(
+2026-01-20 00:12:39,796 - INFO - DEBUG: Using gridsize=1 for data generation
+2026-01-20 00:12:39,797 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=512, n_points=512, C=1, K=4
+2026-01-20 00:12:39,797 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
+2026-01-20 00:12:39,797 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
+2026-01-20 00:12:39,797 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 512 > 512 = False
+2026-01-20 00:12:39,797 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+2026-01-20 00:12:39,797 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2026-01-20 00:12:39,797 - INFO - Using efficient random sampling strategy for gridsize=1
+2026-01-20 00:12:39,797 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2026-01-20 00:12:39,797 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=512, K=4, C=1
+2026-01-20 00:12:39,797 - INFO - Generating 512 groups efficiently from 512 points (K=4, C=1)
+2026-01-20 00:12:39,797 - INFO - [OVERSAMPLING DEBUG] Standard case: using 512 groups from 512 points
+2026-01-20 00:12:39,797 - INFO - [OVERSAMPLING DEBUG] Using all 512 points as seeds (no sampling needed)
+2026-01-20 00:12:39,797 - INFO - Using all 512 points as seeds
+2026-01-20 00:12:39,797 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2026-01-20 00:12:39,797 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 512 groups
+2026-01-20 00:12:39,797 - INFO - Successfully generated 512 groups with shape (512, 1)
+2026-01-20 00:12:39,797 - INFO - [OVERSAMPLING DEBUG] Generated 512 groups in total
+2026-01-20 00:12:39,797 - INFO - Generated 512 groups efficiently
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1768896760.518011 1242524 service.cc:152] XLA service 0x42f16f70 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1768896760.518035 1242524 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2026-01-20 00:12:40.536794: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1768896760.554467 1242524 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1768896760.696825 1242524 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+2026-01-20 00:12:43,038 - INFO - DEBUG: Generated diffraction data shape: (512, 64, 64, 1)
+2026-01-20 00:12:43,038 - INFO - DEBUG: Generated Y data shape: (512, 64, 64, 1)
+2026-01-20 00:12:43,443 - INFO - DEBUG: PtychoDataContainer shapes - X (diffraction): (512, 64, 64, 1), Y: (512, 64, 64, 1)
+diff3d shape: (512, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (512,)
+objectGuess shape: (227, 226)
+xcoords shape: (512,)
+ycoords shape: (512,)
+xcoords_start shape: (512,)
+ycoords_start shape: (512,)
+DEBUG: nsamples: 512, gridsize: 1 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (512, 64, 64, 1)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(512, 64, 64, 1) mean=0.383 Y_I=(512, 64, 64, 1) mean=0.781 Y_phi=(512, 64, 64, 1) mean=-0.029 coords_nominal=(512, 1, 2, 1) mean=0.000 coords_true=(512, 1, 2, 1) mean=0.000 probe=(64, 64) mean_amplitude=0.322 norm_Y_I=<scalar> nn_indices=(512, 1) global_offsets=(512, 1, 2, 1) local_offsets=(512, 1, 2, 1)>
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 224
+DEBUG _flat_to_channel: input shape=(32, 224, 224, 1), reshaping to (-1, 1, 224, 224)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 224
+DEBUG _flat_to_channel: input shape=(32, 224, 224, 1), reshaping to (-1, 1, 224, 224)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 224
+DEBUG _flat_to_channel: input shape=(32, 224, 224, 1), reshaping to (-1, 1, 224, 224)
+DEBUG _flat_to_channel: gridsize from global params: 1
+DEBUG _flat_to_channel: N from parameter: 224
+DEBUG _flat_to_channel: input shape=(32, 224, 224, 1), reshaping to (-1, 1, 224, 224)
+[1m 1/16[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m28s[0m 2s/step[1m12/16[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 5ms/step[1m16/16[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m2s[0m 6ms/step
+2026-01-20 00:12:45,469 - INFO - Reconstruction completed in 2.03 seconds
+2026-01-20 00:12:46,489 - INFO - Reconstructed amplitude shape: (68, 68, 1)
+2026-01-20 00:12:46,490 - INFO - Reconstructed phase shape: (68, 68, 1)
+2026-01-20 00:12:46,491 - INFO - Saving reconstruction images...
+2026-01-20 00:12:46,491 - INFO - Amplitude array shape: (68, 68)
+2026-01-20 00:12:46,491 - INFO - Phase array shape: (68, 68)
+2026-01-20 00:12:46,639 - INFO - Reconstructed amplitude saved to: .artifacts/integration_manual_1000_512/2026-01-20T081110Z/output/inference_outputs/reconstructed_amplitude.png
+2026-01-20 00:12:46,639 - INFO - Reconstructed phase saved to: .artifacts/integration_manual_1000_512/2026-01-20T081110Z/output/inference_outputs/reconstructed_phase.png
+2026-01-20 00:12:46,639 - INFO - Inference process completed successfully.
+2026-01-20 00:12:46,639 - INFO - Cleaning up resources...
