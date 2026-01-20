@@ -1,0 +1,457 @@
+{
+  "generated_at": "2026-01-20T14:12:30.414145+00:00",
+  "scenario_count": 1,
+  "scenarios": {
+    "gs2_ideal_30epoch": {
+      "name": "gs2_ideal_30epoch",
+      "paths": {
+        "base_dir": "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60",
+        "run_metadata": "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/run_metadata.json",
+        "intensity_stats": "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/intensity_stats.json",
+        "inference_stats": "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/inference_outputs/stats.json",
+        "comparison_metrics": "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/comparison_metrics.json",
+        "training_summary": "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/train_outputs/history_summary.json",
+        "prediction_amplitude": "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/inference_outputs/amplitude.npy",
+        "ground_truth_amplitude": "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/ground_truth_amp.npy",
+        "prediction_amplitude_unscaled": "/home/ollie/Documents/tmp/PtychoPINN/plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/inference_outputs/amplitude_unscaled.npy"
+      },
+      "intensity": {
+        "bundle": 988.211669921875,
+        "legacy_params": 988.211669921875,
+        "scale_delta": 0.0,
+        "normalize_gain": 0.5774155409094991,
+        "run_metadata": {
+          "bundle_intensity_scale": 988.211669921875,
+          "intensity_scale": 988.211669921875,
+          "json_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/intensity_stats.json",
+          "largest_drop": {
+            "from_mean": 0.14735829830169678,
+            "from_stage": "grouped_diffraction",
+            "key": "grouped_to_normalized",
+            "ratio": 0.5774155409094991,
+            "to_mean": 0.08508697152137756,
+            "to_stage": "grouped_X_full"
+          },
+          "legacy_params_intensity_scale": 988.211669921875,
+          "markdown_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/intensity_stats.md",
+          "normalize_gain": 0.5774155409094991,
+          "prediction_scale": {
+            "applied": true,
+            "least_squares": {
+              "denominator": 56082.834568063794,
+              "finite_count": 153664,
+              "numerator": 100773.88796981989
+            },
+            "mode": "least_squares",
+            "recorded_scale": 988.211669921875,
+            "source": "least_squares",
+            "value": 1.7968757953472858
+          },
+          "ratios": {
+            "grouped_to_normalized": 0.5774155409094991,
+            "normalized_to_container": 1.0,
+            "raw_to_grouped": 1.0104741797460226
+          },
+          "scale_delta": 0.0,
+          "stage_means": {
+            "container_X": 0.08508697152137756,
+            "grouped_X_full": 0.08508697152137756,
+            "grouped_diffraction": 0.14735829830169678,
+            "raw_diffraction": 0.14583083987236023
+          },
+          "stages": [
+            {
+              "metadata": {
+                "count": 512,
+                "source": "RawData"
+              },
+              "name": "raw_diffraction",
+              "stats": {
+                "dtype": "float32",
+                "finite_count": 2097152,
+                "max": 27.523099899291992,
+                "mean": 0.14583083987236023,
+                "min": 0.0,
+                "nan_count": 0,
+                "shape": [
+                  512,
+                  64,
+                  64
+                ],
+                "std": 0.8427172899246216,
+                "total_count": 2097152
+              }
+            },
+            {
+              "metadata": {
+                "count": 64,
+                "gridsize": 2,
+                "source": "RawData.generate_grouped_data"
+              },
+              "name": "grouped_diffraction",
+              "stats": {
+                "dtype": "float32",
+                "finite_count": 1048576,
+                "max": 27.523099899291992,
+                "mean": 0.14735829830169678,
+                "min": 0.0,
+                "nan_count": 0,
+                "shape": [
+                  64,
+                  64,
+                  64,
+                  4
+                ],
+                "std": 0.8532971739768982,
+                "total_count": 1048576
+              }
+            },
+            {
+              "metadata": {
+                "count": 64,
+                "source": "normalize_data"
+              },
+              "name": "grouped_X_full",
+              "stats": {
+                "dtype": "float32",
+                "finite_count": 1048576,
+                "max": 15.892265319824219,
+                "mean": 0.08508697152137756,
+                "min": 0.0,
+                "nan_count": 0,
+                "shape": [
+                  64,
+                  64,
+                  64,
+                  4
+                ],
+                "std": 0.4927070438861847,
+                "total_count": 1048576
+              }
+            },
+            {
+              "metadata": {
+                "group_limit": 64,
+                "source": "PtychoDataContainer"
+              },
+              "name": "container_X",
+              "stats": {
+                "dtype": "float32",
+                "finite_count": 1048576,
+                "max": 15.892265319824219,
+                "mean": 0.08508697152137756,
+                "min": 0.0,
+                "nan_count": 0,
+                "shape": [
+                  64,
+                  64,
+                  64,
+                  4
+                ],
+                "std": 0.4927070438861847,
+                "total_count": 1048576
+              }
+            }
+          ]
+        },
+        "matches_within_1e-6": true,
+        "absolute_delta": 0.0
+      },
+      "comparison": {
+        "amplitude": {
+          "bias_summary": {
+            "mean": -2.3063579327863226,
+            "median": -2.5305827856063843,
+            "p05": -3.6955116152763368,
+            "p95": 0.1851742386817935
+          },
+          "mae": 2.3773539342530774,
+          "rmse": 2.5626394808621504,
+          "max_abs": 4.7676825523376465,
+          "pearson_r": 0.1392079830140564,
+          "count": 153664,
+          "pred_stats": {
+            "max": 4.622491836547852,
+            "mean": 0.40188953280448914,
+            "min": 0.0,
+            "nan_count": 0,
+            "std": 1.0084086656570435
+          },
+          "truth_stats": {
+            "max": 4.85612678527832,
+            "mean": 2.708247423171997,
+            "min": 0.6128976941108704,
+            "nan_count": 0,
+            "std": 0.6410303115844727
+          }
+        },
+        "phase": {
+          "bias_summary": {
+            "mean": 0.12050910904206047,
+            "median": 0.0,
+            "p05": 0.0,
+            "p95": 0.9226797103881836
+          },
+          "mae": 0.12050910905873971,
+          "rmse": 0.3251705323480163,
+          "max_abs": 1.1716549396514893,
+          "pearson_r": null,
+          "count": 153664,
+          "pred_stats": {
+            "max": 1.1716549396514893,
+            "mean": 0.12050911039113998,
+            "min": 0.0,
+            "nan_count": 0,
+            "std": 0.30201563239097595
+          },
+          "truth_stats": {
+            "max": 0.0,
+            "mean": 0.0,
+            "min": 0.0,
+            "nan_count": 0,
+            "std": 0.0
+          }
+        }
+      },
+      "normalization": [
+        {
+          "name": "raw_diffraction",
+          "source": "RawData",
+          "count": 512,
+          "gridsize": null,
+          "mean": 0.14583083987236023,
+          "std": 0.8427172899246216,
+          "min": 0.0,
+          "max": 27.523099899291992
+        },
+        {
+          "name": "grouped_diffraction",
+          "source": "RawData.generate_grouped_data",
+          "count": 64,
+          "gridsize": 2,
+          "mean": 0.14735829830169678,
+          "std": 0.8532971739768982,
+          "min": 0.0,
+          "max": 27.523099899291992
+        },
+        {
+          "name": "grouped_X_full",
+          "source": "normalize_data",
+          "count": 64,
+          "gridsize": null,
+          "mean": 0.08508697152137756,
+          "std": 0.4927070438861847,
+          "min": 0.0,
+          "max": 15.892265319824219
+        },
+        {
+          "name": "container_X",
+          "source": "PtychoDataContainer",
+          "count": null,
+          "gridsize": null,
+          "mean": 0.08508697152137756,
+          "std": 0.4927070438861847,
+          "min": 0.0,
+          "max": 15.892265319824219
+        }
+      ],
+      "inference": {
+        "fits_canvas": true,
+        "padded_size": 822,
+        "required_canvas": 817,
+        "amplitude": {
+          "max": 4.622491836547852,
+          "mean": 0.40188953280448914,
+          "min": 0.0,
+          "nan_count": 0,
+          "std": 1.0084086656570435
+        },
+        "phase": {
+          "max": 1.1716549396514893,
+          "mean": 0.12050911039113998,
+          "min": 0.0,
+          "nan_count": 0,
+          "std": 0.30201563239097595
+        },
+        "offsets": {
+          "axis_max_abs": [
+            376.3193180156394,
+            373.3114293734376
+          ],
+          "max_abs": 376.3193180156394
+        }
+      },
+      "prediction_scale": {
+        "applied": true,
+        "least_squares": {
+          "denominator": 56082.834568063794,
+          "finite_count": 153664,
+          "numerator": 100773.88796981989
+        },
+        "mode": "least_squares",
+        "recorded_scale": 988.211669921875,
+        "source": "least_squares",
+        "value": 1.7968757953472858
+      },
+      "prediction_scale_note": "least_squares=1.797",
+      "training": {
+        "has_nan": false,
+        "nan_metrics": {},
+        "metrics_with_nan": []
+      },
+      "derived": {
+        "stage_means": {
+          "raw_diffraction": 0.14583083987236023,
+          "grouped_diffraction": 0.14735829830169678,
+          "grouped_X_full": 0.08508697152137756,
+          "container_X": 0.08508697152137756
+        },
+        "ratios": {
+          "raw_to_grouped": 1.0104741797460226,
+          "grouped_to_normalized": 0.5774155409094991,
+          "normalized_to_prediction": 4.723279317839124,
+          "prediction_to_truth": 6.7387856664818955
+        },
+        "largest_drop": {
+          "key": "grouped_to_normalized",
+          "from_stage": "grouped_diffraction",
+          "to_stage": "container_X",
+          "ratio": 0.5774155409094991,
+          "delta": -0.4225844590905009,
+          "abs_delta": 0.4225844590905009
+        },
+        "scaling_analysis": {
+          "count": 153664,
+          "ratio_stats": {
+            "count": 21737,
+            "mean": 1.8948690040976408,
+            "median": 1.8290887150150257,
+            "p05": 1.2000091006278024,
+            "p95": 2.7620973403036135
+          },
+          "candidate_scalars": {
+            "ratio_mean": 1.8948690040976408,
+            "ratio_median": 1.8290887150150257,
+            "ratio_p05": 1.2000091006278024,
+            "ratio_p95": 2.7620973403036135,
+            "least_squares": 1.7968757953472858
+          },
+          "per_scalar_metrics": {
+            "ratio_mean": {
+              "mae": 2.3796570609931247,
+              "rmse": 2.5633231946583517
+            },
+            "ratio_median": {
+              "mae": 2.3776954834142248,
+              "rmse": 2.562713372325115
+            },
+            "ratio_p05": {
+              "mae": 2.4436710015145504,
+              "rmse": 2.5878836552275266
+            },
+            "ratio_p95": {
+              "mae": 2.5020053332619554,
+              "rmse": 2.6281451409364616
+            },
+            "least_squares": {
+              "mae": 2.3773539341370586,
+              "rmse": 2.5626394808679116
+            }
+          },
+          "best_scalar": {
+            "name": "least_squares",
+            "value": 1.7968757953472858,
+            "mae": 2.3773539341370586,
+            "rmse": 2.5626394808679116
+          },
+          "baseline_errors": {
+            "mae": 2.3773539342530774,
+            "rmse": 2.5626394808621504
+          },
+          "mae_scaled": 2.3773539341370586,
+          "rmse_scaled": 2.5626394808679116,
+          "best_scalar_name": "least_squares",
+          "best_scalar_value": 1.7968757953472858
+        },
+        "normalization_invariant": {
+          "spec_reference": "specs/spec-ptycho-core.md \u00a7Normalization Invariants",
+          "tolerance": 0.05,
+          "individual_ratios": {
+            "raw_to_grouped": 1.0104741797460226,
+            "grouped_to_normalized": 0.5774155409094991,
+            "normalized_to_prediction": 4.723279317839124,
+            "prediction_to_truth": 6.7387856664818955
+          },
+          "cumulative_products": {
+            "raw_to_grouped": 1.0104741797460226,
+            "grouped_to_normalized": 0.583463495073132,
+            "normalized_to_prediction": 2.755861058993054,
+            "prediction_to_truth": 18.57115700315801
+          },
+          "full_chain_product": 18.57115700315801,
+          "deviation_from_unity": 17.57115700315801,
+          "relative_deviation": 17.57115700315801,
+          "passes_tolerance": false,
+          "stage_deviations": [
+            {
+              "stage": "prediction_to_truth",
+              "ratio": 6.7387856664818955,
+              "deviation_from_unity": 5.7387856664818955,
+              "contributes_loss": false,
+              "contributes_gain": true
+            },
+            {
+              "stage": "normalized_to_prediction",
+              "ratio": 4.723279317839124,
+              "deviation_from_unity": 3.7232793178391237,
+              "contributes_loss": false,
+              "contributes_gain": true
+            },
+            {
+              "stage": "grouped_to_normalized",
+              "ratio": 0.5774155409094991,
+              "deviation_from_unity": 0.4225844590905009,
+              "contributes_loss": true,
+              "contributes_gain": false
+            },
+            {
+              "stage": "raw_to_grouped",
+              "ratio": 1.0104741797460226,
+              "deviation_from_unity": 0.010474179746022605,
+              "contributes_loss": false,
+              "contributes_gain": true
+            }
+          ],
+          "primary_deviation_stage": {
+            "stage": "prediction_to_truth",
+            "ratio": 6.7387856664818955,
+            "deviation_from_unity": 5.7387856664818955,
+            "contributes_loss": false,
+            "contributes_gain": true
+          },
+          "symmetry_violated": true
+        }
+      }
+    }
+  },
+  "overview": {
+    "amplitude_bias_mean": {
+      "gs2_ideal_30epoch": -2.3063579327863226
+    },
+    "phase_bias_mean": {
+      "gs2_ideal_30epoch": 0.12050910904206047
+    },
+    "amplitude_abs_delta_vs_best": {
+      "gs2_ideal_30epoch": 0.0
+    },
+    "phase_abs_delta_vs_best": {
+      "gs2_ideal_30epoch": 0.0
+    },
+    "intensity_scale_absolute_delta": {
+      "gs2_ideal_30epoch": 0.0
+    },
+    "training_nan_flags": {
+      "gs2_ideal_30epoch": false
+    }
+  }
+}

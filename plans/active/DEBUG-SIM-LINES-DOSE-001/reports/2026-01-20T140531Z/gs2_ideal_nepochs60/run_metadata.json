@@ -1,0 +1,386 @@
+{
+  "amp_png_range": {
+    "vmax": 4.622491836547852,
+    "vmin": 0.0
+  },
+  "artifacts": {
+    "amplitude_diff_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/amplitude_diff.npy",
+    "amplitude_diff_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/amplitude_diff.png",
+    "amplitude_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/inference_outputs/amplitude.npy",
+    "amplitude_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/inference_outputs/amplitude.png",
+    "amplitude_unscaled_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/inference_outputs/amplitude_unscaled.npy",
+    "comparison_metrics": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/comparison_metrics.json",
+    "comparison_summary": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/gs2_ideal_comparison_summary.md",
+    "ground_truth_amplitude_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/ground_truth_amp.npy",
+    "ground_truth_amplitude_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/ground_truth_amp.png",
+    "ground_truth_phase_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/ground_truth_phase.npy",
+    "ground_truth_phase_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/ground_truth_phase.png",
+    "inference_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/inference_outputs",
+    "intensity_stats_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/intensity_stats.json",
+    "intensity_stats_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/intensity_stats.md",
+    "phase_diff_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/phase_diff.npy",
+    "phase_diff_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/phase_diff.png",
+    "phase_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/inference_outputs/phase.npy",
+    "phase_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/inference_outputs/phase.png",
+    "prediction_scale_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/inference_outputs/prediction_scale.txt",
+    "stats_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/inference_outputs/stats.json",
+    "train_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/train_outputs"
+  },
+  "buffer": 10.0,
+  "cli_args": {
+    "amp_vmax": null,
+    "base_total_images": null,
+    "batch_size": null,
+    "buffer": null,
+    "gridsize": null,
+    "group_count": null,
+    "group_limit": 64,
+    "group_multiplier": 1,
+    "image_multiplier": 1,
+    "neighbor_count": null,
+    "nepochs": 60,
+    "nphotons": null,
+    "object_seed": null,
+    "output_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60",
+    "prediction_scale_source": "least_squares",
+    "probe_big": null,
+    "probe_mask": null,
+    "probe_mode": null,
+    "probe_scale": null,
+    "scenario": "gs2_ideal",
+    "sim_seed": null,
+    "snapshot": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json",
+    "split_fraction": null
+  },
+  "comparison": {
+    "diff_pngs": {
+      "amplitude_diff_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/amplitude_diff.npy",
+      "amplitude_diff_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/amplitude_diff.png",
+      "phase_diff_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/phase_diff.npy",
+      "phase_diff_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/phase_diff.png"
+    },
+    "metrics": {
+      "amplitude": {
+        "bias_summary": {
+          "mean": -2.3063579327863226,
+          "median": -2.5305827856063843,
+          "p05": -3.6955116152763368,
+          "p95": 0.1851742386817935
+        },
+        "color_range": [
+          -4.85612678527832,
+          4.85612678527832
+        ],
+        "count": 153664,
+        "mae": 2.3773539342530774,
+        "max_abs": 4.7676825523376465,
+        "pearson_r": 0.1392079830140564,
+        "pred_stats": {
+          "max": 4.622491836547852,
+          "mean": 0.40188953280448914,
+          "min": 0.0,
+          "nan_count": 0,
+          "std": 1.0084086656570435
+        },
+        "rmse": 2.5626394808621504,
+        "truth_stats": {
+          "max": 4.85612678527832,
+          "mean": 2.708247423171997,
+          "min": 0.6128976941108704,
+          "nan_count": 0,
+          "std": 0.6410303115844727
+        }
+      },
+      "phase": {
+        "bias_summary": {
+          "mean": 0.12050910904206047,
+          "median": 0.0,
+          "p05": 0.0,
+          "p95": 0.9226797103881836
+        },
+        "color_range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "count": 153664,
+        "mae": 0.12050910905873971,
+        "max_abs": 1.1716549396514893,
+        "pearson_r": null,
+        "pred_stats": {
+          "max": 1.1716549396514893,
+          "mean": 0.12050911039113998,
+          "min": 0.0,
+          "nan_count": 0,
+          "std": 0.30201563239097595
+        },
+        "rmse": 0.3251705323480163,
+        "truth_stats": {
+          "max": 0.0,
+          "mean": 0.0,
+          "min": 0.0,
+          "nan_count": 0,
+          "std": 0.0
+        }
+      }
+    },
+    "metrics_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/comparison_metrics.json",
+    "metrics_summary": {
+      "amplitude": {
+        "mae": 2.3773539342530774,
+        "max_abs": 4.7676825523376465,
+        "pearson_r": 0.1392079830140564,
+        "rmse": 2.5626394808621504
+      },
+      "phase": {
+        "mae": 0.12050910905873971,
+        "max_abs": 1.1716549396514893,
+        "pearson_r": null,
+        "rmse": 0.3251705323480163
+      }
+    },
+    "summary_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/gs2_ideal_comparison_summary.md"
+  },
+  "comparison_metrics_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/comparison_metrics.json",
+  "comparison_metrics_summary": {
+    "amplitude": {
+      "mae": 2.3773539342530774,
+      "max_abs": 4.7676825523376465,
+      "pearson_r": 0.1392079830140564,
+      "rmse": 2.5626394808621504
+    },
+    "phase": {
+      "mae": 0.12050910905873971,
+      "max_abs": 1.1716549396514893,
+      "pearson_r": null,
+      "rmse": 0.3251705323480163
+    }
+  },
+  "crop_metadata": {
+    "end": [
+      396,
+      396
+    ],
+    "input_shape": [
+      400,
+      400,
+      1
+    ],
+    "parity_warning": false,
+    "start": [
+      4,
+      4
+    ],
+    "target_size": 392
+  },
+  "elapsed_seconds": 68.18,
+  "ground_truth": {
+    "amplitude_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/ground_truth_amp.npy",
+    "amplitude_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/ground_truth_amp.png",
+    "phase_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/ground_truth_phase.npy",
+    "phase_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/ground_truth_phase.png"
+  },
+  "ground_truth_amp_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/ground_truth_amp.npy",
+  "ground_truth_phase_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/ground_truth_phase.npy",
+  "group_count": 128,
+  "group_limit": 64,
+  "intensity_stats": {
+    "bundle_intensity_scale": 988.211669921875,
+    "intensity_scale": 988.211669921875,
+    "json_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/intensity_stats.json",
+    "largest_drop": {
+      "from_mean": 0.14735829830169678,
+      "from_stage": "grouped_diffraction",
+      "key": "grouped_to_normalized",
+      "ratio": 0.5774155409094991,
+      "to_mean": 0.08508697152137756,
+      "to_stage": "grouped_X_full"
+    },
+    "legacy_params_intensity_scale": 988.211669921875,
+    "markdown_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/intensity_stats.md",
+    "normalize_gain": 0.5774155409094991,
+    "prediction_scale": {
+      "applied": true,
+      "least_squares": {
+        "denominator": 56082.834568063794,
+        "finite_count": 153664,
+        "numerator": 100773.88796981989
+      },
+      "mode": "least_squares",
+      "recorded_scale": 988.211669921875,
+      "source": "least_squares",
+      "value": 1.7968757953472858
+    },
+    "ratios": {
+      "grouped_to_normalized": 0.5774155409094991,
+      "normalized_to_container": 1.0,
+      "raw_to_grouped": 1.0104741797460226
+    },
+    "scale_delta": 0.0,
+    "stage_means": {
+      "container_X": 0.08508697152137756,
+      "grouped_X_full": 0.08508697152137756,
+      "grouped_diffraction": 0.14735829830169678,
+      "raw_diffraction": 0.14583083987236023
+    },
+    "stages": [
+      {
+        "metadata": {
+          "count": 512,
+          "source": "RawData"
+        },
+        "name": "raw_diffraction",
+        "stats": {
+          "dtype": "float32",
+          "finite_count": 2097152,
+          "max": 27.523099899291992,
+          "mean": 0.14583083987236023,
+          "min": 0.0,
+          "nan_count": 0,
+          "shape": [
+            512,
+            64,
+            64
+          ],
+          "std": 0.8427172899246216,
+          "total_count": 2097152
+        }
+      },
+      {
+        "metadata": {
+          "count": 64,
+          "gridsize": 2,
+          "source": "RawData.generate_grouped_data"
+        },
+        "name": "grouped_diffraction",
+        "stats": {
+          "dtype": "float32",
+          "finite_count": 1048576,
+          "max": 27.523099899291992,
+          "mean": 0.14735829830169678,
+          "min": 0.0,
+          "nan_count": 0,
+          "shape": [
+            64,
+            64,
+            64,
+            4
+          ],
+          "std": 0.8532971739768982,
+          "total_count": 1048576
+        }
+      },
+      {
+        "metadata": {
+          "count": 64,
+          "source": "normalize_data"
+        },
+        "name": "grouped_X_full",
+        "stats": {
+          "dtype": "float32",
+          "finite_count": 1048576,
+          "max": 15.892265319824219,
+          "mean": 0.08508697152137756,
+          "min": 0.0,
+          "nan_count": 0,
+          "shape": [
+            64,
+            64,
+            64,
+            4
+          ],
+          "std": 0.4927070438861847,
+          "total_count": 1048576
+        }
+      },
+      {
+        "metadata": {
+          "group_limit": 64,
+          "source": "PtychoDataContainer"
+        },
+        "name": "container_X",
+        "stats": {
+          "dtype": "float32",
+          "finite_count": 1048576,
+          "max": 15.892265319824219,
+          "mean": 0.08508697152137756,
+          "min": 0.0,
+          "nan_count": 0,
+          "shape": [
+            64,
+            64,
+            64,
+            4
+          ],
+          "std": 0.4927070438861847,
+          "total_count": 1048576
+        }
+      }
+    ]
+  },
+  "intensity_stats_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/intensity_stats.md",
+  "intensity_stats_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/intensity_stats.json",
+  "neighbor_count": 4,
+  "nepochs": 60,
+  "nphotons": 1000000000.0,
+  "object_seed": 42,
+  "prediction_scale": {
+    "applied": true,
+    "least_squares": {
+      "denominator": 56082.834568063794,
+      "finite_count": 153664,
+      "numerator": 100773.88796981989
+    },
+    "mode": "least_squares",
+    "recorded_scale": 988.211669921875,
+    "source": "least_squares",
+    "value": 1.7968757953472858
+  },
+  "prediction_scale_note": "least_squares=1.797",
+  "probe_big": null,
+  "probe_mask": null,
+  "probe_mode": "idealized",
+  "probe_scale": 10.0,
+  "profile": {
+    "active": true,
+    "applied": {
+      "base_total_images": 256,
+      "batch_size": 4,
+      "group_count": 128,
+      "neighbor_count": 4
+    },
+    "defaults": {
+      "base_total_images": 256,
+      "batch_size": 4,
+      "group_count": 128,
+      "neighbor_count": 4
+    },
+    "effective_batch_size": 4,
+    "effective_group_count": 128,
+    "label": "stable_profile_gs2_ideal",
+    "name": "gs2_ideal",
+    "skipped": {}
+  },
+  "scenario": "gs2_ideal",
+  "sim_seed": 42,
+  "split_fraction": 0.5,
+  "test_count": 512,
+  "timestamp": "2026-01-20T14:10:47.224519+00:00",
+  "total_images": 1024,
+  "train_count": 512,
+  "training_history": {
+    "history_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/train_outputs/history.json",
+    "nan_overview": {
+      "has_nan": false,
+      "metrics": {}
+    },
+    "summary_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/train_outputs/history_summary.json",
+    "summary_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/gs2_ideal_nepochs60/gs2_ideal_training_summary.md"
+  },
+  "training_history_path": "train_outputs/history.json",
+  "training_nan_overview": {
+    "has_nan": false,
+    "metrics": {}
+  },
+  "training_summary_markdown_path": "gs2_ideal_training_summary.md",
+  "training_summary_path": "train_outputs/history_summary.json"
+}
