@@ -1,6 +1,6 @@
 {
   "amp_png_range": {
-    "vmax": 4.665185928344727,
+    "vmax": 1e-09,
     "vmin": 0.0
   },
   "artifacts": {
@@ -62,27 +62,27 @@
     "metrics": {
       "amplitude": {
         "bias_summary": {
-          "mean": -2.293429989713721,
-          "median": -2.5243802070617676,
-          "p05": -3.7023458957672117,
-          "p95": 0.24062742590904238
+          "mean": -2.6816206856592113,
+          "median": -2.6713526248931885,
+          "p05": -3.7540420293807983,
+          "p95": -1.6366970181465152
         },
         "color_range": [
           -4.85612678527832,
           4.85612678527832
         ],
-        "count": 153664,
-        "mae": 2.3731070286235534,
+        "count": 130599,
+        "mae": 2.6816206856592113,
         "max_abs": 4.7676825523376465,
-        "pearson_r": 0.10394766414237716,
+        "pearson_r": null,
         "pred_stats": {
-          "max": 4.665185928344727,
-          "mean": 0.4148174822330475,
+          "max": 0.0,
+          "mean": 0.0,
           "min": 0.0,
-          "nan_count": 0,
-          "std": 1.009259819984436
+          "nan_count": 23065,
+          "std": 0.0
         },
-        "rmse": 2.560243205336852,
+        "rmse": 2.757292229684781,
         "truth_stats": {
           "max": 4.85612678527832,
           "mean": 2.708247423171997,
@@ -93,27 +93,27 @@
       },
       "phase": {
         "bias_summary": {
-          "mean": 0.17777064789291386,
+          "mean": 0.0,
           "median": 0.0,
           "p05": 0.0,
-          "p95": 1.2130691051483156
+          "p95": 0.0
         },
         "color_range": [
           -3.141592653589793,
           3.141592653589793
         ],
-        "count": 153664,
-        "mae": 0.17777064789795644,
-        "max_abs": 1.3306421041488647,
+        "count": 130599,
+        "mae": 0.0,
+        "max_abs": 0.0,
         "pearson_r": null,
         "pred_stats": {
-          "max": 1.3306421041488647,
-          "mean": 0.17777064442634583,
+          "max": 0.0,
+          "mean": 0.0,
           "min": 0.0,
-          "nan_count": 0,
-          "std": 0.4237482249736786
+          "nan_count": 23065,
+          "std": 0.0
         },
-        "rmse": 0.4595268801935101,
+        "rmse": 0.0,
         "truth_stats": {
           "max": 0.0,
           "mean": 0.0,
@@ -126,16 +126,16 @@
     "metrics_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/gs1_ideal/comparison_metrics.json",
     "metrics_summary": {
       "amplitude": {
-        "mae": 2.3731070286235534,
+        "mae": 2.6816206856592113,
         "max_abs": 4.7676825523376465,
-        "pearson_r": 0.10394766414237716,
-        "rmse": 2.560243205336852
+        "pearson_r": null,
+        "rmse": 2.757292229684781
       },
       "phase": {
-        "mae": 0.17777064789795644,
-        "max_abs": 1.3306421041488647,
+        "mae": 0.0,
+        "max_abs": 0.0,
         "pearson_r": null,
-        "rmse": 0.4595268801935101
+        "rmse": 0.0
       }
     },
     "summary_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/gs1_ideal/gs1_ideal_comparison_summary.md"
@@ -143,16 +143,16 @@
   "comparison_metrics_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/gs1_ideal/comparison_metrics.json",
   "comparison_metrics_summary": {
     "amplitude": {
-      "mae": 2.3731070286235534,
+      "mae": 2.6816206856592113,
       "max_abs": 4.7676825523376465,
-      "pearson_r": 0.10394766414237716,
-      "rmse": 2.560243205336852
+      "pearson_r": null,
+      "rmse": 2.757292229684781
     },
     "phase": {
-      "mae": 0.17777064789795644,
-      "max_abs": 1.3306421041488647,
+      "mae": 0.0,
+      "max_abs": 0.0,
       "pearson_r": null,
-      "rmse": 0.4595268801935101
+      "rmse": 0.0
     }
   },
   "crop_metadata": {
@@ -172,7 +172,7 @@
     ],
     "target_size": 392
   },
-  "elapsed_seconds": 92.53,
+  "elapsed_seconds": 90.31,
   "ground_truth": {
     "amplitude_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/gs1_ideal/ground_truth_amp.npy",
     "amplitude_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/gs1_ideal/ground_truth_amp.png",
@@ -199,16 +199,17 @@
     "markdown_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/gs1_ideal/intensity_stats.md",
     "normalize_gain": 0.559530321508642,
     "prediction_scale": {
-      "applied": true,
+      "applied": false,
       "least_squares": {
-        "denominator": 54168.13979542228,
-        "finite_count": 153664,
-        "numerator": 99553.23902054355
+        "denominator": 0.0,
+        "finite_count": 130599,
+        "numerator": 0.0
       },
       "mode": "least_squares",
+      "reason": "least_squares_undefined",
       "recorded_scale": 988.211669921875,
-      "source": "least_squares",
-      "value": 1.8378559684074058
+      "source": null,
+      "value": null
     },
     "ratios": {
       "grouped_to_normalized": 0.559530321508642,
@@ -324,18 +325,18 @@
   "nphotons": 1000000000.0,
   "object_seed": 42,
   "prediction_scale": {
-    "applied": true,
+    "applied": false,
     "least_squares": {
-      "denominator": 54168.13979542228,
-      "finite_count": 153664,
-      "numerator": 99553.23902054355
+      "denominator": 0.0,
+      "finite_count": 130599,
+      "numerator": 0.0
     },
     "mode": "least_squares",
+    "reason": "least_squares_undefined",
     "recorded_scale": 988.211669921875,
-    "source": "least_squares",
-    "value": 1.8378559684074058
+    "source": null,
+    "value": null
   },
-  "prediction_scale_note": "least_squares=1.838",
   "probe_big": null,
   "probe_mask": null,
   "probe_mode": "idealized",
@@ -362,22 +363,80 @@
   "sim_seed": 42,
   "split_fraction": 0.5,
   "test_count": 256,
-  "timestamp": "2026-01-20T11:51:48.592290+00:00",
+  "timestamp": "2026-01-20T12:06:11.020430+00:00",
   "total_images": 512,
   "train_count": 256,
   "training_history": {
     "history_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/gs1_ideal/train_outputs/history.json",
     "nan_overview": {
-      "has_nan": false,
-      "metrics": {}
+      "has_nan": true,
+      "metrics": {
+        "intensity_scaler_inv_loss": {
+          "first_nan_epoch": 0.0,
+          "first_nan_step": 0
+        },
+        "loss": {
+          "first_nan_epoch": 0.0,
+          "first_nan_step": 0
+        },
+        "pred_intensity_loss": {
+          "first_nan_epoch": 0.0,
+          "first_nan_step": 0
+        },
+        "train_loss": {
+          "first_nan_epoch": 0.0,
+          "first_nan_step": 0
+        },
+        "val_intensity_scaler_inv_loss": {
+          "first_nan_epoch": 0.0,
+          "first_nan_step": 0
+        },
+        "val_loss": {
+          "first_nan_epoch": 0.0,
+          "first_nan_step": 0
+        },
+        "val_pred_intensity_loss": {
+          "first_nan_epoch": 0.0,
+          "first_nan_step": 0
+        }
+      }
     },
     "summary_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/gs1_ideal/train_outputs/history_summary.json",
     "summary_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/gs1_ideal/gs1_ideal_training_summary.md"
   },
   "training_history_path": "train_outputs/history.json",
   "training_nan_overview": {
-    "has_nan": false,
-    "metrics": {}
+    "has_nan": true,
+    "metrics": {
+      "intensity_scaler_inv_loss": {
+        "first_nan_epoch": 0.0,
+        "first_nan_step": 0
+      },
+      "loss": {
+        "first_nan_epoch": 0.0,
+        "first_nan_step": 0
+      },
+      "pred_intensity_loss": {
+        "first_nan_epoch": 0.0,
+        "first_nan_step": 0
+      },
+      "train_loss": {
+        "first_nan_epoch": 0.0,
+        "first_nan_step": 0
+      },
+      "val_intensity_scaler_inv_loss": {
+        "first_nan_epoch": 0.0,
+        "first_nan_step": 0
+      },
+      "val_loss": {
+        "first_nan_epoch": 0.0,
+        "first_nan_step": 0
+      },
+      "val_pred_intensity_loss": {
+        "first_nan_epoch": 0.0,
+        "first_nan_step": 0
+      }
+    }
   },
   "training_summary_markdown_path": "gs1_ideal_training_summary.md",
   "training_summary_path": "train_outputs/history_summary.json"

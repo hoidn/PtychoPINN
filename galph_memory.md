@@ -896,3 +896,27 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
   - Rewrote input.md with a concrete Do Now covering the runner/analyzer instrumentation plus two scenario reruns (gs1_ideal + dose_legacy_gs2 overrides) and the pytest guard.
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/ next_action=Implement D2a/D2b (runner/analyzer ratio logging + gs1_ideal & dose_legacy_gs2 reruns + analyzer + pytest)
+
+# 2026-01-20T12:07:53Z: DEBUG-SIM-LINES-DOSE-001 — Phase D2 evidence captured
+
+- dwell: 0 (implementation turn following the planning handoff)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Phase D2 normalization parity evidence reruns
+- Action type: Implementation | Mode: Implementation
+- Documents reviewed: docs/fix_plan.md, input.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,bin/run_phase_c2_scenario.py,bin/analyze_intensity_bias.py}, specs/spec-ptycho-core.md §Normalization Invariants
+- Key findings from this session:
+  - **gs1_ideal (gridsize=1):** normalize_gain=0.56 (44% amplitude drop at grouped→normalized). Training NaN across all loss metrics from step 0 (gridsize=1 numeric instability persists). Prediction collapses to ~0.0 amplitude, preventing meaningful scaling analysis.
+  - **dose_legacy_gs2 (gridsize=2, custom probe):** normalize_gain=0.27 (73% amplitude drop at grouped→normalized). Training healthy (no NaNs). Prediction mean=0.10 vs truth mean=2.71, yielding ~3.9× scaling factor needed. Least-squares scalar 3.90, scaled MAE improves from 2.60→2.37 but still far from convergence.
+  - **Shared observation:** Both scenarios lose 40-70% of amplitude at `normalize_data` (grouped_diffraction.mean → grouped_X_full.mean). This is the largest single-stage drop and directly implicates the normalization formula.
+  - **Canvas undershoot in dose_legacy_gs2:** fits_canvas=False (required=824 > padded=820). This is a mild jitter undershoot that may contribute to edge clipping but is not the primary amplitude bias.
+- **Root cause hypothesis (refined):**
+  - The `normalize_data` function divides amplitude by `sqrt(mean(sum(X^2)) / ((N/2)^2))` which scales the data to unit energy over a patch of radius N/2. This normalization factor is applied to both training inputs and labels to maintain symmetry.
+  - However, the ~3.9× scaling factor needed at prediction time suggests either:
+    1. The normalization gain is not being correctly inverted during inference output post-processing (inverse intensity_scale not applied or applied incorrectly).
+    2. The learned `IntensityScaler_inv` layer is not compensating correctly for the normalization because its recorded `intensity_scale` value doesn't match the actual normalization applied during grouping.
+  - **Key question:** Is `intensity_scale` computed from the same data that `normalize_data` processes? If the recorded scale comes from ungrouped raw data but normalization is applied after grouping (which may change statistics), there could be a systematic mismatch.
+- **Next action recommendation for supervisor:**
+  - Inspect `scripts/simulation/synthetic_helpers.py::normalize_data()` and compare against `ptycho/loader.py::normalize_data()` to verify the formula matches.
+  - Trace where `intensity_scale` is computed vs where normalization is applied in the `generate_grouped_data` pipeline to confirm they use consistent statistics.
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/` (bias_summary.md, intensity_stats.md per scenario, pytest_cli_smoke.log)
+- <Action State>: [completed]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=completed dwell=0 pytest=4_passed artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/ next_action=Inspect normalize_data formula and intensity_scale derivation for mismatch

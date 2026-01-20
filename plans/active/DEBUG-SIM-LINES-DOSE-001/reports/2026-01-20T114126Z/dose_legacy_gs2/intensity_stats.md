@@ -5,29 +5,29 @@
 - Bundle intensity_scale: 988.211669921875
 - Legacy params intensity_scale: 988.211669921875
 - bundle minus legacy delta: 0.0
-- normalize_data gain: 0.284331
+- normalize_data gain: 0.272574
 - Stage count: 4
 
 ## Stage Means
 
 | Stage | Mean |
 | --- | ---: |
-| Raw diffraction | 1.3363 |
-| Grouped diffraction | 1.31609 |
-| Grouped X (normalized) | 0.374206 |
-| Container X | 0.374206 |
+| Raw diffraction | 1.36333 |
+| Grouped diffraction | 1.3783 |
+| Grouped X (normalized) | 0.375688 |
+| Container X | 0.375688 |
 
 ## Stage Ratios
 
 | Transition | Ratio |
 | --- | ---: |
-| Raw diffraction → Grouped diffraction | 0.98488 |
-| Grouped diffraction → Grouped X (normalized) | 0.284331 |
+| Raw diffraction → Grouped diffraction | 1.01098 |
+| Grouped diffraction → Grouped X (normalized) | 0.272574 |
 | Grouped X (normalized) → Container X | 1 |
 
 ## Largest Drop
 
-**Grouped diffraction → Grouped X (normalized)** (ratio=0.284331)
+**Grouped diffraction → Grouped X (normalized)** (ratio=0.272574)
 
 Per `specs/spec-ptycho-core.md §Normalization Invariants`, symmetry SHALL hold:
 - Training inputs: `X_scaled = s · X`
@@ -41,68 +41,68 @@ pipeline preserves the intensity_scale symmetry mandated by the spec.
 ### raw_diffraction
 
 - source: RawData
-- count: 128
+- count: 512
 
 | Metric | Value |
 | --- | --- |
-| shape | [128, 64, 64] |
+| shape | [512, 64, 64] |
 | dtype | float32 |
 | min | 0 |
-| max | 5.75812 |
-| mean | 1.3363 |
-| std | 1.18587 |
-| finite_count | 524288 |
-| total_count | 524288 |
+| max | 6.18935 |
+| mean | 1.36333 |
+| std | 1.20534 |
+| finite_count | 2097152 |
+| total_count | 2097152 |
 | nan_count | 0 |
 
 ### grouped_diffraction
 
 - source: RawData.generate_grouped_data
-- count: 32
+- count: 64
 - gridsize: 2
 
 | Metric | Value |
 | --- | --- |
-| shape | [32, 64, 64, 4] |
+| shape | [64, 64, 64, 4] |
 | dtype | float32 |
 | min | 0 |
-| max | 5.75812 |
-| mean | 1.31609 |
-| std | 1.16631 |
-| finite_count | 524288 |
-| total_count | 524288 |
+| max | 6.18935 |
+| mean | 1.3783 |
+| std | 1.21045 |
+| finite_count | 1048576 |
+| total_count | 1048576 |
 | nan_count | 0 |
 
 ### grouped_X_full
 
 - source: normalize_data
-- count: 32
+- count: 64
 
 | Metric | Value |
 | --- | --- |
-| shape | [32, 64, 64, 4] |
+| shape | [64, 64, 64, 4] |
 | dtype | float32 |
 | min | 0 |
-| max | 1.63721 |
-| mean | 0.374206 |
-| std | 0.331617 |
-| finite_count | 524288 |
-| total_count | 524288 |
+| max | 1.68706 |
+| mean | 0.375688 |
+| std | 0.329937 |
+| finite_count | 1048576 |
+| total_count | 1048576 |
 | nan_count | 0 |
 
 ### container_X
 
 - source: PtychoDataContainer
-- group_limit: 32
+- group_limit: 64
 
 | Metric | Value |
 | --- | --- |
-| shape | [32, 64, 64, 4] |
+| shape | [64, 64, 64, 4] |
 | dtype | float32 |
 | min | 0 |
-| max | 1.63721 |
-| mean | 0.374206 |
-| std | 0.331617 |
-| finite_count | 524288 |
-| total_count | 524288 |
+| max | 1.68706 |
+| mean | 0.375688 |
+| std | 0.329937 |
+| finite_count | 1048576 |
+| total_count | 1048576 |
 | nan_count | 0 |

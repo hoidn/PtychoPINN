@@ -1,6 +1,6 @@
 {
   "amp_png_range": {
-    "vmax": 0.9664711952209473,
+    "vmax": 0.9638411998748779,
     "vmin": 0.0
   },
   "artifacts": {
@@ -29,12 +29,12 @@
   "buffer": 10.0,
   "cli_args": {
     "amp_vmax": null,
-    "base_total_images": 64,
-    "batch_size": 8,
+    "base_total_images": 256,
+    "batch_size": 4,
     "buffer": null,
     "gridsize": 2,
-    "group_count": 32,
-    "group_limit": 32,
+    "group_count": 64,
+    "group_limit": 64,
     "group_multiplier": 1,
     "image_multiplier": 1,
     "neighbor_count": 4,
@@ -62,27 +62,27 @@
     "metrics": {
       "amplitude": {
         "bias_summary": {
-          "mean": -2.6449179724477516,
-          "median": -2.6367310285568237,
-          "p05": -3.7559924840927126,
-          "p95": -1.5689694285392757
+          "mean": -2.604179168395816,
+          "median": -2.5943533182144165,
+          "p05": -3.694744849205017,
+          "p95": -1.557608658075332
         },
         "color_range": [
           -4.85612678527832,
           4.85612678527832
         ],
         "count": 153664,
-        "mae": 2.6449179725080687,
+        "mae": 2.604179168518001,
         "max_abs": 4.85612678527832,
-        "pearson_r": 0.052341757182380995,
+        "pearson_r": 0.167562300871758,
         "pred_stats": {
-          "max": 0.9664711952209473,
-          "mean": 0.06332952529191971,
+          "max": 0.9638411998748779,
+          "mean": 0.104068323969841,
           "min": 0.0,
           "nan_count": 0,
-          "std": 0.2157665193080902
+          "std": 0.2619391679763794
         },
-        "rmse": 2.7273773286029965,
+        "rmse": 2.6842149831569944,
         "truth_stats": {
           "max": 4.85612678527832,
           "mean": 2.708247423171997,
@@ -93,27 +93,27 @@
       },
       "phase": {
         "bias_summary": {
-          "mean": 0.015086369100851657,
+          "mean": 0.008229046897717163,
           "median": 0.0,
           "p05": 0.0,
-          "p95": 0.14686674922704712
+          "p95": 0.06619000956416146
         },
         "color_range": [
           -3.141592653589793,
           3.141592653589793
         ],
         "count": 153664,
-        "mae": 0.015088910081289804,
-        "max_abs": 2.007056713104248,
+        "mae": 0.008256873551039113,
+        "max_abs": 0.18106059730052948,
         "pearson_r": null,
         "pred_stats": {
-          "max": 2.007056713104248,
-          "mean": 0.015086368657648563,
-          "min": -0.04494032263755798,
+          "max": 0.18106059730052948,
+          "mean": 0.008229047060012817,
+          "min": -0.038333673030138016,
           "nan_count": 0,
-          "std": 0.06947910040616989
+          "std": 0.022683192044496536
         },
-        "rmse": 0.07109812853971162,
+        "rmse": 0.024129740618615298,
         "truth_stats": {
           "max": 0.0,
           "mean": 0.0,
@@ -126,16 +126,16 @@
     "metrics_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/comparison_metrics.json",
     "metrics_summary": {
       "amplitude": {
-        "mae": 2.6449179725080687,
+        "mae": 2.604179168518001,
         "max_abs": 4.85612678527832,
-        "pearson_r": 0.052341757182380995,
-        "rmse": 2.7273773286029965
+        "pearson_r": 0.167562300871758,
+        "rmse": 2.6842149831569944
       },
       "phase": {
-        "mae": 0.015088910081289804,
-        "max_abs": 2.007056713104248,
+        "mae": 0.008256873551039113,
+        "max_abs": 0.18106059730052948,
         "pearson_r": null,
-        "rmse": 0.07109812853971162
+        "rmse": 0.024129740618615298
       }
     },
     "summary_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/gs1_custom_comparison_summary.md"
@@ -143,36 +143,36 @@
   "comparison_metrics_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/comparison_metrics.json",
   "comparison_metrics_summary": {
     "amplitude": {
-      "mae": 2.6449179725080687,
+      "mae": 2.604179168518001,
       "max_abs": 4.85612678527832,
-      "pearson_r": 0.052341757182380995,
-      "rmse": 2.7273773286029965
+      "pearson_r": 0.167562300871758,
+      "rmse": 2.6842149831569944
     },
     "phase": {
-      "mae": 0.015088910081289804,
-      "max_abs": 2.007056713104248,
+      "mae": 0.008256873551039113,
+      "max_abs": 0.18106059730052948,
       "pearson_r": null,
-      "rmse": 0.07109812853971162
+      "rmse": 0.024129740618615298
     }
   },
   "crop_metadata": {
     "end": [
-      396,
-      396
+      404,
+      404
     ],
     "input_shape": [
-      400,
-      400,
+      416,
+      416,
       1
     ],
     "parity_warning": false,
     "start": [
-      4,
-      4
+      12,
+      12
     ],
     "target_size": 392
   },
-  "elapsed_seconds": 20.25,
+  "elapsed_seconds": 25.27,
   "ground_truth": {
     "amplitude_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/ground_truth_amp.npy",
     "amplitude_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/ground_truth_amp.png",
@@ -181,23 +181,23 @@
   },
   "ground_truth_amp_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/ground_truth_amp.npy",
   "ground_truth_phase_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/ground_truth_phase.npy",
-  "group_count": 32,
-  "group_limit": 32,
+  "group_count": 64,
+  "group_limit": 64,
   "intensity_stats": {
     "bundle_intensity_scale": 988.211669921875,
     "intensity_scale": 988.211669921875,
     "json_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/intensity_stats.json",
     "largest_drop": {
-      "from_mean": 1.3160916566848755,
+      "from_mean": 1.378298044204712,
       "from_stage": "grouped_diffraction",
       "key": "grouped_to_normalized",
-      "ratio": 0.28433112983605247,
-      "to_mean": 0.3742058277130127,
+      "ratio": 0.27257405335166,
+      "to_mean": 0.3756882846355438,
       "to_stage": "grouped_X_full"
     },
     "legacy_params_intensity_scale": 988.211669921875,
     "markdown_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/intensity_stats.md",
-    "normalize_gain": 0.28433112983605247,
+    "normalize_gain": 0.27257405335166,
     "prediction_scale": {
       "applied": false,
       "mode": "none",
@@ -206,108 +206,108 @@
       "value": null
     },
     "ratios": {
-      "grouped_to_normalized": 0.28433112983605247,
+      "grouped_to_normalized": 0.27257405335166,
       "normalized_to_container": 1.0,
-      "raw_to_grouped": 0.9848799268631327
+      "raw_to_grouped": 1.010975756697123
     },
     "scale_delta": 0.0,
     "stage_means": {
-      "container_X": 0.3742058277130127,
-      "grouped_X_full": 0.3742058277130127,
-      "grouped_diffraction": 1.3160916566848755,
-      "raw_diffraction": 1.336296558380127
+      "container_X": 0.3756882846355438,
+      "grouped_X_full": 0.3756882846355438,
+      "grouped_diffraction": 1.378298044204712,
+      "raw_diffraction": 1.3633344173431396
     },
     "stages": [
       {
         "metadata": {
-          "count": 128,
+          "count": 512,
           "source": "RawData"
         },
         "name": "raw_diffraction",
         "stats": {
           "dtype": "float32",
-          "finite_count": 524288,
-          "max": 5.758124828338623,
-          "mean": 1.336296558380127,
+          "finite_count": 2097152,
+          "max": 6.189348220825195,
+          "mean": 1.3633344173431396,
           "min": 0.0,
           "nan_count": 0,
           "shape": [
-            128,
+            512,
             64,
             64
           ],
-          "std": 1.18587327003479,
-          "total_count": 524288
+          "std": 1.20534348487854,
+          "total_count": 2097152
         }
       },
       {
         "metadata": {
-          "count": 32,
+          "count": 64,
           "gridsize": 2,
           "source": "RawData.generate_grouped_data"
         },
         "name": "grouped_diffraction",
         "stats": {
           "dtype": "float32",
-          "finite_count": 524288,
-          "max": 5.758124828338623,
-          "mean": 1.3160916566848755,
+          "finite_count": 1048576,
+          "max": 6.189348220825195,
+          "mean": 1.378298044204712,
           "min": 0.0,
           "nan_count": 0,
           "shape": [
-            32,
+            64,
             64,
             64,
             4
           ],
-          "std": 1.1663066148757935,
-          "total_count": 524288
+          "std": 1.2104483842849731,
+          "total_count": 1048576
         }
       },
       {
         "metadata": {
-          "count": 32,
+          "count": 64,
           "source": "normalize_data"
         },
         "name": "grouped_X_full",
         "stats": {
           "dtype": "float32",
-          "finite_count": 524288,
-          "max": 1.6372140645980835,
-          "mean": 0.3742058277130127,
+          "finite_count": 1048576,
+          "max": 1.6870558261871338,
+          "mean": 0.3756882846355438,
           "min": 0.0,
           "nan_count": 0,
           "shape": [
-            32,
+            64,
             64,
             64,
             4
           ],
-          "std": 0.3316172659397125,
-          "total_count": 524288
+          "std": 0.32993683218955994,
+          "total_count": 1048576
         }
       },
       {
         "metadata": {
-          "group_limit": 32,
+          "group_limit": 64,
           "source": "PtychoDataContainer"
         },
         "name": "container_X",
         "stats": {
           "dtype": "float32",
-          "finite_count": 524288,
-          "max": 1.6372140645980835,
-          "mean": 0.3742058277130127,
+          "finite_count": 1048576,
+          "max": 1.6870558261871338,
+          "mean": 0.3756882846355438,
           "min": 0.0,
           "nan_count": 0,
           "shape": [
-            32,
+            64,
             64,
             64,
             4
           ],
-          "std": 0.3316172659397125,
-          "total_count": 524288
+          "std": 0.32993683218955994,
+          "total_count": 1048576
         }
       }
     ]
@@ -332,10 +332,10 @@
   "scenario": "gs1_custom",
   "sim_seed": 42,
   "split_fraction": 0.5,
-  "test_count": 128,
-  "timestamp": "2026-01-20T11:53:41.251885+00:00",
-  "total_images": 256,
-  "train_count": 128,
+  "test_count": 512,
+  "timestamp": "2026-01-20T12:07:32.294410+00:00",
+  "total_images": 1024,
+  "train_count": 512,
   "training_history": {
     "history_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/dose_legacy_gs2/train_outputs/history.json",
     "nan_overview": {

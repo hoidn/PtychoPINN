@@ -1,118 +1,118 @@
 {
   "bundle_intensity_scale": 988.211669921875,
   "largest_drop": {
-    "from_mean": 1.3160916566848755,
+    "from_mean": 1.378298044204712,
     "from_stage": "grouped_diffraction",
     "key": "grouped_to_normalized",
-    "ratio": 0.28433112983605247,
-    "to_mean": 0.3742058277130127,
+    "ratio": 0.27257405335166,
+    "to_mean": 0.3756882846355438,
     "to_stage": "grouped_X_full"
   },
   "legacy_params_intensity_scale": 988.211669921875,
-  "normalize_gain": 0.28433112983605247,
+  "normalize_gain": 0.27257405335166,
   "ratios": {
-    "grouped_to_normalized": 0.28433112983605247,
+    "grouped_to_normalized": 0.27257405335166,
     "normalized_to_container": 1.0,
-    "raw_to_grouped": 0.9848799268631327
+    "raw_to_grouped": 1.010975756697123
   },
   "scale_delta": 0.0,
   "stage_means": {
-    "container_X": 0.3742058277130127,
-    "grouped_X_full": 0.3742058277130127,
-    "grouped_diffraction": 1.3160916566848755,
-    "raw_diffraction": 1.336296558380127
+    "container_X": 0.3756882846355438,
+    "grouped_X_full": 0.3756882846355438,
+    "grouped_diffraction": 1.378298044204712,
+    "raw_diffraction": 1.3633344173431396
   },
   "stages": [
     {
       "metadata": {
-        "count": 128,
+        "count": 512,
         "source": "RawData"
       },
       "name": "raw_diffraction",
       "stats": {
         "dtype": "float32",
-        "finite_count": 524288,
-        "max": 5.758124828338623,
-        "mean": 1.336296558380127,
+        "finite_count": 2097152,
+        "max": 6.189348220825195,
+        "mean": 1.3633344173431396,
         "min": 0.0,
         "nan_count": 0,
         "shape": [
-          128,
+          512,
           64,
           64
         ],
-        "std": 1.18587327003479,
-        "total_count": 524288
+        "std": 1.20534348487854,
+        "total_count": 2097152
       }
     },
     {
       "metadata": {
-        "count": 32,
+        "count": 64,
         "gridsize": 2,
         "source": "RawData.generate_grouped_data"
       },
       "name": "grouped_diffraction",
       "stats": {
         "dtype": "float32",
-        "finite_count": 524288,
-        "max": 5.758124828338623,
-        "mean": 1.3160916566848755,
+        "finite_count": 1048576,
+        "max": 6.189348220825195,
+        "mean": 1.378298044204712,
         "min": 0.0,
         "nan_count": 0,
         "shape": [
-          32,
+          64,
           64,
           64,
           4
         ],
-        "std": 1.1663066148757935,
-        "total_count": 524288
+        "std": 1.2104483842849731,
+        "total_count": 1048576
       }
     },
     {
       "metadata": {
-        "count": 32,
+        "count": 64,
         "source": "normalize_data"
       },
       "name": "grouped_X_full",
       "stats": {
         "dtype": "float32",
-        "finite_count": 524288,
-        "max": 1.6372140645980835,
-        "mean": 0.3742058277130127,
+        "finite_count": 1048576,
+        "max": 1.6870558261871338,
+        "mean": 0.3756882846355438,
         "min": 0.0,
         "nan_count": 0,
         "shape": [
-          32,
+          64,
           64,
           64,
           4
         ],
-        "std": 0.3316172659397125,
-        "total_count": 524288
+        "std": 0.32993683218955994,
+        "total_count": 1048576
       }
     },
     {
       "metadata": {
-        "group_limit": 32,
+        "group_limit": 64,
         "source": "PtychoDataContainer"
       },
       "name": "container_X",
       "stats": {
         "dtype": "float32",
-        "finite_count": 524288,
-        "max": 1.6372140645980835,
-        "mean": 0.3742058277130127,
+        "finite_count": 1048576,
+        "max": 1.6870558261871338,
+        "mean": 0.3756882846355438,
         "min": 0.0,
         "nan_count": 0,
         "shape": [
-          32,
+          64,
           64,
           64,
           4
         ],
-        "std": 0.3316172659397125,
-        "total_count": 524288
+        "std": 0.32993683218955994,
+        "total_count": 1048576
       }
     }
   ]

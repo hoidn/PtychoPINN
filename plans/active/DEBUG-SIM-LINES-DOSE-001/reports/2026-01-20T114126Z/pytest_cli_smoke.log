@@ -13,4 +13,4 @@ tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_gs1_ideal_help
 tests/scripts/test_synthetic_helpers_cli_smoke.py::test_run_with_synthetic_lines_help PASSED [ 75%]
 tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke PASSED [100%]
 
-============================== 4 passed in 14.60s ==============================
+============================== 4 passed in 14.72s ==============================

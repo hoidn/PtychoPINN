@@ -230,6 +230,14 @@
       - Both scenarios exhibit significant amplitude suppression at the normalization stage, confirming H-NORMALIZATION as the primary suspect
       - Amplitude bias persists after prediction (truth/pred ratios 1.9-3.6× depending on scenario)
     - **Next Actions:** Use the new ratio telemetry to trace the exact normalization math (grouped→X_full transition) and determine whether the `normalize_data` gain formula matches spec expectations before adjusting the pipeline.
+  - *2026-01-20T120753Z (D2 evidence):* Re-ran Phase D2 telemetry capture with explicit stage ratio instrumentation. Executed `run_phase_c2_scenario.py` for gs1_ideal (gridsize=1, stable profile, least_squares scaling) and dose_legacy_gs2 (gridsize=2, custom probe, probe_scale=4, reduced batch=4/group=64 for OOM avoidance). Ran the analyzer to produce cross-scenario bias summaries.
+    - **Metrics:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py -v` (4 passed)
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T114126Z/{gs1_ideal/*,dose_legacy_gs2/*,bias_summary.json,bias_summary.md,gs1_ideal_runner.log,dose_legacy_gs2_runner.log,analyzer.log,pytest_cli_smoke.log}`
+    - **Key Findings (refreshed):**
+      - **gs1_ideal:** `normalize_gain=0.56` (44% reduction at grouped→normalized). Training NaN across all loss metrics (gridsize=1 instability persists). Prediction collapses to ~0 (normalized→prediction ratio=0.000), so scaling analysis yields no usable ratio data. Amplitude bias mean=-2.68, MAE=2.68.
+      - **dose_legacy_gs2:** `normalize_gain=0.27` (73% reduction at grouped→normalized). Training healthy (no NaNs). Prediction→truth ratio ~3.9×, least-squares scalar 3.9, scaled MAE=2.37. Amplitude bias mean=-2.60. fits_canvas=False (required=824 > padded=820) flagging mild canvas undershoot.
+      - **Shared observation:** Both scenarios lose 40-70% of amplitude at `normalize_data` (grouped_diffraction→grouped_X_full), then an additional ~3-4× during prediction. The `normalize_data` gain formula is the primary suspect; the spec-mandated symmetry (`X_scaled = s · X`) may not be preserved through the current workflow.
+    - **Next Actions:** Inspect `scripts/simulation/synthetic_helpers.py::normalize_data()` and `ptycho/loader.py::normalize_data()` to compare gain formulas against `specs/spec-ptycho-core.md §Normalization Invariants` and determine whether a scale factor is being double-applied or incorrectly derived.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
