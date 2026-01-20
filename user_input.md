@@ -16,3 +16,24 @@
 ## Next Steps for Supervisor
 1. Assign an owner to land the router state fix (both Python runners + regression tests) and link it to an active plan so the reviewer cadence contract is reliable again.
 2. Bring the DEBUG-SIM-LINES plan/fix ledger back in sync with the actual Phase D scope so downstream reviewers don’t assume the initiative was archived.
+
+---
+
+## 2026-01-20T134958Z Review Addendum
+
+### Summary
+1. `docs/fix_plan.md` marks ORCH-ORCHESTRATOR-001 as **done**, but the plan (`plans/active/ORCH-ORCHESTRATOR-001/implementation.md`) still lists the status as “in_progress (Phase E — sync router review cadence parity)” with open checklist boxes. The conflicting status signals make it impossible to tell whether more work is expected.
+2. Phase D3 of DEBUG-SIM-LINES-DOSE-001 just uncovered a 12× training-length gap (60 epochs vs 5), yet no retrain hub or Do Now exists for the required gs2_ideal 60-epoch rerun, so the key hypothesis (H-NEPOCHS) remains untested.
+
+### Evidence
+- `docs/fix_plan.md:327-429` calls ORCH-ORCHESTRATOR-001 “Status: **done — Phase E sync review cadence parity complete 2026-01-20**”.
+- `plans/active/ORCH-ORCHESTRATOR-001/implementation.md:5-20,141-153` still shows “Status: in_progress (Phase E …)” with unchecked tasks `E1–E3`.
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T133807Z/{analysis.md,hyperparam_diff.md}` logs the nepochs mismatch and recommends a 60-epoch gs2_ideal rerun, but no new artifacts hub/input.md exists for that work.
+
+### Requested Plan Updates
+1. Update whichever artifact is wrong for ORCH-ORCHESTRATOR-001 (plan or fix ledger) so status/exit criteria agree; if the work is done, check off the plan and archive it, otherwise re-open the fix ledger entry with the outstanding tasks.
+2. Add a concrete D3b retrain step (input.md + artifacts hub) to DEBUG-SIM-LINES-DOSE-001 so the gs2_ideal 60-epoch verification is scheduled, logged, and tied to an explicit pytest guard before Phase D can close.
+
+### Next Steps for Supervisor
+1. Decide whether ORCH-ORCHESTRATOR-001 is officially complete; if yes, mark the plan finished (and archive). If not, re-open docs/fix_plan + summary so other agents don’t assume the orchestrator work is done.
+2. Approve a follow-up loop for the D3 gs2_ideal retrain (nepochs=60) and insist on artifacts + analyzer updates so H-NEPOCHS has a definitive pass/fail.
