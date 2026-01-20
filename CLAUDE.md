@@ -6,7 +6,7 @@ This document is the **constitution** for the Claude AI agents working on the Pt
 
 ## 1. ⚙️ Identity & Workflow Guardrails
 
-- **Authority stack:** If instructions conflict, prefer SPECs (`specs/`), then project documentation, then prompt files. Internal model memories must defer to the repository.
+- **Authority stack:** If instructions conflict, prefer SPECs (`specs/`), then architecture docs, then other project documentation.
 
 ---
 
