@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
 **Last Updated:** 2026-01-16 (Phase B4 reassembly instrumentation scoped)
-**Active Focus:** DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy
+**Active Focus:** ORCH-ROUTER-001 — Router prompt + orchestration dispatch layer
 
 ---
 
@@ -122,7 +122,7 @@
 ### [ORCH-ROUTER-001] Router prompt + orchestration dispatch layer
 - Depends on: None
 - Priority: Medium
-- Status: pending
+- Status: in_progress — Phase B implementation (B1 deterministic router)
 - Owner/Date: Codex/2026-01-20
 - Working Plan: `plans/active/ORCH-ROUTER-001/implementation.md`
 - Summary: `plans/active/ORCH-ROUTER-001/summary.md`
@@ -142,3 +142,8 @@
   - *2026-01-20T012303Z:* Clarified routing contract to use review cadence every N iterations with actor gating and router precedence, and constrained state.json persistence to the last selected prompt only. Artifacts: `plans/active/ORCH-ROUTER-001/{implementation.md,summary.md}`.
   - *2026-01-20T012542Z:* Drafted the Phase A routing contract artifact and marked A0-A2 complete in the plan (routing contract + state.json field + test strategy linkage). Artifacts: `plans/active/ORCH-ROUTER-001/{routing_contract.md,implementation.md,summary.md}`.
   - *2026-01-20T012735Z:* Expanded plan documentation steps to include docs/index.md updates in Phase A/C. Artifacts: `plans/active/ORCH-ROUTER-001/{implementation.md,summary.md}`.
+  - *2026-01-20T012912Z:* Addressed plan conformance issues: added missing context priming fields, clarified router override source, and made state.json persistence/log archival requirements explicit. Artifacts: `plans/active/ORCH-ROUTER-001/{implementation.md,summary.md}`.
+  - *2026-01-20T013928Z:* Implemented deterministic router entrypoint + wrapper, added pytest coverage, and updated test registry docs.
+    - Metrics: `ruff check scripts/orchestration/router.py tests/tools/test_orchestration_router.py`, `pytest --collect-only tests/tools/test_orchestration_router.py -v`, `pytest tests/tools/test_orchestration_router.py -v`
+    - Artifacts: `.artifacts/orch-router-001/{ruff_check.log,pytest_collect_router.log,pytest_router.log}`
+  - *2026-01-20T013743Z:* Added Phase B checklist item to create `prompts/router.md` with a strict single-line output contract. Artifacts: `plans/active/ORCH-ROUTER-001/{implementation.md,summary.md}`.

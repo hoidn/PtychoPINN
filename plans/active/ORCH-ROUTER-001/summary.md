@@ -1,6 +1,29 @@
 # ORCH-ROUTER-001 Summary
 
 ### Turn Summary
+Added an explicit Phase B checklist item to create a router prompt template at prompts/router.md with a strict single-line output contract.
+Kept the change scoped to documentation-only work in the plan.
+Next: update scripts/orchestration/README.md with the routing contract and last_prompt field note.
+Artifacts: plans/active/ORCH-ROUTER-001/implementation.md
+
+# ORCH-ROUTER-001 Summary
+
+### Turn Summary
+Implemented the deterministic router entrypoint (`scripts/orchestration/router.py`) plus shell wrapper, and added pytest coverage for the routing decision logic.
+Registered the new router test in the testing guide + test suite index to keep selector docs in sync.
+Artifacts: .artifacts/orch-router-001/ (ruff_check.log, pytest_collect_router.log, pytest_router.log)
+
+# ORCH-ROUTER-001 Summary
+
+### Turn Summary
+Aligned the plan with template requirements by adding context priming fields (findings, attempts, data deps) and clarifying router override source.
+Removed persistence ambiguity: state.json will store only `last_prompt` and no other router metadata.
+Expanded exit criteria to require log archival and test registry updates when tests change.
+Artifacts: plans/active/ORCH-ROUTER-001/implementation.md
+
+# ORCH-ROUTER-001 Summary
+
+### Turn Summary
 Expanded documentation steps in the plan to include docs/index.md updates once router docs land.
 Added explicit checklist items for docs/index.md in Phase A and Phase C.
 Next: update scripts/orchestration/README.md with the routing contract and last_prompt note.
