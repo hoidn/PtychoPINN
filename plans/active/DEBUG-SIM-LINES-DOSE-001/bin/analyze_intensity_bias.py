@@ -22,6 +22,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, MutableMapping, Optional, Tuple
 
+import numpy as np
+
 
 REQUIRED_FILES = {
     "run_metadata": "run_metadata.json",
@@ -29,6 +31,8 @@ REQUIRED_FILES = {
     "inference_stats": "inference_outputs/stats.json",
     "comparison_metrics": "comparison_metrics.json",
     "training_summary": "train_outputs/history_summary.json",
+    "prediction_amplitude": "inference_outputs/amplitude.npy",
+    "ground_truth_amplitude": "ground_truth_amp.npy",
 }
 
 STAGE_LABELS = [
@@ -57,6 +61,8 @@ class ScenarioInput:
     inference_stats: Path
     comparison_metrics: Path
     training_summary: Path
+    prediction_amplitude: Path
+    ground_truth_amplitude: Path
 
 
 def parse_args() -> argparse.Namespace:
@@ -116,6 +122,8 @@ def build_scenario_input(name: str, base_dir: Path) -> ScenarioInput:
         inference_stats=resolved["inference_stats"],
         comparison_metrics=resolved["comparison_metrics"],
         training_summary=resolved["training_summary"],
+        prediction_amplitude=resolved["prediction_amplitude"],
+        ground_truth_amplitude=resolved["ground_truth_amplitude"],
     )
 
 
@@ -280,6 +288,112 @@ def build_stage_ratio_summary(
     return ratios, largest_drop
 
 
+def _load_numpy_array(path: Path) -> np.ndarray:
+    data = np.load(path)
+    return np.asarray(data, dtype=np.float64)
+
+
+def _compute_ratio_stats(ratios: np.ndarray) -> Dict[str, Optional[float]]:
+    if ratios.size == 0:
+        return {
+            "count": 0,
+            "mean": None,
+            "median": None,
+            "p05": None,
+            "p95": None,
+        }
+    return {
+        "count": int(ratios.size),
+        "mean": float(np.mean(ratios)),
+        "median": float(np.median(ratios)),
+        "p05": float(np.percentile(ratios, 5)),
+        "p95": float(np.percentile(ratios, 95)),
+    }
+
+
+def _evaluate_scalar_errors(
+    truth: np.ndarray,
+    prediction: np.ndarray,
+    scalar: float,
+) -> Dict[str, float]:
+    scaled_pred = prediction * scalar
+    residual = truth - scaled_pred
+    mae = float(np.mean(np.abs(residual)))
+    rmse = float(np.sqrt(np.mean(residual**2)))
+    return {"mae": mae, "rmse": rmse}
+
+
+def compute_scaling_analysis(
+    prediction_path: Path,
+    truth_path: Path,
+    amplitude_metrics: Mapping[str, Any],
+) -> Dict[str, Any]:
+    prediction = _load_numpy_array(prediction_path).ravel()
+    truth = _load_numpy_array(truth_path).ravel()
+    if prediction.shape != truth.shape:
+        raise ValueError(
+            f"Amplitude array shape mismatch: pred={prediction.shape}, truth={truth.shape}"
+        )
+    finite_mask = np.isfinite(prediction) & np.isfinite(truth)
+    finite_pred = prediction[finite_mask]
+    finite_truth = truth[finite_mask]
+
+    ratio_mask = np.abs(finite_pred) > 1e-12
+    ratios = finite_truth[ratio_mask] / finite_pred[ratio_mask]
+    ratio_stats = _compute_ratio_stats(ratios)
+
+    if finite_pred.size:
+        denom = float(np.sum(finite_pred**2))
+        ls_scalar = float(np.sum(finite_pred * finite_truth) / denom) if denom else None
+    else:
+        ls_scalar = None
+
+    candidate_scalars: Dict[str, Optional[float]] = {
+        "ratio_mean": ratio_stats.get("mean"),
+        "ratio_median": ratio_stats.get("median"),
+        "ratio_p05": ratio_stats.get("p05"),
+        "ratio_p95": ratio_stats.get("p95"),
+        "least_squares": ls_scalar,
+    }
+
+    per_scalar_metrics: Dict[str, Dict[str, float]] = {}
+    best_name: Optional[str] = None
+    best_metrics: Optional[Dict[str, float]] = None
+    for name, value in candidate_scalars.items():
+        if value is None:
+            continue
+        metrics = _evaluate_scalar_errors(finite_truth, finite_pred, float(value))
+        per_scalar_metrics[name] = metrics
+        if best_metrics is None or metrics["mae"] < best_metrics["mae"]:
+            best_name = name
+            best_metrics = metrics
+
+    baseline_mae = _as_float(amplitude_metrics.get("mae"))
+    baseline_rmse = _as_float(amplitude_metrics.get("rmse"))
+
+    if best_name and best_metrics:
+        best_scalar_payload: Optional[Dict[str, Any]] = {
+            "name": best_name,
+            "value": candidate_scalars[best_name],
+            "mae": best_metrics["mae"],
+            "rmse": best_metrics["rmse"],
+        }
+    else:
+        best_scalar_payload = None
+
+    return {
+        "count": int(finite_pred.size),
+        "ratio_stats": ratio_stats,
+        "candidate_scalars": candidate_scalars,
+        "per_scalar_metrics": per_scalar_metrics,
+        "best_scalar": best_scalar_payload,
+        "baseline_errors": {
+            "mae": baseline_mae,
+            "rmse": baseline_rmse,
+        },
+    }
+
+
 def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
     run_metadata = load_json(scenario.run_metadata)
     intensity_stats = load_json(scenario.intensity_stats)
@@ -312,6 +426,11 @@ def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
     normalization = build_normalization_summary(raw_stage_payloads)
     stage_means = extract_stage_means(raw_stage_payloads)
     stage_ratios, largest_drop = build_stage_ratio_summary(stage_means, amplitude_metrics)
+    scaling_analysis = compute_scaling_analysis(
+        scenario.prediction_amplitude,
+        scenario.ground_truth_amplitude,
+        amplitude_metrics,
+    )
 
     offsets = (inference_stats.get("offsets") or {}).copy()
     inference_info = {
@@ -347,6 +466,8 @@ def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
             "inference_stats": str(scenario.inference_stats),
             "comparison_metrics": str(scenario.comparison_metrics),
             "training_summary": str(scenario.training_summary),
+            "prediction_amplitude": str(scenario.prediction_amplitude),
+            "ground_truth_amplitude": str(scenario.ground_truth_amplitude),
         },
         "intensity": intensity_info,
         "comparison": {
@@ -360,6 +481,7 @@ def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
             "stage_means": stage_means,
             "ratios": stage_ratios,
             "largest_drop": largest_drop,
+            "scaling_analysis": scaling_analysis,
         },
     }
 
@@ -551,6 +673,53 @@ def render_markdown(summary: Mapping[str, Any]) -> str:
                 lines.append(f"| {key} | {fmt_value(value)} |")
             lines.append("")
         lines.append("")
+        scaling = derived.get("scaling_analysis") or {}
+        if scaling:
+            ratio_stats = scaling.get("ratio_stats") or {}
+            lines.append("### Prediction ↔ Truth Scaling")
+            lines.append(
+                f"* truth/pred ratio mean={fmt_value(ratio_stats.get('mean'))}, "
+                f"median={fmt_value(ratio_stats.get('median'))}, "
+                f"p05={fmt_value(ratio_stats.get('p05'))}, "
+                f"p95={fmt_value(ratio_stats.get('p95'))}"
+            )
+            best_scalar = scaling.get("best_scalar") or {}
+            if best_scalar:
+                lines.append(
+                    f"* Best scalar ({best_scalar.get('name')}): "
+                    f"{fmt_value(best_scalar.get('value'))} "
+                    f"(MAE={fmt_value(best_scalar.get('mae'))}, "
+                    f"RMSE={fmt_value(best_scalar.get('rmse'))})"
+                )
+            baseline_errors = scaling.get("baseline_errors") or {}
+            lines.append(
+                f"* Baseline vs rescaled MAE: {fmt_value(baseline_errors.get('mae'))} "
+                f"→ {fmt_value((best_scalar or {}).get('mae'))}, "
+                f"RMSE: {fmt_value(baseline_errors.get('rmse'))} "
+                f"→ {fmt_value((best_scalar or {}).get('rmse'))}"
+            )
+            candidates = scaling.get("candidate_scalars") or {}
+            per_scalar_metrics = scaling.get("per_scalar_metrics") or {}
+            lines.append("| Scalar | Value | MAE | RMSE |")
+            lines.append("| --- | ---: | ---: | ---: |")
+            for key, label in [
+                ("ratio_mean", "Ratio mean"),
+                ("ratio_median", "Ratio median"),
+                ("ratio_p05", "Ratio p05"),
+                ("ratio_p95", "Ratio p95"),
+                ("least_squares", "Least squares"),
+            ]:
+                value = candidates.get(key)
+                metrics = per_scalar_metrics.get(key) or {}
+                lines.append(
+                    "| {label} | {value} | {mae} | {rmse} |".format(
+                        label=label,
+                        value=fmt_value(value),
+                        mae=fmt_value(metrics.get("mae")),
+                        rmse=fmt_value(metrics.get("rmse")),
+                    )
+                )
+            lines.append("")
         lines.append("### Amplitude Bias")
         amp_metrics = payload.get("comparison", {}).get("amplitude", {})
         lines.append(
