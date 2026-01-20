@@ -548,3 +548,22 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
   - Created the new artifacts directory + supervisor summary stub at `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/` so evidence has a landing zone.
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/ next_action=instrument run_phase_c2_scenario.py with intensity stats + rerun gs1_ideal/gs2_ideal + archive pytest CLI log
+
+# 2026-01-20T07:37:33Z: DEBUG-SIM-LINES-DOSE-001 — Phase C4 telemetry audit
+
+- dwell: 2 (second consecutive planning/review loop; next turn must deliver implementation evidence)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy
+- Action type: Review/Planning (telemetry audit + analyzer scope)
+- Mode: Implementation handoff
+- Git sync: `git pull --rebase` (clean; local working tree left unchanged)
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (CONFIG-001, NORMALIZATION-001, POLICY-001), plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/{gs1_ideal/intensity_stats.json,gs2_ideal/run_metadata.json,...}, specs/spec-ptycho-core.md §Normalization
+- Key observations:
+  - Both gs1_ideal and gs2_ideal still undershoot amplitude by ≈2.5 despite identical bundle vs legacy `intensity_scale` (988.21167) and steady normalization stages (raw mean≈0.146 → grouped≈0.153 → normalized≈0.085).
+  - gs2_ideal’s newly captured training history shows NaNs from epoch 0 (all Lightning metrics flagged) while gs1 remains finite, indicating downstream loss-weight collapse rather than loader math.
+  - Realspace MAE/realspace loss weights remain 0.0 in params.cfg, so the model currently optimizes only Poisson + MAE on centered amplitude; analyzer evidence needed before tweaking weights.
+  - Scoped a plan-local analyzer (`bin/analyze_intensity_bias.py`) to aggregate amplitude bias vs normalization stats and training NaN telemetry from the 2026-01-20T113000Z hub, with outputs landing under `reports/2026-01-20T121500Z/`.
+- Updates: docs/fix_plan.md attempts extended with 2026-01-20T121500Z entry; plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md prepended with this loop’s turn summary; input.md rewritten with analyzer Do Now; artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T121500Z/` created.
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T121500Z/ (planning notes placeholder)
+- Next Action: ready_for_implementation — implement analyzer CLI + run gs1/gs2 inputs + archive pytest guard.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=2 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T121500Z/ next_action=build analyzer CLI + run gs1/gs2 inputs + pytest guard

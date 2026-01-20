@@ -1,49 +1,54 @@
-Summary: Add intensity-normalization telemetry to the sim_lines runner and rerun the gs1/gs2 ideal scenarios so we can see where amplitude scaling drifts.
+Summary: Build a telemetry analyzer for the SIM-LINES gs1/gs2 runs so we can correlate amplitude bias vs intensity stats and capture the NaN onset before touching shared workflows.
 Focus: DEBUG-SIM-LINES-DOSE-001 — Isolate sim_lines_4x vs dose_experiments discrepancy (Phase C4 intensity stats)
 Branch: paper
 Mapped tests: pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T121500Z/
 
 Do Now:
-- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py::main (add intensity-scale stats for raw/grouped/container tensors + recorded `legacy_params['intensity_scale']` and thread the new JSON/markdown paths into run_metadata) so each rerun emits an `intensity_stats.json` alongside the bias outputs.
-- Validate: pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
-- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/
+- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py::main — add a plan-local CLI that ingests one or more scenario directories (each containing run_metadata.json, intensity_stats.json, inference_outputs/stats.json, comparison_metrics.json, train_outputs/history_summary.json) and emits aggregated `bias_summary.json`/`.md` capturing amplitude/phase bias deltas, intensity-scale comparisons, normalization stage stats, and training NaN indicators. Accept repeated `--scenario name=path` arguments plus `--output-dir`, validate inputs exist, and keep outputs device/dtype agnostic.
+- Validate: 
+  1. python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py --scenario gs1_ideal=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs1_ideal --scenario gs2_ideal=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/gs2_ideal --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T121500Z > plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T121500Z/analyze_intensity_bias.log
+  2. pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T121500Z/pytest_cli_smoke.log
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T121500Z/
 
 How-To Map:
 1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
-2. export RUN_HUB=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z && mkdir -p "$RUN_HUB/gs1_ideal" "$RUN_HUB/gs2_ideal"
-3. python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py --scenario gs1_ideal --output-dir "$RUN_HUB/gs1_ideal" --group-limit 64 --nepochs 5 (stable profile will fill in base images / batch); archive updated run_metadata.json, stats JSON, intensity_stats.json, amplitude/phase PNGs, and training logs into the hub.
-4. python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py --scenario gs2_ideal --output-dir "$RUN_HUB/gs2_ideal" --group-limit 64 --nepochs 5; confirm the new intensity telemetry emits scalar stats only (no raw arrays) and that summary markdown links are updated.
-5. pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v | tee "$RUN_HUB/pytest_cli_smoke.log"
+2. export REPORT_ROOT=plans/active/DEBUG-SIM-LINES-DOSE-001/reports && export OUT_HUB=$REPORT_ROOT/2026-01-20T121500Z && mkdir -p "$OUT_HUB"
+3. python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py --scenario gs1_ideal=$REPORT_ROOT/2026-01-20T113000Z/gs1_ideal --scenario gs2_ideal=$REPORT_ROOT/2026-01-20T113000Z/gs2_ideal --output-dir "$OUT_HUB" > "$OUT_HUB/analyze_intensity_bias.log"
+4. pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v | tee "$OUT_HUB/pytest_cli_smoke.log"
+5. Verify `$OUT_HUB/bias_summary.json` and `.md` exist and capture bias/intensity/NaN fields referenced in docs/fix_plan.md; mention any anomalies in the log.
 
 Pitfalls To Avoid:
-- Do not reuse the 2026-01-20T093000Z directories; every rerun must write into the 2026-01-20T113000Z hub so evidence stays grouped.
-- Keep intensity_stats limited to scalar summaries (min/max/mean/std); never dump full tensors to JSON/Markdown.
-- Make sure the new telemetry leaves existing run_metadata keys untouched (additive fields only) so downstream parsers stay stable.
-- Continue exporting AUTHORITATIVE_CMDS_DOC before invoking the runner or pytest to satisfy governance checks.
-- Stable profiles must remain in effect—avoid overriding base_total_images, group_count, or batch_size unless explicitly instructed.
-- Remember CONFIG-001: the runner must continue to build configs via the existing helpers so params.cfg stays in sync; do not short-circuit that flow while adding stats.
-- Capture a fresh pytest log even if the selector feels redundant; attach it to the new hub with the other evidence.
-- Clean up matplotlib figures in the stats helper to avoid leaking file handles (use `plt.close`).
+- Don’t read from stale hubs; use the explicit 2026-01-20T113000Z directories for scenario inputs and write only into $OUT_HUB.
+- Keep analyzer outputs JSON/Markdown human-readable with scalar stats only—never dump full tensors.
+- Maintain CONFIG-001 compliance when scripts touch params (loader helpers already do this; analyzer must not mutate params.cfg).
+- Avoid hard-coding gridsize or backend assumptions; expect both gs1 (gridsize=1) and gs2 (gridsize=2) inputs.
+- Gracefully flag missing files with actionable errors instead of stack traces.
+- Do not alter production modules (ptycho/*); all code lives under plans/active/DEBUG-SIM-LINES-DOSE-001/bin/.
+- Ensure matplotlib remains offscreen (Agg) if plots are added; this script should not emit plots by default.
+- Preserve existing run_metadata fields—append new analyzer outputs rather than rewriting scenario directories.
+- Keep CLI exit status non-zero on validation failures so supervisors can detect issues quickly.
+- Archive every command’s stdout/stderr in the artifacts hub as shown in the How-To map.
 
 If Blocked:
-- Document the blocker in docs/fix_plan.md under DEBUG-SIM-LINES-DOSE-001 (Attempts History) and drop a short note in plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md describing what failed.
-- Tag the exact command + stderr and leave the partial artifacts in the RUN_HUB with a `_blocked.txt` note so we can pick up next loop.
-- Ping me only after the blocker is recorded; the next supervisor loop will decide whether to pivot or escalate.
+- Capture the failing command and traceback in $OUT_HUB/blocker.log, note the blocker in docs/fix_plan.md Attempts + summary.md, and stop after updating galph_memory so we can reassess next loop.
 
 Findings Applied (Mandatory):
-- CONFIG-001 — ensure every call to `run_phase_c2_scenario.py` keeps using update_legacy_dict via the Training/InferenceConfig factories before touching grouped data.
-- NORMALIZATION-001 — keep physics/statistical/display scaling separate when logging new telemetry (record raw diffraction stats plus `intensity_scale` without mutating data).
-- POLICY-001 — workflows assume TensorFlow dependencies are present; do not try to downshift to a CPU-only or torch-free path when rerunning the scenarios.
+- CONFIG-001 — analyzer must not bypass the existing Training/InferenceConfig bridge; use saved run metadata and params snapshots without mutating params.cfg.
+- NORMALIZATION-001 — keep physics/statistical/display scaling contexts separate when reporting intensity stats; label each stage explicitly.
+- POLICY-001 — keep workflows TensorFlow-first; PyTorch isn’t involved here but any helper must continue to assume torch>=2.2 availability when routed via backend_selector.
 
 Pointers:
-- specs/spec-ptycho-core.md:20 (Normalization invariants + intensity_scale contract)
-- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:170 (Phase C4 checklist)
-- docs/fix_plan.md:90 (Latest Attempts and C4 scope)
-- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py:260 (stats helpers and runner entry point)
-- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/inspect_intensity_scaler.py:1 (reference for recent telemetry style)
+- specs/spec-ptycho-core.md §Normalization Invariants — authoritative math for intensity_scale semantics.
+- docs/fix_plan.md: DEBUG-SIM-LINES-DOSE-001 entry (latest Attempts) — defines Phase C4 scope + artifacts.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md §Phase C4 — checklist + deliverables.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py:360-460 — reference format for telemetry payloads your analyzer must read.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/* — concrete gs1/gs2 inputs for the analyzer.
 
-Next Up (optional): If time remains, start comparing the logged stats vs recorded `intensity_scale` to decide whether C5 needs config tweaks or workflow math changes.
-Doc Sync Plan (Conditional): Not needed this loop (no new/renamed tests).
-Mapped Tests Guardrail: Selector above already collects (>0) and must be kept up to date.
-Normative Math/Physics: Use specs/spec-ptycho-core.md §Normalization Invariants and docs/DEVELOPER_GUIDE.md §3.5 to keep the telemetry grounded in the official intensity-scaling math.
+Next Up (optional):
+1. Compare analyzer output against expected spec math (intensity_scale, amplitude bias) to determine whether we need to adjust loss weights or preprocessing.
+2. If analyzer shows loss-weight imbalance, craft a minimal config patch (e.g., realspace_mae_weight) and plan regression evidence.
+
+Doc Sync Plan (Conditional): Not needed (no new pytest selectors).
+Mapped Tests Guardrail: The CLI smoke selector above already collects (>0); keep it as the validation guard.
+Normative Math/Physics: Cite specs/spec-ptycho-core.md §Normalization + docs/DEVELOPER_GUIDE.md §3.5 in analyzer docs/comments when referencing intensity math; do not restate derivations inline.

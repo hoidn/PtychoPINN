@@ -1,6 +1,12 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
 ### Turn Summary
+Audited the Phase C4 telemetry bundle and confirmed both gs1/gs2 scenarios still undershoot amplitude by ≈2.5 even though bundle vs legacy `intensity_scale` values match to machine precision, while gs2 now logs NaNs from the very first optimizer step.
+Traced the signal path across RawData → grouped_diffraction → normalize_data → container.X and verified stats remain steady (≈0.15 mean raw, ≈0.085 post-normalize) so the shared collapse must be downstream of loader scaling or missing loss terms (e.g., realspace weight=0, MAE disabled).
+Next: add a plan-local analyzer script that ingests existing scenario hubs, correlates amplitude bias vs probe/intensity stats, and summarizes NaN telemetry so we can pinpoint whether the failure is purely loss weighting or a deeper physics mismatch before touching shared workflows.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T121500Z/ (planned analyzer outputs placeholder)
+
+### Turn Summary
 Extended the Phase C2 runner so intensity telemetry now records scalar stats for the raw snapshot, grouped diffraction/X_full tensors, and the plan-local container along with both the bundle-recorded and current `legacy_params['intensity_scale']` values.
 Reran the baked `gs1_ideal`/`gs2_ideal` scenarios under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T113000Z/`, archived the new `intensity_stats.json/.md` plus run_metadata links, and captured that both scenarios log identical bundle vs legacy scales (988.21167, delta 0.0) even though `gs1` still shows the ≈-2.5 amplitude bias while `gs2`’s training history now flags NaNs from the first step.
 Next: mine the telemetry vs the bias summaries to determine whether the scaler math or upstream normalization causes the shared under-scale signal, and investigate the newly observed gs2 NaNs before tightening any gates.
