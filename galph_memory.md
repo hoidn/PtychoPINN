@@ -1126,3 +1126,15 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - <Action State>: [root_cause_identified]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=root_cause_identified dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/ next_action=D4c: Obtain approval + implement fix in train_pinn.py:calculate_intensity_scale()
 
+# 2026-01-20T23:50:33Z: DOC-HYGIENE-20260120 — Router/prompt/doc hygiene planning
+
+- dwell: 0 (planning loop immediately after reviewer override reset)
+- Action type: Planning | Mode: Implementation
+- Documents reviewed: docs/index.md; docs/fix_plan.md; docs/findings.md (TEST-CLI-001, PYTHON-ENV-001); scripts/orchestration/README.md; scripts/orchestration/{supervisor.py,loop.py,config.py}; prompts/{arch_writer.md,spec_reviewer.md}; plans/templates/{implementation_plan.md,test_strategy_template.md}
+- Key updates:
+  - Reopened DOC-HYGIENE-20260120 in docs/fix_plan.md, marked ORCH-AGENT-DISPATCH-001 blocked on these hygiene tasks, and recorded the missing orchestration.yaml / inert --no-git evidence from user_input.
+  - Created a dedicated initiative workspace under plans/active/DOC-HYGIENE-20260120/ with a phased implementation plan, test strategy, summary, and a 2026-01-20T235033Z reports hub.
+  - Authored a fresh Do Now directing Ralph to (1) add orchestration.yaml, (2) fix prompts/arch_writer.md + prompts/spec_reviewer.md references, and (3) wire supervisor --no-git gating plus new pytest coverage + doc/test registry updates; mapped selectors for router + supervisor tests and documented the artifacts/log plan.
+- Artifacts: plans/active/DOC-HYGIENE-20260120/reports/2026-01-20T235033Z/
+- <Action State>: [ready_for_implementation]
+- focus=DOC-HYGIENE-20260120 state=ready_for_implementation dwell=0 artifacts=plans/active/DOC-HYGIENE-20260120/reports/2026-01-20T235033Z/ next_action=Ralph adds orchestration.yaml, updates the reviewer prompts, wires supervisor --no-git gating + pytest/docs/test index updates, and archives the new logs under the plan hub

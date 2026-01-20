@@ -509,7 +509,7 @@
 ### [ORCH-AGENT-DISPATCH-001] Per-role/per-prompt agent dispatch (codex vs claude)
 - Depends on: ORCH-ORCHESTRATOR-001 (combined mode baseline)
 - Priority: Medium
-- Status: in_progress — Phase C tests complete; full-suite regression gate pending
+- Status: **blocked — awaiting DOC-HYGIENE-20260120 router/doc fixes**
 - Owner/Date: Codex/2026-01-20
 - Working Plan: `plans/active/ORCH-AGENT-DISPATCH-001/implementation.md`
 - Summary: `plans/active/ORCH-AGENT-DISPATCH-001/summary.md`
@@ -530,21 +530,24 @@
     - Metrics: `ruff check scripts/orchestration/agent_dispatch.py scripts/orchestration/orchestrator.py scripts/orchestration/supervisor.py scripts/orchestration/loop.py scripts/orchestration/tests/test_agent_dispatch.py`, `pytest --collect-only scripts/orchestration/tests/test_agent_dispatch.py -v`, `pytest scripts/orchestration/tests/test_agent_dispatch.py -v`
     - Artifacts: `plans/active/ORCH-AGENT-DISPATCH-001/reports/2026-01-20T055000Z/{ruff_check.log,pytest_collect_agent_dispatch.log,pytest_agent_dispatch.log,summary.md}`
     - Next Actions: decide whether to run the broader regression suite to satisfy the full-suite exit criterion.
+  - *2026-01-20T235033Z:* **Blocked.** Reviewer override uncovered missing `orchestration.yaml`, stale prompt references, and an inert `--no-git` guard in the supervisor. Agent dispatch cannot ship without a working orchestration config and router cadence, so the initiative pauses until DOC-HYGIENE-20260120 restores the documented sources of truth. Status flipped to `blocked` and dependency recorded in docs/fix_plan.md.
 
 ### [DOC-HYGIENE-20260120] Reviewer doc/prompt fixes
 - Depends on: ORCH-ORCHESTRATOR-001 (reviewer override flow)
 - Priority: High (blocking reviewer gate)
-- Status: done — 2026-01-20
+- Status: **in_progress — Phase A reality audit reopened 2026-01-20T235033Z**
 - Owner/Date: Codex/2026-01-20
-- Working Plan: N/A (single-loop documentation cleanup)
-- Summary: Fix the broken references flagged in reviewer findings — point `docs/GRIDSIZE_N_GROUPS_GUIDE.md` to the real configuration/data-contract docs and update `prompts/arch_writer.md` to cite existing spec anchors so authors land on valid sections.
-- Reports Hub: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T150500Z/` (planning notes + summary)
+- Working Plan: `plans/active/DOC-HYGIENE-20260120/implementation.md`
+- Summary: `plans/active/DOC-HYGIENE-20260120/summary.md`
+- Reports Hub: `plans/active/DOC-HYGIENE-20260120/reports/`
 - Goals:
-  - Ensure all “Related Documentation” links in the gridsize guide resolve to real files.
-  - Update prompt guidance so architecture writers cite live spec anchors (`pipeline-normative`, `data-formats-normative`) instead of 404s.
+  - Ensure docs/prompt references point to real assets that exist in the repo (architecture + specs).
+  - Ship the root-level `orchestration.yaml` so reviewers can inspect router cadence, state_file, logs_dir, spec bootstrap paths, and agent defaults from a canonical source rather than ad-hoc defaults.
+  - Wire the supervisor `--no-git` guard (and related sync-via-git flows) so local/offline runs stop issuing git pulls/pushes, and prove the guard via pytest.
 - Exit Criteria:
-  - The docs build without broken links for the updated targets.
-  - `prompts/arch_writer.md` references anchors that exist in the checked-in specs.
+  - `orchestration.yaml` exists at repo root with accurate router/state/logs/spec_bootstrap settings referenced by the prompts and docs.
+  - Prompt templates (`prompts/arch_writer.md`, `prompts/spec_reviewer.md`, etc.) reference existing docs/sections and read their state from `docs/index.md`/`specs/`.
+  - Supervisor sync mode honors `--no-git` by skipping branch guards, pulls/pushes, and auto-commits; pytest regression proves the guard and docs/test registries are updated.
 - Attempts History:
   - *2026-01-20T150500Z:* Replaced the stale quick links in `docs/GRIDSIZE_N_GROUPS_GUIDE.md` with `docs/CONFIGURATION.md`, `../specs/data_contracts.md`, and `docs/COMMANDS_REFERENCE.md`, and rewired `prompts/arch_writer.md` to reference `../specs/spec-ptycho-workflow.md#pipeline-normative` and `../specs/spec-ptycho-interfaces.md#data-formats-normative`. Logged the change under the DEBUG-SIM-LINES-DOSE-001 artifacts hub because the reviewer override was processed in that focus.
-  - *2026-01-20T121449Z:* Added the missing root-level `orchestration.yaml` so reviewer instructions (“read router.review_every_n/state_file/logs_dir from orchestration.yaml”) now point to a real configuration file. The YAML records `router.review_every_n=3`, `state_file=sync/state.json`, and `logs_dir=logs`, matching the current orchestration defaults and eliminating the need for reviewers to guess. Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T121449Z/summary.md` (documents the config creation per reviewer override).
+  - *2026-01-20T235033Z:* Manual override re-opened the initiative. Root-level `orchestration.yaml` is still missing, supervisor `--no-git` is inert (flag parsed but ignored), and both `prompts/arch_writer.md` and `prompts/spec_reviewer.md` still reference nonexistent paths (e.g., `docs/architecture/data-pipeline.md`, `docs/spec-shards/*.md`). Created a dedicated plan (`plans/active/DOC-HYGIENE-20260120/`) with reports hub `plans/active/DOC-HYGIENE-20260120/reports/` and a fresh Do Now to build the config, fix the prompts, document spec bootstrap paths, and land the supervisor guard + pytest evidence under `plans/active/DOC-HYGIENE-20260120/reports/2026-01-20T235033Z/`.
