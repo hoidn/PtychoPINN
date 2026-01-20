@@ -1,0 +1,931 @@
+diff --git a/docs/TESTING_GUIDE.md b/docs/TESTING_GUIDE.md
+index 7e385c68..d2976b42 100644
+--- a/docs/TESTING_GUIDE.md
++++ b/docs/TESTING_GUIDE.md
+@@ -65,13 +65,14 @@ Lightweight tests for script-level helpers and CLI `--help` smoke coverage.
+ 
+ Lightweight tests for the orchestration submodule (located under `scripts/orchestration/`).
+ 
+-- **Location:** `scripts/orchestration/tests/test_router.py`, `scripts/orchestration/tests/test_orchestrator.py`, `scripts/orchestration/tests/test_agent_dispatch.py`
+-- **Purpose:** Validate deterministic routing decisions, router modes/overrides, combined orchestrator sequencing/cadence, combined auto-commit dry-run/no-git behavior, and per-role/prompt agent dispatch.
++- **Location:** `scripts/orchestration/tests/test_router.py`, `scripts/orchestration/tests/test_orchestrator.py`, `scripts/orchestration/tests/test_agent_dispatch.py`, `scripts/orchestration/tests/test_sync_router_review.py`
++- **Purpose:** Validate deterministic routing decisions, router modes/overrides, combined orchestrator sequencing/cadence, combined auto-commit dry-run/no-git behavior, per-role/prompt agent dispatch, and sync supervisor/loop router review cadence.
+ - **Selectors:**
+   ```bash
+   pytest scripts/orchestration/tests/test_router.py -v
+   pytest scripts/orchestration/tests/test_orchestrator.py -v
+   pytest scripts/orchestration/tests/test_agent_dispatch.py -v
++  pytest scripts/orchestration/tests/test_sync_router_review.py -v
+   ```
+ 
+ ### Plan-Local Script Policy (Guidance)
+diff --git a/docs/development/TEST_SUITE_INDEX.md b/docs/development/TEST_SUITE_INDEX.md
+index 57ce45d3..13633b49 100644
+--- a/docs/development/TEST_SUITE_INDEX.md
++++ b/docs/development/TEST_SUITE_INDEX.md
+@@ -70,6 +70,7 @@ This document provides a comprehensive index of the automated tests in the `test
+ | `scripts/orchestration/tests/test_router.py` | Deterministic routing decisions, router modes, and override behavior. | `test_router_deterministic`, `test_router_prompt_override` | `pytest scripts/orchestration/tests/test_router.py -v` | Lightweight router coverage for orchestration submodule. |
+ | `scripts/orchestration/tests/test_orchestrator.py` | Combined orchestrator sequencing, role-mode guard rails, router override gating, review cadence handling, and combined auto-commit dry-run/no-git behavior. | `test_combined_sequence`, `test_review_cadence_single`, `test_router_override_galph_only`, `test_router_disabled_uses_actor_prompts`, `test_combined_missing_prompt_marks_failed`, `test_router_only_without_output_marks_failed`, `test_role_mode_requires_role`, `test_role_mode_requires_sync`, `test_role_mode_forwards_supervisor_prompt`, `test_role_mode_forwards_loop_prompt`, `test_combined_autocommit_after_turns`, `test_combined_autocommit_no_git`, `test_combined_autocommit_dry_run`, `test_combined_autocommit_flag_plumbing`, `test_combined_autocommit_best_effort` | `pytest scripts/orchestration/tests/test_orchestrator.py -v` | Uses stubbed prompt execution; no external processes. |
+ | `scripts/orchestration/tests/test_agent_dispatch.py` | Agent dispatch resolution precedence and router-driven prompt selection effects. | `test_agent_prompt_override_precedence`, `test_agent_role_fallback`, `test_router_prompt_drives_agent`, `test_combined_uses_prompt_agent` | `pytest scripts/orchestration/tests/test_agent_dispatch.py -v` | Stubs command resolution to avoid external CLIs. |
++| `scripts/orchestration/tests/test_sync_router_review.py` | Sync supervisor/loop router review cadence regression tests. Verifies `last_prompt_actor` state annotation ensures reviewer runs once per iteration. | `test_review_runs_once`, `test_review_cadence_without_actor_annotation_fails`, `test_last_prompt_actor_toggles_correctly`, `test_non_cadence_iteration_no_reviewer` | `pytest scripts/orchestration/tests/test_sync_router_review.py -v` | Tests ORCH-ROUTER-001 fix for review cadence state parity. |
+ 
+ ### Image Tests (`tests/image/`)
+ 
+diff --git a/scripts/orchestration b/scripts/orchestration
+--- a/scripts/orchestration
++++ b/scripts/orchestration
+@@ -1 +1 @@
+-Subproject commit 292626d62463000da6fc91a0a95e9c96109448b6
++Subproject commit 292626d62463000da6fc91a0a95e9c96109448b6-dirty
+diff --git a/sync/state.json b/sync/state.json
+index 2c79d8e1..a340b3a7 100644
+--- a/sync/state.json
++++ b/sync/state.json
+@@ -1,7 +1,7 @@
+ {
+   "iteration": 437,
+   "expected_actor": "ralph",
+-  "status": "waiting-ralph",
++  "status": "running-ralph",
+   "last_update": "2026-01-20T13:13:14Z",
+   "lease_expires_at": "2026-01-20T13:23:14Z",
+   "galph_commit": "8f2f526a",
+diff --git a/train_debug.log b/train_debug.log
+index 1bbc045c..bd022701 100644
+--- a/train_debug.log
++++ b/train_debug.log
+@@ -41699,3 +41699,850 @@ Input to reshape is a tensor with 0 values, but the requested shape has 4
+ 2026-01-13 14:58:34,112 - DEBUG - Creating converter from 5 to 3
+ 2026-01-13 14:58:35,385 - INFO - Outputs saved to gs2_fly001_equiv_train_subsample_7403_groups_2048_20260113_145618/trial_1/pinn_run
+ 2026-01-13 14:58:35,385 - INFO - TensorFlow artifacts saved via model_manager and save_outputs
++2026-01-19 23:05:10,769 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/matplotlib/mpl-data
++2026-01-19 23:05:10,777 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
++2026-01-19 23:05:10,778 - DEBUG - interactive is False
++2026-01-19 23:05:10,778 - DEBUG - platform is linux
++2026-01-19 23:05:10,807 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
++2026-01-19 23:05:10,808 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
++2026-01-19 23:05:11,908 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
++2026-01-19 23:05:12,098 - DEBUG - Creating converter from 7 to 5
++2026-01-19 23:05:12,098 - DEBUG - Creating converter from 5 to 7
++2026-01-19 23:05:12,098 - DEBUG - Creating converter from 7 to 5
++2026-01-19 23:05:12,098 - DEBUG - Creating converter from 5 to 7
++2026-01-19 23:05:13,682 - DEBUG - YAML config: {}
++2026-01-19 23:05:13,682 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_groups': None, 'n_images': 1000, 'n_subsample': None, 'subsample_seed': None, 'neighbor_count': 4, 'enable_oversampling': False, 'neighbor_pool_size': None, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T070509Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_learning_rate': None, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-19 23:05:13,682 - DEBUG - Merged config: {'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 1000, 'neighbor_count': 4, 'enable_oversampling': False, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T070509Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-19 23:05:13,682 - INFO - Configuration setup complete
++2026-01-19 23:05:13,682 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), test_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), batch_size=16, nepochs=50, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_groups=1000, n_images=1000, n_subsample=None, subsample_seed=None, neighbor_count=4, enable_oversampling=False, neighbor_pool_size=None, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T070509Z/output/training_outputs'), sequential_sampling=False, backend='tensorflow', torch_loss_mode='poisson')
++2026-01-19 23:05:13,682 - INFO - Legacy mode: using 1000 groups (gridsize=1)
++2026-01-19 23:05:13,682 - INFO - Starting training with n_subsample=1000, n_groups=1000, stitching=disabled
++2026-01-19 23:05:13,682 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=1000, n_subsample=1000
++2026-01-19 23:05:13,698 - INFO - Independent sampling: subsampling 1000 images from 1087 total
++2026-01-19 23:05:13,699 - INFO - Randomly subsampled 1000 images
++2026-01-19 23:05:13,725 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=None, n_subsample=None
++2026-01-19 23:05:13,741 - INFO - Using full dataset of 1087 images
++2026-01-19 23:05:13,751 - INFO - Loaded test data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz
++2026-01-19 23:05:13,751 - INFO - Backend dispatcher: params.cfg synchronized with TrainingConfig (backend=tensorflow)
++2026-01-19 23:05:13,751 - INFO - Backend dispatcher: routing to TensorFlow workflow (ptycho.workflows.components)
++2026-01-19 23:05:13,753 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1000, C=1, K=4
++2026-01-19 23:05:13,753 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-19 23:05:13,753 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-19 23:05:13,753 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1000 = False
++2026-01-19 23:05:13,753 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-19 23:05:13,753 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-19 23:05:13,753 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-19 23:05:13,753 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-19 23:05:13,753 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-19 23:05:13,753 - INFO - Generating 1000 groups efficiently from 1000 points (K=4, C=1)
++2026-01-19 23:05:13,753 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1000 points
++2026-01-19 23:05:13,753 - INFO - [OVERSAMPLING DEBUG] Using all 1000 points as seeds (no sampling needed)
++2026-01-19 23:05:13,753 - INFO - Using all 1000 points as seeds
++2026-01-19 23:05:13,753 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-19 23:05:13,753 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-19 23:05:13,753 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-19 23:05:13,753 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-19 23:05:13,753 - INFO - Generated 1000 groups efficiently
++2026-01-19 23:05:19,437 - INFO - Updated max_position_jitter from 10 to 160 based on coords_offsets max_abs=79.281 (required_canvas=224, old_padded=74, new_padded=224).
++2026-01-19 23:05:19,800 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1087, C=1, K=4
++2026-01-19 23:05:19,800 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-19 23:05:19,801 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-19 23:05:19,801 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1087 = False
++2026-01-19 23:05:19,801 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-19 23:05:19,801 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-19 23:05:19,801 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-19 23:05:19,801 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-19 23:05:19,801 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-19 23:05:19,801 - INFO - Generating 1000 groups efficiently from 1087 points (K=4, C=1)
++2026-01-19 23:05:19,801 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1087 points
++2026-01-19 23:05:19,801 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 1000 seed points
++2026-01-19 23:05:19,801 - INFO - Sampled 1000 seed points from 1087 total points
++2026-01-19 23:05:19,801 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-19 23:05:19,801 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-19 23:05:19,801 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-19 23:05:19,801 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-19 23:05:19,801 - INFO - Generated 1000 groups efficiently
++2026-01-19 23:05:25,973 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-19 23:05:28,006 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-19 23:05:33,970 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-19 23:06:32,413 - INFO - Skipping image stitching (disabled or no test data available)
++2026-01-19 23:06:32,413 - INFO - Backend dispatcher: workflow complete (backend=tensorflow)
++2026-01-19 23:06:32,430 - DEBUG - Creating converter from 5 to 3
++2026-01-19 23:06:33,620 - INFO - Outputs saved to .artifacts/integration_manual_1000_512/2026-01-20T070509Z/output/training_outputs
++2026-01-19 23:06:33,620 - INFO - TensorFlow artifacts saved via model_manager and save_outputs
++2026-01-19 23:17:35,037 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/matplotlib/mpl-data
++2026-01-19 23:17:35,045 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
++2026-01-19 23:17:35,045 - DEBUG - interactive is False
++2026-01-19 23:17:35,045 - DEBUG - platform is linux
++2026-01-19 23:17:35,074 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
++2026-01-19 23:17:35,076 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
++2026-01-19 23:17:36,197 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
++2026-01-19 23:17:36,383 - DEBUG - Creating converter from 7 to 5
++2026-01-19 23:17:36,383 - DEBUG - Creating converter from 5 to 7
++2026-01-19 23:17:36,383 - DEBUG - Creating converter from 7 to 5
++2026-01-19 23:17:36,383 - DEBUG - Creating converter from 5 to 7
++2026-01-19 23:17:37,967 - DEBUG - YAML config: {}
++2026-01-19 23:17:37,967 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_groups': None, 'n_images': 1000, 'n_subsample': None, 'subsample_seed': None, 'neighbor_count': 4, 'enable_oversampling': False, 'neighbor_pool_size': None, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T071733Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_learning_rate': None, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-19 23:17:37,967 - DEBUG - Merged config: {'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 1000, 'neighbor_count': 4, 'enable_oversampling': False, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T071733Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-19 23:17:37,968 - INFO - Configuration setup complete
++2026-01-19 23:17:37,968 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), test_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), batch_size=16, nepochs=50, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_groups=1000, n_images=1000, n_subsample=None, subsample_seed=None, neighbor_count=4, enable_oversampling=False, neighbor_pool_size=None, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T071733Z/output/training_outputs'), sequential_sampling=False, backend='tensorflow', torch_loss_mode='poisson')
++2026-01-19 23:17:37,968 - INFO - Legacy mode: using 1000 groups (gridsize=1)
++2026-01-19 23:17:37,968 - INFO - Starting training with n_subsample=1000, n_groups=1000, stitching=disabled
++2026-01-19 23:17:37,968 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=1000, n_subsample=1000
++2026-01-19 23:17:37,985 - INFO - Independent sampling: subsampling 1000 images from 1087 total
++2026-01-19 23:17:37,985 - INFO - Randomly subsampled 1000 images
++2026-01-19 23:17:38,011 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=None, n_subsample=None
++2026-01-19 23:17:38,027 - INFO - Using full dataset of 1087 images
++2026-01-19 23:17:38,039 - INFO - Loaded test data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz
++2026-01-19 23:17:38,039 - INFO - Backend dispatcher: params.cfg synchronized with TrainingConfig (backend=tensorflow)
++2026-01-19 23:17:38,039 - INFO - Backend dispatcher: routing to TensorFlow workflow (ptycho.workflows.components)
++2026-01-19 23:17:38,040 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1000, C=1, K=4
++2026-01-19 23:17:38,041 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-19 23:17:38,041 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-19 23:17:38,041 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1000 = False
++2026-01-19 23:17:38,041 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-19 23:17:38,041 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-19 23:17:38,041 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-19 23:17:38,041 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-19 23:17:38,041 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-19 23:17:38,041 - INFO - Generating 1000 groups efficiently from 1000 points (K=4, C=1)
++2026-01-19 23:17:38,041 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1000 points
++2026-01-19 23:17:38,041 - INFO - [OVERSAMPLING DEBUG] Using all 1000 points as seeds (no sampling needed)
++2026-01-19 23:17:38,041 - INFO - Using all 1000 points as seeds
++2026-01-19 23:17:38,041 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-19 23:17:38,041 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-19 23:17:38,041 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-19 23:17:38,041 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-19 23:17:38,041 - INFO - Generated 1000 groups efficiently
++2026-01-19 23:17:43,763 - INFO - Updated max_position_jitter from 10 to 160 based on coords_offsets max_abs=79.281 (required_canvas=224, old_padded=74, new_padded=224).
++2026-01-19 23:17:44,130 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1087, C=1, K=4
++2026-01-19 23:17:44,131 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-19 23:17:44,131 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-19 23:17:44,131 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1087 = False
++2026-01-19 23:17:44,131 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-19 23:17:44,131 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-19 23:17:44,131 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-19 23:17:44,131 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-19 23:17:44,131 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-19 23:17:44,131 - INFO - Generating 1000 groups efficiently from 1087 points (K=4, C=1)
++2026-01-19 23:17:44,131 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1087 points
++2026-01-19 23:17:44,131 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 1000 seed points
++2026-01-19 23:17:44,131 - INFO - Sampled 1000 seed points from 1087 total points
++2026-01-19 23:17:44,131 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-19 23:17:44,131 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-19 23:17:44,131 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-19 23:17:44,131 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-19 23:17:44,131 - INFO - Generated 1000 groups efficiently
++2026-01-19 23:17:50,391 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-19 23:17:52,404 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-19 23:17:58,324 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-19 23:18:56,064 - INFO - Skipping image stitching (disabled or no test data available)
++2026-01-19 23:18:56,064 - INFO - Backend dispatcher: workflow complete (backend=tensorflow)
++2026-01-19 23:18:56,079 - DEBUG - Creating converter from 5 to 3
++2026-01-19 23:18:57,292 - INFO - Outputs saved to .artifacts/integration_manual_1000_512/2026-01-20T071733Z/output/training_outputs
++2026-01-19 23:18:57,292 - INFO - TensorFlow artifacts saved via model_manager and save_outputs
++2026-01-19 23:26:20,652 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/matplotlib/mpl-data
++2026-01-19 23:26:20,660 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
++2026-01-19 23:26:20,661 - DEBUG - interactive is False
++2026-01-19 23:26:20,661 - DEBUG - platform is linux
++2026-01-19 23:26:20,690 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
++2026-01-19 23:26:20,691 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
++2026-01-19 23:26:21,819 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
++2026-01-19 23:26:22,014 - DEBUG - Creating converter from 7 to 5
++2026-01-19 23:26:22,015 - DEBUG - Creating converter from 5 to 7
++2026-01-19 23:26:22,015 - DEBUG - Creating converter from 7 to 5
++2026-01-19 23:26:22,015 - DEBUG - Creating converter from 5 to 7
++2026-01-19 23:26:23,614 - DEBUG - YAML config: {}
++2026-01-19 23:26:23,614 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_groups': None, 'n_images': 1000, 'n_subsample': None, 'subsample_seed': None, 'neighbor_count': 4, 'enable_oversampling': False, 'neighbor_pool_size': None, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T072619Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_learning_rate': None, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-19 23:26:23,614 - DEBUG - Merged config: {'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 1000, 'neighbor_count': 4, 'enable_oversampling': False, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T072619Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-19 23:26:23,614 - INFO - Configuration setup complete
++2026-01-19 23:26:23,614 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), test_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), batch_size=16, nepochs=50, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_groups=1000, n_images=1000, n_subsample=None, subsample_seed=None, neighbor_count=4, enable_oversampling=False, neighbor_pool_size=None, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T072619Z/output/training_outputs'), sequential_sampling=False, backend='tensorflow', torch_loss_mode='poisson')
++2026-01-19 23:26:23,614 - INFO - Legacy mode: using 1000 groups (gridsize=1)
++2026-01-19 23:26:23,614 - INFO - Starting training with n_subsample=1000, n_groups=1000, stitching=disabled
++2026-01-19 23:26:23,614 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=1000, n_subsample=1000
++2026-01-19 23:26:23,632 - INFO - Independent sampling: subsampling 1000 images from 1087 total
++2026-01-19 23:26:23,632 - INFO - Randomly subsampled 1000 images
++2026-01-19 23:26:23,659 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=None, n_subsample=None
++2026-01-19 23:26:23,675 - INFO - Using full dataset of 1087 images
++2026-01-19 23:26:23,685 - INFO - Loaded test data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz
++2026-01-19 23:26:23,685 - INFO - Backend dispatcher: params.cfg synchronized with TrainingConfig (backend=tensorflow)
++2026-01-19 23:26:23,685 - INFO - Backend dispatcher: routing to TensorFlow workflow (ptycho.workflows.components)
++2026-01-19 23:26:23,686 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1000, C=1, K=4
++2026-01-19 23:26:23,687 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-19 23:26:23,687 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-19 23:26:23,687 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1000 = False
++2026-01-19 23:26:23,687 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-19 23:26:23,687 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-19 23:26:23,687 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-19 23:26:23,687 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-19 23:26:23,687 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-19 23:26:23,687 - INFO - Generating 1000 groups efficiently from 1000 points (K=4, C=1)
++2026-01-19 23:26:23,687 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1000 points
++2026-01-19 23:26:23,687 - INFO - [OVERSAMPLING DEBUG] Using all 1000 points as seeds (no sampling needed)
++2026-01-19 23:26:23,687 - INFO - Using all 1000 points as seeds
++2026-01-19 23:26:23,687 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-19 23:26:23,687 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-19 23:26:23,687 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-19 23:26:23,687 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-19 23:26:23,687 - INFO - Generated 1000 groups efficiently
++2026-01-19 23:26:29,490 - INFO - Updated max_position_jitter from 10 to 160 based on coords_offsets max_abs=79.281 (required_canvas=224, old_padded=74, new_padded=224).
++2026-01-19 23:26:29,880 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1087, C=1, K=4
++2026-01-19 23:26:29,880 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-19 23:26:29,880 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-19 23:26:29,880 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1087 = False
++2026-01-19 23:26:29,880 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-19 23:26:29,880 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-19 23:26:29,880 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-19 23:26:29,880 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-19 23:26:29,880 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-19 23:26:29,880 - INFO - Generating 1000 groups efficiently from 1087 points (K=4, C=1)
++2026-01-19 23:26:29,880 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1087 points
++2026-01-19 23:26:29,881 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 1000 seed points
++2026-01-19 23:26:29,881 - INFO - Sampled 1000 seed points from 1087 total points
++2026-01-19 23:26:29,881 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-19 23:26:29,881 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-19 23:26:29,881 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-19 23:26:29,881 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-19 23:26:29,881 - INFO - Generated 1000 groups efficiently
++2026-01-19 23:26:36,343 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-19 23:26:38,457 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-19 23:26:47,415 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-19 23:27:47,736 - INFO - Skipping image stitching (disabled or no test data available)
++2026-01-19 23:27:47,736 - INFO - Backend dispatcher: workflow complete (backend=tensorflow)
++2026-01-19 23:27:47,756 - DEBUG - Creating converter from 5 to 3
++2026-01-19 23:27:49,026 - INFO - Outputs saved to .artifacts/integration_manual_1000_512/2026-01-20T072619Z/output/training_outputs
++2026-01-19 23:27:49,026 - INFO - TensorFlow artifacts saved via model_manager and save_outputs
++2026-01-19 23:30:14,830 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/matplotlib/mpl-data
++2026-01-19 23:30:14,840 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
++2026-01-19 23:30:14,840 - DEBUG - interactive is False
++2026-01-19 23:30:14,840 - DEBUG - platform is linux
++2026-01-19 23:30:14,870 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
++2026-01-19 23:30:14,872 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
++2026-01-19 23:30:15,969 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
++2026-01-19 23:30:16,163 - DEBUG - Creating converter from 7 to 5
++2026-01-19 23:30:16,163 - DEBUG - Creating converter from 5 to 7
++2026-01-19 23:30:16,163 - DEBUG - Creating converter from 7 to 5
++2026-01-19 23:30:16,163 - DEBUG - Creating converter from 5 to 7
++2026-01-19 23:30:17,752 - DEBUG - YAML config: {}
++2026-01-19 23:30:17,752 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_groups': None, 'n_images': 1000, 'n_subsample': None, 'subsample_seed': None, 'neighbor_count': 4, 'enable_oversampling': False, 'neighbor_pool_size': None, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T073013Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_learning_rate': None, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-19 23:30:17,752 - DEBUG - Merged config: {'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 1000, 'neighbor_count': 4, 'enable_oversampling': False, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T073013Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-19 23:30:17,752 - INFO - Configuration setup complete
++2026-01-19 23:30:17,752 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), test_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), batch_size=16, nepochs=50, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_groups=1000, n_images=1000, n_subsample=None, subsample_seed=None, neighbor_count=4, enable_oversampling=False, neighbor_pool_size=None, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T073013Z/output/training_outputs'), sequential_sampling=False, backend='tensorflow', torch_loss_mode='poisson')
++2026-01-19 23:30:17,752 - INFO - Legacy mode: using 1000 groups (gridsize=1)
++2026-01-19 23:30:17,752 - INFO - Starting training with n_subsample=1000, n_groups=1000, stitching=disabled
++2026-01-19 23:30:17,752 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=1000, n_subsample=1000
++2026-01-19 23:30:17,769 - INFO - Independent sampling: subsampling 1000 images from 1087 total
++2026-01-19 23:30:17,769 - INFO - Randomly subsampled 1000 images
++2026-01-19 23:30:17,795 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=None, n_subsample=None
++2026-01-19 23:30:17,810 - INFO - Using full dataset of 1087 images
++2026-01-19 23:30:17,820 - INFO - Loaded test data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz
++2026-01-19 23:30:17,820 - INFO - Backend dispatcher: params.cfg synchronized with TrainingConfig (backend=tensorflow)
++2026-01-19 23:30:17,820 - INFO - Backend dispatcher: routing to TensorFlow workflow (ptycho.workflows.components)
++2026-01-19 23:30:17,822 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1000, C=1, K=4
++2026-01-19 23:30:17,822 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-19 23:30:17,822 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-19 23:30:17,822 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1000 = False
++2026-01-19 23:30:17,822 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-19 23:30:17,822 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-19 23:30:17,822 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-19 23:30:17,822 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-19 23:30:17,822 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-19 23:30:17,822 - INFO - Generating 1000 groups efficiently from 1000 points (K=4, C=1)
++2026-01-19 23:30:17,822 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1000 points
++2026-01-19 23:30:17,822 - INFO - [OVERSAMPLING DEBUG] Using all 1000 points as seeds (no sampling needed)
++2026-01-19 23:30:17,822 - INFO - Using all 1000 points as seeds
++2026-01-19 23:30:17,822 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-19 23:30:17,822 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-19 23:30:17,822 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-19 23:30:17,822 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-19 23:30:17,822 - INFO - Generated 1000 groups efficiently
++2026-01-19 23:30:23,675 - INFO - Updated max_position_jitter from 10 to 160 based on coords_offsets max_abs=79.281 (required_canvas=224, old_padded=74, new_padded=224).
++2026-01-19 23:30:24,022 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1087, C=1, K=4
++2026-01-19 23:30:24,022 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-19 23:30:24,022 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-19 23:30:24,022 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1087 = False
++2026-01-19 23:30:24,022 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-19 23:30:24,022 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-19 23:30:24,022 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-19 23:30:24,022 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-19 23:30:24,022 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-19 23:30:24,022 - INFO - Generating 1000 groups efficiently from 1087 points (K=4, C=1)
++2026-01-19 23:30:24,022 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1087 points
++2026-01-19 23:30:24,022 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 1000 seed points
++2026-01-19 23:30:24,022 - INFO - Sampled 1000 seed points from 1087 total points
++2026-01-19 23:30:24,022 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-19 23:30:24,022 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-19 23:30:24,022 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-19 23:30:24,022 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-19 23:30:24,022 - INFO - Generated 1000 groups efficiently
++2026-01-19 23:30:30,216 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-19 23:30:32,225 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-19 23:30:38,212 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-19 23:37:12,229 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/matplotlib/mpl-data
++2026-01-19 23:37:12,238 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
++2026-01-19 23:37:12,238 - DEBUG - interactive is False
++2026-01-19 23:37:12,238 - DEBUG - platform is linux
++2026-01-19 23:37:12,267 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
++2026-01-19 23:37:12,269 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
++2026-01-19 23:37:13,381 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
++2026-01-19 23:37:13,573 - DEBUG - Creating converter from 7 to 5
++2026-01-19 23:37:13,573 - DEBUG - Creating converter from 5 to 7
++2026-01-19 23:37:13,573 - DEBUG - Creating converter from 7 to 5
++2026-01-19 23:37:13,574 - DEBUG - Creating converter from 5 to 7
++2026-01-19 23:37:15,167 - DEBUG - YAML config: {}
++2026-01-19 23:37:15,167 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_groups': None, 'n_images': 1000, 'n_subsample': None, 'subsample_seed': None, 'neighbor_count': 4, 'enable_oversampling': False, 'neighbor_pool_size': None, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T073711Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_learning_rate': None, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-19 23:37:15,167 - DEBUG - Merged config: {'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 1000, 'neighbor_count': 4, 'enable_oversampling': False, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T073711Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-19 23:37:15,167 - INFO - Configuration setup complete
++2026-01-19 23:37:15,167 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), test_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), batch_size=16, nepochs=50, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_groups=1000, n_images=1000, n_subsample=None, subsample_seed=None, neighbor_count=4, enable_oversampling=False, neighbor_pool_size=None, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T073711Z/output/training_outputs'), sequential_sampling=False, backend='tensorflow', torch_loss_mode='poisson')
++2026-01-19 23:37:15,167 - INFO - Legacy mode: using 1000 groups (gridsize=1)
++2026-01-19 23:37:15,167 - INFO - Starting training with n_subsample=1000, n_groups=1000, stitching=disabled
++2026-01-19 23:37:15,167 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=1000, n_subsample=1000
++2026-01-19 23:37:15,185 - INFO - Independent sampling: subsampling 1000 images from 1087 total
++2026-01-19 23:37:15,185 - INFO - Randomly subsampled 1000 images
++2026-01-19 23:37:15,212 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=None, n_subsample=None
++2026-01-19 23:37:15,228 - INFO - Using full dataset of 1087 images
++2026-01-19 23:37:15,239 - INFO - Loaded test data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz
++2026-01-19 23:37:15,239 - INFO - Backend dispatcher: params.cfg synchronized with TrainingConfig (backend=tensorflow)
++2026-01-19 23:37:15,239 - INFO - Backend dispatcher: routing to TensorFlow workflow (ptycho.workflows.components)
++2026-01-19 23:37:15,241 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1000, C=1, K=4
++2026-01-19 23:37:15,241 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-19 23:37:15,241 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-19 23:37:15,241 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1000 = False
++2026-01-19 23:37:15,241 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-19 23:37:15,241 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-19 23:37:15,241 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-19 23:37:15,241 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-19 23:37:15,241 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-19 23:37:15,241 - INFO - Generating 1000 groups efficiently from 1000 points (K=4, C=1)
++2026-01-19 23:37:15,241 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1000 points
++2026-01-19 23:37:15,241 - INFO - [OVERSAMPLING DEBUG] Using all 1000 points as seeds (no sampling needed)
++2026-01-19 23:37:15,241 - INFO - Using all 1000 points as seeds
++2026-01-19 23:37:15,241 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-19 23:37:15,241 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-19 23:37:15,241 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-19 23:37:15,241 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-19 23:37:15,241 - INFO - Generated 1000 groups efficiently
++2026-01-19 23:37:20,900 - INFO - Updated max_position_jitter from 10 to 160 based on coords_offsets max_abs=79.281 (required_canvas=224, old_padded=74, new_padded=224).
++2026-01-19 23:37:21,248 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1087, C=1, K=4
++2026-01-19 23:37:21,249 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-19 23:37:21,249 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-19 23:37:21,249 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1087 = False
++2026-01-19 23:37:21,249 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-19 23:37:21,249 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-19 23:37:21,249 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-19 23:37:21,249 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-19 23:37:21,249 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-19 23:37:21,249 - INFO - Generating 1000 groups efficiently from 1087 points (K=4, C=1)
++2026-01-19 23:37:21,249 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1087 points
++2026-01-19 23:37:21,249 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 1000 seed points
++2026-01-19 23:37:21,249 - INFO - Sampled 1000 seed points from 1087 total points
++2026-01-19 23:37:21,249 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-19 23:37:21,249 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-19 23:37:21,249 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-19 23:37:21,249 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-19 23:37:21,249 - INFO - Generated 1000 groups efficiently
++2026-01-19 23:37:27,441 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-19 23:37:29,462 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-19 23:37:35,434 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-19 23:38:33,610 - INFO - Skipping image stitching (disabled or no test data available)
++2026-01-19 23:38:33,611 - INFO - Backend dispatcher: workflow complete (backend=tensorflow)
++2026-01-19 23:38:33,627 - DEBUG - Creating converter from 5 to 3
++2026-01-19 23:38:34,829 - INFO - Outputs saved to .artifacts/integration_manual_1000_512/2026-01-20T073711Z/output/training_outputs
++2026-01-19 23:38:34,829 - INFO - TensorFlow artifacts saved via model_manager and save_outputs
++2026-01-19 23:43:08,481 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/matplotlib/mpl-data
++2026-01-19 23:43:08,489 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
++2026-01-19 23:43:08,490 - DEBUG - interactive is False
++2026-01-19 23:43:08,490 - DEBUG - platform is linux
++2026-01-19 23:43:08,519 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
++2026-01-19 23:43:08,520 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
++2026-01-19 23:43:09,672 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
++2026-01-19 23:43:09,865 - DEBUG - Creating converter from 7 to 5
++2026-01-19 23:43:09,865 - DEBUG - Creating converter from 5 to 7
++2026-01-19 23:43:09,866 - DEBUG - Creating converter from 7 to 5
++2026-01-19 23:43:09,866 - DEBUG - Creating converter from 5 to 7
++2026-01-19 23:43:11,485 - DEBUG - YAML config: {}
++2026-01-19 23:43:11,485 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_groups': None, 'n_images': 1000, 'n_subsample': None, 'subsample_seed': None, 'neighbor_count': 4, 'enable_oversampling': False, 'neighbor_pool_size': None, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T074307Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_learning_rate': None, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-19 23:43:11,485 - DEBUG - Merged config: {'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 1000, 'neighbor_count': 4, 'enable_oversampling': False, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T074307Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-19 23:43:11,485 - INFO - Configuration setup complete
++2026-01-19 23:43:11,485 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), test_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), batch_size=16, nepochs=50, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_groups=1000, n_images=1000, n_subsample=None, subsample_seed=None, neighbor_count=4, enable_oversampling=False, neighbor_pool_size=None, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T074307Z/output/training_outputs'), sequential_sampling=False, backend='tensorflow', torch_loss_mode='poisson')
++2026-01-19 23:43:11,485 - INFO - Legacy mode: using 1000 groups (gridsize=1)
++2026-01-19 23:43:11,485 - INFO - Starting training with n_subsample=1000, n_groups=1000, stitching=disabled
++2026-01-19 23:43:11,485 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=1000, n_subsample=1000
++2026-01-19 23:43:11,503 - INFO - Independent sampling: subsampling 1000 images from 1087 total
++2026-01-19 23:43:11,503 - INFO - Randomly subsampled 1000 images
++2026-01-19 23:43:11,530 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=None, n_subsample=None
++2026-01-19 23:43:11,546 - INFO - Using full dataset of 1087 images
++2026-01-19 23:43:11,557 - INFO - Loaded test data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz
++2026-01-19 23:43:11,557 - INFO - Backend dispatcher: params.cfg synchronized with TrainingConfig (backend=tensorflow)
++2026-01-19 23:43:11,557 - INFO - Backend dispatcher: routing to TensorFlow workflow (ptycho.workflows.components)
++2026-01-19 23:43:11,559 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1000, C=1, K=4
++2026-01-19 23:43:11,559 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-19 23:43:11,559 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-19 23:43:11,559 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1000 = False
++2026-01-19 23:43:11,559 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-19 23:43:11,559 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-19 23:43:11,559 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-19 23:43:11,559 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-19 23:43:11,559 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-19 23:43:11,559 - INFO - Generating 1000 groups efficiently from 1000 points (K=4, C=1)
++2026-01-19 23:43:11,559 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1000 points
++2026-01-19 23:43:11,559 - INFO - [OVERSAMPLING DEBUG] Using all 1000 points as seeds (no sampling needed)
++2026-01-19 23:43:11,559 - INFO - Using all 1000 points as seeds
++2026-01-19 23:43:11,559 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-19 23:43:11,559 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-19 23:43:11,559 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-19 23:43:11,559 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-19 23:43:11,559 - INFO - Generated 1000 groups efficiently
++2026-01-19 23:43:17,201 - INFO - Updated max_position_jitter from 10 to 160 based on coords_offsets max_abs=79.281 (required_canvas=224, old_padded=74, new_padded=224).
++2026-01-19 23:43:17,536 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1087, C=1, K=4
++2026-01-19 23:43:17,536 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-19 23:43:17,536 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-19 23:43:17,536 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1087 = False
++2026-01-19 23:43:17,536 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-19 23:43:17,536 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-19 23:43:17,536 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-19 23:43:17,536 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-19 23:43:17,536 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-19 23:43:17,536 - INFO - Generating 1000 groups efficiently from 1087 points (K=4, C=1)
++2026-01-19 23:43:17,536 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1087 points
++2026-01-19 23:43:17,536 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 1000 seed points
++2026-01-19 23:43:17,536 - INFO - Sampled 1000 seed points from 1087 total points
++2026-01-19 23:43:17,536 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-19 23:43:17,536 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-19 23:43:17,536 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-19 23:43:17,536 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-19 23:43:17,536 - INFO - Generated 1000 groups efficiently
++2026-01-19 23:43:23,666 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-19 23:43:25,726 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-19 23:43:31,689 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-19 23:44:29,806 - INFO - Skipping image stitching (disabled or no test data available)
++2026-01-19 23:44:29,806 - INFO - Backend dispatcher: workflow complete (backend=tensorflow)
++2026-01-19 23:44:29,823 - DEBUG - Creating converter from 5 to 3
++2026-01-19 23:44:31,020 - INFO - Outputs saved to .artifacts/integration_manual_1000_512/2026-01-20T074307Z/output/training_outputs
++2026-01-19 23:44:31,020 - INFO - TensorFlow artifacts saved via model_manager and save_outputs
++2026-01-20 00:11:11,558 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/matplotlib/mpl-data
++2026-01-20 00:11:11,567 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
++2026-01-20 00:11:11,567 - DEBUG - interactive is False
++2026-01-20 00:11:11,567 - DEBUG - platform is linux
++2026-01-20 00:11:11,598 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
++2026-01-20 00:11:11,600 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
++2026-01-20 00:11:12,694 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
++2026-01-20 00:11:12,885 - DEBUG - Creating converter from 7 to 5
++2026-01-20 00:11:12,885 - DEBUG - Creating converter from 5 to 7
++2026-01-20 00:11:12,885 - DEBUG - Creating converter from 7 to 5
++2026-01-20 00:11:12,885 - DEBUG - Creating converter from 5 to 7
++2026-01-20 00:11:14,491 - DEBUG - YAML config: {}
++2026-01-20 00:11:14,491 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_groups': None, 'n_images': 1000, 'n_subsample': None, 'subsample_seed': None, 'neighbor_count': 4, 'enable_oversampling': False, 'neighbor_pool_size': None, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T081110Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_learning_rate': None, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-20 00:11:14,491 - DEBUG - Merged config: {'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 1000, 'neighbor_count': 4, 'enable_oversampling': False, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T081110Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-20 00:11:14,491 - INFO - Configuration setup complete
++2026-01-20 00:11:14,492 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), test_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), batch_size=16, nepochs=50, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_groups=1000, n_images=1000, n_subsample=None, subsample_seed=None, neighbor_count=4, enable_oversampling=False, neighbor_pool_size=None, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T081110Z/output/training_outputs'), sequential_sampling=False, backend='tensorflow', torch_loss_mode='poisson')
++2026-01-20 00:11:14,492 - INFO - Legacy mode: using 1000 groups (gridsize=1)
++2026-01-20 00:11:14,492 - INFO - Starting training with n_subsample=1000, n_groups=1000, stitching=disabled
++2026-01-20 00:11:14,492 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=1000, n_subsample=1000
++2026-01-20 00:11:14,509 - INFO - Independent sampling: subsampling 1000 images from 1087 total
++2026-01-20 00:11:14,509 - INFO - Randomly subsampled 1000 images
++2026-01-20 00:11:14,535 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=None, n_subsample=None
++2026-01-20 00:11:14,550 - INFO - Using full dataset of 1087 images
++2026-01-20 00:11:14,561 - INFO - Loaded test data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz
++2026-01-20 00:11:14,562 - INFO - Backend dispatcher: params.cfg synchronized with TrainingConfig (backend=tensorflow)
++2026-01-20 00:11:14,562 - INFO - Backend dispatcher: routing to TensorFlow workflow (ptycho.workflows.components)
++2026-01-20 00:11:14,563 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1000, C=1, K=4
++2026-01-20 00:11:14,563 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-20 00:11:14,563 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-20 00:11:14,563 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1000 = False
++2026-01-20 00:11:14,563 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-20 00:11:14,563 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-20 00:11:14,563 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-20 00:11:14,563 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-20 00:11:14,563 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-20 00:11:14,563 - INFO - Generating 1000 groups efficiently from 1000 points (K=4, C=1)
++2026-01-20 00:11:14,563 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1000 points
++2026-01-20 00:11:14,563 - INFO - [OVERSAMPLING DEBUG] Using all 1000 points as seeds (no sampling needed)
++2026-01-20 00:11:14,563 - INFO - Using all 1000 points as seeds
++2026-01-20 00:11:14,563 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-20 00:11:14,563 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-20 00:11:14,563 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-20 00:11:14,563 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-20 00:11:14,564 - INFO - Generated 1000 groups efficiently
++2026-01-20 00:11:20,194 - INFO - Updated max_position_jitter from 10 to 160 based on coords_offsets max_abs=79.281 (required_canvas=224, old_padded=74, new_padded=224).
++2026-01-20 00:11:20,567 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1087, C=1, K=4
++2026-01-20 00:11:20,567 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-20 00:11:20,567 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-20 00:11:20,567 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1087 = False
++2026-01-20 00:11:20,567 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-20 00:11:20,567 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-20 00:11:20,567 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-20 00:11:20,567 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-20 00:11:20,567 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-20 00:11:20,567 - INFO - Generating 1000 groups efficiently from 1087 points (K=4, C=1)
++2026-01-20 00:11:20,567 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1087 points
++2026-01-20 00:11:20,567 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 1000 seed points
++2026-01-20 00:11:20,567 - INFO - Sampled 1000 seed points from 1087 total points
++2026-01-20 00:11:20,567 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-20 00:11:20,567 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-20 00:11:20,567 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-20 00:11:20,567 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-20 00:11:20,567 - INFO - Generated 1000 groups efficiently
++2026-01-20 00:11:26,682 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-20 00:11:28,728 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-20 00:11:34,667 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-20 00:12:32,832 - INFO - Skipping image stitching (disabled or no test data available)
++2026-01-20 00:12:32,832 - INFO - Backend dispatcher: workflow complete (backend=tensorflow)
++2026-01-20 00:12:32,847 - DEBUG - Creating converter from 5 to 3
++2026-01-20 00:12:34,058 - INFO - Outputs saved to .artifacts/integration_manual_1000_512/2026-01-20T081110Z/output/training_outputs
++2026-01-20 00:12:34,059 - INFO - TensorFlow artifacts saved via model_manager and save_outputs
++2026-01-20 00:23:30,310 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/matplotlib/mpl-data
++2026-01-20 00:23:30,318 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
++2026-01-20 00:23:30,319 - DEBUG - interactive is False
++2026-01-20 00:23:30,319 - DEBUG - platform is linux
++2026-01-20 00:23:30,348 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
++2026-01-20 00:23:30,349 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
++2026-01-20 00:23:31,465 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
++2026-01-20 00:23:31,655 - DEBUG - Creating converter from 7 to 5
++2026-01-20 00:23:31,655 - DEBUG - Creating converter from 5 to 7
++2026-01-20 00:23:31,655 - DEBUG - Creating converter from 7 to 5
++2026-01-20 00:23:31,655 - DEBUG - Creating converter from 5 to 7
++2026-01-20 00:23:33,246 - DEBUG - YAML config: {}
++2026-01-20 00:23:33,246 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_groups': None, 'n_images': 1000, 'n_subsample': None, 'subsample_seed': None, 'neighbor_count': 4, 'enable_oversampling': False, 'neighbor_pool_size': None, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T082329Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_learning_rate': None, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-20 00:23:33,246 - DEBUG - Merged config: {'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 1000, 'neighbor_count': 4, 'enable_oversampling': False, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T082329Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-20 00:23:33,246 - INFO - Configuration setup complete
++2026-01-20 00:23:33,247 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), test_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), batch_size=16, nepochs=50, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_groups=1000, n_images=1000, n_subsample=None, subsample_seed=None, neighbor_count=4, enable_oversampling=False, neighbor_pool_size=None, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T082329Z/output/training_outputs'), sequential_sampling=False, backend='tensorflow', torch_loss_mode='poisson')
++2026-01-20 00:23:33,247 - INFO - Legacy mode: using 1000 groups (gridsize=1)
++2026-01-20 00:23:33,247 - INFO - Starting training with n_subsample=1000, n_groups=1000, stitching=disabled
++2026-01-20 00:23:33,247 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=1000, n_subsample=1000
++2026-01-20 00:23:33,264 - INFO - Independent sampling: subsampling 1000 images from 1087 total
++2026-01-20 00:23:33,265 - INFO - Randomly subsampled 1000 images
++2026-01-20 00:23:33,292 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=None, n_subsample=None
++2026-01-20 00:23:33,307 - INFO - Using full dataset of 1087 images
++2026-01-20 00:23:33,317 - INFO - Loaded test data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz
++2026-01-20 00:23:33,317 - INFO - Backend dispatcher: params.cfg synchronized with TrainingConfig (backend=tensorflow)
++2026-01-20 00:23:33,317 - INFO - Backend dispatcher: routing to TensorFlow workflow (ptycho.workflows.components)
++2026-01-20 00:23:33,319 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1000, C=1, K=4
++2026-01-20 00:23:33,319 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-20 00:23:33,319 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-20 00:23:33,319 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1000 = False
++2026-01-20 00:23:33,319 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-20 00:23:33,319 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-20 00:23:33,319 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-20 00:23:33,319 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-20 00:23:33,319 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-20 00:23:33,319 - INFO - Generating 1000 groups efficiently from 1000 points (K=4, C=1)
++2026-01-20 00:23:33,319 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1000 points
++2026-01-20 00:23:33,319 - INFO - [OVERSAMPLING DEBUG] Using all 1000 points as seeds (no sampling needed)
++2026-01-20 00:23:33,319 - INFO - Using all 1000 points as seeds
++2026-01-20 00:23:33,319 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-20 00:23:33,319 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-20 00:23:33,319 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-20 00:23:33,319 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-20 00:23:33,319 - INFO - Generated 1000 groups efficiently
++2026-01-20 00:23:38,859 - INFO - Updated max_position_jitter from 10 to 160 based on coords_offsets max_abs=79.281 (required_canvas=224, old_padded=74, new_padded=224).
++2026-01-20 00:23:39,202 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1087, C=1, K=4
++2026-01-20 00:23:39,202 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-20 00:23:39,202 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-20 00:23:39,202 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1087 = False
++2026-01-20 00:23:39,202 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-20 00:23:39,203 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-20 00:23:39,203 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-20 00:23:39,203 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-20 00:23:39,203 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-20 00:23:39,203 - INFO - Generating 1000 groups efficiently from 1087 points (K=4, C=1)
++2026-01-20 00:23:39,203 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1087 points
++2026-01-20 00:23:39,203 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 1000 seed points
++2026-01-20 00:23:39,203 - INFO - Sampled 1000 seed points from 1087 total points
++2026-01-20 00:23:39,203 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-20 00:23:39,203 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-20 00:23:39,203 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-20 00:23:39,203 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-20 00:23:39,203 - INFO - Generated 1000 groups efficiently
++2026-01-20 00:23:45,274 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-20 00:23:47,254 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-20 00:23:53,165 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-20 00:24:51,299 - INFO - Skipping image stitching (disabled or no test data available)
++2026-01-20 00:24:51,299 - INFO - Backend dispatcher: workflow complete (backend=tensorflow)
++2026-01-20 00:24:51,314 - DEBUG - Creating converter from 5 to 3
++2026-01-20 00:24:52,525 - INFO - Outputs saved to .artifacts/integration_manual_1000_512/2026-01-20T082329Z/output/training_outputs
++2026-01-20 00:24:52,525 - INFO - TensorFlow artifacts saved via model_manager and save_outputs
++2026-01-20 02:08:05,931 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/matplotlib/mpl-data
++2026-01-20 02:08:05,941 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
++2026-01-20 02:08:05,941 - DEBUG - interactive is False
++2026-01-20 02:08:05,941 - DEBUG - platform is linux
++2026-01-20 02:08:05,972 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
++2026-01-20 02:08:05,973 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
++2026-01-20 02:08:07,069 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
++2026-01-20 02:08:07,261 - DEBUG - Creating converter from 7 to 5
++2026-01-20 02:08:07,261 - DEBUG - Creating converter from 5 to 7
++2026-01-20 02:08:07,261 - DEBUG - Creating converter from 7 to 5
++2026-01-20 02:08:07,261 - DEBUG - Creating converter from 5 to 7
++2026-01-20 02:08:08,822 - DEBUG - YAML config: {}
++2026-01-20 02:08:08,822 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_groups': None, 'n_images': 1000, 'n_subsample': None, 'subsample_seed': None, 'neighbor_count': 4, 'enable_oversampling': False, 'neighbor_pool_size': None, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T100804Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_learning_rate': None, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-20 02:08:08,822 - DEBUG - Merged config: {'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 1000, 'neighbor_count': 4, 'enable_oversampling': False, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T100804Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-20 02:08:08,822 - INFO - Configuration setup complete
++2026-01-20 02:08:08,822 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), test_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), batch_size=16, nepochs=50, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_groups=1000, n_images=1000, n_subsample=None, subsample_seed=None, neighbor_count=4, enable_oversampling=False, neighbor_pool_size=None, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T100804Z/output/training_outputs'), sequential_sampling=False, backend='tensorflow', torch_loss_mode='poisson')
++2026-01-20 02:08:08,822 - INFO - Legacy mode: using 1000 groups (gridsize=1)
++2026-01-20 02:08:08,822 - INFO - Starting training with n_subsample=1000, n_groups=1000, stitching=disabled
++2026-01-20 02:08:08,822 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=1000, n_subsample=1000
++2026-01-20 02:08:08,847 - INFO - Independent sampling: subsampling 1000 images from 1087 total
++2026-01-20 02:08:08,848 - INFO - Randomly subsampled 1000 images
++2026-01-20 02:08:08,896 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=None, n_subsample=None
++2026-01-20 02:08:08,921 - INFO - Using full dataset of 1087 images
++2026-01-20 02:08:08,946 - INFO - Loaded test data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz
++2026-01-20 02:08:08,946 - INFO - Backend dispatcher: params.cfg synchronized with TrainingConfig (backend=tensorflow)
++2026-01-20 02:08:08,946 - INFO - Backend dispatcher: routing to TensorFlow workflow (ptycho.workflows.components)
++2026-01-20 02:08:08,947 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1000, C=1, K=4
++2026-01-20 02:08:08,947 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-20 02:08:08,947 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-20 02:08:08,947 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1000 = False
++2026-01-20 02:08:08,947 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-20 02:08:08,947 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-20 02:08:08,948 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-20 02:08:08,948 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-20 02:08:08,948 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-20 02:08:08,948 - INFO - Generating 1000 groups efficiently from 1000 points (K=4, C=1)
++2026-01-20 02:08:08,948 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1000 points
++2026-01-20 02:08:08,948 - INFO - [OVERSAMPLING DEBUG] Using all 1000 points as seeds (no sampling needed)
++2026-01-20 02:08:08,948 - INFO - Using all 1000 points as seeds
++2026-01-20 02:08:08,948 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-20 02:08:08,948 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-20 02:08:08,948 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-20 02:08:08,948 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-20 02:08:08,948 - INFO - Generated 1000 groups efficiently
++2026-01-20 02:08:14,620 - INFO - Updated max_position_jitter from 10 to 160 based on coords_offsets max_abs=79.281 (required_canvas=224, old_padded=74, new_padded=224).
++2026-01-20 02:08:14,981 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1087, C=1, K=4
++2026-01-20 02:08:14,981 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-20 02:08:14,981 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-20 02:08:14,981 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1087 = False
++2026-01-20 02:08:14,981 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-20 02:08:14,981 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-20 02:08:14,981 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-20 02:08:14,981 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-20 02:08:14,981 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-20 02:08:14,981 - INFO - Generating 1000 groups efficiently from 1087 points (K=4, C=1)
++2026-01-20 02:08:14,981 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1087 points
++2026-01-20 02:08:14,981 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 1000 seed points
++2026-01-20 02:08:14,981 - INFO - Sampled 1000 seed points from 1087 total points
++2026-01-20 02:08:14,981 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-20 02:08:14,981 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-20 02:08:14,981 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-20 02:08:14,981 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-20 02:08:14,981 - INFO - Generated 1000 groups efficiently
++2026-01-20 02:08:21,295 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-20 02:08:23,284 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-20 02:08:29,213 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-20 02:09:27,593 - INFO - Skipping image stitching (disabled or no test data available)
++2026-01-20 02:09:27,593 - INFO - Backend dispatcher: workflow complete (backend=tensorflow)
++2026-01-20 02:09:27,609 - DEBUG - Creating converter from 5 to 3
++2026-01-20 02:09:28,815 - INFO - Outputs saved to .artifacts/integration_manual_1000_512/2026-01-20T100804Z/output/training_outputs
++2026-01-20 02:09:28,815 - INFO - TensorFlow artifacts saved via model_manager and save_outputs
++2026-01-20 03:10:46,554 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/matplotlib/mpl-data
++2026-01-20 03:10:46,562 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
++2026-01-20 03:10:46,563 - DEBUG - interactive is False
++2026-01-20 03:10:46,563 - DEBUG - platform is linux
++2026-01-20 03:10:46,591 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
++2026-01-20 03:10:46,592 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
++2026-01-20 03:10:47,715 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
++2026-01-20 03:10:47,900 - DEBUG - Creating converter from 7 to 5
++2026-01-20 03:10:47,900 - DEBUG - Creating converter from 5 to 7
++2026-01-20 03:10:47,900 - DEBUG - Creating converter from 7 to 5
++2026-01-20 03:10:47,900 - DEBUG - Creating converter from 5 to 7
++2026-01-20 03:10:49,467 - DEBUG - YAML config: {}
++2026-01-20 03:10:49,467 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_groups': None, 'n_images': 1000, 'n_subsample': None, 'subsample_seed': None, 'neighbor_count': 4, 'enable_oversampling': False, 'neighbor_pool_size': None, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T111045Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_learning_rate': None, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-20 03:10:49,467 - DEBUG - Merged config: {'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 1000, 'neighbor_count': 4, 'enable_oversampling': False, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T111045Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-20 03:10:49,467 - INFO - Configuration setup complete
++2026-01-20 03:10:49,467 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), test_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), batch_size=16, nepochs=50, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_groups=1000, n_images=1000, n_subsample=None, subsample_seed=None, neighbor_count=4, enable_oversampling=False, neighbor_pool_size=None, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T111045Z/output/training_outputs'), sequential_sampling=False, backend='tensorflow', torch_loss_mode='poisson')
++2026-01-20 03:10:49,467 - INFO - Legacy mode: using 1000 groups (gridsize=1)
++2026-01-20 03:10:49,467 - INFO - Starting training with n_subsample=1000, n_groups=1000, stitching=disabled
++2026-01-20 03:10:49,467 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=1000, n_subsample=1000
++2026-01-20 03:10:49,483 - INFO - Independent sampling: subsampling 1000 images from 1087 total
++2026-01-20 03:10:49,483 - INFO - Randomly subsampled 1000 images
++2026-01-20 03:10:49,508 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=None, n_subsample=None
++2026-01-20 03:10:49,522 - INFO - Using full dataset of 1087 images
++2026-01-20 03:10:49,533 - INFO - Loaded test data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz
++2026-01-20 03:10:49,533 - INFO - Backend dispatcher: params.cfg synchronized with TrainingConfig (backend=tensorflow)
++2026-01-20 03:10:49,533 - INFO - Backend dispatcher: routing to TensorFlow workflow (ptycho.workflows.components)
++2026-01-20 03:10:49,534 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1000, C=1, K=4
++2026-01-20 03:10:49,534 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-20 03:10:49,534 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-20 03:10:49,534 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1000 = False
++2026-01-20 03:10:49,534 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-20 03:10:49,534 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-20 03:10:49,534 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-20 03:10:49,534 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-20 03:10:49,534 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-20 03:10:49,534 - INFO - Generating 1000 groups efficiently from 1000 points (K=4, C=1)
++2026-01-20 03:10:49,535 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1000 points
++2026-01-20 03:10:49,535 - INFO - [OVERSAMPLING DEBUG] Using all 1000 points as seeds (no sampling needed)
++2026-01-20 03:10:49,535 - INFO - Using all 1000 points as seeds
++2026-01-20 03:10:49,535 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-20 03:10:49,535 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-20 03:10:49,535 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-20 03:10:49,535 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-20 03:10:49,535 - INFO - Generated 1000 groups efficiently
++2026-01-20 03:10:55,093 - INFO - Updated max_position_jitter from 10 to 160 based on coords_offsets max_abs=79.281 (required_canvas=224, old_padded=74, new_padded=224).
++2026-01-20 03:10:55,458 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1087, C=1, K=4
++2026-01-20 03:10:55,458 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-20 03:10:55,458 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-20 03:10:55,458 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1087 = False
++2026-01-20 03:10:55,458 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-20 03:10:55,458 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-20 03:10:55,459 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-20 03:10:55,459 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-20 03:10:55,459 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-20 03:10:55,459 - INFO - Generating 1000 groups efficiently from 1087 points (K=4, C=1)
++2026-01-20 03:10:55,459 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1087 points
++2026-01-20 03:10:55,459 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 1000 seed points
++2026-01-20 03:10:55,459 - INFO - Sampled 1000 seed points from 1087 total points
++2026-01-20 03:10:55,459 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-20 03:10:55,459 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-20 03:10:55,459 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-20 03:10:55,459 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-20 03:10:55,459 - INFO - Generated 1000 groups efficiently
++2026-01-20 03:11:01,506 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-20 03:11:03,530 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-20 03:11:09,463 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-20 03:12:07,172 - INFO - Skipping image stitching (disabled or no test data available)
++2026-01-20 03:12:07,172 - INFO - Backend dispatcher: workflow complete (backend=tensorflow)
++2026-01-20 03:12:07,187 - DEBUG - Creating converter from 5 to 3
++2026-01-20 03:12:08,390 - INFO - Outputs saved to .artifacts/integration_manual_1000_512/2026-01-20T111045Z/output/training_outputs
++2026-01-20 03:12:08,390 - INFO - TensorFlow artifacts saved via model_manager and save_outputs
++2026-01-20 03:58:32,174 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/matplotlib/mpl-data
++2026-01-20 03:58:32,182 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
++2026-01-20 03:58:32,182 - DEBUG - interactive is False
++2026-01-20 03:58:32,182 - DEBUG - platform is linux
++2026-01-20 03:58:32,212 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
++2026-01-20 03:58:32,213 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
++2026-01-20 03:58:33,288 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
++2026-01-20 03:58:33,472 - DEBUG - Creating converter from 7 to 5
++2026-01-20 03:58:33,472 - DEBUG - Creating converter from 5 to 7
++2026-01-20 03:58:33,472 - DEBUG - Creating converter from 7 to 5
++2026-01-20 03:58:33,472 - DEBUG - Creating converter from 5 to 7
++2026-01-20 03:58:35,047 - DEBUG - YAML config: {}
++2026-01-20 03:58:35,047 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_groups': None, 'n_images': 1000, 'n_subsample': None, 'subsample_seed': None, 'neighbor_count': 4, 'enable_oversampling': False, 'neighbor_pool_size': None, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T115831Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_learning_rate': None, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-20 03:58:35,047 - DEBUG - Merged config: {'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 1000, 'neighbor_count': 4, 'enable_oversampling': False, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T115831Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-20 03:58:35,047 - INFO - Configuration setup complete
++2026-01-20 03:58:35,047 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), test_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), batch_size=16, nepochs=50, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_groups=1000, n_images=1000, n_subsample=None, subsample_seed=None, neighbor_count=4, enable_oversampling=False, neighbor_pool_size=None, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T115831Z/output/training_outputs'), sequential_sampling=False, backend='tensorflow', torch_loss_mode='poisson')
++2026-01-20 03:58:35,047 - INFO - Legacy mode: using 1000 groups (gridsize=1)
++2026-01-20 03:58:35,047 - INFO - Starting training with n_subsample=1000, n_groups=1000, stitching=disabled
++2026-01-20 03:58:35,047 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=1000, n_subsample=1000
++2026-01-20 03:58:35,063 - INFO - Independent sampling: subsampling 1000 images from 1087 total
++2026-01-20 03:58:35,063 - INFO - Randomly subsampled 1000 images
++2026-01-20 03:58:35,089 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=None, n_subsample=None
++2026-01-20 03:58:35,104 - INFO - Using full dataset of 1087 images
++2026-01-20 03:58:35,115 - INFO - Loaded test data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz
++2026-01-20 03:58:35,116 - INFO - Backend dispatcher: params.cfg synchronized with TrainingConfig (backend=tensorflow)
++2026-01-20 03:58:35,116 - INFO - Backend dispatcher: routing to TensorFlow workflow (ptycho.workflows.components)
++2026-01-20 03:58:35,117 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1000, C=1, K=4
++2026-01-20 03:58:35,117 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-20 03:58:35,117 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-20 03:58:35,117 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1000 = False
++2026-01-20 03:58:35,117 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-20 03:58:35,117 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-20 03:58:35,117 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-20 03:58:35,117 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-20 03:58:35,117 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-20 03:58:35,117 - INFO - Generating 1000 groups efficiently from 1000 points (K=4, C=1)
++2026-01-20 03:58:35,117 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1000 points
++2026-01-20 03:58:35,117 - INFO - [OVERSAMPLING DEBUG] Using all 1000 points as seeds (no sampling needed)
++2026-01-20 03:58:35,117 - INFO - Using all 1000 points as seeds
++2026-01-20 03:58:35,117 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-20 03:58:35,117 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-20 03:58:35,117 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-20 03:58:35,117 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-20 03:58:35,117 - INFO - Generated 1000 groups efficiently
++2026-01-20 03:58:40,789 - INFO - Updated max_position_jitter from 10 to 160 based on coords_offsets max_abs=79.281 (required_canvas=224, old_padded=74, new_padded=224).
++2026-01-20 03:58:41,132 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1087, C=1, K=4
++2026-01-20 03:58:41,132 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-20 03:58:41,132 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-20 03:58:41,132 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1087 = False
++2026-01-20 03:58:41,132 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-20 03:58:41,132 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-20 03:58:41,132 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-20 03:58:41,132 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-20 03:58:41,133 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-20 03:58:41,133 - INFO - Generating 1000 groups efficiently from 1087 points (K=4, C=1)
++2026-01-20 03:58:41,133 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1087 points
++2026-01-20 03:58:41,133 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 1000 seed points
++2026-01-20 03:58:41,133 - INFO - Sampled 1000 seed points from 1087 total points
++2026-01-20 03:58:41,133 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-20 03:58:41,133 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-20 03:58:41,133 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-20 03:58:41,133 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-20 03:58:41,133 - INFO - Generated 1000 groups efficiently
++2026-01-20 03:58:47,198 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-20 03:58:49,168 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-20 03:58:55,068 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-20 03:59:52,981 - INFO - Skipping image stitching (disabled or no test data available)
++2026-01-20 03:59:52,981 - INFO - Backend dispatcher: workflow complete (backend=tensorflow)
++2026-01-20 03:59:52,997 - DEBUG - Creating converter from 5 to 3
++2026-01-20 03:59:54,189 - INFO - Outputs saved to .artifacts/integration_manual_1000_512/2026-01-20T115831Z/output/training_outputs
++2026-01-20 03:59:54,189 - INFO - TensorFlow artifacts saved via model_manager and save_outputs
++2026-01-20 04:55:40,118 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/matplotlib/mpl-data
++2026-01-20 04:55:40,126 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
++2026-01-20 04:55:40,126 - DEBUG - interactive is False
++2026-01-20 04:55:40,126 - DEBUG - platform is linux
++2026-01-20 04:55:40,157 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
++2026-01-20 04:55:40,159 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
++2026-01-20 04:55:41,246 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
++2026-01-20 04:55:41,436 - DEBUG - Creating converter from 7 to 5
++2026-01-20 04:55:41,436 - DEBUG - Creating converter from 5 to 7
++2026-01-20 04:55:41,436 - DEBUG - Creating converter from 7 to 5
++2026-01-20 04:55:41,436 - DEBUG - Creating converter from 5 to 7
++2026-01-20 04:55:43,019 - DEBUG - YAML config: {}
++2026-01-20 04:55:43,019 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_groups': None, 'n_images': 1000, 'n_subsample': None, 'subsample_seed': None, 'neighbor_count': 4, 'enable_oversampling': False, 'neighbor_pool_size': None, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T125539Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_learning_rate': None, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-20 04:55:43,019 - DEBUG - Merged config: {'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 1000, 'neighbor_count': 4, 'enable_oversampling': False, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T125539Z/output/training_outputs'), 'sequential_sampling': False, 'backend': 'tensorflow', 'torch_loss_mode': 'poisson', 'torch_accelerator': 'cuda', 'torch_deterministic': True, 'torch_num_workers': 0, 'torch_accumulate_grad_batches': 1, 'torch_scheduler': 'Default', 'torch_logger': 'csv', 'torch_enable_checkpointing': True, 'torch_checkpoint_save_top_k': 1}
++2026-01-20 04:55:43,020 - INFO - Configuration setup complete
++2026-01-20 04:55:43,020 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), test_data_file=PosixPath('/home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), batch_size=16, nepochs=50, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_groups=1000, n_images=1000, n_subsample=None, subsample_seed=None, neighbor_count=4, enable_oversampling=False, neighbor_pool_size=None, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('.artifacts/integration_manual_1000_512/2026-01-20T125539Z/output/training_outputs'), sequential_sampling=False, backend='tensorflow', torch_loss_mode='poisson')
++2026-01-20 04:55:43,020 - INFO - Legacy mode: using 1000 groups (gridsize=1)
++2026-01-20 04:55:43,020 - INFO - Starting training with n_subsample=1000, n_groups=1000, stitching=disabled
++2026-01-20 04:55:43,020 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=1000, n_subsample=1000
++2026-01-20 04:55:43,036 - INFO - Independent sampling: subsampling 1000 images from 1087 total
++2026-01-20 04:55:43,036 - INFO - Randomly subsampled 1000 images
++2026-01-20 04:55:43,062 - INFO - Loading data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=None, n_subsample=None
++2026-01-20 04:55:43,078 - INFO - Using full dataset of 1087 images
++2026-01-20 04:55:43,089 - INFO - Loaded test data from /home/ollie/Documents/tmp/PtychoPINN/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz
++2026-01-20 04:55:43,090 - INFO - Backend dispatcher: params.cfg synchronized with TrainingConfig (backend=tensorflow)
++2026-01-20 04:55:43,090 - INFO - Backend dispatcher: routing to TensorFlow workflow (ptycho.workflows.components)
++2026-01-20 04:55:43,091 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1000, C=1, K=4
++2026-01-20 04:55:43,091 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-20 04:55:43,091 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-20 04:55:43,091 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1000 = False
++2026-01-20 04:55:43,091 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-20 04:55:43,091 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-20 04:55:43,091 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-20 04:55:43,091 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-20 04:55:43,091 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-20 04:55:43,091 - INFO - Generating 1000 groups efficiently from 1000 points (K=4, C=1)
++2026-01-20 04:55:43,091 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1000 points
++2026-01-20 04:55:43,091 - INFO - [OVERSAMPLING DEBUG] Using all 1000 points as seeds (no sampling needed)
++2026-01-20 04:55:43,091 - INFO - Using all 1000 points as seeds
++2026-01-20 04:55:43,091 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-20 04:55:43,091 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-20 04:55:43,091 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-20 04:55:43,092 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-20 04:55:43,092 - INFO - Generated 1000 groups efficiently
++2026-01-20 04:55:48,684 - INFO - Updated max_position_jitter from 10 to 160 based on coords_offsets max_abs=79.281 (required_canvas=224, old_padded=74, new_padded=224).
++2026-01-20 04:55:49,048 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1087, C=1, K=4
++2026-01-20 04:55:49,048 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
++2026-01-20 04:55:49,048 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
++2026-01-20 04:55:49,048 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1087 = False
++2026-01-20 04:55:49,048 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
++2026-01-20 04:55:49,048 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
++2026-01-20 04:55:49,048 - INFO - Using efficient random sampling strategy for gridsize=1
++2026-01-20 04:55:49,048 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
++2026-01-20 04:55:49,048 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
++2026-01-20 04:55:49,048 - INFO - Generating 1000 groups efficiently from 1087 points (K=4, C=1)
++2026-01-20 04:55:49,048 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1087 points
++2026-01-20 04:55:49,048 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 1000 seed points
++2026-01-20 04:55:49,048 - INFO - Sampled 1000 seed points from 1087 total points
++2026-01-20 04:55:49,048 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
++2026-01-20 04:55:49,048 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
++2026-01-20 04:55:49,048 - INFO - Successfully generated 1000 groups with shape (1000, 1)
++2026-01-20 04:55:49,048 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
++2026-01-20 04:55:49,049 - INFO - Generated 1000 groups efficiently
++2026-01-20 04:55:55,115 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-20 04:55:57,108 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-20 04:56:03,018 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
++2026-01-20 04:57:01,135 - INFO - Skipping image stitching (disabled or no test data available)
++2026-01-20 04:57:01,135 - INFO - Backend dispatcher: workflow complete (backend=tensorflow)
++2026-01-20 04:57:01,150 - DEBUG - Creating converter from 5 to 3
++2026-01-20 04:57:02,340 - INFO - Outputs saved to .artifacts/integration_manual_1000_512/2026-01-20T125539Z/output/training_outputs
++2026-01-20 04:57:02,340 - INFO - TensorFlow artifacts saved via model_manager and save_outputs
+diff --git a/user_input.md b/user_input.md
+deleted file mode 100644
+index e05504b1..00000000
+--- a/user_input.md
++++ /dev/null
+@@ -1,18 +0,0 @@
+-# Reviewer Findings — Action Required
+-
+-## Summary
+-1. Router review cadence skips are broken in sync supervisor/loop runs because the state file never records which actor last executed the reviewer prompt, so the loop will run reviewer twice per iteration whenever `review_every_n` hits.
+-2. The DEBUG-SIM-LINES-DOSE-001 implementation plan still claims “NaN debugging complete” in the status block even though Phase D amplitude-bias work is active, so the plan’s status/exits no longer match reality.
+-
+-## Evidence
+-- `scripts/orchestration/README.md:130-139` documents that review cadence should run the reviewer prompt only once per iteration (galph turn only).
+-- `scripts/orchestration/supervisor.py:654-657` and `scripts/orchestration/loop.py:357-363` only set `state.last_prompt` when router is enabled; they never write `state.last_prompt_actor`, so `router.deterministic_route` cannot detect that galph already ran the reviewer prompt (the skip guard checks `last_prompt_actor == "galph"`).
+-- `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:3-34` still advertises “Status: NaN DEBUGGING COMPLETE” and the exit criteria list recon success even though the plan summary + fix ledger reopened Phase D to chase the amplitude bias (underdamped reconstructions are still failing the exit criteria).
+-
+-## Requested Plan Updates
+-- Reopen (or spin a quick follow-up to) ORCH-ROUTER-001 so the router state writes both `last_prompt` and `last_prompt_actor` (and add regression tests for sync supervisor/loop to prove reviewer cadence fires exactly once per iteration). Until then the reviewer cadence in the prompt cannot be trusted.
+-- Update `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md` (and docs/fix_plan.md) so the status, exit criteria, and checklist reflect the reopened Phase D amplitude-bias work instead of claiming the initiative is complete.
+-
+-## Next Steps for Supervisor
+-1. Assign an owner to land the router state fix (both Python runners + regression tests) and link it to an active plan so the reviewer cadence contract is reliable again.
+-2. Bring the DEBUG-SIM-LINES plan/fix ledger back in sync with the actual Phase D scope so downstream reviewers don’t assume the initiative was archived.

@@ -1,0 +1,11 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 1 item
+
+scripts/orchestration/tests/test_sync_router_review.py::TestSyncRouterReview::test_review_runs_once PASSED [100%]
+
+============================== 1 passed in 0.04s ===============================

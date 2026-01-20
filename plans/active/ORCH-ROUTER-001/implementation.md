@@ -5,7 +5,7 @@
 - Title: Router prompt + orchestration dispatch layer
 - Owner: user + Codex
 - Spec Owner: scripts/orchestration/README.md
-- Status: **in_progress — Phase E review cadence persistence (router state last_prompt_actor fix)**
+- Status: **complete — Phase E review cadence persistence landed; ready for archive**
 
 ## Goals
 - Add a router layer that deterministically selects prompts based on sync state + iteration, with optional router-prompt override.
@@ -128,11 +128,11 @@ Format for checklist items:
 
 ## Phase E -- Review Cadence Persistence
 ### Checklist
-- [ ] E1: Update `scripts/orchestration/supervisor.py` and `scripts/orchestration/loop.py` so sync-via-git runs persist both `last_prompt` and `last_prompt_actor` whenever the router is enabled (galph + ralph turns).
-      Test: `pytest scripts/orchestration/tests/test_sync_router_review.py::TestSyncRouterReview::test_supervisor_records_actor`
-- [ ] E2: Add regression tests proving reviewer cadence fires exactly once per iteration (galph hits reviewer, ralph skips) and capture CLI/log evidence for both actors.
+- [x] E1: Update `scripts/orchestration/supervisor.py` and `scripts/orchestration/loop.py` so sync-via-git runs persist both `last_prompt` and `last_prompt_actor` whenever the router is enabled (galph + ralph turns).
       Test: `pytest scripts/orchestration/tests/test_sync_router_review.py::TestSyncRouterReview::test_review_runs_once`
-- [ ] E3: Update orchestration docs/test registries to reference the new review-cadence regression test module.
+- [x] E2: Add regression tests proving reviewer cadence fires exactly once per iteration (galph hits reviewer, ralph skips) and capture CLI/log evidence for both actors.
+      Test: `pytest scripts/orchestration/tests/test_sync_router_review.py -v`
+- [x] E3: Update orchestration docs/test registries to reference the new review-cadence regression test module.
       Test: `pytest --collect-only scripts/orchestration/tests/test_sync_router_review.py -q`
 
 ### Notes & Risks

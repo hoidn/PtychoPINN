@@ -1,0 +1,6 @@
+scripts/orchestration/tests/test_sync_router_review.py::TestSyncRouterReview::test_review_runs_once
+scripts/orchestration/tests/test_sync_router_review.py::TestSyncRouterReview::test_review_cadence_without_actor_annotation_fails
+scripts/orchestration/tests/test_sync_router_review.py::TestSyncRouterReview::test_last_prompt_actor_toggles_correctly
+scripts/orchestration/tests/test_sync_router_review.py::TestSyncRouterReview::test_non_cadence_iteration_no_reviewer
+
+4 tests collected in 0.04s
