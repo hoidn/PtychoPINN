@@ -35,6 +35,15 @@ REQUIRED_FILES = {
     "ground_truth_amplitude": "ground_truth_amp.npy",
 }
 
+# Loss component keys per specs/spec-ptycho-workflow.md §Loss and Optimization
+LOSS_COMPONENT_KEYS = [
+    "pred_intensity_loss",      # PoissonNLL term: nll_weight · PoissonNLL((s·X)², (s·Â)²)
+    "intensity_scaler_inv_loss",  # IntensityScaler inverse loss
+    "trimmed_obj_loss",         # realspace_weight · realspace_loss(object)
+]
+TOTAL_LOSS_KEY = "loss"
+LEARNING_RATE_KEY = "learning_rate"
+
 STAGE_LABELS = [
     ("raw_diffraction", "Raw diffraction"),
     ("grouped_diffraction", "Grouped diffraction"),
@@ -390,6 +399,107 @@ def _load_numpy_array(path: Path) -> np.ndarray:
     return np.asarray(data, dtype=np.float64)
 
 
+def build_loss_composition(
+    training_summary: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """Parse loss composition from training history summary.
+
+    Per `specs/spec-ptycho-workflow.md §Loss and Optimization`:
+    Loss = realspace_weight · realspace_loss(object)
+         + mae_weight · MAE(pred_amp_scaled, target_amp)
+         + nll_weight · PoissonNLL((s·X)², (s·Â)²)
+
+    This function extracts the individual loss components and computes
+    their relative contributions to the total loss.
+    """
+    metrics = training_summary.get("metrics", {})
+
+    # Extract total loss
+    total_loss_data = metrics.get(TOTAL_LOSS_KEY, {})
+    total_loss_last = _as_float(total_loss_data.get("last"))
+    total_loss_min = _as_float(total_loss_data.get("min"))
+    total_loss_max = _as_float(total_loss_data.get("max"))
+    epoch_count = total_loss_data.get("count", 0)
+
+    # Extract learning rate context
+    lr_data = metrics.get(LEARNING_RATE_KEY, {})
+    lr_last = _as_float(lr_data.get("last"))
+    lr_min = _as_float(lr_data.get("min"))
+    lr_max = _as_float(lr_data.get("max"))
+
+    # Extract individual loss components
+    components: Dict[str, Dict[str, Any]] = {}
+    for key in LOSS_COMPONENT_KEYS:
+        comp_data = metrics.get(key, {})
+        last_val = _as_float(comp_data.get("last"))
+        min_val = _as_float(comp_data.get("min"))
+        max_val = _as_float(comp_data.get("max"))
+        has_nan = comp_data.get("has_nan", False)
+
+        # Compute contribution fraction (ratio to total loss)
+        # Note: losses may be negative (e.g., NLL loss), so we track signed values
+        contribution_fraction: Optional[float] = None
+        if last_val is not None and total_loss_last is not None and abs(total_loss_last) > 1e-12:
+            contribution_fraction = last_val / total_loss_last
+
+        components[key] = {
+            "last": last_val,
+            "min": min_val,
+            "max": max_val,
+            "has_nan": has_nan,
+            "contribution_fraction": contribution_fraction,
+        }
+
+    # Compute dominance analysis: which loss term dominates?
+    active_components = [
+        (key, data)
+        for key, data in components.items()
+        if data.get("last") is not None and abs(data["last"]) > 1e-12
+    ]
+
+    dominant_component: Optional[str] = None
+    dominance_ratio: Optional[float] = None
+    if active_components:
+        # Sort by absolute magnitude
+        sorted_by_magnitude = sorted(
+            active_components, key=lambda x: abs(x[1]["last"]), reverse=True
+        )
+        dominant_component = sorted_by_magnitude[0][0]
+        dominant_val = abs(sorted_by_magnitude[0][1]["last"])
+
+        # Compute ratio of dominant to second-largest (if exists)
+        if len(sorted_by_magnitude) > 1:
+            second_val = abs(sorted_by_magnitude[1][1]["last"])
+            if second_val > 1e-12:
+                dominance_ratio = dominant_val / second_val
+
+    # Check for inactive components (always zero)
+    inactive_components = [
+        key
+        for key, data in components.items()
+        if data.get("last") is not None and abs(data["last"]) < 1e-12
+    ]
+
+    return {
+        "spec_reference": "specs/spec-ptycho-workflow.md §Loss and Optimization",
+        "epoch_count": epoch_count,
+        "total_loss": {
+            "last": total_loss_last,
+            "min": total_loss_min,
+            "max": total_loss_max,
+        },
+        "learning_rate": {
+            "last": lr_last,
+            "min": lr_min,
+            "max": lr_max,
+        },
+        "components": components,
+        "dominant_component": dominant_component,
+        "dominance_ratio": dominance_ratio,
+        "inactive_components": inactive_components,
+    }
+
+
 def _compute_ratio_stats(ratios: np.ndarray) -> Dict[str, Optional[float]]:
     if ratios.size == 0:
         return {
@@ -565,6 +675,9 @@ def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
         "metrics_with_nan": metrics_with_nan,
     }
 
+    # Parse loss composition per specs/spec-ptycho-workflow.md §Loss and Optimization
+    loss_composition = build_loss_composition(training_summary)
+
     return {
         "name": scenario.name,
         "paths": {
@@ -592,6 +705,7 @@ def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
         "prediction_scale": prediction_scale_meta,
         "prediction_scale_note": run_metadata.get("prediction_scale_note"),
         "training": training_info,
+        "loss_composition": loss_composition,
         "derived": {
             "stage_means": stage_means,
             "ratios": stage_ratios,
@@ -761,6 +875,62 @@ def render_markdown(summary: Mapping[str, Any]) -> str:
             f"- Training NaNs: {'YES' if training.get('has_nan') else 'no'}"
             + (f" (metrics: {', '.join(nan_metrics)})" if nan_metrics else "")
         )
+
+        # Loss Composition section per specs/spec-ptycho-workflow.md §Loss and Optimization
+        loss_comp = payload.get("loss_composition") or {}
+        if loss_comp:
+            total_loss = loss_comp.get("total_loss") or {}
+            lr = loss_comp.get("learning_rate") or {}
+            components = loss_comp.get("components") or {}
+            dominant = loss_comp.get("dominant_component")
+            dom_ratio = loss_comp.get("dominance_ratio")
+            inactive = loss_comp.get("inactive_components") or []
+
+            lines.append("")
+            lines.append("### Loss Composition")
+            lines.append("")
+            lines.append(f"**Spec Reference:** `{loss_comp.get('spec_reference', 'specs/spec-ptycho-workflow.md §Loss and Optimization')}`")
+            lines.append("")
+            lines.append(f"- Epochs trained: {loss_comp.get('epoch_count', 'n/a')}")
+            lines.append(
+                f"- Total loss (final): {fmt_value(total_loss.get('last'))} "
+                f"(min={fmt_value(total_loss.get('min'))}, max={fmt_value(total_loss.get('max'))})"
+            )
+            lines.append(
+                f"- Learning rate: last={fmt_value(lr.get('last'), precision=6)} "
+                f"(min={fmt_value(lr.get('min'), precision=6)}, max={fmt_value(lr.get('max'), precision=6)})"
+            )
+            lines.append("")
+
+            # Component breakdown table
+            lines.append("| Loss Component | Final Value | Contribution | Has NaN |")
+            lines.append("| --- | ---: | ---: | --- |")
+            for comp_key in LOSS_COMPONENT_KEYS:
+                comp_data = components.get(comp_key, {})
+                contribution = comp_data.get("contribution_fraction")
+                contrib_str = (
+                    f"{contribution:.1%}" if contribution is not None else "n/a"
+                )
+                has_nan_str = "Yes" if comp_data.get("has_nan") else "No"
+                lines.append(
+                    f"| `{comp_key}` | {fmt_value(comp_data.get('last'))} | "
+                    f"{contrib_str} | {has_nan_str} |"
+                )
+            lines.append("")
+
+            # Dominance analysis
+            if dominant:
+                lines.append(f"**Dominant loss term:** `{dominant}`")
+                if dom_ratio is not None:
+                    lines.append(f"  - Dominance ratio vs next: {fmt_value(dom_ratio, precision=1)}×")
+            if inactive:
+                lines.append(f"**Inactive components (≈0):** {', '.join(f'`{c}`' for c in inactive)}")
+                lines.append(
+                    "  - Per `specs/spec-ptycho-workflow.md §Loss and Optimization`: "
+                    "`trimmed_obj_loss=0` indicates `realspace_weight=0` (TV/MAE disabled)"
+                )
+            lines.append("")
+
         inference = payload.get("inference", {})
         lines.append(
             "- Inference canvas: "
@@ -800,6 +970,9 @@ def render_markdown(summary: Mapping[str, Any]) -> str:
         ratio_payload = derived.get("ratios") or {}
         if ratio_payload:
             lines.append("### Stage Ratios")
+            lines.append("")
+            lines.append("Per `specs/spec-ptycho-core.md §Normalization Invariants`: normalized→prediction and prediction→truth deltas indicate where amplitude collapses in the pipeline.")
+            lines.append("")
             lines.append("| Transition | Ratio |")
             lines.append("| --- | ---: |")
             seen = set()

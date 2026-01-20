@@ -270,6 +270,22 @@
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/{gs2_ideal_nepochs60/**,bias_summary.json,bias_summary.md,analyze_intensity_bias.log,pytest_cli_smoke.log,summary.md}`
     - **Key Finding:** Early stopping triggered at epoch 30/60; loss converged by ~epoch 20. Full normalization chain product remains 18.571 (vs ideal 1.0). Training length is ruled out as the root cause.
     - **Next Actions:** D3c: Document H-NEPOCHS rejection in docs/findings.md. D4: Investigate architecture/loss wiring — the ~6.7× prediction→truth ratio is the primary suspect.
+  - *2026-01-20T162500Z:* **Phase D4 loss-composition instrumentation IMPLEMENTED.** Extended `bin/analyze_intensity_bias.py` with `build_loss_composition()` to parse `train_outputs/history_summary.json` and compute loss breakdown per `specs/spec-ptycho-workflow.md §Loss and Optimization`. Analyzer now reports:
+    - Individual loss component final values + contribution fractions
+    - Dominant loss term + dominance ratio vs next-largest term
+    - Inactive components (flagged when ≈0)
+    - Learning rate context (final/min/max)
+    - Stage ratio summary explicitly citing `specs/spec-ptycho-core.md §Normalization Invariants` for normalized→prediction and prediction→truth deltas
+
+    Ran analyzer on gs2_base (5-epoch baseline) vs gs2_ne60 (30-epoch via EarlyStopping) scenarios.
+    - **Metrics:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T162500Z/{bias_summary.json,bias_summary.md,analyze_loss_wiring.log,pytest_cli_smoke.log}`
+    - **Key Findings:**
+      - **gs2_base:** `pred_intensity_loss` dominates (99.2% of total loss, 239596× larger than `intensity_scaler_inv_loss`). `trimmed_obj_loss=0` confirming realspace_weight=0 (TV/MAE disabled).
+      - **gs2_ne60:** Similar pattern — `pred_intensity_loss` at 99.4%, dominance ratio 305011×. Additional training epochs reduced `intensity_scaler_inv_loss` from 16.2 to 12.8 but did not affect amplitude bias.
+      - **Both scenarios:** Full chain product 18.571 (vs ideal 1.0), symmetry violated per spec. Primary deviation source is `prediction_to_truth` (ratio ≈6.6-6.7×), NOT the loss composition — the loss wiring is correct but the model's output scale is inherently ~6× lower than ground truth.
+    - **Interpretation:** The loss makeup is identical between short and long runs; the amplitude collapse is upstream of the loss function. Next hypothesis: the `IntensityScaler_inv` output scaling or the model architecture's output normalization is the culprit.
+    - **Next Actions:** Investigate `IntensityScaler`/`IntensityScaler_inv` output scaling in `ptycho/model.py` to determine if prediction amplitudes are being inversely scaled by intensity_scale when they shouldn't be, or vice versa.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
