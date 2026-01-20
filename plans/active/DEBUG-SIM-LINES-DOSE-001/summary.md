@@ -1,5 +1,11 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
+### Turn Summary — 2026-01-20T23:17:45Z (Phase D4 dataset intensity-scale planning)
+The IntensityScaler snapshot proved log_scale matches `params.cfg`, so the next D4 increment shifts to verifying whether the sim_lines runner is stuck on the closed-form intensity scale (988.21) instead of the dataset-derived gain mandated by `specs/spec-ptycho-core.md §Normalization Invariants`.
+Reserved artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/`, updated the implementation plan with checklist D4a, and drafted input.md instructing Ralph to extend `bin/run_phase_c2_scenario.py` / `bin/analyze_intensity_bias.py` so each scenario records dataset vs fallback intensity scales and renders the deltas in JSON/Markdown before rerunning the gs2 baseline + `gs2_ideal_nepochs60` scenarios with the CLI smoke pytest guard.
+Next: Ralph lands the dataset-scale telemetry, reruns the two gs2 profiles under the new hub, regenerates `bias_summary.*`, and reports whether a gain mismatch explains the ≈6.7× amplitude gap.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/ (planned)
+
 ### Turn Summary — 2026-01-20T14:05:31Z (Phase D3b 60-epoch retrain planning)
 Hyperparameter diff artifacts (reports/2026-01-20T133807Z/) proved sim_lines trains for only 5 epochs while dose_experiments runs 60, so we re-scoped Phase D3 around validating the H-NEPOCHS hypothesis with a targeted gs2_ideal rerun.
 Reserved hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T140531Z/`, updated the plan/fix ledger with D3b/D3c subtasks, and drafted the Do Now instructing Ralph to run `bin/run_phase_c2_scenario.py --scenario gs2_ideal --nepochs 60 --group-limit 64 --prediction-scale-source least_squares`, rerun `analyze_intensity_bias.py`, and re-execute the CLI smoke pytest guard so we can measure amplitude/pearson_r deltas against the 5-epoch baseline.

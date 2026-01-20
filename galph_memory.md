@@ -1054,3 +1054,22 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=2 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T173500Z/ next_action=Instrument run_phase_c2_scenario.py + analyzer, rerun gs2 baseline vs 60-epoch scenarios, and archive analyzer/pytest evidence under the new hub
 
 ---
+# 2026-01-20T23:17:45Z: DEBUG-SIM-LINES-DOSE-001 — Phase D4 dataset intensity-scale planning
+
+- dwell: 0 (fresh implementation handoff after two planning loops)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 Phase D4 — verify dataset vs fallback intensity scales before touching normalization math
+- Action type: Planning → Implementation handoff
+- Mode: Implementation
+- Git sync: `git stash push -u -m 'galph-20260120-loop' && timeout 30 git pull --rebase && git stash pop`
+- Documents reviewed: docs/index.md; docs/findings.md (CONFIG-001, NORMALIZATION-001, SIM-LINES-CONFIG-001, H-NEPOCHS-001); docs/TESTING_GUIDE.md; docs/fix_plan.md (§DEBUG-SIM-LINES-DOSE-001 Phase D); plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md,input.md}; specs/spec-ptycho-core.md §Normalization Invariants; specs/spec-ptycho-workflow.md §Loss and Optimization; latest analyzer outputs under `reports/2026-01-20T173500Z/`
+- Key observations:
+  - IntensityScaler telemetry proved `exp(log_scale)` tracks `params.cfg` (delta ≈6.5e-05), so scalers are not drifting.
+  - The ≈6.7× prediction→truth gap persists on both gs2 profiles, meaning normalization-stage gain mismatch (dataset vs fallback) remains the prime suspect.
+- Key decisions:
+  - Added checklist item D4a to the implementation plan to compute dataset-derived intensity scales (`s = sqrt(nphotons / E_batch[Σ|Ψ|²])`) inside the plan-local runner, compare them to the fallback 988.21 gain, and surface the numbers in both `intensity_stats.*` and analyzer Markdown.
+  - Extended docs/fix_plan.md and the initiative summary with the new scope, created artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/`, and rewrote `input.md` so Ralph knows which files/functions to touch plus the rerun/analyzer/test commands.
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/` (planning hub)
+- Next Action: Ralph implements the dataset-scale telemetry + analyzer enhancements, reruns gs2 baseline and `gs2_ideal_nepochs60`, regenerates `bias_summary.*`, and captures the CLI smoke pytest log under the new hub.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/ next_action=Add dataset-scale telemetry + analyzer table, rerun gs2 scenarios, archive analyzer/pytest evidence under the new hub
+---
