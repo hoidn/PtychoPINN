@@ -644,3 +644,17 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Next action: ready_for_implementation — extend the compatibility runner to clamp neighbor_count/group_count and cap nimages so we can rerun the legacy simulate→train→infer flow without OOMs; rerun the CLI stages and archive the outputs/logs.
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T092411Z/ next_action=finish A1b legacy runner (clamp neighbor_count + nimages, rerun simulate→train→infer, archive logs)
+# 2026-01-20T16:05:00Z: DEBUG-SIM-LINES-DOSE-001 — C4f CONFIG-001 bridging handoff
+
+- dwell: 1 (planning loop stacked atop the prior implementation turn)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Phase C4f ensure CONFIG-001 sync before sim_lines training/inference
+- Action type: Planning → Implementation handoff | Mode: Implementation
+- Git sync: `git pull --rebase` (clean after temporary stash)
+- Documents reviewed: docs/index.md, docs/findings.md, docs/fix_plan.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/workflows/pytorch.md, specs/spec-ptycho-workflow.md, specs/spec-ptycho-core.md, specs/spec-inference-pipeline.md, specs/data_contracts.md, plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/{run_phase_c2_scenario.py,analyze_intensity_bias.py}, scripts/studies/sim_lines_4x/pipeline.py
+- Retrospective: Reviewed the last two loops (2026-01-20T150500Z rescale prototype + 2026-01-20T152400Z stats persistence fix); both satisfied their Do Now scopes (rescale hook landed, stats JSON now records prediction_scale) and left the hub evidence clean — no hygiene issues spotted.
+- Key updates:
+  - Scoped C4f around inserting explicit `update_legacy_dict(params.cfg, config)` calls inside both the plan-local runner and scripts/studies pipeline before any legacy loader/training/inference work (specs/spec-inference-pipeline.md §1.1).
+  - Outlined reruns for `gs1_ideal` + `gs2_ideal` with `--prediction-scale-source least_squares`, analyzer refresh, and pytest CLI guard, all landing under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/`.
+  - Rewrote input.md with concrete edit instructions, CLI commands, artifact expectations, and fix-plan summary requirements so Ralph can execute Phase C4f in one pass.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/ next_action=add CONFIG-001 hooks + rerun gs1_ideal/gs2_ideal + analyzer + pytest guard

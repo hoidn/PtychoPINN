@@ -1,48 +1,52 @@
-**Summary**: Finish the A1b manual override by stabilizing the legacy `dose_experiments` runner (compatibility shim) so the simulate→train→infer flow completes and produces archived artifacts.
-**Focus**: DEBUG-SIM-LINES-DOSE-001 — A1b dose_experiments ground-truth run
+**Summary**: Enforce CONFIG-001 bridging for the sim_lines runner + pipeline, then rerun gs1_ideal/gs2_ideal (least_squares scaling) and refresh analyzer + CLI evidence under the reserved 2026-01-20T160000Z hub.
+**Focus**: DEBUG-SIM-LINES-DOSE-001 — C4f CONFIG-001 sync (Phase C intensity audit)
 **Branch**: paper
-**Mapped tests**: none — evidence-only
-**Artifacts**: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T092411Z/
+**Mapped tests**: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
+**Artifacts**: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/
 
 **Do Now**
-- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_dose_stage.py::main — extend the compatibility runner to clamp legacy params (neighbor_count/group_count) and cap `--nimages` to a GPU-safe value (≤512) before invoking the `/home/ollie/Documents/PtychoPINN` scripts; keep the non-production shim under `bin/tfa_stub/` untouched.
-- Run: `PYTHONNOUSERSITE=1 DOSE_REAL_REPO=/home/ollie/Documents/PtychoPINN AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_dose_stage.py simulation <abs_input_npz> <.artifacts/.../simulation>` (use `/home/ollie/Documents/PtychoPINN/notebooks/{train,test}_data.npz`, persist logs in `reports/2026-01-20T092411Z/`), then invoke the same wrapper for `training` and `inference` so we have simulate→train→infer outputs plus archived CLI logs.
-- Archive: copy the compatibility logs plus any runnable artifacts (`stats.json`, PNGs, model outputs) into `.artifacts/DEBUG-SIM-LINES-DOSE-001/2026-01-20T092411Z/` and summarize the outcome in `reports/2026-01-20T092411Z/summary.md`.
+- Implement: scripts/studies/sim_lines_4x/pipeline.py::{run_scenario, run_inference} — import `update_legacy_dict` + `params as legacy_params`, then call `update_legacy_dict(legacy_params.cfg, train_config)` before `run_training(...)` and `update_legacy_dict(legacy_params.cfg, infer_config)` inside `run_inference(...)` immediately before `load_inference_bundle_with_backend(...)` so loader/grouping see the active ModelConfig values (specs/spec-inference-pipeline.md §1.1).
+- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py::{main, run_inference_and_reassemble} — add the same import, call the bridging helper right before invoking `run_training(...)`, and inside `run_inference_and_reassemble(...)` before the grouped-data call so `legacy_params.get_padded_size()` reflects the current scenario overrides.
+- Run: `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py --scenario gs1_ideal --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs1_ideal --prediction-scale-source least_squares --group-limit 64` (uses baked stable profile). Archive stdout/stderr as `gs1_ideal_runner.log` under the hub and ensure all generated JSON/PNG/NPY files live beneath the gs1_ideal directory.
+- Run: same command for `--scenario gs2_ideal --output-dir .../gs2_ideal --prediction-scale-source least_squares --group-limit 64` so both scenarios share the new CONFIG-001 plumbing; capture `gs2_ideal_runner.log` alongside outputs.
+- Run: `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py --scenario gs1_ideal=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs1_ideal --scenario gs2_ideal=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/gs2_ideal --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/` to regenerate `bias_summary.{json,md}` with the fresh telemetry.
+- Run: `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` and save the log as `pytest_cli_smoke.log` in the same hub.
+- Update `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md` + `docs/fix_plan.md` Attempts with the new bridging evidence, noting the artifact paths (`2026-01-20T160000Z/gs*_ideal`, analyzer outputs, pytest log); mention that CONFIG-001 is now enforced prior to every training/inference dispatch.
 
 **How-To Map**
-1. Edit `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_dose_stage.py` — before calling `runpy`, set `params.cfg['neighbor_count']=min(params.cfg.get('neighbor_count',5), nimages)` and clamp `nimages` to ≤512 to avoid GPU OOM; keep using the stub `tensorflow_addons` + components shim under `bin/tfa_stub/`.
-2. Simulation: `PYTHONNOUSERSITE=1 DOSE_REAL_REPO=/home/ollie/Documents/PtychoPINN python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_dose_stage.py simulation /home/ollie/Documents/PtychoPINN/notebooks/train_data.npz .artifacts/DEBUG-SIM-LINES-DOSE-001/2026-01-20T092411Z/simulation --nimages 512 --seed 42 --nepochs 60 --output_prefix dose_experiments --data_source lines --gridsize 2 --intensity_scale_trainable --probe_scale 4 --train_data_file_path /home/ollie/Documents/PtychoPINN/notebooks/train_data.npz --test_data_file_path /home/ollie/Documents/PtychoPINN/notebooks/test_data.npz > plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T092411Z/simulation.log 2>&1`.
-3. Training: same wrapper with `training` stage and the desired output dir (`.artifacts/.../training`), capturing stdout/stderr in `reports/.../training.log`.
-4. Inference: run `run_dose_stage.py inference --model_prefix <training output> --test_data /home/ollie/Documents/PtychoPINN/notebooks/test_data.npz --output_path .artifacts/.../inference` and store the log at `reports/.../inference.log`.
-5. Update `reports/2026-01-20T092411Z/summary.md` with a short outcome plus links to the new evidence; keep the stub files under version control for traceability.
+1. scripts/studies/sim_lines_4x/pipeline.py — add `from ptycho import params as legacy_params` and `from ptycho.config.config import update_legacy_dict` near the imports (or alongside the existing inline imports) and drop in the two bridging calls before `run_training` and before the grouped-data path inside `run_inference`.
+2. plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py — extend the existing `from ptycho.config.config import InferenceConfig, ModelConfig` import to include `update_legacy_dict`; call it after the final `train_config` dataclass adjustments (before `run_training(...)`) and inside `run_inference_and_reassemble(...)` right after constructing `infer_config` but before fetching grouped data.
+3. Create the hub directory `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/` if it does not already exist; ensure each runner invocation writes into child directories (`gs1_ideal`, `gs2_ideal`). Use `tee` or shell redirection to capture `gs*_ideal_runner.log` next to the scenario outputs.
+4. Analyzer command (above) expects the scenario directories to contain `run_metadata.json`, `intensity_stats.json`, `train_outputs/history_summary.json`, etc. Verify these files exist before running.
+5. After analyzer + pytest complete, prepend a new entry in `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/summary.md` summarizing what changed (CONFIG-001 hook, rerun results, analyzer highlights) and mirror the same snippet into `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md`. Update `docs/fix_plan.md` Attempts History under DEBUG-SIM-LINES-DOSE-001 with the timestamp, focus (C4f), and evidence paths.
 
 **Pitfalls To Avoid**
-1. Always run wrapper commands with `PYTHONNOUSERSITE=1` and `DOSE_REAL_REPO=/home/ollie/Documents/PtychoPINN` so the legacy scripts import the correct checkout (the shim assumes those paths).
-2. Do not edit production modules under `ptycho/`; keep all compatibility hacks confined to `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/` (non-production artifacts per plan).
-3. Clamp GPU memory — cap `--nimages` ≤512 and avoid spawning multiple runs concurrently; the RTX 3090 OOMs when the raw generator allocates 20k+ patches.
-4. Adjust `params.cfg['neighbor_count']`/`group_count` before simulation so the KD-tree logic never requests more neighbors than scan positions; otherwise `group_coords` will raise `IndexError: index … out of bounds`.
-5. Keep log files under `reports/2026-01-20T092411Z/` (e.g., `simulation.log`, `training.log`, `inference.log`) and copy any large outputs under `.artifacts/.../` — do not litter the repo root with legacy artifacts.
-6. Ensure wrapper reuses the stub `tensorflow_addons` package by leaving `bin/tfa_stub` on `sys.path`; deleting or renaming it will reintroduce the `keras.src` import crash.
-7. Respect the PyTorch/TensorFlow policy: do not upgrade/downgrade packages or install Keras globally — the compatibility runner must work inside the existing env.
-8. Keep the CLI arguments absolute; the legacy scripts resolve relative paths against `/home/ollie/Documents/PtychoPINN`, not the tmp repo.
-9. If the legacy scripts emit NaNs or fail mid-run, capture the entire stderr tail in the corresponding log and exit rather than silently retrying — we need actionable evidence for the fix plan.
-10. Avoid touching `.artifacts/` entries created by prior loops; append new runs under the same timestamp to keep provenance.
+1. Don’t mutate the plan-local runner’s scenario metadata paths—only add CONFIG-001 bridging; leave amplitude-scaling and telemetry wiring intact.
+2. Ensure `update_legacy_dict` targets `legacy_params.cfg`; do not create a new dict copy or the legacy modules will still read stale values.
+3. Keep the scenario directories under the specified artifacts hub; do not spill outputs into repo root or tmp/ beyond plan-local expectations.
+4. Make sure both runner commands use `--prediction-scale-source least_squares` so the analyzer sees consistent scaling metadata for this loop.
+5. Preserve existing plan-local CLI flags (group_limit, stable profiles); avoid reverting to large workloads that could OOM.
+6. Analyzer output must overwrite `bias_summary.{json,md}` in the 2026-01-20T160000Z hub; don’t leave stale data from 150500Z.
+7. When updating docs, record only the new attempt details—do not rewrite historical entries or archive logs from prior loops.
+8. Always invoke the pytest selector from repo root with `AUTHORITATIVE_CMDS_DOC` set; omitting the env var violates the testing guide contract.
+9. Do not edit `docs/index.md` or other specs this loop; scope is limited to CONFIG-001 bridging + evidence refresh.
+10. Keep GPU utilization low by limiting parallel runs; complete gs1 before starting gs2.
 
 **If Blocked**
-- Save the failing command + stack trace into `reports/2026-01-20T092411Z/<stage>_error.log`, mention whether the crash is due to OOM vs KD-tree shape mismatches, and update docs/fix_plan.md with the new failure so we can decide whether a deeper shim (or legacy env) is required.
+- Record the failing command + stack trace under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T160000Z/blocked.log`, update `docs/fix_plan.md` Attempts with the blocker (e.g., unexpected sim failure or analyzer missing files), and ping the supervisor before retrying.
 
 **Findings Applied (Mandatory)**
-- CONFIG-001 — ensure every legacy entrypoint runs `update_legacy_dict(params.cfg, config)` before training/inference so params.cfg matches the dataclass config.
-- NORMALIZATION-001 — keep intensity-scaling evidence intact (store stats JSON/Markdown) so we can prove whether loader normalization causes the bias.
-- POLICY-001 — continue running everything with TensorFlow (torch policy satisfied) and avoid swapping interpreters.
+- CONFIG-001 — specs/spec-inference-pipeline.md §1.1 requires every legacy entrypoint to run `update_legacy_dict(params.cfg, config)` before loader/training/inference.
+- NORMALIZATION-001 — keep the analyzer outputs intact so we can continue verifying amplitude/intensity symmetry after the reruns.
+- POLICY-001 — no environment swaps; continue using the existing TensorFlow stack and document any GPU pressure in the hub logs.
 
 **Pointers**
-- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_dose_stage.py: compatibility runner to edit.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/tfa_stub/tensorflow_addons/image/__init__.py: shim that currently implements `translate`/`gaussian_filter2d`.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T092411Z/: contains import_path.log, simulation_attempt*.log, and should host the next run’s summary.
-- docs/fix_plan.md: DEBUG-SIM-LINES-DOSE-001 Attempts entry for this loop.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md: high-level log of the manual override progress and remaining blockers.
+- scripts/studies/sim_lines_4x/pipeline.py:287-371 — builds train_config + inference config for the nongrid study runner.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py:940-1240 — orchestrates training/inference and writes stats for each scenario.
+- specs/spec-inference-pipeline.md:1-80 — CONFIG-001 contract governing params.cfg synchronization.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py:1-200 — analyzer CLI invoked after reruns.
+- docs/fix_plan.md: DEBUG-SIM-LINES-DOSE-001 section — record new Attempts entry referencing hub 2026-01-20T160000Z.
 
 **Next Up (optional)**
-1. Once simulation/training/inference complete, document the ground-truth artifacts (params snapshot, stats, model outputs) and update Phase A1b exit criteria.
-2. If the runner still fails despite clamping, escalate to a dedicated environment initiative (legacy TF + tf-addons) before retrying A1b.
+1. If CONFIG-001 bridging still doesn’t close the amplitude gap, scope C4g around loader normalization corrections using the refreshed telemetry.
+
