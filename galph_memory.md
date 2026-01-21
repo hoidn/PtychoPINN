@@ -1155,3 +1155,20 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: `plans/active/DOC-HYGIENE-20260120/reports/2026-01-21T000742Z/`
 - <Action State>: [ready_for_implementation]
 - focus=DOC-HYGIENE-20260120 state=ready_for_implementation dwell=1 artifacts=plans/active/DOC-HYGIENE-20260120/reports/2026-01-21T000742Z/ next_action=Ralph updates SpecBootstrapConfig & init scripts for specs/ with pytest evidence and refreshes README/prompt references per Phase B3
+# 2026-01-21T00:21:14Z: DEBUG-SIM-LINES-DOSE-001 — Phase D4c dataset-derived scale planning
+
+- dwell: 1 (new planning/docs loop after root-cause identification)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 Phase D4c — implement dataset-derived intensity scale in train_pinn
+- Action type: Planning / implementation handoff prep
+- Mode: Implementation
+- Git sync: `git stash push -u -m 'galph-20260121-loop' && timeout 30 git pull --rebase && git stash pop`
+- Documents reviewed: docs/index.md; docs/findings.md (CONFIG-001, NORMALIZATION-001, SIM-LINES-CONFIG-001, H-NEPOCHS-001); docs/fix_plan.md; specs/spec-ptycho-core.md §Normalization Invariants; plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}; ptycho/train_pinn.py; plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py
+- Key observations:
+  - D4a telemetry proved dataset vs fallback ratio ≈0.585 and D4b pinpointed the fallback-only `calculate_intensity_scale()` path inside train_pinn.
+  - Fix requires touching a core physics module, so checklist + ledger entries had to be updated with explicit scope/test/analyzer requirements.
+- Key decisions:
+  - Opened artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T002114Z/` for D4c evidence and refreshed docs/fix_plan.md + initiative summary with the new attempt entry.
+  - Authored a fresh input.md instructing Ralph to replace `calculate_intensity_scale()` with the dataset-derived formula, add a regression test (`tests/test_train_pinn.py::TestIntensityScale`), rerun the gs2_ideal plan-local scenario, regenerate analyzer outputs, and re-run the CLI smoke pytest guard with logs under the new hub.
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T002114Z/`
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T002114Z/ next_action=Ralph lands D4c (train_pinn dataset-derived scale + regression test + gs2_ideal rerun + analyzer + pytest guard)

@@ -321,6 +321,9 @@
       2. Implement the fix in `calculate_intensity_scale()` to use actual data statistics
       3. Rerun gs2_ideal scenario with the fixed scale computation
       4. Verify amplitude bias is reduced
+  - *2026-01-21T002114Z:* **Phase D4c FIX PLANNING — Update `train_pinn.calculate_intensity_scale()` for dataset-derived mode.**
+    - **Scope:** Modify `ptycho/train_pinn.py::calculate_intensity_scale()` so it computes `s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])` directly from the training container (summing across H/W/channel dimensions) with a guarded fallback to the closed-form `sqrt(nphotons)/(N/2)` only when the dataset mean is zero/NaN. Add a regression test that stubs a minimal container to prove the dataset-derived branch matches the spec equation from `specs/spec-ptycho-core.md §Normalization Invariants`, and keep CONFIG-001 policies intact.
+    - **Verification Plan:** After landing the code + tests, rerun `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py --scenario gs2_ideal --group-limit 64 --prediction-scale-source least_squares --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T002114Z/gs2_ideal` so `intensity_stats.json` reports dataset vs fallback ratio ≈1.0, regenerate `bias_summary.{json,md}`, and re-execute `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`. All logs land under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T002114Z/`.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

@@ -1,5 +1,11 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
+### Turn Summary
+Scoped Phase D4c work so Ralph can replace `train_pinn.calculate_intensity_scale()` with the dataset-derived equation mandated by `specs/spec-ptycho-core.md §Normalization Invariants`.
+Updated docs/fix_plan.md and the initiative summary with the new D4c attempt, created artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T002114Z/`, and rewrote input.md with concrete implementation/test/analyzer commands plus test selectors.
+Next: Ralph lands the `train_pinn` fix + regression test, reruns the `gs2_ideal` scenario through `run_phase_c2_scenario.py`, regenerates bias_summary/intensity_stats, and archives pytest + CLI logs under the new hub.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T002114Z/
+
 ### Turn Summary — 2026-01-20T23:45:00Z (Phase D4b ROOT CAUSE IDENTIFIED)
 Traced `intensity_scale` computation through the codebase and identified root cause in `ptycho/train_pinn.py:calculate_intensity_scale()`.
 The function uses the closed-form fallback (`sqrt(nphotons)/(N/2)`) instead of the dataset-derived scale, even though it receives the data container as input. Dead code at lines 173-175 contains an unimplemented TODO.
