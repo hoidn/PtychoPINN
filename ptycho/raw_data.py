@@ -955,14 +955,31 @@ def get_neighbor_indices(xcoords, ycoords, K = 3):
 #@debug
 def normalize_data(dset: dict, N: int) -> np.ndarray:
     """
-    Normalize the diffraction data.
+    Normalize the diffraction data to fixed L2 norm scale.
+
+    This function normalizes diffraction amplitude data so that the mean sum of
+    squared amplitudes per image equals (N/2)². This is distinct from the
+    intensity_scale used in the training loop (spec-ptycho-core.md §Normalization
+    Invariants) which accounts for nphotons.
+
+    The normalization formula is:
+        norm_factor = sqrt((N/2)² / E_batch[Σ_xy |X|²])
+        X_normalized = norm_factor * X
+
+    This ensures post-normalization mean-sum-of-squares = (N/2)², providing a
+    consistent input scale for the model regardless of original photon counts.
 
     Args:
-        dset (dict): Dictionary containing the dataset.
-        N (int): Size of the solution region.
+        dset (dict): Dictionary containing the dataset with key 'diffraction'.
+        N (int): Size of the solution region (patch size).
 
     Returns:
         np.ndarray: Normalized diffraction data.
+
+    Note:
+        This normalization is applied BEFORE the model's intensity_scale parameter,
+        which handles the nphotons-dependent scaling for Poisson NLL loss. The two
+        stages combine to satisfy the full normalization invariant.
     """
     # Images are amplitude, not intensity
     X_full = dset['diffraction']

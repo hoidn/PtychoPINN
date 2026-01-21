@@ -1224,3 +1224,32 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T005723Z/ (planning hub)
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T005723Z/ next_action=Ralph updates normalize_data() + loader helper for dataset-derived scale, lands regression tests, reruns gs2_ideal/analyzer, and archives pytest logs under the new hub
+# 2026-01-21T01:07:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase D4e REVERTED: normalize_data serves different purpose than intensity_scale
+
+- dwell: 1 (implementation attempt + revert)
+- Focus issue: Phase D4e — attempted to update normalize_data() to use dataset-derived scale formula
+- Action type: Implementation + analysis + REVERT
+- Mode: Debug (understanding normalization pipeline)
+- Documents reviewed: specs/spec-ptycho-core.md §Normalization Invariants; ptycho/raw_data.py; ptycho/loader.py; ptycho/train_pinn.py; scenario telemetry
+- Key observations:
+  - **ATTEMPTED:** Changed normalize_data() to use `sqrt(nphotons / batch_mean_sum)` per spec formula.
+  - **RESULT:** Immediate NaN collapse during training (loss went to NaN by step 5 of epoch 1).
+  - **ROOT CAUSE:** normalize_data() and intensity_scale serve DIFFERENT purposes:
+    1. `normalize_data()` — normalizes diffraction data to fixed L2 target `(N/2)²` — INTENTIONALLY INDEPENDENT of nphotons.
+    2. `intensity_scale` — scales model inputs/outputs for Poisson NLL loss — USES nphotons per spec.
+  - The original formula `sqrt((N/2)² / mean_batch_sum)` ensures post-normalization mean-sum-of-squares = `(N/2)²` regardless of photon count. This provides a consistent input scale for the model.
+  - The spec formula for intensity_scale is applied AFTER normalize_data(), creating a two-stage normalization: (1) L2 normalization → (2) intensity scaling for loss.
+- Key finding:
+  - **D4e was INCORRECTLY SCOPED.** The normalize_data() function should NOT use the nphotons-dependent formula.
+  - The amplitude bias (~6.6×) is NOT caused by normalize_data() using a different formula — the current formula is correct for its purpose.
+  - The remaining bias must come from model architecture, loss wiring, or the interaction between the two normalization stages.
+- Decisions:
+  - REVERTED normalize_data() to original formula `sqrt((N/2)² / batch_mean_sum)` — this is the correct design.
+  - Updated docstrings in both raw_data.py and loader.py to clarify the distinct purposes of normalize_data vs intensity_scale.
+  - Updated test suite (tests/test_loader_normalization.py) to verify the L2 normalization formula and confirm nphotons-independence.
+- Tests passed:
+  - 6/6 tests pass in test_loader_normalization.py
+  - CLI smoke test passes
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T005723Z/{logs/gs2_ideal_runner.log,gs2_ideal/intensity_stats.json}
+- <Action State>: [d4e_rejected_wrong_scope]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=d4e_rejected dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T005723Z/ next_action=Re-scope D4e to investigate the two-stage normalization interaction (L2 norm → intensity_scale) rather than changing normalize_data formula; alternatively move to D5 to investigate model/loss wiring

@@ -513,24 +513,40 @@ def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) ->
 
 #@debug
 def normalize_data(dset: dict, N: int) -> np.ndarray:
-    # TODO this should be baked into the model pipeline. If we can
-    # assume consistent normalization, we can get rid of intensity_scale
-    # as a model parameter since the post normalization average L2 norm
-    # will be fixed. Normalizing in the model's dataloader will make
-    # things more self-contained and avoid the need for separately
-    # scaling simulated datasets. While we're at it we should get rid of
-    # all the unecessary multiiplying and dividing by intensity_scale.
-    # As long as nphotons is a dataset-level attribute (i.e. an attribute of RawData 
-    # and PtychoDataContainer), nothing is lost
-    # by keeping the diffraction in normalized format everywhere except
-    # before the Poisson NLL calculation in model.py.
+    """
+    Normalize the diffraction data to fixed L2 norm scale.
 
+    This function normalizes diffraction amplitude data so that the mean sum of
+    squared amplitudes per image equals (N/2)². This is distinct from the
+    intensity_scale used in the training loop (spec-ptycho-core.md §Normalization
+    Invariants) which accounts for nphotons.
+
+    The normalization formula is:
+        norm_factor = sqrt((N/2)² / E_batch[Σ_xy |X|²])
+        X_normalized = norm_factor * X
+
+    This ensures post-normalization mean-sum-of-squares = (N/2)², providing a
+    consistent input scale for the model regardless of original photon counts.
+
+    Args:
+        dset (dict): Dictionary containing the dataset with key 'diffraction'.
+        N (int): Size of the solution region (patch size).
+
+    Returns:
+        np.ndarray: Normalized diffraction data.
+
+    Note:
+        This normalization is applied BEFORE the model's intensity_scale parameter,
+        which handles the nphotons-dependent scaling for Poisson NLL loss. The two
+        stages combine to satisfy the full normalization invariant.
+
+        See ptycho.raw_data.normalize_data() for identical implementation.
+    """
     # Images are amplitude, not intensity
     X_full = dset['diffraction']
     X_full_norm = np.sqrt(
             ((N / 2)**2) / np.mean(tf.reduce_sum(dset['diffraction']**2, axis=[1, 2]))
             )
-    #print('X NORM', X_full_norm)
     return X_full_norm * X_full
 
 #@debug
