@@ -1,0 +1,83 @@
+# Orchestration Configuration (PtychoPINN)
+# This file configures the galph/ralph orchestration system.
+# See scripts/orchestration/README.md for documentation.
+
+# Prompt paths
+prompts_dir: prompts
+supervisor_prompt: supervisor.md
+main_prompt: main.md
+reviewer_prompt: reviewer.md
+
+# State management
+state_file: sync/state.json
+
+# Doc/meta auto-commit whitelist (glob patterns)
+doc_whitelist:
+  - input.md
+  - galph_memory.md
+  - docs/fix_plan.md
+  - plans/**/*.md
+  - prompts/**/*.md
+  - .gitignore
+  - .gitmodules
+  - .gitattributes
+
+# Tracked output globs for auto-commit (e.g., regenerated fixtures)
+tracked_output_globs:
+  - tests/fixtures/**/*.npy
+  - tests/fixtures/**/*.npz
+  - tests/fixtures/**/*.json
+  - tests/fixtures/**/*.pkl
+
+# Key file paths
+findings_file: docs/findings.md
+input_file: input.md
+
+# Directories
+logs_dir: logs
+tmp_dir: tmp
+
+# Router configuration
+router:
+  enabled: false
+  mode: router_default  # router_default | router_first | router_only
+  prompt: router.md
+  review_every_n: 3
+  allowlist:
+    - supervisor.md
+    - main.md
+    - reviewer.md
+
+# Agent dispatch configuration
+agent:
+  default: auto  # auto | claude | codex
+  roles:
+    galph: claude
+    ralph: codex
+  prompts:
+    supervisor.md: claude
+    main.md: claude
+    reviewer.md: claude
+
+# Spec bootstrap configuration (for bootstrapping specs from implementation)
+spec_bootstrap:
+  templates_dir: ~/Documents/project-templates
+  specs:
+    dir: specs
+  implementation:
+    dirs:
+      - ptycho/
+      - ptycho_torch/
+      - scripts/
+    exclude:
+      - "**/__pycache__/**"
+      - "**/tests/**"
+      - "**/*.pyc"
+  scoring:
+    coverage: 80
+    accuracy: 85
+    consistency: 90
+  state_file: sync/spec_bootstrap_state.json
+  prompts:
+    reviewer: spec_reviewer.md
+    writer: spec_writer.md

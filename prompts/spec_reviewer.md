@@ -21,11 +21,11 @@ organize SPECS by BEHAVIORAL DOMAIN (what the system does), not by file structur
 </hierarchy_of_truth>
 
 <required_reading>
+- docs/index.md — Documentation hub (start here to locate all other docs)
 - orchestration.yaml → spec_bootstrap section for paths and thresholds
 - sync/spec_bootstrap_state.json → current progress and scores
-- docs/spec-shards/*.md → current specs
-- docs/index.md → documentation hub
-- {templates_dir}/docs/spec-shards/*.md → target structure and format
+- specs/*.md → current spec shards (esp. spec-ptycho-*.md)
+- {templates_dir}/specs/*.md → target structure and format (from spec_bootstrap.templates_dir)
 - Implementation dirs listed in spec_bootstrap.implementation.dirs
 </required_reading>
 
@@ -118,7 +118,7 @@ Are specs coherent, discoverable, and well-structured?
 - Undefined terms used in normative statements
 
 **Discoverability Checks:**
-- Every spec shard is listed in specs/spec-ptychopinn.md (the shard index)
+- Every spec shard is listed in specs/ directory (e.g., spec-ptycho-core.md, spec-ptycho-workflow.md)
 - Every spec shard is referenced from docs/index.md
 - Cross-references exist between related sections
 - Cross-references are valid (target files and sections exist)

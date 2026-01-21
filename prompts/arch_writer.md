@@ -23,10 +23,12 @@ During bootstrap:
 </hierarchy_of_truth>
 
 <required_reading>
+- docs/index.md — Documentation hub (start here)
 - sync/arch_bootstrap_state.json — Contains your task
 - The source file(s) for the module you're documenting
-- Existing architecture docs for context and consistency
-- Relevant behavioral spec shards (for cross-references)
+- docs/architecture.md — Existing architecture docs for context and consistency
+- specs/spec-ptycho-workflow.md — Pipeline and workflow behavior (esp. pipeline-normative section)
+- specs/spec-ptycho-interfaces.md — Data formats and interface contracts (esp. data-formats-normative section)
 - Template docs for format reference
 </required_reading>
 
@@ -39,7 +41,7 @@ Your task specifies a MODULE to document:
   "task": {
     "summary": "Document data loading module architecture",
     "module": "data.py",
-    "target_doc": "docs/architecture/data-pipeline.md",
+    "target_doc": "docs/architecture.md",
     "sections_to_write": ["Purpose", "Dependencies", "Public API", "Internal Design", "Data Flow", "Design Decisions"],
     "public_apis_to_document": [
       "PtychographyDataset",
@@ -47,8 +49,8 @@ Your task specifies a MODULE to document:
       "RankShardedSubset"
     ],
     "spec_references": [
-      "specs/spec-ptycho-workflow.md § Data Loading",
-      "specs/spec-ptycho-interfaces.md § Data Contracts"
+      "specs/spec-ptycho-workflow.md#pipeline-normative",
+      "specs/spec-ptycho-interfaces.md#data-formats-normative"
     ]
   }
 }
@@ -248,14 +250,15 @@ Explain WHY, not just WHAT:
 
 ## Step 7: Add Spec Cross-References
 
-Link to behavioral specs:
+Link to behavioral specs. Always start from docs/index.md to locate the relevant spec shards.
+Spec shards live under specs/ (not docs/spec-shards/).
 
 ```markdown
 ### Behavioral Specification
 
 This module implements behaviors specified in:
-- [SPEC-WORKFLOW § Pipeline](../specs/spec-ptycho-workflow.md#pipeline-normative)
-- [SPEC-INTERFACES § Data Formats](../specs/spec-ptycho-interfaces.md#data-formats-normative)
+- [SPEC-WORKFLOW § Pipeline](specs/spec-ptycho-workflow.md#pipeline-normative)
+- [SPEC-INTERFACES § Data Formats](specs/spec-ptycho-interfaces.md#data-formats-normative)
 
 **Contract compliance:**
 - Data loading satisfies [SPEC-INTERFACES § RawData Contract]

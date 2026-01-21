@@ -65,9 +65,10 @@ Lightweight tests for script-level helpers and CLI `--help` smoke coverage.
 
 Lightweight tests for the orchestration submodule (located under `scripts/orchestration/`).
 
-- **Location:** `scripts/orchestration/tests/test_router.py`, `scripts/orchestration/tests/test_orchestrator.py`, `scripts/orchestration/tests/test_agent_dispatch.py`, `scripts/orchestration/tests/test_sync_router_review.py`
-- **Purpose:** Validate deterministic routing decisions, router modes/overrides, combined orchestrator sequencing/cadence, combined auto-commit dry-run/no-git behavior, per-role/prompt agent dispatch, and sync supervisor/loop router review cadence.
+- **Location:** `scripts/orchestration/tests/test_router.py`, `scripts/orchestration/tests/test_orchestrator.py`, `scripts/orchestration/tests/test_agent_dispatch.py`, `scripts/orchestration/tests/test_sync_router_review.py`, `scripts/orchestration/tests/test_supervisor.py`
+- **Purpose:** Validate deterministic routing decisions, router modes/overrides, combined orchestrator sequencing/cadence, combined auto-commit dry-run/no-git behavior, per-role/prompt agent dispatch, sync supervisor/loop router review cadence, and supervisor --no-git mode (skipping all git operations while still executing prompts).
 - **Combined mode review cadence:** The `test_combined_review_last_prompt_actor` test in `test_orchestrator.py` validates that combined mode honors the `last_prompt_actor` annotation so reviewer runs once per iteration (mirrors the sync router cadence tests in `test_sync_router_review.py`).
+- **Supervisor --no-git tests:** The `TestNoGit` class in `test_supervisor.py` validates that when --no-git is set, the supervisor skips all git operations (branch guard, pull, submodule scrub, add, commit, push) while still running prompt execution and logging.
 - **Selectors:**
   ```bash
   pytest scripts/orchestration/tests/test_router.py -v
@@ -75,6 +76,8 @@ Lightweight tests for the orchestration submodule (located under `scripts/orches
   pytest scripts/orchestration/tests/test_orchestrator.py::test_combined_review_last_prompt_actor -v
   pytest scripts/orchestration/tests/test_agent_dispatch.py -v
   pytest scripts/orchestration/tests/test_sync_router_review.py -v
+  pytest scripts/orchestration/tests/test_supervisor.py -v
+  pytest scripts/orchestration/tests/test_supervisor.py::TestNoGit::test_sync_iteration_skips_git_ops -v
   ```
 
 ### Plan-Local Script Policy (Guidance)
