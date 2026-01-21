@@ -1329,3 +1329,19 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T020608Z/`
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T020608Z/ next_action=Ralph adds dataset_intensity_stats to grid-mode dose_response_study + data_preprocessing constructors, updates DATA_GENERATION_GUIDE, lands the new tests, and archives pytest logs per the mapped selectors
+
+# 2026-01-21T02:45:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase D5 train/test parity planning
+
+- dwell: 1 (first planning/docs loop after D4f.3 implementation; next iteration must hand off implementation)
+- Action type: Planning / documentation sweep
+- Mode: Implementation handoff preparation
+- Documents reviewed: docs/index.md; docs/findings.md (NORMALIZATION-001, PINN-CHUNKED-001, SIM-LINES-CONFIG-001); docs/fix_plan.md; plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md,test_strategy.md}; plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/bias_summary.md; plans/active/DEBUG-SIM-LINES-DOSE-001/bin/{run_phase_c2_scenario.py,analyze_intensity_bias.py,capture_dose_normalization.py}; docs/TESTING_GUIDE.md; docs/DATA_GENERATION_GUIDE.md §4.3.
+- Key observations:
+  - D4f.3 landed (grid-mode + preprocessing constructors attach dataset_intensity_stats), but the analyzer still only reports test-split telemetry, leaving train/test normalization drift unquantified.
+  - Bundle `intensity_scale` mirrors the training dataset, so we need split-level stats to determine whether the ≈6.6× prediction→truth gap stems from mismatched raw diffraction energy.
+- Key decisions:
+  - Marked D4f.3 complete and opened Phase D5 in the implementation plan/fix ledger with a new checklist focused on instrumenting train/test dataset stats.
+  - Reserved artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T024500Z/` and drafted a fresh Do Now instructing Ralph to (1) update `bin/run_phase_c2_scenario.py` to record train/test `compute_dataset_intensity_stats()` outputs + derived scales in `run_metadata.json`, (2) extend `bin/analyze_intensity_bias.py` to surface the split stats in JSON/Markdown, (3) add an analyzer regression test, (4) rerun gs1_ideal + gs2_ideal with the enriched telemetry, and (5) keep the CLI smoke selector green.
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T024500Z/`
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T024500Z/ next_action=Ralph implements the D5 runner/analyzer instrumentation, adds the analyzer regression test, reruns gs1_ideal + gs2_ideal with the new metadata, and archives the pytest/CLI logs under the new hub

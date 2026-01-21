@@ -415,6 +415,11 @@
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T020608Z/logs/{pytest_data_preproc_stats.log,pytest_dose_response_stats.log,pytest_train_pinn_dataset_stats.log,pytest_cli_smoke.log,pytest_all_selectors.log}`
     - **Spec Compliance:** All manual constructors (loader.load, dose_response_study, data_preprocessing, inspect_ptycho_data) now attach dataset_intensity_stats per specs/spec-ptycho-core.md §Normalization Invariants.
     - **Next Actions:** Continue amplitude bias investigation (Phase D5) now that intensity_scale fallback is eliminated across all data flows.
+  - *2026-01-21T024500Z:* **Phase D5 PLANNED — Train/test intensity-scale parity instrumentation.**
+    - **Observation:** Bundle `intensity_scale` now reflects the training dataset, but analyzer outputs only expose test-split telemetry. We need to quantify how far the train vs test raw diffraction statistics diverge to decide whether the remaining ≈6.6× amplitude gap stems from split-specific normalization drift.
+    - **Scope:** Extend `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py` so each scenario records `compute_dataset_intensity_stats()` for the train and test splits (before normalization), derives the per-split dataset scales (`sqrt(nphotons / batch_mean_sum_intensity)`), and persists them in `run_metadata.json`. Update `bin/analyze_intensity_bias.py` to ingest the new metadata, display the train/test scales alongside the bundle value in both JSON + Markdown, and cite `specs/spec-ptycho-core.md §Normalization Invariants`. Add analyzer regression tests exercising the new parsing logic, then rerun the gs1_ideal + gs2_ideal stable profiles under a fresh artifacts hub with the CLI smoke guard.
+    - **Artifacts Hub:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T024500Z/`
+    - **Next Actions:** Ralph implements the runner/analyzer changes, adds the new pytest selector, reruns gs1_ideal + gs2_ideal with enriched telemetry, collects `bias_summary` evidence, and archives pytest logs for both the analyzer test and the CLI guard under the new hub.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
