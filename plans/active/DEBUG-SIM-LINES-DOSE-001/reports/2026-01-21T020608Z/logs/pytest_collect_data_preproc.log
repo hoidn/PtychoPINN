@@ -1,0 +1,4 @@
+tests/test_data_preprocessing.py::TestCreatePtychoDataset::test_attaches_dataset_stats
+tests/test_data_preprocessing.py::TestCreatePtychoDataset::test_attaches_stats_with_yy_full
+
+2 tests collected in 3.86s
