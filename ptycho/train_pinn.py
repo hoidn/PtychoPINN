@@ -163,21 +163,46 @@ def eval(test_data, history=None, trained_model=None, model_path=None):
     }
 
 def calculate_intensity_scale(ptycho_data_container: PtychoDataContainer) -> float:
+    """Compute intensity scale per specs/spec-ptycho-core.md Normalization Invariants.
+
+    Two compliant calculation modes with the following precedence:
+    1) Dataset-derived (preferred): s = sqrt(nphotons / E_batch[sum_xy |X|^2])
+    2) Closed-form fallback: s = sqrt(nphotons) / (N/2) when batch_mean is near zero
+
+    Args:
+        ptycho_data_container: Container with .X tensor (B, N, N, C) float32
+
+    Returns:
+        Intensity scale as Python float
+    """
     import tensorflow as tf
-    import numpy as np
     from . import params as p
-    def count_photons(obj):
-        pcount = np.mean(tf.math.reduce_sum(obj**2, (1, 2)))
-        return pcount
 
-    def scale_nphotons(X):
-        # TODO assumes X is already normalized. this should be enforced
-        return tf.math.sqrt(p.get('nphotons')) / (p.get('N') / 2)
+    # Cast to float64 for numerical stability
+    X = tf.cast(ptycho_data_container.X, tf.float64)
 
-    # Calculate the intensity scale using the adapted scale_nphotons function
-    intensity_scale = scale_nphotons(ptycho_data_container.X).numpy()
+    # X shape: (B, N, N, C) - compute sum of squared amplitudes over spatial and channel dims
+    # Dynamically determine reduction axes: all except batch (axis 0)
+    ndims = len(X.shape)
+    reduction_axes = tuple(range(1, ndims))  # (1, 2, 3) for rank-4, (1, 2) for rank-3
 
-    return intensity_scale
+    # Sum |X|^2 over spatial dimensions for each sample
+    sum_intensity = tf.reduce_sum(X ** 2, axis=reduction_axes)  # shape (B,)
+
+    # E_batch[sum_xy |X|^2]
+    batch_mean = tf.reduce_mean(sum_intensity)
+
+    nphotons = tf.cast(p.get('nphotons'), tf.float64)
+    N = tf.cast(p.get('N'), tf.float64)
+
+    # Dataset-derived scale when batch_mean is sufficiently large
+    if batch_mean > 1e-12:
+        dataset_scale = tf.sqrt(nphotons / batch_mean)
+        return float(dataset_scale.numpy())
+    else:
+        # Closed-form fallback: s = sqrt(nphotons) / (N/2)
+        fallback_scale = tf.sqrt(nphotons) / (N / 2.0)
+        return float(fallback_scale.numpy())
 
 # New alternative implementation
 from ptycho.image import reassemble_patches as _reassemble_patches
