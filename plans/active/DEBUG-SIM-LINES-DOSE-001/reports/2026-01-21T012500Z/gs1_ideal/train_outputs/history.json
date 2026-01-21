@@ -1,0 +1,70 @@
+{
+  "epochs": [
+    0.0,
+    1.0,
+    2.0,
+    3.0
+  ],
+  "metrics": {
+    "intensity_scaler_inv_loss": [
+      NaN,
+      NaN,
+      NaN,
+      NaN
+    ],
+    "learning_rate": [
+      0.0010000000474974513,
+      0.0010000000474974513,
+      0.0010000000474974513,
+      0.0005000000237487257
+    ],
+    "loss": [
+      NaN,
+      NaN,
+      NaN,
+      NaN
+    ],
+    "pred_intensity_loss": [
+      NaN,
+      NaN,
+      NaN,
+      NaN
+    ],
+    "train_loss": [
+      NaN,
+      NaN,
+      NaN,
+      NaN
+    ],
+    "trimmed_obj_loss": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "val_intensity_scaler_inv_loss": [
+      NaN,
+      NaN,
+      NaN,
+      NaN
+    ],
+    "val_loss": [
+      NaN,
+      NaN,
+      NaN,
+      NaN
+    ],
+    "val_pred_intensity_loss": [
+      NaN,
+      NaN,
+      NaN,
+      NaN
+    ],
+    "val_trimmed_obj_loss": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  }
+}
