@@ -10,4 +10,4 @@ collecting ... collected 1 item
 
 tests/test_loader_normalization.py::TestNormalizeData::test_dataset_stats_attachment PASSED [100%]
 
-============================== 1 passed in 4.11s ===============================
+============================== 1 passed in 4.12s ===============================

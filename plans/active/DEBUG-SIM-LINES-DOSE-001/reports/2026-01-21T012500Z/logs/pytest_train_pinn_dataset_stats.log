@@ -10,4 +10,4 @@ collecting ... collected 1 item
 
 tests/test_train_pinn.py::TestIntensityScale::test_uses_dataset_stats PASSED [100%]
 
-============================== 1 passed in 3.67s ===============================
+============================== 1 passed in 3.66s ===============================

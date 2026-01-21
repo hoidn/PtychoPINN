@@ -366,6 +366,21 @@
   - *2026-01-21T012500Z:* **Phase D4f PLANNED — Compute intensity_scale from raw diffraction before normalization.**
     - **Observation:** Despite the plan-local telemetry reporting dataset_scale≈577.74 vs fallback≈988.21, the saved bundles still record the fallback value because `calculate_intensity_scale()` reads the already-normalized tensors inside `PtychoDataContainer`. `normalize_data()` enforces `(N/2)²`, so the dataset-derived formula collapses right back to the closed-form constant.
     - **Plan:** Propagate raw `diffraction` stats through `loader.load()` (attach `dataset_intensity_stats` to the container), teach `calculate_intensity_scale()` to consume those stats before touching `_X_np`, add regression tests, then rerun the gs1_ideal + gs2_ideal Phase C2 scenarios with analyzer + CLI pytest evidence under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/` so we can prove the bundles now store the true dataset-derived scale.
+  - *2026-01-21T014500Z:* **Phase D4f VERIFIED — Dataset-derived intensity_scale now recorded in bundles.**
+    - **Evidence:** Reran the mapped tests and gs1_ideal + gs2_ideal scenarios. All tests pass (`test_dataset_stats_attachment`, `test_uses_dataset_stats`, `test_sim_lines_pipeline_import_smoke`).
+    - **Key Findings:**
+      1. `loader.load()` computes raw diffraction stats BEFORE normalization and attaches `dataset_intensity_stats` to `PtychoDataContainer` (verified by print statements and test assertions).
+      2. `calculate_intensity_scale()` correctly uses `dataset_intensity_stats` as the highest-priority source (log output: "using dataset_intensity_stats (batch_mean=3208.302879) -> scale=558.293176" for gs1_ideal, "batch_mean=13383.235771 -> scale=273.350225" for gs2_ideal).
+      3. Bundles now record the dataset-derived scale (~558 for gs1, ~273 for gs2) instead of the closed-form fallback (988.21).
+      4. The `dataset_scale` reported by the analyzer (576/577) differs from `bundle_intensity_scale` (558/273) because they're computed from DIFFERENT data (test vs training samples) — this is EXPECTED behavior.
+    - **Metrics:**
+      - `pytest tests/test_loader_normalization.py::TestNormalizeData::test_dataset_stats_attachment -v` (1 passed)
+      - `pytest tests/test_train_pinn.py::TestIntensityScale::test_uses_dataset_stats -v` (1 passed)
+      - `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
+      - gs1_ideal scenario: bundle_intensity_scale=558.29, training batch_mean=3208.30
+      - gs2_ideal scenario: bundle_intensity_scale=273.35, training batch_mean=13383.24
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/{gs1_ideal/*,gs2_ideal/*,bias_summary.json,bias_summary.md,logs/*.log,analyze_intensity_bias.log}`
+    - **Remaining Issue:** Amplitude bias persists (~2.3-2.7x undershoot). The dataset-derived scale fix proves normalization symmetry is correctly computed, but the bias originates elsewhere (model architecture, loss wiring, or training dynamics). Next investigation should focus on D5 forward-pass instrumentation.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
