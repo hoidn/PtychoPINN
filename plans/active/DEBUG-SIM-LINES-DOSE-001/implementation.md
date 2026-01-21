@@ -389,12 +389,16 @@ gs2_ideal healthy, gs1_ideal NaN after CONFIG-001 fix
               - **Key Finding:** gs1_ideal train/test scale deviation = 3.17% (within tolerance), gs2_ideal = 5.96% (exceeds 5%). Full chain product = 18.571×, indicating normalization symmetry is violated. **Primary deviation source:** `prediction_to_truth` (ratio=6.561, deviation=5.561) — model outputs predictions ~6.5× smaller than ground truth amplitude.
               - Evidence: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T024500Z/` (bias_summary.md, gs*_ideal/run_metadata.json, logs/*.log)
               - Tests: `pytest tests/scripts/test_analyze_intensity_bias.py::TestDatasetStats::test_reports_train_test -v` (1 passed), `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
-            - [ ] **D5b — Forward-pass IntensityScaler tracing (NEW 2026-01-21T030000Z).** D5 telemetry shows predictions are ~6.5× smaller than truth despite train/test scale parity being within tolerance. The shrinkage occurs between `normalized` (mean=0.085) and `prediction` (mean=0.413 → ~4.8× amplification) while `truth` mean=2.71 (6.5× larger than prediction). The IntensityScaler state shows exp(log_scale)=273.35 matches params.cfg but the dataset-derived test scale is 577.74 (~2× higher). Need to trace the forward pass to determine whether:
-              (a) IntensityScaler is being applied during training but not at inference,
-              (b) the inverse scaler output is incorrectly scaled,
-              (c) there's a missing rescaling step in the inference pipeline that dose_experiments had.
-              Scope: Add plan-local instrumentation to `bin/run_phase_c2_scenario.py` that logs IntensityScaler/IntensityScaler_inv layer outputs during a single inference pass (or training step), records the scaling factors in metadata, and compares forward vs inverse scales. The telemetry should clarify whether the 6.5× gap stems from missing inverse scaling at inference or a model-internal issue.
-              Tests: N/A (instrumentation-only; reuse CLI smoke selector)
+            - [x] **D5b — Forward-pass IntensityScaler tracing (COMPLETE 2026-01-21T210000Z).** D5 telemetry showed predictions are ~6.5× smaller than truth. Instrumented `run_inference_and_reassemble()` to capture forward-pass diagnostics: external intensity_scale, model exp(log_scale), input/output means, amplification ratio, and output_vs_truth_ratio.
+              - **Key Finding (DEFINITIVE):** IntensityScaler is NOT the source of the amplitude gap. Scales match to 7 significant figures (`scale_match_pct=99.9999961%`). Model amplifies inputs by ~7.45× (`0.085 → 0.634`) but truth requires ~31.8× amplification (`truth_mean=2.708`). The `output_vs_truth_ratio=0.234` confirms predictions are ~4.3× smaller than truth.
+              - Evidence: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T210000Z/gs2_ideal/run_metadata.json::forward_pass_diagnostics`
+              - Tests: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
+            - [ ] **D6 — Training target formulation analysis (NEW 2026-01-21T210000Z).** D5b confirmed the amplitude gap is NOT in the scaling layers. Next step: compare Y_amp/Y_I labels fed to the model during training against the ground truth values used in inference comparison. Hypotheses:
+              (a) Training labels (Y_amp) are normalized to a different scale than ground truth comparison
+              (b) Loss function (NLL on intensity) doesn't enforce amplitude magnitude parity
+              (c) Model architecture has inherent amplitude attenuation that training doesn't overcome
+              Scope: Extend telemetry to capture training label statistics (Y_amp mean/std) alongside model output statistics during training, and compare against inference ground truth statistics.
+              Tests: N/A (analysis-only; reuse CLI smoke selector)
 
 ### Notes & Risks
 - Avoid touching `ptycho/model.py`, `ptycho/diffsim.py`, or other core physics modules without explicit approval (per CLAUDE.md directive #6). Start with plan-local instrumentation and documentation diffs.

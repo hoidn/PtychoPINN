@@ -454,6 +454,26 @@
     - **Tests:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` ✓ (1 passed)
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T030000Z/{gs2_ideal/run_metadata.json,logs/gs2_ideal_runner.log,logs/pytest_cli_smoke.log}`
     - **Next Actions:** Investigate training stability (NaN loss at epoch 1) as a potential blocker. If training succeeds, re-run D5b diagnostics to capture non-NaN output_vs_truth_ratio for definitive scale-chain verification.
+  - *2026-01-21T210000Z:* **Phase D5b VERIFIED — Forward-pass diagnostics with successful training.**
+    - **Re-run Result:** gs2_ideal training completed 5/5 epochs without NaN. Valid forward-pass diagnostics captured:
+      | Metric | Value |
+      | --- | ---: |
+      | model_exp_log_scale | 273.350270 |
+      | external_intensity_scale | 273.350281 |
+      | scale_match_pct | 99.9999961% |
+      | input_mean | 0.0851 |
+      | output_mean | 0.6341 |
+      | amplification_ratio | 7.452 |
+      | ground_truth_mean | 2.708 |
+      | output_vs_truth_ratio | 0.234 |
+    - **Key Finding (DEFINITIVE):** IntensityScaler is NOT the source of the amplitude gap. The scales match to 7 significant figures. The model amplifies inputs by ~7.5× but ground truth requires ~31.8× amplification. The `output_vs_truth_ratio=0.234` confirms predictions are ~4.3× smaller than truth, meaning the gap occurs in the learned model weights, not the scaling layers.
+    - **Root Cause Analysis:** The amplitude gap must originate from:
+      (a) Training target formulation — Y_amp/Y_I labels may use different scaling than inference ground truth comparison
+      (b) Loss function optimization — the NLL loss may not enforce amplitude magnitude parity
+      (c) Architecture constraints — the model may have inherent amplitude attenuation
+    - **Tests:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` ✓ (1 passed)
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T210000Z/{gs2_ideal/run_metadata.json,logs/gs2_ideal_runner.log,summary.md}`
+    - **Next Actions:** Phase D6 — Investigate training target formulation. Compare Y_amp values fed to the model during training against the ground truth values used in inference comparison.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
