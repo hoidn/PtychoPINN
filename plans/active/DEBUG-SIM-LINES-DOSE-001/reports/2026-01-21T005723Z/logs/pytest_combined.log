@@ -1,0 +1,19 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 7 items
+
+tests/test_loader_normalization.py::TestNormalizeData::test_fixed_l2_norm_raw_data PASSED [ 14%]
+tests/test_loader_normalization.py::TestNormalizeData::test_fixed_l2_norm_loader PASSED [ 28%]
+tests/test_loader_normalization.py::TestNormalizeData::test_varying_input_scales PASSED [ 42%]
+tests/test_loader_normalization.py::TestNormalizeData::test_raw_data_and_loader_consistency PASSED [ 57%]
+tests/test_loader_normalization.py::TestNormalizeData::test_formula_compliance PASSED [ 71%]
+tests/test_loader_normalization.py::TestNormalizeData::test_nphotons_not_used PASSED [ 85%]
+tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke PASSED [100%]
+
+============================== 7 passed in 4.09s ===============================
