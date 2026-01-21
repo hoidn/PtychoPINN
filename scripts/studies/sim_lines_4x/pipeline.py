@@ -200,6 +200,8 @@ def build_training_config(
         neighbor_count=params.neighbor_count,
         nepochs=nepochs,
         output_dir=output_dir,
+        realspace_weight=0.1,  # Loss weight multiplier for realspace_loss (D6a)
+        realspace_mae_weight=1.0,  # Enable MAE inside realspace_loss (D6a fix)
     )
 
 

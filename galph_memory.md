@@ -1419,3 +1419,43 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Next Action: D6a — Update `scripts/studies/sim_lines_4x/pipeline.py::build_training_config()` to set `realspace_weight=0.1` (or expose as parameter), rerun gs2_ideal with the new loss weighting, compare amplitude metrics.
 - <Action State>: [root_cause_identified]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=root_cause_identified dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T220000Z/ next_action=D6a: Set realspace_weight>0 in sim_lines pipeline, rerun gs2_ideal, verify amplitude improvement
+
+# 2026-01-21T220100Z: DEBUG-SIM-LINES-DOSE-001 — Phase D6a implementation complete
+
+- dwell: 0 (implementation loop after D6 root cause identification)
+- Focus issue: Phase D6a — implement realspace_weight fix and verify amplitude improvement
+- Action type: Implementation + Verification
+- Mode: Implementation
+- Documents reviewed: input.md; docs/fix_plan.md; ptycho/tf_helper.py:1473-1501 (complex_mae, realspace_loss)
+- **Implementation details:**
+  1. Added `realspace_weight=0.1` to `scripts/studies/sim_lines_4x/pipeline.py:203`
+  2. **CRITICAL DISCOVERY:** Setting `realspace_weight=0.1` alone is INSUFFICIENT because `realspace_loss()` returns 0 when both `tv_weight=0` AND `realspace_mae_weight=0`:
+     ```python
+     def realspace_loss(target, pred):
+         if tv_weight > 0:
+             tv_loss = total_variation(pred) * tv_weight
+         else:
+             tv_loss = 0.
+         if realspace_mae_weight > 0:
+             mae_loss = complex_mae(target, pred) * realspace_mae_weight
+         else:
+             mae_loss = 0.
+         return tv_loss + mae_loss  # Returns 0 if both weights are 0!
+     ```
+  3. Added `realspace_mae_weight=1.0` to enable the MAE component inside realspace_loss
+  4. **KERAS 3.x COMPATIBILITY FIX:** `tf.keras.metrics.mean_absolute_error` is deprecated. Fixed by replacing with `tf.reduce_mean(tf.abs(target - pred))` in `complex_mae()` and `masked_mae()`
+- **Results:**
+  - Training history now shows `trimmed_obj_loss ≈ 2.2` (vs 0.0 before) — realspace loss IS being computed
+  - Amplitude metrics essentially unchanged: MAE=2.365 (was 2.368), pearson_r=0.136 (was 0.137)
+  - output_vs_truth_ratio=0.238 (was 0.265) — slight regression
+- **Key insight for next iteration:**
+  - The realspace_loss magnitude (~2.2) is DWARFED by the NLL loss (~250,000 negative log-likelihood)
+  - Loss gradient is dominated by NLL; realspace_loss contributes negligible gradient
+  - To make amplitude supervision effective, either:
+    (a) Increase `realspace_weight` significantly (e.g., 100 or 1000 to match NLL scale)
+    (b) Normalize loss magnitudes before weighting
+    (c) Run many more epochs to allow gradual amplitude correction
+- Tests: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` ✓ (1 passed)
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T220000Z/{gs2_ideal_v4/,logs/}`
+- <Action State>: [implementation_complete_needs_tuning]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=implementation_complete_needs_tuning dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T220000Z/ next_action=D6b: Increase realspace_weight to ~100-1000 to match NLL loss scale, or experiment with loss normalization

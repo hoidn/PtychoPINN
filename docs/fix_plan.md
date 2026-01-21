@@ -485,6 +485,29 @@
     - **Fix Approach:** Set `realspace_weight > 0` in training config. Reference: `train_pinn.py:56` uses `realspace_weight=0.1` for PINN training.
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T220000Z/`
     - **Next Actions:** D6a — Update `scripts/studies/sim_lines_4x/pipeline.py::build_training_config()` to set `realspace_weight=0.1`, rerun gs2_ideal, compare amplitude metrics.
+  - *2026-01-21T220000Z:* **Phase D6a — realspace_weight fix implemented and tested.**
+    - **Code Changes:**
+      1. `scripts/studies/sim_lines_4x/pipeline.py:196-205`: Added `realspace_weight=0.1, realspace_mae_weight=1.0` to `build_training_config()`
+      2. `ptycho/tf_helper.py:1475-1476,1481-1483`: Fixed Keras 3.x API compatibility — replaced deprecated `tf.keras.metrics.mean_absolute_error` with native `tf.reduce_mean(tf.abs(...))`
+    - **Key Discovery:** The `realspace_loss()` function (tf_helper.py:1487-1501) returns `tv_loss + mae_loss` where:
+      - `tv_loss = total_variation(pred) * tv_weight` (if `tv_weight > 0`, else 0)
+      - `mae_loss = complex_mae(target, pred) * realspace_mae_weight` (if `realspace_mae_weight > 0`, else 0)
+      - Setting `realspace_weight=0.1` alone was insufficient because `realspace_mae_weight=0` by default, making the loss function return 0.
+    - **Training Results:** With both weights enabled, `trimmed_obj_loss` is now non-zero (≈2.2 vs 0.0 before), confirming realspace loss is being computed.
+    - **Amplitude Metrics Comparison:**
+      | Metric | D5b (realspace=0) | D6a (realspace=0.1,mae=1.0) | Change |
+      | --- | ---: | ---: | ---: |
+      | MAE | 2.368 | 2.365 | -0.1% |
+      | pearson_r | 0.137 | 0.136 | -0.7% |
+      | pred_mean | 0.409 | 0.412 | +0.7% |
+      | output_vs_truth_ratio | 0.265 | 0.238 | -10.2% |
+    - **Outcome:** Realspace loss IS being computed, but amplitude reconstruction did not significantly improve. The ~4x amplitude gap persists, suggesting:
+      (a) 5 epochs may be insufficient for realspace_loss to converge
+      (b) realspace_weight=0.1 may be too small relative to NLL (~250k)
+      (c) The amplitude gap may have a different root cause (architecture, training target scaling)
+    - **Tests:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` ✓ (1 passed)
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T220000Z/{gs2_ideal_v4/*,logs/*}`
+    - **Next Actions:** Consider increasing realspace_weight (e.g., 1.0 or 10.0) or increasing epochs to allow realspace_loss to dominate over NLL.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
