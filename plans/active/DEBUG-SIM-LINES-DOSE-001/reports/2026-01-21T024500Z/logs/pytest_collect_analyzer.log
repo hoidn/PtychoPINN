@@ -1,0 +1,5 @@
+tests/scripts/test_analyze_intensity_bias.py::TestDatasetStats::test_reports_train_test
+tests/scripts/test_analyze_intensity_bias.py::TestDatasetStats::test_tolerates_missing_split_stats
+tests/scripts/test_analyze_intensity_bias.py::TestDatasetStats::test_flags_deviation_exceeding_5pct
+
+3 tests collected in 0.86s
