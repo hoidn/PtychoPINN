@@ -24,7 +24,7 @@ During bootstrap (implementation-first):
 - sync/arch_bootstrap_state.json — Current bootstrap state and scoring
 - docs/architecture/ — The architecture documentation tree
 - Source files for modules being reviewed
-- docs/spec-shards/ — Behavioral specs (for cross-reference validation)
+- specs/ — Behavioral specs (for cross-reference validation); see docs/index.md for the full documentation map
 </required_reading>
 
 <scoring_dimensions>
