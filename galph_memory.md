@@ -1293,3 +1293,20 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/ (pytest_full_test_suite.log)
 - <Action State>: [d4f_implemented]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=d4f_implemented dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/ next_action=Supervisor review; gs1_ideal + gs2_ideal scenario reruns with analyzer to verify bundle_intensity_scale matches dataset_scale; check for amplitude bias reduction
+# 2026-01-21T01:39:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase D4f manual constructors follow-up
+
+- dwell: 1 (first planning/docs loop after the D4f implementation run)
+- Focus issue: Phase D4f.2 — ensure manual PtychoDataContainer constructors attach dataset_intensity_stats so dataset-derived scaling works outside `loader.load`
+- Action type: Planning / doc updates (knowledge base + plan refresh)
+- Mode: Implementation handoff prep
+- Git sync: `git stash push -u -m 'galph-20260121-loop' && timeout 30 git pull --rebase && git stash pop` → clean
+- Documents reviewed: docs/index.md; docs/findings.md (PINN-CHUNKED-001 entry updated to describe dataset stats → `_X_np` → fallback order); docs/fix_plan.md; plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}; scripts/studies/dose_response_study.py; ptycho/data_preprocessing.py; scripts/inspect_ptycho_data.py
+- Key observations:
+  - Reviewer follow-up confirmed PINN-CHUNKED-001 still said `_X_np` was top priority and manual constructors (dose_response_study, data_preprocessing, inspect_ptycho_data, cached NPZ inspectors) never populate `dataset_intensity_stats`, so those flows immediately fall back to 988.21 and undo D4f.
+  - Loader-side plumbing works, but we need a shared reducer + per-script wiring plus regression tests before continuing Phase D.
+- Key decisions:
+  - Updated PINN-CHUNKED-001 to spell out the dataset_intensity_stats → `_X_np` → closed-form priority and clarified manual constructors must pass stats.
+  - Added D4f.2 to the implementation plan, refreshed docs/fix_plan.md attempts history, and rewrote input.md with a concrete Do Now covering the new helper, script updates, and regression tests (new `tests/scripts/test_inspect_ptycho_data.py` + loader helper test) plus CLI guard.
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T013900Z/` (reserved for the upcoming evidence)
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T013900Z/ next_action=Ralph implements the manual-constructor dataset_intensity_stats plumbing + regression tests + CLI guard per input.md

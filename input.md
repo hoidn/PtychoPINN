@@ -1,37 +1,37 @@
-Summary: Carry raw diffraction intensity stats through loader/train so `calculate_intensity_scale()` finally records the dataset-derived gain (≈577) and prove it by rerunning gs1_ideal + gs2_ideal with updated analyzer outputs.
-Focus: DEBUG-SIM-LINES-DOSE-001 — Phase D4f raw dataset-intensity scale bridging
+Summary: Extend D4f so every manual PtychoDataContainer path preserves dataset_intensity_stats, keeping the dataset-derived intensity scale alive outside loader.load.
+Focus: DEBUG-SIM-LINES-DOSE-001 — Phase D4f manual dataset stats plumbing (D4f.2)
 Branch: paper
-Mapped tests: pytest tests/test_loader_normalization.py::TestNormalizeData::test_dataset_stats_attachment -v; pytest tests/test_train_pinn.py::TestIntensityScale::test_uses_dataset_stats -v; pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/
-Do Now (DEBUG-SIM-LINES-DOSE-001/D4f — see implementation.md §Phase D4f):
-- Implement: Update `ptycho/loader.py::load` (plus helpers) to compute raw `diffraction` sum-of-squares stats per split, attach them to `PtychoDataContainer`, and teach `ptycho/train_pinn.py::calculate_intensity_scale` to prefer those stats before touching `_X_np`; extend `tests/test_loader_normalization.py::TestNormalizeData::test_dataset_stats_attachment` and `tests/test_train_pinn.py::TestIntensityScale::test_uses_dataset_stats` so the regression is locked in; rerun `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py` for gs1_ideal + gs2_ideal, regenerate `bias_summary.*`, and capture logs so we can show `bundle_intensity_scale == dataset_scale`.
-- Validate via: `pytest tests/test_loader_normalization.py::TestNormalizeData::test_dataset_stats_attachment -v`; `pytest tests/test_train_pinn.py::TestIntensityScale::test_uses_dataset_stats -v`; `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` after the plan-local runner commands below (logs + analyzer output under the artifacts hub).
-- Artifacts: Store all pytest logs plus `gs*_ideal_runner.log`, `gs*_ideal/intensity_stats.*`, updated `bias_summary.{json,md}`, and `analyze_intensity_bias.log` inside `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/`.
+Mapped tests: pytest tests/test_loader_normalization.py::TestNormalizeData::test_dataset_stats_attachment -v; pytest tests/test_loader_normalization.py::TestNormalizeData::test_manual_dataset_stats_helper -v; pytest tests/test_train_pinn.py::TestIntensityScale::test_uses_dataset_stats -v; pytest tests/scripts/test_inspect_ptycho_data.py::TestInspectPtychoData::test_load_preserves_dataset_stats -v; pytest tests/scripts/test_sim_lines_pipeline_import_smoke.py::test_sim_lines_pipeline_import_smoke -v
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T013900Z/
+Do Now (DEBUG-SIM-LINES-DOSE-001 / D4f.2 — see implementation.md §Phase D4):
+- Implement: `ptycho/loader.py::compute_dataset_intensity_stats` (new helper) + `PtychoDataContainer`-adjacent constructors. Create a shared NumPy reducer that accepts raw diffraction or normalized data plus intensity_scale, returns the `{'batch_mean_sum_intensity', 'n_samples'}` dict, and keep it float64 until the final cast. Wire it into every manual constructor noted in reviewer evidence: `scripts/studies/dose_response_study.py::run_dose_response_arm`, `ptycho/data_preprocessing.py::create_ptycho_dataset` (and any helper that instantiates `PtychoDataContainer`), and `scripts/inspect_ptycho_data.py::load_ptycho_data`. The script loader should first reuse stored NPZ stats (`dataset_intensity_stats_*` keys) when present, falling back to the reducer otherwise. Ensure the helper never touches `.X` so `_tensor_cache` stays empty (PINN-CHUNKED-001) and update docstrings/comments so callers know stats are mandatory when bypassing loader.
+- Implement: regression tests proving the helper + manual constructors work. Extend `tests/test_loader_normalization.py` with `test_manual_dataset_stats_helper` (build fake normalized arrays + intensity_scale, verify the helper reconstructs the raw batch mean) and ensure the existing `test_dataset_stats_attachment` still passes. Add `tests/scripts/test_inspect_ptycho_data.py::TestInspectPtychoData::test_load_preserves_dataset_stats` that writes a tiny temporary NPZ with the saved keys, loads it through `load_ptycho_data`, and asserts `dataset_intensity_stats` survives; also cover the fallback path by omitting the keys so the reducer recomputes stats from data × intensity_scale. Finally, keep `tests/test_train_pinn.py::TestIntensityScale::test_uses_dataset_stats` green so calculate_intensity_scale still prioritizes the stats dictionary.
+- Validate via: `pytest tests/test_loader_normalization.py::TestNormalizeData::test_dataset_stats_attachment -v`; `pytest tests/test_loader_normalization.py::TestNormalizeData::test_manual_dataset_stats_helper -v`; `pytest tests/test_train_pinn.py::TestIntensityScale::test_uses_dataset_stats -v`; `pytest tests/scripts/test_inspect_ptycho_data.py::TestInspectPtychoData::test_load_preserves_dataset_stats -v`; `pytest tests/scripts/test_sim_lines_pipeline_import_smoke.py::test_sim_lines_pipeline_import_smoke -v`.
+- Artifacts: Store all pytest logs plus any temp NPZs (if needed) under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T013900Z/` (`logs/pytest_*.log` for each selector, plus sample NPZ + README if you had to synthesize data).
 How-To Map:
-1. `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` before running anything.
-2. `pytest tests/test_loader_normalization.py::TestNormalizeData::test_dataset_stats_attachment -v | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/logs/pytest_loader_dataset_stats.log` (ensures loader attaches pre-normalization stats per split).
-3. `pytest tests/test_train_pinn.py::TestIntensityScale::test_uses_dataset_stats -v | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/logs/pytest_train_pinn_dataset_stats.log` so calculate_intensity_scale prioritizes the new container attr.
-4. `python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py --scenario gs1_ideal --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/gs1_ideal --group-limit 64 --prediction-scale-source least_squares` (logs + stats under gs1_ideal/); repeat for `--scenario gs2_ideal --output-dir .../gs2_ideal`.
-5. `python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py --scenario gs1_ideal=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/gs1_ideal --scenario gs2_ideal=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/gs2_ideal --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/analyze_intensity_bias.log` to refresh `bias_summary.*` with the new scales.
-6. `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/logs/pytest_cli_smoke.log` as the CLI guard.
+1. `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` (mandatory per TEST-CLI-001).
+2. After coding, run `pytest tests/test_loader_normalization.py::TestNormalizeData::test_dataset_stats_attachment -v | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T013900Z/logs/pytest_loader_stats_existing.log` to ensure loader regressions stay fixed.
+3. `pytest tests/test_loader_normalization.py::TestNormalizeData::test_manual_dataset_stats_helper -v | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T013900Z/logs/pytest_loader_stats_helper.log` (new test verifying the reducer for normalized data + intensity_scale).
+4. `pytest tests/test_train_pinn.py::TestIntensityScale::test_uses_dataset_stats -v | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T013900Z/logs/pytest_train_pinn_dataset_stats.log` to prove calculate_intensity_scale still consumes the stats dict ahead of `_X_np`/fallback.
+5. `pytest tests/scripts/test_inspect_ptycho_data.py::TestInspectPtychoData::test_load_preserves_dataset_stats -v | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T013900Z/logs/pytest_inspect_dataset_stats.log` so NPZ readers retain stats.
+6. `pytest tests/scripts/test_sim_lines_pipeline_import_smoke.py::test_sim_lines_pipeline_import_smoke -v | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T013900Z/logs/pytest_cli_smoke.log` as the CLI guard after all edits (verifies sim_lines tooling still imports cleanly with the new helper).
 Pitfalls To Avoid:
-- Do not touch `ptycho/model.py`, `ptycho/diffsim.py`, or `ptycho/tf_helper.py`; the fix lives in loader/train_pinn/tests only.
-- Ensure raw `diffraction` stats are computed **before** calling normalize_data() and follow the same train/test split order; slicing the normalized tensors defeats the purpose.
-- Keep `_tensor_cache` untouched in calculate_intensity_scale()—always read `_X_np` or the new stats dict first (PINN-CHUNKED-001).
-- Normalize math in float64 so mean-of-squares does not overflow; cast back to float32 when storing stats.
-- Preserve normalize_data() semantics (fixed `(N/2)^2` target) and don’t regress the D4e revert.
-- Verify `bundle_intensity_scale` == `dataset_scale` in `run_metadata.json` for both gs1_ideal and gs2_ideal before wrapping up.
-- Always run commands with `AUTHORITATIVE_CMDS_DOC` exported and log outputs under the artifacts hub (TEST-CLI-001).
-- Keep plan-local scripts device/dtype neutral; no ad-hoc sampling or GPU-only assumptions.
-If Blocked: Capture the blocker (stack trace, unexpected tensor stats, etc.) inside `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/blocked.md`, update docs/fix_plan.md Attempts History, and ping me before attempting alternative pipelines.
+- Do not touch `ptycho/model.py`, `ptycho/diffsim.py`, or other protected physics modules; this is loader + script plumbing only.
+- Preserve lazy-loading guarantees: the helper must operate on NumPy arrays and never call `.X` or populate `_tensor_cache` (PINN-CHUNKED-001).
+- When reconstructing raw diffraction from normalized data, multiply by the recorded intensity_scale before squaring; skipping this keeps the old 988.21 fallback.
+- Keep computations in float64 for the reducer, but store stats as Python floats so np.savez round-trips cleanly.
+- Scripts may load NPZs that predate D4f; handle missing dataset stats keys gracefully and recompute instead of crashing.
+- Ensure new helper is import-safe for both scripts and tests (no heavy TensorFlow deps at import time).
+- Update docstrings/comments sparingly but clearly to avoid duplicating spec text; reference `specs/spec-ptycho-core.md §Normalization Invariants` where needed.
+- Keep CLI smoke selector logs under the artifacts hub; lack of proof violates TEST-CLI-001.
+If Blocked: Capture the failure signature (stack trace, missing key, unexpected stats) in `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T013900Z/blocked.md`, update docs/fix_plan.md Attempts History with the blocker + reproduction command, and stop—do not ship partial plumbing.
 Findings Applied (Mandatory):
-- CONFIG-001 — keep `update_legacy_dict(params.cfg, config)` ahead of loader/training so intensity stats map to the right gridsize.
-- NORMALIZATION-001 — respect the three-stage normalization architecture (physics vs statistical vs display) when wiring dataset stats.
-- PINN-CHUNKED-001 — never materialize `_tensor_cache`; prefer NumPy data for reducers.
-- TEST-CLI-001 — archive pytest + CLI logs per selector and keep selectors green.
+- PINN-CHUNKED-001 — dataset_intensity_stats must be preferred over `_X_np`, and `_tensor_cache` must remain untouched.
+- NORMALIZATION-001 — respect the fixed `(N/2)^2` normalize_data stage and keep dataset_intensity_stats for the subsequent intensity_scale stage.
 Pointers:
-- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md (Phase D4f checklist)
-- specs/spec-ptycho-core.md:86 (Normalization Invariants equations)
-- docs/DEVELOPER_GUIDE.md:157 (three-tier normalization architecture)
-- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py:1179-1675 (telemetry + analyzer hooks)
-Next Up (optional): If D4f lands quickly, start framing Phase D5 (loss wiring instrumentation) using the refreshed analyzer evidence.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md (§Phase D4f.2 checklist)
+- specs/spec-ptycho-core.md:80-110 (Normalization Invariants definition)
+- docs/fix_plan.md (§DEBUG-SIM-LINES-DOSE-001 attempts history, D4f follow-up)
+- scripts/inspect_ptycho_data.py (manual container constructor to update)
+Next Up (optional): Once manual constructors are wired, start planning D5 probes (loss wiring instrumentation) using the refreshed dataset-scale telemetry.
+Doc Sync Plan: After the new tests are in place and passing, run `pytest --collect-only tests/test_loader_normalization.py -q` and `pytest --collect-only tests/scripts/test_inspect_ptycho_data.py -q`, archive the logs under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T013900Z/logs/`, then update `docs/TESTING_GUIDE.md` §2 and `docs/development/TEST_SUITE_INDEX.md` to list the new selectors.

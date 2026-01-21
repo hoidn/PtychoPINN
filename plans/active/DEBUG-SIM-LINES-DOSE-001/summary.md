@@ -1,5 +1,10 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
+### Turn Summary — 2026-01-21T01:39:00Z (Phase D4f manual constructors follow-up)
+Reviewer follow-up flagged that manual `PtychoDataContainer` constructors (dose_response_study, data_preprocessing, inspect_ptycho_data, cached NPZ inspectors) never attach `dataset_intensity_stats`, so any workflow that bypasses `loader.load()` silently falls back to the 988.21 constant and undoes the D4f fix. Updated PINN-CHUNKED-001 to spell out the dataset_intensity_stats → `_X_np` → closed-form priority, added D4f.2 to the implementation plan covering shared reducer + per-script plumbing, and refreshed the fix plan attempts history with this scope adjustment.
+Next: Ralph lands the manual-constructor plumbing (shared NumPy reducer + script updates + regression tests) and reruns the mapped pytest selectors along with the CLI smoke guard under a fresh artifacts hub.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/
+
 ### Turn Summary — 2026-01-21T01:25:00Z (Phase D4f dataset-scale planning)
 Telemetry still shows `bundle_intensity_scale` stuck at the closed-form fallback 988.21 even though the dataset-derived helper reports 577.74. Root cause: `calculate_intensity_scale()` keeps sampling the normalized tensors inside `PtychoDataContainer`, so the dataset-derived formula collapses to the fallback target that `normalize_data()` enforces. Scoped D4f around carrying the pre-normalization diffraction stats through loader, updating `calculate_intensity_scale()` to consume those raw stats, and proving the change with new unit tests plus fresh gs1_ideal/gs2_ideal runs. Reserved `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/` for the implementation evidence and rewrote the Do Now accordingly.
 Next: Ralph updates `ptycho/loader.py` + `PtychoDataContainer` to attach raw diffraction stats, teaches `calculate_intensity_scale()` to prefer them, adds the loader/train_pinn regression tests, reruns the Phase C2 runner for both scenarios, and archives analyzer + pytest logs under the new hub.

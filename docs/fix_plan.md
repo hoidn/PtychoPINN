@@ -381,6 +381,8 @@
       - gs2_ideal scenario: bundle_intensity_scale=273.35, training batch_mean=13383.24
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/{gs1_ideal/*,gs2_ideal/*,bias_summary.json,bias_summary.md,logs/*.log,analyze_intensity_bias.log}`
     - **Remaining Issue:** Amplitude bias persists (~2.3-2.7x undershoot). The dataset-derived scale fix proves normalization symmetry is correctly computed, but the bias originates elsewhere (model architecture, loss wiring, or training dynamics). Next investigation should focus on D5 forward-pass instrumentation.
+  - *2026-01-21T013900Z:* **Reviewer follow-up — manual constructors bypass dataset stats.**
+    - PINN-CHUNKED-001 still described `_X_np` as the preferred reducer even though D4f introduced `dataset_intensity_stats`, and helper scripts that instantiate `PtychoDataContainer` directly (dose_response_study, data_preprocessing, scripts/inspect_ptycho_data.py, cached NPZ inspectors) never attach those stats. Any workflow that bypasses `loader.load()` immediately falls back to the 988.21 constant, undoing the D4f fix. Action: update the finding, extend the D4f checklist with a new item covering manual constructors (shared reducer + per-script plumbing + regression tests), and prepare a Do Now directing Ralph to implement the plumbing and rerun the CLI guard.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
