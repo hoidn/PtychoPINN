@@ -363,6 +363,9 @@
     - **Metrics:** After revert: 6/6 tests pass in `tests/test_loader_normalization.py`, CLI smoke test passes.
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T005723Z/{logs/gs2_ideal_runner.log,gs2_ideal/intensity_stats.json}`
     - **Next Actions:** The ~6.6× amplitude bias is NOT caused by normalize_data() using a different formula. Investigate: (a) model architecture, (b) loss wiring, (c) interaction between the two normalization stages, or (d) training dynamics. Consider D5 to instrument forward pass scaling.
+  - *2026-01-21T012500Z:* **Phase D4f PLANNED — Compute intensity_scale from raw diffraction before normalization.**
+    - **Observation:** Despite the plan-local telemetry reporting dataset_scale≈577.74 vs fallback≈988.21, the saved bundles still record the fallback value because `calculate_intensity_scale()` reads the already-normalized tensors inside `PtychoDataContainer`. `normalize_data()` enforces `(N/2)²`, so the dataset-derived formula collapses right back to the closed-form constant.
+    - **Plan:** Propagate raw `diffraction` stats through `loader.load()` (attach `dataset_intensity_stats` to the container), teach `calculate_intensity_scale()` to consume those stats before touching `_X_np`, add regression tests, then rerun the gs1_ideal + gs2_ideal Phase C2 scenarios with analyzer + CLI pytest evidence under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/` so we can prove the bundles now store the true dataset-derived scale.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

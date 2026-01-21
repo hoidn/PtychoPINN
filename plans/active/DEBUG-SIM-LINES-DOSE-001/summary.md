@@ -1,5 +1,10 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
+### Turn Summary — 2026-01-21T01:25:00Z (Phase D4f dataset-scale planning)
+Telemetry still shows `bundle_intensity_scale` stuck at the closed-form fallback 988.21 even though the dataset-derived helper reports 577.74. Root cause: `calculate_intensity_scale()` keeps sampling the normalized tensors inside `PtychoDataContainer`, so the dataset-derived formula collapses to the fallback target that `normalize_data()` enforces. Scoped D4f around carrying the pre-normalization diffraction stats through loader, updating `calculate_intensity_scale()` to consume those raw stats, and proving the change with new unit tests plus fresh gs1_ideal/gs2_ideal runs. Reserved `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/` for the implementation evidence and rewrote the Do Now accordingly.
+Next: Ralph updates `ptycho/loader.py` + `PtychoDataContainer` to attach raw diffraction stats, teaches `calculate_intensity_scale()` to prefer them, adds the loader/train_pinn regression tests, reruns the Phase C2 runner for both scenarios, and archives analyzer + pytest logs under the new hub.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/
+
 ### Turn Summary — 2026-01-21T00:55:00Z (Phase D4d lazy-container reducer IMPLEMENTED)
 Updated `ptycho/train_pinn.py::calculate_intensity_scale()` so the dataset-derived reducer consumes `_X_np` in float64 and never materializes `.X`, keeping lazy containers CPU-bound per PINN-CHUNKED-001. Added `tests/test_train_pinn.py::TestIntensityScale::test_lazy_container_does_not_materialize` to confirm `_tensor_cache` stays empty and the computed scale matches `specs/spec-ptycho-core.md §Normalization Invariants`. Logged pytest evidence under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T004455Z/`.
 Next: Align `normalize_data()` with the dataset-derived scale so grouped→normalized ratios and the normalization-invariant check converge before resuming the loss/architecture investigation.

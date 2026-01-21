@@ -1253,3 +1253,20 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T005723Z/{logs/gs2_ideal_runner.log,gs2_ideal/intensity_stats.json}
 - <Action State>: [d4e_rejected_wrong_scope]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=d4e_rejected dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T005723Z/ next_action=Re-scope D4e to investigate the two-stage normalization interaction (L2 norm → intensity_scale) rather than changing normalize_data formula; alternatively move to D5 to investigate model/loss wiring
+
+# 2026-01-21T01:25:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase D4f dataset-scale planning
+
+- dwell: 2 (second documentation/planning loop since the D4e revert; next handoff must be implementation)
+- Action type: Planning / documentation sweep
+- Mode: ready_for_implementation
+- Documents reviewed: docs/index.md; docs/findings.md (CONFIG-001, NORMALIZATION-001, PINN-CHUNKED-001, TEST-CLI-001); specs/spec-ptycho-core.md §Normalization Invariants; docs/DEVELOPER_GUIDE.md §3.5; plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}; docs/fix_plan.md; plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T005723Z/summary.md; plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py
+- Key observations:
+  - Even after D4c/D4d, `bundle_intensity_scale` in run_metadata.json remains the fallback 988.21 while `_compute_dataset_intensity_scale()` reports 577.74; the fix never took effect.
+  - Root cause: `calculate_intensity_scale()` inspects the normalized tensors inside `PtychoDataContainer`; normalize_data enforces a `(N/2)^2` target so the dataset-derived formula degenerates to the closed-form constant.
+  - Need to carry pre-normalization diffraction statistics through loader and prefer them inside calculate_intensity_scale before falling back to `_X_np`.
+- Decisions:
+  - Added Phase D4f to the plan/fix ledger with explicit scope (loader attaches `dataset_intensity_stats`, calculate_intensity_scale uses them, regression tests + gs1/gs2 reruns).
+  - Created artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/` and rewrote input.md with the new Do Now (code changes, pytest selectors, runner/analyzer commands).
+- Next Action: Ralph implements D4f (loader/train_pinn/test updates + gs1_ideal/gs2_ideal reruns) and archives logs/analyzer evidence under the new hub; verify `bundle_intensity_scale == dataset_scale` afterward.
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=2 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/ next_action=Implement loader/train_pinn dataset-intensity stats plumbing plus regression tests and rerun gs1_ideal+gs2_ideal with analyzer/pytest evidence
