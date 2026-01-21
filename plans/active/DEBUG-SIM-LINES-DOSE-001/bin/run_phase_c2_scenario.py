@@ -1330,14 +1330,70 @@ def run_inference_and_reassemble(
             "group_limit": group_limit,
         },
     )
+
+    # D5b forward-pass instrumentation: capture external intensity_scale before inference
+    # Per input.md D5b §1: log params.params()['intensity_scale'] BEFORE calling reconstruct_image
+    external_intensity_scale = float(legacy_params.params()["intensity_scale"])
+    print(f"[runner][D5b] external_intensity_scale={external_intensity_scale:.6f}")
+
     obj_tensor_full, global_offsets = nbutils.reconstruct_image(container, diffraction_to_obj=model)
+
+    # D5b forward-pass instrumentation: capture scale diagnostics AFTER inference
+    # Per PINN-CHUNKED-001: convert TF tensor to NumPy AFTER inference completes
+    obj_tensor_np = _ensure_numpy(obj_tensor_full)
+    obj_mean = float(np.mean(np.abs(obj_tensor_np)))
+    input_mean = float(np.mean(_ensure_numpy(container.X)))
+    amplification_ratio = obj_mean / input_mean if abs(input_mean) > 1e-12 else None
+
+    print(f"[runner][D5b] obj_mean={obj_mean:.6f}, input_mean={input_mean:.6f}")
+    if amplification_ratio is not None:
+        print(f"[runner][D5b] amplification_ratio (obj_mean / input_mean) = {amplification_ratio:.6f}")
+
+    # D5b: Extract IntensityScaler's exp(log_scale) and compare with external scale
+    # Per input.md D5b §3-4: verify model_exp_log_scale matches external scale
+    try:
+        log_scale_var = _get_log_scale()
+        log_scale_value = float(log_scale_var.numpy())
+        model_exp_log_scale = float(np.exp(log_scale_value))
+    except Exception as e:
+        print(f"[runner][D5b][warn] Could not extract log_scale: {e}")
+        log_scale_value = None
+        model_exp_log_scale = None
+
+    scale_match_pct = None
+    scale_discrepancy_flag = False
+    if model_exp_log_scale is not None and abs(external_intensity_scale) > 1e-12:
+        scale_match_pct = 100.0 * model_exp_log_scale / external_intensity_scale
+        scale_discrepancy_flag = abs(scale_match_pct - 100.0) > 1.0
+        print(
+            f"[runner][D5b] model_exp_log_scale={model_exp_log_scale:.6f} "
+            f"vs external={external_intensity_scale:.6f} "
+            f"(match={scale_match_pct:.2f}%) "
+            f"{'⚠️ DISCREPANCY >1%' if scale_discrepancy_flag else '✓ OK'}"
+        )
+
     obj_image = tf_helper.reassemble_position(obj_tensor_full, global_offsets, M=params.reassemble_M)
+
+    # D5b: Build forward_pass_diagnostics block for run_metadata.json
+    # Per input.md D5b §5: persist under "forward_pass_diagnostics" key
+    forward_pass_diagnostics: Dict[str, Any] = {
+        "external_intensity_scale": external_intensity_scale,
+        "model_exp_log_scale": model_exp_log_scale,
+        "scale_match_pct": scale_match_pct,
+        "scale_discrepancy_flag": scale_discrepancy_flag,
+        "input_mean": input_mean,
+        "output_mean": obj_mean,
+        "amplification_ratio": amplification_ratio,
+        "spec_reference": "specs/spec-ptycho-core.md §Normalization Invariants",
+    }
+
     intensity_info = {
         "stages": intensity_stages,
         "bundle_intensity_scale": bundle_intensity_scale,
         "legacy_params_intensity_scale": legacy_intensity_scale,
         "recorded_scale": recorded_scale,
         "dataset_scale_info": dataset_scale_info,  # D4 architecture diagnostics: dataset vs fallback scale
+        "forward_pass_diagnostics": forward_pass_diagnostics,  # D5b forward-pass tracing
     }
     return np.abs(obj_image), np.angle(obj_image), global_offsets, intensity_info
 
@@ -1769,6 +1825,29 @@ def main() -> None:
     # D5 instrumentation: train/test split intensity stats for parity analysis
     # Per specs/spec-ptycho-core.md §Normalization Invariants
     metadata["split_intensity_stats"] = split_intensity_stats
+
+    # D5b forward-pass diagnostics: add ground_truth_mean and output_vs_truth_ratio
+    # Per input.md D5b §5: persist under "forward_pass_diagnostics" key in run_metadata.json
+    forward_pass_diag = intensity_info.get("forward_pass_diagnostics", {})
+    if forward_pass_diag:
+        # Compute ground_truth_mean from amp_truth (already cropped to target_size)
+        ground_truth_mean = float(np.mean(np.abs(amp_truth)))
+        output_mean = forward_pass_diag.get("output_mean")
+        output_vs_truth_ratio = None
+        if output_mean is not None and abs(ground_truth_mean) > 1e-12:
+            output_vs_truth_ratio = output_mean / ground_truth_mean
+
+        forward_pass_diag["ground_truth_mean"] = ground_truth_mean
+        forward_pass_diag["output_vs_truth_ratio"] = output_vs_truth_ratio
+
+        print(
+            f"[runner][D5b] ground_truth_mean={ground_truth_mean:.6f}, "
+            f"output_vs_truth_ratio={output_vs_truth_ratio:.6f}"
+            if output_vs_truth_ratio is not None
+            else f"[runner][D5b] ground_truth_mean={ground_truth_mean:.6f}, output_vs_truth_ratio=N/A"
+        )
+        metadata["forward_pass_diagnostics"] = forward_pass_diag
+
     if profile_metadata:
         metadata["profile"] = profile_metadata
     (scenario_dir / "run_metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True))
