@@ -242,3 +242,117 @@ class TestIntensityScale:
         finally:
             params.set('nphotons', original_nphotons)
             params.set('N', original_N)
+
+    def test_uses_dataset_stats(self):
+        """Verify calculate_intensity_scale() prefers dataset_intensity_stats.
+
+        Per Phase D4f: When dataset_intensity_stats is available (computed from
+        raw diffraction BEFORE normalization), calculate_intensity_scale() must
+        use it instead of falling back to the normalized _X_np data.
+
+        This is critical because _X_np is already L2-normalized to (N/2)², so
+        computing stats from it degenerates to the closed-form fallback, losing
+        the true dataset-derived intensity scale.
+
+        See: specs/spec-ptycho-core.md §Normalization Invariants
+        """
+        from ptycho import params
+        from ptycho.train_pinn import calculate_intensity_scale
+
+        # Create two distinct batch_mean values:
+        # - raw_batch_mean: what we'd get from raw diffraction (large, realistic)
+        # - normalized_batch_mean: what _X_np would give (L2 normalized to (N/2)²)
+
+        test_nphotons = 1e6
+        test_N = 64
+        raw_batch_mean = 2996.0  # Realistic raw diffraction stats
+        normalized_batch_mean = (test_N / 2) ** 2  # 1024.0 (L2 norm target)
+
+        # Expected scales differ significantly
+        expected_raw_scale = float(np.sqrt(test_nphotons / raw_batch_mean))  # ≈577.7
+        expected_normalized_scale = float(np.sqrt(test_nphotons / normalized_batch_mean))  # ≈31.25
+
+        # Create container with dataset_intensity_stats AND _X_np
+        # The function should prefer dataset_intensity_stats
+        class ContainerWithStats:
+            def __init__(self):
+                # Normalized data that would give closed-form result
+                self._X_np = np.full((2, 4, 4, 1), np.sqrt(normalized_batch_mean / 16), dtype=np.float32)
+                self._tensor_cache = {}
+                # Raw diffraction stats (what we want to use)
+                self.dataset_intensity_stats = {
+                    'batch_mean_sum_intensity': raw_batch_mean,
+                    'n_samples': 2,
+                }
+
+        container = ContainerWithStats()
+
+        original_nphotons = params.get('nphotons')
+        original_N = params.get('N')
+        try:
+            params.set('nphotons', test_nphotons)
+            params.set('N', test_N)
+
+            actual_scale = calculate_intensity_scale(container)
+
+            # Should match raw-derived scale, NOT normalized scale
+            assert actual_scale == pytest.approx(expected_raw_scale, rel=1e-6), (
+                f"calculate_intensity_scale should use dataset_intensity_stats. "
+                f"Got {actual_scale}, expected {expected_raw_scale} (raw), "
+                f"not {expected_normalized_scale} (normalized fallback)"
+            )
+
+            # Verify _tensor_cache is still empty (no .X access needed)
+            assert len(container._tensor_cache) == 0, (
+                f"_tensor_cache should remain empty when using dataset_intensity_stats"
+            )
+
+        finally:
+            params.set('nphotons', original_nphotons)
+            params.set('N', original_N)
+
+    def test_uses_dataset_stats_ignores_zero_mean(self):
+        """Verify calculate_intensity_scale falls back when dataset stats are near zero."""
+        from ptycho import params
+        from ptycho.train_pinn import calculate_intensity_scale
+
+        test_nphotons = 1e6
+        test_N = 64
+
+        # Container with near-zero dataset stats should fall through to _X_np
+        class ContainerWithZeroStats:
+            def __init__(self):
+                np.random.seed(42)
+                self._X_np = np.random.rand(2, 4, 4, 1).astype(np.float32) + 0.1
+                self._tensor_cache = {}
+                # Near-zero stats (should trigger fallback)
+                self.dataset_intensity_stats = {
+                    'batch_mean_sum_intensity': 1e-15,
+                    'n_samples': 2,
+                }
+
+        container = ContainerWithZeroStats()
+
+        # Expected: fall back to _X_np computation
+        X_f64 = container._X_np.astype(np.float64)
+        sum_intensity = np.sum(X_f64 ** 2, axis=(1, 2, 3))
+        batch_mean_from_X = float(np.mean(sum_intensity))
+        expected_scale = float(np.sqrt(test_nphotons / batch_mean_from_X))
+
+        original_nphotons = params.get('nphotons')
+        original_N = params.get('N')
+        try:
+            params.set('nphotons', test_nphotons)
+            params.set('N', test_N)
+
+            actual_scale = calculate_intensity_scale(container)
+
+            # Should match _X_np-derived scale (fallback)
+            assert actual_scale == pytest.approx(expected_scale, rel=1e-6), (
+                f"With near-zero dataset stats, should fall back to _X_np. "
+                f"Got {actual_scale}, expected {expected_scale}"
+            )
+
+        finally:
+            params.set('nphotons', original_nphotons)
+            params.set('N', original_N)

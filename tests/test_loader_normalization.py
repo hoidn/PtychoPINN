@@ -194,3 +194,127 @@ class TestNormalizeData:
         finally:
             if original_nphotons is not None:
                 p.cfg['nphotons'] = original_nphotons
+
+    def test_dataset_stats_attachment(self):
+        """Verify loader.load() attaches pre-normalization diffraction stats.
+
+        Per Phase D4f: loader must compute E_batch[Σ_xy |X|²] from raw 'diffraction'
+        BEFORE calling normalize_data() and attach it to the container as
+        dataset_intensity_stats. This allows calculate_intensity_scale() to use
+        the spec-compliant dataset-derived formula instead of the closed-form fallback.
+
+        See: specs/spec-ptycho-core.md §Normalization Invariants
+        """
+        from ptycho.loader import load
+
+        N = 64
+        B = 8
+
+        # Create synthetic grouped data dict with both 'diffraction' and 'X_full'
+        np.random.seed(42)
+        raw_diffraction = np.random.rand(B, N, N, 1).astype(np.float32) * 0.5
+
+        # Manually compute expected batch_mean_sum_intensity from raw diffraction
+        raw_f64 = raw_diffraction.astype(np.float64)
+        sum_intensity = np.sum(raw_f64 ** 2, axis=(1, 2, 3))  # shape (B,)
+        expected_batch_mean = float(np.mean(sum_intensity))
+
+        # Create X_full (normalized version - distinct values to verify we use raw)
+        X_full = raw_diffraction * 10.0  # Different scale to ensure we detect which is used
+
+        # Build grouped data dict matching raw_data.generate_grouped_data() output
+        coords_offsets = np.zeros((B, 1, 2, 1), dtype=np.float32)
+        coords_relative = np.zeros((B, 1, 2, 1), dtype=np.float32)
+        nn_indices = np.zeros((B, 1), dtype=np.int32)
+
+        dset = {
+            'diffraction': raw_diffraction,
+            'X_full': X_full,
+            'Y': None,
+            'coords_offsets': coords_offsets,
+            'coords_start_offsets': coords_offsets,
+            'coords_relative': coords_relative,
+            'coords_start_relative': coords_relative,
+            'nn_indices': nn_indices,
+        }
+
+        # Create a simple probe
+        probe = np.ones((N, N), dtype=np.complex64)
+
+        # Call loader.load without splitting
+        container = load(lambda: dset, probe, which=None, create_split=False)
+
+        # Verify dataset_intensity_stats is attached
+        assert hasattr(container, 'dataset_intensity_stats'), \
+            "Container should have dataset_intensity_stats attribute"
+        assert container.dataset_intensity_stats is not None, \
+            "dataset_intensity_stats should not be None when 'diffraction' key present"
+
+        # Verify the computed value matches expected
+        actual_batch_mean = container.dataset_intensity_stats.get('batch_mean_sum_intensity', 0.0)
+        assert abs(actual_batch_mean - expected_batch_mean) / expected_batch_mean < 0.001, \
+            f"batch_mean_sum_intensity mismatch: got {actual_batch_mean}, expected {expected_batch_mean}"
+
+        # Verify n_samples is correct
+        actual_n_samples = container.dataset_intensity_stats.get('n_samples', 0)
+        assert actual_n_samples == B, \
+            f"n_samples mismatch: got {actual_n_samples}, expected {B}"
+
+    def test_dataset_stats_attachment_with_split(self):
+        """Verify loader.load() recomputes stats correctly for train/test splits.
+
+        When create_split=True, the stats should be recomputed for the specific
+        split (train or test), not the full dataset.
+        """
+        from ptycho.loader import load
+
+        N = 64
+        B = 10  # Use 10 samples for easy split math
+        train_frac = 0.6  # 6 train, 4 test
+
+        np.random.seed(123)
+        raw_diffraction = np.random.rand(B, N, N, 1).astype(np.float32) * 0.5
+
+        # Compute expected stats for train split (first 6 samples)
+        n_train = int(B * train_frac)
+        train_diff = raw_diffraction[:n_train].astype(np.float64)
+        expected_train_batch_mean = float(np.mean(np.sum(train_diff ** 2, axis=(1, 2, 3))))
+
+        # Compute expected stats for test split (last 4 samples)
+        test_diff = raw_diffraction[n_train:].astype(np.float64)
+        expected_test_batch_mean = float(np.mean(np.sum(test_diff ** 2, axis=(1, 2, 3))))
+
+        # Build grouped data dict
+        X_full = raw_diffraction * 10.0
+        coords_offsets = np.zeros((B, 1, 2, 1), dtype=np.float32)
+        coords_relative = np.zeros((B, 1, 2, 1), dtype=np.float32)
+        nn_indices = np.zeros((B, 1), dtype=np.int32)
+
+        dset = {
+            'diffraction': raw_diffraction,
+            'X_full': X_full,
+            'Y': None,
+            'coords_offsets': coords_offsets,
+            'coords_start_offsets': coords_offsets,
+            'coords_relative': coords_relative,
+            'coords_start_relative': coords_relative,
+            'nn_indices': nn_indices,
+        }
+
+        probe = np.ones((N, N), dtype=np.complex64)
+
+        # Load train split
+        train_container = load(lambda: (dset, train_frac), probe, which='train', create_split=True)
+        assert train_container.dataset_intensity_stats is not None
+        train_actual = train_container.dataset_intensity_stats['batch_mean_sum_intensity']
+        assert abs(train_actual - expected_train_batch_mean) / expected_train_batch_mean < 0.001, \
+            f"Train batch_mean mismatch: got {train_actual}, expected {expected_train_batch_mean}"
+        assert train_container.dataset_intensity_stats['n_samples'] == n_train
+
+        # Load test split
+        test_container = load(lambda: (dset, train_frac), probe, which='test', create_split=True)
+        assert test_container.dataset_intensity_stats is not None
+        test_actual = test_container.dataset_intensity_stats['batch_mean_sum_intensity']
+        assert abs(test_actual - expected_test_batch_mean) / expected_test_batch_mean < 0.001, \
+            f"Test batch_mean mismatch: got {test_actual}, expected {expected_test_batch_mean}"
+        assert test_container.dataset_intensity_stats['n_samples'] == B - n_train

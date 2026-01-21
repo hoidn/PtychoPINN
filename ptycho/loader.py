@@ -124,6 +124,10 @@ class PtychoDataContainer:
         nn_indices: Nearest neighbor indices for patch grouping
         global_offsets: Global coordinate offsets
         local_offsets: Local coordinate offsets within patches
+        dataset_intensity_stats: Dict with pre-normalization diffraction statistics
+            for computing the spec-compliant dataset-derived intensity_scale.
+            Keys: 'batch_mean_sum_intensity' (E_batch[Σ_xy |X|²]), 'n_samples'.
+            See: specs/spec-ptycho-core.md §Normalization Invariants.
 
     The container composes complex ground truth (Y = Y_I * exp(1j · Y_phi)) lazily
     and provides comprehensive debug representations showing tensor statistics.
@@ -131,7 +135,7 @@ class PtychoDataContainer:
     See: docs/findings.md PINN-CHUNKED-001 for the OOM blocker this addresses.
     """
     @debug
-    def __init__(self, X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, nn_indices, global_offsets, local_offsets, probeGuess):
+    def __init__(self, X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, nn_indices, global_offsets, local_offsets, probeGuess, dataset_intensity_stats=None):
         # Store as numpy, convert lazily on property access
         # Handle both tensor and array inputs
         self._X_np = X.numpy() if tf.is_tensor(X) else X
@@ -150,6 +154,10 @@ class PtychoDataContainer:
         self.nn_indices = nn_indices
         self.global_offsets = global_offsets
         self.local_offsets = local_offsets
+
+        # Pre-normalization stats for dataset-derived intensity_scale computation
+        # See: specs/spec-ptycho-core.md §Normalization Invariants
+        self.dataset_intensity_stats = dataset_intensity_stats
 
     @property
     def X(self):
@@ -362,20 +370,28 @@ class PtychoDataContainer:
         Args:
             file_path (str): Path to the output npz file.
         """
-        np.savez(
-            file_path,
-            X=self._X_np,
-            Y_I=self._Y_I_np,
-            Y_phi=self._Y_phi_np,
-            norm_Y_I=self.norm_Y_I,
-            YY_full=self.YY_full,
-            coords_nominal=self._coords_nominal_np,
-            coords_true=self._coords_true_np,
-            nn_indices=self.nn_indices,
-            global_offsets=self.global_offsets,
-            local_offsets=self.local_offsets,
-            probe=self._probe_np
-        )
+        save_dict = {
+            'X': self._X_np,
+            'Y_I': self._Y_I_np,
+            'Y_phi': self._Y_phi_np,
+            'norm_Y_I': self.norm_Y_I,
+            'YY_full': self.YY_full,
+            'coords_nominal': self._coords_nominal_np,
+            'coords_true': self._coords_true_np,
+            'nn_indices': self.nn_indices,
+            'global_offsets': self.global_offsets,
+            'local_offsets': self.local_offsets,
+            'probe': self._probe_np,
+        }
+        # Save dataset_intensity_stats as separate keys for npz compatibility
+        if self.dataset_intensity_stats is not None:
+            save_dict['dataset_intensity_stats_batch_mean'] = np.array(
+                self.dataset_intensity_stats.get('batch_mean_sum_intensity', 0.0)
+            )
+            save_dict['dataset_intensity_stats_n_samples'] = np.array(
+                self.dataset_intensity_stats.get('n_samples', 0)
+            )
+        np.savez(file_path, **save_dict)
 
     # TODO is this deprecated, given the above method to_npz()?
 
@@ -464,10 +480,48 @@ def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) ->
     coords_nominal = dset[key_coords_relative]
     coords_true = dset[key_coords_relative]
 
+    # Compute raw diffraction stats BEFORE normalization for dataset-derived intensity_scale
+    # Per specs/spec-ptycho-core.md §Normalization Invariants: s = sqrt(nphotons / E_batch[Σ_xy |X|²])
+    # We need to compute this from the raw 'diffraction' key, NOT 'X_full' (which is normalized)
+    dataset_intensity_stats = None
+    if 'diffraction' in dset:
+        raw_diff = dset['diffraction']
+        # Compute in float64 for numerical stability
+        raw_diff_f64 = raw_diff.astype(np.float64)
+        # Dynamically determine reduction axes: all except batch (axis 0)
+        ndims = len(raw_diff_f64.shape)
+        reduction_axes = tuple(range(1, ndims))  # (1, 2, 3) for rank-4, (1, 2) for rank-3
+        # Sum |X|² over spatial dimensions for each sample
+        sum_intensity = np.sum(raw_diff_f64 ** 2, axis=reduction_axes)  # shape (B,)
+        batch_mean = float(np.mean(sum_intensity))
+        dataset_intensity_stats = {
+            'batch_mean_sum_intensity': batch_mean,
+            'n_samples': len(raw_diff),
+        }
+        print(f"loader: computed raw diffraction stats: batch_mean_sum_intensity={batch_mean:.6f}, n_samples={len(raw_diff)}")
+
     # Correctly handle splitting for both X and Y
     if create_split:
         global_offsets = split_tensor(global_offsets, train_frac, which)
         X_full_split, coords_nominal, coords_true = split_data(X_full, coords_nominal, coords_true, train_frac, which)
+        # Also recompute stats for the split portion
+        if 'diffraction' in dset:
+            raw_diff_full = dset['diffraction']
+            n_train = int(len(raw_diff_full) * train_frac)
+            if which == 'train':
+                raw_diff_split = raw_diff_full[:n_train]
+            else:
+                raw_diff_split = raw_diff_full[n_train:]
+            raw_diff_split_f64 = raw_diff_split.astype(np.float64)
+            ndims = len(raw_diff_split_f64.shape)
+            reduction_axes = tuple(range(1, ndims))
+            sum_intensity_split = np.sum(raw_diff_split_f64 ** 2, axis=reduction_axes)
+            batch_mean_split = float(np.mean(sum_intensity_split))
+            dataset_intensity_stats = {
+                'batch_mean_sum_intensity': batch_mean_split,
+                'n_samples': len(raw_diff_split),
+            }
+            print(f"loader: recomputed raw diffraction stats for {which} split: batch_mean_sum_intensity={batch_mean_split:.6f}, n_samples={len(raw_diff_split)}")
     else:
         X_full_split = X_full
 
@@ -506,7 +560,8 @@ def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) ->
 
     # Create the container with NumPy arrays (lazy tensor conversion)
     container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true,
-                                    dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess)
+                                    dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess,
+                                    dataset_intensity_stats=dataset_intensity_stats)
     print('INFO:', which)
     print(container)
     return container

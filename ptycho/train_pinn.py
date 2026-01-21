@@ -165,18 +165,23 @@ def eval(test_data, history=None, trained_model=None, model_path=None):
 def calculate_intensity_scale(ptycho_data_container: PtychoDataContainer) -> float:
     """Compute intensity scale per specs/spec-ptycho-core.md Normalization Invariants.
 
-    Two compliant calculation modes with the following precedence:
-    1) Dataset-derived (preferred): s = sqrt(nphotons / E_batch[sum_xy |X|^2])
-    2) Closed-form fallback: s = sqrt(nphotons) / (N/2) when batch_mean is near zero
+    Three compliant calculation modes with the following precedence:
+    1) Pre-computed dataset stats (preferred): Uses container.dataset_intensity_stats
+       which holds E_batch[Σ_xy |X|²] from raw diffraction BEFORE normalization
+    2) Container _X_np fallback: s = sqrt(nphotons / E_batch[sum_xy |X|^2]) from normalized data
+    3) Closed-form fallback: s = sqrt(nphotons) / (N/2) when batch_mean is near zero
 
-    Implementation prefers _X_np (NumPy array) to keep computation CPU-bound and avoid
-    populating _tensor_cache, which would trigger GPU memory allocation. Falls back to
-    TensorFlow path only when _X_np is unavailable.
+    Implementation prefers dataset_intensity_stats because _X_np contains normalized
+    data (L2 norm = (N/2)²), making the dataset-derived formula degenerate to the
+    closed-form. Raw diffraction stats are captured in loader.load() BEFORE
+    normalize_data() is called.
 
     See: docs/findings.md PINN-CHUNKED-001 for lazy-container requirements.
+    See: specs/spec-ptycho-core.md §Normalization Invariants for the formula.
 
     Args:
-        ptycho_data_container: Container with _X_np array or .X tensor (B, N, N, C) float32
+        ptycho_data_container: Container with dataset_intensity_stats dict,
+            _X_np array, or .X tensor (B, N, N, C) float32
 
     Returns:
         Intensity scale as Python float
@@ -187,7 +192,21 @@ def calculate_intensity_scale(ptycho_data_container: PtychoDataContainer) -> flo
     nphotons = float(p.get('nphotons'))
     N = float(p.get('N'))
 
-    # Prefer _X_np for CPU-only reduction (avoids populating _tensor_cache)
+    # HIGHEST PRIORITY: Use pre-computed raw diffraction stats from loader
+    # These are computed from 'diffraction' key BEFORE normalize_data() is called
+    if hasattr(ptycho_data_container, 'dataset_intensity_stats') and ptycho_data_container.dataset_intensity_stats is not None:
+        stats = ptycho_data_container.dataset_intensity_stats
+        batch_mean = stats.get('batch_mean_sum_intensity', 0.0)
+        if batch_mean > 1e-12:
+            dataset_scale = float(np.sqrt(nphotons / batch_mean))
+            print(f"calculate_intensity_scale: using dataset_intensity_stats (batch_mean={batch_mean:.6f}) -> scale={dataset_scale:.6f}")
+            return dataset_scale
+        else:
+            # Rare: raw diffraction stats are near zero, fall through to closed-form
+            print(f"calculate_intensity_scale: dataset_intensity_stats batch_mean near zero ({batch_mean}), using fallback")
+
+    # FALLBACK: Use _X_np for CPU-only reduction (avoids populating _tensor_cache)
+    # NOTE: This path uses normalized data, so it degenerates to closed-form
     # See: docs/findings.md PINN-CHUNKED-001
     if hasattr(ptycho_data_container, '_X_np') and ptycho_data_container._X_np is not None:
         X_np = ptycho_data_container._X_np.astype(np.float64)
