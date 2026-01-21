@@ -1,0 +1,4 @@
+tests/scripts/test_inspect_ptycho_data.py::TestInspectPtychoData::test_load_preserves_dataset_stats
+tests/scripts/test_inspect_ptycho_data.py::TestInspectPtychoData::test_load_preserves_tensor_cache_empty
+
+2 tests collected in 0.87s

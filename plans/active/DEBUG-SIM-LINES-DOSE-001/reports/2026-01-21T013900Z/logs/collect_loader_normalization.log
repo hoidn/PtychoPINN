@@ -1,0 +1,11 @@
+tests/test_loader_normalization.py::TestNormalizeData::test_fixed_l2_norm_raw_data
+tests/test_loader_normalization.py::TestNormalizeData::test_fixed_l2_norm_loader
+tests/test_loader_normalization.py::TestNormalizeData::test_varying_input_scales
+tests/test_loader_normalization.py::TestNormalizeData::test_raw_data_and_loader_consistency
+tests/test_loader_normalization.py::TestNormalizeData::test_formula_compliance
+tests/test_loader_normalization.py::TestNormalizeData::test_nphotons_not_used
+tests/test_loader_normalization.py::TestNormalizeData::test_dataset_stats_attachment
+tests/test_loader_normalization.py::TestNormalizeData::test_dataset_stats_attachment_with_split
+tests/test_loader_normalization.py::TestNormalizeData::test_manual_dataset_stats_helper
+
+9 tests collected in 0.87s
