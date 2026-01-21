@@ -420,6 +420,23 @@
     - **Scope:** Extend `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py` so each scenario records `compute_dataset_intensity_stats()` for the train and test splits (before normalization), derives the per-split dataset scales (`sqrt(nphotons / batch_mean_sum_intensity)`), and persists them in `run_metadata.json`. Update `bin/analyze_intensity_bias.py` to ingest the new metadata, display the train/test scales alongside the bundle value in both JSON + Markdown, and cite `specs/spec-ptycho-core.md §Normalization Invariants`. Add analyzer regression tests exercising the new parsing logic, then rerun the gs1_ideal + gs2_ideal stable profiles under a fresh artifacts hub with the CLI smoke guard.
     - **Artifacts Hub:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T024500Z/`
     - **Next Actions:** Ralph implements the runner/analyzer changes, adds the new pytest selector, reruns gs1_ideal + gs2_ideal with enriched telemetry, collects `bias_summary` evidence, and archives pytest logs for both the analyzer test and the CLI guard under the new hub.
+  - *2026-01-21T024500Z:* **Phase D5 COMPLETE — Train/test intensity-scale parity instrumentation.**
+    - **Implementation:**
+      1. Updated `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py` to call `compute_dataset_intensity_stats()` on both `train_raw.diff3d` and `test_raw.diff3d` before training, deriving per-split dataset scales (`sqrt(nphotons / batch_mean_sum_intensity)`). Results persisted to `run_metadata.json` as `split_intensity_stats` block citing `specs/spec-ptycho-core.md §Normalization Invariants`.
+      2. Updated `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py::gather_scenario_data` to extract `split_intensity_stats` from run_metadata, and `render_markdown` to display a new "Train/Test Intensity Scale Parity" section with train/test scale comparison table and >5% deviation flag.
+      3. Created `tests/scripts/test_analyze_intensity_bias.py::TestDatasetStats` with 3 tests: `test_reports_train_test`, `test_tolerates_missing_split_stats`, `test_flags_deviation_exceeding_5pct`.
+    - **Metrics (evidence):**
+      - gs1_ideal: train_scale=558.29, test_scale=576.60, ratio=0.968, deviation=3.17% (within 5% tolerance ✅)
+      - gs2_ideal: train_scale=543.28, test_scale=577.74, ratio=0.940, deviation=5.96% (exceeds 5% tolerance ⚠️)
+    - **Tests (all pass):**
+      - `pytest tests/scripts/test_analyze_intensity_bias.py::TestDatasetStats::test_reports_train_test -v` ✓
+      - `pytest tests/scripts/test_analyze_intensity_bias.py::TestDatasetStats::test_tolerates_missing_split_stats -v` ✓
+      - `pytest tests/scripts/test_analyze_intensity_bias.py::TestDatasetStats::test_flags_deviation_exceeding_5pct -v` ✓
+      - `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` ✓
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T024500Z/{gs1_ideal/*,gs2_ideal/*,bias_summary.json,bias_summary.md,logs/*.log}`
+    - **Spec Compliance:** Implementation aligns with specs/spec-ptycho-core.md §Normalization Invariants: `s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])`. Train/test splits may have different raw intensity distributions, causing ~3-6% scale deviation. PINN-CHUNKED-001 preserved (NumPy-only computation on diff3d arrays).
+    - **Finding:** gs2_ideal shows >5% train/test scale deviation. This is a potential contributor to inference bias when the model is trained on one intensity distribution and evaluated on another. The amplitude bias persists (~2.3-2.7x undershoot), so the root cause is likely elsewhere (model architecture, loss wiring, forward-pass scale handling).
+    - **Next Actions:** D5b forward-pass instrumentation — trace IntensityScaler output vs model prediction to identify where amplitude collapses in the prediction pipeline.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

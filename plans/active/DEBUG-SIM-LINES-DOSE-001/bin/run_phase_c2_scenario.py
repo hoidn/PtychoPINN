@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from ptycho import loader, nbutils, params as legacy_params, tf_helper
+from ptycho.loader import compute_dataset_intensity_stats
 from ptycho.config.config import InferenceConfig, ModelConfig, update_legacy_dict
 from ptycho.workflows.backend_selector import load_inference_bundle_with_backend
 from ptycho.model import _get_log_scale
@@ -1440,6 +1441,63 @@ def main() -> None:
     )
     train_raw, test_raw = split_raw_data_by_axis(raw_data, split_fraction=params.split_fraction, axis="y")
 
+    # D5 instrumentation: compute train/test dataset intensity stats before training
+    # Per specs/spec-ptycho-core.md §Normalization Invariants:
+    # - Dataset-derived: s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])
+    # - This records the per-split raw diffraction statistics for parity analysis
+    # PINN-CHUNKED-001: Use diff3d (NumPy) directly to avoid touching lazy containers
+    train_dataset_stats = compute_dataset_intensity_stats(train_raw.diff3d)
+    test_dataset_stats = compute_dataset_intensity_stats(test_raw.diff3d)
+
+    # Derive per-split dataset scales: s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])
+    train_batch_mean = train_dataset_stats.get("batch_mean_sum_intensity", 0.0)
+    test_batch_mean = test_dataset_stats.get("batch_mean_sum_intensity", 0.0)
+    nphotons = float(params.nphotons)
+
+    train_dataset_scale = float(np.sqrt(nphotons / train_batch_mean)) if train_batch_mean > 1e-12 else None
+    test_dataset_scale = float(np.sqrt(nphotons / test_batch_mean)) if test_batch_mean > 1e-12 else None
+
+    # Compute deviation between train and test scales
+    scale_ratio = None
+    scale_delta = None
+    scale_deviation_pct = None
+    if train_dataset_scale is not None and test_dataset_scale is not None and test_dataset_scale > 1e-12:
+        scale_ratio = train_dataset_scale / test_dataset_scale
+        scale_delta = train_dataset_scale - test_dataset_scale
+        scale_deviation_pct = abs(scale_ratio - 1.0) * 100
+
+    split_intensity_stats = {
+        "train": {
+            "batch_mean_sum_intensity": float(train_batch_mean),
+            "n_samples": train_dataset_stats.get("n_samples"),
+            "dataset_scale": train_dataset_scale,
+        },
+        "test": {
+            "batch_mean_sum_intensity": float(test_batch_mean),
+            "n_samples": test_dataset_stats.get("n_samples"),
+            "dataset_scale": test_dataset_scale,
+        },
+        "nphotons": nphotons,
+        "train_vs_test_scale_ratio": scale_ratio,
+        "train_vs_test_scale_delta": scale_delta,
+        "train_vs_test_deviation_pct": scale_deviation_pct,
+        "deviation_exceeds_5pct": scale_deviation_pct is not None and scale_deviation_pct > 5.0,
+        "spec_reference": "specs/spec-ptycho-core.md §Normalization Invariants",
+    }
+    print(
+        f"[runner][D5] Train dataset scale: {train_dataset_scale:.4f} "
+        f"(batch_mean={train_batch_mean:.2f}, n={train_dataset_stats.get('n_samples')})"
+        if train_dataset_scale else "[runner][D5] Train dataset scale: N/A"
+    )
+    print(
+        f"[runner][D5] Test dataset scale: {test_dataset_scale:.4f} "
+        f"(batch_mean={test_batch_mean:.2f}, n={test_dataset_stats.get('n_samples')})"
+        if test_dataset_scale else "[runner][D5] Test dataset scale: N/A"
+    )
+    if scale_deviation_pct is not None:
+        flag = "⚠️ EXCEEDS 5%" if scale_deviation_pct > 5.0 else "OK"
+        print(f"[runner][D5] Train/test scale ratio: {scale_ratio:.4f} (deviation: {scale_deviation_pct:.2f}%) [{flag}]")
+
     train_config = build_training_config(
         params=params,
         gridsize=scenario.gridsize,
@@ -1708,6 +1766,9 @@ def main() -> None:
     # D4 architecture diagnostics: dataset vs fallback intensity scale
     if intensity_info.get("dataset_scale_info") is not None:
         metadata["dataset_scale_info"] = intensity_info["dataset_scale_info"]
+    # D5 instrumentation: train/test split intensity stats for parity analysis
+    # Per specs/spec-ptycho-core.md §Normalization Invariants
+    metadata["split_intensity_stats"] = split_intensity_stats
     if profile_metadata:
         metadata["profile"] = profile_metadata
     (scenario_dir / "run_metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True))

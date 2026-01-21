@@ -698,6 +698,10 @@ def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
         or run_metadata.get("dataset_scale_info")
     )
 
+    # D5 instrumentation: Extract train/test split intensity stats for parity analysis
+    # Per specs/spec-ptycho-core.md §Normalization Invariants
+    split_intensity_stats = run_metadata.get("split_intensity_stats")
+
     return {
         "name": scenario.name,
         "paths": {
@@ -729,6 +733,7 @@ def gather_scenario_data(scenario: ScenarioInput) -> Dict[str, Any]:
         "intensity_scaler_state": intensity_scaler_state,
         "training_container_stats": training_container_stats,
         "dataset_scale_info": dataset_scale_info,
+        "split_intensity_stats": split_intensity_stats,
         "derived": {
             "stage_means": stage_means,
             "ratios": stage_ratios,
@@ -1009,6 +1014,60 @@ def render_markdown(summary: Mapping[str, Any]) -> str:
                         f"   - The dataset-derived scale is **smaller** than the fallback, meaning the raw diffraction "
                         "has higher average intensity than assumed → predictions may be overscaled."
                     )
+                lines.append("")
+
+        # D5 instrumentation: Train/Test Split Intensity Stats
+        # Per specs/spec-ptycho-core.md §Normalization Invariants
+        split_stats = payload.get("split_intensity_stats")
+        if split_stats:
+            train_stats = split_stats.get("train") or {}
+            test_stats = split_stats.get("test") or {}
+            lines.append("### Train/Test Intensity Scale Parity")
+            lines.append("")
+            lines.append(
+                f"**Spec Reference:** `{split_stats.get('spec_reference', 'specs/spec-ptycho-core.md §Normalization Invariants')}`"
+            )
+            lines.append("")
+            lines.append(
+                "Per the spec, intensity scale is computed as `s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])`. "
+                "If train and test splits have different raw diffraction statistics, their dataset-derived "
+                "scales will differ, potentially contributing to bias during inference."
+            )
+            lines.append("")
+            lines.append("| Split | E_batch[Σ|Ψ|²] | n_samples | Dataset Scale |")
+            lines.append("| --- | ---: | ---: | ---: |")
+            lines.append(
+                f"| Train | {fmt_value(train_stats.get('batch_mean_sum_intensity'))} | "
+                f"{train_stats.get('n_samples', 'n/a')} | "
+                f"{fmt_value(train_stats.get('dataset_scale'))} |"
+            )
+            lines.append(
+                f"| Test | {fmt_value(test_stats.get('batch_mean_sum_intensity'))} | "
+                f"{test_stats.get('n_samples', 'n/a')} | "
+                f"{fmt_value(test_stats.get('dataset_scale'))} |"
+            )
+            lines.append("")
+
+            # Parity analysis
+            scale_ratio = split_stats.get("train_vs_test_scale_ratio")
+            scale_delta = split_stats.get("train_vs_test_scale_delta")
+            deviation_pct = split_stats.get("train_vs_test_deviation_pct")
+            exceeds_5pct = split_stats.get("deviation_exceeds_5pct")
+
+            lines.append(f"- nphotons: {fmt_value(split_stats.get('nphotons'))}")
+            lines.append(f"- Train/Test scale ratio: {fmt_value(scale_ratio)}")
+            lines.append(f"- Train/Test scale delta: {fmt_value(scale_delta)}")
+            lines.append(f"- Deviation from parity: {fmt_value(deviation_pct, precision=2)}%")
+            lines.append("")
+
+            if exceeds_5pct:
+                lines.append(
+                    "⚠️ **Train/Test scale deviation exceeds 5%**: This indicates the raw diffraction "
+                    "statistics differ significantly between splits, which may contribute to inference bias."
+                )
+                lines.append("")
+            elif deviation_pct is not None:
+                lines.append("✅ Train/Test scale parity is within 5% tolerance.")
                 lines.append("")
 
         # IntensityScaler State section (D4 architecture diagnostics)
