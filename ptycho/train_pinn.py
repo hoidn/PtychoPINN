@@ -169,14 +169,49 @@ def calculate_intensity_scale(ptycho_data_container: PtychoDataContainer) -> flo
     1) Dataset-derived (preferred): s = sqrt(nphotons / E_batch[sum_xy |X|^2])
     2) Closed-form fallback: s = sqrt(nphotons) / (N/2) when batch_mean is near zero
 
+    Implementation prefers _X_np (NumPy array) to keep computation CPU-bound and avoid
+    populating _tensor_cache, which would trigger GPU memory allocation. Falls back to
+    TensorFlow path only when _X_np is unavailable.
+
+    See: docs/findings.md PINN-CHUNKED-001 for lazy-container requirements.
+
     Args:
-        ptycho_data_container: Container with .X tensor (B, N, N, C) float32
+        ptycho_data_container: Container with _X_np array or .X tensor (B, N, N, C) float32
 
     Returns:
         Intensity scale as Python float
     """
-    import tensorflow as tf
+    import numpy as np
     from . import params as p
+
+    nphotons = float(p.get('nphotons'))
+    N = float(p.get('N'))
+
+    # Prefer _X_np for CPU-only reduction (avoids populating _tensor_cache)
+    # See: docs/findings.md PINN-CHUNKED-001
+    if hasattr(ptycho_data_container, '_X_np') and ptycho_data_container._X_np is not None:
+        X_np = ptycho_data_container._X_np.astype(np.float64)
+
+        # X shape: (B, N, N, C) - compute sum of squared amplitudes over spatial and channel dims
+        # Dynamically determine reduction axes: all except batch (axis 0)
+        ndims = len(X_np.shape)
+        reduction_axes = tuple(range(1, ndims))  # (1, 2, 3) for rank-4, (1, 2) for rank-3
+
+        # Sum |X|^2 over spatial dimensions for each sample
+        sum_intensity = np.sum(X_np ** 2, axis=reduction_axes)  # shape (B,)
+
+        # E_batch[sum_xy |X|^2]
+        batch_mean = float(np.mean(sum_intensity))
+
+        # Dataset-derived scale when batch_mean is sufficiently large
+        if batch_mean > 1e-12:
+            return float(np.sqrt(nphotons / batch_mean))
+        else:
+            # Closed-form fallback: s = sqrt(nphotons) / (N/2)
+            return float(np.sqrt(nphotons) / (N / 2.0))
+
+    # TensorFlow fallback for containers without _X_np
+    import tensorflow as tf
 
     # Cast to float64 for numerical stability
     X = tf.cast(ptycho_data_container.X, tf.float64)
@@ -191,9 +226,6 @@ def calculate_intensity_scale(ptycho_data_container: PtychoDataContainer) -> flo
 
     # E_batch[sum_xy |X|^2]
     batch_mean = tf.reduce_mean(sum_intensity)
-
-    nphotons = tf.cast(p.get('nphotons'), tf.float64)
-    N = tf.cast(p.get('N'), tf.float64)
 
     # Dataset-derived scale when batch_mean is sufficiently large
     if batch_mean > 1e-12:
