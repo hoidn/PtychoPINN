@@ -1270,3 +1270,26 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Next Action: Ralph implements D4f (loader/train_pinn/test updates + gs1_ideal/gs2_ideal reruns) and archives logs/analyzer evidence under the new hub; verify `bundle_intensity_scale == dataset_scale` afterward.
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=2 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/ next_action=Implement loader/train_pinn dataset-intensity stats plumbing plus regression tests and rerun gs1_ideal+gs2_ideal with analyzer/pytest evidence
+
+# 2026-01-21T01:40:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase D4f IMPLEMENTED: dataset_intensity_stats plumbing
+
+- dwell: 0 (implementation complete)
+- Focus issue: Phase D4f — attach raw diffraction stats to container for spec-compliant intensity_scale
+- Action type: Implementation + testing
+- Mode: Implementation
+- Documents reviewed: specs/spec-ptycho-core.md §Normalization Invariants; ptycho/loader.py; ptycho/train_pinn.py; plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md
+- Key changes:
+  1. **loader.load()**: Now computes E_batch[Σ_xy |X|²] from raw `dset['diffraction']` key BEFORE any normalization, stores in `dataset_intensity_stats` dict with keys `batch_mean_sum_intensity` and `n_samples`.
+  2. **PtychoDataContainer**: Added `dataset_intensity_stats` attribute; updated docstring; updated `to_npz()` to persist stats.
+  3. **calculate_intensity_scale()**: Added highest-priority check for `dataset_intensity_stats` attribute before falling back to `_X_np` path. This fixes the spec-compliant dataset-derived formula.
+  4. **Split handling**: When `create_split=True`, stats are recomputed for the specific train/test split rather than using full dataset stats.
+- Tests added (4 new):
+  - `test_dataset_stats_attachment`: Verifies stats computed from raw diffraction
+  - `test_dataset_stats_attachment_with_split`: Verifies train/test split recomputation
+  - `test_uses_dataset_stats`: Verifies calculate_intensity_scale prefers stats over _X_np
+  - `test_uses_dataset_stats_ignores_zero_mean`: Verifies graceful fallback for zero stats
+- Test results: 15/15 pass (8 TestNormalizeData + 7 TestIntensityScale)
+- Commit: af42436a
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/ (pytest_full_test_suite.log)
+- <Action State>: [d4f_implemented]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=d4f_implemented dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T012500Z/ next_action=Supervisor review; gs1_ideal + gs2_ideal scenario reruns with analyzer to verify bundle_intensity_scale matches dataset_scale; check for amplitude bias reduction

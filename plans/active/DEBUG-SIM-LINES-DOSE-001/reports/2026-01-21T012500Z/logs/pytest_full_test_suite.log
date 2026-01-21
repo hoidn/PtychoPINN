@@ -1,0 +1,27 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 15 items
+
+tests/test_loader_normalization.py::TestNormalizeData::test_fixed_l2_norm_raw_data PASSED [  6%]
+tests/test_loader_normalization.py::TestNormalizeData::test_fixed_l2_norm_loader PASSED [ 13%]
+tests/test_loader_normalization.py::TestNormalizeData::test_varying_input_scales PASSED [ 20%]
+tests/test_loader_normalization.py::TestNormalizeData::test_raw_data_and_loader_consistency PASSED [ 26%]
+tests/test_loader_normalization.py::TestNormalizeData::test_formula_compliance PASSED [ 33%]
+tests/test_loader_normalization.py::TestNormalizeData::test_nphotons_not_used PASSED [ 40%]
+tests/test_loader_normalization.py::TestNormalizeData::test_dataset_stats_attachment PASSED [ 46%]
+tests/test_loader_normalization.py::TestNormalizeData::test_dataset_stats_attachment_with_split PASSED [ 53%]
+tests/test_train_pinn.py::TestIntensityScale::test_dataset_derived_path PASSED [ 60%]
+tests/test_train_pinn.py::TestIntensityScale::test_fallback_path_zero_tensor PASSED [ 66%]
+tests/test_train_pinn.py::TestIntensityScale::test_rank3_tensor_handling PASSED [ 73%]
+tests/test_train_pinn.py::TestIntensityScale::test_multi_channel_handling PASSED [ 80%]
+tests/test_train_pinn.py::TestIntensityScale::test_lazy_container_does_not_materialize PASSED [ 86%]
+tests/test_train_pinn.py::TestIntensityScale::test_uses_dataset_stats PASSED [ 93%]
+tests/test_train_pinn.py::TestIntensityScale::test_uses_dataset_stats_ignores_zero_mean PASSED [100%]
+
+============================== 15 passed in 4.45s ==============================
