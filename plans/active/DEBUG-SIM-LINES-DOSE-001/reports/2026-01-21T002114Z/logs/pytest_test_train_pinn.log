@@ -13,4 +13,4 @@ tests/test_train_pinn.py::TestIntensityScale::test_fallback_path_zero_tensor PAS
 tests/test_train_pinn.py::TestIntensityScale::test_rank3_tensor_handling PASSED [ 75%]
 tests/test_train_pinn.py::TestIntensityScale::test_multi_channel_handling PASSED [100%]
 
-============================== 4 passed in 4.12s ===============================
+============================== 4 passed in 4.10s ===============================

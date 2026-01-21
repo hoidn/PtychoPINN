@@ -1,0 +1,7 @@
+{
+  "applied": true,
+  "mode": "least_squares",
+  "recorded_scale": 494.1046142578125,
+  "source": "least_squares",
+  "value": 2.141447906353811
+}

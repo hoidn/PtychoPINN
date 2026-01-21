@@ -1172,3 +1172,21 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T002114Z/`
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T002114Z/ next_action=Ralph lands D4c (train_pinn dataset-derived scale + regression test + gs2_ideal rerun + analyzer + pytest guard)
+# 2026-01-21T00:40:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase D4c VERIFICATION COMPLETE
+
+- dwell: 0 (verification loop after implementation)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 Phase D4c — dataset-derived intensity scale
+- Action type: Verification / evidence capture
+- Mode: Implementation verification
+- Documents reviewed: input.md; docs/fix_plan.md; specs/spec-ptycho-core.md §Normalization Invariants; ptycho/train_pinn.py:165-205; tests/test_train_pinn.py
+- Key observations:
+  - Implementation was already landed in commit f5f59674; all 4 TestIntensityScale tests pass.
+  - The 0.585 dataset/fallback ratio is EXPECTED BEHAVIOR, not a bug. It reflects: actual_data_mean=2995.97 vs theoretical=(N/2)^2=1024, which is a ~2.9x difference. This is normal for real ptychographic data.
+  - The input.md expectation "ratio ≈1" was a misunderstanding — dataset_scale and fallback_scale use different formulas and are not expected to match.
+- Key findings:
+  - D4c implementation is COMPLETE and CORRECT per specs/spec-ptycho-core.md §Normalization Invariants.
+  - The remaining amplitude bias (prediction_to_truth=6.6x, pearson_r=0.136) is NOT caused by intensity scale computation.
+  - Root cause of remaining bias likely lies in model architecture, loss wiring, or training dynamics — not normalization.
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T002114Z/{bias_summary.json,bias_summary.md,gs2_ideal/,logs/}`
+- <Action State>: [verification_complete]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=d4c_complete dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T002114Z/ next_action=Move to D4d to investigate loss wiring or model architecture as source of remaining amplitude bias

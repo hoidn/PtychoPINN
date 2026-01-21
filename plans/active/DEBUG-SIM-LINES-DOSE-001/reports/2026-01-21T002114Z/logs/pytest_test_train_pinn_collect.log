@@ -3,4 +3,4 @@ tests/test_train_pinn.py::TestIntensityScale::test_fallback_path_zero_tensor
 tests/test_train_pinn.py::TestIntensityScale::test_rank3_tensor_handling
 tests/test_train_pinn.py::TestIntensityScale::test_multi_channel_handling
 
-4 tests collected in 3.35s
+4 tests collected in 3.38s
