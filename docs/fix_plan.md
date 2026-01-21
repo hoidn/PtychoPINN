@@ -405,6 +405,16 @@
       2. Add `tests/test_data_preprocessing.py::TestCreatePtychoDataset::test_attaches_dataset_stats` verifying preprocessing-generated datasets propagate stats for both splits.
       3. Keep the existing loader/train_pinn/intensity-scale tests green plus the CLI smoke selector.
     - **Artifacts Hub:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T020608Z/`
+  - *2026-01-21T020608Z:* **Phase D4f.3 COMPLETE — Grid-mode + preprocessing constructors now propagate dataset_intensity_stats.**
+    - **Implementation:** Updated `scripts/studies/dose_response_study.py::simulate_datasets_grid_mode` to call `compute_dataset_intensity_stats(X, intensity_scale=scale, is_normalized=True)` and pass stats to both train/test containers. Updated `ptycho/data_preprocessing.py::create_ptycho_dataset` with identical pattern. Updated `docs/DATA_GENERATION_GUIDE.md` §4.3 + grid-mode section with mandatory stats attachment guidance.
+    - **Metrics (4/4 green):**
+      - `pytest tests/scripts/test_dose_response_study.py::test_simulate_datasets_grid_mode_attaches_dataset_stats -v` ✓
+      - `pytest tests/test_data_preprocessing.py::TestCreatePtychoDataset::test_attaches_dataset_stats -v` ✓
+      - `pytest tests/test_train_pinn.py::TestIntensityScale::test_uses_dataset_stats -v` ✓
+      - `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` ✓
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T020608Z/logs/{pytest_data_preproc_stats.log,pytest_dose_response_stats.log,pytest_train_pinn_dataset_stats.log,pytest_cli_smoke.log,pytest_all_selectors.log}`
+    - **Spec Compliance:** All manual constructors (loader.load, dose_response_study, data_preprocessing, inspect_ptycho_data) now attach dataset_intensity_stats per specs/spec-ptycho-core.md §Normalization Invariants.
+    - **Next Actions:** Continue amplitude bias investigation (Phase D5) now that intensity_scale fallback is eliminated across all data flows.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

@@ -66,10 +66,21 @@ p.set('sim_jitter_scale', 0.0)     # Jitter std (0 = no jitter)
 3. **Fixed grid layout** — patches at regular `offset` spacing within groups
 
 ### Direct Container Construction
+
+**IMPORTANT:** When constructing containers manually (bypassing `loader.load()`), you MUST attach
+`dataset_intensity_stats` to enable the spec-compliant dataset-derived intensity_scale formula.
+See `specs/spec-ptycho-core.md §Normalization Invariants`.
+
 ```python
-from ptycho.loader import PtychoDataContainer
+from ptycho.loader import PtychoDataContainer, compute_dataset_intensity_stats
 from ptycho.diffsim import scale_nphotons
 import tensorflow as tf
+
+# Compute stats from raw/normalized diffraction for dataset-derived intensity_scale
+# For normalized data (e.g., from mk_simdata), pass is_normalized=True and intensity_scale
+dataset_stats = compute_dataset_intensity_stats(
+    X, intensity_scale=intensity_scale, is_normalized=True
+)
 
 container = PtychoDataContainer(
     X=X,
@@ -82,7 +93,8 @@ container = PtychoDataContainer(
     nn_indices=None,
     global_offsets=None,
     local_offsets=None,
-    probeGuess=probeGuess
+    probeGuess=probeGuess,
+    dataset_intensity_stats=dataset_stats  # Required for correct intensity_scale
 )
 ```
 
@@ -309,17 +321,30 @@ raw_data = RawData.from_simulation(
 
 ### 4.3. Direct PtychoDataContainer Construction
 
-Skip `RawData` entirely and create model-ready tensors directly:
+Skip `RawData` entirely and create model-ready tensors directly.
+
+**IMPORTANT:** When bypassing `loader.load()`, you MUST attach `dataset_intensity_stats` to enable
+the spec-compliant dataset-derived intensity_scale formula. Without this, training falls back to
+the closed-form 988.21 constant, causing amplitude bias. See `specs/spec-ptycho-core.md §Normalization Invariants`.
 
 ```python
-from ptycho.loader import PtychoDataContainer
+from ptycho.loader import PtychoDataContainer, compute_dataset_intensity_stats
 import numpy as np
 
 B, N, C = 1000, 64, 4  # batch, patch size, channels (gridsize²)
 
+# Create diffraction data
+X = np.random.rand(B, N, N, C).astype(np.float32) + 0.1
+
+# REQUIRED: Compute dataset intensity stats from raw diffraction arrays
+# This enables the dataset-derived intensity_scale formula instead of fallback
+dataset_stats = compute_dataset_intensity_stats(X, is_normalized=False)
+# Or if data is already normalized, pass the recorded intensity_scale:
+# dataset_stats = compute_dataset_intensity_stats(X, intensity_scale=recorded_scale, is_normalized=True)
+
 # Direct construction with all required arrays
 container = PtychoDataContainer(
-    X=np.random.rand(B, N, N, C).astype(np.float32),
+    X=X,
     Y_I=np.random.rand(B, N, N, C).astype(np.float32),
     Y_phi=np.random.rand(B, N, N, C).astype(np.float32),
     norm_Y_I=1.0,
@@ -329,10 +354,12 @@ container = PtychoDataContainer(
     nn_indices=np.zeros((B, C), dtype=np.int32),
     global_offsets=np.random.rand(B, 1, 2, C),
     local_offsets=np.zeros((B, 1, 2, C)),
-    probeGuess=np.ones((N, N), dtype=np.complex64)
+    probeGuess=np.ones((N, N), dtype=np.complex64),
+    dataset_intensity_stats=dataset_stats  # Required for correct intensity_scale
 )
 
 # Or via factory (combines RawData creation + grouping + loading)
+# Note: The factory path handles stats automatically via loader.load()
 container = PtychoDataContainer.from_raw_data_without_pc(
     xcoords=coords_x,
     ycoords=coords_y,

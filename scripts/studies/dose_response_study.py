@@ -380,7 +380,7 @@ def simulate_datasets_grid_mode(
         X_test, Y_I_test, Y_phi_test, _, YY_full_test, norm_Y_I_test, coords_test_raw = test_result
 
         # Create PtychoDataContainer directly from mk_simdata outputs
-        from ptycho.loader import PtychoDataContainer
+        from ptycho.loader import PtychoDataContainer, compute_dataset_intensity_stats
 
         # Convert probe to correct shape if needed
         probe_tensor = probeGuess.astype(np.complex64)
@@ -391,6 +391,21 @@ def simulate_datasets_grid_mode(
         # The model needs these for position-aware reconstruction/stitching
         coords_train = coords_train_raw[0].astype(np.float32)  # Use nominal coords
         coords_test = coords_test_raw[0].astype(np.float32)
+
+        # Compute dataset intensity stats from raw diffraction BEFORE creating containers.
+        # Per specs/spec-ptycho-core.md §Normalization Invariants: stats must be computed
+        # from raw amplitudes to enable the dataset-derived intensity_scale formula.
+        # Grid-mode mk_simdata outputs X_train/X_test as normalized amplitudes, so we
+        # must back-compute raw stats using the recorded intensity_scale_train.
+        train_stats = compute_dataset_intensity_stats(
+            X_train, intensity_scale=intensity_scale_train, is_normalized=True
+        )
+        test_stats = compute_dataset_intensity_stats(
+            X_test, intensity_scale=intensity_scale_train, is_normalized=True
+        )
+
+        logger.info(f"[D4f.3] Train dataset stats: batch_mean_sum_intensity={train_stats['batch_mean_sum_intensity']:.4f}")
+        logger.info(f"[D4f.3] Test dataset stats: batch_mean_sum_intensity={test_stats['batch_mean_sum_intensity']:.4f}")
 
         train_container = PtychoDataContainer(
             X=X_train,
@@ -403,7 +418,8 @@ def simulate_datasets_grid_mode(
             nn_indices=None,
             global_offsets=None,
             local_offsets=None,
-            probeGuess=probe_tensor
+            probeGuess=probe_tensor,
+            dataset_intensity_stats=train_stats
         )
 
         test_container = PtychoDataContainer(
@@ -417,7 +433,8 @@ def simulate_datasets_grid_mode(
             nn_indices=None,
             global_offsets=None,
             local_offsets=None,
-            probeGuess=probe_tensor
+            probeGuess=probe_tensor,
+            dataset_intensity_stats=test_stats
         )
 
         # Create config for this arm (for training parameters)
