@@ -1345,3 +1345,26 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T024500Z/`
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T024500Z/ next_action=Ralph implements the D5 runner/analyzer instrumentation, adds the analyzer regression test, reruns gs1_ideal + gs2_ideal with the new metadata, and archives the pytest/CLI logs under the new hub
+
+# 2026-01-21T030000Z: DEBUG-SIM-LINES-DOSE-001 — Phase D5b forward-pass instrumentation planning
+
+- dwell: 0 (first planning loop after D5 implementation)
+- Focus issue: Phase D5b — model predictions are ~6.5x smaller than ground truth amplitude; need to trace forward-pass scale handling to identify root cause
+- Action type: Planning → Implementation handoff (debug instrumentation)
+- Mode: Implementation
+- Git sync: `git stash push -u -m 'galph-20260121-loop' && timeout 30 git pull --rebase && git stash pop` → clean
+- Documents reviewed: docs/index.md; docs/fix_plan.md; plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}; plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T024500Z/{bias_summary.md,gs2_ideal/run_metadata.json}; ptycho/model.py (IntensityScaler class); ptycho/nbutils.py (reconstruct_image); specs/spec-ptycho-core.md §Normalization Invariants
+- Key observations:
+  - D5 telemetry reveals full_chain_product=18.571 for gs2_ideal; primary deviation is prediction→truth (ratio=6.561)
+  - Model outputs mean amplitude ~0.41 while truth mean is ~2.71 (6.5× gap)
+  - IntensityScaler state shows exp(log_scale)=273.35 matching params.cfg, but dataset-derived scale is 577.74 (~2× higher)
+  - External scaling `X * intensity_scale` and IntensityScaler division should cancel, leaving net input unscaled
+  - Need to trace whether issue is in forward-pass amplification, inverse scaler application, or training label scaling
+- Decisions:
+  - Added D5b to the implementation plan covering forward-pass diagnostic telemetry (external scale, model exp_log_scale, input/output means, amplification ratio)
+  - Added D5b entry to docs/fix_plan.md with scope and artifacts hub
+  - Rewrote input.md instructing Ralph to add debug instrumentation to run_phase_c2_scenario.py without modifying core modules
+  - Reserved artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T030000Z/`
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T030000Z/`
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T030000Z/ next_action=Ralph adds D5b forward-pass diagnostics to run_phase_c2_scenario.py, reruns gs2_ideal, and archives the diagnostic metadata under the new hub

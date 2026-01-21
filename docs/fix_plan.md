@@ -437,6 +437,16 @@
     - **Spec Compliance:** Implementation aligns with specs/spec-ptycho-core.md §Normalization Invariants: `s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])`. Train/test splits may have different raw intensity distributions, causing ~3-6% scale deviation. PINN-CHUNKED-001 preserved (NumPy-only computation on diff3d arrays).
     - **Finding:** gs2_ideal shows >5% train/test scale deviation. This is a potential contributor to inference bias when the model is trained on one intensity distribution and evaluated on another. The amplitude bias persists (~2.3-2.7x undershoot), so the root cause is likely elsewhere (model architecture, loss wiring, forward-pass scale handling).
     - **Next Actions:** D5b forward-pass instrumentation — trace IntensityScaler output vs model prediction to identify where amplitude collapses in the prediction pipeline.
+  - *2026-01-21T030000Z:* **Phase D5b PLANNED — Forward-pass IntensityScaler tracing.**
+    - **Observation:** D5 telemetry reveals the amplitude bias originates in the forward pass: predictions are ~4.8× larger than normalized inputs but ~6.5× smaller than truth (full_chain_product=18.571). The IntensityScaler weights match params.cfg (exp(log_scale)=273.35) but dataset-derived test scale is 577.74 (~2× higher). Need to trace where the ~6.5× shrinkage occurs.
+    - **Scope:** Add plan-local instrumentation to `run_phase_c2_scenario.py` that captures:
+      (a) IntensityScaler forward output during a training step / inference pass;
+      (b) IntensityScaler_inv output at inference time;
+      (c) comparison of the forward scale factor vs the inverse scale factor;
+      (d) probe amplitude applied to predictions.
+      This will clarify whether the gap stems from missing inverse scaling at inference, incorrect scale factor in the model, or a probe-application issue.
+    - **Artifacts Hub:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T030000Z/`
+    - **Next Actions:** Ralph instruments the forward-pass telemetry, reruns gs2_ideal with diagnostic logging, and archives the scale-factor traces under the new hub.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

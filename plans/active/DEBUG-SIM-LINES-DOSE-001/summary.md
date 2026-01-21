@@ -1,5 +1,12 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
+### Turn Summary — 2026-01-21T030000Z (Phase D5b forward-pass instrumentation planning)
+Reviewed D5 evidence showing predictions are ~6.5× smaller than ground truth (full_chain_product=18.571). The IntensityScaler state shows exp(log_scale)=273.35 matching params.cfg, but dataset-derived test scale is 577.74 (~2× discrepancy). Train/test parity is at 5.96% for gs2_ideal (slightly over tolerance).
+Analysis: normalized→prediction shows 4.8× amplification (expected), but prediction→truth shows 6.5× gap (unexpected). The shrinkage happens at inference time — need to trace whether IntensityScaler_inv is being applied correctly and whether probe amplitude contributes to the gap.
+Scoped Phase D5b to add forward-pass telemetry: log IntensityScaler/IntensityScaler_inv layer outputs, compare forward vs inverse scales, and check probe application. Reserved artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T030000Z/`.
+Next: Ralph instruments the forward-pass diagnostics per D5b scope and reruns gs2_ideal with enriched telemetry.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T030000Z/ (reserved)
+
 ### Turn Summary — 2026-01-21T024500Z (Phase D5 train/test parity planning)
 Closed out D4f.3 (grid-mode + preprocessing constructors now attach dataset_intensity_stats) and scoped Phase D5 around instrumenting the train/test splits: `run_phase_c2_scenario.py` will log raw-diffraction stats + derived dataset scales for both splits, while `analyze_intensity_bias.py` will surface the new metadata so we can quantify how far the test-set intensity deviates from the bundle scale. Created artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T024500Z/` for the upcoming telemetry, and drafted the Do Now instructing Ralph to update the runner/analyzer, add the new analyzer regression test, rerun gs1_ideal+gs2_ideal with the enriched metadata, and keep the CLI smoke selector green.
 Next: Ralph lands the D5 instrumentation, reruns both scenarios under the new hub, captures the analyzer outputs with train/test splits, and archives pytest logs for the new regression plus the existing CLI guard.
