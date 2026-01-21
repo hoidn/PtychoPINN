@@ -1368,3 +1368,54 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T030000Z/`
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T030000Z/ next_action=Ralph adds D5b forward-pass diagnostics to run_phase_c2_scenario.py, reruns gs2_ideal, and archives the diagnostic metadata under the new hub
+
+# 2026-01-21T220000Z: DEBUG-SIM-LINES-DOSE-001 — Phase D6 ROOT CAUSE IDENTIFIED: realspace_weight=0
+
+- dwell: 0 (first supervisor analysis loop after D5b verification)
+- Focus issue: Phase D6 — investigate training target formulation and loss weights
+- Action type: Evidence gathering / root cause analysis (supervisor-only code inspection)
+- Mode: Debug
+- Git sync: `git stash push -u -m 'galph-20260121-loop' && timeout 30 git pull --rebase && git stash pop`
+- Documents reviewed: docs/index.md; docs/fix_plan.md; specs/spec-ptycho-core.md §Normalization Invariants (lines 85-93); plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T210000Z/summary.md; ptycho/model.py (IntensityScaler, autoencoder.compile); ptycho/loader.py:300-310 (generate_tf_dataset outputs); ptycho/params.py:64-65; ptycho/config/config.py:115-118; scripts/studies/sim_lines_4x/pipeline.py:176-203
+- **CRITICAL CODE INSPECTION (supervisor-performed analysis):**
+  1. **Loss function compilation** (`model.py:597-601`):
+     ```python
+     autoencoder.compile(
+         loss=[hh.realspace_loss, 'mean_absolute_error', negloglik],
+         loss_weights=[realspace_weight, mae_weight, nll_weight],
+     )
+     ```
+     Autoencoder outputs: `[trimmed_obj, pred_amp_scaled, pred_intensity_sampled]`
+  2. **Training labels** (`loader.py:306-309`):
+     ```python
+     # Prepare outputs: (centered_Y_I[:,:,:,:1], X*s, (X*s)^2) as tuple
+     Y_I_centered = hh.center_channels(Y_I_batch, coords_batch)[:, :, :, :1]
+     X_scaled = intensity_scale * X_batch
+     outputs = (Y_I_centered, X_scaled, X_scaled ** 2)
+     ```
+     Loss mapping:
+     - `realspace_loss(trimmed_obj, Y_I_centered)` — Object amplitude vs ground truth
+     - `mae(pred_amp_scaled, X_scaled)` — Predicted amplitude vs diffraction
+     - `negloglik(pred_intensity_sampled, X_scaled²)` — Poisson NLL on intensity
+  3. **Default loss weights** (`params.py:64-65`, `config.py:115-118`):
+     - `mae_weight = 0.0`
+     - `nll_weight = 1.0`
+     - `realspace_weight = 0.0`  **← ROOT CAUSE**
+  4. **sim_lines pipeline** (`pipeline.py:176-203`):
+     - `build_training_config()` creates `TrainingConfig` without setting any loss weights
+     - Uses dataclass defaults → `realspace_weight=0.0`
+- **ROOT CAUSE (DEFINITIVE):** The model is trained with `realspace_weight=0.0`, meaning the `realspace_loss` comparing `trimmed_obj` to ground truth amplitude `Y_I_centered` contributes **ZERO** to the total loss. The model ONLY optimizes:
+  - NLL loss on intensity: `pred_intensity ≈ X_scaled²` (weight=1.0)
+  - MAE loss on amplitude: `pred_amp_scaled ≈ X_scaled` (weight=0.0)
+
+  This explains why:
+  1. The model can reproduce diffraction patterns (intensity loss optimized)
+  2. Object amplitude has NO direct supervision (realspace_weight=0)
+  3. The ~4.3× amplitude gap exists because amplitude is only constrained implicitly through physics forward model, not by direct supervision against ground truth
+- **Hypothesis verification:**
+  - H-LOSS-WEIGHTS: **CONFIRMED** — `realspace_weight=0.0` means model learns diffraction reproduction, not amplitude accuracy
+- **Fix approach:** Set `realspace_weight > 0` in the training config to enable direct amplitude supervision. Per `train_pinn.py:56`, PINN training uses `realspace_weight=0.1` — the sim_lines pipeline should adopt the same or similar value.
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T220000Z/` (this summary + turn notes)
+- Next Action: D6a — Update `scripts/studies/sim_lines_4x/pipeline.py::build_training_config()` to set `realspace_weight=0.1` (or expose as parameter), rerun gs2_ideal with the new loss weighting, compare amplitude metrics.
+- <Action State>: [root_cause_identified]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=root_cause_identified dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T220000Z/ next_action=D6a: Set realspace_weight>0 in sim_lines pipeline, rerun gs2_ideal, verify amplitude improvement

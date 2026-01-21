@@ -474,6 +474,17 @@
     - **Tests:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` ✓ (1 passed)
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T210000Z/{gs2_ideal/run_metadata.json,logs/gs2_ideal_runner.log,summary.md}`
     - **Next Actions:** Phase D6 — Investigate training target formulation. Compare Y_amp values fed to the model during training against the ground truth values used in inference comparison.
+  - *2026-01-21T220000Z:* **Phase D6 ROOT CAUSE IDENTIFIED — realspace_weight=0 disables amplitude supervision.**
+    - **Code Analysis (supervisor-performed):**
+      1. **model.py:597-601** — Autoencoder loss: `[realspace_loss, 'mae', negloglik]` with weights `[realspace_weight, mae_weight, nll_weight]`
+      2. **loader.py:306-309** — Training outputs: `(Y_I_centered, X_scaled, X_scaled²)` mapping to above losses
+      3. **params.py:64-65, config.py:115-118** — Default weights: `mae_weight=0.0, nll_weight=1.0, realspace_weight=0.0`
+      4. **pipeline.py:176-203** — sim_lines `build_training_config()` uses defaults, never sets loss weights
+    - **ROOT CAUSE (DEFINITIVE):** `realspace_weight=0.0` means `realspace_loss(trimmed_obj, Y_I_centered)` contributes ZERO to total loss. Model only optimizes NLL on intensity (`pred_intensity ≈ X_scaled²`), with NO direct supervision on object amplitude. The ~4.3× amplitude gap exists because amplitude is only constrained implicitly through physics forward model.
+    - **Hypothesis:** H-LOSS-WEIGHTS **CONFIRMED**
+    - **Fix Approach:** Set `realspace_weight > 0` in training config. Reference: `train_pinn.py:56` uses `realspace_weight=0.1` for PINN training.
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T220000Z/`
+    - **Next Actions:** D6a — Update `scripts/studies/sim_lines_4x/pipeline.py::build_training_config()` to set `realspace_weight=0.1`, rerun gs2_ideal, compare amplitude metrics.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
