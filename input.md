@@ -1,61 +1,60 @@
-Summary: Keep Phase D4 dataset-derived intensity scaling CPU-bound by updating `calculate_intensity_scale()` to consume lazy-container NumPy arrays and proving `_tensor_cache` stays empty.
-Focus: DEBUG-SIM-LINES-DOSE-001 — Phase D4d lazy-container dataset-scale fix
+Summary: Align Phase D4 normalization with `specs/spec-ptycho-core.md §Normalization Invariants` by making `normalize_data()` use the dataset-derived scale and proving grouped→normalized ratios stay symmetric.
+Focus: DEBUG-SIM-LINES-DOSE-001 — Phase D4e normalize_data dataset-scale parity
 Branch: paper
 Mapped tests:
-  - pytest tests/test_train_pinn.py::TestIntensityScale -v
+  - pytest tests/test_loader_normalization.py -v
   - pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T004455Z/
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T005723Z/
 
 Do Now — DEBUG-SIM-LINES-DOSE-001:
-- Implement: ptycho/train_pinn.py::calculate_intensity_scale — prefer `_X_np` (or a streaming reducer) to sum `|X|^2` in float64 without touching `.X`, fall back to the existing TensorFlow path only when the container lacks NumPy storage, and keep the dataset/fallback guard identical to spec.
-- Implement: tests/test_train_pinn.py::TestIntensityScale::test_lazy_container_does_not_materialize — add a stub mimicking `PtychoDataContainer` (`_X_np`, `_tensor_cache`, lazy `.X`) and assert the dataset-derived path returns the correct scalar while `_tensor_cache` stays empty.
-- Validate: Rerun `run_phase_c2_scenario.py --scenario gs2_ideal` + `analyze_intensity_bias.py` under the new hub and keep the CLI smoke selector green so telemetry proves the CPU-only reducer behaves the same at scale.
+- Implement: ptycho/raw_data.py::normalize_data and ptycho/loader.py::normalize_data — compute `s = sqrt(nphotons / E_batch[Σ_xy |X|^2])` via float64 NumPy reduction (with a guarded fallback when `batch_mean <= 1e-12`), keep all work CPU-bound, and share a helper so loader + RawData apply the same dataset-derived scale.
+- Implement: tests/test_loader_normalization.py::TestNormalizeData::test_dataset_scale + related cases — add a stub container that surfaces `_X_np` and `_tensor_cache`, assert that the helper returns the expected dataset-derived value, respects the fallback, and leaves `_tensor_cache` untouched.
+- Verify: Rerun `run_phase_c2_scenario.py --scenario gs2_ideal` with the new normalization, regenerate `bias_summary.*` via `analyze_intensity_bias.py`, and keep the CLI smoke selector green so artifacts in `.../2026-01-21T005723Z/` prove grouped→normalized ratios and normalization-invariant checks converge.
 
 How-To Map:
-1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md; export ARTIFACTS=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T004455Z; mkdir -p "$ARTIFACTS/logs" "$ARTIFACTS/gs2_ideal".
-2. Update `ptycho/train_pinn.py::calculate_intensity_scale()` to detect `_X_np` (or iterable batches) and compute `sum_xy |X|^2` via NumPy float64 reduction, only dispatching to TensorFlow when `_X_np` is missing; make sure `_tensor_cache` is untouched in the NumPy path.
-3. Extend `tests/test_train_pinn.py::TestIntensityScale` with a lazy-container stub and the new regression that checks `_tensor_cache` length stays zero after invoking `calculate_intensity_scale()` while still matching the spec value.
-4. AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest --collect-only tests/test_train_pinn.py::TestIntensityScale -q | tee "$ARTIFACTS/logs/pytest_test_train_pinn_collect.log".
-5. AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/test_train_pinn.py::TestIntensityScale -v | tee "$ARTIFACTS/logs/pytest_test_train_pinn.log".
-6. AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py --scenario gs2_ideal --group-limit 64 --prediction-scale-source least_squares --output-dir "$ARTIFACTS/gs2_ideal" | tee "$ARTIFACTS/logs/gs2_ideal_runner.log".
-7. AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py --scenario gs2_ideal=$ARTIFACTS/gs2_ideal --output-dir $ARTIFACTS | tee "$ARTIFACTS/logs/analyze_intensity_bias.log".
-8. AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v | tee "$ARTIFACTS/logs/pytest_cli_smoke.log".
+1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md; export HUB=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T005723Z; mkdir -p "$HUB"/logs "$HUB"/gs2_ideal.
+2. Update `ptycho/raw_data.py::normalize_data()` + `ptycho/loader.py::normalize_data()` to import `ptycho.params`, compute `batch_mean_sum_intensity = np.mean(np.sum(diffraction**2, axis=(1,2,3)))`, derive `dataset_scale = sqrt(nphotons / batch_mean)`, use the fallback `(N/2)` path only when `batch_mean <= 1e-12`, and persist the scalar into Markdown telemetry via the existing helpers.
+3. Add `tests/test_loader_normalization.py` with a `LazyStubContainer` (mirrors `_X_np`, `_tensor_cache`, lazy `.X`) and regression tests covering dataset-derived, fallback, and TensorFlow-only paths; reset params after each test to avoid bleed-over.
+4. AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest --collect-only tests/test_loader_normalization.py -q | tee "$HUB"/logs/pytest_collect_loader_norm.log.
+5. AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/test_loader_normalization.py -v | tee "$HUB"/logs/pytest_loader_norm.log.
+6. AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py --scenario gs2_ideal --group-limit 64 --prediction-scale-source least_squares --output-dir "$HUB"/gs2_ideal | tee "$HUB"/logs/gs2_ideal_runner.log.
+7. AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py --scenario gs2_ideal=$HUB/gs2_ideal --output-dir $HUB | tee "$HUB"/logs/analyze_intensity_bias.log.
+8. AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v | tee "$HUB"/logs/pytest_cli_smoke.log.
 
 Pitfalls To Avoid:
-- Do not call `ptycho_data_container.X` anywhere inside the new reducer; touching `.X` will repopulate `_tensor_cache` and reintroduce GPU allocations.
-- Preserve CONFIG-001/SIM-LINES-CONFIG-001 sequencing — no edits to runner update_legacy_dict calls or params.cfg mutation order.
-- Keep the TensorFlow fallback path intact for containers that lack `_X_np`; the new code must not break legacy stubs/tests.
-- Use float64 for intermediate reductions to match spec tolerances; do not downcast to float32 midstream.
-- Never train models on CPU; gs2 rerun remains inference/telemetry only.
-- Respect PLAN-LOCAL scope: do not touch `ptycho/model.py`, `ptycho/diffsim.py`, or other protected physics modules.
-- Capture every command’s stdout/stderr into $ARTIFACTS/logs per TEST-CLI-001; missing logs will block sign-off.
-- Avoid introducing new dependencies or environment changes; CPU-only reducer must rely on NumPy already in the environment.
-- Keep edits ASCII-only and adhere to repo formatting conventions.
-- Restore any modified `params.cfg` values inside tests to prevent bleed-over.
+- Keep reducers CPU-only; never call `.X` or populate `_tensor_cache` while computing dataset scale (PINN-CHUNKED-001).
+- Preserve CONFIG-001/SIM-LINES-CONFIG-001 sequencing — do not reorder `update_legacy_dict()` calls in the runner.
+- Maintain TensorFlow fallback behavior so legacy containers without `_X_np` still work; add coverage for this path.
+- Use float64 accumulators for `sum_xy |X|^2`; downcasting will reintroduce precision drift flagged in D4c.
+- Do not hand-edit analyzer outputs; stage ratios must derive from the new math.
+- Keep `nphotons` reads in sync with params.cfg and reset params in tests to avoid cross-test contamination.
+- Store every command log under `$HUB/logs/` per TEST-CLI-001.
+- Avoid touching protected modules (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`).
+- No environment tweaks; rely on existing NumPy/TensorFlow deps.
+- Ensure new test modules remain ASCII and follow repo linting expectations.
 
 If Blocked:
-- Write the failing command + stderr to "$ARTIFACTS/logs/blocked.log", describe the issue in docs/fix_plan.md Attempts History, and ping Galph via summary + galph_memory so we can decide whether to pause Phase D4 or open a new initiative.
+- Capture the failing command + stderr in `$HUB/logs/blocked.log`, add the blocker (with signature) to docs/fix_plan.md Attempts History, and ping Galph so we can decide whether to pause Phase D4 or open a new initiative.
 
 Findings Applied (Mandatory):
-- PINN-CHUNKED-001 — lazy containers must stay on CPU; confirm `_tensor_cache` remains empty.
-- SIM-LINES-CONFIG-001 — all runner/analyzer invocations must continue calling `update_legacy_dict(params.cfg, config)` before legacy modules execute.
-- NORMALIZATION-001 — follow `specs/spec-ptycho-core.md §Normalization Invariants` exactly when recomputing intensity scales.
-- TEST-CLI-001 — archive pytest/analyzer logs under the artifacts hub for every CLI invoked.
+- NORMALIZATION-001 — respect the three-system separation; dataset-derived scaling must operate symmetrically with the physics scaler.
+- CONFIG-001 — keep params.cfg synchronized before invoking legacy pipelines, especially during runner/analyzer reruns.
+- SIM-LINES-CONFIG-001 — continue calling `update_legacy_dict(params.cfg, config)` in the runner before any training/inference stage.
+- PINN-CHUNKED-001 — lazy containers must remain CPU-bound; new reducers cannot populate `_tensor_cache`.
 
 Pointers:
-- specs/spec-ptycho-core.md:80 — Normative dataset-derived intensity scale equation and fallback conditions.
-- ptycho/train_pinn.py:165 — Current dataset-derived implementation that still touches `.X`.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:360 — D4 checklist with D4d scope and required evidence.
-- docs/fix_plan.md:18 — Initiative ledger + latest Attempts History entry for Phase D4.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T002114Z/summary.md — Evidence showing D4c outcome and remaining gap.
+- specs/spec-ptycho-core.md:80 — Normative dataset-derived vs fallback intensity-scale definition.
+- docs/DEVELOPER_GUIDE.md:157 — Explanation of the three normalization systems and why they must not mix.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:372 — D4d/D4e checklist and acceptance criteria.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T004455Z/summary.md — Evidence from D4d that we must not regress lazy-container safety.
+- docs/fix_plan.md:320 — Latest Attempts History covering D4c/D4d context and the new D4e plan.
 
-Next Up (optional): If D4d lands cleanly, resume D4e by instrumenting the loss graph (mae/nll composition) to chase the remaining amplitude bias.
+Next Up (optional): If normalization symmetry holds, proceed to D4f by instrumenting loss wiring (MAE/NLL composition) to chase the remaining prediction→truth gain.
 
-Doc Sync Plan:
-- None — selectors stay under `tests/test_train_pinn.py::TestIntensityScale` and `tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke`, both already documented.
+Doc Sync Plan (tests added): After code passes, run `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest --collect-only tests/test_loader_normalization.py -q | tee "$HUB"/logs/pytest_collect_loader_norm.log`, then update `docs/TESTING_GUIDE.md` §2 and `docs/development/TEST_SUITE_INDEX.md` with the new selector/reference.
 
 Mapped Tests Guardrail:
-- Run `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest --collect-only tests/test_train_pinn.py::TestIntensityScale -q` first; abort and report if it collects 0 tests.
+- First run `pytest --collect-only tests/test_loader_normalization.py -q`; if it collects 0 cases, stop and report before editing code further.
 
 Normative Math/Physics:
-- Reference `specs/spec-ptycho-core.md §Normalization Invariants` for the exact dataset-derived formula (`s = sqrt(nphotons / E_batch[Σ_xy |X|^2])`) and fallback guard; do not paraphrase or invent alternate equations.
+- Reference `specs/spec-ptycho-core.md §Normalization Invariants` verbatim for `s = sqrt(nphotons / E_batch[Σ_xy |X|^2])` and the `sqrt(nphotons)/(N/2)` fallback; quote the clause instead of paraphrasing.

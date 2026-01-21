@@ -1,5 +1,10 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
+### Turn Summary — 2026-01-21T00:55:00Z (Phase D4d lazy-container reducer IMPLEMENTED)
+Updated `ptycho/train_pinn.py::calculate_intensity_scale()` so the dataset-derived reducer consumes `_X_np` in float64 and never materializes `.X`, keeping lazy containers CPU-bound per PINN-CHUNKED-001. Added `tests/test_train_pinn.py::TestIntensityScale::test_lazy_container_does_not_materialize` to confirm `_tensor_cache` stays empty and the computed scale matches `specs/spec-ptycho-core.md §Normalization Invariants`. Logged pytest evidence under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T004455Z/`.
+Next: Align `normalize_data()` with the dataset-derived scale so grouped→normalized ratios and the normalization-invariant check converge before resuming the loss/architecture investigation.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T004455Z/
+
 ### Turn Summary — 2026-01-21T00:44:55Z (Phase D4d planning)
 Reviewer addendum highlighted that D4c’s dataset-derived implementation now materializes `PtychoDataContainer.X`, undoing the lazy-loading gains from FEAT-LAZY-LOADING-001 and risking Phase G OOMs. Reopened the plan with a D4d checklist to keep intensity scale computation CPU-bound by consuming the container’s NumPy arrays (or a streaming reducer) so `_tensor_cache` stays empty.
 Updated `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md` (D4c marked complete, D4d scope + tests recorded), refreshed `docs/fix_plan.md` attempts history, and reserved artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T004455Z/`. Drafted the new Do Now directing Ralph to update `ptycho/train_pinn.py::calculate_intensity_scale()`, add the lazy-container regression test, rerun gs2_ideal/analyzer, and capture pytest logs under the new hub.

@@ -1207,3 +1207,20 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T004455Z/`
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T004455Z/ next_action=Ralph updates calculate_intensity_scale() to consume lazy-container NumPy data, adds the no-tensor-cache test, reruns gs2_ideal/analyzer, and archives pytest logs under the new hub
+# 2026-01-21T00:57:00Z: DEBUG-SIM-LINES-DOSE-001 — Phase D4e normalize_data planning
+
+- dwell: 0 (D4d implementation already landed; this loop refreshed docs and scoped the next increment)
+- Focus issue: Phase D4e — loader normalization still uses the closed-form `(N/2)` fallback, so grouped→normalized ≈0.577 and the normalization-invariant chain stays at 18.6× despite the dataset-derived reducer fix.
+- Action type: Planning | Mode: Implementation handoff
+- Documents reviewed: docs/index.md; docs/fix_plan.md; docs/findings.md (NORMALIZATION-001, CONFIG-001, PINN-CHUNKED-001, SIM-LINES-CONFIG-001); specs/spec-ptycho-core.md §Normalization Invariants; docs/DEVELOPER_GUIDE.md §3.5; plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}; reports/2026-01-21T004455Z/summary.md
+- Key observations:
+  - D4d code/tests already exist (NumPy reducer + lazy-container regression); logs captured under reports/2026-01-21T004455Z/, but docs/fix_plan.md and the summary were still stuck in "planned" state.
+  - `normalize_data()` in both raw_data and loader continues to scale by `(N/2)` regardless of dataset statistics; analyzer still reports grouped→normalized ratio ≈0.577 and full-chain product ≈18.6×.
+  - Need a new D4e checklist item targeting `normalize_data()` so loader inputs use the same dataset-derived scale as `calculate_intensity_scale()`; artifacts hub reserved at reports/2026-01-21T005723Z/.
+- Decisions:
+  - Marked D4d complete in docs/fix_plan.md + plan summary and documented the existing evidence.
+  - Added D4e checklist entry plus fix-plan attempt describing the normalize_data scope and commands.
+  - Rewrote input.md with the concrete Do Now (normalize_data helper updates, new loader normalization tests, gs2_ideal/analyzer rerun, CLI smoke selector) and mapped selectors.
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T005723Z/ (planning hub)
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T005723Z/ next_action=Ralph updates normalize_data() + loader helper for dataset-derived scale, lands regression tests, reruns gs2_ideal/analyzer, and archives pytest logs under the new hub
