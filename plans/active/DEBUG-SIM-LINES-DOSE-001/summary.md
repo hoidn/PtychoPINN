@@ -1,5 +1,10 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
+### Turn Summary — 2026-01-21T020608Z (Phase D4f.3 planning)
+Verified D4f.2 landed (helper + inspect_ptycho_data) but grid-mode dose_response_study and the legacy data_preprocessing pipeline still instantiate PtychoDataContainer without dataset_intensity_stats, so their outputs fall back to the closed-form 988.21 constant. Rescoped D4f with a new D4f.3 checklist: import `compute_dataset_intensity_stats` in both modules, compute stats from the raw diffraction tensors (or normalized data + recorded intensity_scale when raw tensors aren’t available), and pass the dict into every manual container. Planned regression coverage (tests/scripts/test_dose_response_study.py grid-mode fixture, new tests/test_data_preprocessing.py suite, existing loader/train_pinn guards) plus the CLI smoke selector, and opened artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T020608Z/` for the next evidence batch.
+Next: Ralph updates the two manual constructors + docs/tests per D4f.3 and archives the mapped pytest logs under the new hub.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T020608Z/
+
 ### Turn Summary — 2026-01-21T01:39:00Z (Phase D4f manual constructors follow-up)
 Reviewer follow-up flagged that manual `PtychoDataContainer` constructors (dose_response_study, data_preprocessing, inspect_ptycho_data, cached NPZ inspectors) never attach `dataset_intensity_stats`, so any workflow that bypasses `loader.load()` silently falls back to the 988.21 constant and undoes the D4f fix. Updated PINN-CHUNKED-001 to spell out the dataset_intensity_stats → `_X_np` → closed-form priority, added D4f.2 to the implementation plan covering shared reducer + per-script plumbing, and refreshed the fix plan attempts history with this scope adjustment.
 Next: Ralph lands the manual-constructor plumbing (shared NumPy reducer + script updates + regression tests) and reruns the mapped pytest selectors along with the CLI smoke guard under a fresh artifacts hub.

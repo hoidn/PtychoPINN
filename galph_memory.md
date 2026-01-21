@@ -1310,3 +1310,22 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T013900Z/` (reserved for the upcoming evidence)
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T013900Z/ next_action=Ralph implements the manual-constructor dataset_intensity_stats plumbing + regression tests + CLI guard per input.md
+# 2026-01-21T02:06:08Z: DEBUG-SIM-LINES-DOSE-001 — Phase D4f.3 planning
+
+- dwell: 0 (first supervisor loop after D4f.2 implementation landed)
+- Focus issue: Grid-mode dose_response_study + data_preprocessing still instantiate `PtychoDataContainer` without dataset_intensity_stats, so those workflows default back to the 988.21 closed-form scale and undo D4f.
+- Action type: Planning / documentation sweep (scoped D4f.3, refreshed plan + input)
+- Mode: Implementation handoff preparation
+- Git sync: `git stash push -u -m 'galph-20260121-loop' && timeout 30 git pull --rebase && git stash pop`
+- Documents reviewed: docs/index.md; docs/findings.md (PINN-CHUNKED-001, NORMALIZATION-001); docs/fix_plan.md; plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}; scripts/studies/dose_response_study.py (simulate_datasets_grid_mode); ptycho/data_preprocessing.py (create_ptycho_dataset); tests/scripts/test_dose_response_study.py; docs/DATA_GENERATION_GUIDE.md §4.3.
+- Key observations:
+  - `simulate_datasets_grid_mode()` manually constructs containers with raw `X_train`/`X_test` but never attaches stats; D4f.2 helper is unused there.
+  - `create_ptycho_dataset()` (legacy preprocessing) likewise omits stats, so any experiments that rely on those datasets fall back to 988.21.
+  - Existing regression tests only cover the inspect_ptycho_data path; no guard ensures grid-mode/preprocessing constructors carry stats.
+- Key decisions:
+  - Added D4f.3 checklist entry plus fix-plan attempt describing the scope (grid-mode + preprocessing updates, doc refresh, new tests) and opened artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T020608Z/`.
+  - Planned new tests (`tests/scripts/test_dose_response_study.py::test_simulate_datasets_grid_mode_attaches_dataset_stats`, `tests/test_data_preprocessing.py::TestCreatePtychoDataset::test_attaches_dataset_stats`) along with existing `test_train_pinn.py` guard and CLI smoke selector.
+  - Rewrote input.md with the new Do Now and doc-sync instructions (collect-only logs + testing guide updates once new selectors exist).
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T020608Z/`
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T020608Z/ next_action=Ralph adds dataset_intensity_stats to grid-mode dose_response_study + data_preprocessing constructors, updates DATA_GENERATION_GUIDE, lands the new tests, and archives pytest logs per the mapped selectors

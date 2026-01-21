@@ -398,6 +398,13 @@
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T013900Z/logs/{pytest_loader_stats_*.log,pytest_train_pinn_dataset_stats.log,pytest_inspect_dataset_stats.log,pytest_cli_smoke.log,collect_*.log}`
     - **Spec Compliance:** Implementation aligns with specs/spec-ptycho-core.md §Normalization Invariants (dataset-derived mode as preferred).
     - **Next Actions:** Remaining manual constructors (dose_response_study, data_preprocessing) may need similar updates; amplitude bias investigation continues in D5.
+  - *2026-01-21T020608Z:* **Phase D4f.3 PLANNING — Grid-mode + preprocessing constructors still missing stats.**
+    - **Observation:** The D4f.2 helper + inspect_ptycho_data coverage landed, but the grid-mode simulation path in `scripts/studies/dose_response_study.py` and the legacy preprocessing factory (`ptycho/data_preprocessing.py::create_ptycho_dataset`) still instantiate `PtychoDataContainer` without `dataset_intensity_stats`. Any study that relies on those constructors immediately falls back to the 988.21 closed-form constant, undoing the dataset-derived fix.
+    - **Plan:** Import `compute_dataset_intensity_stats` into both modules, compute stats from the raw diffraction arrays (or normalized data + recorded `intensity_scale` when raw data isn’t available), and pass the dict into every container (train/test). Add regression tests:
+      1. Extend `tests/scripts/test_dose_response_study.py` with a monkeypatched grid-mode simulation proving the containers expose the expected stats.
+      2. Add `tests/test_data_preprocessing.py::TestCreatePtychoDataset::test_attaches_dataset_stats` verifying preprocessing-generated datasets propagate stats for both splits.
+      3. Keep the existing loader/train_pinn/intensity-scale tests green plus the CLI smoke selector.
+    - **Artifacts Hub:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T020608Z/`
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
