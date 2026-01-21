@@ -1190,3 +1190,20 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T002114Z/{bias_summary.json,bias_summary.md,gs2_ideal/,logs/}`
 - <Action State>: [verification_complete]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=d4c_complete dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T002114Z/ next_action=Move to D4d to investigate loss wiring or model architecture as source of remaining amplitude bias
+# 2026-01-21T00:44:55Z: DEBUG-SIM-LINES-DOSE-001 — Phase D4d lazy-container plan
+
+- dwell: 1 (first planning/docs loop on this focus since D4c implementation)
+- Focus issue: Phase D4d — keep dataset-derived intensity scale CPU-bound so lazy containers don’t materialize tensors
+- Action type: Planning / documentation sweep (plan + fix_plan refresh, new Do Now)
+- Mode: Implementation handoff preparation
+- Git sync: `git stash push -u -m 'galph-20260121-loop' && timeout 30 git pull --rebase && git stash pop`
+- Documents reviewed: docs/index.md; docs/findings.md (PINN-CHUNKED-001, NORMALIZATION-001, SIM-LINES-CONFIG-001, TEST-CLI-001); docs/fix_plan.md; plans/active/DEBUG-SIM-LINES-DOSE-001/{implementation.md,summary.md}; plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T002114Z/summary.md; ptycho/train_pinn.py; ptycho/loader.py; tests/test_train_pinn.py
+- Key observations:
+  - D4c is verified; dataset/fallback ratio ≈0.585 reflects actual data statistics and is NOT a bug.
+  - Reviewer addendum showed `calculate_intensity_scale()` now calls `.X`, forcing `_tensor_cache` to materialize and risking Phase G OOMs.
+- Decisions:
+  - Added D4d checklist to the implementation plan + docs/fix_plan.md with explicit scope (NumPy reducer + regression test + gs2 rerun).
+  - Created new artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T004455Z/` and refreshed input.md so Ralph has a concrete Do Now (code/tests/telemetry commands).
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T004455Z/`
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T004455Z/ next_action=Ralph updates calculate_intensity_scale() to consume lazy-container NumPy data, adds the no-tensor-cache test, reruns gs2_ideal/analyzer, and archives pytest logs under the new hub

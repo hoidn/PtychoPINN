@@ -1,5 +1,11 @@
 # DEBUG-SIM-LINES-DOSE-001 Summary
 
+### Turn Summary — 2026-01-21T00:44:55Z (Phase D4d planning)
+Reviewer addendum highlighted that D4c’s dataset-derived implementation now materializes `PtychoDataContainer.X`, undoing the lazy-loading gains from FEAT-LAZY-LOADING-001 and risking Phase G OOMs. Reopened the plan with a D4d checklist to keep intensity scale computation CPU-bound by consuming the container’s NumPy arrays (or a streaming reducer) so `_tensor_cache` stays empty.
+Updated `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md` (D4c marked complete, D4d scope + tests recorded), refreshed `docs/fix_plan.md` attempts history, and reserved artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T004455Z/`. Drafted the new Do Now directing Ralph to update `ptycho/train_pinn.py::calculate_intensity_scale()`, add the lazy-container regression test, rerun gs2_ideal/analyzer, and capture pytest logs under the new hub.
+Next: Ralph implements D4d per the refreshed plan so dataset-derived scaling no longer touches GPU tensors before we resume the Phase D loss-wiring investigation.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T004455Z/
+
 ### Turn Summary
 Scoped Phase D4c work so Ralph can replace `train_pinn.calculate_intensity_scale()` with the dataset-derived equation mandated by `specs/spec-ptycho-core.md §Normalization Invariants`.
 Updated docs/fix_plan.md and the initiative summary with the new D4c attempt, created artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T002114Z/`, and rewrote input.md with concrete implementation/test/analyzer commands plus test selectors.
