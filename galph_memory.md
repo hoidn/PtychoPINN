@@ -1138,3 +1138,20 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: plans/active/DOC-HYGIENE-20260120/reports/2026-01-20T235033Z/
 - <Action State>: [ready_for_implementation]
 - focus=DOC-HYGIENE-20260120 state=ready_for_implementation dwell=0 artifacts=plans/active/DOC-HYGIENE-20260120/reports/2026-01-20T235033Z/ next_action=Ralph adds orchestration.yaml, updates the reviewer prompts, wires supervisor --no-git gating + pytest/docs/test index updates, and archives the new logs under the plan hub
+
+# 2026-01-21T00:07:42Z: DOC-HYGIENE-20260120 — Phase B3 spec bootstrap alignment planning
+
+- dwell: 1 (manual override reset to 0; this is the first planning/docs loop afterward)
+- Action type: Planning / documentation sweep (verified prior work + rescoped B3)
+- Mode: Implementation handoff preparation
+- Git sync: `git stash push -u -m 'galph-20260121-loop' && timeout 30 git pull --rebase && git stash pop`
+- Documents reviewed: docs/index.md; docs/findings.md (TEST-CLI-001, PYTHON-ENV-001); docs/fix_plan.md; plans/active/DOC-HYGIENE-20260120/{implementation.md,summary.md,test_strategy.md}; plans/active/DOC-HYGIENE-20260120/reports/2026-01-20T235033Z/{summary.md,cli/*.log}; scripts/orchestration/{config.py,README.md,init_project.sh,init_spec_bootstrap.sh,tests/test_router.py}; prompts/{arch_writer.md,arch_reviewer.md}; input.md
+- Key observations:
+  - Root orchestration.yaml, prompt fixes, and supervisor --no-git guard/tests already landed (commit 06aecd4f) with passing logs under the previous hub.
+  - Remaining drift is the spec-bootstrap toolchain still pointing at `docs/spec-shards/` (config defaults, init scripts, README snippet, prompts/arch_reviewer) even though specs live under the root `specs/` directory.
+- Key decisions:
+  - Marked Phase A + Phase C complete in the implementation plan and docs/fix_plan attempts history, captured commit/test evidence, and created a new reports hub `plans/active/DOC-HYGIENE-20260120/reports/2026-01-21T000742Z/`.
+  - Scoped Phase B3 into concrete tasks: change SpecBootstrapConfig defaults + fallback search order, update init scripts to scaffold/copy `specs/`, refresh docs/prompts, and add pytest coverage (`test_spec_bootstrap_defaults`). Rewrote input.md with the new Do Now (commands, pitfalls, and mapped selectors).
+- Artifacts: `plans/active/DOC-HYGIENE-20260120/reports/2026-01-21T000742Z/`
+- <Action State>: [ready_for_implementation]
+- focus=DOC-HYGIENE-20260120 state=ready_for_implementation dwell=1 artifacts=plans/active/DOC-HYGIENE-20260120/reports/2026-01-21T000742Z/ next_action=Ralph updates SpecBootstrapConfig & init scripts for specs/ with pytest evidence and refreshes README/prompt references per Phase B3

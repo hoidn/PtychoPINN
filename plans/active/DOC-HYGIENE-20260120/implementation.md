@@ -61,13 +61,13 @@ Principle: Every checklist item changing behavior references its pytest selector
 
 ## Phase A — Reality Audit & Doc Alignment
 ### Checklist
-- [ ] A0: Capture refreshed test strategy + context (this plan + `test_strategy.md`) and record the reviewer override in docs/fix_plan.md.
+- [x] A0: Capture refreshed test strategy + context (this plan + `test_strategy.md`) and record the reviewer override in docs/fix_plan.md.
       Test: N/A — documentation/planning artifact
-- [ ] A1: Update `prompts/arch_writer.md` to reference real docs/specs (e.g., `docs/architecture.md`, `specs/spec-ptycho-workflow.md`) and remove dead `docs/architecture/data-pipeline.md` references.
+- [x] A1: Update `prompts/arch_writer.md` to reference real docs/specs (e.g., `docs/architecture.md`, `specs/spec-ptycho-workflow.md`) and remove dead `docs/architecture/data-pipeline.md` references.
       Test: N/A — documentation-only change
-- [ ] A2: Update `prompts/spec_reviewer.md` required-reading + spec_bootstrap sections to reference `specs/` and `docs/index.md`, removing `docs/spec-shards/*.md`.
+- [x] A2: Update `prompts/spec_reviewer.md` required-reading + spec_bootstrap sections to reference `specs/` and `docs/index.md`, removing `docs/spec-shards/*.md`.
       Test: N/A — documentation-only change
-- [ ] A3: Note the doc updates + new prompt targets in docs/index.md (if needed) so future prompts stay aligned.
+- [x] A3: Note the doc updates + new prompt targets in docs/index.md (if needed) so future prompts stay aligned.
       Test: N/A — documentation-only change
 
 ### Notes & Risks
@@ -75,12 +75,16 @@ Principle: Every checklist item changing behavior references its pytest selector
 
 ## Phase B — Orchestration Config Source of Truth
 ### Checklist
-- [ ] B1: Author root-level `orchestration.yaml` matching current defaults (prompts, router review cadence=3, state/log dirs, doc whitelist, agent mapping, spec_bootstrap dirs/files) and check it in.
+- [x] B1: Author root-level `orchestration.yaml` matching current defaults (prompts, router review cadence=3, state/log dirs, doc whitelist, agent mapping, spec_bootstrap dirs/files) and check it in.
       Test: pytest scripts/orchestration/tests/test_router.py::test_router_config_loads -v
 - [ ] B2: Document the new config in scripts/orchestration/README.md + docs/index.md (link to root file + key fields) so reviewers know where to look.
       Test: N/A — documentation-only change
-- [ ] B3: Ensure spec bootstrap instructions (`sync/spec_bootstrap_state.json`, templates dir, impl dirs) in orchestration.yaml align with prompts/spec reviewer instructions; update docs/test registries if references change.
-      Test: pytest scripts/orchestration/tests/test_agent_dispatch.py -v (sanity run after config addition)
+- [ ] B3a: Update `scripts/orchestration/config.py::SpecBootstrapConfig` defaults so repositories without `docs/spec-shards/` still resolve shards from `specs/`, and add pytest coverage for the new fallback.
+      Test: pytest scripts/orchestration/tests/test_router.py::test_spec_bootstrap_defaults -v
+- [ ] B3b: Update `scripts/orchestration/init_project.sh` and `scripts/orchestration/init_spec_bootstrap.sh` to create/copy `specs/` (with fallback to legacy templates) plus ensure orchestration.yaml templates reference the canonical directory.
+      Test: pytest scripts/orchestration/tests/test_router.py::test_router_config_loads -v
+- [ ] B3c: Update documentation surfaces that still cite `docs/spec-shards/` (scripts/orchestration/README.md, prompts/arch_reviewer.md, etc.) so reviewers and prompt templates align with the canonical `specs/` location and note the change in docs/index if needed.
+      Test: N/A — documentation-only change (paired with B3a/B3b test evidence)
 
 ### Notes & Risks
 - Config must avoid secrets; keep repo-safe defaults only.
@@ -88,13 +92,13 @@ Principle: Every checklist item changing behavior references its pytest selector
 
 ## Phase C — Supervisor `--no-git` Enforcement
 ### Checklist
-- [ ] C1: Update `scripts/orchestration/supervisor.py` to treat `--no-git` as a hard guard (skip branch assertions, pulls/pushes, auto-commit helpers, git scrubs) for both sync and legacy modes; share helpers with loop/orchestrator implementation when possible.
+- [x] C1: Update `scripts/orchestration/supervisor.py` to treat `--no-git` as a hard guard (skip branch assertions, pulls/pushes, auto-commit helpers, git scrubs) for both sync and legacy modes; share helpers with loop/orchestrator implementation when possible.
       Test: pytest scripts/orchestration/tests/test_supervisor.py::TestNoGit::test_sync_loop_skips_git_ops -v
-- [ ] C2: Add pytest coverage (new `scripts/orchestration/tests/test_supervisor.py`) stubbing git bus calls to assert `--no-git` suppresses them while still running prompts/logging. Update docs/TESTING_GUIDE.md + TEST_SUITE_INDEX entries with the new selector.
+- [x] C2: Add pytest coverage (new `scripts/orchestration/tests/test_supervisor.py`) stubbing git bus calls to assert `--no-git` suppresses them while still running prompts/logging. Update docs/TESTING_GUIDE.md + TEST_SUITE_INDEX entries with the new selector.
       Test: 
         - pytest --collect-only scripts/orchestration/tests/test_supervisor.py -q
         - pytest scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_no_git -v (regression)
-- [ ] C3: Document the new behavior in scripts/orchestration/README.md and confirm `prompts/router.md`/galph instructions mention orchestration.yaml + no-git guard. Capture evidence/logs under `plans/active/DOC-HYGIENE-20260120/reports/<timestamp>/`.
+- [x] C3: Document the new behavior in scripts/orchestration/README.md and confirm `prompts/router.md`/galph instructions mention orchestration.yaml + no-git guard. Capture evidence/logs under `plans/active/DOC-HYGIENE-20260120/reports/<timestamp>/`.
       Test: N/A — documentation-only change
 
 ### Notes & Risks
@@ -103,4 +107,4 @@ Principle: Every checklist item changing behavior references its pytest selector
 
 ## Artifacts Index
 - Reports root: `plans/active/DOC-HYGIENE-20260120/reports/`
-- Latest run: `2026-01-20T235033Z/`
+- Latest run: `2026-01-21T000742Z/`

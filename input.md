@@ -1,61 +1,55 @@
-Summary: Add the missing orchestration.yaml, fix the reviewer prompts to reference real docs/specs, and wire supervisor --no-git gating plus tests so offline runs stop touching git.
-Focus: DOC-HYGIENE-20260120 — Phase A/B/C config + prompt + supervisor guard
+Summary: Align the spec-bootstrap tooling with the canonical specs/ directory and prove the updated config/tests remain green.
+Focus: DOC-HYGIENE-20260120 — Phase B3 spec bootstrap alignment
 Branch: paper
 Mapped tests:
+  - pytest scripts/orchestration/tests/test_router.py::test_spec_bootstrap_defaults -v
   - pytest scripts/orchestration/tests/test_router.py::test_router_config_loads -v
-  - pytest scripts/orchestration/tests/test_supervisor.py::TestNoGit::test_sync_iteration_skips_git_ops -v
-Artifacts: plans/active/DOC-HYGIENE-20260120/reports/2026-01-20T235033Z/
+Artifacts: plans/active/DOC-HYGIENE-20260120/reports/2026-01-21T000742Z/
 
 Do Now:
-- Implement: orchestration.yaml — check in the root-level config capturing prompts_dir, router.review_every_n=3, logs_dir, state_file, doc/tracked-output whitelists, agent defaults, and spec_bootstrap dirs so reviewers have a real source of truth.
-- Implement: prompts/arch_writer.md — replace references to docs/architecture/data-pipeline.md and docs/spec-shards with docs/architecture.md + specs/spec-ptycho-workflow.md#pipeline-normative (plus specs/spec-ptycho-interfaces.md#data-formats-normative) and remind writers to start at docs/index.md.
-- Implement: prompts/spec_reviewer.md — update required reading + spec_bootstrap sections to reference docs/index.md, specs/ (shards live under specs/), and the new orchestration.yaml spec_bootstrap entries instead of docs/spec-shards/*.md.
-- Implement: scripts/orchestration/supervisor.py::main — honor --no-git in both legacy and sync modes (skip branch guard, _pull_with_error, add/commit/push/auto-commit helpers, submodule scrub) while still running prompt execution/logging.
-- Implement: scripts/orchestration/tests/test_supervisor.py::TestNoGit (new module) — stub git_bus helpers to prove the supervisor never calls them when --no-git is set; keep an async/sync test variant. Update docs/TESTING_GUIDE.md §2 and docs/development/TEST_SUITE_INDEX.md with the new selector + instructions on storing pytest logs under the artifacts hub.
+- Implement: scripts/orchestration/config.py::SpecBootstrapConfig — point specs_dir defaults to Path("specs"), have discover_shards() look under templates_dir / "specs" first with a fallback to templates_dir / "docs/spec-shards", and keep load_config() constructing the SpecBootstrapConfig even when orchestration.yaml omits the specs.dir block so repos without docs/spec-shards/ still get a valid config.
+- Implement: scripts/orchestration/init_project.sh::init_directories — replace the docs/spec-shards scaffolding with specs/ (including copy_dir_files falling back to templates/docs/spec-shards if templates/specs is missing), mirror the same behavior inside scripts/orchestration/init_spec_bootstrap.sh (SPECS_DIR constant + template discovery), and refresh scripts/orchestration/README.md plus prompts/arch_reviewer.md text so reviewers are told to read specs/* instead of the dead docs/spec-shards/* path.
+- Implement: scripts/orchestration/tests/test_router.py::test_spec_bootstrap_defaults — add a pytest that writes a minimal orchestration.yaml with a spec_bootstrap block lacking specs.dir, asserts cfg.spec_bootstrap.specs_dir == Path("specs"), and exercises the legacy template fallback by seeding fake shard files under both specs/ and docs/spec-shards/ to prove the new search order before finalizing logs.
 
 How-To Map:
-1. Create orchestration.yaml at repo root with YAML keys from scripts/orchestration/config.OrchConfig (router block, agent block, spec_bootstrap.templates_dir/specs.dir/implementation dirs). Drop it alongside README; no secrets, check in.
-2. Rerun config sanity tests: `pytest scripts/orchestration/tests/test_router.py::test_router_config_loads -v` and `pytest scripts/orchestration/tests/test_agent_dispatch.py -v`; stash the logs to plans/active/DOC-HYGIENE-20260120/reports/2026-01-20T235033Z/.
-3. Update prompts/arch_writer.md + prompts/spec_reviewer.md per plan, keeping XML tags intact and ensuring docs/index.md + specs/spec-ptycho-*.md anchors match the links.
-4. Modify scripts/orchestration/supervisor.py so args.no_git short-circuits branch guard, _pull_with_error, submodule scrub, add/commit/push, and auto-commit helpers. When sync-via-git is requested with --no-git, still update state.json locally but treat git bus calls as no-ops.
-5. Author tests in scripts/orchestration/tests/test_supervisor.py that monkeypatch git_bus/autocommit helpers (raise if invoked) and run supervisor.main() in sync mode with --no-git to assert no git calls occur while prompts execute. Capture tee_run invocations via stub.
-6. Run `pytest --collect-only scripts/orchestration/tests/test_supervisor.py -q`, `pytest scripts/orchestration/tests/test_supervisor.py -v`, and `pytest scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_no_git -v`; dump logs to the artifacts hub.
-7. Update docs/TESTING_GUIDE.md §2 + docs/development/TEST_SUITE_INDEX.md with the new supervisor selector + log archiving instructions; mention orchestration.yaml’s new location in docs/index.md if needed.
+1. Set ARTIFACTS=plans/active/DOC-HYGIENE-20260120/reports/2026-01-21T000742Z and mkdir -p "$ARTIFACTS/cli" so pytest logs land under the new hub.
+2. Update scripts/orchestration/config.py + tests first so the new defaults exist before touching the shell scripts; keep discover_shards() tolerant of legacy template layouts.
+3. Patch scripts/orchestration/init_project.sh (init_directories + copy_dir_files call) and scripts/orchestration/init_spec_bootstrap.sh so they mkdir specs/ and copy shard templates there while falling back to templates/docs/spec-shards when templates/specs is absent. Keep the helper echo/logging structure untouched.
+4. Rewrite the spec_bootstrap snippet inside scripts/orchestration/README.md plus the required-reading block in prompts/arch_reviewer.md to cite specs/ + docs/index.md, then rerun `rg -n "docs/spec-shards" scripts/orchestration prompts -n` to confirm only historical references remain.
+5. Run pytest --collect-only scripts/orchestration/tests/test_router.py::test_spec_bootstrap_defaults -q | tee "$ARTIFACTS/cli/pytest_spec_bootstrap_defaults_collect.log" to prove the selector exists before edits continue.
+6. Run pytest scripts/orchestration/tests/test_router.py::test_spec_bootstrap_defaults -v | tee "$ARTIFACTS/cli/pytest_spec_bootstrap_defaults.log".
+7. Run pytest scripts/orchestration/tests/test_router.py::test_router_config_loads -v | tee "$ARTIFACTS/cli/pytest_router_config_loads.log" to guard the existing YAML parsing path.
+8. Stage updated docs/TESTING_GUIDE.md or TEST_SUITE_INDEX.md only if you needed to add new selectors (current selectors already cover test_router, so no update expected this loop).
 
 Pitfalls To Avoid:
-1. Do not run real git commands inside tests; always monkeypatch git bus helpers.
-2. Keep YAML 2-space indented and ASCII only; no tabs or secrets.
-3. Preserve prompt XML tags and escaping; only change doc references.
-4. Supervisor --no-git must skip both branch guard and auto-commit helpers—forgetting one still triggers git.
-5. No edits to stable physics modules (CLAUDE.md §6); keep changes in orchestration/prompt surfaces.
-6. Follow PYTHON-ENV-001 — invoke python scripts/tests via `python` or pytest; no repo-specific wrappers.
-7. Store pytest logs under the artifacts hub; avoid cluttering repo root.
-8. Update docs/test registries once new selectors land; do not skip the documentation gate.
-9. Ensure new tests assert they were called (e.g., tee_run stub) so they fail if supervisor exits early.
-10. Keep router cadence defaults (review_every_n=3, allowlist prompts) consistent between YAML and README.
+- Keep SpecBootstrapConfig optional; do not assume spec_bootstrap exists when orchestration.yaml omits the section.
+- Preserve backwards compatibility: discover_shards() and init scripts must fall back to templates/docs/spec-shards when templates/specs is missing.
+- Do not delete historical references in docs/fix_plan or plan files; only clean living docs/prompts.
+- Maintain ASCII YAML/Markdown formatting and two-space indentation in orchestration.yaml snippets.
+- When editing shell scripts, avoid bashisms that break on macOS dash; stick with existing helper functions.
+- Tests must not touch the real templates directory—use tmp_path fixtures only.
+- Capture pytest logs under the artifacts hub or TEST-CLI-001 will be violated.
+- Follow PYTHON-ENV-001 and run pytest via PATH `pytest`; no repo-specific wrappers.
 
 If Blocked:
-- Capture failing command + log snippet under the artifacts hub, set docs/fix_plan.md Attempts entry to `blocked`, and DM Galph with the error plus reproduction. If git helpers still fire despite --no-git, log the stack trace and short-circuit by raising RuntimeError in the stub to keep the failure obvious.
+- Capture the failing command + stderr into $ARTIFACTS/blocked.log, note the reproduction in docs/fix_plan.md Attempts History, and ping Galph with whether the blocker is in config.py vs. shell scripts so we can rescope B3 accordingly.
 
 Findings Applied (Mandatory):
-- TEST-CLI-001 — orchestration CLI changes require explicit pytest selectors + log artifacts.
-- PYTHON-ENV-001 — run python/pytest via PATH `python`; no ad-hoc interpreter wrappers.
+- TEST-CLI-001 — Archive pytest logs for the new spec-bootstrap guard selectors under the artifacts hub.
+- PYTHON-ENV-001 — Invoke pytest via the PATH python environment; no repo-specific interpreters.
 
 Pointers:
-- plans/active/DOC-HYGIENE-20260120/implementation.md:1 — phased plan + checklist IDs.
-- scripts/orchestration/README.md:1 — router cadence + orchestration config contract.
-- scripts/orchestration/supervisor.py:1 — CLI entrypoint to update for --no-git.
-- prompts/arch_writer.md:1 — architecture prompt references to fix.
-- prompts/spec_reviewer.md:1 — spec reviewer prompt references/spec_bootstrap block.
+- plans/active/DOC-HYGIENE-20260120/implementation.md:76 — B3 checklist + expected tests.
+- scripts/orchestration/config.py:93 — SpecBootstrapConfig defaults and discover_shards helper that now need specs/ support.
+- scripts/orchestration/README.md:15 — Spec_bootstrap sample YAML that still cites docs/spec-shards.
+- scripts/orchestration/init_project.sh:224 — init_directories currently creating docs/spec-shards.
+- scripts/orchestration/init_spec_bootstrap.sh:35 — SPECS_DIR/template discovery that must switch to specs/.
+- prompts/arch_reviewer.md:24 — Required reading block that still points to docs/spec-shards/.
 
-Next Up (optional): Validate combined orchestrator docs once supervisor fix lands (rerun `pytest scripts/orchestration/tests/test_orchestrator.py -v` and refresh docs/index.md router references).
+Next Up (optional): After B3 closes, unblock ORCH-AGENT-DISPATCH-001 by refreshing input.md for that initiative.
 
-Doc Sync Plan:
-- After adding `scripts/orchestration/tests/test_supervisor.py`, run `pytest --collect-only scripts/orchestration/tests/test_supervisor.py -q` and archive the log to the artifacts hub before implementation is declared done.
-- Once the new tests pass, update `docs/TESTING_GUIDE.md` §2 and `docs/development/TEST_SUITE_INDEX.md` with the supervisor selector + expected log filenames.
+Doc Sync Plan: Not needed — test_router is already listed in docs/TESTING_GUIDE.md and TEST_SUITE_INDEX.md; no new selectors introduced.
 
-Mapped Tests Guardrail:
-- `scripts/orchestration/tests/test_supervisor.py` must collect >0; run the collect-only command before claiming success. Do not finish the loop until the new selector exists and is documented.
+Mapped Tests Guardrail: Verify the new test_spec_bootstrap_defaults collects (>0) before editing other files; if pytest --collect-only ever returns 0, stop and ensure the test exists before proceeding.
 
-Normative Reference:
-- See scripts/orchestration/README.md §Router + §Sync via Git for the authoritative behavior this change must preserve.
+Normative Reference: scripts/orchestration/README.md §Spec Bootstrap defines the root config contract this change must follow; keep the implementation in lockstep.
