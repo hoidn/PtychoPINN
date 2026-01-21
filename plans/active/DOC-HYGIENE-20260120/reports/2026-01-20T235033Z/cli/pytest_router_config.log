@@ -1,0 +1,12 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python
+cachedir: .pytest_cache
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 2 items
+
+scripts/orchestration/tests/test_router.py::test_router_config_loads PASSED [ 50%]
+scripts/orchestration/tests/test_orchestrator.py::test_combined_autocommit_no_git PASSED [100%]
+
+============================== 2 passed in 0.05s ===============================
