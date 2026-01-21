@@ -383,6 +383,21 @@
     - **Remaining Issue:** Amplitude bias persists (~2.3-2.7x undershoot). The dataset-derived scale fix proves normalization symmetry is correctly computed, but the bias originates elsewhere (model architecture, loss wiring, or training dynamics). Next investigation should focus on D5 forward-pass instrumentation.
   - *2026-01-21T013900Z:* **Reviewer follow-up — manual constructors bypass dataset stats.**
     - PINN-CHUNKED-001 still described `_X_np` as the preferred reducer even though D4f introduced `dataset_intensity_stats`, and helper scripts that instantiate `PtychoDataContainer` directly (dose_response_study, data_preprocessing, scripts/inspect_ptycho_data.py, cached NPZ inspectors) never attach those stats. Any workflow that bypasses `loader.load()` immediately falls back to the 988.21 constant, undoing the D4f fix. Action: update the finding, extend the D4f checklist with a new item covering manual constructors (shared reducer + per-script plumbing + regression tests), and prepare a Do Now directing Ralph to implement the plumbing and rerun the CLI guard.
+  - *2026-01-21T015500Z:* **Phase D4f.2 COMPLETE — Manual constructors now propagate dataset_intensity_stats.**
+    - **Implementation:** Added `compute_dataset_intensity_stats()` helper in `ptycho/loader.py` (shared NumPy reducer), updated `scripts/inspect_ptycho_data.py::load_ptycho_data` to reconstruct stats from NPZ keys or fallback-compute from X array.
+    - **Tests Added:**
+      1. `tests/test_loader_normalization.py::TestNormalizeData::test_manual_dataset_stats_helper` — verifies helper handles raw, normalized, and rank-3 data
+      2. `tests/scripts/test_inspect_ptycho_data.py::TestInspectPtychoData::test_load_preserves_dataset_stats` — verifies NPZ loader preserves stats
+      3. `tests/scripts/test_inspect_ptycho_data.py::TestInspectPtychoData::test_load_preserves_tensor_cache_empty` — verifies lazy-loading (PINN-CHUNKED-001)
+    - **All Mapped Tests Pass:**
+      - `pytest tests/test_loader_normalization.py::TestNormalizeData::test_dataset_stats_attachment -v` ✓
+      - `pytest tests/test_loader_normalization.py::TestNormalizeData::test_manual_dataset_stats_helper -v` ✓
+      - `pytest tests/test_train_pinn.py::TestIntensityScale::test_uses_dataset_stats -v` ✓
+      - `pytest tests/scripts/test_inspect_ptycho_data.py::TestInspectPtychoData::test_load_preserves_dataset_stats -v` ✓
+      - `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` ✓
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T013900Z/logs/{pytest_loader_stats_*.log,pytest_train_pinn_dataset_stats.log,pytest_inspect_dataset_stats.log,pytest_cli_smoke.log,collect_*.log}`
+    - **Spec Compliance:** Implementation aligns with specs/spec-ptycho-core.md §Normalization Invariants (dataset-derived mode as preferred).
+    - **Next Actions:** Remaining manual constructors (dose_response_study, data_preprocessing) may need similar updates; amplitude bias investigation continues in D5.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

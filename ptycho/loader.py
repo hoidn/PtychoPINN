@@ -566,6 +566,95 @@ def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) ->
     print(container)
     return container
 
+
+def compute_dataset_intensity_stats(
+    data: np.ndarray,
+    intensity_scale: float = None,
+    is_normalized: bool = False
+) -> dict:
+    """Compute dataset intensity statistics for intensity_scale calculation.
+
+    This helper computes E_batch[Σ_xy |X|²] required by the dataset-derived
+    intensity_scale formula in specs/spec-ptycho-core.md §Normalization Invariants.
+
+    Use cases:
+    1. Raw diffraction arrays (pre-normalization): Pass data directly, leave
+       intensity_scale=None and is_normalized=False.
+    2. Normalized arrays from PtychoDataContainer: Pass _X_np with the recorded
+       intensity_scale and is_normalized=True to reconstruct raw statistics.
+    3. NPZ files saved with dataset_intensity_stats_* keys: Load those keys
+       directly instead of calling this function (see load_ptycho_data).
+
+    IMPORTANT: This function operates purely on NumPy arrays and never touches
+    TensorFlow tensors or _tensor_cache, preserving lazy-loading guarantees
+    (PINN-CHUNKED-001).
+
+    Args:
+        data: NumPy array of diffraction amplitudes, shape (B, N, N) or (B, N, N, C).
+              For normalized data, these are L2-normalized values.
+        intensity_scale: If provided and is_normalized=True, used to back-compute
+              raw diffraction by dividing by intensity_scale before squaring.
+              Ignored if is_normalized=False.
+        is_normalized: If True, data has been L2-normalized and intensity_scale
+              must be provided to reconstruct raw statistics.
+
+    Returns:
+        dict: Dataset statistics with keys:
+            - 'batch_mean_sum_intensity': E_batch[Σ_xy |X_raw|²] as Python float
+            - 'n_samples': Number of samples (batch size) as Python int
+
+    Raises:
+        ValueError: If is_normalized=True but intensity_scale is not provided.
+
+    Example:
+        # For raw diffraction data
+        stats = compute_dataset_intensity_stats(raw_diff3d)
+
+        # For normalized container data
+        stats = compute_dataset_intensity_stats(
+            container._X_np,
+            intensity_scale=recorded_scale,
+            is_normalized=True
+        )
+
+    See: specs/spec-ptycho-core.md §Normalization Invariants
+    See: docs/findings.md PINN-CHUNKED-001
+    """
+    if is_normalized and intensity_scale is None:
+        raise ValueError(
+            "intensity_scale must be provided when is_normalized=True "
+            "to back-compute raw diffraction statistics"
+        )
+
+    # Work in float64 for numerical stability
+    data_f64 = data.astype(np.float64)
+
+    # Dynamically determine reduction axes: all except batch (axis 0)
+    ndims = len(data_f64.shape)
+    reduction_axes = tuple(range(1, ndims))  # (1, 2) for rank-3, (1, 2, 3) for rank-4
+
+    if is_normalized and intensity_scale is not None:
+        # Back-compute raw diffraction: X_raw = X_norm / intensity_scale
+        # Then sum |X_raw|² = sum (X_norm / s)² = sum(X_norm²) / s²
+        # NOTE: This is approximate because L2 normalization changed the scale
+        # relationship. For best accuracy, use raw data directly or NPZ keys.
+        sum_intensity = np.sum(data_f64 ** 2, axis=reduction_axes)
+        # Adjust for the intensity_scale that was applied
+        sum_intensity = sum_intensity / (intensity_scale ** 2)
+    else:
+        # Raw data: just sum the squared amplitudes
+        sum_intensity = np.sum(data_f64 ** 2, axis=reduction_axes)
+
+    # E_batch[Σ_xy |X|²]
+    batch_mean = float(np.mean(sum_intensity))
+    n_samples = int(len(data_f64))
+
+    return {
+        'batch_mean_sum_intensity': batch_mean,
+        'n_samples': n_samples,
+    }
+
+
 #@debug
 def normalize_data(dset: dict, N: int) -> np.ndarray:
     """

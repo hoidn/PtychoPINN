@@ -318,3 +318,77 @@ class TestNormalizeData:
         assert abs(test_actual - expected_test_batch_mean) / expected_test_batch_mean < 0.001, \
             f"Test batch_mean mismatch: got {test_actual}, expected {expected_test_batch_mean}"
         assert test_container.dataset_intensity_stats['n_samples'] == B - n_train
+
+    def test_manual_dataset_stats_helper(self):
+        """Verify compute_dataset_intensity_stats helper computes correct stats.
+
+        Per Phase D4f.2: The shared NumPy reducer must accept raw diffraction
+        or normalized data plus intensity_scale, return the batch_mean_sum_intensity
+        dict, and keep it float64 until the final cast.
+
+        This test verifies:
+        1. Raw data path: computes E_batch[Σ_xy |X|²] directly
+        2. Normalized data path: back-computes raw stats using intensity_scale
+        3. Error handling: raises ValueError when is_normalized=True without scale
+
+        See: specs/spec-ptycho-core.md §Normalization Invariants
+        """
+        from ptycho.loader import compute_dataset_intensity_stats
+        import pytest
+
+        N = 64
+        B = 8
+
+        # Create synthetic raw diffraction data
+        np.random.seed(42)
+        raw_diff = np.random.rand(B, N, N, 1).astype(np.float32) * 0.5
+
+        # Compute expected batch_mean manually (float64 for stability)
+        raw_f64 = raw_diff.astype(np.float64)
+        sum_intensity = np.sum(raw_f64 ** 2, axis=(1, 2, 3))  # shape (B,)
+        expected_batch_mean = float(np.mean(sum_intensity))
+
+        # Test 1: Raw data path (no intensity_scale)
+        stats_raw = compute_dataset_intensity_stats(raw_diff, is_normalized=False)
+
+        assert 'batch_mean_sum_intensity' in stats_raw
+        assert 'n_samples' in stats_raw
+        assert stats_raw['n_samples'] == B
+
+        actual_raw = stats_raw['batch_mean_sum_intensity']
+        assert abs(actual_raw - expected_batch_mean) / expected_batch_mean < 0.001, \
+            f"Raw path batch_mean mismatch: got {actual_raw}, expected {expected_batch_mean}"
+
+        # Test 2: Normalized data path with intensity_scale
+        # Simulate normalized data by multiplying by a fake norm factor
+        fake_norm_factor = 2.5
+        normalized_diff = raw_diff * fake_norm_factor
+
+        # When is_normalized=True and intensity_scale is provided,
+        # the helper should back-compute: sum(X_norm²) / s² = sum(X_raw²)
+        # So if we pass intensity_scale = fake_norm_factor, we should get original stats
+        stats_normalized = compute_dataset_intensity_stats(
+            normalized_diff,
+            intensity_scale=fake_norm_factor,
+            is_normalized=True
+        )
+
+        actual_normalized = stats_normalized['batch_mean_sum_intensity']
+        assert abs(actual_normalized - expected_batch_mean) / expected_batch_mean < 0.001, \
+            f"Normalized path batch_mean mismatch: got {actual_normalized}, expected {expected_batch_mean}"
+        assert stats_normalized['n_samples'] == B
+
+        # Test 3: Error handling - is_normalized=True without intensity_scale
+        with pytest.raises(ValueError, match="intensity_scale must be provided"):
+            compute_dataset_intensity_stats(normalized_diff, is_normalized=True)
+
+        # Test 4: Rank-3 data (B, N, N) without channel dimension
+        raw_diff_3d = np.random.rand(B, N, N).astype(np.float32) * 0.5
+        stats_3d = compute_dataset_intensity_stats(raw_diff_3d, is_normalized=False)
+
+        raw_3d_f64 = raw_diff_3d.astype(np.float64)
+        expected_3d = float(np.mean(np.sum(raw_3d_f64 ** 2, axis=(1, 2))))
+
+        assert abs(stats_3d['batch_mean_sum_intensity'] - expected_3d) / expected_3d < 0.001, \
+            f"Rank-3 batch_mean mismatch"
+        assert stats_3d['n_samples'] == B

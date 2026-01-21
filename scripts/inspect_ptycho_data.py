@@ -1,18 +1,56 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from ptycho.loader import PtychoDataContainer
+from ptycho.loader import PtychoDataContainer, compute_dataset_intensity_stats
+
 
 def load_ptycho_data(file_path: str) -> PtychoDataContainer:
     """
-    Load the npz-serialized ptycho data.
+    Load the npz-serialized ptycho data with dataset_intensity_stats preservation.
+
+    This function loads PtychoDataContainer data from an NPZ file and ensures
+    dataset_intensity_stats are preserved for proper intensity_scale calculation.
+    Per Phase D4f.2: when loading NPZ files, the function first checks for stored
+    stats keys (dataset_intensity_stats_batch_mean, dataset_intensity_stats_n_samples)
+    and falls back to recomputing from the X array if not present.
+
+    IMPORTANT: Uses compute_dataset_intensity_stats to ensure proper dataset-derived
+    intensity_scale can be computed without touching _tensor_cache (PINN-CHUNKED-001).
 
     Args:
         file_path (str): Path to the npz file.
 
     Returns:
-        PtychoDataContainer: Loaded ptycho data.
+        PtychoDataContainer: Loaded ptycho data with dataset_intensity_stats attached.
+
+    See: specs/spec-ptycho-core.md §Normalization Invariants
+    See: docs/findings.md PINN-CHUNKED-001
     """
     data = np.load(file_path, allow_pickle=True)
+
+    # Reconstruct dataset_intensity_stats from saved keys if present
+    # Otherwise fall back to computing from X data
+    dataset_intensity_stats = None
+    if 'dataset_intensity_stats_batch_mean' in data and 'dataset_intensity_stats_n_samples' in data:
+        # Use stored raw diffraction stats (preferred - these are from pre-normalization)
+        batch_mean = float(data['dataset_intensity_stats_batch_mean'])
+        n_samples = int(data['dataset_intensity_stats_n_samples'])
+        dataset_intensity_stats = {
+            'batch_mean_sum_intensity': batch_mean,
+            'n_samples': n_samples,
+        }
+        print(f"inspect_ptycho_data: loaded stored dataset_intensity_stats: "
+              f"batch_mean={batch_mean:.6f}, n_samples={n_samples}")
+    else:
+        # Fall back: compute stats from X array
+        # NOTE: This uses normalized data so the stats will approximate the (N/2)²
+        # target and calculate_intensity_scale will likely use the closed-form fallback.
+        # For proper dataset-derived scale, resave the NPZ with raw stats.
+        X = data['X']
+        dataset_intensity_stats = compute_dataset_intensity_stats(X, is_normalized=False)
+        print(f"inspect_ptycho_data: computed dataset_intensity_stats from X: "
+              f"batch_mean={dataset_intensity_stats['batch_mean_sum_intensity']:.6f}, "
+              f"n_samples={dataset_intensity_stats['n_samples']}")
+
     return PtychoDataContainer(
         X=data['X'],
         Y_I=data['Y_I'],
@@ -24,7 +62,8 @@ def load_ptycho_data(file_path: str) -> PtychoDataContainer:
         nn_indices=data['nn_indices'],
         global_offsets=data['global_offsets'],
         local_offsets=data['local_offsets'],
-        probeGuess=data['probe']
+        probeGuess=data['probe'],
+        dataset_intensity_stats=dataset_intensity_stats
     )
 
 def inspect_ptycho_frames(data: PtychoDataContainer, num_frames: int = 2):
