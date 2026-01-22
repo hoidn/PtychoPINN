@@ -198,30 +198,9 @@ def process_simulated_data(X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_
 
 def create_ptycho_dataset(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true,
                           X_test, Y_I_test, Y_phi_test, YY_test_full, coords_test_nominal, coords_test_true):
-    """Create a PtychoDataset from train/test arrays.
-
-    NOTE: X_train/X_test are normalized diffraction arrays from mk_simdata. To enable
-    the spec-compliant dataset-derived intensity_scale formula (spec-ptycho-core.md
-    §Normalization Invariants), we back-compute raw statistics using the recorded
-    intensity_scale and attach them to each container.
-    """
-    from ptycho.loader import compute_dataset_intensity_stats
-
-    # Compute dataset intensity stats from normalized data + recorded scale.
-    # Per specs/spec-ptycho-core.md §Normalization Invariants: s = sqrt(nphotons / E_batch[Σ_xy |X|²])
-    # Since X_train/X_test are already normalized, we back-compute raw stats.
-    train_stats = compute_dataset_intensity_stats(
-        X_train, intensity_scale=intensity_scale, is_normalized=True
-    )
-    test_stats = compute_dataset_intensity_stats(
-        X_test, intensity_scale=intensity_scale, is_normalized=True
-    )
-
-    print(f"[D4f.3] create_ptycho_dataset: train batch_mean={train_stats['batch_mean_sum_intensity']:.4f}, test batch_mean={test_stats['batch_mean_sum_intensity']:.4f}")
-
     return PtychoDataset(
-        PtychoDataContainer(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true, None, None, None, probe.get_probe(params), dataset_intensity_stats=train_stats),
-        PtychoDataContainer(X_test, Y_I_test, Y_phi_test, intensity_scale, YY_test_full, coords_test_nominal, coords_test_true, None, None, None, probe.get_probe(params), dataset_intensity_stats=test_stats),
+        PtychoDataContainer(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true, None, None, None, probe.get_probe(params)),
+        PtychoDataContainer(X_test, Y_I_test, Y_phi_test, intensity_scale, YY_test_full, coords_test_nominal, coords_test_true, None, None, None, probe.get_probe(params)),
     )
 
 def generate_data(probeGuess = None):

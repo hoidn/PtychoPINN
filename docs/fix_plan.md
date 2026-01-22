@@ -196,21 +196,24 @@
       - Compare sim_lines_4x output quality against dose_experiments baseline
       - Apply fix to achieve reconstruction parity (not just "no crashes")
     - **Hypotheses to investigate:**
-      - H-LOSS-WEIGHT: Loss function weighting differs from dose_experiments
       - H-NORMALIZATION: Intensity normalization pipeline introduces bias
       - H-TRAINING-PARAMS: Hyperparameters (lr, epochs, batch size) insufficient
       - H-ARCHITECTURE: Model architecture mismatch vs legacy
+    - **Constraint:** Do not adjust or experiment with loss weights (CLAUDE.md). Loss-weight hypotheses are out of scope.
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T200000Z/`
-  - *2026-01-20T110227Z:* Scoped **Phase D1** around an explicit loss-configuration diff between sim_lines_4x and dose_experiments so we can confirm or rule out H-LOSS-WEIGHT before tweaking normalization. Updated the implementation plan (Phase D checklist) and queued a Do Now for Ralph to extend `bin/compare_sim_lines_params.py` with MAE/NLL/realspace weights, run it against the existing snapshot + legacy param scan, and archive the Markdown/JSON report plus pytest guard under the new artifacts hub.
+  - *2026-01-22T015431Z:* Added Phase D planning step (D0) to define implementation-agnostic parity logging and maintainer coordination. This will produce a schema + capture plan and explicit external handoff steps before any new parity logging work.
+  - *2026-01-22T014445Z:* **A1b reclassified** — dose_experiments ground-truth run remains required for amplitude-bias parity but is blocked locally by Keras 3.x incompatibility. Requested a maintainer-run legacy TF/Keras execution with artifacts for comparison.
+    - **Request:** `inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md`
+  - *2026-01-20T110227Z:* Scoped **Phase D1** around an explicit loss-configuration parity diff between sim_lines_4x and dose_experiments to document alignment before proceeding with normalization analysis (no weight changes). Updated the implementation plan (Phase D checklist) and queued a Do Now for Ralph to extend `bin/compare_sim_lines_params.py` with MAE/NLL/realspace weights, run it against the existing snapshot + legacy param scan, and archive the Markdown/JSON report plus pytest guard under the new artifacts hub.
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T110227Z/`
   - *2026-01-20T112000Z:* **Phase D1 (initial diff — SUPERSEDED)** — Extended `bin/compare_sim_lines_params.py` with loss weight extraction (mae_weight, nll_weight, realspace_weight, realspace_mae_weight) by instantiating TrainingConfig per scenario. Generated Markdown + JSON diff artifacts that appeared to show a MAE/NLL inversion (`mae_weight=1.0, nll_weight=0.0` in dose_experiments vs `mae_weight=0.0, nll_weight=1.0` in sim_lines_4x). Reviewer audit later revealed the CLI mis-handled conditional assignments, so this evidence is no longer trusted.
-  - *2026-01-20T112029Z:* **Phase D1 REOPENED (runtime evidence pending)** — Reviewer findings showed the CLI parsed the `cfg['mae_weight']=1.0` / `cfg['nll_weight']=0.0` assignments that only execute when `loss_fn == 'mae'`, so the Markdown/JSON diff misrepresented the default (`loss_fn='nll'`) weights. Implementation plan + summary now track D1a–D1c tasks: capture runtime `cfg` snapshots for both loss_fn branches, teach the comparison CLI to label conditional assignments explicitly, rerun the diff, and refresh docs/fix_plan.md with corrected evidence before altering sim_lines loss weights. Artifacts hub reserved at `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/`; guard selector unchanged (`pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`).
+  - *2026-01-20T112029Z:* **Phase D1 REOPENED (runtime evidence pending)** — Reviewer findings showed the CLI parsed the `cfg['mae_weight']=1.0` / `cfg['nll_weight']=0.0` assignments that only execute when `loss_fn == 'mae'`, so the Markdown/JSON diff misrepresented the default (`loss_fn='nll'`) weights. Implementation plan + summary now track D1a–D1c tasks: capture runtime `cfg` snapshots for both loss_fn branches, teach the comparison CLI to label conditional assignments explicitly, rerun the diff, and refresh docs/fix_plan.md with corrected evidence before advancing normalization work. Artifacts hub reserved at `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/`; guard selector unchanged (`pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`).
     - **Status:** D1a–D1c have **not** landed — runtime cfg capture + CLI fix remain outstanding.
     - **Next Actions:** 
         - Snapshot the legacy `dose_experiments_param_scan.md` `init()` output for both `loss_fn='nll'` and `loss_fn='mae'` without running the legacy training loop; persist JSON + Markdown.
         - Update `bin/compare_sim_lines_params.py` to emit per-loss-mode weights (JSON + Markdown) and clearly label conditional assignments (e.g., `conditional (loss_fn=mae)`).
         - Regenerate the diff + summary and update this ledger once corrected artifacts exist (expected location: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T112029Z/`).
-        - Only after the corrected evidence lands can D1 be marked complete and H-LOSS-WEIGHT officially ruled out; keep D2 normalization instrumentation scoped but secondary until this closure proof exists.
+        - Only after the corrected evidence lands can D1 be marked complete (weights are out of scope); keep D2 normalization instrumentation scoped but secondary until this closure proof exists.
   - *2026-01-20T121449Z:* **Phase D1 COMPLETE (D1a–D1c landed)** — Extended `bin/compare_sim_lines_params.py` with `--output-dose-loss-weights-markdown` flag and runtime cfg capture for both `loss_fn='nll'` (default) and `loss_fn='mae'` (conditional) modes. Regenerated all artifacts under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T121449Z/`. Corrected finding: legacy dose_experiments does NOT set explicit loss weights under default NLL mode — it relies on `ptycho/params.cfg` defaults (`mae_weight=0.0, nll_weight=1.0`), which match the sim_lines TrainingConfig defaults exactly. **H-LOSS-WEIGHT is ruled out.**
     - **Metrics:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T121449Z/{loss_config_diff.md,loss_config_diff.json,dose_loss_weights.json,dose_loss_weights.md,legacy_params_cfg_defaults.json,pytest_cli_smoke.log,summary.md}`
@@ -474,40 +477,10 @@
     - **Tests:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` ✓ (1 passed)
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T210000Z/{gs2_ideal/run_metadata.json,logs/gs2_ideal_runner.log,summary.md}`
     - **Next Actions:** Phase D6 — Investigate training target formulation. Compare Y_amp values fed to the model during training against the ground truth values used in inference comparison.
-  - *2026-01-21T220000Z:* **Phase D6 ROOT CAUSE IDENTIFIED — realspace_weight=0 disables amplitude supervision.**
-    - **Code Analysis (supervisor-performed):**
-      1. **model.py:597-601** — Autoencoder loss: `[realspace_loss, 'mae', negloglik]` with weights `[realspace_weight, mae_weight, nll_weight]`
-      2. **loader.py:306-309** — Training outputs: `(Y_I_centered, X_scaled, X_scaled²)` mapping to above losses
-      3. **params.py:64-65, config.py:115-118** — Default weights: `mae_weight=0.0, nll_weight=1.0, realspace_weight=0.0`
-      4. **pipeline.py:176-203** — sim_lines `build_training_config()` uses defaults, never sets loss weights
-    - **ROOT CAUSE (DEFINITIVE):** `realspace_weight=0.0` means `realspace_loss(trimmed_obj, Y_I_centered)` contributes ZERO to total loss. Model only optimizes NLL on intensity (`pred_intensity ≈ X_scaled²`), with NO direct supervision on object amplitude. The ~4.3× amplitude gap exists because amplitude is only constrained implicitly through physics forward model.
-    - **Hypothesis:** H-LOSS-WEIGHTS **CONFIRMED**
-    - **Fix Approach:** Set `realspace_weight > 0` in training config. Reference: `train_pinn.py:56` uses `realspace_weight=0.1` for PINN training.
-    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T220000Z/`
-    - **Next Actions:** D6a — Update `scripts/studies/sim_lines_4x/pipeline.py::build_training_config()` to set `realspace_weight=0.1`, rerun gs2_ideal, compare amplitude metrics.
-  - *2026-01-21T220000Z:* **Phase D6a — realspace_weight fix implemented and tested.**
-    - **Code Changes:**
-      1. `scripts/studies/sim_lines_4x/pipeline.py:196-205`: Added `realspace_weight=0.1, realspace_mae_weight=1.0` to `build_training_config()`
-      2. `ptycho/tf_helper.py:1475-1476,1481-1483`: Fixed Keras 3.x API compatibility — replaced deprecated `tf.keras.metrics.mean_absolute_error` with native `tf.reduce_mean(tf.abs(...))`
-    - **Key Discovery:** The `realspace_loss()` function (tf_helper.py:1487-1501) returns `tv_loss + mae_loss` where:
-      - `tv_loss = total_variation(pred) * tv_weight` (if `tv_weight > 0`, else 0)
-      - `mae_loss = complex_mae(target, pred) * realspace_mae_weight` (if `realspace_mae_weight > 0`, else 0)
-      - Setting `realspace_weight=0.1` alone was insufficient because `realspace_mae_weight=0` by default, making the loss function return 0.
-    - **Training Results:** With both weights enabled, `trimmed_obj_loss` is now non-zero (≈2.2 vs 0.0 before), confirming realspace loss is being computed.
-    - **Amplitude Metrics Comparison:**
-      | Metric | D5b (realspace=0) | D6a (realspace=0.1,mae=1.0) | Change |
-      | --- | ---: | ---: | ---: |
-      | MAE | 2.368 | 2.365 | -0.1% |
-      | pearson_r | 0.137 | 0.136 | -0.7% |
-      | pred_mean | 0.409 | 0.412 | +0.7% |
-      | output_vs_truth_ratio | 0.265 | 0.238 | -10.2% |
-    - **Outcome:** Realspace loss IS being computed, but amplitude reconstruction did not significantly improve. The ~4x amplitude gap persists, suggesting:
-      (a) 5 epochs may be insufficient for realspace_loss to converge
-      (b) realspace_weight=0.1 may be too small relative to NLL (~250k)
-      (c) The amplitude gap may have a different root cause (architecture, training target scaling)
-    - **Tests:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` ✓ (1 passed)
-    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T220000Z/{gs2_ideal_v4/*,logs/*}`
-    - **Next Actions:** Consider increasing realspace_weight (e.g., 1.0 or 10.0) or increasing epochs to allow realspace_loss to dominate over NLL.
+  - *2026-01-21T220000Z:* **RETRACTED — loss-weight hypothesis is invalid/out of scope.**
+    - **CLAUDE.md constraint:** Do not change or experiment with loss weights; this avenue is explicitly disallowed.
+    - **Correction:** Any prior notes attributing the amplitude gap to `realspace_weight` (or proposing weight tweaks) are incorrect and should be ignored.
+    - **Focus:** Keep Phase D on normalization, target formulation, or architecture wiring differences with evidence-backed comparisons.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

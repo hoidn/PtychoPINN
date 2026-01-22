@@ -70,27 +70,35 @@ Notes:
 """
 
 import argparse
-import logging
 import math
+import yaml
 import os
-from dataclasses import fields
-from pathlib import Path
-from typing import Any, Dict, Literal, Optional, Tuple, Union, get_args, get_origin
-
-import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-import yaml
-
-from ptycho import loader, params, probe
 from ptycho import params as p
-from ptycho.config.config import ModelConfig, TrainingConfig, update_legacy_dict
-from ptycho.loader import PtychoDataContainer, RawData
+from ptycho import probe
+from ptycho.loader import RawData, PtychoDataContainer
+import logging
+import matplotlib.pyplot as plt
+from typing import Union, Optional, Dict, Any, Tuple, Literal, get_origin, get_args
+from pathlib import Path
+from ptycho.config.config import TrainingConfig, ModelConfig, dataclass_to_legacy_dict
+from dataclasses import fields
+from ptycho import loader, probe
+from typing import Union, Optional, Tuple, Dict, Any
+from ptycho.raw_data import RawData
+from ptycho.loader import PtychoDataContainer
+from ptycho.config.config import TrainingConfig, update_legacy_dict
+from ptycho import params
+from ptycho.image import reassemble_patches
 from ptycho.model_manager import ModelManager
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+from dataclasses import fields
+from ptycho.config.config import ModelConfig, TrainingConfig
 
 
 class DiffractionToObjectAdapter(tf.keras.Model):
@@ -473,7 +481,7 @@ def parse_arguments():
                 parser.add_argument(
                     f"--{field.name}",
                     type=lambda x: (logger.debug(f"Converting path value: {x}"), Path(x) if x is not None else None)[1],
-                    default=None if field.default is None else str(field.default),
+                    default=None if field.default == None else str(field.default),
                     help=f"Path for {field.name}"
                 )
             else:
@@ -659,39 +667,8 @@ def load_and_prepare_data(data_file_path: str) -> Tuple[RawData, RawData, Any]:
         logger.error(f"Error loading data from {data_file_path}: {str(e)}")
         raise
 
-def _update_max_position_jitter_from_offsets(dataset: Dict[str, Any], config: TrainingConfig) -> Optional[int]:
-    coords_offsets = dataset.get("coords_offsets")
-    if coords_offsets is None:
-        raise ValueError("Grouped dataset missing coords_offsets; cannot derive max_position_jitter.")
-    offsets = np.asarray(coords_offsets)
-    if offsets.size == 0:
-        logger.warning("Grouped dataset contains empty coords_offsets; skipping max_position_jitter update.")
-        return None
-    max_abs = float(np.max(np.abs(offsets)))
-    required_canvas = int(math.ceil(config.model.N + (2.0 * max_abs)))
-    if (required_canvas - config.model.N) % 2 != 0:
-        required_canvas += 1
-    current_padded = int(params.get_padded_size())
-    if required_canvas <= current_padded:
-        return None
-    bigN = params.get_bigN()
-    required_buffer = max(0, required_canvas - bigN)
-    current_buffer = int(params.cfg.get("max_position_jitter", 0))
-    if required_buffer <= current_buffer:
-        return None
-    params.cfg["max_position_jitter"] = required_buffer
-    params.validate()
-    logger.info(
-        "Updated max_position_jitter from %s to %s based on coords_offsets max_abs=%.3f "
-        "(required_canvas=%s, old_padded=%s, new_padded=%s).",
-        current_buffer,
-        required_buffer,
-        max_abs,
-        required_canvas,
-        current_padded,
-        params.get_padded_size(),
-    )
-    return required_buffer
+from typing import Union
+from ptycho.loader import RawData, PtychoDataContainer
 
 def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], config: TrainingConfig) -> PtychoDataContainer:
     """
@@ -721,7 +698,6 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
             enable_oversampling=config.enable_oversampling,  # Explicit opt-in for K choose C oversampling
             neighbor_pool_size=config.neighbor_pool_size  # Pool size for oversampling (if None, defaults to neighbor_count)
         )
-        _update_max_position_jitter_from_offsets(dataset, config)
         return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)
     else:
         raise TypeError("data must be either RawData or PtychoDataContainer")

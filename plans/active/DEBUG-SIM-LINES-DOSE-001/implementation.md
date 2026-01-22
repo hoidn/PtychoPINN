@@ -100,10 +100,10 @@ Guidelines:
       - **Status:** BLOCKED (Keras 3.x incompatibility) — documented in `reports/2026-01-20T143500Z/a1b_closure_rationale.md`
       - **Blocker:** Legacy `ptycho/model.py` uses `tf.shape()` directly on Keras tensors, which is prohibited in Keras 3.x (`KerasTensor cannot be used as input to a TensorFlow function`)
       - **Partial success:** Simulation stage completed with 512 diffraction patterns; training stage fails at model construction
-      - **Resolution:** A1b is no longer required for NaN debugging scope:
-        - NaN root cause identified (CONFIG-001 violation)
-        - Fix applied and verified (C4f bridging)
-        - All scenarios (gs1/gs2 × ideal/custom) train without NaN
+      - **Resolution:** A1b remains required for amplitude-bias parity, but cannot be executed locally under Keras 3.x.
+        - Required outcome: dose_experiments ground-truth artifacts (simulate→train→infer) for direct comparison
+        - Required path: external legacy TF/Keras environment run or maintainer-provided artifacts
+        - Request: `inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md`
       - **Evidence:** `reports/2026-01-20T092411Z/simulation_clamped4.log` (simulation success + training failure)
       Test: N/A -- blocked; evidence captured
 - [x] A2: Verify data-contract expectations for any RawData/NPZ outputs used in comparison.
@@ -319,20 +319,32 @@ gs2_ideal healthy, gs1_ideal NaN after CONFIG-001 fix
 
 ## Phase D -- Amplitude Bias Root Cause
 
-**Problem Statement:** Even after CONFIG-001 bridging and padded-canvas fixes, every sim_lines_4x scenario undershoots ground-truth amplitude by ≈2.3–2.6× and needs ≈1.7–2.0× least-squares scaling to partially close the gap, while dose_experiments reconstructions at comparable doses did not exhibit this failure. Phase D reopens the initiative to find the actual workflow mismatch (loss configuration, normalization pipeline, hyperparameters, or architecture deltas) and recover dose_experiments-quality reconstructions instead of treating “no NaNs” as success.
+**Problem Statement:** Even after CONFIG-001 bridging and padded-canvas fixes, every sim_lines_4x scenario undershoots ground-truth amplitude by ≈2.3–2.6× and needs ≈1.7–2.0× least-squares scaling to partially close the gap, while dose_experiments reconstructions at comparable doses did not exhibit this failure. Phase D reopens the initiative to find the actual workflow mismatch (normalization pipeline, training params, or architecture deltas) and recover dose_experiments-quality reconstructions instead of treating “no NaNs” as success.
 
 **Open Hypotheses (tracked from fix_plan.md §DEBUG-SIM-LINES-DOSE-001 Phase D):**
-- H-LOSS-WEIGHT — Loss weights/regression targets differ between pipelines.
 - H-NORMALIZATION — Intensity normalization introduces bias in sim_lines_4x only.
 - H-TRAINING-PARAMS — Hyperparameters (lr, epochs, batch size) diverge from legacy runs.
 - H-ARCHITECTURE — Model/forward-path wiring changed between repositories.
+**Constraint:** Do not adjust or experiment with loss weights (CLAUDE.md). Any loss-weight hypothesis is out of scope.
 
 ### Checklist
-- [x] D1: **Validate loss configuration parity vs dose_experiments.** *(COMPLETE 2026-01-20T121449Z — H-LOSS-WEIGHT ruled out)*  
+- [ ] D0: **Planning — implementation-agnostic parity logging + maintainer coordination.**
+      - Outcome: a clear, versioned logging spec (schema + required fields) and concrete maintainer handoff steps.
+      - Deliverables:
+        - `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md` (this plan) updated with the logging schema + capture points.
+        - A coordination subsection (or sub-plan) describing exact commands, artifact paths, and required environment notes for the maintainer-run legacy pipeline.
+        - Maintainer communication guidance to ensure dataset parity:
+          - Use the same input `.npz` where possible (or provide a dataset handoff with checksums + provenance).
+          - If exact parity is impossible, run a two-track comparison to isolate differences: (a) legacy pipeline on the legacy dataset; (b) local pipeline on the same dataset, separating dataset-generation effects from downstream processing/training/inference/reassembly differences.
+        - A single source of truth for the schema (e.g., `plans/active/DEBUG-SIM-LINES-DOSE-001/plan/parity_logging_spec.md`).
+        - Probe logging explicitly included (source/provenance, shape/dtype, amp/phase stats, L2 energy, mask stats, pre/post normalization if applicable).
+      - Dependencies: none (planning-only). No loss-weight changes (CLAUDE.md).
+      Test: N/A -- planning step only
+- [x] D1: **Loss configuration parity check (no adjustments).** *(COMPLETE 2026-01-20T121449Z — weights match; do not change weights)*  
       Extended `bin/compare_sim_lines_params.py` with runtime cfg capture and `--output-dose-loss-weights-markdown` flag. Regenerated all artifacts under `reports/2026-01-20T121449Z/`. **Corrected finding:** legacy dose_experiments does NOT set explicit loss weights under default NLL mode — it relies on `ptycho/params.cfg` defaults (`mae_weight=0.0, nll_weight=1.0`), which match sim_lines TrainingConfig defaults exactly.
       - [x] **D1a — Capture legacy runtime configs.** Executed with stubbed cfg for both `loss_fn='nll'` and `loss_fn='mae'`; persisted JSON + Markdown.
       - [x] **D1b — Fix the comparison CLI.** Added `--output-dose-loss-weights-markdown` flag and runtime cfg capture; conditional assignments labeled explicitly.
-      - [x] **D1c — Re-evaluate the hypothesis.** Reran the diff; both pipelines use identical loss weights (`mae_weight=0.0, nll_weight=1.0`). H-LOSS-WEIGHT is ruled out.
+      - [x] **D1c — Re-evaluate the hypothesis.** Reran the diff; both pipelines use identical loss weights (`mae_weight=0.0, nll_weight=1.0`). Loss-weight changes remain out of scope.
       - Evidence path: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T121449Z/{dose_loss_weights.json,dose_loss_weights.md,loss_config_diff.md,loss_config_diff.json,legacy_params_cfg_defaults.json,pytest_cli_smoke.log,summary.md}`
       - Guard: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
 - [x] D2: **Normalization pipeline parity.** *(PARTIALLY COMPLETE 2026-01-20T123330Z — normalization-invariant instrumentation landed)*

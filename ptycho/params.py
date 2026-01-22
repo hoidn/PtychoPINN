@@ -66,7 +66,7 @@ cfg = {
     'nimgs_train': 9, 'nimgs_test': 3,
     'data_source': 'generic', 'probe.trainable': False,
     'intensity_scale.trainable': False, 'positions.provided': False,
-    'object.big': True, 'probe.big': False, 'probe_scale': 4., 'set_phi': False,
+    'object.big': True, 'probe.big': False, 'probe_scale': 10., 'set_phi': False,
     'probe.mask': True, 'pad_object': True, 'model_type': 'pinn', 'label': '', 'size': 392,
     'amp_activation': 'sigmoid', 'h5_path': 'wts.h5', 'npseed': 42,
     'debug': True,

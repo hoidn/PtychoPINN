@@ -163,97 +163,21 @@ def eval(test_data, history=None, trained_model=None, model_path=None):
     }
 
 def calculate_intensity_scale(ptycho_data_container: PtychoDataContainer) -> float:
-    """Compute intensity scale per specs/spec-ptycho-core.md Normalization Invariants.
-
-    Three compliant calculation modes with the following precedence:
-    1) Pre-computed dataset stats (preferred): Uses container.dataset_intensity_stats
-       which holds E_batch[Σ_xy |X|²] from raw diffraction BEFORE normalization
-    2) Container _X_np fallback: s = sqrt(nphotons / E_batch[sum_xy |X|^2]) from normalized data
-    3) Closed-form fallback: s = sqrt(nphotons) / (N/2) when batch_mean is near zero
-
-    Implementation prefers dataset_intensity_stats because _X_np contains normalized
-    data (L2 norm = (N/2)²), making the dataset-derived formula degenerate to the
-    closed-form. Raw diffraction stats are captured in loader.load() BEFORE
-    normalize_data() is called.
-
-    See: docs/findings.md PINN-CHUNKED-001 for lazy-container requirements.
-    See: specs/spec-ptycho-core.md §Normalization Invariants for the formula.
-
-    Args:
-        ptycho_data_container: Container with dataset_intensity_stats dict,
-            _X_np array, or .X tensor (B, N, N, C) float32
-
-    Returns:
-        Intensity scale as Python float
-    """
+    import tensorflow as tf
     import numpy as np
     from . import params as p
+    def count_photons(obj):
+        pcount = np.mean(tf.math.reduce_sum(obj**2, (1, 2)))
+        return pcount
 
-    nphotons = float(p.get('nphotons'))
-    N = float(p.get('N'))
+    def scale_nphotons(X):
+        # TODO assumes X is already normalized. this should be enforced
+        return tf.math.sqrt(p.get('nphotons')) / (p.get('N') / 2)
 
-    # HIGHEST PRIORITY: Use pre-computed raw diffraction stats from loader
-    # These are computed from 'diffraction' key BEFORE normalize_data() is called
-    if hasattr(ptycho_data_container, 'dataset_intensity_stats') and ptycho_data_container.dataset_intensity_stats is not None:
-        stats = ptycho_data_container.dataset_intensity_stats
-        batch_mean = stats.get('batch_mean_sum_intensity', 0.0)
-        if batch_mean > 1e-12:
-            dataset_scale = float(np.sqrt(nphotons / batch_mean))
-            print(f"calculate_intensity_scale: using dataset_intensity_stats (batch_mean={batch_mean:.6f}) -> scale={dataset_scale:.6f}")
-            return dataset_scale
-        else:
-            # Rare: raw diffraction stats are near zero, fall through to closed-form
-            print(f"calculate_intensity_scale: dataset_intensity_stats batch_mean near zero ({batch_mean}), using fallback")
+    # Calculate the intensity scale using the adapted scale_nphotons function
+    intensity_scale = scale_nphotons(ptycho_data_container.X).numpy()
 
-    # FALLBACK: Use _X_np for CPU-only reduction (avoids populating _tensor_cache)
-    # NOTE: This path uses normalized data, so it degenerates to closed-form
-    # See: docs/findings.md PINN-CHUNKED-001
-    if hasattr(ptycho_data_container, '_X_np') and ptycho_data_container._X_np is not None:
-        X_np = ptycho_data_container._X_np.astype(np.float64)
-
-        # X shape: (B, N, N, C) - compute sum of squared amplitudes over spatial and channel dims
-        # Dynamically determine reduction axes: all except batch (axis 0)
-        ndims = len(X_np.shape)
-        reduction_axes = tuple(range(1, ndims))  # (1, 2, 3) for rank-4, (1, 2) for rank-3
-
-        # Sum |X|^2 over spatial dimensions for each sample
-        sum_intensity = np.sum(X_np ** 2, axis=reduction_axes)  # shape (B,)
-
-        # E_batch[sum_xy |X|^2]
-        batch_mean = float(np.mean(sum_intensity))
-
-        # Dataset-derived scale when batch_mean is sufficiently large
-        if batch_mean > 1e-12:
-            return float(np.sqrt(nphotons / batch_mean))
-        else:
-            # Closed-form fallback: s = sqrt(nphotons) / (N/2)
-            return float(np.sqrt(nphotons) / (N / 2.0))
-
-    # TensorFlow fallback for containers without _X_np
-    import tensorflow as tf
-
-    # Cast to float64 for numerical stability
-    X = tf.cast(ptycho_data_container.X, tf.float64)
-
-    # X shape: (B, N, N, C) - compute sum of squared amplitudes over spatial and channel dims
-    # Dynamically determine reduction axes: all except batch (axis 0)
-    ndims = len(X.shape)
-    reduction_axes = tuple(range(1, ndims))  # (1, 2, 3) for rank-4, (1, 2) for rank-3
-
-    # Sum |X|^2 over spatial dimensions for each sample
-    sum_intensity = tf.reduce_sum(X ** 2, axis=reduction_axes)  # shape (B,)
-
-    # E_batch[sum_xy |X|^2]
-    batch_mean = tf.reduce_mean(sum_intensity)
-
-    # Dataset-derived scale when batch_mean is sufficiently large
-    if batch_mean > 1e-12:
-        dataset_scale = tf.sqrt(nphotons / batch_mean)
-        return float(dataset_scale.numpy())
-    else:
-        # Closed-form fallback: s = sqrt(nphotons) / (N/2)
-        fallback_scale = tf.sqrt(nphotons) / (N / 2.0)
-        return float(fallback_scale.numpy())
+    return intensity_scale
 
 # New alternative implementation
 from ptycho.image import reassemble_patches as _reassemble_patches

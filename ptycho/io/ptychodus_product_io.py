@@ -5,7 +5,7 @@ Scaffold for exporting/importing the Ptychodus product format.
 
 This module provides function signatures and a metadata container for writing
 and reading Ptychodus "product" files (HDF5) derived from RawData. The full
-implementation will adhere to specs/spec-ptycho-interfaces.md and interop with
+implementation will adhere to docs/specs/spec-ptycho-interfaces.md and interop with
 ptychodus/src/ptychodus/plugins/h5_product_file.py.
 
 Notes

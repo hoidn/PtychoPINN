@@ -131,48 +131,6 @@ def align_for_evaluation(
     return aligned_recon, aligned_gt
 
 
-def align_for_evaluation_with_registration(
-    reconstruction_image: np.ndarray,
-    ground_truth_image: np.ndarray,
-    scan_coords_yx: np.ndarray,
-    stitch_patch_size: int,
-    *,
-    upsample_factor: int = 50,
-    border_crop: int = 2,
-    skip_registration: bool = False,
-) -> Tuple[np.ndarray, np.ndarray, Tuple[float, float] | None]:
-    """
-    Align reconstruction to ground truth using scan coordinates + optional registration.
-
-    This combines the coordinate-based cropping from align_for_evaluation with the
-    fine-scale registration used in compare_models.py (phase cross-correlation
-    followed by border cropping).
-    """
-    aligned_recon, aligned_gt = align_for_evaluation(
-        reconstruction_image=reconstruction_image,
-        ground_truth_image=ground_truth_image,
-        scan_coords_yx=scan_coords_yx,
-        stitch_patch_size=stitch_patch_size,
-    )
-    if skip_registration:
-        return aligned_recon, aligned_gt, None
-
-    from ptycho.image.registration import apply_shift_and_crop, find_translation_offset
-
-    offset = find_translation_offset(
-        aligned_recon,
-        aligned_gt,
-        upsample_factor=upsample_factor,
-    )
-    aligned_recon, aligned_gt = apply_shift_and_crop(
-        aligned_recon,
-        aligned_gt,
-        offset,
-        border_crop=border_crop,
-    )
-    return aligned_recon, aligned_gt, offset
-
-
 def get_scan_area_bbox(scan_coords_yx: np.ndarray, 
                       probe_radius: float, 
                       object_shape: Tuple[int, int]) -> Tuple[int, int, int, int]:
