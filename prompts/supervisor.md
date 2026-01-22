@@ -145,6 +145,12 @@
       - Sanity‑check `docs/fix_plan.md` ordering, statuses, and length; archive when large.
       - Draft corrective fix‑plan entries if Ralph missed something obvious.
     </review_or_housekeeping>
+    <maintainer_communication>
+    If progress on the current plan / initiative / focus item requires information or intervention from an 
+    external <maintainer>, make a request to that maintainer by writing a .md to their inbox/ directory. If expecting a response to a previous request to a maintainer, 
+    check the local ./inbox/ directory. If ./inbox/ is populated with a new response, review the response and incorporate any information or required actions 
+    derived from it into appropriate active plan implementation .md / checklist. 
+    </maintainer_communication>
   </action_types>
 
   <modes>
@@ -272,7 +278,7 @@
 
       <step id="4" name="Choose mode and supervisor action type for this loop">
         - Pick a <mode> from <modes/> (TDD | Implementation | other).  
-        - Choose one primary <action_type> from <action_types/> (evidence_collection, debug, planning, review_or_housekeeping).  
+        - Choose one primary <action_type> from <action_types/> (evidence_collection, debug, planning, review_or_housekeeping, <maintainer_communication>).  
         - Ensure these choices comply with <loop_discipline/>, <fsm/>, and Environment Freeze rules.
       </step>
 

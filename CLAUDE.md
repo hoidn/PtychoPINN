@@ -1,8 +1,20 @@
 # CLAUDE.md
 
-This document is the **constitution** for the Claude AI agents working on the PtychoPINN repository. It defines identity, non-negotiable directives, and the canonical sources of truth. 
+This document is the **constitution** for the agents working on the PtychoPINN repository. It defines identity, non-negotiable directives, and the canonical sources of truth. 
 
 ---
+
+## 0. Behavioral guide 
+- When blocked due to an environment or software version limitation or external package dependence, consider sending a message to the maintainer of the relevant software + environment by 
+writing a request .md to the respective inbox. For example, the maintainer of the project whose root directory is ~/Documents/foo/ accepts requests at ~/Documents/foo/inbox/. You also 
+may recieve requests at ./inbox/. The available maintainers are:
+<maintainers>
+<1>
+name:
+PtychoPINN dose_experiments branch
+root_dir: ~/Documents/PtychoPINN/
+</1>
+</maintainers>
 
 ## 1. ⚙️ Identity & Workflow Guardrails
 
