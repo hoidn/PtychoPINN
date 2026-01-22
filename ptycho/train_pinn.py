@@ -163,21 +163,55 @@ def eval(test_data, history=None, trained_model=None, model_path=None):
     }
 
 def calculate_intensity_scale(ptycho_data_container: PtychoDataContainer) -> float:
-    import tensorflow as tf
+    """
+    Calculate intensity scale per specs/spec-ptycho-core.md §Normalization Invariants.
+
+    Formula: s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])
+
+    Priority order:
+    1. dataset_intensity_stats (if present) — pre-computed from raw diffraction, preferred
+    2. _X_np NumPy reduction — lazy-container safe, CPU-only
+    3. .X tensor reduction — fallback for containers without _X_np
+    4. Closed-form fallback sqrt(nphotons)/(N/2) — assumes L2-normalized data
+
+    Returns:
+        float: Intensity scale factor for the dataset.
+    """
     import numpy as np
     from . import params as p
-    def count_photons(obj):
-        pcount = np.mean(tf.math.reduce_sum(obj**2, (1, 2)))
-        return pcount
 
-    def scale_nphotons(X):
-        # TODO assumes X is already normalized. this should be enforced
-        return tf.math.sqrt(p.get('nphotons')) / (p.get('N') / 2)
+    nphotons = p.get('nphotons')
+    N = p.get('N')
 
-    # Calculate the intensity scale using the adapted scale_nphotons function
-    intensity_scale = scale_nphotons(ptycho_data_container.X).numpy()
+    # Priority 1: Use pre-computed stats from raw diffraction (before normalization)
+    if hasattr(ptycho_data_container, 'dataset_intensity_stats'):
+        stats = ptycho_data_container.dataset_intensity_stats
+        if stats is not None and stats.get('batch_mean_sum_intensity', 0) > 1e-12:
+            return float(np.sqrt(nphotons / stats['batch_mean_sum_intensity']))
 
-    return intensity_scale
+    # Priority 2: Compute from NumPy backing (lazy-container safe, no .X access)
+    if hasattr(ptycho_data_container, '_X_np') and ptycho_data_container._X_np is not None:
+        X_np = ptycho_data_container._X_np.astype(np.float64)  # float64 for precision
+        # Handle both rank-3 (B, H, W) and rank-4 (B, H, W, C) tensors
+        spatial_axes = tuple(range(1, X_np.ndim))  # (1,2) or (1,2,3)
+        sum_intensity = np.sum(X_np ** 2, axis=spatial_axes)
+        batch_mean = float(np.mean(sum_intensity))
+        if batch_mean > 1e-12:
+            return float(np.sqrt(nphotons / batch_mean))
+
+    # Priority 3: Compute from .X tensor (for containers without _X_np)
+    if hasattr(ptycho_data_container, 'X'):
+        X = ptycho_data_container.X
+        X_np = np.array(X).astype(np.float64)  # Convert to NumPy float64
+        # Handle both rank-3 (B, H, W) and rank-4 (B, H, W, C) tensors
+        spatial_axes = tuple(range(1, X_np.ndim))  # (1,2) or (1,2,3)
+        sum_intensity = np.sum(X_np ** 2, axis=spatial_axes)
+        batch_mean = float(np.mean(sum_intensity))
+        if batch_mean > 1e-12:
+            return float(np.sqrt(nphotons / batch_mean))
+
+    # Priority 4: Closed-form fallback (assumes L2-normalized to (N/2)²)
+    return float(np.sqrt(nphotons) / (N / 2))
 
 # New alternative implementation
 from ptycho.image import reassemble_patches as _reassemble_patches
