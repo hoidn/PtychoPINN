@@ -10,3 +10,6 @@
 [submodule "ptycho/FRC"]
 	path = ptycho/FRC
 	url = git@github.com:hoidn/FRC.git
+[submodule "scripts/orchestration"]
+	path = scripts/orchestration
+	url = git@github.com:hoidn/orchestration.git
