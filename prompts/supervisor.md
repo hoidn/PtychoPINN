@@ -149,7 +149,8 @@
     If progress on the current plan / initiative / focus item requires information or intervention from an 
     external <maintainer>, make a request to that maintainer by writing a .md to their inbox/ directory. If expecting a response to a previous request to a maintainer, 
     check the local ./inbox/ directory. If ./inbox/ is populated with a new response, review the response and incorporate any information or required actions 
-    derived from it into appropriate active plan implementation .md / checklist. 
+    derived from it into appropriate active plan implementation .md / checklist. To avoid confusion, include the origination (your) identity and the destination (their) identity in all 
+    writes to other maintainers' inbox/ directories.
     </maintainer_communication>
   </action_types>
 
