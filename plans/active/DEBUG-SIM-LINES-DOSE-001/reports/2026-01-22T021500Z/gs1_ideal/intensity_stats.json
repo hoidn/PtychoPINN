@@ -1,0 +1,238 @@
+{
+  "bundle_intensity_scale": 988.211669921875,
+  "dataset_scale_info": {
+    "N": 64,
+    "batch_mean_sum_intensity": 3007.8585183347295,
+    "dataset_scale": 576.5955653006401,
+    "delta": -411.61620350197836,
+    "fallback_scale": 988.2117688026185,
+    "nphotons": 1000000000.0,
+    "ratio": 0.5834736880327591,
+    "spec_reference": "specs/spec-ptycho-core.md \u00a7Normalization Invariants"
+  },
+  "intensity_scaler_state": {
+    "delta": -6.498019911305164e-05,
+    "exp_log_scale": 988.2116659768321,
+    "log_scale_value": 6.895896911621094,
+    "params_cfg_intensity_scale": 988.2117309570312,
+    "params_cfg_trainable": true,
+    "ratio": 0.9999999342446593,
+    "spec_reference": "specs/spec-ptycho-core.md \u00a7Normalization Invariants",
+    "trainable": true
+  },
+  "label_vs_truth_analysis": {
+    "X_mean": 0.08581923693418503,
+    "Y_I_mean": 7.948634147644043,
+    "Y_amp_mean": 2.706812620162964,
+    "amplitude_gap_pct": 0.05300710504840822,
+    "ground_truth_amp_mean": 2.708247423171997,
+    "note": "Compare Y_amp (training amplitude labels) to inference ground truth",
+    "ratio_truth_to_X_mean": 31.557579861132513,
+    "ratio_truth_to_Y_amp_mean": 1.000530071050484,
+    "ratio_truth_to_sqrt_Y_I": 0.9605988989915808,
+    "spec_reference": "specs/spec-ptycho-core.md \u00a7Normalization Invariants",
+    "sqrt_Y_I_mean": 2.8193322166151407
+  },
+  "largest_drop": {
+    "from_mean": 0.15274183452129364,
+    "from_stage": "grouped_diffraction",
+    "key": "grouped_to_normalized",
+    "ratio": 0.559530321508642,
+    "to_mean": 0.08546368777751923,
+    "to_stage": "grouped_X_full"
+  },
+  "legacy_params_intensity_scale": 988.211669921875,
+  "normalize_gain": 0.559530321508642,
+  "ratios": {
+    "grouped_to_normalized": 0.559530321508642,
+    "normalized_to_container": 1.0,
+    "raw_to_grouped": 1.0413123525320749
+  },
+  "scale_delta": 0.0,
+  "stage_means": {
+    "container_X": 0.08546368777751923,
+    "grouped_X_full": 0.08546368777751923,
+    "grouped_diffraction": 0.15274183452129364,
+    "raw_diffraction": 0.14668205380439758
+  },
+  "stages": [
+    {
+      "metadata": {
+        "count": 256,
+        "source": "RawData"
+      },
+      "name": "raw_diffraction",
+      "stats": {
+        "dtype": "float32",
+        "finite_count": 1048576,
+        "max": 26.895893096923828,
+        "mean": 0.14668205380439758,
+        "min": 0.0,
+        "nan_count": 0,
+        "shape": [
+          256,
+          64,
+          64
+        ],
+        "std": 0.8442895412445068,
+        "total_count": 1048576
+      }
+    },
+    {
+      "metadata": {
+        "count": 64,
+        "gridsize": 1,
+        "source": "RawData.generate_grouped_data"
+      },
+      "name": "grouped_diffraction",
+      "stats": {
+        "dtype": "float32",
+        "finite_count": 262144,
+        "max": 26.895893096923828,
+        "mean": 0.15274183452129364,
+        "min": 0.0,
+        "nan_count": 0,
+        "shape": [
+          64,
+          64,
+          64,
+          1
+        ],
+        "std": 0.8804562091827393,
+        "total_count": 262144
+      }
+    },
+    {
+      "metadata": {
+        "count": 64,
+        "source": "normalize_data"
+      },
+      "name": "grouped_X_full",
+      "stats": {
+        "dtype": "float32",
+        "finite_count": 262144,
+        "max": 15.049065589904785,
+        "mean": 0.08546368777751923,
+        "min": 0.0,
+        "nan_count": 0,
+        "shape": [
+          64,
+          64,
+          64,
+          1
+        ],
+        "std": 0.4926418960094452,
+        "total_count": 262144
+      }
+    },
+    {
+      "metadata": {
+        "group_limit": 64,
+        "source": "PtychoDataContainer"
+      },
+      "name": "container_X",
+      "stats": {
+        "dtype": "float32",
+        "finite_count": 262144,
+        "max": 15.049065589904785,
+        "mean": 0.08546368777751923,
+        "min": 0.0,
+        "nan_count": 0,
+        "shape": [
+          64,
+          64,
+          64,
+          1
+        ],
+        "std": 0.4926418960094452,
+        "total_count": 262144
+      }
+    }
+  ],
+  "training_container_stats": {
+    "dtype": "float32",
+    "finite_count": 262144,
+    "max": 15.049065589904785,
+    "mean": 0.08546368777751923,
+    "min": 0.0,
+    "nan_count": 0,
+    "shape": [
+      64,
+      64,
+      64,
+      1
+    ],
+    "std": 0.4926418960094452,
+    "total_count": 262144
+  },
+  "training_labels": {
+    "X": {
+      "dtype": "float32",
+      "finite_count": 1048576,
+      "max": 13.869183540344238,
+      "mean": 0.08581923693418503,
+      "min": 0.0,
+      "nan_count": 0,
+      "note": "Input diffraction patterns",
+      "shape": [
+        256,
+        64,
+        64,
+        1
+      ],
+      "std": 0.49257999658584595,
+      "total_count": 1048576
+    },
+    "Y_I": {
+      "dtype": "float32",
+      "finite_count": 1048576,
+      "max": 21.222049713134766,
+      "mean": 7.948634147644043,
+      "min": 0.0,
+      "nan_count": 0,
+      "note": "Intensity computed as Y_amp^2 (for NLL loss targets)",
+      "shape": [
+        256,
+        64,
+        64,
+        1
+      ],
+      "std": 3.5842034816741943,
+      "total_count": 1048576
+    },
+    "Y_amp": {
+      "dtype": "float32",
+      "finite_count": 1048576,
+      "max": 4.606739521026611,
+      "mean": 2.706812620162964,
+      "min": 0.0,
+      "nan_count": 0,
+      "note": "Ground truth amplitude (container._Y_I_np)",
+      "shape": [
+        256,
+        64,
+        64,
+        1
+      ],
+      "std": 0.788543164730072,
+      "total_count": 1048576
+    },
+    "Y_phi": {
+      "dtype": "float32",
+      "finite_count": 1048576,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "nan_count": 0,
+      "note": "Ground truth phase",
+      "shape": [
+        256,
+        64,
+        64,
+        1
+      ],
+      "std": 0.0,
+      "total_count": 1048576
+    }
+  }
+}

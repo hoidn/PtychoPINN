@@ -1,0 +1,553 @@
+{
+  "amp_png_range": {
+    "vmax": 4.121832370758057,
+    "vmin": 0.0
+  },
+  "artifacts": {
+    "amplitude_diff_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/amplitude_diff.npy",
+    "amplitude_diff_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/amplitude_diff.png",
+    "amplitude_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/inference_outputs/amplitude.npy",
+    "amplitude_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/inference_outputs/amplitude.png",
+    "amplitude_unscaled_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/inference_outputs/amplitude_unscaled.npy",
+    "comparison_metrics": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/comparison_metrics.json",
+    "comparison_summary": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/gs1_ideal_comparison_summary.md",
+    "ground_truth_amplitude_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/ground_truth_amp.npy",
+    "ground_truth_amplitude_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/ground_truth_amp.png",
+    "ground_truth_phase_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/ground_truth_phase.npy",
+    "ground_truth_phase_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/ground_truth_phase.png",
+    "inference_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/inference_outputs",
+    "intensity_stats_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/intensity_stats.json",
+    "intensity_stats_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/intensity_stats.md",
+    "phase_diff_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/phase_diff.npy",
+    "phase_diff_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/phase_diff.png",
+    "phase_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/inference_outputs/phase.npy",
+    "phase_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/inference_outputs/phase.png",
+    "prediction_scale_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/inference_outputs/prediction_scale.txt",
+    "stats_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/inference_outputs/stats.json",
+    "train_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/train_outputs"
+  },
+  "buffer": 10.0,
+  "cli_args": {
+    "amp_vmax": null,
+    "base_total_images": null,
+    "batch_size": null,
+    "buffer": null,
+    "gridsize": null,
+    "group_count": null,
+    "group_limit": 64,
+    "group_multiplier": 1,
+    "image_multiplier": 1,
+    "neighbor_count": null,
+    "nepochs": 5,
+    "nphotons": null,
+    "object_seed": null,
+    "output_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal",
+    "prediction_scale_source": "least_squares",
+    "probe_big": null,
+    "probe_mask": null,
+    "probe_mode": null,
+    "probe_scale": null,
+    "scenario": "gs1_ideal",
+    "sim_seed": null,
+    "snapshot": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-16T000353Z/sim_lines_4x_params_snapshot.json",
+    "split_fraction": null
+  },
+  "comparison": {
+    "diff_pngs": {
+      "amplitude_diff_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/amplitude_diff.npy",
+      "amplitude_diff_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/amplitude_diff.png",
+      "phase_diff_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/phase_diff.npy",
+      "phase_diff_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/phase_diff.png"
+    },
+    "metrics": {
+      "amplitude": {
+        "bias_summary": {
+          "mean": -2.286906637122598,
+          "median": -2.5243802070617676,
+          "p05": -3.7023458957672117,
+          "p95": 0.2737571597099307
+        },
+        "color_range": [
+          -4.85612678527832,
+          4.85612678527832
+        ],
+        "count": 153664,
+        "mae": 2.3643443275654983,
+        "max_abs": 4.7676825523376465,
+        "pearson_r": 0.10216715870232974,
+        "pred_stats": {
+          "max": 4.121832370758057,
+          "mean": 0.42134085297584534,
+          "min": 0.0,
+          "nan_count": 0,
+          "std": 1.0149067640304565
+        },
+        "rmse": 2.5569435861116285,
+        "truth_stats": {
+          "max": 4.85612678527832,
+          "mean": 2.708247423171997,
+          "min": 0.6128976941108704,
+          "nan_count": 0,
+          "std": 0.6410303115844727
+        }
+      },
+      "phase": {
+        "bias_summary": {
+          "mean": -0.12949770651016848,
+          "median": 0.0,
+          "p05": -0.9141497045755387,
+          "p95": 0.0
+        },
+        "color_range": [
+          -3.141592653589793,
+          3.141592653589793
+        ],
+        "count": 153664,
+        "mae": 0.12949770649445896,
+        "max_abs": 1.125796914100647,
+        "pearson_r": null,
+        "pred_stats": {
+          "max": 0.0,
+          "mean": -0.1294977068901062,
+          "min": -1.125796914100647,
+          "nan_count": 0,
+          "std": 0.31196799874305725
+        },
+        "rmse": 0.3377775819993746,
+        "truth_stats": {
+          "max": 0.0,
+          "mean": 0.0,
+          "min": 0.0,
+          "nan_count": 0,
+          "std": 0.0
+        }
+      }
+    },
+    "metrics_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/comparison_metrics.json",
+    "metrics_summary": {
+      "amplitude": {
+        "mae": 2.3643443275654983,
+        "max_abs": 4.7676825523376465,
+        "pearson_r": 0.10216715870232974,
+        "rmse": 2.5569435861116285
+      },
+      "phase": {
+        "mae": 0.12949770649445896,
+        "max_abs": 1.125796914100647,
+        "pearson_r": null,
+        "rmse": 0.3377775819993746
+      }
+    },
+    "summary_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/gs1_ideal_comparison_summary.md"
+  },
+  "comparison_metrics_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/comparison_metrics.json",
+  "comparison_metrics_summary": {
+    "amplitude": {
+      "mae": 2.3643443275654983,
+      "max_abs": 4.7676825523376465,
+      "pearson_r": 0.10216715870232974,
+      "rmse": 2.5569435861116285
+    },
+    "phase": {
+      "mae": 0.12949770649445896,
+      "max_abs": 1.125796914100647,
+      "pearson_r": null,
+      "rmse": 0.3377775819993746
+    }
+  },
+  "crop_metadata": {
+    "end": [
+      392,
+      392
+    ],
+    "input_shape": [
+      392,
+      392,
+      1
+    ],
+    "parity_warning": false,
+    "start": [
+      0,
+      0
+    ],
+    "target_size": 392
+  },
+  "dataset_scale_info": {
+    "N": 64,
+    "batch_mean_sum_intensity": 3007.8585183347295,
+    "dataset_scale": 576.5955653006401,
+    "delta": -411.61620350197836,
+    "fallback_scale": 988.2117688026185,
+    "nphotons": 1000000000.0,
+    "ratio": 0.5834736880327591,
+    "spec_reference": "specs/spec-ptycho-core.md \u00a7Normalization Invariants"
+  },
+  "elapsed_seconds": 20.97,
+  "forward_pass_diagnostics": {
+    "amplification_ratio": 3.887199624924002,
+    "external_intensity_scale": 988.211669921875,
+    "ground_truth_mean": 2.708247423171997,
+    "input_mean": 0.08546368777751923,
+    "model_exp_log_scale": 988.2116659768321,
+    "output_mean": 0.3322144150733948,
+    "output_vs_truth_ratio": 0.12266767512854984,
+    "scale_discrepancy_flag": false,
+    "scale_match_pct": 99.99999960078969,
+    "spec_reference": "specs/spec-ptycho-core.md \u00a7Normalization Invariants"
+  },
+  "ground_truth": {
+    "amplitude_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/ground_truth_amp.npy",
+    "amplitude_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/ground_truth_amp.png",
+    "phase_npy": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/ground_truth_phase.npy",
+    "phase_png": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/ground_truth_phase.png"
+  },
+  "ground_truth_amp_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/ground_truth_amp.npy",
+  "ground_truth_phase_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/ground_truth_phase.npy",
+  "group_count": 256,
+  "group_limit": 64,
+  "intensity_scaler_state": {
+    "delta": -6.498019911305164e-05,
+    "exp_log_scale": 988.2116659768321,
+    "log_scale_value": 6.895896911621094,
+    "params_cfg_intensity_scale": 988.2117309570312,
+    "params_cfg_trainable": true,
+    "ratio": 0.9999999342446593,
+    "spec_reference": "specs/spec-ptycho-core.md \u00a7Normalization Invariants",
+    "trainable": true
+  },
+  "intensity_stats": {
+    "bundle_intensity_scale": 988.211669921875,
+    "dataset_scale_info": {
+      "N": 64,
+      "batch_mean_sum_intensity": 3007.8585183347295,
+      "dataset_scale": 576.5955653006401,
+      "delta": -411.61620350197836,
+      "fallback_scale": 988.2117688026185,
+      "nphotons": 1000000000.0,
+      "ratio": 0.5834736880327591,
+      "spec_reference": "specs/spec-ptycho-core.md \u00a7Normalization Invariants"
+    },
+    "intensity_scale": 988.211669921875,
+    "intensity_scaler_state": {
+      "delta": -6.498019911305164e-05,
+      "exp_log_scale": 988.2116659768321,
+      "log_scale_value": 6.895896911621094,
+      "params_cfg_intensity_scale": 988.2117309570312,
+      "params_cfg_trainable": true,
+      "ratio": 0.9999999342446593,
+      "spec_reference": "specs/spec-ptycho-core.md \u00a7Normalization Invariants",
+      "trainable": true
+    },
+    "json_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/intensity_stats.json",
+    "label_vs_truth_analysis": {
+      "X_mean": 0.08581923693418503,
+      "Y_I_mean": 7.948634147644043,
+      "Y_amp_mean": 2.706812620162964,
+      "amplitude_gap_pct": 0.05300710504840822,
+      "ground_truth_amp_mean": 2.708247423171997,
+      "note": "Compare Y_amp (training amplitude labels) to inference ground truth",
+      "ratio_truth_to_X_mean": 31.557579861132513,
+      "ratio_truth_to_Y_amp_mean": 1.000530071050484,
+      "ratio_truth_to_sqrt_Y_I": 0.9605988989915808,
+      "spec_reference": "specs/spec-ptycho-core.md \u00a7Normalization Invariants",
+      "sqrt_Y_I_mean": 2.8193322166151407
+    },
+    "largest_drop": {
+      "from_mean": 0.15274183452129364,
+      "from_stage": "grouped_diffraction",
+      "key": "grouped_to_normalized",
+      "ratio": 0.559530321508642,
+      "to_mean": 0.08546368777751923,
+      "to_stage": "grouped_X_full"
+    },
+    "legacy_params_intensity_scale": 988.211669921875,
+    "markdown_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/intensity_stats.md",
+    "normalize_gain": 0.559530321508642,
+    "prediction_scale": {
+      "applied": true,
+      "least_squares": {
+        "denominator": 58826.54133265374,
+        "finite_count": 153664,
+        "numerator": 104478.70502247887
+      },
+      "mode": "least_squares",
+      "recorded_scale": 988.211669921875,
+      "source": "least_squares",
+      "value": 1.7760470470577248
+    },
+    "ratios": {
+      "grouped_to_normalized": 0.559530321508642,
+      "normalized_to_container": 1.0,
+      "raw_to_grouped": 1.0413123525320749
+    },
+    "scale_delta": 0.0,
+    "stage_means": {
+      "container_X": 0.08546368777751923,
+      "grouped_X_full": 0.08546368777751923,
+      "grouped_diffraction": 0.15274183452129364,
+      "raw_diffraction": 0.14668205380439758
+    },
+    "stages": [
+      {
+        "metadata": {
+          "count": 256,
+          "source": "RawData"
+        },
+        "name": "raw_diffraction",
+        "stats": {
+          "dtype": "float32",
+          "finite_count": 1048576,
+          "max": 26.895893096923828,
+          "mean": 0.14668205380439758,
+          "min": 0.0,
+          "nan_count": 0,
+          "shape": [
+            256,
+            64,
+            64
+          ],
+          "std": 0.8442895412445068,
+          "total_count": 1048576
+        }
+      },
+      {
+        "metadata": {
+          "count": 64,
+          "gridsize": 1,
+          "source": "RawData.generate_grouped_data"
+        },
+        "name": "grouped_diffraction",
+        "stats": {
+          "dtype": "float32",
+          "finite_count": 262144,
+          "max": 26.895893096923828,
+          "mean": 0.15274183452129364,
+          "min": 0.0,
+          "nan_count": 0,
+          "shape": [
+            64,
+            64,
+            64,
+            1
+          ],
+          "std": 0.8804562091827393,
+          "total_count": 262144
+        }
+      },
+      {
+        "metadata": {
+          "count": 64,
+          "source": "normalize_data"
+        },
+        "name": "grouped_X_full",
+        "stats": {
+          "dtype": "float32",
+          "finite_count": 262144,
+          "max": 15.049065589904785,
+          "mean": 0.08546368777751923,
+          "min": 0.0,
+          "nan_count": 0,
+          "shape": [
+            64,
+            64,
+            64,
+            1
+          ],
+          "std": 0.4926418960094452,
+          "total_count": 262144
+        }
+      },
+      {
+        "metadata": {
+          "group_limit": 64,
+          "source": "PtychoDataContainer"
+        },
+        "name": "container_X",
+        "stats": {
+          "dtype": "float32",
+          "finite_count": 262144,
+          "max": 15.049065589904785,
+          "mean": 0.08546368777751923,
+          "min": 0.0,
+          "nan_count": 0,
+          "shape": [
+            64,
+            64,
+            64,
+            1
+          ],
+          "std": 0.4926418960094452,
+          "total_count": 262144
+        }
+      }
+    ],
+    "training_container_stats": {
+      "dtype": "float32",
+      "finite_count": 262144,
+      "max": 15.049065589904785,
+      "mean": 0.08546368777751923,
+      "min": 0.0,
+      "nan_count": 0,
+      "shape": [
+        64,
+        64,
+        64,
+        1
+      ],
+      "std": 0.4926418960094452,
+      "total_count": 262144
+    },
+    "training_labels": {
+      "X": {
+        "dtype": "float32",
+        "finite_count": 1048576,
+        "max": 13.869183540344238,
+        "mean": 0.08581923693418503,
+        "min": 0.0,
+        "nan_count": 0,
+        "note": "Input diffraction patterns",
+        "shape": [
+          256,
+          64,
+          64,
+          1
+        ],
+        "std": 0.49257999658584595,
+        "total_count": 1048576
+      },
+      "Y_I": {
+        "dtype": "float32",
+        "finite_count": 1048576,
+        "max": 21.222049713134766,
+        "mean": 7.948634147644043,
+        "min": 0.0,
+        "nan_count": 0,
+        "note": "Intensity computed as Y_amp^2 (for NLL loss targets)",
+        "shape": [
+          256,
+          64,
+          64,
+          1
+        ],
+        "std": 3.5842034816741943,
+        "total_count": 1048576
+      },
+      "Y_amp": {
+        "dtype": "float32",
+        "finite_count": 1048576,
+        "max": 4.606739521026611,
+        "mean": 2.706812620162964,
+        "min": 0.0,
+        "nan_count": 0,
+        "note": "Ground truth amplitude (container._Y_I_np)",
+        "shape": [
+          256,
+          64,
+          64,
+          1
+        ],
+        "std": 0.788543164730072,
+        "total_count": 1048576
+      },
+      "Y_phi": {
+        "dtype": "float32",
+        "finite_count": 1048576,
+        "max": 0.0,
+        "mean": 0.0,
+        "min": 0.0,
+        "nan_count": 0,
+        "note": "Ground truth phase",
+        "shape": [
+          256,
+          64,
+          64,
+          1
+        ],
+        "std": 0.0,
+        "total_count": 1048576
+      }
+    }
+  },
+  "intensity_stats_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/intensity_stats.md",
+  "intensity_stats_path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/intensity_stats.json",
+  "neighbor_count": 4,
+  "nepochs": 5,
+  "nphotons": 1000000000.0,
+  "object_seed": 42,
+  "prediction_scale": {
+    "applied": true,
+    "least_squares": {
+      "denominator": 58826.54133265374,
+      "finite_count": 153664,
+      "numerator": 104478.70502247887
+    },
+    "mode": "least_squares",
+    "recorded_scale": 988.211669921875,
+    "source": "least_squares",
+    "value": 1.7760470470577248
+  },
+  "prediction_scale_note": "least_squares=1.776",
+  "probe_big": null,
+  "probe_mask": null,
+  "probe_mode": "idealized",
+  "probe_scale": 10.0,
+  "profile": {
+    "active": true,
+    "applied": {
+      "base_total_images": 512,
+      "batch_size": 8,
+      "group_count": 256
+    },
+    "defaults": {
+      "base_total_images": 512,
+      "batch_size": 8,
+      "group_count": 256
+    },
+    "effective_batch_size": 8,
+    "effective_group_count": 256,
+    "label": "stable_profile_gs1_ideal",
+    "name": "gs1_ideal",
+    "skipped": {}
+  },
+  "scenario": "gs1_ideal",
+  "sim_seed": 42,
+  "split_fraction": 0.5,
+  "split_intensity_stats": {
+    "deviation_exceeds_5pct": false,
+    "nphotons": 1000000000.0,
+    "spec_reference": "specs/spec-ptycho-core.md \u00a7Normalization Invariants",
+    "test": {
+      "batch_mean_sum_intensity": 3007.8585183347295,
+      "dataset_scale": 576.5955653006401,
+      "n_samples": 256
+    },
+    "train": {
+      "batch_mean_sum_intensity": 3208.302878792675,
+      "dataset_scale": 558.2931759953282,
+      "n_samples": 256
+    },
+    "train_vs_test_deviation_pct": 3.1742161068771035,
+    "train_vs_test_scale_delta": -18.302389305311976,
+    "train_vs_test_scale_ratio": 0.968257838931229
+  },
+  "test_count": 256,
+  "timestamp": "2026-01-22T03:08:55.120236+00:00",
+  "total_images": 512,
+  "train_count": 256,
+  "training_history": {
+    "history_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/train_outputs/history.json",
+    "nan_overview": {
+      "has_nan": false,
+      "metrics": {}
+    },
+    "summary_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/train_outputs/history_summary.json",
+    "summary_markdown": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/gs1_ideal/gs1_ideal_training_summary.md"
+  },
+  "training_history_path": "train_outputs/history.json",
+  "training_nan_overview": {
+    "has_nan": false,
+    "metrics": {}
+  },
+  "training_summary_markdown_path": "gs1_ideal_training_summary.md",
+  "training_summary_path": "train_outputs/history_summary.json"
+}
