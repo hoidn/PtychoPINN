@@ -1,3 +1,29 @@
+# 2026-01-21T180000Z: DEBUG-SIM-LINES-DOSE-001 — Phase D0 parity logging spec complete
+
+- dwell: 0 (manual override reset per startup_steps)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Phase D0: Planning — implementation-agnostic parity logging + maintainer coordination
+- Action type: Planning (documentation artifact creation)
+- Mode: Planning
+- Git sync: `git pull --rebase` → unstaged changes; proceeded with existing state
+- Documents reviewed: user_input.md, docs/fix_plan.md, galph_memory.md, plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md, inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/{run_phase_c2_scenario.py,probe_normalization_report.py}, plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T231745Z/gs2_ideal/run_metadata.json, specs/spec-ptycho-core.md:80-130
+- Key observations:
+  - user_input.md requested D0 completion: parity logging spec + maintainer coordination
+  - Prior maintainer request already exists at `inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md`
+  - Current telemetry (run_metadata.json) is comprehensive for intensity stages but lacks explicit probe logging block
+  - probe_normalization_report.py has good probe stats schema that can be incorporated
+- Key decisions:
+  - Created `plans/active/DEBUG-SIM-LINES-DOSE-001/plan/parity_logging_spec.md` v1.0 with:
+    - Full JSON schema for all pipeline stages (provenance, config, probe, intensity_stages, training, inference, comparison)
+    - Probe block with source/provenance, shape/dtype, amp/phase stats, L2 energy, mask stats, pre/post normalization
+    - Maintainer coordination protocol with required artifacts, commands template, delivery location
+    - Dataset parity guidance: ideal case (same NPZ) and two-track comparison when exact parity impossible
+  - Updated implementation.md D0 checklist entry to mark COMPLETE with deliverables list
+  - Wrote input.md for D6 investigation (training label stats capture) — NO loss-weight changes per CLAUDE.md
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T180000Z/`, `plans/active/DEBUG-SIM-LINES-DOSE-001/plan/parity_logging_spec.md`
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T180000Z/ next_action=Ralph implements D6 training label stats capture (investigation-only, no loss-weight changes)
+
+---
 
 # 2026-01-20T11:20:29Z: DEBUG-SIM-LINES-DOSE-001 — Phase D1 correction & handoff
 

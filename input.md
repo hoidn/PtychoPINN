@@ -1,84 +1,153 @@
-Summary: Enable amplitude supervision by setting realspace_weight > 0 in the sim_lines training config, then rerun gs2_ideal to verify amplitude improvement.
-Focus: DEBUG-SIM-LINES-DOSE-001 — Phase D6a realspace_weight fix
-Branch: paper
-Mapped tests: pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T220000Z/
+# Ralph Input — DEBUG-SIM-LINES-DOSE-001 Phase D6 (Investigation)
 
-Do Now (DEBUG-SIM-LINES-DOSE-001 / D6a — see implementation.md §Phase D, D6 entry):
+**Summary:** Capture training label statistics (Y_amp/Y_I) to compare against inference ground truth and identify the amplitude gap source.
 
-1. **Implement:** Update `scripts/studies/sim_lines_4x/pipeline.py::build_training_config()` to set `realspace_weight=0.1`:
-   - At line ~196, after `TrainingConfig(`, add the loss weight parameter:
-     ```python
-     return TrainingConfig(
-         model=model_config,
-         n_groups=group_count,
-         nphotons=params.nphotons,
-         neighbor_count=params.neighbor_count,
-         nepochs=nepochs,
-         output_dir=output_dir,
-         realspace_weight=0.1,  # Enable amplitude supervision (D6a fix)
-     )
-     ```
-   - Reference: `ptycho/train_pinn.py:56` uses `realspace_weight=0.1` for PINN training.
+**Focus:** DEBUG-SIM-LINES-DOSE-001 — D6: Training target formulation analysis (investigation-only)
 
-2. **Implement:** Update `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py::build_training_config()` (lines ~176-203) with the same fix so plan-local scenarios also use amplitude supervision.
+**Branch:** paper
 
-3. **Validate:** Rerun gs2_ideal with the new loss weighting:
+**Mapped tests:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
+
+**Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T230000Z/`
+
+---
+
+## IMPORTANT CONSTRAINT
+
+**Do NOT change or experiment with loss weights (CLAUDE.md directive).** The `realspace_weight=0` finding is documented but any loss-weight modification is OUT OF SCOPE. This loop is **investigation-only** — capture telemetry to understand the label vs ground-truth discrepancy.
+
+---
+
+## Do Now
+
+### Context
+D5b telemetry confirmed:
+- IntensityScaler scales match to 7 significant figures — NOT the source
+- Model amplifies inputs by ~7.45× (`0.085 → 0.634`)
+- Truth requires ~31.8× amplification (`truth_mean=2.708`)
+- `output_vs_truth_ratio=0.234` — predictions are ~4.3× smaller than truth
+
+The amplitude gap is NOT in scaling layers. D6 hypothesis: the labels (Y_amp/Y_I) fed during training may be at a different scale than the ground truth used for comparison.
+
+### Implement: `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py::record_training_label_stats`
+
+Extend the Phase C2 runner to capture **training label statistics** for analysis:
+
+1. **Add function `record_training_label_stats(container)` after container construction:**
+   ```python
+   def record_training_label_stats(container) -> Dict[str, Any]:
+       """Capture training label statistics for amplitude gap analysis.
+
+       Per specs/spec-ptycho-core.md §Normalization Invariants:
+       - Labels: Y_amp_scaled = s · X (amplitude), Y_int = (s · X)^2 (intensity)
+       - Compare these against ground truth comparison targets.
+       """
+       stats = {}
+       # Check available attributes on container
+       for attr in ['Y_I', 'Y_phi', 'Y', 'Y_amp']:
+           if hasattr(container, attr):
+               val = getattr(container, attr)
+               if val is not None:
+                   arr = _ensure_numpy(val)
+                   stats[attr] = format_array_stats(arr)
+       return stats
+   ```
+
+2. **Call the function in `main()` right after container construction:**
+   ```python
+   # After: container = ptycho_data.create_container(raw_data, ...)
+   training_labels = record_training_label_stats(container)
+   ```
+
+3. **Add to `intensity_stats` block in `run_metadata.json`:**
+   ```json
+   "training_labels": {
+       "Y_I": { "min": ..., "max": ..., "mean": ..., "std": ..., "shape": [...], "dtype": "..." },
+       "Y_phi": { ... },
+       "Y": { ... }
+   },
+   "label_vs_truth_analysis": {
+       "Y_I_mean": <float>,
+       "ground_truth_amp_mean": <float>,  // from comparison metrics
+       "ratio_truth_to_Y_I_sqrt_mean": <float>,  // truth_amp / sqrt(Y_I.mean) for intensity comparison
+       "note": "Y_I is intensity (amp^2); compare sqrt(Y_I) to amplitude ground truth"
+   }
+   ```
+
+4. **Run gs1_ideal scenario (it trains successfully):**
    ```bash
+   mkdir -p plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T230000Z/logs
    python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py \
-     --scenario gs2_ideal \
-     --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T220000Z/gs2_ideal \
-     --prediction-scale-source least_squares \
-     2>&1 | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T220000Z/logs/gs2_ideal_runner.log
+     --scenario gs1_ideal \
+     --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T230000Z/gs1_ideal \
+     --group-limit 64 --nepochs 5 --prediction-scale-source least_squares \
+     2>&1 | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T230000Z/logs/gs1_ideal_runner.log
    ```
 
-4. **Compare metrics:** After the run completes, compare the new metrics against D5b baseline:
-   - D5b baseline: `output_vs_truth_ratio=0.234` (predictions 23.4% of truth)
-   - Expected improvement: ratio should increase significantly (ideally > 0.8)
-   - Check `run_metadata.json::comparison::metrics::amplitude` for:
-     - `mae` (should decrease)
-     - `pearson_r` (should increase toward 1.0)
-     - `pred_stats.mean` vs `truth_stats.mean` (should be closer)
+5. **Archive and verify:**
+   - `gs1_ideal/run_metadata.json` with new `training_labels` block
+   - `pytest_cli_smoke.log`
 
-5. **Test:** Run CLI smoke test:
-   ```bash
-   pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v \
-     | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T220000Z/logs/pytest_cli_smoke.log
-   ```
+### How-To Map
 
-How-To Map:
-1. `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`
-2. Edit `scripts/studies/sim_lines_4x/pipeline.py`:196 to add `realspace_weight=0.1`
-3. Edit `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py` in `build_training_config()` to add the same
-4. Create logs directory: `mkdir -p plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T220000Z/logs`
-5. Run gs2_ideal scenario
-6. Run pytest smoke test
-7. Extract and document the comparison between D5b baseline and D6a results
+```bash
+# Env setup
+export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
 
-Pitfalls To Avoid:
-- The `TrainingConfig` dataclass must already have a `realspace_weight` field (check `ptycho/config/config.py:118`). If not, you need to add it.
-- Don't modify core modules (`ptycho/model.py`, `ptycho/params.py`) — only update the pipeline configs.
-- The training may take longer with realspace_loss enabled, but 5 epochs should complete in under 2 minutes on GPU.
-- If training hits NaN loss, try reducing `realspace_weight` to 0.01 first — but NaN is unlikely since D5b verified the model trains successfully.
-- After the run, inspect both the amplitude metrics AND the loss history to verify realspace_loss is being computed (should show non-zero values).
+# Create artifacts directory
+mkdir -p plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T230000Z/logs
 
-If Blocked: If `TrainingConfig` doesn't support `realspace_weight`, document the obstacle and propose adding the field to the dataclass.
+# Run gs1_ideal with extended telemetry
+python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py \
+  --scenario gs1_ideal \
+  --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T230000Z/gs1_ideal \
+  --group-limit 64 --nepochs 5 --prediction-scale-source least_squares \
+  2>&1 | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T230000Z/logs/gs1_ideal_runner.log
 
-Findings Applied (Mandatory):
-- H-LOSS-WEIGHTS (D6 finding) — `realspace_weight=0.0` confirmed as root cause of amplitude gap
-- PINN-CHUNKED-001 — training should use streaming mode for large datasets
-- SIM-LINES-CONFIG-001 — all training configs flow through the same path
+# Pytest guard
+pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v \
+  2>&1 | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T230000Z/logs/pytest_cli_smoke.log
+```
 
-Pointers:
-- plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T220000Z/summary.md (D6 root cause analysis)
-- ptycho/config/config.py:118 (realspace_weight default)
-- ptycho/train_pinn.py:56 (reference for realspace_weight=0.1)
-- ptycho/model.py:597-601 (loss compilation with realspace_weight)
-- docs/fix_plan.md:477 (D6 entry with root cause details)
+### Pitfalls To Avoid
 
-Expected Outcome:
-- With `realspace_weight=0.1`, the model will optimize `realspace_loss(trimmed_obj, Y_I_centered)` in addition to NLL loss.
-- This should directly supervise the object amplitude, significantly reducing the ~4.3× amplitude gap observed in D5b.
-- If the fix works, `output_vs_truth_ratio` should increase from 0.234 toward 1.0, and amplitude MAE should decrease.
+1. **Do NOT change loss weights** — CLAUDE.md directive explicitly prohibits this
+2. **Do NOT modify core modules** (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`)
+3. **Use `_ensure_numpy()` for TensorFlow tensors** — avoid `.numpy()` directly
+4. **Record BEFORE training** — labels should be captured right after container construction
+5. **Check attribute existence** — `PtychoDataContainer` may not expose all label types
 
-Next Up (optional): If D6a succeeds, consider making `realspace_weight` a CLI argument for the runner script to enable experimentation with different values.
+### If Blocked
+
+If container doesn't expose Y_I/Y_phi/Y:
+1. Inspect `PtychoDataContainer` in `ptycho/loader.py` to find available attributes
+2. Record whatever IS available
+3. Document which attributes are missing for future investigation
+
+### Findings Applied
+
+- **CONFIG-001:** Legacy params.cfg bridging already wired in runner
+- **NORMALIZATION-001:** Per spec, Y_amp_scaled = s · X and Y_int = (s · X)²
+- **D5b (2026-01-21T210000Z):** Confirmed scaling layers match; gap is in learned weights
+
+### Pointers
+
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:408-413` — D6 hypothesis and scope
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/plan/parity_logging_spec.md` — Parity logging schema v1.0
+- `ptycho/loader.py` — `PtychoDataContainer` class definition
+- `specs/spec-ptycho-core.md:87-93` — Label formulas (Y_amp_scaled, Y_int)
+- `docs/fix_plan.md:480-483` — D6 retraction note (no loss-weight changes)
+
+### Expected Outcome
+
+The telemetry will reveal:
+- What scale Y_I/Y_phi labels are at during training
+- Whether there's a mismatch between training labels and inference ground truth comparison
+- This informs whether the gap is a label formulation issue or something else (architecture, loss function behavior)
+
+### Next Up (optional)
+
+After capturing label stats:
+- Compare Y_I mean against ground_truth amplitude² to check intensity scaling
+- If labels and truth are at same scale: the gap must be in model architecture or loss function behavior
+- Document findings in implementation.md D6 entry without proposing loss-weight changes

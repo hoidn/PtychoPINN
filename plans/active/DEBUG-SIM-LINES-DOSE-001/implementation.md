@@ -328,16 +328,23 @@ gs2_ideal healthy, gs1_ideal NaN after CONFIG-001 fix
 **Constraint:** Do not adjust or experiment with loss weights (CLAUDE.md). Any loss-weight hypothesis is out of scope.
 
 ### Checklist
-- [ ] D0: **Planning — implementation-agnostic parity logging + maintainer coordination.**
+- [x] D0: **Planning — implementation-agnostic parity logging + maintainer coordination.** *(COMPLETE 2026-01-21T180000Z)*
       - Outcome: a clear, versioned logging spec (schema + required fields) and concrete maintainer handoff steps.
       - Deliverables:
-        - `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md` (this plan) updated with the logging schema + capture points.
-        - A coordination subsection (or sub-plan) describing exact commands, artifact paths, and required environment notes for the maintainer-run legacy pipeline.
-        - Maintainer communication guidance to ensure dataset parity:
-          - Use the same input `.npz` where possible (or provide a dataset handoff with checksums + provenance).
-          - If exact parity is impossible, run a two-track comparison to isolate differences: (a) legacy pipeline on the legacy dataset; (b) local pipeline on the same dataset, separating dataset-generation effects from downstream processing/training/inference/reassembly differences.
-        - A single source of truth for the schema (e.g., `plans/active/DEBUG-SIM-LINES-DOSE-001/plan/parity_logging_spec.md`).
-        - Probe logging explicitly included (source/provenance, shape/dtype, amp/phase stats, L2 energy, mask stats, pre/post normalization if applicable).
+        - **Parity Logging Spec v1.0:** `plans/active/DEBUG-SIM-LINES-DOSE-001/plan/parity_logging_spec.md`
+          - Full JSON schema for telemetry at all pipeline stages
+          - Probe logging block with source/provenance, shape/dtype, amp/phase stats, L2 energy, mask stats, pre/post normalization
+          - Intensity stages block with capture points (raw_diffraction → grouped → normalized → container → training_labels → inference_prediction)
+          - Stage ratios and symmetry check per `specs/spec-ptycho-core.md §Normalization Invariants`
+        - **Maintainer coordination protocol:** §4 of the spec defines:
+          - Required artifacts (raw_data.npz, parity_telemetry.json, history.json, model_checkpoint/, amplitude.npy, phase.npy, config.json)
+          - Commands template with environment version capture
+          - Delivery location: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<timestamp>/dose_experiments_ground_truth/`
+        - **Dataset parity guidance:** §5 of the spec covers:
+          - Ideal case: same NPZ with checksum verification
+          - Two-track comparison plan when exact parity is impossible (Track A: legacy pipeline on legacy dataset; Track B: local pipeline on same/equivalent dataset)
+          - Parity checklist with stage-by-stage tolerance thresholds
+        - **Prior maintainer request:** `inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md` (awaiting response)
       - Dependencies: none (planning-only). No loss-weight changes (CLAUDE.md).
       Test: N/A -- planning step only
 - [x] D1: **Loss configuration parity check (no adjustments).** *(COMPLETE 2026-01-20T121449Z — weights match; do not change weights)*  
