@@ -1,0 +1,3 @@
+tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke
+
+1 test collected in 0.86s

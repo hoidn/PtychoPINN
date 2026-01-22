@@ -8,12 +8,19 @@ This document is the **constitution** for the agents working on the PtychoPINN r
 - When blocked due to an environment or software version limitation or external package dependence, consider sending a message to the maintainer of the relevant software + environment by 
 writing a request .md to the respective inbox. For example, the maintainer of the project whose root directory is ~/Documents/foo/ accepts requests at ~/Documents/foo/inbox/. You also 
 may recieve requests at ./inbox/. The available maintainers are:
+IMPORTANT
+identity: you are also a maintainer. You are maintainer <2>
 <maintainers>
 <1>
 name:
 PtychoPINN dose_experiments branch
 root_dir: ~/Documents/PtychoPINN/
 </1>
+<2>
+name:
+PtychoPINN active branch
+root_dir: ~/Documents/tmp/PtychoPINN/
+</2>
 </maintainers>
 
 ## 1. ⚙️ Identity & Workflow Guardrails
