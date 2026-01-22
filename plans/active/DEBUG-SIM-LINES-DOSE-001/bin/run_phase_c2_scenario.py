@@ -335,35 +335,67 @@ def _serialize_scalar(value: Any) -> Any:
 def record_training_label_stats(container) -> Dict[str, Any]:
     """Capture training label statistics for amplitude gap analysis.
 
-    Per specs/spec-ptycho-core.md §Normalization Invariants:
-    - Labels: Y_amp_scaled = s · X (amplitude), Y_int = (s · X)^2 (intensity)
-    - Compare these against ground truth comparison targets.
+    Per specs/spec-ptycho-core.md §Normalization Invariants and
+    plans/active/DEBUG-SIM-LINES-DOSE-001/plan/parity_logging_spec.md §2.5:
+    - Y_amp (amplitude): The ground truth amplitude patches (container.Y_I)
+    - Y_I (intensity): Computed as Y_amp^2 for comparison with NLL loss targets
+    - Y_phi (phase): The ground truth phase patches (container.Y_phi)
+    - Y (complex): Combined complex ground truth (Y_amp * exp(1j * Y_phi))
+    - X (input): The diffraction pattern inputs
 
     Args:
-        container: PtychoDataContainer with training labels (Y_I, Y_phi, Y).
+        container: PtychoDataContainer with training labels (_Y_I_np=amplitude, _Y_phi_np=phase).
 
     Returns:
-        dict with stats for each available label attribute.
+        dict with stats for each available label:
+        - Y_amp: amplitude stats (from container._Y_I_np)
+        - Y_I: intensity stats (computed as Y_amp^2)
+        - Y_phi: phase stats (optional, from container._Y_phi_np)
+        - Y: complex ground truth amplitude stats (optional)
+        - X: input diffraction stats
     """
     stats: Dict[str, Any] = {}
-    # Check available attributes on container - use _*_np to avoid triggering lazy tensorification
-    attr_map = {
-        "Y_I": "_Y_I_np",
-        "Y_phi": "_Y_phi_np",
-        "X": "_X_np",
-    }
-    for label, np_attr in attr_map.items():
-        if hasattr(container, np_attr):
-            val = getattr(container, np_attr)
-            if val is not None:
-                arr = _ensure_numpy(val)
-                stats[label] = format_array_stats(arr)
-    # Also try to get combined Y if available
+
+    # Capture Y_amp (amplitude) - this is what the container calls Y_I
+    # Per parity_logging_spec.md: training_labels_Y_amp is a required stage
+    Y_amp_arr = None
+    if hasattr(container, "_Y_I_np"):
+        val = getattr(container, "_Y_I_np")
+        if val is not None:
+            Y_amp_arr = _ensure_numpy(val)
+            stats["Y_amp"] = format_array_stats(Y_amp_arr)
+            stats["Y_amp"]["note"] = "Ground truth amplitude (container._Y_I_np)"
+
+    # Compute Y_I (intensity) from Y_amp for NLL loss comparison
+    # Per spec: Y_int = (s · X)^2 = Y_amp^2
+    if Y_amp_arr is not None:
+        Y_I_intensity = Y_amp_arr ** 2
+        stats["Y_I"] = format_array_stats(Y_I_intensity)
+        stats["Y_I"]["note"] = "Intensity computed as Y_amp^2 (for NLL loss targets)"
+
+    # Capture Y_phi (phase)
+    if hasattr(container, "_Y_phi_np"):
+        val = getattr(container, "_Y_phi_np")
+        if val is not None:
+            arr = _ensure_numpy(val)
+            stats["Y_phi"] = format_array_stats(arr)
+            stats["Y_phi"]["note"] = "Ground truth phase"
+
+    # Capture X (input diffraction patterns)
+    if hasattr(container, "_X_np"):
+        val = getattr(container, "_X_np")
+        if val is not None:
+            arr = _ensure_numpy(val)
+            stats["X"] = format_array_stats(arr)
+            stats["X"]["note"] = "Input diffraction patterns"
+
+    # Also try to get combined Y if available (lazy-loaded complex tensor)
     if hasattr(container, "_tensor_cache") and "Y" in container._tensor_cache:
         Y_tensor = container._tensor_cache["Y"]
         Y_arr = _ensure_numpy(Y_tensor)
         stats["Y"] = format_array_stats(np.abs(Y_arr))
         stats["Y"]["note"] = "abs(Y) amplitude from combined complex ground truth"
+
     return stats
 
 
@@ -592,8 +624,10 @@ def write_intensity_stats_outputs(
         payload["dataset_scale_info"] = dataset_scale_info
 
     # D6 instrumentation: training label statistics for amplitude gap analysis
-    # Per specs/spec-ptycho-core.md §Normalization Invariants:
-    # - Labels: Y_amp_scaled = s · X (amplitude), Y_int = (s · X)^2 (intensity)
+    # Per specs/spec-ptycho-core.md §Normalization Invariants and parity_logging_spec.md:
+    # - Y_amp: amplitude labels (what the model sees during training)
+    # - Y_I: intensity labels (Y_amp^2, used with NLL loss)
+    # - Compare Y_amp mean against ground truth amplitude mean
     if training_label_stats is not None:
         payload["training_labels"] = training_label_stats
         # Compute label_vs_truth_analysis if ground truth mean is provided
@@ -601,16 +635,30 @@ def write_intensity_stats_outputs(
             label_vs_truth: Dict[str, Any] = {
                 "ground_truth_amp_mean": ground_truth_amp_mean,
                 "spec_reference": "specs/spec-ptycho-core.md §Normalization Invariants",
-                "note": "Y_I is intensity (amp^2); compare sqrt(Y_I) to amplitude ground truth",
+                "note": "Compare Y_amp (training amplitude labels) to inference ground truth",
             }
-            # Check for Y_I stats
+            # Check for Y_amp stats (primary comparison for amplitude parity)
+            y_amp_stats = training_label_stats.get("Y_amp", {})
+            y_amp_mean = y_amp_stats.get("mean")
+            if y_amp_mean is not None:
+                label_vs_truth["Y_amp_mean"] = y_amp_mean
+                label_vs_truth["ratio_truth_to_Y_amp_mean"] = (
+                    ground_truth_amp_mean / y_amp_mean if abs(y_amp_mean) > 1e-12 else None
+                )
+                # Also record amplitude_gap_pct for quick assessment
+                if abs(y_amp_mean) > 1e-12:
+                    gap_ratio = ground_truth_amp_mean / y_amp_mean
+                    label_vs_truth["amplitude_gap_pct"] = abs(gap_ratio - 1.0) * 100
+            # Check for Y_I (intensity) stats - derived from Y_amp^2
             y_i_stats = training_label_stats.get("Y_I", {})
             y_i_mean = y_i_stats.get("mean")
             if y_i_mean is not None:
                 label_vs_truth["Y_I_mean"] = y_i_mean
-                # Y_I is already amplitude in loader (not intensity), check its scale
-                label_vs_truth["ratio_truth_to_Y_I_mean"] = (
-                    ground_truth_amp_mean / y_i_mean if abs(y_i_mean) > 1e-12 else None
+                # For intensity, compare sqrt(Y_I) to ground truth amplitude
+                y_i_amp_equiv = np.sqrt(y_i_mean) if y_i_mean > 0 else 0
+                label_vs_truth["sqrt_Y_I_mean"] = float(y_i_amp_equiv)
+                label_vs_truth["ratio_truth_to_sqrt_Y_I"] = (
+                    ground_truth_amp_mean / y_i_amp_equiv if y_i_amp_equiv > 1e-12 else None
                 )
             # Also check X stats for input comparison
             x_stats = training_label_stats.get("X", {})

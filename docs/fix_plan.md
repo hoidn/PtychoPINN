@@ -496,6 +496,16 @@
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T230000Z/logs/gs1_ideal_runner.log` (contains Keras 3.x error trace)
     - **Note:** Pre-existing test failures (`test_dataset_stats_attachment*`) expect `dataset_intensity_stats` attribute on container which is separate functionality.
     - **Next Actions:** Training label instrumentation code is complete but blocked by Keras 3.x compatibility issue in core module (`tf_helper.py`). Either: (a) request maintainer to fix Keras 3.x compatibility, or (b) run scenarios in environment with Keras 2.x.
+  - *2026-01-22T021500Z:* **Phase D6 EXTENDED — Y_amp/Y_I stats + label_vs_truth_analysis update.**
+    - **Implementation:**
+      1. Extended `record_training_label_stats()` (lines 335-397) to emit explicit `Y_amp` (ground truth amplitude from container._Y_I_np), computed `Y_I` (intensity = Y_amp^2), with descriptive notes per parity_logging_spec.md.
+      2. Updated `write_intensity_stats_outputs()` `label_vs_truth_analysis` (lines 626-672) to compare Y_amp directly with ground truth, add `amplitude_gap_pct`, `sqrt_Y_I_mean`, `ratio_truth_to_sqrt_Y_I`.
+    - **BLOCKER CONFIRMED:** Same Keras 3.x error (`tf.keras.metrics.mean_absolute_error` removed). D6a's `realspace_weight=0.1` triggers `realspace_loss()` → `complex_mae()` which hits the broken API.
+    - **Tests:**
+      - `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` ✓ (1 passed)
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/{README.md,logs/}`
+    - **Status:** BLOCKED — Keras 3 API incompatibility in `ptycho/tf_helper.py:1449,1476,1482`. Requires authorization to modify core module.
+    - **Next Actions:** (a) Request authorization for `tf_helper.py` fix, or (b) revert `realspace_weight` to 0.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

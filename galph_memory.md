@@ -1504,3 +1504,47 @@ Implement a guard that treats `padded_size=None` as unset (use `params.get_padde
 - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T220000Z/{gs2_ideal_v4/,logs/}`
 - <Action State>: [implementation_complete_needs_tuning]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=implementation_complete_needs_tuning dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T220000Z/ next_action=D6b: Increase realspace_weight to ~100-1000 to match NLL loss scale, or experiment with loss normalization
+
+# 2026-01-22T021500Z: DEBUG-SIM-LINES-DOSE-001 — D6 Training Label Telemetry + Keras 3 Blocker
+
+## Summary
+Extended `record_training_label_stats()` to emit Y_amp (amplitude), Y_I (intensity), Y_phi, X, and Y stats. Updated `label_vs_truth_analysis` to compare Y_amp directly with ground truth.
+
+## Implementation Changes
+1. `bin/run_phase_c2_scenario.py:335-397`:
+   - Added explicit `Y_amp` (from container._Y_I_np = ground truth amplitude)
+   - Computed `Y_I` as Y_amp^2 for NLL loss comparison
+   - Added descriptive notes to each stat block
+
+2. `bin/run_phase_c2_scenario.py:626-672`:
+   - Changed primary comparison from Y_I to Y_amp
+   - Added `ratio_truth_to_Y_amp_mean`, `amplitude_gap_pct`
+   - Added `sqrt_Y_I_mean`, `ratio_truth_to_sqrt_Y_I` for intensity→amplitude check
+
+## BLOCKER: Keras 3 API Incompatibility
+
+**Error:**
+```
+AttributeError: module 'keras._tf_keras.keras.metrics' has no attribute 'mean_absolute_error'
+```
+
+**Location:** `ptycho/tf_helper.py:1476` (`complex_mae` function)
+
+**Cause:** D6a set `realspace_weight=0.1`, which triggers `realspace_loss()` → `complex_mae()`. Keras 3 moved `mean_absolute_error` from `keras.metrics` to `keras.losses`.
+
+**Fix required:** Update `ptycho/tf_helper.py` lines 1449, 1476, 1482 to use `tf.keras.losses.mean_absolute_error` or `tf.reduce_mean(tf.abs(...))`.
+
+**Constraint:** Cannot modify `ptycho/tf_helper.py` per CLAUDE.md directive #6 without explicit authorization.
+
+**Hypothesis:** H-KERAS3-API — The realspace_loss code path was untested with Keras 3 because previous runs used `realspace_weight=0`.
+
+## Test Results
+- `test_sim_lines_pipeline_import_smoke`: PASSED (smoke test doesn't run training)
+
+## Next Actions (blocked)
+1. **Option A:** Get authorization to fix `ptycho/tf_helper.py` Keras 3 API
+2. **Option B:** Revert `realspace_weight` to 0 (loses D6a amplitude supervision)
+
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/`
+- <Action State>: [blocked — Keras 3 API incompatibility in core module]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=blocked dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/ blocker=Keras3 API in ptycho/tf_helper.py
