@@ -1473,15 +1473,16 @@ def total_variation(obj: tf.Tensor, amp_only: bool = False) -> tf.Tensor:
 @complexify_sum_amp_phase
 #@debug
 def complex_mae(target: tf.Tensor, pred: tf.Tensor) -> tf.Tensor:
-    mae = tf.keras.metrics.mean_absolute_error
-    return mae(target, pred)
+    # Keras 3.x compatibility: use raw TensorFlow operation for MAE
+    # instead of tf.keras.metrics/losses.mean_absolute_error (removed in Keras 3)
+    return tf.reduce_mean(tf.abs(target - pred), axis=list(range(1, len(target.shape))))
 
 #@debug
 def masked_mae(target: tf.Tensor, pred: tf.Tensor, **kwargs: Any) -> tf.Tensor:
     N = params()['N']
-    mae = tf.keras.metrics.mean_absolute_error
     pred = pred * mk_centermask(pred, N, 1, kind = 'center')
-    return mae(target, pred)
+    # Keras 3.x compatibility: use raw TensorFlow operation for MAE
+    return tf.reduce_mean(tf.abs(target - pred), axis=list(range(1, len(target.shape))))
 
 #@debug
 def realspace_loss(target: tf.Tensor, pred: tf.Tensor, **kwargs: Any) -> tf.Tensor:

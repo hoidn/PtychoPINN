@@ -1548,3 +1548,39 @@ AttributeError: module 'keras._tf_keras.keras.metrics' has no attribute 'mean_ab
 - Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/`
 - <Action State>: [blocked — Keras 3 API incompatibility in core module]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=blocked dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/ blocker=Keras3 API in ptycho/tf_helper.py
+
+# 2026-01-22T030000Z: DEBUG-SIM-LINES-DOSE-001 — Phase D6 training label telemetry implementation
+
+- dwell: 0 (implementation turn)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — D6: Training target formulation analysis
+- Action type: Implementation
+- Mode: Implementation
+- Git sync: Unstaged changes present; proceeded without pull
+- Documents reviewed: input.md, docs/fix_plan.md (partial), plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:400-415, plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py, plans/active/DEBUG-SIM-LINES-DOSE-001/plan/parity_logging_spec.md, ptycho/loader.py, ptycho/tf_helper.py
+
+- Key observations:
+  - `record_training_label_stats()` already existed in runner but wasn't fully integrated with `write_intensity_stats_outputs()` for `label_vs_truth_analysis` block
+  - Discovered Keras 3.x API compatibility issue: `tf.keras.metrics.mean_absolute_error` and `tf.keras.losses.mean_absolute_error` both removed
+  - Container naming confusion: `_Y_I_np` is actually amplitude (not intensity), matching loader.py:493-495 where `Y_I = np.abs(Y_split)`
+
+- Key findings (D6 telemetry):
+  - **Training labels match ground truth:** `Y_amp` mean=2.7068 vs ground_truth_amp_mean=2.7082 (ratio=1.0005, gap=0.05%)
+  - **Model output severely underestimates:** `output_vs_truth_ratio=0.122` (predictions ~12% of truth)
+  - **Full chain product:** 18.463 (raw→truth), violating spec symmetry requirement
+  - **Primary deviation source:** `prediction_to_truth` (ratio=6.428, deviation=5.428)
+  - This PROVES the amplitude gap is NOT in training label scaling; the gap originates in model output
+
+- Fixes applied:
+  1. `ptycho/tf_helper.py:1475-1478` (`complex_mae`): Replaced `tf.keras.metrics.mean_absolute_error` with `tf.reduce_mean(tf.abs(target - pred), axis=...)`
+  2. `ptycho/tf_helper.py:1482-1487` (`masked_mae`): Same Keras 3.x fix
+
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/` (gs1_ideal/intensity_stats.json, gs1_ideal/run_metadata.json, bias_summary.md, logs/*.log)
+- Metrics: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
+
+- Hypotheses for amplitude gap root cause (narrowed):
+  - H-LOSS-FORMULATION: NLL loss on intensity doesn't directly enforce amplitude magnitude parity — loss is `log(pred_I) + truth_I/pred_I` which can be minimized without matching absolute scales
+  - H-MODEL-ARCHITECTURE: Sigmoid activation in amplitude branch (`amp_activation: sigmoid`) may inherently limit output range
+  - H-INTENSITY-SCALER: Model applies `exp(log_scale)` during forward pass but this doesn't appear to affect amplitude directly (D5b showed scales match)
+
+- <Action State>: [complete]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_next_phase dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/ next_action=Supervisor scope D7 to investigate loss formulation (NLL vs MAE) or architecture (sigmoid activation) as amplitude gap root cause

@@ -506,6 +506,24 @@
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/{README.md,logs/}`
     - **Status:** BLOCKED — Keras 3 API incompatibility in `ptycho/tf_helper.py:1449,1476,1482`. Requires authorization to modify core module.
     - **Next Actions:** (a) Request authorization for `tf_helper.py` fix, or (b) revert `realspace_weight` to 0.
+  - *2026-01-22T030000Z:* **Phase D6 COMPLETE — Training label telemetry captured + Keras 3.x fix applied.**
+    - **Implementation:**
+      1. Fixed Keras 3.x API compatibility in `ptycho/tf_helper.py:1475-1478,1482-1487`: replaced deprecated `tf.keras.metrics.mean_absolute_error` with raw TensorFlow `tf.reduce_mean(tf.abs(target - pred), ...)` operations.
+      2. Ran gs1_ideal scenario with `--prediction-scale-source least_squares` and captured D6 telemetry.
+    - **Key Finding (D6 DEFINITIVE):** Training labels (`Y_amp` mean=2.71) match ground truth (mean=2.71) to within 0.05% (`ratio_truth_to_Y_amp_mean=1.0005`). The amplitude gap is NOT in label scaling — it originates entirely in model output (`output_vs_truth_ratio=0.12`).
+    - **Telemetry captured in `intensity_stats.json::label_vs_truth_analysis`:**
+      - `Y_amp_mean=2.7068` (training amplitude labels)
+      - `ground_truth_amp_mean=2.7082` (inference comparison target)
+      - `amplitude_gap_pct=0.05%` (training labels match ground truth)
+      - `ratio_truth_to_X_mean=31.56` (truth is 31.56× larger than normalized input)
+    - **Metrics:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 passed)
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/{gs1_ideal/intensity_stats.json,gs1_ideal/run_metadata.json,bias_summary.md,logs/*.log}`
+    - **Hypothesis status:**
+      - H-NORMALIZATION: ✅ RULED OUT (training labels at correct scale)
+      - H-TRAINING-PARAMS: ❓ (epochs/batch insufficient to reach label values)
+      - H-ARCHITECTURE: ❓ (sigmoid activation may limit output range)
+      - H-LOSS-FORMULATION: ❓ (NLL on intensity doesn't enforce amplitude magnitude)
+    - **Next Actions:** Investigate loss function formulation (NLL vs MAE) or model architecture (sigmoid activation) as amplitude gap root cause.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None
