@@ -15,3 +15,6 @@ Check `inbox/` and act accordingly.
 ## Notes
 - Keep responses in the maintainer inbox format (one file per request).
 - Avoid modifying core modules without an explicit plan.
+- Disambiguation: use the `<maintainers>` block in `CLAUDE.md` and the `<maintainer_communication>` section in
+  `prompts/supervisor.md` when communicating; label requests as either (a) local agent actions in this repo or
+  (b) dose_experiments maintainer actions, and state the target role explicitly.
