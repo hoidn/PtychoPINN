@@ -1,153 +1,77 @@
-# Ralph Input — DEBUG-SIM-LINES-DOSE-001 Phase D6 (Investigation)
+# Ralph Input — DEBUG-SIM-LINES-DOSE-001 Phase D6 (Training label telemetry)
 
-**Summary:** Capture training label statistics (Y_amp/Y_I) to compare against inference ground truth and identify the amplitude gap source.
+**Summary:** Capture and persist training-label statistics so we can compare the labels the model sees with the ground-truth tensors used during inference.
 
-**Focus:** DEBUG-SIM-LINES-DOSE-001 — D6: Training target formulation analysis (investigation-only)
+**Focus:** DEBUG-SIM-LINES-DOSE-001 — D6: Training target formulation analysis
 
 **Branch:** paper
 
 **Mapped tests:** `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 
-**Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T230000Z/`
-
----
-
-## IMPORTANT CONSTRAINT
-
-**Do NOT change or experiment with loss weights (CLAUDE.md directive).** The `realspace_weight=0` finding is documented but any loss-weight modification is OUT OF SCOPE. This loop is **investigation-only** — capture telemetry to understand the label vs ground-truth discrepancy.
+**Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/`
 
 ---
 
 ## Do Now
+- Implement: `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py::record_training_label_stats` to emit per-label stats (Y_amp, Y_I, optional Y_phi/Y) and write them into `run_metadata.json::training_labels` plus a `label_vs_truth_analysis` block.
+- Verify: `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (guards the runner); capture both run log and pytest log under the artifacts directory.
+- Archive: rerun the gs1_ideal scenario with the new telemetry and store `run_metadata.json`, analyzer output, and logs inside the artifacts hub.
 
-### Context
-D5b telemetry confirmed:
-- IntensityScaler scales match to 7 significant figures — NOT the source
-- Model amplifies inputs by ~7.45× (`0.085 → 0.634`)
-- Truth requires ~31.8× amplification (`truth_mean=2.708`)
-- `output_vs_truth_ratio=0.234` — predictions are ~4.3× smaller than truth
-
-The amplitude gap is NOT in scaling layers. D6 hypothesis: the labels (Y_amp/Y_I) fed during training may be at a different scale than the ground truth used for comparison.
-
-### Implement: `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py::record_training_label_stats`
-
-Extend the Phase C2 runner to capture **training label statistics** for analysis:
-
-1. **Add function `record_training_label_stats(container)` after container construction:**
-   ```python
-   def record_training_label_stats(container) -> Dict[str, Any]:
-       """Capture training label statistics for amplitude gap analysis.
-
-       Per specs/spec-ptycho-core.md §Normalization Invariants:
-       - Labels: Y_amp_scaled = s · X (amplitude), Y_int = (s · X)^2 (intensity)
-       - Compare these against ground truth comparison targets.
-       """
-       stats = {}
-       # Check available attributes on container
-       for attr in ['Y_I', 'Y_phi', 'Y', 'Y_amp']:
-           if hasattr(container, attr):
-               val = getattr(container, attr)
-               if val is not None:
-                   arr = _ensure_numpy(val)
-                   stats[attr] = format_array_stats(arr)
-       return stats
-   ```
-
-2. **Call the function in `main()` right after container construction:**
-   ```python
-   # After: container = ptycho_data.create_container(raw_data, ...)
-   training_labels = record_training_label_stats(container)
-   ```
-
-3. **Add to `intensity_stats` block in `run_metadata.json`:**
-   ```json
-   "training_labels": {
-       "Y_I": { "min": ..., "max": ..., "mean": ..., "std": ..., "shape": [...], "dtype": "..." },
-       "Y_phi": { ... },
-       "Y": { ... }
-   },
-   "label_vs_truth_analysis": {
-       "Y_I_mean": <float>,
-       "ground_truth_amp_mean": <float>,  // from comparison metrics
-       "ratio_truth_to_Y_I_sqrt_mean": <float>,  // truth_amp / sqrt(Y_I.mean) for intensity comparison
-       "note": "Y_I is intensity (amp^2); compare sqrt(Y_I) to amplitude ground truth"
-   }
-   ```
-
-4. **Run gs1_ideal scenario (it trains successfully):**
-   ```bash
-   mkdir -p plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T230000Z/logs
-   python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py \
-     --scenario gs1_ideal \
-     --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T230000Z/gs1_ideal \
-     --group-limit 64 --nepochs 5 --prediction-scale-source least_squares \
-     2>&1 | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T230000Z/logs/gs1_ideal_runner.log
-   ```
-
-5. **Archive and verify:**
-   - `gs1_ideal/run_metadata.json` with new `training_labels` block
-   - `pytest_cli_smoke.log`
-
-### How-To Map
-
+## How-To Map
 ```bash
-# Env setup
 export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
+ARTIFACTS=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z
+mkdir -p "$ARTIFACTS"/logs
 
-# Create artifacts directory
-mkdir -p plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T230000Z/logs
+# collect-only to prove the selector is live
+pytest --collect-only tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -q \
+  2>&1 | tee "$ARTIFACTS"/logs/pytest_cli_smoke_collect.log
 
-# Run gs1_ideal with extended telemetry
+# run gs1_ideal with new telemetry
 python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py \
   --scenario gs1_ideal \
-  --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T230000Z/gs1_ideal \
+  --output-dir "$ARTIFACTS"/gs1_ideal \
   --group-limit 64 --nepochs 5 --prediction-scale-source least_squares \
-  2>&1 | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T230000Z/logs/gs1_ideal_runner.log
+  2>&1 | tee "$ARTIFACTS"/logs/gs1_ideal_runner.log
 
-# Pytest guard
+# analyzer (optional sanity check)
+python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/analyze_intensity_bias.py \
+  --scenario gs1_ideal="$ARTIFACTS"/gs1_ideal --output-dir "$ARTIFACTS" \
+  2>&1 | tee "$ARTIFACTS"/logs/analyzer.log
+
+# pytest guard
 pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v \
-  2>&1 | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T230000Z/logs/pytest_cli_smoke.log
+  2>&1 | tee "$ARTIFACTS"/logs/pytest_cli_smoke.log
 ```
 
-### Pitfalls To Avoid
+## Pitfalls To Avoid
+1. Do **not** change any loss weights (CLAUDE.md constraint) — only log data.
+2. Avoid touching core modules (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`).
+3. Ensure label stats are computed on NumPy buffers to avoid forcing tensor materialization unnecessarily.
+4. Capture telemetry right after container construction so training labels reflect pre-training values.
+5. Guard against missing attributes: check `hasattr` before dereferencing Y_amp/Y_I/Y_phi.
+6. Keep the artifacts directory clean (JSON, Markdown, logs) — no large NPZ copies.
+7. Ensure pytest selector collects >0 tests (collect-only command above) before running.
+8. Maintain device/dtype neutrality; no GPU-only hacks.
+9. Record environment versions in logs if unexpected behavior appears.
+10. Refrain from modifying analyzer tolerances until we have evidence.
 
-1. **Do NOT change loss weights** — CLAUDE.md directive explicitly prohibits this
-2. **Do NOT modify core modules** (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`)
-3. **Use `_ensure_numpy()` for TensorFlow tensors** — avoid `.numpy()` directly
-4. **Record BEFORE training** — labels should be captured right after container construction
-5. **Check attribute existence** — `PtychoDataContainer` may not expose all label types
+## If Blocked
+- If container lacks the expected label attributes, log which ones are missing inside the artifacts README and capture whatever stats are available.
+- If `record_training_label_stats` uncovers TensorFlow tensors that cannot be converted lazily, reuse `_ensure_numpy()` from the runner helpers and document any gaps.
+- Add a note in `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/README.md` plus galph_memory if telemetry cannot be captured; leave the code changes in place for the available signals.
 
-### If Blocked
+## Findings Applied (Mandatory)
+- **CONFIG-001 / SIM-LINES-CONFIG-001:** Runner already syncs `params.cfg`; keep it that way when adding new calls.
+- **NORMALIZATION-001:** Reference `specs/spec-ptycho-core.md §Normalization Invariants` when interpreting label vs truth scales; the telemetry should make those comparisons explicit.
 
-If container doesn't expose Y_I/Y_phi/Y:
-1. Inspect `PtychoDataContainer` in `ptycho/loader.py` to find available attributes
-2. Record whatever IS available
-3. Document which attributes are missing for future investigation
+## Pointers
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:408-458` — D6 scope + constraints (no loss-weight edits).
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/plan/parity_logging_spec.md` — Telemetry fields all new logs must follow.
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_phase_c2_scenario.py` — Runner instrumentation hook and helper definitions.
+- `specs/spec-ptycho-core.md §Normalization Invariants` — Ground-truth definitions for label scaling.
+- `docs/TESTING_GUIDE.md §2` — pytest selector expectations for CLI smoke tests.
 
-### Findings Applied
+## Next Up (optional)
+- Compare the captured `training_labels` stats with inference ground-truth metrics; summarize deltas in `implementation.md` D6 notes.
 
-- **CONFIG-001:** Legacy params.cfg bridging already wired in runner
-- **NORMALIZATION-001:** Per spec, Y_amp_scaled = s · X and Y_int = (s · X)²
-- **D5b (2026-01-21T210000Z):** Confirmed scaling layers match; gap is in learned weights
-
-### Pointers
-
-- `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:408-413` — D6 hypothesis and scope
-- `plans/active/DEBUG-SIM-LINES-DOSE-001/plan/parity_logging_spec.md` — Parity logging schema v1.0
-- `ptycho/loader.py` — `PtychoDataContainer` class definition
-- `specs/spec-ptycho-core.md:87-93` — Label formulas (Y_amp_scaled, Y_int)
-- `docs/fix_plan.md:480-483` — D6 retraction note (no loss-weight changes)
-
-### Expected Outcome
-
-The telemetry will reveal:
-- What scale Y_I/Y_phi labels are at during training
-- Whether there's a mismatch between training labels and inference ground truth comparison
-- This informs whether the gap is a label formulation issue or something else (architecture, loss function behavior)
-
-### Next Up (optional)
-
-After capturing label stats:
-- Compare Y_I mean against ground_truth amplitude² to check intensity scaling
-- If labels and truth are at same scale: the gap must be in model architecture or loss function behavior
-- Document findings in implementation.md D6 entry without proposing loss-weight changes

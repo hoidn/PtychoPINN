@@ -332,6 +332,41 @@ def _serialize_scalar(value: Any) -> Any:
     return value
 
 
+def record_training_label_stats(container) -> Dict[str, Any]:
+    """Capture training label statistics for amplitude gap analysis.
+
+    Per specs/spec-ptycho-core.md §Normalization Invariants:
+    - Labels: Y_amp_scaled = s · X (amplitude), Y_int = (s · X)^2 (intensity)
+    - Compare these against ground truth comparison targets.
+
+    Args:
+        container: PtychoDataContainer with training labels (Y_I, Y_phi, Y).
+
+    Returns:
+        dict with stats for each available label attribute.
+    """
+    stats: Dict[str, Any] = {}
+    # Check available attributes on container - use _*_np to avoid triggering lazy tensorification
+    attr_map = {
+        "Y_I": "_Y_I_np",
+        "Y_phi": "_Y_phi_np",
+        "X": "_X_np",
+    }
+    for label, np_attr in attr_map.items():
+        if hasattr(container, np_attr):
+            val = getattr(container, np_attr)
+            if val is not None:
+                arr = _ensure_numpy(val)
+                stats[label] = format_array_stats(arr)
+    # Also try to get combined Y if available
+    if hasattr(container, "_tensor_cache") and "Y" in container._tensor_cache:
+        Y_tensor = container._tensor_cache["Y"]
+        Y_arr = _ensure_numpy(Y_tensor)
+        stats["Y"] = format_array_stats(np.abs(Y_arr))
+        stats["Y"]["note"] = "abs(Y) amplitude from combined complex ground truth"
+    return stats
+
+
 def extract_intensity_scaler_state() -> Dict[str, Any]:
     """Extract IntensityScaler state for diagnostics.
 
@@ -513,6 +548,8 @@ def write_intensity_stats_outputs(
     intensity_scaler_state: Optional[Dict[str, Any]] = None,
     training_container_stats: Optional[Dict[str, Any]] = None,
     dataset_scale_info: Optional[Dict[str, Any]] = None,
+    training_label_stats: Optional[Dict[str, Any]] = None,
+    ground_truth_amp_mean: Optional[float] = None,
 ) -> Dict[str, Any]:
     bundle_scale_serialized = _serialize_scalar(bundle_intensity_scale)
     legacy_scale_serialized = _serialize_scalar(legacy_intensity_scale)
@@ -553,6 +590,37 @@ def write_intensity_stats_outputs(
     # - Closed-form fallback: s ≈ sqrt(nphotons) / (N/2)
     if dataset_scale_info is not None:
         payload["dataset_scale_info"] = dataset_scale_info
+
+    # D6 instrumentation: training label statistics for amplitude gap analysis
+    # Per specs/spec-ptycho-core.md §Normalization Invariants:
+    # - Labels: Y_amp_scaled = s · X (amplitude), Y_int = (s · X)^2 (intensity)
+    if training_label_stats is not None:
+        payload["training_labels"] = training_label_stats
+        # Compute label_vs_truth_analysis if ground truth mean is provided
+        if ground_truth_amp_mean is not None:
+            label_vs_truth: Dict[str, Any] = {
+                "ground_truth_amp_mean": ground_truth_amp_mean,
+                "spec_reference": "specs/spec-ptycho-core.md §Normalization Invariants",
+                "note": "Y_I is intensity (amp^2); compare sqrt(Y_I) to amplitude ground truth",
+            }
+            # Check for Y_I stats
+            y_i_stats = training_label_stats.get("Y_I", {})
+            y_i_mean = y_i_stats.get("mean")
+            if y_i_mean is not None:
+                label_vs_truth["Y_I_mean"] = y_i_mean
+                # Y_I is already amplitude in loader (not intensity), check its scale
+                label_vs_truth["ratio_truth_to_Y_I_mean"] = (
+                    ground_truth_amp_mean / y_i_mean if abs(y_i_mean) > 1e-12 else None
+                )
+            # Also check X stats for input comparison
+            x_stats = training_label_stats.get("X", {})
+            x_mean = x_stats.get("mean")
+            if x_mean is not None:
+                label_vs_truth["X_mean"] = x_mean
+                label_vs_truth["ratio_truth_to_X_mean"] = (
+                    ground_truth_amp_mean / x_mean if abs(x_mean) > 1e-12 else None
+                )
+            payload["label_vs_truth_analysis"] = label_vs_truth
 
     json_path = scenario_dir / "intensity_stats.json"
     json_path.write_text(json.dumps(payload, indent=2, sort_keys=True))
@@ -693,6 +761,60 @@ def write_intensity_stats_outputs(
             "",
         ])
 
+    # D6 instrumentation: Training label statistics section
+    if training_label_stats:
+        md_lines.extend([
+            "## Training Label Statistics (D6)",
+            "",
+            "**Spec Reference:** `specs/spec-ptycho-core.md §Normalization Invariants`",
+            "",
+            "Training labels fed during model training. Per the spec:",
+            "- Labels: `Y_amp_scaled = s · X` (amplitude), `Y_int = (s · X)^2` (intensity)",
+            "",
+        ])
+        for label, stats in training_label_stats.items():
+            md_lines.extend([
+                f"### {label}",
+                "",
+                "| Metric | Value |",
+                "| --- | ---: |",
+                f"| shape | {stats.get('shape')} |",
+                f"| dtype | {stats.get('dtype')} |",
+                f"| min | {_format_optional(stats.get('min'))} |",
+                f"| max | {_format_optional(stats.get('max'))} |",
+                f"| mean | {_format_optional(stats.get('mean'))} |",
+                f"| std | {_format_optional(stats.get('std'))} |",
+                "",
+            ])
+        # Add label vs truth analysis if available
+        if ground_truth_amp_mean is not None:
+            y_i_stats = training_label_stats.get("Y_I", {})
+            y_i_mean = y_i_stats.get("mean")
+            x_stats = training_label_stats.get("X", {})
+            x_mean = x_stats.get("mean")
+            md_lines.extend([
+                "### Label vs Ground Truth Analysis",
+                "",
+                "| Metric | Value |",
+                "| --- | ---: |",
+                f"| Ground truth amplitude mean | {_format_optional(ground_truth_amp_mean)} |",
+                f"| Y_I mean (training label) | {_format_optional(y_i_mean)} |",
+                f"| X mean (training input) | {_format_optional(x_mean)} |",
+            ])
+            if y_i_mean is not None and abs(y_i_mean) > 1e-12:
+                ratio = ground_truth_amp_mean / y_i_mean
+                md_lines.append(f"| Ratio (truth / Y_I) | {_format_optional(ratio)} |")
+            if x_mean is not None and abs(x_mean) > 1e-12:
+                ratio = ground_truth_amp_mean / x_mean
+                md_lines.append(f"| Ratio (truth / X) | {_format_optional(ratio)} |")
+            md_lines.append("")
+            md_lines.extend([
+                "**Interpretation:** If `ratio (truth / Y_I)` differs significantly from 1.0,",
+                "the training labels are at a different scale than the ground truth used for comparison.",
+                "This could explain amplitude bias in reconstructions.",
+                "",
+            ])
+
     # Add per-stage stats
     md_lines.append("## Per-Stage Statistics")
     md_lines.append("")
@@ -721,6 +843,11 @@ def write_intensity_stats_outputs(
         result["training_container_stats"] = training_container_stats
     if dataset_scale_info is not None:
         result["dataset_scale_info"] = dataset_scale_info
+    if training_label_stats is not None:
+        result["training_labels"] = training_label_stats
+        # Include label_vs_truth_analysis from payload if computed
+        if "label_vs_truth_analysis" in payload:
+            result["label_vs_truth_analysis"] = payload["label_vs_truth_analysis"]
     return result
 
 
@@ -1578,6 +1705,24 @@ def main() -> None:
     train_elapsed = time.time() - start_time
     print(f"[runner] Training complete in {train_elapsed:.2f}s; bundle saved to {train_dir}")
 
+    # D6 instrumentation: capture training label statistics for amplitude gap analysis
+    # Per specs/spec-ptycho-core.md §Normalization Invariants:
+    # - Labels: Y_amp_scaled = s · X (amplitude), Y_int = (s · X)^2 (intensity)
+    train_container = training_results.get("train_container")
+    training_label_stats: Dict[str, Any] = {}
+    if train_container is not None:
+        training_label_stats = record_training_label_stats(train_container)
+        print(f"[runner][D6] Training label stats captured: {list(training_label_stats.keys())}")
+        for label, stats in training_label_stats.items():
+            print(
+                f"[runner][D6]   {label}: mean={stats.get('mean'):.6f}, "
+                f"min={stats.get('min'):.6f}, max={stats.get('max'):.6f}"
+                if stats.get("mean") is not None
+                else f"[runner][D6]   {label}: N/A"
+            )
+    else:
+        print("[runner][D6][warn] train_container not returned from run_training; label stats unavailable")
+
     # Capture IntensityScaler state after training (D4 architecture diagnostics)
     # Per specs/spec-ptycho-workflow.md §Loss and Optimization, the log_scale variable
     # is trained during training. We capture its state to trace any divergence.
@@ -1798,6 +1943,9 @@ def main() -> None:
             training_container_stats = stage.get("stats")
             break
 
+    # D6: Compute ground truth amplitude mean for label_vs_truth analysis
+    ground_truth_amp_mean = float(np.mean(np.abs(amp_truth)))
+
     intensity_record = write_intensity_stats_outputs(
         stages=intensity_info.get("stages", []),
         bundle_intensity_scale=intensity_info.get("bundle_intensity_scale"),
@@ -1806,6 +1954,8 @@ def main() -> None:
         intensity_scaler_state=intensity_scaler_state,
         training_container_stats=training_container_stats,
         dataset_scale_info=intensity_info.get("dataset_scale_info"),
+        training_label_stats=training_label_stats,
+        ground_truth_amp_mean=ground_truth_amp_mean,
     )
     intensity_record["prediction_scale"] = scale_info
     metadata["intensity_stats"] = intensity_record

@@ -201,6 +201,7 @@
       - H-ARCHITECTURE: Model architecture mismatch vs legacy
     - **Constraint:** Do not adjust or experiment with loss weights (CLAUDE.md). Loss-weight hypotheses are out of scope.
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T200000Z/`
+  - *2026-01-22T020000Z:* **Phase D0 COMPLETE** — Authored `plans/active/DEBUG-SIM-LINES-DOSE-001/plan/parity_logging_spec.md` v1.1 capturing the telemetry schema (including probe logging mandates), maintainer coordination protocol, dataset parity tolerances, and delivery checklist. Implementation plan updated to reference the spec; outstanding maintainer request now points to the schema. Artifacts live directly under `plans/active/DEBUG-SIM-LINES-DOSE-001/plan/`.
   - *2026-01-22T015431Z:* Added Phase D planning step (D0) to define implementation-agnostic parity logging and maintainer coordination. This will produce a schema + capture plan and explicit external handoff steps before any new parity logging work.
   - *2026-01-22T014445Z:* **A1b reclassified** — dose_experiments ground-truth run remains required for amplitude-bias parity but is blocked locally by Keras 3.x incompatibility. Requested a maintainer-run legacy TF/Keras execution with artifacts for comparison.
     - **Request:** `inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md`
@@ -481,6 +482,20 @@
     - **CLAUDE.md constraint:** Do not change or experiment with loss weights; this avenue is explicitly disallowed.
     - **Correction:** Any prior notes attributing the amplitude gap to `realspace_weight` (or proposing weight tweaks) are incorrect and should be ignored.
     - **Focus:** Keep Phase D on normalization, target formulation, or architecture wiring differences with evidence-backed comparisons.
+  - *2026-01-21T230000Z:* **Phase D6 IMPLEMENTATION — Training label stats instrumentation.**
+    - **Implementation:**
+      1. Added `compute_dataset_intensity_stats()` to `ptycho/loader.py` with `is_normalized` and `intensity_scale` parameters for backward-compatible operation on both raw and normalized data.
+      2. Restored `ptycho/cache.py` (removed by prior revert commit `aced81a4`).
+      3. Added `record_training_label_stats()` to `run_phase_c2_scenario.py` to capture Y_I/Y_phi/X stats from training containers using NumPy backing (avoids lazy tensorification).
+      4. Extended `write_intensity_stats_outputs()` with `training_label_stats` and `ground_truth_amp_mean` parameters for label_vs_truth_analysis.
+      5. Instrumented `main()` to capture training label stats after `run_training()` returns the container.
+    - **BLOCKER:** gs1_ideal scenario run failed due to Keras 3.x incompatibility in `ptycho/tf_helper.py:1476` (`tf.keras.metrics.mean_absolute_error` removed in Keras 3.x). This is a core module issue outside Phase D6 scope.
+    - **Tests (all pass):**
+      - `pytest tests/test_loader_normalization.py -v -k "not test_dataset_stats_attachment"` (7 passed)
+      - Python syntax check: runner imports successfully
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T230000Z/logs/gs1_ideal_runner.log` (contains Keras 3.x error trace)
+    - **Note:** Pre-existing test failures (`test_dataset_stats_attachment*`) expect `dataset_intensity_stats` attribute on container which is separate functionality.
+    - **Next Actions:** Training label instrumentation code is complete but blocked by Keras 3.x compatibility issue in core module (`tf_helper.py`). Either: (a) request maintainer to fix Keras 3.x compatibility, or (b) run scenarios in environment with Keras 2.x.
 
 ### [FIX-DEVICE-TOGGLE-001] Remove CPU/GPU toggle (GPU-only execution)
 - Depends on: None

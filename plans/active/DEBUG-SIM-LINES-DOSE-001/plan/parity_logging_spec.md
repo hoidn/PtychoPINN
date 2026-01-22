@@ -1,9 +1,9 @@
-# Parity Logging Specification v1.0
+# Parity Logging Specification v1.1
 
 **Initiative:** DEBUG-SIM-LINES-DOSE-001
 **Purpose:** Define implementation-agnostic telemetry schema for comparing sim_lines_4x and dose_experiments pipelines
 **Spec Owner:** specs/spec-ptycho-core.md (Normalization Invariants)
-**Last Updated:** 2026-01-21
+**Last Updated:** 2026-01-21 (Phase D0 refresh — probe logging + maintainer coordination)
 
 ---
 
@@ -154,6 +154,13 @@ This specification defines a unified logging schema to capture telemetry at key 
   }
 }
 ```
+
+#### Probe telemetry requirements
+
+- Emit **before and after** normalization statistics so we can prove whether probe normalization is symmetrical across pipelines.
+- Always state **where the probe originated** (ideal generator, cached NPZ, tweaked mask).
+- Log **mask coverage** and **energy** so downstream analyzers (e.g., `plan/bin/probe_normalization_report.py`) can cross-check against archived runs.
+- When multiple probes are blended, include one entry per component and a combined aggregate.
 
 ### 2.5 Intensity Stages Block
 
@@ -406,6 +413,19 @@ plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<timestamp>/dose_experiments_groun
 └── ground_truth_phase.npy # Ground truth (if simulated)
 ```
 
+### 4.4 Coordination checklist
+
+1. **Confirm dataset parity strategy** (same NPZ vs equivalent params) before the maintainer runs anything; record the decision in `README.md`.
+2. **Share the parity logging schema** upfront so the maintainer can validate their telemetry before upload.
+3. **Transfer artifacts plus checksums** to `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<timestamp>/dose_experiments_ground_truth/`.
+4. **Acknowledge receipt** by appending to `inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md`.
+
+### 4.5 Maintainer communication plan
+
+- Primary channel: update the existing request file under `inbox/`.
+- Escalation: if no response within 48h, send a follow-up note capturing outstanding artifacts and reference this spec section.
+- Include a **dataset parity declaration** (same NPZ vs equivalent params) and environment versions in every follow-up.
+
 ---
 
 ## 5. Dataset Parity Guidance
@@ -451,12 +471,19 @@ When exact parity is impossible (e.g., legacy environment cannot run sim_lines s
 | Final amplitude MAE | COMPARE | COMPARE |
 | pearson_r | COMPARE | COMPARE |
 
+### 5.4 Tolerance enforcement
+
+- Use the same helper (`record_intensity_stage`) in both pipelines so raw/grouped statistics are calculated identically.
+- Report delta percentages inside `bias_summary.md`; anything beyond tolerance must cite a suspected cause and next diagnostic step.
+- When only equivalent-parameter runs are available, document the dataset delta alongside the parity verdict so reviewers can attribute drift to data vs implementation.
+
 ---
 
 ## 6. Versioning
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1 | 2026-01-21 | Added explicit probe logging requirements, maintainer coordination checklist, dataset parity tolerances |
 | 1.0 | 2026-01-21 | Initial spec with probe logging, maintainer coordination, two-track plan |
 
 ---

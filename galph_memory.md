@@ -23,6 +23,25 @@
 - <Action State>: [ready_for_implementation]
 - focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T180000Z/ next_action=Ralph implements D6 training label stats capture (investigation-only, no loss-weight changes)
 
+# 2026-01-22T020000Z: DEBUG-SIM-LINES-DOSE-001 — Phase D0 parity logging spec refresh
+
+- dwell: 0 (manual override reset; first planning/docs loop for this focus after the override)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — Phase D0 planning deliverables (telemetry spec + maintainer coordination)
+- Action type: Planning / documentation refresh
+- Mode: Planning
+- Git sync: `git stash push -u -m 'galph-20260123-loop' && timeout 30 git pull --rebase && git stash pop`
+- Documents reviewed: docs/index.md; docs/findings.md; docs/fix_plan.md; plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md; plans/active/DEBUG-SIM-LINES-DOSE-001/plan/parity_logging_spec.md; inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md; input.md
+- Key observations:
+  - `user_input.md` override required redoing D0 with explicit probe logging and maintainer coordination guidance.
+  - Existing spec covered most schema fields but lacked explicit probe telemetry requirements + maintainer follow-up checklist.
+- Key decisions / updates:
+  - Upgraded `parity_logging_spec.md` to v1.1 with probe telemetry mandates, maintainer coordination + communication steps, and dataset parity tolerance enforcement (§5.4).
+  - Refreshed `implementation.md` D0 checklist entry and logged completion in `docs/fix_plan.md` with new timestamp + deliverable summary.
+  - Rewrote `input.md` to hand Ralph D6 implementation instructions (training-label stats capture) with fresh artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T021500Z/`.
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T020000Z/`
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T020000Z/ next_action=Ralph implements D6 training-label telemetry + pytest guard under the new artifacts hub
+
 ---
 
 # 2026-01-20T11:20:29Z: DEBUG-SIM-LINES-DOSE-001 — Phase D1 correction & handoff

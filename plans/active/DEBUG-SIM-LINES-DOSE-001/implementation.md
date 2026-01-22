@@ -328,23 +328,16 @@ gs2_ideal healthy, gs1_ideal NaN after CONFIG-001 fix
 **Constraint:** Do not adjust or experiment with loss weights (CLAUDE.md). Any loss-weight hypothesis is out of scope.
 
 ### Checklist
-- [x] D0: **Planning — implementation-agnostic parity logging + maintainer coordination.** *(COMPLETE 2026-01-21T180000Z)*
-      - Outcome: a clear, versioned logging spec (schema + required fields) and concrete maintainer handoff steps.
+- [x] D0: **Planning — implementation-agnostic parity logging + maintainer coordination.** *(COMPLETE 2026-01-22T020000Z refresh)*
+      - Outcome: refreshed parity logging spec (v1.1) plus maintainer coordination/dataset parity guidance that every downstream task must follow.
       - Deliverables:
-        - **Parity Logging Spec v1.0:** `plans/active/DEBUG-SIM-LINES-DOSE-001/plan/parity_logging_spec.md`
-          - Full JSON schema for telemetry at all pipeline stages
-          - Probe logging block with source/provenance, shape/dtype, amp/phase stats, L2 energy, mask stats, pre/post normalization
-          - Intensity stages block with capture points (raw_diffraction → grouped → normalized → container → training_labels → inference_prediction)
-          - Stage ratios and symmetry check per `specs/spec-ptycho-core.md §Normalization Invariants`
-        - **Maintainer coordination protocol:** §4 of the spec defines:
-          - Required artifacts (raw_data.npz, parity_telemetry.json, history.json, model_checkpoint/, amplitude.npy, phase.npy, config.json)
-          - Commands template with environment version capture
-          - Delivery location: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<timestamp>/dose_experiments_ground_truth/`
-        - **Dataset parity guidance:** §5 of the spec covers:
-          - Ideal case: same NPZ with checksum verification
-          - Two-track comparison plan when exact parity is impossible (Track A: legacy pipeline on legacy dataset; Track B: local pipeline on same/equivalent dataset)
-          - Parity checklist with stage-by-stage tolerance thresholds
-        - **Prior maintainer request:** `inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md` (awaiting response)
+        - **Parity Logging Spec v1.1:** `plans/active/DEBUG-SIM-LINES-DOSE-001/plan/parity_logging_spec.md`
+          - Implementation-agnostic JSON schema spanning provenance, configuration, probe logging, intensity stages, training/inference bundles, comparison stats, and stage ratio enforcement.
+          - Probe logging section now carries explicit telemetry requirements (pre/post normalization stats, mask coverage, provenance checksums) so probe differences can no longer slip through.
+          - Added maintainer coordination checklist + communication plan (§4.4–§4.5) and dataset parity tolerance enforcement (§5.4) tying every field back to `specs/spec-ptycho-core.md §Normalization Invariants`.
+        - **Maintainer coordination protocol:** spec §4 enumerates the required legacy artifacts, commands template, checksum capture, delivery path (`plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<timestamp>/dose_experiments_ground_truth/`), and follow-up cadence for the outstanding inbox request.
+        - **Dataset parity guidance:** spec §5 documents the same-NPZ vs equivalent-params decision tree, parity checklist with tolerances, and enforcement steps for every stage of the pipeline.
+        - **Maintainer request cross-link:** `inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md` references the refreshed spec so the maintainer executes the same schema.
       - Dependencies: none (planning-only). No loss-weight changes (CLAUDE.md).
       Test: N/A -- planning step only
 - [x] D1: **Loss configuration parity check (no adjustments).** *(COMPLETE 2026-01-20T121449Z — weights match; do not change weights)*  

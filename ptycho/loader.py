@@ -584,3 +584,60 @@ def load_xpp_npz(file_path, train_size=512):
                                        scan_index[:train_size], objectGuess=objectGuess)
 
     return ptycho_data, ptycho_data_train, data
+
+
+def compute_dataset_intensity_stats(
+    diff3d: np.ndarray,
+    is_normalized: bool = False,
+    intensity_scale: float = None,
+) -> dict:
+    """Compute dataset intensity statistics for normalization scale derivation.
+
+    Per specs/spec-ptycho-core.md §Normalization Invariants:
+    - Dataset-derived scale: `s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])`
+    - This function computes E_batch[Σ_xy |Ψ|²] from raw diffraction data.
+
+    Args:
+        diff3d: Raw diffraction patterns, shape (M, N, N) or (M, N, N, C),
+                containing amplitude (sqrt of counts).
+        is_normalized: If True, data has been normalized by intensity_scale.
+                      When True, intensity_scale must be provided to back-compute raw stats.
+        intensity_scale: The scale factor used for normalization. Required when is_normalized=True.
+                        Stats will be back-computed: sum(X_norm²) / s² = sum(X_raw²)
+
+    Returns:
+        dict with:
+            batch_mean_sum_intensity: E_batch[Σ_xy |Ψ|²] - average total intensity per sample
+            n_samples: Number of samples in the batch
+            spec_reference: Citation to normative spec section
+    """
+    diff_arr = np.asarray(diff3d, dtype=np.float64)
+    # Determine spatial axes based on shape
+    ndim = diff_arr.ndim
+    if ndim == 3:
+        # shape (M, N, N) - sum over axes 1, 2
+        sum_axes = (1, 2)
+    elif ndim == 4:
+        # shape (M, N, N, C) - sum over axes 1, 2, 3
+        sum_axes = (1, 2, 3)
+    else:
+        raise ValueError(f"Expected 3D or 4D array, got shape {diff_arr.shape}")
+
+    # diff3d is amplitude (sqrt of counts); |Ψ|² = diff3d²
+    # Σ_xy |Ψ|² sums over spatial dimensions
+    intensity_per_sample = np.sum(diff_arr ** 2, axis=sum_axes)  # shape (M,)
+
+    # If data is normalized, back-compute raw stats
+    if is_normalized:
+        if intensity_scale is None:
+            raise ValueError("intensity_scale must be provided when is_normalized=True")
+        # X_norm = s * X_raw, so X_raw = X_norm / s
+        # sum(X_raw²) = sum(X_norm²) / s²
+        intensity_per_sample = intensity_per_sample / (intensity_scale ** 2)
+
+    batch_mean = float(np.mean(intensity_per_sample))
+    return {
+        "batch_mean_sum_intensity": batch_mean,
+        "n_samples": int(diff_arr.shape[0]),
+        "spec_reference": "specs/spec-ptycho-core.md §Normalization Invariants",
+    }
