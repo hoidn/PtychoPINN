@@ -201,6 +201,15 @@
       - H-ARCHITECTURE: Model architecture mismatch vs legacy
     - **Constraint:** Do not adjust or experiment with loss weights (CLAUDE.md). Loss-weight hypotheses are out of scope.
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T200000Z/`
+  - *2026-01-22T234600Z:* **REG-2 FIXED** — Restored `calculate_intensity_scale()` 4-priority order in `ptycho/train_pinn.py:165-217` per `specs/spec-ptycho-core.md §Normalization Invariants`:
+    1. `dataset_intensity_stats` (pre-computed from raw diffraction)
+    2. `_X_np` NumPy reduction (lazy-container safe)
+    3. `.X` tensor reduction (fallback for containers without `_X_np`)
+    4. Closed-form fallback `sqrt(nphotons)/(N/2)`
+    - **Metrics:** `pytest tests/test_train_pinn.py::TestIntensityScale -v` (7/7 PASSED), `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (1 PASSED)
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T234600Z/logs/`
+    - **Commit:** `8b2dcfcb DEBUG-SIM-LINES-DOSE-001 REG-2: restore calculate_intensity_scale 4-priority order`
+    - **Remaining:** REG-1 (dataset_intensity_stats param), REG-3 (canvas jitter guard), REG-4 (metrics helper)
   - *2026-01-22T233342Z:* **CRITICAL REGRESSIONS IDENTIFIED (Reviewer Override)** — External review found multiple breaking regressions undoing prior Phase C + D4f fixes:
     1. **D4f dataset_intensity_stats REMOVED:** `PtychoDataContainer` no longer accepts/stores `dataset_intensity_stats`; `calculate_intensity_scale()` reverted to closed-form fallback only (see `ptycho/loader.py:124-190`, `ptycho/train_pinn.py:163-194`)
     2. **Phase C canvas guard DELETED:** `_update_max_position_jitter_from_offsets()` removed from `ptycho/workflows/components.py:659-705`, so grouped offsets larger than legacy padded size will clip reconstructions
