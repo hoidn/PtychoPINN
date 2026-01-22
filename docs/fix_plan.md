@@ -42,5 +42,14 @@ Captured photon_grid dose baseline facts and drafted maintainer-ready D0 parity 
 - Await maintainer review of `inbox/response_prepare_d0_response.md`
 - If time permits, capture gs2 variant for future parity logging
 
+### 2026-01-22T04:26Z — seed S3 (blueprint)
+**Action:** Authored `plans/active/seed/reports/2026-01-22T042640Z/d0_parity_logger_plan.md` to scope the shipping CLI + tests for D0 parity logging. Captures dataset/probe metrics, raw/grouped/normalized stats, and testing expectations before promoting the script under `scripts/tools/`.
+
+**Artifacts:**
+- `plans/active/seed/reports/2026-01-22T042640Z/d0_parity_logger_plan.md`
+
+**Next Actions:**
+- Promote the plan into implementation: add `scripts/tools/d0_parity_logger.py` plus `tests/tools/test_d0_parity_logger.py`, then run the CLI over photon_grid_study_20250826_152459 to produce JSON/MD artifacts under a fresh timestamped reports directory.
+
 ## TODOs
-- [ ] S3: Confirm maintainer receives response and proceed with D0 parity logging implementation
+- [ ] S3: Promote D0 parity logger into `scripts/tools/` with stage-level stats + tests, then capture artifacts for photon_grid_study_20250826_152459
