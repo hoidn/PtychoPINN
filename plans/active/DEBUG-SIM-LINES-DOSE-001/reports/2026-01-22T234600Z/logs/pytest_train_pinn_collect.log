@@ -1,0 +1,9 @@
+tests/test_train_pinn.py::TestIntensityScale::test_dataset_derived_path
+tests/test_train_pinn.py::TestIntensityScale::test_fallback_path_zero_tensor
+tests/test_train_pinn.py::TestIntensityScale::test_rank3_tensor_handling
+tests/test_train_pinn.py::TestIntensityScale::test_multi_channel_handling
+tests/test_train_pinn.py::TestIntensityScale::test_lazy_container_does_not_materialize
+tests/test_train_pinn.py::TestIntensityScale::test_uses_dataset_stats
+tests/test_train_pinn.py::TestIntensityScale::test_uses_dataset_stats_ignores_zero_mean
+
+7 tests collected in 3.47s

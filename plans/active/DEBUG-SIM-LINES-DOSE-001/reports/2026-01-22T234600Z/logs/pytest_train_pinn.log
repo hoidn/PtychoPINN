@@ -1,0 +1,19 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 7 items
+
+tests/test_train_pinn.py::TestIntensityScale::test_dataset_derived_path PASSED [ 14%]
+tests/test_train_pinn.py::TestIntensityScale::test_fallback_path_zero_tensor PASSED [ 28%]
+tests/test_train_pinn.py::TestIntensityScale::test_rank3_tensor_handling PASSED [ 42%]
+tests/test_train_pinn.py::TestIntensityScale::test_multi_channel_handling PASSED [ 57%]
+tests/test_train_pinn.py::TestIntensityScale::test_lazy_container_does_not_materialize PASSED [ 71%]
+tests/test_train_pinn.py::TestIntensityScale::test_uses_dataset_stats PASSED [ 85%]
+tests/test_train_pinn.py::TestIntensityScale::test_uses_dataset_stats_ignores_zero_mean PASSED [100%]
+
+============================== 7 passed in 3.95s ===============================
