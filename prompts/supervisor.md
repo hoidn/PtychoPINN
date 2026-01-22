@@ -147,10 +147,11 @@
     </review_or_housekeeping>
     <maintainer_communication>
     If progress on the current plan / initiative / focus item requires information or intervention from an 
-    external <maintainer>, make a request to that maintainer by writing a .md to their inbox/ directory. If expecting a response to a previous request to a maintainer, 
+    external <maintainer>, make a request to that maintainer by writing a .md to their inbox/ directory. If expecting a response to a previous request to another maintainer, 
     check the local ./inbox/ directory. If ./inbox/ is populated with a new response, review the response and incorporate any information or required actions 
     derived from it into appropriate active plan implementation .md / checklist. To avoid confusion, include the origination (your) identity and the destination (their) identity in all 
     writes to other maintainers' inbox/ directories.
+    After a response has been read and incorporated into planning (or otherwise acted on), archive the inbox entry to avoid reprocessing.
     </maintainer_communication>
   </action_types>
 

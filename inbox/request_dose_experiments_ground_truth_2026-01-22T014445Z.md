@@ -1,4 +1,6 @@
 Title: Request — legacy dose_experiments ground-truth artifacts
+From: Maintainer <2> (PtychoPINN active branch, root_dir: ~/Documents/tmp/PtychoPINN/)
+To: Maintainer <1> (PtychoPINN dose_experiments branch, root_dir: ~/Documents/PtychoPINN/)
 
 Context
 - Initiative: DEBUG-SIM-LINES-DOSE-001 (Phase D amplitude-bias investigation)
