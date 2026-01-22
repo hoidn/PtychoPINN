@@ -1,0 +1,11 @@
+{
+  "iteration": 1,
+  "expected_actor": "ralph",
+  "status": "waiting-ralph",
+  "last_update": "2026-01-22T02:41:52Z",
+  "lease_expires_at": "2026-01-22T02:51:52Z",
+  "galph_commit": "398bb566",
+  "ralph_commit": null,
+  "last_prompt": "supervisor.md",
+  "last_prompt_actor": "galph"
+}
