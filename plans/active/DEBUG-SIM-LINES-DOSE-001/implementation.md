@@ -103,7 +103,7 @@ Guidelines:
       - **Resolution:** A1b remains required for amplitude-bias parity, but cannot be executed locally under Keras 3.x.
         - Required outcome: dose_experiments ground-truth artifacts (simulate→train→infer) for direct comparison
         - Required path: external legacy TF/Keras environment run or maintainer-provided artifacts
-        - Request: `inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md`
+        - Request: `inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md` (includes origin/destination tags; check `./inbox/` for replies)
       - **Evidence:** `reports/2026-01-20T092411Z/simulation_clamped4.log` (simulation success + training failure)
       Test: N/A -- blocked; evidence captured
 - [x] A2: Verify data-contract expectations for any RawData/NPZ outputs used in comparison.
@@ -411,6 +411,37 @@ gs2_ideal healthy, gs1_ideal NaN after CONFIG-001 fix
               (c) Model architecture has inherent amplitude attenuation that training doesn't overcome
               Scope: Extend telemetry to capture training label statistics (Y_amp mean/std) alongside model output statistics during training, and compare against inference ground truth statistics.
               Tests: N/A (analysis-only; reuse CLI smoke selector)
+
+## REGRESSION RECOVERY (2026-01-22T233342Z) — URGENT
+
+**Reviewer Override Alert:** External review identified critical regressions undoing prior Phase C + D4f deliverables. This section tracks the recovery scope.
+
+### Identified Regressions
+
+| ID | Component | Regression Description | Impact | Prior Fix Reference |
+|----|-----------|----------------------|--------|---------------------|
+| REG-1 | `ptycho/loader.py` | `PtychoDataContainer` no longer accepts/stores `dataset_intensity_stats` parameter | All manual constructors now raise `TypeError`; `calculate_intensity_scale()` silently falls back to closed-form | D4f, D4f.2, D4f.3 |
+| REG-2 | `ptycho/train_pinn.py` | `calculate_intensity_scale()` reverted to hardcoded fallback `sqrt(nphotons)/(N/2)`; dead `count_photons()` helper present | Dataset-derived scaling spec violation; 1.7× scale mismatch reintroduced | D4c, D4d (spec: `specs/spec-ptycho-core.md §Normalization Invariants`) |
+| REG-3 | `ptycho/workflows/components.py` | `_update_max_position_jitter_from_offsets()` deleted; no canvas expansion for grouped offsets | Grouped offsets (~382px) exceed legacy padded size (~78px); reconstructions clip | C1 |
+| REG-4 | `ptycho/image/cropping.py` | `align_for_evaluation_with_registration()` deleted but still imported by `evaluate_metrics.py` | `ImportError` crashes metrics CLI before evaluation runs | N/A (utility removal without caller update) |
+| REG-5 | `scripts/studies/sim_lines_4x/pipeline.py` | `realspace_weight=0.1`, `realspace_mae_weight=1.0` now hardcoded | Violates Phase D constraint "Do not adjust loss weights" (CLAUDE.md, implementation.md:323-343) | Plan constraint violation |
+
+### Recovery Checklist
+
+- [ ] **REG-1-FIX:** Restore `dataset_intensity_stats` parameter and attribute in `PtychoDataContainer.__init__`. Update all manual constructors (`dose_response_study.py`, `data_preprocessing.py`, `inspect_ptycho_data.py`) to pass the stats kwarg.
+      Test: `pytest tests/test_loader_normalization.py::TestNormalizeData::test_dataset_stats_attachment -v`
+- [ ] **REG-2-FIX:** Restore dataset-derived priority in `calculate_intensity_scale()`: (1) use `dataset_intensity_stats` if present, (2) fall back to `_X_np` computation, (3) closed-form only if both unavailable. Remove dead code.
+      Test: `pytest tests/test_train_pinn.py::TestIntensityScale -v`
+- [ ] **REG-3-FIX:** Restore `_update_max_position_jitter_from_offsets()` to `ptycho/workflows/components.py` and wire it back into `create_ptycho_data_container()`.
+      Test: `pytest tests/test_workflow_components.py::TestCreatePtychoDataContainer::test_updates_max_position_jitter -v`
+- [ ] **REG-4-FIX:** Either restore `align_for_evaluation_with_registration()` to `ptycho/image/cropping.py` OR update `scripts/studies/sim_lines_4x/evaluate_metrics.py` to remove the import/call.
+      Test: `python -c "from scripts.studies.sim_lines_4x.evaluate_metrics import *"`
+- [ ] **REG-5-RECONCILE:** Either (a) roll back the `realspace_weight`/`realspace_mae_weight` overrides to defaults, OR (b) formally amend Phase D scope with documented rationale, impact analysis, and test plan. Current plan explicitly forbids loss-weight adjustments.
+      Test: Plan review + `grep -n 'realspace.*weight' scripts/studies/sim_lines_4x/pipeline.py`
+
+### Notes
+- Do NOT proceed with D6 training label analysis until REG-1 through REG-4 are fixed — the current codebase is broken and cannot produce valid telemetry.
+- Loss-weight reconciliation (REG-5) is a plan/scope decision, not a code fix.
 
 ### Notes & Risks
 - Avoid touching `ptycho/model.py`, `ptycho/diffsim.py`, or other core physics modules without explicit approval (per CLAUDE.md directive #6). Start with plan-local instrumentation and documentation diffs.

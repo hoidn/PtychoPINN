@@ -1,3 +1,30 @@
+# 2026-01-22T233342Z: DEBUG-SIM-LINES-DOSE-001 — CRITICAL REGRESSION RECOVERY (user_input.md override)
+
+- dwell: 0 (manual override reset per startup_steps — user_input.md processed)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — REGRESSION RECOVERY: D4f dataset_intensity_stats removed, Phase C canvas guard deleted, metrics helper deleted, loss-weight constraint violated
+- Action type: Planning / Documentation (regression cataloguing + Ralph handoff)
+- Mode: Implementation (regression fix delegation)
+- Git sync: `git stash push -u -m 'galph-20260122-loop' && timeout 30 git pull --rebase && git stash pop` → clean
+- Documents reviewed: user_input.md (OVERRIDE), docs/fix_plan.md, galph_memory.md, plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md, ptycho/loader.py:120-220, ptycho/train_pinn.py:160-195, ptycho/workflows/components.py (grep for _update_max_position_jitter), ptycho/image/cropping.py (grep for align_for_evaluation), scripts/studies/sim_lines_4x/pipeline.py:200-210
+- Key observations (from user_input.md reviewer findings):
+  - **REG-1:** `PtychoDataContainer.__init__` no longer accepts `dataset_intensity_stats` → all manual constructors raise `TypeError`
+  - **REG-2:** `calculate_intensity_scale()` reverted to closed-form fallback only; dataset-derived code removed
+  - **REG-3:** `_update_max_position_jitter_from_offsets()` deleted from workflows/components.py; canvas no longer expands
+  - **REG-4:** `align_for_evaluation_with_registration()` deleted from cropping.py but evaluate_metrics.py still imports it
+  - **REG-5:** `realspace_weight=0.1`, `realspace_mae_weight=1.0` hardcoded in pipeline.py despite Phase D constraint
+- Key decisions:
+  - Updated `docs/fix_plan.md` with regression alert in status + new attempts entry with evidence
+  - Added REGRESSION RECOVERY section to `implementation.md` with 5-item checklist (REG-1 through REG-5)
+  - Updated `docs/findings.md` PINN-CHUNKED-001 status to note D4f regression
+  - Wrote `input.md` for Ralph focusing on REG-2 first (calculate_intensity_scale) since all D4f telemetry depends on it
+  - Created artifacts hub `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T233342Z/`
+  - **DELETED user_input.md** per startup protocol (will execute `rm user_input.md` at end of loop)
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T233342Z/`
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T233342Z/ next_action=Ralph fixes REG-2 (calculate_intensity_scale dataset-derived priority) then continues to REG-3/REG-4
+
+---
+
 # 2026-01-21T180000Z: DEBUG-SIM-LINES-DOSE-001 — Phase D0 parity logging spec complete
 
 - dwell: 0 (manual override reset per startup_steps)

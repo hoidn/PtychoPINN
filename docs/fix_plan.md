@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-20 (DEBUG-SIM-LINES-DOSE-001 Phase D amplitude bias investigation)
-**Active Focus:** DEBUG-SIM-LINES-DOSE-001 — **in_progress**: CONFIG-001 fix (C4f) eliminated NaN crashes; now investigating amplitude bias (~3-6x) to achieve actual reconstruction parity with dose_experiments
+**Last Updated:** 2026-01-22 (DEBUG-SIM-LINES-DOSE-001 Phase D6/D4f regressions identified — urgent fixes required)
+**Active Focus:** DEBUG-SIM-LINES-DOSE-001 — **in_progress**: REGRESSIONS DETECTED — D4f dataset_intensity_stats removed, Phase C canvas fix deleted, metrics helper deleted, loss-weight constraint violated
 
 ---
 
@@ -18,7 +18,7 @@
 ### [DEBUG-SIM-LINES-DOSE-001] Isolate sim_lines_4x vs dose_experiments discrepancy
 - Depends on: None
 - Priority: **Critical** (Highest Priority)
-- Status: **in_progress** — Phase D: investigating amplitude bias (~3-6x undershoot) to achieve reconstruction parity with dose_experiments; CONFIG-001 fix (C4f) resolved NaN crashes
+- Status: **in_progress** — **REGRESSIONS DETECTED (2026-01-22T03:04Z)**: D4f dataset_intensity_stats fix removed, Phase C canvas jitter guard deleted, metrics evaluation helper deleted, loss-weight constraint violated. Reopening D4f + D6 with regression recovery scope.
 - Owner/Date: Codex/2026-01-13
 - Working Plan: `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md`
 - Summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/summary.md`
@@ -201,6 +201,13 @@
       - H-ARCHITECTURE: Model architecture mismatch vs legacy
     - **Constraint:** Do not adjust or experiment with loss weights (CLAUDE.md). Loss-weight hypotheses are out of scope.
     - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-20T200000Z/`
+  - *2026-01-22T233342Z:* **CRITICAL REGRESSIONS IDENTIFIED (Reviewer Override)** — External review found multiple breaking regressions undoing prior Phase C + D4f fixes:
+    1. **D4f dataset_intensity_stats REMOVED:** `PtychoDataContainer` no longer accepts/stores `dataset_intensity_stats`; `calculate_intensity_scale()` reverted to closed-form fallback only (see `ptycho/loader.py:124-190`, `ptycho/train_pinn.py:163-194`)
+    2. **Phase C canvas guard DELETED:** `_update_max_position_jitter_from_offsets()` removed from `ptycho/workflows/components.py:659-705`, so grouped offsets larger than legacy padded size will clip reconstructions
+    3. **Metrics helper DELETED:** `align_for_evaluation_with_registration()` removed from `ptycho/image/cropping.py:131-180` but still imported by `scripts/studies/sim_lines_4x/evaluate_metrics.py:15,120` → ImportError
+    4. **Loss-weight constraint VIOLATED:** `scripts/studies/sim_lines_4x/pipeline.py:200` now sets `realspace_weight=0.1` and `realspace_mae_weight=1.0` despite `implementation.md:323-343` explicit Phase D constraint "Do not adjust loss weights"
+    - **Action Required:** Reopen D4f + D6 with regression-recovery scope. Fix callers passing `dataset_intensity_stats`, restore canvas jitter guard, restore evaluation helper (or update callers), reconcile loss-weight changes with plan constraint.
+    - **Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T233342Z/` (regression evidence from user_input.md)
   - *2026-01-22T020000Z:* **Phase D0 COMPLETE** — Authored `plans/active/DEBUG-SIM-LINES-DOSE-001/plan/parity_logging_spec.md` v1.1 capturing the telemetry schema (including probe logging mandates), maintainer coordination protocol, dataset parity tolerances, and delivery checklist. Implementation plan updated to reference the spec; outstanding maintainer request now points to the schema. Artifacts live directly under `plans/active/DEBUG-SIM-LINES-DOSE-001/plan/`.
   - *2026-01-22T015431Z:* Added Phase D planning step (D0) to define implementation-agnostic parity logging and maintainer coordination. This will produce a schema + capture plan and explicit external handoff steps before any new parity logging work.
   - *2026-01-22T014445Z:* **A1b reclassified** — dose_experiments ground-truth run remains required for amplitude-bias parity but is blocked locally by Keras 3.x incompatibility. Requested a maintainer-run legacy TF/Keras execution with artifacts for comparison.

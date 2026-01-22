@@ -94,7 +94,12 @@ For large datasets, use `container.as_tf_dataset(batch_size)` instead of accessi
 - Artifacts: `plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-07T220000Z/`, `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2026-01-08T200000Z/`, `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-21T004455Z/`
 
 ### Status
-**Resolved** — Lazy tensor allocation implemented. Large datasets can now be processed without OOM at container construction time. G-scaled verification confirms chunked inference via NumPy slicing is supported. Dataset-derived intensity scale handling now prioritizes `dataset_intensity_stats` (attached by loader and manual constructors) before `_X_np`, and only falls back to the `(N/2)` closed form when both sources are missing or near-zero (D4d–D4f, 2026-01-21). Any caller that instantiates `PtychoDataContainer` manually must either route through `loader.load()` or provide `dataset_intensity_stats` so the preferred CPU path stays available.
+**REGRESSION DETECTED (2026-01-22)** — Reviewer override found that D4f deliverables were removed:
+- `PtychoDataContainer` no longer accepts/stores `dataset_intensity_stats`
+- `calculate_intensity_scale()` reverted to closed-form fallback only
+- Manual constructors still attempt to pass `dataset_intensity_stats` → `TypeError`
+
+Prior status (2026-01-21): Lazy tensor allocation + dataset-derived intensity scale implemented. See `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md` REGRESSION RECOVERY section for fix checklist.
 
 ## TF-NON-XLA-SHAPE-001 - Non-XLA Translation Batch Dimension Mismatch
 **Category:** TensorFlow, Translation, Shape Handling
