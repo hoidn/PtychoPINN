@@ -1,85 +1,70 @@
-# Ralph Input — DEBUG-SIM-LINES-DOSE-001 Regression Recovery (URGENT)
+# Ralph Input — DEBUG-SIM-LINES-DOSE-001 REGRESSION FIX (REG-2)
 
-**Summary:** Fix critical regressions that removed Phase D4f dataset_intensity_stats handling and Phase C canvas jitter guard. The codebase is broken and cannot produce valid telemetry until these are restored.
+**Summary:** Fix `calculate_intensity_scale()` in `ptycho/train_pinn.py` to restore the 3-priority order for intensity scale computation. Tests currently fail 6/7.
 
-**Focus:** DEBUG-SIM-LINES-DOSE-001 — REGRESSION RECOVERY (REG-1 through REG-4)
+**Focus:** DEBUG-SIM-LINES-DOSE-001 — REGRESSION RECOVERY (REG-2)
 
 **Branch:** paper
 
 **Mapped tests:**
-- `pytest tests/test_train_pinn.py::TestIntensityScale -v` (REG-2)
-- `pytest tests/test_workflow_components.py::TestCreatePtychoDataContainer::test_updates_max_position_jitter -v` (REG-3)
-- `python -c "from scripts.studies.sim_lines_4x.evaluate_metrics import *"` (REG-4)
-- `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` (overall health)
+- `pytest tests/test_train_pinn.py::TestIntensityScale -v` (7 tests, currently 6 FAIL)
+- `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v`
 
-**Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T233342Z/`
+**Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T234600Z/`
 
 ---
 
-## Context — Identified Regressions
+## Context — Current Broken State
 
-A reviewer audit found that prior fixes were removed from the codebase:
+The current `calculate_intensity_scale()` at `ptycho/train_pinn.py:165-180` only uses the closed-form fallback:
 
-| ID | File | Issue |
-|----|------|-------|
-| REG-1 | `ptycho/loader.py` | `PtychoDataContainer.__init__` no longer accepts `dataset_intensity_stats`; callers raise `TypeError` |
-| REG-2 | `ptycho/train_pinn.py` | `calculate_intensity_scale()` reverted to closed-form only (`sqrt(nphotons)/(N/2)`); dataset-derived code removed |
-| REG-3 | `ptycho/workflows/components.py` | `_update_max_position_jitter_from_offsets()` deleted; canvas no longer expands for large grouped offsets |
-| REG-4 | `ptycho/image/cropping.py` | `align_for_evaluation_with_registration()` deleted but `evaluate_metrics.py` still imports it |
+```python
+def calculate_intensity_scale(ptycho_data_container: PtychoDataContainer) -> float:
+    import tensorflow as tf
+    import numpy as np
+    from . import params as p
+    def count_photons(obj):
+        pcount = np.mean(tf.math.reduce_sum(obj**2, (1, 2)))
+        return pcount
 
-Loss-weight change (REG-5) is a plan/scope decision — do NOT address in this loop.
+    def scale_nphotons(X):
+        # TODO assumes X is already normalized. this should be enforced
+        return tf.math.sqrt(p.get('nphotons')) / (p.get('N') / 2)
+
+    # Calculate the intensity scale using the adapted scale_nphotons function
+    intensity_scale = scale_nphotons(ptycho_data_container.X).numpy()
+
+    return intensity_scale
+```
+
+**Problems:**
+1. Only uses closed-form fallback `sqrt(nphotons)/(N/2)`, ignoring dataset statistics
+2. Accesses `.X` property which forces tensor materialization (breaks lazy loading)
+3. Ignores `dataset_intensity_stats` attribute even when present
+4. Ignores `_X_np` attribute (CPU-safe path)
 
 ---
 
-## Do Now — Fix REG-2 (calculate_intensity_scale)
-
-The most urgent fix is REG-2 because all D4f telemetry depends on the dataset-derived scale being computed correctly.
+## Do Now — Implement REG-2 Fix
 
 ### Implement: `ptycho/train_pinn.py::calculate_intensity_scale`
 
-Restore the dataset-derived priority order per `specs/spec-ptycho-core.md §Normalization Invariants`:
-
-1. **Priority 1 — `dataset_intensity_stats`:** If `ptycho_data_container` has a `dataset_intensity_stats` dict with `batch_mean_sum_intensity > 1e-12`, compute `sqrt(nphotons / batch_mean_sum_intensity)`.
-2. **Priority 2 — `_X_np` NumPy reduction:** If priority 1 unavailable, compute stats from `ptycho_data_container._X_np` using NumPy (CPU-only, no tensor cache population).
-3. **Priority 3 — Closed-form fallback:** Only when both above are unavailable, use `sqrt(nphotons) / (N/2)`.
-
-The current implementation ONLY does priority 3, which violates the spec.
-
-### Tests
-
-```bash
-export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
-ARTIFACTS=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T233342Z
-mkdir -p "$ARTIFACTS"/logs
-
-# Collect tests first
-pytest --collect-only tests/test_train_pinn.py::TestIntensityScale -q \
-  2>&1 | tee "$ARTIFACTS"/logs/pytest_train_pinn_collect.log
-
-# Run intensity scale tests
-pytest tests/test_train_pinn.py::TestIntensityScale -v \
-  2>&1 | tee "$ARTIFACTS"/logs/pytest_train_pinn.log
-
-# Overall CLI smoke
-pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v \
-  2>&1 | tee "$ARTIFACTS"/logs/pytest_cli_smoke.log
-```
-
----
-
-## How-To Map — Reference Implementation
-
-The prior working implementation looked like this (D4c/D4d from 2026-01-21):
+**Replace lines 165-180** with this implementation that restores the 3-priority order per `specs/spec-ptycho-core.md §Normalization Invariants`:
 
 ```python
 def calculate_intensity_scale(ptycho_data_container: PtychoDataContainer) -> float:
     """
     Calculate intensity scale per specs/spec-ptycho-core.md §Normalization Invariants.
 
-    Priority:
-    1. dataset_intensity_stats (if present) — preferred CPU path
-    2. _X_np NumPy reduction — lazy-container safe
-    3. Closed-form fallback sqrt(nphotons)/(N/2)
+    Formula: s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])
+
+    Priority order:
+    1. dataset_intensity_stats (if present) — pre-computed from raw diffraction, preferred
+    2. _X_np NumPy reduction — lazy-container safe, CPU-only
+    3. Closed-form fallback sqrt(nphotons)/(N/2) — assumes L2-normalized data
+
+    Returns:
+        float: Intensity scale factor for the dataset.
     """
     import numpy as np
     from . import params as p
@@ -87,77 +72,99 @@ def calculate_intensity_scale(ptycho_data_container: PtychoDataContainer) -> flo
     nphotons = p.get('nphotons')
     N = p.get('N')
 
-    # Priority 1: Use pre-computed stats if available
+    # Priority 1: Use pre-computed stats from raw diffraction (before normalization)
     if hasattr(ptycho_data_container, 'dataset_intensity_stats'):
         stats = ptycho_data_container.dataset_intensity_stats
         if stats is not None and stats.get('batch_mean_sum_intensity', 0) > 1e-12:
             return float(np.sqrt(nphotons / stats['batch_mean_sum_intensity']))
 
-    # Priority 2: Compute from NumPy backing (lazy-container safe)
+    # Priority 2: Compute from NumPy backing (lazy-container safe, no .X access)
     if hasattr(ptycho_data_container, '_X_np') and ptycho_data_container._X_np is not None:
-        X_np = ptycho_data_container._X_np
-        # Sum over spatial dims, mean over batch
-        batch_mean = float(np.mean(np.sum(X_np ** 2, axis=(1, 2))))
+        X_np = ptycho_data_container._X_np.astype(np.float64)  # float64 for precision
+        # Handle both rank-3 (B, H, W) and rank-4 (B, H, W, C) tensors
+        spatial_axes = tuple(range(1, X_np.ndim))  # (1,2) or (1,2,3)
+        sum_intensity = np.sum(X_np ** 2, axis=spatial_axes)
+        batch_mean = float(np.mean(sum_intensity))
         if batch_mean > 1e-12:
             return float(np.sqrt(nphotons / batch_mean))
 
-    # Priority 3: Closed-form fallback
+    # Priority 3: Closed-form fallback (assumes L2-normalized to (N/2)²)
     return float(np.sqrt(nphotons) / (N / 2))
+```
+
+### Verification Commands
+
+```bash
+export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
+ARTIFACTS=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T234600Z
+mkdir -p "$ARTIFACTS"/logs
+
+# 1. Collect tests first (should show 7 tests)
+pytest --collect-only tests/test_train_pinn.py::TestIntensityScale -q \
+  2>&1 | tee "$ARTIFACTS"/logs/pytest_train_pinn_collect.log
+
+# 2. Run intensity scale tests (MUST pass 7/7 after fix)
+pytest tests/test_train_pinn.py::TestIntensityScale -v \
+  2>&1 | tee "$ARTIFACTS"/logs/pytest_train_pinn.log
+
+# 3. CLI smoke test (import health check)
+pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v \
+  2>&1 | tee "$ARTIFACTS"/logs/pytest_cli_smoke.log
 ```
 
 ---
 
 ## Pitfalls To Avoid
 
-1. Do **not** access `ptycho_data_container.X` — it forces tensor materialization and defeats lazy loading.
-2. Ensure the function returns `float` (not tensor/array) for downstream JSON serialization.
-3. Keep dead code (`count_photons` helper) removed — the reviewer noted it's still present.
-4. Test both the NumPy and closed-form paths in `TestIntensityScale`.
-5. Do **not** change loss weights or touch `ptycho/model.py`.
-6. Guard `hasattr()` checks to avoid AttributeError on containers from different code paths.
-7. Maintain dtype consistency (use float64 for reduction then cast to float).
-8. Capture test logs in artifacts directory.
-9. If tests fail with missing `dataset_intensity_stats` attribute, that's REG-1 — note it but still fix REG-2.
-10. Check that existing tests still collect (>0) before running.
+1. **Do NOT access `.X` property** — it forces tensor materialization and defeats lazy loading (PINN-CHUNKED-001)
+2. **Use float64 for intermediate reduction** — prevents numerical underflow on small values
+3. **Handle both rank-3 and rank-4 tensors** — test `test_rank3_tensor_handling` expects this
+4. **Return Python float** — not numpy scalar (JSON serialization)
+5. **Check for None and zero** — `dataset_intensity_stats` may be None or have near-zero values
+6. **Do NOT import tensorflow** — the NumPy path is CPU-only and should stay that way
+7. **Keep the dead code (`count_photons`, `scale_nphotons` helpers) removed** — they're unused
+8. **Archive all logs** in the artifacts directory
 
 ---
 
 ## If Blocked
 
-- If `test_uses_dataset_stats` fails because `dataset_intensity_stats` attribute is missing from container (REG-1 not yet fixed), skip that test with `pytest.mark.xfail(reason="REG-1 not fixed")` and document in logs.
-- If the test module doesn't collect any tests, check that `tests/test_train_pinn.py` exists and has `TestIntensityScale` class.
-- Add blocking notes to `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T233342Z/blockers.md`.
+- If tests still fail after applying the fix, check:
+  1. Are you editing the right function? Look for `def calculate_intensity_scale` around line 165
+  2. Is the priority order correct? Stats → NumPy → Fallback
+  3. Did you keep the `.X` access? Remove it.
+- Add blocking notes to `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T234600Z/blockers.md`
 
 ---
 
 ## Findings Applied (Mandatory)
 
-- **PINN-CHUNKED-001:** The lazy-container design requires `_X_np` access for CPU-only stats. The fix must NOT access `.X` property.
-- **CONFIG-001:** `calculate_intensity_scale()` reads `params.cfg` — ensure bridging is called beforehand in callers (already done in prior work).
-- **specs/spec-ptycho-core.md §Normalization Invariants:** Dataset-derived mode `s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])` is preferred over closed-form.
+- **PINN-CHUNKED-001:** Lazy container design requires avoiding `.X` access; use `_X_np` instead
+- **specs/spec-ptycho-core.md §Normalization Invariants:** `s = sqrt(nphotons / E_batch[Σ_xy |Ψ|²])` is the preferred formula
+- **CONFIG-001:** Callers must sync `params.cfg` before calling; this function reads `nphotons` and `N` from params
 
 ---
 
 ## Pointers
 
-- `ptycho/train_pinn.py:165-180` — Current broken implementation (lines may vary).
-- `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md` — REGRESSION RECOVERY section with full checklist.
-- `specs/spec-ptycho-core.md §Normalization Invariants` — Authoritative formula definitions.
-- `docs/findings.md` — PINN-CHUNKED-001 regression note.
-- `tests/test_train_pinn.py::TestIntensityScale` — Existing test class (may need restoration if tests were removed).
+- `ptycho/train_pinn.py:165-180` — Current broken implementation to replace
+- `tests/test_train_pinn.py:260-360` — Test class `TestIntensityScale` with 7 tests
+- `specs/spec-ptycho-core.md §Normalization Invariants` — Authoritative formula
+- `docs/findings.md` — PINN-CHUNKED-001 lazy loading requirements
 
 ---
 
 ## Next Up (after REG-2)
 
-1. **REG-3:** Restore `_update_max_position_jitter_from_offsets()` to `ptycho/workflows/components.py`.
-2. **REG-4:** Restore or update `align_for_evaluation_with_registration()` in cropping.py / evaluate_metrics.py.
-3. **REG-1:** Restore `dataset_intensity_stats` parameter to `PtychoDataContainer.__init__` and update callers.
+1. **REG-3:** Restore `_update_max_position_jitter_from_offsets()` to `ptycho/workflows/components.py`
+2. **REG-4:** Fix `align_for_evaluation_with_registration()` missing from cropping.py
+3. **REG-1:** Add `dataset_intensity_stats` parameter to `PtychoDataContainer.__init__`
 
 ---
 
-## Doc Sync Plan (Conditional)
+## Success Criteria
 
-After code passes:
-- Update `docs/findings.md` PINN-CHUNKED-001 status to "Regression fixed" with timestamp.
-- Update `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md` REGRESSION RECOVERY checklist to mark REG-2-FIX complete.
+- [ ] `pytest tests/test_train_pinn.py::TestIntensityScale -v` → 7/7 PASSED
+- [ ] `pytest tests/scripts/test_synthetic_helpers_cli_smoke.py::test_sim_lines_pipeline_import_smoke -v` → PASSED
+- [ ] All logs archived in `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T234600Z/logs/`
+- [ ] Commit with message: `DEBUG-SIM-LINES-DOSE-001 REG-2: restore calculate_intensity_scale 3-priority order (tests: TestIntensityScale)`

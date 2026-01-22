@@ -1,3 +1,33 @@
+# 2026-01-22T234600Z: DEBUG-SIM-LINES-DOSE-001 — REGRESSION RECOVERY verification + handoff refresh
+
+- dwell: 1 (continuing REGRESSION RECOVERY focus from 2026-01-22T233342Z; prior loop was planning/docs only)
+- Focus issue: DEBUG-SIM-LINES-DOSE-001 — REGRESSION RECOVERY: regressions still present (tests fail 6/7)
+- Action type: Implementation handoff (regression fixes)
+- Mode: Implementation
+- Git sync: unstaged changes present (`sync/state.json`, `train_debug.log`); proceeded with local state
+- Documents reviewed: docs/fix_plan.md, galph_memory.md, input.md (prior), tests/test_train_pinn.py:260-360, ptycho/train_pinn.py:165-180, ptycho/loader.py:100-200, ptycho/workflows/components.py (grep _update_max_position_jitter), ptycho/image/cropping.py:1-50
+- Key observations (verified via pytest):
+  - **REG-2 CONFIRMED:** `pytest tests/test_train_pinn.py::TestIntensityScale -v` → 6 FAILED, 1 PASSED
+    - Current `calculate_intensity_scale()` (train_pinn.py:165-180) only uses closed-form fallback `sqrt(nphotons)/(N/2)`
+    - Tests expect 3-priority order: dataset_intensity_stats → _X_np → closed-form
+    - Implementation accesses `.X` property (forces tensor materialization), breaking lazy loading
+  - **REG-3 CONFIRMED:** `_update_max_position_jitter_from_offsets` does not exist in ptycho/workflows/components.py
+    - Test file `tests/test_workflow_components.py` fails to import (ImportError)
+  - **REG-4 CONFIRMED:** `align_for_evaluation_with_registration` does not exist in ptycho/image/cropping.py
+    - `scripts/studies/sim_lines_4x/evaluate_metrics.py:15` still imports it → ImportError at runtime
+  - **REG-1 STATUS:** PtychoDataContainer.__init__ (loader.py:134) does NOT accept `dataset_intensity_stats`
+    - BUT `compute_dataset_intensity_stats()` helper exists at loader.py:589, so partial fix landed
+- Key decisions:
+  - REG-2 is blocking (telemetry + tests); must fix first
+  - Refreshed input.md with complete REG-2 implementation code + test verification commands
+  - After REG-2, Ralph should address REG-3 (canvas jitter) then REG-4 (cropping helper)
+  - Artifacts hub: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T234600Z/`
+- Artifacts: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T234600Z/`
+- <Action State>: [ready_for_implementation]
+- focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=1 artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T234600Z/ next_action=Ralph implements REG-2 fix (calculate_intensity_scale with 3-priority order), runs TestIntensityScale, then continues to REG-3
+
+---
+
 # 2026-01-22T233342Z: DEBUG-SIM-LINES-DOSE-001 — CRITICAL REGRESSION RECOVERY (user_input.md override)
 
 - dwell: 0 (manual override reset per startup_steps — user_input.md processed)
