@@ -4,9 +4,9 @@
 `in_progress`
 
 ## Current Focus
-**seed — Inbox monitoring and response (checklist S1–S3)**
+**seed — Inbox monitoring and response (checklist S4)**
 
-Shipped D0 parity logger CLI with tests; captured parity evidence for photon_grid_study_20250826_152459.
+Need to finish the D0 parity handoff by surfacing stage-level stats for every dataset in the Markdown log and syncing the new CLI/test selector across the testing docs so maintainers can run it without parsing JSON.
 
 ## Completed Items
 - [x] S1: Check `inbox/` for new requests — found `README_prepare_d0_response.md`
@@ -92,5 +92,17 @@ python scripts/tools/d0_parity_logger.py \
 - Await maintainer review of parity evidence
 - Optionally capture gs2 scenario for multi-gridsize comparison
 
+### 2026-01-22T03:11Z — seed S4 (doc sync + Markdown parity tables)
+**Action:** Reviewed the emitted Markdown parity log and found it only lists stage-level stats for the first dataset, forcing maintainers to open the JSON blob to compare other photon doses. Also confirmed the testing docs still omit the new `tests/tools/test_d0_parity_logger.py::test_cli_emits_outputs` selector that guards the CLI. Logged the gap and outlined the follow-up scope so the CLI deliverable fully matches the maintainer spec.
+
+**Artifacts:**
+- `plans/active/seed/reports/2026-01-22T031142Z/`
+
+**Next Actions:**
+- Extend `scripts/tools/d0_parity_logger.py::write_markdown` (and helpers if needed) to render stage-level stats tables for every processed dataset, including raw, normalized, and grouped values so reviewers can diff doses without JSON parsing.
+- Update `tests/tools/test_d0_parity_logger.py` to assert the expanded Markdown content and add coverage for the `--limit-datasets` filter so maintainers can shorten runs.
+- Sync `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md` with the new selector + CLI instructions, then re-run `pytest tests/tools/test_d0_parity_logger.py -q` with fresh logs.
+
 ## TODOs
+- [ ] S4: Expand the D0 parity Markdown report to list stage-level stats for every dataset and document the new test selector (`tests/tools/test_d0_parity_logger.py`) inside `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.
 - [x] S3: Promote D0 parity logger into `scripts/tools/` with stage-level stats + tests, then capture artifacts for photon_grid_study_20250826_152459
