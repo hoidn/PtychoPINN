@@ -103,6 +103,39 @@ python scripts/tools/d0_parity_logger.py \
 - Update `tests/tools/test_d0_parity_logger.py` to assert the expanded Markdown content and add coverage for the `--limit-datasets` filter so maintainers can shorten runs.
 - Sync `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md` with the new selector + CLI instructions, then re-run `pytest tests/tools/test_d0_parity_logger.py -q` with fresh logs.
 
+### 2026-01-22T23:39Z — seed S4 (shipped)
+**Action:** Implemented all S4 deliverables:
+1. Extended `scripts/tools/d0_parity_logger.py::write_markdown` to emit "Stage-Level Stats by Dataset" section with per-dataset subsections and Markdown tables for raw/normalized/grouped stats (including `n_unique_scans`/`n_patterns`).
+2. Updated `tests/tools/test_d0_parity_logger.py::test_cli_emits_outputs` to use a multi-dataset fixture (two NPZ files), assert multi-dataset Markdown coverage with all three stage tables.
+3. Added `tests/tools/test_d0_parity_logger.py::test_cli_limit_datasets_filters_inputs` to verify `--limit-datasets` filter excludes non-requested datasets from JSON/Markdown.
+4. Updated `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md` with the parity logger CLI selector and usage reference.
+
+**Test:** `pytest tests/tools/test_d0_parity_logger.py -q` — 17 passed in 0.16s
+
+**Collection:**
+- `pytest --collect-only tests/tools/test_d0_parity_logger.py::test_cli_emits_outputs -q` — 1 test collected
+- `pytest --collect-only tests/tools/test_d0_parity_logger.py::test_cli_limit_datasets_filters_inputs -q` — 1 test collected
+
+**CLI Run:**
+```
+python scripts/tools/d0_parity_logger.py \
+  --dataset-root photon_grid_study_20250826_152459 \
+  --baseline-params "photon_grid_study_20250826_152459/results_p1e5/.../params.dill" \
+  --scenario-id PGRID-20250826-P1E5-T1024 \
+  --output plans/active/seed/reports/2026-01-22T233418Z
+```
+
+**Metrics captured:**
+- 7 datasets processed (1e3 through 1e9 photons) — all with stage-level stats in Markdown
+- Markdown now includes "Stage-Level Stats by Dataset" section with per-dataset raw/normalized/grouped tables
+- Grouped stats include n_unique_scans and n_patterns counts
+
+**Artifacts:**
+- `plans/active/seed/reports/2026-01-22T233418Z/` (dose_parity_log.json, dose_parity_log.md, probe_stats.csv, pytest logs)
+
+**Next Actions:**
+- S4 complete; await maintainer review of parity evidence
+
 ## TODOs
-- [ ] S4: Expand the D0 parity Markdown report to list stage-level stats for every dataset and document the new test selector (`tests/tools/test_d0_parity_logger.py`) inside `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.
+- [x] S4: Expand the D0 parity Markdown report to list stage-level stats for every dataset and document the new test selector (`tests/tools/test_d0_parity_logger.py`) inside `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.
 - [x] S3: Promote D0 parity logger into `scripts/tools/` with stage-level stats + tests, then capture artifacts for photon_grid_study_20250826_152459

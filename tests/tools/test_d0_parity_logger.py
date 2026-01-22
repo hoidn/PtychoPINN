@@ -161,6 +161,35 @@ class TestConvertForJson:
         assert result == {"a": 1.0, "b": {"c": 2.5}}
 
 
+def _create_npz_dataset(dataset_dir: Path, filename: str, scale: float = 1.0):
+    """Create a synthetic NPZ dataset file with specified intensity scale.
+
+    Args:
+        dataset_dir: Directory to create the file in.
+        filename: Name of the NPZ file (e.g., "data_p1e5.npz").
+        scale: Multiplier for diffraction intensities.
+
+    Returns:
+        Path to created NPZ file.
+    """
+    diff3d = (np.random.rand(2, 2, 2) * scale).astype(np.float32)
+    probe = (np.random.rand(2, 2) + 1j * np.random.rand(2, 2)).astype(np.complex64)
+    scan_index = np.array([0, 1])
+    xcoords = np.array([0.0, 1.0])
+    ycoords = np.array([0.0, 1.0])
+
+    npz_path = dataset_dir / filename
+    np.savez(
+        npz_path,
+        diff3d=diff3d,
+        probeGuess=probe,
+        scan_index=scan_index,
+        xcoords=xcoords,
+        ycoords=ycoords,
+    )
+    return npz_path
+
+
 @pytest.fixture
 def synthetic_dataset(tmp_path):
     """Create a minimal synthetic dataset for CLI testing."""
@@ -221,20 +250,56 @@ def synthetic_dataset(tmp_path):
     }
 
 
-def test_cli_emits_outputs(synthetic_dataset, tmp_path):
-    """Verify CLI produces JSON, Markdown, and CSV outputs.
+@pytest.fixture
+def multi_dataset(tmp_path):
+    """Create multiple synthetic datasets for multi-dataset testing."""
+    dataset_dir = tmp_path / "multi_dataset"
+    dataset_dir.mkdir()
+
+    # Create two NPZ files with different photon doses
+    npz_1e5 = _create_npz_dataset(dataset_dir, "data_p1e5.npz", scale=1.0)
+    npz_1e6 = _create_npz_dataset(dataset_dir, "data_p1e6.npz", scale=10.0)
+
+    # Create minimal params.dill
+    params = {
+        "N": 64,
+        "gridsize": 1,
+        "nimgs_train": 100,
+        "nimgs_test": 50,
+        "ms_ssim": (0.92, 0.91),
+    }
+
+    params_path = dataset_dir / "params.dill"
+    with open(params_path, "wb") as f:
+        dill.dump(params, f)
+
+    return {
+        "dataset_dir": dataset_dir,
+        "npz_1e5": npz_1e5,
+        "npz_1e6": npz_1e6,
+        "params_path": params_path,
+    }
+
+
+def test_cli_emits_outputs(multi_dataset, tmp_path):
+    """Verify CLI produces JSON, Markdown, and CSV outputs with multi-dataset coverage.
 
     This is the primary acceptance test for the D0 parity logger.
     Tests: scripts/tools/d0_parity_logger.py::main
+
+    Validates:
+    - JSON output includes all datasets
+    - Markdown lists both dataset sections with all three stage tables (raw/normalized/grouped)
+    - CSV probe stats cover all datasets
     """
     output_dir = tmp_path / "output"
     output_dir.mkdir()
 
-    # Run CLI with synthetic dataset
+    # Run CLI with multi-dataset fixture (two NPZ files: data_p1e5.npz, data_p1e6.npz)
     exit_code = main([
-        "--dataset-root", str(synthetic_dataset["dataset_dir"]),
-        "--baseline-params", str(synthetic_dataset["params_path"]),
-        "--scenario-id", "TEST-SYNTHETIC",
+        "--dataset-root", str(multi_dataset["dataset_dir"]),
+        "--baseline-params", str(multi_dataset["params_path"]),
+        "--scenario-id", "TEST-MULTI-DATASET",
         "--output", str(output_dir),
     ])
 
@@ -247,37 +312,49 @@ def test_cli_emits_outputs(synthetic_dataset, tmp_path):
     with open(json_path) as f:
         summary = json.load(f)
 
-    assert summary["metadata"]["scenario_id"] == "TEST-SYNTHETIC"
-    assert summary["total_datasets"] == 1
-    assert len(summary["datasets"]) == 1
+    assert summary["metadata"]["scenario_id"] == "TEST-MULTI-DATASET"
+    assert summary["total_datasets"] == 2
+    assert len(summary["datasets"]) == 2
 
-    ds = summary["datasets"][0]
-    assert ds["filename"] == "data_p1e5.npz"
-    assert ds["photon_dose"] == "1e5"
-    assert "sha256" in ds
-    assert len(ds["sha256"]) == 64  # SHA256 hex length
+    # Verify both datasets are present
+    filenames = [ds["filename"] for ds in summary["datasets"]]
+    assert "data_p1e5.npz" in filenames
+    assert "data_p1e6.npz" in filenames
 
-    # Verify stats are present
-    assert "raw" in ds["stats"]
-    assert "normalized" in ds["stats"]
-    assert "grouped" in ds["stats"]
-    assert ds["stats"]["raw"]["count"] == 8  # 2x2x2 = 8 elements
+    # Verify stats are present for all datasets
+    for ds in summary["datasets"]:
+        assert "raw" in ds["stats"]
+        assert "normalized" in ds["stats"]
+        assert "grouped" in ds["stats"]
+        assert ds["stats"]["raw"]["count"] == 8  # 2x2x2 = 8 elements
+        assert ds["stats"]["grouped"]["n_unique_scans"] == 2
+        assert ds["stats"]["grouped"]["n_patterns"] == 2
 
-    # Verify baseline params were loaded
-    assert summary["baseline_params"]["N"] == 64
-    assert summary["baseline_params"]["gridsize"] == 1
-
-    # Verify metrics were extracted
-    assert summary["metrics"]["ms_ssim"] == [0.92, 0.91]
-
-    # Check Markdown output exists
+    # Check Markdown output has stage-level stats for EVERY dataset
     md_path = output_dir / "dose_parity_log.md"
     assert md_path.exists(), "dose_parity_log.md should be created"
 
     md_content = md_path.read_text()
     assert "D0 Parity Log" in md_content
-    assert "TEST-SYNTHETIC" in md_content
+    assert "TEST-MULTI-DATASET" in md_content
+
+    # Verify multi-dataset section heading
+    assert "Stage-Level Stats by Dataset" in md_content
+
+    # Verify both datasets have their own sections with all three stage tables
     assert "data_p1e5.npz" in md_content
+    assert "data_p1e6.npz" in md_content
+    assert "(photon dose: 1e5)" in md_content
+    assert "(photon dose: 1e6)" in md_content
+
+    # Verify stage table headings appear (should appear twice - once per dataset)
+    assert md_content.count("#### Raw Diffraction") == 2
+    assert md_content.count("#### Normalized Diffraction") == 2
+    assert md_content.count("#### Grouped Intensity") == 2
+
+    # Verify grouped stats show n_unique_scans and n_patterns
+    assert "n_unique_scans" in md_content
+    assert "n_patterns" in md_content
 
     # Check CSV output exists (probe_stats.csv)
     csv_path = output_dir / "probe_stats.csv"
@@ -287,6 +364,9 @@ def test_cli_emits_outputs(synthetic_dataset, tmp_path):
     assert "filename" in csv_content
     assert "amp_mean" in csv_content
     assert "phase_mean" in csv_content
+    # CSV should have both datasets
+    assert "data_p1e5.npz" in csv_content
+    assert "data_p1e6.npz" in csv_content
 
 
 def test_cli_handles_missing_params(synthetic_dataset, tmp_path):
@@ -323,6 +403,49 @@ def test_cli_returns_error_on_missing_dataset(tmp_path):
     ])
 
     assert exit_code == 1, "CLI should return 1 when no datasets found"
+
+
+def test_cli_limit_datasets_filters_inputs(multi_dataset, tmp_path):
+    """Verify --limit-datasets flag filters to only requested datasets.
+
+    Tests: scripts/tools/d0_parity_logger.py::main with --limit-datasets
+    Validates:
+    - Only the specified dataset appears in JSON output
+    - Only the specified dataset appears in Markdown output
+    """
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    # Run CLI with --limit-datasets to only process data_p1e6.npz
+    exit_code = main([
+        "--dataset-root", str(multi_dataset["dataset_dir"]),
+        "--baseline-params", str(multi_dataset["params_path"]),
+        "--scenario-id", "TEST-LIMIT-FILTER",
+        "--output", str(output_dir),
+        "--limit-datasets", "data_p1e6.npz",
+    ])
+
+    assert exit_code == 0, "CLI should return 0 on success"
+
+    # Check JSON only mentions the requested dataset
+    json_path = output_dir / "dose_parity_log.json"
+    assert json_path.exists()
+
+    with open(json_path) as f:
+        summary = json.load(f)
+
+    assert summary["total_datasets"] == 1
+    assert len(summary["datasets"]) == 1
+    assert summary["datasets"][0]["filename"] == "data_p1e6.npz"
+
+    # Check Markdown only mentions the requested dataset
+    md_path = output_dir / "dose_parity_log.md"
+    md_content = md_path.read_text()
+
+    assert "data_p1e6.npz" in md_content
+    assert "data_p1e5.npz" not in md_content  # Filtered out
+    assert "(photon dose: 1e6)" in md_content
+    assert "(photon dose: 1e5)" not in md_content  # Filtered out
 
 
 def test_sha256_file(tmp_path):

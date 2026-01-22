@@ -460,32 +460,65 @@ def write_markdown(summary: Dict[str, Any], output_path: Path) -> None:
 
         f.write(f"\n**Total datasets:** {summary.get('total_datasets', 0)}\n")
 
-        # Stage-level stats sample (first dataset)
+        # Stage-level stats for every dataset
         if summary.get("datasets"):
-            ds0 = summary["datasets"][0]
-            if ds0.get("stats"):
-                f.write(f"\n## Stage-Level Stats Sample ({ds0['filename']})\n\n")
+            f.write("\n## Stage-Level Stats by Dataset\n")
 
-                if ds0["stats"].get("raw"):
-                    f.write("### Raw Diffraction\n\n")
-                    stats = ds0["stats"]["raw"]
-                    f.write(f"- min: {stats['min']:.6g}, max: {stats['max']:.6g}\n")
-                    f.write(f"- mean: {stats['mean']:.6g}, std: {stats['std']:.6g}\n")
-                    f.write(f"- percentiles (1/10/50/90/99): {stats['p01']:.4g} / {stats['p10']:.4g} / {stats['median']:.4g} / {stats['p90']:.4g} / {stats['p99']:.4g}\n")
-                    f.write(f"- nonzero_fraction: {stats['nonzero_fraction']:.4f}\n\n")
+            for ds in summary["datasets"]:
+                if not ds.get("stats"):
+                    continue
 
-                if ds0["stats"].get("normalized"):
-                    f.write("### Normalized Diffraction\n\n")
-                    stats = ds0["stats"]["normalized"]
-                    f.write(f"- min: {stats['min']:.6g}, max: {stats['max']:.6g}\n")
-                    f.write(f"- mean: {stats['mean']:.6g}, std: {stats['std']:.6g}\n")
-                    f.write(f"- percentiles (1/10/50/90/99): {stats['p01']:.4g} / {stats['p10']:.4g} / {stats['median']:.4g} / {stats['p90']:.4g} / {stats['p99']:.4g}\n\n")
+                f.write(f"\n### {ds['filename']} (photon dose: {ds['photon_dose']})\n\n")
 
-                if ds0["stats"].get("grouped"):
-                    f.write("### Grouped Intensity\n\n")
-                    stats = ds0["stats"]["grouped"]
-                    f.write(f"- n_unique_scans: {stats['n_unique_scans']}, n_patterns: {stats['n_patterns']}\n")
-                    f.write(f"- per-scan mean stats: min={stats['min']:.6g}, max={stats['max']:.6g}, mean={stats['mean']:.6g}\n\n")
+                # Raw diffraction table
+                if ds["stats"].get("raw"):
+                    f.write("#### Raw Diffraction\n\n")
+                    f.write("| Stat | Value |\n")
+                    f.write("|------|-------|\n")
+                    stats = ds["stats"]["raw"]
+                    f.write(f"| min | {stats['min']:.6g} |\n")
+                    f.write(f"| max | {stats['max']:.6g} |\n")
+                    f.write(f"| mean | {stats['mean']:.6g} |\n")
+                    f.write(f"| std | {stats['std']:.6g} |\n")
+                    f.write(f"| median | {stats['median']:.6g} |\n")
+                    f.write(f"| p01 | {stats['p01']:.6g} |\n")
+                    f.write(f"| p10 | {stats['p10']:.6g} |\n")
+                    f.write(f"| p90 | {stats['p90']:.6g} |\n")
+                    f.write(f"| p99 | {stats['p99']:.6g} |\n")
+                    f.write(f"| nonzero_fraction | {stats['nonzero_fraction']:.6g} |\n")
+                    f.write(f"| count | {stats['count']} |\n\n")
+
+                # Normalized diffraction table
+                if ds["stats"].get("normalized"):
+                    f.write("#### Normalized Diffraction\n\n")
+                    f.write("| Stat | Value |\n")
+                    f.write("|------|-------|\n")
+                    stats = ds["stats"]["normalized"]
+                    f.write(f"| min | {stats['min']:.6g} |\n")
+                    f.write(f"| max | {stats['max']:.6g} |\n")
+                    f.write(f"| mean | {stats['mean']:.6g} |\n")
+                    f.write(f"| std | {stats['std']:.6g} |\n")
+                    f.write(f"| median | {stats['median']:.6g} |\n")
+                    f.write(f"| p01 | {stats['p01']:.6g} |\n")
+                    f.write(f"| p10 | {stats['p10']:.6g} |\n")
+                    f.write(f"| p90 | {stats['p90']:.6g} |\n")
+                    f.write(f"| p99 | {stats['p99']:.6g} |\n")
+                    f.write(f"| nonzero_fraction | {stats['nonzero_fraction']:.6g} |\n")
+                    f.write(f"| count | {stats['count']} |\n\n")
+
+                # Grouped intensity table
+                if ds["stats"].get("grouped"):
+                    f.write("#### Grouped Intensity\n\n")
+                    f.write("| Stat | Value |\n")
+                    f.write("|------|-------|\n")
+                    stats = ds["stats"]["grouped"]
+                    f.write(f"| n_unique_scans | {stats['n_unique_scans']} |\n")
+                    f.write(f"| n_patterns | {stats['n_patterns']} |\n")
+                    f.write(f"| min | {stats['min']:.6g} |\n")
+                    f.write(f"| max | {stats['max']:.6g} |\n")
+                    f.write(f"| mean | {stats['mean']:.6g} |\n")
+                    f.write(f"| std | {stats['std']:.6g} |\n")
+                    f.write(f"| median | {stats['median']:.6g} |\n\n")
 
         f.write("\n---\n")
         f.write("*Full details in `dose_parity_log.json`*\n")

@@ -1,0 +1,11 @@
+Processing: data_p1e3.npz
+Processing: data_p1e4.npz
+Processing: data_p1e5.npz
+Processing: data_p1e6.npz
+Processing: data_p1e7.npz
+Processing: data_p1e8.npz
+Processing: data_p1e9.npz
+Loading params: photon_grid_study_20250826_152459/results_p1e5/train_1024/trial_1/baseline_run/08-26-2025-16.38.17_baseline_gs1/08-26-2025-16.38.17_baseline_gs1/params.dill
+Wrote: plans/active/seed/reports/2026-01-22T233418Z/dose_parity_log.json
+Wrote: plans/active/seed/reports/2026-01-22T233418Z/dose_parity_log.md
+Wrote: plans/active/seed/reports/2026-01-22T233418Z/probe_stats.csv
