@@ -1,0 +1,31 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.18, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho-tf/bin/python3.10
+cachedir: .pytest_cache
+rootdir: /home/ollie/Documents/PtychoPINN
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 22 items
+
+tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_flags_breach PASSED [  4%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_with_ack_detected PASSED [  9%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_no_inbound_messages PASSED [ 13%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_history_logging_appends_entries PASSED [ 18%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_status_snippet_emits_wait_summary PASSED [ 22%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_note_emits_call_to_action PASSED [ 27%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_note_no_breach PASSED [ 31%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_summarizes_runs PASSED [ 36%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_requires_jsonl PASSED [ 40%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_supports_multiple_inbound_maintainers PASSED [ 45%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_custom_keywords_enable_ack_detection PASSED [ 50%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_reports_deadline_and_severity PASSED [ 54%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_metrics_include_deadline PASSED [ 59%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_wait_metrics_cover_each_actor PASSED [ 63%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_overrides_thresholds PASSED [ 68%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_summary_flags_breach PASSED [ 72%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_history_tracks_severity PASSED [ 77%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_actor_severity_trends PASSED [ 81%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_actor_breach_timeline PASSED [ 86%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_brief_targets_blocker PASSED [ 90%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_followups_track_outbound_targets PASSED [ 95%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_history_followups_persist PASSED [100%]
+
+============================== 22 passed in 1.33s ==============================
