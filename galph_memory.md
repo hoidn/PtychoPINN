@@ -31,3 +31,7 @@ notes=Git pull --rebase was blocked by the user's dirty worktree (left untouched
 ## 2026-01-23T003135Z
 focus=DEBUG-SIM-LINES-DOSE-001 state=ready_for_implementation dwell=0 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/ next_action=Ralph implements packaging CLI + README delivery section + pytest loader log <Action State>=ready_for_implementation
 notes=Git pull --rebase blocked again because of the user's dirty worktree (left untouched). Confirmed no docs/prompt_sources_map.json exists; relying on docs/index.md instead. Updated the implementation plan + fix plan, wrote a fresh input.md that scopes the new package_ground_truth_bundle.py CLI, README inference path fix, bundle verification/tarball steps, and pytest guard so Ralph can execute Phase C immediately.
+
+## 2026-01-23T004208Z
+focus=DEBUG-SIM-LINES-DOSE-001.D1 state=ready_for_implementation dwell=0 action_type=review_or_housekeeping artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T004049Z/ next_action=Ralph sends maintainer response + reruns loader pytest per refreshed input <Action State>=ready_for_implementation
+notes=Verified the bundle + README under the 2026-01-22T014445Z drop, added the D1 maintainer-response checklist to docs/fix_plan.md, and rewrote input.md so Ralph logs a fresh pytest run, recomputes the tarball SHA, and authors inbox/response_dose_experiments_ground_truth.md with delivery + verification details.
