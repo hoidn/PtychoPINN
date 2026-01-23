@@ -1,0 +1,3 @@
+tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_reports_deadline_and_severity
+
+1 test collected in 0.03s
