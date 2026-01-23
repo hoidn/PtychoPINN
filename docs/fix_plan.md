@@ -33,6 +33,8 @@ Maintainer <2> asked for a faithful simulate→train→infer run from the legacy
 - `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/ground_truth_manifest.json` — full manifest with SHA256 + metadata
 - `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/ground_truth_manifest.md` — human-readable manifest summary
 - `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/files.csv` — flat file list with checksums
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py` — CLI for generating maintainer README
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001931Z/README.md` — maintainer-ready README with commands + provenance
 
 ## Attempts History
 
@@ -191,10 +193,49 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/make_ground_truth_manifest.py \
 **Next Actions:**
 - Phase B: README documenting simulate→train→infer commands for Maintainer <2>
 
+### 2026-01-23T00:24Z — DEBUG-SIM-LINES-DOSE-001.B1 (README generator shipped)
+**Action:** Created `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py` CLI that:
+1. Loads Phase-A manifest JSON + baseline summary JSON
+2. Renders a maintainer-ready README.md with 7 sections:
+   - Overview (scenario ID, key params, baseline metrics)
+   - Environment Requirements (TF/Keras 2.x warning)
+   - Simulation Commands (dose.py / dose_dependence.ipynb)
+   - Training Commands (ptycho.train CLI)
+   - Inference Commands (ptycho.inference CLI)
+   - Artifact Provenance Table (datasets + baseline files with size/SHA256 from manifest)
+   - NPZ Key Requirements (citing specs/data_contracts.md RawData NPZ)
+3. Validates input files exist before proceeding (fail-fast)
+4. Sorts provenance table by photon dose (1e3 → 1e9)
+
+**CLI Run:**
+```
+python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
+  --manifest plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/ground_truth_manifest.json \
+  --baseline-summary plans/active/seed/reports/2026-01-22T024002Z/dose_baseline_summary.json \
+  --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001931Z
+```
+
+**Metrics:**
+- 7 datasets in provenance table (sorted by photon dose)
+- 4 baseline artifacts documented (params.dill, baseline_model.h5, recon.dill, wts.h5.zip)
+- README includes TF/Keras 2.x environment warning per maintainer request
+- Spec citations included (specs/data_contracts.md RawData NPZ)
+
+**Test:** `pytest tests/test_generic_loader.py::test_generic_loader -q` — PASSED (1 passed, 5 warnings)
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001931Z/README.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001931Z/generate_readme.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001931Z/pytest_loader.log`
+
+**Next Actions:**
+- B1 complete; B2 (provenance table polish) may be skipped since provenance table already included
+- Proceed to C1: package datasets + baseline outputs into final bundle location
+
 ## TODOs
 - [x] S4: Expand the D0 parity Markdown report to list stage-level stats for every dataset and document the new test selector (`tests/tools/test_d0_parity_logger.py`) inside `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.
 - [x] S3: Promote D0 parity logger into `scripts/tools/` with stage-level stats + tests, then capture artifacts for photon_grid_study_20250826_152459
-- [ ] DEBUG-SIM-LINES-DOSE-001.B1: Produce the simulate→train→infer README plus command log for Maintainer <2> under a fresh `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<ts>/README.md`.
-- [ ] DEBUG-SIM-LINES-DOSE-001.B2: Extend the README with a provenance table mapping every dataset/baseline/inference artifact to its SHA256 + source stage, referencing the Phase A manifest.
+- [x] DEBUG-SIM-LINES-DOSE-001.B1: Produce the simulate→train→infer README plus command log for Maintainer <2> under a fresh `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<ts>/README.md`.
+- [x] DEBUG-SIM-LINES-DOSE-001.B2: Extend the README with a provenance table mapping every dataset/baseline/inference artifact to its SHA256 + source stage, referencing the Phase A manifest.
 - [ ] DEBUG-SIM-LINES-DOSE-001.C1: Copy or package (tarball) the requested datasets + baseline outputs into `reports/2026-01-22T014445Z/dose_experiments_ground_truth/`, keeping the manifest + README in sync.
 - [ ] DEBUG-SIM-LINES-DOSE-001.C2: Capture checksum verification logs for the final bundle (or tarball) and confirm size constraints / delivery instructions in `galph_memory.md` + maintainer inbox.
