@@ -47,3 +47,7 @@ notes=git pull --rebase remained blocked by the user's dirty worktree; confirmed
 ## 2026-01-23T012900Z
 focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=0 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T012900Z/ next_action=Ralph builds inbox-scan CLI + updates fix_plan + reruns loader guard <Action State>=ready_for_implementation
 notes=Performed the third-loop retrospective for this focus (verified the 2026-01-23T011900Z Do Now delivered the maintainer follow-up note, fix_plan update, and loader pytest log; inbox still lacks Maintainer <2> acknowledgement). Scoped check_inbox_for_ack.py to summarize `inbox/` contents + ack keywords, refreshed input.md with concrete CLI/test instructions, and staged the 2026-01-23T012900Z artifacts directory for Ralph’s run.
+
+## 2026-01-23T013000Z
+focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=1 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T013500Z/ next_action=Ralph reruns check_inbox_for_ack.py + updates docs/fix_plan + loader pytest per refreshed input <Action State>=ready_for_implementation
+notes=git pull --rebase is still blocked by the user's unstaged work; left untouched. Reviewed docs/fix_plan.md F1 rows and check_inbox_for_ack.py, confirmed no Maintainer <2> reply yet, and rewrote input.md (2026-01-23T013500Z) with explicit CLI/pytest commands, fix-plan + maintainer-response update steps, pitfalls, and artifacts path so Ralph can refresh the acknowledgement evidence this loop.
