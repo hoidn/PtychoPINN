@@ -267,6 +267,46 @@ def detect_actor_and_direction(content: str) -> Tuple[str, str]:
     return ("unknown", "unknown")
 
 
+def parse_target_actors(content: str) -> list[str]:
+    """
+    Parse target actors from To:/CC: lines in message content.
+
+    Looks for patterns like:
+    - "To: Maintainer <2>"
+    - "**To:** Maintainer <2>"
+    - "CC: Maintainer <3>"
+    - "**CC:** Maintainer <3>"
+    - "To: Maintainer <2>, Maintainer <3>"
+
+    Returns a list of normalized actor IDs (e.g., ["maintainer_2", "maintainer_3"]).
+    """
+    targets = []
+    content_lower = content.lower()
+
+    # Patterns for To: and CC: lines with flexible formatting
+    # Matches "To:", "**To:**", "TO:", "to:" etc. followed by maintainer references
+    to_cc_patterns = [
+        r"(?:to|cc):\s*\*?\*?\s*(.+?)(?:\n|$)",
+        r"\*\*(?:to|cc):\*\*\s*(.+?)(?:\n|$)",
+    ]
+
+    # Extract content after To:/CC:
+    all_recipient_text = ""
+    for pattern in to_cc_patterns:
+        matches = re.findall(pattern, content_lower, re.IGNORECASE)
+        for match in matches:
+            all_recipient_text += " " + match
+
+    # Now find all maintainer references in the collected recipient text
+    maintainer_pattern = r"maintainer\s*[<_]?\s*(\d+)\s*>?"
+    for m in re.finditer(maintainer_pattern, all_recipient_text):
+        actor_id = f"maintainer_{m.group(1)}"
+        if actor_id not in targets:
+            targets.append(actor_id)
+
+    return targets
+
+
 def is_from_maintainer_2(content: str) -> bool:
     """
     Check if the message is FROM Maintainer <2>.
@@ -437,6 +477,9 @@ def scan_inbox(
         ack_detected, keyword_hits, actor = is_acknowledgement(content, keywords, ack_actors)
         _, direction = detect_actor_and_direction(content)
 
+        # Parse target actors from To:/CC: lines
+        target_actors = parse_target_actors(content)
+
         # Compute is_from_ack_actor for backwards compatibility in output
         is_from_ack_actor = actor in ack_actors
 
@@ -451,6 +494,7 @@ def scan_inbox(
             "is_from_ack_actor": is_from_ack_actor,
             "actor": actor,
             "direction": direction,
+            "target_actors": target_actors,  # Recipients from To:/CC: lines
             "ack_detected": ack_detected,
             "preview": truncate_preview(content)
         }
@@ -482,6 +526,7 @@ def scan_inbox(
             "file": m["file"],
             "actor": m["actor"],
             "direction": m["direction"],
+            "target_actors": m.get("target_actors", []),  # Recipients from To:/CC:
             "ack": m["ack_detected"],
             "keywords": m["keywords_found"],
         }
@@ -504,6 +549,7 @@ def scan_inbox(
     # Compute per-actor wait metrics (ack_actor_stats)
     # Tracks last_inbound_utc, hours_since_last_inbound, inbound_count, ack_files per ack_actor
     # Also computes per-actor SLA fields when sla_hours is provided
+    # NEW: Also tracks outbound (follow-up) stats: last_outbound_utc, hours_since_last_outbound, outbound_count
     ack_actor_stats = {}
     for actor_id in sorted(ack_actors):  # Sort for determinism
         actor_messages = [m for m in raw_matches if m["actor"] == actor_id]
@@ -519,12 +565,28 @@ def scan_inbox(
         hours_since = compute_hours_since(last_inbound_from_actor, now)
         actor_ack_detected = len(actor_ack_files) > 0
 
+        # Compute per-actor outbound stats (follow-ups from Maintainer <1> TO this actor)
+        # An outbound message targets this actor if: direction == "outbound" AND actor_id in target_actors
+        outbound_to_actor = [
+            m for m in raw_matches
+            if m["direction"] == "outbound" and actor_id in m.get("target_actors", [])
+        ]
+        last_outbound_to_actor = None
+        if outbound_to_actor:
+            outbound_sorted = sorted(outbound_to_actor, key=lambda x: x["modified_utc"])
+            last_outbound_to_actor = outbound_sorted[-1]["modified_utc"]
+        hours_since_outbound = compute_hours_since(last_outbound_to_actor, now)
+
         actor_stats = {
             "last_inbound_utc": last_inbound_from_actor,
             "hours_since_last_inbound": hours_since,
             "inbound_count": len(actor_inbound),
             "ack_files": actor_ack_files,
             "ack_detected": actor_ack_detected,
+            # Outbound (follow-up) stats: messages from Maintainer <1> addressed to this actor
+            "last_outbound_utc": last_outbound_to_actor,
+            "hours_since_last_outbound": hours_since_outbound,
+            "outbound_count": len(outbound_to_actor),
         }
 
         # Compute per-actor SLA fields when sla_hours is provided
@@ -847,6 +909,11 @@ def write_markdown_summary(results: dict, output_path: Path) -> None:
                 lines.append(f"| {actor_label} | {last_inbound} | {hrs_str} | {inbound_count} | {ack_detected} | {ack_files} |")
         lines.append("")
 
+    # Ack Actor Follow-Up Activity section (per-actor outbound stats)
+    followup_lines = _build_ack_actor_followup_section(results)
+    if followup_lines:
+        lines.extend(followup_lines)
+
     if results["ack_detected"]:
         lines.extend([
             "### Acknowledgement Files",
@@ -996,6 +1063,53 @@ def _format_ack_actor_severity_cell(ack_actor_summary: dict | None) -> str:
 
     # Join with <br> for Markdown line breaks within cell
     return "<br>".join(entries)
+
+
+def _build_ack_actor_followup_section(results: dict) -> list[str]:
+    """
+    Build a Markdown section showing per-actor follow-up (outbound) activity.
+
+    Returns a list of Markdown lines to append. Returns an empty list if no
+    outbound data is available (i.e., all actors have outbound_count == 0).
+
+    The table shows:
+    - Actor label
+    - Last Outbound (UTC): when Maintainer <1> last messaged this actor
+    - Hours Since Outbound: how long since that message
+    - Outbound Count: total number of follow-ups to this actor
+    """
+    ack_actor_stats = results.get("ack_actor_stats", {})
+    if not ack_actor_stats:
+        return []
+
+    # Check if any actor has outbound data
+    has_outbound = any(
+        stats.get("outbound_count", 0) > 0
+        for stats in ack_actor_stats.values()
+    )
+    if not has_outbound:
+        return []
+
+    lines = [
+        "## Ack Actor Follow-Up Activity",
+        "",
+        "Follow-up messages from Maintainer <1> to each monitored actor:",
+        "",
+        "| Actor | Last Outbound (UTC) | Hours Since Outbound | Outbound Count |",
+        "|-------|---------------------|----------------------|----------------|",
+    ]
+
+    for actor_id in sorted(ack_actor_stats.keys()):
+        stats = ack_actor_stats[actor_id]
+        actor_label = actor_id.replace("_", " ").title()
+        last_outbound = stats.get("last_outbound_utc") or "N/A"
+        hrs = stats.get("hours_since_last_outbound")
+        hrs_str = f"{hrs:.2f}" if hrs is not None else "N/A"
+        outbound_count = stats.get("outbound_count", 0)
+        lines.append(f"| {actor_label} | {last_outbound} | {hrs_str} | {outbound_count} |")
+
+    lines.append("")
+    return lines
 
 
 def append_history_markdown(results: dict, output_path: Path) -> None:
@@ -1243,6 +1357,11 @@ def write_status_snippet(
                 ack_detected = "Yes" if stats.get("ack_detected", False) else "No"
                 lines.append(f"| {actor_label} | {hrs_str} | {inbound_count} | {ack_detected} |")
         lines.append("")
+
+    # Ack Actor Follow-Up Activity section (per-actor outbound stats)
+    followup_lines = _build_ack_actor_followup_section(results)
+    if followup_lines:
+        lines.extend(followup_lines)
 
     # Condensed timeline table
     if timeline:
@@ -1521,6 +1640,11 @@ def write_escalation_note(
                 lines.append(f"| {actor_label} | {hrs_str} | {inbound_count} | {ack_detected} |")
         lines.append("")
 
+    # Ack Actor Follow-Up Activity section (per-actor outbound stats)
+    followup_lines = _build_ack_actor_followup_section(results)
+    if followup_lines:
+        lines.extend(followup_lines)
+
     # Timeline section
     if timeline:
         lines.extend([
@@ -1615,6 +1739,11 @@ def write_escalation_brief(
         severity = target_stats.get("sla_severity", "unknown")
         ack_files = target_stats.get("ack_files", [])
         ack_files_str = ", ".join(f"`{f}`" for f in ack_files) if ack_files else "None"
+        # Outbound (follow-up) stats for this actor
+        last_outbound = target_stats.get("last_outbound_utc") or "N/A"
+        hrs_since_out = target_stats.get("hours_since_last_outbound")
+        hrs_since_out_str = f"{hrs_since_out:.2f}" if hrs_since_out is not None else "N/A"
+        outbound_count = target_stats.get("outbound_count", 0)
 
         lines.extend([
             "## Blocking Actor Snapshot",
@@ -1629,6 +1758,9 @@ def write_escalation_brief(
             f"| Hours Past SLA | {breach_dur_str} |",
             f"| Severity | {severity.upper() if severity else 'UNKNOWN'} |",
             f"| Ack Files | {ack_files_str} |",
+            f"| Last Outbound (UTC) | {last_outbound} |",
+            f"| Hours Since Outbound | {hrs_since_out_str} |",
+            f"| Outbound Count | {outbound_count} |",
             "",
         ])
 
@@ -1715,6 +1847,11 @@ def write_escalation_brief(
         "> Maintainer <1>",
         "",
     ])
+
+    # Ack Actor Follow-Up Activity section (per-actor outbound stats)
+    followup_lines = _build_ack_actor_followup_section(results)
+    if followup_lines:
+        lines.extend(followup_lines)
 
     # Ack Actor Breach Timeline section (if provided)
     if breach_timeline_lines:

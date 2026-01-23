@@ -1259,3 +1259,28 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 **Gap:** `ack_actor_stats` lacks `last_outbound_utc`, `hours_since_last_outbound`, and `outbound_count` fields, and no Markdown section summarizes per-actor follow-up activity. Status snippets / escalation notes therefore cannot document the cadence of our nudges.
 
 **Next Actions:** Extend `check_inbox_for_ack.py` so each ack actor tracks outbound targeting metadata derived from `To:`/`CC:` lines (per-actor last outbound timestamp, hours since outbound, outbound count). Surface the new stats in JSON + Markdown outputs (status snippet, escalation note, escalation brief) via an "Ack Actor Follow-Up Activity" section, add a regression test that proves Maintainer <2>/<3> rows appear with the correct values, run the CLI to capture a fresh 2026-01-23T133500Z evidence bundle, update the maintainer response + follow-up note with the new table, and log the drop in docs/fix_plan.md.
+
+### 2026-01-23T04:51Z — DEBUG-SIM-LINES-DOSE-001.F1 (per-actor follow-up tracking shipped)
+**Action:** Implemented per-actor follow-up (outbound) activity tracking in `check_inbox_for_ack.py`:
+- Added `parse_target_actors()` helper to extract recipient actor IDs from To:/CC: lines
+- Extended `scan_inbox()` to compute per-actor outbound stats (`last_outbound_utc`, `hours_since_last_outbound`, `outbound_count`) from messages where actor is listed in To:/CC:
+- Added `_build_ack_actor_followup_section()` formatter for the "Ack Actor Follow-Up Activity" table
+- Updated `write_markdown_summary()`, `write_status_snippet()`, `write_escalation_note()`, `write_escalation_brief()` to include the follow-up table
+- Updated `write_escalation_brief()` Blocking Actor Snapshot to include outbound stats rows
+- Added `test_ack_actor_followups_track_outbound_targets` regression test
+
+**Metrics:**
+- Tests: 21/21 passed (`tests/tools/test_check_inbox_for_ack_cli.py`)
+- New test: `test_ack_actor_followups_track_outbound_targets` passes
+- CLI evidence captured with follow-up table showing M2=7 outbound, M3=2 outbound
+
+**Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T133500Z/`
+- `logs/pytest_followups.log` — new test run
+- `logs/pytest_check_inbox_suite.log` — full suite (21 passed)
+- `inbox_status/status_snippet.md` — now includes "Ack Actor Follow-Up Activity" table
+- `inbox_status/escalation_brief_maintainer3.md` — Blocking Actor Snapshot updated with outbound stats
+
+**Next Actions:**
+- Update `inbox/response_dose_experiments_ground_truth.md` with the new follow-up table
+- Draft `inbox/followup_dose_experiments_ground_truth_2026-01-23T133500Z.md` for Maintainer <2>/<3>
+- F1 remains open until Maintainer <2> acknowledges

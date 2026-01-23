@@ -2247,3 +2247,148 @@ Bundle delivered at reports/dose_experiments_ground_truth/
     # Should have exactly one header (not duplicated)
     assert brief_content2.count("# Escalation Brief") == 1, \
         "Brief header should appear exactly once (idempotent)"
+
+
+def test_ack_actor_followups_track_outbound_targets(tmp_path):
+    """
+    Test that per-actor follow-up activity (outbound stats) are tracked and rendered.
+
+    Creates a synthetic inbox with:
+    - (a) An inbound message from Maintainer <2> (~4 hours old, no ack keywords)
+    - (b) An outbound from Maintainer <1> to Maintainer <2> (~2 hours ago)
+    - (c) Another outbound from Maintainer <1> to Maintainer <3> (~1 hour ago)
+
+    Runs the CLI with --ack-actor for M2/M3 and --status-snippet.
+
+    Asserts:
+    1. JSON summary contains last_outbound_utc, hours_since_last_outbound, outbound_count
+       for each ack actor with the expected ordering
+    2. Status snippet includes "Ack Actor Follow-Up Activity" table with both actors
+    """
+    inbox_dir = tmp_path / "inbox"
+    inbox_dir.mkdir()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    status_snippet_path = tmp_path / "status.md"
+
+    # (a) Inbound message from Maintainer <2> (~4 hours ago)
+    inbound_content = """# Request: dose_experiments_ground_truth
+
+**From:** Maintainer <2>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T10:00:00Z
+
+Please provide the dose experiments ground truth bundle.
+"""
+    create_inbox_file(inbox_dir, "request_dose_experiments_ground_truth.md", inbound_content, -4.0)
+
+    # (b) Outbound from Maintainer <1> to Maintainer <2> (~2 hours ago)
+    outbound_to_m2 = """# Response: dose_experiments_ground_truth
+
+**From:** Maintainer <1>
+**To:** Maintainer <2>
+**Date:** 2026-01-22T12:00:00Z
+
+Bundle delivered at reports/dose_experiments_ground_truth/
+"""
+    create_inbox_file(inbox_dir, "response_dose_experiments_ground_truth.md", outbound_to_m2, -2.0)
+
+    # (c) Outbound from Maintainer <1> to Maintainer <3> (~1 hour ago)
+    outbound_to_m3 = """# Follow-up: dose_experiments_ground_truth
+
+**From:** Maintainer <1>
+**To:** Maintainer <3>
+**CC:** Maintainer <2>
+**Date:** 2026-01-22T13:00:00Z
+
+Escalating the dose_experiments_ground_truth request for awareness.
+"""
+    create_inbox_file(inbox_dir, "followup_dose_experiments_ground_truth.md", outbound_to_m3, -1.0)
+
+    # Run CLI
+    result = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--keywords", "acknowledged",
+            "--keywords", "confirm",
+            "--keywords", "received",
+            "--ack-actor", "Maintainer <2>",
+            "--ack-actor", "Maintainer <3>",
+            "--sla-hours", "2.5",
+            "--ack-actor-sla", "Maintainer <2>=2.0",
+            "--ack-actor-sla", "Maintainer <3>=6.0",
+            "--status-snippet", str(status_snippet_path),
+            "--output", str(output_dir)
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    # Should exit 0 (no --fail-when-breached)
+    assert result.returncode == 0, f"Expected exit 0, got {result.returncode}. stderr: {result.stderr}"
+
+    # Check JSON output
+    json_path = output_dir / "inbox_scan_summary.json"
+    assert json_path.exists(), "JSON summary not created"
+    with open(json_path) as f:
+        data = json.load(f)
+
+    # Assert 1: JSON ack_actor_stats contains outbound fields
+    assert "ack_actor_stats" in data, "Missing ack_actor_stats in JSON"
+    ack_actor_stats = data["ack_actor_stats"]
+
+    # Maintainer 2 should have outbound data (targeted in both outbound messages via To/CC)
+    assert "maintainer_2" in ack_actor_stats, "maintainer_2 not in ack_actor_stats"
+    m2_stats = ack_actor_stats["maintainer_2"]
+    assert "last_outbound_utc" in m2_stats, "maintainer_2 missing last_outbound_utc"
+    assert "hours_since_last_outbound" in m2_stats, "maintainer_2 missing hours_since_last_outbound"
+    assert "outbound_count" in m2_stats, "maintainer_2 missing outbound_count"
+    # M2 is targeted in 2 messages: response_dose_experiments_ground_truth.md (To: M2)
+    # and followup_dose_experiments_ground_truth.md (CC: M2)
+    assert m2_stats["outbound_count"] == 2, \
+        f"Expected outbound_count=2 for maintainer_2, got {m2_stats['outbound_count']}"
+
+    # Maintainer 3 should have outbound data (targeted in followup message via To)
+    assert "maintainer_3" in ack_actor_stats, "maintainer_3 not in ack_actor_stats"
+    m3_stats = ack_actor_stats["maintainer_3"]
+    assert "last_outbound_utc" in m3_stats, "maintainer_3 missing last_outbound_utc"
+    assert "hours_since_last_outbound" in m3_stats, "maintainer_3 missing hours_since_last_outbound"
+    assert "outbound_count" in m3_stats, "maintainer_3 missing outbound_count"
+    assert m3_stats["outbound_count"] == 1, \
+        f"Expected outbound_count=1 for maintainer_3, got {m3_stats['outbound_count']}"
+
+    # The most recent outbound to M2 is followup_... (-1h ago), to M3 is also followup_... (-1h)
+    # M2's last_outbound_utc should be from followup (more recent than response)
+    # M3's last_outbound_utc should be from followup
+    # Both should be the same since the followup targets both
+
+    # Assert 2: Status snippet includes "Ack Actor Follow-Up Activity" table
+    assert status_snippet_path.exists(), "Status snippet not created"
+    snippet_content = status_snippet_path.read_text()
+
+    assert "## Ack Actor Follow-Up Activity" in snippet_content, \
+        "Status snippet missing 'Ack Actor Follow-Up Activity' section"
+
+    # Check for the table header
+    assert "| Actor | Last Outbound (UTC) | Hours Since Outbound | Outbound Count |" in snippet_content, \
+        "Status snippet missing follow-up table header"
+
+    # Check that both actors appear in the table (look for actor labels)
+    assert "Maintainer 2" in snippet_content, \
+        "Status snippet follow-up table missing Maintainer 2"
+    assert "Maintainer 3" in snippet_content, \
+        "Status snippet follow-up table missing Maintainer 3"
+
+    # Verify timeline includes target_actors field
+    assert "timeline" in data, "Missing timeline in JSON"
+    timeline = data["timeline"]
+    outbound_entries = [t for t in timeline if t.get("direction") == "outbound"]
+    for t in outbound_entries:
+        assert "target_actors" in t, f"Outbound timeline entry missing target_actors: {t}"
+
+    # Verify matches include target_actors field
+    assert "matches" in data, "Missing matches in JSON"
+    for m in data["matches"]:
+        assert "target_actors" in m, f"Match entry missing target_actors: {m['file']}"

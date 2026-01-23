@@ -97,6 +97,20 @@ This selector validates:
 
 Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T123500Z/logs/pytest_escalation_brief.log`
 
+### Inbox Acknowledgement CLI (Follow-Up Activity)
+
+The CLI now tracks per-actor follow-up (outbound) activity to prove how often Maintainer <1> is pinging each monitored actor. Follow-up stats are derived from `To:`/`CC:` lines in outbound messages. The new fields (`last_outbound_utc`, `hours_since_last_outbound`, `outbound_count`) appear in the JSON summary, status snippet, escalation note, and escalation brief. To run the follow-up activity test:
+
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_followups_track_outbound_targets -q`
+
+This selector validates:
+- `ack_actor_stats` in JSON includes `last_outbound_utc`, `hours_since_last_outbound`, `outbound_count` per actor
+- Timeline and match entries include `target_actors` (parsed from To:/CC: lines)
+- Status snippet includes "Ack Actor Follow-Up Activity" table with outbound metrics per actor
+- Outbound count is correctly computed from messages where actor is listed in To:/CC:
+
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T133500Z/logs/pytest_followups.log`
+
 ### Inbox Acknowledgement CLI (History Dashboard)
 
 The CLI also supports generating a Markdown history dashboard via the `--history-dashboard` flag. This dashboard aggregates data from the JSONL history log to show total scans, ack count, breach count, longest wait, and a recent scans timeline. To run the history dashboard test:

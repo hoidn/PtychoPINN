@@ -57,5 +57,10 @@ This is a minimal index of key tests in this branch.
   - Tests `--history-dashboard` "Ack Actor Severity Trends" section that aggregates per-actor severity counts, longest wait, and latest scan timestamps across all JSONL entries. Validates severity priority sorting (critical > unknown).
   - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/logs/pytest_history_dashboard_actor_severity.log`
   - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_actor_breach_timeline -q`
+  - Tests `--history-dashboard` "Ack Actor Breach Timeline" section that tracks per-actor breach state (breach start, streak count, hours past SLA) across all JSONL entries. Validates severity priority sorting, current streak counting, and breach start timestamp tracking.
+  - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/logs/pytest_breach_timeline.log`
+  - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_followups_track_outbound_targets -q`
+  - Tests per-actor follow-up (outbound) activity tracking. Validates `ack_actor_stats` contains `last_outbound_utc`, `hours_since_last_outbound`, `outbound_count` per actor (derived from To:/CC: lines). Validates "Ack Actor Follow-Up Activity" table in status snippet and other Markdown outputs.
+  - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T133500Z/logs/pytest_followups.log`
   - Tests `--history-dashboard` "Ack Actor Breach Timeline" section that tracks per-actor breach state: breach start timestamps, latest scans, consecutive breach streaks, and hours past SLA. Validates actors in OK/unknown are excluded; severity priority sorting (critical > warning); streak resets when returning to OK.
   - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/logs/pytest_history_dashboard_actor_breach.log`

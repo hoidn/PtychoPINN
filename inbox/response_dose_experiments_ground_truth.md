@@ -748,3 +748,60 @@ pytest tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_brief_target
 - Scan summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T123500Z/inbox_sla_watch/`
 - Test logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T123500Z/logs/`
 - Follow-up note: `inbox/followup_dose_experiments_ground_truth_2026-01-23T123500Z.md`
+
+---
+
+### Status as of 2026-01-23T133500Z (Per-Actor Follow-Up Activity Tracking)
+
+**New feature: Ack Actor Follow-Up Activity**
+
+The CLI now tracks per-actor follow-up (outbound) activity to prove how often Maintainer <1> is pinging each monitored actor. Follow-up stats are derived from `To:`/`CC:` lines in outbound messages.
+
+**New fields in `ack_actor_stats`:**
+- `last_outbound_utc`: Timestamp of the most recent outbound message targeting this actor
+- `hours_since_last_outbound`: Hours since that message
+- `outbound_count`: Total number of follow-up messages sent to this actor
+
+**New Markdown section: "Ack Actor Follow-Up Activity"**
+
+Appears in status snippet, escalation note, and escalation brief showing outbound metrics per actor:
+
+| Actor | Last Outbound (UTC) | Hours Since Outbound | Outbound Count |
+|-------|---------------------|----------------------|----------------|
+| Maintainer 2 | 2026-01-23T04:38:25Z | 0.22 | 7 |
+| Maintainer 3 | 2026-01-23T04:38:25Z | 0.22 | 2 |
+
+**Escalation Brief Blocking Actor Snapshot now includes:**
+- Last Outbound (UTC)
+- Hours Since Outbound
+- Outbound Count
+
+**Latest scan:**
+| Metric | Value |
+|--------|-------|
+| Last Inbound (from Maintainer <2>) | 2026-01-22T23:22:58Z |
+| Hours Since Last Inbound | 5.47 hours |
+| SLA Threshold (Maintainer <2>) | 2.00 hours |
+| Hours Past SLA | 3.47 hours |
+| Current Breach Streak | 1 |
+| Severity | CRITICAL |
+| Maintainer <2> Outbound Count | 7 |
+| Maintainer <3> Outbound Count | 2 |
+
+**New test selector:**
+```bash
+pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_followups_track_outbound_targets -q
+```
+
+**Test results:**
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_followups_track_outbound_targets -q` — 1 passed
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` — 21 passed (1.28s)
+- `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.57s)
+
+**Artifact paths:**
+- Status snippet: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T133500Z/inbox_status/status_snippet.md`
+- Escalation brief: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T133500Z/inbox_status/escalation_brief_maintainer3.md`
+- Escalation note: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T133500Z/inbox_status/escalation_note.md`
+- History dashboard: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T133500Z/inbox_history/inbox_history_dashboard.md`
+- Test logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T133500Z/logs/`
+- Follow-up note: `inbox/followup_dose_experiments_ground_truth_2026-01-23T133500Z.md`
