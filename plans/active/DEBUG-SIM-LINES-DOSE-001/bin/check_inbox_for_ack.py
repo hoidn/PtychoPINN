@@ -126,6 +126,24 @@ def parse_args():
              "E.g., --ack-actor-sla 'Maintainer <2>=2.0' --ack-actor-sla 'Maintainer <3>=6.0'. "
              "Actors without overrides inherit the global --sla-hours threshold."
     )
+    parser.add_argument(
+        "--escalation-brief",
+        type=str,
+        default=None,
+        help="Path to write a Markdown escalation brief for a third-party escalation recipient"
+    )
+    parser.add_argument(
+        "--escalation-brief-recipient",
+        type=str,
+        default="Maintainer <3>",
+        help="Recipient for the escalation brief (default: Maintainer <3>)"
+    )
+    parser.add_argument(
+        "--escalation-brief-target",
+        type=str,
+        default="Maintainer <2>",
+        help="The blocking actor being escalated (default: Maintainer <2>)"
+    )
     return parser.parse_args()
 
 
@@ -1528,7 +1546,186 @@ def write_escalation_note(
         f.write("\n".join(lines))
 
 
-def _build_actor_breach_timeline_section(entries: list) -> list:
+def write_escalation_brief(
+    results: dict,
+    output_path: Path,
+    recipient: str = "Maintainer <3>",
+    target_actor: str = "Maintainer <2>",
+    breach_timeline_lines: list = None,
+    breach_timeline_data: dict = None
+) -> None:
+    """
+    Write a Markdown escalation brief for a third-party recipient about a blocking actor.
+
+    The brief is designed for escalation to a third party (e.g., Maintainer <3>) about
+    a blocking actor (e.g., Maintainer <2>) who has not acknowledged a request.
+
+    The brief includes:
+    - Header and metadata
+    - Blocking Actor Snapshot (hours since inbound, SLA threshold, deadline, hours past SLA, severity, ack files)
+    - Breach Streak Summary (current streak, breach start/latest scan if timeline data present)
+    - Action Items
+    - Proposed Message (targeting the recipient, referencing the blocking actor)
+
+    Args:
+        results: Scan results dictionary
+        output_path: Path to write the brief
+        recipient: Label for the escalation brief recipient (e.g., "Maintainer <3>")
+        target_actor: The blocking actor being escalated (e.g., "Maintainer <2>")
+        breach_timeline_lines: Optional list of Markdown lines from
+            _build_actor_breach_timeline_section()
+        breach_timeline_data: Optional dict mapping actor_id -> breach state from
+            _build_actor_breach_timeline_section(), used for breach streak info
+
+    The output file is overwritten (not appended) to provide a single,
+    idempotent escalation brief.
+    """
+    # Ensure parent directory exists
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    params = results.get("parameters", {})
+    request_pattern = params.get("request_pattern", "unknown")
+
+    # Normalize target actor for lookup in stats
+    target_actor_id = normalize_actor_alias(target_actor)
+    target_actor_label = target_actor_id.replace("_", " ").title()
+
+    lines = [
+        "# Escalation Brief",
+        "",
+        f"**Generated:** {results.get('generated_utc', 'N/A')}",
+        f"**Recipient:** {sanitize_for_markdown(recipient)}",
+        f"**Blocking Actor:** {sanitize_for_markdown(target_actor)}",
+        f"**Request Pattern:** `{sanitize_for_markdown(request_pattern)}`",
+        "",
+    ]
+
+    # Blocking Actor Snapshot section
+    ack_actor_stats = results.get("ack_actor_stats", {})
+    target_stats = ack_actor_stats.get(target_actor_id, {})
+
+    if target_stats:
+        hrs_since = target_stats.get("hours_since_last_inbound")
+        hrs_since_str = f"{hrs_since:.2f}" if hrs_since is not None else "N/A"
+        threshold = target_stats.get("sla_threshold_hours")
+        threshold_str = f"{threshold:.2f}" if threshold is not None else "N/A"
+        deadline = target_stats.get("sla_deadline_utc") or "N/A"
+        breach_dur = target_stats.get("sla_breach_duration_hours")
+        breach_dur_str = f"{breach_dur:.2f}" if breach_dur is not None else "0.00"
+        severity = target_stats.get("sla_severity", "unknown")
+        ack_files = target_stats.get("ack_files", [])
+        ack_files_str = ", ".join(f"`{f}`" for f in ack_files) if ack_files else "None"
+
+        lines.extend([
+            "## Blocking Actor Snapshot",
+            "",
+            f"**Actor:** {target_actor_label}",
+            "",
+            "| Metric | Value |",
+            "|--------|-------|",
+            f"| Hours Since Inbound | {hrs_since_str} |",
+            f"| SLA Threshold | {threshold_str} hours |",
+            f"| Deadline (UTC) | {deadline} |",
+            f"| Hours Past SLA | {breach_dur_str} |",
+            f"| Severity | {severity.upper() if severity else 'UNKNOWN'} |",
+            f"| Ack Files | {ack_files_str} |",
+            "",
+        ])
+
+        if severity in ("warning", "critical"):
+            lines.extend([
+                f"> **SLA BREACH ({severity.upper()}):** {target_actor_label} has exceeded the SLA threshold.",
+                "",
+            ])
+    else:
+        lines.extend([
+            "## Blocking Actor Snapshot",
+            "",
+            f"**Actor:** {target_actor_label}",
+            "",
+            "*Data unavailable for this actor. The actor may not be in the monitored ack_actors list.*",
+            "",
+        ])
+
+    # Breach Streak Summary section (from timeline data if available)
+    lines.extend([
+        "## Breach Streak Summary",
+        "",
+    ])
+
+    if breach_timeline_data and target_actor_id in breach_timeline_data:
+        breach_state = breach_timeline_data[target_actor_id]
+        breach_start = breach_state.get("breach_start")
+        latest_scan = breach_state.get("latest_scan")
+        current_streak = breach_state.get("current_streak", 0)
+        hours_past = breach_state.get("hours_past_sla", 0.0)
+
+        breach_start_str = breach_start[:19] if breach_start else "N/A"
+        latest_scan_str = latest_scan[:19] if latest_scan else "N/A"
+        hours_past_str = f"{hours_past:.2f}" if hours_past > 0 else "0.00"
+
+        lines.extend([
+            "| Metric | Value |",
+            "|--------|-------|",
+            f"| Current Streak | {current_streak} consecutive scan(s) |",
+            f"| Breach Start | {breach_start_str} |",
+            f"| Latest Scan | {latest_scan_str} |",
+            f"| Peak Hours Past SLA | {hours_past_str} |",
+            "",
+        ])
+    else:
+        lines.extend([
+            "*Breach streak data unavailable. Use `--history-jsonl` to enable breach tracking.*",
+            "",
+        ])
+
+    # Action Items section
+    lines.extend([
+        "## Action Items",
+        "",
+        f"1. Review the SLA breach evidence for {target_actor_label}",
+        f"2. Contact {sanitize_for_markdown(recipient)} to escalate the blocking issue",
+        f"3. Reference request pattern: `{sanitize_for_markdown(request_pattern)}`",
+        f"4. Request acknowledgement or status update from {target_actor_label}",
+        "",
+    ])
+
+    # Proposed Message section (targeting the brief recipient, referencing blocking actor)
+    hrs_since = target_stats.get("hours_since_last_inbound") if target_stats else None
+    hrs_since_str = f"{hrs_since:.2f}" if hrs_since is not None else "N/A"
+
+    lines.extend([
+        "## Proposed Message",
+        "",
+        f"The following can be used when contacting {sanitize_for_markdown(recipient)}:",
+        "",
+        "> **Escalation: SLA Breach on Request**",
+        ">",
+        f"> Hello {sanitize_for_markdown(recipient)},",
+        ">",
+        f"> I am escalating an SLA breach regarding the `{sanitize_for_markdown(request_pattern)}` request.",
+        f"> {target_actor_label} has not acknowledged receipt, and it has been **{hrs_since_str} hours**",
+        "> since the last inbound message from them, exceeding our SLA threshold.",
+        ">",
+        f"> Could you please assist in obtaining a response or status update from {target_actor_label}?",
+        ">",
+        "> If there are any blockers or issues on their end, please let us know so we can adjust our plans.",
+        ">",
+        "> Thank you,",
+        "> Maintainer <1>",
+        "",
+    ])
+
+    # Ack Actor Breach Timeline section (if provided)
+    if breach_timeline_lines:
+        lines.extend(breach_timeline_lines)
+
+    # Write the brief (overwrite mode for idempotency)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+
+def _build_actor_breach_timeline_section(entries: list) -> tuple[list, dict]:
     """
     Build the Ack Actor Breach Timeline section for the history dashboard.
 
@@ -1540,7 +1737,12 @@ def _build_actor_breach_timeline_section(entries: list) -> list:
 
     Severity priority for sorting: critical > warning > ok > unknown
 
-    Returns a list of Markdown lines for the section.
+    Returns:
+        (lines, active_breaches) where:
+        - lines: list of Markdown lines for the section
+        - active_breaches: dict mapping actor_id -> breach state dict with keys:
+            actor_label, breach_start, latest_scan, current_streak, hours_past_sla, severity
+
     Gracefully handles entries without ack_actor_summary data.
     """
     lines = []
@@ -1631,7 +1833,7 @@ def _build_actor_breach_timeline_section(entries: list) -> list:
             "All tracked actors are currently within SLA thresholds or have returned to OK status.",
             "",
         ])
-        return lines
+        return lines, {}
 
     # Sort by severity priority (critical > warning), then by hours_past_sla descending
     def breach_sort_key(item):
@@ -1663,7 +1865,7 @@ def _build_actor_breach_timeline_section(entries: list) -> list:
         )
 
     lines.append("")
-    return lines
+    return lines, active_breaches
 
 
 def _build_actor_severity_trends_section(entries: list) -> list:
@@ -1918,7 +2120,8 @@ def write_history_dashboard(
     lines.extend(_build_actor_severity_trends_section(entries))
 
     # Ack Actor Breach Timeline - per-actor breach state tracking
-    lines.extend(_build_actor_breach_timeline_section(entries))
+    breach_timeline_lines, _ = _build_actor_breach_timeline_section(entries)
+    lines.extend(breach_timeline_lines)
 
     # Write the dashboard (overwrite mode for idempotency)
     with open(output_path, "w", encoding="utf-8") as f:
@@ -1985,6 +2188,7 @@ def main():
 
     # Append to history files if specified
     breach_timeline_lines = None  # Only populated when history JSONL is enabled
+    breach_timeline_data = None   # Dict of actor_id -> breach state (for escalation brief)
     if args.history_jsonl:
         history_jsonl_path = Path(args.history_jsonl)
         append_history_jsonl(results, history_jsonl_path)
@@ -2005,7 +2209,7 @@ def main():
                     except json.JSONDecodeError:
                         continue
         if history_entries:
-            breach_timeline_lines = _build_actor_breach_timeline_section(history_entries)
+            breach_timeline_lines, breach_timeline_data = _build_actor_breach_timeline_section(history_entries)
 
     if args.history_markdown:
         history_md_path = Path(args.history_markdown)
@@ -2033,6 +2237,18 @@ def main():
             breach_timeline_lines
         )
         print(f"Escalation note written: {escalation_note_path}")
+
+    # Write escalation brief if specified
+    if args.escalation_brief:
+        escalation_brief_path = Path(args.escalation_brief)
+        write_escalation_brief(
+            results, escalation_brief_path,
+            recipient=args.escalation_brief_recipient,
+            target_actor=args.escalation_brief_target,
+            breach_timeline_lines=breach_timeline_lines,
+            breach_timeline_data=breach_timeline_data
+        )
+        print(f"Escalation brief written: {escalation_brief_path}")
 
     # Print summary
     print(f"Files scanned: {results['scanned']}")

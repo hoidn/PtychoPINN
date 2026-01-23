@@ -1215,3 +1215,40 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 **Next Actions:**
 - F1 remains open; Maintainer <2> has not yet acknowledged the bundle (SLA breach: 2.99 hours past threshold, severity: critical)
 - If Maintainer <2> ignores after this drop, prep escalation template for Maintainer <3> pulling breach streak from snippet
+
+---
+
+**2026-01-23T12:35Z — Escalation Brief for Maintainer <3>**
+
+**Summary:** Implemented `--escalation-brief` CLI feature to generate a Markdown brief for third-party escalation (e.g., to Maintainer <3> about Maintainer <2>).
+
+**Implementation:**
+1. Added CLI args: `--escalation-brief`, `--escalation-brief-recipient`, `--escalation-brief-target`
+2. Updated `_build_actor_breach_timeline_section()` to return `(lines, active_breaches)` tuple
+3. Added `write_escalation_brief()` function with sections:
+   - Blocking Actor Snapshot (hours since inbound, SLA threshold, deadline, hours past SLA, severity)
+   - Breach Streak Summary (current streak, breach start/latest scan from timeline data)
+   - Action Items
+   - Proposed Message (blockquote referencing the recipient)
+   - Ack Actor Breach Timeline (when `--history-jsonl` provided)
+4. Updated `main()` to call `write_escalation_brief()` when flag is set
+
+**Test:**
+- Added `test_escalation_brief_targets_blocker` in `tests/tools/test_check_inbox_for_ack_cli.py`
+- Validates: brief file exists, contains Blocking Actor Snapshot, severity text, breach timeline, proposed message referencing recipient
+
+**Metrics:**
+- Tests: `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` — 20 passed (1.21s)
+- Loader: `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.58s)
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T123500Z/inbox_status/escalation_brief_maintainer3.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T123500Z/logs/pytest_escalation_brief.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T123500Z/logs/pytest_check_inbox_suite.log`
+- `inbox/response_dose_experiments_ground_truth.md` (updated with 2026-01-23T12:35Z status block)
+- `inbox/followup_dose_experiments_ground_truth_2026-01-23T123500Z.md` (escalation follow-up to M3)
+
+**Next Actions:**
+- F1 remains open; Maintainer <2> has not yet acknowledged the bundle (SLA breach: 3.23 hours past threshold, severity: critical)
+- Escalation brief for Maintainer <3> is now available at the artifact path above
+- Monitor for acknowledgement from either Maintainer <2> or Maintainer <3>

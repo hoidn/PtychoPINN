@@ -693,3 +693,58 @@ The breach timeline section that was previously only in the history dashboard is
 - Scan summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T113500Z/inbox_sla_watch/`
 - Test logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T113500Z/logs/`
 - Follow-up note: `inbox/followup_dose_experiments_ground_truth_2026-01-23T113500Z.md`
+
+---
+
+### Status as of 2026-01-23T123500Z (Escalation Brief for Maintainer <3>)
+
+**New feature: Escalation Brief CLI**
+
+A new `--escalation-brief` flag enables generating a Markdown brief for third-party escalation. This is designed to notify Maintainer <3> about the ongoing SLA breach from Maintainer <2>.
+
+**New CLI flags:**
+- `--escalation-brief <path>`: Output path for the brief
+- `--escalation-brief-recipient <actor>`: The recipient of the brief (default: Maintainer <3>)
+- `--escalation-brief-target <actor>`: The blocking actor (default: Maintainer <2>)
+
+**Brief contents:**
+- **Blocking Actor Snapshot**: Hours since inbound, SLA threshold, deadline, hours past SLA, severity
+- **Breach Streak Summary**: Current streak count, breach start, latest scan (requires `--history-jsonl`)
+- **Action Items**: Steps for escalation
+- **Proposed Message**: Blockquote template addressing the recipient about the blocking actor
+- **Ack Actor Breach Timeline**: Per-actor breach state (when `--history-jsonl` provided)
+
+**Latest scan:**
+| Metric | Value |
+|--------|-------|
+| Last Inbound (from Maintainer <2>) | 2026-01-22T23:22:58Z |
+| Hours Since Last Inbound | 5.23 hours |
+| SLA Threshold (Maintainer <2>) | 2.00 hours |
+| Hours Past SLA | 3.23 hours |
+| Current Breach Streak | 1 |
+| Severity | CRITICAL |
+| Maintainer <3> Status | Unknown (no inbound messages) |
+
+**Escalation brief excerpt (from `escalation_brief_maintainer3.md`):**
+> I am escalating an SLA breach regarding the `dose_experiments_ground_truth` request.
+> Maintainer 2 has not acknowledged receipt, and it has been **5.23 hours** since the last inbound message from them, exceeding our SLA threshold.
+
+**New test selector:**
+```bash
+pytest tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_brief_targets_blocker -q
+```
+
+**Test results:**
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_brief_targets_blocker -q` — 1 passed
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` — 20 passed (1.21s)
+- `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.58s)
+
+**Artifact paths:**
+- Escalation brief: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T123500Z/inbox_status/escalation_brief_maintainer3.md`
+- Status snippet: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T123500Z/inbox_status/status_snippet.md`
+- Escalation note (Maintainer <2>): `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T123500Z/inbox_status/escalation_note.md`
+- History dashboard: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T123500Z/inbox_history/inbox_history_dashboard.md`
+- History JSONL: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T123500Z/inbox_history/inbox_sla_watch.jsonl`
+- Scan summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T123500Z/inbox_sla_watch/`
+- Test logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T123500Z/logs/`
+- Follow-up note: `inbox/followup_dose_experiments_ground_truth_2026-01-23T123500Z.md`

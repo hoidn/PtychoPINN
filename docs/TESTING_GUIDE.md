@@ -80,6 +80,23 @@ This selector validates:
 
 Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T113500Z/logs/pytest_escalation_note.log`
 
+### Inbox Acknowledgement CLI (Escalation Brief)
+
+The CLI supports generating a Markdown escalation brief via the `--escalation-brief` flag. This brief is designed for third-party escalation (e.g., to Maintainer <3>) about a blocking actor (e.g., Maintainer <2>) who has not acknowledged a request. To run the escalation brief test:
+
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_brief_targets_blocker -q`
+
+This selector validates:
+- `--escalation-brief` flag writes a Markdown file with "Escalation Brief" heading
+- Brief includes "Blocking Actor Snapshot" section with actor stats (hours since inbound, SLA threshold, deadline, hours past SLA, severity, ack files)
+- Brief includes "Breach Streak Summary" section with current streak, breach start, latest scan (when `--history-jsonl` provided)
+- Brief includes "Action Items" section listing escalation steps
+- Brief includes "Proposed Message" blockquote referencing the `--escalation-brief-recipient`
+- With `--history-jsonl`: "Ack Actor Breach Timeline" section shows per-actor breach data
+- Brief is idempotent (overwrites rather than appends)
+
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T123500Z/logs/pytest_escalation_brief.log`
+
 ### Inbox Acknowledgement CLI (History Dashboard)
 
 The CLI also supports generating a Markdown history dashboard via the `--history-dashboard` flag. This dashboard aggregates data from the JSONL history log to show total scans, ack count, breach count, longest wait, and a recent scans timeline. To run the history dashboard test:

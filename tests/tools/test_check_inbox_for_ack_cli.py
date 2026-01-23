@@ -2104,3 +2104,146 @@ Please provide the dose experiments ground truth bundle.
     severity = cols[6]
     assert severity == "CRITICAL", \
         f"Maintainer 2 severity should be CRITICAL, got '{severity}'"
+
+
+def test_escalation_brief_targets_blocker(tmp_path):
+    """
+    Test --escalation-brief generates a Maintainer <3> brief about Maintainer <2> blocker.
+
+    Creates a temp inbox with:
+    - An inbound Maintainer <2> message ~5h old (no ack)
+    - One fresh outbound from Maintainer <1>
+
+    Runs the CLI with:
+    - --escalation-brief (output path)
+    - --escalation-brief-recipient "Maintainer <3>"
+    - --escalation-brief-target "Maintainer <2>"
+    - --history-jsonl, --history-markdown, --status-snippet
+    - --sla-hours 2.0, --ack-actor for M2/M3, --fail-when-breached
+
+    Asserts:
+    1. Brief file exists
+    2. Brief includes "Blocking Actor Snapshot" section with Maintainer 2 data
+    3. Brief includes "Maintainer 2" severity text (CRITICAL expected)
+    4. Brief includes "Ack Actor Breach Timeline" section (history logging enabled)
+    5. Brief includes proposed message referencing "Maintainer <3>" as the recipient
+    """
+    inbox_dir = tmp_path / "inbox"
+    inbox_dir.mkdir()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    brief_path = tmp_path / "escalation_brief.md"
+    history_jsonl_path = tmp_path / "history.jsonl"
+    history_md_path = tmp_path / "history.md"
+    status_snippet_path = tmp_path / "status.md"
+
+    # Create inbound message from Maintainer <2> (~5 hours ago, no ack keywords)
+    inbound_content = """# Request: dose_experiments_ground_truth
+
+**From:** Maintainer <2>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T10:00:00Z
+
+Please provide the dose experiments ground truth bundle.
+"""
+    create_inbox_file(inbox_dir, "request_dose_experiments_ground_truth.md", inbound_content, -5.0)
+
+    # Create fresh outbound from Maintainer <1> (1 hour ago)
+    outbound_content = """# Response: dose_experiments_ground_truth
+
+**From:** Maintainer <1>
+**To:** Maintainer <2>
+**Date:** 2026-01-22T14:00:00Z
+
+Bundle delivered at reports/dose_experiments_ground_truth/
+"""
+    create_inbox_file(inbox_dir, "response_dose_experiments_ground_truth.md", outbound_content, -1.0)
+
+    # Run CLI with escalation brief flags
+    result = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--keywords", "acknowledged",
+            "--keywords", "confirm",
+            "--keywords", "received",
+            "--keywords", "thanks",
+            "--ack-actor", "Maintainer <2>",
+            "--ack-actor", "Maintainer <3>",
+            "--sla-hours", "2.0",
+            "--ack-actor-sla", "Maintainer <2>=2.0",
+            "--ack-actor-sla", "Maintainer <3>=6.0",
+            "--fail-when-breached",
+            "--history-jsonl", str(history_jsonl_path),
+            "--history-markdown", str(history_md_path),
+            "--status-snippet", str(status_snippet_path),
+            "--escalation-brief", str(brief_path),
+            "--escalation-brief-recipient", "Maintainer <3>",
+            "--escalation-brief-target", "Maintainer <2>",
+            "--output", str(output_dir)
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    # Exit code 2 expected since SLA is breached and --fail-when-breached is set
+    assert result.returncode == 2, \
+        f"Expected exit code 2 (SLA breach), got {result.returncode}. stderr: {result.stderr}"
+
+    # Assert 1: Brief file exists
+    assert brief_path.exists(), "Escalation brief file not created"
+
+    # Read brief content
+    brief_content = brief_path.read_text()
+
+    # Assert 2: Brief includes "Blocking Actor Snapshot" section
+    assert "## Blocking Actor Snapshot" in brief_content, \
+        "Brief missing 'Blocking Actor Snapshot' section"
+    assert "Maintainer 2" in brief_content, \
+        "Brief should mention Maintainer 2 in blocking actor snapshot"
+
+    # Assert 3: Brief shows severity (should be CRITICAL since 5h > 2h threshold)
+    # Look for severity text in the snapshot section
+    assert "SLA BREACH" in brief_content or "CRITICAL" in brief_content, \
+        "Brief should indicate SLA breach or CRITICAL severity for Maintainer 2"
+
+    # Assert 4: Brief includes "Ack Actor Breach Timeline" section (history logging enabled)
+    assert "## Ack Actor Breach Timeline" in brief_content, \
+        "Brief should include 'Ack Actor Breach Timeline' section when --history-jsonl is provided"
+
+    # Assert 5: Proposed message references Maintainer <3> as recipient
+    assert "## Proposed Message" in brief_content, \
+        "Brief missing 'Proposed Message' section"
+    assert "Maintainer <3>" in brief_content or "Maintainer 3" in brief_content, \
+        "Proposed message should reference Maintainer <3> as the escalation recipient"
+
+    # Additional checks
+    assert "# Escalation Brief" in brief_content, \
+        "Brief missing main heading"
+    assert "dose_experiments_ground_truth" in brief_content, \
+        "Brief should reference the request pattern"
+
+    # Verify the brief is idempotent (running again should overwrite, not append)
+    result2 = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--keywords", "acknowledged",
+            "--ack-actor", "Maintainer <2>",
+            "--sla-hours", "2.0",
+            "--escalation-brief", str(brief_path),
+            "--escalation-brief-recipient", "Maintainer <3>",
+            "--escalation-brief-target", "Maintainer <2>",
+            "--output", str(output_dir / "run2")
+        ],
+        capture_output=True,
+        text=True
+    )
+    # Don't check return code (may be 0 since --fail-when-breached not set this time)
+
+    brief_content2 = brief_path.read_text()
+    # Should have exactly one header (not duplicated)
+    assert brief_content2.count("# Escalation Brief") == 1, \
+        "Brief header should appear exactly once (idempotent)"

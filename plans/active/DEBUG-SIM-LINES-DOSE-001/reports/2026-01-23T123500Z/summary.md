@@ -1,5 +1,7 @@
 ### Turn Summary
-Scoped Maintainer <3> escalation brief work for F1 (new CLI flags/helper, regression test, docs, CLI/inbox updates) and recorded it in input.md.
-Documented pytest + CLI command map plus artifact path 2026-01-23T123500Z; git pull --rebase remains blocked by the large dirty worktree but noted in galph_memory.
-Next: Ralph implements the brief/tests, runs the CLI bundle, and refreshes docs/inbox/fix_plan per the plan.
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T123500Z/
+Implemented `--escalation-brief` CLI feature with three new flags to generate a Markdown brief for third-party escalation.
+Updated `_build_actor_breach_timeline_section` to return breach state data alongside Markdown lines.
+Added `write_escalation_brief` function producing Blocking Actor Snapshot, Breach Streak Summary, Action Items, and Proposed Message sections.
+All 20 tests pass; new test `test_escalation_brief_targets_blocker` validates the brief format.
+Next: monitor for acknowledgement from Maintainer <2> or <3>.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T123500Z/ (escalation_brief_maintainer3.md, pytest_escalation_brief.log)
