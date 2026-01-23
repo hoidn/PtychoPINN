@@ -4,9 +4,12 @@
 `in_progress`
 
 ## Current Focus
-**seed — Inbox monitoring and response (checklist S4)**
+**DEBUG-SIM-LINES-DOSE-001 — Legacy dose_experiments ground-truth bundle**
 
-Need to finish the D0 parity handoff by surfacing stage-level stats for every dataset in the Markdown log and syncing the new CLI/test selector across the testing docs so maintainers can run it without parsing JSON.
+Maintainer <2> asked for a faithful simulate→train→infer run from the legacy `dose_experiments` pipeline because their TF/Keras 3.x environment crashes. We must package the photon_grid_study_20250826_152459 baseline (datasets, params, checkpoints, reconstructions, README with commands) under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/` using non-production tooling so Ralph can ship evidence without touching shipped modules.
+
+- Working Plan: `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md`
+- Request Source: `inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md`
 
 ## Completed Items
 - [x] S1: Check `inbox/` for new requests — found `README_prepare_d0_response.md`
@@ -135,6 +138,15 @@ python scripts/tools/d0_parity_logger.py \
 
 **Next Actions:**
 - S4 complete; await maintainer review of parity evidence
+
+### 2026-01-23T00:06Z — DEBUG-SIM-LINES-DOSE-001 (plan reboot + request triage)
+**Action:** Switched focus from `seed` to the maintainer request in `inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md`, drafted a fresh implementation plan at `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md`, and documented the dependency chain + exit criteria for the legacy artifact bundle.
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md`
+
+**Next Actions:**
+- Phase A: build `make_ground_truth_manifest.py`, gather SHA manifests for datasets + baseline outputs, and capture pytest loader logs under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<ts>/`.
 
 ## TODOs
 - [x] S4: Expand the D0 parity Markdown report to list stage-level stats for every dataset and document the new test selector (`tests/tools/test_d0_parity_logger.py`) inside `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.

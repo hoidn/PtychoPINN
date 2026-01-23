@@ -1,0 +1,50 @@
+# DEBUG-SIM-LINES-DOSE-001 — Legacy dose_experiments Ground-Truth Bundle
+
+## Metadata
+- **ID:** DEBUG-SIM-LINES-DOSE-001
+- **Title:** Package photon_grid_study_20250826 baseline artifacts for Maintainer <2>
+- **Owner:** Galph (supervisor) / Ralph (implementation)
+- **Status:** Active — Phase A
+- **Linked Request:** `inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md`
+- **Artifacts Hub:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/`
+
+## Exit Criteria
+1. Deliver a reproducible bundle at `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/` containing:
+   - The seven photon_grid_study_20250826_152459 datasets (`data_p1e3.npz` … `data_p1e9.npz`) with SHA256 manifest per `specs/data_contracts.md §RawData NPZ`.
+   - Baseline training outputs (params.dill, baseline_model.h5, recon.dill, history) and inference weights (`wts.h5.zip`) validated via checksum + size metadata.
+   - README describing legacy simulate→train→infer commands, config overrides, and environment notes.
+2. Capture an automation script under `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/` that regenerates the manifest/README from the on-disk artifacts without touching shipped modules.
+3. Provide a verification log (pytest selector collecting >0) showing the TensorFlow data loader still ingests the datasets referenced in the manifest.
+
+## Spec Alignment
+- `specs/data_contracts.md §RawData NPZ` — enumerates required NPZ keys (`diff3d`, `probeGuess`, `scan_index`, etc.) that each dataset must satisfy.
+- `docs/DATA_MANAGEMENT_GUIDE.md §Checksum Manifests` — mandates SHA tracking for shared datasets.
+- `docs/WORKFLOW_GUIDE.md §Dose Experiments` — describes the simulate→train→infer order to be documented in the README.
+
+## Phases & Checklists
+
+### Phase A — Manifest + Verification
+- [ ] A1: Implement `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/make_ground_truth_manifest.py` to scan photon_grid_study_20250826_152459, collect SHA256 sums for datasets + baseline outputs, and emit `{json,md}` manifests plus CSV of file metadata.
+- [ ] A2: Add a pytest-backed smoke test (reuse `tests/test_generic_loader.py::test_generic_loader`) to confirm NPZ files referenced in the manifest still load; archive the log under the same reports directory.
+
+### Phase B — README + Command Blueprint
+- [ ] B1: Author `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<ts>/README.md` detailing simulate→train→infer commands, config overrides, and environment expectations derived from `notebooks/dose_dependence.ipynb` and `inbox/response_prepare_d0_response.md`.
+- [ ] B2: Include a provenance table mapping each artifact (datasets, params, weights, reconstructions) to its source path, checksum, and stage (simulation/training/inference).
+
+### Phase C — Artifact Drop
+- [ ] C1: Copy the required NPZ datasets and baseline outputs into `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/`, preserving directory structure (simulation/, training/, inference/ subfolders) and recording SHA verification logs.
+- [ ] C2: (If bundle exceeds repo-friendly size) generate a `.tar.gz` with identical contents plus manifest, then capture its checksum + size in the README.
+
+## Dependency Analysis
+- Uses existing photon_grid_study_20250826_152459 datasets and baseline outputs already present under the repo root; no production code changes or new dependencies required.
+- Relies on `plans/active/seed/bin/dose_baseline_snapshot.py` for reference formatting but replicates logic locally to avoid shared coupling.
+- Risk: Copying 200+ MB of NPZ files into `plans/active/...` may blow repo size if committed; coordinate with maintainer if Git LFS or external storage is preferable before running C1/C2.
+
+## Artifacts
+- Reports path per loop: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<ISO8601Z>/`
+- Final drop: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/`
+- Scripts: `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/make_ground_truth_manifest.py`
+
+## Abort / Escalation Triggers
+- If any dataset or baseline file listed in the request is missing or corrupted (checksum mismatch), halt and open a maintainer request documenting the loss with evidence.
+- If copying artifacts risks exceeding repo storage constraints, pause Phase C and negotiate an alternate delivery channel via maintainer inbox before resuming.

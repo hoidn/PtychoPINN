@@ -11,7 +11,7 @@ Check `inbox/` and act accordingly.
 - [x] S1: Check `inbox/` for new requests and read them.
 - [x] S2: If a request exists, document the response plan and update `fix_plan.md`.
 - [x] S3: If no requests exist, record the check in `fix_plan.md`.
-- [ ] S4: Close out the D0 parity logger deliverable by surfacing stage-level stats for every dataset in the Markdown log and syncing the new CLI/test selector through the testing docs.
+- [x] S4: Close out the D0 parity logger deliverable by surfacing stage-level stats for every dataset in the Markdown log and syncing the new CLI/test selector through the testing docs.
 
 ## Notes
 - Keep responses in the maintainer inbox format (one file per request).

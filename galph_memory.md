@@ -19,3 +19,7 @@ notes=git pull --rebase was skipped because the worktree has extensive tracked +
 ## 2026-01-22T233543Z
 focus=seed state=ready_for_implementation dwell=2 action_type=planning artifacts=plans/active/seed/reports/2026-01-22T233418Z/ next_action=Ralph ships S4 multi-dataset Markdown + limit-filter tests/docs + rerun CLI <Action State>=ready_for_implementation
 notes=Confirmed fix_plan focus still seed S4, reviewed write_markdown + tests, and rewrote input.md with concrete implementation + pytest + CLI steps (doc sync + artifact path 2026-01-22T233418Z). git pull --rebase skipped because repo has dirty working tree that blocked the command; no files touched.
+
+## 2026-01-23T001111Z
+focus=DEBUG-SIM-LINES-DOSE-001 state=planning dwell=0 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/ next_action=ready_for_implementation (ship A1 manifest CLI + pytest loader log) <Action State>=planning
+notes=Pivoted from seed to DEBUG-SIM-LINES-DOSE-001 after maintainer request, refreshed fix_plan current focus, authored a new implementation plan covering manifest/README/bundle phases, and rewrote input.md so Ralph builds the Phase A1 manifest CLI + validation pytest in the next loop.
