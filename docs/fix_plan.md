@@ -340,6 +340,19 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 **Next Actions:**
 - DEBUG-SIM-LINES-DOSE-001.E1 complete; await Maintainer <2> acknowledgment to close DEBUG-SIM-LINES-DOSE-001
 
+### 2026-01-23T01:19Z — DEBUG-SIM-LINES-DOSE-001.F1 (follow-up sent)
+**Action:** Drafted follow-up note from Maintainer <1> to Maintainer <2> at `inbox/followup_dose_experiments_ground_truth_2026-01-23T011900Z.md` summarizing the delivered bundle and requesting acknowledgement. Re-ran the loader pytest for fresh evidence.
+
+**Test:** `pytest tests/test_generic_loader.py::test_generic_loader -q` — Result logged to artifacts
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T011900Z/pytest_loader.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T011900Z/followup_note.md` (archive copy)
+- `inbox/followup_dose_experiments_ground_truth_2026-01-23T011900Z.md`
+
+**Next Actions:**
+- Awaiting Maintainer <2> acknowledgement; once received, mark DEBUG-SIM-LINES-DOSE-001 complete
+
 ## TODOs
 - [x] S4: Expand the D0 parity Markdown report to list stage-level stats for every dataset and document the new test selector (`tests/tools/test_d0_parity_logger.py`) inside `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.
 - [x] S3: Promote D0 parity logger into `scripts/tools/` with stage-level stats + tests, then capture artifacts for photon_grid_study_20250826_152459
@@ -349,3 +362,4 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - [x] DEBUG-SIM-LINES-DOSE-001.C2: Capture checksum verification logs for the final bundle (or tarball) and confirm size constraints / delivery instructions in `galph_memory.md` + maintainer inbox.
 - [x] DEBUG-SIM-LINES-DOSE-001.D1: Draft `inbox/response_dose_experiments_ground_truth.md` that cites the final drop root, README/manifest paths, bundle_verification logs, tarball SHA, and the validating `pytest tests/test_generic_loader.py::test_generic_loader -q` log so Maintainer <2> can close the request.
 - [x] DEBUG-SIM-LINES-DOSE-001.E1: Verify the tarball rehydration path by extracting `dose_experiments_ground_truth.tar.gz`, regenerating the manifest, diffing it against `reports/2026-01-23T001018Z/ground_truth_manifest.json`, logging the comparison under `reports/<ts>/rehydration_check/`, re-running `pytest tests/test_generic_loader.py::test_generic_loader -q`, and updating the maintainer response with the results.
+- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Engineering work is complete; follow-up note sent at `inbox/followup_dose_experiments_ground_truth_2026-01-23T011900Z.md`.
