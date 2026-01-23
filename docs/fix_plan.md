@@ -568,6 +568,15 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 
 **Next Actions:**
 - F1 remains open; Maintainer <2> has not yet acknowledged the bundle
+
+### 2026-01-23T10:35Z — DEBUG-SIM-LINES-DOSE-001.F1 (per-actor breach timeline scoped)
+**Action:** Maintainer <3> still lacks a clear SLA story even after the actor-severity trends table because the dashboard only shows aggregate counts. We need a breach timeline that states when Maintainer <2> first crossed the deadline, how long the current breach streak has lasted, and whether the escalation remains active so Maintainer <3> can intervene without spelunking history JSONL entries.
+
+**Next Actions:**
+- Extend `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py::write_history_dashboard` with a new helper (e.g., `_build_actor_breach_timeline_section`) that scans the JSONL history, computes per-actor breach start timestamps, latest breach scans, consecutive breach streaks, and current breach ages (hours past the SLA deadline) for actors in warning/critical states, and renders an "## Ack Actor Breach Timeline" table with sanitized Markdown plus graceful fallback when history lacks per-actor data.
+- Add `tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_actor_breach_timeline` that runs the CLI twice with history logging/dashboard enabled (M2 >3h late, M3 still unknown) and asserts the dashboard shows the new section, Maintainer 2 row with `Current Streak = 2`, and non-empty breach start/age fields.
+- After landing the code/test, update `docs/TESTING_GUIDE.md` (§Inbox acknowledgement CLI) and `docs/development/TEST_SUITE_INDEX.md` with the new selector/log, record the attempt in this file, append the 2026-01-23T103500Z status block to `inbox/response_dose_experiments_ground_truth.md`, and draft `inbox/followup_dose_experiments_ground_truth_2026-01-23T103500Z.md` referencing the breach timeline evidence for Maintainers <2>/<3>.
+- Execute the CLI with the usual SLA/actor flags into `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/` (capturing `inbox_history/`, `inbox_status/`, `inbox_sla_watch/`, and `logs/`), and rerun `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_actor_breach_timeline -q`, the full inbox CLI suite, `pytest --collect-only` for the new selector, and `pytest tests/test_generic_loader.py::test_generic_loader -q` with outputs tee'd into the same artifact root.
 - Status snippet available for embedding in maintainer response
 
 ### 2026-01-23T02:19Z — DEBUG-SIM-LINES-DOSE-001.F1 (escalation note scoped)

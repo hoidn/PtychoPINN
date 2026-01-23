@@ -107,3 +107,7 @@ notes=Added the per-actor severity history scope to docs/fix_plan.md, refreshed 
 ## 2026-01-23T093000Z
 focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=2 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/ next_action=Ralph ships the per-actor history-dashboard trends + pytest/docs/inbox refresh per new input <Action State>=ready_for_implementation
 notes=timeout 30 git pull --rebase is still blocked by the user’s dirty worktree; left untouched. Reviewed the 2026-01-23T083500Z artifacts and noted the history dashboard still lacks per-actor severity stats, added the new 09:35Z scope to docs/fix_plan.md, staged the 2026-01-23T093500Z artifact root, and rewrote input.md so Ralph extends write_history_dashboard, adds the new regression test/docs, reruns the CLI/tests, and captures the updated maintainer response + follow-up files.
+
+## 2026-01-23T103000Z
+focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=0 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/ next_action=Ralph ships history-dashboard breach timeline + pytest/docs/inbox evidence per refreshed input <Action State>=ready_for_implementation
+notes=Confirmed Maintainer <2> remains non-responsive, added the per-actor breach timeline scope to docs/fix_plan.md, and rewrote input.md with concrete code/test/CLI/doc instructions (new artifacts root 2026-01-23T103500Z) so Ralph can implement immediately while capturing the new selector + follow-up evidence.
