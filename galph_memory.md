@@ -63,3 +63,7 @@ notes=Authored a new Do Now that upgrades check_inbox_for_ack.py with `--sla-hou
 ## 2026-01-23T014201Z
 focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=1 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014011Z/ next_action=Ralph adds history logging + runs inbox CLI tests + refreshes docs <Action State>=ready_for_implementation
 notes=Scoped the next loop around persistent history logging for check_inbox_for_ack.py, captured the new artifacts root (2026-01-23T014011Z), and rewrote input.md with concrete CLI/test/doc instructions so Ralph can implement immediately.
+
+## 2026-01-23T015222Z
+focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=2 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T015222Z/ next_action=Ralph ships status-snippet CLI flag + pytest + doc updates + refreshed maintainer status <Action State>=ready_for_implementation
+notes=git pull --rebase is still blocked by the user's dirty worktree; left untouched. Reviewed the latest SLA/history artifacts and rewrote input.md so Ralph adds a --status-snippet writer + pytest, reruns the CLI into 2026-01-23T015222Z (JSON/MD/history/snippet), updates docs/TESTING_GUIDE.md + TEST_SUITE_INDEX, and refreshes docs/fix_plan.md plus the maintainer response with the new wait metrics.
