@@ -1,60 +1,57 @@
-Summary: Add SLA breach deadline/severity outputs to the inbox acknowledgement CLI and capture a Maintainer <3> escalation drop while we wait for ack.
+Summary: Extend the inbox acknowledgement CLI with per-actor SLA severity/deadline fields and refresh the DEBUG-SIM-LINES-DOSE-001.F1 evidence + follow-up bundle so Maintainer <2>/<3> see the current breach state.
 Focus: DEBUG-SIM-LINES-DOSE-001.F1 — Await Maintainer <2> acknowledgement of the delivered bundle
 Branch: dose_experiments
-Mapped tests: pytest tests/tools/test_check_inbox_for_ack_cli.py -q; pytest tests/test_generic_loader.py::test_generic_loader -q
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T040500Z/
+Mapped tests: pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_metrics_include_deadline -q; pytest tests/test_generic_loader.py::test_generic_loader -q
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/
 
 Do Now (hard validity contract)
 - Focus ID: DEBUG-SIM-LINES-DOSE-001.F1
-- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py::scan_inbox + write_markdown_summary + write_status_snippet + write_escalation_note + write_history_dashboard + append_history_jsonl + append_history_markdown — compute `sla_deadline_utc`, `breach_duration_hours`, and a severity label whenever `--sla-hours` is provided, surface those fields across JSON/Markdown/stdout/history outputs, and keep ack-actor coverage plus SLA breach exit semantics backward compatible.
-- Implement: tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_reports_deadline_and_severity — add a regression that fabricates dated Maintainer <2>/<3> messages, runs the CLI with a tight SLA threshold, and asserts the JSON/Markdown summaries expose the new deadline/breach/severity fields plus severity resets to `ok` once the threshold exceeds the wait time.
-- Update: docs/TESTING_GUIDE.md::Inbox acknowledgement CLI + docs/development/TEST_SUITE_INDEX.md::Inbox acknowledgement entry + docs/fix_plan.md (Attempts) + inbox/response_dose_experiments_ground_truth.md + inbox/followup_dose_experiments_ground_truth_2026-01-23T040500Z.md — document the new selector/log paths, record the SLA severity/per-actor evidence (including the Maintainer <3> escalation), and log the ongoing wait-state narrative.
-- Capture: export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && export ARTIFACT_ROOT=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T040500Z && mkdir -p "$ARTIFACT_ROOT"/{logs,inbox_history,inbox_status,inbox_sla_watch}; python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py --inbox inbox --request-pattern dose_experiments_ground_truth --keywords acknowledged --keywords confirm --keywords received --keywords thanks --ack-actor "Maintainer <2>" --ack-actor "Maintainer <3>" --sla-hours 2.0 --fail-when-breached --history-jsonl "$ARTIFACT_ROOT/inbox_history/inbox_sla_watch.jsonl" --history-markdown "$ARTIFACT_ROOT/inbox_history/inbox_sla_watch.md" --history-dashboard "$ARTIFACT_ROOT/inbox_history/inbox_history_dashboard.md" --status-snippet "$ARTIFACT_ROOT/inbox_status/status_snippet.md" --escalation-note "$ARTIFACT_ROOT/inbox_status/escalation_note.md" --escalation-recipient "Maintainer <3>" --output "$ARTIFACT_ROOT/inbox_sla_watch" | tee "$ARTIFACT_ROOT/logs/check_inbox.log" (exit 2 expected when the SLA breach persists).
-- Validate: pytest tests/tools/test_check_inbox_for_ack_cli.py -q | tee "$ARTIFACT_ROOT/logs/pytest_check_inbox_suite.log" && pytest tests/test_generic_loader.py::test_generic_loader -q | tee "$ARTIFACT_ROOT/logs/pytest_loader.log".
+- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py::scan_inbox — add per-actor `sla_deadline_utc`, `sla_breached`, `sla_breach_duration_hours`, `sla_severity`, and notes when `--sla-hours` is set, and thread those fields through write_markdown_summary/status_snippet/escalation_note plus CLI stdout so every Markdown/JSON surface shows Maintainer <2>/<3> wait severities.
+- Implement (test): tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_metrics_include_deadline — fabricate Maintainer <2> (3.5h old) + Maintainer <3> (no inbound) messages, run the CLI with `--ack-actor` flags, and assert JSON/Markdown both expose per-actor deadlines, breach durations, severity labels, and "unknown" entries for actors without inbound mail.
+- Update: docs/TESTING_GUIDE.md §Inbox Acknowledgement CLI, docs/development/TEST_SUITE_INDEX.md entry, docs/fix_plan.md Attempts history, inbox/response_dose_experiments_ground_truth.md (add 2026-01-23T024800Z/031500Z/040500Z/050500Z statuses), and author inbox/followup_dose_experiments_ground_truth_2026-01-23T050500Z.md referencing the new per-actor severity tables.
+- Capture: export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && export ARTIFACT_ROOT=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z && mkdir -p "$ARTIFACT_ROOT"/{logs,inbox_history,inbox_status,inbox_sla_watch}; python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py --inbox inbox --request-pattern dose_experiments_ground_truth --keywords acknowledged --keywords confirm --keywords received --keywords thanks --ack-actor "Maintainer <2>" --ack-actor "Maintainer <3>" --sla-hours 2.0 --fail-when-breached --history-jsonl "$ARTIFACT_ROOT/inbox_history/inbox_sla_watch.jsonl" --history-markdown "$ARTIFACT_ROOT/inbox_history/inbox_sla_watch.md" --history-dashboard "$ARTIFACT_ROOT/inbox_history/inbox_history_dashboard.md" --status-snippet "$ARTIFACT_ROOT/inbox_status/status_snippet.md" --escalation-note "$ARTIFACT_ROOT/inbox_status/escalation_note.md" --escalation-recipient "Maintainer <2>" --output "$ARTIFACT_ROOT/inbox_sla_watch" | tee "$ARTIFACT_ROOT/logs/check_inbox.log" (expect exit code 2 because `--fail-when-breached` stays enabled while waiting for ack).
+- Validate: pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_metrics_include_deadline -q | tee "$ARTIFACT_ROOT/logs/pytest_check_inbox_suite.log"; pytest tests/test_generic_loader.py::test_generic_loader -q | tee "$ARTIFACT_ROOT/logs/pytest_loader.log".
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/ (inbox_sla_watch/, inbox_status/, inbox_history/, logs/, summary.md, updated docs/inbox files referenced inside)
 
 How-To Map
-1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && export ARTIFACT_ROOT=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T040500Z && mkdir -p "$ARTIFACT_ROOT"/{logs,inbox_history,inbox_status,inbox_sla_watch} so every artifact lands under the new timestamp.
-2. Update `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py`: import `timedelta`, teach `scan_inbox()` to derive `sla_deadline_utc` (last inbound + sla_hours), `breach_duration_hours` (max(hours_since - threshold, 0)), and a severity string (`ok` when not breached, `warning` for <1 hour late, `critical` for >=1 hour). Thread those fields through `results['sla_watch']`, CLI stdout, `write_markdown_summary()`, `write_status_snippet()`, `write_escalation_note()`, `append_history_jsonl()`, `append_history_markdown()` (e.g., annotate the SLA column with severity), and `write_history_dashboard()` (add severity + breach-duration rows/columns). Keep JSON serialization (strings/floats only) and guard for missing inbound timestamps.
-3. Extend `tests/tools/test_check_inbox_for_ack_cli.py` with `test_sla_watch_reports_deadline_and_severity`: fabricate one Maintainer <2> message 3.5h old plus one Maintainer <3> message 1h old, run the CLI twice (threshold 2.0h vs 10.0h), assert the JSON `sla_watch` block contains `deadline_utc`, `breach_duration_hours`, `severity`, and that the Markdown summary includes the new “Severity”/“Deadline” lines; confirm severity flips back to `ok` when no breach.
-4. Run `pytest tests/tools/test_check_inbox_for_ack_cli.py -q | tee "$ARTIFACT_ROOT/logs/pytest_check_inbox_suite.log"` and `pytest tests/test_generic_loader.py::test_generic_loader -q | tee "$ARTIFACT_ROOT/logs/pytest_loader.log"`; treat non-zero exits (aside from the CLI run below) as blockers.
-5. Execute the CLI command under Capture (with Maintainer <2>/<3> ack actors and `--escalation-recipient "Maintainer <3>"`); keep all generated JSON/MD/snippets/history files plus stdout/stderr log under `$ARTIFACT_ROOT`, and accept exit code 2 because `--fail-when-breached` is intentional.
-6. Update `inbox/response_dose_experiments_ground_truth.md` with a new “Status as of 2026-01-23T040500Z” subsection that cites the latest SLA severity, deadline, breach age, and per-actor metrics (Maintainer <2> vs <3> rows). Draft `inbox/followup_dose_experiments_ground_truth_2026-01-23T040500Z.md` addressed to Maintainer <3> summarizing the SLA breach, per-actor coverage, and explicit ask for acknowledgement; link to the status snippet/escalation note/history dashboard paths. Capture the new attempt in `docs/fix_plan.md` (Attempts History) noting the severity instrumentation + Maintainer <3> escalation and reference `$ARTIFACT_ROOT`. Refresh `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md` with the new selector plus suite/collect log paths, then drop the Turn Summary block into `$ARTIFACT_ROOT/summary.md` once everything is staged.
+1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && export ARTIFACT_ROOT=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z && mkdir -p "$ARTIFACT_ROOT"/{logs,inbox_history,inbox_status,inbox_sla_watch} so every log/summary lands under the new timestamp.
+2. Update `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py`: in `scan_inbox()` compute per-actor SLA stats whenever `sla_hours` is provided (deadline, breach flag/duration, severity, and short notes for actors without inbound). Propagate the new fields into the stored `ack_actor_stats` dict, augment the Markdown tables (summary + status snippet + escalation note) with Deadline/Breach/Severity columns, and expand CLI stdout so the “Ack Actor Coverage” block prints the extra fields. Guard `None` cases so actors with zero inbound produce `deadline_utc=None`, `severity="unknown"`, and `notes="No inbound..."` instead of throwing.
+3. Add `test_ack_actor_sla_metrics_include_deadline` to `tests/tools/test_check_inbox_for_ack_cli.py`: create a temp inbox with a Maintainer <2> inbound file 3+ hours old (no ack keywords) and no Maintainer <3> inbound, run the CLI with `--ack-actor` flags plus `--sla-hours 2.0`, and assert JSON `ack_actor_stats['maintainer_2']` shows `sla_deadline_utc`, `sla_breach_duration_hours` > 1, `sla_severity == "critical"` while `ack_actor_stats['maintainer_3']` reports `sla_severity == "unknown"`. Verify `inbox_scan_summary.md` contains the expanded table headers (Deadline/Breach/Severity/Notes).
+4. Run `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_metrics_include_deadline -q | tee "$ARTIFACT_ROOT/logs/pytest_check_inbox_suite.log"` followed by `pytest tests/test_generic_loader.py::test_generic_loader -q | tee "$ARTIFACT_ROOT/logs/pytest_loader.log"`; treat any failure as a blocker and skip the CLI run until the suite is green.
+5. Execute the Capture command to re-scan `inbox/` with Maintainer <2>/<3> ack actors; keep all JSON/Markdown/snippet/history/log outputs under `$ARTIFACT_ROOT` and accept exit 2 from `--fail-when-breached`.
+6. Refresh docs: add the new selector + log paths to `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`, append a new Attempt entry in `docs/fix_plan.md` referencing `$ARTIFACT_ROOT`, extend `inbox/response_dose_experiments_ground_truth.md` with the missing 2026-01-23T024800Z/031500Z/040500Z/050500Z status sections, and drop `inbox/followup_dose_experiments_ground_truth_2026-01-23T050500Z.md` quoting the per-actor severity tables. Copy the Turn Summary (end of this loop) into `$ARTIFACT_ROOT/summary.md` once everything is complete.
 
 Pitfalls To Avoid
-- Keep the default ack actor list unchanged (Maintainer <2>) when `--ack-actor` is omitted so older scripts still work.
-- Handle missing inbound timestamps gracefully (deadline/severity should read `None`/`unknown`, not raise parsing errors).
-- Preserve timezone info when computing deadlines; never emit naive datetime objects in JSON.
-- History Markdown already exists—append new rows with severity text but do not rewrite the header or older entries.
-- Treat only the CLI run with `--fail-when-breached` as an acceptable exit 2; all other commands must exit 0.
-- Use ASCII tables for the new Markdown rows; avoid fancy Unicode or tabs.
-- Don’t move or edit production modules outside `plans/active/DEBUG-SIM-LINES-DOSE-001`, `tests/tools/`, `docs/`, and `inbox/`.
-- Ensure new severity fields are documented consistently across JSON, Markdown, docs, and follow-up notes to prevent drift.
+- Do not modify production modules outside `plans/active/DEBUG-SIM-LINES-DOSE-001`, `tests/tools/`, `docs/`, and `inbox/`.
+- Preserve backwards compatibility: when `--sla-hours` is omitted or only Maintainer <2> is configured, old outputs should remain unchanged.
+- Always emit ISO8601 timestamps with timezone info; never drop the `+00:00` when computing deadlines.
+- Keep the per-actor notes concise ASCII (no tabs/Unicode) so Markdown tables stay readable.
+- Only the CLI run may exit 2 (due to `--fail-when-breached`); every pytest/doc command must exit 0.
+- Don’t clobber the existing history JSONL/Markdown headers; append new rows but keep prior evidence intact.
+- Ensure Maintainer <3> continues to show "N/A"/"unknown" when no inbound mail exists—no fake ack detection.
+- Update every doc/test reference (GUIDE + INDEX + maintainer response) or the next loop will have to redo documentation.
 
 If Blocked
-- Capture the failing command/output with `tee "$ARTIFACT_ROOT/logs/blocker.log"`, leave the working tree untouched, add a short “Blocked” note to `docs/fix_plan.md` Attempts + `galph_memory.md`, and stop so we can reassess or request maintainer input next loop.
+- Stop immediately, capture the failing command + stderr with `tee "$ARTIFACT_ROOT/logs/blocker.log"`, and log the blocker in `docs/fix_plan.md` Attempts plus `galph_memory.md` so we can decide whether to escalate or retarget next turn.
 
 Findings Applied (Mandatory)
 - No relevant findings in the knowledge base.
 
 Pointers
-- docs/fix_plan.md:745 — DEBUG-SIM-LINES-DOSE-001.F1 requirements and latest next-actions.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py:360 — `scan_inbox` SLA watch logic to extend with deadline/severity.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py:820 — `write_status_snippet` waiting-clock/SLA section that must show the new fields.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py:980 — `write_escalation_note` SLA + action item text to update with severity data.
-- tests/tools/test_check_inbox_for_ack_cli.py:700 — Current inbox CLI regressions (history dashboard + ack actor coverage) to mirror when adding the new severity test.
-- docs/TESTING_GUIDE.md:19 and docs/development/TEST_SUITE_INDEX.md:12 — Inbox acknowledgement CLI selector listings that need the new regression + log paths.
-- inbox/response_dose_experiments_ground_truth.md:200 — Maintainer status sections to augment with the latest severity/per-actor evidence.
+- docs/fix_plan.md:745 — Current DEBUG-SIM-LINES-DOSE-001.F1 scope plus the per-actor SLA severity next actions.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py:360 — SLA watch + ack_actor_stats logic that needs the new per-actor severity data.
+- docs/TESTING_GUIDE.md:19 — Inbox acknowledgement CLI selector docs to update with the new regression + log paths.
+- docs/development/TEST_SUITE_INDEX.md:13 — Test registry entry where the new selector/log must be listed.
+- inbox/response_dose_experiments_ground_truth.md:200 — Maintainer status table that must gain the missing 024800Z/031500Z/040500Z/050500Z sections.
 
 Next Up (optional)
-1. If Maintainer <3> stays silent as well, script a cron-friendly wrapper that reruns the CLI hourly and drops severity deltas into `inbox_history/` automatically.
-2. Once acknowledgement lands, draft the closure update in `docs/fix_plan.md` and archive excess reports to keep the fix plan lean.
+- If Maintainer <3> still stays silent after this escalation, scope an automated hourly cron wrapper around the CLI so we can capture breach duration deltas without manual reruns.
 
 Doc Sync Plan (Conditional)
-- After the pytest suite succeeds, run `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_reports_deadline_and_severity -q | tee "$ARTIFACT_ROOT/logs/pytest_sla_severity_collect.log"`.
-- Update `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md` to list the new selector plus both the suite log (`pytest_check_inbox_suite.log`) and collect-only log (`pytest_sla_severity_collect.log`).
+- After the code/test updates pass, run `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_metrics_include_deadline -q | tee "$ARTIFACT_ROOT/logs/pytest_sla_metrics_collect.log"` to archive the selector, then update `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md` with both the suite and collect-only log paths.
 
 Mapped Tests Guardrail
-- Ensure `tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_reports_deadline_and_severity` collects (>0) during the collect-only run; treat collection failures as blockers before finishing the loop.
+- Ensure `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_metrics_include_deadline -q` collects (>0) before finishing; treat collection failures as blockers.
 
 Normative Math/Physics
-- Not applicable — maintainer-monitoring tooling only (no physics/math spec changes involved).
+- Not applicable — monitoring/tooling only; no changes to physics or forward-model specs.
