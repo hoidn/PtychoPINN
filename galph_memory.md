@@ -119,3 +119,7 @@ notes=Updated docs/fix_plan.md and input.md so the next loop loads history JSONL
 ## 2026-01-23T123000Z
 focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=2 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T123500Z/ next_action=Ralph adds Maintainer <3> escalation brief support (CLI flags + helper + tests/docs + CLI run/inbox+fix_plan refresh) <Action State>=ready_for_implementation
 notes=timeout 30 git pull --rebase is still blocked by the giant dirty worktree (left untouched). Scoped the next F1 increment around the Maintainer <3> escalation brief: new CLI args/helper built atop the breach timeline data, regression test + docs updates, pytest suite, full CLI run, and a new maintainer response/follow-up bundle under 2026-01-23T123500Z.
+
+## 2026-01-23T133900Z
+focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=0 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T133500Z/ next_action=Ralph ships per-actor follow-up tracking + tests/docs + refreshed CLI evidence <Action State>=ready_for_implementation
+notes=Documented the need to track outbound cadence per ack actor, updated docs/fix_plan.md with the new scope, and rewrote input.md so Ralph adds recipient parsing + follow-up tables, new regression test, doc/test index updates, and a fresh maintainer drop under 2026-01-23T133500Z.
