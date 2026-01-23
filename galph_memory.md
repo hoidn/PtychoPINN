@@ -75,3 +75,7 @@ notes=Scoped the escalation-note deliverable (new CLI flags/helper, pytest selec
 ## 2026-01-23T023500Z
 focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=1 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/ next_action=Ralph ships history-dashboard CLI+tests, reruns inbox scan, and sends the SLA-backed follow-up <Action State>=ready_for_implementation
 notes=git pull --rebase is still blocked by the user's dirty worktree; left untouched. Logged the new history-dashboard scope in docs/fix_plan.md, rewrote input.md with the CLI/test/doc/follow-up instructions, and staged the 2026-01-23T023500Z artifacts root for Ralph's run.
+
+## 2026-01-23T024800Z
+focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=2 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/ next_action=Ralph ships multi-actor ack detection + keyword fixes + CLI run/doc/test refresh <Action State>=ready_for_implementation
+notes=git pull --rebase is still blocked by the massive dirty worktree; left files untouched. Added the new ack-actor scope to docs/fix_plan.md, rewrote input.md with concrete code+test+CLI instructions (artifacts 2026-01-23T024800Z), and staged the next loop so Ralph extends check_inbox_for_ack.py with --ack-actor/custom keywords, adds regression tests/docs, reruns pytest + CLI, and drafts the latest follow-up.
