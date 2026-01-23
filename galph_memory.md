@@ -91,3 +91,7 @@ notes=git pull --rebase is still blocked by the user's massive dirty worktree (l
 ## 2026-01-23T050000Z
 focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=2 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/ next_action=Ralph ships per-actor SLA severity CLI+test+docs and reruns inbox scan per refreshed input <Action State>=ready_for_implementation
 notes=git pull --rebase is still blocked by the user's massive dirty worktree; left untouched. Updated docs/fix_plan.md F1 TODO with the per-actor SLA severity scope, rewrote input.md (artifacts 2026-01-23T050500Z) with the CLI/test/doc/follow-up instructions, and staged the next reports directory so Ralph can implement, run pytest, and capture the refreshed inbox evidence.
+
+## 2026-01-23T060900Z
+focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=0 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T060500Z/ next_action=Ralph implements ack-actor SLA override flag/test, reruns CLI, and refreshes docs/inbox evidence per new input.md <Action State>=ready_for_implementation
+notes=Documented the per-actor SLA override scope (new --ack-actor-sla flag, regression test, doc/inbox updates) in docs/fix_plan.md and rewrote input.md with commands/log paths targeting reports/2026-01-23T060500Z so Ralph can ship the implementation + pytest/CLI evidence immediately.

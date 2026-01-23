@@ -909,3 +909,11 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 **Next Actions:**
 - F1 remains open; Maintainer <2> has not yet acknowledged the bundle (SLA breach: 3.77 hours, severity: critical)
 - Per-actor SLA deadline/severity now visible across JSON/Markdown/stdout/status/escalation outputs
+
+### 2026-01-23T06:05Z — DEBUG-SIM-LINES-DOSE-001.F1 (per-actor SLA overrides scoped)
+**Action:** Maintainer <2> (primary) and Maintainer <3> (escalation) currently inherit the same SLA threshold, so the evidence bundle cannot prove that Maintainer <2> is over the 2.0 h limit while Maintainer <3> has a looser expectation. We need actor-specific overrides so the next inbox scan + follow-up highlights the stricter contract for Maintainer <2> without over-alerting Maintainer <3>.
+
+- Add a repeatable `--ack-actor-sla "actor=hours"` flag (aliases supported) and pass the parsed mapping down to `scan_inbox()` so each `ack_actor_stats` entry records its effective `sla_threshold_hours`, deadline, breach flag, severity, and notes. Markdown/status/escalation tables plus CLI stdout should gain a `Threshold (hrs)` column whenever overrides are present.
+- Persist the override map and each actor’s threshold in the JSON summary (e.g., `parameters["ack_actor_sla_hours"]` + `sla_threshold_hours` per actor) for reproducibility, and ensure actors without overrides still inherit the global `--sla-hours` value.
+- Extend `tests/tools/test_check_inbox_for_ack_cli.py` with `test_ack_actor_sla_overrides_thresholds` to prove Maintainer <2> can use a 2.0 h override while the global SLA stays at 2.5 h (Maintainer <3> should inherit the default and remain non-breached). Cover Markdown table headers + CLI stdout updates.
+- Re-run the CLI with `--ack-actor "Maintainer <2>" --ack-actor "Maintainer <3>" --sla-hours 2.5 --ack-actor-sla "Maintainer <2>=2.0" --ack-actor-sla "Maintainer <3>=6.0"` plus the usual history/status/escalation flags into `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T060500Z/`, drop the new log bundle, refresh docs (`docs/TESTING_GUIDE.md`, `docs/development/TEST_SUITE_INDEX.md`, `docs/fix_plan.md`), and publish `inbox/response_dose_experiments_ground_truth.md` + `inbox/followup_dose_experiments_ground_truth_2026-01-23T060500Z.md` with the per-actor threshold/severity callouts.
