@@ -742,8 +742,8 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - [x] DEBUG-SIM-LINES-DOSE-001.C2: Capture checksum verification logs for the final bundle (or tarball) and confirm size constraints / delivery instructions in `galph_memory.md` + maintainer inbox.
 - [x] DEBUG-SIM-LINES-DOSE-001.D1: Draft `inbox/response_dose_experiments_ground_truth.md` that cites the final drop root, README/manifest paths, bundle_verification logs, tarball SHA, and the validating `pytest tests/test_generic_loader.py::test_generic_loader -q` log so Maintainer <2> can close the request.
 - [x] DEBUG-SIM-LINES-DOSE-001.E1: Verify the tarball rehydration path by extracting `dose_experiments_ground_truth.tar.gz`, regenerating the manifest, diffing it against `reports/2026-01-23T001018Z/ground_truth_manifest.json`, logging the comparison under `reports/<ts>/rehydration_check/`, re-running `pytest tests/test_generic_loader.py::test_generic_loader -q`, and updating the maintainer response with the results.
-- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Latest scan (artifacts under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T083500Z/`) shows SLA breach with per-actor severity now persisted in history logs. Test selectors: `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` (17 tests incl. history severity tracking) and `pytest tests/test_generic_loader.py::test_generic_loader -q`. Per-actor SLA summary groups actors by severity (critical/warning/ok/unknown) across all outputs including history JSONL/Markdown.
-- **Next actions:** Per-actor severity history persistence shipped. Awaiting Maintainer <2> acknowledgement.
+- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Latest scan (artifacts under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/`) shows SLA breach with per-actor severity trends now visible in history dashboard. Test selectors: `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` (18 tests incl. actor severity trends) and `pytest tests/test_generic_loader.py::test_generic_loader -q`. History dashboard now includes "## Ack Actor Severity Trends" table aggregating severity counts/longest-wait/latest-timestamps per actor.
+- **Next actions:** Per-actor severity trends dashboard shipped. Awaiting Maintainer <2> acknowledgement.
 
 ### 2026-01-23T08:35Z — DEBUG-SIM-LINES-DOSE-001.F1 (per-actor severity history persistence)
 **Action:** Extended `append_history_jsonl` and `append_history_markdown` to persist the `ack_actor_summary` structure so historical scans show which actors were breaching SLA.
@@ -790,6 +790,55 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 **Next Actions:**
 - F1 remains open; Maintainer <2> has not yet acknowledged the bundle
 - Per-actor severity now tracked historically so we can prove breach duration over time
+
+### 2026-01-23T09:35Z — DEBUG-SIM-LINES-DOSE-001.F1 (per-actor severity trends in history dashboard)
+**Action:** Extended `write_history_dashboard()` to aggregate `ack_actor_summary` data across all JSONL history entries and emit a new "## Ack Actor Severity Trends" table showing per-actor severity counts, longest wait, and latest scan timestamp.
+
+**Changes:**
+1. Added `_build_actor_severity_trends_section()` helper that aggregates per-actor data from JSONL entries
+2. Added `_sanitize_md()` helper for safe Markdown table cell content
+3. Extended `write_history_dashboard()` docstring and output to include the new section
+4. Dashboard now shows: Actor, Critical count, Warning count, OK count, Unknown count, Longest Wait, Latest Scan
+5. Actors are sorted by severity priority (critical > warning > ok > unknown)
+6. Graceful handling when entries lack `ack_actor_summary` data
+7. Added `test_history_dashboard_actor_severity_trends` test validating the new section
+
+**Tests:**
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_actor_severity_trends -q` — 1 passed (0.17s)
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` — 18 passed (0.96s)
+- `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.53s)
+
+**Collection:**
+- `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_actor_severity_trends -q` — 1 test collected
+
+**CLI Run:**
+- Files scanned: 7, Matches: 5, Ack detected: No
+- Maintainer 2: 4.57 hrs since inbound, threshold 2.00, **critical** (breach >= 1h)
+- Maintainer 3: No inbound, threshold 6.00, **unknown**
+- Exit code: 2 (SLA breach detected with --fail-when-breached)
+- History dashboard now shows "Ack Actor Severity Trends" table with aggregated per-actor counts
+
+**Doc Updates:**
+- `docs/TESTING_GUIDE.md`: Added "Inbox Acknowledgement CLI (History Dashboard - Actor Severity Trends)" section
+- `docs/development/TEST_SUITE_INDEX.md`: Added selector/log for `test_history_dashboard_actor_severity_trends`
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/logs/pytest_history_dashboard_actor_severity.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/logs/pytest_history_dashboard_actor_severity_collect.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/logs/pytest_check_inbox_suite.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/logs/pytest_loader.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/logs/check_inbox.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/inbox_history/inbox_sla_watch.jsonl`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/inbox_history/inbox_sla_watch.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/inbox_history/inbox_history_dashboard.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/inbox_sla_watch/inbox_scan_summary.json`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/inbox_sla_watch/inbox_scan_summary.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/inbox_status/status_snippet.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/inbox_status/escalation_note.md`
+
+**Next Actions:**
+- F1 remains open; Maintainer <2> has not yet acknowledged the bundle
+- Dashboard now shows per-actor trends over time, proving sustained breach
 
 ### 2026-01-23T07:05Z — DEBUG-SIM-LINES-DOSE-001.F1 (per-actor SLA summary shipped)
 **Action:** Implemented `ack_actor_summary` structure that groups monitored actors by severity (critical/warning/ok/unknown). The summary provides a quick view of which actors are breaching SLA.

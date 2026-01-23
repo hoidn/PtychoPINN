@@ -1498,6 +1498,117 @@ def write_escalation_note(
         f.write("\n".join(lines))
 
 
+def _build_actor_severity_trends_section(entries: list) -> list:
+    """
+    Build the Ack Actor Severity Trends section for the history dashboard.
+
+    Aggregates ack_actor_summary data across all JSONL entries to compute:
+    - Per-actor severity counts (critical/warning/ok/unknown)
+    - Longest wait per actor across all scans
+    - Latest timestamp per actor
+
+    Returns a list of Markdown lines for the section.
+    Gracefully handles entries without ack_actor_summary data.
+    """
+    lines = []
+
+    # Collect per-actor data across all entries
+    # actor_id -> {severity_counts: {critical:N, warning:N, ok:N, unknown:N},
+    #              longest_wait: float|None, latest_timestamp: str, actor_label: str}
+    actor_trends: dict = {}
+
+    entries_with_summary = 0
+    for entry in entries:
+        summary = entry.get("ack_actor_summary")
+        if not summary:
+            continue
+        entries_with_summary += 1
+
+        entry_ts = entry.get("generated_utc", "")
+
+        severity_order = ["critical", "warning", "ok", "unknown"]
+        for sev in severity_order:
+            actors_in_sev = summary.get(sev, [])
+            for actor_data in actors_in_sev:
+                actor_id = actor_data.get("actor_id", "unknown")
+                actor_label = actor_data.get("actor_label", actor_id.replace("_", " ").title())
+                hrs = actor_data.get("hours_since_inbound")
+
+                if actor_id not in actor_trends:
+                    actor_trends[actor_id] = {
+                        "actor_label": actor_label,
+                        "severity_counts": {"critical": 0, "warning": 0, "ok": 0, "unknown": 0},
+                        "longest_wait": None,
+                        "latest_timestamp": "",
+                    }
+
+                # Increment severity count
+                actor_trends[actor_id]["severity_counts"][sev] += 1
+
+                # Track longest wait
+                if hrs is not None:
+                    cur_longest = actor_trends[actor_id]["longest_wait"]
+                    if cur_longest is None or hrs > cur_longest:
+                        actor_trends[actor_id]["longest_wait"] = hrs
+
+                # Track latest timestamp
+                if entry_ts > actor_trends[actor_id]["latest_timestamp"]:
+                    actor_trends[actor_id]["latest_timestamp"] = entry_ts
+
+    if not actor_trends:
+        lines.extend([
+            "## Ack Actor Severity Trends",
+            "",
+            "**Status:** No per-actor data available in the history log.",
+            "",
+            "Per-actor severity data is captured when `--ack-actor` and `--ack-actor-sla`",
+            "flags are used with the inbox scan CLI.",
+            "",
+        ])
+        return lines
+
+    # Sort actors by severity priority: actors with most critical counts first,
+    # then warning, then ok, then unknown
+    def actor_sort_key(item):
+        actor_id, data = item
+        counts = data["severity_counts"]
+        # Negative so higher counts sort first, severity priority: critical > warning > ok > unknown
+        return (-counts["critical"], -counts["warning"], -counts["ok"], -counts["unknown"], actor_id)
+
+    sorted_actors = sorted(actor_trends.items(), key=actor_sort_key)
+
+    lines.extend([
+        "## Ack Actor Severity Trends",
+        "",
+        f"**Entries with per-actor data:** {entries_with_summary} of {len(entries)}",
+        "",
+        "| Actor | Critical | Warning | OK | Unknown | Longest Wait | Latest Scan |",
+        "|-------|----------|---------|----|---------|--------------| ------------|",
+    ])
+
+    for actor_id, data in sorted_actors:
+        label = _sanitize_md(data["actor_label"])
+        counts = data["severity_counts"]
+        longest = data["longest_wait"]
+        longest_str = f"{longest:.2f}h" if longest is not None else "N/A"
+        latest = data["latest_timestamp"][:19] if data["latest_timestamp"] else "N/A"
+
+        lines.append(
+            f"| {label} | {counts['critical']} | {counts['warning']} | {counts['ok']} | {counts['unknown']} | {longest_str} | {latest} |"
+        )
+
+    lines.append("")
+    return lines
+
+
+def _sanitize_md(text: str) -> str:
+    """Sanitize text for safe inclusion in Markdown table cells."""
+    if not text:
+        return ""
+    # Replace pipe characters and newlines that would break table structure
+    return text.replace("|", "\\|").replace("\n", " ").replace("\r", "")
+
+
 def write_history_dashboard(
     jsonl_path: Path,
     output_path: Path,
@@ -1510,6 +1621,7 @@ def write_history_dashboard(
     - Summary Metrics (total scans, ack count, breach count)
     - SLA Breach Stats (longest wait, most recent ack timestamp)
     - Recent Scans table (last N entries from the JSONL)
+    - Ack Actor Severity Trends (per-actor severity counts/longest wait/latest timestamps)
 
     If the JSONL file does not exist or is empty, emits a "No history" message.
     The output file is overwritten (not appended) to provide an idempotent snapshot.
@@ -1632,6 +1744,9 @@ def write_history_dashboard(
         lines.append(f"| {ts} | {ack} | {hrs_in_str} | {hrs_out_str} | {breach_str} | {severity} | {matches} |")
 
     lines.append("")
+
+    # Ack Actor Severity Trends - aggregate per-actor data across all entries
+    lines.extend(_build_actor_severity_trends_section(entries))
 
     # Write the dashboard (overwrite mode for idempotency)
     with open(output_path, "w", encoding="utf-8") as f:

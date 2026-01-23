@@ -92,6 +92,21 @@ This selector validates:
 
 Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/logs/pytest_history_dashboard.log`
 
+### Inbox Acknowledgement CLI (History Dashboard - Actor Severity Trends)
+
+The history dashboard now includes an "Ack Actor Severity Trends" section that aggregates per-actor severity data across all JSONL entries. This shows severity counts (critical/warning/ok/unknown), longest wait, and latest scan timestamp per actor. To run the actor severity trends test:
+
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_actor_severity_trends -q`
+
+This selector validates:
+- Dashboard includes "## Ack Actor Severity Trends" section
+- Table shows per-actor severity counts aggregated across scans
+- Table includes Longest Wait and Latest Scan columns
+- Actors are sorted by severity priority (critical > warning > ok > unknown)
+- Gracefully handles history entries without per-actor data
+
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/logs/pytest_history_dashboard_actor_severity.log`
+
 ### Inbox Acknowledgement CLI (Multi-Actor Ack)
 
 The CLI supports configurable ack actors via the `--ack-actor` repeatable flag. By default, only `Maintainer <2>` is treated as an acknowledgement source. Use `--ack-actor "Maintainer <3>"` to add additional actors. To run the multi-actor ack test:

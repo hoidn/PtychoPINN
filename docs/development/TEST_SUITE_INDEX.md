@@ -50,3 +50,6 @@ This is a minimal index of key tests in this branch.
   - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_history_tracks_severity -q`
   - Tests `ack_actor_summary` persistence in history logging. Validates that JSONL entries contain the full severity bucket structure, and Markdown history table gains "Ack Actor Severity" column with `[CRITICAL]`/`[UNKNOWN]` formatted entries.
   - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T083500Z/logs/pytest_ack_actor_history.log`
+  - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_actor_severity_trends -q`
+  - Tests `--history-dashboard` "Ack Actor Severity Trends" section that aggregates per-actor severity counts, longest wait, and latest scan timestamps across all JSONL entries. Validates severity priority sorting (critical > unknown).
+  - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/logs/pytest_history_dashboard_actor_severity.log`

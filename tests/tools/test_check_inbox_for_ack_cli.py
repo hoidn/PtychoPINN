@@ -1716,3 +1716,154 @@ Please provide the dose experiments ground truth bundle.
     # Verify header was written exactly once
     assert md_content.count("# Inbox Scan History") == 1, \
         "Markdown header should appear exactly once"
+
+
+def test_history_dashboard_actor_severity_trends(tmp_path):
+    """
+    Test --history-dashboard generates an "## Ack Actor Severity Trends" table.
+
+    Creates a synthetic inbox with:
+    - Maintainer <2> inbound 3.5 hours ago (no ack keywords) → critical breach with 2.0h threshold
+    - Maintainer <3> absent (no inbound) → unknown
+
+    Runs the CLI twice to accumulate history entries, then verifies:
+    1. Dashboard includes "## Ack Actor Severity Trends" section
+    2. Table shows Maintainer 2 with critical count of 2
+    3. Table shows Maintainer 3 with unknown count of 2
+    4. Table includes Longest Wait and Latest Scan columns
+    5. Actors are sorted by severity priority (critical > unknown)
+    """
+    inbox_dir = tmp_path / "inbox"
+    inbox_dir.mkdir()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    history_jsonl = tmp_path / "history.jsonl"
+    history_md = tmp_path / "history.md"
+    dashboard_path = tmp_path / "dashboard.md"
+
+    # Create message from Maintainer <2> (3.5 hours ago, no ack keywords)
+    m2_content = """# Request: dose_experiments_ground_truth
+
+**From:** Maintainer <2>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T10:00:00Z
+
+Please provide the dose experiments ground truth bundle.
+"""
+    create_inbox_file(inbox_dir, "request_m2_dose_experiments_ground_truth.md", m2_content, -3.5)
+
+    # NO message from Maintainer <3> - they should show as "unknown"
+
+    # === Run 1: First scan ===
+    result1 = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--keywords", "acknowledged",
+            "--keywords", "confirm",
+            "--ack-actor", "Maintainer <2>",
+            "--ack-actor", "Maintainer <3>",
+            "--sla-hours", "2.5",
+            "--ack-actor-sla", "Maintainer <2>=2.0",
+            "--ack-actor-sla", "Maintainer <3>=6.0",
+            "--history-jsonl", str(history_jsonl),
+            "--history-markdown", str(history_md),
+            "--history-dashboard", str(dashboard_path),
+            "--output", str(output_dir / "run1")
+        ],
+        capture_output=True,
+        text=True
+    )
+    assert result1.returncode == 0, f"Run 1 failed: {result1.stderr}\nstdout: {result1.stdout}"
+
+    # === Run 2: Second scan (accumulate history) ===
+    result2 = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--keywords", "acknowledged",
+            "--keywords", "confirm",
+            "--ack-actor", "Maintainer <2>",
+            "--ack-actor", "Maintainer <3>",
+            "--sla-hours", "2.5",
+            "--ack-actor-sla", "Maintainer <2>=2.0",
+            "--ack-actor-sla", "Maintainer <3>=6.0",
+            "--history-jsonl", str(history_jsonl),
+            "--history-markdown", str(history_md),
+            "--history-dashboard", str(dashboard_path),
+            "--output", str(output_dir / "run2")
+        ],
+        capture_output=True,
+        text=True
+    )
+    assert result2.returncode == 0, f"Run 2 failed: {result2.stderr}\nstdout: {result2.stdout}"
+
+    # === Validate JSONL has 2 entries ===
+    assert history_jsonl.exists(), "JSONL history file not created"
+    with open(history_jsonl) as f:
+        jsonl_lines = [json.loads(line) for line in f.readlines()]
+    assert len(jsonl_lines) == 2, f"Expected 2 JSONL entries, got {len(jsonl_lines)}"
+
+    # === Validate Dashboard ===
+    assert dashboard_path.exists(), "Dashboard file not created"
+    dashboard_content = dashboard_path.read_text()
+
+    # 1. Dashboard includes "## Ack Actor Severity Trends"
+    assert "## Ack Actor Severity Trends" in dashboard_content, \
+        "Dashboard missing '## Ack Actor Severity Trends' section"
+
+    # 2. Table shows Maintainer 2 with critical count (2 scans = 2 critical entries)
+    assert "Maintainer 2" in dashboard_content, \
+        "Dashboard missing Maintainer 2 in severity trends table"
+    # The table format: | Actor | Critical | Warning | OK | Unknown | Longest Wait | Latest Scan |
+    # Maintainer 2 should have Critical = 2 (both scans showed critical breach)
+    # Look for a row with Maintainer 2 and verify the critical count
+    lines = dashboard_content.split("\n")
+    m2_row = None
+    for line in lines:
+        if "Maintainer 2" in line and "|" in line:
+            m2_row = line
+            break
+    assert m2_row is not None, "Could not find Maintainer 2 row in dashboard table"
+    # Parse columns: | Actor | Critical | Warning | OK | Unknown | Longest Wait | Latest Scan |
+    cols = [c.strip() for c in m2_row.split("|")]
+    # cols[0] is empty (before first |), cols[1] is Actor, cols[2] is Critical, etc.
+    if len(cols) >= 6:
+        critical_count = cols[2]
+        assert critical_count == "2", \
+            f"Maintainer 2 should have Critical count of 2, got '{critical_count}'"
+
+    # 3. Table shows Maintainer 3 with unknown count (2 scans = 2 unknown entries)
+    assert "Maintainer 3" in dashboard_content, \
+        "Dashboard missing Maintainer 3 in severity trends table"
+    m3_row = None
+    for line in lines:
+        if "Maintainer 3" in line and "|" in line:
+            m3_row = line
+            break
+    assert m3_row is not None, "Could not find Maintainer 3 row in dashboard table"
+    cols3 = [c.strip() for c in m3_row.split("|")]
+    if len(cols3) >= 6:
+        unknown_count = cols3[5]  # Unknown is the 5th data column (index 5 after split)
+        assert unknown_count == "2", \
+            f"Maintainer 3 should have Unknown count of 2, got '{unknown_count}'"
+
+    # 4. Table includes Longest Wait and Latest Scan columns
+    assert "Longest Wait" in dashboard_content, \
+        "Dashboard missing 'Longest Wait' column header"
+    assert "Latest Scan" in dashboard_content, \
+        "Dashboard missing 'Latest Scan' column header"
+
+    # 5. Maintainer 2 appears before Maintainer 3 (critical sorted before unknown)
+    m2_pos = dashboard_content.find("Maintainer 2")
+    m3_pos = dashboard_content.find("Maintainer 3")
+    assert m2_pos < m3_pos, \
+        "Maintainer 2 (critical) should appear before Maintainer 3 (unknown) in the table"
+
+    # 6. Check "Entries with per-actor data:" line
+    assert "Entries with per-actor data:" in dashboard_content, \
+        "Dashboard missing 'Entries with per-actor data:' line"
+    assert "2 of 2" in dashboard_content, \
+        "Dashboard should show '2 of 2' entries with per-actor data"
