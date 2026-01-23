@@ -117,6 +117,15 @@ def parse_args():
         help="Actor(s) whose messages count as acknowledgements (can be repeated). "
              "Default: Maintainer <2> only. Use --ack-actor 'Maintainer <3>' to add more."
     )
+    parser.add_argument(
+        "--ack-actor-sla",
+        action="append",
+        dest="ack_actor_sla",
+        default=[],
+        help="Per-actor SLA threshold override in 'actor=hours' format (can be repeated). "
+             "E.g., --ack-actor-sla 'Maintainer <2>=2.0' --ack-actor-sla 'Maintainer <3>=6.0'. "
+             "Actors without overrides inherit the global --sla-hours threshold."
+    )
     return parser.parse_args()
 
 
@@ -158,6 +167,38 @@ def normalize_actor_alias(actor_str: str) -> str:
         return f"maintainer_{m.group(1)}"
 
     return s
+
+
+def parse_ack_actor_sla_overrides(sla_override_strings: list[str]) -> dict[str, float]:
+    """
+    Parse per-actor SLA override strings into a normalized {actor: hours} map.
+
+    Args:
+        sla_override_strings: List of strings like "Maintainer <2>=2.0", "maintainer_3=6.0"
+
+    Returns:
+        Dictionary mapping normalized actor IDs to SLA threshold hours.
+        E.g., {"maintainer_2": 2.0, "maintainer_3": 6.0}
+    """
+    overrides = {}
+    for override_str in sla_override_strings:
+        if "=" not in override_str:
+            continue  # Skip malformed entries
+
+        parts = override_str.split("=", 1)
+        if len(parts) != 2:
+            continue
+
+        actor_raw, hours_str = parts
+        actor_id = normalize_actor_alias(actor_raw.strip())
+
+        try:
+            hours = float(hours_str.strip())
+            overrides[actor_id] = hours
+        except ValueError:
+            continue  # Skip malformed hours
+
+    return overrides
 
 
 def detect_actor_and_direction(content: str) -> Tuple[str, str]:
@@ -283,7 +324,8 @@ def scan_inbox(
     since_date: Optional[datetime],
     sla_hours: Optional[float] = None,
     current_time: Optional[datetime] = None,
-    ack_actors: list[str] | None = None
+    ack_actors: list[str] | None = None,
+    ack_actor_sla_overrides: dict[str, float] | None = None
 ) -> dict:
     """
     Scan inbox directory for files matching the request pattern.
@@ -295,12 +337,19 @@ def scan_inbox(
     current_time can be injected for testing; defaults to now(UTC).
     ack_actors is a list of normalized actor IDs (e.g., ["maintainer_2", "maintainer_3"])
     that are considered valid acknowledgement sources.
+    ack_actor_sla_overrides is a dict mapping normalized actor IDs to their specific
+    SLA thresholds in hours (e.g., {"maintainer_2": 2.0}). Actors without overrides
+    inherit the global sla_hours value.
     """
     # Normalize ack_actors, default to ["maintainer_2"]
     if ack_actors is None:
         ack_actors = ["maintainer_2"]
     else:
         ack_actors = [normalize_actor_alias(a) for a in ack_actors]
+
+    # Ensure ack_actor_sla_overrides is a dict (empty dict means no overrides)
+    if ack_actor_sla_overrides is None:
+        ack_actor_sla_overrides = {}
 
     now = current_time if current_time is not None else datetime.now(timezone.utc)
     results = {
@@ -314,7 +363,8 @@ def scan_inbox(
             "request_pattern": request_pattern,
             "keywords": keywords,
             "since": since_date.isoformat() if since_date else None,
-            "ack_actors": ack_actors
+            "ack_actors": ack_actors,
+            "ack_actor_sla_hours": ack_actor_sla_overrides if ack_actor_sla_overrides else None
         },
         # Timeline: list of entries sorted by modified_utc ascending
         "timeline": [],
@@ -461,6 +511,10 @@ def scan_inbox(
 
         # Compute per-actor SLA fields when sla_hours is provided
         if sla_hours is not None:
+            # Use per-actor override if available, otherwise fall back to global threshold
+            actor_threshold = ack_actor_sla_overrides.get(actor_id, sla_hours)
+            actor_stats["sla_threshold_hours"] = actor_threshold
+
             if last_inbound_from_actor is None or hours_since is None:
                 # No inbound messages from this actor
                 actor_stats["sla_deadline_utc"] = None
@@ -469,22 +523,22 @@ def scan_inbox(
                 actor_stats["sla_severity"] = "unknown"
                 actor_stats["sla_notes"] = f"No inbound messages from {actor_id.replace('_', ' ').title()}"
             else:
-                # Compute SLA deadline: last_inbound + sla_hours
+                # Compute SLA deadline: last_inbound + actor_threshold
                 from datetime import timedelta
                 last_inbound_ts = datetime.fromisoformat(last_inbound_from_actor)
-                deadline_ts = last_inbound_ts + timedelta(hours=sla_hours)
+                deadline_ts = last_inbound_ts + timedelta(hours=actor_threshold)
                 actor_stats["sla_deadline_utc"] = deadline_ts.isoformat()
 
-                # Compute breach status for this actor
-                actor_breached = hours_since > sla_hours and not actor_ack_detected
+                # Compute breach status for this actor using their specific threshold
+                actor_breached = hours_since > actor_threshold and not actor_ack_detected
 
                 if actor_breached:
-                    breach_duration = round(hours_since - sla_hours, 2)
+                    breach_duration = round(hours_since - actor_threshold, 2)
                     if breach_duration < 1.0:
                         severity = "warning"
                     else:
                         severity = "critical"
-                    notes = f"SLA breach: {hours_since:.2f} hours since last inbound exceeds {sla_hours:.2f} hour threshold"
+                    notes = f"SLA breach: {hours_since:.2f} hours since last inbound exceeds {actor_threshold:.2f} hour threshold"
                 elif actor_ack_detected:
                     breach_duration = 0.0
                     severity = "ok"
@@ -492,7 +546,7 @@ def scan_inbox(
                 else:
                     breach_duration = 0.0
                     severity = "ok"
-                    notes = f"Within SLA: {hours_since:.2f} hours since last inbound (threshold: {sla_hours:.2f})"
+                    notes = f"Within SLA: {hours_since:.2f} hours since last inbound (threshold: {actor_threshold:.2f})"
 
                 actor_stats["sla_breached"] = actor_breached
                 actor_stats["sla_breach_duration_hours"] = breach_duration
@@ -656,6 +710,8 @@ def write_markdown_summary(results: dict, output_path: Path) -> None:
     if ack_actor_stats:
         # Check if any actor has SLA fields (i.e., sla_hours was provided)
         has_sla = any("sla_deadline_utc" in stats for stats in ack_actor_stats.values())
+        # Check if any actor has per-actor threshold overrides
+        has_thresholds = any("sla_threshold_hours" in stats for stats in ack_actor_stats.values())
 
         lines.extend([
             "## Ack Actor Coverage",
@@ -666,10 +722,17 @@ def write_markdown_summary(results: dict, output_path: Path) -> None:
 
         if has_sla:
             # Include SLA columns when --sla-hours was used
-            lines.extend([
-                "| Actor | Hours Since Inbound | Inbound Count | Ack | Deadline (UTC) | Breached | Severity | Notes |",
-                "|-------|---------------------|---------------|-----|----------------|----------|----------|-------|",
-            ])
+            if has_thresholds:
+                # Include Threshold column when per-actor SLA thresholds are tracked
+                lines.extend([
+                    "| Actor | Hours Since Inbound | Threshold (hrs) | Inbound Count | Ack | Deadline (UTC) | Breached | Severity | Notes |",
+                    "|-------|---------------------|-----------------|---------------|-----|----------------|----------|----------|-------|",
+                ])
+            else:
+                lines.extend([
+                    "| Actor | Hours Since Inbound | Inbound Count | Ack | Deadline (UTC) | Breached | Severity | Notes |",
+                    "|-------|---------------------|---------------|-----|----------------|----------|----------|-------|",
+                ])
             for actor_id in sorted(ack_actor_stats.keys()):
                 stats = ack_actor_stats[actor_id]
                 actor_label = actor_id.replace("_", " ").title()
@@ -681,7 +744,12 @@ def write_markdown_summary(results: dict, output_path: Path) -> None:
                 breached = "Yes" if stats.get("sla_breached", False) else "No"
                 severity = stats.get("sla_severity", "unknown")
                 notes = sanitize_for_markdown(stats.get("sla_notes", "-"))
-                lines.append(f"| {actor_label} | {hrs_str} | {inbound_count} | {ack_detected} | {deadline} | {breached} | {severity} | {notes} |")
+                if has_thresholds:
+                    threshold = stats.get("sla_threshold_hours")
+                    threshold_str = f"{threshold:.2f}" if threshold is not None else "N/A"
+                    lines.append(f"| {actor_label} | {hrs_str} | {threshold_str} | {inbound_count} | {ack_detected} | {deadline} | {breached} | {severity} | {notes} |")
+                else:
+                    lines.append(f"| {actor_label} | {hrs_str} | {inbound_count} | {ack_detected} | {deadline} | {breached} | {severity} | {notes} |")
         else:
             # Original columns without SLA
             lines.extend([
@@ -962,6 +1030,8 @@ def write_status_snippet(results: dict, output_path: Path) -> None:
     if ack_actor_stats:
         # Check if any actor has SLA fields
         has_sla = any("sla_deadline_utc" in stats for stats in ack_actor_stats.values())
+        # Check if any actor has per-actor threshold overrides
+        has_thresholds = any("sla_threshold_hours" in stats for stats in ack_actor_stats.values())
 
         lines.extend([
             "## Ack Actor Coverage",
@@ -969,10 +1039,16 @@ def write_status_snippet(results: dict, output_path: Path) -> None:
         ])
 
         if has_sla:
-            lines.extend([
-                "| Actor | Hrs Since Inbound | Deadline (UTC) | Breached | Severity | Notes |",
-                "|-------|-------------------|----------------|----------|----------|-------|",
-            ])
+            if has_thresholds:
+                lines.extend([
+                    "| Actor | Hrs Since Inbound | Threshold (hrs) | Deadline (UTC) | Breached | Severity | Notes |",
+                    "|-------|-------------------|-----------------|----------------|----------|----------|-------|",
+                ])
+            else:
+                lines.extend([
+                    "| Actor | Hrs Since Inbound | Deadline (UTC) | Breached | Severity | Notes |",
+                    "|-------|-------------------|----------------|----------|----------|-------|",
+                ])
             for actor_id in sorted(ack_actor_stats.keys()):
                 stats = ack_actor_stats[actor_id]
                 actor_label = actor_id.replace("_", " ").title()
@@ -982,7 +1058,12 @@ def write_status_snippet(results: dict, output_path: Path) -> None:
                 breached = "Yes" if stats.get("sla_breached", False) else "No"
                 severity = stats.get("sla_severity", "unknown")
                 notes = sanitize_for_markdown(stats.get("sla_notes", "-"))
-                lines.append(f"| {actor_label} | {hrs_str} | {deadline} | {breached} | {severity} | {notes} |")
+                if has_thresholds:
+                    threshold = stats.get("sla_threshold_hours")
+                    threshold_str = f"{threshold:.2f}" if threshold is not None else "N/A"
+                    lines.append(f"| {actor_label} | {hrs_str} | {threshold_str} | {deadline} | {breached} | {severity} | {notes} |")
+                else:
+                    lines.append(f"| {actor_label} | {hrs_str} | {deadline} | {breached} | {severity} | {notes} |")
         else:
             lines.extend([
                 "| Actor | Hours Since Inbound | Inbound Count | Ack |",
@@ -1184,6 +1265,8 @@ def write_escalation_note(
     if ack_actor_stats:
         # Check if any actor has SLA fields
         has_sla = any("sla_deadline_utc" in stats for stats in ack_actor_stats.values())
+        # Check if any actor has per-actor threshold overrides
+        has_thresholds = any("sla_threshold_hours" in stats for stats in ack_actor_stats.values())
 
         lines.extend([
             "## Ack Actor Coverage",
@@ -1191,10 +1274,16 @@ def write_escalation_note(
         ])
 
         if has_sla:
-            lines.extend([
-                "| Actor | Hrs Since Inbound | Deadline (UTC) | Breached | Severity | Notes |",
-                "|-------|-------------------|----------------|----------|----------|-------|",
-            ])
+            if has_thresholds:
+                lines.extend([
+                    "| Actor | Hrs Since Inbound | Threshold (hrs) | Deadline (UTC) | Breached | Severity | Notes |",
+                    "|-------|-------------------|-----------------|----------------|----------|----------|-------|",
+                ])
+            else:
+                lines.extend([
+                    "| Actor | Hrs Since Inbound | Deadline (UTC) | Breached | Severity | Notes |",
+                    "|-------|-------------------|----------------|----------|----------|-------|",
+                ])
             for actor_id in sorted(ack_actor_stats.keys()):
                 stats = ack_actor_stats[actor_id]
                 actor_label = actor_id.replace("_", " ").title()
@@ -1204,7 +1293,12 @@ def write_escalation_note(
                 breached = "Yes" if stats.get("sla_breached", False) else "No"
                 severity = stats.get("sla_severity", "unknown")
                 notes = sanitize_for_markdown(stats.get("sla_notes", "-"))
-                lines.append(f"| {actor_label} | {hrs_str} | {deadline} | {breached} | {severity} | {notes} |")
+                if has_thresholds:
+                    threshold = stats.get("sla_threshold_hours")
+                    threshold_str = f"{threshold:.2f}" if threshold is not None else "N/A"
+                    lines.append(f"| {actor_label} | {hrs_str} | {threshold_str} | {deadline} | {breached} | {severity} | {notes} |")
+                else:
+                    lines.append(f"| {actor_label} | {hrs_str} | {deadline} | {breached} | {severity} | {notes} |")
         else:
             lines.extend([
                 "| Actor | Hours Since Inbound | Inbound Count | Ack |",
@@ -1406,6 +1500,9 @@ def main():
     # Use default ack_actors if none provided (backwards compatible: only Maintainer <2>)
     ack_actors = args.ack_actors if args.ack_actors else ["Maintainer <2>"]
 
+    # Parse per-actor SLA overrides
+    ack_actor_sla_overrides = parse_ack_actor_sla_overrides(args.ack_actor_sla) if args.ack_actor_sla else {}
+
     # Ensure output directory exists
     output_path.mkdir(parents=True, exist_ok=True)
 
@@ -1414,7 +1511,9 @@ def main():
     print(f"Keywords: {keywords}")
     print(f"Ack actors: {ack_actors}")
     if args.sla_hours is not None:
-        print(f"SLA threshold: {args.sla_hours} hours")
+        print(f"SLA threshold (global): {args.sla_hours} hours")
+        if ack_actor_sla_overrides:
+            print(f"Per-actor SLA overrides: {ack_actor_sla_overrides}")
         print(f"Fail when breached: {args.fail_when_breached}")
     print(f"Output: {output_path}")
     print("")
@@ -1423,7 +1522,8 @@ def main():
     results = scan_inbox(
         inbox_path, args.request_pattern, keywords, since_date,
         sla_hours=args.sla_hours,
-        ack_actors=ack_actors
+        ack_actors=ack_actors,
+        ack_actor_sla_overrides=ack_actor_sla_overrides
     )
 
     # Write outputs
@@ -1542,6 +1642,11 @@ def main():
             print(f"    Ack files: {ack_files}")
             # Print per-actor SLA fields if present
             if "sla_deadline_utc" in stats:
+                # Print threshold if present (for per-actor overrides)
+                if "sla_threshold_hours" in stats:
+                    threshold = stats.get("sla_threshold_hours")
+                    threshold_str = f"{threshold:.2f}" if threshold is not None else "N/A"
+                    print(f"    SLA Threshold: {threshold_str} hours")
                 deadline = stats.get("sla_deadline_utc") or "N/A"
                 breached = "Yes" if stats.get("sla_breached", False) else "No"
                 breach_dur = stats.get("sla_breach_duration_hours")

@@ -172,6 +172,26 @@ This selector validates:
 
 Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/logs/pytest_sla_metrics_collect.log`
 
+### Inbox Acknowledgement CLI (Per-Actor SLA Overrides)
+
+The CLI supports per-actor SLA threshold overrides via the repeatable `--ack-actor-sla` flag. This allows different actors to have different SLA thresholds. Use the format `--ack-actor-sla "actor=hours"` (e.g., `--ack-actor-sla "Maintainer <2>=2.0"`). Actors without overrides inherit the global `--sla-hours` threshold.
+
+When per-actor overrides are in use, each actor entry in `ack_actor_stats` includes:
+- `sla_threshold_hours`: the effective threshold for that actor (override or global)
+
+The override map is also stored in `parameters["ack_actor_sla_hours"]` for reproducibility. The Markdown "Ack Actor Coverage" table gains a "Threshold (hrs)" column when overrides are present. To run the per-actor SLA overrides test:
+
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_overrides_thresholds -q`
+
+This selector validates:
+- JSON `parameters["ack_actor_sla_hours"]` contains the override map
+- JSON `ack_actor_stats` includes `sla_threshold_hours` per actor
+- Per-actor breach status uses the actor-specific threshold (not global)
+- Markdown Ack Actor Coverage table shows "Threshold (hrs)" column
+- CLI stdout shows "Per-actor SLA overrides" and per-actor threshold values
+
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T060500Z/logs/pytest_sla_override_collect.log`
+
 ## Test Areas
 
 - `tests/tools/`: CLI and tooling tests (e.g., D0 parity logger).

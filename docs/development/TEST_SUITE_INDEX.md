@@ -41,3 +41,6 @@ This is a minimal index of key tests in this branch.
   - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_metrics_include_deadline -q`
   - Tests per-actor SLA metrics in `ack_actor_stats` block: each configured actor gets `sla_deadline_utc`, `sla_breached`, `sla_breach_duration_hours`, `sla_severity`, `sla_notes`. Actors without inbound show `sla_severity == "unknown"`.
   - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/logs/pytest_sla_metrics_collect.log`
+  - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_overrides_thresholds -q`
+  - Tests `--ack-actor-sla` repeatable flag for per-actor SLA threshold overrides (e.g., `--ack-actor-sla "Maintainer <2>=2.0"`). Validates that each actor's breach status uses their specific threshold, JSON includes `ack_actor_sla_hours` parameter and `sla_threshold_hours` per actor, and Markdown shows "Threshold (hrs)" column.
+  - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T060500Z/logs/pytest_sla_override_collect.log`

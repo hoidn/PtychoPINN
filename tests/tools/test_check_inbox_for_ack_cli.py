@@ -1316,3 +1316,141 @@ I'm following up on this request from Maintainer <2>.
         "Markdown missing Maintainer 2 row in Ack Actor Coverage table"
     assert "Maintainer 3" in md_content, \
         "Markdown missing Maintainer 3 row in Ack Actor Coverage table"
+
+
+def test_ack_actor_sla_overrides_thresholds(tmp_path):
+    """
+    Test --ack-actor-sla flag allows per-actor SLA threshold overrides.
+
+    Creates a synthetic inbox with:
+    - One message from Maintainer <2> (3.5 hours old, no ack keywords)
+    - One message from Maintainer <3> (1.0 hour old, no ack keywords)
+
+    Runs the CLI with:
+    - --sla-hours 2.5 (global threshold)
+    - --ack-actor-sla "Maintainer <2>=2.0" (M2 has stricter threshold)
+    - --ack-actor-sla "Maintainer <3>=4.0" (M3 has looser threshold)
+
+    Asserts:
+    1. JSON ack_actor_stats['maintainer_2'] shows sla_threshold_hours=2.0, sla_breached=True (3.5 > 2.0)
+    2. JSON ack_actor_stats['maintainer_3'] shows sla_threshold_hours=4.0, sla_breached=False (1.0 < 4.0)
+    3. JSON parameters['ack_actor_sla_hours'] includes the override map
+    4. Markdown Ack Actor Coverage table includes "Threshold (hrs)" column
+    5. CLI stdout shows "Per-actor SLA overrides" and threshold values per actor
+    """
+    inbox_dir = tmp_path / "inbox"
+    inbox_dir.mkdir()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    # Create message from Maintainer <2> (3.5 hours ago, no ack keywords)
+    m2_content = """# Request: dose_experiments_ground_truth
+
+**From:** Maintainer <2>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T10:00:00Z
+
+Please provide the dose experiments ground truth bundle.
+"""
+    create_inbox_file(inbox_dir, "request_m2_dose_experiments_ground_truth.md", m2_content, -3.5)
+
+    # Create message from Maintainer <3> (1.0 hour ago, no ack keywords)
+    m3_content = """# Update: dose_experiments_ground_truth
+
+**From:** Maintainer <3>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T12:30:00Z
+
+I'm following up on this request from Maintainer <2>.
+"""
+    create_inbox_file(inbox_dir, "update_m3_dose_experiments_ground_truth.md", m3_content, -1.0)
+
+    # Run CLI with per-actor SLA overrides
+    result = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--keywords", "acknowledged",
+            "--keywords", "confirm",
+            "--ack-actor", "Maintainer <2>",
+            "--ack-actor", "Maintainer <3>",
+            "--sla-hours", "2.5",
+            "--ack-actor-sla", "Maintainer <2>=2.0",
+            "--ack-actor-sla", "Maintainer <3>=4.0",
+            "--output", str(output_dir)
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    assert result.returncode == 0, f"CLI failed: {result.stderr}\nstdout: {result.stdout}"
+
+    # Load JSON output
+    json_path = output_dir / "inbox_scan_summary.json"
+    assert json_path.exists(), "JSON summary not created"
+    with open(json_path) as f:
+        data = json.load(f)
+
+    # Assert parameters include ack_actor_sla_hours
+    assert "parameters" in data, "JSON missing parameters"
+    params = data["parameters"]
+    assert "ack_actor_sla_hours" in params, "JSON parameters missing ack_actor_sla_hours"
+    sla_overrides = params["ack_actor_sla_hours"]
+    assert sla_overrides.get("maintainer_2") == 2.0, \
+        f"Expected maintainer_2 override 2.0, got {sla_overrides.get('maintainer_2')}"
+    assert sla_overrides.get("maintainer_3") == 4.0, \
+        f"Expected maintainer_3 override 4.0, got {sla_overrides.get('maintainer_3')}"
+
+    # Assert ack_actor_stats is present
+    assert "ack_actor_stats" in data, "JSON output missing ack_actor_stats"
+    ack_stats = data["ack_actor_stats"]
+
+    # Assert both actors are present
+    assert "maintainer_2" in ack_stats, "Missing maintainer_2 in ack_actor_stats"
+    assert "maintainer_3" in ack_stats, "Missing maintainer_3 in ack_actor_stats"
+
+    # Check M2 has threshold 2.0 and is BREACHED (3.5 > 2.0)
+    m2_stats = ack_stats["maintainer_2"]
+    assert "sla_threshold_hours" in m2_stats, "M2 missing sla_threshold_hours"
+    assert m2_stats["sla_threshold_hours"] == 2.0, \
+        f"M2 threshold should be 2.0 (override), got {m2_stats['sla_threshold_hours']}"
+    assert m2_stats["sla_breached"] is True, \
+        f"M2 should be breached (3.5 > 2.0 override), got {m2_stats['sla_breached']}"
+    assert m2_stats["sla_severity"] in ("warning", "critical"), \
+        f"M2 severity should be warning/critical when breached, got {m2_stats['sla_severity']}"
+
+    # Check M3 has threshold 4.0 and is NOT BREACHED (1.0 < 4.0)
+    m3_stats = ack_stats["maintainer_3"]
+    assert "sla_threshold_hours" in m3_stats, "M3 missing sla_threshold_hours"
+    assert m3_stats["sla_threshold_hours"] == 4.0, \
+        f"M3 threshold should be 4.0 (override), got {m3_stats['sla_threshold_hours']}"
+    assert m3_stats["sla_breached"] is False, \
+        f"M3 should NOT be breached (1.0 < 4.0 override), got {m3_stats['sla_breached']}"
+    assert m3_stats["sla_severity"] == "ok", \
+        f"M3 severity should be 'ok' when not breached, got {m3_stats['sla_severity']}"
+
+    # Verify Markdown summary includes Threshold column
+    md_path = output_dir / "inbox_scan_summary.md"
+    assert md_path.exists(), "Markdown summary not created"
+    md_content = md_path.read_text()
+
+    assert "## Ack Actor Coverage" in md_content, \
+        "Markdown missing 'Ack Actor Coverage' section"
+    assert "Threshold (hrs)" in md_content, \
+        "Markdown Ack Actor Coverage table missing 'Threshold (hrs)' column"
+    # Check threshold values appear in table
+    assert "2.00" in md_content, \
+        "Markdown should show threshold 2.00 for M2"
+    assert "4.00" in md_content, \
+        "Markdown should show threshold 4.00 for M3"
+
+    # Verify CLI stdout shows per-actor SLA overrides
+    assert "Per-actor SLA overrides" in result.stdout, \
+        "CLI stdout should show 'Per-actor SLA overrides'"
+    assert "maintainer_2" in result.stdout.lower() or "Maintainer 2" in result.stdout, \
+        "CLI stdout should mention Maintainer 2"
+    assert "SLA Threshold: 2.00 hours" in result.stdout, \
+        "CLI stdout should show M2's threshold value"
+    assert "SLA Threshold: 4.00 hours" in result.stdout, \
+        "CLI stdout should show M3's threshold value"

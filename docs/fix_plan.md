@@ -742,8 +742,8 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - [x] DEBUG-SIM-LINES-DOSE-001.C2: Capture checksum verification logs for the final bundle (or tarball) and confirm size constraints / delivery instructions in `galph_memory.md` + maintainer inbox.
 - [x] DEBUG-SIM-LINES-DOSE-001.D1: Draft `inbox/response_dose_experiments_ground_truth.md` that cites the final drop root, README/manifest paths, bundle_verification logs, tarball SHA, and the validating `pytest tests/test_generic_loader.py::test_generic_loader -q` log so Maintainer <2> can close the request.
 - [x] DEBUG-SIM-LINES-DOSE-001.E1: Verify the tarball rehydration path by extracting `dose_experiments_ground_truth.tar.gz`, regenerating the manifest, diffing it against `reports/2026-01-23T001018Z/ground_truth_manifest.json`, logging the comparison under `reports/<ts>/rehydration_check/`, re-running `pytest tests/test_generic_loader.py::test_generic_loader -q`, and updating the maintainer response with the results.
-- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Latest scan (artifacts under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/`) shows SLA breach at 3.77 hours (>2.00 threshold, severity **critical**) with no ack. Maintainer 2: 3.77 hrs since inbound (1 message), sla_severity=critical. Maintainer 3: N/A (0 messages), sla_severity=unknown. Test selectors: `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` (14 tests incl. per-actor SLA metrics) and `pytest tests/test_generic_loader.py::test_generic_loader -q`. Per-actor SLA fields now visible across all outputs.
-- **Next actions:** Per-actor SLA fields shipped. Awaiting Maintainer <2> acknowledgement.
+- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Latest scan (artifacts under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T060500Z/`) shows SLA breach with per-actor threshold overrides now available. Test selectors: `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` (15 tests incl. per-actor SLA overrides) and `pytest tests/test_generic_loader.py::test_generic_loader -q`. Per-actor SLA threshold overrides, deadline, severity now visible across all outputs.
+- **Next actions:** Per-actor SLA override thresholds shipped. Awaiting Maintainer <2> acknowledgement.
 
 ### 2026-01-23T02:55Z — DEBUG-SIM-LINES-DOSE-001.F1 (per-actor wait metrics scoped)
 **Action:** Ack-actor + custom keyword support landed (artifacts in `reports/2026-01-23T024800Z/`), but the Markdown/JSON summaries still hard-code "Maintainer <2>" and don't show which inbound maintainer is currently blocking the SLA. Maintainer <3> is now allowed to acknowledge on behalf of Maintainer <2>, so we need per-actor wait metrics and evidence that both actors are being policed.
@@ -917,3 +917,36 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - Persist the override map and each actor’s threshold in the JSON summary (e.g., `parameters["ack_actor_sla_hours"]` + `sla_threshold_hours` per actor) for reproducibility, and ensure actors without overrides still inherit the global `--sla-hours` value.
 - Extend `tests/tools/test_check_inbox_for_ack_cli.py` with `test_ack_actor_sla_overrides_thresholds` to prove Maintainer <2> can use a 2.0 h override while the global SLA stays at 2.5 h (Maintainer <3> should inherit the default and remain non-breached). Cover Markdown table headers + CLI stdout updates.
 - Re-run the CLI with `--ack-actor "Maintainer <2>" --ack-actor "Maintainer <3>" --sla-hours 2.5 --ack-actor-sla "Maintainer <2>=2.0" --ack-actor-sla "Maintainer <3>=6.0"` plus the usual history/status/escalation flags into `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T060500Z/`, drop the new log bundle, refresh docs (`docs/TESTING_GUIDE.md`, `docs/development/TEST_SUITE_INDEX.md`, `docs/fix_plan.md`), and publish `inbox/response_dose_experiments_ground_truth.md` + `inbox/followup_dose_experiments_ground_truth_2026-01-23T060500Z.md` with the per-actor threshold/severity callouts.
+
+### 2026-01-23T06:05Z — DEBUG-SIM-LINES-DOSE-001.F1 (per-actor SLA overrides shipped)
+**Action:** Implemented per-actor SLA threshold overrides in the inbox acknowledgement CLI:
+1. Added `--ack-actor-sla` repeatable argparse option accepting "actor=hours" format
+2. Implemented `parse_ack_actor_sla_overrides()` to parse override strings into normalized {actor: hours} map
+3. Updated `scan_inbox()` to accept `ack_actor_sla_overrides` dict and use per-actor thresholds when computing SLA fields
+4. Added `sla_threshold_hours` field to each actor in `ack_actor_stats`
+5. Added `ack_actor_sla_hours` to JSON parameters for reproducibility
+6. Updated Markdown/status/escalation tables with "Threshold (hrs)" column when overrides present
+7. Updated CLI stdout to show per-actor threshold values
+8. Added `test_ack_actor_sla_overrides_thresholds` regression test validating:
+   - JSON parameters include override map
+   - Each actor's breach status uses actor-specific threshold
+   - Markdown shows Threshold column
+   - CLI stdout shows per-actor thresholds
+
+**Tests:**
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` — 15 passed (0.79s)
+- `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.55s)
+
+**Collection:**
+- `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_overrides_thresholds -q` — 1 test collected
+
+**Doc Updates:**
+- `docs/TESTING_GUIDE.md`: Added "Inbox Acknowledgement CLI (Per-Actor SLA Overrides)" section with new selector
+- `docs/development/TEST_SUITE_INDEX.md`: Added `test_ack_actor_sla_overrides_thresholds` selector + log path
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T060500Z/logs/pytest_sla_override_collect.log`
+
+**Next Actions:**
+- F1 remains open; Maintainer <2> has not yet acknowledged the bundle
+- Per-actor SLA threshold overrides now available for differentiated SLA monitoring
