@@ -639,6 +639,50 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - Add `write_history_dashboard()` helper and cover it with `tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_summarizes_runs`.
 - Re-run the CLI with `--history-dashboard` into `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/`, refresh docs (`docs/TESTING_GUIDE.md`, `docs/development/TEST_SUITE_INDEX.md`, `docs/fix_plan.md`, `inbox/response_dose_experiments_ground_truth.md`), and author a new follow-up note referencing the dashboard so Maintainer <2> can respond.
 
+### 2026-01-23T02:19Z — DEBUG-SIM-LINES-DOSE-001.F1 (history dashboard shipped)
+**Action:** Implemented `--history-dashboard` CLI feature for `check_inbox_for_ack.py`:
+1. Added `--history-dashboard <path>` argparse option (requires `--history-jsonl`)
+2. Implemented `write_history_dashboard()` helper that generates a Markdown dashboard with:
+   - Summary Metrics table (Total Scans, Ack Count, Breach Count)
+   - SLA Breach Stats table (Longest Wait, Last Ack Timestamp, Last Scan Timestamp)
+   - Recent Scans table (last N entries from JSONL with timestamps, ack status, hours, breach status)
+3. Handles edge cases: missing/empty JSONL file shows "No history data available" message
+4. Dashboard is idempotent (overwrites rather than appends)
+5. Created `test_history_dashboard_summarizes_runs` and `test_history_dashboard_requires_jsonl` tests
+
+**Tests:**
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` — 9 passed (0.46s)
+- `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.53s)
+
+**Collection:**
+- `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_summarizes_runs -q` — 1 test collected
+
+**CLI Run (with --history-dashboard):**
+- Files scanned: 5
+- Matches: 3
+- Last inbound: 2026-01-22T23:22:58Z
+- Hours since last inbound: 2.95
+- **SLA Breached: Yes** (2.95 > 2.00 threshold, no ack detected)
+- Acknowledgement detected: No
+
+**Doc Updates:**
+- `docs/TESTING_GUIDE.md`: Added "Inbox Acknowledgement CLI (History Dashboard)" section with new selector
+- `docs/development/TEST_SUITE_INDEX.md`: Added `test_history_dashboard_summarizes_runs` selector + log path
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/logs/pytest_history_dashboard.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/logs/pytest_check_inbox_suite.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/logs/pytest_loader.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/inbox_history/inbox_history_dashboard.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/inbox_status/escalation_note.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/inbox_status/status_snippet.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/inbox_sla_watch/inbox_scan_summary.json`
+- `inbox/followup_dose_experiments_ground_truth_2026-01-23T023500Z.md`
+
+**Next Actions:**
+- F1 remains open; Maintainer <2> has not yet acknowledged the bundle
+- History dashboard now available for SLA tracking and escalation evidence
+
 ## TODOs
 - [x] S4: Expand the D0 parity Markdown report to list stage-level stats for every dataset and document the new test selector (`tests/tools/test_d0_parity_logger.py`) inside `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.
 - [x] S3: Promote D0 parity logger into `scripts/tools/` with stage-level stats + tests, then capture artifacts for photon_grid_study_20250826_152459
@@ -648,4 +692,4 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - [x] DEBUG-SIM-LINES-DOSE-001.C2: Capture checksum verification logs for the final bundle (or tarball) and confirm size constraints / delivery instructions in `galph_memory.md` + maintainer inbox.
 - [x] DEBUG-SIM-LINES-DOSE-001.D1: Draft `inbox/response_dose_experiments_ground_truth.md` that cites the final drop root, README/manifest paths, bundle_verification logs, tarball SHA, and the validating `pytest tests/test_generic_loader.py::test_generic_loader -q` log so Maintainer <2> can close the request.
 - [x] DEBUG-SIM-LINES-DOSE-001.E1: Verify the tarball rehydration path by extracting `dose_experiments_ground_truth.tar.gz`, regenerating the manifest, diffing it against `reports/2026-01-23T001018Z/ground_truth_manifest.json`, logging the comparison under `reports/<ts>/rehydration_check/`, re-running `pytest tests/test_generic_loader.py::test_generic_loader -q`, and updating the maintainer response with the results.
-- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Inbox scan CLI now supports escalation note output via `--escalation-note` (plus optional `--escalation-recipient`). Latest scan at 2026-01-23T02:09Z shows SLA breach (2.77 hours > 2.00 threshold, no ack). Escalation note generated with Summary Metrics, SLA Watch, Action Items, Proposed Message blockquote, and Timeline. Test selectors: `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` (7 tests pass). See `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/` for the latest evidence drop including the escalation note.
+- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Inbox scan CLI now supports history dashboard output via `--history-dashboard` (requires `--history-jsonl`). Latest scan at 2026-01-23T02:19Z shows SLA breach (2.95 hours > 2.00 threshold, no ack). History dashboard generated with Summary Metrics, SLA Breach Stats, and Recent Scans timeline. Test selectors: `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` (9 tests pass). See `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/` for the latest evidence drop including the history dashboard.

@@ -646,3 +646,129 @@ Please provide the dose experiments ground truth bundle.
     # Should NOT have the Proposed Message section
     assert "## Proposed Message" not in note_content, \
         "Note should not have Proposed Message when no breach"
+
+
+def test_history_dashboard_summarizes_runs(tmp_path):
+    """
+    Test --history-dashboard generates a Markdown dashboard from JSONL history.
+
+    Creates a fake JSONL history file with two entries (one breach, one with ack),
+    invokes write_history_dashboard via CLI, and asserts the Markdown contains:
+    - Total Scans count
+    - Breach Count
+    - Longest Wait metric
+    - Recent timeline rows with both timestamps
+    """
+    # Import the CLI module for direct access to write_history_dashboard
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("check_inbox_for_ack", CLI_SCRIPT)
+    cli_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cli_module)
+
+    # Create fake JSONL history file with 2 entries
+    history_jsonl = tmp_path / "history.jsonl"
+    dashboard_path = tmp_path / "dashboard.md"
+
+    entry1 = {
+        "generated_utc": "2026-01-23T01:00:00+00:00",
+        "ack_detected": False,
+        "hours_since_inbound": 2.5,
+        "hours_since_outbound": 0.5,
+        "sla_breached": True,
+        "sla_threshold_hours": 2.0,
+        "ack_files": [],
+        "total_matches": 3,
+        "total_inbound": 1,
+        "total_outbound": 2
+    }
+    entry2 = {
+        "generated_utc": "2026-01-23T02:00:00+00:00",
+        "ack_detected": True,
+        "hours_since_inbound": 3.5,
+        "hours_since_outbound": 1.5,
+        "sla_breached": False,
+        "sla_threshold_hours": 2.0,
+        "ack_files": ["ack_dose.md"],
+        "total_matches": 4,
+        "total_inbound": 2,
+        "total_outbound": 2
+    }
+
+    with open(history_jsonl, "w") as f:
+        f.write(json.dumps(entry1) + "\n")
+        f.write(json.dumps(entry2) + "\n")
+
+    # Call write_history_dashboard directly
+    cli_module.write_history_dashboard(history_jsonl, dashboard_path, max_entries=10)
+
+    # Assert dashboard file exists
+    assert dashboard_path.exists(), "Dashboard file not created"
+
+    dashboard_content = dashboard_path.read_text()
+
+    # Check for expected heading
+    assert "# Inbox History Dashboard" in dashboard_content, \
+        "Dashboard missing heading"
+
+    # Check for Total Scans count (2 entries)
+    assert "| Total Scans | 2 |" in dashboard_content, \
+        "Dashboard missing Total Scans count"
+
+    # Check for Breach Count (1 breach)
+    assert "| Breach Count | 1 |" in dashboard_content, \
+        "Dashboard missing Breach Count"
+
+    # Check for Longest Wait (3.5 hours from entry2)
+    assert "| Longest Wait | 3.50 hours |" in dashboard_content, \
+        "Dashboard missing Longest Wait metric"
+
+    # Check for both timestamps in Recent Scans table
+    assert "2026-01-23T01:00:00" in dashboard_content, \
+        "Dashboard missing first entry timestamp"
+    assert "2026-01-23T02:00:00" in dashboard_content, \
+        "Dashboard missing second entry timestamp"
+
+    # Check for Ack Count (1 ack)
+    assert "| Ack Count | 1 |" in dashboard_content, \
+        "Dashboard missing Ack Count"
+
+
+def test_history_dashboard_requires_jsonl(tmp_path):
+    """
+    Test that --history-dashboard without --history-jsonl returns exit code 1.
+    """
+    inbox_dir = tmp_path / "inbox"
+    inbox_dir.mkdir()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    dashboard_path = tmp_path / "dashboard.md"
+
+    # Create minimal inbox file
+    inbound_content = """# Request: dose_experiments_ground_truth
+
+**From:** Maintainer <2>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T14:00:00Z
+
+Please provide the dose experiments.
+"""
+    create_inbox_file(inbox_dir, "request_dose.md", inbound_content)
+
+    # Run CLI with --history-dashboard but WITHOUT --history-jsonl
+    result = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--history-dashboard", str(dashboard_path),
+            "--output", str(output_dir)
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    # Should exit with code 1 due to validation error
+    assert result.returncode == 1, \
+        f"Expected exit 1 when --history-dashboard without --history-jsonl, got {result.returncode}"
+    assert "requires --history-jsonl" in result.stdout, \
+        "Expected error message about requiring --history-jsonl"

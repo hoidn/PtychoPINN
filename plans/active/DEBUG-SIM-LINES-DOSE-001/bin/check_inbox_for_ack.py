@@ -103,6 +103,12 @@ def parse_args():
         default="Maintainer <2>",
         help="Recipient name for the escalation note (default: Maintainer <2>)"
     )
+    parser.add_argument(
+        "--history-dashboard",
+        type=str,
+        default=None,
+        help="Path to write a Markdown history dashboard (requires --history-jsonl)"
+    )
     return parser.parse_args()
 
 
@@ -913,9 +919,153 @@ def write_escalation_note(
         f.write("\n".join(lines))
 
 
+def write_history_dashboard(
+    jsonl_path: Path,
+    output_path: Path,
+    max_entries: int = 10
+) -> None:
+    """
+    Read the JSONL history log and emit an aggregated Markdown dashboard.
+
+    The dashboard includes:
+    - Summary Metrics (total scans, ack count, breach count)
+    - SLA Breach Stats (longest wait, most recent ack timestamp)
+    - Recent Scans table (last N entries from the JSONL)
+
+    If the JSONL file does not exist or is empty, emits a "No history" message.
+    The output file is overwritten (not appended) to provide an idempotent snapshot.
+    """
+    # Ensure parent directory exists
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    lines = [
+        "# Inbox History Dashboard",
+        "",
+    ]
+
+    # Read and parse JSONL entries
+    entries = []
+    if jsonl_path.exists():
+        with open(jsonl_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                    entries.append(entry)
+                except json.JSONDecodeError:
+                    # Skip invalid/partial lines
+                    continue
+
+    if not entries:
+        lines.extend([
+            "**Status:** No history data available.",
+            "",
+            "The history JSONL file is empty or does not exist. Run the inbox scan CLI",
+            "with `--history-jsonl` to begin collecting history entries.",
+            "",
+        ])
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+        return
+
+    # Compute summary metrics
+    total_scans = len(entries)
+    ack_count = sum(1 for e in entries if e.get("ack_detected", False))
+    breach_count = sum(1 for e in entries if e.get("sla_breached", False))
+
+    # Compute SLA breach stats
+    hours_since_inbound_values = [
+        e.get("hours_since_inbound")
+        for e in entries
+        if e.get("hours_since_inbound") is not None
+    ]
+    longest_wait = max(hours_since_inbound_values) if hours_since_inbound_values else None
+
+    # Find most recent ack timestamp (if any)
+    ack_entries = [e for e in entries if e.get("ack_detected", False)]
+    last_ack_timestamp = None
+    if ack_entries:
+        # Sort by generated_utc and take the latest
+        ack_entries_sorted = sorted(
+            ack_entries,
+            key=lambda x: x.get("generated_utc", ""),
+            reverse=True
+        )
+        last_ack_timestamp = ack_entries_sorted[0].get("generated_utc")
+
+    # Most recent scan timestamp
+    last_scan_timestamp = entries[-1].get("generated_utc") if entries else None
+
+    # Build dashboard
+    lines.extend([
+        f"**Generated:** {datetime.now(timezone.utc).isoformat()}",
+        f"**History Source:** `{jsonl_path}`",
+        "",
+        "## Summary Metrics",
+        "",
+        "| Metric | Value |",
+        "|--------|-------|",
+        f"| Total Scans | {total_scans} |",
+        f"| Ack Count | {ack_count} |",
+        f"| Breach Count | {breach_count} |",
+        "",
+    ])
+
+    # SLA Breach Stats
+    longest_wait_str = f"{longest_wait:.2f} hours" if longest_wait is not None else "N/A"
+    last_ack_str = last_ack_timestamp[:19] if last_ack_timestamp else "None"
+    last_scan_str = last_scan_timestamp[:19] if last_scan_timestamp else "N/A"
+
+    lines.extend([
+        "## SLA Breach Stats",
+        "",
+        "| Metric | Value |",
+        "|--------|-------|",
+        f"| Longest Wait | {longest_wait_str} |",
+        f"| Last Ack Timestamp | {last_ack_str} |",
+        f"| Last Scan Timestamp | {last_scan_str} |",
+        "",
+    ])
+
+    # Recent Scans table (last N entries)
+    recent_entries = entries[-max_entries:]
+
+    lines.extend([
+        f"## Recent Scans (last {len(recent_entries)} of {total_scans})",
+        "",
+        "| Timestamp | Ack | Hrs Inbound | Hrs Outbound | SLA Breach | Matches |",
+        "|-----------|-----|-------------|--------------|------------|---------|",
+    ])
+
+    for e in recent_entries:
+        ts = e.get("generated_utc", "")[:19]
+        ack = "Yes" if e.get("ack_detected", False) else "No"
+        hrs_in = e.get("hours_since_inbound")
+        hrs_in_str = f"{hrs_in:.2f}" if hrs_in is not None else "N/A"
+        hrs_out = e.get("hours_since_outbound")
+        hrs_out_str = f"{hrs_out:.2f}" if hrs_out is not None else "N/A"
+        breach = e.get("sla_breached")
+        breach_str = "Yes" if breach else ("No" if breach is False else "N/A")
+        matches = e.get("total_matches", 0)
+        lines.append(f"| {ts} | {ack} | {hrs_in_str} | {hrs_out_str} | {breach_str} | {matches} |")
+
+    lines.append("")
+
+    # Write the dashboard (overwrite mode for idempotency)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+
 def main():
     """Main entry point."""
     args = parse_args()
+
+    # Validate --history-dashboard requires --history-jsonl
+    if args.history_dashboard and not args.history_jsonl:
+        print("ERROR: --history-dashboard requires --history-jsonl to be specified")
+        return 1
 
     inbox_path = Path(args.inbox)
     output_path = Path(args.output)
@@ -965,6 +1115,13 @@ def main():
         history_md_path = Path(args.history_markdown)
         append_history_markdown(results, history_md_path)
         print(f"History Markdown appended: {history_md_path}")
+
+    # Write history dashboard if specified
+    if args.history_dashboard:
+        history_dashboard_path = Path(args.history_dashboard)
+        history_jsonl_path = Path(args.history_jsonl)
+        write_history_dashboard(history_jsonl_path, history_dashboard_path)
+        print(f"History dashboard written: {history_dashboard_path}")
 
     # Write status snippet if specified
     if args.status_snippet:

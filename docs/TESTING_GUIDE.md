@@ -76,6 +76,22 @@ This selector validates:
 
 Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/logs/pytest_escalation_note.log`
 
+### Inbox Acknowledgement CLI (History Dashboard)
+
+The CLI also supports generating a Markdown history dashboard via the `--history-dashboard` flag. This dashboard aggregates data from the JSONL history log to show total scans, ack count, breach count, longest wait, and a recent scans timeline. To run the history dashboard test:
+
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_summarizes_runs -q`
+
+This selector validates:
+- `--history-dashboard` flag writes a Markdown file with "Inbox History Dashboard" heading
+- Dashboard includes Summary Metrics (Total Scans, Ack Count, Breach Count)
+- Dashboard includes SLA Breach Stats (Longest Wait, Last Ack Timestamp)
+- Dashboard includes Recent Scans table with timestamps from the JSONL entries
+- Dashboard is idempotent (overwrites rather than appends)
+- `--history-dashboard` requires `--history-jsonl` to be specified (validation test)
+
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/logs/pytest_history_dashboard.log`
+
 ## Test Areas
 
 - `tests/tools/`: CLI and tooling tests (e.g., D0 parity logger).

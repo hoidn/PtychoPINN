@@ -415,3 +415,62 @@ pytest tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_note_emits_c
 - Scan summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/inbox_sla_watch/`
 - History logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/inbox_history/`
 - Test logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/logs/`
+
+---
+
+### Status as of 2026-01-23T023500Z (History Dashboard Feature)
+
+**History dashboard CLI feature added for aggregated SLA tracking.**
+
+| Metric | Value |
+|--------|-------|
+| Last Inbound (from Maintainer <2>) | 2026-01-22T23:22:58Z |
+| Hours Since Last Inbound | 2.95 hours |
+| SLA Threshold | 2.00 hours |
+| **SLA Breached** | **Yes** |
+| Acknowledgement Detected | No |
+| Total Inbound Messages | 1 |
+| Total Outbound Messages | 2 |
+
+**CLI command (with --history-dashboard):**
+```bash
+python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py \
+  --inbox inbox \
+  --request-pattern dose_experiments_ground_truth \
+  --sla-hours 2.0 \
+  --fail-when-breached \
+  --history-jsonl .../inbox_history/inbox_sla_watch.jsonl \
+  --history-markdown .../inbox_history/inbox_sla_watch.md \
+  --history-dashboard .../inbox_history/inbox_history_dashboard.md \
+  --status-snippet .../inbox_status/status_snippet.md \
+  --escalation-note .../inbox_status/escalation_note.md \
+  --escalation-recipient "Maintainer <2>" \
+  --output plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/inbox_sla_watch
+```
+
+**New test selector:**
+```bash
+pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_summarizes_runs -q
+```
+
+**History Dashboard** (at `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/inbox_history/inbox_history_dashboard.md`):
+- Summary Metrics table (Total Scans, Ack Count, Breach Count)
+- SLA Breach Stats table (Longest Wait, Last Ack Timestamp, Last Scan Timestamp)
+- Recent Scans table with timestamps, ack status, hours since inbound/outbound, breach status
+
+**Dashboard Metrics:**
+| Metric | Value |
+|--------|-------|
+| Total Scans | 1 |
+| Ack Count | 0 |
+| Breach Count | 1 |
+| Longest Wait | 2.95 hours |
+
+**Artifact paths:**
+- History dashboard: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/inbox_history/inbox_history_dashboard.md`
+- Escalation note: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/inbox_status/escalation_note.md`
+- Status snippet: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/inbox_status/status_snippet.md`
+- Scan summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/inbox_sla_watch/`
+- History logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/inbox_history/`
+- Test logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/logs/`
+- Follow-up note: `inbox/followup_dose_experiments_ground_truth_2026-01-23T023500Z.md`
