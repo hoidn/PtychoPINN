@@ -190,3 +190,28 @@ pytest tests/test_generic_loader.py::test_generic_loader -q
 **Log:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T005200Z/pytest_loader.log`
 
 This confirms the tarball can be extracted and used as a drop-in replacement for the original dataset files.
+
+---
+
+## Maintainer Status
+
+### Status as of 2026-01-23T013500Z
+
+**Inbox scan result:** No acknowledgement from Maintainer <2> detected yet.
+
+| Metric | Value |
+|--------|-------|
+| Files scanned | 5 |
+| Matches found | 3 |
+| From Maintainer <2> | 1 (original request) |
+| From Maintainer <1> | 2 (response + follow-up) |
+| Ack detected | No |
+
+The bundle has been delivered and a follow-up note sent. We are awaiting Maintainer <2>'s confirmation that:
+1. The tarball extracted correctly and SHA256 matches
+2. The datasets load without errors in their environment
+3. Any additional artifacts or documentation are needed
+
+**Scan details:** [`plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T013500Z/inbox_check/inbox_scan_summary.md`](plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T013500Z/inbox_check/inbox_scan_summary.md)
+
+**Tarball SHA256:** `7fe5e14ed9909f056807b77d5de56e729b8b79c8e5b8098ba50507f13780dd72` (unchanged)

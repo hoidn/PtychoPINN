@@ -1,0 +1,69 @@
+{
+  "scanned": 5,
+  "matches": [
+    {
+      "file": "followup_dose_experiments_ground_truth_2026-01-23T011900Z.md",
+      "path": "inbox/followup_dose_experiments_ground_truth_2026-01-23T011900Z.md",
+      "size_bytes": 2803,
+      "modified_utc": "2026-01-23T01:04:13.890440+00:00",
+      "match_reason": [
+        "filename",
+        "content"
+      ],
+      "keywords_found": [
+        "ack",
+        "confirm"
+      ],
+      "is_from_maintainer_2": false,
+      "ack_detected": false,
+      "preview": "# Follow-Up \u2014 Legacy dose_experiments Ground-Truth Bundle\n\n**From:** Maintainer <1> (PtychoPINN dose_experiments branch, root_dir: ~/Documents/PtychoPINN/)\n**To:** Maintainer <2> (PtychoPINN active branch, root_dir: ~/Documents/tmp/PtychoPINN/)\n**Re:** Follow-up on delivered ground-truth bundle (DEBUG-SIM-LINES-DOSE-00..."
+    },
+    {
+      "file": "request_dose_experiments_ground_truth_2026-01-22T014445Z.md",
+      "path": "inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md",
+      "size_bytes": 1469,
+      "modified_utc": "2026-01-22T23:22:58.332668+00:00",
+      "match_reason": [
+        "filename",
+        "content"
+      ],
+      "keywords_found": [],
+      "is_from_maintainer_2": true,
+      "ack_detected": false,
+      "preview": "Title: Request \u2014 legacy dose_experiments ground-truth artifacts\nFrom: Maintainer <2> (PtychoPINN active branch, root_dir: ~/Documents/tmp/PtychoPINN/)\nTo: Maintainer <1> (PtychoPINN dose_experiments branch, root_dir: ~/Documents/PtychoPINN/)\n\nContext\n- Initiative: DEBUG-SIM-LINES-DOSE-001 (Phase D amplitude-bias invest..."
+    },
+    {
+      "file": "response_dose_experiments_ground_truth.md",
+      "path": "inbox/response_dose_experiments_ground_truth.md",
+      "size_bytes": 6800,
+      "modified_utc": "2026-01-23T00:54:37.460121+00:00",
+      "match_reason": [
+        "filename",
+        "content"
+      ],
+      "keywords_found": [
+        "acknowledged",
+        "ack",
+        "confirm"
+      ],
+      "is_from_maintainer_2": false,
+      "ack_detected": false,
+      "preview": "# Response \u2014 Legacy dose_experiments Ground-Truth Bundle\n\n**From:** Maintainer <1> (PtychoPINN dose_experiments branch, root_dir: ~/Documents/PtychoPINN/)\n**To:** Maintainer <2> (PtychoPINN active branch, root_dir: ~/Documents/tmp/PtychoPINN/)\n**Re:** Request \u2014 legacy dose_experiments ground-truth artifacts (2026-01-22..."
+    }
+  ],
+  "ack_detected": false,
+  "ack_files": [],
+  "generated_utc": "2026-01-23T01:19:39.962279+00:00",
+  "parameters": {
+    "inbox": "inbox",
+    "request_pattern": "dose_experiments_ground_truth",
+    "keywords": [
+      "acknowledged",
+      "ack",
+      "confirm",
+      "received",
+      "thanks"
+    ],
+    "since": null
+  }
+}

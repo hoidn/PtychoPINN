@@ -383,6 +383,28 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - F1 remains open; awaiting Maintainer <2> acknowledgement
 - Once `ack_detected: true`, mark F1 complete and cite the maintainer reply path
 
+### 2026-01-23T01:35Z — DEBUG-SIM-LINES-DOSE-001.F1 (inbox scan refresh)
+**Action:** Re-ran inbox scan CLI to check for Maintainer <2> acknowledgement.
+
+**Scan Results:**
+- Files scanned: 5
+- Matches found: 3 (related to dose_experiments_ground_truth)
+- Messages FROM Maintainer <2>: 1 (original request, no ack keywords)
+- Messages FROM Maintainer <1>: 2 (response + follow-up)
+- **Acknowledgement detected: No** — still waiting for Maintainer <2> reply
+
+**Test:** `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed, 5 warnings (2.56s)
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T013500Z/inbox_check/inbox_scan_summary.json`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T013500Z/inbox_check/inbox_scan_summary.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T013500Z/inbox_check/check_inbox.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T013500Z/pytest_loader.log`
+
+**Next Actions:**
+- F1 remains open; continue periodic inbox scans until Maintainer <2> acknowledges
+- If no ack after extended wait, consider Maintainer <1> escalation draft
+
 ## TODOs
 - [x] S4: Expand the D0 parity Markdown report to list stage-level stats for every dataset and document the new test selector (`tests/tools/test_d0_parity_logger.py`) inside `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.
 - [x] S3: Promote D0 parity logger into `scripts/tools/` with stage-level stats + tests, then capture artifacts for photon_grid_study_20250826_152459
@@ -392,4 +414,4 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - [x] DEBUG-SIM-LINES-DOSE-001.C2: Capture checksum verification logs for the final bundle (or tarball) and confirm size constraints / delivery instructions in `galph_memory.md` + maintainer inbox.
 - [x] DEBUG-SIM-LINES-DOSE-001.D1: Draft `inbox/response_dose_experiments_ground_truth.md` that cites the final drop root, README/manifest paths, bundle_verification logs, tarball SHA, and the validating `pytest tests/test_generic_loader.py::test_generic_loader -q` log so Maintainer <2> can close the request.
 - [x] DEBUG-SIM-LINES-DOSE-001.E1: Verify the tarball rehydration path by extracting `dose_experiments_ground_truth.tar.gz`, regenerating the manifest, diffing it against `reports/2026-01-23T001018Z/ground_truth_manifest.json`, logging the comparison under `reports/<ts>/rehydration_check/`, re-running `pytest tests/test_generic_loader.py::test_generic_loader -q`, and updating the maintainer response with the results.
-- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Inbox scan CLI implemented (`check_inbox_for_ack.py`); latest scan at 2026-01-23T01:12:57Z shows no ack yet. Re-run scan or check inbox for new files.
+- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Inbox scan CLI implemented (`check_inbox_for_ack.py`); latest scan at 2026-01-23T01:19:39Z shows no ack yet (3 matches, 0 acks). Re-run scan or check inbox for new files.
