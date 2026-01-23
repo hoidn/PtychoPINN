@@ -1867,3 +1867,162 @@ Please provide the dose experiments ground truth bundle.
         "Dashboard missing 'Entries with per-actor data:' line"
     assert "2 of 2" in dashboard_content, \
         "Dashboard should show '2 of 2' entries with per-actor data"
+
+
+def test_history_dashboard_actor_breach_timeline(tmp_path):
+    """
+    Test --history-dashboard generates an "## Ack Actor Breach Timeline" table.
+
+    Creates a synthetic inbox with:
+    - Maintainer <2> inbound 3.5 hours ago (no ack keywords) → critical breach with 2.0h threshold
+    - Maintainer <3> absent (no inbound) → unknown (should NOT appear in breach timeline)
+
+    Runs the CLI twice to accumulate history entries, then verifies:
+    1. Dashboard includes "## Ack Actor Breach Timeline" section
+    2. Table shows Maintainer 2 with Current Streak = 2 (two consecutive breach scans)
+    3. Table shows non-empty Breach Start and Latest Scan timestamps
+    4. Table shows Hours Past SLA with numeric value > 0
+    5. Maintainer 3 is NOT in the breach timeline (unknown status, not breaching)
+    6. Table is sorted by severity priority (critical first)
+    """
+    inbox_dir = tmp_path / "inbox"
+    inbox_dir.mkdir()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    history_jsonl = tmp_path / "history.jsonl"
+    history_md = tmp_path / "history.md"
+    dashboard_path = tmp_path / "dashboard.md"
+
+    # Create message from Maintainer <2> (3.5 hours ago, no ack keywords)
+    m2_content = """# Request: dose_experiments_ground_truth
+
+**From:** Maintainer <2>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T10:00:00Z
+
+Please provide the dose experiments ground truth bundle.
+"""
+    create_inbox_file(inbox_dir, "request_m2_dose_experiments_ground_truth.md", m2_content, -3.5)
+
+    # NO message from Maintainer <3> - they should show as "unknown"
+
+    # === Run 1: First scan ===
+    result1 = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--keywords", "acknowledged",
+            "--keywords", "confirm",
+            "--ack-actor", "Maintainer <2>",
+            "--ack-actor", "Maintainer <3>",
+            "--sla-hours", "2.5",
+            "--ack-actor-sla", "Maintainer <2>=2.0",
+            "--ack-actor-sla", "Maintainer <3>=6.0",
+            "--history-jsonl", str(history_jsonl),
+            "--history-markdown", str(history_md),
+            "--history-dashboard", str(dashboard_path),
+            "--output", str(output_dir / "run1")
+        ],
+        capture_output=True,
+        text=True
+    )
+    assert result1.returncode == 0, f"Run 1 failed: {result1.stderr}\nstdout: {result1.stdout}"
+
+    # === Run 2: Second scan (accumulate history) ===
+    result2 = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--keywords", "acknowledged",
+            "--keywords", "confirm",
+            "--ack-actor", "Maintainer <2>",
+            "--ack-actor", "Maintainer <3>",
+            "--sla-hours", "2.5",
+            "--ack-actor-sla", "Maintainer <2>=2.0",
+            "--ack-actor-sla", "Maintainer <3>=6.0",
+            "--history-jsonl", str(history_jsonl),
+            "--history-markdown", str(history_md),
+            "--history-dashboard", str(dashboard_path),
+            "--output", str(output_dir / "run2")
+        ],
+        capture_output=True,
+        text=True
+    )
+    assert result2.returncode == 0, f"Run 2 failed: {result2.stderr}\nstdout: {result2.stdout}"
+
+    # === Validate JSONL has 2 entries ===
+    assert history_jsonl.exists(), "JSONL history file not created"
+    with open(history_jsonl) as f:
+        jsonl_lines = [json.loads(line) for line in f.readlines()]
+    assert len(jsonl_lines) == 2, f"Expected 2 JSONL entries, got {len(jsonl_lines)}"
+
+    # === Validate Dashboard ===
+    assert dashboard_path.exists(), "Dashboard file not created"
+    dashboard_content = dashboard_path.read_text()
+
+    # 1. Dashboard includes "## Ack Actor Breach Timeline"
+    assert "## Ack Actor Breach Timeline" in dashboard_content, \
+        "Dashboard missing '## Ack Actor Breach Timeline' section"
+
+    # 2. Table shows Maintainer 2 with Current Streak = 2
+    lines = dashboard_content.split("\n")
+    m2_breach_row = None
+    in_breach_section = False
+    for line in lines:
+        if "## Ack Actor Breach Timeline" in line:
+            in_breach_section = True
+        elif line.startswith("## ") and in_breach_section:
+            # Left breach section
+            break
+        elif in_breach_section and "Maintainer 2" in line and "|" in line:
+            m2_breach_row = line
+            break
+
+    assert m2_breach_row is not None, \
+        f"Could not find Maintainer 2 row in breach timeline table. Dashboard:\n{dashboard_content}"
+
+    # Parse columns: | Actor | Breach Start | Latest Scan | Current Streak | Hours Past SLA | Severity |
+    cols = [c.strip() for c in m2_breach_row.split("|")]
+    # cols[0] is empty (before first |), cols[1] is Actor, cols[2] is Breach Start, etc.
+    assert len(cols) >= 7, f"Breach timeline row has too few columns: {cols}"
+
+    # cols[4] is Current Streak
+    current_streak = cols[4]
+    assert current_streak == "2", \
+        f"Maintainer 2 should have Current Streak of 2, got '{current_streak}'"
+
+    # 3. Breach Start and Latest Scan are non-empty timestamps
+    breach_start = cols[2]
+    latest_scan = cols[3]
+    assert breach_start != "N/A" and len(breach_start) >= 10, \
+        f"Breach Start should be a timestamp, got '{breach_start}'"
+    assert latest_scan != "N/A" and len(latest_scan) >= 10, \
+        f"Latest Scan should be a timestamp, got '{latest_scan}'"
+
+    # 4. Hours Past SLA is non-N/A and contains a number (e.g., "1.50h")
+    hours_past_sla = cols[5]
+    assert hours_past_sla != "N/A", \
+        f"Hours Past SLA should be numeric, got '{hours_past_sla}'"
+    assert "h" in hours_past_sla.lower(), \
+        f"Hours Past SLA should contain 'h' suffix, got '{hours_past_sla}'"
+
+    # 5. Maintainer 3 should NOT be in the breach timeline (unknown status)
+    m3_in_breach = False
+    in_breach_section = False
+    for line in lines:
+        if "## Ack Actor Breach Timeline" in line:
+            in_breach_section = True
+        elif line.startswith("## ") and in_breach_section:
+            break
+        elif in_breach_section and "Maintainer 3" in line and "|" in line:
+            m3_in_breach = True
+            break
+    assert not m3_in_breach, \
+        "Maintainer 3 (unknown) should NOT appear in breach timeline table"
+
+    # 6. Severity column shows CRITICAL for Maintainer 2
+    severity = cols[6]
+    assert severity == "CRITICAL", \
+        f"Maintainer 2 severity should be CRITICAL, got '{severity}'"

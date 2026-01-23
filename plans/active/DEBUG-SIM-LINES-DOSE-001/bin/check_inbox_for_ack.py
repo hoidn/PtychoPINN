@@ -1498,6 +1498,144 @@ def write_escalation_note(
         f.write("\n".join(lines))
 
 
+def _build_actor_breach_timeline_section(entries: list) -> list:
+    """
+    Build the Ack Actor Breach Timeline section for the history dashboard.
+
+    Scans JSONL entries chronologically to track per-actor breach state:
+    - Breach start timestamp (when actor first entered warning/critical)
+    - Latest scan timestamp
+    - Current streak count (consecutive scans in warning/critical)
+    - Hours past SLA (hours_since_inbound - sla_threshold)
+
+    Severity priority for sorting: critical > warning > ok > unknown
+
+    Returns a list of Markdown lines for the section.
+    Gracefully handles entries without ack_actor_summary data.
+    """
+    lines = []
+
+    # Track per-actor breach state chronologically
+    # actor_id -> {
+    #   breach_start: str (first warning/critical timestamp),
+    #   latest_scan: str,
+    #   current_streak: int,
+    #   hours_past_sla: float,
+    #   severity: str (latest),
+    #   actor_label: str
+    # }
+    actor_breach_state: dict = {}
+
+    entries_with_summary = 0
+    for entry in entries:
+        summary = entry.get("ack_actor_summary")
+        if not summary:
+            continue
+        entries_with_summary += 1
+
+        entry_ts = entry.get("generated_utc", "")
+
+        severity_order = ["critical", "warning", "ok", "unknown"]
+        for sev in severity_order:
+            actors_in_sev = summary.get(sev, [])
+            for actor_data in actors_in_sev:
+                actor_id = actor_data.get("actor_id", "unknown")
+                actor_label = actor_data.get("actor_label", actor_id.replace("_", " ").title())
+                hrs_since = actor_data.get("hours_since_inbound")
+                sla_threshold = actor_data.get("sla_threshold_hours")
+
+                # Initialize state if new actor
+                if actor_id not in actor_breach_state:
+                    actor_breach_state[actor_id] = {
+                        "actor_label": actor_label,
+                        "breach_start": None,
+                        "latest_scan": "",
+                        "current_streak": 0,
+                        "hours_past_sla": 0.0,
+                        "severity": sev,
+                    }
+
+                state = actor_breach_state[actor_id]
+
+                # Update latest scan timestamp
+                if entry_ts > state["latest_scan"]:
+                    state["latest_scan"] = entry_ts
+
+                # Track breach state for warning/critical actors
+                if sev in ("warning", "critical"):
+                    if state["breach_start"] is None:
+                        # First time entering breach state
+                        state["breach_start"] = entry_ts
+                        state["current_streak"] = 1
+                    else:
+                        # Continuing breach streak
+                        state["current_streak"] += 1
+
+                    # Compute hours past SLA
+                    if hrs_since is not None and sla_threshold is not None:
+                        past_sla = max(hrs_since - sla_threshold, 0.0)
+                        if past_sla > state["hours_past_sla"]:
+                            state["hours_past_sla"] = past_sla
+
+                    state["severity"] = sev
+                else:
+                    # Actor returned to ok/unknown - reset streak
+                    state["breach_start"] = None
+                    state["current_streak"] = 0
+                    state["hours_past_sla"] = 0.0
+                    state["severity"] = sev
+
+    # Filter to only actors with active breaches (warning/critical with streak > 0)
+    active_breaches = {
+        actor_id: state
+        for actor_id, state in actor_breach_state.items()
+        if state["severity"] in ("warning", "critical") and state["current_streak"] > 0
+    }
+
+    if not active_breaches:
+        lines.extend([
+            "## Ack Actor Breach Timeline",
+            "",
+            "**Status:** No active breaches detected.",
+            "",
+            "All tracked actors are currently within SLA thresholds or have returned to OK status.",
+            "",
+        ])
+        return lines
+
+    # Sort by severity priority (critical > warning), then by hours_past_sla descending
+    def breach_sort_key(item):
+        actor_id, state = item
+        sev_priority = {"critical": 0, "warning": 1}.get(state["severity"], 2)
+        return (sev_priority, -state["hours_past_sla"], actor_id)
+
+    sorted_breaches = sorted(active_breaches.items(), key=breach_sort_key)
+
+    lines.extend([
+        "## Ack Actor Breach Timeline",
+        "",
+        f"**Active breaches:** {len(active_breaches)} actor(s)",
+        "",
+        "| Actor | Breach Start | Latest Scan | Current Streak | Hours Past SLA | Severity |",
+        "|-------|--------------|-------------|----------------|----------------|----------|",
+    ])
+
+    for actor_id, state in sorted_breaches:
+        label = _sanitize_md(state["actor_label"])
+        breach_start = state["breach_start"][:19] if state["breach_start"] else "N/A"
+        latest_scan = state["latest_scan"][:19] if state["latest_scan"] else "N/A"
+        streak = state["current_streak"]
+        hours_past = f"{state['hours_past_sla']:.2f}h" if state["hours_past_sla"] > 0 else "N/A"
+        severity = state["severity"].upper()
+
+        lines.append(
+            f"| {label} | {breach_start} | {latest_scan} | {streak} | {hours_past} | {severity} |"
+        )
+
+    lines.append("")
+    return lines
+
+
 def _build_actor_severity_trends_section(entries: list) -> list:
     """
     Build the Ack Actor Severity Trends section for the history dashboard.
@@ -1622,6 +1760,7 @@ def write_history_dashboard(
     - SLA Breach Stats (longest wait, most recent ack timestamp)
     - Recent Scans table (last N entries from the JSONL)
     - Ack Actor Severity Trends (per-actor severity counts/longest wait/latest timestamps)
+    - Ack Actor Breach Timeline (per-actor breach start/streak/hours-past-SLA)
 
     If the JSONL file does not exist or is empty, emits a "No history" message.
     The output file is overwritten (not appended) to provide an idempotent snapshot.
@@ -1747,6 +1886,9 @@ def write_history_dashboard(
 
     # Ack Actor Severity Trends - aggregate per-actor data across all entries
     lines.extend(_build_actor_severity_trends_section(entries))
+
+    # Ack Actor Breach Timeline - per-actor breach state tracking
+    lines.extend(_build_actor_breach_timeline_section(entries))
 
     # Write the dashboard (overwrite mode for idempotency)
     with open(output_path, "w", encoding="utf-8") as f:

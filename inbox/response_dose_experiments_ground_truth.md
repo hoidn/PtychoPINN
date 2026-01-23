@@ -607,3 +607,47 @@ pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_actor
 - Scan summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/inbox_sla_watch/`
 - Test logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/logs/`
 - Follow-up note: `inbox/followup_dose_experiments_ground_truth_2026-01-23T093500Z.md`
+
+---
+
+### Status as of 2026-01-23T103500Z (Breach Timeline Added)
+
+**New feature: Ack Actor Breach Timeline**
+
+The history dashboard now includes a breach timeline section that tracks when each actor first crossed their SLA deadline, how long the current breach streak has lasted, and the exact hours past the SLA threshold.
+
+**Latest scan:**
+| Metric | Value |
+|--------|-------|
+| Last Inbound (from Maintainer <2>) | 2026-01-22T23:22:58Z |
+| Hours Since Last Inbound | 4.78 hours |
+| SLA Threshold (Maintainer <2>) | 2.00 hours |
+| Hours Past SLA | 2.78 hours |
+| Current Breach Streak | 1 (this is the first scan with the timeline feature) |
+| Maintainer <3> Status | Unknown (no inbound messages) |
+
+**Breach Timeline excerpt:**
+| Actor | Breach Start | Latest Scan | Current Streak | Hours Past SLA | Severity |
+|-------|--------------|-------------|----------------|----------------|----------|
+| Maintainer 2 | 2026-01-23T04:09:40 | 2026-01-23T04:09:40 | 1 | 2.78h | CRITICAL |
+
+*Maintainer 3 is correctly excluded from the breach timeline as they have unknown status (no inbound messages).*
+
+**New test selector:**
+```bash
+pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_actor_breach_timeline -q
+```
+
+**Test results:**
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_actor_breach_timeline -q` — 1 passed
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` — 19 passed (1.06s)
+- `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.53s)
+
+**Artifact paths:**
+- History dashboard (with breach timeline): `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/inbox_history/inbox_history_dashboard.md`
+- History JSONL: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/inbox_history/inbox_sla_watch.jsonl`
+- History Markdown: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/inbox_history/inbox_sla_watch.md`
+- Status snippet: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/inbox_status/status_snippet.md`
+- Escalation note: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/inbox_status/escalation_note.md`
+- Scan summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/inbox_sla_watch/`
+- Test logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/logs/`

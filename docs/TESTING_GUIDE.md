@@ -107,6 +107,23 @@ This selector validates:
 
 Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/logs/pytest_history_dashboard_actor_severity.log`
 
+### Inbox Acknowledgement CLI (History Dashboard - Actor Breach Timeline)
+
+The history dashboard now includes an "Ack Actor Breach Timeline" section that tracks per-actor breach state across JSONL entries. This shows breach start timestamps, latest scans, consecutive breach streaks, and hours past SLA for actors in warning/critical states. Actors that return to OK/unknown have their streaks reset. To run the actor breach timeline test:
+
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_actor_breach_timeline -q`
+
+This selector validates:
+- Dashboard includes "## Ack Actor Breach Timeline" section
+- Table shows per-actor breach start and latest scan timestamps
+- Table shows Current Streak (consecutive scans in warning/critical)
+- Table shows Hours Past SLA (hours_since_inbound - sla_threshold)
+- Actors are sorted by severity priority (critical > warning)
+- Actors in OK/unknown status are NOT included in the timeline
+- Gracefully shows "No active breaches" when all actors are within SLA
+
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/logs/pytest_history_dashboard_actor_breach.log`
+
 ### Inbox Acknowledgement CLI (Multi-Actor Ack)
 
 The CLI supports configurable ack actors via the `--ack-actor` repeatable flag. By default, only `Maintainer <2>` is treated as an acknowledgement source. Use `--ack-actor "Maintainer <3>"` to add additional actors. To run the multi-actor ack test:

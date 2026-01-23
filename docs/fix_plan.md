@@ -569,6 +569,46 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 **Next Actions:**
 - F1 remains open; Maintainer <2> has not yet acknowledged the bundle
 
+### 2026-01-23T04:09Z — DEBUG-SIM-LINES-DOSE-001.F1 (per-actor breach timeline shipped)
+**Action:** Implemented `_build_actor_breach_timeline_section()` helper in `check_inbox_for_ack.py::write_history_dashboard`:
+1. Added `_build_actor_breach_timeline_section()` helper (lines 1501-1612) that scans JSONL entries chronologically, tracks per-actor breach start timestamps, latest scans, consecutive breach streaks, and hours past SLA for warning/critical actors, and renders an "## Ack Actor Breach Timeline" table sorted by severity priority
+2. Breach timeline excludes actors in OK/unknown status (only shows active breaches)
+3. Streak resets when actor returns to OK/unknown, providing accurate "current breach" state
+4. Hours Past SLA computed as `max(hours_since_inbound - sla_threshold, 0.0)`
+5. Graceful fallback shows "No active breaches detected" when all actors are within SLA
+6. Created `test_history_dashboard_actor_breach_timeline` test validating Maintainer 2 appears with streak=2, timestamps, hours-past-SLA, and CRITICAL severity; Maintainer 3 excluded as unknown
+
+**Tests:**
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_actor_breach_timeline -q` — 1 passed
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` — 19 passed (1.06s)
+- `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.53s)
+- `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_actor_breach_timeline -q` — 1 collected
+
+**CLI Run (with breach timeline):**
+- Files scanned: 8
+- Matches: 6
+- Hours since last inbound: 4.78 (Maintainer <2>)
+- **SLA Breached: Yes** (4.78 > 2.00 threshold for M2)
+- Breach timeline shows: Maintainer 2, streak=1, 2.78h past SLA, CRITICAL
+- Maintainer 3 correctly excluded (unknown status, no inbound)
+
+**Doc Updates:**
+- `docs/TESTING_GUIDE.md`: Added "Inbox Acknowledgement CLI (History Dashboard - Actor Breach Timeline)" section with new selector
+- `docs/development/TEST_SUITE_INDEX.md`: Added `test_history_dashboard_actor_breach_timeline` selector + log path
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/logs/pytest_history_dashboard_actor_breach.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/logs/pytest_history_dashboard_actor_breach_collect.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/logs/pytest_check_inbox_suite.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/logs/pytest_loader.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/inbox_history/inbox_history_dashboard.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/inbox_sla_watch/inbox_scan_summary.json`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/inbox_status/escalation_note.md`
+
+**Next Actions:**
+- F1 remains open; Maintainer <2> has not yet acknowledged the bundle
+- Breach timeline now provides escalation context for Maintainer <3>
+
 ### 2026-01-23T10:35Z — DEBUG-SIM-LINES-DOSE-001.F1 (per-actor breach timeline scoped)
 **Action:** Maintainer <3> still lacks a clear SLA story even after the actor-severity trends table because the dashboard only shows aggregate counts. We need a breach timeline that states when Maintainer <2> first crossed the deadline, how long the current breach streak has lasted, and whether the escalation remains active so Maintainer <3> can intervene without spelunking history JSONL entries.
 

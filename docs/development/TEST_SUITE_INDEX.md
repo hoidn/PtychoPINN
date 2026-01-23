@@ -53,3 +53,6 @@ This is a minimal index of key tests in this branch.
   - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_actor_severity_trends -q`
   - Tests `--history-dashboard` "Ack Actor Severity Trends" section that aggregates per-actor severity counts, longest wait, and latest scan timestamps across all JSONL entries. Validates severity priority sorting (critical > unknown).
   - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/logs/pytest_history_dashboard_actor_severity.log`
+  - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_actor_breach_timeline -q`
+  - Tests `--history-dashboard` "Ack Actor Breach Timeline" section that tracks per-actor breach state: breach start timestamps, latest scans, consecutive breach streaks, and hours past SLA. Validates actors in OK/unknown are excluded; severity priority sorting (critical > warning); streak resets when returning to OK.
+  - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/logs/pytest_history_dashboard_actor_breach.log`
