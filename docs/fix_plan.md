@@ -301,6 +301,20 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 **Next Actions:**
 - D1 complete; await Maintainer <2> acknowledgment to close DEBUG-SIM-LINES-DOSE-001
 
+### 2026-01-23T00:50Z — DEBUG-SIM-LINES-DOSE-001.E1 (rehydration verification scoped)
+**Action:** Reviewed the packaged drop (`dose_experiments_ground_truth.tar.gz`) and confirmed we only validated files prior to compression. The maintainer handoff currently cites checksums gathered before the tarball was created, so we still lack evidence that rehydrating the archive preserves structure, metadata, and manifest parity. Before closing, we need to exercise the exact tarball the maintainer will download, regenerate the manifest from the extracted bundle, and diff it against the Phase-A manifest to prove SHA256 and dataset metadata remain unchanged.
+
+**Gap:** No automation exists for tarball rehydration; manually extracting the ~270 MB archive risks leaving large duplicates in the repo and is error-prone.
+
+**Next Actions:**
+- Author `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/verify_bundle_rehydration.py` to:
+  1. Extract `dose_experiments_ground_truth.tar.gz` into a temporary directory (with optional `--keep-extracted` flag).
+  2. Re-run `make_ground_truth_manifest.py` on the extracted bundle, writing its outputs under a fresh `reports/<ts>/rehydration_check/` directory.
+  3. Diff SHA256 + size metadata between the original manifest (`reports/2026-01-23T001018Z/ground_truth_manifest.json`) and the rehydrated manifest, emitting `rehydration_diff.json` + `rehydration_summary.md` and exiting non-zero on mismatch.
+  4. Clean up the temporary extraction directory when verification succeeds to avoid duplicating the 270 MB dataset inside the repo.
+- Capture the script output log plus a rerun of `pytest tests/test_generic_loader.py::test_generic_loader -q` under `reports/<ts>/rehydration_check/`.
+- Append a short "Rehydration verification" section to `inbox/response_dose_experiments_ground_truth.md` citing the new summary so Maintainer <2> knows the tarball was tested end-to-end.
+
 ## TODOs
 - [x] S4: Expand the D0 parity Markdown report to list stage-level stats for every dataset and document the new test selector (`tests/tools/test_d0_parity_logger.py`) inside `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.
 - [x] S3: Promote D0 parity logger into `scripts/tools/` with stage-level stats + tests, then capture artifacts for photon_grid_study_20250826_152459
@@ -309,3 +323,4 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - [x] DEBUG-SIM-LINES-DOSE-001.C1: Copy or package (tarball) the requested datasets + baseline outputs into `reports/2026-01-22T014445Z/dose_experiments_ground_truth/`, keeping the manifest + README in sync.
 - [x] DEBUG-SIM-LINES-DOSE-001.C2: Capture checksum verification logs for the final bundle (or tarball) and confirm size constraints / delivery instructions in `galph_memory.md` + maintainer inbox.
 - [x] DEBUG-SIM-LINES-DOSE-001.D1: Draft `inbox/response_dose_experiments_ground_truth.md` that cites the final drop root, README/manifest paths, bundle_verification logs, tarball SHA, and the validating `pytest tests/test_generic_loader.py::test_generic_loader -q` log so Maintainer <2> can close the request.
+- [ ] DEBUG-SIM-LINES-DOSE-001.E1: Verify the tarball rehydration path by extracting `dose_experiments_ground_truth.tar.gz`, regenerating the manifest, diffing it against `reports/2026-01-23T001018Z/ground_truth_manifest.json`, logging the comparison under `reports/<ts>/rehydration_check/`, re-running `pytest tests/test_generic_loader.py::test_generic_loader -q`, and updating the maintainer response with the results.

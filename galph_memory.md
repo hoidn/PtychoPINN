@@ -35,3 +35,7 @@ notes=Git pull --rebase blocked again because of the user's dirty worktree (left
 ## 2026-01-23T004208Z
 focus=DEBUG-SIM-LINES-DOSE-001.D1 state=ready_for_implementation dwell=0 action_type=review_or_housekeeping artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T004049Z/ next_action=Ralph sends maintainer response + reruns loader pytest per refreshed input <Action State>=ready_for_implementation
 notes=Verified the bundle + README under the 2026-01-22T014445Z drop, added the D1 maintainer-response checklist to docs/fix_plan.md, and rewrote input.md so Ralph logs a fresh pytest run, recomputes the tarball SHA, and authors inbox/response_dose_experiments_ground_truth.md with delivery + verification details.
+
+## 2026-01-23T005118Z
+focus=DEBUG-SIM-LINES-DOSE-001.E1 state=ready_for_implementation dwell=0 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T005200Z/ next_action=Ralph builds rehydration verifier + reruns loader guard <Action State>=ready_for_implementation
+notes=Scoped the E1 rehydration check after noticing we only had pre-tarball evidence, updated docs/fix_plan.md with the new checklist, and rewrote input.md so Ralph implements verify_bundle_rehydration.py, captures logs under 2026-01-23T005200Z, reruns pytest, and updates the maintainer response.
