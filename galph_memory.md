@@ -83,3 +83,7 @@ notes=git pull --rebase is still blocked by the massive dirty worktree; left fil
 ## 2026-01-23T023926Z
 focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=0 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T031500Z/ next_action=Ralph adds ack_actor_stats + per-actor wait tables + new pytest + CLI run/doc updates <Action State>=ready_for_implementation
 notes=git pull --rebase still blocked by the user’s dirty worktree; left untouched. Updated docs/fix_plan.md with the per-actor wait metrics scope, rewrote input.md so Ralph adds ack_actor_stats across the CLI outputs, implements the new regression test, reruns pytest + loader guard, captures a fresh SLA breach drop under 2026-01-23T031500Z (with Maintainer <2>/<3> wait tables), and refreshes docs/inbox artifacts accordingly.
+
+## 2026-01-23T025117Z
+focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=1 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T040500Z/ next_action=Ralph adds SLA severity/deadline metrics + Maintainer <3> escalation evidence <Action State>=ready_for_implementation
+notes=git pull --rebase is still blocked by the user's massive dirty worktree (left untouched). Scoped the next F1 loop around SLA deadline/severity instrumentation, a new pytest guard, and a Maintainer <3> escalation drop; refreshed input.md with concrete code/test/doc/CLI steps plus the new 2026-01-23T040500Z artifacts root.
