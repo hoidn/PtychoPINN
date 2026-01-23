@@ -1,52 +1,47 @@
-Summary: Build a rehydration verification script for the legacy dose_experiments bundle so we can prove the .tar.gz extracts cleanly, regenerates the manifest, and still passes the loader gate.
-Focus: DEBUG-SIM-LINES-DOSE-001.E1 — Legacy tarball rehydration verification
+Summary: Ping Maintainer <2> about the delivered dose_experiments bundle, update the fix plan with the follow-up checklist, and rerun the loader guard for fresh evidence.
+Focus: DEBUG-SIM-LINES-DOSE-001 — Legacy dose_experiments ground-truth bundle
 Branch: dose_experiments
 Mapped tests: pytest tests/test_generic_loader.py::test_generic_loader -q
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T005200Z/
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T011900Z/
 
 Do Now (hard validity contract)
-- Focus ID: DEBUG-SIM-LINES-DOSE-001.E1
-- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/verify_bundle_rehydration.py::main — add a CLI that (1) extracts `dose_experiments_ground_truth.tar.gz` into a temporary directory, (2) re-runs `make_ground_truth_manifest.py` against the extracted bundle, (3) compares SHA256 + size metadata with the original manifest at `reports/2026-01-23T001018Z/ground_truth_manifest.json`, emitting `rehydration_diff.json` and `rehydration_summary.md`, and (4) optionally cleans up the extraction directory unless `--keep-extracted` is provided; exit non-zero if any mismatch.
-- Update: inbox/response_dose_experiments_ground_truth.md::RehydrationVerification — append a brief section that cites the new `rehydration_summary.md`, highlights the tarball rehydration result, and links to the verifying script/log so Maintainer <2> knows the archive itself was exercised.
+- Focus ID: DEBUG-SIM-LINES-DOSE-001
+- Implement: inbox/followup_dose_experiments_ground_truth_2026-01-23T011900Z.md::Main — draft a short follow-up note from Maintainer <1> to Maintainer <2> summarizing the delivered bundle, the tarball rehydration evidence (rehydration_summary/log paths), and the latest pytest loader result; politely request acknowledgement or new asks and copy the final note into the artifacts directory for auditing.
+- Update: docs/fix_plan.md::Status + TODOs — add an unchecked `DEBUG-SIM-LINES-DOSE-001.F1` checklist row (maintainer acknowledgement) plus an Attempts History entry logging this follow-up/test run so the roadmap shows that engineering work is complete and we are awaiting Maintainer <2>.
 - Pytest: pytest tests/test_generic_loader.py::test_generic_loader -q
-- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T005200Z/
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T011900Z/
 
 How-To Map
-1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && ARTIFACT_DIR=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T005200Z && CHECK_DIR="$ARTIFACT_DIR/rehydration_check" && mkdir -p "$CHECK_DIR"
-2. Implement `verify_bundle_rehydration.py`: use argparse to collect `--tarball`, `--manifest`, `--output`, and optional `--keep-extracted`; extract the tarball (default to deleting the extraction directory on success), call `make_ground_truth_manifest.py` via `sys.executable` so the regenerated manifest lands in `$CHECK_DIR/manifest`, load both manifests, compare SHA256 + size for datasets/baseline artifacts/pinn weights keyed by filename, and write `rehydration_diff.json` plus `rehydration_summary.md` that states counts, mismatches, and scenario ID status.
-3. Run the new script and capture its log:
-   python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/verify_bundle_rehydration.py \
-     --tarball plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth.tar.gz \
-     --manifest plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/ground_truth_manifest.json \
-     --output "$CHECK_DIR" \
-     | tee "$CHECK_DIR/verify_bundle_rehydration.log"
-4. Re-run the loader test and capture the log: pytest tests/test_generic_loader.py::test_generic_loader -q | tee "$ARTIFACT_DIR/pytest_loader.log"
-5. Update `inbox/response_dose_experiments_ground_truth.md` with a new "Rehydration verification" section that references `$CHECK_DIR/rehydration_summary.md`, the script path, and the new pytest log so the maintainer hears about the tarball-level check.
+1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && ARTIFACT_DIR=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T011900Z && mkdir -p "$ARTIFACT_DIR"
+2. Update docs/fix_plan.md: note that we are awaiting Maintainer <2>, add the new F1 checklist row (follow-up + ack), and describe the follow-up/test evidence in Attempts History referencing the new inbox file + pytest log.
+3. Write inbox/followup_dose_experiments_ground_truth_2026-01-23T011900Z.md with: greeting, delivery summary (bundle root + tarball SHA), verification links (`.../bundle_verification.*`, `.../rehydration_check/rehydration_summary.md`), latest pytest loader log path once rerun, and an explicit request for confirmation or additional needs.
+4. Copy the follow-up note into "$ARTIFACT_DIR/followup_note.md" for archival (cp inbox/... "$ARTIFACT_DIR/followup_note.md").
+5. Run pytest tests/test_generic_loader.py::test_generic_loader -q | tee "$ARTIFACT_DIR/pytest_loader.log" so we have a fresh loader gate log.
 
 Pitfalls To Avoid
-- Do not leave the extracted ~270 MB bundle inside the repo; make the script clean up the temporary directory unless `--keep-extracted` is passed.
-- Compare manifest entries by filename and file_type (sha/size), not by absolute path, because extraction paths will differ.
-- Use `sys.executable` when shelling out to `make_ground_truth_manifest.py` to avoid relying on PATH or virtualenv assumptions.
-- Preserve the original scenario ID from `ground_truth_manifest.json`; the regenerated manifest should inherit it automatically.
-- Keep script outputs (rehydration manifest, diff, summary, log) under `$CHECK_DIR` so we don't scatter artifacts across the repo.
-- Don't delete or modify the original bundle/tarball; verification must be read-only aside from temporary extraction.
-- Capture the pytest log with `tee` and store it under the same artifact directory for traceability.
-- When editing the maintainer response, append a concise section instead of rewriting prior sections so earlier audit trails remain intact.
-- If the script detects a mismatch, exit non-zero and stop—do not overwrite manifests to make them "match".
-- Avoid environment mutations or dataset symlinks; everything should run against local files only.
+- Keep scope non-production: touch only docs/fix_plan.md, inbox/, and artifact copies under plans/active/DEBUG-*/reports.
+- Reference existing artifacts (bundle_verification.md, rehydration_summary.md, tarball SHA) instead of duplicating large data inside the inbox note.
+- Use Maintainer identities from CLAUDE.md and clearly state roles (Maintainer <1> → Maintainer <2>).
+- Do not rename or delete prior inbox/response files; append a new follow-up file with a timestamp.
+- Ensure the follow-up lives in repo inbox (~/Documents/PtychoPINN/inbox/), not in Maintainer <2>'s workspace.
+- The pytest run must target the exact selector provided and capture the log via tee into the artifacts directory.
+- Document the new TODO + Attempts History row atomically so fix_plan stays consistent with the follow-up action.
+- Avoid editing production modules or scripts under scripts/ or ptycho/; this loop is communication + evidence only.
+- Keep dataset paths read-only; no copies/moves of the 270 MB bundle besides referencing existing files.
+- When citing artifacts, use workspace-relative paths so Maintainer <2> can open them quickly.
 
 If Blocked
-- If extraction or manifest regeneration fails, capture the stack trace plus any partial logs into `$CHECK_DIR/blocker.md`, update the Attempt History in docs/fix_plan.md + galph_memory with the failure signature, and halt further steps until the issue is triaged.
+- If the inbox note cannot be written (e.g., permission issue) or pytest fails, capture the error/output into "$ARTIFACT_DIR/blocker.log", add a `DEBUG-SIM-LINES-DOSE-001.F1` attempt note in docs/fix_plan.md describing the failure, and halt for supervisor triage.
 
 Findings Applied (Mandatory)
 - No relevant findings in the knowledge base.
 
 Pointers
-- docs/fix_plan.md:304 — Scope + checklist for DEBUG-SIM-LINES-DOSE-001.E1 rehydration verification.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/make_ground_truth_manifest.py:1 — Existing CLI whose output/structure the new rehydration script should reuse when regenerating manifests.
-- specs/data_contracts.md:5 — RawData NPZ schema requirements enforced by the manifest CLI during rehydration checks.
-- docs/TESTING_GUIDE.md:5 — Reference for the `pytest tests/test_generic_loader.py::test_generic_loader -q` guard.
-- inbox/response_dose_experiments_ground_truth.md:1 — Maintainer response template that needs the new rehydration verification section.
+- docs/fix_plan.md:1 — Active roadmap entry + checklist for DEBUG-SIM-LINES-DOSE-001.
+- inbox/response_dose_experiments_ground_truth.md:1 — Prior maintainer response to extend with the follow-up context.
+- specs/data_contracts.md:5 — RawData NPZ schema referenced in the manifest/rehydration evidence.
+- docs/TESTING_GUIDE.md:5 — Authoritative command for tests/test_generic_loader.py selector.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T005200Z/rehydration_check/rehydration_summary.md:1 — Latest tarball rehydration metrics to cite in the follow-up.
 
 Next Up (optional)
-- If the rehydration evidence looks good and Maintainer <2> acknowledges, mark DEBUG-SIM-LINES-DOSE-001 complete in docs/fix_plan.md and pivot back to the next roadmap initiative.
+- After Maintainer <2> acknowledges, mark DEBUG-SIM-LINES-DOSE-001 complete in docs/fix_plan.md and select the next roadmap initiative.
