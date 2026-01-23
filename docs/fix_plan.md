@@ -742,8 +742,8 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - [x] DEBUG-SIM-LINES-DOSE-001.C2: Capture checksum verification logs for the final bundle (or tarball) and confirm size constraints / delivery instructions in `galph_memory.md` + maintainer inbox.
 - [x] DEBUG-SIM-LINES-DOSE-001.D1: Draft `inbox/response_dose_experiments_ground_truth.md` that cites the final drop root, README/manifest paths, bundle_verification logs, tarball SHA, and the validating `pytest tests/test_generic_loader.py::test_generic_loader -q` log so Maintainer <2> can close the request.
 - [x] DEBUG-SIM-LINES-DOSE-001.E1: Verify the tarball rehydration path by extracting `dose_experiments_ground_truth.tar.gz`, regenerating the manifest, diffing it against `reports/2026-01-23T001018Z/ground_truth_manifest.json`, logging the comparison under `reports/<ts>/rehydration_check/`, re-running `pytest tests/test_generic_loader.py::test_generic_loader -q`, and updating the maintainer response with the results.
-- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Latest scan (artifacts under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T040500Z/`) shows SLA breach at 3.55 hours (>2.00 threshold, severity **critical**) with no ack. Maintainer 2: 3.55 hrs since inbound (1 message), no ack. Maintainer 3: N/A (0 messages), no ack. Test selectors: `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` (13 tests incl. deadline/severity guard) and `pytest tests/test_generic_loader.py::test_generic_loader -q`. Maintainer response + follow-ups only cite metrics through the 2026-01-23T023500Z drop, so the SLA tables seen by Maintainer <2> are already stale.
-- **Next actions:** Global SLA deadline/severity fields now exist, but the per-actor `ack_actor_stats` block (JSON + Markdown + status snippet + escalation note + stdout) still lacks per-actor SLA deadlines/breach durations/severity, making it impossible to cite which escalated maintainer has crossed the SLA. Extend the CLI so each monitored actor records `sla_deadline_utc`, `sla_breached`, `sla_breach_duration_hours`, `sla_severity`, and notes in both the machine-readable results and all Markdown snippets. Add a regression test covering the new per-actor SLA fields, update `docs/TESTING_GUIDE.md` + `docs/development/TEST_SUITE_INDEX.md`, rerun the CLI with Maintainer <2>/<3> actors into `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/`, refresh `inbox/response_dose_experiments_ground_truth.md` with the 024800/031500/040500/050500 wait metrics, and draft a new follow-up (`inbox/followup_dose_experiments_ground_truth_2026-01-23T050500Z.md`) citing the per-actor SLA severity while we keep waiting for acknowledgement.
+- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Latest scan (artifacts under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/`) shows SLA breach at 3.77 hours (>2.00 threshold, severity **critical**) with no ack. Maintainer 2: 3.77 hrs since inbound (1 message), sla_severity=critical. Maintainer 3: N/A (0 messages), sla_severity=unknown. Test selectors: `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` (14 tests incl. per-actor SLA metrics) and `pytest tests/test_generic_loader.py::test_generic_loader -q`. Per-actor SLA fields now visible across all outputs.
+- **Next actions:** Per-actor SLA fields shipped. Awaiting Maintainer <2> acknowledgement.
 
 ### 2026-01-23T02:55Z — DEBUG-SIM-LINES-DOSE-001.F1 (per-actor wait metrics scoped)
 **Action:** Ack-actor + custom keyword support landed (artifacts in `reports/2026-01-23T024800Z/`), but the Markdown/JSON summaries still hard-code "Maintainer <2>" and don't show which inbound maintainer is currently blocking the SLA. Maintainer <3> is now allowed to acknowledge on behalf of Maintainer <2>, so we need per-actor wait metrics and evidence that both actors are being policed.
@@ -857,3 +857,55 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 **Next Actions:**
 - F1 remains open; Maintainer <2> has not yet acknowledged the bundle (SLA breach: 3.55 hours, severity: critical)
 - SLA deadline/severity now visible across JSON/Markdown/stdout/history outputs
+
+### 2026-01-23T05:09Z — DEBUG-SIM-LINES-DOSE-001.F1 (per-actor SLA metrics shipped)
+**Action:** Extended the inbox acknowledgement CLI with per-actor SLA fields:
+1. Updated `scan_inbox()` to compute per-actor SLA fields when `--sla-hours` is provided: `sla_deadline_utc`, `sla_breached`, `sla_breach_duration_hours`, `sla_severity`, `sla_notes` for each entry in `ack_actor_stats`
+2. Updated `write_markdown_summary()` with expanded Ack Actor Coverage table (Deadline/Breached/Severity/Notes columns when --sla-hours used)
+3. Updated `write_status_snippet()` with expanded per-actor SLA table
+4. Updated `write_escalation_note()` with expanded per-actor SLA table
+5. Updated CLI stdout to print per-actor SLA fields under each actor
+6. Added `test_ack_actor_sla_metrics_include_deadline` regression test validating:
+   - JSON `ack_actor_stats` includes per-actor SLA fields
+   - Breached actors show severity "critical" (>=1 hour late)
+   - Actors with no inbound show `sla_severity == "unknown"`
+   - Markdown shows expanded columns
+
+**Tests:**
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` — 14 passed (0.76s)
+- `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.54s)
+
+**Collection:**
+- `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_metrics_include_deadline -q` — 1 test collected
+
+**CLI Run (with --ack-actor M2/M3 --sla-hours 2.0 --fail-when-breached):**
+- Files scanned: 6
+- Matches: 4
+- Last inbound: 2026-01-22T23:22:58Z
+- Hours since last inbound: 3.77
+- **Global SLA:** Deadline 2026-01-23T01:22:58Z, Breached=Yes, Duration=1.77h, Severity=critical
+- **Maintainer 2:** 3.77 hours since inbound, sla_breached=Yes, sla_severity=critical
+- **Maintainer 3:** N/A hours (no inbound), sla_breached=No, sla_severity=unknown
+- Acknowledgement detected: No
+- Exit code: 2 (--fail-when-breached)
+
+**Doc Updates:**
+- `docs/TESTING_GUIDE.md`: Added "Inbox Acknowledgement CLI (Per-Actor SLA Metrics)" section with new selector
+- `docs/development/TEST_SUITE_INDEX.md`: Added `test_ack_actor_sla_metrics_include_deadline` selector + log path
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/logs/pytest_check_inbox_suite.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/logs/pytest_loader.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/logs/pytest_sla_metrics_collect.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/logs/check_inbox.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/inbox_sla_watch/inbox_scan_summary.json`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/inbox_sla_watch/inbox_scan_summary.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/inbox_status/status_snippet.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/inbox_status/escalation_note.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/inbox_history/inbox_sla_watch.jsonl`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/inbox_history/inbox_sla_watch.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/inbox_history/inbox_history_dashboard.md`
+
+**Next Actions:**
+- F1 remains open; Maintainer <2> has not yet acknowledged the bundle (SLA breach: 3.77 hours, severity: critical)
+- Per-actor SLA deadline/severity now visible across JSON/Markdown/stdout/status/escalation outputs

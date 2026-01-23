@@ -1083,6 +1083,124 @@ Please provide the dose experiments ground truth bundle.
     assert sla2["deadline_utc"] is not None, "deadline_utc should be set even when not breached"
 
 
+def test_ack_actor_sla_metrics_include_deadline(tmp_path):
+    """
+    Test that ack_actor_stats includes per-actor SLA fields when --sla-hours is set.
+
+    Creates a synthetic inbox with:
+    - One message from Maintainer <2> (3.5 hours old, no ack keywords)
+    - No message from Maintainer <3> (actor configured but no inbound)
+
+    Runs the CLI with --ack-actor flags for M2 and M3, plus --sla-hours 2.0, and asserts:
+    1. JSON ack_actor_stats['maintainer_2'] includes sla_deadline_utc, sla_breach_duration_hours > 1, sla_severity == "critical"
+    2. JSON ack_actor_stats['maintainer_3'] reports sla_severity == "unknown" (no inbound)
+    3. Markdown inbox_scan_summary.md contains expanded table headers (Deadline/Breached/Severity/Notes)
+    4. Actors without inbound show appropriate notes ("No inbound messages...")
+    """
+    inbox_dir = tmp_path / "inbox"
+    inbox_dir.mkdir()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    # Create message from Maintainer <2> (3.5 hours ago, no ack keywords)
+    m2_content = """# Request: dose_experiments_ground_truth
+
+**From:** Maintainer <2>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T10:00:00Z
+
+Please provide the dose experiments ground truth bundle.
+"""
+    create_inbox_file(inbox_dir, "request_m2_dose_experiments_ground_truth.md", m2_content, -3.5)
+
+    # NO message from Maintainer <3> - they are configured but have no inbound
+
+    # Run CLI with both M2 and M3 as ack actors, with --sla-hours 2.0
+    result = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--keywords", "acknowledged",
+            "--keywords", "confirm",
+            "--ack-actor", "Maintainer <2>",
+            "--ack-actor", "Maintainer <3>",
+            "--sla-hours", "2.0",
+            "--output", str(output_dir)
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    assert result.returncode == 0, f"CLI failed: {result.stderr}"
+
+    # Load JSON output
+    json_path = output_dir / "inbox_scan_summary.json"
+    assert json_path.exists(), "JSON summary not created"
+    with open(json_path) as f:
+        data = json.load(f)
+
+    # Assert ack_actor_stats is present
+    assert "ack_actor_stats" in data, "JSON output missing ack_actor_stats"
+    ack_stats = data["ack_actor_stats"]
+
+    # Assert both actors are present in ack_actor_stats
+    assert "maintainer_2" in ack_stats, "Missing maintainer_2 in ack_actor_stats"
+    assert "maintainer_3" in ack_stats, "Missing maintainer_3 in ack_actor_stats"
+
+    # Check M2 has per-actor SLA fields (breached - 3.5 > 2.0, so 1.5 hours late = critical)
+    m2_stats = ack_stats["maintainer_2"]
+    assert "sla_deadline_utc" in m2_stats, "M2 missing sla_deadline_utc"
+    assert m2_stats["sla_deadline_utc"] is not None, "M2 sla_deadline_utc should not be None"
+    assert "sla_breached" in m2_stats, "M2 missing sla_breached"
+    assert m2_stats["sla_breached"] is True, f"M2 should be breached (3.5h > 2.0h), got {m2_stats['sla_breached']}"
+    assert "sla_breach_duration_hours" in m2_stats, "M2 missing sla_breach_duration_hours"
+    # 3.5 - 2.0 = 1.5 hours breach duration (allow some tolerance for test timing)
+    assert 1.0 < m2_stats["sla_breach_duration_hours"] < 2.0, \
+        f"M2 breach_duration should be ~1.5, got {m2_stats['sla_breach_duration_hours']}"
+    assert "sla_severity" in m2_stats, "M2 missing sla_severity"
+    assert m2_stats["sla_severity"] == "critical", \
+        f"M2 severity should be 'critical' (breach >= 1 hour), got {m2_stats['sla_severity']}"
+    assert "sla_notes" in m2_stats, "M2 missing sla_notes"
+    assert "SLA breach" in m2_stats["sla_notes"], f"M2 notes should mention breach, got {m2_stats['sla_notes']}"
+
+    # Check M3 has per-actor SLA fields with severity "unknown" (no inbound messages)
+    m3_stats = ack_stats["maintainer_3"]
+    assert "sla_deadline_utc" in m3_stats, "M3 missing sla_deadline_utc"
+    assert m3_stats["sla_deadline_utc"] is None, "M3 sla_deadline_utc should be None (no inbound)"
+    assert "sla_breached" in m3_stats, "M3 missing sla_breached"
+    assert m3_stats["sla_breached"] is False, "M3 should not be breached (no inbound)"
+    assert "sla_severity" in m3_stats, "M3 missing sla_severity"
+    assert m3_stats["sla_severity"] == "unknown", \
+        f"M3 severity should be 'unknown' (no inbound), got {m3_stats['sla_severity']}"
+    assert "sla_notes" in m3_stats, "M3 missing sla_notes"
+    assert "No inbound" in m3_stats["sla_notes"], \
+        f"M3 notes should mention 'No inbound', got {m3_stats['sla_notes']}"
+
+    # Verify Markdown summary includes expanded Ack Actor Coverage table
+    md_path = output_dir / "inbox_scan_summary.md"
+    assert md_path.exists(), "Markdown summary not created"
+    md_content = md_path.read_text()
+
+    assert "## Ack Actor Coverage" in md_content, \
+        "Markdown missing 'Ack Actor Coverage' section"
+    # Check for expanded table headers when --sla-hours is used
+    assert "Deadline" in md_content, \
+        "Markdown Ack Actor Coverage table missing 'Deadline' column"
+    assert "Breached" in md_content, \
+        "Markdown Ack Actor Coverage table missing 'Breached' column"
+    assert "Severity" in md_content, \
+        "Markdown Ack Actor Coverage table missing 'Severity' column"
+    assert "Notes" in md_content, \
+        "Markdown Ack Actor Coverage table missing 'Notes' column"
+    # Check both actors appear in table
+    assert "Maintainer 2" in md_content, "Markdown missing Maintainer 2 row"
+    assert "Maintainer 3" in md_content, "Markdown missing Maintainer 3 row"
+    # Check severity values appear
+    assert "critical" in md_content.lower(), "Markdown should show 'critical' severity for M2"
+    assert "unknown" in md_content.lower(), "Markdown should show 'unknown' severity for M3"
+
+
 def test_ack_actor_wait_metrics_cover_each_actor(tmp_path):
     """
     Test that ack_actor_stats provides per-actor wait metrics for each configured actor.

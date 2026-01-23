@@ -151,6 +151,27 @@ This selector validates:
 
 Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T040500Z/logs/pytest_sla_severity_collect.log`
 
+### Inbox Acknowledgement CLI (Per-Actor SLA Metrics)
+
+When `--sla-hours` is set, the CLI computes per-actor SLA fields within the `ack_actor_stats` block for each configured `--ack-actor`. Each actor entry includes:
+- `sla_deadline_utc`: last inbound from that actor + sla_hours (None if no inbound)
+- `sla_breached`: whether that specific actor's wait has exceeded the threshold
+- `sla_breach_duration_hours`: hours elapsed beyond threshold for that actor
+- `sla_severity`: "ok", "warning", "critical", or "unknown" (no inbound from actor)
+- `sla_notes`: descriptive text explaining the actor's SLA status
+
+These per-actor fields appear in JSON `ack_actor_stats`, the Markdown "Ack Actor Coverage" table (with Deadline/Breached/Severity/Notes columns when --sla-hours is used), status snippet, escalation note, and CLI stdout. To run the per-actor SLA metrics test:
+
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_metrics_include_deadline -q`
+
+This selector validates:
+- JSON `ack_actor_stats` includes per-actor `sla_deadline_utc`, `sla_breached`, `sla_breach_duration_hours`, `sla_severity`, `sla_notes`
+- Breached actors show severity "warning" (<1 hour late) or "critical" (>=1 hour late)
+- Actors with no inbound messages show `sla_severity == "unknown"` and appropriate notes
+- Markdown Ack Actor Coverage table shows expanded columns (Deadline/Breached/Severity/Notes)
+
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/logs/pytest_sla_metrics_collect.log`
+
 ## Test Areas
 
 - `tests/tools/`: CLI and tooling tests (e.g., D0 parity logger).

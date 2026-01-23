@@ -435,6 +435,7 @@ def scan_inbox(
 
     # Compute per-actor wait metrics (ack_actor_stats)
     # Tracks last_inbound_utc, hours_since_last_inbound, inbound_count, ack_files per ack_actor
+    # Also computes per-actor SLA fields when sla_hours is provided
     ack_actor_stats = {}
     for actor_id in sorted(ack_actors):  # Sort for determinism
         actor_messages = [m for m in raw_matches if m["actor"] == actor_id]
@@ -447,13 +448,58 @@ def scan_inbox(
             actor_inbound_sorted = sorted(actor_inbound, key=lambda x: x["modified_utc"])
             last_inbound_from_actor = actor_inbound_sorted[-1]["modified_utc"]
 
-        ack_actor_stats[actor_id] = {
+        hours_since = compute_hours_since(last_inbound_from_actor, now)
+        actor_ack_detected = len(actor_ack_files) > 0
+
+        actor_stats = {
             "last_inbound_utc": last_inbound_from_actor,
-            "hours_since_last_inbound": compute_hours_since(last_inbound_from_actor, now),
+            "hours_since_last_inbound": hours_since,
             "inbound_count": len(actor_inbound),
             "ack_files": actor_ack_files,
-            "ack_detected": len(actor_ack_files) > 0,
+            "ack_detected": actor_ack_detected,
         }
+
+        # Compute per-actor SLA fields when sla_hours is provided
+        if sla_hours is not None:
+            if last_inbound_from_actor is None or hours_since is None:
+                # No inbound messages from this actor
+                actor_stats["sla_deadline_utc"] = None
+                actor_stats["sla_breached"] = False
+                actor_stats["sla_breach_duration_hours"] = None
+                actor_stats["sla_severity"] = "unknown"
+                actor_stats["sla_notes"] = f"No inbound messages from {actor_id.replace('_', ' ').title()}"
+            else:
+                # Compute SLA deadline: last_inbound + sla_hours
+                from datetime import timedelta
+                last_inbound_ts = datetime.fromisoformat(last_inbound_from_actor)
+                deadline_ts = last_inbound_ts + timedelta(hours=sla_hours)
+                actor_stats["sla_deadline_utc"] = deadline_ts.isoformat()
+
+                # Compute breach status for this actor
+                actor_breached = hours_since > sla_hours and not actor_ack_detected
+
+                if actor_breached:
+                    breach_duration = round(hours_since - sla_hours, 2)
+                    if breach_duration < 1.0:
+                        severity = "warning"
+                    else:
+                        severity = "critical"
+                    notes = f"SLA breach: {hours_since:.2f} hours since last inbound exceeds {sla_hours:.2f} hour threshold"
+                elif actor_ack_detected:
+                    breach_duration = 0.0
+                    severity = "ok"
+                    notes = "Acknowledgement received"
+                else:
+                    breach_duration = 0.0
+                    severity = "ok"
+                    notes = f"Within SLA: {hours_since:.2f} hours since last inbound (threshold: {sla_hours:.2f})"
+
+                actor_stats["sla_breached"] = actor_breached
+                actor_stats["sla_breach_duration_hours"] = breach_duration
+                actor_stats["sla_severity"] = severity
+                actor_stats["sla_notes"] = notes
+
+        ack_actor_stats[actor_id] = actor_stats
 
     results["ack_actor_stats"] = ack_actor_stats
 
@@ -605,27 +651,53 @@ def write_markdown_summary(results: dict, output_path: Path) -> None:
                 "",
             ])
 
-    # Ack Actor Coverage table (per-actor wait metrics)
+    # Ack Actor Coverage table (per-actor wait metrics with SLA fields)
     ack_actor_stats = results.get("ack_actor_stats", {})
     if ack_actor_stats:
+        # Check if any actor has SLA fields (i.e., sla_hours was provided)
+        has_sla = any("sla_deadline_utc" in stats for stats in ack_actor_stats.values())
+
         lines.extend([
             "## Ack Actor Coverage",
             "",
             "Per-actor wait metrics for monitored acknowledgement actors:",
             "",
-            "| Actor | Last Inbound (UTC) | Hours Since Inbound | Inbound Count | Ack Detected | Ack Files |",
-            "|-------|-------------------|---------------------|---------------|--------------|-----------|",
         ])
-        for actor_id in sorted(ack_actor_stats.keys()):
-            stats = ack_actor_stats[actor_id]
-            actor_label = actor_id.replace("_", " ").title()
-            last_inbound = stats.get("last_inbound_utc") or "N/A"
-            hrs = stats.get("hours_since_last_inbound")
-            hrs_str = f"{hrs:.2f}" if hrs is not None else "N/A"
-            inbound_count = stats.get("inbound_count", 0)
-            ack_detected = "Yes" if stats.get("ack_detected", False) else "No"
-            ack_files = ", ".join(f"`{f}`" for f in stats.get("ack_files", [])) if stats.get("ack_files") else "-"
-            lines.append(f"| {actor_label} | {last_inbound} | {hrs_str} | {inbound_count} | {ack_detected} | {ack_files} |")
+
+        if has_sla:
+            # Include SLA columns when --sla-hours was used
+            lines.extend([
+                "| Actor | Hours Since Inbound | Inbound Count | Ack | Deadline (UTC) | Breached | Severity | Notes |",
+                "|-------|---------------------|---------------|-----|----------------|----------|----------|-------|",
+            ])
+            for actor_id in sorted(ack_actor_stats.keys()):
+                stats = ack_actor_stats[actor_id]
+                actor_label = actor_id.replace("_", " ").title()
+                hrs = stats.get("hours_since_last_inbound")
+                hrs_str = f"{hrs:.2f}" if hrs is not None else "N/A"
+                inbound_count = stats.get("inbound_count", 0)
+                ack_detected = "Yes" if stats.get("ack_detected", False) else "No"
+                deadline = stats.get("sla_deadline_utc") or "N/A"
+                breached = "Yes" if stats.get("sla_breached", False) else "No"
+                severity = stats.get("sla_severity", "unknown")
+                notes = sanitize_for_markdown(stats.get("sla_notes", "-"))
+                lines.append(f"| {actor_label} | {hrs_str} | {inbound_count} | {ack_detected} | {deadline} | {breached} | {severity} | {notes} |")
+        else:
+            # Original columns without SLA
+            lines.extend([
+                "| Actor | Last Inbound (UTC) | Hours Since Inbound | Inbound Count | Ack Detected | Ack Files |",
+                "|-------|-------------------|---------------------|---------------|--------------|-----------|",
+            ])
+            for actor_id in sorted(ack_actor_stats.keys()):
+                stats = ack_actor_stats[actor_id]
+                actor_label = actor_id.replace("_", " ").title()
+                last_inbound = stats.get("last_inbound_utc") or "N/A"
+                hrs = stats.get("hours_since_last_inbound")
+                hrs_str = f"{hrs:.2f}" if hrs is not None else "N/A"
+                inbound_count = stats.get("inbound_count", 0)
+                ack_detected = "Yes" if stats.get("ack_detected", False) else "No"
+                ack_files = ", ".join(f"`{f}`" for f in stats.get("ack_files", [])) if stats.get("ack_files") else "-"
+                lines.append(f"| {actor_label} | {last_inbound} | {hrs_str} | {inbound_count} | {ack_detected} | {ack_files} |")
         lines.append("")
 
     if results["ack_detected"]:
@@ -885,23 +957,45 @@ def write_status_snippet(results: dict, output_path: Path) -> None:
                 "",
             ])
 
-    # Ack Actor Coverage table (per-actor wait metrics)
+    # Ack Actor Coverage table (per-actor wait metrics with SLA fields)
     ack_actor_stats = results.get("ack_actor_stats", {})
     if ack_actor_stats:
+        # Check if any actor has SLA fields
+        has_sla = any("sla_deadline_utc" in stats for stats in ack_actor_stats.values())
+
         lines.extend([
             "## Ack Actor Coverage",
             "",
-            "| Actor | Hours Since Inbound | Inbound Count | Ack |",
-            "|-------|---------------------|---------------|-----|",
         ])
-        for actor_id in sorted(ack_actor_stats.keys()):
-            stats = ack_actor_stats[actor_id]
-            actor_label = actor_id.replace("_", " ").title()
-            hrs = stats.get("hours_since_last_inbound")
-            hrs_str = f"{hrs:.2f}" if hrs is not None else "N/A"
-            inbound_count = stats.get("inbound_count", 0)
-            ack_detected = "Yes" if stats.get("ack_detected", False) else "No"
-            lines.append(f"| {actor_label} | {hrs_str} | {inbound_count} | {ack_detected} |")
+
+        if has_sla:
+            lines.extend([
+                "| Actor | Hrs Since Inbound | Deadline (UTC) | Breached | Severity | Notes |",
+                "|-------|-------------------|----------------|----------|----------|-------|",
+            ])
+            for actor_id in sorted(ack_actor_stats.keys()):
+                stats = ack_actor_stats[actor_id]
+                actor_label = actor_id.replace("_", " ").title()
+                hrs = stats.get("hours_since_last_inbound")
+                hrs_str = f"{hrs:.2f}" if hrs is not None else "N/A"
+                deadline = stats.get("sla_deadline_utc") or "N/A"
+                breached = "Yes" if stats.get("sla_breached", False) else "No"
+                severity = stats.get("sla_severity", "unknown")
+                notes = sanitize_for_markdown(stats.get("sla_notes", "-"))
+                lines.append(f"| {actor_label} | {hrs_str} | {deadline} | {breached} | {severity} | {notes} |")
+        else:
+            lines.extend([
+                "| Actor | Hours Since Inbound | Inbound Count | Ack |",
+                "|-------|---------------------|---------------|-----|",
+            ])
+            for actor_id in sorted(ack_actor_stats.keys()):
+                stats = ack_actor_stats[actor_id]
+                actor_label = actor_id.replace("_", " ").title()
+                hrs = stats.get("hours_since_last_inbound")
+                hrs_str = f"{hrs:.2f}" if hrs is not None else "N/A"
+                inbound_count = stats.get("inbound_count", 0)
+                ack_detected = "Yes" if stats.get("ack_detected", False) else "No"
+                lines.append(f"| {actor_label} | {hrs_str} | {inbound_count} | {ack_detected} |")
         lines.append("")
 
     # Condensed timeline table
@@ -1085,23 +1179,45 @@ def write_escalation_note(
             "",
         ])
 
-    # Ack Actor Coverage table (per-actor wait metrics)
+    # Ack Actor Coverage table (per-actor wait metrics with SLA fields)
     ack_actor_stats = results.get("ack_actor_stats", {})
     if ack_actor_stats:
+        # Check if any actor has SLA fields
+        has_sla = any("sla_deadline_utc" in stats for stats in ack_actor_stats.values())
+
         lines.extend([
             "## Ack Actor Coverage",
             "",
-            "| Actor | Hours Since Inbound | Inbound Count | Ack |",
-            "|-------|---------------------|---------------|-----|",
         ])
-        for actor_id in sorted(ack_actor_stats.keys()):
-            stats = ack_actor_stats[actor_id]
-            actor_label = actor_id.replace("_", " ").title()
-            hrs = stats.get("hours_since_last_inbound")
-            hrs_str = f"{hrs:.2f}" if hrs is not None else "N/A"
-            inbound_count = stats.get("inbound_count", 0)
-            ack_detected = "Yes" if stats.get("ack_detected", False) else "No"
-            lines.append(f"| {actor_label} | {hrs_str} | {inbound_count} | {ack_detected} |")
+
+        if has_sla:
+            lines.extend([
+                "| Actor | Hrs Since Inbound | Deadline (UTC) | Breached | Severity | Notes |",
+                "|-------|-------------------|----------------|----------|----------|-------|",
+            ])
+            for actor_id in sorted(ack_actor_stats.keys()):
+                stats = ack_actor_stats[actor_id]
+                actor_label = actor_id.replace("_", " ").title()
+                hrs = stats.get("hours_since_last_inbound")
+                hrs_str = f"{hrs:.2f}" if hrs is not None else "N/A"
+                deadline = stats.get("sla_deadline_utc") or "N/A"
+                breached = "Yes" if stats.get("sla_breached", False) else "No"
+                severity = stats.get("sla_severity", "unknown")
+                notes = sanitize_for_markdown(stats.get("sla_notes", "-"))
+                lines.append(f"| {actor_label} | {hrs_str} | {deadline} | {breached} | {severity} | {notes} |")
+        else:
+            lines.extend([
+                "| Actor | Hours Since Inbound | Inbound Count | Ack |",
+                "|-------|---------------------|---------------|-----|",
+            ])
+            for actor_id in sorted(ack_actor_stats.keys()):
+                stats = ack_actor_stats[actor_id]
+                actor_label = actor_id.replace("_", " ").title()
+                hrs = stats.get("hours_since_last_inbound")
+                hrs_str = f"{hrs:.2f}" if hrs is not None else "N/A"
+                inbound_count = stats.get("inbound_count", 0)
+                ack_detected = "Yes" if stats.get("ack_detected", False) else "No"
+                lines.append(f"| {actor_label} | {hrs_str} | {inbound_count} | {ack_detected} |")
         lines.append("")
 
     # Timeline section
@@ -1424,6 +1540,19 @@ def main():
             print(f"    Inbound count: {inbound_count}")
             print(f"    Ack detected: {ack_detected}")
             print(f"    Ack files: {ack_files}")
+            # Print per-actor SLA fields if present
+            if "sla_deadline_utc" in stats:
+                deadline = stats.get("sla_deadline_utc") or "N/A"
+                breached = "Yes" if stats.get("sla_breached", False) else "No"
+                breach_dur = stats.get("sla_breach_duration_hours")
+                breach_dur_str = f"{breach_dur:.2f}" if breach_dur is not None else "N/A"
+                severity = stats.get("sla_severity", "unknown")
+                notes = stats.get("sla_notes", "-")
+                print(f"    SLA Deadline (UTC): {deadline}")
+                print(f"    SLA Breached: {breached}")
+                print(f"    SLA Breach Duration: {breach_dur_str} hours")
+                print(f"    SLA Severity: {severity}")
+                print(f"    SLA Notes: {notes}")
 
     # Return exit code based on ack_detected and SLA breach
     exit_code = 0

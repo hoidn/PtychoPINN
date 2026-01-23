@@ -38,3 +38,6 @@ This is a minimal index of key tests in this branch.
   - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_reports_deadline_and_severity -q`
   - Tests SLA deadline/severity fields in `sla_watch` block: `deadline_utc`, `breach_duration_hours`, `severity` (ok/warning/critical).
   - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T040500Z/logs/pytest_sla_severity_collect.log`
+  - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_metrics_include_deadline -q`
+  - Tests per-actor SLA metrics in `ack_actor_stats` block: each configured actor gets `sla_deadline_utc`, `sla_breached`, `sla_breach_duration_hours`, `sla_severity`, `sla_notes`. Actors without inbound show `sla_severity == "unknown"`.
+  - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T050500Z/logs/pytest_sla_metrics_collect.log`
