@@ -29,6 +29,10 @@ Maintainer <2> asked for a faithful simulate→train→infer run from the legacy
 - `plans/active/seed/reports/2026-01-22T030216Z/probe_stats.csv` — probe amplitude/phase percentiles
 - `plans/active/seed/reports/2026-01-22T030216Z/pytest_d0_parity_logger.log` — test execution log
 - `plans/active/seed/reports/2026-01-22T030216Z/d0_parity_collect.log` — test collection verification
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/make_ground_truth_manifest.py` — CLI for generating dataset+baseline checksums
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/ground_truth_manifest.json` — full manifest with SHA256 + metadata
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/ground_truth_manifest.md` — human-readable manifest summary
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/files.csv` — flat file list with checksums
 
 ## Attempts History
 
@@ -147,6 +151,45 @@ python scripts/tools/d0_parity_logger.py \
 
 **Next Actions:**
 - Phase A: build `make_ground_truth_manifest.py`, gather SHA manifests for datasets + baseline outputs, and capture pytest loader logs under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<ts>/`.
+
+### 2026-01-23T00:15Z — DEBUG-SIM-LINES-DOSE-001.A1 (manifest CLI shipped)
+**Action:** Created `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/make_ground_truth_manifest.py` CLI that:
+1. Gathers SHA256 + size + modified timestamp for all `data_p1e*.npz` files in the dataset root
+2. Validates NPZ keys against `specs/data_contracts.md` (requires `diff3d`, `probeGuess`, `scan_index`)
+3. Extracts array shapes/dtypes from NPZ files
+4. Parses baseline `params.dill` metadata (N, gridsize, nepochs)
+5. Emits `ground_truth_manifest.json`, `ground_truth_manifest.md`, and `files.csv` to the output directory
+
+**CLI Run:**
+```
+python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/make_ground_truth_manifest.py \
+  --dataset-root photon_grid_study_20250826_152459 \
+  --baseline-params photon_grid_study_20250826_152459/results_p1e5/.../params.dill \
+  --baseline-files baseline_model.h5 recon.dill \
+  --pinn-weights wts.h5.zip \
+  --scenario-id PGRID-20250826-P1E5-T1024 \
+  --output plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/
+```
+
+**Metrics:**
+- 7 datasets processed (data_p1e3 through data_p1e9)
+- All NPZ files validated: required keys present (`diff3d`, `probeGuess`, `scan_index`)
+- Optional keys present: `objectGuess`, `ground_truth_patches`, `xcoords`, `ycoords`, `xcoords_start`, `ycoords_start`
+- Total dataset size: ~192 MB
+- Baseline params: N=64, gridsize=1, nepochs=50
+- 12 files checksummed (7 datasets + params.dill + baseline_model.h5 + recon.dill + wts.h5.zip)
+
+**Test:** `pytest tests/test_generic_loader.py::test_generic_loader -q` — PASSED (1 passed, 5 warnings)
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/ground_truth_manifest.json`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/ground_truth_manifest.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/files.csv`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/manifest.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/pytest_loader.log`
+
+**Next Actions:**
+- Phase B: README documenting simulate→train→infer commands for Maintainer <2>
 
 ## TODOs
 - [x] S4: Expand the D0 parity Markdown report to list stage-level stats for every dataset and document the new test selector (`tests/tools/test_d0_parity_logger.py`) inside `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.
