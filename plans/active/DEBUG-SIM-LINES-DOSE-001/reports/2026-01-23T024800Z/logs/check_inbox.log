@@ -1,0 +1,47 @@
+Scanning inbox: inbox
+Request pattern: dose_experiments_ground_truth
+Keywords: ['acknowledged', 'confirm', 'received', 'thanks']
+Ack actors: ['Maintainer <2>', 'Maintainer <3>']
+SLA threshold: 2.0 hours
+Fail when breached: True
+Output: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/inbox_sla_watch
+
+History JSONL appended: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/inbox_history/inbox_sla_watch.jsonl
+History Markdown appended: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/inbox_history/inbox_sla_watch.md
+History dashboard written: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/inbox_history/inbox_history_dashboard.md
+Status snippet written: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/inbox_status/status_snippet.md
+Escalation note written: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/inbox_status/escalation_note.md
+Files scanned: 6
+Matches found: 4
+Acknowledgement detected: False
+
+Waiting Clock:
+  Last inbound (from M2): 2026-01-22T23:22:58.332668+00:00
+  Hours since last inbound: 3.16
+  Last outbound (from M1): 2026-01-23T02:21:49.305956+00:00
+  Hours since last outbound: 0.18
+  Total inbound: 1
+  Total outbound: 3
+
+Matching files:
+  - request_dose_experiments_ground_truth_2026-01-22T014445Z.md (filename, content) [inbound]
+  - followup_dose_experiments_ground_truth_2026-01-23T011900Z.md (filename, content) [outbound]
+  - followup_dose_experiments_ground_truth_2026-01-23T023500Z.md (filename, content) [outbound]
+  - response_dose_experiments_ground_truth.md (filename, content) [outbound]
+
+Timeline (chronological):
+  2026-01-22T23:22:58 | Maintainer 2 | Inbound
+  2026-01-23T01:04:13 | Maintainer 1 | Outbound
+  2026-01-23T02:20:12 | Maintainer 1 | Outbound
+  2026-01-23T02:21:49 | Maintainer 1 | Outbound
+
+JSON summary: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/inbox_sla_watch/inbox_scan_summary.json
+Markdown summary: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/inbox_sla_watch/inbox_scan_summary.md
+
+SLA Watch:
+  Threshold: 2.00 hours
+  Hours since last inbound: 3.16
+  Breached: Yes
+  Notes: SLA breach: 3.16 hours since last inbound exceeds 2.00 hour threshold and no acknowledgement detected
+
+ERROR: SLA breach detected and --fail-when-breached is set
