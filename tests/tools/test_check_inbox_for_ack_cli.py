@@ -1608,3 +1608,111 @@ I'm following up on this request from Maintainer <2>.
         "CLI stdout should mention Maintainer 2 in summary"
     assert "Maintainer 3" in result.stdout, \
         "CLI stdout should mention Maintainer 3 in summary"
+
+
+def test_ack_actor_history_tracks_severity(tmp_path):
+    """
+    Test that --history-jsonl and --history-markdown persist ack_actor_summary.
+
+    Creates a synthetic inbox with:
+    - Maintainer <2> inbound 3.5 hours ago (no ack keywords) → critical breach with 2.0h threshold
+    - Maintainer <3> absent (no inbound) → unknown
+
+    Runs the CLI with --sla-hours 2.5, per-actor overrides, and history flags, then asserts:
+    1. JSONL entry contains ack_actor_summary with critical[0]["actor_id"] == "maintainer_2"
+    2. JSONL entry contains ack_actor_summary with unknown[0]["actor_id"] == "maintainer_3"
+    3. Markdown row contains "[CRITICAL] Maintainer 2"
+    4. Markdown row contains "[UNKNOWN] Maintainer 3"
+    5. Markdown table has "Ack Actor Severity" column header
+    """
+    inbox_dir = tmp_path / "inbox"
+    inbox_dir.mkdir()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    history_jsonl = tmp_path / "history.jsonl"
+    history_md = tmp_path / "history.md"
+
+    # Create message from Maintainer <2> (3.5 hours ago, no ack keywords)
+    m2_content = """# Request: dose_experiments_ground_truth
+
+**From:** Maintainer <2>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T10:00:00Z
+
+Please provide the dose experiments ground truth bundle.
+"""
+    create_inbox_file(inbox_dir, "request_m2_dose_experiments_ground_truth.md", m2_content, -3.5)
+
+    # NO message from Maintainer <3> - they should show as "unknown"
+
+    # Run CLI with both M2 and M3 as ack actors, with per-actor SLA overrides and history flags
+    result = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--keywords", "acknowledged",
+            "--keywords", "confirm",
+            "--ack-actor", "Maintainer <2>",
+            "--ack-actor", "Maintainer <3>",
+            "--sla-hours", "2.5",
+            "--ack-actor-sla", "Maintainer <2>=2.0",
+            "--ack-actor-sla", "Maintainer <3>=6.0",
+            "--history-jsonl", str(history_jsonl),
+            "--history-markdown", str(history_md),
+            "--output", str(output_dir)
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    assert result.returncode == 0, f"CLI failed: {result.stderr}\nstdout: {result.stdout}"
+
+    # === JSONL Assertions ===
+    assert history_jsonl.exists(), "JSONL history file not created"
+    with open(history_jsonl) as f:
+        lines = [json.loads(line) for line in f.readlines()]
+
+    assert len(lines) >= 1, "Expected at least 1 JSONL entry"
+    entry = lines[-1]  # Get the most recent entry
+
+    # 1. JSONL contains ack_actor_summary
+    assert "ack_actor_summary" in entry, \
+        "JSONL entry missing ack_actor_summary"
+    summary = entry["ack_actor_summary"]
+
+    # 2. Verify critical bucket has maintainer_2
+    assert "critical" in summary, "ack_actor_summary missing 'critical' bucket"
+    critical_actors = summary["critical"]
+    assert len(critical_actors) >= 1, "critical bucket should have at least 1 actor"
+    m2_entry = next((a for a in critical_actors if a.get("actor_id") == "maintainer_2"), None)
+    assert m2_entry is not None, \
+        f"maintainer_2 should be in critical bucket, got: {critical_actors}"
+
+    # 3. Verify unknown bucket has maintainer_3
+    assert "unknown" in summary, "ack_actor_summary missing 'unknown' bucket"
+    unknown_actors = summary["unknown"]
+    assert len(unknown_actors) >= 1, "unknown bucket should have at least 1 actor"
+    m3_entry = next((a for a in unknown_actors if a.get("actor_id") == "maintainer_3"), None)
+    assert m3_entry is not None, \
+        f"maintainer_3 should be in unknown bucket, got: {unknown_actors}"
+
+    # === Markdown Assertions ===
+    assert history_md.exists(), "Markdown history file not created"
+    md_content = history_md.read_text()
+
+    # 4. Markdown table has "Ack Actor Severity" column header
+    assert "Ack Actor Severity" in md_content, \
+        "Markdown history table missing 'Ack Actor Severity' column header"
+
+    # 5. Markdown row contains [CRITICAL] Maintainer 2
+    assert "[CRITICAL] Maintainer 2" in md_content, \
+        f"Markdown history should contain '[CRITICAL] Maintainer 2', got: {md_content}"
+
+    # 6. Markdown row contains [UNKNOWN] Maintainer 3
+    assert "[UNKNOWN] Maintainer 3" in md_content, \
+        f"Markdown history should contain '[UNKNOWN] Maintainer 3', got: {md_content}"
+
+    # Verify header was written exactly once
+    assert md_content.count("# Inbox Scan History") == 1, \
+        "Markdown header should appear exactly once"

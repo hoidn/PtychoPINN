@@ -47,3 +47,6 @@ This is a minimal index of key tests in this branch.
   - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_summary_flags_breach -q`
   - Tests `ack_actor_summary` structure that groups actors by severity (critical/warning/ok/unknown). Validates JSON buckets, Markdown "## Ack Actor SLA Summary" section with severity subsections, and CLI stdout "Ack Actor SLA Summary:" with `[CRITICAL]`/`[OK]` labels.
   - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/logs/pytest_ack_actor_summary.log`
+  - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_history_tracks_severity -q`
+  - Tests `ack_actor_summary` persistence in history logging. Validates that JSONL entries contain the full severity bucket structure, and Markdown history table gains "Ack Actor Severity" column with `[CRITICAL]`/`[UNKNOWN]` formatted entries.
+  - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T083500Z/logs/pytest_ack_actor_history.log`

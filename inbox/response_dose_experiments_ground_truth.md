@@ -474,3 +474,67 @@ pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_summa
 - History logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/inbox_history/`
 - Test logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/logs/`
 - Follow-up note: `inbox/followup_dose_experiments_ground_truth_2026-01-23T023500Z.md`
+
+---
+
+### Status as of 2026-01-23T083500Z (Per-Actor Severity History Persistence)
+
+**Per-actor severity classification now persisted in history logs.**
+
+| Metric | Value |
+|--------|-------|
+| Last Inbound (from Maintainer <2>) | 2026-01-22T23:22:58Z |
+| Hours Since Last Inbound | 4.36 hours |
+| SLA Threshold (Global) | 2.50 hours |
+| **SLA Breached** | **Yes** |
+| Acknowledgement Detected | No |
+
+**Per-Actor SLA Summary:**
+
+| Actor | Hours Since Inbound | Threshold | Severity |
+|-------|---------------------|-----------|----------|
+| Maintainer 2 | 4.36 | 2.00 | **CRITICAL** |
+| Maintainer 3 | N/A | 6.00 | UNKNOWN |
+
+**New capability:** History files now persist the `ack_actor_summary` structure:
+- **JSONL**: Each entry contains `ack_actor_summary` with `critical`, `warning`, `ok`, `unknown` buckets
+- **Markdown**: Table gains "Ack Actor Severity" column showing `[CRITICAL] Maintainer 2 (4.36h > 2.00h)<br>[UNKNOWN] Maintainer 3`
+
+**CLI command:**
+```bash
+python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py \
+  --inbox inbox \
+  --request-pattern dose_experiments_ground_truth \
+  --keywords acknowledged --keywords confirm --keywords received --keywords thanks \
+  --ack-actor "Maintainer <2>" --ack-actor "Maintainer <3>" \
+  --sla-hours 2.5 \
+  --ack-actor-sla "Maintainer <2>=2.0" --ack-actor-sla "Maintainer <3>=6.0" \
+  --fail-when-breached \
+  --history-jsonl .../inbox_history/inbox_sla_watch.jsonl \
+  --history-markdown .../inbox_history/inbox_sla_watch.md \
+  --history-dashboard .../inbox_history/inbox_history_dashboard.md \
+  --status-snippet .../inbox_status/status_snippet.md \
+  --escalation-note .../inbox_status/escalation_note.md \
+  --escalation-recipient "Maintainer <2>" \
+  --output plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T083500Z/inbox_sla_watch
+```
+
+**New test selector:**
+```bash
+pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_history_tracks_severity -q
+```
+
+**Test results:**
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_history_tracks_severity -q` — 1 passed (0.13s)
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` — 17 passed (0.90s)
+- `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.55s)
+
+**Artifact paths:**
+- History JSONL (with ack_actor_summary): `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T083500Z/inbox_history/inbox_sla_watch.jsonl`
+- History Markdown (with Ack Actor Severity column): `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T083500Z/inbox_history/inbox_sla_watch.md`
+- History dashboard: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T083500Z/inbox_history/inbox_history_dashboard.md`
+- Status snippet: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T083500Z/inbox_status/status_snippet.md`
+- Escalation note: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T083500Z/inbox_status/escalation_note.md`
+- Scan summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T083500Z/inbox_sla_watch/`
+- Test logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T083500Z/logs/`
+- Follow-up note: `inbox/followup_dose_experiments_ground_truth_2026-01-23T083500Z.md`

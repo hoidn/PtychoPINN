@@ -1,5 +1,5 @@
 ### Turn Summary
-Documented the per-actor severity history gap and refreshed docs/fix_plan plus input.md so Ralph can persist ack_actor_summary data inside the history logs.
-Staged the 2026-01-23T083500Z artifacts root and outlined code/test/doc steps (new history regression, CLI rerun, maintainer follow-up) that keep the SLA evidence chain verifiable.
-Next: Ralph implements the history logging changes, runs the new pytest selector and loader guard, then captures the refreshed inbox scan outputs into the staged reports directory.
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T083500Z/
+Extended the inbox acknowledgement CLI to persist per-actor SLA severity classifications in history logs (JSONL gains `ack_actor_summary` field, Markdown gains "Ack Actor Severity" column).
+Added `test_ack_actor_history_tracks_severity` regression test validating that Maintainer <2> appears in `critical` bucket and Maintainer <3> in `unknown` bucket; all 17 tests pass.
+Next: await Maintainer <2> acknowledgement of the delivered bundle; per-actor severity is now tracked historically to prove breach duration over time.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T083500Z/ (pytest_ack_actor_history.log, inbox_sla_watch.jsonl)

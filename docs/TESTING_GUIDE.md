@@ -220,6 +220,27 @@ This selector validates:
 
 Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/logs/pytest_ack_actor_summary.log`
 
+### Inbox Acknowledgement CLI (History Severity Persistence)
+
+The CLI persists the `ack_actor_summary` in both history logging formats when `--history-jsonl` and `--history-markdown` flags are used with `--sla-hours`. This allows historical tracking of which actors were breaching SLA at each scan.
+
+History files include:
+- **JSONL**: Each entry gains an `ack_actor_summary` field containing the full severity bucket structure
+- **Markdown**: Table gains an "Ack Actor Severity" column showing entries like `[CRITICAL] Maintainer 2 (4.36h > 2.00h)<br>[UNKNOWN] Maintainer 3`
+
+To run the history severity persistence test:
+
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_history_tracks_severity -q`
+
+This selector validates:
+- JSONL entry contains `ack_actor_summary` with `critical[0]["actor_id"] == "maintainer_2"`
+- JSONL entry contains `ack_actor_summary` with `unknown[0]["actor_id"] == "maintainer_3"`
+- Markdown row contains `[CRITICAL] Maintainer 2`
+- Markdown row contains `[UNKNOWN] Maintainer 3`
+- Markdown table has "Ack Actor Severity" column header
+
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T083500Z/logs/pytest_ack_actor_history.log`
+
 ## Test Areas
 
 - `tests/tools/`: CLI and tooling tests (e.g., D0 parity logger).

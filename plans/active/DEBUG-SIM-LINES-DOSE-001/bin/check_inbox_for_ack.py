@@ -912,7 +912,7 @@ def append_history_jsonl(results: dict, output_path: Path) -> None:
     Append a single history entry to a JSONL file.
 
     Each line captures: generated_utc, ack_detected, hours_since_inbound,
-    hours_since_outbound, sla_breached, ack_files.
+    hours_since_outbound, sla_breached, ack_files, and ack_actor_summary.
     """
     # Ensure parent directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -936,8 +936,48 @@ def append_history_jsonl(results: dict, output_path: Path) -> None:
         "total_outbound": wc.get("total_outbound_count", 0),
     }
 
+    # Include ack_actor_summary if present (per-actor severity grouping)
+    ack_actor_summary = results.get("ack_actor_summary")
+    if ack_actor_summary:
+        entry["ack_actor_summary"] = ack_actor_summary
+
     with open(output_path, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
+
+
+def _format_ack_actor_severity_cell(ack_actor_summary: dict | None) -> str:
+    """
+    Format the ack_actor_summary into a string for Markdown table cell.
+
+    Returns entries like "[CRITICAL] Maintainer 2 (4.20h > 2.00h); [UNKNOWN] Maintainer 3"
+    joined by "; " to fit in a single cell without breaking the table.
+    """
+    if not ack_actor_summary:
+        return "-"
+
+    entries = []
+    severity_order = ["critical", "warning", "ok", "unknown"]
+    for sev in severity_order:
+        actors_in_sev = ack_actor_summary.get(sev, [])
+        for actor in actors_in_sev:
+            label = actor.get("actor_label", "Unknown")
+            hrs = actor.get("hours_since_inbound")
+            threshold = actor.get("sla_threshold_hours")
+
+            if sev == "unknown" or hrs is None:
+                entry_str = f"[{sev.upper()}] {label}"
+            else:
+                hrs_str = f"{hrs:.2f}" if hrs is not None else "N/A"
+                threshold_str = f"{threshold:.2f}" if threshold is not None else "N/A"
+                entry_str = f"[{sev.upper()}] {label} ({hrs_str}h > {threshold_str}h)"
+
+            entries.append(entry_str)
+
+    if not entries:
+        return "-"
+
+    # Join with <br> for Markdown line breaks within cell
+    return "<br>".join(entries)
 
 
 def append_history_markdown(results: dict, output_path: Path) -> None:
@@ -946,7 +986,7 @@ def append_history_markdown(results: dict, output_path: Path) -> None:
 
     If the file doesn't exist or is empty, write the header first.
     Table columns: Generated (UTC) | Ack Detected | Hours Since Inbound |
-                   Hours Since Outbound | SLA Breach | Ack Files
+                   Hours Since Outbound | SLA Breach | Severity | Ack Actor Severity | Ack Files
     """
     # Ensure parent directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -960,8 +1000,8 @@ def append_history_markdown(results: dict, output_path: Path) -> None:
     with open(output_path, "a", encoding="utf-8") as f:
         if write_header:
             f.write("# Inbox Scan History\n\n")
-            f.write("| Generated (UTC) | Ack | Hrs Inbound | Hrs Outbound | SLA Breach | Severity | Ack Files |\n")
-            f.write("|-----------------|-----|-------------|--------------|------------|----------|----------|\n")
+            f.write("| Generated (UTC) | Ack | Hrs Inbound | Hrs Outbound | SLA Breach | Severity | Ack Actor Severity | Ack Files |\n")
+            f.write("|-----------------|-----|-------------|--------------|------------|----------|--------------------|-----------|\n")
 
         # Format values
         gen_utc = results.get("generated_utc", "")[:19]  # Trim to readable length
@@ -978,10 +1018,16 @@ def append_history_markdown(results: dict, output_path: Path) -> None:
 
         severity = sla.get("severity") if sla else "N/A"
 
+        # Format per-actor severity summary
+        ack_actor_summary = results.get("ack_actor_summary")
+        actor_severity_str = _format_ack_actor_severity_cell(ack_actor_summary)
+        # Sanitize pipes/newlines to not break the table
+        actor_severity_str = sanitize_for_markdown(actor_severity_str)
+
         ack_files = results.get("ack_files", [])
         ack_files_str = ", ".join(sanitize_for_markdown(f) for f in ack_files) if ack_files else "-"
 
-        f.write(f"| {gen_utc} | {ack} | {hrs_in_str} | {hrs_out_str} | {breach_str} | {severity} | {ack_files_str} |\n")
+        f.write(f"| {gen_utc} | {ack} | {hrs_in_str} | {hrs_out_str} | {breach_str} | {severity} | {actor_severity_str} | {ack_files_str} |\n")
 
 
 def write_status_snippet(results: dict, output_path: Path) -> None:
