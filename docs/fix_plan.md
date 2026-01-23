@@ -742,7 +742,7 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - [x] DEBUG-SIM-LINES-DOSE-001.C2: Capture checksum verification logs for the final bundle (or tarball) and confirm size constraints / delivery instructions in `galph_memory.md` + maintainer inbox.
 - [x] DEBUG-SIM-LINES-DOSE-001.D1: Draft `inbox/response_dose_experiments_ground_truth.md` that cites the final drop root, README/manifest paths, bundle_verification logs, tarball SHA, and the validating `pytest tests/test_generic_loader.py::test_generic_loader -q` log so Maintainer <2> can close the request.
 - [x] DEBUG-SIM-LINES-DOSE-001.E1: Verify the tarball rehydration path by extracting `dose_experiments_ground_truth.tar.gz`, regenerating the manifest, diffing it against `reports/2026-01-23T001018Z/ground_truth_manifest.json`, logging the comparison under `reports/<ts>/rehydration_check/`, re-running `pytest tests/test_generic_loader.py::test_generic_loader -q`, and updating the maintainer response with the results.
-- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Inbox scan CLI now supports history dashboard output via `--history-dashboard` (requires `--history-jsonl`). Latest scan at 2026-01-23T02:19Z shows SLA breach (2.95 hours > 2.00 threshold, no ack). History dashboard generated with Summary Metrics, SLA Breach Stats, and Recent Scans timeline. Test selectors: `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` (9 tests pass). See `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/` for the latest evidence drop including the history dashboard.
+- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Inbox scan CLI now supports per-actor wait metrics via `ack_actor_stats` in JSON and "Ack Actor Coverage" tables in Markdown. Latest scan at 2026-01-23T02:43Z shows SLA breach (3.34 hours > 2.00 threshold, no ack). Maintainer 2: 3.34 hrs since inbound (1 message), no ack. Maintainer 3: N/A (0 messages), no ack. Test selectors: `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` (12 tests pass). See `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T031500Z/` for the latest evidence drop with per-actor wait metrics.
 - **Next actions:** Multi-actor + custom keyword support is in place, but the summaries/SLA tables still read "Maintainer <2>" even when multiple actors are configured. Extend the CLI so it emits per-actor wait metrics (`ack_actor_stats`) in JSON/Markdown/status outputs, add a regression test covering the new structure, and re-run the CLI with both Maintainer <2>/<3> actors into `reports/2026-01-23T031500Z/` so we can cite the per-actor SLA breach in the maintainer response while we continue waiting for acknowledgement.
 
 ### 2026-01-23T02:55Z — DEBUG-SIM-LINES-DOSE-001.F1 (per-actor wait metrics scoped)
@@ -753,3 +753,55 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - Extend `tests/tools/test_check_inbox_for_ack_cli.py` with a regression that exercises at least two ack actors and asserts the JSON summary exposes distinct wait metrics for each one.
 - Re-run the CLI with `--ack-actor "Maintainer <2>" --ack-actor "Maintainer <3>"`, `--history-jsonl`, `--history-dashboard`, `--status-snippet`, and `--escalation-note` so the new tables land under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T031500Z/`.
 - After the run, update `inbox/response_dose_experiments_ground_truth.md` plus a new `inbox/followup_dose_experiments_ground_truth_2026-01-23T031500Z.md` entry with the per-actor SLA metrics, and log the attempt in `docs/fix_plan.md` + `galph_memory.md` while we continue to wait for Maintainer <2>'s acknowledgement.
+
+### 2026-01-23T03:15Z — DEBUG-SIM-LINES-DOSE-001.F1 (per-actor wait metrics shipped)
+**Action:** Implemented per-actor wait metrics in the inbox acknowledgement CLI:
+1. Extended `scan_inbox()` to compute `ack_actor_stats` block with per-actor metrics: last_inbound_utc, hours_since_last_inbound, inbound_count, ack_files, ack_detected for each configured ack actor.
+2. Updated `write_markdown_summary()` with "Ack Actor Coverage" table showing per-actor wait stats.
+3. Updated `write_status_snippet()` to show monitored actors dynamically and include per-actor coverage table.
+4. Updated `write_escalation_note()` with per-actor coverage table before the Timeline section.
+5. Updated CLI stdout to print per-actor wait metrics under "Ack Actor Coverage" heading.
+6. Added `test_ack_actor_wait_metrics_cover_each_actor` regression test validating:
+   - `ack_actor_stats` block present in JSON output with both M2 and M3 entries
+   - Distinct hours_since_last_inbound values based on message timestamps
+   - Correct inbound counts per actor
+   - Markdown includes "Ack Actor Coverage" table
+
+**Tests:**
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` — 12 passed (0.65s)
+- `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.54s)
+
+**Collection:**
+- `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_wait_metrics_cover_each_actor -q` — 1 test collected
+
+**CLI Run (with --ack-actor "Maintainer <2>" --ack-actor "Maintainer <3>"):**
+- Files scanned: 6
+- Matches: 4
+- Last inbound: 2026-01-22T23:22:58Z
+- Hours since last inbound: 3.34
+- **SLA Breached: Yes** (3.34 > 2.00 threshold, no ack detected)
+- Acknowledgement detected: No
+- Ack actors: ["maintainer_2", "maintainer_3"]
+- Maintainer 2: 3.34 hours since inbound, 1 inbound, no ack
+- Maintainer 3: N/A (no inbound messages from M3), 0 inbound, no ack
+
+**Doc Updates:**
+- `docs/TESTING_GUIDE.md`: Added "Inbox Acknowledgement CLI (Per-Actor Wait Metrics)" section with new selector
+- `docs/development/TEST_SUITE_INDEX.md`: Added `test_ack_actor_wait_metrics_cover_each_actor` selector + log path
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T031500Z/logs/pytest_check_inbox_suite.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T031500Z/logs/pytest_loader.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T031500Z/logs/pytest_ack_actor_wait_collect.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T031500Z/logs/check_inbox.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T031500Z/inbox_sla_watch/inbox_scan_summary.json`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T031500Z/inbox_sla_watch/inbox_scan_summary.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T031500Z/inbox_status/status_snippet.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T031500Z/inbox_status/escalation_note.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T031500Z/inbox_history/inbox_sla_watch.jsonl`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T031500Z/inbox_history/inbox_sla_watch.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T031500Z/inbox_history/inbox_history_dashboard.md`
+
+**Next Actions:**
+- F1 remains open; Maintainer <2> has not yet acknowledged the bundle
+- Per-actor wait metrics now visible in JSON/Markdown/status/escalation outputs

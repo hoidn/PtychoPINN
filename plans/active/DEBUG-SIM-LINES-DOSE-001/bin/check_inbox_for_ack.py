@@ -433,6 +433,30 @@ def scan_inbox(
     results["waiting_clock"]["total_inbound_count"] = inbound_count
     results["waiting_clock"]["total_outbound_count"] = outbound_count
 
+    # Compute per-actor wait metrics (ack_actor_stats)
+    # Tracks last_inbound_utc, hours_since_last_inbound, inbound_count, ack_files per ack_actor
+    ack_actor_stats = {}
+    for actor_id in sorted(ack_actors):  # Sort for determinism
+        actor_messages = [m for m in raw_matches if m["actor"] == actor_id]
+        actor_inbound = [m for m in actor_messages if m["direction"] == "inbound"]
+        actor_ack_files = [m["file"] for m in actor_messages if m["ack_detected"]]
+
+        last_inbound_from_actor = None
+        if actor_inbound:
+            # Sort by timestamp and get the latest
+            actor_inbound_sorted = sorted(actor_inbound, key=lambda x: x["modified_utc"])
+            last_inbound_from_actor = actor_inbound_sorted[-1]["modified_utc"]
+
+        ack_actor_stats[actor_id] = {
+            "last_inbound_utc": last_inbound_from_actor,
+            "hours_since_last_inbound": compute_hours_since(last_inbound_from_actor, now),
+            "inbound_count": len(actor_inbound),
+            "ack_files": actor_ack_files,
+            "ack_detected": len(actor_ack_files) > 0,
+        }
+
+    results["ack_actor_stats"] = ack_actor_stats
+
     # SLA Watch computation (if sla_hours provided)
     if sla_hours is not None:
         hours_since = results["waiting_clock"]["hours_since_last_inbound"]
@@ -546,6 +570,29 @@ def write_markdown_summary(results: dict, output_path: Path) -> None:
                 "> **SLA BREACH:** The waiting time has exceeded the configured threshold and no acknowledgement has been received.",
                 "",
             ])
+
+    # Ack Actor Coverage table (per-actor wait metrics)
+    ack_actor_stats = results.get("ack_actor_stats", {})
+    if ack_actor_stats:
+        lines.extend([
+            "## Ack Actor Coverage",
+            "",
+            "Per-actor wait metrics for monitored acknowledgement actors:",
+            "",
+            "| Actor | Last Inbound (UTC) | Hours Since Inbound | Inbound Count | Ack Detected | Ack Files |",
+            "|-------|-------------------|---------------------|---------------|--------------|-----------|",
+        ])
+        for actor_id in sorted(ack_actor_stats.keys()):
+            stats = ack_actor_stats[actor_id]
+            actor_label = actor_id.replace("_", " ").title()
+            last_inbound = stats.get("last_inbound_utc") or "N/A"
+            hrs = stats.get("hours_since_last_inbound")
+            hrs_str = f"{hrs:.2f}" if hrs is not None else "N/A"
+            inbound_count = stats.get("inbound_count", 0)
+            ack_detected = "Yes" if stats.get("ack_detected", False) else "No"
+            ack_files = ", ".join(f"`{f}`" for f in stats.get("ack_files", [])) if stats.get("ack_files") else "-"
+            lines.append(f"| {actor_label} | {last_inbound} | {hrs_str} | {inbound_count} | {ack_detected} | {ack_files} |")
+        lines.append("")
 
     if results["ack_detected"]:
         lines.extend([
@@ -738,10 +785,13 @@ def write_status_snippet(results: dict, output_path: Path) -> None:
             "",
         ])
     else:
+        # Build list of monitored actors
+        ack_actors = results.get("parameters", {}).get("ack_actors", ["maintainer_2"])
+        actors_str = ", ".join(a.replace("_", " ").title() for a in ack_actors)
         lines.extend([
             "## Ack Detected: No",
             "",
-            "Waiting for Maintainer <2> acknowledgement.",
+            f"Waiting for acknowledgement from monitored actor(s): {actors_str}.",
             "",
         ])
 
@@ -788,6 +838,25 @@ def write_status_snippet(results: dict, output_path: Path) -> None:
                 "> **SLA BREACH:** Action required.",
                 "",
             ])
+
+    # Ack Actor Coverage table (per-actor wait metrics)
+    ack_actor_stats = results.get("ack_actor_stats", {})
+    if ack_actor_stats:
+        lines.extend([
+            "## Ack Actor Coverage",
+            "",
+            "| Actor | Hours Since Inbound | Inbound Count | Ack |",
+            "|-------|---------------------|---------------|-----|",
+        ])
+        for actor_id in sorted(ack_actor_stats.keys()):
+            stats = ack_actor_stats[actor_id]
+            actor_label = actor_id.replace("_", " ").title()
+            hrs = stats.get("hours_since_last_inbound")
+            hrs_str = f"{hrs:.2f}" if hrs is not None else "N/A"
+            inbound_count = stats.get("inbound_count", 0)
+            ack_detected = "Yes" if stats.get("ack_detected", False) else "No"
+            lines.append(f"| {actor_label} | {hrs_str} | {inbound_count} | {ack_detected} |")
+        lines.append("")
 
     # Condensed timeline table
     if timeline:
@@ -962,6 +1031,25 @@ def write_escalation_note(
             "> Maintainer <1>",
             "",
         ])
+
+    # Ack Actor Coverage table (per-actor wait metrics)
+    ack_actor_stats = results.get("ack_actor_stats", {})
+    if ack_actor_stats:
+        lines.extend([
+            "## Ack Actor Coverage",
+            "",
+            "| Actor | Hours Since Inbound | Inbound Count | Ack |",
+            "|-------|---------------------|---------------|-----|",
+        ])
+        for actor_id in sorted(ack_actor_stats.keys()):
+            stats = ack_actor_stats[actor_id]
+            actor_label = actor_id.replace("_", " ").title()
+            hrs = stats.get("hours_since_last_inbound")
+            hrs_str = f"{hrs:.2f}" if hrs is not None else "N/A"
+            inbound_count = stats.get("inbound_count", 0)
+            ack_detected = "Yes" if stats.get("ack_detected", False) else "No"
+            lines.append(f"| {actor_label} | {hrs_str} | {inbound_count} | {ack_detected} |")
+        lines.append("")
 
     # Timeline section
     if timeline:
@@ -1256,6 +1344,25 @@ def main():
         print(f"  Hours since last inbound: {f'{hrs:.2f}' if hrs is not None else 'N/A'}")
         print(f"  Breached: {'Yes' if sla_watch['breached'] else 'No'}")
         print(f"  Notes: {sla_watch['notes']}")
+
+    # Print per-actor wait metrics if present
+    ack_actor_stats = results.get("ack_actor_stats", {})
+    if ack_actor_stats:
+        print("")
+        print("Ack Actor Coverage:")
+        for actor_id in sorted(ack_actor_stats.keys()):
+            stats = ack_actor_stats[actor_id]
+            actor_label = actor_id.replace("_", " ").title()
+            hrs = stats.get("hours_since_last_inbound")
+            hrs_str = f"{hrs:.2f}" if hrs is not None else "N/A"
+            inbound_count = stats.get("inbound_count", 0)
+            ack_detected = "Yes" if stats.get("ack_detected", False) else "No"
+            ack_files = ", ".join(stats.get("ack_files", [])) if stats.get("ack_files") else "-"
+            print(f"  {actor_label}:")
+            print(f"    Hours since last inbound: {hrs_str}")
+            print(f"    Inbound count: {inbound_count}")
+            print(f"    Ack detected: {ack_detected}")
+            print(f"    Ack files: {ack_files}")
 
     # Return exit code based on ack_detected and SLA breach
     exit_code = 0

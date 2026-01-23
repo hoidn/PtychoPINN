@@ -118,6 +118,20 @@ This selector validates:
 
 Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/logs/pytest_keywords_collect.log`
 
+### Inbox Acknowledgement CLI (Per-Actor Wait Metrics)
+
+The CLI tracks per-actor wait metrics via the `ack_actor_stats` block in JSON output and the "Ack Actor Coverage" table in Markdown outputs. Each configured ack actor (via `--ack-actor` flags) gets its own metrics: last_inbound_utc, hours_since_last_inbound, inbound_count, ack_files. To run the per-actor wait metrics test:
+
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_wait_metrics_cover_each_actor -q`
+
+This selector validates:
+- `ack_actor_stats` block is present in JSON output with entries for each configured actor
+- Each actor has distinct `hours_since_last_inbound` values based on their message timestamps
+- Inbound counts are correct per actor
+- Markdown summary includes "Ack Actor Coverage" table with per-actor rows
+
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T031500Z/logs/pytest_ack_actor_wait_collect.log`
+
 ## Test Areas
 
 - `tests/tools/`: CLI and tooling tests (e.g., D0 parity logger).

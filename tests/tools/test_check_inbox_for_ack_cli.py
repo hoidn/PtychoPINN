@@ -964,3 +964,120 @@ Thanks for the bundle! I'll review it soon.
         "Should detect ack with default keywords (includes 'thanks')"
     assert "thanks" in data3["parameters"]["keywords"], \
         "Default keywords should include 'thanks'"
+
+
+def test_ack_actor_wait_metrics_cover_each_actor(tmp_path):
+    """
+    Test that ack_actor_stats provides per-actor wait metrics for each configured actor.
+
+    Creates a synthetic inbox with:
+    - One message from Maintainer <2> (4 hours old, no ack keywords)
+    - One message from Maintainer <3> (2 hours old, no ack keywords)
+
+    Runs the CLI with --ack-actor "Maintainer <2>" --ack-actor "Maintainer <3>" and asserts:
+    1. JSON output includes ack_actor_stats with both maintainer_2 and maintainer_3 entries
+    2. Each entry has distinct hours_since_last_inbound values matching their mtime offsets
+    3. Inbound counts are correct for each actor
+    4. No ack is detected since neither message has ack keywords
+    5. Markdown summary includes the "Ack Actor Coverage" table with both rows
+    """
+    inbox_dir = tmp_path / "inbox"
+    inbox_dir.mkdir()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    # Create message from Maintainer <2> (4 hours ago, no ack keywords)
+    m2_content = """# Request: dose_experiments_ground_truth
+
+**From:** Maintainer <2>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T10:00:00Z
+
+Please provide the dose experiments ground truth bundle.
+"""
+    create_inbox_file(inbox_dir, "request_m2_dose_experiments_ground_truth.md", m2_content, -4.0)
+
+    # Create message from Maintainer <3> (2 hours ago, no ack keywords)
+    m3_content = """# Update: dose_experiments_ground_truth
+
+**From:** Maintainer <3>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T12:00:00Z
+
+I'm following up on this request from Maintainer <2>.
+"""
+    create_inbox_file(inbox_dir, "update_m3_dose_experiments_ground_truth.md", m3_content, -2.0)
+
+    # Run CLI with both M2 and M3 as ack actors
+    result = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--keywords", "acknowledged",
+            "--keywords", "confirm",
+            "--ack-actor", "Maintainer <2>",
+            "--ack-actor", "Maintainer <3>",
+            "--sla-hours", "3.0",
+            "--output", str(output_dir)
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    assert result.returncode == 0, f"CLI failed: {result.stderr}"
+
+    # Load JSON output
+    json_path = output_dir / "inbox_scan_summary.json"
+    assert json_path.exists(), "JSON summary not created"
+    with open(json_path) as f:
+        data = json.load(f)
+
+    # Assert ack_actor_stats is present
+    assert "ack_actor_stats" in data, "JSON output missing ack_actor_stats"
+    ack_stats = data["ack_actor_stats"]
+
+    # Assert both actors are present in ack_actor_stats
+    assert "maintainer_2" in ack_stats, "Missing maintainer_2 in ack_actor_stats"
+    assert "maintainer_3" in ack_stats, "Missing maintainer_3 in ack_actor_stats"
+
+    # Check M2 metrics (4 hours ago)
+    m2_stats = ack_stats["maintainer_2"]
+    assert m2_stats["last_inbound_utc"] is not None, "M2 should have last_inbound_utc"
+    assert m2_stats["hours_since_last_inbound"] is not None, "M2 should have hours_since_last_inbound"
+    # Allow some tolerance for test execution time
+    assert 3.5 < m2_stats["hours_since_last_inbound"] < 4.5, \
+        f"M2 hours_since_last_inbound should be ~4, got {m2_stats['hours_since_last_inbound']}"
+    assert m2_stats["inbound_count"] == 1, f"M2 should have 1 inbound, got {m2_stats['inbound_count']}"
+    assert m2_stats["ack_detected"] is False, "M2 should not have ack (no keywords)"
+    assert m2_stats["ack_files"] == [], "M2 should have no ack files"
+
+    # Check M3 metrics (2 hours ago)
+    m3_stats = ack_stats["maintainer_3"]
+    assert m3_stats["last_inbound_utc"] is not None, "M3 should have last_inbound_utc"
+    assert m3_stats["hours_since_last_inbound"] is not None, "M3 should have hours_since_last_inbound"
+    # Allow some tolerance for test execution time
+    assert 1.5 < m3_stats["hours_since_last_inbound"] < 2.5, \
+        f"M3 hours_since_last_inbound should be ~2, got {m3_stats['hours_since_last_inbound']}"
+    assert m3_stats["inbound_count"] == 1, f"M3 should have 1 inbound, got {m3_stats['inbound_count']}"
+    assert m3_stats["ack_detected"] is False, "M3 should not have ack (no keywords)"
+    assert m3_stats["ack_files"] == [], "M3 should have no ack files"
+
+    # Verify the two actors have different wait times (M2 > M3)
+    assert m2_stats["hours_since_last_inbound"] > m3_stats["hours_since_last_inbound"], \
+        "M2 should have longer wait than M3"
+
+    # No ack should be detected overall (no ack keywords in either message)
+    assert data["ack_detected"] is False, "Should not detect ack (no keywords match)"
+
+    # Verify Markdown summary includes Ack Actor Coverage table
+    md_path = output_dir / "inbox_scan_summary.md"
+    assert md_path.exists(), "Markdown summary not created"
+    md_content = md_path.read_text()
+
+    assert "## Ack Actor Coverage" in md_content, \
+        "Markdown missing 'Ack Actor Coverage' section"
+    assert "Maintainer 2" in md_content, \
+        "Markdown missing Maintainer 2 row in Ack Actor Coverage table"
+    assert "Maintainer 3" in md_content, \
+        "Markdown missing Maintainer 3 row in Ack Actor Coverage table"
