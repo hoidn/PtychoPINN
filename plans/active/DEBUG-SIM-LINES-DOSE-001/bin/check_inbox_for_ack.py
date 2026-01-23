@@ -85,6 +85,12 @@ def parse_args():
         default=None,
         help="Path to Markdown file for appending scan history table rows"
     )
+    parser.add_argument(
+        "--status-snippet",
+        type=str,
+        default=None,
+        help="Path to write a Markdown status snippet summarizing current wait state"
+    )
     return parser.parse_args()
 
 
@@ -608,6 +614,119 @@ def append_history_markdown(results: dict, output_path: Path) -> None:
         f.write(f"| {gen_utc} | {ack} | {hrs_in_str} | {hrs_out_str} | {breach_str} | {ack_files_str} |\n")
 
 
+def write_status_snippet(results: dict, output_path: Path) -> None:
+    """
+    Write a concise Markdown status snippet summarizing current wait state.
+
+    The snippet includes:
+    - Generated timestamp
+    - Ack status (detected or waiting)
+    - Hours since inbound/outbound
+    - SLA threshold and breach status (if applicable)
+    - Ack files (if any)
+    - Notes
+    - Condensed timeline table
+
+    The output file is overwritten (not appended) to provide a single,
+    idempotent snapshot of current status.
+    """
+    # Ensure parent directory exists
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    wc = results.get("waiting_clock", {})
+    sla = results.get("sla_watch", {})
+    timeline = results.get("timeline", [])
+
+    lines = [
+        "# Maintainer Status Snapshot",
+        "",
+        f"**Generated:** {results.get('generated_utc', 'N/A')}",
+        "",
+    ]
+
+    # Ack status
+    if results.get("ack_detected", False):
+        ack_files = results.get("ack_files", [])
+        ack_files_str = ", ".join(f"`{f}`" for f in ack_files) if ack_files else "None"
+        lines.extend([
+            "## Ack Detected: Yes",
+            "",
+            f"**Ack Files:** {ack_files_str}",
+            "",
+        ])
+    else:
+        lines.extend([
+            "## Ack Detected: No",
+            "",
+            "Waiting for Maintainer <2> acknowledgement.",
+            "",
+        ])
+
+    # Waiting clock metrics
+    hrs_in = wc.get("hours_since_last_inbound")
+    hrs_out = wc.get("hours_since_last_outbound")
+    hrs_in_str = f"{hrs_in:.2f}" if hrs_in is not None else "N/A"
+    hrs_out_str = f"{hrs_out:.2f}" if hrs_out is not None else "N/A"
+
+    lines.extend([
+        "## Wait Metrics",
+        "",
+        f"| Metric | Value |",
+        f"|--------|-------|",
+        f"| Hours since last inbound | {hrs_in_str} |",
+        f"| Hours since last outbound | {hrs_out_str} |",
+        f"| Total inbound messages | {wc.get('total_inbound_count', 0)} |",
+        f"| Total outbound messages | {wc.get('total_outbound_count', 0)} |",
+        "",
+    ])
+
+    # SLA watch (if applicable)
+    if sla:
+        threshold = sla.get("threshold_hours")
+        breached = sla.get("breached", False)
+        notes = sla.get("notes", "")
+        threshold_str = f"{threshold:.2f}" if threshold is not None else "N/A"
+        breach_str = "Yes" if breached else "No"
+
+        lines.extend([
+            "## SLA Watch",
+            "",
+            f"| Metric | Value |",
+            f"|--------|-------|",
+            f"| Threshold | {threshold_str} hours |",
+            f"| Breached | {breach_str} |",
+            "",
+            f"**Notes:** {sanitize_for_markdown(notes)}",
+            "",
+        ])
+
+        if breached:
+            lines.extend([
+                "> **SLA BREACH:** Action required.",
+                "",
+            ])
+
+    # Condensed timeline table
+    if timeline:
+        lines.extend([
+            "## Timeline",
+            "",
+            "| Timestamp | Actor | Direction | Ack |",
+            "|-----------|-------|-----------|-----|",
+        ])
+        for t in timeline:
+            ts_short = t.get("timestamp_utc", "")[:19]  # Trim to readable length
+            actor = t.get("actor", "unknown").replace("_", " ").title()
+            direction = t.get("direction", "unknown").capitalize()
+            ack_label = "Yes" if t.get("ack") else "No"
+            lines.append(f"| {ts_short} | {actor} | {direction} | {ack_label} |")
+        lines.append("")
+
+    # Write the snippet (overwrite mode for idempotency)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+
 def main():
     """Main entry point."""
     args = parse_args()
@@ -660,6 +779,12 @@ def main():
         history_md_path = Path(args.history_markdown)
         append_history_markdown(results, history_md_path)
         print(f"History Markdown appended: {history_md_path}")
+
+    # Write status snippet if specified
+    if args.status_snippet:
+        status_snippet_path = Path(args.status_snippet)
+        write_status_snippet(results, status_snippet_path)
+        print(f"Status snippet written: {status_snippet_path}")
 
     # Print summary
     print(f"Files scanned: {results['scanned']}")

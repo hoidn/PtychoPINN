@@ -28,7 +28,7 @@ This selector validates:
 - Breach does NOT trigger when acknowledgement is already received
 - No breach when no inbound messages exist
 
-Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014011Z/logs/pytest_check_inbox.log`
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T015222Z/logs/pytest_check_inbox.log`
 
 ### Inbox Acknowledgement CLI (History Logging)
 
@@ -42,7 +42,22 @@ This selector validates:
 - Headers are written exactly once (not duplicated on subsequent runs)
 - Second run with ack detected flips `ack_detected` to true
 
-Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014011Z/logs/pytest_check_inbox_history.log`
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T015222Z/logs/pytest_check_inbox_history.log`
+
+### Inbox Acknowledgement CLI (Status Snippet)
+
+The CLI also supports generating a Markdown status snippet via the `--status-snippet` flag. This snippet provides a concise summary of the current wait state, including ack status, hours since inbound/outbound, SLA breach status, and a timeline table. To run the status snippet test:
+
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_status_snippet_emits_wait_summary -q`
+
+This selector validates:
+- `--status-snippet` flag writes a Markdown file with "Maintainer Status Snapshot" heading
+- Snippet includes "Ack Detected" status (Yes/No)
+- Snippet includes SLA breach indicator when threshold is exceeded
+- Snippet includes a timeline table with Maintainer <2> entries
+- Snippet is idempotent (overwrites rather than appends)
+
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T015222Z/logs/pytest_status_snippet.log`
 
 ## Test Areas
 

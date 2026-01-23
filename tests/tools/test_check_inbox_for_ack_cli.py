@@ -369,3 +369,106 @@ I have received and acknowledge the bundle. Thank you!
 
     # Verify Markdown header was only written once (check for exactly one "# Inbox Scan History")
     assert md_content.count("# Inbox Scan History") == 1, "Header should be written exactly once"
+
+
+def test_status_snippet_emits_wait_summary(tmp_path):
+    """
+    Test --status-snippet flag generates a Markdown snippet with wait state.
+
+    Creates a synthetic inbox with:
+    - One inbound message from Maintainer <2> (3 hours old, no ack keywords)
+    - One outbound message from Maintainer <1> (1 hour old)
+
+    Asserts:
+    1. Snippet file exists and contains "Maintainer Status Snapshot" heading
+    2. Snippet contains "Ack Detected: No" since no ack was received
+    3. Snippet contains SLA breach note when threshold is exceeded
+    4. Snippet contains a timeline row for Maintainer <2>
+    """
+    inbox_dir = tmp_path / "inbox"
+    inbox_dir.mkdir()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    status_snippet_path = tmp_path / "status.md"
+
+    # Create inbound message from Maintainer <2> (3 hours ago, no ack)
+    inbound_content = """# Request: dose_experiments_ground_truth
+
+**From:** Maintainer <2>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T14:00:00Z
+
+Please provide the dose experiments ground truth bundle.
+"""
+    create_inbox_file(inbox_dir, "request_dose_experiments_ground_truth.md", inbound_content, -3.0)
+
+    # Create outbound response from Maintainer <1> (1 hour ago)
+    outbound_content = """# Response: dose_experiments_ground_truth
+
+**From:** Maintainer <1>
+**To:** Maintainer <2>
+**Date:** 2026-01-22T16:00:00Z
+
+Bundle delivered at reports/dose_experiments_ground_truth/
+"""
+    create_inbox_file(inbox_dir, "response_dose_experiments_ground_truth.md", outbound_content, -1.0)
+
+    # Run CLI with --status-snippet and --sla-hours
+    result = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--sla-hours", "2.0",
+            "--status-snippet", str(status_snippet_path),
+            "--output", str(output_dir)
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    assert result.returncode == 0, f"CLI failed: {result.stderr}"
+
+    # Assert snippet file exists
+    assert status_snippet_path.exists(), "Status snippet file not created"
+
+    # Read and validate snippet content
+    snippet_content = status_snippet_path.read_text()
+
+    # Check for expected heading
+    assert "# Maintainer Status Snapshot" in snippet_content, \
+        "Snippet missing 'Maintainer Status Snapshot' heading"
+
+    # Check for ack status (should be "No" since no ack keywords from M2)
+    assert "## Ack Detected: No" in snippet_content, \
+        "Snippet missing 'Ack Detected: No' section"
+
+    # Check for SLA breach note (3 hours > 2.0 threshold)
+    assert "Breached | Yes" in snippet_content or "Breached" in snippet_content and "Yes" in snippet_content, \
+        "Snippet missing SLA breach indicator"
+
+    # Check for timeline section with Maintainer 2 row
+    assert "## Timeline" in snippet_content, \
+        "Snippet missing Timeline section"
+    assert "Maintainer 2" in snippet_content, \
+        "Snippet missing timeline row for Maintainer <2>"
+
+    # Verify snippet is idempotent (running again should overwrite, not append)
+    result2 = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--sla-hours", "2.0",
+            "--status-snippet", str(status_snippet_path),
+            "--output", str(output_dir / "run2")
+        ],
+        capture_output=True,
+        text=True
+    )
+    assert result2.returncode == 0
+
+    snippet_content2 = status_snippet_path.read_text()
+    # Should have exactly one header (not duplicated)
+    assert snippet_content2.count("# Maintainer Status Snapshot") == 1, \
+        "Snippet header should appear exactly once (idempotent)"

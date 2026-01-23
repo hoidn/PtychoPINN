@@ -318,3 +318,49 @@ pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_logging_appends
 **Artifact paths:**
 - Scan summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014011Z/inbox_sla_watch/`
 - History logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014011Z/inbox_history/`
+
+---
+
+### Status as of 2026-01-23T015222Z (Status Snippet Feature)
+
+**Status snippet CLI feature added for reusable Markdown output.**
+
+| Metric | Value |
+|--------|-------|
+| Last Inbound (from Maintainer <2>) | 2026-01-22T23:22:58Z |
+| Hours Since Last Inbound | 2.58 hours |
+| SLA Threshold | 2.00 hours |
+| **SLA Breached** | **Yes** |
+| Acknowledgement Detected | No |
+| Total Inbound Messages | 1 |
+| Total Outbound Messages | 2 |
+
+**CLI command (with --status-snippet):**
+```bash
+python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py \
+  --inbox inbox \
+  --request-pattern dose_experiments_ground_truth \
+  --sla-hours 2.0 \
+  --history-jsonl .../inbox_history/inbox_sla_watch.jsonl \
+  --history-markdown .../inbox_history/inbox_sla_watch.md \
+  --status-snippet .../inbox_status/status_snippet.md \
+  --output plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T015222Z/inbox_sla_watch
+```
+
+**New test selector:**
+```bash
+pytest tests/tools/test_check_inbox_for_ack_cli.py::test_status_snippet_emits_wait_summary -q
+```
+
+**Status Snippet** (at `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T015222Z/inbox_status/status_snippet.md`):
+- Contains "Maintainer Status Snapshot" heading
+- Ack status: No (waiting for Maintainer <2>)
+- Wait metrics table with hours since inbound/outbound
+- SLA Watch table showing breach status
+- Timeline table with all matched messages
+
+**Artifact paths:**
+- Status snippet: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T015222Z/inbox_status/status_snippet.md`
+- Scan summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T015222Z/inbox_sla_watch/`
+- History logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T015222Z/inbox_history/`
+- Test logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T015222Z/logs/`
