@@ -44,3 +44,6 @@ This is a minimal index of key tests in this branch.
   - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_overrides_thresholds -q`
   - Tests `--ack-actor-sla` repeatable flag for per-actor SLA threshold overrides (e.g., `--ack-actor-sla "Maintainer <2>=2.0"`). Validates that each actor's breach status uses their specific threshold, JSON includes `ack_actor_sla_hours` parameter and `sla_threshold_hours` per actor, and Markdown shows "Threshold (hrs)" column.
   - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T060500Z/logs/pytest_sla_override_collect.log`
+  - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_summary_flags_breach -q`
+  - Tests `ack_actor_summary` structure that groups actors by severity (critical/warning/ok/unknown). Validates JSON buckets, Markdown "## Ack Actor SLA Summary" section with severity subsections, and CLI stdout "Ack Actor SLA Summary:" with `[CRITICAL]`/`[OK]` labels.
+  - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/logs/pytest_ack_actor_summary.log`

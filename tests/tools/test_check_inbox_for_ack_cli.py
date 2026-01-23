@@ -1454,3 +1454,157 @@ I'm following up on this request from Maintainer <2>.
         "CLI stdout should show M2's threshold value"
     assert "SLA Threshold: 4.00 hours" in result.stdout, \
         "CLI stdout should show M3's threshold value"
+
+
+def test_ack_actor_sla_summary_flags_breach(tmp_path):
+    """
+    Test --ack-actor-sla summary groups actors by severity (critical/warning/ok/unknown).
+
+    Creates a synthetic inbox where:
+    - Maintainer <2> has a message 3.5 hours old with SLA threshold 2.0 hours → breach (critical)
+    - Maintainer <3> has a message 1.0 hour old with SLA threshold 6.0 hours → within SLA (ok)
+
+    Runs CLI with both --sla-hours and --ack-actor-sla flags.
+
+    Note: The --fail-when-breached flag checks the *global* SLA watch, not per-actor breaches.
+    The global SLA uses the latest inbound across all actors (1.0h from M3 < 2.5h threshold),
+    so the global SLA is NOT breached even though M2's per-actor SLA IS breached.
+
+    Asserts:
+    1. JSON includes ack_actor_summary with correct buckets (critical/warning/ok/unknown)
+    2. JSON ack_actor_summary.critical contains maintainer_2 entry with correct metadata
+    3. JSON ack_actor_summary.ok contains maintainer_3 entry with correct metadata
+    4. Markdown includes "## Ack Actor SLA Summary" section with severity subsections
+    5. CLI stdout includes "Ack Actor SLA Summary:" with severity buckets listed
+    6. CLI exits with code 0 (global SLA not breached, even though M2 is per-actor breached)
+    """
+    inbox_dir = tmp_path / "inbox"
+    inbox_dir.mkdir()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    # Create message from Maintainer <2> (3.5 hours ago, no ack keywords)
+    m2_content = """# Request: dose_experiments_ground_truth
+
+**From:** Maintainer <2>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T10:00:00Z
+
+Please provide the dose experiments ground truth bundle.
+"""
+    create_inbox_file(inbox_dir, "request_m2_dose_experiments_ground_truth.md", m2_content, -3.5)
+
+    # Create message from Maintainer <3> (1.0 hour ago, no ack keywords)
+    m3_content = """# Update: dose_experiments_ground_truth
+
+**From:** Maintainer <3>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T12:30:00Z
+
+I'm following up on this request from Maintainer <2>.
+"""
+    create_inbox_file(inbox_dir, "update_m3_dose_experiments_ground_truth.md", m3_content, -1.0)
+
+    # Run CLI with per-actor SLA overrides and --fail-when-breached
+    result = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--keywords", "acknowledged",
+            "--keywords", "confirm",
+            "--ack-actor", "Maintainer <2>",
+            "--ack-actor", "Maintainer <3>",
+            "--sla-hours", "2.5",
+            "--ack-actor-sla", "Maintainer <2>=2.0",
+            "--ack-actor-sla", "Maintainer <3>=6.0",
+            "--fail-when-breached",
+            "--output", str(output_dir)
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    # Should exit with code 0 because global SLA is NOT breached
+    # (latest inbound is 1.0h from M3 which is < 2.5h global threshold)
+    # Even though M2 has a per-actor breach, the global SLA governs --fail-when-breached
+    assert result.returncode == 0, f"CLI should exit 0 (global SLA ok): {result.stderr}\nstdout: {result.stdout}"
+
+    # Load JSON output
+    json_path = output_dir / "inbox_scan_summary.json"
+    assert json_path.exists(), "JSON summary not created"
+    with open(json_path) as f:
+        data = json.load(f)
+
+    # === JSON Assertions ===
+    # 1. ack_actor_summary is present
+    assert "ack_actor_summary" in data, "JSON missing ack_actor_summary"
+    summary = data["ack_actor_summary"]
+
+    # 2. Bucket structure is correct (critical/warning/ok/unknown)
+    assert "critical" in summary, "ack_actor_summary missing 'critical' bucket"
+    assert "warning" in summary, "ack_actor_summary missing 'warning' bucket"
+    assert "ok" in summary, "ack_actor_summary missing 'ok' bucket"
+    assert "unknown" in summary, "ack_actor_summary missing 'unknown' bucket"
+
+    # 3. M2 is in critical bucket (3.5 > 2.0 by >= 1 hour)
+    critical_actors = summary["critical"]
+    assert len(critical_actors) >= 1, "critical bucket should have at least 1 actor"
+    m2_entry = next((e for e in critical_actors if e["actor_id"] == "maintainer_2"), None)
+    assert m2_entry is not None, "maintainer_2 should be in critical bucket"
+    assert m2_entry["actor_label"] == "Maintainer 2", f"M2 label wrong: {m2_entry['actor_label']}"
+    assert m2_entry["sla_threshold_hours"] == 2.0, f"M2 threshold should be 2.0, got {m2_entry['sla_threshold_hours']}"
+    assert m2_entry["sla_breached"] is True, "M2 should be breached"
+    # Hours since inbound should be ~3.5 (allow tolerance for execution time)
+    assert m2_entry["hours_since_inbound"] is not None, "M2 missing hours_since_inbound"
+    assert m2_entry["hours_since_inbound"] >= 3.4, f"M2 hours should be ~3.5, got {m2_entry['hours_since_inbound']}"
+
+    # 4. M3 is in ok bucket (1.0 < 6.0)
+    ok_actors = summary["ok"]
+    assert len(ok_actors) >= 1, "ok bucket should have at least 1 actor"
+    m3_entry = next((e for e in ok_actors if e["actor_id"] == "maintainer_3"), None)
+    assert m3_entry is not None, "maintainer_3 should be in ok bucket"
+    assert m3_entry["actor_label"] == "Maintainer 3", f"M3 label wrong: {m3_entry['actor_label']}"
+    assert m3_entry["sla_threshold_hours"] == 6.0, f"M3 threshold should be 6.0, got {m3_entry['sla_threshold_hours']}"
+    assert m3_entry["sla_breached"] is False, "M3 should NOT be breached"
+    # Hours since inbound should be ~1.0 (allow tolerance)
+    assert m3_entry["hours_since_inbound"] is not None, "M3 missing hours_since_inbound"
+    assert m3_entry["hours_since_inbound"] >= 0.9, f"M3 hours should be ~1.0, got {m3_entry['hours_since_inbound']}"
+
+    # === Markdown Assertions ===
+    md_path = output_dir / "inbox_scan_summary.md"
+    assert md_path.exists(), "Markdown summary not created"
+    md_content = md_path.read_text()
+
+    # 5. Markdown includes "## Ack Actor SLA Summary"
+    assert "## Ack Actor SLA Summary" in md_content, \
+        "Markdown missing '## Ack Actor SLA Summary' section"
+
+    # Check severity subsections appear
+    assert "### Critical" in md_content, \
+        "Markdown missing '### Critical' subsection in Ack Actor SLA Summary"
+    assert "### OK" in md_content, \
+        "Markdown missing '### OK' subsection in Ack Actor SLA Summary"
+
+    # Check actor names appear in their sections
+    assert "Maintainer 2" in md_content, \
+        "Markdown should mention Maintainer 2 in summary"
+    assert "Maintainer 3" in md_content, \
+        "Markdown should mention Maintainer 3 in summary"
+
+    # === CLI stdout Assertions ===
+    # 6. CLI stdout includes "Ack Actor SLA Summary:"
+    assert "Ack Actor SLA Summary:" in result.stdout, \
+        "CLI stdout should show 'Ack Actor SLA Summary:'"
+
+    # Check severity labels in stdout
+    assert "[CRITICAL]" in result.stdout, \
+        "CLI stdout should show [CRITICAL] severity bucket"
+    assert "[OK]" in result.stdout, \
+        "CLI stdout should show [OK] severity bucket"
+
+    # Check actor names appear in stdout
+    assert "Maintainer 2" in result.stdout, \
+        "CLI stdout should mention Maintainer 2 in summary"
+    assert "Maintainer 3" in result.stdout, \
+        "CLI stdout should mention Maintainer 3 in summary"

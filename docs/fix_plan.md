@@ -742,8 +742,52 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - [x] DEBUG-SIM-LINES-DOSE-001.C2: Capture checksum verification logs for the final bundle (or tarball) and confirm size constraints / delivery instructions in `galph_memory.md` + maintainer inbox.
 - [x] DEBUG-SIM-LINES-DOSE-001.D1: Draft `inbox/response_dose_experiments_ground_truth.md` that cites the final drop root, README/manifest paths, bundle_verification logs, tarball SHA, and the validating `pytest tests/test_generic_loader.py::test_generic_loader -q` log so Maintainer <2> can close the request.
 - [x] DEBUG-SIM-LINES-DOSE-001.E1: Verify the tarball rehydration path by extracting `dose_experiments_ground_truth.tar.gz`, regenerating the manifest, diffing it against `reports/2026-01-23T001018Z/ground_truth_manifest.json`, logging the comparison under `reports/<ts>/rehydration_check/`, re-running `pytest tests/test_generic_loader.py::test_generic_loader -q`, and updating the maintainer response with the results.
-- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Latest scan (artifacts under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T060500Z/`) shows SLA breach with per-actor threshold overrides now available. Test selectors: `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` (15 tests incl. per-actor SLA overrides) and `pytest tests/test_generic_loader.py::test_generic_loader -q`. Per-actor SLA threshold overrides, deadline, severity now visible across all outputs.
-- **Next actions:** Per-actor SLA override thresholds shipped. Awaiting Maintainer <2> acknowledgement.
+- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Latest scan (artifacts under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/`) shows SLA breach with per-actor SLA summary. Test selectors: `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` (16 tests incl. per-actor SLA summary) and `pytest tests/test_generic_loader.py::test_generic_loader -q`. Per-actor SLA summary groups actors by severity (critical/warning/ok/unknown) across all outputs.
+- **Next actions:** Per-actor SLA summary shipped. Awaiting Maintainer <2> acknowledgement.
+
+### 2026-01-23T07:05Z — DEBUG-SIM-LINES-DOSE-001.F1 (per-actor SLA summary shipped)
+**Action:** Implemented `ack_actor_summary` structure that groups monitored actors by severity (critical/warning/ok/unknown). The summary provides a quick view of which actors are breaching SLA.
+
+**Changes:**
+1. Extended `scan_inbox()` with `ack_actor_summary` dict (critical/warning/ok/unknown buckets)
+2. Updated `write_markdown_summary()` to emit "## Ack Actor SLA Summary" section with severity subsections
+3. Updated `write_status_snippet()` and `write_escalation_note()` with same summary section
+4. Updated CLI stdout to display "Ack Actor SLA Summary:" with `[CRITICAL]`/`[WARNING]`/`[OK]`/`[UNKNOWN]` labels
+5. Added `test_ack_actor_sla_summary_flags_breach` test validating JSON buckets, Markdown sections, and CLI stdout
+
+**Tests:**
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` — 16 passed (0.85s)
+- `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.52s)
+
+**Collection:**
+- `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_summary_flags_breach -q` — 1 test collected
+
+**CLI Run:**
+- Files scanned: 6, Matches: 4, Ack detected: No
+- Maintainer 2: 4.20 hrs since inbound, threshold 2.00, **critical** (breach >= 1h)
+- Maintainer 3: No inbound, threshold 6.00, **unknown**
+- Exit code: 2 (SLA breach detected)
+
+**Doc Updates:**
+- `docs/TESTING_GUIDE.md`: Added "Per-Actor SLA Summary" section with new selector
+- `docs/development/TEST_SUITE_INDEX.md`: Added selector + log path
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/logs/pytest_ack_actor_summary.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/logs/pytest_ack_actor_summary_collect.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/logs/pytest_loader.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/logs/check_inbox.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/inbox_sla_watch/inbox_scan_summary.json`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/inbox_sla_watch/inbox_scan_summary.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/inbox_status/status_snippet.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/inbox_status/escalation_note.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/inbox_history/inbox_sla_watch.jsonl`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/inbox_history/inbox_sla_watch.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/inbox_history/inbox_history_dashboard.md`
+
+**Next Actions:**
+- F1 remains open; Maintainer <2> has not yet acknowledged the bundle
+- Per-actor SLA summary now shows Maintainer <2> in critical bucket, Maintainer <3> in unknown bucket
 
 ### 2026-01-23T02:55Z — DEBUG-SIM-LINES-DOSE-001.F1 (per-actor wait metrics scoped)
 **Action:** Ack-actor + custom keyword support landed (artifacts in `reports/2026-01-23T024800Z/`), but the Markdown/JSON summaries still hard-code "Maintainer <2>" and don't show which inbound maintainer is currently blocking the SLA. Maintainer <3> is now allowed to acknowledge on behalf of Maintainer <2>, so we need per-actor wait metrics and evidence that both actors are being policed.

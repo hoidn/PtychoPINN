@@ -557,6 +557,33 @@ def scan_inbox(
 
     results["ack_actor_stats"] = ack_actor_stats
 
+    # Build ack_actor_summary: group actors by severity (critical/warning/ok/unknown)
+    # This provides a concise overview of which actors are breaching SLA vs within SLA
+    if sla_hours is not None:
+        ack_actor_summary = {
+            "critical": [],
+            "warning": [],
+            "ok": [],
+            "unknown": []
+        }
+        for actor_id in sorted(ack_actor_stats.keys()):
+            stats = ack_actor_stats[actor_id]
+            severity = stats.get("sla_severity", "unknown")
+            entry = {
+                "actor_id": actor_id,
+                "actor_label": actor_id.replace("_", " ").title(),
+                "hours_since_inbound": stats.get("hours_since_last_inbound"),
+                "sla_threshold_hours": stats.get("sla_threshold_hours"),
+                "sla_deadline_utc": stats.get("sla_deadline_utc"),
+                "sla_breached": stats.get("sla_breached", False),
+                "sla_notes": stats.get("sla_notes", ""),
+            }
+            if severity in ack_actor_summary:
+                ack_actor_summary[severity].append(entry)
+            else:
+                ack_actor_summary["unknown"].append(entry)
+        results["ack_actor_summary"] = ack_actor_summary
+
     # SLA Watch computation (if sla_hours provided)
     if sla_hours is not None:
         hours_since = results["waiting_clock"]["hours_since_last_inbound"]
@@ -704,6 +731,40 @@ def write_markdown_summary(results: dict, output_path: Path) -> None:
                 "> **SLA BREACH:** The waiting time has exceeded the configured threshold and no acknowledgement has been received.",
                 "",
             ])
+
+    # Ack Actor SLA Summary section (groups actors by severity)
+    ack_actor_summary = results.get("ack_actor_summary")
+    if ack_actor_summary:
+        lines.extend([
+            "## Ack Actor SLA Summary",
+            "",
+            "Per-actor SLA status grouped by severity:",
+            "",
+        ])
+        # Emit severity categories in order: critical, warning, ok, unknown
+        severity_order = ["critical", "warning", "ok", "unknown"]
+        severity_labels = {
+            "critical": "Critical (Breach >= 1h)",
+            "warning": "Warning (Breach < 1h)",
+            "ok": "OK (Within SLA)",
+            "unknown": "Unknown (No Inbound)"
+        }
+        for sev in severity_order:
+            actors_in_sev = ack_actor_summary.get(sev, [])
+            if actors_in_sev:
+                lines.append(f"### {severity_labels[sev]}")
+                lines.append("")
+                for entry in actors_in_sev:
+                    hrs = entry.get("hours_since_inbound")
+                    hrs_str = f"{hrs:.2f}" if hrs is not None else "N/A"
+                    threshold = entry.get("sla_threshold_hours")
+                    threshold_str = f"{threshold:.2f}" if threshold is not None else "N/A"
+                    breached = "Yes" if entry.get("sla_breached", False) else "No"
+                    notes = sanitize_for_markdown(entry.get("sla_notes", "-"))
+                    lines.append(f"- **{entry['actor_label']}**: {hrs_str} hrs since inbound (threshold: {threshold_str} hrs) — Breached: {breached}")
+                    if entry.get("sla_notes"):
+                        lines.append(f"  - {notes}")
+                lines.append("")
 
     # Ack Actor Coverage table (per-actor wait metrics with SLA fields)
     ack_actor_stats = results.get("ack_actor_stats", {})
@@ -1025,6 +1086,34 @@ def write_status_snippet(results: dict, output_path: Path) -> None:
                 "",
             ])
 
+    # Ack Actor SLA Summary section (groups actors by severity)
+    ack_actor_summary = results.get("ack_actor_summary")
+    if ack_actor_summary:
+        lines.extend([
+            "## Ack Actor SLA Summary",
+            "",
+        ])
+        severity_order = ["critical", "warning", "ok", "unknown"]
+        severity_labels = {
+            "critical": "Critical (Breach >= 1h)",
+            "warning": "Warning (Breach < 1h)",
+            "ok": "OK (Within SLA)",
+            "unknown": "Unknown (No Inbound)"
+        }
+        for sev in severity_order:
+            actors_in_sev = ack_actor_summary.get(sev, [])
+            if actors_in_sev:
+                lines.append(f"### {severity_labels[sev]}")
+                lines.append("")
+                for entry in actors_in_sev:
+                    hrs = entry.get("hours_since_inbound")
+                    hrs_str = f"{hrs:.2f}" if hrs is not None else "N/A"
+                    threshold = entry.get("sla_threshold_hours")
+                    threshold_str = f"{threshold:.2f}" if threshold is not None else "N/A"
+                    breached_str = "Yes" if entry.get("sla_breached", False) else "No"
+                    lines.append(f"- **{entry['actor_label']}**: {hrs_str} hrs (threshold: {threshold_str} hrs) — Breached: {breached_str}")
+                lines.append("")
+
     # Ack Actor Coverage table (per-actor wait metrics with SLA fields)
     ack_actor_stats = results.get("ack_actor_stats", {})
     if ack_actor_stats:
@@ -1259,6 +1348,34 @@ def write_escalation_note(
             "> Maintainer <1>",
             "",
         ])
+
+    # Ack Actor SLA Summary section (groups actors by severity)
+    ack_actor_summary = results.get("ack_actor_summary")
+    if ack_actor_summary:
+        lines.extend([
+            "## Ack Actor SLA Summary",
+            "",
+        ])
+        severity_order = ["critical", "warning", "ok", "unknown"]
+        severity_labels = {
+            "critical": "Critical (Breach >= 1h)",
+            "warning": "Warning (Breach < 1h)",
+            "ok": "OK (Within SLA)",
+            "unknown": "Unknown (No Inbound)"
+        }
+        for sev in severity_order:
+            actors_in_sev = ack_actor_summary.get(sev, [])
+            if actors_in_sev:
+                lines.append(f"### {severity_labels[sev]}")
+                lines.append("")
+                for entry in actors_in_sev:
+                    hrs = entry.get("hours_since_inbound")
+                    hrs_str = f"{hrs:.2f}" if hrs is not None else "N/A"
+                    threshold = entry.get("sla_threshold_hours")
+                    threshold_str = f"{threshold:.2f}" if threshold is not None else "N/A"
+                    breached_str = "Yes" if entry.get("sla_breached", False) else "No"
+                    lines.append(f"- **{entry['actor_label']}**: {hrs_str} hrs (threshold: {threshold_str} hrs) — Breached: {breached_str}")
+                lines.append("")
 
     # Ack Actor Coverage table (per-actor wait metrics with SLA fields)
     ack_actor_stats = results.get("ack_actor_stats", {})
@@ -1658,6 +1775,30 @@ def main():
                 print(f"    SLA Breach Duration: {breach_dur_str} hours")
                 print(f"    SLA Severity: {severity}")
                 print(f"    SLA Notes: {notes}")
+
+    # Print Ack Actor SLA Summary (grouped by severity)
+    ack_actor_summary = results.get("ack_actor_summary")
+    if ack_actor_summary:
+        print("")
+        print("Ack Actor SLA Summary:")
+        severity_order = ["critical", "warning", "ok", "unknown"]
+        severity_labels = {
+            "critical": "Critical (Breach >= 1h)",
+            "warning": "Warning (Breach < 1h)",
+            "ok": "OK (Within SLA)",
+            "unknown": "Unknown (No Inbound)"
+        }
+        for sev in severity_order:
+            actors_in_sev = ack_actor_summary.get(sev, [])
+            if actors_in_sev:
+                print(f"  [{sev.upper()}] {severity_labels[sev]}:")
+                for entry in actors_in_sev:
+                    hrs = entry.get("hours_since_inbound")
+                    hrs_str = f"{hrs:.2f}" if hrs is not None else "N/A"
+                    threshold = entry.get("sla_threshold_hours")
+                    threshold_str = f"{threshold:.2f}" if threshold is not None else "N/A"
+                    breached = "Yes" if entry.get("sla_breached", False) else "No"
+                    print(f"    - {entry['actor_label']}: {hrs_str} hrs since inbound (threshold: {threshold_str} hrs) — Breached: {breached}")
 
     # Return exit code based on ack_detected and SLA breach
     exit_code = 0

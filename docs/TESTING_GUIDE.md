@@ -192,6 +192,34 @@ This selector validates:
 
 Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T060500Z/logs/pytest_sla_override_collect.log`
 
+### Per-Actor SLA Summary (Grouped by Severity)
+
+The `ack_actor_summary` structure groups monitored actors by severity (critical/warning/ok/unknown), providing a quick view of which actors are breaching SLA vs within SLA. When `--sla-hours` is set:
+- `critical`: actors breaching SLA by >= 1 hour
+- `warning`: actors breaching SLA by < 1 hour
+- `ok`: actors within their SLA threshold (or acknowledged)
+- `unknown`: actors with no inbound messages
+
+The summary appears in:
+- JSON `ack_actor_summary` with bucket arrays
+- Markdown "## Ack Actor SLA Summary" section with severity subsections
+- Status snippet "## Ack Actor SLA Summary" section
+- Escalation note "## Ack Actor SLA Summary" section
+- CLI stdout "Ack Actor SLA Summary:" with `[CRITICAL]`/`[WARNING]`/`[OK]`/`[UNKNOWN]` labels
+
+To run the per-actor SLA summary test:
+
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_summary_flags_breach -q`
+
+This selector validates:
+- JSON `ack_actor_summary` contains correct buckets (critical/warning/ok/unknown)
+- Breaching actors (e.g., Maintainer <2>) appear in the `critical` bucket
+- Within-SLA actors (e.g., Maintainer <3>) appear in the `ok` bucket
+- Markdown includes "## Ack Actor SLA Summary" with severity subsections
+- CLI stdout includes "Ack Actor SLA Summary:" with severity bucket labels
+
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/logs/pytest_ack_actor_summary.log`
+
 ## Test Areas
 
 - `tests/tools/`: CLI and tooling tests (e.g., D0 parity logger).

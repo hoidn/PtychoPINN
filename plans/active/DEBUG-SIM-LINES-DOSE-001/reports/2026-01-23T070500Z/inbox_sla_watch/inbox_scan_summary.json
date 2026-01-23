@@ -1,0 +1,214 @@
+{
+  "scanned": 6,
+  "matches": [
+    {
+      "file": "request_dose_experiments_ground_truth_2026-01-22T014445Z.md",
+      "path": "inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md",
+      "size_bytes": 1469,
+      "modified_utc": "2026-01-22T23:22:58.332668+00:00",
+      "match_reason": [
+        "filename",
+        "content"
+      ],
+      "keywords_found": [],
+      "is_from_maintainer_2": true,
+      "is_from_ack_actor": true,
+      "actor": "maintainer_2",
+      "direction": "inbound",
+      "ack_detected": false,
+      "preview": "Title: Request \u2014 legacy dose_experiments ground-truth artifacts\nFrom: Maintainer <2> (PtychoPINN active branch, root_dir: ~/Documents/tmp/PtychoPINN/)\nTo: Maintainer <1> (PtychoPINN dose_experiments branch, root_dir: ~/Documents/PtychoPINN/)\n\nContext\n- Initiative: DEBUG-SIM-LINES-DOSE-001 (Phase D amplitude-bias invest..."
+    },
+    {
+      "file": "followup_dose_experiments_ground_truth_2026-01-23T011900Z.md",
+      "path": "inbox/followup_dose_experiments_ground_truth_2026-01-23T011900Z.md",
+      "size_bytes": 2803,
+      "modified_utc": "2026-01-23T01:04:13.890440+00:00",
+      "match_reason": [
+        "filename",
+        "content"
+      ],
+      "keywords_found": [
+        "confirm"
+      ],
+      "is_from_maintainer_2": false,
+      "is_from_ack_actor": false,
+      "actor": "maintainer_1",
+      "direction": "outbound",
+      "ack_detected": false,
+      "preview": "# Follow-Up \u2014 Legacy dose_experiments Ground-Truth Bundle\n\n**From:** Maintainer <1> (PtychoPINN dose_experiments branch, root_dir: ~/Documents/PtychoPINN/)\n**To:** Maintainer <2> (PtychoPINN active branch, root_dir: ~/Documents/tmp/PtychoPINN/)\n**Re:** Follow-up on delivered ground-truth bundle (DEBUG-SIM-LINES-DOSE-00..."
+    },
+    {
+      "file": "followup_dose_experiments_ground_truth_2026-01-23T023500Z.md",
+      "path": "inbox/followup_dose_experiments_ground_truth_2026-01-23T023500Z.md",
+      "size_bytes": 2288,
+      "modified_utc": "2026-01-23T02:20:12.676405+00:00",
+      "match_reason": [
+        "filename",
+        "content"
+      ],
+      "keywords_found": [
+        "confirm"
+      ],
+      "is_from_maintainer_2": false,
+      "is_from_ack_actor": false,
+      "actor": "maintainer_1",
+      "direction": "outbound",
+      "ack_detected": false,
+      "preview": "# Follow-up: Acknowledgement Request for dose_experiments_ground_truth\n\n**From:** Maintainer <1> (PtychoPINN dose_experiments branch, root_dir: ~/Documents/PtychoPINN/)\n**To:** Maintainer <2> (PtychoPINN active branch, root_dir: ~/Documents/tmp/PtychoPINN/)\n**Re:** Follow-up \u2014 legacy dose_experiments ground-truth artif..."
+    },
+    {
+      "file": "response_dose_experiments_ground_truth.md",
+      "path": "inbox/response_dose_experiments_ground_truth.md",
+      "size_bytes": 18193,
+      "modified_utc": "2026-01-23T02:21:49.305956+00:00",
+      "match_reason": [
+        "filename",
+        "content"
+      ],
+      "keywords_found": [
+        "acknowledged",
+        "confirm"
+      ],
+      "is_from_maintainer_2": false,
+      "is_from_ack_actor": false,
+      "actor": "maintainer_1",
+      "direction": "outbound",
+      "ack_detected": false,
+      "preview": "# Response \u2014 Legacy dose_experiments Ground-Truth Bundle\n\n**From:** Maintainer <1> (PtychoPINN dose_experiments branch, root_dir: ~/Documents/PtychoPINN/)\n**To:** Maintainer <2> (PtychoPINN active branch, root_dir: ~/Documents/tmp/PtychoPINN/)\n**Re:** Request \u2014 legacy dose_experiments ground-truth artifacts (2026-01-22..."
+    }
+  ],
+  "ack_detected": false,
+  "ack_files": [],
+  "generated_utc": "2026-01-23T03:34:46.411927+00:00",
+  "parameters": {
+    "inbox": "inbox",
+    "request_pattern": "dose_experiments_ground_truth",
+    "keywords": [
+      "acknowledged",
+      "confirm",
+      "received",
+      "thanks"
+    ],
+    "since": null,
+    "ack_actors": [
+      "maintainer_2",
+      "maintainer_3"
+    ],
+    "ack_actor_sla_hours": {
+      "maintainer_2": 2.0,
+      "maintainer_3": 6.0
+    }
+  },
+  "timeline": [
+    {
+      "timestamp_utc": "2026-01-22T23:22:58.332668+00:00",
+      "file": "request_dose_experiments_ground_truth_2026-01-22T014445Z.md",
+      "actor": "maintainer_2",
+      "direction": "inbound",
+      "ack": false,
+      "keywords": []
+    },
+    {
+      "timestamp_utc": "2026-01-23T01:04:13.890440+00:00",
+      "file": "followup_dose_experiments_ground_truth_2026-01-23T011900Z.md",
+      "actor": "maintainer_1",
+      "direction": "outbound",
+      "ack": false,
+      "keywords": [
+        "confirm"
+      ]
+    },
+    {
+      "timestamp_utc": "2026-01-23T02:20:12.676405+00:00",
+      "file": "followup_dose_experiments_ground_truth_2026-01-23T023500Z.md",
+      "actor": "maintainer_1",
+      "direction": "outbound",
+      "ack": false,
+      "keywords": [
+        "confirm"
+      ]
+    },
+    {
+      "timestamp_utc": "2026-01-23T02:21:49.305956+00:00",
+      "file": "response_dose_experiments_ground_truth.md",
+      "actor": "maintainer_1",
+      "direction": "outbound",
+      "ack": false,
+      "keywords": [
+        "acknowledged",
+        "confirm"
+      ]
+    }
+  ],
+  "waiting_clock": {
+    "last_inbound_utc": "2026-01-22T23:22:58.332668+00:00",
+    "last_outbound_utc": "2026-01-23T02:21:49.305956+00:00",
+    "hours_since_last_inbound": 4.2,
+    "hours_since_last_outbound": 1.22,
+    "total_inbound_count": 1,
+    "total_outbound_count": 3
+  },
+  "ack_actor_stats": {
+    "maintainer_2": {
+      "last_inbound_utc": "2026-01-22T23:22:58.332668+00:00",
+      "hours_since_last_inbound": 4.2,
+      "inbound_count": 1,
+      "ack_files": [],
+      "ack_detected": false,
+      "sla_threshold_hours": 2.0,
+      "sla_deadline_utc": "2026-01-23T01:22:58.332668+00:00",
+      "sla_breached": true,
+      "sla_breach_duration_hours": 2.2,
+      "sla_severity": "critical",
+      "sla_notes": "SLA breach: 4.20 hours since last inbound exceeds 2.00 hour threshold"
+    },
+    "maintainer_3": {
+      "last_inbound_utc": null,
+      "hours_since_last_inbound": null,
+      "inbound_count": 0,
+      "ack_files": [],
+      "ack_detected": false,
+      "sla_threshold_hours": 6.0,
+      "sla_deadline_utc": null,
+      "sla_breached": false,
+      "sla_breach_duration_hours": null,
+      "sla_severity": "unknown",
+      "sla_notes": "No inbound messages from Maintainer 3"
+    }
+  },
+  "ack_actor_summary": {
+    "critical": [
+      {
+        "actor_id": "maintainer_2",
+        "actor_label": "Maintainer 2",
+        "hours_since_inbound": 4.2,
+        "sla_threshold_hours": 2.0,
+        "sla_deadline_utc": "2026-01-23T01:22:58.332668+00:00",
+        "sla_breached": true,
+        "sla_notes": "SLA breach: 4.20 hours since last inbound exceeds 2.00 hour threshold"
+      }
+    ],
+    "warning": [],
+    "ok": [],
+    "unknown": [
+      {
+        "actor_id": "maintainer_3",
+        "actor_label": "Maintainer 3",
+        "hours_since_inbound": null,
+        "sla_threshold_hours": 6.0,
+        "sla_deadline_utc": null,
+        "sla_breached": false,
+        "sla_notes": "No inbound messages from Maintainer 3"
+      }
+    ]
+  },
+  "sla_watch": {
+    "threshold_hours": 2.5,
+    "hours_since_last_inbound": 4.2,
+    "breached": true,
+    "notes": "SLA breach: 4.20 hours since last inbound exceeds 2.50 hour threshold and no acknowledgement detected",
+    "deadline_utc": "2026-01-23T01:52:58.332668+00:00",
+    "breach_duration_hours": 1.7,
+    "severity": "critical"
+  }
+}

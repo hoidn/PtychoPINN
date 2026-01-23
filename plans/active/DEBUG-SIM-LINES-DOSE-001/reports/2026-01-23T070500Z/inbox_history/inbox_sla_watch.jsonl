@@ -1,0 +1,1 @@
+{"generated_utc": "2026-01-23T03:34:46.411927+00:00", "ack_detected": false, "hours_since_inbound": 4.2, "hours_since_outbound": 1.22, "sla_breached": true, "sla_threshold_hours": 2.5, "sla_deadline_utc": "2026-01-23T01:52:58.332668+00:00", "sla_breach_duration_hours": 1.7, "sla_severity": "critical", "ack_files": [], "total_matches": 4, "total_inbound": 1, "total_outbound": 3}

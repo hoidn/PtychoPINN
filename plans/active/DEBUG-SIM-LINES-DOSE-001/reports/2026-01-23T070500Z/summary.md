@@ -1,5 +1,6 @@
 ### Turn Summary
-Scoped the ack_actor_summary instrumentation for check_inbox_for_ack.py so SLA breaches per actor can be surfaced alongside the existing tables.
-Verified Maintainer <2> still shows no acknowledgement and extended docs/fix_plan/inbox plans with the 2026-01-23T070500Z evidence bundle plus the new regression/doc/test instructions.
-Next: Ralph implements the summary + test, runs the targeted pytest selectors, executes the CLI capture, and refreshes the maintainer response/follow-up with the new data.
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/ (summary.md)
+Implemented `ack_actor_summary` structure that groups monitored actors by severity (critical/warning/ok/unknown) for immediate breach identification.
+Added the summary to JSON output, Markdown files, status snippets, escalation notes, and CLI stdout with clear severity labels.
+New test `test_ack_actor_sla_summary_flags_breach` validates all output formats; 16 tests now pass in the inbox CLI suite.
+Next: await Maintainer <2> acknowledgement or escalate based on the critical severity indicator.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/ (pytest_ack_actor_summary.log, check_inbox.log)
