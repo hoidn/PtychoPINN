@@ -131,3 +131,7 @@ notes=Captured the missing follow-up data in history JSONL/dashboard, updated do
 ## 2026-01-23T153000Z
 focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=2 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T153500Z/ next_action=Ralph implements update_maintainer_status.py + tests, reruns inbox CLI, and ships the automation evidence <Action State>=ready_for_implementation
 notes=timeout 30 git pull --rebase is still blocked by the user’s dirty worktree; left untouched. Documented the maintainer-status automation gap in docs/fix_plan.md, staged the 2026-01-23T153500Z artifact root, and rewrote input.md with the new helper CLI scope (code+test), pytest selectors, inbox CLI command, and doc-sync guardrails so Ralph can build the automation + maintainer updates this loop.
+
+## 2026-01-23T163000Z
+focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=0 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T163500Z/ next_action=Ralph ships run_inbox_cadence CLI+tests/docs and captures new inbox evidence <Action State>=ready_for_implementation
+notes=timeout 30 git pull --rebase is still blocked by the user's dirty worktree; left untouched. Added the cadence-orchestrator scope to docs/fix_plan.md, rewrote input.md with the new CLI/test/doc commands, and allocated the 2026-01-23T163500Z artifact root so Ralph can implement the driver + regression suite and run it to refresh maintainer evidence.

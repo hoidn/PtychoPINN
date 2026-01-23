@@ -1373,3 +1373,18 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 
 **Next Actions:**
 - Continue awaiting Maintainer <2>'s acknowledgement on a cadence until response is received.
+
+### 2026-01-23T16:35Z — DEBUG-SIM-LINES-DOSE-001.F1 (cadence orchestrator scoped)
+**Action:** Reviewed the maintainer-status automation drop and noted each follow-up still requires ~10 manual commands (create dirs, run `check_inbox_for_ack.py` with every flag, tee logs, then hand-invoke `update_maintainer_status.py` with freshly computed paths). That makes the "cadence" brittle because a missed flag would desync the response doc from the artifacts Maintainer <3> expects.
+
+**Gap:** We lack a single driver that orchestrates inbox scanning, artifact wiring, status/follow-up generation, and skip logic once acknowledgements arrive. Without it, every cadence loop risks inconsistent history files or forgotten escalation notes.
+
+**Next Actions:**
+- Implement `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_inbox_cadence.py` that:
+  1. Accepts inbox/request pattern/keywords, ack actors + SLA overrides, response doc path, follow-up prefix, recipients, and `--output-root` timestamp overrides.
+  2. Creates a timestamped reports directory (logs/, inbox_sla_watch/, inbox_history/, inbox_status/) and runs `check_inbox_for_ack.py` with all history/status/escalation flags wired to those paths, teeing stdout/stderr to `logs/check_inbox.log`.
+  3. Reads `inbox_scan_summary.json`, records ack status in `cadence_metadata.json`, and only skips `update_maintainer_status.py` when an ack is detected **and** `--skip-followup-on-ack` is provided; otherwise it invokes the updater with the artifact set so the response doc + follow-up note update automatically.
+  4. Emits friendly stdout summary + exit codes (0 on success, 3 when ack detected and follow-up skipped, non-zero on failures).
+- Add regression tests under `tests/tools/test_run_inbox_cadence.py` (e.g., `test_cadence_sequence_creates_artifacts`, `test_cadence_skips_followup_on_ack`) that exercise the new CLI end-to-end using temporary inbox + response docs.
+- Update `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md` with the new selector/log references.
+- Run the cadence CLI to produce the 2026-01-23T163500Z evidence bundle (logs + inbox/status artifacts), append the generated status/follow-up to `inbox/response_*` + `inbox/followup_*`, rerun the inbox CLI + loader pytest guards, and capture the maintainer evidence inside the new reports directory.
