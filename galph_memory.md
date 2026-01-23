@@ -71,3 +71,7 @@ notes=git pull --rebase is still blocked by the user's dirty worktree; left unto
 ## 2026-01-23T021945Z
 focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=0 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/ next_action=Ralph adds --escalation-note CLI/test+docs and reruns pytest+inbox scan <Action State>=ready_for_implementation
 notes=Scoped the escalation-note deliverable (new CLI flags/helper, pytest selector, doc updates, and inbox scan for 2026-01-23T021945Z), refreshed fix_plan TODOs, and rewrote input.md with explicit commands, artifacts, and pitfalls so Ralph can implement immediately.
+
+## 2026-01-23T023500Z
+focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=1 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/ next_action=Ralph ships history-dashboard CLI+tests, reruns inbox scan, and sends the SLA-backed follow-up <Action State>=ready_for_implementation
+notes=git pull --rebase is still blocked by the user's dirty worktree; left untouched. Logged the new history-dashboard scope in docs/fix_plan.md, rewrote input.md with the CLI/test/doc/follow-up instructions, and staged the 2026-01-23T023500Z artifacts root for Ralph's run.

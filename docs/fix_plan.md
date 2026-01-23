@@ -629,6 +629,16 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - F1 remains open; Maintainer <2> has not yet acknowledged the bundle
 - Escalation note now available for Maintainer <1> to send prefilled follow-up
 
+### 2026-01-23T02:35Z — DEBUG-SIM-LINES-DOSE-001.F1 (history dashboard scoped)
+**Action:** SLA breach persists for >2.9 hours with no Maintainer <2> acknowledgement despite the escalation note feature. The JSONL history log now spans multiple scans, but we lack a consolidated dashboard summarizing repeated breaches for escalation or handoff context.
+
+**Observation:** Maintainers must stitch together waiting-clock data manually from scattered JSONL/Markdown files, which slows escalation. A derived history dashboard plus a refreshed follow-up note will make the outstanding work obvious and unblock Maintainer confirmation.
+
+**Next Actions:**
+- Extend `check_inbox_for_ack.py` with `--history-dashboard <path>` that reads the JSONL history log and emits an aggregated Markdown report (total scans, breach counts, time since last inbound/outbound, timeline of the last N entries) for the SLA storyline.
+- Add `write_history_dashboard()` helper and cover it with `tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_summarizes_runs`.
+- Re-run the CLI with `--history-dashboard` into `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/`, refresh docs (`docs/TESTING_GUIDE.md`, `docs/development/TEST_SUITE_INDEX.md`, `docs/fix_plan.md`, `inbox/response_dose_experiments_ground_truth.md`), and author a new follow-up note referencing the dashboard so Maintainer <2> can respond.
+
 ## TODOs
 - [x] S4: Expand the D0 parity Markdown report to list stage-level stats for every dataset and document the new test selector (`tests/tools/test_d0_parity_logger.py`) inside `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.
 - [x] S3: Promote D0 parity logger into `scripts/tools/` with stage-level stats + tests, then capture artifacts for photon_grid_study_20250826_152459

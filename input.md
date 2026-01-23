@@ -1,63 +1,63 @@
-Summary: Add an escalation-note output to the inbox acknowledgement CLI so Maintainer <1> can paste a prefilled follow-up citing the SLA breach without reassembling data.
+Summary: Generate a history-dashboard feature for the inbox acknowledgement CLI so we can prove repeated SLA breaches, capture fresh evidence, and send a data-backed follow-up nudging Maintainer <2>.
 Focus: DEBUG-SIM-LINES-DOSE-001.F1 — Await Maintainer <2> acknowledgement of the delivered bundle
 Branch: dose_experiments
-Mapped tests: tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_note_emits_call_to_action, tests/test_generic_loader.py::test_generic_loader
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/
+Mapped tests: tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_summarizes_runs, tests/test_generic_loader.py::test_generic_loader
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/
 
 Do Now (hard validity contract)
 - Focus ID: DEBUG-SIM-LINES-DOSE-001.F1
-- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py::write_escalation_note — extend argparse with `--escalation-note` (and optional `--escalation-recipient`) plus a helper that writes a Markdown escalation draft covering Summary Metrics, SLA Watch, Action Items, a Proposed Message blockquote that names the recipient/request pattern/hours since inbound, and a timeline table; invoke the helper when the new flag is provided without disturbing existing JSON/Markdown/history writers.
-- Implement: tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_note_emits_call_to_action — craft a pytest that stages inbound/outbound messages under tmp_path, runs the CLI with `--sla-hours 2.0 --escalation-note <tmp>/note.md --escalation-recipient "Maintainer <2>"`, and asserts the note contains the expected heading, ack status, SLA breach text, blockquote call-to-action, and timeline row.
-- Update: docs/TESTING_GUIDE.md::Inbox Acknowledgement CLI + docs/development/TEST_SUITE_INDEX.md::Inbox acknowledgement entry — document the new selector/log path next to the existing SLA/history/snippet tests after capturing fresh pytest logs.
-- Record: docs/fix_plan.md::DEBUG-SIM-LINES-DOSE-001.F1 Attempts + inbox/response_dose_experiments_ground_truth.md::Maintainer Status — summarize the 2026-01-23T021945Z scan (hours since inbound/outbound, SLA breach, escalation note path) and reiterate that Maintainer <2> has not acknowledged the drop.
-- Capture: python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py --inbox inbox --request-pattern dose_experiments_ground_truth --keywords ack --keywords acknowledged --keywords confirm --keywords received --keywords thanks --sla-hours 2.0 --fail-when-breached --history-jsonl $ARTIFACT_ROOT/inbox_history/inbox_sla_watch.jsonl --history-markdown $ARTIFACT_ROOT/inbox_history/inbox_sla_watch.md --status-snippet $ARTIFACT_ROOT/inbox_status/status_snippet.md --escalation-note $ARTIFACT_ROOT/inbox_status/escalation_note.md --output $ARTIFACT_ROOT/inbox_sla_watch | tee $ARTIFACT_ROOT/inbox_sla_watch/check_inbox.log.
-- Validate: pytest tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_note_emits_call_to_action -q | tee $ARTIFACT_ROOT/logs/pytest_escalation_note.log && pytest tests/test_generic_loader.py::test_generic_loader -q | tee $ARTIFACT_ROOT/logs/pytest_loader.log (re-run the loader guard once the CLI/tests pass).
+- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py::parse_args — add `--history-dashboard <path>` (requires `--history-jsonl`), call a new helper after `append_history_*`, and ensure failures bubble with clear errors when the history log is missing while still honoring existing SLA/status/escalation flags.
+- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py::write_history_dashboard — ingest the JSONL history log, compute summary metrics (total scans, ack count, breach count, longest wait, last ack timestamp) plus a table of the latest 10 entries, and emit an idempotent Markdown dashboard to the requested path.
+- Implement: tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_summarizes_runs — seed a fake JSONL history file, invoke `write_history_dashboard`, and assert the Markdown contains the derived metrics (Total Scans, Breach Count, Longest Wait) plus the recent timeline rows; keep the import helper local to the test file so we do not affect other suites.
+- Update: docs/TESTING_GUIDE.md::Inbox Acknowledgement CLI + docs/development/TEST_SUITE_INDEX.md::Inbox acknowledgement entry — add the new selector/log references next to the SLA/history/snippet/escalation rows after capturing fresh pytest output.
+- Record: docs/fix_plan.md::DEBUG-SIM-LINES-DOSE-001.F1 Attempts + inbox/response_dose_experiments_ground_truth.md::Maintainer Status + inbox/followup_dose_experiments_ground_truth_2026-01-23T023500Z.md — summarize the 2026-01-23T023500Z scan (hours since inbound/outbound, SLA breach verdict, dashboard path) and send the follow-up that pastes the escalation note highlights so Maintainer <2> can reply.
+- Capture: python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py --inbox inbox --request-pattern dose_experiments_ground_truth --keywords ack --keywords acknowledged --keywords confirm --keywords received --keywords thanks --sla-hours 2.0 --fail-when-breached --history-jsonl $ARTIFACT_ROOT/inbox_history/inbox_sla_watch.jsonl --history-markdown $ARTIFACT_ROOT/inbox_history/inbox_sla_watch.md --history-dashboard $ARTIFACT_ROOT/inbox_history/inbox_history_dashboard.md --status-snippet $ARTIFACT_ROOT/inbox_status/status_snippet.md --escalation-note $ARTIFACT_ROOT/inbox_status/escalation_note.md --escalation-recipient "Maintainer <2>" --output $ARTIFACT_ROOT/inbox_sla_watch | tee $ARTIFACT_ROOT/inbox_sla_watch/check_inbox.log (expect exit code 2 while the SLA window is still breached).
+- Validate: pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_summarizes_runs -q | tee $ARTIFACT_ROOT/logs/pytest_history_dashboard.log && pytest tests/tools/test_check_inbox_for_ack_cli.py -q | tee $ARTIFACT_ROOT/logs/pytest_check_inbox_suite.log && pytest tests/test_generic_loader.py::test_generic_loader -q | tee $ARTIFACT_ROOT/logs/pytest_loader.log.
 
 How-To Map
-1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && export ARTIFACT_ROOT=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z && mkdir -p "$ARTIFACT_ROOT"/logs "$ARTIFACT_ROOT"/inbox_history "$ARTIFACT_ROOT"/inbox_status "$ARTIFACT_ROOT"/inbox_sla_watch.
-2. Edit plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py: add argparse options `--escalation-note` (Path) and `--escalation-recipient` (default "Maintainer <2>"), implement `write_escalation_note(results: dict, Path, str)` mirroring the status-snippet style but with sections for Summary Metrics, SLA Watch, Action Items, Proposed Message (blockquote referencing the recipient, request pattern, hours since inbound), and Timeline; call it from main() after history/snippet writers.
-3. Ensure the escalation note gracefully handles cases with no SLA info or when ack is already detected (emit "No escalation required" instead of a breach warning) and reuses `sanitize_for_markdown` for table/blockquote text.
-4. Update tests/tools/test_check_inbox_for_ack_cli.py by appending `test_escalation_note_emits_call_to_action`; reuse `create_inbox_file`, run the CLI with the new flags, and assert the Markdown output includes the heading, ack status line, "SLA Breach" text, a blockquote referencing the recipient/request pattern, and a timeline row.
-5. pytest tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_note_emits_call_to_action -q | tee "$ARTIFACT_ROOT/logs/pytest_escalation_note.log".
-6. pytest tests/tools/test_check_inbox_for_ack_cli.py -q | tee "$ARTIFACT_ROOT/logs/pytest_check_inbox_suite.log" to confirm the existing SLA/history/snippet coverage still passes (optional if the targeted run already covers everything but preferred for regression confidence).
-7. pytest tests/test_generic_loader.py::test_generic_loader -q | tee "$ARTIFACT_ROOT/logs/pytest_loader.log" to keep the legacy loader guard current.
-8. python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py --inbox inbox --request-pattern dose_experiments_ground_truth --keywords ack --keywords acknowledged --keywords confirm --keywords received --keywords thanks --sla-hours 2.0 --fail-when-breached --history-jsonl "$ARTIFACT_ROOT/inbox_history/inbox_sla_watch.jsonl" --history-markdown "$ARTIFACT_ROOT/inbox_history/inbox_sla_watch.md" --status-snippet "$ARTIFACT_ROOT/inbox_status/status_snippet.md" --escalation-note "$ARTIFACT_ROOT/inbox_status/escalation_note.md" --output "$ARTIFACT_ROOT/inbox_sla_watch" | tee "$ARTIFACT_ROOT/inbox_sla_watch/check_inbox.log" (expect exit 2 while SLA is still breached; keep the JSON/MD outputs).
-9. Update docs/TESTING_GUIDE.md and docs/development/TEST_SUITE_INDEX.md with the new selector/log path, then refresh docs/fix_plan.md Attempts + inbox/response_dose_experiments_ground_truth.md Maintainer Status at the bottom to cite the 2026-01-23T021945Z JSON/MD/snippet/escalation note.
-10. Stage the updated scripts/tests/docs plus the new artifacts under $ARTIFACT_ROOT and leave everything else untouched.
+1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && export ARTIFACT_ROOT=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z && mkdir -p "$ARTIFACT_ROOT"/{logs,inbox_history,inbox_status,inbox_sla_watch}.
+2. Edit check_inbox_for_ack.py: extend argparse with --history-dashboard, add validation that it can only be used when --history-jsonl is present, create `write_history_dashboard(jsonl_path: Path, output_path: Path, max_entries: int = 10)` that reads the JSONL file (skip blank/invalid lines), computes total scans, ack count, breach count, longest wait (max hours_since_inbound), most recent ack timestamp, and renders tables (Summary Metrics, SLA Breach Stats, Recent Scans). Reuse sanitize_for_markdown for table cells, and ensure missing history produces a friendly "No history" message.
+3. After `append_history_markdown`, invoke `write_history_dashboard` when args.history_dashboard is set so every run refreshes the dashboard; log the output path just like the other writers.
+4. Update tests/tools/test_check_inbox_for_ack_cli.py: add a helper to load the CLI module (importlib), introduce `test_history_dashboard_summarizes_runs` that writes two JSONL entries with different hours/breach states, calls the helper, and asserts the Markdown includes "Total Scans | 2", "Breach Count", "Longest Wait", and both timestamps in the table; keep fixtures isolated under tmp_path.
+5. Run pytest selectors: first targeted `tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_summarizes_runs`, then the full CLI module, then the loader guard as listed in Validate.
+6. Run the CLI with the Capture command to refresh JSON/MD/history/status/escalation/dashboard outputs under $ARTIFACT_ROOT; treat exit code 2 as success because --fail-when-breached is set while waiting for Maintainer <2>.
+7. Draft `inbox/followup_dose_experiments_ground_truth_2026-01-23T023500Z.md` pulling metrics from `$ARTIFACT_ROOT/inbox_status/escalation_note.md` + the new history dashboard, reiterate SLA breach length, link to status snippet/dashboard/note, and request acknowledgement.
+8. Update docs: append a new "Status as of 2026-01-23T023500Z" section in inbox/response_dose_experiments_ground_truth.md plus an Attempts History entry in docs/fix_plan.md referencing the dashboard + CLI exit; refresh `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md` with the new selector/log after capturing the pytest outputs.
+9. Stage only the modified tooling/tests/docs/inbox/report artifacts plus the new $ARTIFACT_ROOT tree; leave unrelated dirty files untouched.
 
 Pitfalls To Avoid
-- Do not touch production modules outside plans/active/DEBUG-SIM-LINES-DOSE-001/bin/.
-- Keep Markdown writers idempotent (overwrite rather than append) and ensure ASCII-only output.
-- Tests must never read the real inbox; tmp_path fixtures only.
-- Preserve the existing keyword detection/actor parsing logic; the escalation note should build on scan results rather than re-reading files.
-- Ensure CLI exits with code 2 only when --fail-when-breached is set and SLA breach conditions still hold.
-- Do not move or delete previous reports directories or history logs; add a new timestamp folder instead.
-- Maintain the loader pytest guard even though code changes are tooling-only.
-- Avoid committing the maintainer inbox contents; only link to them in docs.
+- Do not touch production modules; confine code to plans/active/DEBUG-SIM-LINES-DOSE-001/bin/ and tests/docs/inbox.
+- Keep all Markdown/JSON outputs ASCII so Maintainer automation stays diff-friendly.
+- When parsing JSONL, guard against blank/partial lines so a corrupted entry does not crash the CLI.
+- Ensure --history-dashboard requires --history-jsonl; otherwise we risk dashboards built from stale data.
+- Preserve existing CLI exit-code semantics (still exit 2 only when --fail-when-breached is set and SLA is breached without ack).
+- Tests must never read the real inbox directory; fabricate messages under tmp_path only.
+- When updating docs, cite the exact artifact paths/timestamps; do not remove older status sections or reports.
+- Avoid committing the tarball or other large binary drops; only reference them.
 
 If Blocked
-- Capture the failing command output via `tee` into $ARTIFACT_ROOT/logs/blocker.log, note the error plus attempted command inside docs/fix_plan.md Attempts History and galph_memory, and pause for supervisor guidance before changing scope.
+- Capture the failing command output via `tee $ARTIFACT_ROOT/logs/blocker.log`, note the command + error inside docs/fix_plan.md Attempts and galph_memory, and pause for supervisor guidance before changing scope.
 
 Findings Applied (Mandatory)
 - No relevant findings in the knowledge base.
 
 Pointers
-- docs/fix_plan.md:573 — DEBUG-SIM-LINES-DOSE-001.F1 Attempts/TODO state and SLA context.
-- docs/TESTING_GUIDE.md:19 — Inbox acknowledgement CLI testing matrix to update with the new selector/logs.
-- docs/development/TEST_SUITE_INDEX.md:13 — Test suite entry enumerating every CLI selector.
+- docs/fix_plan.md:583 — Active DEBUG-SIM-LINES-DOSE-001.F1 context + new history-dashboard scope.
+- docs/TESTING_GUIDE.md:19 — Inbox acknowledgement CLI entries to expand with the dashboard selector.
+- docs/development/TEST_SUITE_INDEX.md:13 — Catalog entry for inbox CLI tests that needs the new selector/log update.
 - plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py:1 — CLI implementation surface to extend.
-- tests/tools/test_check_inbox_for_ack_cli.py:1 — Existing SLA/history/snippet tests to mirror for the escalation note.
-- inbox/response_dose_experiments_ground_truth.md:196 — Maintainer Status section referencing the latest wait metrics/snippet links.
+- tests/tools/test_check_inbox_for_ack_cli.py:1 — Existing SLA/history/snippet/escalation tests to mirror for the history dashboard coverage.
+- inbox/response_dose_experiments_ground_truth.md:200 — Maintainer status chronology that must gain the 2026-01-23T023500Z update referencing the dashboard outputs.
 
 Next Up (optional)
-1. If the escalation note is accepted, draft the actual Maintainer <1> follow-up referencing the new Markdown snippet.
-2. If Maintainer <2> still does not reply after another SLA window, add automation to send scheduled reminders or summarize multi-run history for a Maintainer <3> escalation.
+1. If Maintainer <2> still does not reply after the new follow-up, prep an escalation package for Maintainer <3> using the dashboard data.
+2. Consider scheduling check_inbox_for_ack.py via cron/task runner so SLA breaches are captured automatically every few hours.
 
 Doc Sync Plan (Conditional)
-- After code/tests succeed, run `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_note_emits_call_to_action -q | tee "$ARTIFACT_ROOT/logs/pytest_escalation_note_collect.log"`, attach the log to $ARTIFACT_ROOT, and update both docs/TESTING_GUIDE.md and docs/development/TEST_SUITE_INDEX.md with the selector description + new log path before shipping.
+- After code/tests succeed, run `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_summarizes_runs -q | tee "$ARTIFACT_ROOT/logs/pytest_history_dashboard_collect.log"`, attach the log to $ARTIFACT_ROOT, and then update docs/TESTING_GUIDE.md + docs/development/TEST_SUITE_INDEX.md with the selector + log path.
 
 Mapped Tests Guardrail
-- `tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_note_emits_call_to_action` must collect (>0) during the Doc Sync Plan; treat any collection failure as a blocker before finishing the loop.
+- The new selector `tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_summarizes_runs` must collect (>0) before finishing; treat collection failures as blockers and rerun after fixes.
 
 Normative Math/Physics
 - Not applicable — this loop only touches maintainer-monitoring tooling and documentation.
