@@ -28,7 +28,21 @@ This selector validates:
 - Breach does NOT trigger when acknowledgement is already received
 - No breach when no inbound messages exist
 
-Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T020500Z/logs/pytest_check_inbox.log`
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014011Z/logs/pytest_check_inbox.log`
+
+### Inbox Acknowledgement CLI (History Logging)
+
+The CLI also supports persistent history logging via `--history-jsonl` and `--history-markdown` flags. To run the history logging test:
+
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_logging_appends_entries -q`
+
+This selector validates:
+- JSONL history entries are appended with each CLI run
+- Markdown history table rows are appended correctly
+- Headers are written exactly once (not duplicated on subsequent runs)
+- Second run with ack detected flips `ack_detected` to true
+
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014011Z/logs/pytest_check_inbox_history.log`
 
 ## Test Areas
 

@@ -264,3 +264,108 @@ Initiating dose experiments ground truth discussion.
     assert data["sla_watch"]["hours_since_last_inbound"] is None
     assert data["sla_watch"]["breached"] is False
     assert "no inbound" in data["sla_watch"]["notes"].lower()
+
+
+def test_history_logging_appends_entries(tmp_path):
+    """
+    Test --history-jsonl and --history-markdown flags append entries correctly.
+
+    Creates a temp inbox, runs the CLI twice (before/after injecting a maintainer ack),
+    and asserts:
+    1. JSONL file has 2 entries
+    2. Markdown file has 2 data rows
+    3. Second entry flips ack_detected to True
+    """
+    inbox_dir = tmp_path / "inbox"
+    inbox_dir.mkdir()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    history_jsonl = tmp_path / "history.jsonl"
+    history_md = tmp_path / "history.md"
+
+    # Create inbound message from Maintainer <2> (no ack keywords)
+    inbound_content = """# Request: dose_experiments_ground_truth
+
+**From:** Maintainer <2>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T14:00:00Z
+
+Please provide the dose experiments ground truth bundle.
+"""
+    create_inbox_file(inbox_dir, "request_dose_experiments_ground_truth.md", inbound_content, -3.0)
+
+    # Run 1: No ack detected
+    result1 = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--sla-hours", "2.0",
+            "--history-jsonl", str(history_jsonl),
+            "--history-markdown", str(history_md),
+            "--output", str(output_dir / "run1")
+        ],
+        capture_output=True,
+        text=True
+    )
+    assert result1.returncode == 0, f"Run 1 failed: {result1.stderr}"
+
+    # Verify JSONL has 1 entry
+    with open(history_jsonl) as f:
+        lines = [json.loads(line) for line in f.readlines()]
+    assert len(lines) == 1, f"Expected 1 JSONL entry after run 1, got {len(lines)}"
+    assert lines[0]["ack_detected"] is False
+
+    # Verify Markdown has header + 1 data row
+    with open(history_md) as f:
+        md_content = f.read()
+    # Count table data rows (lines starting with |, excluding header separator)
+    md_lines = [line for line in md_content.split("\n") if line.startswith("|") and not line.startswith("|-")]
+    assert len(md_lines) == 2, f"Expected 2 Markdown table lines (header + 1 data), got {len(md_lines)}"
+    assert "No" in md_lines[1]  # ack_detected should be No
+
+    # Now inject an acknowledgement from Maintainer <2>
+    ack_content = """# Acknowledgement: dose_experiments_ground_truth
+
+**From:** Maintainer <2>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T17:00:00Z
+
+I have received and acknowledge the bundle. Thank you!
+"""
+    create_inbox_file(inbox_dir, "ack_dose_experiments_ground_truth.md", ack_content, -0.5)
+
+    # Run 2: Ack should be detected
+    result2 = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--sla-hours", "2.0",
+            "--history-jsonl", str(history_jsonl),
+            "--history-markdown", str(history_md),
+            "--output", str(output_dir / "run2")
+        ],
+        capture_output=True,
+        text=True
+    )
+    assert result2.returncode == 0, f"Run 2 failed: {result2.stderr}"
+
+    # Verify JSONL has 2 entries
+    with open(history_jsonl) as f:
+        lines = [json.loads(line) for line in f.readlines()]
+    assert len(lines) == 2, f"Expected 2 JSONL entries after run 2, got {len(lines)}"
+    assert lines[0]["ack_detected"] is False, "First entry should have ack_detected=False"
+    assert lines[1]["ack_detected"] is True, "Second entry should have ack_detected=True"
+
+    # Verify Markdown has header + 2 data rows
+    with open(history_md) as f:
+        md_content = f.read()
+    md_lines = [line for line in md_content.split("\n") if line.startswith("|") and not line.startswith("|-")]
+    assert len(md_lines) == 3, f"Expected 3 Markdown table lines (header + 2 data), got {len(md_lines)}"
+
+    # Verify second data row has ack=Yes
+    assert "Yes" in md_lines[2], f"Second data row should have ack=Yes: {md_lines[2]}"
+
+    # Verify Markdown header was only written once (check for exactly one "# Inbox Scan History")
+    assert md_content.count("# Inbox Scan History") == 1, "Header should be written exactly once"

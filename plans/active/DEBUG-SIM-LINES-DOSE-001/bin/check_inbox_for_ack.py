@@ -73,6 +73,18 @@ def parse_args():
         action="store_true",
         help="Exit with code 2 if SLA is breached and ack not yet detected"
     )
+    parser.add_argument(
+        "--history-jsonl",
+        type=str,
+        default=None,
+        help="Path to JSONL file for appending scan history entries"
+    )
+    parser.add_argument(
+        "--history-markdown",
+        type=str,
+        default=None,
+        help="Path to Markdown file for appending scan history table rows"
+    )
     return parser.parse_args()
 
 
@@ -515,6 +527,87 @@ def write_markdown_summary(results: dict, output_path: Path) -> None:
         f.write("\n".join(lines))
 
 
+def sanitize_for_markdown(text: str) -> str:
+    """Sanitize text for Markdown table cells by removing/escaping special chars."""
+    if text is None:
+        return ""
+    # Replace pipe and newlines that would break Markdown tables
+    text = str(text).replace("|", "\\|").replace("\n", " ").replace("\r", "")
+    return text.strip()
+
+
+def append_history_jsonl(results: dict, output_path: Path) -> None:
+    """
+    Append a single history entry to a JSONL file.
+
+    Each line captures: generated_utc, ack_detected, hours_since_inbound,
+    hours_since_outbound, sla_breached, ack_files.
+    """
+    # Ensure parent directory exists
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    wc = results.get("waiting_clock", {})
+    sla = results.get("sla_watch", {})
+
+    entry = {
+        "generated_utc": results.get("generated_utc"),
+        "ack_detected": results.get("ack_detected", False),
+        "hours_since_inbound": wc.get("hours_since_last_inbound"),
+        "hours_since_outbound": wc.get("hours_since_last_outbound"),
+        "sla_breached": sla.get("breached") if sla else None,
+        "sla_threshold_hours": sla.get("threshold_hours") if sla else None,
+        "ack_files": results.get("ack_files", []),
+        "total_matches": len(results.get("matches", [])),
+        "total_inbound": wc.get("total_inbound_count", 0),
+        "total_outbound": wc.get("total_outbound_count", 0),
+    }
+
+    with open(output_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
+def append_history_markdown(results: dict, output_path: Path) -> None:
+    """
+    Append a single history row to a Markdown file.
+
+    If the file doesn't exist or is empty, write the header first.
+    Table columns: Generated (UTC) | Ack Detected | Hours Since Inbound |
+                   Hours Since Outbound | SLA Breach | Ack Files
+    """
+    # Ensure parent directory exists
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    wc = results.get("waiting_clock", {})
+    sla = results.get("sla_watch", {})
+
+    # Check if we need to write header
+    write_header = not output_path.exists() or output_path.stat().st_size == 0
+
+    with open(output_path, "a", encoding="utf-8") as f:
+        if write_header:
+            f.write("# Inbox Scan History\n\n")
+            f.write("| Generated (UTC) | Ack | Hrs Inbound | Hrs Outbound | SLA Breach | Ack Files |\n")
+            f.write("|-----------------|-----|-------------|--------------|------------|----------|\n")
+
+        # Format values
+        gen_utc = results.get("generated_utc", "")[:19]  # Trim to readable length
+        ack = "Yes" if results.get("ack_detected", False) else "No"
+
+        hrs_in = wc.get("hours_since_last_inbound")
+        hrs_in_str = f"{hrs_in:.2f}" if hrs_in is not None else "N/A"
+
+        hrs_out = wc.get("hours_since_last_outbound")
+        hrs_out_str = f"{hrs_out:.2f}" if hrs_out is not None else "N/A"
+
+        breach = sla.get("breached") if sla else None
+        breach_str = "Yes" if breach else ("No" if breach is False else "N/A")
+
+        ack_files = results.get("ack_files", [])
+        ack_files_str = ", ".join(sanitize_for_markdown(f) for f in ack_files) if ack_files else "-"
+
+        f.write(f"| {gen_utc} | {ack} | {hrs_in_str} | {hrs_out_str} | {breach_str} | {ack_files_str} |\n")
+
+
 def main():
     """Main entry point."""
     args = parse_args()
@@ -556,6 +649,17 @@ def main():
 
     write_json_summary(results, json_path)
     write_markdown_summary(results, md_path)
+
+    # Append to history files if specified
+    if args.history_jsonl:
+        history_jsonl_path = Path(args.history_jsonl)
+        append_history_jsonl(results, history_jsonl_path)
+        print(f"History JSONL appended: {history_jsonl_path}")
+
+    if args.history_markdown:
+        history_md_path = Path(args.history_markdown)
+        append_history_markdown(results, history_md_path)
+        print(f"History Markdown appended: {history_md_path}")
 
     # Print summary
     print(f"Files scanned: {results['scanned']}")
