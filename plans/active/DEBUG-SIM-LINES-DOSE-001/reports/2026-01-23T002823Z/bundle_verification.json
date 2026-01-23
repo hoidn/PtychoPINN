@@ -1,0 +1,167 @@
+{
+  "generated_utc": "2026-01-23T00:35:19.464951+00:00",
+  "scenario_id": "PGRID-20250826-P1E5-T1024",
+  "drop_root": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth",
+  "files": [
+    {
+      "file": "data_p1e3.npz",
+      "source": "photon_grid_study_20250826_152459/data_p1e3.npz",
+      "destination": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/simulation/data_p1e3.npz",
+      "expected_sha256": "f9fa3f9f3f1cf8fc181f9c391b5acf15247ba3f25ed54fe6aaf9809388a860b2",
+      "verified": true,
+      "error": null,
+      "source_sha256": "f9fa3f9f3f1cf8fc181f9c391b5acf15247ba3f25ed54fe6aaf9809388a860b2",
+      "destination_sha256": "f9fa3f9f3f1cf8fc181f9c391b5acf15247ba3f25ed54fe6aaf9809388a860b2",
+      "size_bytes": 5087727
+    },
+    {
+      "file": "data_p1e4.npz",
+      "source": "photon_grid_study_20250826_152459/data_p1e4.npz",
+      "destination": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/simulation/data_p1e4.npz",
+      "expected_sha256": "1cce1fe9596a82290bffc3cd6116f43cfed17abe7339503dd849ec5826378402",
+      "verified": true,
+      "error": null,
+      "source_sha256": "1cce1fe9596a82290bffc3cd6116f43cfed17abe7339503dd849ec5826378402",
+      "destination_sha256": "1cce1fe9596a82290bffc3cd6116f43cfed17abe7339503dd849ec5826378402",
+      "size_bytes": 11609223
+    },
+    {
+      "file": "data_p1e5.npz",
+      "source": "photon_grid_study_20250826_152459/data_p1e5.npz",
+      "destination": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/simulation/data_p1e5.npz",
+      "expected_sha256": "01007daf8afc67aad3ad037e93077ba8bfb28b58d07e17a1e539bd202ffa0d95",
+      "verified": true,
+      "error": null,
+      "source_sha256": "01007daf8afc67aad3ad037e93077ba8bfb28b58d07e17a1e539bd202ffa0d95",
+      "destination_sha256": "01007daf8afc67aad3ad037e93077ba8bfb28b58d07e17a1e539bd202ffa0d95",
+      "size_bytes": 17387332
+    },
+    {
+      "file": "data_p1e6.npz",
+      "source": "photon_grid_study_20250826_152459/data_p1e6.npz",
+      "destination": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/simulation/data_p1e6.npz",
+      "expected_sha256": "95cfd6aee6b2c061e2a8fbe62a824274165e39e0c4514e4537ee1fecf7a79f64",
+      "verified": true,
+      "error": null,
+      "source_sha256": "95cfd6aee6b2c061e2a8fbe62a824274165e39e0c4514e4537ee1fecf7a79f64",
+      "destination_sha256": "95cfd6aee6b2c061e2a8fbe62a824274165e39e0c4514e4537ee1fecf7a79f64",
+      "size_bytes": 25836417
+    },
+    {
+      "file": "data_p1e7.npz",
+      "source": "photon_grid_study_20250826_152459/data_p1e7.npz",
+      "destination": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/simulation/data_p1e7.npz",
+      "expected_sha256": "9902ae24e90d2fa63bebf7830a538868cea524fab9cb15a512509803a9896251",
+      "verified": true,
+      "error": null,
+      "source_sha256": "9902ae24e90d2fa63bebf7830a538868cea524fab9cb15a512509803a9896251",
+      "destination_sha256": "9902ae24e90d2fa63bebf7830a538868cea524fab9cb15a512509803a9896251",
+      "size_bytes": 37272817
+    },
+    {
+      "file": "data_p1e8.npz",
+      "source": "photon_grid_study_20250826_152459/data_p1e8.npz",
+      "destination": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/simulation/data_p1e8.npz",
+      "expected_sha256": "56b4f66a92aa28b2983757417cad008ef14c45c796b2d61d9e366aae3a3d55cf",
+      "verified": true,
+      "error": null,
+      "source_sha256": "56b4f66a92aa28b2983757417cad008ef14c45c796b2d61d9e366aae3a3d55cf",
+      "destination_sha256": "56b4f66a92aa28b2983757417cad008ef14c45c796b2d61d9e366aae3a3d55cf",
+      "size_bytes": 46610537
+    },
+    {
+      "file": "data_p1e9.npz",
+      "source": "photon_grid_study_20250826_152459/data_p1e9.npz",
+      "destination": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/simulation/data_p1e9.npz",
+      "expected_sha256": "3e1f229af34525a7a912c9c62fa8df6ab87c69528572686a34de4d2640c57c4a",
+      "verified": true,
+      "error": null,
+      "source_sha256": "3e1f229af34525a7a912c9c62fa8df6ab87c69528572686a34de4d2640c57c4a",
+      "destination_sha256": "3e1f229af34525a7a912c9c62fa8df6ab87c69528572686a34de4d2640c57c4a",
+      "size_bytes": 57972050
+    },
+    {
+      "file": "params.dill",
+      "source": "photon_grid_study_20250826_152459/results_p1e5/train_1024/trial_1/baseline_run/08-26-2025-16.38.17_baseline_gs1/08-26-2025-16.38.17_baseline_gs1/params.dill",
+      "destination": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/training/params.dill",
+      "expected_sha256": "92c27229e2edca3a279d9efd6c8134378cc82b6efd38f0aba751128fb48eb588",
+      "verified": true,
+      "error": null,
+      "source_sha256": "92c27229e2edca3a279d9efd6c8134378cc82b6efd38f0aba751128fb48eb588",
+      "destination_sha256": "92c27229e2edca3a279d9efd6c8134378cc82b6efd38f0aba751128fb48eb588",
+      "size_bytes": 35623
+    },
+    {
+      "file": "baseline_model.h5",
+      "source": "photon_grid_study_20250826_152459/results_p1e5/train_1024/trial_1/baseline_run/08-26-2025-16.38.17_baseline_gs1/baseline_model.h5",
+      "destination": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/training/baseline_model.h5",
+      "expected_sha256": "46b88686b95ce4e437561ddcb8ad052e2138fc7bd48b5b66f27b7958246d878c",
+      "verified": true,
+      "error": null,
+      "source_sha256": "46b88686b95ce4e437561ddcb8ad052e2138fc7bd48b5b66f27b7958246d878c",
+      "destination_sha256": "46b88686b95ce4e437561ddcb8ad052e2138fc7bd48b5b66f27b7958246d878c",
+      "size_bytes": 55503960
+    },
+    {
+      "file": "recon.dill",
+      "source": "photon_grid_study_20250826_152459/results_p1e5/train_1024/trial_1/baseline_run/08-26-2025-16.38.17_baseline_gs1/recon.dill",
+      "destination": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/training/recon.dill",
+      "expected_sha256": "2501b93db2fea8e3751dee6649503b8dfd62aa72c4b077c27e5773af3b1b304c",
+      "verified": true,
+      "error": null,
+      "source_sha256": "2501b93db2fea8e3751dee6649503b8dfd62aa72c4b077c27e5773af3b1b304c",
+      "destination_sha256": "2501b93db2fea8e3751dee6649503b8dfd62aa72c4b077c27e5773af3b1b304c",
+      "size_bytes": 839721
+    },
+    {
+      "file": "wts.h5.zip",
+      "source": "photon_grid_study_20250826_152459/results_p1e5/train_1024/trial_1/pinn_run/wts.h5.zip",
+      "destination": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/inference/wts.h5.zip",
+      "expected_sha256": "56a26314a6c6db4fb466673f8eb308f4b8502d9a5bc3d79d60bf641f71b5b1cd",
+      "verified": true,
+      "error": null,
+      "source_sha256": "56a26314a6c6db4fb466673f8eb308f4b8502d9a5bc3d79d60bf641f71b5b1cd",
+      "destination_sha256": "56a26314a6c6db4fb466673f8eb308f4b8502d9a5bc3d79d60bf641f71b5b1cd",
+      "size_bytes": 33536820
+    },
+    {
+      "file": "ground_truth_manifest.json",
+      "source": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/ground_truth_manifest.json",
+      "destination": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/docs/ground_truth_manifest.json",
+      "verified": true,
+      "type": "documentation"
+    },
+    {
+      "file": "ground_truth_manifest.md",
+      "source": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/ground_truth_manifest.md",
+      "destination": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/docs/ground_truth_manifest.md",
+      "verified": true,
+      "type": "documentation"
+    },
+    {
+      "file": "dose_baseline_summary.json",
+      "source": "plans/active/seed/reports/2026-01-22T024002Z/dose_baseline_summary.json",
+      "destination": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/docs/dose_baseline_summary.json",
+      "verified": true,
+      "type": "documentation"
+    },
+    {
+      "file": "README.md",
+      "source": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001931Z/README.md",
+      "destination": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/docs/README.md",
+      "verified": true,
+      "type": "documentation"
+    }
+  ],
+  "summary": {
+    "total_files": 15,
+    "verified_files": 15,
+    "failed_files": 0,
+    "total_size_bytes": 291692227
+  },
+  "tarball": {
+    "path": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth.tar.gz",
+    "size_bytes": 283850195,
+    "sha256": "7fe5e14ed9909f056807b77d5de56e729b8b79c8e5b8098ba50507f13780dd72"
+  }
+}

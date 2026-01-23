@@ -1,19 +1,21 @@
 #!/usr/bin/env python
 """Generate a maintainer-ready README for the dose_experiments ground-truth bundle.
 
-This CLI loads the Phase-A manifest JSON and baseline summary, then emits a README.md
-documenting the simulate->train->infer flow so Maintainer <2> can rerun dose_experiments
-without touching production code.
+This CLI loads the Phase-A manifest JSON, baseline summary, and optional bundle verification
+JSON, then emits a README.md documenting the simulate->train->infer flow so Maintainer <2>
+can rerun dose_experiments without touching production code.
 
 Spec references:
 - specs/data_contracts.md: RawData NPZ key requirements
-- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md: Phase B checklist
+- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md: Phase B/C checklist
 
 Usage:
     python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
         --manifest plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/ground_truth_manifest.json \
         --baseline-summary plans/active/seed/reports/2026-01-22T024002Z/dose_baseline_summary.json \
-        --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001931Z
+        --bundle-verification plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/bundle_verification.json \
+        --delivery-root plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth \
+        --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z
 """
 from __future__ import annotations
 
@@ -52,9 +54,20 @@ def extract_photon_dose(filename: str) -> str:
     return "unknown"
 
 
+def format_bytes(size_bytes: int) -> str:
+    """Format bytes as human-readable string."""
+    if size_bytes >= 1024 * 1024:
+        return f"{size_bytes / (1024 * 1024):.2f} MB"
+    elif size_bytes >= 1024:
+        return f"{size_bytes / 1024:.2f} KB"
+    return f"{size_bytes} bytes"
+
+
 def build_readme(
     manifest: dict[str, Any],
     baseline_summary: dict[str, Any],
+    bundle_verification: dict[str, Any] | None = None,
+    delivery_root: str | None = None,
 ) -> str:
     """Build the README markdown content from manifest and baseline summary."""
     lines: list[str] = []
@@ -176,11 +189,15 @@ def build_readme(
     lines.append("")
 
     # Section 5: Inference Commands
+    # Use the pinn_weights path from manifest (not baseline_run directory)
+    pinn_weights = manifest.get("pinn_weights", {})
+    pinn_weights_path = pinn_weights.get("relative_path", "N/A")
+
     lines.append("## 5. Inference Commands")
     lines.append("")
     lines.append("```bash")
     lines.append("python -m ptycho.inference \\")
-    lines.append("    --model_path photon_grid_study_20250826_152459/results_p1e5/train_1024/trial_1/baseline_run/08-26-2025-16.38.17_baseline_gs1/08-26-2025-16.38.17_baseline_gs1/wts.h5.zip \\")
+    lines.append(f"    --model_path {pinn_weights_path} \\")
     lines.append("    --test_data photon_grid_study_20250826_152459/data_p1e5.npz")
     lines.append("```")
     lines.append("")
@@ -283,6 +300,43 @@ def build_readme(
                 lines.append(f"- `{key}`: {shape} ({dtype})")
             lines.append("")
 
+    # Section 8: Delivery Artifacts (only if bundle_verification provided)
+    if bundle_verification:
+        lines.append("## 8. Delivery Artifacts")
+        lines.append("")
+
+        tarball_info = bundle_verification.get("tarball", {})
+        summary = bundle_verification.get("summary", {})
+
+        if delivery_root:
+            lines.append(f"**Bundle root:** `{delivery_root}`")
+        if tarball_info:
+            tarball_path = tarball_info.get("path", "N/A")
+            tarball_size = tarball_info.get("size_bytes", 0)
+            tarball_sha = tarball_info.get("sha256", "N/A")
+            lines.append(f"**Tarball:** `{Path(tarball_path).name}`")
+            lines.append(f"**Tarball size:** {format_bytes(tarball_size)}")
+            lines.append(f"**Tarball SHA256:** `{tarball_sha}`")
+        lines.append("")
+
+        lines.append("**Bundle structure:**")
+        lines.append("```")
+        lines.append("dose_experiments_ground_truth/")
+        lines.append("  simulation/     # 7 datasets (data_p1e3.npz ... data_p1e9.npz)")
+        lines.append("  training/       # params.dill, baseline_model.h5, recon.dill")
+        lines.append("  inference/      # wts.h5.zip (PINN weights)")
+        lines.append("  docs/           # README.md, manifests, summaries")
+        lines.append("```")
+        lines.append("")
+
+        if summary:
+            total_files = summary.get("total_files", 0)
+            verified = summary.get("verified_files", 0)
+            total_size = summary.get("total_size_bytes", 0)
+            lines.append(f"**Verification summary:** {verified}/{total_files} files verified, "
+                         f"{format_bytes(total_size)} total")
+        lines.append("")
+
     # Footer
     lines.append("---")
     lines.append("")
@@ -314,6 +368,18 @@ def main() -> int:
         help="Path to dose_baseline_summary.json",
     )
     parser.add_argument(
+        "--bundle-verification",
+        type=Path,
+        default=None,
+        help="Path to bundle_verification.json from Phase C (optional)",
+    )
+    parser.add_argument(
+        "--delivery-root",
+        type=Path,
+        default=None,
+        help="Bundle root directory for Section 8 (optional)",
+    )
+    parser.add_argument(
         "--output-dir",
         type=Path,
         required=True,
@@ -337,9 +403,18 @@ def main() -> int:
     print(f"Loading baseline summary: {args.baseline_summary}")
     baseline_summary = load_json(args.baseline_summary)
 
+    # Load bundle verification if provided
+    bundle_verification = None
+    if args.bundle_verification and args.bundle_verification.exists():
+        print(f"Loading bundle verification: {args.bundle_verification}")
+        bundle_verification = load_json(args.bundle_verification)
+
     # Build README content
     print("Generating README content...")
-    readme_content = build_readme(manifest, baseline_summary)
+    delivery_root_str = str(args.delivery_root) if args.delivery_root else None
+    readme_content = build_readme(
+        manifest, baseline_summary, bundle_verification, delivery_root_str
+    )
 
     # Ensure output directory exists
     args.output_dir.mkdir(parents=True, exist_ok=True)

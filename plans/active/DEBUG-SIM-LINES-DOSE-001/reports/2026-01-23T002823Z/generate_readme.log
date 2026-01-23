@@ -1,0 +1,10 @@
+Loading manifest: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/ground_truth_manifest.json
+Loading baseline summary: plans/active/seed/reports/2026-01-22T024002Z/dose_baseline_summary.json
+Loading bundle verification: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/bundle_verification.json
+Generating README content...
+Writing README to: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/README.md
+
+=== README Generation Complete ===
+Scenario ID: PGRID-20250826-P1E5-T1024
+Datasets: 7
+Output: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/README.md

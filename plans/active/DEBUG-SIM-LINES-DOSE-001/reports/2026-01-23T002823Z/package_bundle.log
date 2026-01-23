@@ -1,0 +1,47 @@
+Loading manifest: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/ground_truth_manifest.json
+Creating simulation/: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/simulation
+Creating training/: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/training
+Creating inference/: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/inference
+Creating docs/: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/docs
+
+=== Copying datasets to simulation/ ===
+  OK: data_p1e3.npz (4.85 MB)
+  OK: data_p1e4.npz (11.07 MB)
+  OK: data_p1e5.npz (16.58 MB)
+  OK: data_p1e6.npz (24.64 MB)
+  OK: data_p1e7.npz (35.55 MB)
+  OK: data_p1e8.npz (44.45 MB)
+  OK: data_p1e9.npz (55.29 MB)
+
+=== Copying baseline artifacts to training/ ===
+  OK: params.dill (34.79 KB)
+  OK: baseline_model.h5 (52.93 MB)
+  OK: recon.dill (820.04 KB)
+
+=== Copying PINN weights to inference/ ===
+  OK: wts.h5.zip (31.98 MB)
+
+=== Copying documentation to docs/ ===
+  OK: ground_truth_manifest.json (doc)
+  OK: ground_truth_manifest.md (doc)
+  OK: dose_baseline_summary.json (doc)
+  OK: README.md (doc)
+
+=== Creating tarball: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth.tar.gz ===
+  Tarball size: 270.70 MB
+  Tarball SHA256: 7fe5e14ed9909f056807b77d5de56e729b8b79c8e5b8098ba50507f13780dd72
+  SHA256 file: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth.tar.gz.sha256
+
+=== Writing verification logs ===
+  JSON: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/bundle_verification.json
+  Markdown: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/bundle_verification.md
+
+============================================================
+BUNDLE PACKAGING COMPLETE
+============================================================
+Drop root: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth
+Total files: 15
+Verified: 15
+Total size: 278.18 MB
+Tarball: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth.tar.gz (270.70 MB)
+Tarball SHA256: 7fe5e14ed9909f056807b77d5de56e729b8b79c8e5b8098ba50507f13780dd72

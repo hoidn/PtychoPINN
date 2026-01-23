@@ -238,10 +238,47 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 **Next Actions:**
 - Implement `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/package_ground_truth_bundle.py` + README fix, run it to copy the NPZ/baseline/pinn files into the final drop, generate tarball + verification logs under `reports/2026-01-23T002823Z/`, and re-run `pytest tests/test_generic_loader.py::test_generic_loader -q`.
 
+### 2026-01-23T00:35Z — DEBUG-SIM-LINES-DOSE-001.C1/C2 (shipped)
+**Action:** Implemented Phase C deliverables:
+1. Created `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/package_ground_truth_bundle.py` CLI that:
+   - Copies 7 datasets to simulation/, 3 baseline artifacts to training/, pinn weights to inference/
+   - Verifies SHA256 checksums before and after copy (chunked hashing for memory efficiency)
+   - Generates bundle_verification.json/md with per-file verification results
+   - Creates .tar.gz archive with SHA256 checksum file
+2. Updated `generate_legacy_readme.py`:
+   - Fixed Section 5 inference command to use manifest `pinn_weights.relative_path` (was incorrectly pointing to baseline_run)
+   - Added Section 8 "Delivery Artifacts" showing bundle root, tarball size/SHA256, structure diagram, verification summary
+   - Added new CLI args: `--bundle-verification`, `--delivery-root`
+3. Copied updated README to bundle docs/ folder
+
+**Test:** `pytest tests/test_generic_loader.py::test_generic_loader -q` — PASSED (1 passed, 5 warnings)
+
+**Metrics:**
+- Bundle total files: 15 (7 datasets + 4 baseline/pinn artifacts + 4 docs)
+- Bundle total size: 278.18 MB
+- Tarball size: 270.70 MB
+- Tarball SHA256: 7fe5e14ed9909f056807b77d5de56e729b8b79c8e5b8098ba50507f13780dd72
+- All 11 data files verified via SHA256 match against Phase-A manifest
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/bundle_verification.json`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/bundle_verification.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/README.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/package_bundle.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/generate_readme.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/pytest_loader.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/` (full bundle)
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth.tar.gz`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth.tar.gz.sha256`
+
+**Next Actions:**
+- C1/C2 complete; DEBUG-SIM-LINES-DOSE-001 exit criteria met
+- Optionally draft maintainer handoff note referencing tarball SHA + drop location
+
 ## TODOs
 - [x] S4: Expand the D0 parity Markdown report to list stage-level stats for every dataset and document the new test selector (`tests/tools/test_d0_parity_logger.py`) inside `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.
 - [x] S3: Promote D0 parity logger into `scripts/tools/` with stage-level stats + tests, then capture artifacts for photon_grid_study_20250826_152459
 - [x] DEBUG-SIM-LINES-DOSE-001.B1: Produce the simulate→train→infer README plus command log for Maintainer <2> under a fresh `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<ts>/README.md`.
 - [x] DEBUG-SIM-LINES-DOSE-001.B2: Extend the README with a provenance table mapping every dataset/baseline/inference artifact to its SHA256 + source stage, referencing the Phase A manifest.
-- [ ] DEBUG-SIM-LINES-DOSE-001.C1: Copy or package (tarball) the requested datasets + baseline outputs into `reports/2026-01-22T014445Z/dose_experiments_ground_truth/`, keeping the manifest + README in sync.
-- [ ] DEBUG-SIM-LINES-DOSE-001.C2: Capture checksum verification logs for the final bundle (or tarball) and confirm size constraints / delivery instructions in `galph_memory.md` + maintainer inbox.
+- [x] DEBUG-SIM-LINES-DOSE-001.C1: Copy or package (tarball) the requested datasets + baseline outputs into `reports/2026-01-22T014445Z/dose_experiments_ground_truth/`, keeping the manifest + README in sync.
+- [x] DEBUG-SIM-LINES-DOSE-001.C2: Capture checksum verification logs for the final bundle (or tarball) and confirm size constraints / delivery instructions in `galph_memory.md` + maintainer inbox.
