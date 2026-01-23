@@ -1,61 +1,64 @@
-Summary: Add SLA breach detection plus regression tests to the inbox scan CLI so we can quantify how long Maintainer <2> has been silent and capture fresh evidence.
+Summary: Extend the inbox acknowledgement CLI with persistent history logging so we can show Maintainer <2> the full wait timeline and capture fresh SLA evidence under the new artifacts drop.
 Focus: DEBUG-SIM-LINES-DOSE-001.F1 — Await Maintainer <2> acknowledgement of the delivered bundle
 Branch: dose_experiments
-Mapped tests: tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_flags_breach, tests/test_generic_loader.py::test_generic_loader
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T020500Z/
+Mapped tests: tests/tools/test_check_inbox_for_ack_cli.py::test_history_logging_appends_entries, tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_flags_breach, tests/test_generic_loader.py::test_generic_loader
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014011Z/
 
 Do Now (hard validity contract)
 - Focus ID: DEBUG-SIM-LINES-DOSE-001.F1
-- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py::scan_inbox — add `--sla-hours` and `--fail-when-breached` CLI flags, pass the threshold into scan_inbox (with injectable `current_time` for tests), compute an `sla_watch` block (threshold, hours since last Maintainer <2> inbound, breached boolean, notes), surface it in the JSON + Markdown summaries, and have `main()` exit with code 2 when `--fail-when-breached` is set and the SLA is breached while `ack_detected` remains false.
-- Implement: tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_flags_breach — add a new pytest module that fabricates a temporary inbox, runs the CLI via `subprocess.run`, and asserts the JSON summary reports breached/not-breached states plus the optional failure exit code; cover both a breach case (>threshold) and a healthy case (<threshold).
-- Update: docs/TESTING_GUIDE.md::§2 Test Selectors and docs/development/TEST_SUITE_INDEX.md::Tools — register `tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_flags_breach` as the maintainer-acknowledgement guard with notes on when to run it, citing the artifact logs once the test passes.
-- Run Pytest: pytest tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_flags_breach -q && pytest tests/test_generic_loader.py::test_generic_loader -q (tee logs into $ARTIFACT_ROOT).
-- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T020500Z/
+- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py::main — add `--history-jsonl`/`--history-markdown` flags, create helpers to append JSONL + Markdown history rows (generated UTC, ack status, hours-since inbound/outbound, SLA breach flag, ack files), ensure parent directories exist, and invoke them after summary emission so every run leaves an auditable timeline without disturbing the existing ack/SLA logic.
+- Implement: tests/tools/test_check_inbox_for_ack_cli.py::test_history_logging_appends_entries — add a pytest that fabricates a temp inbox, runs the CLI twice (before/after injecting a maintainer ack) with the new history flags, and asserts JSONL accumulated two entries plus the Markdown log grew by two data rows while the second entry flips `ack_detected` to true.
+- Update: docs/TESTING_GUIDE.md::Inbox Acknowledgement CLI — document the new history selector alongside the SLA test, including fresh artifact log pointers after this run.
+- Update: docs/development/TEST_SUITE_INDEX.md::Tools — add the new `test_history_logging_appends_entries` selector details + log path under the inbox CLI section.
+- Document: docs/fix_plan.md::DEBUG-SIM-LINES-DOSE-001.F1 Attempts — append a row for the 2026-01-23T014011Z run covering the history logging upgrade, the new CLI/test results, and the still-missing Maintainer <2> acknowledgement with SLA breach stats.
+- Update: inbox/response_dose_experiments_ground_truth.md::Maintainer Status — extend the status block with a short summary of the new history log (hours since inbound, breach flag, artifact paths) so Maintainer <2> sees the wait evidence inline.
 
 How-To Map
-1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && export ARTIFACT_ROOT=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T020500Z && mkdir -p "$ARTIFACT_ROOT" "$ARTIFACT_ROOT/inbox_sla_watch" "$ARTIFACT_ROOT/logs".
-2. Edit plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py: extend argparse with `--sla-hours` (float) and `--fail-when-breached`, allow scan_inbox() to accept `sla_hours` + optional current_time for testing, compute an `sla_watch` dict after the waiting-clock metrics, add a Markdown "SLA Watch" section, and make `main()` set `exit_code = 2` when `fail_when_breached` is True and the SLA is breached while still lacking an acknowledgement.
-3. Create tests/tools/test_check_inbox_for_ack_cli.py that builds a temp inbox + output dir, writes Maintainer <2> / Maintainer <1> markdown stubs, manipulates mtimes via `os.utime`, invokes the CLI with/without `--fail-when-breached`, and inspects the resulting JSON to assert `sla_watch['breached']` toggles as expected (plus exit status 2 when the fail flag is used).
-4. pytest tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_flags_breach -q | tee "$ARTIFACT_ROOT/logs/pytest_check_inbox.log".
-5. pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_flags_breach -q | tee "$ARTIFACT_ROOT/logs/pytest_check_inbox_collect.log".
-6. pytest tests/test_generic_loader.py::test_generic_loader -q | tee "$ARTIFACT_ROOT/logs/pytest_loader.log".
-7. python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py --inbox inbox --request-pattern dose_experiments_ground_truth --sla-hours 2.0 --output "$ARTIFACT_ROOT/inbox_sla_watch" | tee "$ARTIFACT_ROOT/inbox_sla_watch/check_inbox.log" (repeat with --fail-when-breached if you want to assert the non-zero exit code; capture stderr/stdout either way).
-8. Copy the refreshed inbox_scan_summary.{json,md} plus CLI logs into $ARTIFACT_ROOT/inbox_sla_watch and summarize hours-since + breach status inside docs/fix_plan.md and inbox/response_dose_experiments_ground_truth.md.
-9. Update docs/TESTING_GUIDE.md §2 and docs/development/TEST_SUITE_INDEX.md to include the new CLI test selector + usage guidance, citing $ARTIFACT_ROOT/logs/pytest_check_inbox.log after the run succeeds.
+1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && export ARTIFACT_ROOT=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014011Z && export HISTORY_DIR="$ARTIFACT_ROOT/inbox_history" && mkdir -p "$ARTIFACT_ROOT" "$ARTIFACT_ROOT/logs" "$ARTIFACT_ROOT/inbox_sla_watch" "$HISTORY_DIR".
+2. Edit plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py: extend argparse with `--history-jsonl` and `--history-markdown`, add `append_history_jsonl()`/`append_history_markdown()` helpers (create parent dirs, add Markdown header once, sanitize notes), and call them from `main()` after writing the JSON/Markdown summaries; history rows must capture generated UTC, ack boolean, hours since inbound/outbound, SLA breach state, and ack file names.
+3. Update tests/tools/test_check_inbox_for_ack_cli.py by adding `test_history_logging_appends_entries`: reuse `create_inbox_file`, run the CLI twice with `--history-jsonl $tmp/history.jsonl --history-markdown $tmp/history.md`, and assert the JSONL has two entries (one ack false, one true) plus the Markdown table contains two data rows with the expected Yes/No fields; keep runtimes short.
+4. pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_logging_appends_entries -q | tee "$ARTIFACT_ROOT/logs/pytest_check_inbox_history.log".
+5. pytest tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_flags_breach -q | tee "$ARTIFACT_ROOT/logs/pytest_check_inbox.log" to guard the earlier SLA behaviour.
+6. pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_history_logging_appends_entries -q | tee "$ARTIFACT_ROOT/logs/pytest_check_inbox_history_collect.log" (Doc Sync guardrail).
+7. pytest tests/test_generic_loader.py::test_generic_loader -q | tee "$ARTIFACT_ROOT/logs/pytest_loader.log" for the baseline loader check.
+8. python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py --inbox inbox --request-pattern dose_experiments_ground_truth --sla-hours 2.0 --history-jsonl "$HISTORY_DIR/inbox_sla_watch.jsonl" --history-markdown "$HISTORY_DIR/inbox_sla_watch.md" --output "$ARTIFACT_ROOT/inbox_sla_watch" | tee "$ARTIFACT_ROOT/inbox_sla_watch/check_inbox.log" (captures the new summary plus appends the history files).
+9. (Optional but encouraged) python .../check_inbox_for_ack.py --inbox inbox --request-pattern dose_experiments_ground_truth --sla-hours 2.0 --fail-when-breached --output "$ARTIFACT_ROOT/inbox_sla_watch_fail" > "$ARTIFACT_ROOT/inbox_sla_watch_fail/check_inbox_fail.log" 2>&1 || test $? -eq 2 to prove the exit code path still works with the new history hooks.
+10. Copy the refreshed inbox_scan_summary.{json,md}, the CLI stdout logs, and both history files into $ARTIFACT_ROOT/inbox_sla_watch/ alongside the jsonl/md history in $HISTORY_DIR.
+11. Update docs/TESTING_GUIDE.md §Inbox Acknowledgement CLI with the new selector + artifact log path (2026-01-23T014011Z) and mention the history logging scope; mirror the same selector/log entry under docs/development/TEST_SUITE_INDEX.md.
+12. Summarize this loop in docs/fix_plan.md (Attempts History) and in inbox/response_dose_experiments_ground_truth.md Maintainer Status referencing the new history files + SLA numbers so Maintainer <2> sees the wait evidence inline.
 
 Pitfalls To Avoid
-- Keep the new CLI flags backward-compatible (defaults should preserve current exit behavior when no SLA threshold is supplied).
-- Do not loosen the acknowledgement rule: ack still requires a Maintainer <2> message plus an ack keyword.
-- Use UTC timestamps throughout; never localize to system tz when computing waiting-clock or SLA fields.
-- Ensure tests do not read the real inbox; synthesize miniature inbox directories under tmp_path and clean up after each run.
-- Avoid pulling large bundle assets into new tests; focus on lightweight markdown stubs.
-- The SLA breach exit should only trigger when ack is still false; do not raise when ack_detected is already true even if the inbound timestamp is old.
-- Keep JSON key ordering stable so prior diff tooling stays usable.
-- Environment is frozen: no package installs or conda/pip changes.
-- Capture every pytest/CLI log under $ARTIFACT_ROOT/logs or inbox_sla_watch for traceability.
-- Treat Maintainer <2> ack arrival as authoritative—if an ack file appears mid-run, stop and fold it into docs instead of forcing SLA failure.
+- Do not let the history helpers mutate or filter `results`; they should only append metadata and leave main summaries untouched.
+- Ensure Markdown headers are written exactly once even when the file already exists; avoid duplicating the header on every run.
+- Keep history rows UTC-based and sanitize any newline/pipe characters before writing to the Markdown table so rendering stays intact.
+- Respect the existing acknowledgement rule (Maintainer <2> + ack keyword) — no heuristic relaxations.
+- Never exit non-zero for SLA breaches unless `--fail-when-breached` is explicitly passed; the default command should still exit 0.
+- Tests must operate entirely inside tmp_path fixtures; never scan the real inbox directory inside pytest.
+- Do not relocate or delete existing artifacts under reports/2026-01-23T020500Z; append new evidence under the new timestamp only.
+- Avoid committing large inbox artifacts twice; point docs to the consolidated $ARTIFACT_ROOT paths.
 
 If Blocked
-- If CLI or pytest fails, save stderr/stdout as $ARTIFACT_ROOT/logs/blocker.log, note the exact command + failure signature inside docs/fix_plan.md Attempts History and galph_memory, then pause for supervisor guidance before altering the acknowledgement workflow.
+- If pytest or the CLI fails, capture the full command + stderr into "$ARTIFACT_ROOT/logs/blocker.log", summarize the failure inside docs/fix_plan.md Attempts History and galph_memory, and pause for supervisor guidance before altering the acknowledgement workflow.
 
 Findings Applied (Mandatory)
 - No relevant findings in the knowledge base.
 
 Pointers
-- docs/fix_plan.md:343 — Details of DEBUG-SIM-LINES-DOSE-001.F1 attempts and outstanding acknowledgement requirement.
-- docs/fix_plan.md:408 — TODO entry describing the continuing inbox-monitoring obligation.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py:1 — Current CLI implementation to extend with SLA tracking.
-- docs/TESTING_GUIDE.md:1-60 — Source of the authoritative pytest selector list and documentation update rules.
-- docs/development/TEST_SUITE_INDEX.md:1-80 — Index that must include the new CLI selector once tests land.
+- docs/fix_plan.md:408 — Active DEBUG-SIM-LINES-DOSE-001.F1 attempts/TODO context for the inbox monitoring effort.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py:1 — Current CLI implementation to extend with history logging.
+- tests/tools/test_check_inbox_for_ack_cli.py:1 — Existing SLA watch tests to expand with the new history test.
+- docs/TESTING_GUIDE.md:1 — Authoritative commands + selector documentation that must reference the new test/logs.
+- docs/development/TEST_SUITE_INDEX.md:1 — Test index entry that must list both inbox CLI selectors/logs.
 
 Next Up (optional)
-- If the SLA breach persists without Maintainer <2> reply, draft a Maintainer <1> escalation note referencing the new SLA metrics and attach the latest inbox scan summary.
+1. If Maintainer <2> remains silent after this loop, draft an escalation note referencing the history log and SLA breach stats.
+2. Once acknowledgement arrives, close DEBUG-SIM-LINES-DOSE-001 by updating docs/fix_plan.md and the maintainer inbox with the ack path.
 
 Doc Sync Plan (Conditional)
-- After the CLI tests pass, run `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_flags_breach -q` (log to $ARTIFACT_ROOT/logs/pytest_check_inbox_collect.log) and update docs/TESTING_GUIDE.md §2 plus docs/development/TEST_SUITE_INDEX.md so the selector + usage guidance match reality.
+- After both inbox CLI tests pass, run `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_history_logging_appends_entries -q` (Step 6) and embed the resulting log path inside docs/TESTING_GUIDE.md and docs/development/TEST_SUITE_INDEX.md so the registry reflects the new selector.
 
 Mapped Tests Guardrail
-- `tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_flags_breach` must collect via the explicit `pytest --collect-only` step above; treat failures as blocks until fixed.
+- `tests/tools/test_check_inbox_for_ack_cli.py::test_history_logging_appends_entries` must collect successfully via the Step 6 command before finishing the loop; treat collection failures as blockers.
 
 Normative Math/Physics
-- None — this loop only extends the maintainer acknowledgement tooling.
+- Not applicable — this task only touches maintainer-tooling scripts.

@@ -59,3 +59,7 @@ notes=git pull --rebase was blocked again by the user's dirty worktree; left unt
 ## 2026-01-23T013212Z
 focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=0 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T020500Z/ next_action=Ralph ships SLA-aware inbox scan CLI + pytest + doc sync <Action State>=ready_for_implementation
 notes=Authored a new Do Now that upgrades check_inbox_for_ack.py with `--sla-hours`/`--fail-when-breached`, captures an `sla_watch` block in JSON/Markdown, adds pytest coverage via tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_flags_breach, and records the new selector in docs/TESTING_GUIDE.md + TEST_SUITE_INDEX. Artifacts for the run go under 2026-01-23T020500Z (logs + inbox_sla_watch). Git pull --rebase remains blocked by the dirty worktree; left untouched.
+
+## 2026-01-23T014201Z
+focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=1 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014011Z/ next_action=Ralph adds history logging + runs inbox CLI tests + refreshes docs <Action State>=ready_for_implementation
+notes=Scoped the next loop around persistent history logging for check_inbox_for_ack.py, captured the new artifacts root (2026-01-23T014011Z), and rewrote input.md with concrete CLI/test/doc instructions so Ralph can implement immediately.
