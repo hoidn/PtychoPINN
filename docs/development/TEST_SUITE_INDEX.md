@@ -67,3 +67,13 @@ This is a minimal index of key tests in this branch.
   - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_followups_persist -q`
   - Tests history persistence of per-actor follow-up (outbound) activity. Validates `ack_actor_followups` in JSONL entries with correct outbound counts per actor. Validates "Ack Actor Follow-Ups" column in Markdown history table. Validates "## Ack Actor Follow-Up Trends" section in history dashboard with Latest Outbound UTC, Hours Since Outbound, Max Outbound Count, and Scans w/ Outbound columns.
   - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T143500Z/logs/pytest_history_followups.log`
+- `tests/tools/test_update_maintainer_status.py`: Maintainer status automation CLI tests.
+  - Selector: `pytest tests/tools/test_update_maintainer_status.py::test_cli_generates_followup -q`
+  - Tests `update_maintainer_status.py` CLI that reads `inbox_scan_summary.json` and generates: (1) status block appended to response document with actor tables and SLA metrics, (2) follow-up note with To/CC recipients, metrics, and action items.
+  - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T153500Z/logs/pytest_update_status.log`
+  - Selector: `pytest tests/tools/test_update_maintainer_status.py::test_cli_missing_scan_json_exits_nonzero -q`
+  - Tests that CLI exits non-zero when scan JSON file is missing.
+  - Selector: `pytest tests/tools/test_update_maintainer_status.py::test_cli_missing_response_doc_exits_nonzero -q`
+  - Tests that CLI exits non-zero when response document is missing.
+  - Selector: `pytest tests/tools/test_update_maintainer_status.py::test_cli_handles_none_timestamps -q`
+  - Tests that CLI handles None/null timestamps gracefully (shows '---' instead of crashing).

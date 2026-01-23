@@ -1329,7 +1329,47 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 **Action:** The per-actor follow-up trends now land inside every reports bundle, but we still spend ~15 minutes per loop manually appending that data to `inbox/response_dose_experiments_ground_truth.md` and drafting the matching follow-up note. Any omission in those manual edits risks drift between the CLI outputs and the maintainer-facing evidence. We need a helper CLI that ingests the latest `inbox_scan_summary.json` + artifact paths and writes both the response block and the new `inbox/followup_dose_experiments_ground_truth_<timestamp>.md` file.
 
 **Next Actions:**
-- Implement `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/update_maintainer_status.py` with argparse flags for `--scan-json`, `--status-title`, repeated `--artifact` references, plus `--response-path` and `--followup-path` so the script appends the Maintainer Status section and emits the next follow-up note automatically.
-- Add `tests/tools/test_update_maintainer_status.py::test_cli_generates_followup` (plus a companion test if needed) that feeds a fixture JSON into the CLI, asserts the response block contains the ack actor table + SLA metrics, and verifies the follow-up note lists the provided artifact references.
-- Run the inbox acknowledgement CLI with the full flag set (`--ack-actor`, `--ack-actor-sla`, `--history-jsonl/md`, `--history-dashboard`, `--status-snippet`, `--escalation-note`, `--escalation-brief`, `--fail-when-breached`) into `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T153500Z/`, then execute the new automation script to update `inbox/response_dose_experiments_ground_truth.md` and author `inbox/followup_dose_experiments_ground_truth_2026-01-23T153500Z.md`.
-- Update `docs/TESTING_GUIDE.md`, `docs/development/TEST_SUITE_INDEX.md`, and `docs/fix_plan.md` with the new selector/log path, record the evidence in `galph_memory.md`, and continue awaiting Maintainer <2>'s acknowledgement.
+- Continue awaiting Maintainer <2>'s acknowledgement.
+
+### 2026-01-23T153500Z — DEBUG-SIM-LINES-DOSE-001.F1 (maintainer status automation completed)
+**Action:** Implemented the maintainer status automation CLI and tests.
+
+**Deliverables:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/update_maintainer_status.py` — CLI that reads `inbox_scan_summary.json` and generates:
+  - Status block (appended to response document) with actor tables, SLA metrics, artifact links
+  - Follow-up note with To/CC recipients, Summary Metrics, Per-Actor SLA Status, Ack Actor Follow-Up Activity, Artifacts, Action Items
+- `tests/tools/test_update_maintainer_status.py` — 4 tests covering:
+  - `test_cli_generates_followup` — validates full output generation
+  - `test_cli_missing_scan_json_exits_nonzero` — validates error handling
+  - `test_cli_missing_response_doc_exits_nonzero` — validates error handling
+  - `test_cli_handles_none_timestamps` — validates graceful handling of null values
+
+**Test Results:**
+- `pytest tests/tools/test_update_maintainer_status.py -q` — 4 passed (0.14s)
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` — 22 passed (1.32s)
+- `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.57s)
+
+**Execution:**
+1. Ran inbox scan CLI with full options into `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T153500Z/`
+2. Ran `update_maintainer_status.py` to append status block to `inbox/response_dose_experiments_ground_truth.md`
+3. Generated `inbox/followup_dose_experiments_ground_truth_2026-01-23T153500Z.md`
+
+**Metrics (from latest scan):**
+| Metric | Value |
+|--------|-------|
+| Hours Since Last Inbound (M2) | 5.90 |
+| SLA Threshold (M2) | 2.00 hours |
+| SLA Breached | Yes (CRITICAL) |
+| Breach Duration | 3.40 hours |
+| Total Outbound to M2 | 8 messages |
+| Total Outbound to M3 | 3 messages |
+
+**Artifact paths:**
+- Test logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T153500Z/logs/`
+- Inbox scan: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T153500Z/inbox_sla_watch/`
+- History: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T153500Z/inbox_history/`
+- Status outputs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T153500Z/inbox_status/`
+- Follow-up note: `inbox/followup_dose_experiments_ground_truth_2026-01-23T153500Z.md`
+
+**Next Actions:**
+- Continue awaiting Maintainer <2>'s acknowledgement on a cadence until response is received.

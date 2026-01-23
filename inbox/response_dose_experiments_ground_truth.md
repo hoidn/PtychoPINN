@@ -856,3 +856,37 @@ pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_followups_persi
 - Escalation note: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T143500Z/inbox_status/escalation_note.md`
 - Test logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T143500Z/logs/`
 - Follow-up note: `inbox/followup_dose_experiments_ground_truth_2026-01-23T143500Z.md`
+
+
+### Status as of 2026-01-23T05:17Z (Maintainer Status Automation)
+
+**Acknowledgement Detected:** No
+**Total Inbound Messages:** 1
+**Total Outbound Messages:** 8
+
+**Global SLA Watch:**
+
+| Metric | Value |
+|--------|-------|
+| SLA Threshold | 2.50 hours |
+| Hours Since Last Inbound | 5.90 |
+| SLA Breached | **Yes** |
+| Severity | CRITICAL |
+| SLA Deadline | 2026-01-23T01:52:58Z |
+| Breach Duration | 3.40 hours |
+| Notes | SLA breach: 5.90 hours since last inbound exceeds 2.50 hour threshold and no acknowledgement detected |
+
+**Per-Actor SLA Status:**
+
+| Actor | Hrs Since Inbound | Hrs Since Outbound | Inbound Count | Outbound Count | SLA Threshold | Severity | Notes |
+|-------|-------------------|--------------------|--------------:|---------------:|--------------:|----------|-------|
+| Maintainer 2 | 5.90 | 0.19 | 1 | 8 | 2.00 | CRITICAL | SLA breach: 5.90 hours since last inbound exceeds 2.00 hour threshold |
+| Maintainer 3 | --- | 0.40 | 0 | 3 | 6.00 | UNKNOWN | No inbound messages from Maintainer 3 |
+
+**Artifacts:**
+
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T153500Z/inbox_sla_watch/inbox_scan_summary.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T153500Z/inbox_history/inbox_history_dashboard.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T153500Z/inbox_status/status_snippet.md`
+
+---

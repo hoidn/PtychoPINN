@@ -1,0 +1,3 @@
+tests/tools/test_update_maintainer_status.py::test_cli_generates_followup
+
+1 test collected in 0.04s

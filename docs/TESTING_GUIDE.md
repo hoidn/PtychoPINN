@@ -329,6 +329,24 @@ This selector validates:
 
 Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T083500Z/logs/pytest_ack_actor_history.log`
 
+### Maintainer Status Automation CLI
+
+The `update_maintainer_status.py` CLI (`plans/active/DEBUG-SIM-LINES-DOSE-001/bin/update_maintainer_status.py`) automates the generation of maintainer status blocks and follow-up notes from inbox scan results. It reads `inbox_scan_summary.json` and produces:
+1. A Markdown status block appended to the response document
+2. A follow-up note with SLA metrics and artifact references
+
+To run the automation CLI tests:
+
+- `pytest tests/tools/test_update_maintainer_status.py::test_cli_generates_followup -q`
+
+This selector validates:
+- Response document gains a status block with "### Status as of" heading and actor tables
+- Follow-up note contains To/CC recipients, SLA metrics, and action items
+- Artifacts are referenced in both outputs
+- CLI exits 0 on success, non-zero on missing inputs
+
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T153500Z/logs/pytest_update_status.log`
+
 ## Test Areas
 
 - `tests/tools/`: CLI and tooling tests (e.g., D0 parity logger).
