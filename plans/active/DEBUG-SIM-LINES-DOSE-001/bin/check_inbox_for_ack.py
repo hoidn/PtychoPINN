@@ -62,6 +62,17 @@ def parse_args():
         required=True,
         help="Output directory for summary files"
     )
+    parser.add_argument(
+        "--sla-hours",
+        type=float,
+        default=None,
+        help="SLA threshold in hours; if set, compute SLA watch metrics"
+    )
+    parser.add_argument(
+        "--fail-when-breached",
+        action="store_true",
+        help="Exit with code 2 if SLA is breached and ack not yet detected"
+    )
     return parser.parse_args()
 
 
@@ -187,15 +198,20 @@ def scan_inbox(
     inbox_path: Path,
     request_pattern: str,
     keywords: list[str],
-    since_date: Optional[datetime]
+    since_date: Optional[datetime],
+    sla_hours: Optional[float] = None,
+    current_time: Optional[datetime] = None
 ) -> dict:
     """
     Scan inbox directory for files matching the request pattern.
 
     Returns a summary dict with scanned/matches/ack_detected status,
     plus timeline and waiting-clock metadata.
+
+    If sla_hours is provided, also computes sla_watch metrics.
+    current_time can be injected for testing; defaults to now(UTC).
     """
-    now = datetime.now(timezone.utc)
+    now = current_time if current_time is not None else datetime.now(timezone.utc)
     results = {
         "scanned": 0,
         "matches": [],
@@ -321,6 +337,31 @@ def scan_inbox(
     results["waiting_clock"]["total_inbound_count"] = inbound_count
     results["waiting_clock"]["total_outbound_count"] = outbound_count
 
+    # SLA Watch computation (if sla_hours provided)
+    if sla_hours is not None:
+        hours_since = results["waiting_clock"]["hours_since_last_inbound"]
+        breached = False
+        notes = ""
+        if hours_since is None:
+            # No inbound messages at all
+            notes = "No inbound messages from Maintainer <2> found"
+            breached = False  # Cannot be breached if no inbound exists
+        else:
+            breached = hours_since > sla_hours and not results["ack_detected"]
+            if breached:
+                notes = f"SLA breach: {hours_since:.2f} hours since last inbound exceeds {sla_hours:.2f} hour threshold and no acknowledgement detected"
+            elif results["ack_detected"]:
+                notes = "Acknowledgement received; SLA not applicable"
+            else:
+                notes = f"Within SLA: {hours_since:.2f} hours since last inbound (threshold: {sla_hours:.2f})"
+
+        results["sla_watch"] = {
+            "threshold_hours": sla_hours,
+            "hours_since_last_inbound": hours_since,
+            "breached": breached,
+            "notes": notes
+        }
+
     return results
 
 
@@ -382,6 +423,28 @@ def write_markdown_summary(results: dict, output_path: Path) -> None:
             "> but we are still awaiting confirmation from the receiving maintainer.",
             "",
         ])
+
+    # SLA Watch section (if present)
+    sla_watch = results.get("sla_watch")
+    if sla_watch:
+        lines.extend([
+            "## SLA Watch",
+            "",
+            f"- **Threshold:** {sla_watch['threshold_hours']:.2f} hours",
+        ])
+        hrs = sla_watch.get("hours_since_last_inbound")
+        hrs_str = f"{hrs:.2f} hours" if hrs is not None else "N/A"
+        lines.extend([
+            f"- **Hours Since Last Inbound:** {hrs_str}",
+            f"- **Breached:** {'Yes' if sla_watch['breached'] else 'No'}",
+            f"- **Notes:** {sla_watch['notes']}",
+            "",
+        ])
+        if sla_watch["breached"]:
+            lines.extend([
+                "> **SLA BREACH:** The waiting time has exceeded the configured threshold and no acknowledgement has been received.",
+                "",
+            ])
 
     if results["ack_detected"]:
         lines.extend([
@@ -475,11 +538,17 @@ def main():
     print(f"Scanning inbox: {inbox_path}")
     print(f"Request pattern: {args.request_pattern}")
     print(f"Keywords: {keywords}")
+    if args.sla_hours is not None:
+        print(f"SLA threshold: {args.sla_hours} hours")
+        print(f"Fail when breached: {args.fail_when_breached}")
     print(f"Output: {output_path}")
     print("")
 
     # Scan inbox
-    results = scan_inbox(inbox_path, args.request_pattern, keywords, since_date)
+    results = scan_inbox(
+        inbox_path, args.request_pattern, keywords, since_date,
+        sla_hours=args.sla_hours
+    )
 
     # Write outputs
     json_path = output_path / "inbox_scan_summary.json"
@@ -529,8 +598,24 @@ def main():
     print(f"JSON summary: {json_path}")
     print(f"Markdown summary: {md_path}")
 
-    # Return exit code based on ack_detected
-    return 0
+    # Print SLA watch if present
+    sla_watch = results.get("sla_watch")
+    if sla_watch:
+        print("")
+        print("SLA Watch:")
+        print(f"  Threshold: {sla_watch['threshold_hours']:.2f} hours")
+        hrs = sla_watch.get("hours_since_last_inbound")
+        print(f"  Hours since last inbound: {f'{hrs:.2f}' if hrs is not None else 'N/A'}")
+        print(f"  Breached: {'Yes' if sla_watch['breached'] else 'No'}")
+        print(f"  Notes: {sla_watch['notes']}")
+
+    # Return exit code based on ack_detected and SLA breach
+    exit_code = 0
+    if args.fail_when_breached and sla_watch and sla_watch.get("breached"):
+        print("")
+        print("ERROR: SLA breach detected and --fail-when-breached is set")
+        exit_code = 2
+    return exit_code
 
 
 if __name__ == "__main__":

@@ -10,3 +10,7 @@ This is a minimal index of key tests in this branch.
   - Selector: `pytest tests/tools/test_d0_parity_logger.py::test_cli_emits_outputs -q`
   - Validates multi-dataset Markdown coverage with raw/normalized/grouped stage tables.
   - See `inbox/README_prepare_d0_response.md` for CLI scope.
+- `tests/tools/test_check_inbox_for_ack_cli.py`: Inbox acknowledgement CLI tests (SLA watch).
+  - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_flags_breach -q`
+  - Tests `--sla-hours` and `--fail-when-breached` flags for SLA breach detection.
+  - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T020500Z/logs/pytest_check_inbox.log`

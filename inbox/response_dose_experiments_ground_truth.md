@@ -243,3 +243,35 @@ The bundle has been delivered and a follow-up note sent. We are awaiting Maintai
 3. Any additional artifacts or documentation are needed
 
 **Scan details:** [`plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014900Z/inbox_check_timeline/inbox_scan_summary.md`](plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014900Z/inbox_check_timeline/inbox_scan_summary.md)
+
+---
+
+### Status as of 2026-01-23T020500Z (SLA Watch Enabled)
+
+**SLA breach detection added to inbox scan CLI.**
+
+| Metric | Value |
+|--------|-------|
+| Last Inbound (from Maintainer <2>) | 2026-01-22T23:22:58Z |
+| Hours Since Last Inbound | 2.22 hours |
+| SLA Threshold | 2.00 hours |
+| **SLA Breached** | **Yes** |
+| Acknowledgement Detected | No |
+
+**CLI command:**
+```bash
+python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py \
+  --inbox inbox \
+  --request-pattern dose_experiments_ground_truth \
+  --sla-hours 2.0 \
+  --output plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T020500Z/inbox_sla_watch
+```
+
+**New test selector:**
+```bash
+pytest tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_flags_breach -q
+```
+
+**SLA Watch Notes:** SLA breach: 2.22 hours since last inbound exceeds 2.00 hour threshold and no acknowledgement detected.
+
+**Scan details:** [`plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T020500Z/inbox_sla_watch/inbox_scan_summary.md`](plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T020500Z/inbox_sla_watch/inbox_scan_summary.md)

@@ -433,6 +433,49 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - F1 remains open; Maintainer <2> has not yet acknowledged (~2 hours since last inbound)
 - Continue periodic scans; escalate if no ack within reasonable timeframe
 
+### 2026-01-23T02:05Z — DEBUG-SIM-LINES-DOSE-001.F1 (SLA watch CLI + tests shipped)
+**Action:** Extended `check_inbox_for_ack.py` CLI with SLA breach detection:
+1. Added `--sla-hours` flag (float) to set SLA threshold
+2. Added `--fail-when-breached` flag to exit with code 2 on breach
+3. Extended `scan_inbox()` with `sla_hours` and injectable `current_time` for testing
+4. Added `sla_watch` block to JSON output with threshold, hours_since_last_inbound, breached, notes
+5. Added "SLA Watch" section to Markdown summary
+6. Created `tests/tools/test_check_inbox_for_ack_cli.py` with 3 test functions:
+   - `test_sla_watch_flags_breach`: tests breach/no-breach with different thresholds + exit codes
+   - `test_sla_watch_with_ack_detected`: tests that ack detection prevents breach
+   - `test_sla_watch_no_inbound_messages`: tests edge case with no inbound messages
+
+**Test:** `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_flags_breach -q` — 1 passed (0.14s)
+**Collection:** `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_flags_breach -q` — 1 test collected
+**All tests:** `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` — 3 passed (0.20s)
+**Loader test:** `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.55s)
+
+**CLI Run (with --sla-hours 2.0):**
+- Files scanned: 5
+- Matches: 3
+- Last inbound: 2026-01-22T23:22:58Z
+- Hours since last inbound: 2.22
+- **SLA Breached: Yes** (2.22 > 2.00 threshold, no ack detected)
+- Exit code: 0 (without --fail-when-breached)
+- Exit code: 2 (with --fail-when-breached)
+
+**Doc Updates:**
+- `docs/TESTING_GUIDE.md`: Added "Inbox Acknowledgement CLI (SLA Watch)" section
+- `docs/development/TEST_SUITE_INDEX.md`: Added test selector + log path
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T020500Z/logs/pytest_check_inbox.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T020500Z/logs/pytest_check_inbox_collect.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T020500Z/logs/pytest_loader.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T020500Z/inbox_sla_watch/inbox_scan_summary.json`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T020500Z/inbox_sla_watch/inbox_scan_summary.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T020500Z/inbox_sla_watch/check_inbox.log`
+
+**Next Actions:**
+- F1 remains open; SLA breached (2.22 hours > 2.00 threshold)
+- Maintainer <2> has not yet acknowledged the bundle
+- CLI now supports automated SLA monitoring with exit code 2 for CI/cron integration
+
 ## TODOs
 - [x] S4: Expand the D0 parity Markdown report to list stage-level stats for every dataset and document the new test selector (`tests/tools/test_d0_parity_logger.py`) inside `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.
 - [x] S3: Promote D0 parity logger into `scripts/tools/` with stage-level stats + tests, then capture artifacts for photon_grid_study_20250826_152459
@@ -442,4 +485,4 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - [x] DEBUG-SIM-LINES-DOSE-001.C2: Capture checksum verification logs for the final bundle (or tarball) and confirm size constraints / delivery instructions in `galph_memory.md` + maintainer inbox.
 - [x] DEBUG-SIM-LINES-DOSE-001.D1: Draft `inbox/response_dose_experiments_ground_truth.md` that cites the final drop root, README/manifest paths, bundle_verification logs, tarball SHA, and the validating `pytest tests/test_generic_loader.py::test_generic_loader -q` log so Maintainer <2> can close the request.
 - [x] DEBUG-SIM-LINES-DOSE-001.E1: Verify the tarball rehydration path by extracting `dose_experiments_ground_truth.tar.gz`, regenerating the manifest, diffing it against `reports/2026-01-23T001018Z/ground_truth_manifest.json`, logging the comparison under `reports/<ts>/rehydration_check/`, re-running `pytest tests/test_generic_loader.py::test_generic_loader -q`, and updating the maintainer response with the results.
-- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Inbox scan CLI extended with timeline + waiting-clock features; latest scan at 2026-01-23T01:26:55Z shows no ack yet (hours_since_last_inbound: 2.07). See `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014900Z/inbox_check_timeline/`.
+- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Inbox scan CLI extended with SLA watch (`--sla-hours`, `--fail-when-breached`); latest scan at 2026-01-23T02:05Z shows SLA breach (2.22 hours > 2.00 threshold, no ack). Test selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_flags_breach -q`. See `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T020500Z/inbox_sla_watch/`.
