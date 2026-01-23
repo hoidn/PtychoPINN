@@ -347,6 +347,38 @@ This selector validates:
 
 Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T153500Z/logs/pytest_update_status.log`
 
+### Inbox Cadence CLI
+
+The `run_inbox_cadence.py` CLI (`plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_inbox_cadence.py`) orchestrates a single maintainer follow-up run by:
+1. Creating a timestamped reports directory
+2. Running `check_inbox_for_ack.py` with all history/status/escalation outputs
+3. Reading `inbox_scan_summary.json` to check ack status
+4. Unless ack detected and `--skip-followup-on-ack`, running `update_maintainer_status.py`
+5. Emitting `cadence_metadata.json` and `cadence_summary.md`
+
+Exit codes:
+- 0: Success (normal cadence run completed)
+- 3: Success but ack detected and follow-up skipped (`--skip-followup-on-ack`)
+- Non-zero: Failure
+
+To run the cadence CLI tests:
+
+- `pytest tests/tools/test_run_inbox_cadence.py::test_cadence_sequence_creates_artifacts -q`
+- `pytest tests/tools/test_run_inbox_cadence.py::test_cadence_skips_followup_on_ack -q`
+
+The first selector validates:
+- Directory structure exists with logs, scan JSON, status snippet, escalation outputs
+- Response doc gains a status block appended
+- Follow-up note created at expected path
+- Metadata JSON shows `ack_detected=false`, `followup_written=true`
+
+The second selector validates:
+- Exit code is 3 when ack detected and `--skip-followup-on-ack` set
+- Metadata shows `ack_detected=true`, `followup_written=false`
+- No follow-up file created, but logs and scan JSON still exist
+
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T163500Z/logs/pytest_run_inbox_cadence.log`
+
 ## Test Areas
 
 - `tests/tools/`: CLI and tooling tests (e.g., D0 parity logger).

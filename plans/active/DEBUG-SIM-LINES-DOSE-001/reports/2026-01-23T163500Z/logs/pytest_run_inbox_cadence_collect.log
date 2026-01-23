@@ -1,0 +1,7 @@
+tests/tools/test_run_inbox_cadence.py::test_cadence_sequence_creates_artifacts
+
+1 test collected in 0.04s
+tests/tools/test_run_inbox_cadence.py::test_cadence_sequence_creates_artifacts
+tests/tools/test_run_inbox_cadence.py::test_cadence_skips_followup_on_ack
+
+2 tests collected in 0.03s

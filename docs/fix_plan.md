@@ -1388,3 +1388,43 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - Add regression tests under `tests/tools/test_run_inbox_cadence.py` (e.g., `test_cadence_sequence_creates_artifacts`, `test_cadence_skips_followup_on_ack`) that exercise the new CLI end-to-end using temporary inbox + response docs.
 - Update `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md` with the new selector/log references.
 - Run the cadence CLI to produce the 2026-01-23T163500Z evidence bundle (logs + inbox/status artifacts), append the generated status/follow-up to `inbox/response_*` + `inbox/followup_*`, rerun the inbox CLI + loader pytest guards, and capture the maintainer evidence inside the new reports directory.
+
+### 2026-01-23T163500Z — DEBUG-SIM-LINES-DOSE-001.F1 (cadence orchestrator shipped)
+**Action:** Implemented the unified cadence CLI and tests as specified in input.md.
+
+**Deliverables:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/run_inbox_cadence.py` — CLI that orchestrates:
+  1. Creates timestamped reports directory (logs/, inbox_sla_watch/, inbox_history/, inbox_status/)
+  2. Runs `check_inbox_for_ack.py` with all history/status/escalation outputs wired
+  3. Reads `inbox_scan_summary.json` to check ack status
+  4. Unless ack detected + `--skip-followup-on-ack`, runs `update_maintainer_status.py`
+  5. Emits `cadence_metadata.json` and `cadence_summary.md`
+  6. Exit codes: 0 (success), 3 (ack+skipped follow-up), non-zero (failure)
+- `tests/tools/test_run_inbox_cadence.py` — 2 tests:
+  - `test_cadence_sequence_creates_artifacts` — validates full directory layout, status block appended, follow-up created, metadata shows ack_detected=false/followup_written=true
+  - `test_cadence_skips_followup_on_ack` — validates exit code 3, metadata ack_detected=true/followup_written=false, no follow-up file but logs/scan exist
+
+**Test Results:**
+- `pytest tests/tools/test_run_inbox_cadence.py -v` — 2 passed (0.19s)
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` — 22 passed (1.33s)
+- `pytest tests/tools/test_update_maintainer_status.py -q` — 4 passed (0.15s)
+- `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.55s)
+
+**Collection Verified:**
+- `pytest --collect-only tests/tools/test_run_inbox_cadence.py -q` — 2 tests collected
+
+**Doc Updates:**
+- `docs/TESTING_GUIDE.md` — added "Inbox Cadence CLI" section with selectors + exit codes
+- `docs/development/TEST_SUITE_INDEX.md` — added test_run_inbox_cadence.py entries
+
+**Artifacts:**
+- Test logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T163500Z/logs/`
+  - `pytest_run_inbox_cadence_collect.log` — collection verification
+  - `pytest_run_inbox_cadence.log` — test execution
+  - `pytest_check_inbox_suite.log` — regression guard
+  - `pytest_update_status.log` — regression guard
+  - `pytest_loader.log` — loader guard
+
+**Next Actions:**
+- Run the real cadence CLI to produce evidence bundle and update response/follow-up docs
+- Continue awaiting Maintainer <2>'s acknowledgement

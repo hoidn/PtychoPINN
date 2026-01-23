@@ -77,3 +77,9 @@ This is a minimal index of key tests in this branch.
   - Tests that CLI exits non-zero when response document is missing.
   - Selector: `pytest tests/tools/test_update_maintainer_status.py::test_cli_handles_none_timestamps -q`
   - Tests that CLI handles None/null timestamps gracefully (shows '---' instead of crashing).
+- `tests/tools/test_run_inbox_cadence.py`: Inbox cadence CLI tests (unified orchestration).
+  - Selector: `pytest tests/tools/test_run_inbox_cadence.py::test_cadence_sequence_creates_artifacts -q`
+  - Tests cadence CLI that orchestrates `check_inbox_for_ack.py` and `update_maintainer_status.py` in a single run. Validates directory structure (logs, inbox_sla_watch, inbox_history, inbox_status), response doc status block, follow-up note creation, and `cadence_metadata.json` with ack_detected/followup_written flags.
+  - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T163500Z/logs/pytest_run_inbox_cadence.log`
+  - Selector: `pytest tests/tools/test_run_inbox_cadence.py::test_cadence_skips_followup_on_ack -q`
+  - Tests `--skip-followup-on-ack` flag: when ack detected and flag set, CLI exits 3, metadata shows ack_detected=true/followup_written=false, no follow-up file created, but logs and scan JSON still exist.

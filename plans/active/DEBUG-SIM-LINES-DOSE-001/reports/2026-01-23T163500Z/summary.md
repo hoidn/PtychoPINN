@@ -1,5 +1,5 @@
 ### Turn Summary
-Scoped run_inbox_cadence orchestration CLI + regression tests so maintainer follow-ups become a single reproducible command and recorded the plan gap.
-Updated docs/fix_plan.md with the cadence entry and rewrote input.md with detailed CLI/test/doc instructions and artifact guardrails; git pull --rebase still blocked by the user's dirty worktree.
-Next: Ralph implements run_inbox_cadence.py + tests, runs the automation to capture 2026-01-23T163500Z evidence, updates docs, and reruns the inbox + loader pytest guards.
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T163500Z/ (input.md, planning notes)
+Implemented the unified inbox cadence CLI that orchestrates check_inbox_for_ack.py and update_maintainer_status.py in a single command with timestamped artifact directories.
+Added two tests validating full cadence runs (ack not detected → follow-up written) and skip behavior (ack detected + --skip-followup-on-ack → exit 3, no follow-up).
+Next: run the real cadence CLI to produce evidence bundle and update maintainer response/follow-up docs.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T163500Z/ (pytest_run_inbox_cadence.log, cadence tests)
