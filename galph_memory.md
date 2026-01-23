@@ -123,3 +123,7 @@ notes=timeout 30 git pull --rebase is still blocked by the giant dirty worktree 
 ## 2026-01-23T133900Z
 focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=0 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T133500Z/ next_action=Ralph ships per-actor follow-up tracking + tests/docs + refreshed CLI evidence <Action State>=ready_for_implementation
 notes=Documented the need to track outbound cadence per ack actor, updated docs/fix_plan.md with the new scope, and rewrote input.md so Ralph adds recipient parsing + follow-up tables, new regression test, doc/test index updates, and a fresh maintainer drop under 2026-01-23T133500Z.
+
+## 2026-01-23T045931Z
+focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=1 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T143500Z/ next_action=Ralph ships history follow-up persistence + pytest suite <Action State>=ready_for_implementation
+notes=Captured the missing follow-up data in history JSONL/dashboard, updated docs/fix_plan.md with the 14:35Z scope, and rewrote input.md so Ralph can persist the outbound metrics, add the regression test, rerun the CLI/tests, and refresh the maintainer evidence bundle.
