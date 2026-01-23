@@ -95,3 +95,7 @@ notes=git pull --rebase is still blocked by the user's massive dirty worktree; l
 ## 2026-01-23T060900Z
 focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=0 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T060500Z/ next_action=Ralph implements ack-actor SLA override flag/test, reruns CLI, and refreshes docs/inbox evidence per new input.md <Action State>=ready_for_implementation
 notes=Documented the per-actor SLA override scope (new --ack-actor-sla flag, regression test, doc/inbox updates) in docs/fix_plan.md and rewrote input.md with commands/log paths targeting reports/2026-01-23T060500Z so Ralph can ship the implementation + pytest/CLI evidence immediately.
+
+## 2026-01-23T070030Z
+focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=0 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/ next_action=Ralph adds ack_actor_summary + tests/docs + reruns CLI per new input <Action State>=ready_for_implementation
+notes=git pull --rebase still blocked by the user’s dirty worktree; left untouched. Ran the 3-loop retrospective (audited the last per-actor SLA override drop + docs) and confirmed Maintainer <2> remains unresponsive. Scoped the next increment around a per-actor SLA summary (critical/warning/ok buckets), a regression test, refreshed CLI/docs artifacts, and a new follow-up note so Maintainer evidence stays current.

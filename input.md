@@ -1,58 +1,57 @@
-Summary: Add per-actor SLA override support to the inbox acknowledgement CLI and capture a fresh evidence bundle that shows Maintainer <2> remains in breach while Maintainer <3> has a looser window.
+Summary: Surface a per-actor SLA summary inside the inbox acknowledgement CLI and capture a fresh evidence bundle that proves Maintainer <2> is still breaching the delivery window while Maintainer <3> remains within their override threshold.
 Focus: DEBUG-SIM-LINES-DOSE-001.F1 — Await Maintainer <2> acknowledgement of the delivered bundle
 Branch: dose_experiments
-Mapped tests: pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_overrides_thresholds -q; pytest tests/test_generic_loader.py::test_generic_loader -q
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T060500Z/
+Mapped tests: pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_summary_flags_breach -q; pytest tests/test_generic_loader.py::test_generic_loader -q
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/
 
 Do Now (hard validity contract)
 - Focus ID: DEBUG-SIM-LINES-DOSE-001.F1
-- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py::scan_inbox — add a repeatable `--ack-actor-sla` flag, parse overrides into a normalized `{actor: hours}` map, thread them into `scan_inbox()` so each actor records `sla_threshold_hours`, deadline, breach duration, severity, and notes (overrides take precedence but fall back to the global `--sla-hours`); update the JSON parameters, Markdown summary/status/escalation tables, and CLI stdout Ack Actor Coverage block to show a Threshold column whenever overrides are in play.
-- Implement (test): tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_overrides_thresholds — create a synthetic inbox where Maintainer <2> is 3.5 hours stale while Maintainer <3> is 1 hour stale, run the CLI with `--sla-hours 2.5 --ack-actor-sla "Maintainer <2>=2.0" --ack-actor-sla "Maintainer <3>=4.0"`, and assert the JSON reports actor-specific thresholds/severity plus Markdown tables/CLI stdout include the new column.
-- Update: docs/TESTING_GUIDE.md (Inbox acknowledgement CLI section), docs/development/TEST_SUITE_INDEX.md (new selector + log), docs/fix_plan.md Attempts history, inbox/response_dose_experiments_ground_truth.md (add 2026-01-23T060500Z status), and drop inbox/followup_dose_experiments_ground_truth_2026-01-23T060500Z.md referencing the per-actor SLA overrides.
-- Capture: export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && export ARTIFACT_ROOT=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T060500Z && mkdir -p "$ARTIFACT_ROOT"/{logs,inbox_history,inbox_status,inbox_sla_watch}; python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py --inbox inbox --request-pattern dose_experiments_ground_truth --keywords acknowledged --keywords confirm --keywords received --keywords thanks --ack-actor "Maintainer <2>" --ack-actor "Maintainer <3>" --sla-hours 2.5 --ack-actor-sla "Maintainer <2>=2.0" --ack-actor-sla "Maintainer <3>=6.0" --fail-when-breached --history-jsonl "$ARTIFACT_ROOT/inbox_history/inbox_sla_watch.jsonl" --history-markdown "$ARTIFACT_ROOT/inbox_history/inbox_sla_watch.md" --history-dashboard "$ARTIFACT_ROOT/inbox_history/inbox_history_dashboard.md" --status-snippet "$ARTIFACT_ROOT/inbox_status/status_snippet.md" --escalation-note "$ARTIFACT_ROOT/inbox_status/escalation_note.md" --escalation-recipient "Maintainer <2>" --output "$ARTIFACT_ROOT/inbox_sla_watch" | tee "$ARTIFACT_ROOT/logs/check_inbox.log" (exit 2 is expected because Maintainer <2> stays in breach).
-- Validate: pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_overrides_thresholds -q | tee "$ARTIFACT_ROOT/logs/pytest_check_inbox_suite.log"; pytest tests/test_generic_loader.py::test_generic_loader -q | tee "$ARTIFACT_ROOT/logs/pytest_loader.log".
-- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T060500Z/ (JSON/MD outputs, logs/, updated docs/inbox files)
+- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py::scan_inbox — emit an `ack_actor_summary` structure that groups each monitored actor by severity (critical/warning/ok/unknown) with hours-since-inbound, threshold, deadline, and notes so the CLI, Markdown summary, status snippet, escalation note, and stdout can immediately list which actor is breaching which SLA override; keep the existing tables intact and ensure summary generation works whenever `--sla-hours` (and optional `--ack-actor-sla`) are set.
+- Implement (test): tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_summary_flags_breach — craft a synthetic inbox where Maintainer <2> is 3.5 h stale (breach) and Maintainer <3> is 1.0 h stale (within a 4–6 h override), run the CLI with both `--sla-hours` and `--ack-actor-sla` flags, and assert the JSON `ack_actor_summary` buckets, Markdown “Ack Actor SLA Summary” section, and CLI stdout text all highlight the correct actor/category pairings.
+- Update: docs/TESTING_GUIDE.md (add the new selector + artifact log under the Inbox CLI section), docs/development/TEST_SUITE_INDEX.md (same selector/log), docs/fix_plan.md Attempts (log the summary scope once shipped), inbox/response_dose_experiments_ground_truth.md (append a 2026-01-23T070500Z status block that cites the per-actor SLA summary + artifact links), and author inbox/followup_dose_experiments_ground_truth_2026-01-23T070500Z.md referencing the latest SLA evidence so Maintainer <2> can’t miss the breach callout.
+- Capture: export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && export ARTIFACT_ROOT=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z && mkdir -p "$ARTIFACT_ROOT"/{logs,inbox_history,inbox_status,inbox_sla_watch}; python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py --inbox inbox --request-pattern dose_experiments_ground_truth --keywords acknowledged --keywords confirm --keywords received --keywords thanks --ack-actor "Maintainer <2>" --ack-actor "Maintainer <3>" --sla-hours 2.5 --ack-actor-sla "Maintainer <2>=2.0" --ack-actor-sla "Maintainer <3>=6.0" --fail-when-breached --history-jsonl "$ARTIFACT_ROOT/inbox_history/inbox_sla_watch.jsonl" --history-markdown "$ARTIFACT_ROOT/inbox_history/inbox_sla_watch.md" --history-dashboard "$ARTIFACT_ROOT/inbox_history/inbox_history_dashboard.md" --status-snippet "$ARTIFACT_ROOT/inbox_status/status_snippet.md" --escalation-note "$ARTIFACT_ROOT/inbox_status/escalation_note.md" --escalation-recipient "Maintainer <2>" --output "$ARTIFACT_ROOT/inbox_sla_watch" | tee "$ARTIFACT_ROOT/logs/check_inbox.log" (exit 2 expected because Maintainer <2> stays in breach).
+- Validate: pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_summary_flags_breach -q | tee "$ARTIFACT_ROOT/logs/pytest_ack_actor_summary.log"; pytest tests/test_generic_loader.py::test_generic_loader -q | tee "$ARTIFACT_ROOT/logs/pytest_loader.log"; after code passes, run pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_summary_flags_breach -q | tee "$ARTIFACT_ROOT/logs/pytest_ack_actor_summary_collect.log" so the new selector is recorded.
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/ (JSON/Markdown summaries, history/status/escalation outputs, pytest logs, follow-up note, response update)
 
 How-To Map
-1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && export ARTIFACT_ROOT=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T060500Z && mkdir -p "$ARTIFACT_ROOT"/{logs,inbox_history,inbox_status,inbox_sla_watch} so all logs/summaries land under the new timestamped drop.
-2. Update `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py`: add the `--ack-actor-sla` parser option, normalize entries via `normalize_actor_alias()`, pass the override dict into `scan_inbox()`, emit `sla_threshold_hours` per actor, include the override map under `results["parameters"]["ack_actor_sla_hours"]`, and extend Markdown/CLI tables with a “Threshold (hrs)” column when SLA data exists. Make sure overrides can be used even when the global `--sla-hours` differs and that actors without overrides inherit the global threshold.
-3. Add `test_ack_actor_sla_overrides_thresholds` to `tests/tools/test_check_inbox_for_ack_cli.py`: fabricate Maintainer <2>/<3> messages with different ages, run the CLI with both `--sla-hours` and `--ack-actor-sla` flags, and assert the JSON/Markdown/stdout incorporate the new per-actor threshold column plus severity decisions (M2 breached at 2.0 h override, M3 ok at inherited 2.5–4.0 h window).
-4. Run `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_overrides_thresholds -q | tee "$ARTIFACT_ROOT/logs/pytest_check_inbox_suite.log"` followed by `pytest tests/test_generic_loader.py::test_generic_loader -q | tee "$ARTIFACT_ROOT/logs/pytest_loader.log"`.
-5. Execute the Capture command to regenerate inbox evidence with the new overrides; keep `--fail-when-breached` enabled and archive JSON/Markdown/status/escalation/history outputs under `$ARTIFACT_ROOT`.
-6. Refresh docs (`docs/TESTING_GUIDE.md`, `docs/development/TEST_SUITE_INDEX.md`, `docs/fix_plan.md`) and maintainer comms (`inbox/response_dose_experiments_ground_truth.md`, new `inbox/followup_dose_experiments_ground_truth_2026-01-23T060500Z.md`) so they cite the per-actor thresholds + latest logs. Copy this loop’s Turn Summary into `$ARTIFACT_ROOT/summary.md` when done.
+1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && export ARTIFACT_ROOT=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z && mkdir -p "$ARTIFACT_ROOT"/{logs,inbox_history,inbox_status,inbox_sla_watch} to stage the new drop.
+2. Update plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py — augment scan_inbox with an `ack_actor_summary` dict (critical/warning/ok/unknown buckets plus entry metadata), thread it through write_json_summary consumers (Markdown summary, status snippet, escalation note, CLI stdout) so each output gains a concise “Ack Actor SLA Summary” section that spells out which actor is late versus within SLA, and keep newline/Markdown sanitization consistent.
+3. Add tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_summary_flags_breach next to the other SLA tests; reuse create_inbox_file fixtures, run the CLI with both ack actors + overrides, and assert the JSON bucket contents, Markdown summary text, and stdout lines mention the correct actor names, thresholds, and severity words.
+4. Run pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_summary_flags_breach -q | tee "$ARTIFACT_ROOT/logs/pytest_ack_actor_summary.log", followed by pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_summary_flags_breach -q | tee "$ARTIFACT_ROOT/logs/pytest_ack_actor_summary_collect.log" and pytest tests/test_generic_loader.py::test_generic_loader -q | tee "$ARTIFACT_ROOT/logs/pytest_loader.log".
+5. Execute the capture command above so JSON/Markdown/status/escalation/history outputs under "$ARTIFACT_ROOT" clearly indicate Maintainer <2> is "critical" (3.7h > 2.0h) while Maintainer <3> remains "ok" under the 6.0h override; ensure --fail-when-breached propagates exit code 2.
+6. Update docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, docs/fix_plan.md Attempts, inbox/response_dose_experiments_ground_truth.md (add a 2026-01-23T070500Z status, cite summary files + tarball SHA), and write inbox/followup_dose_experiments_ground_truth_2026-01-23T070500Z.md that quotes the new summary; then copy this loop’s Turn Summary into "$ARTIFACT_ROOT/summary.md" once everything passes.
 
 Pitfalls To Avoid
-- Do not touch production modules; limit edits to `plans/active/DEBUG-SIM-LINES-DOSE-001`, `tests/tools/`, `docs/`, and `inbox/`.
-- Normalise actor aliases before storing thresholds so "Maintainer <2>" and `maintainer_2` map to the same override key.
-- Overrides must work even if `--sla-hours` is omitted or set to a different number; default back to the global threshold instead of leaving fields unset.
-- Keep Markdown tables backward compatible (ASCII pipes, no tabs) and ensure actors without inbound still show `sla_severity="unknown"` and `threshold` values.
-- The CLI capture should be the only command that exits 2; all pytest/doc updates must exit 0.
-- Preserve existing history JSONL/Markdown headers; append new rows rather than rewriting prior evidence.
-- When updating docs, cite the new log paths under `.../2026-01-23T060500Z/logs/` so future loops can trace the selector quickly.
-- In maintainer notes, continue referencing the tarball SHA and loader pytest log so Maintainer <2> has no excuse to reject the evidence.
+- Keep the existing Ack Actor Coverage tables and history writers intact; the new summary is additive.
+- Do not treat Maintainer <3> as acknowledged unless keywords match; the summary must honor the ack_actors + keywords filters.
+- Preserve Markdown sanitization so summary bullets never leak pipes/newlines into tables.
+- Ensure CLI stdout still exits 2 when `--fail-when-breached` is set; don’t mask the exit code when printing the new summary.
+- Append to history JSONL/Markdown instead of truncating earlier entries (the new scan should become the latest row only).
+- Record the `ack_actor_sla_hours` overrides in the JSON summary and mention them inside the maintainer docs/follow-up to keep provenance clear.
+- Keep paths under plans/active/DEBUG-SIM-LINES-DOSE-001/; never touch production modules or user-owned data directories.
+- Maintain deterministic ordering (critical → warning → ok → unknown) so tests aren’t flaky.
 
 If Blocked
-- Stop immediately, capture the failing command + stderr via `tee "$ARTIFACT_ROOT/logs/blocker.log"`, and document the blocker in `docs/fix_plan.md` Attempts and `galph_memory.md` so we can decide whether to escalate or pivot focus.
+- Capture the failing command + stderr with `tee "$ARTIFACT_ROOT/logs/blocker.log"`, stop further edits, and log the blocker + error signature inside docs/fix_plan.md Attempts plus galph_memory.md so we can decide whether to escalate or pivot focus.
 
 Findings Applied (Mandatory)
 - No relevant findings in the knowledge base.
 
 Pointers
-- docs/fix_plan.md:745 — DEBUG-SIM-LINES-DOSE-001.F1 TODO + new per-actor SLA override scope.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py:279 — `scan_inbox()`/Markdown logic to extend with override support.
-- tests/tools/test_check_inbox_for_ack_cli.py:1086 — Existing per-actor SLA regression to model when adding the override test.
-- docs/TESTING_GUIDE.md:19 — Inbox acknowledgement CLI selectors that must mention the new override test/logs.
-- docs/development/TEST_SUITE_INDEX.md:13 — Test registry entry listing each selector/log for the inbox CLI.
-- inbox/response_dose_experiments_ground_truth.md:200 — Maintainer status timeline that needs the 2026-01-23T060500Z update plus per-actor threshold notes.
+- docs/fix_plan.md:700 — Current DEBUG-SIM-LINES-DOSE-001.F1 attempts + SLA instrumentation scope.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py:320 — scan_inbox + downstream writers that need the new summary.
+- tests/tools/test_check_inbox_for_ack_cli.py:1321 — Latest per-actor SLA test to mirror when adding the summary regression.
+- docs/TESTING_GUIDE.md:150 — Inbox acknowledgement CLI selectors/log references that must mention the new summary test path.
+- inbox/response_dose_experiments_ground_truth.md:198 — Maintainer status log to extend with the 2026-01-23T070500Z summary + artifact links.
 
 Next Up (optional)
-- Once overrides land, consider wiring a cron-friendly wrapper so we can capture SLA deltas hourly without manual execution.
+- If Maintainer <2> acknowledges after this drop, close DEBUG-SIM-LINES-DOSE-001.F1 by logging the reply and archiving the SLA monitor artifacts.
 
 Doc Sync Plan (Conditional)
-- After tests pass, run `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_overrides_thresholds -q | tee "$ARTIFACT_ROOT/logs/pytest_sla_override_collect.log"`, then update docs/TESTING_GUIDE.md and docs/development/TEST_SUITE_INDEX.md with the new selector + log.
+- After the new test passes, run `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_summary_flags_breach -q | tee "$ARTIFACT_ROOT/logs/pytest_ack_actor_summary_collect.log"`, then update docs/TESTING_GUIDE.md §Inbox acknowledgement CLI and docs/development/TEST_SUITE_INDEX.md with the selector + log path before finishing the loop.
 
 Mapped Tests Guardrail
-- Ensure `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_overrides_thresholds -q` collects (>0); treat collection failures as blockers before finishing the loop.
+- Treat any failure of `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_summary_flags_breach -q` as a blocker—collection must succeed before shipping this loop.
 
 Normative Math/Physics
-- Not applicable — no changes to the physics spec; cite the spec via docs/TESTING_GUIDE.md references when describing CLI usage.
+- Not applicable; reference docs/TESTING_GUIDE.md for CLI behavior rather than the physics specs.

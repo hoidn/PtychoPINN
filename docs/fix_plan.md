@@ -950,3 +950,12 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 **Next Actions:**
 - F1 remains open; Maintainer <2> has not yet acknowledged the bundle
 - Per-actor SLA threshold overrides now available for differentiated SLA monitoring
+
+### 2026-01-23T07:05Z — DEBUG-SIM-LINES-DOSE-001.F1 (per-actor SLA summary scoped)
+**Action:** Validated the per-actor SLA override implementation inside `check_inbox_for_ack.py` and reread `inbox/response_dose_experiments_ground_truth.md`. The Maintainer status log still stops at the 2026-01-23T023500Z dashboard drop, so Maintainer <1> has to open the full Markdown tables to learn which actor is currently blocking the SLA. We need a compact per-actor SLA summary field so the CLI, status snippet, and escalation note can immediately list critical/warning actors, making the next follow-up note and maintainer response easier to author.
+
+**Next Actions:**
+- Extend `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py::scan_inbox` (plus downstream writers) with an `ack_actor_summary` structure that groups actors by severity (critical/warning/ok/unknown) and includes hours since inbound + threshold text for each entry.
+- Add `tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_sla_summary_flags_breach` to lock the summary JSON, Markdown bullet list, and CLI stdout phrasing.
+- Re-run the CLI with `--ack-actor "Maintainer <2>" --ack-actor "Maintainer <3>" --sla-hours 2.5 --ack-actor-sla "Maintainer <2>=2.0" --ack-actor-sla "Maintainer <3>=6.0" --fail-when-breached` so the new summary shows Maintainer <2> as critical while Maintainer <3> remains OK, capturing outputs under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/`.
+- Update `docs/TESTING_GUIDE.md`, `docs/development/TEST_SUITE_INDEX.md`, `docs/fix_plan.md`, `inbox/response_dose_experiments_ground_truth.md`, and author `inbox/followup_dose_experiments_ground_truth_2026-01-23T070500Z.md` referencing the per-actor summary so Maintainer <2> cannot miss the SLA breach evidence.
