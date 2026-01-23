@@ -1,0 +1,539 @@
+{
+  "scenario_id": "PGRID-20250826-P1E5-T1024",
+  "dataset_root": "photon_grid_study_20250826_152459",
+  "baseline_params_path": "photon_grid_study_20250826_152459/results_p1e5/train_1024/trial_1/baseline_run/08-26-2025-16.38.17_baseline_gs1/08-26-2025-16.38.17_baseline_gs1/params.dill",
+  "key_params": {
+    "N": 64,
+    "gridsize": 1,
+    "nimgs_train": 9,
+    "nimgs_test": 3,
+    "batch_size": 16,
+    "nepochs": 50,
+    "mae_weight": 0.0,
+    "nll_weight": 1.0,
+    "default_probe_scale": 0.7,
+    "intensity_scale.trainable": true,
+    "probe.trainable": false,
+    "probe.mask": false,
+    "label": "baseline_gs1",
+    "output_prefix": "photon_grid_study_20250826_152459/results_p1e5/train_1024/trial_1/baseline_run/08-26-2025-16.38.17_baseline_gs1/",
+    "nphotons_in_params": 1000000000.0,
+    "timestamp": "08/26/2025, 16:38:17",
+    "intensity_scale_value": 988.2117309570312
+  },
+  "metrics": {
+    "mae": [
+      0.009555337950587273,
+      5.383314755677803e-07
+    ],
+    "ms_ssim": [
+      0.9248283504927667,
+      0.9206066691470206
+    ],
+    "psnr": [
+      71.31782569943988,
+      158.0586950815841
+    ],
+    "frc50": [
+      6.0,
+      NaN
+    ],
+    "mse": [
+      0.004800624679774046,
+      1.0167422039907489e-11
+    ]
+  },
+  "datasets": [
+    {
+      "filename": "data_p1e3.npz",
+      "path": "photon_grid_study_20250826_152459/data_p1e3.npz",
+      "sha256": "f9fa3f9f3f1cf8fc181f9c391b5acf15247ba3f25ed54fe6aaf9809388a860b2",
+      "photon_dose": "1e3",
+      "arrays": {
+        "xcoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "xcoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "diff3d": {
+          "shape": [
+            5000,
+            64,
+            64
+          ],
+          "dtype": "float32"
+        },
+        "probeGuess": {
+          "shape": [
+            64,
+            64
+          ],
+          "dtype": "complex128"
+        },
+        "objectGuess": {
+          "shape": [
+            232,
+            232
+          ],
+          "dtype": "complex128"
+        },
+        "scan_index": {
+          "shape": [
+            5000
+          ],
+          "dtype": "int64"
+        },
+        "ground_truth_patches": {
+          "shape": [
+            5000,
+            64,
+            64,
+            1
+          ],
+          "dtype": "complex64"
+        }
+      },
+      "size_bytes": 5087727
+    },
+    {
+      "filename": "data_p1e4.npz",
+      "path": "photon_grid_study_20250826_152459/data_p1e4.npz",
+      "sha256": "1cce1fe9596a82290bffc3cd6116f43cfed17abe7339503dd849ec5826378402",
+      "photon_dose": "1e4",
+      "arrays": {
+        "xcoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "xcoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "diff3d": {
+          "shape": [
+            5000,
+            64,
+            64
+          ],
+          "dtype": "float32"
+        },
+        "probeGuess": {
+          "shape": [
+            64,
+            64
+          ],
+          "dtype": "complex128"
+        },
+        "objectGuess": {
+          "shape": [
+            232,
+            232
+          ],
+          "dtype": "complex128"
+        },
+        "scan_index": {
+          "shape": [
+            5000
+          ],
+          "dtype": "int64"
+        },
+        "ground_truth_patches": {
+          "shape": [
+            5000,
+            64,
+            64,
+            1
+          ],
+          "dtype": "complex64"
+        }
+      },
+      "size_bytes": 11609223
+    },
+    {
+      "filename": "data_p1e5.npz",
+      "path": "photon_grid_study_20250826_152459/data_p1e5.npz",
+      "sha256": "01007daf8afc67aad3ad037e93077ba8bfb28b58d07e17a1e539bd202ffa0d95",
+      "photon_dose": "1e5",
+      "arrays": {
+        "xcoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "xcoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "diff3d": {
+          "shape": [
+            5000,
+            64,
+            64
+          ],
+          "dtype": "float32"
+        },
+        "probeGuess": {
+          "shape": [
+            64,
+            64
+          ],
+          "dtype": "complex128"
+        },
+        "objectGuess": {
+          "shape": [
+            232,
+            232
+          ],
+          "dtype": "complex128"
+        },
+        "scan_index": {
+          "shape": [
+            5000
+          ],
+          "dtype": "int64"
+        },
+        "ground_truth_patches": {
+          "shape": [
+            5000,
+            64,
+            64,
+            1
+          ],
+          "dtype": "complex64"
+        }
+      },
+      "size_bytes": 17387332
+    },
+    {
+      "filename": "data_p1e6.npz",
+      "path": "photon_grid_study_20250826_152459/data_p1e6.npz",
+      "sha256": "95cfd6aee6b2c061e2a8fbe62a824274165e39e0c4514e4537ee1fecf7a79f64",
+      "photon_dose": "1e6",
+      "arrays": {
+        "xcoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "xcoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "diff3d": {
+          "shape": [
+            5000,
+            64,
+            64
+          ],
+          "dtype": "float32"
+        },
+        "probeGuess": {
+          "shape": [
+            64,
+            64
+          ],
+          "dtype": "complex128"
+        },
+        "objectGuess": {
+          "shape": [
+            232,
+            232
+          ],
+          "dtype": "complex128"
+        },
+        "scan_index": {
+          "shape": [
+            5000
+          ],
+          "dtype": "int64"
+        },
+        "ground_truth_patches": {
+          "shape": [
+            5000,
+            64,
+            64,
+            1
+          ],
+          "dtype": "complex64"
+        }
+      },
+      "size_bytes": 25836417
+    },
+    {
+      "filename": "data_p1e7.npz",
+      "path": "photon_grid_study_20250826_152459/data_p1e7.npz",
+      "sha256": "9902ae24e90d2fa63bebf7830a538868cea524fab9cb15a512509803a9896251",
+      "photon_dose": "1e7",
+      "arrays": {
+        "xcoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "xcoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "diff3d": {
+          "shape": [
+            5000,
+            64,
+            64
+          ],
+          "dtype": "float32"
+        },
+        "probeGuess": {
+          "shape": [
+            64,
+            64
+          ],
+          "dtype": "complex128"
+        },
+        "objectGuess": {
+          "shape": [
+            232,
+            232
+          ],
+          "dtype": "complex128"
+        },
+        "scan_index": {
+          "shape": [
+            5000
+          ],
+          "dtype": "int64"
+        },
+        "ground_truth_patches": {
+          "shape": [
+            5000,
+            64,
+            64,
+            1
+          ],
+          "dtype": "complex64"
+        }
+      },
+      "size_bytes": 37272817
+    },
+    {
+      "filename": "data_p1e8.npz",
+      "path": "photon_grid_study_20250826_152459/data_p1e8.npz",
+      "sha256": "56b4f66a92aa28b2983757417cad008ef14c45c796b2d61d9e366aae3a3d55cf",
+      "photon_dose": "1e8",
+      "arrays": {
+        "xcoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "xcoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "diff3d": {
+          "shape": [
+            5000,
+            64,
+            64
+          ],
+          "dtype": "float32"
+        },
+        "probeGuess": {
+          "shape": [
+            64,
+            64
+          ],
+          "dtype": "complex128"
+        },
+        "objectGuess": {
+          "shape": [
+            232,
+            232
+          ],
+          "dtype": "complex128"
+        },
+        "scan_index": {
+          "shape": [
+            5000
+          ],
+          "dtype": "int64"
+        },
+        "ground_truth_patches": {
+          "shape": [
+            5000,
+            64,
+            64,
+            1
+          ],
+          "dtype": "complex64"
+        }
+      },
+      "size_bytes": 46610537
+    },
+    {
+      "filename": "data_p1e9.npz",
+      "path": "photon_grid_study_20250826_152459/data_p1e9.npz",
+      "sha256": "3e1f229af34525a7a912c9c62fa8df6ab87c69528572686a34de4d2640c57c4a",
+      "photon_dose": "1e9",
+      "arrays": {
+        "xcoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "xcoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "diff3d": {
+          "shape": [
+            5000,
+            64,
+            64
+          ],
+          "dtype": "float32"
+        },
+        "probeGuess": {
+          "shape": [
+            64,
+            64
+          ],
+          "dtype": "complex128"
+        },
+        "objectGuess": {
+          "shape": [
+            232,
+            232
+          ],
+          "dtype": "complex128"
+        },
+        "scan_index": {
+          "shape": [
+            5000
+          ],
+          "dtype": "int64"
+        },
+        "ground_truth_patches": {
+          "shape": [
+            5000,
+            64,
+            64,
+            1
+          ],
+          "dtype": "complex64"
+        }
+      },
+      "size_bytes": 57972050
+    }
+  ],
+  "total_datasets": 7
+}
