@@ -1030,7 +1030,11 @@ def append_history_markdown(results: dict, output_path: Path) -> None:
         f.write(f"| {gen_utc} | {ack} | {hrs_in_str} | {hrs_out_str} | {breach_str} | {severity} | {actor_severity_str} | {ack_files_str} |\n")
 
 
-def write_status_snippet(results: dict, output_path: Path) -> None:
+def write_status_snippet(
+    results: dict,
+    output_path: Path,
+    breach_timeline_lines: list = None
+) -> None:
     """
     Write a concise Markdown status snippet summarizing current wait state.
 
@@ -1042,6 +1046,14 @@ def write_status_snippet(results: dict, output_path: Path) -> None:
     - Ack files (if any)
     - Notes
     - Condensed timeline table
+    - Ack Actor Breach Timeline (if breach_timeline_lines provided)
+
+    Args:
+        results: Scan results dictionary
+        output_path: Path to write the snippet
+        breach_timeline_lines: Optional list of Markdown lines from
+            _build_actor_breach_timeline_section(), added when --history-jsonl
+            is provided. Skipped entirely when None (history logging disabled).
 
     The output file is overwritten (not appended) to provide a single,
     idempotent snapshot of current status.
@@ -1230,6 +1242,10 @@ def write_status_snippet(results: dict, output_path: Path) -> None:
             lines.append(f"| {ts_short} | {actor} | {direction} | {ack_label} |")
         lines.append("")
 
+    # Ack Actor Breach Timeline section (only when history logging enabled)
+    if breach_timeline_lines:
+        lines.extend(breach_timeline_lines)
+
     # Write the snippet (overwrite mode for idempotency)
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
@@ -1238,7 +1254,8 @@ def write_status_snippet(results: dict, output_path: Path) -> None:
 def write_escalation_note(
     results: dict,
     output_path: Path,
-    recipient: str = "Maintainer <2>"
+    recipient: str = "Maintainer <2>",
+    breach_timeline_lines: list = None
 ) -> None:
     """
     Write a Markdown escalation note when SLA is breached.
@@ -1249,6 +1266,15 @@ def write_escalation_note(
     - Action Items (what needs to happen)
     - Proposed Message (blockquote with prefilled text for the follow-up)
     - Timeline (condensed table of messages)
+    - Ack Actor Breach Timeline (if breach_timeline_lines provided)
+
+    Args:
+        results: Scan results dictionary
+        output_path: Path to write the escalation note
+        recipient: Label for the escalation recipient
+        breach_timeline_lines: Optional list of Markdown lines from
+            _build_actor_breach_timeline_section(), added when --history-jsonl
+            is provided. Skipped entirely when None (history logging disabled).
 
     If ack is already detected or no SLA info exists, the note indicates
     "No escalation required" instead of a breach warning.
@@ -1492,6 +1518,10 @@ def write_escalation_note(
             ack_label = "Yes" if t.get("ack") else "No"
             lines.append(f"| {ts_short} | {actor} | {direction} | {ack_label} |")
         lines.append("")
+
+    # Ack Actor Breach Timeline section (only when history logging enabled)
+    if breach_timeline_lines:
+        lines.extend(breach_timeline_lines)
 
     # Write the escalation note (overwrite mode for idempotency)
     with open(output_path, "w", encoding="utf-8") as f:
@@ -1954,10 +1984,28 @@ def main():
     write_markdown_summary(results, md_path)
 
     # Append to history files if specified
+    breach_timeline_lines = None  # Only populated when history JSONL is enabled
     if args.history_jsonl:
         history_jsonl_path = Path(args.history_jsonl)
         append_history_jsonl(results, history_jsonl_path)
         print(f"History JSONL appended: {history_jsonl_path}")
+
+        # Read back the JSONL to build breach timeline for snippet/escalation note
+        # (read AFTER append so newest entry is included)
+        history_entries = []
+        if history_jsonl_path.exists():
+            with open(history_jsonl_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                        history_entries.append(entry)
+                    except json.JSONDecodeError:
+                        continue
+        if history_entries:
+            breach_timeline_lines = _build_actor_breach_timeline_section(history_entries)
 
     if args.history_markdown:
         history_md_path = Path(args.history_markdown)
@@ -1974,13 +2022,16 @@ def main():
     # Write status snippet if specified
     if args.status_snippet:
         status_snippet_path = Path(args.status_snippet)
-        write_status_snippet(results, status_snippet_path)
+        write_status_snippet(results, status_snippet_path, breach_timeline_lines)
         print(f"Status snippet written: {status_snippet_path}")
 
     # Write escalation note if specified
     if args.escalation_note:
         escalation_note_path = Path(args.escalation_note)
-        write_escalation_note(results, escalation_note_path, args.escalation_recipient)
+        write_escalation_note(
+            results, escalation_note_path, args.escalation_recipient,
+            breach_timeline_lines
+        )
         print(f"Escalation note written: {escalation_note_path}")
 
     # Print summary

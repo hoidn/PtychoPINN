@@ -384,12 +384,15 @@ def test_status_snippet_emits_wait_summary(tmp_path):
     2. Snippet contains "Ack Detected: No" since no ack was received
     3. Snippet contains SLA breach note when threshold is exceeded
     4. Snippet contains a timeline row for Maintainer <2>
+    5. Without --history-jsonl: no "Ack Actor Breach Timeline" section
+    6. With --history-jsonl: "Ack Actor Breach Timeline" section with Maintainer 2 row
     """
     inbox_dir = tmp_path / "inbox"
     inbox_dir.mkdir()
     output_dir = tmp_path / "output"
     output_dir.mkdir()
     status_snippet_path = tmp_path / "status.md"
+    history_jsonl_path = tmp_path / "history.jsonl"
 
     # Create inbound message from Maintainer <2> (3 hours ago, no ack)
     inbound_content = """# Request: dose_experiments_ground_truth
@@ -413,13 +416,15 @@ Bundle delivered at reports/dose_experiments_ground_truth/
 """
     create_inbox_file(inbox_dir, "response_dose_experiments_ground_truth.md", outbound_content, -1.0)
 
-    # Run CLI with --status-snippet and --sla-hours
+    # Run 1: Without --history-jsonl — breach timeline section should be absent
     result = subprocess.run(
         [
             sys.executable, str(CLI_SCRIPT),
             "--inbox", str(inbox_dir),
             "--request-pattern", "dose_experiments_ground_truth",
             "--sla-hours", "2.0",
+            "--ack-actor", "Maintainer <2>",
+            "--ack-actor-sla", "Maintainer <2>=2.0",
             "--status-snippet", str(status_snippet_path),
             "--output", str(output_dir)
         ],
@@ -453,24 +458,58 @@ Bundle delivered at reports/dose_experiments_ground_truth/
     assert "Maintainer 2" in snippet_content, \
         "Snippet missing timeline row for Maintainer <2>"
 
-    # Verify snippet is idempotent (running again should overwrite, not append)
+    # Without --history-jsonl, the breach timeline section should NOT be present
+    assert "## Ack Actor Breach Timeline" not in snippet_content, \
+        "Breach timeline section should not appear when --history-jsonl is omitted"
+
+    # Run 2: With --history-jsonl — breach timeline section should be present
+    status_snippet_path2 = tmp_path / "status_with_history.md"
     result2 = subprocess.run(
         [
             sys.executable, str(CLI_SCRIPT),
             "--inbox", str(inbox_dir),
             "--request-pattern", "dose_experiments_ground_truth",
             "--sla-hours", "2.0",
-            "--status-snippet", str(status_snippet_path),
+            "--ack-actor", "Maintainer <2>",
+            "--ack-actor-sla", "Maintainer <2>=2.0",
+            "--status-snippet", str(status_snippet_path2),
+            "--history-jsonl", str(history_jsonl_path),
             "--output", str(output_dir / "run2")
         ],
         capture_output=True,
         text=True
     )
-    assert result2.returncode == 0
+    assert result2.returncode == 0, f"CLI run 2 failed: {result2.stderr}"
 
-    snippet_content2 = status_snippet_path.read_text()
+    snippet_content2 = status_snippet_path2.read_text()
+
+    # With --history-jsonl, the breach timeline section SHOULD be present
+    assert "## Ack Actor Breach Timeline" in snippet_content2, \
+        "Breach timeline section should appear when --history-jsonl is provided"
+
+    # Should include Maintainer 2 row in the breach timeline table
+    # The table has columns: Actor | Breach Start | Latest Scan | Current Streak | Hours Past SLA | Severity
+    assert "Maintainer" in snippet_content2, \
+        "Breach timeline should include Maintainer row"
+
+    # Verify idempotency: running again should overwrite, not append
+    result3 = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--sla-hours", "2.0",
+            "--status-snippet", str(status_snippet_path2),
+            "--output", str(output_dir / "run3")
+        ],
+        capture_output=True,
+        text=True
+    )
+    assert result3.returncode == 0
+
+    snippet_content3 = status_snippet_path2.read_text()
     # Should have exactly one header (not duplicated)
-    assert snippet_content2.count("# Maintainer Status Snapshot") == 1, \
+    assert snippet_content3.count("# Maintainer Status Snapshot") == 1, \
         "Snippet header should appear exactly once (idempotent)"
 
 
@@ -488,12 +527,15 @@ def test_escalation_note_emits_call_to_action(tmp_path):
     3. Note contains "SLA Breach" text when threshold is exceeded
     4. Note contains blockquote call-to-action referencing the recipient and request pattern
     5. Note contains a timeline row for the messages
+    6. Without --history-jsonl: no "Ack Actor Breach Timeline" section
+    7. With --history-jsonl: "Ack Actor Breach Timeline" section with Maintainer 2 row
     """
     inbox_dir = tmp_path / "inbox"
     inbox_dir.mkdir()
     output_dir = tmp_path / "output"
     output_dir.mkdir()
     escalation_note_path = tmp_path / "escalation_note.md"
+    history_jsonl_path = tmp_path / "history.jsonl"
 
     # Create inbound message from Maintainer <2> (3 hours ago, no ack)
     inbound_content = """# Request: dose_experiments_ground_truth
@@ -517,13 +559,15 @@ Bundle delivered at reports/dose_experiments_ground_truth/
 """
     create_inbox_file(inbox_dir, "response_dose_experiments_ground_truth.md", outbound_content, -1.0)
 
-    # Run CLI with --escalation-note, --escalation-recipient, and --sla-hours
+    # Run 1: Without --history-jsonl — breach timeline section should be absent
     result = subprocess.run(
         [
             sys.executable, str(CLI_SCRIPT),
             "--inbox", str(inbox_dir),
             "--request-pattern", "dose_experiments_ground_truth",
             "--sla-hours", "2.0",
+            "--ack-actor", "Maintainer <2>",
+            "--ack-actor-sla", "Maintainer <2>=2.0",
             "--escalation-note", str(escalation_note_path),
             "--escalation-recipient", "Maintainer <2>",
             "--output", str(output_dir)
@@ -574,25 +618,59 @@ Bundle delivered at reports/dose_experiments_ground_truth/
     assert "Maintainer 2" in note_content, \
         "Note missing timeline row for Maintainer <2>"
 
-    # Verify escalation note is idempotent (running again should overwrite, not append)
+    # Without --history-jsonl, the breach timeline section should NOT be present
+    assert "## Ack Actor Breach Timeline" not in note_content, \
+        "Breach timeline section should not appear when --history-jsonl is omitted"
+
+    # Run 2: With --history-jsonl — breach timeline section should be present
+    escalation_note_path2 = tmp_path / "escalation_note_with_history.md"
     result2 = subprocess.run(
         [
             sys.executable, str(CLI_SCRIPT),
             "--inbox", str(inbox_dir),
             "--request-pattern", "dose_experiments_ground_truth",
             "--sla-hours", "2.0",
-            "--escalation-note", str(escalation_note_path),
+            "--ack-actor", "Maintainer <2>",
+            "--ack-actor-sla", "Maintainer <2>=2.0",
+            "--escalation-note", str(escalation_note_path2),
             "--escalation-recipient", "Maintainer <2>",
+            "--history-jsonl", str(history_jsonl_path),
             "--output", str(output_dir / "run2")
         ],
         capture_output=True,
         text=True
     )
-    assert result2.returncode == 0
+    assert result2.returncode == 0, f"CLI run 2 failed: {result2.stderr}"
 
-    note_content2 = escalation_note_path.read_text()
+    note_content2 = escalation_note_path2.read_text()
+
+    # With --history-jsonl, the breach timeline section SHOULD be present
+    assert "## Ack Actor Breach Timeline" in note_content2, \
+        "Breach timeline section should appear when --history-jsonl is provided"
+
+    # Should include Maintainer row in the breach timeline table
+    assert "Maintainer" in note_content2, \
+        "Breach timeline should include Maintainer row"
+
+    # Verify idempotency: running again should overwrite, not append
+    result3 = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--sla-hours", "2.0",
+            "--escalation-note", str(escalation_note_path2),
+            "--escalation-recipient", "Maintainer <2>",
+            "--output", str(output_dir / "run3")
+        ],
+        capture_output=True,
+        text=True
+    )
+    assert result3.returncode == 0
+
+    note_content3 = escalation_note_path2.read_text()
     # Should have exactly one header (not duplicated)
-    assert note_content2.count("# Escalation Note") == 1, \
+    assert note_content3.count("# Escalation Note") == 1, \
         "Escalation note header should appear exactly once (idempotent)"
 
 

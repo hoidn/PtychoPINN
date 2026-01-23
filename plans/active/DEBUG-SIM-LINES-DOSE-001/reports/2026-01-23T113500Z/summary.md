@@ -1,5 +1,5 @@
 ### Turn Summary
-Scoped the status snippet + escalation note breach timeline work so Maintainers can read streak ages without opening the dashboard.
-Updated docs/fix_plan.md and input.md with the 2026-01-23T113500Z plan covering code/test/doc steps plus the new CLI capture instructions.
-Next: Ralph updates check_inbox_for_ack.py, extends the snippet/escalation tests, runs the mapped pytest selectors, and captures the inbox artifacts under this timestamp.
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T113500Z/
+Implemented embedded breach timeline in status snippet and escalation note outputs when `--history-jsonl` is provided; section is absent when history logging disabled.
+Resolved the feature by extending `write_status_snippet` and `write_escalation_note` to accept optional `breach_timeline_lines` parameter, populated from `_build_actor_breach_timeline_section()` after JSONL append.
+Next: await Maintainer <2> acknowledgement or prepare escalation template for Maintainer <3> if no response.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T113500Z/ (status_snippet.md, escalation_note.md, pytest logs)

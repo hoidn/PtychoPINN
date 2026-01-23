@@ -1175,3 +1175,43 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - Add `tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_actor_severity_trends` that runs the CLI twice with history logging/dashboard enabled and asserts the new section lists Maintainer <2>/<3> with the correct severity counts.
 - After landing the code/tests, update `docs/TESTING_GUIDE.md` + `docs/development/TEST_SUITE_INDEX.md` with the new selector, run `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_actor_severity_trends -q` plus the full CLI suite and `pytest tests/test_generic_loader.py::test_generic_loader -q`, then execute the CLI against `inbox/` with all SLA/actor flags to populate `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T093500Z/`.
 - Refresh `inbox/response_dose_experiments_ground_truth.md` and author `inbox/followup_dose_experiments_ground_truth_2026-01-23T093500Z.md` citing the new per-actor severity trends so Maintainer <2> (and <3>, if escalated) can see the sustained breach without parsing raw logs.
+
+### 2026-01-23T11:35Z — DEBUG-SIM-LINES-DOSE-001.F1 (embedded breach timeline shipped)
+**Action:** Extended `check_inbox_for_ack.py` to embed the "Ack Actor Breach Timeline" section directly in the status snippet and escalation note outputs when `--history-jsonl` is provided. This allows Maintainers <2>/<3> to review per-actor breach streak data without opening the history dashboard separately.
+
+**Changes:**
+1. Updated `write_status_snippet()` signature to accept optional `breach_timeline_lines` parameter
+2. Updated `write_escalation_note()` signature to accept optional `breach_timeline_lines` parameter  
+3. Modified `main()` to read back JSONL after append and call `_build_actor_breach_timeline_section()` when history logging is enabled
+4. Breach timeline section appended to both outputs only when `--history-jsonl` is provided (compact mode preserved for one-off scans)
+
+**Tests:**
+- Extended `test_status_snippet_emits_wait_summary` to verify breach timeline absent without `--history-jsonl`, present with it
+- Extended `test_escalation_note_emits_call_to_action` to verify breach timeline absent without `--history-jsonl`, present with it
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_status_snippet_emits_wait_summary -q` — 1 passed (0.14s)
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_note_emits_call_to_action -q` — 1 passed (0.14s)
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` — 19 passed (1.13s)
+- `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.52s)
+
+**CLI Run (exit code 2 expected — SLA breached):**
+- Files scanned: 8
+- Hours since last inbound: 4.99
+- SLA threshold (Maintainer <2>): 2.00 hours
+- Hours past SLA: 2.99 hours
+- Current breach streak: 1
+
+**Doc Updates:**
+- `docs/TESTING_GUIDE.md`: Updated Status Snippet and Escalation Note sections to document breach timeline behavior
+- `docs/development/TEST_SUITE_INDEX.md`: Updated log paths and descriptions
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T113500Z/inbox_status/status_snippet.md` (with breach timeline)
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T113500Z/inbox_status/escalation_note.md` (with breach timeline)
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T113500Z/inbox_history/inbox_history_dashboard.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T113500Z/logs/pytest_*.log`
+- `inbox/response_dose_experiments_ground_truth.md` (updated with 2026-01-23T11:35Z status block)
+- `inbox/followup_dose_experiments_ground_truth_2026-01-23T113500Z.md` (new follow-up note)
+
+**Next Actions:**
+- F1 remains open; Maintainer <2> has not yet acknowledged the bundle (SLA breach: 2.99 hours past threshold, severity: critical)
+- If Maintainer <2> ignores after this drop, prep escalation template for Maintainer <3> pulling breach streak from snippet

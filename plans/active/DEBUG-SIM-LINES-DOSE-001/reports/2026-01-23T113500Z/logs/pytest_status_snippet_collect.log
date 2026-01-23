@@ -1,0 +1,3 @@
+tests/tools/test_check_inbox_for_ack_cli.py::test_status_snippet_emits_wait_summary
+
+1 test collected in 0.11s

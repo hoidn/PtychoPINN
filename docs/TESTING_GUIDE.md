@@ -46,7 +46,7 @@ Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T015222Z
 
 ### Inbox Acknowledgement CLI (Status Snippet)
 
-The CLI also supports generating a Markdown status snippet via the `--status-snippet` flag. This snippet provides a concise summary of the current wait state, including ack status, hours since inbound/outbound, SLA breach status, and a timeline table. To run the status snippet test:
+The CLI also supports generating a Markdown status snippet via the `--status-snippet` flag. This snippet provides a concise summary of the current wait state, including ack status, hours since inbound/outbound, SLA breach status, and a timeline table. When `--history-jsonl` is provided, the snippet also includes an "Ack Actor Breach Timeline" section showing per-actor breach start, latest scan, consecutive streak, hours past SLA, and severity. To run the status snippet test:
 
 - `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_status_snippet_emits_wait_summary -q`
 
@@ -56,12 +56,14 @@ This selector validates:
 - Snippet includes SLA breach indicator when threshold is exceeded
 - Snippet includes a timeline table with Maintainer <2> entries
 - Snippet is idempotent (overwrites rather than appends)
+- Without `--history-jsonl`: no "Ack Actor Breach Timeline" section
+- With `--history-jsonl`: "Ack Actor Breach Timeline" section shows per-actor breach data
 
-Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T015222Z/logs/pytest_status_snippet.log`
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T113500Z/logs/pytest_status_snippet.log`
 
 ### Inbox Acknowledgement CLI (Escalation Note)
 
-The CLI also supports generating a Markdown escalation note via the `--escalation-note` flag. This note provides a prefilled follow-up draft when SLA is breached, including Summary Metrics, SLA Watch, Action Items, a Proposed Message blockquote, and a Timeline. To run the escalation note test:
+The CLI also supports generating a Markdown escalation note via the `--escalation-note` flag. This note provides a prefilled follow-up draft when SLA is breached, including Summary Metrics, SLA Watch, Action Items, a Proposed Message blockquote, and a Timeline. When `--history-jsonl` is provided, the note also includes an "Ack Actor Breach Timeline" section showing per-actor breach start, latest scan, consecutive streak, hours past SLA, and severity. To run the escalation note test:
 
 - `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_note_emits_call_to_action -q`
 
@@ -73,8 +75,10 @@ This selector validates:
 - Note includes a timeline table with message entries
 - Note is idempotent (overwrites rather than appends)
 - Note shows "No Escalation Required" when SLA is not breached
+- Without `--history-jsonl`: no "Ack Actor Breach Timeline" section
+- With `--history-jsonl`: "Ack Actor Breach Timeline" section shows per-actor breach data
 
-Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/logs/pytest_escalation_note.log`
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T113500Z/logs/pytest_escalation_note.log`
 
 ### Inbox Acknowledgement CLI (History Dashboard)
 
