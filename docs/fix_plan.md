@@ -232,6 +232,12 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - B1 complete; B2 (provenance table polish) may be skipped since provenance table already included
 - Proceed to C1: package datasets + baseline outputs into final bundle location
 
+### 2026-01-23T00:28Z — DEBUG-SIM-LINES-DOSE-001.C1 (packaging scope ready)
+**Action:** Reviewed the Phase-A manifest + README outputs and confirmed the remaining gap is delivering the requested bundle under `reports/2026-01-22T014445Z/dose_experiments_ground_truth/`. Captured the requirements for a new packaging CLI that copies each manifest entry into simulation/training/inference/docs folders, verifies SHA256 parity, and writes JSON/MD verification logs plus a `.tar.gz` archive. While reviewing the README generator, spotted that the inference command points to a non-existent baseline path instead of the `pinn_run/wts.h5.zip` recorded in the manifest, so the upcoming loop must also patch `generate_legacy_readme.py::build_readme` to source the model path from the manifest.
+
+**Next Actions:**
+- Implement `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/package_ground_truth_bundle.py` + README fix, run it to copy the NPZ/baseline/pinn files into the final drop, generate tarball + verification logs under `reports/2026-01-23T002823Z/`, and re-run `pytest tests/test_generic_loader.py::test_generic_loader -q`.
+
 ## TODOs
 - [x] S4: Expand the D0 parity Markdown report to list stage-level stats for every dataset and document the new test selector (`tests/tools/test_d0_parity_logger.py`) inside `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.
 - [x] S3: Promote D0 parity logger into `scripts/tools/` with stage-level stats + tests, then capture artifacts for photon_grid_study_20250826_152459

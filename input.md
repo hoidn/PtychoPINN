@@ -1,45 +1,46 @@
-Summary: Capture a maintainer-ready README that documents the photon_grid_study_20250826_152459 simulate→train→infer flow and ties every artifact back to the manifest so Maintainer <2> can rerun dose_experiments without touching production code.
-Focus: DEBUG-SIM-LINES-DOSE-001 — Legacy dose_experiments ground-truth bundle
+Summary: Finish DEBUG-SIM-LINES-DOSE-001 Phase C by fixing the README generator's inference section and packaging the photon_grid_study_20250826_152459 datasets + baseline outputs into the maintainer drop with verification logs and a tarball checksum.
+Focus: DEBUG-SIM-LINES-DOSE-001.C1/C2 — Legacy dose_experiments ground-truth bundle
 Branch: dose_experiments
 Mapped tests: pytest tests/test_generic_loader.py::test_generic_loader -q
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001931Z/
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/
 
 Do Now (hard validity contract)
-- Focus ID: DEBUG-SIM-LINES-DOSE-001.B1
-- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py::main — new CLI that loads the Phase-A manifest JSON plus `plans/active/seed/reports/2026-01-22T024002Z/dose_baseline_summary.json`, then emits `README.md` in the artifacts path with (1) scenario/env overview, (2) canonical simulate/train/infer commands from `inbox/response_prepare_d0_response.md`, (3) environment warnings about TF/Keras 2.x per maintainer request, and (4) a provenance table mapping every dataset/baseline/inference artifact to size + SHA256 straight from the manifest so specs/data_contracts.md §RawData NPZ remains satisfied.
+- Focus ID: DEBUG-SIM-LINES-DOSE-001.C1/C2
+- Implement: plans/active/DEBUG-SIM-LINES-DOSE-001/bin/package_ground_truth_bundle.py::main — new CLI that ingests the Phase-A manifest + README, copies every dataset/baseline/pinn artifact into `reports/2026-01-22T014445Z/dose_experiments_ground_truth/` (simulation/training/inference/docs layout), re-hashes sources vs manifest entries, writes `bundle_verification.json`/`.md`, and emits a `.tar.gz` plus SHA256 file; plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py::build_readme — load the manifest + new `bundle_verification.json` so the inference command uses the manifest `pinn_weights` path and a new "Delivery Artifacts" section lists the drop root + tarball size/SHA256.
 - Pytest: pytest tests/test_generic_loader.py::test_generic_loader -q
-- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001931Z/
+- Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/
 
 How-To Map
-1. `mkdir -p plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001931Z && rsync -a plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/ground_truth_manifest.* plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001931Z/` — keep the README, manifest, and CSV beside each other for Maintainer <2>.
-2. Author `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py` using argparse + pathlib: load the manifest JSON, fold dataset/baseline/pinn entries into stage records (Simulation vs Training vs Inference), pull metric + parameter details from `dose_baseline_summary.json`, and render Markdown sections (Overview → Environment requirements referencing maintainer's TF/Keras 2.x constraint → Simulation command block referencing `notebooks/dose_dependence.ipynb`/`notebooks/dose.py` → Training/inference bash blocks from the maintainer response → Artifact provenance table driven by manifest data). Include inline spec cites (e.g., `specs/data_contracts.md §RawData NPZ`) in the README text so reviewers trace requirements.
-3. `python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py --manifest plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/ground_truth_manifest.json --baseline-summary plans/active/seed/reports/2026-01-22T024002Z/dose_baseline_summary.json --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001931Z | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001931Z/generate_readme.log` — verify the README includes the command sections, environment callouts, and the provenance table (size MB + SHA columns).
-4. `pytest tests/test_generic_loader.py::test_generic_loader -q | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001931Z/pytest_loader.log` — proves NPZ references in the README still match a loader that queries specs/data_contracts.md §RawData NPZ (see docs/TESTING_GUIDE.md for selector context).
+1. Export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md for the session. Remove any stale bundle to avoid mixed files: `rm -rf plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth` and recreate via the packaging CLI (it will build simulation/training/inference/docs itself).
+2. `python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/package_ground_truth_bundle.py --manifest-json plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/ground_truth_manifest.json --manifest-md plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/ground_truth_manifest.md --baseline-summary plans/active/seed/reports/2026-01-22T024002Z/dose_baseline_summary.json --readme plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001931Z/README.md --drop-root plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth --reports-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z --tarball plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth.tar.gz | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/package_bundle.log` — script must: create simulation/training/inference/docs dirs, copy all seven NPZs plus params.dill/baseline_model.h5/recon.dill/wts.h5.zip, compute SHA256 for sources + copies, assert they match the manifest hashes, emit `bundle_verification.json` + `.md` under the reports dir, and write the tarball + `.sha256` next to the drop.
+3. `python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py --manifest plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001018Z/ground_truth_manifest.json --baseline-summary plans/active/seed/reports/2026-01-22T024002Z/dose_baseline_summary.json --bundle-verification plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/bundle_verification.json --delivery-root plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth --output-dir plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/generate_readme.log` — verify the inference command path now matches the manifest `pinn_weights` entry and the new Section 8 reports tarball size/SHA256 from the verification JSON.
+4. `cp plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/README.md plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/docs/README.md` so the final bundle ships with the refreshed README alongside the manifest MD/JSON and baseline summary.
+5. `pytest tests/test_generic_loader.py::test_generic_loader -q | tee plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/pytest_loader.log` — confirms the datasets referenced by the manifest (and now copied into simulation/) still satisfy specs/data_contracts.md §RawData NPZ.
 
 Pitfalls To Avoid
-- No edits under shipped packages (`ptycho/*`, `scripts/*.py`, etc.); keep all new code inside `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/`.
-- Do not hand-type dataset sizes or hashes: always source from the manifest JSON to avoid drift.
-- Keep README commands relative to repo root so Maintainer <2> can copy/paste without rewriting paths.
-- Call out the TF/Keras 3.x incompatibility noted in the request so expectations are clear.
-- Reference the exact spec sections (e.g., `specs/data_contracts.md §RawData NPZ`) instead of paraphrasing the schema.
-- Preserve ASCII-only Markdown; avoid Unicode probes or em dashes in headings.
-- Store every CLI/stdout log under the artifacts path; nothing should land in repo root or /tmp.
-- Do not copy the 200 MB datasets into the new report directory yet; README + manifest only this loop.
-- Ensure argparse rejects missing files early so any manifest path typo surfaces fast.
-- Keep dataset provenance table sorted by photon dose (data_p1e3 → data_p1e9) for readability.
+- Keep all new scripts and logs inside `plans/active/DEBUG-SIM-LINES-DOSE-001/`; do not touch shipped modules or global tooling.
+- Do not hard-code tarball checksums or dataset hashes; always recompute from the manifest entries and copied files before writing verification logs.
+- Ensure the packaging CLI preserves device-neutral behavior (no TF imports) and streams file copies with `shutil.copy2` so metadata is retained.
+- Copy datasets/baseline artifacts exactly once—no lossy conversions or `.npz` extraction.
+- The README's inference command must use `manifest['pinn_weights']['relative_path']`; pointing at the baseline directory is incorrect.
+- When generating the tarball use `shutil.make_archive` or `tarfile` so the entire `dose_experiments_ground_truth/` folder (including docs) is captured; do not tar the reports directory itself.
+- Capture every CLI stdout/stderr via `tee` into the artifacts path; maintainer review depends on those logs.
+- Avoid `sudo`, `pip install`, or environment mutations; Environment Freeze applies.
+- Large dataset copies will consume ~200 MB—ensure disk space exists before starting and prefer chunked hashing to avoid loading NPZs into memory.
+- If the drop path already exists, remove it before copying so no stale files sneak into the tarball.
 
 If Blocked
-- If the manifest or baseline summary cannot be read, stop, collect the stack trace + `ls -l` of the offending path into `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T001931Z/blocker.md`, update `docs/fix_plan.md` Attempts History with the failure signature, and ping Galph before retrying.
+- If hashing or copy verification fails, write the failing path + traceback into `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T002823Z/blocker.md`, keep the partial bundle untouched for inspection, and update `docs/fix_plan.md` Attempts History plus `galph_memory.md` with the error signature while awaiting guidance.
 
 Findings Applied (Mandatory)
 - No relevant findings in the knowledge base.
 
 Pointers
-- inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md:1 — maintainer scope + preferred drop path.
-- inbox/response_prepare_d0_response.md:1 — authoritative simulate/train/infer commands + metrics to cite.
-- specs/data_contracts.md:3 — NPZ key requirements for datasets listed in the README.
-- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:18 — Phase B checklist + dependencies.
-- docs/TESTING_GUIDE.md:1 — pytest selector reference for `tests/test_generic_loader.py`.
+- docs/fix_plan.md:6 — DEBUG-SIM-LINES-DOSE-001 scope and remaining C1/C2 checklist.
+- plans/active/DEBUG-SIM-LINES-DOSE-001/implementation.md:34 — Phase C requirements for the packaging + tarball verification.
+- inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md:1 — Maintainer drop path and artifact expectations.
+- specs/data_contracts.md:3 — Required NPZ keys to double-check after copying datasets.
+- docs/TESTING_GUIDE.md:1 — Pytest selector reference for `tests/test_generic_loader.py::test_generic_loader`.
 
 Next Up (optional)
-- DEBUG-SIM-LINES-DOSE-001.B2 — polish provenance table + doc cross-links if Maintainer <2> needs additional columns once README lands.
+- If time remains, draft the maintainer handoff note referencing the tarball SHA and drop location so DEBUG-SIM-LINES-DOSE-001 can close once they acknowledge receipt.

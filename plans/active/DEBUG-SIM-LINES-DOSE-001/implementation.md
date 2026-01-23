@@ -4,7 +4,7 @@
 - **ID:** DEBUG-SIM-LINES-DOSE-001
 - **Title:** Package photon_grid_study_20250826 baseline artifacts for Maintainer <2>
 - **Owner:** Galph (supervisor) / Ralph (implementation)
-- **Status:** Active — Phase A
+- **Status:** Active — Phase C
 - **Linked Request:** `inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md`
 - **Artifacts Hub:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/`
 
@@ -28,12 +28,12 @@
 - [x] A2: Re-ran `pytest tests/test_generic_loader.py::test_generic_loader -q` with logs under `reports/2026-01-23T001018Z/pytest_loader.log` to prove the manifest's NPZ references still load.
 
 ### Phase B — README + Command Blueprint
-- [ ] B1: Author `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<ts>/README.md` detailing simulate→train→infer commands, config overrides, and environment expectations derived from `notebooks/dose_dependence.ipynb` and `inbox/response_prepare_d0_response.md`.
-- [ ] B2: Include a provenance table mapping each artifact (datasets, params, weights, reconstructions) to its source path, checksum, and stage (simulation/training/inference).
+- [x] B1: Authored `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py` and emitted `reports/2026-01-23T001931Z/README.md` covering simulate→train→infer commands plus environment prerequisites (TF/Keras 2.x guardrails).
+- [x] B2: README includes provenance tables for datasets/baseline artifacts sourced from `ground_truth_manifest.json` with SHA256 + size metadata sorted by photon dose.
 
 ### Phase C — Artifact Drop
-- [ ] C1: Copy the required NPZ datasets and baseline outputs into `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-22T014445Z/dose_experiments_ground_truth/`, preserving directory structure (simulation/, training/, inference/ subfolders) and recording SHA verification logs.
-- [ ] C2: (If bundle exceeds repo-friendly size) generate a `.tar.gz` with identical contents plus manifest, then capture its checksum + size in the README.
+- [ ] C1: Add `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/package_ground_truth_bundle.py` that loads the Phase-A manifest + README, copies every dataset/baseline/pinn artifact into `reports/2026-01-22T014445Z/dose_experiments_ground_truth/` under simulation/training/inference/docs subfolders, and emits JSON/MD verification logs with manifest-vs-copy SHA matches.
+- [ ] C2: Use the packaging CLI to produce a `.tar.gz` of the final drop alongside checksum metadata so we can deliver a single archive and cite its size + SHA256 to the maintainer.
 
 ## Dependency Analysis
 - Uses existing photon_grid_study_20250826_152459 datasets and baseline outputs already present under the repo root; no production code changes or new dependencies required.
