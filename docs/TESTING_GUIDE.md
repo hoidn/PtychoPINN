@@ -59,6 +59,23 @@ This selector validates:
 
 Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T015222Z/logs/pytest_status_snippet.log`
 
+### Inbox Acknowledgement CLI (Escalation Note)
+
+The CLI also supports generating a Markdown escalation note via the `--escalation-note` flag. This note provides a prefilled follow-up draft when SLA is breached, including Summary Metrics, SLA Watch, Action Items, a Proposed Message blockquote, and a Timeline. To run the escalation note test:
+
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_note_emits_call_to_action -q`
+
+This selector validates:
+- `--escalation-note` flag writes a Markdown file with "Escalation Note" heading
+- Note includes Summary Metrics with ack status
+- Note includes SLA breach indicator and warning text when threshold is exceeded
+- Note includes blockquote call-to-action referencing the recipient and request pattern
+- Note includes a timeline table with message entries
+- Note is idempotent (overwrites rather than appends)
+- Note shows "No Escalation Required" when SLA is not breached
+
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/logs/pytest_escalation_note.log`
+
 ## Test Areas
 
 - `tests/tools/`: CLI and tooling tests (e.g., D0 parity logger).

@@ -91,6 +91,18 @@ def parse_args():
         default=None,
         help="Path to write a Markdown status snippet summarizing current wait state"
     )
+    parser.add_argument(
+        "--escalation-note",
+        type=str,
+        default=None,
+        help="Path to write a Markdown escalation note when SLA is breached"
+    )
+    parser.add_argument(
+        "--escalation-recipient",
+        type=str,
+        default="Maintainer <2>",
+        help="Recipient name for the escalation note (default: Maintainer <2>)"
+    )
     return parser.parse_args()
 
 
@@ -727,6 +739,180 @@ def write_status_snippet(results: dict, output_path: Path) -> None:
         f.write("\n".join(lines))
 
 
+def write_escalation_note(
+    results: dict,
+    output_path: Path,
+    recipient: str = "Maintainer <2>"
+) -> None:
+    """
+    Write a Markdown escalation note when SLA is breached.
+
+    The escalation note includes:
+    - Summary Metrics (ack status, hours waiting, message counts)
+    - SLA Watch (threshold, breach status, notes)
+    - Action Items (what needs to happen)
+    - Proposed Message (blockquote with prefilled text for the follow-up)
+    - Timeline (condensed table of messages)
+
+    If ack is already detected or no SLA info exists, the note indicates
+    "No escalation required" instead of a breach warning.
+
+    The output file is overwritten (not appended) to provide a single,
+    idempotent escalation draft.
+    """
+    # Ensure parent directory exists
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    wc = results.get("waiting_clock", {})
+    sla = results.get("sla_watch", {})
+    timeline = results.get("timeline", [])
+    params = results.get("parameters", {})
+    request_pattern = params.get("request_pattern", "unknown")
+
+    # Compute hours since inbound for the proposed message
+    hrs_in = wc.get("hours_since_last_inbound")
+    hrs_in_str = f"{hrs_in:.2f}" if hrs_in is not None else "N/A"
+
+    lines = [
+        "# Escalation Note",
+        "",
+        f"**Generated:** {results.get('generated_utc', 'N/A')}",
+        f"**Recipient:** {sanitize_for_markdown(recipient)}",
+        f"**Request Pattern:** `{sanitize_for_markdown(request_pattern)}`",
+        "",
+    ]
+
+    # Check if escalation is needed
+    ack_detected = results.get("ack_detected", False)
+    sla_breached = sla.get("breached", False) if sla else False
+
+    if ack_detected:
+        lines.extend([
+            "## Status: No Escalation Required",
+            "",
+            "Acknowledgement has been received. No further action needed.",
+            "",
+        ])
+    elif not sla:
+        lines.extend([
+            "## Status: No Escalation Required",
+            "",
+            "No SLA information available (--sla-hours not specified).",
+            "",
+        ])
+    elif not sla_breached:
+        lines.extend([
+            "## Status: No Escalation Required",
+            "",
+            f"SLA has not been breached. Current wait: {hrs_in_str} hours (threshold: {sla.get('threshold_hours', 'N/A')} hours).",
+            "",
+        ])
+    else:
+        # SLA breach - full escalation note
+        lines.extend([
+            "## Status: SLA Breach - Escalation Required",
+            "",
+        ])
+
+    # Summary Metrics section
+    hrs_out = wc.get("hours_since_last_outbound")
+    hrs_out_str = f"{hrs_out:.2f}" if hrs_out is not None else "N/A"
+
+    lines.extend([
+        "## Summary Metrics",
+        "",
+        "| Metric | Value |",
+        "|--------|-------|",
+        f"| Ack Detected | {'Yes' if ack_detected else 'No'} |",
+        f"| Hours Since Last Inbound | {hrs_in_str} |",
+        f"| Hours Since Last Outbound | {hrs_out_str} |",
+        f"| Total Inbound Messages | {wc.get('total_inbound_count', 0)} |",
+        f"| Total Outbound Messages | {wc.get('total_outbound_count', 0)} |",
+        "",
+    ])
+
+    # SLA Watch section
+    if sla:
+        threshold = sla.get("threshold_hours")
+        threshold_str = f"{threshold:.2f}" if threshold is not None else "N/A"
+        breach_str = "Yes" if sla_breached else "No"
+        notes = sanitize_for_markdown(sla.get("notes", ""))
+
+        lines.extend([
+            "## SLA Watch",
+            "",
+            "| Metric | Value |",
+            "|--------|-------|",
+            f"| Threshold | {threshold_str} hours |",
+            f"| Breached | {breach_str} |",
+            "",
+            f"**Notes:** {notes}",
+            "",
+        ])
+
+        if sla_breached:
+            lines.extend([
+                "> **SLA BREACH:** Immediate attention required.",
+                "",
+            ])
+
+    # Action Items section (only when breach)
+    if sla_breached and not ack_detected:
+        lines.extend([
+            "## Action Items",
+            "",
+            f"1. Send follow-up message to {sanitize_for_markdown(recipient)} requesting acknowledgement",
+            f"2. Reference the `{sanitize_for_markdown(request_pattern)}` request pattern",
+            f"3. Cite SLA breach: {hrs_in_str} hours since last inbound exceeds threshold",
+            "4. Request explicit confirmation or next steps",
+            "",
+        ])
+
+    # Proposed Message section (only when breach)
+    if sla_breached and not ack_detected:
+        lines.extend([
+            "## Proposed Message",
+            "",
+            "The following blockquote can be used as a starting point for the follow-up:",
+            "",
+            "> **Follow-up: Acknowledgement Request**",
+            ">",
+            f"> Hello {sanitize_for_markdown(recipient)},",
+            ">",
+            f"> This is a follow-up regarding the `{sanitize_for_markdown(request_pattern)}` request.",
+            f"> It has been approximately **{hrs_in_str} hours** since the last inbound message,",
+            "> which exceeds our SLA threshold.",
+            ">",
+            "> Could you please confirm receipt of the delivered artifacts and provide any feedback?",
+            ">",
+            "> If there are any issues or blockers, please let us know so we can assist.",
+            ">",
+            "> Thank you,",
+            "> Maintainer <1>",
+            "",
+        ])
+
+    # Timeline section
+    if timeline:
+        lines.extend([
+            "## Timeline",
+            "",
+            "| Timestamp | Actor | Direction | Ack |",
+            "|-----------|-------|-----------|-----|",
+        ])
+        for t in timeline:
+            ts_short = t.get("timestamp_utc", "")[:19]  # Trim to readable length
+            actor = t.get("actor", "unknown").replace("_", " ").title()
+            direction = t.get("direction", "unknown").capitalize()
+            ack_label = "Yes" if t.get("ack") else "No"
+            lines.append(f"| {ts_short} | {actor} | {direction} | {ack_label} |")
+        lines.append("")
+
+    # Write the escalation note (overwrite mode for idempotency)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+
 def main():
     """Main entry point."""
     args = parse_args()
@@ -785,6 +971,12 @@ def main():
         status_snippet_path = Path(args.status_snippet)
         write_status_snippet(results, status_snippet_path)
         print(f"Status snippet written: {status_snippet_path}")
+
+    # Write escalation note if specified
+    if args.escalation_note:
+        escalation_note_path = Path(args.escalation_note)
+        write_escalation_note(results, escalation_note_path, args.escalation_recipient)
+        print(f"Escalation note written: {escalation_note_path}")
 
     # Print summary
     print(f"Files scanned: {results['scanned']}")

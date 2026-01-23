@@ -582,6 +582,53 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - Update `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md` with the new selector + artifact log path once code/tests pass.
 - Re-run the CLI against `inbox/` with `--sla-hours 2.0`, status/history flags, and the new `--escalation-note` option, capturing outputs under `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/`.
 
+### 2026-01-23T02:09Z — DEBUG-SIM-LINES-DOSE-001.F1 (escalation note shipped)
+**Action:** Implemented `--escalation-note` CLI feature for `check_inbox_for_ack.py`:
+1. Added `--escalation-note <path>` and `--escalation-recipient <name>` argparse options
+2. Implemented `write_escalation_note()` helper that generates a Markdown escalation draft with:
+   - Summary Metrics table (ack status, hours since inbound/outbound, message counts)
+   - SLA Watch table (threshold, breach status) with notes
+   - Action Items checklist (when SLA breached)
+   - Proposed Message blockquote with prefilled follow-up text (when SLA breached)
+   - Timeline table with all matched messages
+3. Handles edge cases: ack detected, no SLA info, SLA not breached (shows "No Escalation Required")
+4. Created `test_escalation_note_emits_call_to_action` and `test_escalation_note_no_breach` tests
+
+**Tests:**
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` — 7 passed (0.41s)
+- `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.56s)
+
+**Collection:**
+- `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_note_emits_call_to_action -q` — 1 test collected
+
+**CLI Run (with --escalation-note):**
+- Files scanned: 5
+- Matches: 3
+- Last inbound: 2026-01-22T23:22:58Z
+- Hours since last inbound: 2.77
+- **SLA Breached: Yes** (2.77 > 2.00 threshold, no ack detected)
+- Acknowledgement detected: No
+
+**Doc Updates:**
+- `docs/TESTING_GUIDE.md`: Added "Inbox Acknowledgement CLI (Escalation Note)" section with new selector
+- `docs/development/TEST_SUITE_INDEX.md`: Added `test_escalation_note_emits_call_to_action` selector + log path
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/logs/pytest_escalation_note.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/logs/pytest_escalation_note_collect.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/logs/pytest_check_inbox_suite.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/logs/pytest_loader.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/inbox_status/escalation_note.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/inbox_status/status_snippet.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/inbox_sla_watch/inbox_scan_summary.json`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/inbox_sla_watch/inbox_scan_summary.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/inbox_history/inbox_sla_watch.jsonl`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/inbox_history/inbox_sla_watch.md`
+
+**Next Actions:**
+- F1 remains open; Maintainer <2> has not yet acknowledged the bundle
+- Escalation note now available for Maintainer <1> to send prefilled follow-up
+
 ## TODOs
 - [x] S4: Expand the D0 parity Markdown report to list stage-level stats for every dataset and document the new test selector (`tests/tools/test_d0_parity_logger.py`) inside `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.
 - [x] S3: Promote D0 parity logger into `scripts/tools/` with stage-level stats + tests, then capture artifacts for photon_grid_study_20250826_152459
@@ -591,4 +638,4 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - [x] DEBUG-SIM-LINES-DOSE-001.C2: Capture checksum verification logs for the final bundle (or tarball) and confirm size constraints / delivery instructions in `galph_memory.md` + maintainer inbox.
 - [x] DEBUG-SIM-LINES-DOSE-001.D1: Draft `inbox/response_dose_experiments_ground_truth.md` that cites the final drop root, README/manifest paths, bundle_verification logs, tarball SHA, and the validating `pytest tests/test_generic_loader.py::test_generic_loader -q` log so Maintainer <2> can close the request.
 - [x] DEBUG-SIM-LINES-DOSE-001.E1: Verify the tarball rehydration path by extracting `dose_experiments_ground_truth.tar.gz`, regenerating the manifest, diffing it against `reports/2026-01-23T001018Z/ground_truth_manifest.json`, logging the comparison under `reports/<ts>/rehydration_check/`, re-running `pytest tests/test_generic_loader.py::test_generic_loader -q`, and updating the maintainer response with the results.
-- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Inbox scan CLI extended with SLA watch + history logging + status snippet (`--sla-hours`, `--fail-when-breached`, `--history-jsonl`, `--history-markdown`, `--status-snippet`); latest scan at 2026-01-23T01:57Z shows SLA breach (2.58 hours > 2.00 threshold, no ack). Next step: add `--escalation-note` (plus optional `--escalation-recipient`) that emits a Markdown escalation draft with Summary Metrics, SLA Watch, Action Items, Proposed Message, and Timeline sections so Maintainer <1> can paste it into a follow-up note without manual stitching. Ship helper `write_escalation_note()`, add `tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_note_emits_call_to_action -q`, update `docs/TESTING_GUIDE.md` + `docs/development/TEST_SUITE_INDEX.md`, then run the CLI with all flags (including the new escalation note) into `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/`. Test selectors: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_flags_breach -q`, `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_logging_appends_entries -q`, `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_status_snippet_emits_wait_summary -q`, `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_note_emits_call_to_action -q`. See `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T015222Z/` for the last evidence drop.
+- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Inbox scan CLI now supports escalation note output via `--escalation-note` (plus optional `--escalation-recipient`). Latest scan at 2026-01-23T02:09Z shows SLA breach (2.77 hours > 2.00 threshold, no ack). Escalation note generated with Summary Metrics, SLA Watch, Action Items, Proposed Message blockquote, and Timeline. Test selectors: `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` (7 tests pass). See `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/` for the latest evidence drop including the escalation note.

@@ -1,0 +1,10 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.18, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho-tf/bin/python3.10
+cachedir: .pytest_cache
+rootdir: /home/ollie/Documents/PtychoPINN
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 1 item
+
+tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_note_emits_call_to_action PASSED [100%]
+
+============================== 1 passed in 0.11s ===============================

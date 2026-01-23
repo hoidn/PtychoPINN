@@ -20,3 +20,6 @@ This is a minimal index of key tests in this branch.
   - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_status_snippet_emits_wait_summary -q`
   - Tests `--status-snippet` flag for generating a Markdown status snapshot with ack status, SLA breach, and timeline.
   - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T015222Z/logs/pytest_status_snippet.log`
+  - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_note_emits_call_to_action -q`
+  - Tests `--escalation-note` flag for generating a Markdown escalation draft with Summary Metrics, SLA Watch, Action Items, Proposed Message blockquote, and Timeline.
+  - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/logs/pytest_escalation_note.log`

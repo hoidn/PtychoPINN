@@ -472,3 +472,177 @@ Bundle delivered at reports/dose_experiments_ground_truth/
     # Should have exactly one header (not duplicated)
     assert snippet_content2.count("# Maintainer Status Snapshot") == 1, \
         "Snippet header should appear exactly once (idempotent)"
+
+
+def test_escalation_note_emits_call_to_action(tmp_path):
+    """
+    Test --escalation-note flag generates a Markdown escalation draft.
+
+    Creates a synthetic inbox with:
+    - One inbound message from Maintainer <2> (3 hours old, no ack keywords)
+    - One outbound message from Maintainer <1> (1 hour old)
+
+    Asserts:
+    1. Escalation note file exists and contains "Escalation Note" heading
+    2. Note contains "Ack Detected" status in Summary Metrics
+    3. Note contains "SLA Breach" text when threshold is exceeded
+    4. Note contains blockquote call-to-action referencing the recipient and request pattern
+    5. Note contains a timeline row for the messages
+    """
+    inbox_dir = tmp_path / "inbox"
+    inbox_dir.mkdir()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    escalation_note_path = tmp_path / "escalation_note.md"
+
+    # Create inbound message from Maintainer <2> (3 hours ago, no ack)
+    inbound_content = """# Request: dose_experiments_ground_truth
+
+**From:** Maintainer <2>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T14:00:00Z
+
+Please provide the dose experiments ground truth bundle.
+"""
+    create_inbox_file(inbox_dir, "request_dose_experiments_ground_truth.md", inbound_content, -3.0)
+
+    # Create outbound response from Maintainer <1> (1 hour ago)
+    outbound_content = """# Response: dose_experiments_ground_truth
+
+**From:** Maintainer <1>
+**To:** Maintainer <2>
+**Date:** 2026-01-22T16:00:00Z
+
+Bundle delivered at reports/dose_experiments_ground_truth/
+"""
+    create_inbox_file(inbox_dir, "response_dose_experiments_ground_truth.md", outbound_content, -1.0)
+
+    # Run CLI with --escalation-note, --escalation-recipient, and --sla-hours
+    result = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--sla-hours", "2.0",
+            "--escalation-note", str(escalation_note_path),
+            "--escalation-recipient", "Maintainer <2>",
+            "--output", str(output_dir)
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    assert result.returncode == 0, f"CLI failed: {result.stderr}"
+
+    # Assert escalation note file exists
+    assert escalation_note_path.exists(), "Escalation note file not created"
+
+    # Read and validate escalation note content
+    note_content = escalation_note_path.read_text()
+
+    # Check for expected heading
+    assert "# Escalation Note" in note_content, \
+        "Note missing 'Escalation Note' heading"
+
+    # Check for ack status in Summary Metrics
+    assert "## Summary Metrics" in note_content, \
+        "Note missing 'Summary Metrics' section"
+    assert "| Ack Detected | No |" in note_content, \
+        "Note missing ack status in Summary Metrics"
+
+    # Check for SLA breach text (3 hours > 2.0 threshold)
+    assert "## SLA Watch" in note_content, \
+        "Note missing 'SLA Watch' section"
+    assert "| Breached | Yes |" in note_content, \
+        "Note missing SLA breach indicator"
+    assert "SLA BREACH" in note_content, \
+        "Note missing 'SLA BREACH' warning text"
+
+    # Check for blockquote call-to-action with recipient and request pattern
+    assert "## Proposed Message" in note_content, \
+        "Note missing 'Proposed Message' section"
+    assert "> Hello Maintainer <2>" in note_content, \
+        "Note missing recipient greeting in blockquote"
+    assert "dose_experiments_ground_truth" in note_content, \
+        "Note missing request pattern reference"
+    assert "> Could you please confirm receipt" in note_content, \
+        "Note missing confirmation request in blockquote"
+
+    # Check for timeline section
+    assert "## Timeline" in note_content, \
+        "Note missing Timeline section"
+    assert "Maintainer 2" in note_content, \
+        "Note missing timeline row for Maintainer <2>"
+
+    # Verify escalation note is idempotent (running again should overwrite, not append)
+    result2 = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--sla-hours", "2.0",
+            "--escalation-note", str(escalation_note_path),
+            "--escalation-recipient", "Maintainer <2>",
+            "--output", str(output_dir / "run2")
+        ],
+        capture_output=True,
+        text=True
+    )
+    assert result2.returncode == 0
+
+    note_content2 = escalation_note_path.read_text()
+    # Should have exactly one header (not duplicated)
+    assert note_content2.count("# Escalation Note") == 1, \
+        "Escalation note header should appear exactly once (idempotent)"
+
+
+def test_escalation_note_no_breach(tmp_path):
+    """
+    Test --escalation-note when SLA is not breached shows "No Escalation Required".
+
+    Creates a synthetic inbox with one recent inbound message (1 hour old)
+    and a 4-hour SLA threshold. Should indicate no escalation needed.
+    """
+    inbox_dir = tmp_path / "inbox"
+    inbox_dir.mkdir()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    escalation_note_path = tmp_path / "escalation_note.md"
+
+    # Create inbound message from Maintainer <2> (1 hour ago, no ack)
+    inbound_content = """# Request: dose_experiments_ground_truth
+
+**From:** Maintainer <2>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T16:00:00Z
+
+Please provide the dose experiments ground truth bundle.
+"""
+    create_inbox_file(inbox_dir, "request_dose_experiments_ground_truth.md", inbound_content, -1.0)
+
+    # Run CLI with --escalation-note and longer SLA threshold
+    result = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--sla-hours", "4.0",
+            "--escalation-note", str(escalation_note_path),
+            "--output", str(output_dir)
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    assert result.returncode == 0, f"CLI failed: {result.stderr}"
+    assert escalation_note_path.exists(), "Escalation note file not created"
+
+    note_content = escalation_note_path.read_text()
+
+    # Should indicate no escalation required
+    assert "No Escalation Required" in note_content, \
+        "Note should indicate 'No Escalation Required' when SLA not breached"
+
+    # Should NOT have the Proposed Message section
+    assert "## Proposed Message" not in note_content, \
+        "Note should not have Proposed Message when no breach"

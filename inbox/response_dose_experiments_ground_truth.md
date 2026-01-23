@@ -364,3 +364,54 @@ pytest tests/tools/test_check_inbox_for_ack_cli.py::test_status_snippet_emits_wa
 - Scan summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T015222Z/inbox_sla_watch/`
 - History logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T015222Z/inbox_history/`
 - Test logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T015222Z/logs/`
+
+---
+
+### Status as of 2026-01-23T021945Z (Escalation Note Feature)
+
+**Escalation note CLI feature added for prefilled follow-up drafts.**
+
+| Metric | Value |
+|--------|-------|
+| Last Inbound (from Maintainer <2>) | 2026-01-22T23:22:58Z |
+| Hours Since Last Inbound | 2.77 hours |
+| SLA Threshold | 2.00 hours |
+| **SLA Breached** | **Yes** |
+| Acknowledgement Detected | No |
+| Total Inbound Messages | 1 |
+| Total Outbound Messages | 2 |
+
+**CLI command (with --escalation-note):**
+```bash
+python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py \
+  --inbox inbox \
+  --request-pattern dose_experiments_ground_truth \
+  --sla-hours 2.0 \
+  --fail-when-breached \
+  --history-jsonl .../inbox_history/inbox_sla_watch.jsonl \
+  --history-markdown .../inbox_history/inbox_sla_watch.md \
+  --status-snippet .../inbox_status/status_snippet.md \
+  --escalation-note .../inbox_status/escalation_note.md \
+  --escalation-recipient "Maintainer <2>" \
+  --output plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/inbox_sla_watch
+```
+
+**New test selector:**
+```bash
+pytest tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_note_emits_call_to_action -q
+```
+
+**Escalation Note** (at `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/inbox_status/escalation_note.md`):
+- Contains "Escalation Note" heading with recipient and request pattern
+- Summary Metrics table (ack status, hours since inbound/outbound, message counts)
+- SLA Watch table with breach status and notes
+- Action Items checklist for the follow-up
+- Proposed Message blockquote with prefilled text for Maintainer <2>
+- Timeline table with all matched messages
+
+**Artifact paths:**
+- Escalation note: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/inbox_status/escalation_note.md`
+- Status snippet: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/inbox_status/status_snippet.md`
+- Scan summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/inbox_sla_watch/`
+- History logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/inbox_history/`
+- Test logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T021945Z/logs/`

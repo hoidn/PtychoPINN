@@ -1,0 +1,16 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.18, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho-tf/bin/python3.10
+cachedir: .pytest_cache
+rootdir: /home/ollie/Documents/PtychoPINN
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 7 items
+
+tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_flags_breach PASSED [ 14%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_with_ack_detected PASSED [ 28%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_no_inbound_messages PASSED [ 42%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_history_logging_appends_entries PASSED [ 57%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_status_snippet_emits_wait_summary PASSED [ 71%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_note_emits_call_to_action PASSED [ 85%]
+tests/tools/test_check_inbox_for_ack_cli.py::test_escalation_note_no_breach PASSED [100%]
+
+============================== 7 passed in 0.41s ===============================

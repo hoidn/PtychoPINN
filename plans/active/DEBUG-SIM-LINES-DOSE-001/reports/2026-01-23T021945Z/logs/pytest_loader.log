@@ -1,0 +1,33 @@
+.                                                                        [100%]
+=============================== warnings summary ===============================
+../../miniconda3/envs/ptycho-tf/lib/python3.10/site-packages/tensorflow_probability/python/__init__.py:57
+  /home/ollie/miniconda3/envs/ptycho-tf/lib/python3.10/site-packages/tensorflow_probability/python/__init__.py:57: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if (distutils.version.LooseVersion(tf.__version__) <
+
+../../miniconda3/envs/ptycho-tf/lib/python3.10/site-packages/tensorflow_probability/python/__init__.py:58
+  /home/ollie/miniconda3/envs/ptycho-tf/lib/python3.10/site-packages/tensorflow_probability/python/__init__.py:58: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    distutils.version.LooseVersion(required_tensorflow_version)):
+
+../../miniconda3/envs/ptycho-tf/lib/python3.10/site-packages/tensorflow_addons/utils/tfa_eol_msg.py:23
+  /home/ollie/miniconda3/envs/ptycho-tf/lib/python3.10/site-packages/tensorflow_addons/utils/tfa_eol_msg.py:23: UserWarning: 
+  
+  TensorFlow Addons (TFA) has ended development and introduction of new features.
+  TFA has entered a minimal maintenance and release mode until a planned end of life in May 2024.
+  Please modify downstream libraries to take dependencies from other repositories in our TensorFlow community (e.g. Keras, Keras-CV, and Keras-NLP). 
+  
+  For more information see: https://github.com/tensorflow/addons/issues/2807 
+  
+    warnings.warn(
+
+ptycho/xpp.py:2
+  /home/ollie/Documents/PtychoPINN/ptycho/xpp.py:2: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    import pkg_resources
+
+tests/test_generic_loader.py::test_generic_loader
+  /home/ollie/miniconda3/envs/ptycho-tf/lib/python3.10/site-packages/_pytest/python.py:161: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_generic_loader.py::test_generic_loader returned <class 'tuple'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 5 warnings in 2.56s
