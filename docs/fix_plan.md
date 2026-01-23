@@ -194,3 +194,7 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/make_ground_truth_manifest.py \
 ## TODOs
 - [x] S4: Expand the D0 parity Markdown report to list stage-level stats for every dataset and document the new test selector (`tests/tools/test_d0_parity_logger.py`) inside `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.
 - [x] S3: Promote D0 parity logger into `scripts/tools/` with stage-level stats + tests, then capture artifacts for photon_grid_study_20250826_152459
+- [ ] DEBUG-SIM-LINES-DOSE-001.B1: Produce the simulate→train→infer README plus command log for Maintainer <2> under a fresh `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<ts>/README.md`.
+- [ ] DEBUG-SIM-LINES-DOSE-001.B2: Extend the README with a provenance table mapping every dataset/baseline/inference artifact to its SHA256 + source stage, referencing the Phase A manifest.
+- [ ] DEBUG-SIM-LINES-DOSE-001.C1: Copy or package (tarball) the requested datasets + baseline outputs into `reports/2026-01-22T014445Z/dose_experiments_ground_truth/`, keeping the manifest + README in sync.
+- [ ] DEBUG-SIM-LINES-DOSE-001.C2: Capture checksum verification logs for the final bundle (or tarball) and confirm size constraints / delivery instructions in `galph_memory.md` + maintainer inbox.

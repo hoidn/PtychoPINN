@@ -24,8 +24,8 @@
 ## Phases & Checklists
 
 ### Phase A — Manifest + Verification
-- [ ] A1: Implement `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/make_ground_truth_manifest.py` to scan photon_grid_study_20250826_152459, collect SHA256 sums for datasets + baseline outputs, and emit `{json,md}` manifests plus CSV of file metadata.
-- [ ] A2: Add a pytest-backed smoke test (reuse `tests/test_generic_loader.py::test_generic_loader`) to confirm NPZ files referenced in the manifest still load; archive the log under the same reports directory.
+- [x] A1: Implemented `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/make_ground_truth_manifest.py` and captured JSON/MD/CSV manifests with SHA256 + dataset metadata (see `reports/2026-01-23T001018Z/ground_truth_manifest.*`).
+- [x] A2: Re-ran `pytest tests/test_generic_loader.py::test_generic_loader -q` with logs under `reports/2026-01-23T001018Z/pytest_loader.log` to prove the manifest's NPZ references still load.
 
 ### Phase B — README + Command Blueprint
 - [ ] B1: Author `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/<ts>/README.md` detailing simulate→train→infer commands, config overrides, and environment expectations derived from `notebooks/dose_dependence.ipynb` and `inbox/response_prepare_d0_response.md`.
