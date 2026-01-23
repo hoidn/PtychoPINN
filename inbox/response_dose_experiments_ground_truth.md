@@ -215,3 +215,31 @@ The bundle has been delivered and a follow-up note sent. We are awaiting Maintai
 **Scan details:** [`plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T013500Z/inbox_check/inbox_scan_summary.md`](plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T013500Z/inbox_check/inbox_scan_summary.md)
 
 **Tarball SHA256:** `7fe5e14ed9909f056807b77d5de56e729b8b79c8e5b8098ba50507f13780dd72` (unchanged)
+
+---
+
+### Status as of 2026-01-23T014900Z
+
+**Inbox scan with timeline + waiting-clock monitoring:**
+
+| Metric | Value |
+|--------|-------|
+| Last Inbound (from Maintainer <2>) | 2026-01-22T23:22:58Z |
+| Hours Since Last Inbound | 2.07 hours |
+| Last Outbound (from Maintainer <1>) | 2026-01-23T01:20:30Z |
+| Hours Since Last Outbound | 0.11 hours |
+| Total Inbound Messages | 1 |
+| Total Outbound Messages | 2 |
+| Acknowledgement Detected | No |
+
+**Timeline (chronological):**
+1. **2026-01-22T23:22:58Z** — Maintainer <2> (Inbound): Original request
+2. **2026-01-23T01:04:13Z** — Maintainer <1> (Outbound): Follow-up note
+3. **2026-01-23T01:20:30Z** — Maintainer <1> (Outbound): Response with bundle details
+
+**Status:** Still waiting for Maintainer <2>'s acknowledgement that:
+1. The tarball extracted correctly and SHA256 matches
+2. The datasets load without errors in their environment
+3. Any additional artifacts or documentation are needed
+
+**Scan details:** [`plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014900Z/inbox_check_timeline/inbox_scan_summary.md`](plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014900Z/inbox_check_timeline/inbox_scan_summary.md)

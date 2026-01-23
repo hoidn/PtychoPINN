@@ -1,5 +1,5 @@
 ### Turn Summary
-Scoped the next F1 loop so Ralph will extend the inbox scan CLI with direction-aware timeline metrics and rerun the loader pytest under a new evidence drop.
-Documented the waiting-clock requirements plus docs/fix_plan and maintainer-response updates so we can quantify how long Maintainer <2> has been silent.
-Next: Ralph updates check_inbox_for_ack.py, re-runs the CLI + pytest, and records the new timeline artifacts at 2026-01-23T014900Z.
-Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014900Z/ (input.md)
+Extended check_inbox_for_ack.py CLI with maintainer direction timeline tracking and waiting-clock metrics; JSON now includes `timeline` and `waiting_clock` fields.
+No acknowledgement from Maintainer <2> detected — last inbound was 2.07 hours ago (original request), last outbound was 0.11 hours ago (response + follow-up).
+Next: continue periodic scans or escalate if Maintainer <2> remains silent.
+Artifacts: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014900Z/ (inbox_check_timeline/, pytest_loader.log)

@@ -405,6 +405,34 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - F1 remains open; continue periodic inbox scans until Maintainer <2> acknowledges
 - If no ack after extended wait, consider Maintainer <1> escalation draft
 
+### 2026-01-23T01:49Z — DEBUG-SIM-LINES-DOSE-001.F1 (inbox scan with timeline + waiting-clock)
+**Action:** Extended `check_inbox_for_ack.py` CLI to track maintainer direction timeline and compute waiting-clock metrics:
+- Added `detect_actor_and_direction()` helper to identify sender (maintainer_1/maintainer_2) and direction (inbound/outbound)
+- `scan_inbox()` now builds a chronological `timeline` array and computes `waiting_clock` metrics (last_inbound_utc, last_outbound_utc, hours_since_*)
+- `write_markdown_summary()` now emits "Waiting Clock" and "Timeline" sections
+- JSON output includes new `timeline` and `waiting_clock` fields (backward-compatible)
+
+**Scan Results (2026-01-23T01:26:55Z):**
+- Files scanned: 5
+- Matches found: 3 (related to dose_experiments_ground_truth)
+- Last inbound (Maintainer <2>): 2026-01-22T23:22:58Z (original request)
+- Last outbound (Maintainer <1>): 2026-01-23T01:20:30Z (response + follow-up)
+- **Hours since last inbound:** 2.07 hours
+- **Hours since last outbound:** 0.11 hours
+- **Acknowledgement detected: No** — still waiting for Maintainer <2> reply
+
+**Test:** `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed, 5 warnings (2.54s)
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014900Z/inbox_check_timeline/inbox_scan_summary.json`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014900Z/inbox_check_timeline/inbox_scan_summary.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014900Z/inbox_check_timeline/check_inbox.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014900Z/pytest_loader.log`
+
+**Next Actions:**
+- F1 remains open; Maintainer <2> has not yet acknowledged (~2 hours since last inbound)
+- Continue periodic scans; escalate if no ack within reasonable timeframe
+
 ## TODOs
 - [x] S4: Expand the D0 parity Markdown report to list stage-level stats for every dataset and document the new test selector (`tests/tools/test_d0_parity_logger.py`) inside `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.
 - [x] S3: Promote D0 parity logger into `scripts/tools/` with stage-level stats + tests, then capture artifacts for photon_grid_study_20250826_152459
@@ -414,4 +442,4 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - [x] DEBUG-SIM-LINES-DOSE-001.C2: Capture checksum verification logs for the final bundle (or tarball) and confirm size constraints / delivery instructions in `galph_memory.md` + maintainer inbox.
 - [x] DEBUG-SIM-LINES-DOSE-001.D1: Draft `inbox/response_dose_experiments_ground_truth.md` that cites the final drop root, README/manifest paths, bundle_verification logs, tarball SHA, and the validating `pytest tests/test_generic_loader.py::test_generic_loader -q` log so Maintainer <2> can close the request.
 - [x] DEBUG-SIM-LINES-DOSE-001.E1: Verify the tarball rehydration path by extracting `dose_experiments_ground_truth.tar.gz`, regenerating the manifest, diffing it against `reports/2026-01-23T001018Z/ground_truth_manifest.json`, logging the comparison under `reports/<ts>/rehydration_check/`, re-running `pytest tests/test_generic_loader.py::test_generic_loader -q`, and updating the maintainer response with the results.
-- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Inbox scan CLI implemented (`check_inbox_for_ack.py`); latest scan at 2026-01-23T01:19:39Z shows no ack yet (3 matches, 0 acks). Re-run scan or check inbox for new files.
+- [ ] DEBUG-SIM-LINES-DOSE-001.F1: Await Maintainer <2> acknowledgement of the delivered bundle. Inbox scan CLI extended with timeline + waiting-clock features; latest scan at 2026-01-23T01:26:55Z shows no ack yet (hours_since_last_inbound: 2.07). See `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T014900Z/inbox_check_timeline/`.
