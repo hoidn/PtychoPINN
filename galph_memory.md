@@ -99,3 +99,7 @@ notes=Documented the per-actor SLA override scope (new --ack-actor-sla flag, reg
 ## 2026-01-23T070030Z
 focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=0 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T070500Z/ next_action=Ralph adds ack_actor_summary + tests/docs + reruns CLI per new input <Action State>=ready_for_implementation
 notes=git pull --rebase still blocked by the user’s dirty worktree; left untouched. Ran the 3-loop retrospective (audited the last per-actor SLA override drop + docs) and confirmed Maintainer <2> remains unresponsive. Scoped the next increment around a per-actor SLA summary (critical/warning/ok buckets), a regression test, refreshed CLI/docs artifacts, and a new follow-up note so Maintainer evidence stays current.
+
+## 2026-01-23T034157Z
+focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=1 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T083500Z/ next_action=Ralph persists ack_actor_summary data into history logs + runs new pytest + inbox capture <Action State>=ready_for_implementation
+notes=Added the per-actor severity history scope to docs/fix_plan.md, refreshed input.md with the new implementation/test/doc instructions, and staged the 2026-01-23T083500Z artifacts root so Ralph can ship the CLI/test/doc updates immediately.
