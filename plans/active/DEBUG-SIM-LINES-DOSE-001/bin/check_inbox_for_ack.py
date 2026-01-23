@@ -1026,6 +1026,20 @@ def append_history_jsonl(results: dict, output_path: Path) -> None:
     if ack_actor_summary:
         entry["ack_actor_summary"] = ack_actor_summary
 
+    # Include ack_actor_followups if present (per-actor outbound activity stats)
+    # Structure: {actor_id: {actor_label, last_outbound_utc, hours_since_last_outbound, outbound_count}}
+    ack_actor_stats = results.get("ack_actor_stats", {})
+    if ack_actor_stats:
+        ack_actor_followups = {}
+        for actor_id, stats in ack_actor_stats.items():
+            ack_actor_followups[actor_id] = {
+                "actor_label": actor_id.replace("_", " ").title(),
+                "last_outbound_utc": stats.get("last_outbound_utc"),
+                "hours_since_last_outbound": stats.get("hours_since_last_outbound"),
+                "outbound_count": stats.get("outbound_count", 0),
+            }
+        entry["ack_actor_followups"] = ack_actor_followups
+
     with open(output_path, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
 
@@ -1057,6 +1071,45 @@ def _format_ack_actor_severity_cell(ack_actor_summary: dict | None) -> str:
                 entry_str = f"[{sev.upper()}] {label} ({hrs_str}h > {threshold_str}h)"
 
             entries.append(entry_str)
+
+    if not entries:
+        return "-"
+
+    # Join with <br> for Markdown line breaks within cell
+    return "<br>".join(entries)
+
+
+def _format_ack_actor_followup_cell(ack_actor_followups: dict | None) -> str:
+    """
+    Format the ack_actor_followups into a string for Markdown table cell.
+
+    Returns entries like "M2: 2 outbound (1.5h ago); M3: 1 outbound (0.5h ago)"
+    joined by "; " to fit in a single cell without breaking the table.
+
+    Args:
+        ack_actor_followups: Dict of actor_id -> {actor_label, last_outbound_utc,
+            hours_since_last_outbound, outbound_count}
+
+    Returns:
+        Formatted string for table cell, or "-" if no data.
+    """
+    if not ack_actor_followups:
+        return "-"
+
+    entries = []
+    for actor_id in sorted(ack_actor_followups.keys()):
+        data = ack_actor_followups[actor_id]
+        label = data.get("actor_label", actor_id.replace("_", " ").title())
+        count = data.get("outbound_count", 0)
+        hrs = data.get("hours_since_last_outbound")
+
+        if count == 0:
+            # No outbound to this actor
+            continue
+
+        hrs_str = f"{hrs:.1f}h ago" if hrs is not None else "N/A"
+        entry_str = f"{label}: {count} ({hrs_str})"
+        entries.append(entry_str)
 
     if not entries:
         return "-"
@@ -1118,7 +1171,8 @@ def append_history_markdown(results: dict, output_path: Path) -> None:
 
     If the file doesn't exist or is empty, write the header first.
     Table columns: Generated (UTC) | Ack Detected | Hours Since Inbound |
-                   Hours Since Outbound | SLA Breach | Severity | Ack Actor Severity | Ack Files
+                   Hours Since Outbound | SLA Breach | Severity | Ack Actor Severity |
+                   Ack Actor Follow-Ups | Ack Files
     """
     # Ensure parent directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1132,8 +1186,8 @@ def append_history_markdown(results: dict, output_path: Path) -> None:
     with open(output_path, "a", encoding="utf-8") as f:
         if write_header:
             f.write("# Inbox Scan History\n\n")
-            f.write("| Generated (UTC) | Ack | Hrs Inbound | Hrs Outbound | SLA Breach | Severity | Ack Actor Severity | Ack Files |\n")
-            f.write("|-----------------|-----|-------------|--------------|------------|----------|--------------------|-----------|\n")
+            f.write("| Generated (UTC) | Ack | Hrs Inbound | Hrs Outbound | SLA Breach | Severity | Ack Actor Severity | Ack Actor Follow-Ups | Ack Files |\n")
+            f.write("|-----------------|-----|-------------|--------------|------------|----------|--------------------|-----------------------|-----------|\n")
 
         # Format values
         gen_utc = results.get("generated_utc", "")[:19]  # Trim to readable length
@@ -1156,10 +1210,25 @@ def append_history_markdown(results: dict, output_path: Path) -> None:
         # Sanitize pipes/newlines to not break the table
         actor_severity_str = sanitize_for_markdown(actor_severity_str)
 
+        # Format per-actor follow-up (outbound) activity
+        # Build followups dict from ack_actor_stats if present
+        ack_actor_stats = results.get("ack_actor_stats", {})
+        ack_actor_followups = {}
+        if ack_actor_stats:
+            for actor_id, stats in ack_actor_stats.items():
+                ack_actor_followups[actor_id] = {
+                    "actor_label": actor_id.replace("_", " ").title(),
+                    "last_outbound_utc": stats.get("last_outbound_utc"),
+                    "hours_since_last_outbound": stats.get("hours_since_last_outbound"),
+                    "outbound_count": stats.get("outbound_count", 0),
+                }
+        actor_followup_str = _format_ack_actor_followup_cell(ack_actor_followups)
+        actor_followup_str = sanitize_for_markdown(actor_followup_str)
+
         ack_files = results.get("ack_files", [])
         ack_files_str = ", ".join(sanitize_for_markdown(f) for f in ack_files) if ack_files else "-"
 
-        f.write(f"| {gen_utc} | {ack} | {hrs_in_str} | {hrs_out_str} | {breach_str} | {severity} | {actor_severity_str} | {ack_files_str} |\n")
+        f.write(f"| {gen_utc} | {ack} | {hrs_in_str} | {hrs_out_str} | {breach_str} | {severity} | {actor_severity_str} | {actor_followup_str} | {ack_files_str} |\n")
 
 
 def write_status_snippet(
@@ -2116,6 +2185,110 @@ def _sanitize_md(text: str) -> str:
     return text.replace("|", "\\|").replace("\n", " ").replace("\r", "")
 
 
+def _build_actor_followup_trends_section(entries: list[dict]) -> list[str]:
+    """
+    Build a Markdown section summarizing per-actor follow-up (outbound) trends.
+
+    Aggregates data from `ack_actor_followups` field across all history entries.
+    Reports: per-actor latest outbound UTC, hours since outbound (from most recent scan),
+    max outbound count observed, and number of scans reporting outbound traffic.
+
+    Args:
+        entries: List of JSONL history entries.
+
+    Returns:
+        List of Markdown lines for the "Ack Actor Follow-Up Trends" section.
+    """
+    lines = []
+
+    # Aggregate per-actor follow-up data
+    actor_trends = {}
+    entries_with_followups = 0
+
+    for entry in entries:
+        followups = entry.get("ack_actor_followups")
+        if not followups:
+            continue
+        entries_with_followups += 1
+
+        entry_ts = entry.get("generated_utc", "")
+
+        for actor_id, data in followups.items():
+            actor_label = data.get("actor_label", actor_id.replace("_", " ").title())
+            last_outbound = data.get("last_outbound_utc")
+            hrs_since = data.get("hours_since_last_outbound")
+            outbound_count = data.get("outbound_count", 0)
+
+            if actor_id not in actor_trends:
+                actor_trends[actor_id] = {
+                    "actor_label": actor_label,
+                    "latest_outbound_utc": None,
+                    "latest_hours_since_outbound": None,
+                    "max_outbound_count": 0,
+                    "scans_with_outbound": 0,
+                    "latest_scan_timestamp": "",
+                }
+
+            # Track latest outbound timestamp (lexicographic comparison on ISO strings)
+            if last_outbound is not None:
+                cur_latest = actor_trends[actor_id]["latest_outbound_utc"]
+                if cur_latest is None or last_outbound > cur_latest:
+                    actor_trends[actor_id]["latest_outbound_utc"] = last_outbound
+
+            # Track hours since outbound from the most recent scan
+            if entry_ts > actor_trends[actor_id]["latest_scan_timestamp"]:
+                actor_trends[actor_id]["latest_scan_timestamp"] = entry_ts
+                actor_trends[actor_id]["latest_hours_since_outbound"] = hrs_since
+
+            # Track max outbound count observed
+            if outbound_count > actor_trends[actor_id]["max_outbound_count"]:
+                actor_trends[actor_id]["max_outbound_count"] = outbound_count
+
+            # Count scans where actor had outbound activity
+            if outbound_count > 0:
+                actor_trends[actor_id]["scans_with_outbound"] += 1
+
+    if not actor_trends:
+        lines.extend([
+            "## Ack Actor Follow-Up Trends",
+            "",
+            "**Status:** No per-actor follow-up data available in the history log.",
+            "",
+            "Per-actor outbound (follow-up) data is captured when `--ack-actor` flags are used",
+            "and Maintainer <1> sends messages to the specified actors via To:/CC: headers.",
+            "",
+        ])
+        return lines
+
+    # Sort actors by max outbound count descending, then alphabetically
+    sorted_actors = sorted(
+        actor_trends.items(),
+        key=lambda item: (-item[1]["max_outbound_count"], item[0])
+    )
+
+    lines.extend([
+        "## Ack Actor Follow-Up Trends",
+        "",
+        f"**Entries with per-actor follow-up data:** {entries_with_followups} of {len(entries)}",
+        "",
+        "| Actor | Latest Outbound (UTC) | Hrs Since Outbound | Max Outbound Count | Scans w/ Outbound |",
+        "|-------|------------------------|--------------------|--------------------|-------------------|",
+    ])
+
+    for actor_id, data in sorted_actors:
+        label = _sanitize_md(data["actor_label"])
+        latest_out = data["latest_outbound_utc"][:19] if data["latest_outbound_utc"] else "N/A"
+        hrs = data["latest_hours_since_outbound"]
+        hrs_str = f"{hrs:.2f}h" if hrs is not None else "N/A"
+        max_count = data["max_outbound_count"]
+        scans_with = data["scans_with_outbound"]
+
+        lines.append(f"| {label} | {latest_out} | {hrs_str} | {max_count} | {scans_with} |")
+
+    lines.append("")
+    return lines
+
+
 def write_history_dashboard(
     jsonl_path: Path,
     output_path: Path,
@@ -2129,6 +2302,8 @@ def write_history_dashboard(
     - SLA Breach Stats (longest wait, most recent ack timestamp)
     - Recent Scans table (last N entries from the JSONL)
     - Ack Actor Severity Trends (per-actor severity counts/longest wait/latest timestamps)
+    - Ack Actor Follow-Up Trends (per-actor outbound activity: latest outbound UTC,
+      hours since outbound, max outbound count, scans with outbound activity)
     - Ack Actor Breach Timeline (per-actor breach start/streak/hours-past-SLA)
 
     If the JSONL file does not exist or is empty, emits a "No history" message.
@@ -2255,6 +2430,9 @@ def write_history_dashboard(
 
     # Ack Actor Severity Trends - aggregate per-actor data across all entries
     lines.extend(_build_actor_severity_trends_section(entries))
+
+    # Ack Actor Follow-Up Trends - aggregate per-actor outbound/follow-up data
+    lines.extend(_build_actor_followup_trends_section(entries))
 
     # Ack Actor Breach Timeline - per-actor breach state tracking
     breach_timeline_lines, _ = _build_actor_breach_timeline_section(entries)

@@ -64,3 +64,6 @@ This is a minimal index of key tests in this branch.
   - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T133500Z/logs/pytest_followups.log`
   - Tests `--history-dashboard` "Ack Actor Breach Timeline" section that tracks per-actor breach state: breach start timestamps, latest scans, consecutive breach streaks, and hours past SLA. Validates actors in OK/unknown are excluded; severity priority sorting (critical > warning); streak resets when returning to OK.
   - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/logs/pytest_history_dashboard_actor_breach.log`
+  - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_followups_persist -q`
+  - Tests history persistence of per-actor follow-up (outbound) activity. Validates `ack_actor_followups` in JSONL entries with correct outbound counts per actor. Validates "Ack Actor Follow-Ups" column in Markdown history table. Validates "## Ack Actor Follow-Up Trends" section in history dashboard with Latest Outbound UTC, Hours Since Outbound, Max Outbound Count, and Scans w/ Outbound columns.
+  - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T143500Z/logs/pytest_history_followups.log`

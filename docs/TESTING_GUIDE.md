@@ -111,6 +111,27 @@ This selector validates:
 
 Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T133500Z/logs/pytest_followups.log`
 
+### Inbox Acknowledgement CLI (History Follow-Up Trends)
+
+The CLI persists per-actor follow-up (outbound) activity to history files when `--history-jsonl`, `--history-markdown`, and `--history-dashboard` flags are used with `--ack-actor`. This allows historical tracking of how often Maintainer <1> followed up with each monitored actor.
+
+History files include:
+- **JSONL**: Each entry gains an `ack_actor_followups` field containing per-actor outbound stats (`actor_label`, `last_outbound_utc`, `hours_since_last_outbound`, `outbound_count`)
+- **Markdown**: Table gains an "Ack Actor Follow-Ups" column showing entries like `Maintainer 2: 8 (0.2h ago)<br>Maintainer 3: 3 (0.2h ago)`
+- **Dashboard**: Gains "## Ack Actor Follow-Up Trends" section showing latest outbound UTC, hours since outbound, max outbound count, and scans with outbound per actor
+
+To run the history follow-up persistence test:
+
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_followups_persist -q`
+
+This selector validates:
+- JSONL entry contains `ack_actor_followups` with correct outbound counts per actor
+- Markdown history table includes "Ack Actor Follow-Ups" column header and Maintainer labels
+- Dashboard includes "## Ack Actor Follow-Up Trends" section with both actors
+- Dashboard table includes "Max Outbound Count" and "Scans w/ Outbound" columns
+
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T143500Z/logs/pytest_history_followups.log`
+
 ### Inbox Acknowledgement CLI (History Dashboard)
 
 The CLI also supports generating a Markdown history dashboard via the `--history-dashboard` flag. This dashboard aggregates data from the JSONL history log to show total scans, ack count, breach count, longest wait, and a recent scans timeline. To run the history dashboard test:

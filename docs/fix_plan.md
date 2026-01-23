@@ -1295,3 +1295,32 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - Add a new `_build_actor_followup_trends_section()` helper that aggregates the persisted follow-up data inside `write_history_dashboard`, producing a "Ack Actor Follow-Up Trends" table (latest outbound timestamp, hours since outbound, max outbound count, scans reporting outbound activity).
 - Create `tests/tools/test_check_inbox_for_ack_cli.py::test_history_followups_persist` exercising `--history-jsonl/--history-markdown/--history-dashboard` to confirm JSONL rows gain the new field, the Markdown history table renders the follow-up cell, and the dashboard shows the new section.
 - Run the CLI with the usual SLA/actor overrides plus the new history persistence into `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T143500Z/`, re-run `pytest tests/tools/test_check_inbox_for_ack_cli.py -q`, the new targeted test, and `pytest tests/test_generic_loader.py::test_generic_loader -q`, then update `inbox/response_dose_experiments_ground_truth.md` + maintainer follow-up with the persistent-history evidence.
+
+### 2026-01-23T05:04Z — DEBUG-SIM-LINES-DOSE-001.F1 (history follow-up persistence shipped)
+**Action:** Implemented per-actor follow-up (outbound) persistence in history files:
+- Extended `append_history_jsonl()` to include `ack_actor_followups` field with per-actor outbound stats
+- Added `_format_ack_actor_followup_cell()` to format follow-up data for Markdown table cells
+- Extended `append_history_markdown()` with "Ack Actor Follow-Ups" column showing outbound count and hours since outbound
+- Added `_build_actor_followup_trends_section()` to aggregate follow-up data for dashboard
+- Updated `write_history_dashboard()` docstring and call to include "Ack Actor Follow-Up Trends" section
+- Added `test_history_followups_persist` regression test validating JSONL, Markdown, and dashboard outputs
+
+**Metrics:**
+- Tests: 22/22 passed (`tests/tools/test_check_inbox_for_ack_cli.py`)
+- New test: `test_history_followups_persist` passes
+- Generic loader: passes
+- CLI evidence captured with follow-up trends showing M2=8 outbound, M3=3 outbound
+
+**Artifacts:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T143500Z/`
+- `logs/pytest_history_followups.log` — new test run
+- `logs/pytest_check_inbox_suite.log` — full suite (22 passed)
+- `logs/pytest_loader.log` — generic loader test
+- `logs/cli_evidence.log` — CLI run output
+- `inbox_history/inbox_sla_watch.jsonl` — JSONL with `ack_actor_followups`
+- `inbox_history/inbox_sla_watch.md` — Markdown history with "Ack Actor Follow-Ups" column
+- `inbox_history/inbox_history_dashboard.md` — Dashboard with "Ack Actor Follow-Up Trends" section
+
+**Next Actions:**
+- Update `inbox/response_dose_experiments_ground_truth.md` with the new follow-up trends evidence
+- Draft `inbox/followup_dose_experiments_ground_truth_2026-01-23T143500Z.md` for Maintainer <2>/<3>
+- F1 remains open until Maintainer <2> acknowledges

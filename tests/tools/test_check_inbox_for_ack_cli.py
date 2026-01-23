@@ -2392,3 +2392,160 @@ Escalating the dose_experiments_ground_truth request for awareness.
     assert "matches" in data, "Missing matches in JSON"
     for m in data["matches"]:
         assert "target_actors" in m, f"Match entry missing target_actors: {m['file']}"
+
+
+def test_history_followups_persist(tmp_path):
+    """
+    Test that per-actor follow-up (outbound) stats persist to history files.
+
+    Creates a synthetic inbox with:
+    - (a) An inbound message from Maintainer <2> (~4 hours old, no ack keywords)
+    - (b) An outbound from Maintainer <1> to Maintainer <2> (~3 hours ago)
+    - (c) Another outbound from Maintainer <1> to Maintainer <2> (~2 hours ago)
+    - (d) An outbound from Maintainer <1> to Maintainer <3> (~1 hour ago)
+
+    Runs the CLI with --history-jsonl, --history-markdown, and --history-dashboard.
+
+    Asserts:
+    1. JSONL entry contains ack_actor_followups.maintainer_2.outbound_count == 2
+       and maintainer_3.outbound_count == 1
+    2. Markdown history file contains the "Ack Actor Follow-Ups" column header
+       and shows Maintainer labels
+    3. Dashboard file includes "## Ack Actor Follow-Up Trends" section with both actors
+    """
+    inbox_dir = tmp_path / "inbox"
+    inbox_dir.mkdir()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    history_jsonl = tmp_path / "history.jsonl"
+    history_md = tmp_path / "history.md"
+    history_dashboard = tmp_path / "dashboard.md"
+
+    # (a) Inbound message from Maintainer <2> (~4 hours ago)
+    inbound_content = """# Request: dose_experiments_ground_truth
+
+**From:** Maintainer <2>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T10:00:00Z
+
+Please provide the dose experiments ground truth bundle.
+"""
+    create_inbox_file(inbox_dir, "request_dose_experiments_ground_truth.md", inbound_content, -4.0)
+
+    # (b) First outbound from Maintainer <1> to Maintainer <2> (~3 hours ago)
+    outbound_to_m2_1 = """# Response: dose_experiments_ground_truth
+
+**From:** Maintainer <1>
+**To:** Maintainer <2>
+**Date:** 2026-01-22T11:00:00Z
+
+Working on the bundle now.
+"""
+    create_inbox_file(inbox_dir, "response_dose_experiments_ground_truth_1.md", outbound_to_m2_1, -3.0)
+
+    # (c) Second outbound from Maintainer <1> to Maintainer <2> (~2 hours ago)
+    outbound_to_m2_2 = """# Update: dose_experiments_ground_truth
+
+**From:** Maintainer <1>
+**To:** Maintainer <2>
+**Date:** 2026-01-22T12:00:00Z
+
+Bundle delivered at reports/dose_experiments_ground_truth/
+"""
+    create_inbox_file(inbox_dir, "response_dose_experiments_ground_truth_2.md", outbound_to_m2_2, -2.0)
+
+    # (d) Outbound from Maintainer <1> to Maintainer <3> (~1 hour ago)
+    outbound_to_m3 = """# Escalation: dose_experiments_ground_truth
+
+**From:** Maintainer <1>
+**To:** Maintainer <3>
+**Date:** 2026-01-22T13:00:00Z
+
+Escalating awareness of the dose experiments request.
+"""
+    create_inbox_file(inbox_dir, "escalation_dose_experiments_ground_truth.md", outbound_to_m3, -1.0)
+
+    # Run CLI with history options
+    result = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--keywords", "acknowledged",
+            "--keywords", "confirm",
+            "--keywords", "received",
+            "--ack-actor", "Maintainer <2>",
+            "--ack-actor", "Maintainer <3>",
+            "--sla-hours", "2.5",
+            "--ack-actor-sla", "Maintainer <2>=2.0",
+            "--ack-actor-sla", "Maintainer <3>=6.0",
+            "--history-jsonl", str(history_jsonl),
+            "--history-markdown", str(history_md),
+            "--history-dashboard", str(history_dashboard),
+            "--output", str(output_dir)
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    # Should exit 0 (no --fail-when-breached)
+    assert result.returncode == 0, f"CLI failed: {result.stderr}"
+
+    # 1. Check JSONL contains ack_actor_followups with correct counts
+    assert history_jsonl.exists(), "History JSONL not created"
+    jsonl_content = history_jsonl.read_text()
+    assert jsonl_content.strip(), "History JSONL is empty"
+
+    # Parse the (single) JSONL entry
+    entry = json.loads(jsonl_content.strip())
+    assert "ack_actor_followups" in entry, "Missing ack_actor_followups in JSONL entry"
+
+    followups = entry["ack_actor_followups"]
+    assert "maintainer_2" in followups, "Missing maintainer_2 in ack_actor_followups"
+    assert "maintainer_3" in followups, "Missing maintainer_3 in ack_actor_followups"
+
+    # Maintainer 2 should have 2 outbound messages
+    assert followups["maintainer_2"]["outbound_count"] == 2, \
+        f"Expected maintainer_2.outbound_count=2, got {followups['maintainer_2']['outbound_count']}"
+
+    # Maintainer 3 should have 1 outbound message
+    assert followups["maintainer_3"]["outbound_count"] == 1, \
+        f"Expected maintainer_3.outbound_count=1, got {followups['maintainer_3']['outbound_count']}"
+
+    # Verify actor labels are present
+    assert followups["maintainer_2"]["actor_label"] == "Maintainer 2", \
+        f"Wrong actor_label for maintainer_2: {followups['maintainer_2']['actor_label']}"
+    assert followups["maintainer_3"]["actor_label"] == "Maintainer 3", \
+        f"Wrong actor_label for maintainer_3: {followups['maintainer_3']['actor_label']}"
+
+    # 2. Check Markdown history file has the new column
+    assert history_md.exists(), "History Markdown not created"
+    md_content = history_md.read_text()
+
+    # Header should include the new column
+    assert "Ack Actor Follow-Ups" in md_content, \
+        "Markdown history missing 'Ack Actor Follow-Ups' column header"
+
+    # Should contain Maintainer labels in the follow-up cell
+    assert "Maintainer 2" in md_content, \
+        "Markdown history follow-up cell missing Maintainer 2"
+
+    # 3. Check dashboard has the Follow-Up Trends section
+    assert history_dashboard.exists(), "History dashboard not created"
+    dashboard_content = history_dashboard.read_text()
+
+    # Should have the new section
+    assert "## Ack Actor Follow-Up Trends" in dashboard_content, \
+        "Dashboard missing '## Ack Actor Follow-Up Trends' section"
+
+    # Should contain both actors in the trends table
+    assert "Maintainer 2" in dashboard_content, \
+        "Dashboard follow-up trends missing Maintainer 2"
+    assert "Maintainer 3" in dashboard_content, \
+        "Dashboard follow-up trends missing Maintainer 3"
+
+    # Should have the expected column headers
+    assert "Max Outbound Count" in dashboard_content, \
+        "Dashboard follow-up trends missing 'Max Outbound Count' column"
+    assert "Scans w/ Outbound" in dashboard_content, \
+        "Dashboard follow-up trends missing 'Scans w/ Outbound' column"

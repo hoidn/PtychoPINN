@@ -805,3 +805,54 @@ pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_followups_tra
 - History dashboard: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T133500Z/inbox_history/inbox_history_dashboard.md`
 - Test logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T133500Z/logs/`
 - Follow-up note: `inbox/followup_dose_experiments_ground_truth_2026-01-23T133500Z.md`
+
+---
+
+### Status as of 2026-01-23T143500Z (History Follow-Up Persistence)
+
+**New feature: Per-Actor Follow-Up Persistence in History Files**
+
+The CLI now persists per-actor follow-up (outbound) activity to history files, enabling long-term tracking of how often Maintainer <1> followed up with each monitored actor.
+
+**New history file features:**
+- **JSONL**: Each entry gains `ack_actor_followups` field with per-actor outbound stats (`actor_label`, `last_outbound_utc`, `hours_since_last_outbound`, `outbound_count`)
+- **Markdown History**: Table gains "Ack Actor Follow-Ups" column showing entries like `Maintainer 2: 8 (0.2h ago)<br>Maintainer 3: 3 (0.2h ago)`
+- **Dashboard**: Gains "## Ack Actor Follow-Up Trends" section showing latest outbound UTC, hours since outbound, max outbound count, and scans with outbound per actor
+
+**Latest scan:**
+| Metric | Value |
+|--------|-------|
+| Last Inbound (from Maintainer <2>) | 2026-01-22T23:22:58Z |
+| Hours Since Last Inbound | 5.68 hours |
+| SLA Threshold (Maintainer <2>) | 2.00 hours |
+| Hours Past SLA | 3.68 hours |
+| Current Breach Streak | 1 |
+| Severity | CRITICAL |
+| Maintainer <2> Outbound Count | 8 |
+| Maintainer <3> Outbound Count | 3 |
+
+**Dashboard Follow-Up Trends excerpt:**
+| Actor | Latest Outbound (UTC) | Hrs Since Outbound | Max Outbound Count | Scans w/ Outbound |
+|-------|------------------------|--------------------|--------------------|-------------------|
+| Maintainer 2 | 2026-01-23T04:52:58 | 0.18h | 8 | 1 |
+| Maintainer 3 | 2026-01-23T04:52:58 | 0.18h | 3 | 1 |
+
+**New test selector:**
+```bash
+pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_followups_persist -q
+```
+
+**Test results:**
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_followups_persist -q` — 1 passed
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` — 22 passed (1.33s)
+- `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.55s)
+
+**Artifact paths:**
+- History JSONL (with ack_actor_followups): `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T143500Z/inbox_history/inbox_sla_watch.jsonl`
+- History Markdown (with Ack Actor Follow-Ups column): `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T143500Z/inbox_history/inbox_sla_watch.md`
+- History dashboard (with Follow-Up Trends): `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T143500Z/inbox_history/inbox_history_dashboard.md`
+- Status snippet: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T143500Z/inbox_status/status_snippet.md`
+- Escalation brief: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T143500Z/inbox_status/escalation_brief_maintainer3.md`
+- Escalation note: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T143500Z/inbox_status/escalation_note.md`
+- Test logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T143500Z/logs/`
+- Follow-up note: `inbox/followup_dose_experiments_ground_truth_2026-01-23T143500Z.md`
