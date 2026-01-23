@@ -1,0 +1,21 @@
+=== Inbox Cadence Run: 2026-01-23T173500Z ===
+Output directory: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T173500Z
+Request pattern: dose_experiments_ground_truth
+Response path: inbox/response_dose_experiments_ground_truth.md
+Follow-up path: inbox/followup_dose_experiments_ground_truth_2026-01-23T173500Z.md
+
+Step 1: Scanning inbox for acknowledgements...
+Running check_inbox_for_ack.py, logging to: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T173500Z/logs/check_inbox_for_ack.log
+  Check inbox exit code: 2
+  Acknowledgement detected: False
+
+Step 2: Updating maintainer status and writing follow-up...
+Running update_maintainer_status.py, logging to: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T173500Z/logs/update_maintainer_status.log
+  Update maintainer status exit code: 0
+  Follow-up written: True
+
+Step 3: Writing cadence metadata...
+  Metadata written to: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T173500Z/cadence_metadata.json
+  Summary written to: plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T173500Z/cadence_summary.md
+
+=== Cadence Run Complete: Exit Code 0 ===

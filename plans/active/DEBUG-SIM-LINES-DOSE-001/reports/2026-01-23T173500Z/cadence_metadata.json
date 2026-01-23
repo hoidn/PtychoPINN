@@ -1,0 +1,71 @@
+{
+  "timestamp": "2026-01-23T173500Z",
+  "ack_detected": false,
+  "ack_actor_summary": {
+    "critical": [
+      {
+        "actor_id": "maintainer_2",
+        "actor_label": "Maintainer 2",
+        "hours_since_inbound": 6.24,
+        "sla_threshold_hours": 2.0,
+        "sla_deadline_utc": "2026-01-23T01:22:58.332668+00:00",
+        "sla_breached": true,
+        "sla_notes": "SLA breach: 6.24 hours since last inbound exceeds 2.00 hour threshold"
+      }
+    ],
+    "warning": [],
+    "ok": [],
+    "unknown": [
+      {
+        "actor_id": "maintainer_3",
+        "actor_label": "Maintainer 3",
+        "hours_since_inbound": null,
+        "sla_threshold_hours": 6.0,
+        "sla_deadline_utc": null,
+        "sla_breached": false,
+        "sla_notes": "No inbound messages from Maintainer 3"
+      }
+    ]
+  },
+  "followup_written": true,
+  "status_appended": true,
+  "followup_path": "inbox/followup_dose_experiments_ground_truth_2026-01-23T173500Z.md",
+  "check_inbox_exit_code": 2,
+  "parameters": {
+    "inbox": "inbox",
+    "request_pattern": "dose_experiments_ground_truth",
+    "keywords": [
+      "acknowledged",
+      "confirm",
+      "received",
+      "thanks"
+    ],
+    "ack_actors": [
+      "Maintainer <2>",
+      "Maintainer <3>"
+    ],
+    "ack_actor_sla": [
+      "Maintainer <2>=2.0",
+      "Maintainer <3>=6.0"
+    ],
+    "sla_hours": 2.5,
+    "fail_when_breached": true,
+    "response_path": "inbox/response_dose_experiments_ground_truth.md",
+    "followup_dir": "inbox",
+    "followup_prefix": "followup_dose_experiments_ground_truth",
+    "status_title": "Maintainer Status Automation",
+    "to": "Maintainer <2>",
+    "cc": "Maintainer <3>",
+    "skip_followup_on_ack": true
+  },
+  "artifact_paths": {
+    "output_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T173500Z",
+    "logs_dir": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T173500Z/logs",
+    "scan_json": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T173500Z/inbox_sla_watch/inbox_scan_summary.json",
+    "history_jsonl": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T173500Z/inbox_history/inbox_sla_watch.jsonl",
+    "history_dashboard": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T173500Z/inbox_history/inbox_history_dashboard.md",
+    "status_snippet": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T173500Z/inbox_status/status_snippet.md",
+    "escalation_note": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T173500Z/inbox_status/escalation_note.md",
+    "escalation_brief": "plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T173500Z/inbox_status/escalation_brief_Maintainer_3.md"
+  }
+}

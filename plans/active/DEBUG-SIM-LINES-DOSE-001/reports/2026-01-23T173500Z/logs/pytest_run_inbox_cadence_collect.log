@@ -1,0 +1,3 @@
+tests/tools/test_run_inbox_cadence.py::test_cadence_sequence_creates_artifacts
+
+1 test collected in 0.03s

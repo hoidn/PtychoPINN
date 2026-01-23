@@ -1428,3 +1428,37 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 **Next Actions:**
 - Run the real cadence CLI to produce evidence bundle and update response/follow-up docs
 - Continue awaiting Maintainer <2>'s acknowledgement
+
+### 2026-01-23T173500Z — DEBUG-SIM-LINES-DOSE-001.F1 (cadence loop 2026-01-23T173500Z)
+**Action:** Ran the unified cadence CLI with timestamp 2026-01-23T173500Z.
+
+**Cadence Run Summary:**
+- Exit code: 0 (success, follow-up written)
+- `ack_detected`: false (still waiting for Maintainer <2>)
+- `followup_written`: true
+- `status_appended`: true
+
+**Metrics (from cadence_metadata.json):**
+| Metric | Value |
+|--------|-------|
+| Hours Since Last Inbound (M2) | 6.24 |
+| SLA Threshold (M2) | 2.00 hours |
+| SLA Breached (M2) | Yes (CRITICAL) |
+| Breach Duration | 3.74 hours |
+| Total Outbound to M2 | 9 messages |
+| Total Outbound to M3 | 4 messages |
+
+**Test Results:**
+- `pytest tests/tools/test_run_inbox_cadence.py::test_cadence_sequence_creates_artifacts -q` — 1 passed (0.13s)
+
+**Artifact Paths:**
+- Cadence metadata: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T173500Z/cadence_metadata.json`
+- Cadence summary: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T173500Z/cadence_summary.md`
+- Scan outputs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T173500Z/inbox_sla_watch/`
+- History files: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T173500Z/inbox_history/`
+- Status outputs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T173500Z/inbox_status/`
+- Test logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T173500Z/logs/`
+- Follow-up note: `inbox/followup_dose_experiments_ground_truth_2026-01-23T173500Z.md`
+
+**Next Actions:**
+- Continue awaiting Maintainer <2>'s acknowledgement on a cadence until response is received.
