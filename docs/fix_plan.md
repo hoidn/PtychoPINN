@@ -275,6 +275,32 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - C1/C2 complete; DEBUG-SIM-LINES-DOSE-001 exit criteria met
 - Optionally draft maintainer handoff note referencing tarball SHA + drop location
 
+### 2026-01-23T00:45Z — DEBUG-SIM-LINES-DOSE-001.D1 (shipped)
+**Action:** Drafted the maintainer response at `inbox/response_dose_experiments_ground_truth.md` covering:
+1. Delivery summary with drop root and bundle structure
+2. Verification summary citing `bundle_verification.{json,md}` (15/15 files, 278.18 MB, tarball SHA `7fe5e14e...`)
+3. Test validation with `pytest tests/test_generic_loader.py::test_generic_loader -q` (1 passed)
+4. How-to instructions for extracting tarball and verifying SHA256
+5. Dataset table (7 NPZ files, 1e3→1e9 photons) with full SHA256 checksums
+6. Baseline artifacts table (params.dill, baseline_model.h5, recon.dill, wts.h5.zip)
+7. Key parameters (N=64, gridsize=1, nepochs=50, NLL-only loss)
+8. Next steps requesting Maintainer <2> confirmation
+
+**Test:** `pytest tests/test_generic_loader.py::test_generic_loader -q` — PASSED (1 passed, 5 warnings in 2.54s)
+
+**SHA256 verification:**
+```
+7fe5e14ed9909f056807b77d5de56e729b8b79c8e5b8098ba50507f13780dd72  dose_experiments_ground_truth.tar.gz
+```
+
+**Artifacts:**
+- `inbox/response_dose_experiments_ground_truth.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T004049Z/pytest_loader.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T004049Z/dose_experiments_ground_truth.tar.gz.sha256.check`
+
+**Next Actions:**
+- D1 complete; await Maintainer <2> acknowledgment to close DEBUG-SIM-LINES-DOSE-001
+
 ## TODOs
 - [x] S4: Expand the D0 parity Markdown report to list stage-level stats for every dataset and document the new test selector (`tests/tools/test_d0_parity_logger.py`) inside `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.
 - [x] S3: Promote D0 parity logger into `scripts/tools/` with stage-level stats + tests, then capture artifacts for photon_grid_study_20250826_152459
@@ -282,4 +308,4 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - [x] DEBUG-SIM-LINES-DOSE-001.B2: Extend the README with a provenance table mapping every dataset/baseline/inference artifact to its SHA256 + source stage, referencing the Phase A manifest.
 - [x] DEBUG-SIM-LINES-DOSE-001.C1: Copy or package (tarball) the requested datasets + baseline outputs into `reports/2026-01-22T014445Z/dose_experiments_ground_truth/`, keeping the manifest + README in sync.
 - [x] DEBUG-SIM-LINES-DOSE-001.C2: Capture checksum verification logs for the final bundle (or tarball) and confirm size constraints / delivery instructions in `galph_memory.md` + maintainer inbox.
-- [ ] DEBUG-SIM-LINES-DOSE-001.D1: Draft `inbox/response_dose_experiments_ground_truth.md` that cites the final drop root, README/manifest paths, bundle_verification logs, tarball SHA, and the validating `pytest tests/test_generic_loader.py::test_generic_loader -q` log so Maintainer <2> can close the request.
+- [x] DEBUG-SIM-LINES-DOSE-001.D1: Draft `inbox/response_dose_experiments_ground_truth.md` that cites the final drop root, README/manifest paths, bundle_verification logs, tarball SHA, and the validating `pytest tests/test_generic_loader.py::test_generic_loader -q` log so Maintainer <2> can close the request.
