@@ -109,6 +109,14 @@ def parse_args():
         default=None,
         help="Path to write a Markdown history dashboard (requires --history-jsonl)"
     )
+    parser.add_argument(
+        "--ack-actor",
+        action="append",
+        dest="ack_actors",
+        default=[],
+        help="Actor(s) whose messages count as acknowledgements (can be repeated). "
+             "Default: Maintainer <2> only. Use --ack-actor 'Maintainer <3>' to add more."
+    )
     return parser.parse_args()
 
 
@@ -130,17 +138,40 @@ def file_metadata(path: Path) -> dict:
     }
 
 
+def normalize_actor_alias(actor_str: str) -> str:
+    """
+    Normalize actor aliases to canonical form (maintainer_1, maintainer_2, maintainer_3).
+
+    Accepts:
+    - "Maintainer <1>", "maintainer <1>", "maintainer_1", etc. -> "maintainer_1"
+    - "Maintainer <2>", "maintainer <2>", "maintainer_2", etc. -> "maintainer_2"
+    - "Maintainer <3>", "maintainer <3>", "maintainer_3", etc. -> "maintainer_3"
+
+    Returns the canonical form or the original string lowercased if not recognized.
+    """
+    s = actor_str.strip().lower()
+
+    # Match patterns like "maintainer <N>", "maintainer_n", "maintainer N"
+    # Allow flexible spacing around angle brackets
+    m = re.match(r"maintainer\s*[<_]?\s*(\d+)\s*>?", s)
+    if m:
+        return f"maintainer_{m.group(1)}"
+
+    return s
+
+
 def detect_actor_and_direction(content: str) -> Tuple[str, str]:
     """
     Detect which maintainer authored the message and the communication direction.
 
     Returns (actor, direction) where:
-    - actor: "maintainer_1", "maintainer_2", or "unknown"
-    - direction: "inbound" (from M2 to M1), "outbound" (from M1 to M2), or "unknown"
+    - actor: "maintainer_1", "maintainer_2", "maintainer_3", or "unknown"
+    - direction: "inbound" (from M2/M3 to M1), "outbound" (from M1 to others), or "unknown"
 
     Looks for patterns like:
     - "From: Maintainer <1>" / "**From:** Maintainer <1>"
     - "From: Maintainer <2>" / "**From:** Maintainer <2>"
+    - "From: Maintainer <3>" / "**From:** Maintainer <3>"
     """
     content_lower = content.lower()
 
@@ -156,6 +187,12 @@ def detect_actor_and_direction(content: str) -> Tuple[str, str]:
         r"\*\*from:\*\*\s*maintainer\s*<\s*2\s*>",
     ]
 
+    # Patterns for Maintainer <3>
+    m3_patterns = [
+        r"from:\s*\*?\*?maintainer\s*<\s*3\s*>",
+        r"\*\*from:\*\*\s*maintainer\s*<\s*3\s*>",
+    ]
+
     for pattern in m1_patterns:
         if re.search(pattern, content_lower):
             return ("maintainer_1", "outbound")
@@ -163,6 +200,10 @@ def detect_actor_and_direction(content: str) -> Tuple[str, str]:
     for pattern in m2_patterns:
         if re.search(pattern, content_lower):
             return ("maintainer_2", "inbound")
+
+    for pattern in m3_patterns:
+        if re.search(pattern, content_lower):
+            return ("maintainer_3", "inbound")
 
     return ("unknown", "unknown")
 
@@ -181,17 +222,27 @@ def is_from_maintainer_2(content: str) -> bool:
 
 def is_acknowledgement(
     content: str,
-    keywords: list[str]
-) -> tuple[bool, list[str], bool]:
+    keywords: list[str],
+    ack_actors: list[str] | None = None
+) -> tuple[bool, list[str], str]:
     """
-    Check if content contains acknowledgement keywords FROM Maintainer <2>.
+    Check if content contains acknowledgement keywords from a configured ack actor.
 
     An acknowledgement is detected when:
-    - The message is FROM Maintainer <2> (not TO Maintainer <2>)
-    - AND contains any core ack keyword ('acknowledg', 'confirm', 'received')
+    - The message is FROM an actor in ack_actors (defaults to ["maintainer_2"])
+    - AND contains any of the user-provided keywords (no hidden hard-coded list)
 
-    Returns (ack_detected, keyword_hits, is_from_m2).
+    Args:
+        content: Message content to analyze
+        keywords: User-provided keywords to detect (e.g., ["acknowledged", "confirm"])
+        ack_actors: Normalized actor IDs that count as ack sources (e.g., ["maintainer_2", "maintainer_3"])
+
+    Returns (ack_detected, keyword_hits, actor).
     """
+    # Default to Maintainer <2> only
+    if ack_actors is None:
+        ack_actors = ["maintainer_2"]
+
     content_lower = content.lower()
     keyword_hits = []
 
@@ -199,19 +250,14 @@ def is_acknowledgement(
         if kw.lower() in content_lower:
             keyword_hits.append(kw)
 
-    # Check if message is FROM Maintainer <2>
-    is_from_m2 = is_from_maintainer_2(content)
+    # Detect actor from content
+    actor, _ = detect_actor_and_direction(content)
 
-    # Core acknowledgement keywords
-    ack_core_keywords = ["acknowledg", "confirm", "received"]
+    # Acknowledgement requires: message FROM an ack_actor AND at least one keyword hit
+    actor_is_ack_source = actor in ack_actors
+    ack_detected = actor_is_ack_source and len(keyword_hits) > 0
 
-    # Check if we have a core ack keyword
-    has_ack_keyword = any(k in content_lower for k in ack_core_keywords)
-
-    # Acknowledgement requires: message FROM Maintainer <2> with ack keyword
-    ack_detected = is_from_m2 and has_ack_keyword
-
-    return ack_detected, keyword_hits, is_from_m2
+    return ack_detected, keyword_hits, actor
 
 
 def truncate_preview(content: str, max_chars: int = 320) -> str:
@@ -236,7 +282,8 @@ def scan_inbox(
     keywords: list[str],
     since_date: Optional[datetime],
     sla_hours: Optional[float] = None,
-    current_time: Optional[datetime] = None
+    current_time: Optional[datetime] = None,
+    ack_actors: list[str] | None = None
 ) -> dict:
     """
     Scan inbox directory for files matching the request pattern.
@@ -246,7 +293,15 @@ def scan_inbox(
 
     If sla_hours is provided, also computes sla_watch metrics.
     current_time can be injected for testing; defaults to now(UTC).
+    ack_actors is a list of normalized actor IDs (e.g., ["maintainer_2", "maintainer_3"])
+    that are considered valid acknowledgement sources.
     """
+    # Normalize ack_actors, default to ["maintainer_2"]
+    if ack_actors is None:
+        ack_actors = ["maintainer_2"]
+    else:
+        ack_actors = [normalize_actor_alias(a) for a in ack_actors]
+
     now = current_time if current_time is not None else datetime.now(timezone.utc)
     results = {
         "scanned": 0,
@@ -258,7 +313,8 @@ def scan_inbox(
             "inbox": str(inbox_path),
             "request_pattern": request_pattern,
             "keywords": keywords,
-            "since": since_date.isoformat() if since_date else None
+            "since": since_date.isoformat() if since_date else None,
+            "ack_actors": ack_actors
         },
         # Timeline: list of entries sorted by modified_utc ascending
         "timeline": [],
@@ -310,8 +366,11 @@ def scan_inbox(
             continue
 
         # We have a match - analyze it
-        ack_detected, keyword_hits, is_from_m2 = is_acknowledgement(content, keywords)
-        actor, direction = detect_actor_and_direction(content)
+        ack_detected, keyword_hits, actor = is_acknowledgement(content, keywords, ack_actors)
+        _, direction = detect_actor_and_direction(content)
+
+        # Compute is_from_ack_actor for backwards compatibility in output
+        is_from_ack_actor = actor in ack_actors
 
         match_entry = {
             "file": item.name,
@@ -320,7 +379,8 @@ def scan_inbox(
             "modified_utc": meta["modified_utc"],
             "match_reason": [],
             "keywords_found": keyword_hits,
-            "is_from_maintainer_2": is_from_m2,
+            "is_from_maintainer_2": actor == "maintainer_2",  # Backwards compat
+            "is_from_ack_actor": is_from_ack_actor,
             "actor": actor,
             "direction": direction,
             "ack_detected": ack_detected,
@@ -411,6 +471,10 @@ def write_markdown_summary(results: dict, output_path: Path) -> None:
     """Write Markdown summary to file."""
     wc = results.get("waiting_clock", {})
 
+    # Get ack_actors from parameters (may be missing in older results)
+    ack_actors = results['parameters'].get('ack_actors', ['maintainer_2'])
+    ack_actors_str = ', '.join(f'`{a}`' for a in ack_actors)
+
     lines = [
         "# Inbox Scan Summary",
         "",
@@ -421,6 +485,7 @@ def write_markdown_summary(results: dict, output_path: Path) -> None:
         f"- **Inbox:** `{results['parameters']['inbox']}`",
         f"- **Request Pattern:** `{results['parameters']['request_pattern']}`",
         f"- **Keywords:** {', '.join(f'`{k}`' for k in results['parameters']['keywords'])}",
+        f"- **Ack Actors:** {ack_actors_str}",
         f"- **Since Filter:** {results['parameters']['since'] or 'None'}",
         "",
         "## Summary",
@@ -1080,12 +1145,16 @@ def main():
         "acknowledged", "ack", "confirm", "received", "thanks"
     ]
 
+    # Use default ack_actors if none provided (backwards compatible: only Maintainer <2>)
+    ack_actors = args.ack_actors if args.ack_actors else ["Maintainer <2>"]
+
     # Ensure output directory exists
     output_path.mkdir(parents=True, exist_ok=True)
 
     print(f"Scanning inbox: {inbox_path}")
     print(f"Request pattern: {args.request_pattern}")
     print(f"Keywords: {keywords}")
+    print(f"Ack actors: {ack_actors}")
     if args.sla_hours is not None:
         print(f"SLA threshold: {args.sla_hours} hours")
         print(f"Fail when breached: {args.fail_when_breached}")
@@ -1095,7 +1164,8 @@ def main():
     # Scan inbox
     results = scan_inbox(
         inbox_path, args.request_pattern, keywords, since_date,
-        sla_hours=args.sla_hours
+        sla_hours=args.sla_hours,
+        ack_actors=ack_actors
     )
 
     # Write outputs

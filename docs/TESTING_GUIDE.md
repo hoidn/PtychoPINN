@@ -92,6 +92,32 @@ This selector validates:
 
 Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/logs/pytest_history_dashboard.log`
 
+### Inbox Acknowledgement CLI (Multi-Actor Ack)
+
+The CLI supports configurable ack actors via the `--ack-actor` repeatable flag. By default, only `Maintainer <2>` is treated as an acknowledgement source. Use `--ack-actor "Maintainer <3>"` to add additional actors. To run the multi-actor ack test:
+
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_supports_multiple_inbound_maintainers -q`
+
+This selector validates:
+- Default behavior: only Maintainer <2> messages trigger ack detection
+- With `--ack-actor "Maintainer <3>"`: messages from M3 also trigger ack detection
+- JSON output includes normalized `ack_actors` in parameters
+
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/logs/pytest_ack_actor_collect.log`
+
+### Inbox Acknowledgement CLI (Custom Keywords)
+
+The CLI honors user-provided `--keywords` exactly, with no hidden hard-coded keyword list. Keywords must match for ack detection to trigger. To run the custom keywords test:
+
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_custom_keywords_enable_ack_detection -q`
+
+This selector validates:
+- User-specified keywords are honored (no hidden overrides)
+- Ack detection requires at least one keyword hit
+- Default keywords are used when `--keywords` is not specified
+
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/logs/pytest_keywords_collect.log`
+
 ## Test Areas
 
 - `tests/tools/`: CLI and tooling tests (e.g., D0 parity logger).

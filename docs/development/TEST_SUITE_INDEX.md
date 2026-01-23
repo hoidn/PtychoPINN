@@ -26,3 +26,9 @@ This is a minimal index of key tests in this branch.
   - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_history_dashboard_summarizes_runs -q`
   - Tests `--history-dashboard` flag for generating a Markdown history dashboard with Summary Metrics, SLA Breach Stats, and Recent Scans timeline.
   - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T023500Z/logs/pytest_history_dashboard.log`
+  - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_supports_multiple_inbound_maintainers -q`
+  - Tests `--ack-actor` repeatable flag for configurable acknowledgement sources (default: Maintainer <2>; can add Maintainer <3>).
+  - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/logs/pytest_ack_actor_collect.log`
+  - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_custom_keywords_enable_ack_detection -q`
+  - Tests that user-provided `--keywords` are honored exactly (no hidden hard-coded list).
+  - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/logs/pytest_keywords_collect.log`

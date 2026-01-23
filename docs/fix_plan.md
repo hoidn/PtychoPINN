@@ -683,6 +683,56 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - F1 remains open; Maintainer <2> has not yet acknowledged the bundle
 - History dashboard now available for SLA tracking and escalation evidence
 
+### 2026-01-23T02:48Z — DEBUG-SIM-LINES-DOSE-001.F1 (ack-actor + custom keywords shipped)
+**Action:** Generalized the inbox acknowledgement CLI to support multiple ack actors and honor user-provided keywords exactly:
+1. Added `--ack-actor` repeatable argparse option (default: Maintainer <2>)
+2. Implemented `normalize_actor_alias()` to canonicalize actor strings (e.g., "Maintainer <3>" → "maintainer_3")
+3. Extended `detect_actor_and_direction()` with Maintainer <3> regex patterns
+4. Updated `is_acknowledgement()` to require actor membership in ack_actors AND at least one keyword hit
+5. Added `ack_actors` to `scan_inbox()` signature and JSON output parameters
+6. Created two new tests:
+   - `test_ack_actor_supports_multiple_inbound_maintainers` — validates multi-actor ack detection
+   - `test_custom_keywords_enable_ack_detection` — validates user keywords are honored (no hidden list)
+
+**Tests:**
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` — 11 passed (0.64s)
+- `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.54s)
+
+**Collection:**
+- `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_supports_multiple_inbound_maintainers -q` — 1 test collected
+- `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_custom_keywords_enable_ack_detection -q` — 1 test collected
+
+**CLI Run (with --ack-actor "Maintainer <2>" --ack-actor "Maintainer <3>"):**
+- Files scanned: 6
+- Matches: 4
+- Last inbound: 2026-01-22T23:22:58Z
+- Hours since last inbound: 3.16
+- **SLA Breached: Yes** (3.16 > 2.00 threshold, no ack detected)
+- Acknowledgement detected: No
+- Ack actors: ["maintainer_2", "maintainer_3"]
+
+**Doc Updates:**
+- `docs/TESTING_GUIDE.md`: Added "Multi-Actor Ack" and "Custom Keywords" sections with new selectors
+- `docs/development/TEST_SUITE_INDEX.md`: Added both new selectors + log paths
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/logs/pytest_check_inbox_suite.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/logs/pytest_loader.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/logs/pytest_ack_actor_collect.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/logs/pytest_keywords_collect.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/logs/check_inbox.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/inbox_sla_watch/inbox_scan_summary.json`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/inbox_sla_watch/inbox_scan_summary.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/inbox_status/status_snippet.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/inbox_status/escalation_note.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/inbox_history/inbox_sla_watch.jsonl`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/inbox_history/inbox_sla_watch.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T024800Z/inbox_history/inbox_history_dashboard.md`
+
+**Next Actions:**
+- F1 remains open; Maintainer <2> has not yet acknowledged the bundle
+- CLI now supports monitoring acks from Maintainer <3> if escalated to third party
+
 ## TODOs
 - [x] S4: Expand the D0 parity Markdown report to list stage-level stats for every dataset and document the new test selector (`tests/tools/test_d0_parity_logger.py`) inside `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.
 - [x] S3: Promote D0 parity logger into `scripts/tools/` with stage-level stats + tests, then capture artifacts for photon_grid_study_20250826_152459

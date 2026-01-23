@@ -772,3 +772,195 @@ Please provide the dose experiments.
         f"Expected exit 1 when --history-dashboard without --history-jsonl, got {result.returncode}"
     assert "requires --history-jsonl" in result.stdout, \
         "Expected error message about requiring --history-jsonl"
+
+
+def test_ack_actor_supports_multiple_inbound_maintainers(tmp_path):
+    """
+    Test --ack-actor flag enables acknowledgement detection from multiple maintainers.
+
+    Creates a synthetic inbox with:
+    - One message from Maintainer <2> (no ack keywords) - should NOT trigger ack
+    - One message from Maintainer <3> with ack keywords - should trigger ack
+      ONLY when --ack-actor includes "Maintainer <3>"
+
+    Asserts:
+    1. With only --ack-actor "Maintainer <2>" (default): ack_detected=False (M3 not an ack source)
+    2. With --ack-actor "Maintainer <2>" --ack-actor "Maintainer <3>": ack_detected=True
+    3. JSON output includes ack_actors in parameters
+    """
+    inbox_dir = tmp_path / "inbox"
+    inbox_dir.mkdir()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    # Create message from Maintainer <2> (no ack keywords)
+    m2_content = """# Request: dose_experiments_ground_truth
+
+**From:** Maintainer <2>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T14:00:00Z
+
+Please provide the dose experiments ground truth bundle.
+"""
+    create_inbox_file(inbox_dir, "request_dose_experiments_ground_truth.md", m2_content, -3.0)
+
+    # Create message from Maintainer <3> WITH ack keywords
+    m3_content = """# Acknowledgement: dose_experiments_ground_truth
+
+**From:** Maintainer <3>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T15:00:00Z
+
+I have received and confirmed the dose experiments ground truth bundle on behalf of the team.
+"""
+    create_inbox_file(inbox_dir, "ack_m3_dose_experiments_ground_truth.md", m3_content, -2.0)
+
+    # Test 1: Default behavior (only M2 as ack actor) - M3 message should NOT trigger ack
+    result1 = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--keywords", "received",
+            "--keywords", "confirmed",
+            "--output", str(output_dir / "test1")
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    assert result1.returncode == 0, f"Test 1 failed: {result1.stderr}"
+    json_path1 = output_dir / "test1" / "inbox_scan_summary.json"
+    with open(json_path1) as f:
+        data1 = json.load(f)
+
+    # M3 has ack keywords but is not in ack_actors (default is M2 only)
+    assert data1["ack_detected"] is False, \
+        "Should NOT detect ack when M3 is not in ack_actors (default)"
+    assert data1["parameters"]["ack_actors"] == ["maintainer_2"], \
+        "Default ack_actors should be ['maintainer_2']"
+
+    # Test 2: With both M2 and M3 as ack actors - M3 message SHOULD trigger ack
+    result2 = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--keywords", "received",
+            "--keywords", "confirmed",
+            "--ack-actor", "Maintainer <2>",
+            "--ack-actor", "Maintainer <3>",
+            "--output", str(output_dir / "test2")
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    assert result2.returncode == 0, f"Test 2 failed: {result2.stderr}"
+    json_path2 = output_dir / "test2" / "inbox_scan_summary.json"
+    with open(json_path2) as f:
+        data2 = json.load(f)
+
+    # Now M3 is in ack_actors, so their message with ack keywords should trigger
+    assert data2["ack_detected"] is True, \
+        "Should detect ack when M3 is in ack_actors and has ack keywords"
+    assert "maintainer_3" in data2["parameters"]["ack_actors"], \
+        "ack_actors should include maintainer_3"
+    assert "ack_m3_dose_experiments_ground_truth.md" in data2["ack_files"], \
+        "M3's ack file should be in ack_files"
+
+
+def test_custom_keywords_enable_ack_detection(tmp_path):
+    """
+    Test that user-provided --keywords are honored exactly (no hidden hard-coded list).
+
+    Creates a synthetic inbox with a message from Maintainer <2> containing
+    "thanks" but NOT "acknowledged"/"confirmed"/"received".
+
+    Asserts:
+    1. With --keywords "acknowledged" --keywords "confirmed": ack_detected=False
+       (message doesn't contain these exact keywords)
+    2. With --keywords "thanks": ack_detected=True
+       (message contains "thanks")
+    3. Without any --keywords: uses defaults which include "thanks" -> ack_detected=True
+    """
+    inbox_dir = tmp_path / "inbox"
+    inbox_dir.mkdir()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    # Create message from Maintainer <2> with "thanks" but NOT standard ack keywords
+    m2_content = """# Response: dose_experiments_ground_truth
+
+**From:** Maintainer <2>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T14:00:00Z
+
+Thanks for the bundle! I'll review it soon.
+"""
+    create_inbox_file(inbox_dir, "response_dose_experiments_ground_truth.md", m2_content, -1.0)
+
+    # Test 1: With keywords that DON'T match - should NOT detect ack
+    result1 = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--keywords", "acknowledged",
+            "--keywords", "confirmed",
+            "--output", str(output_dir / "test1")
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    assert result1.returncode == 0, f"Test 1 failed: {result1.stderr}"
+    json_path1 = output_dir / "test1" / "inbox_scan_summary.json"
+    with open(json_path1) as f:
+        data1 = json.load(f)
+
+    assert data1["ack_detected"] is False, \
+        "Should NOT detect ack when message doesn't contain specified keywords"
+
+    # Test 2: With keyword that DOES match - should detect ack
+    result2 = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--keywords", "thanks",
+            "--output", str(output_dir / "test2")
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    assert result2.returncode == 0, f"Test 2 failed: {result2.stderr}"
+    json_path2 = output_dir / "test2" / "inbox_scan_summary.json"
+    with open(json_path2) as f:
+        data2 = json.load(f)
+
+    assert data2["ack_detected"] is True, \
+        "Should detect ack when message contains specified keyword 'thanks'"
+
+    # Test 3: Without any --keywords (defaults) - should detect ack since defaults include "thanks"
+    result3 = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--output", str(output_dir / "test3")
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    assert result3.returncode == 0, f"Test 3 failed: {result3.stderr}"
+    json_path3 = output_dir / "test3" / "inbox_scan_summary.json"
+    with open(json_path3) as f:
+        data3 = json.load(f)
+
+    assert data3["ack_detected"] is True, \
+        "Should detect ack with default keywords (includes 'thanks')"
+    assert "thanks" in data3["parameters"]["keywords"], \
+        "Default keywords should include 'thanks'"
