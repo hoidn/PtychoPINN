@@ -315,6 +315,31 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - Capture the script output log plus a rerun of `pytest tests/test_generic_loader.py::test_generic_loader -q` under `reports/<ts>/rehydration_check/`.
 - Append a short "Rehydration verification" section to `inbox/response_dose_experiments_ground_truth.md` citing the new summary so Maintainer <2> knows the tarball was tested end-to-end.
 
+### 2026-01-23T00:55Z — DEBUG-SIM-LINES-DOSE-001.E1 (complete)
+**Action:** Implemented `verify_bundle_rehydration.py` script that:
+1. Extracts `dose_experiments_ground_truth.tar.gz` to a temp directory
+2. Regenerates manifest via `make_ground_truth_manifest.py`
+3. Compares SHA256 + size for all 11 files against original manifest
+4. Emits `rehydration_diff.json` and `rehydration_summary.md`
+5. Cleans up temp directory after success
+
+**Metrics:**
+- Rehydration status: PASS
+- Total files: 11
+- Matches: 11
+- Mismatches: 0
+
+**Test:** `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.53s)
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T005200Z/rehydration_check/rehydration_summary.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T005200Z/rehydration_check/rehydration_diff.json`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T005200Z/rehydration_check/verify_bundle_rehydration.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T005200Z/pytest_loader.log`
+
+**Next Actions:**
+- DEBUG-SIM-LINES-DOSE-001.E1 complete; await Maintainer <2> acknowledgment to close DEBUG-SIM-LINES-DOSE-001
+
 ## TODOs
 - [x] S4: Expand the D0 parity Markdown report to list stage-level stats for every dataset and document the new test selector (`tests/tools/test_d0_parity_logger.py`) inside `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.
 - [x] S3: Promote D0 parity logger into `scripts/tools/` with stage-level stats + tests, then capture artifacts for photon_grid_study_20250826_152459
@@ -323,4 +348,4 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - [x] DEBUG-SIM-LINES-DOSE-001.C1: Copy or package (tarball) the requested datasets + baseline outputs into `reports/2026-01-22T014445Z/dose_experiments_ground_truth/`, keeping the manifest + README in sync.
 - [x] DEBUG-SIM-LINES-DOSE-001.C2: Capture checksum verification logs for the final bundle (or tarball) and confirm size constraints / delivery instructions in `galph_memory.md` + maintainer inbox.
 - [x] DEBUG-SIM-LINES-DOSE-001.D1: Draft `inbox/response_dose_experiments_ground_truth.md` that cites the final drop root, README/manifest paths, bundle_verification logs, tarball SHA, and the validating `pytest tests/test_generic_loader.py::test_generic_loader -q` log so Maintainer <2> can close the request.
-- [ ] DEBUG-SIM-LINES-DOSE-001.E1: Verify the tarball rehydration path by extracting `dose_experiments_ground_truth.tar.gz`, regenerating the manifest, diffing it against `reports/2026-01-23T001018Z/ground_truth_manifest.json`, logging the comparison under `reports/<ts>/rehydration_check/`, re-running `pytest tests/test_generic_loader.py::test_generic_loader -q`, and updating the maintainer response with the results.
+- [x] DEBUG-SIM-LINES-DOSE-001.E1: Verify the tarball rehydration path by extracting `dose_experiments_ground_truth.tar.gz`, regenerating the manifest, diffing it against `reports/2026-01-23T001018Z/ground_truth_manifest.json`, logging the comparison under `reports/<ts>/rehydration_check/`, re-running `pytest tests/test_generic_loader.py::test_generic_loader -q`, and updating the maintainer response with the results.

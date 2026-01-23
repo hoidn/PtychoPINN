@@ -1,0 +1,83 @@
+{
+  "timestamp": "2026-01-23T00:53:43.660109+00:00",
+  "scenario_id": "PGRID-20250826-P1E5-T1024",
+  "total_files": 11,
+  "matches": 11,
+  "mismatches": 0,
+  "missing_in_rehydrated": 0,
+  "extra_in_rehydrated": 0,
+  "status": "PASS",
+  "details": {
+    "matches": [
+      {
+        "filename": "baseline_model.h5",
+        "sha256": "46b88686b95ce4e437561ddcb8ad052e2138fc7bd48b5b66f27b7958246d878c",
+        "size_bytes": 55503960,
+        "file_type": "baseline_output"
+      },
+      {
+        "filename": "data_p1e3.npz",
+        "sha256": "f9fa3f9f3f1cf8fc181f9c391b5acf15247ba3f25ed54fe6aaf9809388a860b2",
+        "size_bytes": 5087727,
+        "file_type": "dataset_npz"
+      },
+      {
+        "filename": "data_p1e4.npz",
+        "sha256": "1cce1fe9596a82290bffc3cd6116f43cfed17abe7339503dd849ec5826378402",
+        "size_bytes": 11609223,
+        "file_type": "dataset_npz"
+      },
+      {
+        "filename": "data_p1e5.npz",
+        "sha256": "01007daf8afc67aad3ad037e93077ba8bfb28b58d07e17a1e539bd202ffa0d95",
+        "size_bytes": 17387332,
+        "file_type": "dataset_npz"
+      },
+      {
+        "filename": "data_p1e6.npz",
+        "sha256": "95cfd6aee6b2c061e2a8fbe62a824274165e39e0c4514e4537ee1fecf7a79f64",
+        "size_bytes": 25836417,
+        "file_type": "dataset_npz"
+      },
+      {
+        "filename": "data_p1e7.npz",
+        "sha256": "9902ae24e90d2fa63bebf7830a538868cea524fab9cb15a512509803a9896251",
+        "size_bytes": 37272817,
+        "file_type": "dataset_npz"
+      },
+      {
+        "filename": "data_p1e8.npz",
+        "sha256": "56b4f66a92aa28b2983757417cad008ef14c45c796b2d61d9e366aae3a3d55cf",
+        "size_bytes": 46610537,
+        "file_type": "dataset_npz"
+      },
+      {
+        "filename": "data_p1e9.npz",
+        "sha256": "3e1f229af34525a7a912c9c62fa8df6ab87c69528572686a34de4d2640c57c4a",
+        "size_bytes": 57972050,
+        "file_type": "dataset_npz"
+      },
+      {
+        "filename": "params.dill",
+        "sha256": "92c27229e2edca3a279d9efd6c8134378cc82b6efd38f0aba751128fb48eb588",
+        "size_bytes": 35623,
+        "file_type": "baseline_params"
+      },
+      {
+        "filename": "recon.dill",
+        "sha256": "2501b93db2fea8e3751dee6649503b8dfd62aa72c4b077c27e5773af3b1b304c",
+        "size_bytes": 839721,
+        "file_type": "baseline_output"
+      },
+      {
+        "filename": "wts.h5.zip",
+        "sha256": "56a26314a6c6db4fb466673f8eb308f4b8502d9a5bc3d79d60bf641f71b5b1cd",
+        "size_bytes": 33536820,
+        "file_type": "pinn_weights"
+      }
+    ],
+    "mismatches": [],
+    "missing_in_rehydrated": [],
+    "extra_in_rehydrated": []
+  }
+}

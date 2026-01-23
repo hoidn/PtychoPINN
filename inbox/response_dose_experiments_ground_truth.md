@@ -160,3 +160,33 @@ Once acknowledged, I will mark DEBUG-SIM-LINES-DOSE-001.D1 complete in `docs/fix
 
 **Artifacts path:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T004049Z/`
 **Request source:** `inbox/request_dose_experiments_ground_truth_2026-01-22T014445Z.md`
+
+---
+
+## 9. Rehydration Verification
+
+The tarball `dose_experiments_ground_truth.tar.gz` was extracted into a fresh temporary directory, and the manifest was regenerated from the extracted files. All 11 files matched the original manifest exactly (SHA256 + size).
+
+**Status:** `PASS`
+
+| Metric | Count |
+|--------|-------|
+| Total files | 11 |
+| Matches | 11 |
+| Mismatches | 0 |
+
+**Verification script:** `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/verify_bundle_rehydration.py`
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T005200Z/rehydration_check/rehydration_summary.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T005200Z/rehydration_check/rehydration_diff.json`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T005200Z/rehydration_check/verify_bundle_rehydration.log`
+
+**Pytest validation (post-rehydration):**
+```bash
+pytest tests/test_generic_loader.py::test_generic_loader -q
+# Result: 1 passed, 5 warnings (2.53s)
+```
+**Log:** `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T005200Z/pytest_loader.log`
+
+This confirms the tarball can be extracted and used as a drop-in replacement for the original dataset files.

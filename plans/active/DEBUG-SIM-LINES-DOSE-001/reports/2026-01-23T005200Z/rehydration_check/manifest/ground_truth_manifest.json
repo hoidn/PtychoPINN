@@ -1,0 +1,740 @@
+{
+  "scenario_id": "PGRID-20250826-P1E5-T1024",
+  "generated_utc": "2026-01-23T00:53:39.319700+00:00",
+  "dataset_root": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/simulation",
+  "spec_reference": "specs/data_contracts.md",
+  "required_npz_keys": [
+    "diff3d",
+    "probeGuess",
+    "scan_index"
+  ],
+  "datasets": [
+    {
+      "path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/simulation/data_p1e3.npz",
+      "relative_path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/simulation/data_p1e3.npz",
+      "file_type": "dataset_npz",
+      "size_bytes": 5087727,
+      "sha256": "f9fa3f9f3f1cf8fc181f9c391b5acf15247ba3f25ed54fe6aaf9809388a860b2",
+      "modified_utc": "2025-08-26T22:25:25.929820+00:00",
+      "keys": {
+        "required_keys": [
+          "diff3d",
+          "probeGuess",
+          "scan_index"
+        ],
+        "present_optional_keys": [
+          "ground_truth_patches",
+          "objectGuess",
+          "xcoords",
+          "xcoords_start",
+          "ycoords",
+          "ycoords_start"
+        ],
+        "extra_keys": [],
+        "all_keys": [
+          "diff3d",
+          "ground_truth_patches",
+          "objectGuess",
+          "probeGuess",
+          "scan_index",
+          "xcoords",
+          "xcoords_start",
+          "ycoords",
+          "ycoords_start"
+        ]
+      },
+      "array_metadata": {
+        "diff3d": {
+          "shape": [
+            5000,
+            64,
+            64
+          ],
+          "dtype": "float32"
+        },
+        "ground_truth_patches": {
+          "shape": [
+            5000,
+            64,
+            64,
+            1
+          ],
+          "dtype": "complex64"
+        },
+        "objectGuess": {
+          "shape": [
+            232,
+            232
+          ],
+          "dtype": "complex128"
+        },
+        "probeGuess": {
+          "shape": [
+            64,
+            64
+          ],
+          "dtype": "complex128"
+        },
+        "scan_index": {
+          "shape": [
+            5000
+          ],
+          "dtype": "int64"
+        },
+        "xcoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "xcoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        }
+      }
+    },
+    {
+      "path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/simulation/data_p1e4.npz",
+      "relative_path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/simulation/data_p1e4.npz",
+      "file_type": "dataset_npz",
+      "size_bytes": 11609223,
+      "sha256": "1cce1fe9596a82290bffc3cd6116f43cfed17abe7339503dd849ec5826378402",
+      "modified_utc": "2025-08-26T22:25:57.443240+00:00",
+      "keys": {
+        "required_keys": [
+          "diff3d",
+          "probeGuess",
+          "scan_index"
+        ],
+        "present_optional_keys": [
+          "ground_truth_patches",
+          "objectGuess",
+          "xcoords",
+          "xcoords_start",
+          "ycoords",
+          "ycoords_start"
+        ],
+        "extra_keys": [],
+        "all_keys": [
+          "diff3d",
+          "ground_truth_patches",
+          "objectGuess",
+          "probeGuess",
+          "scan_index",
+          "xcoords",
+          "xcoords_start",
+          "ycoords",
+          "ycoords_start"
+        ]
+      },
+      "array_metadata": {
+        "diff3d": {
+          "shape": [
+            5000,
+            64,
+            64
+          ],
+          "dtype": "float32"
+        },
+        "ground_truth_patches": {
+          "shape": [
+            5000,
+            64,
+            64,
+            1
+          ],
+          "dtype": "complex64"
+        },
+        "objectGuess": {
+          "shape": [
+            232,
+            232
+          ],
+          "dtype": "complex128"
+        },
+        "probeGuess": {
+          "shape": [
+            64,
+            64
+          ],
+          "dtype": "complex128"
+        },
+        "scan_index": {
+          "shape": [
+            5000
+          ],
+          "dtype": "int64"
+        },
+        "xcoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "xcoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        }
+      }
+    },
+    {
+      "path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/simulation/data_p1e5.npz",
+      "relative_path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/simulation/data_p1e5.npz",
+      "file_type": "dataset_npz",
+      "size_bytes": 17387332,
+      "sha256": "01007daf8afc67aad3ad037e93077ba8bfb28b58d07e17a1e539bd202ffa0d95",
+      "modified_utc": "2025-08-26T22:26:28.169647+00:00",
+      "keys": {
+        "required_keys": [
+          "diff3d",
+          "probeGuess",
+          "scan_index"
+        ],
+        "present_optional_keys": [
+          "ground_truth_patches",
+          "objectGuess",
+          "xcoords",
+          "xcoords_start",
+          "ycoords",
+          "ycoords_start"
+        ],
+        "extra_keys": [],
+        "all_keys": [
+          "diff3d",
+          "ground_truth_patches",
+          "objectGuess",
+          "probeGuess",
+          "scan_index",
+          "xcoords",
+          "xcoords_start",
+          "ycoords",
+          "ycoords_start"
+        ]
+      },
+      "array_metadata": {
+        "diff3d": {
+          "shape": [
+            5000,
+            64,
+            64
+          ],
+          "dtype": "float32"
+        },
+        "ground_truth_patches": {
+          "shape": [
+            5000,
+            64,
+            64,
+            1
+          ],
+          "dtype": "complex64"
+        },
+        "objectGuess": {
+          "shape": [
+            232,
+            232
+          ],
+          "dtype": "complex128"
+        },
+        "probeGuess": {
+          "shape": [
+            64,
+            64
+          ],
+          "dtype": "complex128"
+        },
+        "scan_index": {
+          "shape": [
+            5000
+          ],
+          "dtype": "int64"
+        },
+        "xcoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "xcoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        }
+      }
+    },
+    {
+      "path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/simulation/data_p1e6.npz",
+      "relative_path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/simulation/data_p1e6.npz",
+      "file_type": "dataset_npz",
+      "size_bytes": 25836417,
+      "sha256": "95cfd6aee6b2c061e2a8fbe62a824274165e39e0c4514e4537ee1fecf7a79f64",
+      "modified_utc": "2025-08-26T22:27:00.613075+00:00",
+      "keys": {
+        "required_keys": [
+          "diff3d",
+          "probeGuess",
+          "scan_index"
+        ],
+        "present_optional_keys": [
+          "ground_truth_patches",
+          "objectGuess",
+          "xcoords",
+          "xcoords_start",
+          "ycoords",
+          "ycoords_start"
+        ],
+        "extra_keys": [],
+        "all_keys": [
+          "diff3d",
+          "ground_truth_patches",
+          "objectGuess",
+          "probeGuess",
+          "scan_index",
+          "xcoords",
+          "xcoords_start",
+          "ycoords",
+          "ycoords_start"
+        ]
+      },
+      "array_metadata": {
+        "diff3d": {
+          "shape": [
+            5000,
+            64,
+            64
+          ],
+          "dtype": "float32"
+        },
+        "ground_truth_patches": {
+          "shape": [
+            5000,
+            64,
+            64,
+            1
+          ],
+          "dtype": "complex64"
+        },
+        "objectGuess": {
+          "shape": [
+            232,
+            232
+          ],
+          "dtype": "complex128"
+        },
+        "probeGuess": {
+          "shape": [
+            64,
+            64
+          ],
+          "dtype": "complex128"
+        },
+        "scan_index": {
+          "shape": [
+            5000
+          ],
+          "dtype": "int64"
+        },
+        "xcoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "xcoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        }
+      }
+    },
+    {
+      "path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/simulation/data_p1e7.npz",
+      "relative_path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/simulation/data_p1e7.npz",
+      "file_type": "dataset_npz",
+      "size_bytes": 37272817,
+      "sha256": "9902ae24e90d2fa63bebf7830a538868cea524fab9cb15a512509803a9896251",
+      "modified_utc": "2025-08-26T22:27:31.010473+00:00",
+      "keys": {
+        "required_keys": [
+          "diff3d",
+          "probeGuess",
+          "scan_index"
+        ],
+        "present_optional_keys": [
+          "ground_truth_patches",
+          "objectGuess",
+          "xcoords",
+          "xcoords_start",
+          "ycoords",
+          "ycoords_start"
+        ],
+        "extra_keys": [],
+        "all_keys": [
+          "diff3d",
+          "ground_truth_patches",
+          "objectGuess",
+          "probeGuess",
+          "scan_index",
+          "xcoords",
+          "xcoords_start",
+          "ycoords",
+          "ycoords_start"
+        ]
+      },
+      "array_metadata": {
+        "diff3d": {
+          "shape": [
+            5000,
+            64,
+            64
+          ],
+          "dtype": "float32"
+        },
+        "ground_truth_patches": {
+          "shape": [
+            5000,
+            64,
+            64,
+            1
+          ],
+          "dtype": "complex64"
+        },
+        "objectGuess": {
+          "shape": [
+            232,
+            232
+          ],
+          "dtype": "complex128"
+        },
+        "probeGuess": {
+          "shape": [
+            64,
+            64
+          ],
+          "dtype": "complex128"
+        },
+        "scan_index": {
+          "shape": [
+            5000
+          ],
+          "dtype": "int64"
+        },
+        "xcoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "xcoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        }
+      }
+    },
+    {
+      "path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/simulation/data_p1e8.npz",
+      "relative_path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/simulation/data_p1e8.npz",
+      "file_type": "dataset_npz",
+      "size_bytes": 46610537,
+      "sha256": "56b4f66a92aa28b2983757417cad008ef14c45c796b2d61d9e366aae3a3d55cf",
+      "modified_utc": "2025-08-26T22:28:03.741900+00:00",
+      "keys": {
+        "required_keys": [
+          "diff3d",
+          "probeGuess",
+          "scan_index"
+        ],
+        "present_optional_keys": [
+          "ground_truth_patches",
+          "objectGuess",
+          "xcoords",
+          "xcoords_start",
+          "ycoords",
+          "ycoords_start"
+        ],
+        "extra_keys": [],
+        "all_keys": [
+          "diff3d",
+          "ground_truth_patches",
+          "objectGuess",
+          "probeGuess",
+          "scan_index",
+          "xcoords",
+          "xcoords_start",
+          "ycoords",
+          "ycoords_start"
+        ]
+      },
+      "array_metadata": {
+        "diff3d": {
+          "shape": [
+            5000,
+            64,
+            64
+          ],
+          "dtype": "float32"
+        },
+        "ground_truth_patches": {
+          "shape": [
+            5000,
+            64,
+            64,
+            1
+          ],
+          "dtype": "complex64"
+        },
+        "objectGuess": {
+          "shape": [
+            232,
+            232
+          ],
+          "dtype": "complex128"
+        },
+        "probeGuess": {
+          "shape": [
+            64,
+            64
+          ],
+          "dtype": "complex128"
+        },
+        "scan_index": {
+          "shape": [
+            5000
+          ],
+          "dtype": "int64"
+        },
+        "xcoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "xcoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        }
+      }
+    },
+    {
+      "path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/simulation/data_p1e9.npz",
+      "relative_path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/simulation/data_p1e9.npz",
+      "file_type": "dataset_npz",
+      "size_bytes": 57972050,
+      "sha256": "3e1f229af34525a7a912c9c62fa8df6ab87c69528572686a34de4d2640c57c4a",
+      "modified_utc": "2025-08-26T22:28:36.432325+00:00",
+      "keys": {
+        "required_keys": [
+          "diff3d",
+          "probeGuess",
+          "scan_index"
+        ],
+        "present_optional_keys": [
+          "ground_truth_patches",
+          "objectGuess",
+          "xcoords",
+          "xcoords_start",
+          "ycoords",
+          "ycoords_start"
+        ],
+        "extra_keys": [],
+        "all_keys": [
+          "diff3d",
+          "ground_truth_patches",
+          "objectGuess",
+          "probeGuess",
+          "scan_index",
+          "xcoords",
+          "xcoords_start",
+          "ycoords",
+          "ycoords_start"
+        ]
+      },
+      "array_metadata": {
+        "diff3d": {
+          "shape": [
+            5000,
+            64,
+            64
+          ],
+          "dtype": "float32"
+        },
+        "ground_truth_patches": {
+          "shape": [
+            5000,
+            64,
+            64,
+            1
+          ],
+          "dtype": "complex64"
+        },
+        "objectGuess": {
+          "shape": [
+            232,
+            232
+          ],
+          "dtype": "complex128"
+        },
+        "probeGuess": {
+          "shape": [
+            64,
+            64
+          ],
+          "dtype": "complex128"
+        },
+        "scan_index": {
+          "shape": [
+            5000
+          ],
+          "dtype": "int64"
+        },
+        "xcoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "xcoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        },
+        "ycoords_start": {
+          "shape": [
+            5000
+          ],
+          "dtype": "float64"
+        }
+      }
+    }
+  ],
+  "baseline_params": {
+    "path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/training/params.dill",
+    "relative_path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/training/params.dill",
+    "file_type": "baseline_params",
+    "size_bytes": 35623,
+    "sha256": "92c27229e2edca3a279d9efd6c8134378cc82b6efd38f0aba751128fb48eb588",
+    "modified_utc": "2025-08-26T23:38:46.578453+00:00",
+    "params_metadata": {
+      "loaded": true,
+      "N": 64,
+      "gridsize": 1,
+      "nepochs": 50
+    }
+  },
+  "baseline_files": [
+    {
+      "path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/training/baseline_model.h5",
+      "relative_path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/training/baseline_model.h5",
+      "file_type": "baseline_output",
+      "size_bytes": 55503960,
+      "sha256": "46b88686b95ce4e437561ddcb8ad052e2138fc7bd48b5b66f27b7958246d878c",
+      "modified_utc": "2025-08-26T23:38:43.867420+00:00"
+    },
+    {
+      "path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/training/recon.dill",
+      "relative_path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/training/recon.dill",
+      "file_type": "baseline_output",
+      "size_bytes": 839721,
+      "sha256": "2501b93db2fea8e3751dee6649503b8dfd62aa72c4b077c27e5773af3b1b304c",
+      "modified_utc": "2025-08-26T23:38:46.588453+00:00"
+    }
+  ],
+  "pinn_weights": {
+    "path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/inference/wts.h5.zip",
+    "relative_path": "/tmp/rehydration_io62hav8/dose_experiments_ground_truth/inference/wts.h5.zip",
+    "file_type": "pinn_weights",
+    "size_bytes": 33536820,
+    "sha256": "56a26314a6c6db4fb466673f8eb308f4b8502d9a5bc3d79d60bf641f71b5b1cd",
+    "modified_utc": "2025-08-26T23:38:12.839038+00:00"
+  },
+  "errors": []
+}
