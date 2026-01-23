@@ -889,6 +889,15 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 - F1 remains open; Maintainer <2> has not yet acknowledged the bundle
 - Dashboard now shows per-actor trends over time, proving sustained breach
 
+### 2026-01-23T11:35Z — DEBUG-SIM-LINES-DOSE-001.F1 (status snippet + escalation breach timeline scope)
+**Action:** Cross-checked `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/inbox_status/status_snippet.md` and `.../escalation_note.md` after shipping the history-dashboard breach timeline and confirmed both outputs still require Maintainer <1> to open `inbox_history_dashboard.md` to quote streaks/ages. Maintainer <3> specifically asked for a one-pager they can forward without spelunking the dashboard, so the status snippet and escalation note need to embed the same "Ack Actor Breach Timeline" table whenever history logging is enabled.
+
+**Next Actions:**
+- Update `plans/active/DEBUG-SIM-LINES-DOSE-001/bin/check_inbox_for_ack.py::write_status_snippet` and `::write_escalation_note` so each writer appends the existing `_build_actor_breach_timeline_section` output when `--history-jsonl` is supplied. Read the JSONL after appending the current run so the snippet/note pick up the latest entry, and gracefully skip the section when history logging is disabled. 
+- Extend `tests/tools/test_check_inbox_for_ack_cli.py::test_status_snippet_emits_wait_summary` and `::test_escalation_note_emits_call_to_action` to assert (a) no breach timeline appears for runs without `--history-jsonl`, and (b) the Markdown now includes the breach timeline header + Maintainer 2 row once history logging is turned on. Keep the selectors identical to avoid doc churn.
+- Update `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md` Status Snippet / Escalation Note sections so they mention the embedded breach timeline behavior (history-enabled requirement) with the same selectors/log paths.
+- Execute the inbox CLI with the standard SLA + actor overrides into `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T113500Z/` (capturing logs, snippet, escalation note, history JSONL/Markdown, dashboard) and append a 2026-01-23T11:35Z block to `inbox/response_dose_experiments_ground_truth.md` plus `inbox/followup_dose_experiments_ground_truth_2026-01-23T113500Z.md` that cites the embedded breach timeline so Maintainers <2>/<3> see the streak without opening the dashboard.
+
 ### 2026-01-23T07:05Z — DEBUG-SIM-LINES-DOSE-001.F1 (per-actor SLA summary shipped)
 **Action:** Implemented `ack_actor_summary` structure that groups monitored actors by severity (critical/warning/ok/unknown). The summary provides a quick view of which actors are breaching SLA.
 

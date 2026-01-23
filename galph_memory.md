@@ -111,3 +111,7 @@ notes=timeout 30 git pull --rebase is still blocked by the user’s dirty worktr
 ## 2026-01-23T103000Z
 focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=0 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T103500Z/ next_action=Ralph ships history-dashboard breach timeline + pytest/docs/inbox evidence per refreshed input <Action State>=ready_for_implementation
 notes=Confirmed Maintainer <2> remains non-responsive, added the per-actor breach timeline scope to docs/fix_plan.md, and rewrote input.md with concrete code/test/CLI/doc instructions (new artifacts root 2026-01-23T103500Z) so Ralph can implement immediately while capturing the new selector + follow-up evidence.
+
+## 2026-01-23T113500Z
+focus=DEBUG-SIM-LINES-DOSE-001.F1 state=ready_for_implementation dwell=1 action_type=planning artifacts=plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T113500Z/ next_action=Ralph embeds breach timeline into snippet + escalation note, extends tests/docs, and reruns CLI/pytest <Action State>=ready_for_implementation
+notes=Updated docs/fix_plan.md and input.md so the next loop loads history JSONL inside check_inbox_for_ack.py, appends the existing breach timeline block to the status snippet + escalation note, extends the two regression tests, re-runs the CLI into 2026-01-23T113500Z, and refreshes docs/inbox evidence with the embedded streak metrics.
