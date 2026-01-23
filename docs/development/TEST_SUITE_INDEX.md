@@ -35,3 +35,6 @@ This is a minimal index of key tests in this branch.
   - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_ack_actor_wait_metrics_cover_each_actor -q`
   - Tests per-actor wait metrics in `ack_actor_stats` block: each configured ack actor gets hours_since_last_inbound, inbound_count, ack_files.
   - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T031500Z/logs/pytest_ack_actor_wait_collect.log`
+  - Selector: `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_reports_deadline_and_severity -q`
+  - Tests SLA deadline/severity fields in `sla_watch` block: `deadline_utc`, `breach_duration_hours`, `severity` (ok/warning/critical).
+  - Logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T040500Z/logs/pytest_sla_severity_collect.log`

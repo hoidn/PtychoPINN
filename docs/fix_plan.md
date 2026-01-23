@@ -805,3 +805,55 @@ python plans/active/DEBUG-SIM-LINES-DOSE-001/bin/generate_legacy_readme.py \
 **Next Actions:**
 - F1 remains open; Maintainer <2> has not yet acknowledged the bundle
 - Per-actor wait metrics now visible in JSON/Markdown/status/escalation outputs
+
+### 2026-01-23T04:05Z — DEBUG-SIM-LINES-DOSE-001.F1 (SLA deadline/severity shipped)
+**Action:** Extended the inbox acknowledgement CLI with SLA deadline, breach duration, and severity fields:
+1. Updated `scan_inbox()` to compute `sla_deadline_utc` (last inbound + sla_hours), `breach_duration_hours` (max(hours - threshold, 0)), and `severity` ("ok"/"warning"/"critical"/"unknown")
+2. Updated `write_markdown_summary()` with Deadline, Breach Duration, and Severity lines in SLA Watch section
+3. Updated `write_status_snippet()` with Deadline/Breach Duration/Severity rows in SLA Watch table
+4. Updated `write_escalation_note()` with Deadline/Breach Duration/Severity rows in SLA Watch table
+5. Updated `append_history_jsonl()` with `sla_deadline_utc`, `sla_breach_duration_hours`, `sla_severity` fields
+6. Updated `append_history_markdown()` with Severity column in history table
+7. Updated `write_history_dashboard()` with Severity column in Recent Scans table
+8. Updated CLI stdout to print Deadline/Breach Duration/Severity under SLA Watch
+9. Added `test_sla_watch_reports_deadline_and_severity` regression test validating JSON/Markdown output
+
+**Tests:**
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py -q` — 13 passed (0.76s)
+- `pytest tests/test_generic_loader.py::test_generic_loader -q` — 1 passed (2.56s)
+
+**Collection:**
+- `pytest --collect-only tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_reports_deadline_and_severity -q` — 1 test collected
+
+**CLI Run (with --sla-hours 2.0 --fail-when-breached):**
+- Files scanned: 6
+- Matches: 4
+- Last inbound: 2026-01-22T23:22:58Z
+- Hours since last inbound: 3.55
+- **Deadline (UTC):** 2026-01-23T01:22:58Z
+- **Breached:** Yes (3.55 > 2.00 threshold)
+- **Breach Duration:** 1.55 hours
+- **Severity:** critical
+- Acknowledgement detected: No
+- Exit code: 2 (--fail-when-breached)
+
+**Doc Updates:**
+- `docs/TESTING_GUIDE.md`: Added "Inbox Acknowledgement CLI (SLA Deadline/Severity)" section with new selector
+- `docs/development/TEST_SUITE_INDEX.md`: Added `test_sla_watch_reports_deadline_and_severity` selector + log path
+
+**Artifacts:**
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T040500Z/logs/pytest_check_inbox_suite.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T040500Z/logs/pytest_loader.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T040500Z/logs/pytest_sla_severity_collect.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T040500Z/logs/check_inbox.log`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T040500Z/inbox_sla_watch/inbox_scan_summary.json`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T040500Z/inbox_sla_watch/inbox_scan_summary.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T040500Z/inbox_status/status_snippet.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T040500Z/inbox_status/escalation_note.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T040500Z/inbox_history/inbox_sla_watch.jsonl`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T040500Z/inbox_history/inbox_sla_watch.md`
+- `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T040500Z/inbox_history/inbox_history_dashboard.md`
+
+**Next Actions:**
+- F1 remains open; Maintainer <2> has not yet acknowledged the bundle (SLA breach: 3.55 hours, severity: critical)
+- SLA deadline/severity now visible across JSON/Markdown/stdout/history outputs

@@ -460,26 +460,53 @@ def scan_inbox(
     # SLA Watch computation (if sla_hours provided)
     if sla_hours is not None:
         hours_since = results["waiting_clock"]["hours_since_last_inbound"]
+        last_inbound_utc = results["waiting_clock"]["last_inbound_utc"]
         breached = False
         notes = ""
-        if hours_since is None:
+        sla_deadline_utc = None
+        breach_duration_hours = None
+        severity = "unknown"
+
+        if hours_since is None or last_inbound_utc is None:
             # No inbound messages at all
             notes = "No inbound messages from Maintainer <2> found"
             breached = False  # Cannot be breached if no inbound exists
+            severity = "unknown"
         else:
+            # Compute SLA deadline: last_inbound + sla_hours
+            from datetime import timedelta
+            last_inbound_ts = datetime.fromisoformat(last_inbound_utc)
+            deadline_ts = last_inbound_ts + timedelta(hours=sla_hours)
+            sla_deadline_utc = deadline_ts.isoformat()
+
             breached = hours_since > sla_hours and not results["ack_detected"]
+
             if breached:
+                # Compute breach duration
+                breach_duration_hours = round(hours_since - sla_hours, 2)
+                # Determine severity: warning (<1 hour late), critical (>=1 hour late)
+                if breach_duration_hours < 1.0:
+                    severity = "warning"
+                else:
+                    severity = "critical"
                 notes = f"SLA breach: {hours_since:.2f} hours since last inbound exceeds {sla_hours:.2f} hour threshold and no acknowledgement detected"
             elif results["ack_detected"]:
                 notes = "Acknowledgement received; SLA not applicable"
+                severity = "ok"
+                breach_duration_hours = 0.0
             else:
                 notes = f"Within SLA: {hours_since:.2f} hours since last inbound (threshold: {sla_hours:.2f})"
+                severity = "ok"
+                breach_duration_hours = 0.0
 
         results["sla_watch"] = {
             "threshold_hours": sla_hours,
             "hours_since_last_inbound": hours_since,
             "breached": breached,
-            "notes": notes
+            "notes": notes,
+            "deadline_utc": sla_deadline_utc,
+            "breach_duration_hours": breach_duration_hours,
+            "severity": severity
         }
 
     return results
@@ -559,9 +586,16 @@ def write_markdown_summary(results: dict, output_path: Path) -> None:
         ])
         hrs = sla_watch.get("hours_since_last_inbound")
         hrs_str = f"{hrs:.2f} hours" if hrs is not None else "N/A"
+        deadline_utc = sla_watch.get("deadline_utc") or "N/A"
+        breach_dur = sla_watch.get("breach_duration_hours")
+        breach_dur_str = f"{breach_dur:.2f} hours" if breach_dur is not None else "N/A"
+        severity = sla_watch.get("severity", "unknown")
         lines.extend([
             f"- **Hours Since Last Inbound:** {hrs_str}",
+            f"- **Deadline (UTC):** {deadline_utc}",
             f"- **Breached:** {'Yes' if sla_watch['breached'] else 'No'}",
+            f"- **Breach Duration:** {breach_dur_str}",
+            f"- **Severity:** {severity}",
             f"- **Notes:** {sla_watch['notes']}",
             "",
         ])
@@ -692,6 +726,9 @@ def append_history_jsonl(results: dict, output_path: Path) -> None:
         "hours_since_outbound": wc.get("hours_since_last_outbound"),
         "sla_breached": sla.get("breached") if sla else None,
         "sla_threshold_hours": sla.get("threshold_hours") if sla else None,
+        "sla_deadline_utc": sla.get("deadline_utc") if sla else None,
+        "sla_breach_duration_hours": sla.get("breach_duration_hours") if sla else None,
+        "sla_severity": sla.get("severity") if sla else None,
         "ack_files": results.get("ack_files", []),
         "total_matches": len(results.get("matches", [])),
         "total_inbound": wc.get("total_inbound_count", 0),
@@ -722,8 +759,8 @@ def append_history_markdown(results: dict, output_path: Path) -> None:
     with open(output_path, "a", encoding="utf-8") as f:
         if write_header:
             f.write("# Inbox Scan History\n\n")
-            f.write("| Generated (UTC) | Ack | Hrs Inbound | Hrs Outbound | SLA Breach | Ack Files |\n")
-            f.write("|-----------------|-----|-------------|--------------|------------|----------|\n")
+            f.write("| Generated (UTC) | Ack | Hrs Inbound | Hrs Outbound | SLA Breach | Severity | Ack Files |\n")
+            f.write("|-----------------|-----|-------------|--------------|------------|----------|----------|\n")
 
         # Format values
         gen_utc = results.get("generated_utc", "")[:19]  # Trim to readable length
@@ -738,10 +775,12 @@ def append_history_markdown(results: dict, output_path: Path) -> None:
         breach = sla.get("breached") if sla else None
         breach_str = "Yes" if breach else ("No" if breach is False else "N/A")
 
+        severity = sla.get("severity") if sla else "N/A"
+
         ack_files = results.get("ack_files", [])
         ack_files_str = ", ".join(sanitize_for_markdown(f) for f in ack_files) if ack_files else "-"
 
-        f.write(f"| {gen_utc} | {ack} | {hrs_in_str} | {hrs_out_str} | {breach_str} | {ack_files_str} |\n")
+        f.write(f"| {gen_utc} | {ack} | {hrs_in_str} | {hrs_out_str} | {breach_str} | {severity} | {ack_files_str} |\n")
 
 
 def write_status_snippet(results: dict, output_path: Path) -> None:
@@ -820,6 +859,10 @@ def write_status_snippet(results: dict, output_path: Path) -> None:
         notes = sla.get("notes", "")
         threshold_str = f"{threshold:.2f}" if threshold is not None else "N/A"
         breach_str = "Yes" if breached else "No"
+        deadline_utc = sla.get("deadline_utc") or "N/A"
+        breach_dur = sla.get("breach_duration_hours")
+        breach_dur_str = f"{breach_dur:.2f}" if breach_dur is not None else "N/A"
+        severity = sla.get("severity", "unknown")
 
         lines.extend([
             "## SLA Watch",
@@ -827,7 +870,10 @@ def write_status_snippet(results: dict, output_path: Path) -> None:
             f"| Metric | Value |",
             f"|--------|-------|",
             f"| Threshold | {threshold_str} hours |",
+            f"| Deadline (UTC) | {deadline_utc} |",
             f"| Breached | {breach_str} |",
+            f"| Breach Duration | {breach_dur_str} hours |",
+            f"| Severity | {severity} |",
             "",
             f"**Notes:** {sanitize_for_markdown(notes)}",
             "",
@@ -977,6 +1023,10 @@ def write_escalation_note(
         threshold_str = f"{threshold:.2f}" if threshold is not None else "N/A"
         breach_str = "Yes" if sla_breached else "No"
         notes = sanitize_for_markdown(sla.get("notes", ""))
+        deadline_utc = sla.get("deadline_utc") or "N/A"
+        breach_dur = sla.get("breach_duration_hours")
+        breach_dur_str = f"{breach_dur:.2f}" if breach_dur is not None else "N/A"
+        severity = sla.get("severity", "unknown")
 
         lines.extend([
             "## SLA Watch",
@@ -984,7 +1034,10 @@ def write_escalation_note(
             "| Metric | Value |",
             "|--------|-------|",
             f"| Threshold | {threshold_str} hours |",
+            f"| Deadline (UTC) | {deadline_utc} |",
             f"| Breached | {breach_str} |",
+            f"| Breach Duration | {breach_dur_str} hours |",
+            f"| Severity | {severity} |",
             "",
             f"**Notes:** {notes}",
             "",
@@ -1188,8 +1241,8 @@ def write_history_dashboard(
     lines.extend([
         f"## Recent Scans (last {len(recent_entries)} of {total_scans})",
         "",
-        "| Timestamp | Ack | Hrs Inbound | Hrs Outbound | SLA Breach | Matches |",
-        "|-----------|-----|-------------|--------------|------------|---------|",
+        "| Timestamp | Ack | Hrs Inbound | Hrs Outbound | SLA Breach | Severity | Matches |",
+        "|-----------|-----|-------------|--------------|------------|----------|---------|",
     ])
 
     for e in recent_entries:
@@ -1201,8 +1254,9 @@ def write_history_dashboard(
         hrs_out_str = f"{hrs_out:.2f}" if hrs_out is not None else "N/A"
         breach = e.get("sla_breached")
         breach_str = "Yes" if breach else ("No" if breach is False else "N/A")
+        severity = e.get("sla_severity") or "N/A"
         matches = e.get("total_matches", 0)
-        lines.append(f"| {ts} | {ack} | {hrs_in_str} | {hrs_out_str} | {breach_str} | {matches} |")
+        lines.append(f"| {ts} | {ack} | {hrs_in_str} | {hrs_out_str} | {breach_str} | {severity} | {matches} |")
 
     lines.append("")
 
@@ -1342,7 +1396,14 @@ def main():
         print(f"  Threshold: {sla_watch['threshold_hours']:.2f} hours")
         hrs = sla_watch.get("hours_since_last_inbound")
         print(f"  Hours since last inbound: {f'{hrs:.2f}' if hrs is not None else 'N/A'}")
+        deadline_utc = sla_watch.get("deadline_utc") or "N/A"
+        print(f"  Deadline (UTC): {deadline_utc}")
         print(f"  Breached: {'Yes' if sla_watch['breached'] else 'No'}")
+        breach_dur = sla_watch.get("breach_duration_hours")
+        breach_dur_str = f"{breach_dur:.2f}" if breach_dur is not None else "N/A"
+        print(f"  Breach duration: {breach_dur_str} hours")
+        severity = sla_watch.get("severity", "unknown")
+        print(f"  Severity: {severity}")
         print(f"  Notes: {sla_watch['notes']}")
 
     # Print per-actor wait metrics if present

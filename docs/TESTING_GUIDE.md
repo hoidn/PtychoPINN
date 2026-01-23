@@ -132,6 +132,25 @@ This selector validates:
 
 Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T031500Z/logs/pytest_ack_actor_wait_collect.log`
 
+### Inbox Acknowledgement CLI (SLA Deadline/Severity)
+
+The CLI computes SLA deadline, breach duration, and severity fields when `--sla-hours` is provided. The `sla_watch` block in JSON output includes:
+- `deadline_utc`: last inbound timestamp + sla_hours
+- `breach_duration_hours`: hours elapsed beyond the threshold (0 when not breached)
+- `severity`: "ok" (not breached), "warning" (<1 hour late), "critical" (>=1 hour late), "unknown" (no inbound messages)
+
+These fields appear in JSON, Markdown summary, status snippet, escalation note, history JSONL, and CLI stdout. To run the deadline/severity test:
+
+- `pytest tests/tools/test_check_inbox_for_ack_cli.py::test_sla_watch_reports_deadline_and_severity -q`
+
+This selector validates:
+- JSON `sla_watch` block contains `deadline_utc`, `breach_duration_hours`, and `severity`
+- Markdown summary includes "Deadline (UTC)", "Breach Duration", and "Severity" lines
+- Severity is "critical" when breach >= 1 hour
+- Severity resets to "ok" when threshold exceeds wait time (no breach)
+
+Artifact logs: `plans/active/DEBUG-SIM-LINES-DOSE-001/reports/2026-01-23T040500Z/logs/pytest_sla_severity_collect.log`
+
 ## Test Areas
 
 - `tests/tools/`: CLI and tooling tests (e.g., D0 parity logger).

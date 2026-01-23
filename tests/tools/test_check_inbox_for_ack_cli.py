@@ -966,6 +966,123 @@ Thanks for the bundle! I'll review it soon.
         "Default keywords should include 'thanks'"
 
 
+def test_sla_watch_reports_deadline_and_severity(tmp_path):
+    """
+    Test SLA watch reports deadline_utc, breach_duration_hours, and severity.
+
+    Creates a synthetic inbox with:
+    - One message from Maintainer <2> (3.5 hours old, no ack keywords)
+
+    Runs the CLI twice:
+    1. With threshold 2.0h: should breach with severity 'critical' (1.5h late >= 1h)
+    2. With threshold 10.0h: should NOT breach and severity should be 'ok'
+
+    Asserts:
+    - JSON sla_watch block contains deadline_utc, breach_duration_hours, severity
+    - Markdown summary includes "Deadline", "Breach Duration", "Severity" lines
+    - Severity flips from breach (critical) to 'ok' when threshold exceeds wait
+    """
+    inbox_dir = tmp_path / "inbox"
+    inbox_dir.mkdir()
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    # Create message from Maintainer <2> (3.5 hours ago, no ack keywords)
+    m2_content = """# Request: dose_experiments_ground_truth
+
+**From:** Maintainer <2>
+**To:** Maintainer <1>
+**Date:** 2026-01-22T10:00:00Z
+
+Please provide the dose experiments ground truth bundle.
+"""
+    create_inbox_file(inbox_dir, "request_m2_dose.md", m2_content, -3.5)
+
+    # Test 1: SLA threshold 2.0h - should breach (3.5 > 2.0, at least 1.5h late)
+    result1 = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--keywords", "acknowledged",
+            "--keywords", "confirm",
+            "--sla-hours", "2.0",
+            "--output", str(output_dir / "test1")
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    assert result1.returncode == 0, f"Test 1 failed: {result1.stderr}"
+
+    # Load JSON output
+    json_path1 = output_dir / "test1" / "inbox_scan_summary.json"
+    assert json_path1.exists(), "JSON summary not created for test 1"
+    with open(json_path1) as f:
+        data1 = json.load(f)
+
+    # Assert sla_watch contains new fields
+    assert "sla_watch" in data1, "JSON missing sla_watch"
+    sla1 = data1["sla_watch"]
+
+    assert "deadline_utc" in sla1, "sla_watch missing deadline_utc"
+    assert sla1["deadline_utc"] is not None, "deadline_utc should not be None when inbound exists"
+
+    assert "breach_duration_hours" in sla1, "sla_watch missing breach_duration_hours"
+    assert sla1["breach_duration_hours"] is not None, "breach_duration_hours should be set"
+    # 3.5 - 2.0 = 1.5 hours breach (allow some tolerance for test timing)
+    assert 1.0 < sla1["breach_duration_hours"] < 2.0, \
+        f"breach_duration_hours should be ~1.5, got {sla1['breach_duration_hours']}"
+
+    assert "severity" in sla1, "sla_watch missing severity"
+    # 1.5 hours late >= 1.0 means critical
+    assert sla1["severity"] == "critical", \
+        f"Severity should be 'critical' for breach >= 1 hour, got {sla1['severity']}"
+
+    assert sla1["breached"] is True, "Should be breached with 2.0 hour threshold"
+
+    # Check Markdown includes the new fields
+    md_path1 = output_dir / "test1" / "inbox_scan_summary.md"
+    assert md_path1.exists(), "Markdown summary not created for test 1"
+    md_content1 = md_path1.read_text()
+
+    assert "**Deadline (UTC):**" in md_content1, "Markdown missing Deadline line"
+    assert "**Breach Duration:**" in md_content1, "Markdown missing Breach Duration line"
+    assert "**Severity:**" in md_content1, "Markdown missing Severity line"
+    assert "critical" in md_content1.lower(), "Markdown should show critical severity"
+
+    # Test 2: SLA threshold 10.0h - should NOT breach, severity 'ok'
+    result2 = subprocess.run(
+        [
+            sys.executable, str(CLI_SCRIPT),
+            "--inbox", str(inbox_dir),
+            "--request-pattern", "dose_experiments_ground_truth",
+            "--keywords", "acknowledged",
+            "--keywords", "confirm",
+            "--sla-hours", "10.0",
+            "--output", str(output_dir / "test2")
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    assert result2.returncode == 0, f"Test 2 failed: {result2.stderr}"
+
+    json_path2 = output_dir / "test2" / "inbox_scan_summary.json"
+    with open(json_path2) as f:
+        data2 = json.load(f)
+
+    sla2 = data2["sla_watch"]
+    assert sla2["breached"] is False, "Should NOT be breached with 10.0 hour threshold"
+    assert sla2["severity"] == "ok", \
+        f"Severity should be 'ok' when not breached, got {sla2['severity']}"
+    assert sla2["breach_duration_hours"] == 0.0, \
+        f"breach_duration_hours should be 0 when not breached, got {sla2['breach_duration_hours']}"
+
+    # Verify deadline is still computed (even when not breached)
+    assert sla2["deadline_utc"] is not None, "deadline_utc should be set even when not breached"
+
+
 def test_ack_actor_wait_metrics_cover_each_actor(tmp_path):
     """
     Test that ack_actor_stats provides per-actor wait metrics for each configured actor.
