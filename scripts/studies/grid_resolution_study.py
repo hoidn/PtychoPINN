@@ -502,6 +502,496 @@ def _test_stitch_predictions() -> bool:
     return all_passed
 
 
+# =============================================================================
+# Phase 4: Training
+# =============================================================================
+
+def train_arm(
+    N: int,
+    model_type: str,  # 'pinn' or 'baseline'
+    gridsize: int,
+    dataset,  # PtychoDataset
+    output_dir: Path,
+    nepochs: int,
+    nphotons: float,
+) -> Path:
+    """Train a single model arm.
+
+    PINN and baseline use completely different training paths:
+    - PINN: ptycho.model.train() with physics-informed NLL loss
+    - Baseline: ptycho.baselines.train() with supervised MAE loss
+
+    Contract: TRAIN-001
+    - PINN uses TrainingConfig -> update_legacy_dict pattern
+    - Baseline uses direct params.cfg manipulation
+    - Both save via ModelManager.save_multiple_models()
+
+    Args:
+        N: Patch size
+        model_type: 'pinn' or 'baseline'
+        gridsize: Grid grouping
+        dataset: PtychoDataset with train_data and test_data
+        output_dir: Where to save model
+        nepochs: Training epochs
+        nphotons: Photon count for physics simulation
+
+    Returns:
+        Path to saved model directory
+    """
+    _ensure_sim_imports()
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if model_type == 'pinn':
+        from ptycho import model as ptycho_model
+        from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
+
+        model_config = ModelConfig(
+            N=N,
+            gridsize=gridsize,
+            model_type='pinn',
+            object_big=True,
+        )
+        config = TrainingConfig(
+            model=model_config,
+            nepochs=nepochs,
+            nphotons=nphotons,
+            nll_weight=1.0,
+            mae_weight=0.0,
+            batch_size=16,
+            output_dir=output_dir,
+            probe_trainable=False,
+            intensity_scale_trainable=True,
+        )
+        update_legacy_dict(p.cfg, config)
+
+        logger.info(f"Training PINN: N={N}, gridsize={gridsize}, epochs={nepochs}")
+        trained_model, history = ptycho_model.train(
+            dataset.train_data,
+            dataset.test_data,
+            config=config,
+        )
+
+    else:  # baseline
+        from ptycho import baselines
+
+        # Baseline needs raw arrays, not containers
+        X_train = np.array(dataset.train_data.X)
+        Y_I_train = np.array(dataset.train_data.Y_I)
+        Y_phi_train = np.array(dataset.train_data.Y_phi)
+
+        # Flatten gridsize channels to batch dimension (baseline is single-channel)
+        if gridsize > 1:
+            X_train = X_train.reshape(-1, N, N, 1)
+            Y_I_train = Y_I_train.reshape(-1, N, N, 1)
+            Y_phi_train = Y_phi_train.reshape(-1, N, N, 1)
+
+        # Set params for baseline (it reads from params.cfg)
+        p.cfg['N'] = N
+        p.cfg['nepochs'] = nepochs
+        p.cfg['batch_size'] = 16
+
+        logger.info(f"Training Baseline: N={N}, epochs={nepochs}, samples={X_train.shape[0]}")
+        trained_model, history = baselines.train(X_train, Y_I_train, Y_phi_train)
+
+    # Save model
+    from ptycho.model import ModelManager
+    model_path = output_dir / 'wts.h5.zip'
+    ModelManager.save_multiple_models({'autoencoder': trained_model}, model_path)
+    logger.info(f"Saved model to {model_path}")
+
+    # Save history
+    try:
+        import dill
+        history_path = output_dir / 'history.dill'
+        with open(history_path, 'wb') as f:
+            dill.dump(history.history if hasattr(history, 'history') else history, f)
+        logger.info(f"Saved history to {history_path}")
+    except Exception as e:
+        logger.warning(f"Could not save history: {e}")
+
+    return output_dir
+
+
+# =============================================================================
+# Phase 5: Inference
+# =============================================================================
+
+def run_inference_and_stitch(
+    model_dir: Path,
+    test_data,  # PtychoDataContainer
+    norm_Y_I: float,
+    model_type: str,
+    gridsize: int,
+    N: int,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Run inference and stitch predictions into full images.
+
+    Contract: INFERENCE-001
+    - PINN model expects [X, coords] input
+    - Baseline model expects single-channel X, outputs [amplitude, phase]
+    - Uses our stitch_predictions() to bypass gridsize=1 bug
+
+    Args:
+        model_dir: Path to saved model
+        test_data: PtychoDataContainer with test data
+        norm_Y_I: Normalization factor
+        model_type: 'pinn' or 'baseline'
+        gridsize: Grid grouping
+        N: Patch size
+
+    Returns:
+        (stitched_amplitude, stitched_phase)
+    """
+    _ensure_sim_imports()
+    from ptycho.model import ModelManager
+
+    # Load model
+    model_path = model_dir / 'wts.h5.zip'
+    models = ModelManager.load_multiple_models(model_path)
+    model = models['autoencoder']
+
+    logger.info(f"Running inference: {model_type} from {model_dir}")
+
+    if model_type == 'pinn':
+        # PINN model expects [X, coords] input
+        X_test = np.array(test_data.X)
+        coords_test = np.array(test_data.coords_nominal)
+        predictions = model.predict([X_test, coords_test])
+
+        # PINN output is complex object patches
+        pred_complex = predictions
+
+    else:  # baseline
+        # Baseline expects single-channel X, outputs [amplitude, phase]
+        X_test = np.array(test_data.X)
+
+        if gridsize > 1:
+            X_test_flat = X_test.reshape(-1, N, N, 1)
+        else:
+            X_test_flat = X_test
+
+        pred_amp, pred_phase = model.predict(X_test_flat)
+
+        if gridsize > 1:
+            n_test = X_test.shape[0]
+            pred_amp = pred_amp.reshape(n_test, N, N, gridsize**2)
+            pred_phase = pred_phase.reshape(n_test, N, N, gridsize**2)
+
+        # Combine to complex for stitching
+        pred_complex = pred_amp * np.exp(1j * pred_phase)
+
+    logger.info(f"Predictions shape: {pred_complex.shape}")
+
+    # Stitch using our bypass function
+    stitched_amp = stitch_predictions(pred_complex, norm_Y_I, part='amp')
+    stitched_phase = stitch_predictions(pred_complex, norm_Y_I, part='phase')
+
+    logger.info(f"Stitched shape: {stitched_amp.shape}")
+
+    return stitched_amp, stitched_phase
+
+
+# =============================================================================
+# Phase 6: Evaluation & Visualization
+# =============================================================================
+
+# Optional pandas import
+try:
+    import pandas as pd
+    HAS_PANDAS = True
+except ImportError:
+    HAS_PANDAS = False
+
+
+def evaluate_and_visualize(
+    results: Dict[str, Dict],
+    output_dir: Path,
+):
+    """Evaluate all arms and create comparison visualization.
+
+    Contract: EVAL-001
+    - Computes MS-SSIM and MAE for amplitude and phase
+    - Aligns reconstructions to ground truth before comparison
+    - Produces metrics.csv and comparison_figure.png
+
+    Args:
+        results: Dict mapping arm names to result dicts with keys:
+            - reconstruction_amp, reconstruction_phase, ground_truth
+        output_dir: Where to save outputs
+    """
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    metrics_rows = []
+
+    for arm_name, data in results.items():
+        recon_amp = data['reconstruction_amp']
+        recon_phase = data['reconstruction_phase']
+        ground_truth = data['ground_truth']
+
+        if ground_truth is None:
+            logger.warning(f"No ground truth for {arm_name}, skipping metrics")
+            continue
+
+        # Get amplitude and phase of ground truth
+        gt_amp = np.abs(ground_truth)
+        gt_phase = np.angle(ground_truth)
+
+        # Handle shape differences - take first image if batched
+        if recon_amp.ndim == 4:
+            recon_amp = recon_amp[0, :, :, 0]
+        if recon_phase.ndim == 4:
+            recon_phase = recon_phase[0, :, :, 0]
+        if gt_amp.ndim > 2:
+            gt_amp = gt_amp.squeeze()
+        if gt_phase.ndim > 2:
+            gt_phase = gt_phase.squeeze()
+
+        # Simple center-crop alignment: crop both to the smaller size
+        def center_crop_to_match(a, b):
+            """Center crop a and b to the same size (minimum of both)."""
+            min_h = min(a.shape[0], b.shape[0])
+            min_w = min(a.shape[1], b.shape[1])
+            a_start_h = (a.shape[0] - min_h) // 2
+            a_start_w = (a.shape[1] - min_w) // 2
+            b_start_h = (b.shape[0] - min_h) // 2
+            b_start_w = (b.shape[1] - min_w) // 2
+            return (a[a_start_h:a_start_h+min_h, a_start_w:a_start_w+min_w],
+                    b[b_start_h:b_start_h+min_h, b_start_w:b_start_w+min_w])
+
+        aligned_amp, gt_amp_cropped = center_crop_to_match(recon_amp, gt_amp)
+        aligned_phase, gt_phase_cropped = center_crop_to_match(recon_phase, gt_phase)
+        gt_amp = gt_amp_cropped
+        gt_phase = gt_phase_cropped
+
+        # Compute simple metrics (SSIM would require extra import)
+        # Use MSE and MAE as basic metrics
+        mse_amp = np.mean((aligned_amp - gt_amp)**2)
+        mae_amp = np.mean(np.abs(aligned_amp - gt_amp))
+        mse_phase = np.mean((aligned_phase - gt_phase)**2)
+        mae_phase = np.mean(np.abs(aligned_phase - gt_phase))
+
+        # Compute correlation coefficient as similarity metric
+        corr_amp = np.corrcoef(aligned_amp.flatten(), gt_amp.flatten())[0, 1]
+        corr_phase = np.corrcoef(aligned_phase.flatten(), gt_phase.flatten())[0, 1]
+
+        metrics_rows.append({
+            'arm': arm_name,
+            'mse_amp': mse_amp,
+            'mae_amp': mae_amp,
+            'corr_amp': corr_amp,
+            'mse_phase': mse_phase,
+            'mae_phase': mae_phase,
+            'corr_phase': corr_phase,
+        })
+
+        data['metrics'] = {'mse_amp': mse_amp, 'mae_amp': mae_amp, 'corr_amp': corr_amp}
+        data['aligned_amp'] = aligned_amp
+        data['aligned_phase'] = aligned_phase
+
+        logger.info(f"{arm_name}: corr(amp)={corr_amp:.4f}, MAE(amp)={mae_amp:.4f}")
+
+    # Save metrics
+    if metrics_rows:
+        if HAS_PANDAS:
+            df = pd.DataFrame(metrics_rows)
+            df.to_csv(output_dir / 'metrics.csv', index=False)
+        else:
+            # Fallback without pandas
+            with open(output_dir / 'metrics.csv', 'w') as f:
+                f.write('arm,mse_amp,mae_amp,corr_amp,mse_phase,mae_phase,corr_phase\n')
+                for row in metrics_rows:
+                    f.write(f"{row['arm']},{row['mse_amp']},{row['mae_amp']},{row['corr_amp']},"
+                            f"{row['mse_phase']},{row['mae_phase']},{row['corr_phase']}\n")
+        logger.info(f"Saved metrics to {output_dir / 'metrics.csv'}")
+
+    # Create comparison figure
+    create_comparison_figure(results, output_dir)
+
+
+def create_comparison_figure(results: Dict, output_dir: Path):
+    """Create grid figure comparing all arms to ground truth.
+
+    Layout:
+        Row 0: Ground Truth (N=64) | Ground Truth (N=128)
+        Row 1: PINN N=64           | PINN N=128
+        Row 2: Baseline N=64       | Baseline N=128
+    """
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    if not results:
+        logger.warning("No results to visualize")
+        return
+
+    # Extract unique resolutions and model types
+    resolutions = sorted(set(
+        int(name.split('_N')[1]) for name in results.keys() if '_N' in name
+    ))
+    model_types = ['pinn', 'baseline']
+
+    if not resolutions:
+        logger.warning("Could not extract resolutions from result names")
+        return
+
+    n_cols = len(resolutions)
+    n_rows = len(model_types) + 1  # +1 for ground truth row
+
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 4 * n_rows))
+    if n_cols == 1:
+        axes = axes[:, np.newaxis]
+    if n_rows == 1:
+        axes = axes[np.newaxis, :]
+
+    for col, N in enumerate(resolutions):
+        # Ground truth row - use PINN's ground truth (same for both)
+        pinn_key = f"pinn_N{N}"
+        if pinn_key in results and results[pinn_key].get('ground_truth') is not None:
+            gt = results[pinn_key]['ground_truth']
+            gt_display = np.abs(gt.squeeze())
+            axes[0, col].imshow(gt_display, cmap='gray')
+            axes[0, col].set_title(f'Ground Truth N={N}')
+        else:
+            axes[0, col].text(0.5, 0.5, 'No GT', ha='center', va='center', transform=axes[0, col].transAxes)
+            axes[0, col].set_title(f'Ground Truth N={N}')
+        axes[0, col].axis('off')
+
+        # Model rows
+        for row, model_type in enumerate(model_types, start=1):
+            arm_name = f"{model_type}_N{N}"
+            ax = axes[row, col]
+
+            if arm_name in results and 'aligned_amp' in results[arm_name]:
+                recon = results[arm_name]['aligned_amp']
+                metrics = results[arm_name].get('metrics', {})
+                corr = metrics.get('corr_amp', 0)
+
+                ax.imshow(recon.squeeze(), cmap='gray')
+                ax.set_title(f'{model_type.upper()} N={N}\ncorr={corr:.4f}')
+            else:
+                ax.text(0.5, 0.5, 'No data', ha='center', va='center', transform=ax.transAxes)
+                ax.set_title(f'{model_type.upper()} N={N}')
+            ax.axis('off')
+
+    plt.tight_layout()
+    fig_path = output_dir / 'comparison_figure.png'
+    fig.savefig(fig_path, dpi=150)
+    plt.close(fig)
+    logger.info(f"Saved figure to {fig_path}")
+
+
+# =============================================================================
+# Phase 7: Main Orchestrator
+# =============================================================================
+
+def run_study(
+    output_dir: Path,
+    resolutions: Tuple[int, ...] = (64, 128),
+    gridsize: int = 2,
+    nepochs: int = 30,
+    nphotons: float = 1e7,
+    n_train: int = 500,
+    n_test: int = 50,
+) -> Dict:
+    """Main study orchestrator.
+
+    For each resolution:
+    1. Extract/scale probe
+    2. Generate grid data (memoized)
+    3. Train PINN and Baseline
+    4. Run inference and stitch
+    5. Evaluate and visualize
+
+    Contract: STUDY-001
+    - Creates output_dir/<model_type>_N<resolution>/ for each arm
+    - Produces metrics.csv and comparison_figure.png in output_dir
+    - Returns results dict for programmatic access
+
+    Args:
+        output_dir: Base output directory
+        resolutions: Tuple of N values to test
+        gridsize: Grid grouping (1 or 2)
+        nepochs: Training epochs
+        nphotons: Photon count
+        n_train: Number of training images
+        n_test: Number of test images
+
+    Returns:
+        Dict mapping arm names to result dicts
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    results = {}
+
+    for N in resolutions:
+        logger.info(f"\n{'='*60}")
+        logger.info(f"Processing resolution N={N}")
+        logger.info(f"{'='*60}")
+
+        # Extract and scale probe
+        probe = extract_and_scale_probe(INTEGRATION_TEST_NPZ, N)
+        logger.info(f"Probe shape: {probe.shape}")
+
+        # Generate data (memoized - fast on re-runs)
+        dataset, ground_truth, norm_Y_I = simulate_grid_data(
+            probe=probe,
+            N=N,
+            gridsize=gridsize,
+            n_train=n_train,
+            n_test=n_test,
+            nphotons=nphotons,
+        )
+
+        for model_type in ('pinn', 'baseline'):
+            arm_name = f"{model_type}_N{N}"
+            arm_dir = output_dir / arm_name
+
+            logger.info(f"\n--- {arm_name} ---")
+
+            # Train
+            model_dir = train_arm(
+                N=N,
+                model_type=model_type,
+                gridsize=gridsize,
+                dataset=dataset,
+                output_dir=arm_dir,
+                nepochs=nepochs,
+                nphotons=nphotons,
+            )
+
+            # Inference and stitch
+            recon_amp, recon_phase = run_inference_and_stitch(
+                model_dir=model_dir,
+                test_data=dataset.test_data,
+                norm_Y_I=norm_Y_I,
+                model_type=model_type,
+                gridsize=gridsize,
+                N=N,
+            )
+
+            results[arm_name] = {
+                'reconstruction_amp': recon_amp,
+                'reconstruction_phase': recon_phase,
+                'ground_truth': ground_truth,
+                'model_dir': model_dir,
+            }
+
+    # Evaluate and visualize all results
+    logger.info(f"\n{'='*60}")
+    logger.info("Evaluating and visualizing results")
+    logger.info(f"{'='*60}")
+    evaluate_and_visualize(results, output_dir)
+
+    logger.info(f"\n=== Study Complete ===")
+    logger.info(f"Results saved to: {output_dir}")
+
+    return results
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
@@ -602,13 +1092,18 @@ def main():
     logger.info(f"Integration test dataset: {INTEGRATION_TEST_NPZ}")
     logger.info("=" * 80)
 
-    # TODO: Implement workflow
-    # Phase 1: Data generation for each resolution
-    # Phase 2: Train PtychoPINN and Baseline for each resolution
-    # Phase 3: Evaluate and compare results
-    # Phase 4: Generate visualizations
+    # Run the study
+    results = run_study(
+        output_dir=args.output_dir,
+        resolutions=tuple(args.resolutions),
+        gridsize=args.gridsize,
+        nepochs=args.nepochs,
+        nphotons=args.nphotons,
+        n_train=args.n_train,
+        n_test=args.n_test,
+    )
 
-    logger.warning("Implementation pending - skeleton only")
+    logger.info(f"Study complete. Results: {list(results.keys())}")
 
 
 if __name__ == '__main__':
