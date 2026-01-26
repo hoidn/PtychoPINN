@@ -1,6 +1,6 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-09 (ALIGN-DOSE-STUDY-GRID-001 implemented)
+**Last Updated:** 2026-01-26 (Codex superpowers install logged)
 **Active Focus:** STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — G-scaled ✅ COMPLETE; G-full blocked on Baseline OOM
 
 ---
@@ -144,6 +144,7 @@
   - *2026-01-08T20:00:00Z (G-scaled verification):* Added `TestCompareModelsChunking::test_container_numpy_slicing_for_chunked_inference` to `tests/test_lazy_loading.py`. Test verifies: (1) `_X_np`, `_coords_nominal_np` attributes exist; (2) NumPy slicing works without populating tensor cache; (3) backward-compatible `.X` access still works. **Result: 14 TESTS (13 passed, 1 skipped), model factory 3/3 passed.** Artifacts: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2026-01-08T200000Z/`.
   - *2026-01-08T21:00:00Z (G-scaled integration test):* Added `TestCompareModelsChunking::test_lazy_container_inference_integration` to `tests/test_lazy_loading.py`. Test verifies: (1) `create_ptycho_data_container()` pass-through for PtychoDataContainer; (2) lazy storage attributes (`_X_np`, `_tensor_cache`); (3) lazy conversion on `.X` access; (4) caching works; (5) `coords_nominal` tensor conversion for model.predict([X, coords]). **Result: Integration 2/2 PASSED, lazy loading 14/15 (1 intentional OOM skip), model factory 3/3 PASSED.** Artifacts: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2026-01-08T210000Z/`.
   - *2026-01-09T01:00:00Z (G-scaled COMPLETE):* **G-scaled verification complete.** All tests pass: lazy loading suite 14/15 (1 intentional OOM skip), model factory regression 3/3, compare_models chunking integration 2/2. PINN-CHUNKED-001 is RESOLVED. G-full remains blocked on BASELINE-CHUNKED-001/002.
+  - *2026-01-26T00:00:00Z (External setup):* Executed Codex Superpowers install per external request (cloned to `~/.codex/superpowers`, created `~/.codex/skills`, updated `~/.codex/AGENTS.md`, ran bootstrap). No Phase G artifacts changed; Do Now remains the dense rerun when execution resumes. Artifacts: `.artifacts/superpowers_bootstrap_20260126.log`, `~/.codex/AGENTS.md`.
   - ... (see `docs/fix_plan_archive.md` and `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/` for full history).
 
 ---

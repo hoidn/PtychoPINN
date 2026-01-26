@@ -291,3 +291,7 @@ Updated the plan/ledger/input so Ralph must instrument/repair `scripts/compare_m
 Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/test/logs/logs/debug.log:426-540, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/dose_1000/dense/train/logs/logs/debug.log:425-537, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis/metrics_summary.json, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/aggregate_report_cli.log:1-9, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_post_verify_only.log:1-19
 
 [Earlier summaries below...]
+### Turn Summary (2026-01-26)
+Executed Codex Superpowers install per external instructions: cloned into `~/.codex/superpowers`, created `~/.codex/skills`, updated `~/.codex/AGENTS.md` with the Superpowers System block, and ran bootstrap (captured).
+No changes to the Phase G pipeline or study artifacts in this repo; next step is still the active Do Now for the dense rerun once execution resumes.
+Artifacts: .artifacts/superpowers_bootstrap_20260126.log; ~/.codex/AGENTS.md; ~/.codex/superpowers/.codex/INSTALL.md
