@@ -40,6 +40,7 @@ from typing import Dict, Tuple, Any
 
 import numpy as np
 from scipy.ndimage import zoom
+from typing import Tuple
 
 # Configure logging
 logging.basicConfig(
@@ -185,6 +186,181 @@ def _test_extract_and_scale_probe() -> bool:
     return all_passed
 
 
+# =============================================================================
+# Phase 2: Grid Data Simulation
+# =============================================================================
+
+# Import simulation dependencies (deferred to avoid slow TF import on --help)
+_sim_imports_done = False
+
+def _ensure_sim_imports():
+    """Lazy import of simulation dependencies."""
+    global _sim_imports_done
+    if _sim_imports_done:
+        return
+    global p, data_preprocessing, memoize_disk_and_memory
+    from ptycho.misc import memoize_disk_and_memory
+    from ptycho import params as p
+    from ptycho import data_preprocessing
+    _sim_imports_done = True
+
+
+def simulate_grid_data(
+    probe: np.ndarray,
+    N: int,
+    gridsize: int = 2,
+    n_train: int = 500,
+    n_test: int = 50,
+    nphotons: float = 1e7,
+) -> Tuple:
+    """Generate grid-sampled data following ptycho_lines.ipynb pattern.
+
+    Uses data_preprocessing.generate_data() which properly handles:
+    - Coordinate tracking (coords_nominal, coords_true)
+    - Intensity scale derivation
+    - Ground truth clipping for stitched comparison
+
+    Contract: DATA-GEN-001
+    - Uses 'lines' data source pattern
+    - Object size ~3x N (notebook convention)
+    - Returns memoizable tuple for caching
+
+    Args:
+        probe: Complex probe array (N, N)
+        N: Patch size (64 or 128)
+        gridsize: Grid grouping (1 or 2)
+        n_train: Number of training images
+        n_test: Number of test images
+        nphotons: Photon count
+
+    Returns:
+        Tuple of (ptycho_dataset, YY_ground_truth, norm_Y_I_test)
+    """
+    _ensure_sim_imports()
+
+    # Object size - smaller than notebook convention to fit in memory
+    # Notebook used ~3x N but that's too large for test datasets
+    object_size = 2 * N  # 128 for N=64, 256 for N=128
+
+    # Scale outer_offset proportionally to N
+    outer_offset_train = max(4, N // 16)  # 4 for N=64, 8 for N=128
+    outer_offset_test = max(10, N // 6)   # 10 for N=64, ~21 for N=128
+
+    # Set params.cfg following notebook init() pattern
+    p.cfg['N'] = N
+    p.cfg['gridsize'] = gridsize
+    p.cfg['offset'] = 4
+    p.cfg['outer_offset_train'] = outer_offset_train
+    p.cfg['outer_offset_test'] = outer_offset_test
+    p.cfg['nimgs_train'] = n_train
+    p.cfg['nimgs_test'] = n_test
+    p.cfg['nphotons'] = nphotons
+    p.cfg['size'] = object_size
+    p.cfg['data_source'] = 'lines'
+    p.cfg['set_phi'] = False
+    p.cfg['max_position_jitter'] = 3
+    p.cfg['sim_jitter_scale'] = 0.0
+    p.cfg['object.big'] = True
+    p.cfg['probe.trainable'] = False
+    p.cfg['intensity_scale.trainable'] = True
+
+    # Set probe in params.cfg as TF tensor (required by data_preprocessing.generate_data)
+    import tensorflow as tf
+    probe_tf = tf.convert_to_tensor(probe, tf.complex64)[..., None]
+    p.cfg['probe'] = probe_tf
+
+    logger.info(f"Simulating grid data: N={N}, gridsize={gridsize}, "
+                f"n_train={n_train}, n_test={n_test}, nphotons={nphotons:.0e}")
+    logger.info(f"Object size: {object_size}, outer_offset: train={outer_offset_train}, test={outer_offset_test}")
+
+    # Generate data via notebook code path
+    result = data_preprocessing.generate_data(probeGuess=probe)
+
+    X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, \
+        YY_ground_truth, ptycho_dataset, YY_test_full, norm_Y_I_test = result
+
+    logger.info(f"Generated: X_train={X_train.shape}, X_test={X_test.shape}")
+    if YY_ground_truth is not None:
+        logger.info(f"Ground truth shape: {YY_ground_truth.shape}")
+
+    return ptycho_dataset, YY_ground_truth, norm_Y_I_test
+
+
+def _test_simulate_grid_data() -> bool:
+    """Inline test for grid data simulation.
+
+    Returns:
+        True if all tests pass, False otherwise
+    """
+    logger.info("=" * 60)
+    logger.info("Testing simulate_grid_data()")
+    logger.info("=" * 60)
+
+    all_passed = True
+
+    # Test 1: Generate small dataset with gridsize=2
+    logger.info("\nTest 1: Generate small dataset with gridsize=2, N=64")
+    try:
+        probe = extract_and_scale_probe(INTEGRATION_TEST_NPZ, 64)
+        dataset, ground_truth, norm_Y_I = simulate_grid_data(
+            probe, N=64, gridsize=2, n_train=10, n_test=4, nphotons=1e7
+        )
+
+        assert dataset.train_data is not None, "train_data should not be None"
+        assert dataset.test_data is not None, "test_data should not be None"
+        assert ground_truth is not None, "ground_truth should not be None"
+        assert norm_Y_I > 0, f"norm_Y_I should be positive, got {norm_Y_I}"
+
+        # Check shapes
+        assert dataset.train_data.X.shape[1:3] == (64, 64), \
+            f"Expected X shape (*, 64, 64, *), got {dataset.train_data.X.shape}"
+        assert dataset.test_data.X.shape[1:3] == (64, 64), \
+            f"Expected X shape (*, 64, 64, *), got {dataset.test_data.X.shape}"
+
+        # For gridsize=2, last dimension should be 4
+        assert dataset.train_data.X.shape[-1] == 4, \
+            f"Expected 4 channels for gridsize=2, got {dataset.train_data.X.shape[-1]}"
+
+        logger.info(f"  PASS: dataset.train_data.X.shape={dataset.train_data.X.shape}")
+        logger.info(f"  PASS: dataset.test_data.X.shape={dataset.test_data.X.shape}")
+        logger.info(f"  PASS: ground_truth.shape={ground_truth.shape}")
+        logger.info(f"  PASS: norm_Y_I={norm_Y_I:.4f}")
+    except Exception as e:
+        logger.error(f"  FAIL: {e}")
+        import traceback
+        traceback.print_exc()
+        all_passed = False
+
+    # Test 2: Generate with gridsize=1
+    logger.info("\nTest 2: Generate small dataset with gridsize=1, N=64")
+    try:
+        probe = extract_and_scale_probe(INTEGRATION_TEST_NPZ, 64)
+        dataset, ground_truth, norm_Y_I = simulate_grid_data(
+            probe, N=64, gridsize=1, n_train=10, n_test=4, nphotons=1e7
+        )
+
+        # For gridsize=1, last dimension should be 1
+        assert dataset.train_data.X.shape[-1] == 1, \
+            f"Expected 1 channel for gridsize=1, got {dataset.train_data.X.shape[-1]}"
+
+        logger.info(f"  PASS: dataset.train_data.X.shape={dataset.train_data.X.shape}")
+        logger.info(f"  PASS: gridsize=1 generates single-channel data")
+    except Exception as e:
+        logger.error(f"  FAIL: {e}")
+        import traceback
+        traceback.print_exc()
+        all_passed = False
+
+    logger.info("\n" + "=" * 60)
+    if all_passed:
+        logger.info("All grid data simulation tests PASSED")
+    else:
+        logger.error("Some grid data simulation tests FAILED")
+    logger.info("=" * 60)
+
+    return all_passed
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
@@ -266,7 +442,9 @@ def main():
     # Test mode: run inline tests when output-dir is "__test__"
     if str(args.output_dir) == '__test__':
         logger.info("Running inline tests...")
-        success = _test_extract_and_scale_probe()
+        success = True
+        success = _test_extract_and_scale_probe() and success
+        success = _test_simulate_grid_data() and success
         sys.exit(0 if success else 1)
 
     logger.info("=" * 80)
