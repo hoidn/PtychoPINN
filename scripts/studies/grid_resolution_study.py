@@ -361,6 +361,147 @@ def _test_simulate_grid_data() -> bool:
     return all_passed
 
 
+# =============================================================================
+# Phase 3: Stitching (with gridsize=1 bug workaround)
+# =============================================================================
+
+def stitch_predictions(predictions: np.ndarray, norm_Y_I: float, part: str = 'amp') -> np.ndarray:
+    """Stitch model predictions, bypassing the incorrect gridsize=1 guard.
+
+    NOTE: This function exists because data_preprocessing.stitch_data() has an
+    incorrect ValueError guard for gridsize=1 added in commit aa80f15b (July 2025).
+    The original stitching math works fine for gridsize=1 (produces 1x1 grid).
+
+    TODO: Remove this function after fixing data_preprocessing.stitch_data()
+    Bug: ptycho/data_preprocessing.py:152-156 should not raise for gridsize=1
+
+    Contract: STITCH-001
+    - Handles both gridsize=1 and gridsize=2
+    - Uses outer_offset_test from params.cfg for border clipping
+    - Returns stitched array with last dimension = 1
+
+    Args:
+        predictions: Model output, shape (n_test, N, N, gridsize^2) or complex
+        norm_Y_I: Normalization factor from simulation
+        part: 'amp', 'phase', or 'complex'
+
+    Returns:
+        Stitched images, shape (n_test, H, W, 1)
+    """
+    _ensure_sim_imports()
+
+    nimgs = p.get('nimgs_test')
+    outer_offset = p.get('outer_offset_test')
+    N = p.cfg['N']
+    gridsize = p.cfg['gridsize']
+
+    nsegments = int(np.sqrt((predictions.size / nimgs) / (N**2)))
+
+    if part == 'amp':
+        getpart = np.absolute
+    elif part == 'phase':
+        getpart = np.angle
+    else:
+        getpart = lambda x: x
+
+    img_recon = np.reshape(norm_Y_I * getpart(predictions),
+                           (-1, nsegments, nsegments, N, N, 1))
+
+    # Border clipping (from data_preprocessing.get_clip_sizes)
+    bordersize = (N - outer_offset / 2) / 2
+    borderleft = int(np.ceil(bordersize))
+    borderright = int(np.floor(bordersize))
+
+    img_recon = img_recon[:, :, :, borderleft:-borderright, borderleft:-borderright, :]
+    tmp = img_recon.transpose(0, 1, 3, 2, 4, 5)
+    stitched = tmp.reshape(-1, np.prod(tmp.shape[1:3]), np.prod(tmp.shape[1:3]), 1)
+
+    return stitched
+
+
+def _test_stitch_predictions() -> bool:
+    """Inline test for stitching function.
+
+    Returns:
+        True if all tests pass, False otherwise
+    """
+    _ensure_sim_imports()
+
+    logger.info("=" * 60)
+    logger.info("Testing stitch_predictions()")
+    logger.info("=" * 60)
+
+    all_passed = True
+
+    # Test 1: Stitch with gridsize=2
+    logger.info("\nTest 1: Stitch with gridsize=2, N=64")
+    try:
+        p.cfg['N'] = 64
+        p.cfg['gridsize'] = 2
+        p.cfg['offset'] = 4
+        p.cfg['outer_offset_test'] = 20
+        p.cfg['nimgs_test'] = 4
+
+        # Mock predictions: (4, 64, 64, 4) for gridsize=2
+        predictions = np.random.randn(4, 64, 64, 4) + 1j * np.random.randn(4, 64, 64, 4)
+
+        stitched = stitch_predictions(predictions, norm_Y_I=1.0, part='amp')
+        # For gridsize=2, outer_offset=20: bordersize = (64 - 10)/2 = 27
+        # borderleft=27, borderright=27, so each patch contributes 64-54=10 pixels
+        # 2x2 grid * 10 = 20x20 output
+        assert stitched.shape == (4, 20, 20, 1), f"Expected (4, 20, 20, 1), got {stitched.shape}"
+        logger.info(f"  PASS: shape={stitched.shape}")
+    except Exception as e:
+        logger.error(f"  FAIL: {e}")
+        import traceback
+        traceback.print_exc()
+        all_passed = False
+
+    # Test 2: Stitch with gridsize=1 (this would fail with data_preprocessing.stitch_data)
+    logger.info("\nTest 2: Stitch with gridsize=1, N=64 (bug workaround)")
+    try:
+        p.cfg['gridsize'] = 1
+        p.cfg['nimgs_test'] = 4
+
+        predictions_gs1 = np.random.randn(4, 64, 64, 1) + 1j * np.random.randn(4, 64, 64, 1)
+        stitched_gs1 = stitch_predictions(predictions_gs1, norm_Y_I=1.0, part='amp')
+        # For gridsize=1, 1x1 grid * 10 = 10x10 output
+        assert stitched_gs1.shape == (4, 10, 10, 1), f"Expected (4, 10, 10, 1), got {stitched_gs1.shape}"
+        logger.info(f"  PASS: gridsize=1 stitching works, shape={stitched_gs1.shape}")
+    except Exception as e:
+        logger.error(f"  FAIL: {e}")
+        import traceback
+        traceback.print_exc()
+        all_passed = False
+
+    # Test 3: Phase stitching
+    logger.info("\nTest 3: Phase stitching")
+    try:
+        p.cfg['gridsize'] = 2
+        predictions = np.random.randn(4, 64, 64, 4) + 1j * np.random.randn(4, 64, 64, 4)
+
+        stitched_phase = stitch_predictions(predictions, norm_Y_I=1.0, part='phase')
+        assert stitched_phase.shape == (4, 20, 20, 1), f"Expected (4, 20, 20, 1), got {stitched_phase.shape}"
+        # Phase should be in [-pi, pi]
+        assert stitched_phase.min() >= -np.pi - 0.01 and stitched_phase.max() <= np.pi + 0.01, \
+            "Phase values should be in [-pi, pi]"
+        logger.info(f"  PASS: phase stitching works, range=[{stitched_phase.min():.2f}, {stitched_phase.max():.2f}]")
+    except Exception as e:
+        logger.error(f"  FAIL: {e}")
+        import traceback
+        traceback.print_exc()
+        all_passed = False
+
+    logger.info("\n" + "=" * 60)
+    if all_passed:
+        logger.info("All stitching tests PASSED")
+    else:
+        logger.error("Some stitching tests FAILED")
+    logger.info("=" * 60)
+
+    return all_passed
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
@@ -444,6 +585,7 @@ def main():
         logger.info("Running inline tests...")
         success = True
         success = _test_extract_and_scale_probe() and success
+        success = _test_stitch_predictions() and success  # test before simulation (faster)
         success = _test_simulate_grid_data() and success
         sys.exit(0 if success else 1)
 
