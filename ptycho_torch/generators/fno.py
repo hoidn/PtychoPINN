@@ -21,7 +21,7 @@ See also:
 
 import torch
 import torch.nn as nn
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Optional
 
 # Check if neuraloperator is available
 try:
@@ -103,7 +103,7 @@ class _FallbackSpectralConv2d(nn.Module):
         self.modes = modes
 
         # Learnable spectral weights
-        scale = 1 / (in_channels * out_channels)
+        scale = 1 / (in_channels ** 0.5)
         self.weights = nn.Parameter(
             scale * torch.randn(in_channels, out_channels, modes, modes, dtype=torch.cfloat)
         )
