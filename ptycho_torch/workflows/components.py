@@ -645,6 +645,11 @@ def _build_inference_dataloader(
     infer_X = infer_X.to(torch.float32, copy=False)
     infer_coords = infer_coords.to(torch.float32, copy=False)
 
+    # SHAPE CONVERSION: Container X is channel-last (B, H, W, C), model expects channel-first (B, C, H, W)
+    # Permute to match model input format
+    if infer_X.ndim == 4:
+        infer_X = infer_X.permute(0, 3, 1, 2)  # (B, H, W, C) → (B, C, H, W)
+
     infer_dataset = TensorDataset(infer_X, infer_coords)
 
     # Import execution config defaults if not provided (Phase C3.B1)
@@ -745,6 +750,10 @@ def _train_with_lightning(
         'n_groups': config.n_groups,  # Required by factory validation
         'gridsize': config.model.gridsize,
         'architecture': config.model.architecture,
+        'fno_modes': getattr(config.model, 'fno_modes', None),
+        'fno_width': getattr(config.model, 'fno_width', None),
+        'fno_blocks': getattr(config.model, 'fno_blocks', None),
+        'fno_cnn_blocks': getattr(config.model, 'fno_cnn_blocks', None),
         'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
         'amp_activation': config.model.amp_activation,
         'n_filters_scale': config.model.n_filters_scale,
@@ -1177,7 +1186,17 @@ def _reassemble_cdi_image_torch(
     # Step 3: Build inference dataloader
     infer_loader = _build_inference_dataloader(test_container, config)
 
-    # Step 4: Run inference to collect predictions and offsets
+    # Step 4: Extract probe and scale factors for inference
+    # Probe tensor is required for forward_predict; extract from container
+    probe_tensor = getattr(test_container, 'probeGuess', None)
+    if probe_tensor is None:
+        # Fallback: create dummy probe if not available
+        logger.warning("probeGuess not found in test_container; using dummy probe")
+        probe_tensor = torch.ones(1, config.model.N, config.model.N, dtype=torch.complex64)
+    if not isinstance(probe_tensor, torch.Tensor):
+        probe_tensor = torch.tensor(probe_tensor)
+
+    # Step 5: Run inference to collect predictions and offsets
     obj_patches = []
     global_offsets = test_container.global_offsets.clone()  # (n_samples, 1, 2, 1)
 
@@ -1186,12 +1205,22 @@ def _reassemble_cdi_image_torch(
             # batch is (X, coords) from TensorDataset
             X_batch, coords_batch = batch
             # DTYPE ENFORCEMENT (Phase D1d): Ensure float32 before Lightning forward
-            # Defensive cast in case dataloader bypass occurs or future refactoring breaks upstream cast
             X_batch = X_batch.to(torch.float32)
-            # For simplicity in MVP, assume model takes X only (coords may be unused)
-            # Real implementation should match Lightning module's forward signature
-            # For now, call the model and expect complex output
-            pred = lightning_module(X_batch)  # Expected shape: (batch, H, W) or (batch, C, H, W)
+            coords_batch = coords_batch.to(torch.float32)
+
+            # Create batch-sized scale factors with proper shape for broadcasting
+            # IntensityScalerModule expects (B, 1, 1, 1) shaped scale factor
+            batch_size = X_batch.shape[0]
+            input_scale = torch.ones(batch_size, 1, 1, 1, device=X_batch.device, dtype=X_batch.dtype)
+
+            # Call forward_predict which returns complex object patches
+            # Signature: forward_predict(x, positions, probe, input_scale_factor)
+            pred = lightning_module.forward_predict(
+                X_batch,
+                coords_batch,
+                probe_tensor.to(X_batch.device),
+                input_scale
+            )
             obj_patches.append(pred.cpu())
 
     # Concatenate all predictions
