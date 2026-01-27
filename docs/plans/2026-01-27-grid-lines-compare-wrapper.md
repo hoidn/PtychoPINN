@@ -51,6 +51,7 @@ def test_wrapper_merges_metrics(monkeypatch, tmp_path):
         "gridsize": 1,
         "output_dir": tmp_path,
         "architectures": ("cnn", "baseline", "fno", "hybrid"),
+        "torch_loss_mode": "mae",
     }
     result = run_grid_lines_compare(**cfg)
     merged = json.loads((tmp_path / "metrics.json").read_text())
@@ -117,6 +118,7 @@ Expected: FAIL (parser missing).
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(...)
     parser.add_argument("--architectures", default="cnn,baseline,fno,hybrid")
+    parser.add_argument("--torch-loss-mode", default="mae", choices=["poisson", "mae"])
     ...
     args = parser.parse_args(argv)
     args.architectures = tuple(a.strip() for a in args.architectures.split(",") if a.strip())

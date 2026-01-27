@@ -37,6 +37,7 @@ def run_grid_lines_compare(
     torch_batch_size: Optional[int] = None,
     torch_learning_rate: float = 1e-3,
     torch_infer_batch_size: int = 16,
+    torch_loss_mode: str = "mae",
     fno_modes: int = 12,
     fno_width: int = 32,
     fno_blocks: int = 4,
@@ -94,6 +95,7 @@ def run_grid_lines_compare(
                 infer_batch_size=torch_infer_batch_size,
                 N=N,
                 gridsize=gridsize,
+                torch_loss_mode=torch_loss_mode,
                 fno_modes=fno_modes,
                 fno_width=fno_width,
                 fno_blocks=fno_blocks,
@@ -137,6 +139,7 @@ def parse_args(argv=None):
     parser.add_argument("--torch-batch-size", type=int, default=None)
     parser.add_argument("--torch-learning-rate", type=float, default=1e-3)
     parser.add_argument("--torch-infer-batch-size", type=int, default=16)
+    parser.add_argument("--torch-loss-mode", type=str, default="mae", choices=["poisson", "mae"])
     parser.add_argument("--fno-modes", type=int, default=12)
     parser.add_argument("--fno-width", type=int, default=32)
     parser.add_argument("--fno-blocks", type=int, default=4)
@@ -168,6 +171,7 @@ def main(argv=None) -> None:
         torch_batch_size=args.torch_batch_size,
         torch_learning_rate=args.torch_learning_rate,
         torch_infer_batch_size=args.torch_infer_batch_size,
+        torch_loss_mode=args.torch_loss_mode,
         fno_modes=args.fno_modes,
         fno_width=args.fno_width,
         fno_blocks=args.fno_blocks,

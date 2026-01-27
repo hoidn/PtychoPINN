@@ -94,7 +94,7 @@ State explicitly whether scaling is applied (if any).
 ```bash
 DEBUG_FNO_LOSS=1 python scripts/studies/grid_lines_compare_wrapper.py \
   --N 64 --gridsize 1 --output-dir outputs/debug_fno_loss \
-  --architectures fno --nepochs 1 --torch-epochs 1
+  --architectures fno --nepochs 1 --torch-epochs 1 --torch-loss-mode mae
 ```
 
 ---

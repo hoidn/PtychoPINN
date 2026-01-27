@@ -52,3 +52,45 @@ def test_wrapper_accepts_architecture_list(tmp_path):
         "--architectures", "cnn,fno",
     ])
     assert args.architectures == ("cnn", "fno")
+
+
+def test_wrapper_defaults_torch_loss_mode_mae(tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import parse_args
+
+    args = parse_args([
+        "--N", "64",
+        "--gridsize", "1",
+        "--output-dir", str(tmp_path),
+    ])
+    assert getattr(args, "torch_loss_mode", None) == "mae"
+
+
+def test_wrapper_passes_torch_loss_mode_to_runner(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    def fake_tf_run(cfg):
+        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+        datasets_dir.mkdir(parents=True, exist_ok=True)
+        (datasets_dir / "train.npz").write_bytes(b"stub")
+        (datasets_dir / "test.npz").write_bytes(b"stub")
+        (cfg.output_dir / "metrics.json").write_text(json.dumps({}))
+        return {"train_npz": str(datasets_dir / "train.npz"), "test_npz": str(datasets_dir / "test.npz")}
+
+    captured = {}
+
+    def fake_torch_run(cfg):
+        captured["torch_loss_mode"] = getattr(cfg, "torch_loss_mode", None)
+        return {"metrics": {"mse": 0.3}}
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
+
+    run_grid_lines_compare(
+        N=64,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=("fno",),
+        probe_npz=Path("dummy_probe.npz"),
+    )
+
+    assert captured["torch_loss_mode"] == "mae"

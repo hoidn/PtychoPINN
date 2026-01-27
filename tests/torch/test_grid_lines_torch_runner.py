@@ -60,6 +60,16 @@ class TestTorchRunnerConfig:
         assert cfg.epochs == 50  # default
         assert cfg.seed == 42  # default
 
+    def test_default_loss_mode_is_mae(self, tmp_path):
+        """Test torch_loss_mode defaults to MAE."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "output",
+            architecture="fno",
+        )
+        assert cfg.torch_loss_mode == "mae"
+
 
 class TestLoadCachedDataset:
     """Tests for load_cached_dataset function."""

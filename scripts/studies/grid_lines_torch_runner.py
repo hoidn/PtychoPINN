@@ -89,7 +89,7 @@ class TorchRunnerConfig:
     infer_batch_size: int = 16
     N: int = 64
     gridsize: int = 1
-    torch_loss_mode: str = "poisson"
+    torch_loss_mode: str = "mae"
     fno_modes: int = 12
     fno_width: int = 32
     fno_blocks: int = 4
@@ -536,7 +536,7 @@ def main() -> None:
                         help="Learning rate")
     parser.add_argument("--infer-batch-size", type=int, default=16,
                         help="Inference batch size (OOM guard)")
-    parser.add_argument("--torch-loss-mode", type=str, default="poisson",
+    parser.add_argument("--torch-loss-mode", type=str, default="mae",
                         choices=["poisson", "mae"],
                         help="Training loss mode ('poisson' or 'mae')")
     parser.add_argument("--fno-modes", type=int, default=12,
