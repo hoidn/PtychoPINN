@@ -301,6 +301,166 @@ def run_baseline_inference(model, X_test):
     return pred_complex
 
 
+# ---------------------------------------------------------------------------
+# Orchestrator + Outputs (Task 6)
+# ---------------------------------------------------------------------------
+
+
+def save_comparison_png(
+    cfg: GridLinesConfig,
+    gt_amp: np.ndarray,
+    gt_phase: np.ndarray,
+    pinn_amp: np.ndarray,
+    pinn_phase: np.ndarray,
+    base_amp: np.ndarray,
+    base_phase: np.ndarray,
+) -> Path:
+    """Save 2x3 comparison plot (amp/phase rows x GT/PINN/Baseline cols)."""
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+
+    # Row 0: Amplitude
+    axes[0, 0].imshow(gt_amp, cmap="viridis")
+    axes[0, 0].set_title("GT Amplitude")
+    axes[0, 0].axis("off")
+
+    axes[0, 1].imshow(pinn_amp, cmap="viridis")
+    axes[0, 1].set_title("PINN Amplitude")
+    axes[0, 1].axis("off")
+
+    axes[0, 2].imshow(base_amp, cmap="viridis")
+    axes[0, 2].set_title("Baseline Amplitude")
+    axes[0, 2].axis("off")
+
+    # Row 1: Phase
+    axes[1, 0].imshow(gt_phase, cmap="twilight")
+    axes[1, 0].set_title("GT Phase")
+    axes[1, 0].axis("off")
+
+    axes[1, 1].imshow(pinn_phase, cmap="twilight")
+    axes[1, 1].set_title("PINN Phase")
+    axes[1, 1].axis("off")
+
+    axes[1, 2].imshow(base_phase, cmap="twilight")
+    axes[1, 2].set_title("Baseline Phase")
+    axes[1, 2].axis("off")
+
+    fig.suptitle(f"N={cfg.N}, gridsize={cfg.gridsize}", fontsize=14)
+    plt.tight_layout()
+
+    visuals_dir = cfg.output_dir / "visuals"
+    visuals_dir.mkdir(parents=True, exist_ok=True)
+    out_path = visuals_dir / "compare_amp_phase.png"
+    plt.savefig(out_path, dpi=150)
+    plt.close(fig)
+    return out_path
+
+
 def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
-    """Orchestrate probe prep → sim → train → infer → stitch → metrics."""
-    raise NotImplementedError
+    """Orchestrate probe prep → sim → train → infer → stitch → metrics.
+
+    Steps:
+    1. Load and scale probe to target N
+    2. Configure legacy params and simulate grid data
+    3. Save train/test datasets as NPZ
+    4. Train PINN and baseline models
+    5. Run inference on test data
+    6. Stitch predictions and compute metrics
+    7. Save comparison PNG and metrics JSON
+
+    Returns:
+        Dict with train_npz, test_npz, metrics paths and values.
+    """
+    from ptycho.evaluation import eval_reconstruction
+
+    print(f"[grid_lines_workflow] Starting N={cfg.N}, gridsize={cfg.gridsize}")
+
+    # Step 1: Probe preparation
+    print("[1/7] Loading and scaling probe...")
+    probe_guess = load_probe_guess(cfg.probe_npz)
+    probe_scaled = scale_probe(probe_guess, cfg.N, cfg.probe_smoothing_sigma)
+
+    # Step 2: Simulation
+    print("[2/7] Running grid simulation...")
+    sim = simulate_grid_data(cfg, probe_scaled)
+    config = configure_legacy_params(cfg, probe_scaled)
+
+    # Step 3: Save datasets
+    print("[3/7] Saving datasets...")
+    sim["train"]["probeGuess"] = probe_scaled
+    sim["test"]["probeGuess"] = probe_scaled
+    train_npz = save_split_npz(cfg, "train", sim["train"], config)
+    test_npz = save_split_npz(cfg, "test", sim["test"], config)
+
+    # Step 4: Training
+    print("[4/7] Training PINN model...")
+    pinn_model, _ = train_pinn_model(sim["train"]["container"])
+    save_pinn_model(cfg)
+
+    print("[4/7] Training Baseline model...")
+    base_model, _ = train_baseline_model(
+        sim["train"]["X"], sim["train"]["Y_I"], sim["train"]["Y_phi"]
+    )
+    base_dir = cfg.output_dir / "baseline"
+    base_dir.mkdir(parents=True, exist_ok=True)
+    base_model.save(base_dir / "baseline.keras")
+
+    # Step 5: Inference
+    print("[5/7] Running inference...")
+    pinn_pred = run_pinn_inference(
+        pinn_model, sim["test"]["X"], sim["test"]["coords_nominal"]
+    )
+    base_pred = run_baseline_inference(base_model, sim["test"]["X"])
+
+    # Step 6: Stitch and evaluate
+    print("[6/7] Stitching and computing metrics...")
+    norm_Y_I = sim["test"]["norm_Y_I"]
+    YY_gt = sim["test"]["YY_ground_truth"]
+
+    pinn_amp = stitch_predictions(pinn_pred, norm_Y_I, part="amp")
+    pinn_phase = stitch_predictions(pinn_pred, norm_Y_I, part="phase")
+    pinn_stitched = pinn_amp * np.exp(1j * pinn_phase)
+
+    base_amp = stitch_predictions(base_pred, norm_Y_I, part="amp")
+    base_phase = stitch_predictions(base_pred, norm_Y_I, part="phase")
+    base_stitched = base_amp * np.exp(1j * base_phase)
+
+    pinn_metrics = eval_reconstruction(pinn_stitched, YY_gt, label="pinn")
+    base_metrics = eval_reconstruction(base_stitched, YY_gt, label="baseline")
+
+    # Step 7: Save outputs
+    print("[7/7] Saving outputs...")
+
+    # Metrics JSON
+    metrics_payload = {
+        "pinn": pinn_metrics,
+        "baseline": base_metrics,
+    }
+    metrics_path = cfg.output_dir / "metrics.json"
+    metrics_path.write_text(json.dumps(metrics_payload, indent=2, default=str))
+
+    # Comparison PNG
+    gt_amp_2d = np.abs(YY_gt[0, :, :]) if YY_gt.ndim >= 3 else np.abs(YY_gt)
+    gt_phase_2d = np.angle(YY_gt[0, :, :]) if YY_gt.ndim >= 3 else np.angle(YY_gt)
+    pinn_amp_2d = pinn_amp[0, :, :, 0]
+    pinn_phase_2d = pinn_phase[0, :, :, 0]
+    base_amp_2d = base_amp[0, :, :, 0]
+    base_phase_2d = base_phase[0, :, :, 0]
+
+    png_path = save_comparison_png(
+        cfg,
+        gt_amp_2d, gt_phase_2d,
+        pinn_amp_2d, pinn_phase_2d,
+        base_amp_2d, base_phase_2d,
+    )
+
+    print(f"[grid_lines_workflow] Complete. Outputs in {cfg.output_dir}")
+
+    return {
+        "train_npz": str(train_npz),
+        "test_npz": str(test_npz),
+        "metrics_json": str(metrics_path),
+        "comparison_png": str(png_path),
+        "metrics": metrics_payload,
+    }
