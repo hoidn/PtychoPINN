@@ -20,6 +20,7 @@ graph TD
         G[diffsim.py] -- "Physics Model" --> H[model.py]
         I[tf_helper.py] -- "TF Ops" --> H
         B -- "Global State (DEPRECATED)" --> H
+        GR[generators/] -- "Architecture Selection" --> H
     end
 
     subgraph "Workflows & Evaluation"
@@ -101,6 +102,32 @@ sequenceDiagram
 - `evaluation.py`: Metrics and QC (PSNR, SSIM, FRC)
 - `workflows/components.py`: Orchestration entry points (`run_cdi_example`, etc.)
 - `model_manager.py`: Multi-model bundle persistence (`wts.h5.zip`)
+- `generators/`: Generator registry for architecture selection (see §4.1)
+
+### 4.1 Generator Registry (TensorFlow)
+
+The generator registry enables architecture selection via `config.model.architecture`:
+
+| Architecture | Generator Class | Description |
+|--------------|-----------------|-------------|
+| `cnn` (default) | `CnnGenerator` | U-Net based CNN from `ptycho/model.py` |
+
+**Key modules in `ptycho/generators/`:**
+- `registry.py`: `resolve_generator(config)` returns generator instance
+- `cnn.py`: CNN generator wrapping `model.create_compiled_model()`
+- `README.md`: Guide for adding new generators
+
+**Usage:**
+```python
+from ptycho.config.config import TrainingConfig, ModelConfig
+from ptycho.generators.registry import resolve_generator
+
+config = TrainingConfig(model=ModelConfig(architecture='cnn'))
+generator = resolve_generator(config)
+model, diffraction_to_obj = generator.build_models()
+```
+
+**Note:** FNO and hybrid architectures are implemented in the PyTorch backend only. See `docs/architecture_torch.md` §4.1.
 
 Config Bridging:
 - Backends share canonical dataclasses; see the config bridge mapping: <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref>
