@@ -835,6 +835,26 @@ class TestExecutionConfigOverrides:
 
 
 # ============================================================================
+# Test Category 7: Generator Output Mode Overrides
+# ============================================================================
+
+class TestGeneratorOutputModeOverrides:
+    """Verify generator_output_mode override propagates to PT model config."""
+
+    def test_generator_output_mode_override_propagates(self, mock_train_npz, temp_output_dir):
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={
+                'n_groups': 512,
+                'architecture': 'fno',
+                'generator_output_mode': 'amp_phase_logits',
+            },
+        )
+        assert payload.pt_model_config.generator_output_mode == 'amp_phase_logits'
+
+
+# ============================================================================
 # Test Category 7: Probe Size Inference Helper
 # ============================================================================
 
