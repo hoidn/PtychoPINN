@@ -202,6 +202,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     )
     training_config.log_grad_norm = cfg.log_grad_norm
     training_config.grad_norm_log_freq = cfg.grad_norm_log_freq
+    training_config.gradient_clip_val = cfg.gradient_clip_val
 
     execution_config = PyTorchExecutionConfig(
         learning_rate=cfg.learning_rate,
