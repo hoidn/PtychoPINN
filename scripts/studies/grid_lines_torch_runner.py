@@ -96,6 +96,8 @@ class TorchRunnerConfig:
     fno_blocks: int = 4
     fno_cnn_blocks: int = 2
     fno_input_transform: str = "none"
+    log_grad_norm: bool = False
+    grad_norm_log_freq: int = 1
 
 
 def load_cached_dataset(npz_path: Path) -> Dict[str, np.ndarray]:
@@ -195,6 +197,8 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         backend='pytorch',
         torch_loss_mode=cfg.torch_loss_mode,
     )
+    training_config.log_grad_norm = cfg.log_grad_norm
+    training_config.grad_norm_log_freq = cfg.grad_norm_log_freq
 
     execution_config = PyTorchExecutionConfig(
         learning_rate=cfg.learning_rate,
@@ -567,6 +571,10 @@ def main() -> None:
                         help="Inference batch size (OOM guard)")
     parser.add_argument("--grad-clip", type=float, default=1.0,
                         help="Gradient clipping max norm (<=0 disables clipping)")
+    parser.add_argument("--log-grad-norm", action="store_true",
+                        help="Log gradient norms during training")
+    parser.add_argument("--grad-norm-log-freq", type=int, default=1,
+                        help="Log grad norms every N steps")
     parser.add_argument("--torch-loss-mode", type=str, default="mae",
                         choices=["poisson", "mae"],
                         help="Training loss mode ('poisson' or 'mae')")
@@ -605,6 +613,8 @@ def main() -> None:
         fno_width=args.fno_width,
         fno_blocks=args.fno_blocks,
         fno_cnn_blocks=args.fno_cnn_blocks,
+        log_grad_norm=args.log_grad_norm,
+        grad_norm_log_freq=args.grad_norm_log_freq,
     )
 
     result = run_grid_lines_torch(cfg)

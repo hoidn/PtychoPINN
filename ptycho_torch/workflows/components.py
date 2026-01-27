@@ -759,6 +759,8 @@ def _train_with_lightning(
         'batch_size': getattr(config, 'batch_size', 16),
         'subsample_seed': getattr(config, 'subsample_seed', None),
         'torch_loss_mode': getattr(config, 'torch_loss_mode', 'poisson'),
+        'log_grad_norm': getattr(config, 'log_grad_norm', False),
+        'grad_norm_log_freq': getattr(config, 'grad_norm_log_freq', 1),
     }
     if execution_config is not None and execution_config.gradient_clip_val is not None:
         factory_overrides['gradient_clip_val'] = execution_config.gradient_clip_val

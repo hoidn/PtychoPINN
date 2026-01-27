@@ -41,6 +41,8 @@ def run_grid_lines_compare(
     torch_infer_batch_size: int = 16,
     torch_gradient_clip_val: float = 1.0,
     torch_loss_mode: str = "mae",
+    torch_log_grad_norm: bool = False,
+    torch_grad_norm_log_freq: int = 1,
     fno_modes: int = 12,
     fno_width: int = 32,
     fno_blocks: int = 4,
@@ -108,6 +110,8 @@ def run_grid_lines_compare(
                 fno_blocks=fno_blocks,
                 fno_cnn_blocks=fno_cnn_blocks,
                 fno_input_transform=fno_input_transform,
+                log_grad_norm=torch_log_grad_norm,
+                grad_norm_log_freq=torch_grad_norm_log_freq,
             )
             from scripts.studies import grid_lines_torch_runner as torch_runner
             torch_result = torch_runner.run_grid_lines_torch(torch_cfg)
@@ -168,6 +172,8 @@ def parse_args(argv=None):
         help="Torch gradient clipping max norm (<=0 disables clipping).",
     )
     parser.add_argument("--torch-loss-mode", type=str, default="mae", choices=["poisson", "mae"])
+    parser.add_argument("--torch-log-grad-norm", action="store_true")
+    parser.add_argument("--torch-grad-norm-log-freq", type=int, default=1)
     parser.add_argument("--fno-modes", type=int, default=12)
     parser.add_argument("--fno-width", type=int, default=32)
     parser.add_argument("--fno-blocks", type=int, default=4)
@@ -208,6 +214,8 @@ def main(argv=None) -> None:
         torch_infer_batch_size=args.torch_infer_batch_size,
         torch_gradient_clip_val=args.torch_grad_clip,
         torch_loss_mode=args.torch_loss_mode,
+        torch_log_grad_norm=args.torch_log_grad_norm,
+        torch_grad_norm_log_freq=args.torch_grad_norm_log_freq,
         fno_modes=args.fno_modes,
         fno_width=args.fno_width,
         fno_blocks=args.fno_blocks,
