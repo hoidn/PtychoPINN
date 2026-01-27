@@ -55,6 +55,41 @@ Master orchestration script that automates the complete generalization study wor
 ### `run_generalization_study.sh` (Legacy)
 Legacy script for manual generalization studies. Use `run_complete_generalization_study.sh` for new studies.
 
+### `grid_lines_workflow.py`
+End-to-end grid-based ptychography workflow reproducing the deprecated `ptycho_lines.ipynb` pipeline.
+
+**Purpose:** Orchestrates the complete pipeline: probe extraction → grid simulation → dataset persistence → PINN + baseline training → inference → stitching → SSIM metrics → comparison visualization.
+
+**Usage:**
+```bash
+# Basic run (N=64, gridsize=1)
+python scripts/studies/grid_lines_workflow.py --N 64 --gridsize 1 --output-dir ./my_run
+
+# Full options
+python scripts/studies/grid_lines_workflow.py \
+    --N 64 --gridsize 1 \
+    --nepochs 20 \
+    --nimgs-train 2 --nimgs-test 2 \
+    --output-dir ./grid_study
+```
+
+**Key Options:**
+- `--N`: Probe/patch size (default: 64)
+- `--gridsize`: Grid dimension for grouping (default: 1)
+- `--nepochs`: Training epochs (default: 50)
+- `--nimgs-train`: Number of training object images (default: 2)
+- `--nimgs-test`: Number of test object images (default: 2)
+- `--output-dir`: Output directory for all artifacts
+
+**Output Structure:**
+```
+output_dir/
+├── datasets/N{N}/gs{gridsize}/   # Persisted train/test NPZ files
+├── models/                        # Saved PINN and baseline models
+├── visuals/compare_amp_phase.png  # 2x3 comparison grid (GT, PINN, Baseline)
+└── metrics.json                   # SSIM, MAE, PSNR, FRC metrics
+```
+
 ### `aggregate_and_plot_results.py`
 Analysis script that processes results from multiple training runs and generates visualization plots.
 

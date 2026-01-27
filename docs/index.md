@@ -341,9 +341,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Critical For:** All workflows requiring parameter management, CLI argument parsing
 
 #### `ptycho/workflows/` - High-Level Workflow Functions
-**Description:** Orchestration layer bridging CLI scripts and core modules. Chains together complete pipelines including data loading, configuration management, and training.  
-**Key Dependencies:** Core modules integration, configuration system, data pipeline  
-**Critical For:** End-to-end workflows, `run_cdi_example()`, training orchestration
+**Description:** Orchestration layer bridging CLI scripts and core modules. Chains together complete pipelines including data loading, configuration management, and training.
+**Key Dependencies:** Core modules integration, configuration system, data pipeline
+**Critical For:** End-to-end workflows, `run_cdi_example()`, `grid_lines_workflow`, training orchestration
+**Key Modules:**
+- `grid_lines_workflow.py`: End-to-end grid-based pipeline (probe prep → simulation → train → infer → stitch → metrics)
 
 ### Data Pipeline
 
