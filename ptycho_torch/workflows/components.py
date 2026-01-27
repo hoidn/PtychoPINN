@@ -434,25 +434,25 @@ def _build_lightning_dataloaders(
                 # Single sample case: (1, 2, C) → (C, 1, 2)
                 coords_rel = coords_rel.permute(2, 0, 1).contiguous()
 
-            rms_scale = self.rms_scaling_constant[idx] if self.rms_scaling_constant is not None else torch.ones(1, 1, 1, 1)
-            phys_scale = self.physics_scaling_constant[idx] if self.physics_scaling_constant is not None else torch.ones(1, 1, 1, 1)
+            rms_scale = self.rms_scaling_constant[idx] if self.rms_scaling_constant is not None else torch.ones(1, 1, 1)
+            phys_scale = self.physics_scaling_constant[idx] if self.physics_scaling_constant is not None else torch.ones(1, 1, 1)
 
             # Reshape scaling constants for proper broadcasting with 4D image tensors
-            # Container stores scaling with shape (nsamples, 1, 1, 1, 1), indexing gives (1, 1, 1, 1)
-            # For single sample: want scalar (will become (batch,) after collation, then reshape to (batch, 1, 1, 1))
-            # But DataLoader's default_collate expects same-rank tensors, so we keep as scalar here
-            # and let compute_loss or model reshape for broadcasting
-            # Actually, let's flatten to scalar so collation gives (batch,), then model can reshape
+            # Model's scale() function does x * scale_factor, so scale_factor needs shape (1, 1, 1)
+            # After DataLoader collation with batch_size B, this becomes (B, 1, 1, 1) which broadcasts
+            # correctly with images of shape (B, C, H, W)
             if rms_scale is not None:
-                rms_scale = rms_scale.flatten()[0] if rms_scale.numel() == 1 else rms_scale.squeeze()
+                # Ensure shape (1, 1, 1) for proper broadcasting after collation
+                rms_scale = rms_scale.view(1, 1, 1) if rms_scale.numel() == 1 else rms_scale.view(-1, 1, 1)[:1]
             if phys_scale is not None:
-                phys_scale = phys_scale.flatten()[0] if phys_scale.numel() == 1 else phys_scale.squeeze()
+                phys_scale = phys_scale.view(1, 1, 1) if phys_scale.numel() == 1 else phys_scale.view(-1, 1, 1)[:1]
 
             tensor_dict = {
                 'images': images_indexed,
                 'coords_relative': coords_rel,
                 'rms_scaling_constant': rms_scale,
                 'physics_scaling_constant': phys_scale,
+                'experiment_id': torch.tensor(0, dtype=torch.long),  # Scalar - collation gives (batch_size,)
             }
 
             # Broadcast probe for batch (single probe applies to all samples)
@@ -804,10 +804,14 @@ def _train_with_lightning(
         train_container, test_container, config, payload = payload
     )
     
-    #Data product is a lightning datamodule if ddp and lightning selected, otherwise
-    #it is a regular train/val loader
-    if pt_training_config.strategy != 'ddp':
+    # Data product is a lightning datamodule if ddp strategy selected, otherwise
+    # it is a regular train/val loader tuple
+    # Note: Use execution_config.strategy for runtime check, not pt_training_config.strategy
+    effective_strategy = execution_config.strategy if execution_config else 'auto'
+    if effective_strategy != 'ddp':
         train_loader, val_loader = data_product
+    else:
+        train_loader, val_loader = None, None  # Set to None when using datamodule
 
     # DATA-SUP-001: Supervised mode requires labeled data
     # Check if supervised mode is requested but training data lacks required labels
@@ -840,8 +844,42 @@ def _train_with_lightning(
         execution_config = PyTorchExecutionConfig()
         logger.info(f"PyTorchExecutionConfig auto-instantiated for Lightning training (accelerator resolved to '{execution_config.accelerator}')")
 
+    # Custom callback to track loss history across epochs
+    class _LossHistoryCallback(L.Callback):
+        """Callback to collect train/val loss per epoch for history dict.
+
+        The model logs metrics with dynamic names like 'poisson_train_Amp_loss'
+        based on model configuration. This callback searches for any metric
+        containing 'train' and 'loss' (or 'val' and 'loss') to capture the loss.
+        """
+
+        def __init__(self):
+            self.train_loss = []
+            self.val_loss = []
+
+        def _find_loss_metric(self, metrics, prefix):
+            """Find loss metric by prefix ('train' or 'val')."""
+            for key in metrics:
+                if prefix in key and 'loss' in key:
+                    return float(metrics[key])
+            return None
+
+        def on_train_epoch_end(self, trainer, pl_module):
+            metrics = trainer.callback_metrics
+            loss_val = self._find_loss_metric(metrics, 'train')
+            if loss_val is not None:
+                self.train_loss.append(loss_val)
+
+        def on_validation_epoch_end(self, trainer, pl_module):
+            metrics = trainer.callback_metrics
+            loss_val = self._find_loss_metric(metrics, 'val')
+            if loss_val is not None:
+                self.val_loss.append(loss_val)
+
+    loss_history_cb = _LossHistoryCallback()
+
     # EB1.D: Configure checkpoint/early-stop callbacks (ADR-003 Phase EB1)
-    callbacks = []
+    callbacks: list = [loss_history_cb]
     if execution_config.enable_checkpointing:
         from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 
@@ -981,23 +1019,12 @@ def _train_with_lightning(
             logger.error(f"Lightning training failed: {e}")
             raise RuntimeError(f"Lightning training failed. See logs for details.") from e
 
-    # Extract loss history from trainer metrics
-    # Note: trainer.callback_metrics may vary depending on logging configuration
-    # For MVP, construct minimal history from logged metrics
+    # Extract loss history from the custom callback
+    # The _LossHistoryCallback collects losses per epoch during training
     history = {
-        "train_loss": [],  # Populated during training; extract from logs if needed
-        "val_loss": [] if test_container is not None or isinstance(data_product, PrebuiltPtychoDataModule) else None
+        "train_loss": loss_history_cb.train_loss,
+        "val_loss": loss_history_cb.val_loss if test_container is not None or isinstance(data_product, PrebuiltPtychoDataModule) else None
     }
-
-    # Attempt to extract metrics if available
-    if hasattr(trainer, 'callback_metrics'):
-        metrics = trainer.callback_metrics
-        if 'train_loss' in metrics:
-            # callback_metrics contains latest values, not full trajectory
-            # For full history, would need custom callback; keep simple for MVP
-            history["train_loss"].append(float(metrics['train_loss']))
-        if 'val_loss' in metrics:
-            history["val_loss"].append(float(metrics['val_loss']))
 
     logger.info("Lightning training complete")
 

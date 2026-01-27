@@ -23,6 +23,13 @@ import torch
 import torch.nn as nn
 from typing import Dict, Any, Tuple, Optional
 
+# Check if neuraloperator is available
+try:
+    from neuraloperator.layers.spectral_convolution import SpectralConv
+    HAS_NEURALOPERATOR = True
+except ImportError:
+    HAS_NEURALOPERATOR = False
+
 
 class SpatialLifter(nn.Module):
     """Lightweight spatial lifter before Fourier layers.
@@ -64,10 +71,9 @@ class PtychoBlock(nn.Module):
         self.modes = modes
 
         # Spectral convolution (2D)
-        try:
-            from neuraloperator.layers.spectral_convolution import SpectralConv
+        if HAS_NEURALOPERATOR:
             self.spectral = SpectralConv(channels, channels, n_modes=(modes, modes))
-        except ImportError:
+        else:
             # Fallback: use FFT-based spectral conv
             self.spectral = _FallbackSpectralConv2d(channels, channels, modes)
 

@@ -50,6 +50,7 @@ sequenceDiagram
 
     W->>L: build Trainer(config) + fit(model)
     Note over L: Lightning training loop executes...
+    Note over L: _LossHistoryCallback collects train/val loss per epoch
     L-->>W: returns training_history
 
     alt If test_data is provided
@@ -95,7 +96,7 @@ See details and current status in **<doc-ref type="guide">docs/workflows/pytorch
 - `ptycho_torch/dataloader.py`: Datasets and DataLoaders compatible with Lightning
 - `ptycho_torch/model.py`: U‑Net + physics-informed Torch model
 - `ptycho_torch/model_manager.py`: Torch model bundle persistence and load
-- `ptycho_torch/workflows/components.py`: Orchestration entry points (`run_cdi_example_torch`, etc.)
+- `ptycho_torch/workflows/components.py`: Orchestration entry points (`run_cdi_example_torch`, etc.); includes `_LossHistoryCallback` for collecting per-epoch train/val loss history during Lightning training
 - `ptycho_torch/generators/`: Generator registry for architecture selection (see §4.1)
 - Reassembly: Currently reuses TF helper for parity; native Torch reassembly planned
 - Shared modules: `ptycho/raw_data.py`, `config/config.py`, `docs/specs/spec-ptycho-interfaces.md`
@@ -120,6 +121,7 @@ The generator registry enables architecture selection via `config.model.architec
 - `PtychoBlock`: Spectral conv + 3x3 local conv with outer residual (`y = x + GELU(Spectral(x) + Conv3x3(x))`)
 - `HybridUNOGenerator`: Spectral encoder blocks + CNN decoder with skip connections
 - `CascadedFNOGenerator`: FNO stage for coarse features → CNN refiner for final output
+- `HAS_NEURALOPERATOR`: Module-level flag indicating if `neuraloperator` package is available; when False, `PtychoBlock` uses a fallback FFT-based spectral convolution
 
 **Usage:**
 ```python
