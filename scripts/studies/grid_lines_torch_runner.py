@@ -160,7 +160,7 @@ def run_torch_training(
     train_data: Dict[str, np.ndarray],
     test_data: Dict[str, np.ndarray],
 ) -> Dict[str, Any]:
-    """Run PyTorch training using the generator registry.
+    """Run PyTorch training using the Lightning workflow.
 
     Args:
         cfg: Runner configuration
@@ -171,13 +171,10 @@ def run_torch_training(
         Training results dict with model and history
 
     Note:
-        This is a scaffold implementation. Full training with FNO/hybrid
-        generators will be implemented in Task 7.
+        Uses torchapi-devel Lightning workflow via _train_with_lightning.
     """
     import torch
-    from ptycho.config.config import update_legacy_dict
-    from ptycho import params
-    from ptycho_torch.generators.registry import resolve_generator
+    from ptycho_torch.workflows.components import _train_with_lightning
 
     # Set seed for reproducibility
     torch.manual_seed(cfg.seed)
@@ -186,56 +183,66 @@ def run_torch_training(
     # Set up configs
     training_config, execution_config = setup_torch_configs(cfg)
 
-    # Update legacy params for compatibility
-    update_legacy_dict(params.cfg, training_config)
+    def _reshape_coords(coords: Optional[np.ndarray], n_samples: int, channels: int) -> np.ndarray:
+        if coords is None:
+            return np.zeros((n_samples, 1, 2, channels), dtype=np.float32)
+        coords_np = np.asarray(coords)
+        if coords_np.ndim == 2 and coords_np.shape[1] == 2:
+            if coords_np.shape[0] == n_samples * channels:
+                coords_np = coords_np.reshape(n_samples, channels, 2)
+            elif coords_np.shape[0] == n_samples:
+                coords_np = np.repeat(coords_np[:, None, :], channels, axis=1)
+            else:
+                coords_np = np.zeros((n_samples, channels, 2), dtype=np.float32)
+            coords_np = coords_np.transpose(0, 2, 1)
+            coords_np = coords_np[:, None, :, :]
+        elif coords_np.ndim == 3 and coords_np.shape[2] == 2:
+            coords_np = coords_np.transpose(0, 2, 1)
+            coords_np = coords_np[:, None, :, :]
+        elif coords_np.ndim == 4 and coords_np.shape[1] == 1 and coords_np.shape[2] == 2:
+            coords_np = coords_np
+        else:
+            coords_np = np.zeros((n_samples, 1, 2, channels), dtype=np.float32)
+        return coords_np.astype(np.float32)
 
-    # Resolve generator based on architecture
-    try:
-        generator = resolve_generator(training_config)
-        logger.info(f"Using generator: {generator.name}")
-    except ValueError as e:
-        # FNO/hybrid generators not yet implemented
-        logger.warning(f"Generator not available: {e}")
-        logger.info("Returning scaffold results (no actual training)")
-        return {
-            'model': None,
-            'history': {'train_loss': [], 'val_loss': []},
-            'generator': cfg.architecture,
-            'scaffold': True,
-        }
+    X = np.asarray(train_data["diffraction"])
+    if X.ndim == 3:
+        X = X[..., np.newaxis]
+    n_samples = X.shape[0]
+    channels = X.shape[-1]
+    coords = _reshape_coords(train_data.get("coords_nominal"), n_samples, channels)
+    probe = train_data.get("probeGuess")
+    if probe is None:
+        probe = np.ones((cfg.N, cfg.N), dtype=np.complex64)
 
-    # Build model using generator
-    from ptycho_torch.config_params import DataConfig, ModelConfig as PTModelConfig, TrainingConfig as PTTrainingConfig
-
-    # Create PyTorch configs
-    pt_data = DataConfig(
-        N=cfg.N,
-        grid_size=(cfg.gridsize, cfg.gridsize),
-    )
-    pt_model = PTModelConfig(
-        architecture=cfg.architecture,  # type: ignore[arg-type]
-        fno_modes=cfg.fno_modes,
-        fno_width=cfg.fno_width,
-        fno_blocks=cfg.fno_blocks,
-        fno_cnn_blocks=cfg.fno_cnn_blocks,
-    )
-    pt_train = PTTrainingConfig(
-        epochs=cfg.epochs,
-        batch_size=cfg.batch_size,
-        learning_rate=cfg.learning_rate,
-    )
-
-    # Build model using generator
-    model = generator.build_model((pt_data, pt_model, pt_train))
-
-    # TODO: Implement full training loop with Lightning
-    # For now, return scaffold results with model
-    results = {
-        'model': model,
-        'history': {'train_loss': [], 'val_loss': []},
-        'generator': generator.name,
+    train_container = {
+        "X": X,
+        "coords_nominal": coords,
+        "probe": probe,
     }
 
+    test_container = None
+    if test_data:
+        X_te = np.asarray(test_data["diffraction"])
+        if X_te.ndim == 3:
+            X_te = X_te[..., np.newaxis]
+        n_te = X_te.shape[0]
+        channels_te = X_te.shape[-1]
+        coords_te = _reshape_coords(test_data.get("coords_nominal"), n_te, channels_te)
+        test_probe = test_data.get("probeGuess", probe)
+        test_container = {
+            "X": X_te,
+            "coords_nominal": coords_te,
+            "probe": test_probe,
+        }
+
+    results = _train_with_lightning(
+        train_container,
+        test_container,
+        training_config,
+        execution_config=execution_config,
+    )
+    results["generator"] = cfg.architecture
     return results
 
 
@@ -372,10 +379,13 @@ def save_run_artifacts(
         json.dump(results.get('history', {}), f, indent=2)
 
     # Save model checkpoint
-    if results.get('model') is not None:
+    model_to_save = results.get('model')
+    if model_to_save is None and isinstance(results.get('models'), dict):
+        model_to_save = results['models'].get('diffraction_to_obj')
+    if model_to_save is not None:
         import torch
         model_path = run_dir / "model.pt"
-        torch.save(results['model'].state_dict(), model_path)
+        torch.save(model_to_save.state_dict(), model_path)
 
     logger.info(f"Saved artifacts to {run_dir}")
     return run_dir
@@ -407,7 +417,10 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
 
     # Step 3: Run inference
     logger.info("Running inference...")
-    predictions = run_torch_inference(results['model'], test_data, cfg)
+    model = results.get('model')
+    if model is None and isinstance(results.get('models'), dict):
+        model = results['models'].get('diffraction_to_obj')
+    predictions = run_torch_inference(model, test_data, cfg)
 
     # Step 3b: Convert real/imag predictions to complex if needed
     # FNO/Hybrid models output (B, H, W, C, 2) format; convert to complex

@@ -408,12 +408,9 @@ class TestOutputContractConversion:
 class TestTorchTrainingPath:
     """Tests for PyTorch training path usage."""
 
-    def test_runner_uses_generator_registry(self, synthetic_npz, tmp_path, monkeypatch):
-        """Test that runner uses the generator registry for model creation.
-
-        The runner should use ptycho_torch.generators.registry.resolve_generator
-        to get the appropriate generator for the architecture.
-        """
+    def test_runner_uses_lightning_training(self, synthetic_npz, tmp_path, monkeypatch):
+        """Test that runner delegates training to Lightning workflow."""
+        from unittest.mock import MagicMock
         train_path, test_path = synthetic_npz
 
         cfg = TorchRunnerConfig(
@@ -423,62 +420,22 @@ class TestTorchTrainingPath:
             architecture="fno",
         )
 
-        # Track if resolve_generator was called
-        resolve_called = {'called': False, 'architecture': None}
+        train_data = load_cached_dataset(train_path)
+        test_data = load_cached_dataset(test_path)
 
-        try:
-            from ptycho_torch.generators import registry
-        except ImportError:
-            pytest.skip("Generator registry not available")
+        called = {"train": False}
 
-        def spy_resolve(config):
-            resolve_called['called'] = True
-            resolve_called['architecture'] = config.model.architecture
-            # Raise to trigger scaffold path (avoiding full training)
-            raise ValueError("FNO generator not implemented (test spy)")
+        def fake_train(train_container, test_container, config, execution_config=None, overrides=None):
+            called["train"] = True
+            assert "X" in train_container
+            assert "coords_nominal" in train_container
+            assert train_container["coords_nominal"].ndim == 4
+            return {
+                "history": {"train_loss": []},
+                "models": {"diffraction_to_obj": MagicMock()},
+            }
 
-        monkeypatch.setattr(
-            'ptycho_torch.generators.registry.resolve_generator',
-            spy_resolve
-        )
-
-        # Run training - will get scaffold result due to spy
-        result = run_torch_training(cfg, {}, {})
-
-        # Verify resolve_generator was called with correct architecture
-        assert resolve_called['called'], "resolve_generator should be called"
-        assert resolve_called['architecture'] == 'fno', (
-            f"Expected architecture 'fno', got {resolve_called['architecture']}"
-        )
-
-    def test_runner_returns_scaffold_when_generator_unavailable(self, synthetic_npz, tmp_path, monkeypatch):
-        """Test that runner returns scaffold results when generator is not available.
-
-        When the requested architecture's generator is not implemented,
-        the runner should return scaffold results indicating no training occurred.
-        """
-        train_path, test_path = synthetic_npz
-
-        cfg = TorchRunnerConfig(
-            train_npz=train_path,
-            test_npz=test_path,
-            output_dir=tmp_path,
-            architecture="fno",
-        )
-
-        # Force generator to be unavailable
-        def failing_resolve(config):
-            raise ValueError("FNO generator not implemented")
-
-        monkeypatch.setattr(
-            'ptycho_torch.generators.registry.resolve_generator',
-            failing_resolve
-        )
-
-        result = run_torch_training(cfg, {}, {})
-
-        # Verify scaffold result structure
-        assert result.get('scaffold') is True, "Should return scaffold=True when generator unavailable"
-        assert result.get('model') is None, "Model should be None in scaffold mode"
-        assert 'history' in result, "Should include history dict"
-        assert result['generator'] == 'fno', "Should record requested architecture"
+        monkeypatch.setattr("ptycho_torch.workflows.components._train_with_lightning", fake_train)
+        result = run_torch_training(cfg, train_data, test_data)
+        assert called["train"] is True
+        assert "models" in result
