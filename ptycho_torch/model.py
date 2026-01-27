@@ -17,6 +17,7 @@ from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, 
 import ptycho_torch.helper as hh
 from ptycho_torch.model_attention import CBAM, ECALayer, BasicSpatialAttention
 import copy
+from ptycho_torch.train_utils import compute_grad_norm
 
 logger = logging.getLogger(__name__)
 
@@ -1305,6 +1306,10 @@ class PtychoPINN_Lightning(L.LightningModule):
 
         self.manual_backward(scaled_loss)
 
+        if self.training_config.log_grad_norm and (batch_idx % self.training_config.grad_norm_log_freq == 0):
+            pre_clip = compute_grad_norm(self.parameters(), norm_type=2.0)
+            self.log("grad_norm_preclip", pre_clip, on_step=True, on_epoch=True, prog_bar=False, logger=True)
+
         #Step every N batches
         if (batch_idx+1) % self.accum_steps == 0:
             #Clip gradients
@@ -1314,6 +1319,9 @@ class PtychoPINN_Lightning(L.LightningModule):
                     max_norm = self.gradient_clip_val,
                     norm_type = 2.0 #L2 norm, default
                 )
+                if self.training_config.log_grad_norm and (batch_idx % self.training_config.grad_norm_log_freq == 0):
+                    post_clip = compute_grad_norm(self.parameters(), norm_type=2.0)
+                    self.log("grad_norm_postclip", post_clip, on_step=True, on_epoch=True, prog_bar=False, logger=True)
 
             opt.step()
             opt.zero_grad()
