@@ -198,8 +198,8 @@ class ModelManager:
             h5_model_path = os.path.join(model_dir, "model.h5")
             
             if os.path.exists(keras_model_path):
-                # Load from Keras 3 format
-                loaded_model = tf.keras.models.load_model(keras_model_path, custom_objects=custom_objects)
+                # Load from Keras 3 format (compile=False to avoid loss function serialization issues)
+                loaded_model = tf.keras.models.load_model(keras_model_path, custom_objects=custom_objects, compile=False)
                 # Copy weights to the blank model
                 model.set_weights(loaded_model.get_weights())
             elif os.path.exists(h5_model_path) and False:  # Temporarily disable H5 loading since our H5 files are metadata only

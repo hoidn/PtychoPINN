@@ -42,6 +42,7 @@ Use the index to locate any additional document cited by `prompts/main.md`, `pro
 - **Params.cfg / shape mismatch issues:** Follow `docs/debugging/QUICK_REFERENCE_PARAMS.md` and `docs/debugging/TROUBLESHOOTING.md`. Do **not** rely on stale snippets in this constitution.
 - **Command library (git, training, inference, tests):** Use `docs/COMMANDS_REFERENCE.md` for all CLI recipes. The prompts enforce running tests via `pytest` selectors; align with that doc and archive logs per their instructions.
 - **Git setup & hygiene:** See `prompts/git_setup_agent.md` and `prompts/git_hygiene.md` for automation-safe Git workflows.
+- **Known bugs:** See `docs/bugs/` directory for documented bugs and workarounds (e.g., `XLA_INFERENCE_BUG.md` for PINN inference issues).
 
 - Remove “evidence‑only” git exceptions. Always perform normal pull/rebase hygiene. Do not commit bulky artifacts; store them externally or under `.artifacts/` and link from the plan/ledger.
 
