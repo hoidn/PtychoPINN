@@ -248,6 +248,59 @@ def stitch_predictions(predictions: np.ndarray, norm_Y_I: float, part: str = "am
     return stitched
 
 
+# ---------------------------------------------------------------------------
+# Training + Inference Helpers (Task 5)
+# ---------------------------------------------------------------------------
+
+
+def train_pinn_model(train_data):
+    """Train PtychoPINN model and return model + history."""
+    from ptycho import train_pinn
+
+    model, history = train_pinn.train(train_data)
+    return model, history
+
+
+def save_pinn_model(cfg: GridLinesConfig) -> None:
+    """Save trained PINN model to output directory."""
+    from ptycho import model_manager
+
+    out_dir = cfg.output_dir / "pinn"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    model_manager.save(str(out_dir))
+
+
+def select_baseline_channels(X, Y_I, Y_phi):
+    """Select channel 0 only for baseline when gridsize > 1."""
+    if X.shape[-1] > 1:
+        return X[..., :1], Y_I[..., :1], Y_phi[..., :1]
+    return X, Y_I, Y_phi
+
+
+def train_baseline_model(X_train, Y_I_train, Y_phi_train):
+    """Train baseline model (channel 0 only for gridsize > 1)."""
+    from ptycho import baselines
+
+    Xb, YIb, Yphib = select_baseline_channels(X_train, Y_I_train, Y_phi_train)
+    model, history = baselines.train(Xb, YIb, Yphib)
+    return model, history
+
+
+def run_pinn_inference(model, X_test, coords_nominal):
+    """Run PINN inference on test data."""
+    intensity_scale = p.get("intensity_scale")
+    pred = model.predict([X_test * intensity_scale, coords_nominal])
+    return pred
+
+
+def run_baseline_inference(model, X_test):
+    """Run baseline inference on test data (channel 0 only)."""
+    Xb, _, _ = select_baseline_channels(X_test, X_test, X_test)
+    pred_amp, pred_phase = model.predict(Xb)
+    pred_complex = pred_amp * np.exp(1j * pred_phase)
+    return pred_complex
+
+
 def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
     """Orchestrate probe prep → sim → train → infer → stitch → metrics."""
     raise NotImplementedError
