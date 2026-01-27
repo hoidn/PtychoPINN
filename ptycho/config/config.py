@@ -96,6 +96,7 @@ class ModelConfig:
     gridsize: int = 1
     n_filters_scale: int = 2
     model_type: Literal['pinn', 'supervised'] = 'pinn'
+    architecture: Literal['cnn', 'fno', 'hybrid'] = 'cnn'
     amp_activation: Literal['sigmoid', 'swish', 'softplus', 'relu'] = 'sigmoid'
     object_big: bool = True
     probe_big: bool = True  # Changed default
@@ -359,6 +360,12 @@ class PyTorchExecutionConfig:
 
 def validate_model_config(config: ModelConfig) -> None:
     """Validate model configuration."""
+    valid_arches = {'cnn', 'fno', 'hybrid'}
+    if config.architecture not in valid_arches:
+        raise ValueError(
+            f"Invalid architecture '{config.architecture}'. "
+            f"Expected one of {sorted(valid_arches)}."
+        )
     if config.gridsize <= 0:
         raise ValueError(f"gridsize must be positive, got {config.gridsize}")
     if config.n_filters_scale <= 0:

@@ -48,6 +48,7 @@ These parameters define the structure and physics of the neural network.
 | `gridsize` | `int` | `1` | For PINN models, the number of neighboring patches to process together (e.g., 2 for a 2×2 grid). For supervised models, this defines the input channel depth. |
 | `n_filters_scale` | `int` | `2` | A multiplier for the number of filters in the U-Net's convolutional layers. |
 | `model_type` | `Literal['pinn', 'supervised']` | `'pinn'` | The type of model to use. 'pinn' is the main physics-informed model. |
+| `architecture` | `Literal['cnn', 'fno', 'hybrid']` | `'cnn'` | The generator architecture for PINN models. Used by the generator registry to select the network backbone. 'cnn' is the default U-Net based generator. 'fno' and 'hybrid' are reserved for future use. |
 | `amp_activation` | `str` | `'sigmoid'` | The activation function for the amplitude output layer. Choices: 'sigmoid', 'swish', 'softplus', 'relu'. |
 | `object_big` | `bool` | `True` | If True, the model reconstructs a large area by stitching patches. If False, it reconstructs a single N×N patch. |
 | `probe_big` | `bool` | `True` | If True, the probe representation can vary across the solution region. |
