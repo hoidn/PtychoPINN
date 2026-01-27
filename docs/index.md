@@ -104,9 +104,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Implementing or debugging the TensorFlow backend and its workflows.
 
 #### [Architecture — PyTorch](architecture_torch.md)
-**Description:** PyTorch-specific architecture: component diagram, Lightning-based training and inference sequences, component reference, and function/container mapping (PyTorch ↔ TF).  
-**Keywords:** pytorch, lightning, components, training, inference, containers, mapping  
-**Use this when:** Implementing or debugging the PyTorch backend and its workflows.
+**Description:** PyTorch-specific architecture: component diagram, Lightning-based training and inference sequences, component reference, and function/container mapping (PyTorch ↔ TF). Includes FNO/hybrid generators via `ptycho_torch/generators/fno.py`.
+**Keywords:** pytorch, lightning, components, training, inference, containers, mapping, fno, hybrid
+**Use this when:** Implementing or debugging the PyTorch backend and its workflows, or using FNO/hybrid architectures.
 
 #### [Testing Guide](TESTING_GUIDE.md)
 **Description:** Comprehensive testing strategy covering unit tests, integration tests, TDD methodology, regression testing practices, and specific guidance for testing CLI parameters and backward compatibility.  
@@ -197,9 +197,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Have a trained model and want to generate reconstructions from new test data.
 
 #### Evaluation (via Studies) — [Studies Guide](../scripts/studies/README.md)
-**Description:** Use the Studies tooling to run evaluations and aggregate metrics across runs; for single reconstructions, see Inference.  
-**Keywords:** evaluation, studies, metrics, analysis, aggregation  
-**Use this when:** Running evaluations across datasets or comparing models using existing study tools.
+**Description:** Use the Studies tooling to run evaluations and aggregate metrics across runs; for single reconstructions, see Inference. Includes `grid_lines_torch_runner.py` for FNO/hybrid architecture training.
+**Keywords:** evaluation, studies, metrics, analysis, aggregation, fno, hybrid, torch-runner
+**Use this when:** Running evaluations across datasets, comparing models, or training FNO/hybrid architectures via the Torch runner.
 
 #### [Simulation](../scripts/simulation/README.md)
 **Description:** Two-stage modular simulation architecture for generating ptychographic datasets: Stage 1 creates object/probe inputs, Stage 2 simulates diffraction patterns.  
@@ -264,6 +264,15 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 ## Core Module Documentation
 
 ### Neural Network & Physics (`ptycho/`)
+
+#### `ptycho/generators/` - Generator Registry
+**Description:** Modular generator registry enabling architecture selection via `config.model.architecture`. Supports CNN (default), FNO, and hybrid architectures with a consistent interface for adding new generators.
+**Key Dependencies:** `ModelConfig.architecture` field, `ptycho.model` for CNN implementation
+**Critical For:** Architecture selection, adding new generator types, extending model capabilities
+**Key Modules:**
+- `registry.py`: Central registry with `resolve_generator()` function
+- `cnn.py`: CNN-based U-Net generator (default)
+- `README.md`: Guide for adding new generators
 
 #### `ptycho/model.py` - Neural Network Architecture ⚠️ SINGLETON WARNING
 **Description:** U-Net-based physics-informed neural network combining deep learning with differentiable ptychographic forward modeling. Features custom Keras layers for physics constraints.
