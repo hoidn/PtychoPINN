@@ -86,7 +86,14 @@ python scripts/studies/grid_lines_workflow.py \
 output_dir/
 ├── datasets/N{N}/gs{gridsize}/   # Persisted train/test NPZ files
 ├── models/                        # Saved PINN and baseline models
-├── visuals/compare_amp_phase.png  # 2x3 comparison grid (GT, PINN, Baseline)
+├── recons/                        # Recon artifacts by model label
+│   ├── gt/recon.npz
+│   ├── pinn/recon.npz
+│   ├── baseline/recon.npz
+│   ├── pinn_fno/recon.npz
+│   └── pinn_hybrid/recon.npz
+├── visuals/compare_amp_phase.png  # Dynamic grid (GT + available models)
+├── visuals/amp_phase_<label>.png  # Per-model amp/phase
 └── metrics.json                   # SSIM, MAE, PSNR, FRC metrics
 ```
 
