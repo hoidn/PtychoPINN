@@ -410,6 +410,11 @@ When adding new documentation:
 
 ## Bug Reports & Fixes
 
+### [MATH-POLAR-001: CombineComplexLayer Bug](bugs/MATH_POLAR_001.md) - FIXED
+**Description:** `CombineComplexLayer` incorrectly combined amplitude and phase as Z=A+iφ instead of Z=A*exp(iφ). This broke phase averaging in patch stitching.
+**Status:** Fixed 2026-01-26
+**Fix:** Apply Euler's formula; add `use_polar=False` flag for loading legacy models.
+
 ### [XLA Inference Bug](bugs/XLA_INFERENCE_BUG.md) - FIXED
 **Description:** PINN models with XLA compilation failed during inference with dynamic batch sizes due to `tf.repeat`/`tf.tile` operations in the Translation layer.
 **Status:** Fixed 2026-01-26
