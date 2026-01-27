@@ -27,6 +27,39 @@ import lightning as L
 #Ensuring 64float b/c of complex numbers
 # torch.set_default_dtype(torch.float32)
 
+
+def _real_imag_to_complex_channel_first(real_imag: torch.Tensor) -> torch.Tensor:
+    """Convert real/imag tensor from (B, H, W, C, 2) to complex (B, C, H, W).
+
+    This adapter function converts FNO/Hybrid generator outputs (which produce
+    real and imaginary parts in the last dimension) to the complex channel-first
+    format expected by PtychoPINN's physics pipeline.
+
+    Args:
+        real_imag: Tensor with shape (B, H, W, C, 2) where the last dimension
+                   contains [real, imag] components.
+
+    Returns:
+        Complex tensor with shape (B, C, H, W) in channel-first format.
+
+    Raises:
+        ValueError: If input doesn't have 5 dimensions or last dim != 2.
+
+    Example:
+        >>> x = torch.zeros(2, 64, 64, 4, 2)  # (batch, H, W, C, real/imag)
+        >>> x[..., 0] = 1.0  # Real part
+        >>> out = _real_imag_to_complex_channel_first(x)
+        >>> out.shape  # (2, 4, 64, 64)
+        >>> out.is_complex()  # True
+    """
+    if real_imag.ndim != 5 or real_imag.shape[-1] != 2:
+        raise ValueError(
+            f"Expected real/imag tensor with shape (B, H, W, C, 2), got {tuple(real_imag.shape)}"
+        )
+    complex_last = torch.complex(real_imag[..., 0], real_imag[..., 1])  # (B, H, W, C)
+    return complex_last.permute(0, 3, 1, 2).contiguous()  # (B, C, H, W)
+
+
 #Helping modules
 #Activation functions
 class Tanh_custom_act(nn.Module):
@@ -860,11 +893,19 @@ class PtychoPINN(nn.Module):
     probe - Tensor input, comes from dataset/dataloader __get__ function (returns x, probe)
 
     '''
-    def __init__(self, model_config: ModelConfig, data_config: DataConfig, training_config: TrainingConfig):
+    def __init__(
+        self,
+        model_config: ModelConfig,
+        data_config: DataConfig,
+        training_config: TrainingConfig,
+        generator: Optional[nn.Module] = None,
+        generator_output: str = "amp_phase"
+    ):
         super(PtychoPINN, self).__init__()
         self.model_config = model_config
         self.data_config = data_config
         self.training_config = training_config # Store training config
+        self.generator_output = generator_output
 
         self.n_filters_scale = self.model_config.n_filters_scale
 
@@ -872,38 +913,61 @@ class PtychoPINN(nn.Module):
         self.scaler = IntensityScalerModule(model_config)
         self.probe_scale = data_config.probe_scale
 
-        #Autoencoder - Pass configs
-        self.autoencoder = Autoencoder(model_config, data_config)
+        #Autoencoder or custom generator
+        # When generator is None, use default CNN-based Autoencoder
+        # When generator is provided (e.g., FNO/Hybrid), use it directly
+        self.autoencoder = Autoencoder(model_config, data_config) if generator is None else generator
         self.combine_complex = CombineComplex()
 
         #Adding named modules for forward operation
         self.forward_model = ForwardModel(model_config, data_config)
 
+    def _predict_complex(self, x):
+        """Generate complex object patches from input.
+
+        Handles both amp_phase output (from CNN autoencoder) and real_imag output
+        (from FNO/Hybrid generators).
+
+        Args:
+            x: Input tensor (B, C, H, W)
+
+        Returns:
+            Tuple of (x_complex, amp, phase) tensors.
+        """
+        if self.generator_output == "amp_phase":
+            # CNN-based autoencoder: returns (amp, phase) tensors
+            amp, phase = self.autoencoder(x)
+            x_complex = self.combine_complex(amp, phase)
+        elif self.generator_output == "real_imag":
+            # FNO/Hybrid generators: return (B, H, W, C, 2) real/imag tensor
+            patches = self.autoencoder(x)
+            x_complex = _real_imag_to_complex_channel_first(patches)
+            amp = torch.abs(x_complex)
+            phase = torch.angle(x_complex)
+        else:
+            raise ValueError(f"Unsupported generator_output='{self.generator_output}'")
+        return x_complex, amp, phase
+
     def forward(self, x, positions, probe, input_scale_factor, output_scale_factor, experiment_ids = None):
 
         #Scaling down (normalizing to 1)
         x = self.scaler.scale(x, input_scale_factor)
-        #Autoencoder result
-        x_amp, x_phase = self.autoencoder(x)
-        #Combine amp and phase
-    
-        x_combined = self.combine_complex(x_amp, x_phase)
+
+        #Predict complex object via autoencoder or generator
+        x_combined, x_amp, x_phase = self._predict_complex(x)
 
         #Run through forward model. Unscaled diffraction pattern
         x_out = self.forward_model.forward(x_combined, positions,
                                            probe/self.probe_scale, output_scale_factor, experiment_ids)
-        
-        
 
         return x_out, x_amp, x_phase
-    
+
     def forward_predict(self, x, positions, probe, input_scale_factor):
         #Scaling
         x = self.scaler.scale(x, input_scale_factor)
-        #Autoencoder result
-        x_amp, x_phase = self.autoencoder(x)
-        #Combine amp and phase
-        x_combined = self.combine_complex(x_amp, x_phase)
+
+        #Predict complex object via autoencoder or generator
+        x_combined, _, _ = self._predict_complex(x)
 
         return x_combined
     
@@ -975,10 +1039,15 @@ class PtychoPINN_Lightning(L.LightningModule):
     
     Requires import: from ptycho_torch.schedulers import MultiStageLRScheduler, AdaptiveLRScheduler
     '''
-    def __init__(self, model_config: ModelConfig,
-                       data_config: DataConfig,
-                       training_config: TrainingConfig,
-                       inference_config: InferenceConfig):
+    def __init__(
+        self,
+        model_config: ModelConfig,
+        data_config: DataConfig,
+        training_config: TrainingConfig,
+        inference_config: InferenceConfig,
+        generator_module: Optional[nn.Module] = None,
+        generator_output: str = "amp_phase"
+    ):
         super().__init__()
 
         # Handle checkpoint loading: convert dict kwargs back to dataclass instances
@@ -994,12 +1063,14 @@ class PtychoPINN_Lightning(L.LightningModule):
 
         # Save hyperparameters for checkpoint serialization (Phase D1c requirement)
         # Convert dataclass instances to dicts to ensure serializability
+        # Note: generator_module is not saved (reconstructed at load time)
         from dataclasses import asdict
         self.save_hyperparameters({
             'model_config': asdict(model_config),
             'data_config': asdict(data_config),
             'training_config': asdict(training_config),
             'inference_config': asdict(inference_config),
+            'generator_output': generator_output,
         })
 
         self.n_filters_scale = model_config.n_filters_scale
@@ -1032,7 +1103,13 @@ class PtychoPINN_Lightning(L.LightningModule):
 
         #Model
         if model_config.mode == 'Unsupervised':
-            self.model = PtychoPINN(model_config, data_config, training_config)
+            self.model = PtychoPINN(
+                model_config,
+                data_config,
+                training_config,
+                generator=generator_module,
+                generator_output=generator_output,
+            )
         elif model_config.mode == 'Supervised':
             self.model = Ptycho_Supervised(model_config, data_config, training_config)
 
