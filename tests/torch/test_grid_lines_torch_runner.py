@@ -129,6 +129,19 @@ class TestSetupTorchConfigs:
         assert execution_config.learning_rate == 0.001
         assert execution_config.deterministic is True
 
+    def test_fno_input_transform_passed(self, tmp_path):
+        """FNO input transform should be forwarded to ModelConfig."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "output",
+            architecture="fno",
+            fno_input_transform="sqrt",
+        )
+
+        training_config, _ = setup_torch_configs(cfg)
+        assert training_config.model.fno_input_transform == "sqrt"
+
 
 class TestRunGridLinesTorchScaffold:
     """Smoke tests for the main runner function (scaffold mode)."""
@@ -207,6 +220,37 @@ class TestRunGridLinesTorchScaffold:
         recon_path = output_dir / "recons" / "pinn_fno" / "recon.npz"
         assert recon_path.exists()
         assert "recon_path" in result
+
+    def test_runner_reports_model_params_and_inference_time(self, synthetic_npz, tmp_path):
+        """Runner should report model params and inference time."""
+        train_path, test_path = synthetic_npz
+        output_dir = tmp_path / "output"
+
+        cfg = TorchRunnerConfig(
+            train_npz=train_path,
+            test_npz=test_path,
+            output_dir=output_dir,
+            architecture="fno",
+            epochs=1,
+        )
+
+        with patch('scripts.studies.grid_lines_torch_runner.run_torch_training') as mock_train:
+            mock_train.return_value = {
+                'model': None,
+                'history': {},
+                'generator': 'fno',
+                'scaffold': True,
+            }
+            with patch('scripts.studies.grid_lines_torch_runner.run_torch_inference') as mock_infer:
+                mock_infer.return_value = np.random.rand(64, 64).astype(np.complex64)
+                with patch('scripts.studies.grid_lines_torch_runner.compute_metrics') as mock_metrics:
+                    mock_metrics.return_value = {'mse': 0.1}
+                    result = run_grid_lines_torch(cfg)
+
+        assert 'model_params' in result
+        assert isinstance(result['model_params'], int)
+        assert 'inference_time_s' in result
+        assert isinstance(result['inference_time_s'], float)
 
     def test_runner_creates_run_directory_structure(self, synthetic_npz, tmp_path):
         """Test runner creates proper directory structure."""

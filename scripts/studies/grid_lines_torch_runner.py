@@ -94,6 +94,7 @@ class TorchRunnerConfig:
     fno_width: int = 32
     fno_blocks: int = 4
     fno_cnn_blocks: int = 2
+    fno_input_transform: str = "none"
 
 
 def load_cached_dataset(npz_path: Path) -> Dict[str, np.ndarray]:
@@ -181,6 +182,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         fno_width=cfg.fno_width,
         fno_blocks=cfg.fno_blocks,
         fno_cnn_blocks=cfg.fno_cnn_blocks,
+        fno_input_transform=cfg.fno_input_transform,
     )
 
     training_config = TrainingConfig(
@@ -466,7 +468,24 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
     model = results.get('model')
     if model is None and isinstance(results.get('models'), dict):
         model = results['models'].get('diffraction_to_obj')
+
+    model_params = 0
+    if model is not None and hasattr(model, "parameters"):
+        model_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+    import time
+    try:
+        import torch
+        cuda_available = torch.cuda.is_available()
+    except Exception:
+        cuda_available = False
+    if cuda_available:
+        torch.cuda.synchronize()
+    start = time.perf_counter()
     predictions = run_torch_inference(model, test_data, cfg)
+    if cuda_available:
+        torch.cuda.synchronize()
+    inference_time_s = time.perf_counter() - start
 
     # Step 3b: Convert real/imag predictions to complex if needed
     # FNO/Hybrid models output (B, H, W, C, 2) format; convert to complex
@@ -509,6 +528,8 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
         'metrics': metrics,
         'history': results.get('history', {}),
         'recon_path': str(recon_path),
+        'model_params': int(model_params),
+        'inference_time_s': float(inference_time_s),
     }
 
     # Include complex predictions if conversion was done
