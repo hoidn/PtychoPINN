@@ -6,9 +6,49 @@ This module provides a central registry for generator architectures used in PyTo
 
 The generator registry enables architecture selection via the `config.model.architecture` field. Currently supported architectures:
 
-- `cnn` (default): U-Net based CNN generator from `ptycho_torch/model.py`
-- `fno`: Reserved for Fourier Neural Operator (not yet implemented)
-- `hybrid`: Reserved for hybrid CNN/FNO architecture (not yet implemented)
+| Architecture | Description | Status |
+|--------------|-------------|--------|
+| `cnn` | U-Net based CNN generator (default) | ✅ Integrated |
+| `fno` | Cascaded FNO + CNN refiner (Arch A) | ✅ Integrated |
+| `hybrid` | Hybrid U-NO (Arch B) | ✅ Integrated |
+
+All architectures train through `PtychoPINN_Lightning` with the same physics loss and stitching behavior.
+
+## Architecture Details
+
+### CNN (default)
+The default CNN architecture uses a U-Net encoder-decoder with physics-informed forward model. See `ptycho_torch/model.py` for implementation.
+
+### FNO (Cascaded FNO)
+The FNO architecture (`architecture='fno'`) uses a cascaded design:
+1. Spatial lifter (3x3 convs)
+2. Fourier Neural Operator blocks (spectral convolutions)
+3. CNN refiner blocks (3x3 convs)
+4. Output projection to real/imag format
+
+**Key parameters:**
+- `fno_blocks`: Number of FNO blocks (default: 4)
+- `fno_cnn_blocks`: Number of CNN refiner blocks (default: 2)
+- `fno_modes`: Spectral modes (default: min(12, N//4))
+
+### Hybrid (U-NO)
+The Hybrid architecture (`architecture='hybrid'`) combines U-Net with FNO:
+1. Encoder path with downsampling + FNO blocks
+2. Bottleneck with spectral convolution
+3. Decoder path with upsampling + skip connections
+
+**Key parameters:**
+- `fno_blocks`: Number of FNO blocks per level (default: 4)
+- `fno_modes`: Spectral modes (default: min(12, N//4))
+
+## Integration Contract
+
+All FNO/Hybrid generators integrate with `PtychoPINN_Lightning` via:
+
+1. **Output format**: Generators output `(B, H, W, C, 2)` real/imag tensor
+2. **Adapter function**: `_real_imag_to_complex_channel_first()` converts to `(B, C, H, W)` complex
+3. **Physics pipeline**: The complex patches flow through `ForwardModel` for physics loss
+4. **Stitching**: Same TF reassembly helper as CNN (no stitching changes)
 
 ## Adding a New Generator
 
@@ -43,8 +83,20 @@ class MyArchGenerator:
         Returns:
             PtychoPINN_Lightning or compatible Lightning module
         """
-        # Your model creation logic here
-        pass
+        from ptycho_torch.model import PtychoPINN_Lightning
+
+        # Build your core generator module
+        core = MyArchModule(...)
+
+        # Wrap in Lightning with physics pipeline
+        return PtychoPINN_Lightning(
+            model_config=pt_configs['model_config'],
+            data_config=pt_configs['data_config'],
+            training_config=pt_configs['training_config'],
+            inference_config=pt_configs['inference_config'],
+            generator_module=core,
+            generator_output="real_imag",  # or "amp_phase"
+        )
 ```
 
 2. **Register the generator** in `ptycho_torch/generators/registry.py`:
@@ -54,6 +106,8 @@ from ptycho_torch.generators.my_arch import MyArchGenerator
 
 _REGISTRY = {
     'cnn': CnnGenerator,
+    'fno': FnoGenerator,
+    'hybrid': HybridGenerator,
     'my_arch': MyArchGenerator,  # Add your generator
 }
 ```
@@ -90,6 +144,17 @@ All generators must:
 3. Implement `build_model(pt_configs)` returning a Lightning module
 4. The Lightning module should be compatible with the trainer in `_train_with_lightning`
 
+## Output Format Options
+
+Generators can use two output formats:
+
+| Format | Shape | Description |
+|--------|-------|-------------|
+| `amp_phase` | Two tensors: `(B, C, H, W)` each | Amplitude and phase channels (CNN default) |
+| `real_imag` | Single tensor: `(B, H, W, C, 2)` | Real and imaginary parts in last dimension (FNO/Hybrid) |
+
+The `generator_output` parameter in `PtychoPINN_Lightning` controls which adapter path is used.
+
 ## PyTorch-Specific Considerations
 
 - Generators should return Lightning modules compatible with `L.Trainer.fit()`
@@ -102,4 +167,6 @@ All generators must:
 - `ptycho/config/config.py`: ModelConfig with architecture field
 - `ptycho_torch/workflows/components.py`: Workflow integration via `resolve_generator`
 - `ptycho_torch/model.py`: PtychoPINN_Lightning implementation
+- `ptycho_torch/generators/fno.py`: FNO and Hybrid implementations
 - `docs/workflows/pytorch.md`: PyTorch workflow documentation
+- `docs/backlog/FNO_HYBRID_FULL_INTEGRATION.md`: Integration plan and status

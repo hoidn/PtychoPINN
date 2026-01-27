@@ -64,7 +64,15 @@ update_legacy_dict(params.cfg, config)
 ```
 
 **Key configuration fields for PyTorch workflows:**
-- `config.model.architecture`: Generator architecture for PINN models (`'cnn'`, `'fno'`, `'hybrid'`). Default: `'cnn'`. See `ptycho_torch/generators/README.md` for adding new architectures.
+- `config.model.architecture`: Generator architecture for PINN models (`'cnn'`, `'fno'`, `'hybrid'`). Default: `'cnn'`. All architectures train via Lightning with the full physics pipeline. See `ptycho_torch/generators/README.md` for adding new architectures.
+
+**Architecture Selection via Generator Registry:**
+Starting 2026-01-27, the `config.model.architecture` field routes through the generator registry (`ptycho_torch/generators/registry.py`). This means:
+- FNO and Hybrid architectures now train through `PtychoPINN_Lightning` with the same physics loss as CNN
+- The registry resolves the architecture, builds the appropriate generator model, and wraps it in `PtychoPINN_Lightning`
+- FNO/Hybrid generators use `generator_output="real_imag"` format, which is converted to complex channel-first via `_real_imag_to_complex_channel_first()` in `ptycho_torch/model.py`
+- No changes to stitching behavior - all architectures use the same TF reassembly helper
+
 - `config.debug`: Controls progress bars and logging verbosity (default: `False`)
 - `config.output_dir`: Directory for checkpoints and artifacts (required for persistence)
 - `config.subsample_seed`: RNG seed for reproducible sampling (default: deterministic behavior enabled)
