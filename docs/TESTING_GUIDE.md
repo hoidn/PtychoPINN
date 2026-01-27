@@ -478,6 +478,9 @@ pytest tests/torch/test_debug_fno_activations.py -vv
 # Run FNO fallback init scale test
 pytest tests/torch/test_fno_fallback_init.py -vv
 
+# Run torch runner stitched-metrics test
+pytest tests/torch/test_grid_lines_torch_runner.py::TestRunGridLinesTorchScaffold::test_metrics_stitch_predictions_to_ground_truth -v
+
 # Run specific test
 pytest tests/torch/test_api_deprecation.py::TestLegacyAPIDeprecation::test_example_train_import_emits_deprecation_warning -vv
 ```

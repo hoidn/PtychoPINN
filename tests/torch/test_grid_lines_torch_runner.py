@@ -4,7 +4,10 @@ import json
 import pytest
 import numpy as np
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
+from ptycho.config.config import TrainingConfig, ModelConfig
+from ptycho.metadata import MetadataManager
 
 from scripts.studies.grid_lines_torch_runner import (
     TorchRunnerConfig,
@@ -195,6 +198,71 @@ class TestRunGridLinesTorchScaffold:
         assert run_dir.name == "pinn_hybrid"
         assert run_dir.parent.name == "runs"
 
+    def test_metrics_stitch_predictions_to_ground_truth(self, synthetic_npz, tmp_path, monkeypatch):
+        """Runner should stitch predictions before eval_reconstruction."""
+        train_path, test_path = synthetic_npz
+
+        cfg = TrainingConfig(model=ModelConfig(N=64, gridsize=1))
+        metadata = MetadataManager.create_metadata(
+            cfg,
+            script_name="test_grid_lines_torch_runner",
+            nimgs_test=1,
+            outer_offset_test=20,
+        )
+        data = dict(np.load(test_path, allow_pickle=True))
+        N = 64
+        outer_offset_test = 20
+        bordersize = (N - outer_offset_test / 2) / 2
+        borderleft = int(np.ceil(bordersize))
+        borderright = int(np.floor(bordersize))
+        tile_size = N - (borderleft + borderright)
+        data["YY_ground_truth"] = np.random.rand(tile_size, tile_size, 1).astype(np.complex64)
+        data["norm_Y_I"] = np.array(1.0, dtype=np.float32)
+        MetadataManager.save_with_metadata(str(test_path), data, metadata)
+
+        called = {"ok": False}
+
+        def fake_eval(stitched_obj, ground_truth_obj, label=""):
+            if stitched_obj.ndim == 4:
+                stitched_obj = stitched_obj[0]
+            assert stitched_obj.shape[0] == ground_truth_obj.shape[0]
+            assert stitched_obj.shape[1] == ground_truth_obj.shape[1]
+            called["ok"] = True
+            return {"mse": 0.0}
+
+        monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", fake_eval)
+
+        cfg = TorchRunnerConfig(
+            train_npz=train_path,
+            test_npz=test_path,
+            output_dir=tmp_path,
+            architecture="fno",
+            epochs=1,
+        )
+
+        def fake_train(*args, **kwargs):
+            return {
+                "model": None,
+                "history": {"train_loss": [], "val_loss": []},
+                "generator": "fno",
+                "scaffold": True,
+            }
+
+        def fake_infer(*args, **kwargs):
+            return np.random.rand(1, 64, 64, 1, 2).astype(np.float32)
+
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner.run_torch_training",
+            fake_train,
+        )
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner.run_torch_inference",
+            fake_infer,
+        )
+
+        run_grid_lines_torch(cfg)
+        assert called["ok"] is True
+
 
 class TestChannelGridsizeAlignment:
     """Tests for channel/gridsize alignment in runner configuration."""
@@ -229,7 +297,6 @@ class TestChannelGridsizeAlignment:
             )
             training_config, _ = setup_torch_configs(cfg)
             # Channel count should be gridsize squared
-            expected_C = gridsize * gridsize
             assert training_config.model.gridsize == gridsize, f"gridsize mismatch for gridsize={gridsize}"
             # Note: TrainingConfig doesn't expose C directly, but downstream
             # consumers derive it from gridsize. This test ensures gridsize is correct.

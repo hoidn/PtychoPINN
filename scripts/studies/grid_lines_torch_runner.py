@@ -37,7 +37,7 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 
 import numpy as np
 
@@ -113,6 +113,50 @@ def load_cached_dataset(npz_path: Path) -> Dict[str, np.ndarray]:
         if key not in data:
             raise KeyError(f"Missing required key '{key}' in {npz_path}")
     return data
+
+
+def load_cached_dataset_with_metadata(
+    npz_path: Path,
+) -> Tuple[Dict[str, np.ndarray], Optional[Dict[str, Any]]]:
+    """Load cached NPZ dataset and optional metadata."""
+    from ptycho.metadata import MetadataManager
+
+    data, metadata = MetadataManager.load_with_metadata(str(npz_path))
+    required_keys = ['diffraction', 'Y_I', 'Y_phi', 'coords_nominal']
+    for key in required_keys:
+        if key not in data:
+            raise KeyError(f"Missing required key '{key}' in {npz_path}")
+    return data, metadata
+
+
+def _configure_stitching_params(cfg: TorchRunnerConfig, metadata: Optional[Dict[str, Any]]) -> None:
+    if not metadata:
+        raise ValueError("Missing metadata; cannot stitch predictions for metrics.")
+
+    additional = metadata.get("additional_parameters", {})
+    nimgs_test = additional.get("nimgs_test")
+    outer_offset_test = additional.get("outer_offset_test")
+    if nimgs_test is None or outer_offset_test is None:
+        raise ValueError("Metadata missing nimgs_test/outer_offset_test for stitching.")
+
+    from ptycho import params as p
+
+    p.cfg["N"] = cfg.N
+    p.cfg["gridsize"] = cfg.gridsize
+    p.set("nimgs_test", nimgs_test)
+    p.set("outer_offset_test", outer_offset_test)
+
+
+def _stitch_for_metrics(
+    pred_complex: np.ndarray,
+    cfg: TorchRunnerConfig,
+    metadata: Optional[Dict[str, Any]],
+    norm_Y_I: float,
+) -> np.ndarray:
+    from ptycho.workflows.grid_lines_workflow import stitch_predictions
+
+    _configure_stitching_params(cfg, metadata)
+    return stitch_predictions(pred_complex, float(norm_Y_I), part="complex")
 
 
 def setup_torch_configs(cfg: TorchRunnerConfig):
@@ -409,7 +453,7 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
     train_data = load_cached_dataset(cfg.train_npz)
 
     logger.info(f"Loading test data from {cfg.test_npz}")
-    test_data = load_cached_dataset(cfg.test_npz)
+    test_data, test_metadata = load_cached_dataset_with_metadata(cfg.test_npz)
 
     # Step 2: Train model
     logger.info(f"Training {cfg.architecture} model...")
@@ -434,6 +478,17 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
     ground_truth = test_data.get('YY_ground_truth', test_data['YY_full'])
     # Use complex predictions for metrics if available
     pred_for_metrics = predictions_complex if predictions_complex is not None else predictions
+    if pred_for_metrics.ndim >= 3:
+        pred_h, pred_w = pred_for_metrics.shape[-3], pred_for_metrics.shape[-2]
+        gt_h, gt_w = ground_truth.shape[-2], ground_truth.shape[-1]
+        if (pred_h, pred_w) != (gt_h, gt_w):
+            norm_Y_I = test_data.get("norm_Y_I", 1.0)
+            pred_for_metrics = _stitch_for_metrics(
+                pred_for_metrics,
+                cfg,
+                test_metadata,
+                norm_Y_I,
+            )
     metrics = compute_metrics(pred_for_metrics, ground_truth, f"pinn_{cfg.architecture}")
 
     # Step 5: Save artifacts
