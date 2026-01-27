@@ -88,6 +88,16 @@ def find_learning_rate(base_lr, n_devices, batch_size_per_gpu):
 
     return lr_scaled
 
+
+def compute_grad_norm(parameters, norm_type=2.0):
+    total = 0.0
+    for param in parameters:
+        if param.grad is None:
+            continue
+        param_norm = param.grad.data.norm(norm_type)
+        total += param_norm.item() ** norm_type
+    return total ** (1.0 / norm_type) if total > 0.0 else 0.0
+
 def log_parameters_mlflow(data_config: DataConfig,
                           model_config: ModelConfig,
                           training_config: TrainingConfig,
