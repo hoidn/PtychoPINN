@@ -1004,13 +1004,20 @@ def _train_with_lightning(
         )
 
     # Build Trainer kwargs from execution config (Phase C3.A3)
+    trainer_gradient_clip_val = execution_config.gradient_clip_val
+    if not model.automatic_optimization and trainer_gradient_clip_val:
+        logger.info(
+            "Manual optimization enabled; disabling Lightning Trainer gradient_clip_val "
+            "and relying on model-level gradient clipping."
+        )
+        trainer_gradient_clip_val = None
     trainer = L.Trainer(
         max_epochs=config.nepochs,
         # Execution config overrides (ADR-003 Phase C3)
         accelerator=execution_config.accelerator,  # CPU-safe default, GPU via override
         strategy=execution_config.strategy,
         deterministic=execution_config.deterministic,  # Triggers torch.use_deterministic_algorithms
-        gradient_clip_val=execution_config.gradient_clip_val,  # None = no clipping
+        gradient_clip_val=trainer_gradient_clip_val,  # None = no clipping
         accumulate_grad_batches=execution_config.accum_steps,
         # Checkpoint/logging knobs
         enable_progress_bar=execution_config.enable_progress_bar or debug_mode,
