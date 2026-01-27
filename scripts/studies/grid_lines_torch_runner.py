@@ -35,6 +35,7 @@ See also:
 import argparse
 import json
 import logging
+import random
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
@@ -561,8 +562,8 @@ def main() -> None:
     parser.add_argument("--architecture", type=str, required=True,
                         choices=['fno', 'hybrid'],
                         help="Generator architecture to use")
-    parser.add_argument("--seed", type=int, default=42,
-                        help="Random seed for reproducibility")
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Random seed for reproducibility (random if omitted)")
     parser.add_argument("--epochs", type=int, default=50,
                         help="Number of training epochs")
     parser.add_argument("--batch-size", type=int, default=16,
@@ -600,12 +601,16 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO)
 
+    seed = args.seed if args.seed is not None else random.SystemRandom().randrange(0, 2**32)
+    if args.seed is None:
+        logging.info("Using random seed %s", seed)
+
     cfg = TorchRunnerConfig(
         train_npz=args.train_npz,
         test_npz=args.test_npz,
         output_dir=args.output_dir,
         architecture=args.architecture,
-        seed=args.seed,
+        seed=seed,
         epochs=args.epochs,
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,

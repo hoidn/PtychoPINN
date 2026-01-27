@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import random
 from pathlib import Path
 from typing import Iterable, Tuple, Optional
 
@@ -24,7 +25,7 @@ def run_grid_lines_compare(
     output_dir: Path,
     probe_npz: Path,
     architectures: Iterable[str],
-    seed: int = 0,
+    seed: Optional[int] = None,
     nimgs_train: int = 2,
     nimgs_test: int = 2,
     nphotons: float = 1e9,
@@ -52,6 +53,9 @@ def run_grid_lines_compare(
 ) -> dict:
     os.environ.setdefault("PTYCHO_MEMOIZE_KEY_MODE", "dataset")
     output_dir = Path(output_dir)
+    if seed is None:
+        seed = random.SystemRandom().randrange(0, 2**32)
+        print(f"[grid_lines_compare_wrapper] Using random seed {seed}")
     architectures = tuple(architectures)
 
     dataset_dir = output_dir / "datasets" / f"N{N}" / f"gs{gridsize}"
@@ -152,7 +156,7 @@ def parse_args(argv=None):
         default=Path("datasets/Run1084_recon3_postPC_shrunk_3.npz"),
     )
     parser.add_argument("--architectures", type=str, default="cnn,baseline,fno,hybrid")
-    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=None, help="Random seed (random if omitted)")
     parser.add_argument("--nimgs-train", type=int, default=2)
     parser.add_argument("--nimgs-test", type=int, default=2)
     parser.add_argument("--nphotons", type=float, default=1e9)
