@@ -1,6 +1,6 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-27 (GRID-LINES-WORKFLOW-001 design draft)
+**Last Updated:** 2026-01-27 (Poisson loss parity investigation logged)
 **Active Focus:** GRID-LINES-WORKFLOW-001 — grid-based lines workflow modularization (planning)
 
 ---
@@ -42,6 +42,22 @@
   - *2026-01-27T00:10:00Z (design draft):* Wrote implementation plan covering workflow module + CLI wrapper, probe scaling (prepare_data_tool), grid simulation + dataset persistence, stitching workaround, training/inference, and SSIM reporting. Artifacts: `docs/plans/2026-01-27-grid-lines-workflow.md`.
   - *2026-01-27T00:20:00Z (test strategy):* Created Phase 0 test strategy (unit-test focus, artifact logging under `.artifacts/`). Artifacts: `plans/active/GRID-LINES-WORKFLOW-001/test_strategy.md`.
   - *2026-01-27T00:35:00Z (Task 1):* Added workflow + CLI skeleton for grid lines pipeline; CLI help verified. Artifacts: `ptycho/workflows/grid_lines_workflow.py`, `scripts/studies/grid_lines_workflow.py`.
+
+### [POISSON-LOSS-PARITY-001] TF/Torch Poisson loss parity investigation
+- Depends on: None
+- Priority: **Medium** (cross-backend loss comparability)
+- Status: pending (investigation)
+- Owner/Date: Codex/2026-01-27
+- Working Plan: TBD (add `plans/active/POISSON-LOSS-PARITY-001/plan.md` if promoted)
+- Summary: Investigate TF vs Torch Poisson NLL mismatch (constant-term handling + Torch-only normalization) documented in `docs/bugs/POISSON_LOSS_TF_TORCH_MISMATCH.md`.
+- Goals:
+  - Verify whether the value/scale mismatch materially affects training comparability across backends.
+  - Decide whether to align definitions (constant term + normalization) or document deliberate divergence.
+  - Add a parity test or documentation note once a decision is made.
+- Return Condition:
+  - Decision recorded with supporting evidence, and plan updated with either a fix or a documented non-fix rationale.
+- Attempts History:
+  - *2026-01-27T00:00:00Z:* Bug report filed documenting TF/Torch Poisson loss mismatch (`docs/bugs/POISSON_LOSS_TF_TORCH_MISMATCH.md`).
 
 ### [REFACTOR-MODEL-SINGLETON-001] Remove Module-Level Singletons in ptycho/model.py
 - Depends on: None
