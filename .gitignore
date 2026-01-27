@@ -89,3 +89,5 @@ train_debug.log
 
 # Legacy report hubs (keep ignored; do not create new ones)
 plans/**/reports/**
+
+.worktrees/
