@@ -87,6 +87,7 @@ class TorchRunnerConfig:
     batch_size: int = 16
     learning_rate: float = 1e-3
     infer_batch_size: int = 16
+    gradient_clip_val: Optional[float] = 1.0
     N: int = 64
     gridsize: int = 1
     torch_loss_mode: str = "mae"
@@ -198,6 +199,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     execution_config = PyTorchExecutionConfig(
         learning_rate=cfg.learning_rate,
         deterministic=True,
+        gradient_clip_val=cfg.gradient_clip_val,
     )
 
     return training_config, execution_config
@@ -563,6 +565,8 @@ def main() -> None:
                         help="Learning rate")
     parser.add_argument("--infer-batch-size", type=int, default=16,
                         help="Inference batch size (OOM guard)")
+    parser.add_argument("--grad-clip", type=float, default=1.0,
+                        help="Gradient clipping max norm (<=0 disables clipping)")
     parser.add_argument("--torch-loss-mode", type=str, default="mae",
                         choices=["poisson", "mae"],
                         help="Training loss mode ('poisson' or 'mae')")
@@ -593,6 +597,7 @@ def main() -> None:
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,
         infer_batch_size=args.infer_batch_size,
+        gradient_clip_val=args.grad_clip,
         N=args.N,
         gridsize=args.gridsize,
         torch_loss_mode=args.torch_loss_mode,

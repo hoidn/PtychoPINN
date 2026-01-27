@@ -760,6 +760,8 @@ def _train_with_lightning(
         'subsample_seed': getattr(config, 'subsample_seed', None),
         'torch_loss_mode': getattr(config, 'torch_loss_mode', 'poisson'),
     }
+    if execution_config is not None and execution_config.gradient_clip_val is not None:
+        factory_overrides['gradient_clip_val'] = execution_config.gradient_clip_val
     for field_name in ('fno_modes', 'fno_width', 'fno_blocks', 'fno_cnn_blocks'):
         field_val = getattr(config.model, field_name, None)
         if field_val is not None:
