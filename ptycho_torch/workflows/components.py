@@ -62,6 +62,7 @@ from ptycho import params
 from ptycho.config.config import TrainingConfig
 from ptycho.config import config as ptycho_config  # For update_legacy_dict
 from ptycho.raw_data import RawData
+from ptycho_torch.generators.registry import resolve_generator
 
 # PyTorch imports (now mandatory per Phase F3.1/F3.2)
 try:
@@ -733,13 +734,17 @@ def _train_with_lightning(
         from dataclasses import replace
         pt_model_config = replace(pt_model_config, loss_function='MAE')
 
-    # B2.4: Instantiate PtychoPINN_Lightning with factory-derived config objects
-    model = PtychoPINN_Lightning(
-        model_config=pt_model_config,
-        data_config=pt_data_config,
-        training_config=pt_training_config,
-        inference_config=pt_inference_config
-    )
+    # B2.4: Resolve generator and build model via registry
+    # See ptycho_torch/generators/README.md for adding new generators
+    generator = resolve_generator(config)
+    logger.info(f"Using generator: {generator.name}")
+    pt_configs = {
+        'model_config': pt_model_config,
+        'data_config': pt_data_config,
+        'training_config': pt_training_config,
+        'inference_config': pt_inference_config,
+    }
+    model = generator.build_model(pt_configs)
 
     # Save hyperparameters so checkpoint can reconstruct module without external state
     model.save_hyperparameters()

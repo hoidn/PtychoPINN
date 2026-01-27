@@ -92,6 +92,7 @@ from ptycho.config.config import TrainingConfig, update_legacy_dict
 from ptycho import params
 from ptycho.image import reassemble_patches
 from ptycho.model_manager import ModelManager
+from ptycho.generators.registry import resolve_generator
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -729,11 +730,20 @@ def train_cdi_model(
     # Initialize probe
     probe.set_probe_guess(None, train_container.probe)
 
-#    # Calculate intensity scale
-#    intensity_scale = train_pinn.calculate_intensity_scale(train_container)
+    # Resolve generator from config and build model
+    # See ptycho/generators/README.md for adding new generators
+    generator = resolve_generator(config)
+    logger.info(f"Using generator: {generator.name}")
+    model_instance, diffraction_to_obj = generator.build_models()
+
+    # Update module-level singletons so model_manager.save() saves the trained model
+    # (SINGLETON-SAVE-001: save() hardcodes model.autoencoder/diffraction_to_obj)
+    from ptycho import model
+    model.autoencoder = model_instance
+    model.diffraction_to_obj = diffraction_to_obj
 
     # Train the model
-    results = train_pinn.train_eval(PtychoDataset(train_container, test_container))
+    results = train_pinn.train_eval(PtychoDataset(train_container, test_container), model_instance=model_instance)
 
     # Normalize history payload so downstream consumers always receive a dict.
     history_payload = results.get('history')

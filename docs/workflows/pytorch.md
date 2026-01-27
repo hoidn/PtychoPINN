@@ -64,6 +64,7 @@ update_legacy_dict(params.cfg, config)
 ```
 
 **Key configuration fields for PyTorch workflows:**
+- `config.model.architecture`: Generator architecture for PINN models (`'cnn'`, `'fno'`, `'hybrid'`). Default: `'cnn'`. See `ptycho_torch/generators/README.md` for adding new architectures.
 - `config.debug`: Controls progress bars and logging verbosity (default: `False`)
 - `config.output_dir`: Directory for checkpoints and artifacts (required for persistence)
 - `config.subsample_seed`: RNG seed for reproducible sampling (default: deterministic behavior enabled)
