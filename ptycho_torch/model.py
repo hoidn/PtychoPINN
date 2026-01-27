@@ -16,7 +16,6 @@ from typing import Optional
 from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig, update_existing_config
 import ptycho_torch.helper as hh
 from ptycho_torch.model_attention import CBAM, ECALayer, BasicSpatialAttention
-from ptycho_torch.patch_stats_instrumentation import PatchStatsLogger
 import copy
 
 logger = logging.getLogger(__name__)
@@ -344,8 +343,6 @@ class Decoder_last(nn.Module):
         self.activation = activation
         self.padding = nn.ConstantPad2d((self.N // 4, self.N // 4,
                                          self.N // 4, self.N //4), 0)
-        
-
 
     def forward(self,x):
         # Path 1
@@ -368,26 +365,7 @@ class Decoder_last(nn.Module):
 
         x2 = F.silu(x2) #05-20-2025 for now
 
-        # Center-crop x2 to match x1 spatial dimensions (Phase D1e.B2 fix)
-        # x1 shape: (batch, channels, height, width_padded)
-        # x2 shape: (batch, channels, height_upsampled, width_upsampled)
-        # After upsampling, x2 may be larger than x1 due to 2× scale factor
-        # Apply center crop to align spatial dims before addition
-        if x1.shape[2] != x2.shape[2] or x1.shape[3] != x2.shape[3]:
-            # Compute crop offsets for center alignment
-            h_diff = x2.shape[2] - x1.shape[2]
-            w_diff = x2.shape[3] - x1.shape[3]
-            h_start = h_diff // 2
-            w_start = w_diff // 2
-            h_end = h_start + x1.shape[2]
-            w_end = w_start + x1.shape[3]
-
-            # Center-crop x2 to match x1
-            x2 = x2[:, :, h_start:h_end, w_start:w_end]
-
         outputs = x1 + x2
-
-        # outputs = hh.trim_and_pad_output(outputs, self.data_config, self.model_config)
 
 
         return outputs
@@ -623,6 +601,7 @@ class PoissonIntensityLayer(nn.Module):
         # (TensorFlow's tf.nn.log_poisson_loss also accepts floats, not just integers)
         # Second parameter (batch size) controls how many dimensions are summed over starting from the last
         self.poisson_dist = dist.Independent(dist.Poisson(Lambda, validate_args=False), 3)
+        
 
     def forward(self, x):
         '''
@@ -643,11 +622,8 @@ class PoissonIntensityLayer(nn.Module):
         TensorFlow reference: ptycho/model.py:506-511 (negloglik function)
         - Both y_true and y_pred are squared before Poisson loss computation
         '''
-        # Convert observed amplitudes to intensities (photon counts)
-        x_intensity = x ** 2
-
         # Apply poisson distribution to intensities
-        return -self.poisson_dist.log_prob(x_intensity)
+        return -self.poisson_dist.log_prob(x)
     
 class ForwardModel(nn.Module):
     '''
@@ -694,7 +670,11 @@ class ForwardModel(nn.Module):
         self.scaler = IntensityScalerModule(model_config)
         self._reassembly_logged = False
 
-    def forward(self, x, positions, probe, output_scale_factor):
+        #Fitting parameters for scaling
+        self.alpha = nn.Parameter(torch.ones(model_config.num_datasets))
+        self.beta = nn.Parameter(torch.ones(model_config.num_datasets))
+
+    def forward(self, x, positions, probe, output_scale_factor, experiment_ids = None):
         #Reassemble patches
 
         if self.object_big:
@@ -702,12 +682,6 @@ class ForwardModel(nn.Module):
             reassembled_obj, _, _ = hh.reassemble_patches_position_real(x, positions,
                                                                   data_config=self.data_config,
                                                                   model_config=self.model_config)
-            if not self._reassembly_logged:
-                logger.info(
-                    "ForwardModel: reassembly enabled (object_big=True, gridsize=%s)",
-                    self.data_config.grid_size
-                )
-                self._reassembly_logged = True
 
             #Extract patches - Pass config objects to helper function
             extracted_patch_objs = hh.extract_channels_from_region(reassembled_obj[:,None,:,:], positions,
@@ -727,6 +701,21 @@ class ForwardModel(nn.Module):
         
         #Inverse scaling
         pred_scaled_diffraction = self.scaler.inv_scale(pred_unscaled_diffraction, output_scale_factor)
+
+        #Learnable scaling parameter test (different per dataset)
+
+        if self.model_config.intensity_scale_trainable:
+            alphas = self.alpha[experiment_ids]
+            betas = self.beta[experiment_ids]
+
+            if len(x.shape) == 3:
+                alphas = alphas.view(-1,1,1)
+                betas = betas.view(-1,1,1)
+            elif len(x.shape) == 4:
+                alphas = alphas.view(-1,1,1,1)
+                betas = betas.view(-1,1,1,1)
+
+            pred_scaled_diffraction = alphas * pred_scaled_diffraction + betas
         
         #Return unscaled product
         return pred_scaled_diffraction
@@ -890,18 +879,10 @@ class PtychoPINN(nn.Module):
         #Adding named modules for forward operation
         self.forward_model = ForwardModel(model_config, data_config)
 
-    def forward(self, x, positions, probe, input_scale_factor, output_scale_factor):
-
-        # Reshape scale factors for broadcasting with 4D tensors (batch, C, H, W)
-        # DataLoader collates scalars into (batch,), need (batch, 1, 1, 1) for element-wise multiply
-        if input_scale_factor.ndim == 1:
-            input_scale_factor = input_scale_factor.view(-1, 1, 1, 1)
-        if output_scale_factor.ndim == 1:
-            output_scale_factor = output_scale_factor.view(-1, 1, 1, 1)
+    def forward(self, x, positions, probe, input_scale_factor, output_scale_factor, experiment_ids = None):
 
         #Scaling down (normalizing to 1)
         x = self.scaler.scale(x, input_scale_factor)
-
         #Autoencoder result
         x_amp, x_phase = self.autoencoder(x)
         #Combine amp and phase
@@ -910,7 +891,7 @@ class PtychoPINN(nn.Module):
 
         #Run through forward model. Unscaled diffraction pattern
         x_out = self.forward_model.forward(x_combined, positions,
-                                           probe/self.probe_scale, output_scale_factor)
+                                           probe/self.probe_scale, output_scale_factor, experiment_ids)
         
         
 
@@ -1029,20 +1010,6 @@ class PtychoPINN_Lightning(L.LightningModule):
         self.data_config = data_config
         self.training_config = training_config
         self.inference_config = inference_config
-        self._scaling_debug_logged = False
-        self._patch_stats_logged = False
-
-        # Patch stats instrumentation (FIX-PYTORCH-FORWARD-PARITY-001 Phase A)
-        # Instantiate logger if enabled via inference_config
-        from pathlib import Path
-        enabled = getattr(self.inference_config, 'log_patch_stats', False)
-        limit = getattr(self.inference_config, 'patch_stats_limit', None)
-        # Output directory will be set during training if needed
-        self.patch_stats_logger = PatchStatsLogger(
-            output_dir=None,  # Will be set when training starts and output_dir is known
-            enabled=enabled,
-            limit=limit
-        )
 
         self.torch_loss_mode = getattr(self.training_config, 'torch_loss_mode', 'poisson')
         if isinstance(self.torch_loss_mode, str):
@@ -1132,55 +1099,9 @@ class PtychoPINN_Lightning(L.LightningModule):
 
         self.loss_name += '_loss'
         self.val_loss_name += '_loss'
-
-    def _log_scaling_debug(self, inputs, pred, input_scale_factor, physics_scale_factor, physics_weight):
-        if self._scaling_debug_logged:
-            return
-        self._scaling_debug_logged = True
-
-        def _mean_abs(tensor):
-            return float(torch.mean(torch.abs(tensor.detach())).cpu())
-
-        def _mean_val(tensor):
-            return float(torch.mean(tensor.detach()).cpu())
-
-        msg = (
-            "Torch scaling debug (training): mean|input|="
-            f"{_mean_abs(inputs):.6f} mean|pred|={_mean_abs(pred):.6f} "
-            f"mean_input_scale={_mean_val(input_scale_factor):.6f} "
-            f"mean_physics_scale={_mean_val(physics_scale_factor):.6f} "
-            f"physics_weight={float(physics_weight):.3f}"
-        )
-        logger.info(msg)
-        print(msg)
-
-    def _log_patch_stats(self, amplitude_tensor, phase="train", batch_idx=0):
-        """
-        Log patch statistics using PatchStatsLogger if enabled.
-
-        Phase A instrumentation (FIX-PYTORCH-FORWARD-PARITY-001):
-        Delegates to self.patch_stats_logger which was configured during __init__.
-        """
-        if not self.patch_stats_logger.enabled:
-            return
-
-        # Set output directory on first call if not already set
-        if self.patch_stats_logger.output_dir is None:
-            # Try to get output_dir from trainer or use fallback
-            from pathlib import Path
-            if hasattr(self.trainer, 'default_root_dir'):
-                output_dir = Path(self.trainer.default_root_dir) / "analysis"
-            else:
-                output_dir = Path("analysis")
-            self.patch_stats_logger.output_dir = output_dir
-            self.patch_stats_logger.output_dir.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Patch stats output directory: {output_dir}")
-
-        # Delegate to logger
-        self.patch_stats_logger.log_batch(amplitude_tensor, phase=phase, batch_idx=batch_idx)
     
-    def forward(self, x, positions, probe, input_scale_factor, output_scale_factor):
-        x_out = self.model(x, positions, probe, input_scale_factor, output_scale_factor)
+    def forward(self, x, positions, probe, input_scale_factor, output_scale_factor, experiment_ids):
+        x_out = self.model(x, positions, probe, input_scale_factor, output_scale_factor, experiment_ids)
         return x_out
     
     def forward_predict(self, x, positions, probe, input_scale_factor):
@@ -1216,63 +1137,40 @@ class PtychoPINN_Lightning(L.LightningModule):
         probe = batch[1]
         rms_scale = batch[0]['rms_scaling_constant']  # RMS scaling
         physics_scale = batch[0]['physics_scaling_constant']
-        physics_weight = 1.0 if self.torch_loss_mode == 'poisson' else 0.0
-        rms_weight = 1.0 - physics_weight
-
-        input_scaling_factor = self._reshape_scale_tensor(rms_scale, x)
-        physics_scaling_factor = self._reshape_scale_tensor(physics_scale, x)
-        output_scaling_factor = rms_weight * input_scaling_factor + physics_weight * physics_scaling_factor
-
+        experiment_ids = batch[0]['experiment_id']
+        scale = batch[2]
+        # old_scaling = batch[2]
+        physics_weight = 0
+    
+        
         #If supervised, also need to get the amp/phase labels
         if self.model_config.mode == 'Supervised':
             amp_label = batch[0]['label_amp']
             phase_label = batch[0]['label_phase']
 
+        #Calc loss
         total_loss = 0.0
 
         # Perform forward pass up and scale
-        pred, amp, phase = self(
-            x,
-            positions,
-            probe,
-            input_scale_factor=input_scaling_factor,
-            output_scale_factor=output_scaling_factor,
-        )
-        self._log_scaling_debug(x, pred, input_scaling_factor, physics_scaling_factor, physics_weight)
-        # Note: batch_idx not available in compute_loss context, use 0 as placeholder
-        self._log_patch_stats(amp, phase="train", batch_idx=0)
+        pred, amp, phase = self(x, positions, probe,
+                                            input_scale_factor = rms_scale,
+                                            output_scale_factor = rms_scale,
+                                            experiment_ids = experiment_ids
+                                            )
         
         #Normalization factor for loss output (just to keep it scaled down)
         intensity_norm_factor = torch.mean(x).detach() + 1e-8
 
         if self.model_config.mode == 'Unsupervised':
-            loss_value = self.Loss(pred, x).mean()
-            if self.torch_loss_mode == 'poisson':
-                total_loss += loss_value / intensity_norm_factor
-                self.log('poisson_train_loss_step', loss_value.detach(), on_step=True, on_epoch=False, prog_bar=False, logger=True, sync_dist=True)
-                self.log('poisson_train_loss_epoch', loss_value.detach(), on_step=False, on_epoch=True, prog_bar=False, logger=True, sync_dist=True)
-            else:
-                total_loss += loss_value
-                self.log('mae_train_loss_step', loss_value.detach(), on_step=True, on_epoch=False, prog_bar=False, logger=True, sync_dist=True)
-                self.log('mae_train_loss_epoch', loss_value.detach(), on_step=False, on_epoch=True, prog_bar=False, logger=True, sync_dist=True)
+            total_loss += self.Loss(pred, x).mean()
+            total_loss /= intensity_norm_factor
+
         elif self.model_config.mode == 'Supervised':
             #Compute loss for phase and amp
             amp_loss = self.Loss(amp, amp_label).sum()
             phase_loss = self.Loss(phase, phase_label).sum()
             #Add to total loss
-            total_loss += 0.1*amp_loss + 4 * phase_loss
-        
-        # Log amplitude MAE after inverse scaling (TF 'IntensityScaler_inv' analogue)
-        # pred is pred_scaled_diffraction (amplitude) comparable to x (amplitude)
-        with torch.no_grad():
-            amp_inv_mae = torch.mean(torch.abs(pred - x))
-        self.log('amp_inv_mae_step', amp_inv_mae, on_step=True, on_epoch=False, prog_bar=False, logger=True, sync_dist=True)
-        self.log('amp_inv_mae_epoch', amp_inv_mae, on_step=False, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        with torch.no_grad():
-            target_scaled = x * input_scaling_factor
-            pred_scaled = pred * output_scaling_factor
-            amp_scaled_mae = torch.mean(torch.abs(pred_scaled - target_scaled))
-        self.log('amp_mae_tf_scale_epoch', amp_scaled_mae, on_step=False, on_epoch=True, prog_bar=False, logger=True, sync_dist=True)
+            total_loss += 2 * amp_loss + 4 * phase_loss
         
         # Add amplitude and phase regularization losses if specified
         # Use the appropriate amp/phase based on current stage
@@ -1326,23 +1224,12 @@ class PtychoPINN_Lightning(L.LightningModule):
         Uses the same multi-stage approach as training
         """
         val_loss = self.compute_loss(batch)
-
+        
         # Log validation loss
         self.log(self.val_loss_name, val_loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-
+        
         return val_loss
-
-    def on_train_end(self):
-        """
-        Lightning hook called when training ends.
-
-        Phase A instrumentation (FIX-PYTORCH-FORWARD-PARITY-001):
-        Finalizes patch stats logging (writes JSON + PNG).
-        """
-        if hasattr(self, 'patch_stats_logger') and self.patch_stats_logger.enabled:
-            self.patch_stats_logger.finalize()
-            logger.info("Patch stats instrumentation finalized")
-
+    
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(),
                                      lr = self.lr)

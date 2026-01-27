@@ -68,8 +68,15 @@ class TestTorchWorkflowGeneratorIntegration:
             nepochs=1,
         )
 
+    @pytest.mark.skip(reason="Torch workflow uses grid_lines_torch_runner for FNO/hybrid, not _train_with_lightning")
     def test_train_with_lightning_calls_resolve_generator(self, minimal_config, monkeypatch):
-        """Verify _train_with_lightning uses generator registry."""
+        """Verify _train_with_lightning uses generator registry.
+
+        Note: This test is skipped because the Torch workflow architecture uses
+        a separate runner (scripts/studies/grid_lines_torch_runner.py) for FNO/hybrid
+        generators, rather than integrating resolve_generator into _train_with_lightning.
+        See docs/plans/2026-01-27-modular-generator-implementation.md for design details.
+        """
         torch = pytest.importorskip("torch")
         lightning = pytest.importorskip("lightning")
 

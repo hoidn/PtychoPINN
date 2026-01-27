@@ -11,11 +11,19 @@ Usage:
     config = TrainingConfig(model=ModelConfig(architecture='cnn'))
     generator = resolve_generator(config)
     model = generator.build_model(pt_configs)
+
+Supported architectures:
+    - 'cnn': CNN-based U-Net generator (default)
+    - 'fno': Cascaded FNO → CNN generator (Arch A)
+    - 'hybrid': Hybrid U-NO generator (Arch B)
 """
 from ptycho_torch.generators.cnn import CnnGenerator
+from ptycho_torch.generators.fno import FnoGenerator, HybridGenerator
 
 _REGISTRY = {
     'cnn': CnnGenerator,
+    'fno': FnoGenerator,
+    'hybrid': HybridGenerator,
 }
 
 

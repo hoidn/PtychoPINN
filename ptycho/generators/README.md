@@ -80,6 +80,11 @@ def test_resolve_generator_my_arch():
 - Document architecture-specific parameters in `docs/CONFIGURATION.md`
 - Update `docs/workflows/pytorch.md` if applicable to PyTorch backend
 
+## Naming Conventions
+
+- Generator runs are labeled `pinn_<arch>` in grid-lines outputs (e.g., `pinn_cnn`, `pinn_fno`).
+- The supervised baseline is labeled `baseline` (never aliased with `cnn`).
+
 ## API Contract
 
 All generators must:

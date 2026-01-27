@@ -1,0 +1,376 @@
+#!/usr/bin/env python3
+"""Torch runner for grid-lines workflow with FNO/hybrid architectures.
+
+This runner executes PyTorch-based training and inference for FNO and hybrid
+architectures, consuming cached NPZ datasets from the TensorFlow grid-lines
+workflow and producing compatible metrics JSON for comparison.
+
+Contract:
+    Inputs:
+        - train_npz: Path to cached training dataset (from grid_lines_workflow)
+        - test_npz: Path to cached test dataset (from grid_lines_workflow)
+        - output_dir: Base output directory for artifacts
+        - architecture: 'fno' or 'hybrid'
+        - seed: Random seed for reproducibility
+        - Training hyperparams (epochs, batch_size, learning_rate)
+
+    Outputs:
+        - Artifacts under output_dir/runs/pinn_<arch>/
+        - Metrics JSON compatible with TF workflow (same keys)
+
+Usage:
+    python grid_lines_torch_runner.py \\
+        --train-npz datasets/train.npz \\
+        --test-npz datasets/test.npz \\
+        --output-dir outputs/grid_lines \\
+        --architecture fno \\
+        --seed 42
+
+See also:
+    - ptycho/workflows/grid_lines_workflow.py (TF harness)
+    - ptycho_torch/generators/ (architecture implementations)
+    - docs/plans/2026-01-27-grid-lines-workflow.md
+"""
+
+import argparse
+import json
+import logging
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, Any, Optional
+
+import numpy as np
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class TorchRunnerConfig:
+    """Configuration for Torch grid-lines runner."""
+    train_npz: Path
+    test_npz: Path
+    output_dir: Path
+    architecture: str  # 'fno' or 'hybrid'
+    seed: int = 42
+    epochs: int = 50
+    batch_size: int = 16
+    learning_rate: float = 1e-3
+    N: int = 64
+    gridsize: int = 1
+
+
+def load_cached_dataset(npz_path: Path) -> Dict[str, np.ndarray]:
+    """Load cached NPZ dataset from grid-lines workflow.
+
+    Expected keys (from grid_lines_workflow.save_split_npz):
+        - diffraction: Input diffraction patterns
+        - Y_I: Amplitude ground truth
+        - Y_phi: Phase ground truth
+        - coords_nominal: Nominal scan positions
+        - coords_true: True scan positions
+        - YY_full: Full object ground truth
+        - probeGuess: Probe function (optional)
+    """
+    data = dict(np.load(npz_path, allow_pickle=True))
+    required_keys = ['diffraction', 'Y_I', 'Y_phi', 'coords_nominal']
+    for key in required_keys:
+        if key not in data:
+            raise KeyError(f"Missing required key '{key}' in {npz_path}")
+    return data
+
+
+def setup_torch_configs(cfg: TorchRunnerConfig):
+    """Set up PyTorch configuration objects from runner config.
+
+    Returns:
+        Tuple of (TrainingConfig, PyTorchExecutionConfig)
+    """
+    from typing import cast, Literal
+    from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+
+    # Cast N and architecture to their Literal types
+    N_literal = cast(Literal[64, 128, 256], cfg.N)
+    arch_literal = cast(Literal['cnn', 'fno', 'hybrid'], cfg.architecture)
+
+    model_config = ModelConfig(
+        N=N_literal,
+        gridsize=cfg.gridsize,
+        architecture=arch_literal,
+    )
+
+    training_config = TrainingConfig(
+        model=model_config,
+        train_data_file=cfg.train_npz,
+        test_data_file=cfg.test_npz,
+        nepochs=cfg.epochs,
+        batch_size=cfg.batch_size,
+        backend='pytorch',
+    )
+
+    execution_config = PyTorchExecutionConfig(
+        learning_rate=cfg.learning_rate,
+        deterministic=True,
+    )
+
+    return training_config, execution_config
+
+
+def run_torch_training(
+    cfg: TorchRunnerConfig,
+    train_data: Dict[str, np.ndarray],
+    test_data: Dict[str, np.ndarray],
+) -> Dict[str, Any]:
+    """Run PyTorch training using the generator registry.
+
+    Args:
+        cfg: Runner configuration
+        train_data: Loaded training dataset
+        test_data: Loaded test dataset (unused in scaffold, for future validation)
+
+    Returns:
+        Training results dict with model and history
+
+    Note:
+        This is a scaffold implementation. Full training with FNO/hybrid
+        generators will be implemented in Task 7.
+    """
+    import torch
+    from ptycho.config.config import update_legacy_dict
+    from ptycho import params
+    from ptycho_torch.generators.registry import resolve_generator
+
+    # Set seed for reproducibility
+    torch.manual_seed(cfg.seed)
+    np.random.seed(cfg.seed)
+
+    # Set up configs
+    training_config, execution_config = setup_torch_configs(cfg)
+
+    # Update legacy params for compatibility
+    update_legacy_dict(params.cfg, training_config)
+
+    # Resolve generator based on architecture
+    try:
+        generator = resolve_generator(training_config)
+        logger.info(f"Using generator: {generator.name}")
+    except ValueError as e:
+        # FNO/hybrid generators not yet implemented
+        logger.warning(f"Generator not available: {e}")
+        logger.info("Returning scaffold results (no actual training)")
+        return {
+            'model': None,
+            'history': {'train_loss': [], 'val_loss': []},
+            'generator': cfg.architecture,
+            'scaffold': True,
+        }
+
+    # Build model using generator
+    from ptycho_torch.config_params import DataConfig, ModelConfig as PTModelConfig, TrainingConfig as PTTrainingConfig
+
+    # Create PyTorch configs
+    pt_data = DataConfig(
+        N=cfg.N,
+        grid_size=(cfg.gridsize, cfg.gridsize),
+    )
+    pt_model = PTModelConfig(
+        architecture=cfg.architecture,  # type: ignore[arg-type]
+    )
+    pt_train = PTTrainingConfig(
+        epochs=cfg.epochs,
+        batch_size=cfg.batch_size,
+        learning_rate=cfg.learning_rate,
+    )
+
+    # Build model using generator
+    model = generator.build_model((pt_data, pt_model, pt_train))
+
+    # TODO: Implement full training loop with Lightning
+    # For now, return scaffold results with model
+    results = {
+        'model': model,
+        'history': {'train_loss': [], 'val_loss': []},
+        'generator': generator.name,
+    }
+
+    return results
+
+
+def run_torch_inference(
+    model: Any,
+    test_data: Dict[str, np.ndarray],
+    cfg: TorchRunnerConfig,
+) -> np.ndarray:
+    """Run inference using trained PyTorch model.
+
+    Args:
+        model: Trained PyTorch model
+        test_data: Test dataset
+        cfg: Runner configuration
+
+    Returns:
+        Reconstructed complex object predictions
+    """
+    import torch
+
+    # Prepare test input
+    X_test = torch.from_numpy(test_data['diffraction']).float()
+    coords = torch.from_numpy(test_data['coords_nominal']).float()
+
+    # Run inference
+    model.eval()
+    with torch.no_grad():
+        predictions = model(X_test, coords)
+
+    return predictions.numpy()
+
+
+def compute_metrics(
+    predictions: np.ndarray,
+    ground_truth: np.ndarray,
+    label: str,
+) -> Dict[str, float]:
+    """Compute reconstruction metrics compatible with TF workflow.
+
+    Args:
+        predictions: Model predictions (complex)
+        ground_truth: Ground truth (complex)
+        label: Label for metrics (e.g., 'pinn_fno')
+
+    Returns:
+        Metrics dict with MSE, SSIM, etc.
+    """
+    from ptycho.evaluation import eval_reconstruction
+    return eval_reconstruction(predictions, ground_truth, label=label)
+
+
+def save_run_artifacts(
+    cfg: TorchRunnerConfig,
+    results: Dict[str, Any],
+    metrics: Dict[str, float],
+) -> Path:
+    """Save run artifacts to output directory.
+
+    Creates:
+        - output_dir/runs/pinn_<arch>/model.pt
+        - output_dir/runs/pinn_<arch>/metrics.json
+        - output_dir/runs/pinn_<arch>/history.json
+    """
+    run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save metrics
+    metrics_path = run_dir / "metrics.json"
+    with open(metrics_path, 'w') as f:
+        json.dump(metrics, f, indent=2, default=str)
+
+    # Save training history
+    history_path = run_dir / "history.json"
+    with open(history_path, 'w') as f:
+        json.dump(results.get('history', {}), f, indent=2)
+
+    # Save model checkpoint
+    if results.get('model') is not None:
+        import torch
+        model_path = run_dir / "model.pt"
+        torch.save(results['model'].state_dict(), model_path)
+
+    logger.info(f"Saved artifacts to {run_dir}")
+    return run_dir
+
+
+def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
+    """Main entry point for Torch grid-lines runner.
+
+    Orchestrates: load data → train → infer → compute metrics → save artifacts
+
+    Args:
+        cfg: Runner configuration
+
+    Returns:
+        Dict with metrics, artifact paths, and run metadata
+    """
+    logger.info(f"Starting Torch grid-lines runner: arch={cfg.architecture}")
+
+    # Step 1: Load cached datasets
+    logger.info(f"Loading train data from {cfg.train_npz}")
+    train_data = load_cached_dataset(cfg.train_npz)
+
+    logger.info(f"Loading test data from {cfg.test_npz}")
+    test_data = load_cached_dataset(cfg.test_npz)
+
+    # Step 2: Train model
+    logger.info(f"Training {cfg.architecture} model...")
+    results = run_torch_training(cfg, train_data, test_data)
+
+    # Step 3: Run inference
+    logger.info("Running inference...")
+    predictions = run_torch_inference(results['model'], test_data, cfg)
+
+    # Step 4: Compute metrics
+    logger.info("Computing metrics...")
+    ground_truth = test_data.get('YY_ground_truth', test_data['YY_full'])
+    metrics = compute_metrics(predictions, ground_truth, f"pinn_{cfg.architecture}")
+
+    # Step 5: Save artifacts
+    run_dir = save_run_artifacts(cfg, results, metrics)
+
+    logger.info(f"Torch runner complete. Artifacts in {run_dir}")
+
+    return {
+        'architecture': cfg.architecture,
+        'run_dir': str(run_dir),
+        'metrics': metrics,
+        'history': results.get('history', {}),
+    }
+
+
+def main() -> None:
+    """CLI entry point."""
+    parser = argparse.ArgumentParser(
+        description="Torch runner for grid-lines FNO/hybrid architectures"
+    )
+    parser.add_argument("--train-npz", type=Path, required=True,
+                        help="Path to cached training NPZ")
+    parser.add_argument("--test-npz", type=Path, required=True,
+                        help="Path to cached test NPZ")
+    parser.add_argument("--output-dir", type=Path, required=True,
+                        help="Output directory for artifacts")
+    parser.add_argument("--architecture", type=str, required=True,
+                        choices=['fno', 'hybrid'],
+                        help="Generator architecture to use")
+    parser.add_argument("--seed", type=int, default=42,
+                        help="Random seed for reproducibility")
+    parser.add_argument("--epochs", type=int, default=50,
+                        help="Number of training epochs")
+    parser.add_argument("--batch-size", type=int, default=16,
+                        help="Training batch size")
+    parser.add_argument("--learning-rate", type=float, default=1e-3,
+                        help="Learning rate")
+    parser.add_argument("--N", type=int, default=64,
+                        help="Patch size N")
+    parser.add_argument("--gridsize", type=int, default=1,
+                        help="Grid size for stitching")
+
+    args = parser.parse_args()
+
+    logging.basicConfig(level=logging.INFO)
+
+    cfg = TorchRunnerConfig(
+        train_npz=args.train_npz,
+        test_npz=args.test_npz,
+        output_dir=args.output_dir,
+        architecture=args.architecture,
+        seed=args.seed,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        learning_rate=args.learning_rate,
+        N=args.N,
+        gridsize=args.gridsize,
+    )
+
+    result = run_grid_lines_torch(cfg)
+    print(json.dumps(result, indent=2, default=str))
+
+
+if __name__ == "__main__":
+    main()

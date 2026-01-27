@@ -49,15 +49,16 @@ class ModelConfig:
     """Configuration parameters related to the model architecture and behavior."""
     #Mode Category
     mode: Literal['Supervised', 'Unsupervised'] = 'Unsupervised' # Training mode, affects all aspects of model
-    architecture: Literal['cnn', 'fno', 'hybrid'] = 'cnn' # Generator architecture for PINN models
+    architecture: Literal['cnn', 'fno', 'hybrid'] = 'cnn'  # Generator architecture selection
 
     #Intensity Parameters
     intensity_scale_trainable: bool = False
     intensity_scale: float = 10000.0 # General intensity scale guess
     max_position_jitter: int = 10 # Random jitter for translation (robustness)
+    num_datasets: int = 1 #Number of unique datasets being trained. For instantiating fitting constants
 
     #Model architecture parameters
-    C_model: int = 1
+    C_model: int = DataConfig.C
     n_filters_scale: int = 2 # Shrinking factor for channels in network layers
     amp_activation: str = 'silu' # Activation function for amplitude part
     batch_norm: bool = False # Whether to use batch normalization
@@ -70,7 +71,7 @@ class ModelConfig:
 
     #Attention
     eca_encoder: bool = False
-    cbam_encoder: bool = False #Whether CBAM module is turned on for encoder
+    cbam_encoder: bool = True #Whether CBAM module is turned on for encoder
     cbam_bottleneck: bool = False #CBAM bottleneck
     cbam_decoder: bool = False #CBAM for decoder
     eca_decoder: bool = False #ECA for decoder
@@ -108,6 +109,10 @@ class TrainingConfig:
     strategy: Optional[str] = 'ddp' # Strategy for distributed training (e.g., 'ddp', None)
     n_devices: int = 1 #Number of devices you're training on
 
+    # Framework
+    framework: Literal['Default', 'Lightning'] = 'Lightning' #Training framework. Most of work don in PT was done in lightning
+    orchestrator: Literal['Mlflow', 'Lightning'] = 'Mlflow'
+
     # Add other training-specific parameters here as needed, e.g.:
     learning_rate: float = 1e-3
     epochs: int = 50 #Default epochs number, will be overridden if multi-stage training is active at all
@@ -137,6 +142,9 @@ class TrainingConfig:
     notes: str = ""
     model_name: str = "PtychoPINNv2"
 
+    #Lightning specific configs
+    output_dir: str = "lightning_outputs"
+
     # Spec-mandated lifecycle fields (align with TensorFlow backend)
     train_data_file: Optional[str] = None # Path to training NPZ dataset
     test_data_file: Optional[str] = None # Path to test NPZ dataset
@@ -152,10 +160,6 @@ class InferenceConfig:
     pad_eval: bool = True #Pads the evaluation edges, enforced during training for Nyquist frequency. Can turn off for eval
     window: int = 20 #Window padding around reconstruction due to edge errors
 
-    # Patch statistics instrumentation (FIX-PYTORCH-FORWARD-PARITY-001 Phase A)
-    log_patch_stats: bool = False  # Enable patch-stat JSON+PNG dumps
-    patch_stats_limit: Optional[int] = None  # Max batches to instrument (None = unlimited)
-
 @dataclass
 class DatagenConfig:
     """Configuration parameters for data generation class"""
@@ -170,12 +174,14 @@ class DatagenConfig:
 
 
 # Update the existing instance
-def update_existing_config(config_instance, updates_dict):
+def update_existing_config(config_instance, updates_dict, verbose = False):
     for key, value in updates_dict.items():
         if hasattr(config_instance, key):
             setattr(config_instance, key, value)
         else:
-            print(f"Warning: Attribute '{key}' not found in {type(config_instance).__name__}")
+            if verbose:
+            # Bypassing this for now since this function is being used as a generic updater for payloads
+                print(f"Warning: Attribute '{key}' not found in {type(config_instance).__name__}")
 
 
 # Example Usage (how users would now use these configs):

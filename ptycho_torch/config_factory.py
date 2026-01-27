@@ -80,7 +80,6 @@ class TrainingPayload:
     pt_data_config: PTDataConfig  # PyTorch singleton
     pt_model_config: PTModelConfig  # PyTorch singleton
     pt_training_config: PTTrainingConfig  # PyTorch singleton
-    pt_inference_config: PTInferenceConfig  # PyTorch singleton (Phase A instrumentation)
     execution_config: PyTorchExecutionConfig  # Execution knobs (Phase C2)
     overrides_applied: Dict[str, Any] = field(default_factory=dict)  # Audit trail
 
@@ -171,6 +170,7 @@ def create_training_payload(
         - Integration: .../factory_design.md §3 (CLI/workflow call sites)
     """
     from ptycho_torch.config_bridge import to_model_config, to_training_config
+    from ptycho_torch.config_params import update_existing_config
 
     # Defensive copy of overrides
     overrides = overrides or {}
@@ -199,51 +199,33 @@ def create_training_payload(
     # Compute C from grid_size (number of channels = gridsize_x * gridsize_y)
     C = grid_size[0] * grid_size[1]
 
-    pt_data_config = PTDataConfig(
-        N=N,
-        grid_size=grid_size,
-        C=C,  # Set C based on grid_size
-        nphotons=overrides.get('nphotons', 1e5),  # PyTorch default
-        K=overrides.get('neighbor_count', 4),  # Canonical default=4 per specs/ptychodus_api_spec.md §4.6
-        probe_scale=overrides.get('probe_scale', 1.0),  # PyTorch default
-        subsample_seed=overrides.get('subsample_seed'),  # Optional field
-    )
+    #Going to use update_existing_config from ptycho_torch.config_params
+    #The default settings are already set up to work in most use cases, so there's no point in instantiating 
+    #versions of the classes with some pre-defined set of "default" settings in this function. We can just default
+    #to whatever the original attribute values are, and overwrite them based on overrides.
+    
+    pt_data_config = PTDataConfig()
+    update_existing_config(pt_data_config, overrides)
 
     # ModelConfig: Extract model architecture fields from overrides
     # CRITICAL: Synchronize C_forward and C_model with pt_data_config.C to ensure
     # PyTorch helpers (reassemble_patches_position_real) receive tensor shapes
     # consistent with the grouping strategy. Fixes ADR-003 C4.D3 coords_relative mismatch.
-    pt_model_config = PTModelConfig(
-        mode=overrides.get('model_type', 'Unsupervised'),  # Map TF → PT naming
-        architecture=overrides.get('architecture', 'cnn'),  # Generator architecture
-        amp_activation=overrides.get('amp_activation', 'silu'),
-        n_filters_scale=overrides.get('n_filters_scale', 2),  # PyTorch default
-        object_big=overrides.get('object_big', True),
-        probe_big=overrides.get('probe_big', False),
-        intensity_scale_trainable=overrides.get('intensity_scale_trainable', False),
-        C_forward=C,  # Match data config channel count
-        C_model=C,    # Match data config channel count
-        pad_object=overrides.get('pad_object', True),  # Spec default
-        gaussian_smoothing_sigma=overrides.get('gaussian_smoothing_sigma', 0.0),  # Spec default
-    )
+    overrides['C_forward'] = C
+    overrides['C_model'] = C
+
+    pt_model_config = PTModelConfig()
+    update_existing_config(pt_model_config, overrides)
 
     # TrainingConfig: Extract training-specific fields from overrides
-    pt_training_config = PTTrainingConfig(
-        epochs=overrides.get('max_epochs', overrides.get('nepochs', 50)),  # Handle both names
-        batch_size=overrides.get('batch_size', 16),  # PyTorch default
-        nll=overrides.get('nll_weight', 1.0) > 0,  # Convert float → bool
-        train_data_file=str(train_data_file),  # Set from required parameter
-        test_data_file=str(overrides['test_data_file']) if 'test_data_file' in overrides else None,
-        output_dir=str(output_dir),  # Set from required parameter
-        n_groups=overrides['n_groups'],  # Required field (validated above)
-        torch_loss_mode=overrides.get('torch_loss_mode', 'poisson'),
-    )
+    overrides['nll'] = overrides.get('nll_weight', 1.0) > 0
+    overrides['train_data_file'] = str(train_data_file)
+    overrides['test_data_file'] = str(overrides['test_data_file']) if 'test_data_file' in overrides else None
+    overrides['output_dir'] = str(output_dir)
 
-    # InferenceConfig: Extract inference-specific fields from overrides (Phase A instrumentation)
-    pt_inference_config = PTInferenceConfig(
-        log_patch_stats=overrides.get('log_patch_stats', False),
-        patch_stats_limit=overrides.get('patch_stats_limit', None),
-    )
+    pt_training_config = PTTrainingConfig()
+    update_existing_config(pt_training_config, overrides)
+
 
     # Step 4: Translate to TensorFlow canonical configs via config_bridge
     tf_model_config = to_model_config(pt_data_config, pt_model_config)
@@ -305,7 +287,6 @@ def create_training_payload(
         pt_data_config=pt_data_config,
         pt_model_config=pt_model_config,
         pt_training_config=pt_training_config,
-        pt_inference_config=pt_inference_config,  # Phase A instrumentation
         execution_config=execution_config,  # Now always PyTorchExecutionConfig instance
         overrides_applied=overrides_applied,
     )
@@ -429,7 +410,6 @@ def create_inference_payload(
     # CRITICAL: Synchronize C_forward and C_model with pt_data_config.C (ADR-003 C4.D3)
     pt_model_config = PTModelConfig(
         mode=overrides.get('model_type', 'Unsupervised'),  # Map TF → PT naming
-        architecture=overrides.get('architecture', 'cnn'),  # Generator architecture
         amp_activation=overrides.get('amp_activation', 'silu'),
         n_filters_scale=overrides.get('n_filters_scale', 2),  # PyTorch default
         object_big=overrides.get('object_big', True),

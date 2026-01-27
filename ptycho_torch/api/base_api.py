@@ -84,6 +84,22 @@ class ConfigManager:
         update_existing_config(inference_config, i_cfg)
 
         return cls(data_config, model_config, training_config, inference_config, datagen_config), json_loaded
+    
+    @classmethod
+    def _from_lightning_json(
+        cls,
+        json_base_path: str
+    ) -> 'ConfigManager':
+        
+        from ptycho_torch.api.api_helper import load_configs_from_local_dir
+
+        try:
+            configs = load_configs_from_local_dir(json_base_path)
+        except Exception as e:
+            print("Failed to load default configs, using empty defaults instead.")
+            configs = (None, None, None, None, None)
+        
+        return cls(*configs)
 
     @classmethod
     def _flexible_load(
@@ -199,7 +215,8 @@ class DataloaderFormats(Enum):
     Lightning_module is used for training with the datamodule from pytorch lightning
     Tensordict is the custom dataloader used in Albert's publication, used for inference
     """
-    LIGHTNING_MODULE = 'lightning_module'
+    LIGHTNING_MODULE = 'lightning_module' #For Mlflow + lightning
+    LIGHTNING_ONLY_MODULE = 'lightning_only_module' #For lightning-only
     TENSORDICT = 'tensordict'
     DATALOADER = 'pytorch'
 
@@ -216,6 +233,8 @@ class PtychoDataLoader:
         model_config: Optional[Union[ModelConfig, Dict[str, Any]]] = None,
         training_config: Optional[Union[TrainingConfig, Dict[str, Any]]] = None,
         data_format: Union[DataloaderFormats, str] = DataloaderFormats.LIGHTNING_MODULE,
+        output_dir: Optional[str] = None,
+        timestamp: Optional[str] = None,
         memory_map_dir: Optional[str] = 'data/memmap'
     ):
         """
@@ -244,6 +263,8 @@ class PtychoDataLoader:
 
         if data_format == DataloaderFormats.LIGHTNING_MODULE:
             self._setup_lightning_datamodule()
+        elif data_format == DataloaderFormats.LIGHTNING_ONLY_MODULE:
+            self._setup_lightning_only_datamodule(output_dir, timestamp = timestamp)
         elif data_format == DataloaderFormats.TENSORDICT:
             self._setup_tensordict_dataloader()
         elif data_format == DataloaderFormats.DATALOADER:
@@ -267,6 +288,35 @@ class PtychoDataLoader:
         )
 
         print("Set up lightning datamodule")
+    
+    def _setup_lightning_only_datamodule(self, output_dir, timestamp = None):
+        """
+        Initialize PtychoDataModule for training specifically(flexible for multi-instanced gpu training)
+        Specifically needs comptability with lightning
+        Needs more complex handling 
+        """
+        from datetime import datetime
+        from ptycho_torch.train_utils import is_effectively_global_rank_zero
+
+        # Use provided timestamp or generate new one
+        if timestamp is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Define the root run directory
+        self.output_dir = os.path.join(output_dir, f"run_{timestamp}")
+
+        self.data_module = PtychoDataModule(
+            self.data_dir,
+            self.model_config,
+            self.data_config,
+            self.training_config,
+            initial_remake_map = True,
+            val_split=0.05,
+            val_seed=self.val_seed,
+            memory_map_dir=self.memory_map_dir
+        )
+
+        print("Set up lightning datamodule")
 
     def _setup_tensordict_dataloader(self):
         from ptycho_torch.dataloader import PtychoDataset, TensorDictDataLoader, Collate_Lightning
@@ -275,6 +325,7 @@ class PtychoDataLoader:
                         ptycho_dir=self.data_dir,
                         model_config=self.model_config,
                         data_config=self.data_config,
+                        training_config = self.training_config,
                         data_dir = self.memory_map_dir,
                         remake_map= True
                     )
@@ -331,6 +382,7 @@ class Orchestration(Enum):
     """
     MLFLOW = "mlflow"
     PYTORCH = "pytorch"
+    LIGHTNING = "lightning"
 
 class PtychoModel:
     """
@@ -378,6 +430,8 @@ class PtychoModel:
             return self.save_mlflow(path, **kwargs)
         elif strategy == Orchestration.PYTORCH:
             return self.save_pytorch(path, **kwargs)
+        elif strategy == Orchestration.LIGHTNING:
+            return self.save_lightning(path, **kwargs)
         else:
             raise ValueError(f"Unknown save strategy: {strategy}")
     
@@ -423,12 +477,20 @@ class PtychoModel:
         if strategy == Orchestration.MLFLOW:
             instance.model, instance.run_id = cls.load_from_mlflow(**kwargs)
             instance.mlflow_tracking_uri = kwargs.get('mlflow_tracking_uri')
-            return instance
         elif strategy == Orchestration.PYTORCH:
             instance.model = cls.load_from_pytorch(**kwargs)
-            return instance
+        elif strategy == Orchestration.LIGHTNING:
+            print("Loading lightning model")
+            instance.model = cls.load_from_lightning(data_config = config_manager.data_config,
+                                                     model_config = config_manager.model_config,
+                                                     training_config = config_manager.training_config,
+                                                     inference_config = config_manager.inference_config,
+                                                     **kwargs,
+                                                     )
         else:
             raise ValueError(f"Unknown load strategy: {strategy}")
+        
+        return instance
 
     @classmethod    
     def _new_model(
@@ -500,6 +562,48 @@ class PtychoModel:
         config_path: Optional[str] = None
     ):
         pass
+
+    @staticmethod
+    def load_from_lightning(
+        data_config: DataConfig,
+        model_config: ModelConfig,
+        training_config: TrainingConfig,
+        inference_config: InferenceConfig,
+        run_path: str,
+        model_class: Any
+    ) -> Any:
+        """
+        Loads model from Lightning checkpoint.
+        
+        Args:
+            run_path: Full path to run directory (e.g., 'base_dir/run_20240115_143022/')
+            model_class: Lightning module class to instantiate
+            
+        Returns:
+            Loaded Lightning model
+            
+        Raises:
+            FileNotFoundError: If checkpoint not found
+        """
+        from pathlib import Path
+        
+        run_path = Path(run_path)
+        checkpoint_path = run_path / "checkpoints" / "best-checkpoint.ckpt"
+        
+        if not checkpoint_path.exists():
+            raise FileNotFoundError(
+                f"Checkpoint not found at {checkpoint_path}. "
+                f"Expected structure: {run_path}/checkpoints/best-checkpoint.ckpt"
+            )
+        
+        print(f"Loading model from {checkpoint_path}")
+        model = model_class.load_from_checkpoint(str(checkpoint_path),
+                                                 model_config = model_config,
+                                                 data_config = data_config,
+                                                 training_config = training_config,
+                                                 inference_config = inference_config)
+        
+        return model
     
     def save_mlflow(
         self,
@@ -685,6 +789,69 @@ class PtychoModel:
         print(f"  - Manifest: {manifest_path.name}")
 
         return manifest_path
+    
+    def save_lightning(
+        self,
+        destination_base_path: str,
+        source_run_path: str
+    ) -> Path:
+        """
+        Copies Lightning training run (checkpoint + configs) to new base directory.
+        Preserves the datetime-stamped run folder name.
+        
+        Args:
+            destination_base_path: New base directory (e.g., 'new_experiments/')
+            source_run_path: Source run directory (e.g., 'old_base/run_20240115_143022/')
+            
+        Returns:
+            Path to copied run directory
+            
+        Raises:
+            FileNotFoundError: If source directory or required subdirectories don't exist
+            
+        Example:
+            >>> model.save_lightning('new_base/', 'old_base/run_20240115_143022/')
+            >>> # Creates: new_base/run_20240115_143022/
+        """
+        from pathlib import Path
+        import shutil
+        
+        source_path = Path(source_run_path)
+        
+        # Validate source directory structure
+        required_dirs = ['checkpoints', 'configs']
+        optional_dirs = ['finetune_checkpoints', 'logs_finetune']
+        
+        for dir_name in required_dirs:
+            if not (source_path / dir_name).exists():
+                raise FileNotFoundError(
+                    f"Required directory '{dir_name}' not found in {source_path}"
+                )
+        
+        # Extract datetime folder name (e.g., 'run_20240115_143022')
+        run_folder_name = source_path.name
+        
+        # Create destination path preserving datetime folder
+        dest_path = Path(destination_base_path) / run_folder_name
+        
+        # Copy entire directory structure
+        if dest_path.exists():
+            print(f"Warning: Destination {dest_path} already exists. Overwriting...")
+            shutil.rmtree(dest_path)
+        
+        shutil.copytree(source_path, dest_path)
+        
+        print(f"✓ Lightning run copied to {dest_path}")
+        print(f"  - Checkpoints: {run_folder_name}/checkpoints/")
+        print(f"  - Configs: {run_folder_name}/configs/")
+        
+        # Check for optional fine-tuning artifacts
+        if (dest_path / 'finetune_checkpoints').exists():
+            print(f"  - Fine-tune checkpoints: {run_folder_name}/finetune_checkpoints/")
+        if (dest_path / 'logs_finetune').exists():
+            print(f"  - Fine-tune logs: {run_folder_name}/logs_finetune/")
+        
+        return dest_path
 
     def save_checkpoint(self, destination_path=str):
         pass
@@ -725,6 +892,7 @@ class Trainer:
     def _from_lightning(cls,
                        model: PtychoModel,
                        dataloader: PtychoDataLoader, 
+                       orchestration: Orchestration,
                        config_manager: Optional[ConfigManager] = None,
                        training_config: Optional[Union[TrainingConfig, Dict]] = None) -> 'Trainer':
         
@@ -739,7 +907,7 @@ class Trainer:
                        training_config = parsed_config,
                        strategy = TrainStrategy.LIGHTNING)
         
-        instance._setup_lightning_trainer()
+        instance._setup_lightning_trainer(orchestration, dataloader.output_dir)
 
         return instance
     
@@ -751,14 +919,16 @@ class Trainer:
                      training_config: Optional[Union[TrainingConfig, Dict]] = None) -> 'Trainer':
         pass #TBD
     
-    def _setup_lightning_trainer(self):
+    def _setup_lightning_trainer(self, orchestration, output_dir):
         """
         Lightning-specific setup that was copied from my own training code in train.py
         """
         from ptycho_torch.api.trainer_api import setup_lightning_trainer
 
-        self._trainer = setup_lightning_trainer(self.ptycho_model,
-                                                self.training_config)
+        self._trainer, self._output_dir = setup_lightning_trainer(self.ptycho_model,
+                                                self.config_manager,
+                                                orchestration,
+                                                output_dir)
         
     def _setup_pytorch_trainer(self):
         """
@@ -780,6 +950,8 @@ class Trainer:
             result = self._train_with_mlflow(experiment_name)
         elif strategy == Orchestration.PYTORCH:
             pass
+        elif strategy == Orchestration.LIGHTNING:
+            result = self._train_with_lightning(self._output_dir)
         else:
             raise ValueError(f"Unknown load strategy: {strategy}")
         
@@ -793,11 +965,13 @@ class Trainer:
 
         exp_name = experiment_name or self.training_config.experiment_name
 
-        updated_lr = find_learning_rate(
-            self.training_config.learning_rate,
-            self.training_config.n_devices,
-            self.training_config.batch_size
-        )
+        # updated_lr = find_learning_rate(
+        #     self.training_config.learning_rate,
+        #     self.training_config.n_devices,
+        #     self.training_config.batch_size
+        # )
+
+        updated_lr = self.training_config.learning_rate
 
         self.ptycho_model.model.lr = updated_lr
         self.ptycho_model.model.training = True
@@ -853,6 +1027,50 @@ class Trainer:
             print(f"Fine tune run_id: {run_ids.get('fine_tune')}")
 
         return run_ids
+    
+    def _train_with_lightning(self,
+                              output_dir = None):
+        """
+        Lightning trainer has been prepped in previous step before this is called.
+
+        This includes setting up a global directory path for which both the regular and fine-tune training runs
+        will be saved. That is passed to this function so the fine tuner knows where to write.
+
+        Returns:
+            output_dir - Output directory for all training artifacts, configs included
+        """
+        
+        from ptycho_torch.train_utils import find_learning_rate, ModelFineTuner_Lightning
+
+        updated_lr = find_learning_rate(
+            self.training_config.learning_rate,
+            self.training_config.n_devices,
+            self.training_config.batch_size
+        )
+
+        print(f"Updated learning rate is: {updated_lr}")
+
+        self.ptycho_model.model.lr = updated_lr
+        self.ptycho_model.model.training = True
+
+        #Regular train
+        self._trainer.fit(
+                    self.ptycho_model.model,
+                    datamodule = self.dataloader.data_module
+                )
+        
+        if self.training_config.epochs_fine_tune > 0:
+            print("Beginning fine tuning...")
+            # Note: In DDP, all ranks reach this point after trainer.fit finishes.
+            fine_tuner = ModelFineTuner_Lightning(
+                model=self.ptycho_model.model, 
+                train_module=self.dataloader.data_module, 
+                training_config=self.training_config,
+                run_dir=output_dir
+            )
+            fine_tuner.fine_tune()
+
+        return output_dir
 
 class Datagen:
     """

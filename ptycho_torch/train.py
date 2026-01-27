@@ -86,7 +86,7 @@ from ptycho_torch.config_params import update_existing_config
 from ptycho_torch.model import PtychoPINN_Lightning
 from ptycho_torch.utils import config_to_json_serializable_dict, load_config_from_json, validate_and_process_config
 from ptycho_torch.train_utils import set_seed, get_training_strategy, find_learning_rate, log_parameters_mlflow, is_effectively_global_rank_zero, print_auto_logged_info
-from ptycho_torch.train_utils import ModelFineTuner, PtychoDataModule
+from ptycho_torch.train_utils import ModelFineTuner, PtychoDataModule, LightningConfigSaveCallback, ModelFineTuner_Lightning
 
 # mlflow.set_tracking_uri("http://127.0.0.1:5000")
 # mlflow.set_experiment("PtychoPINN")
@@ -368,6 +368,148 @@ def main(ptycho_dir,
     else:
         print(f'[Rank {trainer.global_rank}] Non-zero rank returning None')
         return None
+    
+def main_lightning(
+    ptycho_dir,
+    config_path = None,
+    existing_config = None,
+    output_dir = None
+):
+    """
+    Training with lightning-only (no MLFlow). Requires some substitutes for parameter logging, etc.
+    
+    :param ptycho_dir: Description
+    :param config_path: Description
+    :param existing_config: Description
+    :param output_dir: Description
+    """
+    # Load configs
+    from ptycho_torch.utils import load_config_from_json, validate_and_process_config
+    from ptycho_torch.config_params import update_existing_config
+    from datetime import datetime
+    
+    if config_path:
+        config_data = load_config_from_json(config_path)
+        d_config_replace, m_config_replace, t_config_replace, i_config_replace, _ = validate_and_process_config(config_data)
+    else:
+        d_config_replace = m_config_replace = t_config_replace = i_config_replace = None
+    
+    data_config = DataConfig()
+    if d_config_replace:
+        update_existing_config(data_config, d_config_replace)
+    
+    model_config = ModelConfig()
+    if m_config_replace:
+        update_existing_config(model_config, m_config_replace)
+    
+    training_config = TrainingConfig()
+    if t_config_replace:
+        update_existing_config(training_config, t_config_replace)
+    
+    inference_config = InferenceConfig()
+    if i_config_replace:
+        update_existing_config(inference_config, i_config_replace)
+    
+    print(f"Config: {training_config.n_devices} GPUs, batch_size={training_config.batch_size}")
+
+    # Setup configurations to save
+    config_dict = {
+        "data_config": data_config,
+        "model_config": model_config,
+        "training_config": training_config,
+        "inference_config": inference_config
+    }
+    
+    # Create YOUR actual DataModule
+    print("\nCreating YOUR PtychoDataModule...")
+    data_module = PtychoDataModule(
+        ptycho_dir=ptycho_dir,
+        model_config=model_config,
+        data_config=data_config,
+        training_config=training_config,
+        initial_remake_map=True,
+        val_split=0.05,
+        val_seed=42
+    )
+    
+    # Create YOUR actual model
+    print("\nCreating YOUR PtychoPINN_Lightning model...")
+    model = PtychoPINN_Lightning(
+        model_config=model_config,
+        data_config=data_config,
+        training_config=training_config,
+        inference_config=inference_config
+    )
+    
+    # Callbacks
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # Define the root run directory
+    run_dir = os.path.join(output_dir, f"run_{timestamp}")
+
+    val_loss_name = model.val_loss_name
+    
+    checkpoint_callback = ModelCheckpoint(
+        monitor=val_loss_name,
+        mode='min',
+        save_top_k=1,
+        filename='best-checkpoint'
+    )
+    
+    early_stop_callback = EarlyStopping(
+        monitor=val_loss_name,
+        mode='min',
+        patience=10,
+        verbose=True
+    )
+
+    # Initialize our syncing callback
+    config_sync_callback = LightningConfigSaveCallback(
+        config_map=config_dict, 
+        base_output_dir=run_dir
+    )
+
+    callback_list = [checkpoint_callback,
+                     early_stop_callback,
+                     config_sync_callback]
+    
+    # Minimal Trainer - exactly like working tests
+    trainer = L.Trainer(
+        max_epochs=training_config.epochs,
+        devices=training_config.n_devices,
+        accelerator='gpu',
+        strategy=DDPStrategy(
+            find_unused_parameters=False,
+            static_graph=True,
+            gradient_as_bucket_view=True,
+            process_group_backend='nccl'
+        ) if training_config.n_devices > 1 else 'auto',
+        callbacks=callback_list,
+        enable_checkpointing=True,
+        enable_progress_bar=True,
+        logger=False,  # No logger for clean test
+    )
+    
+    # Train
+    trainer.fit(model, datamodule=data_module)
+
+    print("Finished training run...")
+
+    # --- 2. Fine-Tuning Stage ---
+    if training_config.epochs_fine_tune > 0:
+        print("Beginning fine tuning...")
+        # Note: In DDP, all ranks reach this point after trainer.fit finishes.
+        fine_tuner = ModelFineTuner_Lightning(
+            model=model, 
+            train_module=data_module, 
+            training_config=training_config,
+            run_dir=run_dir
+        )
+        fine_tuner.fine_tune()
+
+    print("Finished everything!")
+    
+    return model, trainer, run_dir
 
 
 def cli_main():
@@ -495,29 +637,6 @@ Examples:
             'tensorboard (TensorBoard via Lightning), mlflow (MLflow via Lightning). '
             'Loss metrics are logged to {output_dir}/lightning_logs/{version}/. '
             'Use --logger none if you only need progress suppression (no metrics).'
-        )
-    )
-
-    # Patch statistics instrumentation (FIX-PYTORCH-FORWARD-PARITY-001 Phase A)
-    parser.add_argument(
-        '--log-patch-stats',
-        dest='log_patch_stats',
-        action='store_true',
-        help=(
-            'Enable per-patch amplitude statistics logging with JSON+PNG dumps. '
-            'Writes torch_patch_stats.json and torch_patch_grid.png to analysis/ subdirectory. '
-            'Default: disabled.'
-        )
-    )
-    parser.add_argument(
-        '--patch-stats-limit',
-        dest='patch_stats_limit',
-        type=int,
-        default=None,
-        help=(
-            'Maximum number of batches to instrument for patch stats. '
-            'Use small values (e.g., 2) to avoid log spam during full training. '
-            'Default: None (instrument all batches when --log-patch-stats is enabled).'
         )
     )
 
@@ -695,8 +814,6 @@ Examples:
             'gridsize': args.gridsize,
             'max_epochs': args.max_epochs,
             'torch_loss_mode': args.torch_loss_mode,
-            'log_patch_stats': args.log_patch_stats,
-            'patch_stats_limit': args.patch_stats_limit,
         }
         if test_data_file:
             overrides['test_data_file'] = test_data_file
@@ -718,13 +835,13 @@ Examples:
                   f"learning_rate={execution_config.learning_rate}")
 
             # Extract configs for main()
-            # Phase A instrumentation: Use factory-provided pt_inference_config with CLI overrides
-            from ptycho_torch.config_params import DatagenConfig
+            # Note: Factory only creates training-relevant configs; create InferenceConfig/DatagenConfig defaults
+            from ptycho_torch.config_params import InferenceConfig, DatagenConfig
             existing_config = (
                 payload.pt_data_config,
                 payload.pt_model_config,
                 payload.pt_training_config,
-                payload.pt_inference_config,  # Phase A: Now includes log_patch_stats/patch_stats_limit
+                InferenceConfig(),  # Not in payload, use default
                 DatagenConfig(),  # Not in payload, use default
             )
 
@@ -745,15 +862,12 @@ Examples:
             test_data = RawData.from_file(str(test_data_file)) if test_data_file else None
 
             # Route through run_cdi_example_torch for bundle persistence
-            # Phase A: Pass payload so _train_with_lightning preserves CLI overrides
             from ptycho_torch.workflows.components import run_cdi_example_torch
             amplitude, phase, results = run_cdi_example_torch(
                 train_data=train_data,
                 test_data=test_data,
                 config=payload.tf_training_config,
-                do_stitching=False,  # CLI only needs training, not reconstruction
-                execution_config=execution_config,
-                training_payload=payload  # Phase A fix: preserve log_patch_stats/patch_stats_limit
+                do_stitching=False  # CLI only needs training, not reconstruction
             )
 
             print(f"✓ Training completed successfully. Outputs saved to {output_dir}")

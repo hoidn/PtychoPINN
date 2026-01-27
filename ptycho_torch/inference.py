@@ -38,14 +38,10 @@ References:
 #Generic
 import os
 import time
-import json
-import math
-import logging
 from datetime import datetime
 import argparse
 import sys
 from pathlib import Path
-from typing import Optional
 
 #ML libraries
 import matplotlib.pyplot as plt
@@ -53,8 +49,6 @@ import numpy as np
 
 # MLflow is only needed for legacy inference path
 # Imported conditionally in load_and_predict() to avoid blocking new CLI path
-
-logger = logging.getLogger(__name__)
 
 def load_all_configs(config_path, file_index):
     """
@@ -120,6 +114,7 @@ def load_and_predict(run_id,
         from ptycho_torch.utils import load_all_configs_from_mlflow
         from ptycho_torch.reassembly import reconstruct_image_barycentric
         from ptycho_torch.dataloader import PtychoDataset
+        from ptycho_torch.config_params import update_existing_config
     except ImportError as e:
         raise RuntimeError(
             "MLflow-based inference requires 'mlflow' and related dependencies. "
@@ -296,147 +291,7 @@ def save_individual_reconstructions(obj_amp, obj_phase, output_dir):
     print(f"Saved phase reconstruction to: {phase_path}")
 
 
-def _dump_inference_debug_artifacts(
-    debug_dir,
-    patch_complex,
-    offsets,
-    dx,
-    dy,
-    canvas,
-    padded_size,
-    patch_limit=16,
-):
-    """
-    Persist instrumentation artifacts for Torch inference debugging.
-
-    Args:
-        debug_dir: Directory to store artifacts (created if missing)
-        patch_complex: Torch tensor of predicted complex patches (B,C,N,N)
-        offsets: Torch tensor of offsets (B,1,1,2)
-        dx/dy: Torch tensors of COM-relative offsets (B,)
-        canvas: Torch tensor of stitched canvas (complex, MxM)
-        padded_size: Final canvas size M
-        patch_limit: Number of flattened patches to visualize
-    """
-    import torch
-
-    debug_dir = Path(debug_dir)
-    debug_dir.mkdir(parents=True, exist_ok=True)
-
-    patches_cpu = patch_complex.detach().to('cpu')
-    offsets_cpu = offsets.detach().to('cpu')
-    dx_cpu = dx.detach().to('cpu')
-    dy_cpu = dy.detach().to('cpu')
-    canvas_cpu = canvas.detach().to('cpu')
-
-    # --- Patch amplitude grid ---
-    patch_amp = torch.abs(patches_cpu)
-    flat_patches = patch_amp.reshape(-1, patch_amp.shape[-1], patch_amp.shape[-1])
-    limit = max(0, min(patch_limit, flat_patches.shape[0]))
-    if limit > 0:
-        cols = 4
-        rows = math.ceil(limit / cols)
-        fig, axes = plt.subplots(rows, cols, figsize=(cols * 2.5, rows * 2.5))
-        axes = np.atleast_1d(axes).ravel()
-        for idx, ax in enumerate(axes):
-            ax.axis('off')
-            if idx >= limit:
-                continue
-            ax.imshow(flat_patches[idx].numpy(), cmap='magma')
-            ax.set_title(f"Patch {idx}", fontsize=8)
-            ax.set_xticks([])
-            ax.set_yticks([])
-        fig.tight_layout()
-        fig.savefig(debug_dir / "pred_patches_amp_grid.png", dpi=200)
-        plt.close(fig)
-
-        # Normalized grid (per patch max)
-        norm_patches = flat_patches.clone()
-        for idx in range(limit):
-            patch = norm_patches[idx]
-            max_val = patch.max()
-            if max_val > 0:
-                norm_patches[idx] = patch / max_val
-        fig, axes = plt.subplots(rows, cols, figsize=(cols * 2.5, rows * 2.5))
-        axes = np.atleast_1d(axes).ravel()
-        for idx, ax in enumerate(axes):
-            ax.axis('off')
-            if idx >= limit:
-                continue
-            ax.imshow(norm_patches[idx].numpy(), cmap='magma')
-            ax.set_title(f"Norm Patch {idx}", fontsize=8)
-            ax.set_xticks([])
-            ax.set_yticks([])
-        fig.tight_layout()
-        fig.savefig(debug_dir / "pred_patches_amp_grid_normalized.png", dpi=200)
-        plt.close(fig)
-
-    # --- Offsets JSON ---
-    offsets_np = offsets_cpu.reshape(-1, 2).numpy()
-    offset_limit = min(limit, offsets_np.shape[0])
-    offsets_payload = {
-        "count": int(offsets_np.shape[0]),
-        "first_offsets_px": [
-            {"dx": float(offsets_np[i, 0]), "dy": float(offsets_np[i, 1])}
-            for i in range(offset_limit)
-        ],
-        "mean_dx": float(np.mean(offsets_np[:, 0])) if offsets_np.size else 0.0,
-        "mean_dy": float(np.mean(offsets_np[:, 1])) if offsets_np.size else 0.0,
-        "std_dx": float(np.std(offsets_np[:, 0])) if offsets_np.size else 0.0,
-        "std_dy": float(np.std(offsets_np[:, 1])) if offsets_np.size else 0.0,
-    }
-    with open(debug_dir / "offsets.json", "w", encoding="utf-8") as fp:
-        json.dump(offsets_payload, fp, indent=2)
-
-    # --- Canvas facts ---
-    canvas_payload = {
-        "patch_size": int(patch_amp.shape[-1]),
-        "canvas_size": int(padded_size),
-        "num_patch_slots": int(patch_complex.shape[0] * patch_complex.shape[1]),
-        "max_abs_dx": float(dx_cpu.abs().max().item()) if dx_cpu.numel() else 0.0,
-        "max_abs_dy": float(dy_cpu.abs().max().item()) if dy_cpu.numel() else 0.0,
-    }
-    with open(debug_dir / "canvas.json", "w", encoding="utf-8") as fp:
-        json.dump(canvas_payload, fp, indent=2)
-
-    # --- Amplitude stats ---
-    patch_amp_np = flat_patches.numpy()
-    canvas_amp = np.abs(canvas_cpu.numpy())
-    patch_zero_mean = patch_amp_np - patch_amp_np.mean(axis=(-2, -1), keepdims=True)
-    patch_variance = float(np.mean(patch_zero_mean ** 2)) if patch_amp_np.size else 0.0
-    stats_payload = {
-        "patch_amplitude": {
-            "mean": float(np.mean(patch_amp_np)) if patch_amp_np.size else 0.0,
-            "std": float(np.std(patch_amp_np)) if patch_amp_np.size else 0.0,
-            "min": float(np.min(patch_amp_np)) if patch_amp_np.size else 0.0,
-            "max": float(np.max(patch_amp_np)) if patch_amp_np.size else 0.0,
-            "var_zero_mean": patch_variance,
-        },
-        "canvas_amplitude": {
-            "mean": float(np.mean(canvas_amp)) if canvas_amp.size else 0.0,
-            "std": float(np.std(canvas_amp)) if canvas_amp.size else 0.0,
-            "min": float(np.min(canvas_amp)) if canvas_amp.size else 0.0,
-            "max": float(np.max(canvas_amp)) if canvas_amp.size else 0.0,
-        },
-    }
-    with open(debug_dir / "stats.json", "w", encoding="utf-8") as fp:
-        json.dump(stats_payload, fp, indent=2)
-
-
-def _run_inference_and_reconstruct(
-    model,
-    raw_data,
-    config,
-    execution_config,
-    device,
-    quiet=False,
-    debug_dump_dir=None,
-    debug_patch_limit=16,
-    intensity_scale_override: Optional[float] = None,
-    log_patch_stats: bool = False,
-    patch_stats_limit: int = 1,
-    output_dir: Optional[Path] = None,
-):
+def _run_inference_and_reconstruct(model, raw_data, config, execution_config, device, quiet=False):
     """
     Extract inference logic into testable helper function (Phase D.C C3).
 
@@ -447,9 +302,6 @@ def _run_inference_and_reconstruct(
         execution_config: PyTorchExecutionConfig with device, batch size, etc.
         device: Torch device string ('cpu', 'cuda', 'mps')
         quiet: Suppress progress output (default: False)
-        log_patch_stats: Enable patch statistics logging (Phase A instrumentation)
-        patch_stats_limit: Number of batches to instrument when log_patch_stats is True
-        output_dir: Output directory for patch stats artifacts (analysis/ subdir)
 
     Returns:
         Tuple of (amplitude, phase) numpy arrays
@@ -460,8 +312,6 @@ def _run_inference_and_reconstruct(
         - Handles shape permutations (H,W,N → N,H,W)
         - Averages across batch for single reconstruction
         - DEVICE-MISMATCH-001: Ensures model is on the correct device
-        - Optional debug instrumentation dumps patch/canvas stats when debug_dump_dir is set
-        - Optional patch stats logging via PatchStatsLogger when log_patch_stats is True
     """
     import torch
     import numpy as np
@@ -507,11 +357,6 @@ def _run_inference_and_reconstruct(
     data_cfg_norm = PTDataConfig(N=int(N), grid_size=(1, 1))
     rms_scale = hh.get_rms_scaling_factor(diffraction.squeeze(1), data_cfg_norm)
     physics_scale = hh.get_physics_scaling_factor(diffraction.squeeze(1), data_cfg_norm)
-    if intensity_scale_override is not None:
-        override_value = float(intensity_scale_override)
-        logger.info("Using bundle intensity_scale override: %.6f", override_value)
-        rms_scale = torch.ones_like(rms_scale) * override_value
-        physics_scale = torch.ones_like(physics_scale) * override_value
     if not isinstance(rms_scale, torch.Tensor):
         rms_scale = torch.from_numpy(rms_scale)
     if not isinstance(physics_scale, torch.Tensor):
@@ -530,22 +375,6 @@ def _run_inference_and_reconstruct(
     if not quiet:
         print(f"Running inference on {batch_size} images...")
 
-    scaling_debug = bool(debug_dump_dir)
-    if scaling_debug:
-        def _mean_abs(tensor):
-            return float(torch.mean(torch.abs(tensor.detach())).cpu())
-
-        def _mean_val(tensor):
-            return float(torch.mean(tensor.detach()).cpu())
-
-        msg = (
-            "Torch scaling debug (inference pre-forward): mean|input|="
-            f"{_mean_abs(diffraction):.6f} mean_input_scale={_mean_val(input_scale_factor):.6f} "
-            f"mean_physics_scale={_mean_val(physics_scale):.6f} physics_weight={float(physics_weight):.3f}"
-        )
-        logger.info(msg)
-        print(msg)
-
     # Forward pass through model to get per-patch complex predictions
     with torch.no_grad():
         patch_complex = model.forward_predict(
@@ -554,33 +383,6 @@ def _run_inference_and_reconstruct(
             probe,
             input_scale_factor
         )
-
-    # Patch stats instrumentation (Phase A - FIX-PYTORCH-FORWARD-PARITY-001)
-    if log_patch_stats and output_dir:
-        from ptycho_torch.patch_stats_instrumentation import PatchStatsLogger
-        patch_stats_logger = PatchStatsLogger(
-            output_dir=output_dir / "analysis",
-            enabled=True,
-            limit=patch_stats_limit
-        )
-        # Log amplitude tensor (extract from complex patches)
-        patch_amplitude = torch.abs(patch_complex)
-        patch_stats_logger.log_batch(patch_amplitude, phase="inference", batch_idx=0)
-        patch_stats_logger.finalize()
-
-    if scaling_debug:
-        def _mean_abs(tensor):
-            return float(torch.mean(torch.abs(tensor.detach())).cpu())
-
-        def _mean_val(tensor):
-            return float(torch.mean(tensor.detach()).cpu())
-
-        msg = (
-            "Torch scaling debug (inference post-forward): mean|patch|="
-            f"{_mean_abs(patch_complex):.6f} mean_output_scale={_mean_val(output_scale_factor):.6f}"
-        )
-        logger.info(msg)
-        print(msg)
 
     # Compute pixel offsets relative to center-of-mass (B, 1, 1, 2)
     x = torch.from_numpy(raw_data.xcoords[:batch_size]).to(device=device, dtype=torch.float32)
@@ -606,18 +408,6 @@ def _run_inference_and_reconstruct(
     imgs_merged, _, _ = hh.reassemble_patches_position_real(
         patch_complex, offsets, data_cfg, model_cfg, padded_size=M
     )
-
-    if debug_dump_dir:
-        _dump_inference_debug_artifacts(
-            debug_dump_dir,
-            patch_complex=patch_complex,
-            offsets=offsets,
-            dx=dx,
-            dy=dy,
-            canvas=imgs_merged[0],
-            padded_size=M,
-            patch_limit=debug_patch_limit,
-        )
 
     # Convert to numpy amplitude/phase
     canvas = imgs_merged[0]  # (M, M)
@@ -750,34 +540,6 @@ Examples:
             'Larger values increase throughput. Typical: 16-64 for GPU, 4-8 for CPU.'
         )
     )
-    parser.add_argument(
-        '--debug-dump',
-        nargs='?',
-        const='__AUTO__',
-        default=None,
-        help=(
-            'Write inference debug artifacts (patch grid, offset/canvas stats). '
-            'Optionally pass a directory; defaults to <output_dir>/debug_dump when omitted.'
-        ),
-    )
-    parser.add_argument(
-        '--log-patch-stats',
-        action='store_true',
-        dest='log_patch_stats',
-        help=(
-            'Enable per-patch statistics logging during inference (Phase A instrumentation). '
-            'Emits JSON summary and normalized PNG grid to <output_dir>/analysis/.'
-        ),
-    )
-    parser.add_argument(
-        '--patch-stats-limit',
-        type=int,
-        default=1,
-        dest='patch_stats_limit',
-        help=(
-            'Number of batches to instrument when --log-patch-stats is enabled (default: 1).'
-        ),
-    )
 
     args = parser.parse_args()
 
@@ -827,13 +589,6 @@ Examples:
     model_path = Path(args.model_path)
     test_data_path = Path(args.test_data)
     output_dir = Path(args.output_dir)
-    debug_dump_dir = None
-    if args.debug_dump is not None:
-        debug_dump_dir = (
-            output_dir / "debug_dump"
-            if args.debug_dump == '__AUTO__'
-            else Path(args.debug_dump)
-        )
 
     # Build overrides dict for factory
     overrides = {
@@ -887,17 +642,6 @@ Examples:
         # Extract Lightning module from models dict
         model = models_dict['diffraction_to_obj']
         model.eval()
-        bundle_intensity_scale = params_dict.get('intensity_scale')
-        if bundle_intensity_scale is None:
-            bundle_intensity_scale = params_dict.get('intensity.scale')
-        if bundle_intensity_scale is not None:
-            try:
-                bundle_intensity_scale = float(bundle_intensity_scale)
-                if not args.quiet:
-                    print(f"Loaded intensity_scale from bundle: {bundle_intensity_scale:.6f}")
-            except (TypeError, ValueError):
-                logger.warning("Bundle intensity_scale value %r is not numeric; ignoring override", bundle_intensity_scale)
-                bundle_intensity_scale = None
 
         # Resolve device from execution config
         device_map = {
@@ -947,11 +691,6 @@ Examples:
             execution_config=execution_config,
             device=device,
             quiet=args.quiet,
-            debug_dump_dir=debug_dump_dir,
-            intensity_scale_override=bundle_intensity_scale,
-            log_patch_stats=args.log_patch_stats,
-            patch_stats_limit=args.patch_stats_limit,
-            output_dir=output_dir,
         )
 
         # Save individual reconstructions (required by test contract)

@@ -59,16 +59,17 @@ from typing import Union, Optional, Tuple, Dict, Any
 
 # Core imports (always available)
 from ptycho import params
-from ptycho.config.config import TrainingConfig
+from ptycho.config.config import TrainingConfig, InferenceConfig, PyTorchExecutionConfig
 from ptycho.config import config as ptycho_config  # For update_legacy_dict
 from ptycho.raw_data import RawData
-from ptycho_torch.generators.registry import resolve_generator
 
 # PyTorch imports (now mandatory per Phase F3.1/F3.2)
 try:
     from ptycho_torch.raw_data_bridge import RawDataTorch
+    from ptycho_torch.config_factory import TrainingPayload, InferencePayload
     from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
     from ptycho_torch.model_manager import save_torch_bundle, load_torch_bundle
+    from ptycho_torch.dataloader import PtychoDataset, TensorDictDataLoader
 except ImportError as e:
     # If Phase C/D3 modules not available, raise actionable error
     raise RuntimeError(
@@ -90,8 +91,7 @@ def run_cdi_example_torch(
     transpose: bool = False,
     M: int = 20,
     do_stitching: bool = False,
-    execution_config: Optional[Any] = None,
-    training_payload: Optional[Any] = None
+    execution_config: Optional[Any] = None
 ) -> Tuple[Optional[Any], Optional[Any], Dict[str, Any]]:
     """
     Run the main CDI example execution flow using PyTorch backend.
@@ -115,9 +115,6 @@ def run_cdi_example_torch(
         execution_config: Optional PyTorchExecutionConfig for runtime control (accelerator,
                          num_workers, learning_rate, scheduler, logger, checkpointing).
                          See CONFIG-002, CONFIG-LOGGER-001.
-        training_payload: Optional TrainingPayload from CLI with pre-built configs. If provided,
-                         bypasses config_factory rebuild in _train_with_lightning, preserving
-                         CLI overrides like log_patch_stats/patch_stats_limit (Phase A fix).
 
     Returns:
         Tuple containing:
@@ -163,11 +160,7 @@ def run_cdi_example_torch(
     logger.info("Invoking PyTorch training orchestration via train_cdi_model_torch")
     # Note: train_cdi_model_torch will need to be updated to accept execution_config
     # For now, we pass it as a keyword argument for forward compatibility
-    train_results = train_cdi_model_torch(
-        train_data, test_data, config,
-        execution_config=execution_config,
-        training_payload=training_payload
-    )
+    train_results = train_cdi_model_torch(train_data, test_data, config, execution_config=execution_config)
 
     # Step 2: Initialize return values for reconstruction outputs
     recon_amp, recon_phase = None, None
@@ -192,15 +185,10 @@ def run_cdi_example_torch(
         logger.info(f"Saving trained models to {config.output_dir} via save_torch_bundle")
         # Build archive path following TensorFlow convention (wts.h5.zip)
         archive_path = Path(config.output_dir) / "wts.h5"
-        # Phase B2: extract intensity_scale from train_results if available
-        intensity_scale = train_results.get('intensity_scale', None)
-        if intensity_scale is not None:
-            logger.info(f"Persisting intensity_scale={intensity_scale:.6f} in bundle")
         save_torch_bundle(
             models_dict=train_results['models'],
             base_path=str(archive_path),
-            config=config,
-            intensity_scale=intensity_scale
+            config=config
         )
         logger.info(f"Models saved successfully to {archive_path}.zip")
     else:
@@ -305,12 +293,14 @@ def _ensure_container(
 
 
 def _build_lightning_dataloaders(
-    train_container: Union['PtychoDataContainerTorch', Dict],
-    test_container: Optional[Union['PtychoDataContainerTorch', Dict]],
-    config: TrainingConfig
+    train_container: Union['PtychoDataContainerTorch', Dict, 'PtychoDataset'],
+    test_container: Optional[Union['PtychoDataContainerTorch', Dict, 'PtychoDataset']],
+    config: Optional[TrainingConfig],
+    payload: Optional[TrainingPayload]
 ):
     """
-    Build PyTorch DataLoader instances from container data for Lightning training.
+    Build PyTorch DataLoader instances from container data for Lightning training. This is training-specific,
+    so this is not needed for inference.
 
     This helper wraps the container data into DataLoaders that yield TensorDict-style
     batches matching the structure expected by PtychoPINN_Lightning.compute_loss.
@@ -347,6 +337,9 @@ def _build_lightning_dataloaders(
             "Install with: pip install -e .[torch]\n"
             "See docs/findings.md#policy-001 for PyTorch requirement policy."
         ) from e
+    
+    if payload and not config:
+        config = payload.tf_training_config
 
     # Set deterministic seed if provided
     seed = getattr(config, 'subsample_seed', None) or 42
@@ -477,8 +470,21 @@ def _build_lightning_dataloaders(
                 scaling = torch.ones(1, dtype=torch.float32)
 
             return tensor_dict, probe, scaling
+    
+    # Build memory mapped dataloader if train container is PtychoDataset
+    if isinstance(train_container, PtychoDataset):
+        #Data product either datamodule or dataloader (depending on configs)
+        try: 
+            memory_mapped_data_product = _build_dataloaders_from_ptycho_dataset(train_ptycho_dataset = train_container,
+                                                                                payload = payload,
+                                                                                test_ptycho_dataset = test_container)
+        
+        except Exception as e:
+            print(f'Error occurred during memory-mapped data product creation: {e}')
+        
+        return memory_mapped_data_product
 
-    # Build training dataset
+    # Build training dataset if train_container is PtychoDataContainerTorch
     train_dataset = PtychoLightningDataset(train_container)
 
     # Configure shuffle based on sequential_sampling flag
@@ -506,6 +512,64 @@ def _build_lightning_dataloaders(
         )
 
     return train_loader, val_loader
+
+def _build_dataloaders_from_ptycho_dataset(
+    train_ptycho_dataset: PtychoDataset,
+    payload: Optional[TrainingPayload],
+    test_ptycho_dataset: Optional[PtychoDataset] = None
+):
+    """
+    Returns either ptychodatamodule or tensordictdataloader
+
+    Datamodule already does its own validation set split, so do not need additional input
+    """
+    training_config = payload.pt_training_config
+    data_config = payload.pt_data_config
+    model_config = payload.pt_model_config
+    #If using lightning and DDP, need to use custom datamodule
+    if getattr(training_config, 'strategy') == 'ddp' and getattr(training_config, 'framework') == 'Lightning':
+        from ptycho_torch.train_utils import PrebuiltPtychoDataModule
+        #Create datamodule
+        dataset_path = train_ptycho_dataset.data_dir_path
+        data_module = PrebuiltPtychoDataModule(dataset_path, model_config = model_config,
+                                              data_config = data_config, training_config=training_config)
+        
+        return data_module
+    elif getattr(training_config, 'strategy') == None:
+        from ptycho_torch.dataloader import TensorDictDataLoader, Collate
+        import torch
+        
+        gpu_ids = list(range(torch.cuda.device_count()))
+
+        if gpu_ids and len(gpu_ids) == 1:
+            primary_device = torch.device(f'cuda:{gpu_ids[0]}')
+        else:
+            primary_device = training_config.device
+
+        train_data_loader = TensorDictDataLoader(
+            train_ptycho_dataset, 
+            batch_size=training_config.batch_size,
+            num_workers=training_config.num_workers,
+            collate_fn=Collate(device=primary_device),
+            pin_memory = True,
+            persistent_workers=True
+        )
+
+        test_data_loader = TensorDictDataLoader(
+            test_ptycho_dataset,
+            batch_size=training_config.batch_size,
+            num_workers=training_config.num_workers,
+            collate_fn=Collate(device=primary_device),
+            pin_memory = True,
+            persistent_workers=True
+        )
+
+        return train_data_loader, test_data_loader
+
+
+    
+    
+    
 
 
 def _build_inference_dataloader(
@@ -604,11 +668,11 @@ def _build_inference_dataloader(
 
 
 def _train_with_lightning(
-    train_container: 'PtychoDataContainerTorch',
+    train_container: Union['PtychoDataContainerTorch','PtychoDataset'],
     test_container: Optional['PtychoDataContainerTorch'],
     config: TrainingConfig,
     execution_config: Optional['PyTorchExecutionConfig'] = None,
-    training_payload: Optional[Any] = None
+    overrides: Optional[dict] = None
 ) -> Dict[str, Any]:
     """
     Orchestrate Lightning trainer execution for PyTorch model training.
@@ -626,8 +690,6 @@ def _train_with_lightning(
         test_container: Optional normalized test data container
         config: TrainingConfig with training hyperparameters
         execution_config: Optional PyTorchExecutionConfig with runtime knobs (Phase C3.A2)
-        training_payload: Optional TrainingPayload from CLI. If provided, uses pt_inference_config
-                         from payload instead of rebuilding, preserving CLI overrides (Phase A fix).
 
     Returns:
         Dict[str, Any]: Training results including:
@@ -657,6 +719,7 @@ def _train_with_lightning(
             TrainingConfig as PTTrainingConfig,
             InferenceConfig as PTInferenceConfig
         )
+        from ptycho_torch.train_utils import PrebuiltPtychoDataModule
     except ImportError as e:
         raise RuntimeError(
             "PyTorch backend requires torch>=2.2 and lightning. "
@@ -667,55 +730,43 @@ def _train_with_lightning(
     logger.info("_train_with_lightning orchestrating Lightning training")
     logger.info(f"Training config: nepochs={config.nepochs}, n_groups={config.n_groups}")
 
-    # Phase A fix: Reuse CLI payload if provided, otherwise rebuild via factory
-    if training_payload is not None:
-        logger.info("Phase A: Using CLI TrainingPayload (preserves log_patch_stats/patch_stats_limit)")
-        pt_data_config = training_payload.pt_data_config
-        pt_model_config = training_payload.pt_model_config
-        pt_training_config = training_payload.pt_training_config
-        pt_inference_config = training_payload.pt_inference_config
-        # execution_config already passed separately; use payload's if not overridden
-        if execution_config is None:
-            execution_config = training_payload.execution_config
-    else:
-        # B2.1: Use config_factory to derive PyTorch configs with correct channel propagation
-        # CRITICAL (Phase C4.D B2): Factory ensures C = gridsize**2 is propagated to
-        # pt_model_config.C_model and pt_model_config.C_forward, preventing channel mismatch
-        # when gridsize > 1 (see docs/findings.md#BUG-TF-001).
-        from ptycho_torch.config_factory import create_training_payload
+    # B2.1: Use config_factory to derive PyTorch configs with correct channel propagation
+    # CRITICAL (Phase C4.D B2): Factory ensures C = gridsize**2 is propagated to
+    # pt_model_config.C_model and pt_model_config.C_forward, preventing channel mismatch
+    # when gridsize > 1 (see docs/findings.md#BUG-TF-001).
+    from ptycho_torch.config_factory import create_training_payload
 
-        # Build factory overrides from TrainingConfig fields
-        # Factory requires n_groups in overrides dict; train_data_file and output_dir as positional
-        # Note: Factory expects model_type in PyTorch naming ('Unsupervised'/'Supervised')
-        #       but TrainingConfig uses TensorFlow naming ('pinn'/'supervised')
-        mode_map = {'pinn': 'Unsupervised', 'supervised': 'Supervised'}
-        factory_overrides = {
-            'n_groups': config.n_groups,  # Required by factory validation
-            'gridsize': config.model.gridsize,
-            'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
-            'amp_activation': config.model.amp_activation,
-            'n_filters_scale': config.model.n_filters_scale,
-            'nphotons': config.nphotons,
-            'neighbor_count': config.neighbor_count,
-            'max_epochs': config.nepochs,
-            'batch_size': getattr(config, 'batch_size', 16),
-            'subsample_seed': getattr(config, 'subsample_seed', None),
-            'torch_loss_mode': getattr(config, 'torch_loss_mode', 'poisson'),
-        }
+    # Build factory overrides from TrainingConfig fields
+    # Factory requires n_groups in overrides dict; train_data_file and output_dir as positional
+    # Note: Factory expects model_type in PyTorch naming ('Unsupervised'/'Supervised')
+    #       but TrainingConfig uses TensorFlow naming ('pinn'/'supervised')
+    mode_map = {'pinn': 'Unsupervised', 'supervised': 'Supervised'}
+    factory_overrides = {
+        'n_groups': config.n_groups,  # Required by factory validation
+        'gridsize': config.model.gridsize,
+        'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
+        'amp_activation': config.model.amp_activation,
+        'n_filters_scale': config.model.n_filters_scale,
+        'nphotons': config.nphotons,
+        'neighbor_count': config.neighbor_count,
+        'max_epochs': config.nepochs,
+        'batch_size': getattr(config, 'batch_size', 16),
+        'subsample_seed': getattr(config, 'subsample_seed', None),
+        'torch_loss_mode': getattr(config, 'torch_loss_mode', 'poisson'),
+    }
 
-        # Create payload with factory-derived PyTorch configs
-        payload = create_training_payload(
-            train_data_file=Path(config.train_data_file),
-            output_dir=Path(getattr(config, 'output_dir', './outputs')),
-            execution_config=execution_config,  # Pass through from caller
-            overrides=factory_overrides
-        )
+    # Create payload with factory-derived PyTorch configs
+    payload = create_training_payload(
+        train_data_file=Path(config.train_data_file),
+        output_dir=Path(getattr(config, 'output_dir', './outputs')),
+        execution_config=execution_config,  # Pass through from caller
+        overrides=factory_overrides
+    )
 
-        # Extract PyTorch configs from payload (gridsize → C propagation already applied)
-        pt_data_config = payload.pt_data_config
-        pt_model_config = payload.pt_model_config
-        pt_training_config = payload.pt_training_config
-        pt_inference_config = payload.pt_inference_config  # Phase A: Use factory-provided config with instrumentation flags
+    # Extract PyTorch configs from payload (gridsize → C propagation already applied)
+    pt_data_config = payload.pt_data_config
+    pt_model_config = payload.pt_model_config
+    pt_training_config = payload.pt_training_config
 
     # CRITICAL: Supervised mode REQUIRES a compatible loss function (MAE)
     # The Lightning module expects loss_name to be defined, which only happens when:
@@ -734,25 +785,29 @@ def _train_with_lightning(
         from dataclasses import replace
         pt_model_config = replace(pt_model_config, loss_function='MAE')
 
-    # B2.4: Resolve generator and build model via registry
-    # See ptycho_torch/generators/README.md for adding new generators
-    generator = resolve_generator(config)
-    logger.info(f"Using generator: {generator.name}")
-    pt_configs = {
-        'model_config': pt_model_config,
-        'data_config': pt_data_config,
-        'training_config': pt_training_config,
-        'inference_config': pt_inference_config,
-    }
-    model = generator.build_model(pt_configs)
+    # Create minimal InferenceConfig for Lightning module (training payload doesn't include it)
+    pt_inference_config = PTInferenceConfig()
+
+    # B2.4: Instantiate PtychoPINN_Lightning model with factory-derived config objects
+    model = PtychoPINN_Lightning(
+        model_config=pt_model_config,
+        data_config=pt_data_config,
+        training_config=pt_training_config,
+        inference_config=pt_inference_config
+    )
 
     # Save hyperparameters so checkpoint can reconstruct module without external state
     model.save_hyperparameters()
 
     # B2.3: Build dataloaders via helper
-    train_loader, val_loader = _build_lightning_dataloaders(
-        train_container, test_container, config
+    data_product = _build_lightning_dataloaders(
+        train_container, test_container, config, payload = payload
     )
+    
+    #Data product is a lightning datamodule if ddp and lightning selected, otherwise
+    #it is a regular train/val loader
+    if pt_training_config.strategy != 'ddp':
+        train_loader, val_loader = data_product
 
     # DATA-SUP-001: Supervised mode requires labeled data
     # Check if supervised mode is requested but training data lacks required labels
@@ -791,7 +846,9 @@ def _train_with_lightning(
         from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 
         # Determine if we have validation data to use val metrics
-        has_validation = test_container is not None
+        # Ptycho Datamodule automatically creates a validation dataset on instantiation (see train_utils.py)
+        # so this means validation set exists if data product is a datamodule.
+        has_validation = test_container is not None or isinstance(data_product, PrebuiltPtychoDataModule)
 
         # EB2.B: Derive monitor metric from model.val_loss_name (ADR-003 Phase EB2)
         # The model's val_loss_name is dynamically constructed based on model_type and loss configuration
@@ -911,18 +968,25 @@ def _train_with_lightning(
 
     # B2.6: Execute training cycle
     logger.info(f"Starting Lightning training: {config.nepochs} epochs")
-    try:
-        trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
-    except Exception as e:
-        logger.error(f"Lightning training failed: {e}")
-        raise RuntimeError(f"Lightning training failed. See logs for details.") from e
+    if isinstance(data_product, PrebuiltPtychoDataModule):
+        try:
+            trainer.fit(model, datamodule = data_product)
+        except Exception as e:
+            logger.error(f"Lightning training failed: {e}")
+            raise RuntimeError(f"Lightning training failed. See logs for details.") from e
+    else:
+        try:
+            trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
+        except Exception as e:
+            logger.error(f"Lightning training failed: {e}")
+            raise RuntimeError(f"Lightning training failed. See logs for details.") from e
 
     # Extract loss history from trainer metrics
     # Note: trainer.callback_metrics may vary depending on logging configuration
     # For MVP, construct minimal history from logged metrics
     history = {
         "train_loss": [],  # Populated during training; extract from logs if needed
-        "val_loss": [] if test_container is not None else None
+        "val_loss": [] if test_container is not None or isinstance(data_product, PrebuiltPtychoDataModule) else None
     }
 
     # Attempt to extract metrics if available
@@ -937,31 +1001,6 @@ def _train_with_lightning(
 
     logger.info("Lightning training complete")
 
-    # Phase B2: Capture intensity_scale from trained model (per spec-ptycho-core.md:80-110)
-    # Extract learned scale if trainable, otherwise compute fallback
-    intensity_scale = None
-    if hasattr(model, 'scaler') and hasattr(model.scaler, 'log_scale'):
-        if model.scaler.log_scale is not None:
-            # Trainable case: extract learned parameter
-            import math
-            intensity_scale = math.exp(float(model.scaler.log_scale.detach().cpu()))
-            logger.info(f"Captured learned intensity_scale: {intensity_scale:.6f}")
-        else:
-            # Non-trainable case: compute fallback per spec formula
-            # s ≈ sqrt(nphotons) / (N/2)
-            import math
-            N = config.model.N
-            nphotons = config.nphotons
-            intensity_scale = math.sqrt(nphotons) / (N / 2.0)
-            logger.info(f"Computed fallback intensity_scale: {intensity_scale:.6f} (nphotons={nphotons}, N={N})")
-    else:
-        # Fallback: compute from config when scaler missing
-        import math
-        N = config.model.N
-        nphotons = config.nphotons
-        intensity_scale = math.sqrt(nphotons) / (N / 2.0)
-        logger.warning(f"Model missing scaler.log_scale, computed fallback: {intensity_scale:.6f}")
-
     # B2.7: Build results payload with dual-model dict for bundle persistence (Phase C4.D3)
     # save_torch_bundle requires 'autoencoder' and 'diffraction_to_obj' keys per spec §4.6
     # Since PyTorch uses a unified PtychoPINN_Lightning module, map diffraction_to_obj to the module
@@ -973,9 +1012,59 @@ def _train_with_lightning(
         "models": {
             "diffraction_to_obj": model,  # Main Lightning module
             "autoencoder": {'_sentinel': 'autoencoder'}  # Sentinel for dual-model requirement
-        },
-        "intensity_scale": intensity_scale  # Phase B2: persist for bundle export
+        }
     }
+
+def _reassemble_cdi_image_torch_mmap(
+   test_data: PtychoDataset,
+   config: InferenceConfig,
+   payload: InferencePayload,
+   execution_config: PyTorchExecutionConfig,
+   train_results: Optional[Dict[str, Any]] = None,
+   verbose = True
+):
+    """
+    Reassemble CDI image using optimized CDI image functions from ptycho_torch library
+    """
+    
+    #Import 
+    try:
+        from ptycho_torch.reassembly import reconstruct_image_barycentric
+        from ptycho_torch.config_params import TrainingConfig
+    except Exception as e:
+        print(f"Could not import due to exception: {e}")
+    
+    #Getting proper configs
+    data_config = payload.pt_data_config
+    inference_config = payload.pt_inference_config
+    #Dummy argument to get reconstruct function tow ork
+    model_config = None
+
+    #Loading model
+    loaded_model = train_results['models']['diffraction_to_obj']
+    loaded_model.eval()
+    loaded_model.to(execution_config.accelerator)
+    loaded_model.training = True
+
+    #Workaround since the only use of training_config is for device
+    #Will pass in PyTorch TrainingConfig so we don't need to modify reconstruct_image_baryecentric
+    training_config = TrainingConfig(device = execution_config.accelerator)
+
+    #Reconstructing. Automatically puts dataset into dataloader, so don't worry about it
+    if verbose:
+        print(f"Data config: {data_config}")
+        print(f"Inference config: {inference_config}")
+
+    #Call optimized reconstruction method
+
+    result, recon_dataset, _ = reconstruct_image_barycentric(loaded_model, test_data,
+                           training_config, data_config, model_config, inference_config, gpu_ids = None,
+                           use_mixed_precision=True, verbose = False)
+    
+    
+    return result.to('cpu')
+    
+
 
 
 def _reassemble_cdi_image_torch(
@@ -1134,11 +1223,10 @@ def _reassemble_cdi_image_torch(
 
 
 def train_cdi_model_torch(
-    train_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
+    train_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch', 'PtychoDataset'],
     test_data: Optional[Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch']],
     config: TrainingConfig,
-    execution_config: Optional[Any] = None,
-    training_payload: Optional[Any] = None
+    execution_config: Optional[Any] = None
 ) -> Dict[str, Any]:
     """
     Train the CDI model using PyTorch Lightning backend.
@@ -1151,7 +1239,6 @@ def train_cdi_model_torch(
         test_data: Optional test data for validation
         config: TrainingConfig instance (TensorFlow dataclass)
         execution_config: Optional PyTorchExecutionConfig for runtime control
-        training_payload: Optional TrainingPayload with pre-built configs (Phase A handoff)
 
     Returns:
         Dict[str, Any]: Results dictionary containing:
@@ -1192,11 +1279,7 @@ def train_cdi_model_torch(
 
     # Step 4: Delegate to Lightning trainer
     logger.info("Delegating to Lightning trainer via _train_with_lightning")
-    results = _train_with_lightning(
-        train_container, test_container, config,
-        execution_config=execution_config,
-        training_payload=training_payload
-    )
+    results = _train_with_lightning(train_container, test_container, config, execution_config=execution_config)
 
     return results
 
@@ -1253,10 +1336,6 @@ def load_inference_bundle_torch(bundle_dir: Union[str, Path], model_name: str = 
     # Phase C4.D signature change: load_torch_bundle now returns (models_dict, params_dict)
     # instead of (single_model, params_dict) to satisfy spec §4.6 dual-model requirement
     models_dict, params_dict = load_torch_bundle(str(archive_path), model_name=model_name)
-
-    # Phase B2: Extract and log intensity_scale from bundle
-    bundle_intensity_scale = params_dict.get('intensity_scale', 1.0)
-    logger.info(f"Loaded intensity_scale from bundle: {bundle_intensity_scale:.6f}")
 
     logger.info(f"Inference bundle loaded successfully. Models: {list(models_dict.keys())}, Params keys: {list(params_dict.keys())[:5]}...")
 
