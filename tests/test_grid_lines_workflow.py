@@ -139,3 +139,17 @@ class TestReconArtifacts:
             order=("pinn",),
         )
         assert out.exists()
+
+    def test_save_comparison_png_skips_missing(self, tmp_path: Path):
+        """save_comparison_png_dynamic should skip missing labels."""
+        gt_amp = np.ones((4, 4))
+        gt_phase = np.zeros((4, 4))
+        recons = {"baseline": {"amp": np.zeros((4, 4)), "phase": np.zeros((4, 4))}}
+        out = save_comparison_png_dynamic(
+            tmp_path,
+            gt_amp,
+            gt_phase,
+            recons,
+            order=("pinn", "baseline"),
+        )
+        assert out.exists()

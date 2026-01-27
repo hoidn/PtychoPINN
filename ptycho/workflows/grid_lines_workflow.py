@@ -566,20 +566,26 @@ def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
     base_amp_2d = base_amp[0, :, :, 0]
     base_phase_2d = base_phase[0, :, :, 0]
 
-    if pinn_amp is not None:
-        pinn_amp_2d = pinn_amp[0, :, :, 0]
-        pinn_phase_2d = pinn_phase[0, :, :, 0]
-    else:
-        # Use zeros as placeholder when PINN failed
-        pinn_amp_2d = np.zeros_like(gt_amp_2d)
-        pinn_phase_2d = np.zeros_like(gt_phase_2d)
-        print("[7/7] WARNING: PINN visualization shows zeros (inference failed)")
+    save_recon_artifact(cfg.output_dir, "gt", gt_squeezed)
+    save_recon_artifact(cfg.output_dir, "baseline", base_stitched)
+    if pinn_pred is not None:
+        save_recon_artifact(cfg.output_dir, "pinn", pinn_stitched)
 
-    png_path = save_comparison_png(
-        cfg,
-        gt_amp_2d, gt_phase_2d,
-        pinn_amp_2d, pinn_phase_2d,
-        base_amp_2d, base_phase_2d,
+    recons = {
+        "baseline": {"amp": base_amp_2d, "phase": base_phase_2d},
+    }
+    if pinn_amp is not None:
+        recons["pinn"] = {
+            "amp": pinn_amp[0, :, :, 0],
+            "phase": pinn_phase[0, :, :, 0],
+        }
+
+    png_path = save_comparison_png_dynamic(
+        cfg.output_dir,
+        gt_amp_2d,
+        gt_phase_2d,
+        recons,
+        order=("pinn", "baseline"),
     )
 
     print(f"[grid_lines_workflow] Complete. Outputs in {cfg.output_dir}")
