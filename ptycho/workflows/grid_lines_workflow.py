@@ -287,10 +287,13 @@ def train_baseline_model(X_train, Y_I_train, Y_phi_train):
 
 
 def run_pinn_inference(model, X_test, coords_nominal):
-    """Run PINN inference on test data."""
+    """Run PINN inference on test data.
+
+    Returns the reconstructed complex object (first output of model.predict).
+    """
     intensity_scale = p.get("intensity_scale")
-    pred = model.predict([X_test * intensity_scale, coords_nominal])
-    return pred
+    reconstructed_obj, _, _ = model.predict([X_test * intensity_scale, coords_nominal])
+    return reconstructed_obj
 
 
 def run_baseline_inference(model, X_test):
