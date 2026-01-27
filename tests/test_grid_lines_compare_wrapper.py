@@ -94,3 +94,48 @@ def test_wrapper_passes_torch_loss_mode_to_runner(monkeypatch, tmp_path):
     )
 
     assert captured["torch_loss_mode"] == "mae"
+
+
+def test_wrapper_renders_visuals(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    def fake_tf_run(cfg):
+        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+        datasets_dir.mkdir(parents=True, exist_ok=True)
+        (datasets_dir / "train.npz").write_bytes(b"stub")
+        (datasets_dir / "test.npz").write_bytes(b"stub")
+        (cfg.output_dir / "metrics.json").write_text(json.dumps({"pinn": {}, "baseline": {}}))
+        return {
+            "train_npz": str(datasets_dir / "train.npz"),
+            "test_npz": str(datasets_dir / "test.npz"),
+        }
+
+    def fake_torch_run(cfg):
+        recon_dir = cfg.output_dir / "recons" / f"pinn_{cfg.architecture}"
+        recon_dir.mkdir(parents=True, exist_ok=True)
+        (recon_dir / "recon.npz").write_bytes(b"stub")
+        return {"metrics": {"mse": 0.3}}
+
+    called = {}
+
+    def fake_render(output_dir, order):
+        called["order"] = order
+        visuals = output_dir / "visuals"
+        visuals.mkdir(parents=True, exist_ok=True)
+        out = visuals / "compare_amp_phase.png"
+        out.write_bytes(b"stub")
+        return {"compare": str(out)}
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals", fake_render)
+
+    run_grid_lines_compare(
+        N=64,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=("cnn", "baseline", "fno"),
+        probe_npz=Path("dummy_probe.npz"),
+    )
+
+    assert called["order"] == ("gt", "pinn", "baseline", "pinn_fno")

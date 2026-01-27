@@ -468,6 +468,71 @@ def save_comparison_png_dynamic(
     return out_path
 
 
+def save_amp_phase_png(
+    visuals_dir: Path,
+    label: str,
+    amp: np.ndarray,
+    phase: np.ndarray,
+) -> Path:
+    """Save per-model amplitude/phase visualization."""
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(2, 1, figsize=(6, 8), squeeze=False)
+    title = _LABEL_TITLES.get(label, label)
+
+    axes[0, 0].imshow(amp, cmap="viridis")
+    axes[0, 0].set_title(f"{title} Amplitude")
+    axes[0, 0].axis("off")
+
+    axes[1, 0].imshow(phase, cmap="twilight")
+    axes[1, 0].set_title(f"{title} Phase")
+    axes[1, 0].axis("off")
+
+    out_path = visuals_dir / f"amp_phase_{label}.png"
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150)
+    plt.close(fig)
+    return out_path
+
+
+def render_grid_lines_visuals(output_dir: Path, order: Tuple[str, ...]) -> Dict[str, str]:
+    """Render composite and per-model visuals from recon artifacts."""
+    visuals_dir = output_dir / "visuals"
+    visuals_dir.mkdir(parents=True, exist_ok=True)
+
+    recons: Dict[str, Dict[str, np.ndarray]] = {}
+    per_model_paths: Dict[str, str] = {}
+    for label in order:
+        recon_path = output_dir / "recons" / label / "recon.npz"
+        if not recon_path.exists():
+            continue
+        with np.load(recon_path) as data:
+            if "amp" not in data or "phase" not in data:
+                continue
+            amp = data["amp"]
+            phase = data["phase"]
+        recons[label] = {"amp": amp, "phase": phase}
+        per_model_paths[label] = str(save_amp_phase_png(visuals_dir, label, amp, phase))
+
+    outputs: Dict[str, str] = {}
+    for label, path in per_model_paths.items():
+        outputs[f"amp_phase_{label}"] = path
+
+    gt = recons.get("gt")
+    if gt is None:
+        return outputs
+
+    compare = save_comparison_png_dynamic(
+        output_dir,
+        gt["amp"],
+        gt["phase"],
+        {label: data for label, data in recons.items() if label != "gt"},
+        order=tuple(label for label in order if label != "gt"),
+    )
+    outputs["compare"] = str(compare)
+    return outputs
+
+
 def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
     """Orchestrate probe prep → sim → train → infer → stitch → metrics.
 
