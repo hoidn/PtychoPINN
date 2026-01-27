@@ -472,6 +472,12 @@ pytest tests/torch/ -vv
 # Run API deprecation tests (validates legacy API warning messaging)
 pytest tests/torch/test_api_deprecation.py -vv
 
+# Run FNO activation debug script smoke test
+pytest tests/torch/test_debug_fno_activations.py -vv
+
+# Run FNO fallback init scale test
+pytest tests/torch/test_fno_fallback_init.py -vv
+
 # Run specific test
 pytest tests/torch/test_api_deprecation.py::TestLegacyAPIDeprecation::test_example_train_import_emits_deprecation_warning -vv
 ```
