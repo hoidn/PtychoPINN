@@ -11,7 +11,9 @@ from ptycho.workflows.grid_lines_workflow import (
     GridLinesConfig,
     scale_probe,
     dataset_out_dir,
+    stitch_predictions,
 )
+from ptycho import params as p
 
 
 class TestProbeHelpers:
@@ -55,3 +57,54 @@ class TestDatasetPersistence:
             N=128, gridsize=1, output_dir=tmp_path, probe_npz=Path("probe.npz")
         )
         assert dataset_out_dir(cfg) == tmp_path / "datasets" / "N128" / "gs1"
+
+
+class TestStitching:
+    """Tests for stitching helper (Task 4)."""
+
+    def test_stitch_predictions_gridsize1(self):
+        """stitch_predictions should handle gridsize=1."""
+        # Setup params
+        p.set("N", 64)
+        p.set("gridsize", 1)
+        p.set("outer_offset_test", 20)
+        p.set("nimgs_test", 4)
+
+        # Create mock predictions: (4 images, 64x64, 1 channel)
+        preds = np.random.randn(4, 64, 64, 1) + 1j * np.random.randn(4, 64, 64, 1)
+        stitched = stitch_predictions(preds, norm_Y_I=1.0, part="amp")
+
+        # Should produce output with last dim = 1
+        assert stitched.shape[-1] == 1
+        assert stitched.ndim == 4
+
+    def test_stitch_predictions_gridsize2(self):
+        """stitch_predictions should handle gridsize=2."""
+        # Setup params
+        p.set("N", 64)
+        p.set("gridsize", 2)
+        p.set("outer_offset_test", 20)
+        p.set("nimgs_test", 4)
+
+        # Create mock predictions: (4 images, 64x64, 4 channels for 2x2 grid)
+        preds = np.random.randn(4, 64, 64, 4) + 1j * np.random.randn(4, 64, 64, 4)
+        stitched = stitch_predictions(preds, norm_Y_I=1.0, part="amp")
+
+        # Should produce output with last dim = 1
+        assert stitched.shape[-1] == 1
+        assert stitched.ndim == 4
+
+    def test_stitch_predictions_phase(self):
+        """stitch_predictions should extract phase correctly."""
+        p.set("N", 64)
+        p.set("gridsize", 1)
+        p.set("outer_offset_test", 20)
+        p.set("nimgs_test", 2)
+
+        preds = np.exp(1j * np.pi / 4) * np.ones((2, 64, 64, 1))
+        stitched = stitch_predictions(preds, norm_Y_I=1.0, part="phase")
+
+        # Phase should be close to pi/4
+        assert stitched.shape[-1] == 1
+        # Values should be approximately pi/4 (0.785...)
+        assert np.allclose(stitched, np.pi / 4, atol=0.01)

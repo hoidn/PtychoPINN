@@ -193,6 +193,61 @@ def save_split_npz(
     return path
 
 
+# ---------------------------------------------------------------------------
+# Stitching Helper (Task 4) - gridsize=1 safe
+# ---------------------------------------------------------------------------
+
+
+def stitch_predictions(predictions: np.ndarray, norm_Y_I: float, part: str = "amp") -> np.ndarray:
+    """Stitch model predictions, bypassing the incorrect gridsize=1 guard.
+
+    NOTE: This function exists because data_preprocessing.stitch_data() has an
+    incorrect ValueError guard for gridsize=1. The original stitching math works
+    fine for gridsize=1 (produces 1x1 grid).
+
+    Bug ref: STITCH-GRIDSIZE-001
+
+    Contract: STITCH-001
+    - Handles both gridsize=1 and gridsize=2
+    - Uses outer_offset_test from params.cfg for border clipping
+    - Returns stitched array with last dimension = 1
+
+    Args:
+        predictions: Model output, shape (n_test, N, N, gridsize^2) or complex
+        norm_Y_I: Normalization factor from simulation
+        part: 'amp', 'phase', or 'complex'
+
+    Returns:
+        Stitched images, shape (n_test, H, W, 1)
+    """
+    nimgs = p.get("nimgs_test")
+    outer_offset = p.get("outer_offset_test")
+    N = p.cfg["N"]
+
+    nsegments = int(np.sqrt((predictions.size / nimgs) / (N**2)))
+
+    if part == "amp":
+        getpart = np.absolute
+    elif part == "phase":
+        getpart = np.angle
+    else:
+        getpart = lambda x: x
+
+    img_recon = np.reshape(
+        norm_Y_I * getpart(predictions), (-1, nsegments, nsegments, N, N, 1)
+    )
+
+    # Border clipping (from data_preprocessing.get_clip_sizes)
+    bordersize = (N - outer_offset / 2) / 2
+    borderleft = int(np.ceil(bordersize))
+    borderright = int(np.floor(bordersize))
+
+    img_recon = img_recon[:, :, :, borderleft:-borderright, borderleft:-borderright, :]
+    tmp = img_recon.transpose(0, 1, 3, 2, 4, 5)
+    stitched = tmp.reshape(-1, np.prod(tmp.shape[1:3]), np.prod(tmp.shape[1:3]), 1)
+    return stitched
+
+
 def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
     """Orchestrate probe prep → sim → train → infer → stitch → metrics."""
     raise NotImplementedError
