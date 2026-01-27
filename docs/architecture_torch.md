@@ -118,6 +118,7 @@ The generator registry enables architecture selection via `config.model.architec
 
 **FNO Architecture Components (`fno.py`):**
 - `SpatialLifter`: 2×3x3 convs with GELU before Fourier layers
+- `InputTransform`: Optional dynamic-range compressor (`none|sqrt|log1p|instancenorm`) applied before `SpatialLifter` when `fno_input_transform` is set
 - `PtychoBlock`: Spectral conv + 3x3 local conv with outer residual (`y = x + GELU(Spectral(x) + Conv3x3(x))`)
 - `HybridUNOGenerator`: Spectral encoder blocks + CNN decoder with skip connections
 - `CascadedFNOGenerator`: FNO stage for coarse features → CNN refiner for final output

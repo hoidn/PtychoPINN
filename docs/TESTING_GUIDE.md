@@ -481,6 +481,10 @@ pytest tests/torch/test_fno_fallback_init.py -vv
 # Run torch runner stitched-metrics test
 pytest tests/torch/test_grid_lines_torch_runner.py::TestRunGridLinesTorchScaffold::test_metrics_stitch_predictions_to_ground_truth -v
 
+# Run FNO input transform tests
+pytest tests/torch/test_fno_generators.py::TestInputTransform::test_input_transform_sqrt_matches_expected -v
+pytest tests/torch/test_fno_generators.py::TestInputTransform::test_input_transform_log1p_matches_expected -v
+
 # Run specific test
 pytest tests/torch/test_api_deprecation.py::TestLegacyAPIDeprecation::test_example_train_import_emits_deprecation_warning -vv
 ```

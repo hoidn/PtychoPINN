@@ -63,12 +63,7 @@ class TestConfigBridgeMVP(unittest.TestCase):
         from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig
 
         # Import TensorFlow config utilities
-        from ptycho.config.config import (
-            ModelConfig as TFModelConfig,
-            TrainingConfig as TFTrainingConfig,
-            InferenceConfig as TFInferenceConfig,
-            update_legacy_dict
-        )
+        from ptycho.config.config import update_legacy_dict
         import ptycho.params as params
 
         # 1. Instantiate PyTorch configs with MVP-aligned values
@@ -502,9 +497,9 @@ class TestConfigBridgeParity:
             f"{field_name} should use explicit value {test_value}, not defaults " \
             f"(PyTorch={pytorch_default}, TF={tf_default})"
         assert actual_value != pytorch_default, \
-            f"Should not fall back to PyTorch default"
+            "Should not fall back to PyTorch default"
         assert actual_value != tf_default, \
-            f"Should not fall back to TensorFlow default"
+            "Should not fall back to TensorFlow default"
 
     # ============================================================================
     # Test Case 5: Error Handling & Validation
@@ -973,7 +968,7 @@ class TestConfigBridgeParity:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
 
-            tf_train = config_bridge.to_training_config(
+            _ = config_bridge.to_training_config(
                 tf_model, pt_data, pt_model, pt_train,
                 overrides=dict(
                     train_data_file=Path('train.npz'),
@@ -1138,7 +1133,7 @@ class TestConfigBridgeParity:
                     'baseline': baseline
                 }, fp, indent=2)
 
-            pytest.fail(f"params.cfg does not match baseline:\n" + "\n".join(mismatches) +
+            pytest.fail("params.cfg does not match baseline:\n" + "\n".join(mismatches) +
                        f"\n\nDiff saved to: {diff_path}")
 
 
@@ -1184,6 +1179,19 @@ class TestConfigBridgeArchitecture:
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
 
         assert tf_model.architecture == 'fno'
+
+    def test_config_bridge_fno_input_transform(self, params_cfg_snapshot):
+        """Test that fno_input_transform is passed through to TF ModelConfig."""
+        from ptycho_torch.config_params import DataConfig, ModelConfig
+        from ptycho_torch import config_bridge
+
+        pt_data = DataConfig(N=64, grid_size=(1, 1))
+        pt_model = ModelConfig(architecture='fno')
+        pt_model.fno_input_transform = 'sqrt'
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+
+        assert tf_model.fno_input_transform == 'sqrt'
 
 
 if __name__ == '__main__':

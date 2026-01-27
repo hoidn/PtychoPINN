@@ -168,6 +168,7 @@ def to_model_config(
         'fno_width': model.fno_width,
         'fno_blocks': model.fno_blocks,
         'fno_cnn_blocks': model.fno_cnn_blocks,
+        'fno_input_transform': model.fno_input_transform,
         'amp_activation': amp_activation,  # Normalized activation
         'object_big': model.object_big,
         'probe_big': model.probe_big,

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Tuple, Optional, Literal, Dict, Union, List, TYPE_CHECKING
+from typing import Tuple, Optional, Literal, Union, List
 
 # PyTorch is now a mandatory dependency (Phase F3.1 gate)
 # Per plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md F3.2
@@ -54,6 +54,7 @@ class ModelConfig:
     fno_width: int = 32
     fno_blocks: int = 4
     fno_cnn_blocks: int = 2
+    fno_input_transform: Literal['none', 'sqrt', 'log1p', 'instancenorm'] = 'none'
 
     #Intensity Parameters
     intensity_scale_trainable: bool = False

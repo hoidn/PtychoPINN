@@ -65,6 +65,7 @@ update_legacy_dict(params.cfg, config)
 
 **Key configuration fields for PyTorch workflows:**
 - `config.model.architecture`: Generator architecture for PINN models (`'cnn'`, `'fno'`, `'hybrid'`). Default: `'cnn'`. All architectures train via Lightning with the full physics pipeline. See `ptycho_torch/generators/README.md` for adding new architectures.
+- `config.model.fno_input_transform`: Optional input dynamic-range transform for FNO/Hybrid (`'none'`, `'sqrt'`, `'log1p'`, `'instancenorm'`). Default: `'none'`.
 
 **Architecture Selection via Generator Registry:**
 Starting 2026-01-27, the `config.model.architecture` field routes through the generator registry (`ptycho_torch/generators/registry.py`). This means:

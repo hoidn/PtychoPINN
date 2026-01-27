@@ -101,6 +101,7 @@ class ModelConfig:
     fno_width: int = 32
     fno_blocks: int = 4
     fno_cnn_blocks: int = 2
+    fno_input_transform: Literal['none', 'sqrt', 'log1p', 'instancenorm'] = 'none'
     amp_activation: Literal['sigmoid', 'swish', 'softplus', 'relu'] = 'sigmoid'
     object_big: bool = True
     probe_big: bool = True  # Changed default

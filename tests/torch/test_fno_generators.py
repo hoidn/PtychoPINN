@@ -2,9 +2,9 @@
 """Tests for FNO/Hybrid generator implementations."""
 import pytest
 import torch
-import numpy as np
 
 from ptycho_torch.generators.fno import (
+    InputTransform,
     SpatialLifter,
     PtychoBlock,
     HybridUNOGenerator,
@@ -32,6 +32,22 @@ class TestSpatialLifter:
         x = torch.randn(2, 4, 64, 64)
         out = lifter(x)
         assert out.shape == (2, 32, 64, 64)
+
+
+class TestInputTransform:
+    """Tests for optional input dynamic-range transforms."""
+
+    def test_input_transform_sqrt_matches_expected(self):
+        x = torch.tensor([[[[0.0, 4.0], [9.0, 16.0]]]])
+        transform = InputTransform(mode="sqrt", channels=1)
+        out = transform(x)
+        assert torch.allclose(out, torch.sqrt(x))
+
+    def test_input_transform_log1p_matches_expected(self):
+        x = torch.tensor([[[[0.0, 1.0], [2.0, 3.0]]]])
+        transform = InputTransform(mode="log1p", channels=1)
+        out = transform(x)
+        assert torch.allclose(out, torch.log1p(x))
 
 
 class TestPtychoBlock:

@@ -41,18 +41,48 @@ class SpatialLifter(nn.Module):
         Conv2d(in, hidden, 3x3, pad=same) → GELU → Conv2d(hidden, out, 3x3, pad=same)
     """
 
-    def __init__(self, in_channels: int, out_channels: int, hidden_channels: Optional[int] = None):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        hidden_channels: Optional[int] = None,
+        input_transform: str = "none",
+    ):
         super().__init__()
         hidden = hidden_channels or out_channels
+        self.input_transform = InputTransform(input_transform, channels=in_channels)
         self.conv1 = nn.Conv2d(in_channels, hidden, kernel_size=3, padding=1)
         self.act = nn.GELU()
         self.conv2 = nn.Conv2d(hidden, out_channels, kernel_size=3, padding=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.input_transform(x)
         x = self.conv1(x)
         x = self.act(x)
         x = self.conv2(x)
         return x
+
+
+class InputTransform(nn.Module):
+    """Optional input dynamic-range transform for FNO/Hybrid lifters."""
+
+    def __init__(self, mode: str = "none", channels: int = 1):
+        super().__init__()
+        self.mode = mode
+        self.norm = None
+        if mode == "instancenorm":
+            self.norm = nn.InstanceNorm2d(channels, affine=False, eps=1e-6)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.mode == "none":
+            return x
+        if self.mode == "sqrt":
+            return torch.sqrt(torch.clamp(x, min=0.0))
+        if self.mode == "log1p":
+            return torch.log1p(torch.clamp(x, min=0.0))
+        if self.mode == "instancenorm":
+            return self.norm(x)
+        raise ValueError(f"Unknown input transform: {self.mode}")
 
 
 class PtychoBlock(nn.Module):
@@ -150,12 +180,17 @@ class HybridUNOGenerator(nn.Module):
         n_blocks: int = 4,
         modes: int = 12,
         C: int = 4,  # gridsize^2 channels
+        input_transform: str = "none",
     ):
         super().__init__()
         self.C = C
 
         # Lifter
-        self.lifter = SpatialLifter(in_channels * C, hidden_channels)
+        self.lifter = SpatialLifter(
+            in_channels * C,
+            hidden_channels,
+            input_transform=input_transform,
+        )
 
         # Encoder (spectral blocks with downsampling)
         self.encoder_blocks = nn.ModuleList()
@@ -239,12 +274,17 @@ class CascadedFNOGenerator(nn.Module):
         cnn_blocks: int = 2,
         modes: int = 12,
         C: int = 4,
+        input_transform: str = "none",
     ):
         super().__init__()
         self.C = C
 
         # Lifter
-        self.lifter = SpatialLifter(in_channels * C, hidden_channels)
+        self.lifter = SpatialLifter(
+            in_channels * C,
+            hidden_channels,
+            input_transform=input_transform,
+        )
 
         # FNO stage
         self.fno_blocks = nn.ModuleList([
@@ -335,6 +375,7 @@ class HybridGenerator:
         fno_modes = getattr(model_config, 'fno_modes', min(12, N // 4))
         fno_width = getattr(model_config, 'fno_width', 32 * n_filters)
         fno_blocks = getattr(model_config, 'fno_blocks', 4)
+        input_transform = getattr(model_config, "fno_input_transform", "none")
 
         # Build core generator module
         core = HybridUNOGenerator(
@@ -344,6 +385,7 @@ class HybridGenerator:
             n_blocks=fno_blocks,
             modes=fno_modes,
             C=C,
+            input_transform=input_transform,
         )
 
         # Wrap in Lightning module with physics pipeline
@@ -400,6 +442,7 @@ class FnoGenerator:
         fno_width = getattr(model_config, 'fno_width', 32 * n_filters)
         fno_blocks = getattr(model_config, 'fno_blocks', 4)
         fno_cnn_blocks = getattr(model_config, 'fno_cnn_blocks', 2)
+        input_transform = getattr(model_config, "fno_input_transform", "none")
 
         # Build core generator module
         core = CascadedFNOGenerator(
@@ -410,6 +453,7 @@ class FnoGenerator:
             cnn_blocks=fno_cnn_blocks,
             modes=fno_modes,
             C=C,
+            input_transform=input_transform,
         )
 
         # Wrap in Lightning module with physics pipeline
