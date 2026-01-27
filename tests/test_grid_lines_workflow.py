@@ -14,6 +14,7 @@ from ptycho.workflows.grid_lines_workflow import (
     stitch_predictions,
     save_recon_artifact,
     save_comparison_png_dynamic,
+    _should_share_colorbar,
 )
 from ptycho import params as p
 
@@ -139,6 +140,29 @@ class TestReconArtifacts:
             order=("pinn",),
         )
         assert out.exists()
+
+
+class TestColorbarSharing:
+    """Tests for colorbar sharing decisions."""
+
+    def test_share_colorbar_when_ranges_match(self):
+        arr1 = np.array([[0.0, 1.0]])
+        arr2 = np.array([[0.0, 1.0]])
+        assert _should_share_colorbar([arr1, arr2]) is True
+
+    def test_do_not_share_when_ranges_differ(self):
+        arr1 = np.array([[0.0, 1.0]])
+        arr2 = np.array([[0.1, 1.0]])
+        assert _should_share_colorbar([arr1, arr2]) is False
+
+    def test_do_not_share_when_nan_present(self):
+        arr1 = np.array([[np.nan, np.nan]])
+        arr2 = np.array([[0.0, 1.0]])
+        assert _should_share_colorbar([arr1, arr2]) is False
+
+    def test_share_when_single_subplot(self):
+        arr1 = np.array([[0.0, 1.0]])
+        assert _should_share_colorbar([arr1]) is True
 
     def test_save_comparison_png_skips_missing(self, tmp_path: Path):
         """save_comparison_png_dynamic should skip missing labels."""

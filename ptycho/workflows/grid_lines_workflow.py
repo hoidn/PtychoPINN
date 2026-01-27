@@ -411,6 +411,48 @@ _LABEL_TITLES = {
 }
 
 
+def _safe_min_max(array: np.ndarray) -> Tuple[float, float] | None:
+    if array is None or array.size == 0:
+        return None
+    if not np.any(np.isfinite(array)):
+        return None
+    vmin = np.nanmin(array)
+    vmax = np.nanmax(array)
+    if np.isnan(vmin) or np.isnan(vmax):
+        return None
+    return float(vmin), float(vmax)
+
+
+def _should_share_colorbar(
+    arrays: Tuple[np.ndarray, ...] | list[np.ndarray],
+    rtol: float = 1e-6,
+    atol: float = 1e-8,
+) -> bool:
+    ranges = []
+    for arr in arrays:
+        bounds = _safe_min_max(arr)
+        if bounds is None:
+            return False
+        ranges.append(bounds)
+    if len(ranges) <= 1:
+        return True
+    first_min, first_max = ranges[0]
+    for vmin, vmax in ranges[1:]:
+        if not (np.isclose(vmin, first_min, rtol=rtol, atol=atol) and
+                np.isclose(vmax, first_max, rtol=rtol, atol=atol)):
+            return False
+    return True
+
+
+def _add_row_colorbars(fig, axes_row, mappables, arrays) -> None:
+    share = _should_share_colorbar(arrays)
+    if share:
+        fig.colorbar(mappables[0], ax=list(axes_row), shrink=0.8)
+    else:
+        for ax, mappable in zip(axes_row, mappables):
+            fig.colorbar(mappable, ax=ax, shrink=0.8)
+
+
 def save_recon_artifact(output_dir: Path, label: str, recon_complex: np.ndarray) -> Path:
     """Save stitched complex reconstruction as NPZ artifact."""
     recon_dir = output_dir / "recons" / label
@@ -440,11 +482,14 @@ def save_comparison_png_dynamic(
     ncols = 1 + len(labels)
     fig, axes = plt.subplots(2, ncols, figsize=(5 * ncols, 8), squeeze=False)
 
-    axes[0, 0].imshow(gt_amp, cmap="viridis")
+    amp_arrays = [gt_amp]
+    phase_arrays = [gt_phase]
+
+    amp_mappables = [axes[0, 0].imshow(gt_amp, cmap="viridis")]
     axes[0, 0].set_title("GT Amplitude")
     axes[0, 0].axis("off")
 
-    axes[1, 0].imshow(gt_phase, cmap="twilight")
+    phase_mappables = [axes[1, 0].imshow(gt_phase, cmap="twilight")]
     axes[1, 0].set_title("GT Phase")
     axes[1, 0].axis("off")
 
@@ -453,13 +498,19 @@ def save_comparison_png_dynamic(
         phase = recons[label]["phase"]
         title = _LABEL_TITLES.get(label, label)
 
-        axes[0, idx].imshow(amp, cmap="viridis")
+        amp_arrays.append(amp)
+        phase_arrays.append(phase)
+
+        amp_mappables.append(axes[0, idx].imshow(amp, cmap="viridis"))
         axes[0, idx].set_title(f"{title} Amplitude")
         axes[0, idx].axis("off")
 
-        axes[1, idx].imshow(phase, cmap="twilight")
+        phase_mappables.append(axes[1, idx].imshow(phase, cmap="twilight"))
         axes[1, idx].set_title(f"{title} Phase")
         axes[1, idx].axis("off")
+
+    _add_row_colorbars(fig, axes[0], amp_mappables, amp_arrays)
+    _add_row_colorbars(fig, axes[1], phase_mappables, phase_arrays)
 
     visuals_dir = output_dir / "visuals"
     visuals_dir.mkdir(parents=True, exist_ok=True)
@@ -482,13 +533,16 @@ def save_amp_phase_png(
     fig, axes = plt.subplots(2, 1, figsize=(6, 8), squeeze=False)
     title = _LABEL_TITLES.get(label, label)
 
-    axes[0, 0].imshow(amp, cmap="viridis")
+    amp_mappable = axes[0, 0].imshow(amp, cmap="viridis")
     axes[0, 0].set_title(f"{title} Amplitude")
     axes[0, 0].axis("off")
 
-    axes[1, 0].imshow(phase, cmap="twilight")
+    phase_mappable = axes[1, 0].imshow(phase, cmap="twilight")
     axes[1, 0].set_title(f"{title} Phase")
     axes[1, 0].axis("off")
+
+    _add_row_colorbars(fig, axes[0], [amp_mappable], [amp])
+    _add_row_colorbars(fig, axes[1], [phase_mappable], [phase])
 
     out_path = visuals_dir / f"amp_phase_{label}.png"
     plt.tight_layout()
