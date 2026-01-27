@@ -93,6 +93,7 @@ class _FallbackSpectralConv2d(nn.Module):
     """Fallback spectral conv when neuraloperator is not available.
 
     Simple FFT-based spectral convolution for development/testing.
+    Handles varying spatial dimensions by capping modes to input size.
     """
 
     def __init__(self, in_channels: int, out_channels: int, modes: int):
@@ -113,13 +114,17 @@ class _FallbackSpectralConv2d(nn.Module):
         # FFT
         x_ft = torch.fft.rfft2(x)
 
+        # Cap modes to actual spatial dimensions (handles downsampled inputs)
+        modes_h = min(self.modes, H)
+        modes_w = min(self.modes, W // 2 + 1)
+
         # Multiply in frequency domain (truncated to modes)
         out_ft = torch.zeros(B, self.out_channels, H, W // 2 + 1,
                              dtype=torch.cfloat, device=x.device)
-        out_ft[:, :, :self.modes, :self.modes] = torch.einsum(
+        out_ft[:, :, :modes_h, :modes_w] = torch.einsum(
             "bcxy,coxy->boxy",
-            x_ft[:, :, :self.modes, :self.modes],
-            self.weights
+            x_ft[:, :, :modes_h, :modes_w],
+            self.weights[:, :, :modes_h, :modes_w]
         )
 
         # Inverse FFT
@@ -303,23 +308,33 @@ class HybridGenerator:
         """
         self.config = config
 
-    def build_model(self, pt_configs: Dict[str, Any]) -> nn.Module:
-        """Build the Hybrid U-NO model.
+    def build_model(self, pt_configs: Dict[str, Any]) -> 'nn.Module':
+        """Build the Hybrid U-NO Lightning model.
 
         Args:
-            pt_configs: Tuple of (data_config, model_config, training_config)
+            pt_configs: Dict containing PyTorch config objects:
+                - model_config: PTModelConfig
+                - data_config: PTDataConfig
+                - training_config: PTTrainingConfig
+                - inference_config: PTInferenceConfig
 
         Returns:
-            HybridUNOGenerator model instance
+            PtychoPINN_Lightning model instance with Hybrid generator
         """
-        data_config, model_config, _ = pt_configs
+        from ptycho_torch.model import PtychoPINN_Lightning
+
+        data_config = pt_configs['data_config']
+        model_config = pt_configs['model_config']
+        training_config = pt_configs['training_config']
+        inference_config = pt_configs['inference_config']
 
         # Extract parameters from configs
         N = getattr(data_config, 'N', 64)
         C = getattr(data_config, 'C', 4)
         n_filters = getattr(model_config, 'n_filters_scale', 2)
 
-        model = HybridUNOGenerator(
+        # Build core generator module
+        core = HybridUNOGenerator(
             in_channels=1,
             out_channels=2,
             hidden_channels=32 * n_filters,
@@ -328,7 +343,15 @@ class HybridGenerator:
             C=C,
         )
 
-        return model
+        # Wrap in Lightning module with physics pipeline
+        return PtychoPINN_Lightning(
+            model_config=model_config,
+            data_config=data_config,
+            training_config=training_config,
+            inference_config=inference_config,
+            generator_module=core,
+            generator_output="real_imag",
+        )
 
 
 class FnoGenerator:
@@ -346,23 +369,33 @@ class FnoGenerator:
         """
         self.config = config
 
-    def build_model(self, pt_configs: Dict[str, Any]) -> nn.Module:
-        """Build the Cascaded FNO → CNN model.
+    def build_model(self, pt_configs: Dict[str, Any]) -> 'nn.Module':
+        """Build the Cascaded FNO → CNN Lightning model.
 
         Args:
-            pt_configs: Tuple of (data_config, model_config, training_config)
+            pt_configs: Dict containing PyTorch config objects:
+                - model_config: PTModelConfig
+                - data_config: PTDataConfig
+                - training_config: PTTrainingConfig
+                - inference_config: PTInferenceConfig
 
         Returns:
-            CascadedFNOGenerator model instance
+            PtychoPINN_Lightning model instance with FNO generator
         """
-        data_config, model_config, _ = pt_configs
+        from ptycho_torch.model import PtychoPINN_Lightning
+
+        data_config = pt_configs['data_config']
+        model_config = pt_configs['model_config']
+        training_config = pt_configs['training_config']
+        inference_config = pt_configs['inference_config']
 
         # Extract parameters from configs
         N = getattr(data_config, 'N', 64)
         C = getattr(data_config, 'C', 4)
         n_filters = getattr(model_config, 'n_filters_scale', 2)
 
-        model = CascadedFNOGenerator(
+        # Build core generator module
+        core = CascadedFNOGenerator(
             in_channels=1,
             out_channels=2,
             hidden_channels=32 * n_filters,
@@ -372,4 +405,12 @@ class FnoGenerator:
             C=C,
         )
 
-        return model
+        # Wrap in Lightning module with physics pipeline
+        return PtychoPINN_Lightning(
+            model_config=model_config,
+            data_config=data_config,
+            training_config=training_config,
+            inference_config=inference_config,
+            generator_module=core,
+            generator_output="real_imag",
+        )

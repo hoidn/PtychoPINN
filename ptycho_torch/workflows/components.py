@@ -744,6 +744,7 @@ def _train_with_lightning(
     factory_overrides = {
         'n_groups': config.n_groups,  # Required by factory validation
         'gridsize': config.model.gridsize,
+        'architecture': config.model.architecture,
         'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
         'amp_activation': config.model.amp_activation,
         'n_filters_scale': config.model.n_filters_scale,
@@ -788,13 +789,20 @@ def _train_with_lightning(
     # Create minimal InferenceConfig for Lightning module (training payload doesn't include it)
     pt_inference_config = PTInferenceConfig()
 
-    # B2.4: Instantiate PtychoPINN_Lightning model with factory-derived config objects
-    model = PtychoPINN_Lightning(
-        model_config=pt_model_config,
-        data_config=pt_data_config,
-        training_config=pt_training_config,
-        inference_config=pt_inference_config
-    )
+    # B2.4: Build model via generator registry (supports CNN, FNO, Hybrid architectures)
+    # The registry resolves the architecture from config.model.architecture and returns
+    # the appropriate generator class, which builds the Lightning module with physics pipeline.
+    from ptycho_torch.generators.registry import resolve_generator
+
+    pt_configs = {
+        "model_config": pt_model_config,
+        "data_config": pt_data_config,
+        "training_config": pt_training_config,
+        "inference_config": pt_inference_config,
+    }
+
+    generator = resolve_generator(config)
+    model = generator.build_model(pt_configs)
 
     # Save hyperparameters so checkpoint can reconstruct module without external state
     model.save_hyperparameters()

@@ -44,6 +44,37 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
+def derive_channel_count(gridsize: int) -> int:
+    """Derive channel count (C) from gridsize.
+
+    The grid-lines datasets store diffraction patches with channel dimension
+    equal to gridsize**2. Keeping this explicit avoids mismatches when
+    gridsize=1 (C=1) vs gridsize=2 (C=4).
+    """
+    return int(gridsize) * int(gridsize)
+
+
+def to_complex_patches(real_imag: np.ndarray) -> np.ndarray:
+    """Convert real/imag output tensor to complex patches.
+
+    FNO/Hybrid models output predictions in real/imag format with shape
+    (..., 2) where the last dimension contains [real, imag]. This function
+    converts that to complex64 format.
+
+    Args:
+        real_imag: Array with shape (..., 2) containing real and imaginary parts
+
+    Returns:
+        Complex array with shape (...) (last dimension collapsed)
+
+    See also:
+        docs/plans/2026-01-27-fno-hybrid-testing-gaps-addendum.md Task 3
+    """
+    real = real_imag[..., 0]
+    imag = real_imag[..., 1]
+    return (real + 1j * imag).astype(np.complex64)
+
+
 @dataclass
 class TorchRunnerConfig:
     """Configuration for Torch grid-lines runner."""
@@ -209,17 +240,29 @@ def run_torch_inference(
 
     Returns:
         Reconstructed complex object predictions
+
+    Note:
+        FNO and Hybrid architectures receive only X (diffraction patterns) as input.
+        CNN architectures may also receive coords for position encoding.
+        See docs/plans/2026-01-27-fno-hybrid-testing-gaps-addendum.md Task 2.
     """
     import torch
 
     # Prepare test input
     X_test = torch.from_numpy(test_data['diffraction']).float()
-    coords = torch.from_numpy(test_data['coords_nominal']).float()
 
     # Run inference
     model.eval()
     with torch.no_grad():
-        predictions = model(X_test, coords)
+        # FNO and Hybrid architectures don't use coords - pass X only
+        # CNN architectures may use coords for position encoding, but for now
+        # we use a unified single-input interface for all architectures
+        if cfg.architecture in ('fno', 'hybrid'):
+            predictions = model(X_test)
+        else:
+            # CNN may use coords (legacy behavior)
+            coords = torch.from_numpy(test_data['coords_nominal']).float()
+            predictions = model(X_test, coords)
 
     return predictions.numpy()
 
@@ -306,22 +349,37 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
     logger.info("Running inference...")
     predictions = run_torch_inference(results['model'], test_data, cfg)
 
+    # Step 3b: Convert real/imag predictions to complex if needed
+    # FNO/Hybrid models output (B, H, W, C, 2) format; convert to complex
+    predictions_complex = None
+    if predictions.ndim >= 2 and predictions.shape[-1] == 2:
+        predictions_complex = to_complex_patches(predictions)
+        logger.info(f"Converted predictions to complex: {predictions_complex.shape}")
+
     # Step 4: Compute metrics
     logger.info("Computing metrics...")
     ground_truth = test_data.get('YY_ground_truth', test_data['YY_full'])
-    metrics = compute_metrics(predictions, ground_truth, f"pinn_{cfg.architecture}")
+    # Use complex predictions for metrics if available
+    pred_for_metrics = predictions_complex if predictions_complex is not None else predictions
+    metrics = compute_metrics(pred_for_metrics, ground_truth, f"pinn_{cfg.architecture}")
 
     # Step 5: Save artifacts
     run_dir = save_run_artifacts(cfg, results, metrics)
 
     logger.info(f"Torch runner complete. Artifacts in {run_dir}")
 
-    return {
+    result_dict = {
         'architecture': cfg.architecture,
         'run_dir': str(run_dir),
         'metrics': metrics,
         'history': results.get('history', {}),
     }
+
+    # Include complex predictions if conversion was done
+    if predictions_complex is not None:
+        result_dict['predictions_complex'] = predictions_complex
+
+    return result_dict
 
 
 def main() -> None:

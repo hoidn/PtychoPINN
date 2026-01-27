@@ -2,11 +2,17 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Add a minimal, config-driven generator registry so the CNN PINN can be swapped for other unsupervised architectures without rewiring the pipeline.
+**Goal:** Add minimal, config-driven generator selection in TF and integrate Torch-based FNO/hybrid generators (via `neuraloperator`) into the grid-lines harness without rewriting physics/consistency layers.
 
-**Architecture:** Introduce a thin generator registry in both TF and Torch backends keyed by `model.architecture`. For now, only a CNN generator is implemented; unknown architectures raise clear errors. Workflows instantiate generators via the registry while leaving physics/consistency layers unchanged.
+**Architecture:** Keep the TF workflow as the master harness (CNN PINN + baseline). Route non-`cnn` architectures to a Torch runner that uses `ptycho_torch` from `origin/torchapi-devel` for physics/consistency. TF uses a thin registry keyed by `model.architecture`; Torch selection is handled inside the runner.
 
 **Tech Stack:** Python, TensorFlow (Keras), PyTorch + Lightning, dataclasses config, pytest.
+
+## Mixed-Backend Amendments (2026-01-27)
+- **Torch source of truth:** replace `ptycho_torch/` with the `origin/torchapi-devel` version before adding generators.
+- **Registry scope:** TF registry remains; Torch registry tasks are superseded by a Torch runner + local factory.
+- **Routing:** `cnn` runs in TF; `fno`/`hybrid` run in Torch and emit TF-compatible artifacts.
+- **No stitching changes:** consistency layer behavior stays unchanged (out of scope).
 
 ## Baseline Status (Preflight)
 - Worktree: `.worktrees/plan-modular-generator`
@@ -30,7 +36,35 @@
 - Avoid 1x1-only lifts (too weak for speckle geometry) and deep 4-6 layer stacks (memory-heavy, dilutes physics signal).
 - Lifter must precede the first Fourier layer; avoid FFT of raw intensity directly.
 
+## FNO/Hybrid Block Decision (PtychoBlock, for future generator plans)
+- Standard FNO blocks use a 1x1 local path and activation after the spectral+local sum. For ptychography, this risks spectral bias and edge loss.
+- Prefer a **PtychoBlock**: spectral conv + 3x3 local conv, wrapped by an outer residual.
+- Suggested form: `y = x + GELU(Spectral(x) + Conv3x3(x))`.
+- Rationale: the outer residual provides a high-frequency bypass; the 3x3 local path carries spatial gradients that a 1x1 path cannot.
+
 ---
+
+### Task 0: Replace `ptycho_torch/` with torchapi-devel version
+
+**Files:**
+- Replace: `ptycho_torch/` (entire directory)
+
+**Step 1: Path checkout from torchapi-devel (non-destructive in git history)**
+
+```bash
+git checkout origin/torchapi-devel -- ptycho_torch
+```
+
+**Step 2: Verify the replacement**
+
+```bash
+git status -sb
+git diff --stat -- ptycho_torch
+```
+
+**Step 3: Note in plan summary why this version is required**
+- torchapi-devel provides the Torch API/workflow surface used for physics/consistency.
+- fno2’s `ptycho_torch/` diverges (removes generator registry, different workflow plumbing).
 
 ### Task 1: Add `model.architecture` to ModelConfig + validation + docs
 
@@ -94,7 +128,9 @@ git commit -m "feat: add model.architecture config field"
 
 ---
 
-### Task 2: Bridge `architecture` through PyTorch config bridge + factory + spec
+### Task 2 (Optional): Bridge `architecture` through PyTorch config bridge + factory + spec
+
+**Note:** Only required if the Torch runner consumes the shared `TrainingConfig` objects. If the runner takes `--architecture` and its own Torch configs, skip this task.
 
 **Files:**
 - Modify: `ptycho_torch/config_params.py`
@@ -165,17 +201,13 @@ git commit -m "feat: bridge model.architecture through torch config"
 
 ---
 
-### Task 3: Add generator registry (TF + Torch) with CNN implementation
+### Task 3: Add generator registry (TF only) with CNN implementation
 
 **Files:**
 - Create: `ptycho/generators/__init__.py`
 - Create: `ptycho/generators/registry.py`
 - Create: `ptycho/generators/cnn.py`
-- Create: `ptycho_torch/generators/__init__.py`
-- Create: `ptycho_torch/generators/registry.py`
-- Create: `ptycho_torch/generators/cnn.py`
 - Test: `tests/test_generator_registry.py`
-- Test: `tests/torch/test_generator_registry.py`
 
 **Step 1: Write the failing tests**
 
@@ -198,24 +230,10 @@ def test_resolve_generator_unknown_raises():
         resolve_generator(cfg)
 ```
 
-```python
-# tests/torch/test_generator_registry.py
-import pytest
-from ptycho.config.config import ModelConfig, TrainingConfig
-from ptycho_torch.generators.registry import resolve_generator
-
-
-def test_resolve_generator_cnn():
-    cfg = TrainingConfig(model=ModelConfig(architecture='cnn'))
-    gen = resolve_generator(cfg)
-    assert gen.name == 'cnn'
-```
-
-**Step 2: Run tests to verify they fail**
+**Step 2: Run test to verify it fails**
 
 Run:
 - `pytest tests/test_generator_registry.py -v`
-- `pytest tests/torch/test_generator_registry.py -v`
 
 Expected: FAIL (registry modules missing)
 
@@ -249,60 +267,27 @@ class CnnGenerator:
         return model.create_compiled_model()
 ```
 
-```python
-# ptycho_torch/generators/registry.py
-from ptycho_torch.generators.cnn import CnnGenerator
-
-_REGISTRY = {
-    'cnn': CnnGenerator,
-}
-
-
-def resolve_generator(config):
-    arch = config.model.architecture
-    if arch not in _REGISTRY:
-        raise ValueError(f"Unknown architecture '{arch}'. Available: {sorted(_REGISTRY)}")
-    return _REGISTRY[arch](config)
-```
-
-```python
-# ptycho_torch/generators/cnn.py
-class CnnGenerator:
-    name = 'cnn'
-    def __init__(self, config):
-        self.config = config
-
-    def build_model(self, pt_configs):
-        from ptycho_torch.model import PtychoPINN_Lightning
-        return PtychoPINN_Lightning(**pt_configs)
-```
-
-**Step 4: Run tests to verify they pass**
+**Step 4: Run test to verify it passes**
 
 Run:
 - `pytest tests/test_generator_registry.py -v`
-- `pytest tests/torch/test_generator_registry.py -v`
 
 Expected: PASS
 
 **Step 5: Commit**
 
 ```bash
-git add ptycho/generators ptycho_torch/generators \
-  tests/test_generator_registry.py tests/torch/test_generator_registry.py
-git commit -m "feat: add generator registry with cnn implementation"
+git add ptycho/generators tests/test_generator_registry.py
+git commit -m "feat: add TF generator registry with cnn implementation"
 ```
 
 ---
 
-### Task 4: Wire generator selection into workflows (TF + Torch)
+### Task 4: Wire generator selection into workflows (TF only)
 
 **Files:**
 - Modify: `ptycho/workflows/components.py`
 - Modify: `ptycho/train_pinn.py`
-- Modify: `ptycho_torch/workflows/components.py`
-- Modify: `docs/workflows/pytorch.md`
-- Test: `tests/torch/test_workflows_components.py`
 - Test: `tests/test_workflows_components.py` (new or existing)
 
 **Step 1: Write failing tests**
@@ -322,26 +307,10 @@ def test_train_cdi_model_uses_generator_registry():
         assert mock_resolve.called
 ```
 
-```python
-# tests/torch/test_workflows_components.py (add test)
-from unittest.mock import patch
-from ptycho.config.config import ModelConfig, TrainingConfig
-from ptycho_torch.workflows import components
-
-
-def test_train_with_lightning_uses_generator_registry():
-    cfg = TrainingConfig(model=ModelConfig(architecture='cnn'))
-    with patch('ptycho_torch.generators.registry.resolve_generator') as mock_resolve:
-        mock_resolve.return_value.build_model.return_value = object()
-        # call _train_with_lightning with minimal stubs/mocks for containers
-        # Expect resolve_generator called
-```
-
 **Step 2: Run tests to verify they fail**
 
 Run:
 - `pytest tests/test_workflows_components.py -k generator -v`
-- `pytest tests/torch/test_workflows_components.py -k generator -v`
 
 Expected: FAIL (registry not wired)
 
@@ -364,26 +333,10 @@ def train_eval(ptycho_dataset, model_instance=None):
     # rest unchanged
 ```
 
-```python
-# ptycho_torch/workflows/components.py (inside _train_with_lightning)
-from ptycho_torch.generators.registry import resolve_generator
-
-pt_configs = dict(
-    model_config=pt_model_config,
-    data_config=pt_data_config,
-    training_config=pt_training_config,
-    inference_config=pt_inference_config,
-)
-model = resolve_generator(config).build_model(pt_configs)
-```
-
-Update `docs/workflows/pytorch.md` to mention `model.architecture` selection.
-
 **Step 4: Run tests to verify they pass**
 
 Run:
 - `pytest tests/test_workflows_components.py -k generator -v`
-- `pytest tests/torch/test_workflows_components.py -k generator -v`
 
 Expected: PASS
 
@@ -391,18 +344,16 @@ Expected: PASS
 
 ```bash
 git add ptycho/workflows/components.py ptycho/train_pinn.py \
-  ptycho_torch/workflows/components.py docs/workflows/pytorch.md \
-  tests/test_workflows_components.py tests/torch/test_workflows_components.py
-git commit -m "feat: wire generator selection into workflows"
+  tests/test_workflows_components.py
+git commit -m "feat: wire generator selection into TF workflows"
 ```
 
 ---
 
-### Task 5: Add generator README guidance (TF + Torch)
+### Task 5: Add generator README guidance (TF only)
 
 **Files:**
 - Create: `ptycho/generators/README.md`
-- Create: `ptycho_torch/generators/README.md`
 
 **Step 1: Write the README content (TF)**
 
@@ -420,32 +371,63 @@ git commit -m "feat: wire generator selection into workflows"
 - The supervised baseline is labeled `baseline` (never `cnn`).
 ```
 
-**Step 2: Write the README content (Torch)**
-
-```markdown
-# PyTorch Generators
-
-## Adding a Generator
-1. Implement a generator class in `ptycho_torch/generators/<name>.py`
-2. Register it in `ptycho_torch/generators/registry.py`
-3. Ensure output contract: real/imag patches, shape `[B, C, N, N, 2]`
-4. Add tests in `tests/torch/test_generator_registry.py`
-
-## Naming Conventions
-- Generator runs are labeled `pinn_<arch>` in grid-lines outputs.
-- The supervised baseline is labeled `baseline` (never `cnn`).
-```
-
-**Step 3: Commit**
+**Step 2: Commit**
 
 ```bash
-git add ptycho/generators/README.md ptycho_torch/generators/README.md
-git commit -m "docs: add generator README guidance"
+git add ptycho/generators/README.md
+git commit -m "docs: add TF generator README guidance"
 ```
 
 ---
 
-### Task 6: Verification & Evidence
+### Task 6: Add Torch grid-lines runner (fno/hybrid)
+
+**Files:**
+- Create: `scripts/studies/grid_lines_torch_runner.py`
+- Create: `ptycho_torch/workflows/grid_lines_torch_runner.py`
+- Modify: `docs/plans/2026-01-27-grid-lines-workflow.md` (invoke runner + merge metrics)
+
+**Step 1: Define the runner contract**
+- Inputs: cached `train.npz`, `test.npz`, `output_dir`, `architecture` (`fno` or `hybrid`), `seed`, training hyperparams.
+- Outputs: artifacts under `output_dir/runs/pinn_<arch>/` and metrics JSON compatible with the TF workflow.
+
+**Step 2: Implement the Torch runner**
+- Use torchapi-devel training/inference entrypoints to train and infer the requested architecture.
+- Keep physics/consistency inside `ptycho_torch` (no TF reuse).
+- Write metrics JSON with the same keys used by TF runs for merge.
+
+**Step 3: Add a minimal smoke test**
+- Validate that the runner can load cached NPZs and emits the metrics JSON (use tiny synthetic data).
+
+---
+
+### Task 7: Implement FNO/hybrid generators in Torch (neuraloperator)
+
+**Files:**
+- Create: `ptycho_torch/generators/fno.py` (Arch B: hybrid U-NO first)
+- Create: `ptycho_torch/generators/fno_cascade.py` (Arch A: cascaded FNO → CNN)
+- Modify: Torch runner to select generator class by `architecture`
+- Modify: dependency management to include `neuraloperator`
+
+**Step 1: Add dependency**
+- Add `neuraloperator` to the Torch environment requirements (document the install step in the plan or workflow).
+
+**Step 2: Implement Arch B (Hybrid U-NO, `architecture=hybrid`)**
+- Use the lifter (2×3x3 convs + GELU) before spectral blocks.
+- Use PtychoBlock (spectral + 3x3 local + outer residual).
+- Keep decoder as CNN blocks with skip connections.
+
+**Step 3: Implement Arch A (Cascaded FNO → CNN, `architecture=fno`)**
+- FNO stage outputs a coarse patch; CNN refiner outputs final patch.
+- Preserve the same output contract (real/imag patches).
+
+**Step 4: Wire into the Torch runner**
+- Map `architecture=hybrid` → Arch B (Hybrid U-NO).
+- Map `architecture=fno` → Arch A (Cascaded FNO → CNN).
+
+---
+
+### Task 8: Verification & Evidence
 
 **Required tests (per TESTING_GUIDE.md):**
 - Unit tests added/modified in this plan.
@@ -454,11 +436,9 @@ git commit -m "docs: add generator README guidance"
 **Commands:**
 ```bash
 pytest tests/test_model_config_architecture.py -v
-pytest tests/torch/test_config_bridge.py -k architecture -v
 pytest tests/test_generator_registry.py -v
-pytest tests/torch/test_generator_registry.py -v
 pytest tests/test_workflows_components.py -k generator -v
-pytest tests/torch/test_workflows_components.py -k generator -v
+pytest tests/torch/test_grid_lines_torch_runner.py -v
 pytest -m integration
 ```
 

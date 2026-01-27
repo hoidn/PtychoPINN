@@ -13,6 +13,19 @@ def test_synthetic_npz_fixture_contract(synthetic_ptycho_npz):
         assert key in data, f"Missing required key: {key}"
 
 
+def test_pinn_uses_fno_generator_when_selected():
+    """Verify PtychoPINN instantiates FNO generator when architecture is fno."""
+    from ptycho_torch.config_params import ModelConfig, DataConfig, TrainingConfig
+    from ptycho_torch.model import PtychoPINN
+
+    cfg = ModelConfig(architecture="fno")
+    data_cfg = DataConfig(C=1, grid_size=(1, 1), N=64)
+    train_cfg = TrainingConfig()
+
+    model = PtychoPINN(cfg, data_cfg, train_cfg)
+    assert model.generator is not None
+
+
 @pytest.mark.slow
 def test_fno_generator_forward_pass():
     """Verify FNO generator produces valid output shape and gradients."""

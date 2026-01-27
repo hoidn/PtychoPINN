@@ -128,3 +128,42 @@ def test_train_history_collects_epochs(synthetic_ptycho_npz, tmp_path):
     # Verify history contains loss values for each epoch
     history = results["history"]["train_loss"]
     assert len(history) >= 2, f"Expected at least 2 loss values, got {len(history)}"
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("arch", ["fno", "hybrid"])
+def test_train_history_collects_epochs_for_fno_hybrid(synthetic_ptycho_npz, tmp_path, arch):
+    """Integration test: Verify FNO/Hybrid architectures train via Lightning.
+
+    This test verifies that:
+    1. The generator registry correctly resolves FNO and Hybrid architectures
+    2. The Lightning training pipeline wires up the generator properly
+    3. Loss history is collected for at least one epoch
+    """
+    from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+    from ptycho.raw_data import RawData
+    from ptycho_torch.workflows.components import train_cdi_model_torch
+
+    train_npz, _ = synthetic_ptycho_npz
+    train_data = RawData.from_file(str(train_npz))
+
+    cfg = TrainingConfig(
+        model=ModelConfig(N=64, gridsize=1, architecture=arch),
+        train_data_file=train_npz,
+        test_data_file=None,
+        nepochs=1,
+        batch_size=2,
+        backend="pytorch",
+        output_dir=tmp_path,
+        n_groups=4,
+    )
+
+    exec_cfg = PyTorchExecutionConfig(
+        logger_backend=None,
+        enable_checkpointing=False,
+        strategy='auto',
+    )
+
+    results = train_cdi_model_torch(train_data, None, cfg, execution_config=exec_cfg)
+    history = results["history"]["train_loss"]
+    assert len(history) >= 1, f"Expected at least 1 loss value for {arch}, got {len(history)}"

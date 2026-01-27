@@ -135,6 +135,27 @@ model = generator.build_model(pt_configs)
 
 **Torch Runner:** `scripts/studies/grid_lines_torch_runner.py` provides CLI for training FNO/hybrid models on cached datasets from the grid-lines workflow.
 
+**Forward Signature Contract (FORWARD-SIG-001):**
+FNO and Hybrid architectures use a **single-input forward signature**:
+```python
+predictions = model(X)  # X = diffraction patterns only
+```
+Unlike CNN which may accept `model(X, coords)` for position encoding, FNO/Hybrid learn spatial relationships through spectral convolutions and do NOT accept coordinate inputs. The `run_torch_inference()` function enforces this:
+```python
+if cfg.architecture in ('fno', 'hybrid'):
+    predictions = model(X_test)  # No coords
+else:
+    predictions = model(X_test, coords)  # CNN path
+```
+
+**Output Contract (OUTPUT-COMPLEX-001):**
+FNO/Hybrid models output predictions in **real/imag format** with shape `(..., 2)`. The `to_complex_patches()` helper converts to complex64:
+```python
+def to_complex_patches(real_imag):
+    return (real_imag[..., 0] + 1j * real_imag[..., 1]).astype(np.complex64)
+```
+The runner returns `predictions_complex` key when this conversion is applied.
+
 Config Bridging:
 - Normative config mapping and bridge flow: <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref>
 

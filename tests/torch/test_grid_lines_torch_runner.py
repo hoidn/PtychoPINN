@@ -11,6 +11,7 @@ from scripts.studies.grid_lines_torch_runner import (
     load_cached_dataset,
     setup_torch_configs,
     run_grid_lines_torch,
+    run_torch_training,
 )
 
 
@@ -193,3 +194,297 @@ class TestRunGridLinesTorchScaffold:
         run_dir = Path(result['run_dir'])
         assert run_dir.name == "pinn_hybrid"
         assert run_dir.parent.name == "runs"
+
+
+class TestChannelGridsizeAlignment:
+    """Tests for channel/gridsize alignment in runner configuration."""
+
+    def test_runner_sets_gridsize_from_config(self, tmp_path):
+        """Test that setup_torch_configs propagates gridsize to model config."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid",
+            gridsize=2,
+        )
+        training_config, _ = setup_torch_configs(cfg)
+        # Expect gridsize to be propagated correctly
+        assert training_config.model.gridsize == 2
+
+    def test_runner_channels_derived_from_gridsize(self, synthetic_npz, tmp_path):
+        """Test that channel count C = gridsize^2 is derived correctly.
+
+        For FNO/Hybrid architectures, the number of channels should match
+        gridsize squared to handle multi-patch stitching.
+        """
+        train_path, test_path = synthetic_npz
+        for gridsize in [1, 2]:
+            cfg = TorchRunnerConfig(
+                train_npz=train_path,
+                test_npz=test_path,
+                output_dir=tmp_path / f"out_{gridsize}",
+                architecture="fno",
+                gridsize=gridsize,
+            )
+            training_config, _ = setup_torch_configs(cfg)
+            # Channel count should be gridsize squared
+            expected_C = gridsize * gridsize
+            assert training_config.model.gridsize == gridsize, f"gridsize mismatch for gridsize={gridsize}"
+            # Note: TrainingConfig doesn't expose C directly, but downstream
+            # consumers derive it from gridsize. This test ensures gridsize is correct.
+
+    def test_create_training_payload_sets_channels_from_gridsize(self, synthetic_ptycho_npz, tmp_path):
+        """Test that config_factory derives C/grid_size from gridsize overrides."""
+        from ptycho_torch.config_factory import create_training_payload
+
+        train_npz, _ = synthetic_ptycho_npz
+        payload = create_training_payload(
+            train_data_file=train_npz,
+            output_dir=tmp_path,
+            overrides={"n_groups": 4, "gridsize": 1},
+        )
+        assert payload.pt_data_config.grid_size == (1, 1)
+        assert payload.pt_data_config.C == 1
+        assert payload.pt_model_config.C_forward == 1
+        assert payload.pt_model_config.C_model == 1
+
+
+class TestArchitecturePropagation:
+    """Tests for architecture propagation into torch factory overrides."""
+
+    def test_training_payload_receives_architecture(self, monkeypatch, tmp_path):
+        from pathlib import Path
+        from ptycho_torch.workflows import components
+        from ptycho.config.config import TrainingConfig, ModelConfig
+
+        cfg = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=1, architecture="hybrid"),
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            output_dir=tmp_path,
+            backend="pytorch",
+            n_groups=4,
+        )
+        called = {"arch": None}
+
+        def spy_create_payload(*args, **kwargs):
+            called["arch"] = kwargs["overrides"].get("architecture")
+            raise RuntimeError("stop")
+
+        monkeypatch.setattr("ptycho_torch.config_factory.create_training_payload", spy_create_payload)
+        with pytest.raises(RuntimeError, match="stop"):
+            components._train_with_lightning(train_container=object(), test_container=None, config=cfg)
+        assert called["arch"] == "hybrid"
+
+
+class TestForwardSignatureEnforcement:
+    """Tests for FNO/Hybrid forward signature enforcement."""
+
+    def test_fno_inference_uses_single_input(self, synthetic_npz, tmp_path, monkeypatch):
+        """Test that FNO/Hybrid inference calls model with X only (no coords).
+
+        FNO and Hybrid architectures don't require coordinate inputs, unlike
+        CNN architectures which may use them for position encoding.
+        """
+        from scripts.studies.grid_lines_torch_runner import run_torch_inference
+        import torch
+
+        train_path, test_path = synthetic_npz
+        cfg = TorchRunnerConfig(
+            train_npz=train_path,
+            test_npz=test_path,
+            output_dir=tmp_path,
+            architecture="fno",
+        )
+
+        # Track what arguments the model receives
+        call_args = []
+
+        class SpyModel:
+            """Model that tracks call arguments."""
+            def eval(self):
+                return self
+
+            def __call__(self, *args, **kwargs):
+                call_args.append({'args': args, 'kwargs': kwargs})
+                # Return dummy output matching expected shape
+                batch_size = args[0].shape[0] if len(args) > 0 else 1
+                return torch.zeros(batch_size, 64, 64, dtype=torch.float32)
+
+        # Load test data
+        test_data = dict(np.load(test_path, allow_pickle=True))
+
+        # Run inference with spy model
+        spy_model = SpyModel()
+        predictions = run_torch_inference(spy_model, test_data, cfg)
+
+        # FNO/Hybrid should be called with X only (single positional arg)
+        assert len(call_args) > 0, "Model was never called"
+        for call in call_args:
+            assert len(call['args']) == 1, (
+                f"FNO/Hybrid model should receive 1 arg (X), got {len(call['args'])} args. "
+                "Coords should not be passed to FNO/Hybrid architectures."
+            )
+
+
+class TestOutputContractConversion:
+    """Tests for output contract conversion (real/imag to complex)."""
+
+    def test_to_complex_patches_basic(self):
+        """Test that to_complex_patches converts real/imag to complex correctly."""
+        from scripts.studies.grid_lines_torch_runner import to_complex_patches
+
+        # Create test input: (B, H, W, C, 2) where last dim is [real, imag]
+        real_imag = np.zeros((2, 4, 4, 1, 2), dtype=np.float32)
+        real_imag[..., 0] = 1.0  # Real part
+        real_imag[..., 1] = 2.0  # Imaginary part
+
+        result = to_complex_patches(real_imag)
+
+        # Check output shape (should drop the last dimension)
+        assert result.shape == (2, 4, 4, 1), f"Expected shape (2, 4, 4, 1), got {result.shape}"
+        # Check complex values
+        assert result.dtype == np.complex64 or result.dtype == np.complex128
+        np.testing.assert_array_almost_equal(result.real, 1.0)
+        np.testing.assert_array_almost_equal(result.imag, 2.0)
+
+    def test_to_complex_patches_preserves_values(self):
+        """Test that to_complex_patches preserves real and imaginary values."""
+        from scripts.studies.grid_lines_torch_runner import to_complex_patches
+
+        # Random input
+        real_part = np.random.rand(3, 8, 8, 2).astype(np.float32)
+        imag_part = np.random.rand(3, 8, 8, 2).astype(np.float32)
+        real_imag = np.stack([real_part, imag_part], axis=-1)
+
+        result = to_complex_patches(real_imag)
+
+        np.testing.assert_array_almost_equal(result.real, real_part)
+        np.testing.assert_array_almost_equal(result.imag, imag_part)
+
+    def test_runner_returns_predictions_complex(self, synthetic_npz, tmp_path):
+        """Test that run_grid_lines_torch returns predictions_complex key.
+
+        The runner should convert model outputs (real/imag format) to complex
+        patches for downstream physics consistency checks.
+        """
+        train_path, test_path = synthetic_npz
+        output_dir = tmp_path / "output"
+
+        cfg = TorchRunnerConfig(
+            train_npz=train_path,
+            test_npz=test_path,
+            output_dir=output_dir,
+            architecture="fno",
+            epochs=1,
+        )
+
+        # Mock training to return scaffold results (model=None to skip state_dict save)
+        with patch('scripts.studies.grid_lines_torch_runner.run_torch_training') as mock_train:
+            mock_train.return_value = {
+                'model': None,  # None skips checkpoint save
+                'history': {'train_loss': [], 'val_loss': []},
+                'generator': 'fno',
+                'scaffold': True,
+            }
+
+            # Mock inference to return real/imag output
+            with patch('scripts.studies.grid_lines_torch_runner.run_torch_inference') as mock_infer:
+                # Simulate model output: (B, H, W, C, 2) real/imag format
+                mock_output = np.random.rand(4, 64, 64, 1, 2).astype(np.float32)
+                mock_infer.return_value = mock_output
+
+                # Mock metrics computation
+                with patch('scripts.studies.grid_lines_torch_runner.compute_metrics') as mock_metrics:
+                    mock_metrics.return_value = {'mse': 0.1}
+
+                    result = run_grid_lines_torch(cfg)
+
+        # Verify predictions_complex is in result
+        assert 'predictions_complex' in result, (
+            "run_grid_lines_torch should return 'predictions_complex' key "
+            "with complex-valued predictions"
+        )
+        # Verify it's actually complex
+        assert np.iscomplexobj(result['predictions_complex']), (
+            "predictions_complex should be complex-valued"
+        )
+
+
+class TestTorchTrainingPath:
+    """Tests for PyTorch training path usage."""
+
+    def test_runner_uses_generator_registry(self, synthetic_npz, tmp_path, monkeypatch):
+        """Test that runner uses the generator registry for model creation.
+
+        The runner should use ptycho_torch.generators.registry.resolve_generator
+        to get the appropriate generator for the architecture.
+        """
+        train_path, test_path = synthetic_npz
+
+        cfg = TorchRunnerConfig(
+            train_npz=train_path,
+            test_npz=test_path,
+            output_dir=tmp_path,
+            architecture="fno",
+        )
+
+        # Track if resolve_generator was called
+        resolve_called = {'called': False, 'architecture': None}
+
+        try:
+            from ptycho_torch.generators import registry
+        except ImportError:
+            pytest.skip("Generator registry not available")
+
+        def spy_resolve(config):
+            resolve_called['called'] = True
+            resolve_called['architecture'] = config.model.architecture
+            # Raise to trigger scaffold path (avoiding full training)
+            raise ValueError("FNO generator not implemented (test spy)")
+
+        monkeypatch.setattr(
+            'ptycho_torch.generators.registry.resolve_generator',
+            spy_resolve
+        )
+
+        # Run training - will get scaffold result due to spy
+        result = run_torch_training(cfg, {}, {})
+
+        # Verify resolve_generator was called with correct architecture
+        assert resolve_called['called'], "resolve_generator should be called"
+        assert resolve_called['architecture'] == 'fno', (
+            f"Expected architecture 'fno', got {resolve_called['architecture']}"
+        )
+
+    def test_runner_returns_scaffold_when_generator_unavailable(self, synthetic_npz, tmp_path, monkeypatch):
+        """Test that runner returns scaffold results when generator is not available.
+
+        When the requested architecture's generator is not implemented,
+        the runner should return scaffold results indicating no training occurred.
+        """
+        train_path, test_path = synthetic_npz
+
+        cfg = TorchRunnerConfig(
+            train_npz=train_path,
+            test_npz=test_path,
+            output_dir=tmp_path,
+            architecture="fno",
+        )
+
+        # Force generator to be unavailable
+        def failing_resolve(config):
+            raise ValueError("FNO generator not implemented")
+
+        monkeypatch.setattr(
+            'ptycho_torch.generators.registry.resolve_generator',
+            failing_resolve
+        )
+
+        result = run_torch_training(cfg, {}, {})
+
+        # Verify scaffold result structure
+        assert result.get('scaffold') is True, "Should return scaffold=True when generator unavailable"
+        assert result.get('model') is None, "Model should be None in scaffold mode"
+        assert 'history' in result, "Should include history dict"
+        assert result['generator'] == 'fno', "Should record requested architecture"

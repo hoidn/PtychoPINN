@@ -19,6 +19,7 @@
 - **Simulation:** Legacy grid pipeline via `data_preprocessing.generate_data()` (which calls `diffsim.mk_simdata`). Must set legacy params via `update_legacy_dict(params.cfg, config)` before invoking.
 - **Config:** Match notebook defaults: `data_source='lines'`, `size=392`, `offset=4`, `outer_offset_train=8`, `outer_offset_test=20`, `nimgs_train=2`, `nimgs_test=2`, `nphotons=1e9`, `sim_jitter_scale=0.0`.
 - **Runs:** Separate invocations per `N` (64 or 128) and per `gridsize` (1 or 2). Allow multiple generator architectures per call via `--architectures cnn,fno,hybrid`.
+- **Mixed backends:** TF workflow runs `cnn` (PINN) + `baseline`; `fno`/`hybrid` are delegated to a Torch runner that consumes the cached NPZs and writes TF-compatible artifacts.
 - **Dataset reuse:** Cache datasets under `output_dir/datasets/N{N}/gs{gridsize}/` with a manifest containing seed + sim params. If manifest matches, reuse without regeneration.
 - **Baseline input:** For `gridsize > 1`, use **channel 0 only** (no flattening).
 - **Metrics:** Use `ptycho.evaluation.eval_reconstruction` for SSIM/MS-SSIM; save per-run JSON + a combined JSON comparison report.
@@ -26,7 +27,13 @@
 - **Model IDs:** Generator runs use `pinn_<arch>`; supervised baseline uses `baseline` (do not overload `cnn`).
 - **Stable modules:** Do not modify `ptycho/model.py`, `ptycho/diffsim.py`, or `ptycho/tf_helper.py`.
 - **Stitching:** Avoid `data_preprocessing.stitch_data()` due to STITCH-GRIDSIZE-001; embed a local `stitch_predictions()` helper (based on `scripts/studies/grid_resolution_study.py`).
-- **PyTorch policy:** Torch is mandatory but not used here; do not introduce torch-optional paths.
+- **PyTorch policy:** Torch is mandatory and used via the Torch runner; do not introduce torch-optional paths.
+- **Torch runner contract:** Torch uses `ptycho_torch` (torchapi-devel version) for physics/consistency; runner must emit the same artifact layout as TF under `output_dir/runs/<model_id>/` plus per-run metrics JSON for merge.
+
+## Torch Runner Integration (Mixed Backend)
+- Add a Torch runner CLI (e.g., `scripts/studies/grid_lines_torch_runner.py`) that takes cached train/test NPZs + output_dir.
+- Torch runner trains/infers the requested architecture(s) (`fno`, `hybrid`) and writes artifacts/metrics matching the TF layout.
+- The TF workflow invokes the runner for each non-`cnn` architecture and merges metrics into the combined comparison report.
 
 ---
 

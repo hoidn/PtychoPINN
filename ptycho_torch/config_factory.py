@@ -198,6 +198,9 @@ def create_training_payload(
     grid_size = overrides.get('grid_size', (overrides.get('gridsize', 1), overrides.get('gridsize', 1)))
     # Compute C from grid_size (number of channels = gridsize_x * gridsize_y)
     C = grid_size[0] * grid_size[1]
+    # Ensure downstream config updates see derived grid_size and channels
+    overrides['grid_size'] = grid_size
+    overrides['C'] = C
 
     #Going to use update_existing_config from ptycho_torch.config_params
     #The default settings are already set up to work in most use cases, so there's no point in instantiating 

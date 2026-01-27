@@ -905,7 +905,19 @@ class PtychoPINN(nn.Module):
         self.model_config = model_config
         self.data_config = data_config
         self.training_config = training_config # Store training config
-        self.generator_output = generator_output
+        resolved_generator = generator
+        resolved_generator_output = generator_output
+
+        if resolved_generator is None and self.model_config.architecture in ("fno", "hybrid"):
+            from ptycho_torch.generators.fno import CascadedFNOGenerator, HybridUNOGenerator
+            if self.model_config.architecture == "fno":
+                resolved_generator = CascadedFNOGenerator(C=data_config.C)
+            else:
+                resolved_generator = HybridUNOGenerator(C=data_config.C)
+            resolved_generator_output = "real_imag"
+
+        self.generator = resolved_generator
+        self.generator_output = resolved_generator_output
 
         self.n_filters_scale = self.model_config.n_filters_scale
 
@@ -916,7 +928,7 @@ class PtychoPINN(nn.Module):
         #Autoencoder or custom generator
         # When generator is None, use default CNN-based Autoencoder
         # When generator is provided (e.g., FNO/Hybrid), use it directly
-        self.autoencoder = Autoencoder(model_config, data_config) if generator is None else generator
+        self.autoencoder = Autoencoder(model_config, data_config) if resolved_generator is None else resolved_generator
         self.combine_complex = CombineComplex()
 
         #Adding named modules for forward operation

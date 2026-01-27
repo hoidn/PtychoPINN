@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-26 (Codex superpowers install logged)
-**Active Focus:** STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — G-scaled ✅ COMPLETE; G-full blocked on Baseline OOM
+**Last Updated:** 2026-01-27 (GRID-LINES-WORKFLOW-001 design draft)
+**Active Focus:** GRID-LINES-WORKFLOW-001 — grid-based lines workflow modularization (planning)
 
 ---
 
@@ -13,6 +13,35 @@
 ---
 
 ## Active / Pending Initiatives
+
+### [GRID-LINES-WORKFLOW-001] Grid-based lines simulation + training workflow (module)
+- Depends on: legacy grid pipeline (`diffsim.mk_simdata`, `ptycho.data_preprocessing`)
+- Priority: **High** (restores reproducible grid workflow)
+- Status: planning
+- Owner/Date: Codex/2026-01-26
+- Working Plan: `plans/active/GRID-LINES-WORKFLOW-001/plan.md`
+- Summary: `plans/active/GRID-LINES-WORKFLOW-001/summary.md`
+- Test Strategy: `plans/active/GRID-LINES-WORKFLOW-001/test_strategy.md`
+- Reports Hub: `plans/active/GRID-LINES-WORKFLOW-001/reports/` (to be created)
+- Goals:
+  - Modularize the deprecated `ptycho_lines.ipynb` workflow into a callable module under `ptycho/workflows/`.
+  - Use `datasets/Run1084_recon3_postPC_shrunk_3.npz` probeGuess (64x64) and an upscaled 128x128 probe for grid simulation.
+  - Generate grid-sampled datasets, train PtychoPINN + baseline, run inference + stitching, and compute SSIM vs ground truth.
+  - Support **separate** runs for N=64 and N=128 (heavy/quality-focused).
+- Return Condition:
+  - Workflow module produces stitched reconstructions + SSIM metrics for both sizes, with outputs saved to a reproducible run directory layout.
+- Attempts History:
+  - *2026-01-26T00:00:00Z (planning kickoff):* Inspected deprecated `notebooks/ptycho_lines.ipynb` and probe source `datasets/Run1084_recon3_postPC_shrunk_3.npz`. Notebook uses `data_source='lines'`, `size=392`, `gridsize=1`, `offset=4`, `outer_offset_{train,test}={8,20}`, `nimgs_{train,test}=2`, `nphotons=1e4`, and routes through `ptycho.generate_data` + `train_pinn`. Probe dataset contains `probeGuess` (64x64 complex128), `objectGuess` (227x226 complex128), and legacy-order `diffraction` (64x64x1087). Artifacts: `notebooks/ptycho_lines.ipynb`, `datasets/Run1084_recon3_postPC_shrunk_3.npz`.
+  - *2026-01-26T00:30:00Z (requirements capture):* Confirmed workflow decisions: persist simulated NPZs; probe upscaling via `prepare_data_tool.interpolate_array` with probe smoothing sigma=0.5; separate invocations per gridsize (1/2) and per N (64/128); use nphotons=1e9; nimgs_train/nimgs_test=2; epochs=60; SSIM via `ptycho.evaluation.eval_reconstruction`; PINN default loss=MAE with configurable weights. Artifacts: `plans/active/GRID-LINES-WORKFLOW-001/summary.md`.
+  - *2026-01-26T00:35:00Z (requirements capture):* Added output layout decisions: datasets saved under `output_dir/datasets/N{N}/gs{gridsize}/{train,test}.npz`, stitched amplitude + phase outputs, SSIM report saved as JSON. Artifacts: `plans/active/GRID-LINES-WORKFLOW-001/summary.md`.
+  - *2026-01-26T00:40:00Z (requirements capture):* Confirmed model checkpoints should be saved for both PINN and baseline runs. Artifacts: `plans/active/GRID-LINES-WORKFLOW-001/summary.md`.
+  - *2026-01-26T00:45:00Z (requirements capture):* Chose to keep notebook object size and outer offsets for both N=64 and N=128 (size=392, outer_offset_train=8, outer_offset_test=20). Artifacts: `plans/active/GRID-LINES-WORKFLOW-001/summary.md`.
+  - *2026-01-26T00:50:00Z (requirements capture):* Baseline input for gridsize>1 will use **channel 0 only** (no flatten) to keep single-channel baseline without altering stable model code. Artifacts: `plans/active/GRID-LINES-WORKFLOW-001/summary.md`.
+  - *2026-01-26T00:55:00Z (requirements capture):* Added requirement to save comparison PNGs (GT vs PINN vs Baseline) alongside stitched outputs. Artifacts: `plans/active/GRID-LINES-WORKFLOW-001/summary.md`.
+  - *2026-01-26T01:00:00Z (requirements capture):* Record run parameters into JSON metadata for reproducibility. Artifacts: `plans/active/GRID-LINES-WORKFLOW-001/summary.md`.
+  - *2026-01-27T00:10:00Z (design draft):* Wrote implementation plan covering workflow module + CLI wrapper, probe scaling (prepare_data_tool), grid simulation + dataset persistence, stitching workaround, training/inference, and SSIM reporting. Artifacts: `docs/plans/2026-01-27-grid-lines-workflow.md`.
+  - *2026-01-27T00:20:00Z (test strategy):* Created Phase 0 test strategy (unit-test focus, artifact logging under `.artifacts/`). Artifacts: `plans/active/GRID-LINES-WORKFLOW-001/test_strategy.md`.
+  - *2026-01-27T00:35:00Z (Task 1):* Added workflow + CLI skeleton for grid lines pipeline; CLI help verified. Artifacts: `ptycho/workflows/grid_lines_workflow.py`, `scripts/studies/grid_lines_workflow.py`.
 
 ### [REFACTOR-MODEL-SINGLETON-001] Remove Module-Level Singletons in ptycho/model.py
 - Depends on: None
