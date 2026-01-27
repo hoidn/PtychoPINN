@@ -656,7 +656,8 @@ class PoissonIntensityLayer(nn.Module):
         - Both y_true and y_pred are squared before Poisson loss computation
         '''
         # Apply poisson distribution to intensities
-        return -self.poisson_dist.log_prob(x)
+        observed_intensity = x ** 2
+        return -self.poisson_dist.log_prob(observed_intensity)
     
 class ForwardModel(nn.Module):
     '''
@@ -785,8 +786,8 @@ class MAELoss(nn.Module):
         self.mae = nn.L1Loss(reduction = 'none')
 
     def forward(self, pred, raw):
-        #Note: Prediction has not been squared yet, must be squared here
-        loss_mae = self.mae(pred**2, raw)
+        # MAE operates on amplitude (match TF mean_absolute_error)
+        loss_mae = self.mae(pred, raw)
 
         return loss_mae
     
