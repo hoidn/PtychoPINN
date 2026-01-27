@@ -814,12 +814,28 @@ def translate(imgs: tf.Tensor, offsets: tf.Tensor, **kwargs: Any) -> tf.Tensor:
     return translate_core(imgs, offsets, interpolation=interpolation, use_xla_workaround=use_xla_workaround)
 
 # TODO consolidate this and translate()
+@tf.keras.utils.register_keras_serializable(package='ptycho')
 class Translation(tf.keras.layers.Layer):
-    def __init__(self, jitter_stddev: float = 0.0, use_xla: bool = False) -> None:
-        super(Translation, self).__init__()
+    """Translation layer with XLA support.
+
+    CRITICAL: Always uses XLA-compatible path during inference to avoid
+    dynamic shape issues. See docs/bugs/XLA_INFERENCE_BUG.md.
+    """
+    def __init__(self, jitter_stddev: float = 0.0, use_xla: bool = False, **kwargs) -> None:
+        super(Translation, self).__init__(**kwargs)
         self.jitter_stddev = jitter_stddev
-        self.use_xla = use_xla
-        
+        # CRITICAL FIX: Always use XLA-compatible path to avoid tf.repeat issues
+        # The translate_xla function uses tf.gather which works with dynamic batch sizes
+        self.use_xla = True  # Force XLA path regardless of constructor argument
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            'jitter_stddev': self.jitter_stddev,
+            'use_xla': self.use_xla,
+        })
+        return config
+
     def call(self, inputs: Union[List[tf.Tensor], tf.Tensor]) -> tf.Tensor:
         # In TF 2.19, we pass jitter as a constructor parameter instead
         if isinstance(inputs, list):

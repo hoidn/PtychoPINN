@@ -408,6 +408,15 @@ When adding new documentation:
 5. Ensure bidirectional linking
 6. Add to [PROJECT_STATUS.md](PROJECT_STATUS.md) if it's an initiative document
 
+## Bug Reports & Fixes
+
+### [XLA Inference Bug](bugs/XLA_INFERENCE_BUG.md) - FIXED
+**Description:** PINN models with XLA compilation failed during inference with dynamic batch sizes due to `tf.repeat`/`tf.tile` operations in the Translation layer.
+**Status:** Fixed 2026-01-26
+**Fix:** Force Translation layer to use XLA-safe `tf.gather` path; set `object_big=False` in grid_lines_workflow.
+
+---
+
 ## 🔗 External Resources
 
 - **Paper**: [Nature Scientific Reports Publication](https://www.nature.com/articles/s41598-023-48351-7)

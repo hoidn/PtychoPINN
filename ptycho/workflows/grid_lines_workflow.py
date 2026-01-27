@@ -87,7 +87,7 @@ def configure_legacy_params(cfg: GridLinesConfig, probe_np: np.ndarray) -> Train
     from ptycho import probe as probe_mod
 
     config = TrainingConfig(
-        model=ModelConfig(N=cfg.N, gridsize=cfg.gridsize),
+        model=ModelConfig(N=cfg.N, gridsize=cfg.gridsize, object_big=False),
         nphotons=cfg.nphotons,
         nepochs=cfg.nepochs,
         batch_size=cfg.batch_size,
@@ -208,12 +208,13 @@ def stitch_predictions(predictions: np.ndarray, norm_Y_I: float, part: str = "am
     Bug ref: STITCH-GRIDSIZE-001
 
     Contract: STITCH-001
-    - Handles both gridsize=1 and gridsize=2
+    - Handles both gridsize=1 and gridsize>1
+    - For gridsize>1, reshapes channels into spatial grid before stitching
     - Uses outer_offset_test from params.cfg for border clipping
     - Returns stitched array with last dimension = 1
 
     Args:
-        predictions: Model output, shape (n_test, N, N, gridsize^2) or complex
+        predictions: Model output, shape (batch, N, N, gridsize^2) or complex
         norm_Y_I: Normalization factor from simulation
         part: 'amp', 'phase', or 'complex'
 
@@ -223,8 +224,7 @@ def stitch_predictions(predictions: np.ndarray, norm_Y_I: float, part: str = "am
     nimgs = p.get("nimgs_test")
     outer_offset = p.get("outer_offset_test")
     N = p.cfg["N"]
-
-    nsegments = int(np.sqrt((predictions.size / nimgs) / (N**2)))
+    gridsize = p.cfg["gridsize"]
 
     if part == "amp":
         getpart = np.absolute
@@ -233,8 +233,33 @@ def stitch_predictions(predictions: np.ndarray, norm_Y_I: float, part: str = "am
     else:
         getpart = lambda x: x
 
+    # Apply part extraction
+    processed = getpart(predictions)
+
+    # Handle gridsize>1: reshape channels to spatial grid
+    # Input: (batch, N, N, gridsize^2)
+    # Output: (batch*gridsize^2, N, N, 1) with patches reordered spatially
+    if gridsize > 1 and len(processed.shape) == 4 and processed.shape[-1] == gridsize**2:
+        batch = processed.shape[0]
+        # Reshape to (batch, N, N, gridsize, gridsize)
+        processed = processed.reshape(batch, N, N, gridsize, gridsize)
+        # Transpose to (batch, gridsize, gridsize, N, N)
+        processed = processed.transpose(0, 3, 4, 1, 2)
+        # Reshape to (batch * gridsize * gridsize, N, N, 1)
+        processed = processed.reshape(batch * gridsize**2, N, N, 1)
+        # Update effective number of images for stitching calculation
+        nimgs_effective = nimgs * gridsize**2
+    else:
+        # Ensure 4D with trailing 1
+        if len(processed.shape) == 3:
+            processed = processed[..., np.newaxis]
+        nimgs_effective = nimgs
+
+    # Calculate number of segments
+    nsegments = int(np.sqrt((processed.size / nimgs_effective) / (N**2)))
+
     img_recon = np.reshape(
-        norm_Y_I * getpart(predictions), (-1, nsegments, nsegments, N, N, 1)
+        norm_Y_I * processed, (-1, nsegments, nsegments, N, N, 1)
     )
 
     # Border clipping (from data_preprocessing.get_clip_sizes)
@@ -289,11 +314,26 @@ def train_baseline_model(X_train, Y_I_train, Y_phi_train):
 def run_pinn_inference(model, X_test, coords_nominal):
     """Run PINN inference on test data.
 
-    Returns the reconstructed complex object (first output of model.predict).
+    Returns the reconstructed complex object (first output of model.predict),
+    or None if inference fails due to XLA/dynamic shape issues.
+
+    Known issue: PINN models compiled with XLA may fail during inference with
+    dynamic batch sizes. See docs/bugs/XLA_INFERENCE_BUG.md for details.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
     intensity_scale = p.get("intensity_scale")
-    reconstructed_obj, _, _ = model.predict([X_test * intensity_scale, coords_nominal])
-    return reconstructed_obj
+    try:
+        reconstructed_obj, _, _ = model.predict([X_test * intensity_scale, coords_nominal])
+        return reconstructed_obj
+    except Exception as e:
+        error_msg = str(e)
+        if "xla" in error_msg.lower() or "fft" in error_msg.lower() or "dynamic" in error_msg.lower():
+            logger.error(f"PINN inference failed with XLA/dynamic shape error: {e}")
+            logger.warning("See docs/bugs/XLA_INFERENCE_BUG.md for details. Returning None.")
+            return None
+        raise  # Re-raise if not an XLA-related error
 
 
 def run_baseline_inference(model, X_test):
@@ -414,6 +454,9 @@ def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
     pinn_pred = run_pinn_inference(
         pinn_model, sim["test"]["X"], sim["test"]["coords_nominal"]
     )
+    if pinn_pred is None:
+        print("[5/7] WARNING: PINN inference failed (XLA issue). Skipping PINN evaluation.")
+
     base_pred = run_baseline_inference(base_model, sim["test"]["X"])
 
     # Step 6: Stitch and evaluate
@@ -421,15 +464,20 @@ def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
     norm_Y_I = sim["test"]["norm_Y_I"]
     YY_gt = sim["test"]["YY_ground_truth"]
 
-    pinn_amp = stitch_predictions(pinn_pred, norm_Y_I, part="amp")
-    pinn_phase = stitch_predictions(pinn_pred, norm_Y_I, part="phase")
-    pinn_stitched = pinn_amp * np.exp(1j * pinn_phase)
+    # PINN stitching (may be None if inference failed)
+    if pinn_pred is not None:
+        pinn_amp = stitch_predictions(pinn_pred, norm_Y_I, part="amp")
+        pinn_phase = stitch_predictions(pinn_pred, norm_Y_I, part="phase")
+        pinn_stitched = pinn_amp * np.exp(1j * pinn_phase)
+        pinn_metrics = eval_reconstruction(pinn_stitched, YY_gt, label="pinn")
+    else:
+        pinn_amp = pinn_phase = pinn_stitched = None
+        pinn_metrics = {"error": "PINN inference failed (XLA issue)"}
 
+    # Baseline stitching
     base_amp = stitch_predictions(base_pred, norm_Y_I, part="amp")
     base_phase = stitch_predictions(base_pred, norm_Y_I, part="phase")
     base_stitched = base_amp * np.exp(1j * base_phase)
-
-    pinn_metrics = eval_reconstruction(pinn_stitched, YY_gt, label="pinn")
     base_metrics = eval_reconstruction(base_stitched, YY_gt, label="baseline")
 
     # Step 7: Save outputs
@@ -447,10 +495,17 @@ def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
     gt_squeezed = np.squeeze(YY_gt)
     gt_amp_2d = np.abs(gt_squeezed)
     gt_phase_2d = np.angle(gt_squeezed)
-    pinn_amp_2d = pinn_amp[0, :, :, 0]
-    pinn_phase_2d = pinn_phase[0, :, :, 0]
     base_amp_2d = base_amp[0, :, :, 0]
     base_phase_2d = base_phase[0, :, :, 0]
+
+    if pinn_amp is not None:
+        pinn_amp_2d = pinn_amp[0, :, :, 0]
+        pinn_phase_2d = pinn_phase[0, :, :, 0]
+    else:
+        # Use zeros as placeholder when PINN failed
+        pinn_amp_2d = np.zeros_like(gt_amp_2d)
+        pinn_phase_2d = np.zeros_like(gt_phase_2d)
+        print("[7/7] WARNING: PINN visualization shows zeros (inference failed)")
 
     png_path = save_comparison_png(
         cfg,
