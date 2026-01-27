@@ -49,6 +49,10 @@ These parameters define the structure and physics of the neural network.
 | `n_filters_scale` | `int` | `2` | A multiplier for the number of filters in the U-Net's convolutional layers. |
 | `model_type` | `Literal['pinn', 'supervised']` | `'pinn'` | The type of model to use. 'pinn' is the main physics-informed model. |
 | `architecture` | `Literal['cnn', 'fno', 'hybrid']` | `'cnn'` | The generator architecture for PINN models. Used by the generator registry to select the network backbone. 'cnn' is the default U-Net based generator. 'fno' (Cascaded FNO→CNN) and 'hybrid' (Hybrid U-NO) are available in PyTorch backend only. See `docs/architecture_torch.md` §4.1. |
+| `fno_modes` | `int` | `12` | Number of spectral modes retained in FNO/Hybrid spectral convolutions (PyTorch only). |
+| `fno_width` | `int` | `32` | Hidden channel width for FNO/Hybrid blocks (PyTorch only). |
+| `fno_blocks` | `int` | `4` | Number of spectral blocks in the FNO/Hybrid encoder (PyTorch only). |
+| `fno_cnn_blocks` | `int` | `2` | Number of CNN refiner blocks for the Cascaded FNO generator (PyTorch only). |
 | `amp_activation` | `str` | `'sigmoid'` | The activation function for the amplitude output layer. Choices: 'sigmoid', 'swish', 'softplus', 'relu'. |
 | `object_big` | `bool` | `True` | If True, the model reconstructs a large area by stitching patches. If False, it reconstructs a single N×N patch. |
 | `probe_big` | `bool` | `True` | If True, the probe representation can vary across the solution region. |

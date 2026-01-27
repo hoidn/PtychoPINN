@@ -388,12 +388,16 @@ git commit -m "docs: add TF generator README guidance"
 - Modify: `docs/plans/2026-01-27-grid-lines-workflow.md` (invoke runner + merge metrics)
 
 **Step 1: Define the runner contract**
-- Inputs: cached `train.npz`, `test.npz`, `output_dir`, `architecture` (`fno` or `hybrid`), `seed`, training hyperparams.
+- Inputs: cached `train.npz`, `test.npz`, `output_dir`, `architecture` (`fno` or `hybrid`), `seed`, training hyperparams, and **FNO hyperparameters** (modes/width/blocks).
 - Outputs: artifacts under `output_dir/runs/pinn_<arch>/` and metrics JSON compatible with the TF workflow.
+- **Inference signature:** runner must call Lightning via `forward_predict(x, positions, probe, input_scale_factor)` (not `model(X)`).
+- **Inference batching:** runner must stream inference in batches to avoid OOM (dense views).
 
 **Step 2: Implement the Torch runner**
 - Use torchapi-devel training/inference entrypoints to train and infer the requested architecture.
 - Keep physics/consistency inside `ptycho_torch` (no TF reuse).
+- **Inference path:** use `reconstruct_image_barycentric()` (preferred) or a batched `forward_predict` loop with the full signature.
+- **OOM guard:** enforce a batch size for inference (configurable) and avoid loading all test data to GPU at once.
 - Write metrics JSON with the same keys used by TF runs for merge.
 
 **Step 3: Add a minimal smoke test**
