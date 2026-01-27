@@ -43,6 +43,7 @@ class GridLinesConfig:
     mae_weight: float = 1.0
     realspace_weight: float = 0.0
     probe_smoothing_sigma: float = 0.5
+    set_phi: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -96,6 +97,7 @@ def configure_legacy_params(cfg: GridLinesConfig, probe_np: np.ndarray) -> Train
         realspace_weight=cfg.realspace_weight,
     )
     update_legacy_dict(p.cfg, config)
+    p.set("set_phi", cfg.set_phi)
     p.set("data_source", "lines")
     p.set("size", cfg.size)
     p.set("offset", cfg.offset)
