@@ -11,6 +11,14 @@ class DummyTwoChannelGenerator(torch.nn.Module):
         return torch.randn(b, h, w, c, 2, device=x.device, dtype=x.dtype)
 
 
+class DummyAmpPhaseGenerator(torch.nn.Module):
+    def forward(self, x):
+        b, c, h, w = x.shape
+        amp = torch.sigmoid(torch.randn(b, c, h, w, device=x.device, dtype=x.dtype))
+        phase = math.pi * torch.tanh(torch.randn(b, c, h, w, device=x.device, dtype=x.dtype))
+        return amp, phase
+
+
 def test_amp_phase_logits_bounds():
     model_config = ModelConfig(
         architecture='fno',
@@ -35,3 +43,27 @@ def test_amp_phase_logits_bounds():
     assert torch.all(amp <= 1)
     assert torch.all(phase >= -math.pi)
     assert torch.all(phase <= math.pi)
+
+
+def test_amp_phase_mode_accepts_tuple():
+    model_config = ModelConfig(
+        architecture='fno',
+        generator_output_mode='amp_phase',
+    )
+    data_config = DataConfig()
+    training_config = TrainingConfig()
+    inference_config = InferenceConfig()
+
+    model = PtychoPINN(
+        model_config=model_config,
+        data_config=data_config,
+        training_config=training_config,
+        generator=DummyAmpPhaseGenerator(),
+        generator_output='amp_phase',
+    )
+
+    x = torch.randn(1, data_config.C, data_config.N, data_config.N)
+    x_complex, amp, phase = model._predict_complex(x)
+
+    assert amp.shape == phase.shape
+    assert torch.is_complex(x_complex)

@@ -909,6 +909,7 @@ class PtychoPINN(nn.Module):
         self.training_config = training_config # Store training config
         resolved_generator = generator
         resolved_generator_output = generator_output
+        configured_output_mode = getattr(self.model_config, "generator_output_mode", None)
 
         if resolved_generator is None and self.model_config.architecture in ("fno", "hybrid"):
             from ptycho_torch.generators.fno import CascadedFNOGenerator, HybridUNOGenerator
@@ -916,6 +917,7 @@ class PtychoPINN(nn.Module):
             fno_width = getattr(self.model_config, "fno_width", 32)
             fno_blocks = getattr(self.model_config, "fno_blocks", 4)
             fno_cnn_blocks = getattr(self.model_config, "fno_cnn_blocks", 2)
+            generator_mode = "amp_phase" if configured_output_mode == "amp_phase" else "real_imag"
             if self.model_config.architecture == "fno":
                 resolved_generator = CascadedFNOGenerator(
                     hidden_channels=fno_width,
@@ -923,6 +925,7 @@ class PtychoPINN(nn.Module):
                     cnn_blocks=fno_cnn_blocks,
                     modes=fno_modes,
                     C=data_config.C,
+                    output_mode=generator_mode,
                 )
             else:
                 resolved_generator = HybridUNOGenerator(
@@ -930,10 +933,10 @@ class PtychoPINN(nn.Module):
                     n_blocks=fno_blocks,
                     modes=fno_modes,
                     C=data_config.C,
+                    output_mode=generator_mode,
                 )
             resolved_generator_output = "real_imag"
 
-        configured_output_mode = getattr(self.model_config, "generator_output_mode", None)
         if configured_output_mode and self.model_config.architecture in ("fno", "hybrid"):
             resolved_generator_output = configured_output_mode
 

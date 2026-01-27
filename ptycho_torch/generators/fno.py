@@ -19,6 +19,7 @@ See also:
     - docs/plans/2026-01-27-modular-generator-implementation.md for architecture decisions
 """
 
+import math
 import torch
 import torch.nn as nn
 from typing import Dict, Any, Optional
@@ -181,9 +182,11 @@ class HybridUNOGenerator(nn.Module):
         modes: int = 12,
         C: int = 4,  # gridsize^2 channels
         input_transform: str = "none",
+        output_mode: str = "real_imag",
     ):
         super().__init__()
         self.C = C
+        self.output_mode = output_mode
 
         # Lifter
         self.lifter = SpatialLifter(
@@ -218,7 +221,11 @@ class HybridUNOGenerator(nn.Module):
             ))
 
         # Output projection
-        self.output_proj = nn.Conv2d(hidden_channels, out_channels * C, kernel_size=1)
+        if self.output_mode == "amp_phase":
+            self.output_amp = nn.Conv2d(hidden_channels, C, kernel_size=1)
+            self.output_phase = nn.Conv2d(hidden_channels, C, kernel_size=1)
+        else:
+            self.output_proj = nn.Conv2d(hidden_channels, out_channels * C, kernel_size=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (B, C, N, N) where C = gridsize^2
@@ -246,12 +253,15 @@ class HybridUNOGenerator(nn.Module):
             x = block(x)
 
         # Output
-        x = self.output_proj(x)
+        if self.output_mode == "amp_phase":
+            amp = torch.sigmoid(self.output_amp(x))
+            phase = math.pi * torch.tanh(self.output_phase(x))
+            return amp, phase
 
+        x = self.output_proj(x)
         # Reshape to (B, N, N, C, 2)
         x = x.view(B, 2, self.C, H, W)
         x = x.permute(0, 3, 4, 2, 1)  # (B, H, W, C, 2)
-
         return x
 
 
@@ -275,9 +285,11 @@ class CascadedFNOGenerator(nn.Module):
         modes: int = 12,
         C: int = 4,
         input_transform: str = "none",
+        output_mode: str = "real_imag",
     ):
         super().__init__()
         self.C = C
+        self.output_mode = output_mode
 
         # Lifter
         self.lifter = SpatialLifter(
@@ -305,7 +317,11 @@ class CascadedFNOGenerator(nn.Module):
         ])
 
         # Output projection
-        self.output_proj = nn.Conv2d(hidden_channels, out_channels * C, kernel_size=1)
+        if self.output_mode == "amp_phase":
+            self.output_amp = nn.Conv2d(hidden_channels, C, kernel_size=1)
+            self.output_phase = nn.Conv2d(hidden_channels, C, kernel_size=1)
+        else:
+            self.output_proj = nn.Conv2d(hidden_channels, out_channels * C, kernel_size=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, C, H, W = x.shape
@@ -324,12 +340,15 @@ class CascadedFNOGenerator(nn.Module):
         x = self.cnn_refiner(x)
 
         # Output
-        x = self.output_proj(x)
+        if self.output_mode == "amp_phase":
+            amp = torch.sigmoid(self.output_amp(x))
+            phase = math.pi * torch.tanh(self.output_phase(x))
+            return amp, phase
 
+        x = self.output_proj(x)
         # Reshape to (B, N, N, C, 2)
         x = x.view(B, 2, self.C, H, W)
         x = x.permute(0, 3, 4, 2, 1)
-
         return x
 
 
@@ -376,6 +395,8 @@ class HybridGenerator:
         fno_width = getattr(model_config, 'fno_width', 32 * n_filters)
         fno_blocks = getattr(model_config, 'fno_blocks', 4)
         input_transform = getattr(model_config, "fno_input_transform", "none")
+        output_mode = getattr(model_config, "generator_output_mode", "real_imag")
+        generator_mode = "amp_phase" if output_mode == "amp_phase" else "real_imag"
 
         # Build core generator module
         core = HybridUNOGenerator(
@@ -386,6 +407,7 @@ class HybridGenerator:
             modes=fno_modes,
             C=C,
             input_transform=input_transform,
+            output_mode=generator_mode,
         )
 
         # Wrap in Lightning module with physics pipeline
@@ -395,7 +417,7 @@ class HybridGenerator:
             training_config=training_config,
             inference_config=inference_config,
             generator_module=core,
-            generator_output="real_imag",
+            generator_output=output_mode,
         )
 
 
@@ -443,6 +465,8 @@ class FnoGenerator:
         fno_blocks = getattr(model_config, 'fno_blocks', 4)
         fno_cnn_blocks = getattr(model_config, 'fno_cnn_blocks', 2)
         input_transform = getattr(model_config, "fno_input_transform", "none")
+        output_mode = getattr(model_config, "generator_output_mode", "real_imag")
+        generator_mode = "amp_phase" if output_mode == "amp_phase" else "real_imag"
 
         # Build core generator module
         core = CascadedFNOGenerator(
@@ -454,6 +478,7 @@ class FnoGenerator:
             modes=fno_modes,
             C=C,
             input_transform=input_transform,
+            output_mode=generator_mode,
         )
 
         # Wrap in Lightning module with physics pipeline
@@ -463,5 +488,5 @@ class FnoGenerator:
             training_config=training_config,
             inference_config=inference_config,
             generator_module=core,
-            generator_output="real_imag",
+            generator_output=output_mode,
         )
