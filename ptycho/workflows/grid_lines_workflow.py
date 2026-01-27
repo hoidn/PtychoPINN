@@ -443,9 +443,10 @@ def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
     metrics_path = cfg.output_dir / "metrics.json"
     metrics_path.write_text(json.dumps(metrics_payload, indent=2, default=str))
 
-    # Comparison PNG
-    gt_amp_2d = np.abs(YY_gt[0, :, :]) if YY_gt.ndim >= 3 else np.abs(YY_gt)
-    gt_phase_2d = np.angle(YY_gt[0, :, :]) if YY_gt.ndim >= 3 else np.angle(YY_gt)
+    # Comparison PNG - squeeze any singleton dims from GT
+    gt_squeezed = np.squeeze(YY_gt)
+    gt_amp_2d = np.abs(gt_squeezed)
+    gt_phase_2d = np.angle(gt_squeezed)
     pinn_amp_2d = pinn_amp[0, :, :, 0]
     pinn_phase_2d = pinn_phase[0, :, :, 0]
     base_amp_2d = base_amp[0, :, :, 0]
