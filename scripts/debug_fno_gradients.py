@@ -1,60 +1,49 @@
+import argparse
+import json
+from pathlib import Path
+
 import torch
+
+from ptycho.log_config import setup_logging
 from ptycho_torch.generators.fno import PtychoBlock
 
 
-def debug_gradients():
-    B, H, W, dim = 4, 64, 64, 32
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="FNO gradient diagnostic")
+    parser.add_argument("--output", required=True, help="Output directory")
+    parser.add_argument("--channels", type=int, default=32)
+    parser.add_argument("--modes", type=int, default=12)
+    parser.add_argument("--seed", type=int, default=0)
+    return parser.parse_args()
 
-    print(f"--- Debugging FNO Gradients (Hidden Dim={dim}) ---")
-    block = PtychoBlock(channels=dim, modes=12)
 
-    if hasattr(block.spectral, "weights"):
-        spec_w = block.spectral.weights
-        print(
-            "Spectral Weights: mean={:.6f}, std={:.6f}, abs_mean={:.6f}".format(
-                spec_w.mean().item(),
-                spec_w.std().item(),
-                spec_w.abs().mean().item(),
-            )
-        )
+def main() -> int:
+    args = parse_args()
+    out_dir = Path(args.output)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    setup_logging(out_dir)
 
-    local_w = block.local_conv.weight
-    print(
-        "Local Conv Weights: mean={:.6f}, std={:.6f}".format(
-            local_w.mean().item(),
-            local_w.std().item(),
-        )
-    )
+    torch.manual_seed(args.seed)
+    block = PtychoBlock(channels=args.channels, modes=args.modes)
+    block.train()
 
-    x = torch.randn(B, dim, H, W, requires_grad=True)
+    x = torch.randn(2, args.channels, 32, 32, requires_grad=True)
     y = block(x)
-    loss = y.mean()
+    loss = y.abs().mean()
     loss.backward()
 
-    print("\nGradients:")
-    if hasattr(block.spectral, "weights"):
-        spec_grad = block.spectral.weights.grad
-        print(
-            "Spectral Grad: mean={:.6f}, std={:.6f}, max={:.6f}".format(
-                spec_grad.abs().mean().item(),
-                spec_grad.std().item(),
-                spec_grad.abs().max().item(),
-            )
-        )
+    spectral_grad = block.spectral.weights.grad.abs().mean().item()
+    local_grad = block.local_conv.weight.grad.abs().mean().item()
+    ratio = spectral_grad / local_grad if local_grad else None
 
-    local_grad = block.local_conv.weight.grad
-    print(
-        "Local Conv Grad: mean={:.6f}, std={:.6f}, max={:.6f}".format(
-            local_grad.abs().mean().item(),
-            local_grad.std().item(),
-            local_grad.abs().max().item(),
-        )
-    )
-
-    if hasattr(block.spectral, "weights"):
-        ratio = local_grad.abs().mean() / (spec_grad.abs().mean() + 1e-9)
-        print(f"\nRatio (Local/Spectral Grad Magnitude): {ratio.item():.2f}")
+    report = {
+        "spectral_grad_mean": spectral_grad,
+        "local_grad_mean": local_grad,
+        "spectral_local_ratio": ratio,
+    }
+    (out_dir / "gradient_report.json").write_text(json.dumps(report, indent=2))
+    return 0
 
 
 if __name__ == "__main__":
-    debug_gradients()
+    raise SystemExit(main())

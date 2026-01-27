@@ -44,6 +44,7 @@ Fast, focused tests that validate individual components and functions in isolati
   - `test_misc.py` - Tests utility functions
   - `test_model_manager.py` - Tests model management functionality
   - `test_tf_helper.py` - Tests TensorFlow helper functions
+  - `tests/torch/test_debug_fno_gradients.py` - Smoke test for the FNO gradient diagnostic script
   - `tests/torch/test_loss_units.py` - Validates Poisson/MAE loss unit contracts in PyTorch
 - **Execution time:** Typically < 1 second per test
 - **Dependencies:** Minimal, often using mocks or small test fixtures
