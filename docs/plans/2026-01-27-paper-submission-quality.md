@@ -1,5 +1,7 @@
 # Paper Submission Quality Implementation Plan
 
+**Status:** COMPLETE (2026-01-27)
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Regenerate SIM-LINES-4X metrics with the new grid-lines workflow, update the paper table/provenance, and clean up benchmark artifacts while keeping the throughput claim predict-only.
@@ -231,9 +233,31 @@ git commit -m "docs(paper): refresh SIM-LINES-4X metrics table"
 
 ---
 
-Plan complete and saved to `docs/plans/2026-01-27-paper-submission-quality.md`. Two execution options:
+---
 
-1. Subagent-Driven (this session) — I dispatch a fresh subagent per task, review between tasks, fast iteration  
-2. Parallel Session (separate) — Open new session with executing-plans, batch execution with checkpoints
+## Execution Summary
 
-Which approach?  
+**Executed:** 2026-01-27
+
+**Tasks completed:**
+- [x] Task 1: Confirm SIM-LINES-4X regeneration parameters
+- [x] Task 2: Run grid-lines workflow for four cases
+- [x] Task 3: Update paper/data/sim_lines_4x_metrics.json
+- [x] Task 4: Regenerate the LaTeX table
+- [x] Task 5: Update provenance notes
+- [x] Task 6: Clean up temporary benchmark artifacts
+- [x] Task 7: Sanity check (commit pending user decision)
+
+**Artifacts generated:**
+- `.artifacts/sim_lines_4x_metrics_2026-01-27/gs1_ideal/metrics.json`
+- `.artifacts/sim_lines_4x_metrics_2026-01-27/gs1_custom/metrics.json`
+- `.artifacts/sim_lines_4x_metrics_2026-01-27/gs2_ideal/metrics.json`
+- `.artifacts/sim_lines_4x_metrics_2026-01-27/gs2_custom/metrics.json`
+
+**Key results (PINN amplitude SSIM):**
+| Case | SSIM | PSNR | MAE |
+|------|------|------|-----|
+| gs1_ideal | 0.913 | 69.14 | 0.069 |
+| gs1_custom | 0.904 | 68.89 | 0.072 |
+| gs2_ideal | 0.943 | 70.52 | 0.058 |
+| gs2_custom | 0.968 | 73.03 | 0.040 |
