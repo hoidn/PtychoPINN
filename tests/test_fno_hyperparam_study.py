@@ -28,3 +28,14 @@ def test_sweep_writes_csv(monkeypatch, tmp_path):
     assert len(rows) > 0
     assert 'ssim_phase' in rows[0]
     assert 'model_params' in rows[0]
+
+
+def test_write_pareto_plot(tmp_path):
+    from scripts.studies.fno_hyperparam_study import write_pareto_plot
+
+    results = [
+        {"model_params": 1000, "ssim_phase": 0.9, "fno_input_transform": "none"},
+        {"model_params": 2000, "ssim_phase": 0.92, "fno_input_transform": "sqrt"},
+    ]
+    plot_path = write_pareto_plot(results, tmp_path)
+    assert plot_path.exists()

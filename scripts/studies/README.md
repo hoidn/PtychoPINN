@@ -107,6 +107,24 @@ Analysis script that processes results from multiple training runs and generates
 python scripts/studies/aggregate_and_plot_results.py <study_output_dir> [--output-plot results.png]
 ```
 
+### `fno_hyperparam_study.py`
+Hyperparameter sweep for FNO/Hybrid configurations using the cached grid-lines dataset.
+
+**Purpose:** Iterates over a fixed grid of FNO/Hybrid settings (input transform, modes, width) and reports phase quality vs. parameter count/inference time.
+
+**Usage:**
+```bash
+# Light sweep (quick validation)
+python scripts/studies/fno_hyperparam_study.py --output-dir outputs/fno_hyperparam_study --epochs 1 --light
+
+# Full sweep
+python scripts/studies/fno_hyperparam_study.py --output-dir outputs/fno_hyperparam_study --epochs 20
+```
+
+**Outputs:**
+- `outputs/fno_hyperparam_study/study_results.csv`
+- `outputs/fno_hyperparam_study/pareto_plot.png`
+
 ## Workflow Modes
 
 The generalization study script supports two primary modes:

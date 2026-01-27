@@ -137,7 +137,51 @@ def run_sweep(
         writer.writeheader()
         writer.writerows(results)
 
+    if results:
+        write_pareto_plot(results, output_dir)
+
     return csv_path
+
+
+def write_pareto_plot(results: List[Dict[str, Any]], output_dir: Path) -> Path:
+    import matplotlib.pyplot as plt
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    fig, ax = plt.subplots(figsize=(6, 4))
+
+    grouped: Dict[str, List[Tuple[float, float]]] = {}
+    for row in results:
+        x = row.get("model_params")
+        y = row.get("ssim_phase")
+        if x is None or y is None:
+            continue
+        try:
+            x_val = float(x)
+            y_val = float(y)
+        except (TypeError, ValueError):
+            continue
+        label = row.get("fno_input_transform", "unknown")
+        grouped.setdefault(str(label), []).append((x_val, y_val))
+
+    for label, points in grouped.items():
+        xs = [p[0] for p in points]
+        ys = [p[1] for p in points]
+        ax.scatter(xs, ys, label=label)
+
+    ax.set_xscale("log")
+    ax.set_xlabel("Trainable parameters")
+    ax.set_ylabel("Phase SSIM")
+    if grouped:
+        ax.legend(loc="best", fontsize="small")
+    else:
+        ax.text(0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes)
+
+    out_path = output_dir / "pareto_plot.png"
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+    return out_path
 
 
 def parse_args(argv=None):
