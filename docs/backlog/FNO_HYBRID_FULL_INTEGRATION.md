@@ -1,7 +1,7 @@
 # FNO/Hybrid Full Pipeline Integration
 
 **Created:** 2026-01-27
-**Status:** Open
+**Status:** Open (revalidated 2026-01-27)
 **Priority:** High
 **Related:** `ptycho_torch/generators/fno.py`, `ptycho_torch/model.py`, `ptycho_torch/workflows/components.py`
 **Depends on:** FNO_HYBRID_TESTING_GAPS.md (completed 2026-01-27)
@@ -9,6 +9,12 @@
 ## Summary
 
 The FNO and Hybrid U-NO generators have unit tests and basic integration tests, but are **not yet integrated** with the full `PtychoPINN_Lightning` training pipeline. This blocks performance comparison against PINN/CNN baseline and production use for reconstruction.
+
+## Revalidation Notes (2026-01-27)
+
+- `PtychoPINN_Lightning` still builds the legacy CNN path directly and does not select generators via the registry.
+- There is still no Lightning-side adapter for FNO/Hybrid input/output layout differences.
+- The standalone `grid_lines_torch_runner.py` path remains separate from the Lightning/physics pipeline.
 
 ## Current State (after FNO_HYBRID_TESTING_GAPS work)
 
