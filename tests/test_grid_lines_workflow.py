@@ -10,6 +10,7 @@ from pathlib import Path
 from ptycho.workflows.grid_lines_workflow import (
     GridLinesConfig,
     scale_probe,
+    dataset_out_dir,
 )
 
 
@@ -36,3 +37,21 @@ class TestProbeHelpers:
         probe = (np.ones((4, 6)) + 1j * np.ones((4, 6))).astype(np.complex64)
         with pytest.raises(ValueError, match="probe must be square"):
             scale_probe(probe, target_N=8, smoothing_sigma=0.5)
+
+
+class TestDatasetPersistence:
+    """Tests for simulation and dataset persistence helpers (Task 3)."""
+
+    def test_dataset_out_dir_layout(self, tmp_path: Path):
+        """dataset_out_dir should produce correct path hierarchy."""
+        cfg = GridLinesConfig(
+            N=64, gridsize=2, output_dir=tmp_path, probe_npz=Path("probe.npz")
+        )
+        assert dataset_out_dir(cfg) == tmp_path / "datasets" / "N64" / "gs2"
+
+    def test_dataset_out_dir_gridsize1(self, tmp_path: Path):
+        """dataset_out_dir should handle gridsize=1."""
+        cfg = GridLinesConfig(
+            N=128, gridsize=1, output_dir=tmp_path, probe_npz=Path("probe.npz")
+        )
+        assert dataset_out_dir(cfg) == tmp_path / "datasets" / "N128" / "gs1"

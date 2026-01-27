@@ -74,6 +74,125 @@ def scale_probe(probe: np.ndarray, target_N: int, smoothing_sigma: float) -> np.
     return probe.astype(np.complex64)
 
 
+# ---------------------------------------------------------------------------
+# Simulation + Dataset Persistence (Task 3)
+# ---------------------------------------------------------------------------
+
+
+def configure_legacy_params(cfg: GridLinesConfig, probe_np: np.ndarray) -> TrainingConfig:
+    """Configure legacy params.cfg and return a TrainingConfig.
+
+    Must be called before generate_data() to set up legacy global state.
+    """
+    from ptycho import probe as probe_mod
+
+    config = TrainingConfig(
+        model=ModelConfig(N=cfg.N, gridsize=cfg.gridsize),
+        nphotons=cfg.nphotons,
+        nepochs=cfg.nepochs,
+        batch_size=cfg.batch_size,
+        nll_weight=cfg.nll_weight,
+        mae_weight=cfg.mae_weight,
+        realspace_weight=cfg.realspace_weight,
+    )
+    update_legacy_dict(p.cfg, config)
+    p.set("data_source", "lines")
+    p.set("size", cfg.size)
+    p.set("offset", cfg.offset)
+    p.set("outer_offset_train", cfg.outer_offset_train)
+    p.set("outer_offset_test", cfg.outer_offset_test)
+    p.set("nimgs_train", cfg.nimgs_train)
+    p.set("nimgs_test", cfg.nimgs_test)
+    p.set("nphotons", cfg.nphotons)
+    p.set("sim_jitter_scale", 0.0)
+    probe_mod.set_probe_guess(probe_guess=probe_np)
+    return config
+
+
+def simulate_grid_data(cfg: GridLinesConfig, probe_np: np.ndarray) -> Dict[str, Any]:
+    """Run simulation via data_preprocessing.generate_data and return split data."""
+    from ptycho import data_preprocessing
+
+    configure_legacy_params(cfg, probe_np)
+    (
+        X_tr, YI_tr, Yphi_tr,
+        X_te, YI_te, Yphi_te,
+        YY_gt, dataset, YY_full, norm_Y_I
+    ) = data_preprocessing.generate_data()
+
+    return {
+        "train": {
+            "X": X_tr,
+            "Y_I": YI_tr,
+            "Y_phi": Yphi_tr,
+            "coords_nominal": dataset.train_data.coords_nominal,
+            "coords_true": dataset.train_data.coords_true,
+            "YY_full": dataset.train_data.YY_full,
+            "container": dataset.train_data,
+        },
+        "test": {
+            "X": X_te,
+            "Y_I": YI_te,
+            "Y_phi": Yphi_te,
+            "coords_nominal": dataset.test_data.coords_nominal,
+            "coords_true": dataset.test_data.coords_true,
+            "YY_full": dataset.test_data.YY_full,
+            "YY_ground_truth": YY_gt,
+            "norm_Y_I": norm_Y_I,
+            "container": dataset.test_data,
+        },
+        "intensity_scale": p.get("intensity_scale"),
+    }
+
+
+def dataset_out_dir(cfg: GridLinesConfig) -> Path:
+    """Return output directory for dataset NPZ files."""
+    return cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+
+
+def save_split_npz(
+    cfg: GridLinesConfig,
+    split: str,
+    data: Dict[str, Any],
+    config: TrainingConfig
+) -> Path:
+    """Save train or test split as NPZ with metadata."""
+    from ptycho.metadata import MetadataManager
+
+    out_dir = dataset_out_dir(cfg)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / f"{split}.npz"
+
+    payload = {
+        "diffraction": data["X"],
+        "Y_I": data["Y_I"],
+        "Y_phi": data["Y_phi"],
+        "coords_nominal": data["coords_nominal"],
+        "coords_true": data["coords_true"],
+        "YY_full": data["YY_full"],
+    }
+    if data.get("probeGuess") is not None:
+        payload["probeGuess"] = data["probeGuess"]
+    if split == "test":
+        if data.get("YY_ground_truth") is not None:
+            payload["YY_ground_truth"] = data["YY_ground_truth"]
+        if data.get("norm_Y_I") is not None:
+            payload["norm_Y_I"] = np.array(data["norm_Y_I"])
+
+    metadata = MetadataManager.create_metadata(
+        config,
+        script_name="grid_lines_workflow",
+        size=cfg.size,
+        offset=cfg.offset,
+        outer_offset_train=cfg.outer_offset_train,
+        outer_offset_test=cfg.outer_offset_test,
+        nimgs_train=cfg.nimgs_train,
+        nimgs_test=cfg.nimgs_test,
+    )
+    MetadataManager.save_with_metadata(str(path), payload, metadata)
+    return path
+
+
 def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
     """Orchestrate probe prep → sim → train → infer → stitch → metrics."""
     raise NotImplementedError
