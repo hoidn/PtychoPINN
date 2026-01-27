@@ -86,8 +86,13 @@ class TorchRunnerConfig:
     epochs: int = 50
     batch_size: int = 16
     learning_rate: float = 1e-3
+    infer_batch_size: int = 16
     N: int = 64
     gridsize: int = 1
+    fno_modes: int = 12
+    fno_width: int = 32
+    fno_blocks: int = 4
+    fno_cnn_blocks: int = 2
 
 
 def load_cached_dataset(npz_path: Path) -> Dict[str, np.ndarray]:
@@ -127,6 +132,10 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         N=N_literal,
         gridsize=cfg.gridsize,
         architecture=arch_literal,
+        fno_modes=cfg.fno_modes,
+        fno_width=cfg.fno_width,
+        fno_blocks=cfg.fno_blocks,
+        fno_cnn_blocks=cfg.fno_cnn_blocks,
     )
 
     training_config = TrainingConfig(
@@ -205,6 +214,10 @@ def run_torch_training(
     )
     pt_model = PTModelConfig(
         architecture=cfg.architecture,  # type: ignore[arg-type]
+        fno_modes=cfg.fno_modes,
+        fno_width=cfg.fno_width,
+        fno_blocks=cfg.fno_blocks,
+        fno_cnn_blocks=cfg.fno_cnn_blocks,
     )
     pt_train = PTTrainingConfig(
         epochs=cfg.epochs,
@@ -242,28 +255,75 @@ def run_torch_inference(
         Reconstructed complex object predictions
 
     Note:
-        FNO and Hybrid architectures receive only X (diffraction patterns) as input.
-        CNN architectures may also receive coords for position encoding.
-        See docs/plans/2026-01-27-fno-hybrid-testing-gaps-addendum.md Task 2.
+        Use Lightning forward_predict signature: (x, positions, probe, input_scale_factor).
+        Inference is batched to avoid GPU OOM on dense datasets.
     """
     import torch
 
-    # Prepare test input
-    X_test = torch.from_numpy(test_data['diffraction']).float()
-
-    # Run inference
-    model.eval()
-    with torch.no_grad():
-        # FNO and Hybrid architectures don't use coords - pass X only
-        # CNN architectures may use coords for position encoding, but for now
-        # we use a unified single-input interface for all architectures
-        if cfg.architecture in ('fno', 'hybrid'):
-            predictions = model(X_test)
+    def _normalize_coords(coords: Optional[np.ndarray], n_samples: int, channels: int) -> np.ndarray:
+        if coords is None:
+            return np.zeros((n_samples, channels, 1, 2), dtype=np.float32)
+        coords_np = np.asarray(coords)
+        if coords_np.ndim == 2 and coords_np.shape[1] == 2:
+            if coords_np.shape[0] == n_samples * channels:
+                coords_np = coords_np.reshape(n_samples, channels, 2)
+            elif coords_np.shape[0] == n_samples:
+                coords_np = np.repeat(coords_np[:, None, :], channels, axis=1)
+            else:
+                coords_np = np.zeros((n_samples, channels, 2), dtype=np.float32)
+            coords_np = coords_np[:, :, None, :]
+        elif coords_np.ndim == 3 and coords_np.shape[2] == 2:
+            if coords_np.shape[1] != channels:
+                coords_np = coords_np[:, :channels, :]
+            coords_np = coords_np[:, :, None, :]
+        elif coords_np.ndim == 4:
+            if coords_np.shape[1] == 1 and coords_np.shape[2] == 2:
+                coords_np = np.transpose(coords_np, (0, 3, 1, 2))
+            elif coords_np.shape[2] == 1 and coords_np.shape[3] == 2:
+                coords_np = coords_np
+            else:
+                coords_np = np.zeros((n_samples, channels, 1, 2), dtype=np.float32)
         else:
-            # CNN may use coords (legacy behavior)
-            coords = torch.from_numpy(test_data['coords_nominal']).float()
-            predictions = model(X_test, coords)
+            coords_np = np.zeros((n_samples, channels, 1, 2), dtype=np.float32)
+        return coords_np.astype(np.float32)
 
+    if model is None:
+        raise ValueError("Model is required for inference")
+
+    X_np = np.asarray(test_data['diffraction'])
+    if X_np.ndim == 3:
+        X_np = X_np[..., np.newaxis]
+    if X_np.ndim == 4 and X_np.shape[1] <= 8 and X_np.shape[-1] > 8:
+        X_np = np.transpose(X_np, (0, 2, 3, 1))
+
+    n_samples = X_np.shape[0]
+    channels = X_np.shape[-1]
+    coords_np = _normalize_coords(test_data.get('coords_nominal'), n_samples, channels)
+    probe_np = test_data.get('probeGuess')
+    if probe_np is None:
+        probe_np = np.ones((cfg.N, cfg.N), dtype=np.complex64)
+
+    X_test = torch.from_numpy(X_np).float().permute(0, 3, 1, 2)
+    coords_test = torch.from_numpy(coords_np).float()
+    probe_test = torch.from_numpy(probe_np).to(torch.complex64)
+
+    model.eval()
+    device = next(model.parameters()).device if hasattr(model, "parameters") else torch.device("cpu")
+    target_model = model.module if isinstance(model, torch.nn.DataParallel) else model
+    preds = []
+    batch_size = max(1, cfg.infer_batch_size)
+
+    with torch.no_grad():
+        for start in range(0, n_samples, batch_size):
+            end = min(start + batch_size, n_samples)
+            x_batch = X_test[start:end].to(device)
+            coords_batch = coords_test[start:end].to(device)
+            scale_batch = torch.ones((end - start, 1, 1, 1), device=device, dtype=torch.float32)
+            probe_batch = probe_test.to(device)
+            batch_pred = target_model.forward_predict(x_batch, coords_batch, probe_batch, scale_batch)
+            preds.append(batch_pred.detach().cpu())
+
+    predictions = torch.cat(preds, dim=0)
     return predictions.numpy()
 
 
@@ -404,6 +464,16 @@ def main() -> None:
                         help="Training batch size")
     parser.add_argument("--learning-rate", type=float, default=1e-3,
                         help="Learning rate")
+    parser.add_argument("--infer-batch-size", type=int, default=16,
+                        help="Inference batch size (OOM guard)")
+    parser.add_argument("--fno-modes", type=int, default=12,
+                        help="FNO spectral modes")
+    parser.add_argument("--fno-width", type=int, default=32,
+                        help="FNO hidden width")
+    parser.add_argument("--fno-blocks", type=int, default=4,
+                        help="FNO spectral block count")
+    parser.add_argument("--fno-cnn-blocks", type=int, default=2,
+                        help="FNO CNN refiner block count")
     parser.add_argument("--N", type=int, default=64,
                         help="Patch size N")
     parser.add_argument("--gridsize", type=int, default=1,
@@ -422,8 +492,13 @@ def main() -> None:
         epochs=args.epochs,
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,
+        infer_batch_size=args.infer_batch_size,
         N=args.N,
         gridsize=args.gridsize,
+        fno_modes=args.fno_modes,
+        fno_width=args.fno_width,
+        fno_blocks=args.fno_blocks,
+        fno_cnn_blocks=args.fno_cnn_blocks,
     )
 
     result = run_grid_lines_torch(cfg)

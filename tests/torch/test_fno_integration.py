@@ -26,6 +26,30 @@ def test_pinn_uses_fno_generator_when_selected():
     assert model.generator is not None
 
 
+def test_fno_hyperparams_propagate_to_generator():
+    """Verify FNO hyperparameters flow into generator construction."""
+    from ptycho_torch.config_params import ModelConfig, DataConfig, TrainingConfig
+    from ptycho_torch.model import PtychoPINN
+
+    cfg = ModelConfig(
+        architecture="fno",
+        fno_modes=6,
+        fno_width=16,
+        fno_blocks=3,
+        fno_cnn_blocks=1,
+    )
+    data_cfg = DataConfig(C=1, grid_size=(1, 1), N=64)
+    train_cfg = TrainingConfig()
+
+    model = PtychoPINN(cfg, data_cfg, train_cfg)
+    generator = model.generator
+    assert generator is not None
+    assert len(generator.fno_blocks) == 3
+    assert len(generator.cnn_refiner) == 1
+    assert generator.fno_blocks[0].modes == 6
+    assert generator.lifter.conv1.out_channels == 16
+
+
 @pytest.mark.slow
 def test_fno_generator_forward_pass():
     """Verify FNO generator produces valid output shape and gradients."""

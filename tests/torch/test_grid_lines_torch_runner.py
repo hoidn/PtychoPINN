@@ -280,12 +280,8 @@ class TestArchitecturePropagation:
 class TestForwardSignatureEnforcement:
     """Tests for FNO/Hybrid forward signature enforcement."""
 
-    def test_fno_inference_uses_single_input(self, synthetic_npz, tmp_path, monkeypatch):
-        """Test that FNO/Hybrid inference calls model with X only (no coords).
-
-        FNO and Hybrid architectures don't require coordinate inputs, unlike
-        CNN architectures which may use them for position encoding.
-        """
+    def test_fno_inference_uses_forward_predict(self, synthetic_npz, tmp_path):
+        """Test that FNO/Hybrid inference calls forward_predict with full signature."""
         from scripts.studies.grid_lines_torch_runner import run_torch_inference
         import torch
 
@@ -297,34 +293,32 @@ class TestForwardSignatureEnforcement:
             architecture="fno",
         )
 
-        # Track what arguments the model receives
-        call_args = []
-
         class SpyModel:
             """Model that tracks call arguments."""
             def eval(self):
                 return self
 
-            def __call__(self, *args, **kwargs):
-                call_args.append({'args': args, 'kwargs': kwargs})
-                # Return dummy output matching expected shape
-                batch_size = args[0].shape[0] if len(args) > 0 else 1
-                return torch.zeros(batch_size, 64, 64, dtype=torch.float32)
+            def __init__(self):
+                self.calls = []
+
+            def forward_predict(self, x, positions, probe, input_scale_factor):
+                self.calls.append((x, positions, probe, input_scale_factor))
+                batch_size = x.shape[0]
+                return torch.zeros(batch_size, x.shape[2], x.shape[3], dtype=torch.complex64)
 
         # Load test data
         test_data = dict(np.load(test_path, allow_pickle=True))
 
         # Run inference with spy model
         spy_model = SpyModel()
-        predictions = run_torch_inference(spy_model, test_data, cfg)
+        _ = run_torch_inference(spy_model, test_data, cfg)
 
-        # FNO/Hybrid should be called with X only (single positional arg)
-        assert len(call_args) > 0, "Model was never called"
-        for call in call_args:
-            assert len(call['args']) == 1, (
-                f"FNO/Hybrid model should receive 1 arg (X), got {len(call['args'])} args. "
-                "Coords should not be passed to FNO/Hybrid architectures."
-            )
+        assert spy_model.calls, "forward_predict was never called"
+        for x, positions, probe, input_scale_factor in spy_model.calls:
+            assert x.ndim == 4
+            assert positions.ndim == 4
+            assert probe is not None
+            assert input_scale_factor.shape[-3:] == (1, 1, 1)
 
 
 class TestOutputContractConversion:

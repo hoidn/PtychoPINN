@@ -910,10 +910,25 @@ class PtychoPINN(nn.Module):
 
         if resolved_generator is None and self.model_config.architecture in ("fno", "hybrid"):
             from ptycho_torch.generators.fno import CascadedFNOGenerator, HybridUNOGenerator
+            fno_modes = getattr(self.model_config, "fno_modes", 12)
+            fno_width = getattr(self.model_config, "fno_width", 32)
+            fno_blocks = getattr(self.model_config, "fno_blocks", 4)
+            fno_cnn_blocks = getattr(self.model_config, "fno_cnn_blocks", 2)
             if self.model_config.architecture == "fno":
-                resolved_generator = CascadedFNOGenerator(C=data_config.C)
+                resolved_generator = CascadedFNOGenerator(
+                    hidden_channels=fno_width,
+                    fno_blocks=fno_blocks,
+                    cnn_blocks=fno_cnn_blocks,
+                    modes=fno_modes,
+                    C=data_config.C,
+                )
             else:
-                resolved_generator = HybridUNOGenerator(C=data_config.C)
+                resolved_generator = HybridUNOGenerator(
+                    hidden_channels=fno_width,
+                    n_blocks=fno_blocks,
+                    modes=fno_modes,
+                    C=data_config.C,
+                )
             resolved_generator_output = "real_imag"
 
         self.generator = resolved_generator

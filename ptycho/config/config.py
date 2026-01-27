@@ -97,6 +97,10 @@ class ModelConfig:
     n_filters_scale: int = 2
     model_type: Literal['pinn', 'supervised'] = 'pinn'
     architecture: Literal['cnn', 'fno', 'hybrid'] = 'cnn'
+    fno_modes: int = 12
+    fno_width: int = 32
+    fno_blocks: int = 4
+    fno_cnn_blocks: int = 2
     amp_activation: Literal['sigmoid', 'swish', 'softplus', 'relu'] = 'sigmoid'
     object_big: bool = True
     probe_big: bool = True  # Changed default

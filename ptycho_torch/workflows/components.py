@@ -750,10 +750,6 @@ def _train_with_lightning(
         'n_groups': config.n_groups,  # Required by factory validation
         'gridsize': config.model.gridsize,
         'architecture': config.model.architecture,
-        'fno_modes': getattr(config.model, 'fno_modes', None),
-        'fno_width': getattr(config.model, 'fno_width', None),
-        'fno_blocks': getattr(config.model, 'fno_blocks', None),
-        'fno_cnn_blocks': getattr(config.model, 'fno_cnn_blocks', None),
         'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
         'amp_activation': config.model.amp_activation,
         'n_filters_scale': config.model.n_filters_scale,
@@ -764,6 +760,10 @@ def _train_with_lightning(
         'subsample_seed': getattr(config, 'subsample_seed', None),
         'torch_loss_mode': getattr(config, 'torch_loss_mode', 'poisson'),
     }
+    for field_name in ('fno_modes', 'fno_width', 'fno_blocks', 'fno_cnn_blocks'):
+        field_val = getattr(config.model, field_name, None)
+        if field_val is not None:
+            factory_overrides[field_name] = field_val
 
     # Create payload with factory-derived PyTorch configs
     payload = create_training_payload(

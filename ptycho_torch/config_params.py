@@ -50,6 +50,10 @@ class ModelConfig:
     #Mode Category
     mode: Literal['Supervised', 'Unsupervised'] = 'Unsupervised' # Training mode, affects all aspects of model
     architecture: Literal['cnn', 'fno', 'hybrid'] = 'cnn'  # Generator architecture selection
+    fno_modes: int = 12
+    fno_width: int = 32
+    fno_blocks: int = 4
+    fno_cnn_blocks: int = 2
 
     #Intensity Parameters
     intensity_scale_trainable: bool = False

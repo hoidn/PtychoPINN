@@ -332,14 +332,17 @@ class HybridGenerator:
         N = getattr(data_config, 'N', 64)
         C = getattr(data_config, 'C', 4)
         n_filters = getattr(model_config, 'n_filters_scale', 2)
+        fno_modes = getattr(model_config, 'fno_modes', min(12, N // 4))
+        fno_width = getattr(model_config, 'fno_width', 32 * n_filters)
+        fno_blocks = getattr(model_config, 'fno_blocks', 4)
 
         # Build core generator module
         core = HybridUNOGenerator(
             in_channels=1,
             out_channels=2,
-            hidden_channels=32 * n_filters,
-            n_blocks=4,
-            modes=min(12, N // 4),
+            hidden_channels=fno_width,
+            n_blocks=fno_blocks,
+            modes=fno_modes,
             C=C,
         )
 
@@ -393,15 +396,19 @@ class FnoGenerator:
         N = getattr(data_config, 'N', 64)
         C = getattr(data_config, 'C', 4)
         n_filters = getattr(model_config, 'n_filters_scale', 2)
+        fno_modes = getattr(model_config, 'fno_modes', min(12, N // 4))
+        fno_width = getattr(model_config, 'fno_width', 32 * n_filters)
+        fno_blocks = getattr(model_config, 'fno_blocks', 4)
+        fno_cnn_blocks = getattr(model_config, 'fno_cnn_blocks', 2)
 
         # Build core generator module
         core = CascadedFNOGenerator(
             in_channels=1,
             out_channels=2,
-            hidden_channels=32 * n_filters,
-            fno_blocks=4,
-            cnn_blocks=2,
-            modes=min(12, N // 4),
+            hidden_channels=fno_width,
+            fno_blocks=fno_blocks,
+            cnn_blocks=fno_cnn_blocks,
+            modes=fno_modes,
             C=C,
         )
 
