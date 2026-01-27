@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 import json
 import numpy as np
 
@@ -395,6 +395,74 @@ def save_comparison_png(
     visuals_dir = cfg.output_dir / "visuals"
     visuals_dir.mkdir(parents=True, exist_ok=True)
     out_path = visuals_dir / "compare_amp_phase.png"
+    plt.savefig(out_path, dpi=150)
+    plt.close(fig)
+    return out_path
+
+
+_LABEL_TITLES = {
+    "pinn": "PINN",
+    "baseline": "Baseline",
+    "pinn_fno": "FNO",
+    "pinn_hybrid": "Hybrid",
+    "gt": "GT",
+}
+
+
+def save_recon_artifact(output_dir: Path, label: str, recon_complex: np.ndarray) -> Path:
+    """Save stitched complex reconstruction as NPZ artifact."""
+    recon_dir = output_dir / "recons" / label
+    recon_dir.mkdir(parents=True, exist_ok=True)
+    recon = np.squeeze(recon_complex)
+    if recon.ndim > 2:
+        recon = recon[0]
+    recon = recon.astype(np.complex64)
+    amp = np.abs(recon)
+    phase = np.angle(recon)
+    path = recon_dir / "recon.npz"
+    np.savez(path, YY_pred=recon, amp=amp, phase=phase)
+    return path
+
+
+def save_comparison_png_dynamic(
+    output_dir: Path,
+    gt_amp: np.ndarray,
+    gt_phase: np.ndarray,
+    recons: Dict[str, Dict[str, np.ndarray]],
+    order: Tuple[str, ...],
+) -> Path:
+    """Save comparison plot with GT plus available model reconstructions."""
+    import matplotlib.pyplot as plt
+
+    labels = [label for label in order if label in recons]
+    ncols = 1 + len(labels)
+    fig, axes = plt.subplots(2, ncols, figsize=(5 * ncols, 8), squeeze=False)
+
+    axes[0, 0].imshow(gt_amp, cmap="viridis")
+    axes[0, 0].set_title("GT Amplitude")
+    axes[0, 0].axis("off")
+
+    axes[1, 0].imshow(gt_phase, cmap="twilight")
+    axes[1, 0].set_title("GT Phase")
+    axes[1, 0].axis("off")
+
+    for idx, label in enumerate(labels, start=1):
+        amp = recons[label]["amp"]
+        phase = recons[label]["phase"]
+        title = _LABEL_TITLES.get(label, label)
+
+        axes[0, idx].imshow(amp, cmap="viridis")
+        axes[0, idx].set_title(f"{title} Amplitude")
+        axes[0, idx].axis("off")
+
+        axes[1, idx].imshow(phase, cmap="twilight")
+        axes[1, idx].set_title(f"{title} Phase")
+        axes[1, idx].axis("off")
+
+    visuals_dir = output_dir / "visuals"
+    visuals_dir.mkdir(parents=True, exist_ok=True)
+    out_path = visuals_dir / "compare_amp_phase.png"
+    plt.tight_layout()
     plt.savefig(out_path, dpi=150)
     plt.close(fig)
     return out_path
