@@ -108,6 +108,19 @@ def run_grid_lines_compare(
             if "metrics" in torch_result:
                 merged[f"pinn_{arch}"] = torch_result["metrics"]
 
+    order = ["gt"]
+    if "cnn" in architectures:
+        order.append("pinn")
+    if "baseline" in architectures:
+        order.append("baseline")
+    if "fno" in architectures:
+        order.append("pinn_fno")
+    if "hybrid" in architectures:
+        order.append("pinn_hybrid")
+
+    from ptycho.workflows.grid_lines_workflow import render_grid_lines_visuals
+    render_grid_lines_visuals(output_dir, order=tuple(order))
+
     metrics_path.write_text(json.dumps(merged, indent=2, default=str))
     return {
         "train_npz": str(train_npz),

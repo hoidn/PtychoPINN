@@ -491,6 +491,11 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
                 test_metadata,
                 norm_Y_I,
             )
+    from ptycho.workflows.grid_lines_workflow import save_recon_artifact
+    recon_target = pred_for_metrics
+    if not np.iscomplexobj(recon_target):
+        recon_target = recon_target.astype(np.complex64)
+    recon_path = save_recon_artifact(cfg.output_dir, f"pinn_{cfg.architecture}", recon_target)
     metrics = compute_metrics(pred_for_metrics, ground_truth, f"pinn_{cfg.architecture}")
 
     # Step 5: Save artifacts
@@ -503,6 +508,7 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
         'run_dir': str(run_dir),
         'metrics': metrics,
         'history': results.get('history', {}),
+        'recon_path': str(recon_path),
     }
 
     # Include complex predictions if conversion was done

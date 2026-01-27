@@ -157,7 +157,7 @@ class TestRunGridLinesTorchScaffold:
 
             # Mock inference to return dummy predictions
             with patch('scripts.studies.grid_lines_torch_runner.run_torch_inference') as mock_infer:
-                mock_infer.return_value = np.random.rand(1, 64, 64).astype(np.complex64)
+                mock_infer.return_value = np.random.rand(64, 64).astype(np.complex64)
 
                 # Mock metrics computation
                 with patch('scripts.studies.grid_lines_torch_runner.compute_metrics') as mock_metrics:
@@ -177,6 +177,36 @@ class TestRunGridLinesTorchScaffold:
         with open(metrics_path) as f:
             saved_metrics = json.load(f)
         assert 'mse' in saved_metrics or 'ssim' in saved_metrics
+
+    def test_runner_writes_recon_artifact(self, synthetic_npz, tmp_path):
+        """Runner should persist recon artifact for visualization."""
+        train_path, test_path = synthetic_npz
+        output_dir = tmp_path / "output"
+
+        cfg = TorchRunnerConfig(
+            train_npz=train_path,
+            test_npz=test_path,
+            output_dir=output_dir,
+            architecture="fno",
+            epochs=1,
+        )
+
+        with patch('scripts.studies.grid_lines_torch_runner.run_torch_training') as mock_train:
+            mock_train.return_value = {
+                'model': None,
+                'history': {},
+                'generator': 'fno',
+                'scaffold': True,
+            }
+            with patch('scripts.studies.grid_lines_torch_runner.run_torch_inference') as mock_infer:
+                mock_infer.return_value = np.random.rand(64, 64).astype(np.complex64)
+                with patch('scripts.studies.grid_lines_torch_runner.compute_metrics') as mock_metrics:
+                    mock_metrics.return_value = {'mse': 0.1}
+                    result = run_grid_lines_torch(cfg)
+
+        recon_path = output_dir / "recons" / "pinn_fno" / "recon.npz"
+        assert recon_path.exists()
+        assert "recon_path" in result
 
     def test_runner_creates_run_directory_structure(self, synthetic_npz, tmp_path):
         """Test runner creates proper directory structure."""

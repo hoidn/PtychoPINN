@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 import json
 import numpy as np
 
@@ -402,6 +402,139 @@ def save_comparison_png(
     return out_path
 
 
+_LABEL_TITLES = {
+    "pinn": "PINN",
+    "baseline": "Baseline",
+    "pinn_fno": "FNO",
+    "pinn_hybrid": "Hybrid",
+    "gt": "GT",
+}
+
+
+def save_recon_artifact(output_dir: Path, label: str, recon_complex: np.ndarray) -> Path:
+    """Save stitched complex reconstruction as NPZ artifact."""
+    recon_dir = output_dir / "recons" / label
+    recon_dir.mkdir(parents=True, exist_ok=True)
+    recon = np.squeeze(recon_complex)
+    if recon.ndim > 2:
+        recon = recon[0]
+    recon = recon.astype(np.complex64)
+    amp = np.abs(recon)
+    phase = np.angle(recon)
+    path = recon_dir / "recon.npz"
+    np.savez(path, YY_pred=recon, amp=amp, phase=phase)
+    return path
+
+
+def save_comparison_png_dynamic(
+    output_dir: Path,
+    gt_amp: np.ndarray,
+    gt_phase: np.ndarray,
+    recons: Dict[str, Dict[str, np.ndarray]],
+    order: Tuple[str, ...],
+) -> Path:
+    """Save comparison plot with GT plus available model reconstructions."""
+    import matplotlib.pyplot as plt
+
+    labels = [label for label in order if label in recons]
+    ncols = 1 + len(labels)
+    fig, axes = plt.subplots(2, ncols, figsize=(5 * ncols, 8), squeeze=False)
+
+    axes[0, 0].imshow(gt_amp, cmap="viridis")
+    axes[0, 0].set_title("GT Amplitude")
+    axes[0, 0].axis("off")
+
+    axes[1, 0].imshow(gt_phase, cmap="twilight")
+    axes[1, 0].set_title("GT Phase")
+    axes[1, 0].axis("off")
+
+    for idx, label in enumerate(labels, start=1):
+        amp = recons[label]["amp"]
+        phase = recons[label]["phase"]
+        title = _LABEL_TITLES.get(label, label)
+
+        axes[0, idx].imshow(amp, cmap="viridis")
+        axes[0, idx].set_title(f"{title} Amplitude")
+        axes[0, idx].axis("off")
+
+        axes[1, idx].imshow(phase, cmap="twilight")
+        axes[1, idx].set_title(f"{title} Phase")
+        axes[1, idx].axis("off")
+
+    visuals_dir = output_dir / "visuals"
+    visuals_dir.mkdir(parents=True, exist_ok=True)
+    out_path = visuals_dir / "compare_amp_phase.png"
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150)
+    plt.close(fig)
+    return out_path
+
+
+def save_amp_phase_png(
+    visuals_dir: Path,
+    label: str,
+    amp: np.ndarray,
+    phase: np.ndarray,
+) -> Path:
+    """Save per-model amplitude/phase visualization."""
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(2, 1, figsize=(6, 8), squeeze=False)
+    title = _LABEL_TITLES.get(label, label)
+
+    axes[0, 0].imshow(amp, cmap="viridis")
+    axes[0, 0].set_title(f"{title} Amplitude")
+    axes[0, 0].axis("off")
+
+    axes[1, 0].imshow(phase, cmap="twilight")
+    axes[1, 0].set_title(f"{title} Phase")
+    axes[1, 0].axis("off")
+
+    out_path = visuals_dir / f"amp_phase_{label}.png"
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150)
+    plt.close(fig)
+    return out_path
+
+
+def render_grid_lines_visuals(output_dir: Path, order: Tuple[str, ...]) -> Dict[str, str]:
+    """Render composite and per-model visuals from recon artifacts."""
+    visuals_dir = output_dir / "visuals"
+    visuals_dir.mkdir(parents=True, exist_ok=True)
+
+    recons: Dict[str, Dict[str, np.ndarray]] = {}
+    per_model_paths: Dict[str, str] = {}
+    for label in order:
+        recon_path = output_dir / "recons" / label / "recon.npz"
+        if not recon_path.exists():
+            continue
+        with np.load(recon_path) as data:
+            if "amp" not in data or "phase" not in data:
+                continue
+            amp = data["amp"]
+            phase = data["phase"]
+        recons[label] = {"amp": amp, "phase": phase}
+        per_model_paths[label] = str(save_amp_phase_png(visuals_dir, label, amp, phase))
+
+    outputs: Dict[str, str] = {}
+    for label, path in per_model_paths.items():
+        outputs[f"amp_phase_{label}"] = path
+
+    gt = recons.get("gt")
+    if gt is None:
+        return outputs
+
+    compare = save_comparison_png_dynamic(
+        output_dir,
+        gt["amp"],
+        gt["phase"],
+        {label: data for label, data in recons.items() if label != "gt"},
+        order=tuple(label for label in order if label != "gt"),
+    )
+    outputs["compare"] = str(compare)
+    return outputs
+
+
 def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
     """Orchestrate probe prep → sim → train → infer → stitch → metrics.
 
@@ -500,20 +633,26 @@ def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
     base_amp_2d = base_amp[0, :, :, 0]
     base_phase_2d = base_phase[0, :, :, 0]
 
-    if pinn_amp is not None:
-        pinn_amp_2d = pinn_amp[0, :, :, 0]
-        pinn_phase_2d = pinn_phase[0, :, :, 0]
-    else:
-        # Use zeros as placeholder when PINN failed
-        pinn_amp_2d = np.zeros_like(gt_amp_2d)
-        pinn_phase_2d = np.zeros_like(gt_phase_2d)
-        print("[7/7] WARNING: PINN visualization shows zeros (inference failed)")
+    save_recon_artifact(cfg.output_dir, "gt", gt_squeezed)
+    save_recon_artifact(cfg.output_dir, "baseline", base_stitched)
+    if pinn_pred is not None:
+        save_recon_artifact(cfg.output_dir, "pinn", pinn_stitched)
 
-    png_path = save_comparison_png(
-        cfg,
-        gt_amp_2d, gt_phase_2d,
-        pinn_amp_2d, pinn_phase_2d,
-        base_amp_2d, base_phase_2d,
+    recons = {
+        "baseline": {"amp": base_amp_2d, "phase": base_phase_2d},
+    }
+    if pinn_amp is not None:
+        recons["pinn"] = {
+            "amp": pinn_amp[0, :, :, 0],
+            "phase": pinn_phase[0, :, :, 0],
+        }
+
+    png_path = save_comparison_png_dynamic(
+        cfg.output_dir,
+        gt_amp_2d,
+        gt_phase_2d,
+        recons,
+        order=("pinn", "baseline"),
     )
 
     print(f"[grid_lines_workflow] Complete. Outputs in {cfg.output_dir}")

@@ -12,6 +12,8 @@ from ptycho.workflows.grid_lines_workflow import (
     scale_probe,
     dataset_out_dir,
     stitch_predictions,
+    save_recon_artifact,
+    save_comparison_png_dynamic,
 )
 from ptycho import params as p
 
@@ -108,3 +110,46 @@ class TestStitching:
         assert stitched.shape[-1] == 1
         # Values should be approximately pi/4 (0.785...)
         assert np.allclose(stitched, np.pi / 4, atol=0.01)
+
+
+class TestReconArtifacts:
+    """Tests for recon artifact helpers."""
+
+    def test_save_recon_artifact_writes_npz(self, tmp_path: Path):
+        """save_recon_artifact should write recon.npz with expected keys."""
+        recon = (np.ones((4, 4)) + 1j * np.ones((4, 4))).astype(np.complex64)
+        path = save_recon_artifact(tmp_path, "pinn", recon)
+        assert path.exists()
+        with np.load(path) as data:
+            assert "YY_pred" in data
+            assert "amp" in data
+            assert "phase" in data
+            assert data["YY_pred"].shape == (4, 4)
+
+    def test_save_comparison_png_dynamic(self, tmp_path: Path):
+        """save_comparison_png_dynamic should create a comparison PNG."""
+        gt_amp = np.ones((4, 4))
+        gt_phase = np.zeros((4, 4))
+        recons = {"pinn": {"amp": np.zeros((4, 4)), "phase": np.zeros((4, 4))}}
+        out = save_comparison_png_dynamic(
+            tmp_path,
+            gt_amp,
+            gt_phase,
+            recons,
+            order=("pinn",),
+        )
+        assert out.exists()
+
+    def test_save_comparison_png_skips_missing(self, tmp_path: Path):
+        """save_comparison_png_dynamic should skip missing labels."""
+        gt_amp = np.ones((4, 4))
+        gt_phase = np.zeros((4, 4))
+        recons = {"baseline": {"amp": np.zeros((4, 4)), "phase": np.zeros((4, 4))}}
+        out = save_comparison_png_dynamic(
+            tmp_path,
+            gt_amp,
+            gt_phase,
+            recons,
+            order=("pinn", "baseline"),
+        )
+        assert out.exists()
