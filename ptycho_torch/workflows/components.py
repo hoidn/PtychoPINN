@@ -768,6 +768,9 @@ def _train_with_lightning(
         field_val = getattr(config.model, field_name, None)
         if field_val is not None:
             factory_overrides[field_name] = field_val
+    generator_output_mode = getattr(config.model, 'generator_output_mode', None)
+    if generator_output_mode is not None:
+        factory_overrides['generator_output_mode'] = generator_output_mode
 
     # Create payload with factory-derived PyTorch configs
     payload = create_training_payload(
