@@ -105,10 +105,30 @@ output_dir/
 Orchestrates TensorFlow grid-lines workflow and Torch FNO/Hybrid runners, then merges metrics.
 
 **Key Torch Options:**
+- `--seed`: Random seed for Torch runs (random if omitted).
 - `--torch-output-mode {real_imag,amp_phase_logits,amp_phase}`: Control how FNO/Hybrid outputs are interpreted.
   - `real_imag` (default): Treat output channels as real/imag.
   - `amp_phase_logits`: Interpret channels as amp/phase logits and apply sigmoid/tanh.
   - `amp_phase`: Use dual-head amp/phase outputs from the generator.
+
+### `grid_lines_torch_runner.py`
+Runs Torch-only training/inference for a single FNO/Hybrid architecture using cached NPZs.
+
+**Usage:**
+```bash
+python scripts/studies/grid_lines_torch_runner.py \
+  --train-npz outputs/.../train.npz \
+  --test-npz outputs/.../test.npz \
+  --output-dir outputs/my_torch_run \
+  --architecture hybrid \
+  --epochs 20 \
+  --output-mode amp_phase_logits
+```
+
+**Key Options:**
+- `--seed`: Random seed (random if omitted).
+- `--output-mode {real_imag,amp_phase_logits,amp_phase}`: Output interpretation mode.
+- `--grad-clip`: Gradient clip max norm (<=0 disables clipping).
 
 ### `aggregate_and_plot_results.py`
 Analysis script that processes results from multiple training runs and generates visualization plots.
