@@ -67,6 +67,12 @@ All other pipeline components remain unchanged.
 - Arch A (Cascaded FNO -> CNN): generator returns real/imag patches (FNO + CNN inside generator).
 - Arch B (Hybrid U-NO): generator returns real/imag patches (integrated model).
 
+## FNO/Hybrid Lifting Layer Decision
+- Use a lightweight, spatially aware lifter: two 3x3 convs with GELU in between (padding "same").
+- Applies to both cascaded FNO (Arch A) and hybrid U-NO (Arch B).
+- Do not use 1x1-only lift (too weak for speckle geometry) or deep 4-6 layer stacks (memory heavy, can blur physics signal).
+- Lifter must precede the first Fourier layer; avoid FFT of raw intensity directly (prevent "double Fourier" trap).
+
 ## Risks and Mitigations
 - Risk: mis-specified output shape. Mitigation: strict output shape checks in generator boundary.
 - Risk: divergence between TF and Torch contracts. Mitigation: shared contract spec and mirrored registries.
@@ -77,4 +83,3 @@ All other pipeline components remain unchanged.
 - Implement generator registry and CNN adapter in both backends.
 - Wire selection in workflow components (TF + Torch).
 - Add minimal tests for registry resolution and output shape checks.
-

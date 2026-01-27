@@ -24,6 +24,12 @@
   - Supervised baseline uses `baseline` (do not alias with `cnn`).
 - Grid-lines workflow is responsible for: dataset cache/manifest, running multiple architectures per call, baseline run, and emitting per-run artifacts + a JSON comparison report.
 
+## FNO/Hybrid Lifter Decision (for future generator plans)
+- Use a lightweight, spatially aware lifter before any Fourier layers: two 3x3 convs with GELU between (padding "same").
+- Applies to both cascaded FNO (Arch A) and hybrid U-NO (Arch B).
+- Avoid 1x1-only lifts (too weak for speckle geometry) and deep 4-6 layer stacks (memory-heavy, dilutes physics signal).
+- Lifter must precede the first Fourier layer; avoid FFT of raw intensity directly.
+
 ---
 
 ### Task 1: Add `model.architecture` to ModelConfig + validation + docs
