@@ -70,6 +70,17 @@ class TestTorchRunnerConfig:
         )
         assert cfg.torch_loss_mode == "mae"
 
+    def test_generator_output_mode_override(self, tmp_path):
+        """Generator output mode should be configurable."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "output",
+            architecture="fno",
+            generator_output_mode="amp_phase_logits",
+        )
+        assert cfg.generator_output_mode == "amp_phase_logits"
+
 
 class TestLoadCachedDataset:
     """Tests for load_cached_dataset function."""

@@ -88,6 +88,7 @@ class TorchRunnerConfig:
     learning_rate: float = 1e-3
     infer_batch_size: int = 16
     gradient_clip_val: Optional[float] = 1.0
+    generator_output_mode: str = "real_imag"
     N: int = 64
     gridsize: int = 1
     torch_loss_mode: str = "mae"
@@ -186,6 +187,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         fno_blocks=cfg.fno_blocks,
         fno_cnn_blocks=cfg.fno_cnn_blocks,
         fno_input_transform=cfg.fno_input_transform,
+        generator_output_mode=cfg.generator_output_mode,
     )
 
     training_config = TrainingConfig(
@@ -571,6 +573,9 @@ def main() -> None:
                         help="Inference batch size (OOM guard)")
     parser.add_argument("--grad-clip", type=float, default=1.0,
                         help="Gradient clipping max norm (<=0 disables clipping)")
+    parser.add_argument("--output-mode", type=str, default="real_imag",
+                        choices=["real_imag", "amp_phase_logits", "amp_phase"],
+                        help="Generator output mode for Torch models")
     parser.add_argument("--log-grad-norm", action="store_true",
                         help="Log gradient norms during training")
     parser.add_argument("--grad-norm-log-freq", type=int, default=1,
@@ -606,6 +611,7 @@ def main() -> None:
         learning_rate=args.learning_rate,
         infer_batch_size=args.infer_batch_size,
         gradient_clip_val=args.grad_clip,
+        generator_output_mode=args.output_mode,
         N=args.N,
         gridsize=args.gridsize,
         torch_loss_mode=args.torch_loss_mode,
