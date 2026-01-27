@@ -17,6 +17,13 @@
   - `tests/study/test_phase_g_dense_orchestrator.py` (multiple failures)
 - Do **not** treat full-suite failures as regressions for this change unless selectors touched by this work fail.
 
+## Alignment Notes (Grid-Lines Harness)
+- Canonical experiment harness: `docs/plans/2026-01-27-grid-lines-workflow.md` (shared dataset, gridsize=1).
+- Generator run labels must distinguish PINN generator vs supervised Baseline:
+  - Generator outputs use `pinn_<arch>` (e.g., `pinn_cnn`, `pinn_fno`).
+  - Supervised baseline uses `baseline` (do not alias with `cnn`).
+- Grid-lines workflow is responsible for: dataset cache/manifest, running multiple architectures per call, baseline run, and emitting per-run artifacts + a JSON comparison report.
+
 ---
 
 ### Task 1: Add `model.architecture` to ModelConfig + validation + docs
@@ -385,7 +392,54 @@ git commit -m "feat: wire generator selection into workflows"
 
 ---
 
-### Task 5: Verification & Evidence
+### Task 5: Add generator README guidance (TF + Torch)
+
+**Files:**
+- Create: `ptycho/generators/README.md`
+- Create: `ptycho_torch/generators/README.md`
+
+**Step 1: Write the README content (TF)**
+
+```markdown
+# TensorFlow Generators
+
+## Adding a Generator
+1. Implement a generator class in `ptycho/generators/<name>.py`
+2. Register it in `ptycho/generators/registry.py`
+3. Ensure output contract: real/imag patches, shape `[B, N, N, C, 2]`
+4. Add tests in `tests/test_generator_registry.py`
+
+## Naming Conventions
+- Generator runs are labeled `pinn_<arch>` in grid-lines outputs.
+- The supervised baseline is labeled `baseline` (never `cnn`).
+```
+
+**Step 2: Write the README content (Torch)**
+
+```markdown
+# PyTorch Generators
+
+## Adding a Generator
+1. Implement a generator class in `ptycho_torch/generators/<name>.py`
+2. Register it in `ptycho_torch/generators/registry.py`
+3. Ensure output contract: real/imag patches, shape `[B, C, N, N, 2]`
+4. Add tests in `tests/torch/test_generator_registry.py`
+
+## Naming Conventions
+- Generator runs are labeled `pinn_<arch>` in grid-lines outputs.
+- The supervised baseline is labeled `baseline` (never `cnn`).
+```
+
+**Step 3: Commit**
+
+```bash
+git add ptycho/generators/README.md ptycho_torch/generators/README.md
+git commit -m "docs: add generator README guidance"
+```
+
+---
+
+### Task 6: Verification & Evidence
 
 **Required tests (per TESTING_GUIDE.md):**
 - Unit tests added/modified in this plan.
