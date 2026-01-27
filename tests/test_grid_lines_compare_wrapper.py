@@ -40,3 +40,15 @@ def test_wrapper_merges_metrics(monkeypatch, tmp_path):
     assert "pinn_fno" in merged
     assert "pinn_hybrid" in merged
     assert "metrics" in result
+
+
+def test_wrapper_accepts_architecture_list(tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import parse_args
+
+    args = parse_args([
+        "--N", "64",
+        "--gridsize", "1",
+        "--output-dir", str(tmp_path),
+        "--architectures", "cnn,fno",
+    ])
+    assert args.architectures == ("cnn", "fno")
