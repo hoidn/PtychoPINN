@@ -1142,5 +1142,49 @@ class TestConfigBridgeParity:
                        f"\n\nDiff saved to: {diff_path}")
 
 
+class TestConfigBridgeArchitecture:
+    """Tests for model.architecture field bridging."""
+
+    def test_config_bridge_architecture_override(self, params_cfg_snapshot):
+        """Test that architecture field can be bridged through config_bridge."""
+        from ptycho_torch.config_params import DataConfig, ModelConfig
+        from ptycho_torch import config_bridge
+
+        pt_data = DataConfig(N=64, grid_size=(1, 1))
+        pt_model = ModelConfig()
+
+        tf_model = config_bridge.to_model_config(
+            pt_data,
+            pt_model,
+            overrides={'architecture': 'cnn'}
+        )
+
+        assert tf_model.architecture == 'cnn'
+
+    def test_config_bridge_architecture_default(self, params_cfg_snapshot):
+        """Test that architecture defaults to 'cnn' when not provided."""
+        from ptycho_torch.config_params import DataConfig, ModelConfig
+        from ptycho_torch import config_bridge
+
+        pt_data = DataConfig(N=64, grid_size=(1, 1))
+        pt_model = ModelConfig()
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+
+        assert tf_model.architecture == 'cnn'
+
+    def test_config_bridge_architecture_from_pt_model(self, params_cfg_snapshot):
+        """Test that architecture is passed through from PyTorch ModelConfig."""
+        from ptycho_torch.config_params import DataConfig, ModelConfig
+        from ptycho_torch import config_bridge
+
+        pt_data = DataConfig(N=64, grid_size=(1, 1))
+        pt_model = ModelConfig(architecture='fno')
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+
+        assert tf_model.architecture == 'fno'
+
+
 if __name__ == '__main__':
     unittest.main()

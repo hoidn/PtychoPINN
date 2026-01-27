@@ -163,6 +163,7 @@ def to_model_config(
         # From ModelConfig
         'n_filters_scale': model.n_filters_scale,
         'model_type': model_type,
+        'architecture': model.architecture,  # Generator architecture (cnn, fno, hybrid)
         'amp_activation': amp_activation,  # Normalized activation
         'object_big': model.object_big,
         'probe_big': model.probe_big,

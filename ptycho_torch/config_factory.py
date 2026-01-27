@@ -215,6 +215,7 @@ def create_training_payload(
     # consistent with the grouping strategy. Fixes ADR-003 C4.D3 coords_relative mismatch.
     pt_model_config = PTModelConfig(
         mode=overrides.get('model_type', 'Unsupervised'),  # Map TF → PT naming
+        architecture=overrides.get('architecture', 'cnn'),  # Generator architecture
         amp_activation=overrides.get('amp_activation', 'silu'),
         n_filters_scale=overrides.get('n_filters_scale', 2),  # PyTorch default
         object_big=overrides.get('object_big', True),
@@ -428,6 +429,7 @@ def create_inference_payload(
     # CRITICAL: Synchronize C_forward and C_model with pt_data_config.C (ADR-003 C4.D3)
     pt_model_config = PTModelConfig(
         mode=overrides.get('model_type', 'Unsupervised'),  # Map TF → PT naming
+        architecture=overrides.get('architecture', 'cnn'),  # Generator architecture
         amp_activation=overrides.get('amp_activation', 'silu'),
         n_filters_scale=overrides.get('n_filters_scale', 2),  # PyTorch default
         object_big=overrides.get('object_big', True),
