@@ -33,7 +33,7 @@
 ## Torch Runner Integration (Mixed Backend)
 - Add a Torch runner CLI (e.g., `scripts/studies/grid_lines_torch_runner.py`) that takes cached train/test NPZs + output_dir.
 - Torch runner trains/infers the requested architecture(s) (`fno`, `hybrid`) and writes artifacts/metrics matching the TF layout.
-- The TF workflow invokes the runner for each non-`cnn` architecture and merges metrics into the combined comparison report.
+- Use `scripts/studies/grid_lines_compare_wrapper.py` as the canonical entry point to run `cnn` + `baseline` (TF) and `fno`/`hybrid` (Torch) and merge metrics into `output_dir/metrics.json`.
 
 ---
 
