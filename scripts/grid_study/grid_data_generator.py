@@ -7,6 +7,7 @@ References:
     - ptycho/diffsim.py::mk_simdata()
     - docs/DATA_GENERATION_GUIDE.md
 """
+import os
 import sys
 from pathlib import Path
 from typing import Tuple, Dict, Any, Optional
@@ -17,6 +18,8 @@ import numpy as np
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
+
+os.environ.setdefault("PTYCHO_MEMOIZE_KEY_MODE", "dataset")
 
 from ptycho import params as p
 from ptycho.diffsim import mk_simdata

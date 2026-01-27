@@ -81,6 +81,10 @@ python scripts/studies/grid_lines_workflow.py \
 - `--nimgs-test`: Number of test object images (default: 2)
 - `--output-dir`: Output directory for all artifacts
 
+**Memoization:**
+- Grid studies default to dataset-only memoization keys (`PTYCHO_MEMOIZE_KEY_MODE=dataset`).
+- Disable memoization for sweeps with `PTYCHO_DISABLE_MEMOIZE=1`.
+
 **Output Structure:**
 ```
 output_dir/

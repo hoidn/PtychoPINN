@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 from dataclasses import asdict
 from pathlib import Path
 from typing import Dict, Any, Iterable, Tuple, List
@@ -75,6 +76,8 @@ def run_sweep(
     nimgs_train: int = 1,
     nimgs_test: int = 1,
 ) -> Path:
+    os.environ.setdefault("PTYCHO_DISABLE_MEMOIZE", "1")
+    os.environ.setdefault("PTYCHO_MEMOIZE_KEY_MODE", "dataset")
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 

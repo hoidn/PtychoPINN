@@ -2,12 +2,14 @@
 """CLI wrapper for grid_lines_workflow."""
 
 import argparse
+import os
 from pathlib import Path
 
 from ptycho.workflows.grid_lines_workflow import GridLinesConfig, run_grid_lines_workflow
 
 
 def main() -> None:
+    os.environ.setdefault("PTYCHO_MEMOIZE_KEY_MODE", "dataset")
     parser = argparse.ArgumentParser()
     parser.add_argument("--N", type=int, required=True, choices=[64, 128])
     parser.add_argument("--gridsize", type=int, required=True, choices=[1, 2])

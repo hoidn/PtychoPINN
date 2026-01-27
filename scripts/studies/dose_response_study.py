@@ -26,6 +26,7 @@ References:
 """
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple, List
@@ -35,6 +36,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 import tensorflow as tf
+
+# Ensure grid-style simulations use dataset-only memoization keys.
+os.environ.setdefault("PTYCHO_MEMOIZE_KEY_MODE", "dataset")
 
 # Configure logging
 logging.basicConfig(

@@ -87,6 +87,15 @@ Each workflow creates its own output directory:
 
 **Management:** Safe to delete; regenerated automatically
 
+### Memoization Controls
+
+PtychoPINN also uses disk memoization for expensive grid simulations (e.g., `diffsim.mk_simdata`).
+The cache is safe to delete and will be regenerated as needed.
+
+**Environment variables:**
+- `PTYCHO_DISABLE_MEMOIZE=1` disables memoization entirely (recommended for sweeps).
+- `PTYCHO_MEMOIZE_KEY_MODE=dataset` uses dataset-defining inputs only to compute cache keys.
+
 ## Best Practices
 
 ### 1. Use .gitignore Properly

@@ -72,6 +72,7 @@ def colormap2arr(arr,cmap):
 
 import functools
 import hashlib
+import inspect
 import json
 import os
 import tensorflow as tf
@@ -84,12 +85,65 @@ import json
 import numpy as np
 import tensorflow as tf
 
+def _memoize_disabled() -> bool:
+    flag = os.environ.get("PTYCHO_DISABLE_MEMOIZE", "")
+    return flag.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _memoize_key_mode() -> str:
+    mode = os.environ.get("PTYCHO_MEMOIZE_KEY_MODE", "data")
+    return mode.strip().lower()
+
+
+def _hash_value(value):
+    if isinstance(value, tf.Tensor):
+        value = value.numpy()
+    if isinstance(value, np.ndarray):
+        digest = hashlib.sha1(value.tobytes()).hexdigest()
+        return {
+            "type": "ndarray",
+            "dtype": str(value.dtype),
+            "shape": value.shape,
+            "sha1": digest,
+        }
+    if isinstance(value, dict):
+        return {str(k): _hash_value(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_hash_value(v) for v in value]
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    return str(value)
+
+
+def _dataset_hash_inputs(func, args, kwargs, cfg):
+    cfg_keys = [
+        'offset', 'N', 'outer_offset_train', 'outer_offset_test',
+        'nphotons', 'nimgs_train', 'nimgs_test', 'set_phi',
+        'data_source', 'gridsize', 'big_gridsize', 'default_probe_scale',
+        'sim_jitter_scale', 'npseed'
+    ]
+    hash_input = {k: cfg[k] for k in cfg_keys if k in cfg}
+    arg_keys = {
+        "n", "size", "probe", "outer_offset", "intensity_scale",
+        "YY_I", "YY_phi", "which", "jitter_scale"
+    }
+    try:
+        bound = inspect.signature(func).bind_partial(*args, **kwargs)
+    except (TypeError, ValueError):
+        return hash_input
+    bound.apply_defaults()
+    for name, value in bound.arguments.items():
+        if name in arg_keys and value is not None:
+            hash_input[name] = _hash_value(value)
+    return hash_input
+
+
 def memoize_disk_and_memory(func):
     from ptycho.params import cfg
     from ptycho import probe
     memory_cache = {}
     disk_cache_dir = 'memoized_data'
-    if not os.path.exists(disk_cache_dir):
+    if not _memoize_disabled() and not os.path.exists(disk_cache_dir):
         os.makedirs(disk_cache_dir)
 
     def process_dict(d):
@@ -118,12 +172,19 @@ def memoize_disk_and_memory(func):
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        cfg_keys = ['offset', 'N', 'outer_offset_train', 'outer_offset_test',
-                    'nphotons', 'nimgs_train', 'nimgs_test', 'set_phi',
-                    'data_source', 'gridsize', 'big_gridsize', 'default_probe_scale']
-        hash_input = {k: cfg[k] for k in cfg_keys if k in cfg}
-        hash_input.update({f'arg_{i}': json.dumps(arg, default=str) for i, arg in enumerate(args)})
-        hash_input.update({f'kwarg_{k}': json.dumps(v, default=str) for k, v in kwargs.items()})
+        if _memoize_disabled():
+            return func(*args, **kwargs)
+        key_mode = _memoize_key_mode()
+        if key_mode == "dataset":
+            hash_input = _dataset_hash_inputs(func, args, kwargs, cfg)
+        else:
+            cfg_keys = ['offset', 'N', 'outer_offset_train', 'outer_offset_test',
+                        'nphotons', 'nimgs_train', 'nimgs_test', 'set_phi',
+                        'data_source', 'gridsize', 'big_gridsize', 'default_probe_scale']
+            hash_input = {k: cfg[k] for k in cfg_keys if k in cfg}
+            if key_mode in {"data", "full"}:
+                hash_input.update({f'arg_{i}': _hash_value(arg) for i, arg in enumerate(args)})
+                hash_input.update({f'kwarg_{k}': _hash_value(v) for k, v in kwargs.items()})
         hash_input_str = json.dumps(hash_input, sort_keys=True).encode('utf-8')
         hash_hex = hashlib.sha1(hash_input_str).hexdigest()
 
@@ -269,7 +330,7 @@ import numpy as np
 def memoize_simulated_data(func):
     memory_cache = {}
     disk_cache_dir = 'memoized_simulated_data'
-    if not os.path.exists(disk_cache_dir):
+    if not _memoize_disabled() and not os.path.exists(disk_cache_dir):
         os.makedirs(disk_cache_dir)
 
     def array_to_bytes(arr):
@@ -280,6 +341,8 @@ def memoize_simulated_data(func):
 
     @functools.wraps(func)
     def wrapper(objectGuess, probeGuess, nimages, buffer, random_seed=None, return_patches=True):
+        if _memoize_disabled():
+            return func(objectGuess, probeGuess, nimages, buffer, random_seed, return_patches)
         from ptycho.loader import RawData
         # Create a unique hash for the input parameters
         hash_input = {

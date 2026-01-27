@@ -65,6 +65,20 @@ p.set('sim_jitter_scale', 0.0)     # Jitter std (0 = no jitter)
 2. **Output is pre-grouped** — ready for `PtychoDataContainer` without KDTree step
 3. **Fixed grid layout** — patches at regular `offset` spacing within groups
 
+### Memoization Notes (Grid-Based)
+Grid simulations may be memoized on disk to avoid repeating identical dataset generation.
+For stable reuse across grid studies, use dataset-only cache keys:
+
+```bash
+PTYCHO_MEMOIZE_KEY_MODE=dataset
+```
+
+To disable memoization for parameter sweeps:
+
+```bash
+PTYCHO_DISABLE_MEMOIZE=1
+```
+
 ### Direct Container Construction
 ```python
 from ptycho.loader import PtychoDataContainer

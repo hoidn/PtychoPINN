@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 from typing import Iterable, Tuple, Optional
 
@@ -44,6 +45,7 @@ def run_grid_lines_compare(
     fno_blocks: int = 4,
     fno_cnn_blocks: int = 2,
 ) -> dict:
+    os.environ.setdefault("PTYCHO_MEMOIZE_KEY_MODE", "dataset")
     output_dir = Path(output_dir)
     architectures = tuple(architectures)
 
