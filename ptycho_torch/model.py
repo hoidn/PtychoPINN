@@ -933,6 +933,10 @@ class PtychoPINN(nn.Module):
                 )
             resolved_generator_output = "real_imag"
 
+        configured_output_mode = getattr(self.model_config, "generator_output_mode", None)
+        if configured_output_mode and self.model_config.architecture in ("fno", "hybrid"):
+            resolved_generator_output = configured_output_mode
+
         self.generator = resolved_generator
         self.generator_output = resolved_generator_output
 
@@ -954,8 +958,8 @@ class PtychoPINN(nn.Module):
     def _predict_complex(self, x):
         """Generate complex object patches from input.
 
-        Handles both amp_phase output (from CNN autoencoder) and real_imag output
-        (from FNO/Hybrid generators).
+        Handles amp_phase output (from CNN autoencoder), real_imag output
+        (from FNO/Hybrid generators), and amp_phase_logits output.
 
         Args:
             x: Input tensor (B, C, H, W)
@@ -966,6 +970,18 @@ class PtychoPINN(nn.Module):
         if self.generator_output == "amp_phase":
             # CNN-based autoencoder: returns (amp, phase) tensors
             amp, phase = self.autoencoder(x)
+            x_complex = self.combine_complex(amp, phase)
+        elif self.generator_output == "amp_phase_logits":
+            # Generator returns (B, H, W, C, 2) with amp/phase logits
+            patches = self.autoencoder(x)
+            if patches.shape[-1] != 2:
+                raise ValueError(
+                    f"amp_phase_logits expects last dim=2, got shape {patches.shape}"
+                )
+            amp_logits = patches[..., 0].permute(0, 3, 1, 2).contiguous()
+            phase_logits = patches[..., 1].permute(0, 3, 1, 2).contiguous()
+            amp = torch.sigmoid(amp_logits)
+            phase = math.pi * torch.tanh(phase_logits)
             x_complex = self.combine_complex(amp, phase)
         elif self.generator_output == "real_imag":
             # FNO/Hybrid generators: return (B, H, W, C, 2) real/imag tensor
