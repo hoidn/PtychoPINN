@@ -101,6 +101,15 @@ output_dir/
 └── metrics.json                   # SSIM, MAE, PSNR, FRC metrics
 ```
 
+### `grid_lines_compare_wrapper.py`
+Orchestrates TensorFlow grid-lines workflow and Torch FNO/Hybrid runners, then merges metrics.
+
+**Key Torch Options:**
+- `--torch-output-mode {real_imag,amp_phase_logits,amp_phase}`: Control how FNO/Hybrid outputs are interpreted.
+  - `real_imag` (default): Treat output channels as real/imag.
+  - `amp_phase_logits`: Interpret channels as amp/phase logits and apply sigmoid/tanh.
+  - `amp_phase`: Use dual-head amp/phase outputs from the generator.
+
 ### `aggregate_and_plot_results.py`
 Analysis script that processes results from multiple training runs and generates visualization plots.
 
