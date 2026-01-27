@@ -15,6 +15,7 @@ dependencies = [
     "ipywidgets",
     "jupyter",
     "matplotlib",
+    "neuraloperator",
     "numba",
     "numpy",
     "opencv-python",

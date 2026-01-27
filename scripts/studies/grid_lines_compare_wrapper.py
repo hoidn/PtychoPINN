@@ -45,6 +45,7 @@ def run_grid_lines_compare(
     fno_width: int = 32,
     fno_blocks: int = 4,
     fno_cnn_blocks: int = 2,
+    fno_input_transform: str = "none",
 ) -> dict:
     os.environ.setdefault("PTYCHO_MEMOIZE_KEY_MODE", "dataset")
     output_dir = Path(output_dir)
@@ -106,6 +107,7 @@ def run_grid_lines_compare(
                 fno_width=fno_width,
                 fno_blocks=fno_blocks,
                 fno_cnn_blocks=fno_cnn_blocks,
+                fno_input_transform=fno_input_transform,
             )
             from scripts.studies import grid_lines_torch_runner as torch_runner
             torch_result = torch_runner.run_grid_lines_torch(torch_cfg)
@@ -170,6 +172,12 @@ def parse_args(argv=None):
     parser.add_argument("--fno-width", type=int, default=32)
     parser.add_argument("--fno-blocks", type=int, default=4)
     parser.add_argument("--fno-cnn-blocks", type=int, default=2)
+    parser.add_argument(
+        "--fno-input-transform",
+        type=str,
+        default="none",
+        choices=["none", "sqrt", "log1p", "instancenorm"],
+    )
     args = parser.parse_args(argv)
     args.architectures = _parse_architectures(args.architectures)
     return args
@@ -204,6 +212,7 @@ def main(argv=None) -> None:
         fno_width=args.fno_width,
         fno_blocks=args.fno_blocks,
         fno_cnn_blocks=args.fno_cnn_blocks,
+        fno_input_transform=args.fno_input_transform,
     )
 
 
