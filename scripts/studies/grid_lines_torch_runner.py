@@ -89,6 +89,7 @@ class TorchRunnerConfig:
     infer_batch_size: int = 16
     N: int = 64
     gridsize: int = 1
+    torch_loss_mode: str = "poisson"
     fno_modes: int = 12
     fno_width: int = 32
     fno_blocks: int = 4
@@ -189,6 +190,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         nepochs=cfg.epochs,
         batch_size=cfg.batch_size,
         backend='pytorch',
+        torch_loss_mode=cfg.torch_loss_mode,
     )
 
     execution_config = PyTorchExecutionConfig(
@@ -534,6 +536,9 @@ def main() -> None:
                         help="Learning rate")
     parser.add_argument("--infer-batch-size", type=int, default=16,
                         help="Inference batch size (OOM guard)")
+    parser.add_argument("--torch-loss-mode", type=str, default="poisson",
+                        choices=["poisson", "mae"],
+                        help="Training loss mode ('poisson' or 'mae')")
     parser.add_argument("--fno-modes", type=int, default=12,
                         help="FNO spectral modes")
     parser.add_argument("--fno-width", type=int, default=32,
@@ -563,6 +568,7 @@ def main() -> None:
         infer_batch_size=args.infer_batch_size,
         N=args.N,
         gridsize=args.gridsize,
+        torch_loss_mode=args.torch_loss_mode,
         fno_modes=args.fno_modes,
         fno_width=args.fno_width,
         fno_blocks=args.fno_blocks,

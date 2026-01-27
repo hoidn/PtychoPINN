@@ -280,6 +280,18 @@ class TestChannelGridsizeAlignment:
         # Expect gridsize to be propagated correctly
         assert training_config.model.gridsize == 2
 
+    def test_runner_sets_torch_loss_mode(self, tmp_path):
+        """Test that setup_torch_configs propagates torch_loss_mode."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid",
+            torch_loss_mode="mae",
+        )
+        training_config, _ = setup_torch_configs(cfg)
+        assert training_config.torch_loss_mode == "mae"
+
     def test_runner_channels_derived_from_gridsize(self, synthetic_npz, tmp_path):
         """Test that channel count C = gridsize^2 is derived correctly.
 
