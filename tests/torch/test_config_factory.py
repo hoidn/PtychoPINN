@@ -96,6 +96,28 @@ def mock_train_npz(tmp_path):
 
 
 @pytest.fixture
+def mock_train_npz_128(tmp_path):
+    """Mock training NPZ with 128x128 probe for N inference coverage."""
+    import numpy as np
+
+    N = 128
+    n_images = 100
+    M = 256
+
+    npz_path = tmp_path / "mock_train_128.npz"
+    np.savez(
+        npz_path,
+        diffraction=np.random.rand(n_images, N, N).astype(np.float32),
+        probeGuess=np.random.rand(N, N).astype(np.complex64),
+        objectGuess=np.random.rand(M, M).astype(np.complex64),
+        xcoords=np.linspace(0, 1, n_images).astype(np.float64),
+        ycoords=np.linspace(0, 1, n_images).astype(np.float64),
+        scan_index=np.arange(n_images).astype(np.int32),
+    )
+    return npz_path
+
+
+@pytest.fixture
 def mock_test_npz(tmp_path):
     """Mock test NPZ file (smaller than training for faster tests)."""
     import numpy as np
@@ -246,6 +268,16 @@ class TestTrainingPayloadStructure:
             "ModelConfig.C_forward must always match DataConfig.C"
         assert payload_default.pt_model_config.C_model == payload_default.pt_data_config.C, \
             "ModelConfig.C_model must always match DataConfig.C"
+
+    def test_training_payload_infers_probe_size_for_pt_data_config(self, mock_train_npz_128, temp_output_dir):
+        """Factory should propagate inferred N into pt_data_config and TF model config."""
+        payload = create_training_payload(
+            train_data_file=mock_train_npz_128,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512},
+        )
+        assert payload.pt_data_config.N == 128
+        assert payload.tf_training_config.model.N == 128
 
 
 class TestInferencePayloadStructure:

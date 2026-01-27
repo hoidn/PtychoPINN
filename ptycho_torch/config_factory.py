@@ -191,6 +191,7 @@ def create_training_payload(
         N = overrides['N']
     else:
         N = infer_probe_size(train_data_file)
+        overrides['N'] = N
         overrides_applied['N'] = N  # Record inferred value
 
     # Step 3: Build PyTorch singleton configs with defaults + overrides
