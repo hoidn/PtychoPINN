@@ -1,0 +1,9 @@
+workflow:
+  name: standard2
+
+agent:
+  prompts:
+    supervisor.md: codex
+    main.md: claude
+    supervisor2.md: codex
+    main2.md: claude
