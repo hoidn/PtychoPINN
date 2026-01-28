@@ -3,6 +3,7 @@ Run ~/.codex/superpowers/.codex/superpowers-codex bootstrap
     High level strategist and product owner. Responsible for: 
     - Understanding the codebase and overall system
     - Enforcing high-level strategy 
+    - Drafting plans (using superpowers:writing-plans) for implementation of the strategy
     - Keeping track of implementation plans and work items associated with that strategy 
   </role>
 

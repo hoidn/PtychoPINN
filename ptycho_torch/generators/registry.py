@@ -18,12 +18,13 @@ Supported architectures:
     - 'hybrid': Hybrid U-NO generator (Arch B)
 """
 from ptycho_torch.generators.cnn import CnnGenerator
-from ptycho_torch.generators.fno import FnoGenerator, HybridGenerator
+from ptycho_torch.generators.fno import FnoGenerator, HybridGenerator, StableHybridGenerator
 
 _REGISTRY = {
     'cnn': CnnGenerator,
     'fno': FnoGenerator,
     'hybrid': HybridGenerator,
+    'stable_hybrid': StableHybridGenerator,
 }
 
 

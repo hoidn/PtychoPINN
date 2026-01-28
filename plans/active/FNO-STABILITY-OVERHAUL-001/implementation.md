@@ -108,7 +108,7 @@ if self.gradient_clip_val is not None and self.gradient_clip_val > 0:
 3. **Tests.** Extend `tests/test_grid_lines_compare_wrapper.py` with `test_wrapper_handles_stable_hybrid` that injects a fake torch runner and ensures the merged metrics include the new key + parse_args accepts the value. Add a simple `tests/torch/test_grid_lines_torch_runner.py` assertion proving `setup_torch_configs` propagates `'stable_hybrid'` into the training config.
 4. **Docs.** Mention the new CLI option in `docs/workflows/pytorch.md` (Torch runner recap) when you touch the doc for Task 2.2.
 
-**Status 2026-01-28:** Pending Phase 2 implementation.
+**Status 2026-01-28:** COMPLETE — All three tasks (2.1–2.3) implemented. `StablePtychoBlock` with zero-init InstanceNorm, `StableHybridUNOGenerator` via `block_cls` injection, registry entry `'stable_hybrid'`, config Literal extensions (TF + Torch), CLI wiring (`--architecture stable_hybrid`), compare wrapper routing, and docs updated. All mapped test selectors pass (7 tests total).
 
 ---
 

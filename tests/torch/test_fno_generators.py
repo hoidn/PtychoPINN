@@ -7,9 +7,12 @@ from ptycho_torch.generators.fno import (
     InputTransform,
     SpatialLifter,
     PtychoBlock,
+    StablePtychoBlock,
     HybridUNOGenerator,
+    StableHybridUNOGenerator,
     CascadedFNOGenerator,
     HybridGenerator,
+    StableHybridGenerator,
     FnoGenerator,
 )
 from ptycho_torch.generators.registry import resolve_generator
@@ -202,3 +205,71 @@ class TestGeneratorRegistry:
 
         model = gen.build_model(pt_configs)
         assert isinstance(model, HybridUNOGenerator)
+
+    def test_resolve_stable_hybrid_generator(self):
+        """Registry should resolve stable_hybrid generator."""
+        config = TrainingConfig(
+            model=ModelConfig(architecture='stable_hybrid', N=64, gridsize=1)
+        )
+        gen = resolve_generator(config)
+        assert gen.name == 'stable_hybrid'
+        assert isinstance(gen, StableHybridGenerator)
+
+
+class TestStablePtychoBlock:
+    """Tests for the StablePtychoBlock module.
+
+    Task ID: FNO-STABILITY-OVERHAUL-001 Task 2.1
+    """
+
+    def test_identity_init(self):
+        """At initialization (zero gamma/beta), block(x) should equal x."""
+        block = StablePtychoBlock(channels=32, modes=8)
+        x = torch.randn(2, 32, 64, 64)
+        with torch.no_grad():
+            out = block(x)
+        assert torch.allclose(out, x, atol=1e-6), (
+            "StablePtychoBlock should be identity at init (zero gamma/beta)"
+        )
+
+    def test_zero_mean_update(self):
+        """With gamma=1, the norm-wrapped update should have zero spatial mean."""
+        block = StablePtychoBlock(channels=32, modes=8)
+        # Set gamma to 1 so norm is active
+        block.norm.weight.data.fill_(1.0)
+        x = torch.randn(2, 32, 64, 64)
+        with torch.no_grad():
+            update = block(x) - x  # isolate the residual branch
+        # Mean over spatial dims should be ~0 due to InstanceNorm
+        spatial_mean = update.mean(dim=(2, 3))
+        assert torch.allclose(spatial_mean, torch.zeros_like(spatial_mean), atol=1e-5), (
+            "InstanceNorm should center the update to zero spatial mean"
+        )
+
+    def test_forward_shape(self):
+        """StablePtychoBlock should preserve (B, C, H, W) shape."""
+        block = StablePtychoBlock(channels=16, modes=4)
+        x = torch.randn(2, 16, 32, 32)
+        out = block(x)
+        assert out.shape == x.shape
+
+
+class TestStableHybridUNOGenerator:
+    """Tests for the StableHybridUNOGenerator model.
+
+    Task ID: FNO-STABILITY-OVERHAUL-001 Task 2.2
+    """
+
+    def test_stable_hybrid_generator_output_shape(self):
+        """StableHybridUNOGenerator should produce (B, H, W, C, 2) output."""
+        model = StableHybridUNOGenerator(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=2,
+            modes=8,
+            C=4,
+        )
+        x = torch.randn(2, 4, 64, 64)
+        out = model(x)
+        assert out.shape == (2, 64, 64, 4, 2)

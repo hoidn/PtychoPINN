@@ -96,7 +96,7 @@ class ModelConfig:
     gridsize: int = 1
     n_filters_scale: int = 2
     model_type: Literal['pinn', 'supervised'] = 'pinn'
-    architecture: Literal['cnn', 'fno', 'hybrid'] = 'cnn'
+    architecture: Literal['cnn', 'fno', 'hybrid', 'stable_hybrid'] = 'cnn'
     fno_modes: int = 12
     fno_width: int = 32
     fno_blocks: int = 4
@@ -369,7 +369,7 @@ class PyTorchExecutionConfig:
 
 def validate_model_config(config: ModelConfig) -> None:
     """Validate model configuration."""
-    valid_arches = {'cnn', 'fno', 'hybrid'}
+    valid_arches = {'cnn', 'fno', 'hybrid', 'stable_hybrid'}
     if config.architecture not in valid_arches:
         raise ValueError(
             f"Invalid architecture '{config.architecture}'. "

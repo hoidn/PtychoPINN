@@ -96,7 +96,7 @@ def run_grid_lines_compare(
         merged["baseline"] = tf_metrics["baseline"]
 
     for arch in architectures:
-        if arch in ("fno", "hybrid"):
+        if arch in ("fno", "hybrid", "stable_hybrid"):
             torch_cfg = TorchRunnerConfig(
                 train_npz=train_npz,
                 test_npz=test_npz,
@@ -135,6 +135,8 @@ def run_grid_lines_compare(
         order.append("pinn_fno")
     if "hybrid" in architectures:
         order.append("pinn_hybrid")
+    if "stable_hybrid" in architectures:
+        order.append("pinn_stable_hybrid")
 
     from ptycho.workflows.grid_lines_workflow import render_grid_lines_visuals
     render_grid_lines_visuals(output_dir, order=tuple(order))

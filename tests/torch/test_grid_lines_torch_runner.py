@@ -438,6 +438,20 @@ class TestChannelGridsizeAlignment:
         training_config, _ = setup_torch_configs(cfg)
         assert training_config.torch_loss_mode == "mae"
 
+    def test_runner_accepts_stable_hybrid(self, tmp_path):
+        """Test that setup_torch_configs accepts 'stable_hybrid' architecture.
+
+        Task ID: FNO-STABILITY-OVERHAUL-001 Task 2.3
+        """
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="stable_hybrid",
+        )
+        training_config, _ = setup_torch_configs(cfg)
+        assert training_config.model.architecture == "stable_hybrid"
+
     def test_runner_channels_derived_from_gridsize(self, synthetic_npz, tmp_path):
         """Test that channel count C = gridsize^2 is derived correctly.
 

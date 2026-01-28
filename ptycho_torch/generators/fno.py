@@ -120,6 +120,51 @@ class PtychoBlock(nn.Module):
         return x + self.act(spectral_out + local_out)
 
 
+class StablePtychoBlock(nn.Module):
+    """Spectral + local convolution block with instance-norm stabilized residual.
+
+    Architecture:
+        y = x + InstanceNorm(GELU(SpectralConv(x) + Conv3x3(x)))
+
+    The InstanceNorm uses affine=True with zero-initialized weight (gamma)
+    and bias (beta), so at initialization the block is an identity map.
+    This prevents early-training gradient explosions in deep FNO stacks.
+
+    Contract: input/output shape (B, C, H, W).
+
+    See also:
+        - docs/strategy/mainstrategy.md §1.A (Norm-Last residual)
+        - plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md Task 2.1
+    """
+
+    def __init__(self, channels: int, modes: int = 12):
+        super().__init__()
+        self.channels = channels
+        self.modes = modes
+
+        # Spectral convolution (2D)
+        if HAS_NEURALOPERATOR:
+            self.spectral = SpectralConv(channels, channels, n_modes=(modes, modes))
+        else:
+            self.spectral = _FallbackSpectralConv2d(channels, channels, modes)
+
+        # Local 3x3 conv
+        self.local_conv = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
+
+        self.act = nn.GELU()
+
+        # Instance norm with affine parameters, zero-initialized for identity at init
+        self.norm = nn.InstanceNorm2d(channels, affine=True, eps=1e-5)
+        nn.init.zeros_(self.norm.weight)
+        nn.init.zeros_(self.norm.bias)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x: (B, C, H, W)
+        spectral_out = self.spectral(x)
+        local_out = self.local_conv(x)
+        return x + self.norm(self.act(spectral_out + local_out))
+
+
 class _FallbackSpectralConv2d(nn.Module):
     """Fallback spectral conv when neuraloperator is not available.
 
@@ -183,10 +228,13 @@ class HybridUNOGenerator(nn.Module):
         C: int = 4,  # gridsize^2 channels
         input_transform: str = "none",
         output_mode: str = "real_imag",
+        block_cls=None,
     ):
         super().__init__()
         self.C = C
         self.output_mode = output_mode
+        if block_cls is None:
+            block_cls = PtychoBlock
 
         # Lifter
         self.lifter = SpatialLifter(
@@ -200,13 +248,13 @@ class HybridUNOGenerator(nn.Module):
         self.downsample = nn.ModuleList()
         ch = hidden_channels
         for i in range(n_blocks):
-            self.encoder_blocks.append(PtychoBlock(ch, modes=modes))
+            self.encoder_blocks.append(block_cls(ch, modes=modes))
             if i < n_blocks - 1:
                 self.downsample.append(nn.Conv2d(ch, ch * 2, kernel_size=2, stride=2))
                 ch *= 2
 
         # Bottleneck
-        self.bottleneck = PtychoBlock(ch, modes=modes // 2)
+        self.bottleneck = block_cls(ch, modes=modes // 2)
 
         # Decoder (CNN blocks with upsampling and skip connections)
         self.decoder_blocks = nn.ModuleList()
@@ -352,6 +400,21 @@ class CascadedFNOGenerator(nn.Module):
         return x
 
 
+class StableHybridUNOGenerator(HybridUNOGenerator):
+    """Hybrid U-NO generator with StablePtychoBlock for training stability.
+
+    Uses InstanceNorm-stabilized residual blocks (zero-init gamma/beta)
+    so the network starts as identity before training begins.
+
+    See also:
+        - docs/strategy/mainstrategy.md §1.A (Norm-Last residual)
+        - plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md Task 2.2
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(block_cls=StablePtychoBlock, **kwargs)
+
+
 class HybridGenerator:
     """Generator class for Hybrid U-NO architecture (Arch B).
 
@@ -411,6 +474,61 @@ class HybridGenerator:
         )
 
         # Wrap in Lightning module with physics pipeline
+        return PtychoPINN_Lightning(
+            model_config=model_config,
+            data_config=data_config,
+            training_config=training_config,
+            inference_config=inference_config,
+            generator_module=core,
+            generator_output=output_mode,
+        )
+
+
+class StableHybridGenerator:
+    """Generator class for Stable Hybrid U-NO architecture.
+
+    Uses StablePtychoBlock (InstanceNorm-stabilized residual) for
+    training stability. Registered under 'stable_hybrid'.
+
+    See also:
+        - docs/strategy/mainstrategy.md §1.A
+        - plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md Task 2.2
+    """
+    name = 'stable_hybrid'
+
+    def __init__(self, config):
+        self.config = config
+
+    def build_model(self, pt_configs: Dict[str, Any]) -> 'nn.Module':
+        """Build the Stable Hybrid U-NO Lightning model."""
+        from ptycho_torch.model import PtychoPINN_Lightning
+
+        data_config = pt_configs['data_config']
+        model_config = pt_configs['model_config']
+        training_config = pt_configs['training_config']
+        inference_config = pt_configs['inference_config']
+
+        N = getattr(data_config, 'N', 64)
+        C = getattr(data_config, 'C', 4)
+        n_filters = getattr(model_config, 'n_filters_scale', 2)
+        fno_modes = getattr(model_config, 'fno_modes', min(12, N // 4))
+        fno_width = getattr(model_config, 'fno_width', 32 * n_filters)
+        fno_blocks = getattr(model_config, 'fno_blocks', 4)
+        input_transform = getattr(model_config, "fno_input_transform", "none")
+        output_mode = getattr(model_config, "generator_output_mode", "real_imag")
+        generator_mode = "amp_phase" if output_mode == "amp_phase" else "real_imag"
+
+        core = StableHybridUNOGenerator(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=fno_width,
+            n_blocks=fno_blocks,
+            modes=fno_modes,
+            C=C,
+            input_transform=input_transform,
+            output_mode=generator_mode,
+        )
+
         return PtychoPINN_Lightning(
             model_config=model_config,
             data_config=data_config,

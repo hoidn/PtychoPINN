@@ -49,7 +49,7 @@ class ModelConfig:
     """Configuration parameters related to the model architecture and behavior."""
     #Mode Category
     mode: Literal['Supervised', 'Unsupervised'] = 'Unsupervised' # Training mode, affects all aspects of model
-    architecture: Literal['cnn', 'fno', 'hybrid'] = 'cnn'  # Generator architecture selection
+    architecture: Literal['cnn', 'fno', 'hybrid', 'stable_hybrid'] = 'cnn'  # Generator architecture selection
     fno_modes: int = 12
     fno_width: int = 32
     fno_blocks: int = 4

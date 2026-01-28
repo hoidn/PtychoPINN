@@ -186,3 +186,48 @@ def test_wrapper_renders_visuals(monkeypatch, tmp_path):
     )
 
     assert called["order"] == ("gt", "pinn", "baseline", "pinn_fno")
+
+
+def test_wrapper_handles_stable_hybrid(monkeypatch, tmp_path):
+    """Test that stable_hybrid is wired through to Torch runner and merged metrics.
+
+    Task ID: FNO-STABILITY-OVERHAUL-001 Task 2.3
+    """
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare, parse_args
+
+    # Test parse_args accepts 'stable_hybrid'
+    args = parse_args([
+        "--N", "64", "--gridsize", "1", "--output-dir", str(tmp_path),
+        "--architectures", "stable_hybrid",
+    ])
+    assert "stable_hybrid" in args.architectures
+
+    # Test end-to-end: stable_hybrid invokes torch runner and merges metrics
+    def fake_tf_run(cfg):
+        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+        datasets_dir.mkdir(parents=True, exist_ok=True)
+        (datasets_dir / "train.npz").write_bytes(b"stub")
+        (datasets_dir / "test.npz").write_bytes(b"stub")
+        (cfg.output_dir / "metrics.json").write_text(json.dumps({}))
+        return {"train_npz": str(datasets_dir / "train.npz"), "test_npz": str(datasets_dir / "test.npz")}
+
+    captured = {}
+
+    def fake_torch_run(cfg):
+        captured["architecture"] = cfg.architecture
+        return {"metrics": {"mse": 0.25}}
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
+
+    result = run_grid_lines_compare(
+        N=64,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=("stable_hybrid",),
+        probe_npz=Path("dummy_probe.npz"),
+    )
+
+    assert captured["architecture"] == "stable_hybrid"
+    merged = json.loads((tmp_path / "metrics.json").read_text())
+    assert "pinn_stable_hybrid" in merged
