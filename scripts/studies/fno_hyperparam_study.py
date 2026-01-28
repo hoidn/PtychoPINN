@@ -75,6 +75,7 @@ def run_sweep(
     ensure_data: bool = True,
     nimgs_train: int = 1,
     nimgs_test: int = 1,
+    enable_checkpointing: bool = False,
 ) -> Path:
     os.environ.setdefault("PTYCHO_DISABLE_MEMOIZE", "1")
     os.environ.setdefault("PTYCHO_MEMOIZE_KEY_MODE", "dataset")
@@ -117,6 +118,7 @@ def run_sweep(
             fno_modes=mode,
             fno_width=width,
             fno_input_transform=transform,
+            enable_checkpointing=enable_checkpointing,
         )
 
         try:
@@ -194,6 +196,11 @@ def parse_args(argv=None):
     parser.add_argument("--light", action="store_true", help="Run a light sweep for validation")
     parser.add_argument("--nimgs-train", type=int, default=1)
     parser.add_argument("--nimgs-test", type=int, default=1)
+    parser.add_argument(
+        "--enable-checkpointing",
+        action="store_true",
+        help="Enable Lightning checkpoints for sweep runs (default: disabled).",
+    )
     return parser.parse_args(argv)
 
 
@@ -206,6 +213,7 @@ def main(argv=None) -> None:
         ensure_data=True,
         nimgs_train=args.nimgs_train,
         nimgs_test=args.nimgs_test,
+        enable_checkpointing=args.enable_checkpointing,
     )
 
 

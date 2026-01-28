@@ -100,6 +100,7 @@ class TorchRunnerConfig:
     fno_input_transform: str = "none"
     log_grad_norm: bool = False
     grad_norm_log_freq: int = 1
+    enable_checkpointing: bool = True
 
 
 def load_cached_dataset(npz_path: Path) -> Dict[str, np.ndarray]:
@@ -208,6 +209,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         learning_rate=cfg.learning_rate,
         deterministic=True,
         gradient_clip_val=cfg.gradient_clip_val,
+        enable_checkpointing=cfg.enable_checkpointing,
     )
 
     return training_config, execution_config
