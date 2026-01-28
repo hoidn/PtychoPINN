@@ -96,6 +96,53 @@ def test_wrapper_passes_torch_loss_mode_to_runner(monkeypatch, tmp_path):
     assert captured["torch_loss_mode"] == "mae"
 
 
+def test_wrapper_passes_grad_clip_algorithm(monkeypatch, tmp_path):
+    """Test that --torch-grad-clip-algorithm threads through to TorchRunnerConfig."""
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare, parse_args
+
+    # Test parse_args default
+    args = parse_args([
+        "--N", "64", "--gridsize", "1", "--output-dir", str(tmp_path),
+    ])
+    assert args.torch_grad_clip_algorithm == "norm"
+
+    # Test parse_args with explicit value
+    args = parse_args([
+        "--N", "64", "--gridsize", "1", "--output-dir", str(tmp_path),
+        "--torch-grad-clip-algorithm", "agc",
+    ])
+    assert args.torch_grad_clip_algorithm == "agc"
+
+    # Test end-to-end passthrough to TorchRunnerConfig
+    def fake_tf_run(cfg):
+        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+        datasets_dir.mkdir(parents=True, exist_ok=True)
+        (datasets_dir / "train.npz").write_bytes(b"stub")
+        (datasets_dir / "test.npz").write_bytes(b"stub")
+        (cfg.output_dir / "metrics.json").write_text(json.dumps({}))
+        return {"train_npz": str(datasets_dir / "train.npz"), "test_npz": str(datasets_dir / "test.npz")}
+
+    captured = {}
+
+    def fake_torch_run(cfg):
+        captured["gradient_clip_algorithm"] = cfg.gradient_clip_algorithm
+        return {"metrics": {"mse": 0.3}}
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
+
+    run_grid_lines_compare(
+        N=64,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=("fno",),
+        probe_npz=Path("dummy_probe.npz"),
+        torch_gradient_clip_algorithm="agc",
+    )
+
+    assert captured["gradient_clip_algorithm"] == "agc"
+
+
 def test_wrapper_renders_visuals(monkeypatch, tmp_path):
     from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
 

@@ -258,6 +258,7 @@ def to_training_config(
         'subsample_seed': data.subsample_seed,  # From DataConfig
         'output_dir': Path(training.output_dir) if training.output_dir else Path('training_outputs'),
         'torch_loss_mode': getattr(training, 'torch_loss_mode', 'poisson'),
+        'gradient_clip_algorithm': getattr(training, 'gradient_clip_algorithm', 'norm'),
     }
 
     # Apply overrides (critical for MVP fields)

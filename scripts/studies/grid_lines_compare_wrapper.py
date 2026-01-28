@@ -41,6 +41,7 @@ def run_grid_lines_compare(
     torch_learning_rate: float = 1e-3,
     torch_infer_batch_size: int = 16,
     torch_gradient_clip_val: float = 1.0,
+    torch_gradient_clip_algorithm: str = "norm",
     torch_output_mode: str = "real_imag",
     torch_loss_mode: str = "mae",
     torch_log_grad_norm: bool = False,
@@ -107,6 +108,7 @@ def run_grid_lines_compare(
                 learning_rate=torch_learning_rate,
                 infer_batch_size=torch_infer_batch_size,
                 gradient_clip_val=torch_gradient_clip_val,
+                gradient_clip_algorithm=torch_gradient_clip_algorithm,
                 generator_output_mode=torch_output_mode,
                 N=N,
                 gridsize=gridsize,
@@ -178,6 +180,13 @@ def parse_args(argv=None):
         help="Torch gradient clipping max norm (<=0 disables clipping).",
     )
     parser.add_argument(
+        "--torch-grad-clip-algorithm",
+        type=str,
+        default="norm",
+        choices=["norm", "value", "agc"],
+        help="Torch gradient clipping algorithm.",
+    )
+    parser.add_argument(
         "--torch-output-mode",
         type=str,
         default="real_imag",
@@ -226,6 +235,7 @@ def main(argv=None) -> None:
         torch_learning_rate=args.torch_learning_rate,
         torch_infer_batch_size=args.torch_infer_batch_size,
         torch_gradient_clip_val=args.torch_grad_clip,
+        torch_gradient_clip_algorithm=args.torch_grad_clip_algorithm,
         torch_output_mode=args.torch_output_mode,
         torch_loss_mode=args.torch_loss_mode,
         torch_log_grad_norm=args.torch_log_grad_norm,

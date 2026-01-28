@@ -1,0 +1,14 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: mock-3.15.1, typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 25 items / 23 deselected / 2 selected
+
+tests/torch/test_grid_lines_torch_runner.py::TestGradientClipAlgorithm::test_gradient_clip_algorithm_forwarded PASSED [ 50%]
+tests/torch/test_grid_lines_torch_runner.py::TestGradientClipAlgorithm::test_gradient_clip_algorithm_default PASSED [100%]
+
+======================= 2 passed, 23 deselected in 1.02s =======================

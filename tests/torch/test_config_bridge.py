@@ -1137,6 +1137,38 @@ class TestConfigBridgeParity:
                        f"\n\nDiff saved to: {diff_path}")
 
 
+    def test_training_config_gradient_clip_algorithm_roundtrip(self, params_cfg_snapshot):
+        """
+        Test that gradient_clip_algorithm='agc' round-trips through the bridge
+        and populates params.cfg correctly.
+
+        Task ID: FNO-STABILITY-OVERHAUL-001 Task 1.1
+        """
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
+        from ptycho_torch import config_bridge
+        from ptycho.config.config import update_legacy_dict
+        import ptycho.params as params
+
+        pt_data = DataConfig(nphotons=1e9)
+        pt_model = ModelConfig()
+        pt_train = TrainingConfig(gradient_clip_algorithm='agc')
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+        tf_train = config_bridge.to_training_config(
+            tf_model, pt_data, pt_model, pt_train,
+            overrides=dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=1e9)
+        )
+
+        # Assert TF dataclass has the field
+        assert tf_train.gradient_clip_algorithm == 'agc', \
+            "gradient_clip_algorithm should be 'agc' on TF TrainingConfig"
+
+        # Populate params.cfg and check
+        update_legacy_dict(params.cfg, tf_train)
+        assert params.cfg.get('gradient_clip_algorithm') == 'agc', \
+            "params.cfg['gradient_clip_algorithm'] should be 'agc' after update_legacy_dict"
+
+
 class TestConfigBridgeArchitecture:
     """Tests for model.architecture field bridging."""
 

@@ -375,6 +375,41 @@ class TestRunGridLinesTorchScaffold:
         assert called["ok"] is True
 
 
+class TestGradientClipAlgorithm:
+    """Tests for gradient_clip_algorithm config propagation."""
+
+    def test_gradient_clip_algorithm_forwarded(self, tmp_path):
+        """Test that gradient_clip_algorithm propagates through setup_torch_configs.
+
+        Task ID: FNO-STABILITY-OVERHAUL-001 Task 1.4
+        """
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "output",
+            architecture="fno",
+            gradient_clip_algorithm="agc",
+        )
+
+        training_config, execution_config = setup_torch_configs(cfg)
+
+        assert training_config.gradient_clip_algorithm == "agc", \
+            "TrainingConfig should inherit gradient_clip_algorithm from runner config"
+
+    def test_gradient_clip_algorithm_default(self, tmp_path):
+        """Test that gradient_clip_algorithm defaults to 'norm'."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "output",
+            architecture="fno",
+        )
+
+        training_config, _ = setup_torch_configs(cfg)
+
+        assert training_config.gradient_clip_algorithm == "norm"
+
+
 class TestChannelGridsizeAlignment:
     """Tests for channel/gridsize alignment in runner configuration."""
 

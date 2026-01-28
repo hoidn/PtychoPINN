@@ -1,12 +1,12 @@
 {
   "workflow_name": "standard2",
-  "step_index": 401,
-  "iteration": 402,
-  "expected_step": "supervisor2.md",
-  "status": "waiting-next",
-  "last_update": "2026-01-28T23:44:56Z",
-  "lease_expires_at": "2026-01-28T23:54:56Z",
+  "step_index": 402,
+  "iteration": 403,
+  "expected_step": "main2.md",
+  "status": "complete",
+  "last_update": "2026-01-28T23:48:13Z",
+  "lease_expires_at": "2026-01-28T23:58:13Z",
   "galph_commit": "ed98469e",
-  "ralph_commit": "e0fe09cb",
+  "ralph_commit": "ee48059f",
   "last_prompt": null
 }
