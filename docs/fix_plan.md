@@ -59,6 +59,7 @@
 - Return Condition: Phase 1+2 implemented with tests; Phase 3 (shootout) triggered.
 - Attempts History:
   - *2026-01-28T01:00:00Z (planning):* Created implementation plan covering 2 phases + test strategy. Codebase audit: 0% of strategy implemented. All config, AGC, stable block, and registry changes pending. Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md`.
+  - *2026-01-28T02:05:00Z (supervisor audit):* Verified Phase 1 partial progress. Torch TrainingConfig + runner CLI already define `gradient_clip_algorithm`, but TF TrainingConfig + config_bridge do not, so Task 1.1 remains incomplete. Found training_step dispatch + AGC utility implemented with unit tests, yet grid_lines compare wrapper lacks a CLI flag to select AGC (`--torch-grad-clip-algorithm`), so Task 1.4 only partially delivered. Next engineering pass must (1) add the TF config field + bridge plumbing + config_bridge parity test, (2) expose/forward the compare-wrapper flag with argparse/runner tests, and (3) keep mapped regression selectors green.
 
 ---
 
@@ -347,4 +348,4 @@
 
 ---
 
-Supervisor state: `focus=FNO-STABILITY-OVERHAUL-001` `state=ready_for_implementation` `dwell=0` `artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T010000Z/` `next_action=engineer executes Phase 1 (config + AGC + dispatch + CLI)`
+Supervisor state: `focus=FNO-STABILITY-OVERHAUL-001` `state=ready_for_implementation` `dwell=1` `artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T020500Z/` `next_action=engineer finishes Phase 1 Task 1.1 + wraps compare wrapper flag + reruns mapped pytest selectors`

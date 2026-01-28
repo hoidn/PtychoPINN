@@ -1,0 +1,45 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: mock-3.15.1, typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 23 items
+
+tests/torch/test_grid_lines_torch_runner.py::TestTorchRunnerConfig::test_config_creation PASSED [  4%]
+tests/torch/test_grid_lines_torch_runner.py::TestTorchRunnerConfig::test_default_loss_mode_is_mae PASSED [  8%]
+tests/torch/test_grid_lines_torch_runner.py::TestTorchRunnerConfig::test_generator_output_mode_override PASSED [ 13%]
+tests/torch/test_grid_lines_torch_runner.py::TestLoadCachedDataset::test_load_valid_npz PASSED [ 17%]
+tests/torch/test_grid_lines_torch_runner.py::TestLoadCachedDataset::test_load_missing_key_raises PASSED [ 21%]
+tests/torch/test_grid_lines_torch_runner.py::TestSetupTorchConfigs::test_creates_training_config PASSED [ 26%]
+tests/torch/test_grid_lines_torch_runner.py::TestSetupTorchConfigs::test_creates_execution_config PASSED [ 30%]
+tests/torch/test_grid_lines_torch_runner.py::TestSetupTorchConfigs::test_fno_input_transform_passed PASSED [ 34%]
+tests/torch/test_grid_lines_torch_runner.py::TestRunGridLinesTorchScaffold::test_runner_emits_metrics_json PASSED [ 39%]
+tests/torch/test_grid_lines_torch_runner.py::TestRunGridLinesTorchScaffold::test_runner_writes_recon_artifact PASSED [ 43%]
+tests/torch/test_grid_lines_torch_runner.py::TestRunGridLinesTorchScaffold::test_runner_reports_model_params_and_inference_time PASSED [ 47%]
+tests/torch/test_grid_lines_torch_runner.py::TestRunGridLinesTorchScaffold::test_runner_creates_run_directory_structure PASSED [ 52%]
+tests/torch/test_grid_lines_torch_runner.py::TestRunGridLinesTorchScaffold::test_metrics_stitch_predictions_to_ground_truth PASSED [ 56%]
+tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_runner_sets_gridsize_from_config PASSED [ 60%]
+tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_runner_sets_torch_loss_mode PASSED [ 65%]
+tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_runner_channels_derived_from_gridsize PASSED [ 69%]
+tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_create_training_payload_sets_channels_from_gridsize PASSED [ 73%]
+tests/torch/test_grid_lines_torch_runner.py::TestArchitecturePropagation::test_training_payload_receives_architecture PASSED [ 78%]
+tests/torch/test_grid_lines_torch_runner.py::TestForwardSignatureEnforcement::test_fno_inference_uses_forward_predict PASSED [ 82%]
+tests/torch/test_grid_lines_torch_runner.py::TestOutputContractConversion::test_to_complex_patches_basic PASSED [ 86%]
+tests/torch/test_grid_lines_torch_runner.py::TestOutputContractConversion::test_to_complex_patches_preserves_values PASSED [ 91%]
+tests/torch/test_grid_lines_torch_runner.py::TestOutputContractConversion::test_runner_returns_predictions_complex PASSED [ 95%]
+tests/torch/test_grid_lines_torch_runner.py::TestTorchTrainingPath::test_runner_uses_lightning_training PASSED [100%]
+
+=============================== warnings summary ===============================
+tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_create_training_payload_sets_channels_from_gridsize
+  /home/ollie/Documents/tmp/PtychoPINN/ptycho_torch/config_factory.py:259: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_training_config = to_training_config(
+
+tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_create_training_payload_sets_channels_from_gridsize
+  /home/ollie/Documents/tmp/PtychoPINN/ptycho_torch/config_factory.py:618: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 23 passed, 2 warnings in 5.68s ========================

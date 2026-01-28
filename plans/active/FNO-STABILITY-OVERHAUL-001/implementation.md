@@ -16,6 +16,8 @@
 
 **Contract:** `gradient_clip_algorithm` selects the clipping method. Default `'norm'` preserves current behavior.
 
+**Status 2026-01-28:** Torch `TrainingConfig` already exposes the field, but TF `TrainingConfig` and the bridge adapter still lack it. Next action: add the field to `ptycho/config/config.py` and thread it through `to_training_config` + parity tests.
+
 ### Task 1.2: Implement AGC utility
 
 **File:** `ptycho_torch/train_utils.py`
@@ -51,6 +53,8 @@ if self.gradient_clip_val is not None and self.gradient_clip_val > 0:
 **File:** `scripts/studies/grid_lines_compare_wrapper.py`
 - Forward the flag to torch runner invocations
 
+**Status 2026-01-28:** Runner CLI flag and `TorchRunnerConfig` wiring are in place. Compare wrapper/CLI still lack the `--torch-grad-clip-algorithm` flag, so the compare harness cannot request AGC yet. Tests covering this flow are also missing.
+
 ---
 
 ## Phase 2: Generator Engineering
@@ -82,6 +86,8 @@ Subclass `HybridUNOGenerator`:
 **File:** `ptycho_torch/generators/registry.py`
 - Import `StableHybridGenerator` (or the wrapper class)
 - Add `'stable_hybrid': StableHybridGenerator` to `_REGISTRY`
+
+**Status 2026-01-28:** Pending Phase 2. No changes yet.
 
 ---
 

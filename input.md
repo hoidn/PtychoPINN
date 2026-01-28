@@ -1,95 +1,44 @@
-# FNO-STABILITY-OVERHAUL-001 — Phase 1: Foundation (Config + AGC + Dispatch)
+# FNO-STABILITY-OVERHAUL-001 — Phase 1: Finish config + CLI plumbing
 
-**Summary:** Implement the configuration, AGC utility, and training_step dispatch needed for the FNO stability shootout.
+**Summary:** Close the remaining gaps in Phase 1 so every runner can actually request AGC (`docs/strategy/mainstrategy.md` §2B).
 
 **Focus:** FNO-STABILITY-OVERHAUL-001 — Phase 1 (Foundation)
 
 **Branch:** fno2
 
 **Mapped tests:**
-- `tests/torch/test_agc.py` — new (author as part of this task)
-- `tests/torch/test_grid_lines_torch_runner.py` — regression (23/23 must stay green)
+- `pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_gradient_clip_algorithm_roundtrip -v`
+- `pytest tests/torch/test_grid_lines_torch_runner.py -k gradient_clip_algorithm -v`
+- `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_passes_grad_clip_algorithm -v`
 
-**Artifacts:** `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T010000Z/`
+**Artifacts:** `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T020500Z/`
 
 ---
 
 ## Do Now
 
-Implement Phase 1 from `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md`. Four tasks:
+Implement the remaining Phase 1 work from `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md` (Tasks 1.1 & 1.4). Keep Task IDs in commit messages.
 
-### Task 1.1: Config field `gradient_clip_algorithm`
+### Task 1 — Finish `gradient_clip_algorithm` config parity
+1. **TF dataclass:** In `ptycho/config/config.py:232` add `gradient_clip_algorithm: Literal['norm','value','agc'] = 'norm'` immediately after `gradient_clip_val` inside `PyTorchExecutionConfig`. (Torch `TrainingConfig` already has the field; we need parity on the canonical config used by the runner bridge per `docs/workflows/pytorch.md`.)
+2. **Bridge plumbing:** Update `ptycho_torch/config_bridge.py::to_training_config` so it copies `training.gradient_clip_algorithm` into the TensorFlow `TrainingConfig`. Add a regression test in `tests/torch/test_config_bridge.py::TestConfigBridgeParity` that constructs a PyTorch TrainingConfig with algorithm `'agc'`, runs through the bridge, calls `update_legacy_dict`, and asserts both the TF dataclass and `params.cfg['gradient_clip_algorithm']` match.
+3. **Docs/tests:** If the new test changes collected selectors, update `docs/development/TEST_SUITE_INDEX.md` entry for `tests/torch/test_config_bridge.py` per `docs/TESTING_GUIDE.md` §2 only if names change (not required if just adding a case).
 
-Add `gradient_clip_algorithm: Literal['norm', 'value', 'agc'] = 'norm'` to:
-1. `ptycho/config/config.py` — TF `TrainingConfig`, after `gradient_clip_val` (line ~232)
-2. `ptycho_torch/config_params.py` — Torch `TrainingConfig`, after `gradient_clip_val` (line ~131)
-3. Check `ptycho_torch/config_bridge.py` — if auto-bridged by name match, no change needed; otherwise add mapping
+### Task 2 — Expose AGC selection end-to-end on the compare harness
+1. **CLI flag:** In `scripts/studies/grid_lines_compare_wrapper.py`, add `--torch-grad-clip-algorithm` (choices `['norm','value','agc']`, default `'norm'`) to `parse_args`. Thread this argument through `run_grid_lines_compare()` to the `TorchRunnerConfig` constructor (`gradient_clip_algorithm=...`). Follow the precedent from `--torch-grad-clip` introduced in `docs/plans/2026-01-27-wire-torch-grad-clip-val.md`.
+2. **Wrapper tests:** Extend `tests/test_grid_lines_compare_wrapper.py` with `test_wrapper_passes_grad_clip_algorithm` that monkeypatches the torch runner, runs the wrapper with `--torch-grad-clip-algorithm agc`, and asserts the captured config field equals `'agc'`. While there, add a parse_args assertion for the default.
+3. **Runner regression:** `tests/torch/test_grid_lines_torch_runner.py` already builds configs via `setup_torch_configs`. Add a focused test (e.g., `test_gradient_clip_algorithm_forwarded`) ensuring the dataclass inherits the CLI value and that `TrainingConfig.gradient_clip_algorithm` feeds through to `PyTorchExecutionConfig` if needed. Keep coverage under the existing class to avoid new fixtures.
 
-### Task 1.2: AGC utility
+### Task 3 — Verification
+Run the mapped selectors from above (capture logs under the artifacts path):
+1. `pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_gradient_clip_algorithm_roundtrip -v`
+2. `pytest tests/torch/test_grid_lines_torch_runner.py -k gradient_clip_algorithm -v`
+3. `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_passes_grad_clip_algorithm -v`
 
-Add to `ptycho_torch/train_utils.py`:
-
-```python
-def adaptive_gradient_clip_(parameters, clip_factor: float = 0.01, eps: float = 1e-3):
-    """Adaptive Gradient Clipping (AGC).
-
-    Clips gradients based on the unit-wise ratio of gradient norm to parameter norm.
-    See Brock et al., 2021 (NFNet), Algorithm 2.
-
-    Operates in-place on parameter .grad tensors.
-    """
-    for p in parameters:
-        if p.grad is None:
-            continue
-        p_norm = p.data.norm(2).clamp(min=eps)
-        g_norm = p.grad.data.norm(2)
-        max_norm = p_norm * clip_factor
-        if g_norm > max_norm:
-            p.grad.data.mul_(max_norm / g_norm)
-```
-
-### Task 1.3: Training step dispatch
-
-In `ptycho_torch/model.py`, `PtychoPINN_Lightning.training_step` (lines 1334-1340), replace the hardcoded `clip_grad_norm_` with:
-
-```python
-from ptycho_torch.train_utils import adaptive_gradient_clip_
-
-algo = getattr(self.training_config, 'gradient_clip_algorithm', 'norm')
-if self.gradient_clip_val is not None and self.gradient_clip_val > 0:
-    if algo == 'norm':
-        torch.nn.utils.clip_grad_norm_(self.parameters(), self.gradient_clip_val)
-    elif algo == 'value':
-        torch.nn.utils.clip_grad_value_(self.parameters(), self.gradient_clip_val)
-    elif algo == 'agc':
-        adaptive_gradient_clip_(self.parameters(), clip_factor=self.gradient_clip_val)
-```
-
-### Task 1.4: CLI flag
-
-In `scripts/studies/grid_lines_torch_runner.py`, add after `--grad-clip` (line ~578):
-```python
-parser.add_argument('--gradient-clip-algorithm', choices=['norm', 'value', 'agc'],
-                    default='norm', help='Gradient clipping algorithm')
-```
-Pass to `TorchRunnerConfig` and ensure it reaches `TrainingConfig.gradient_clip_algorithm`.
-
-### Tests
-
-Create `tests/torch/test_agc.py`:
-- `test_agc_clips_large_gradients`: create param with small norm, assign large grad, verify clipped
-- `test_agc_preserves_small_gradients`: create param with large norm, assign small grad, verify unchanged
-- `test_agc_handles_zero_params`: param with all zeros, verify no crash (eps guard)
-
-### Verification
-
-```bash
-pytest tests/torch/test_agc.py -v 2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T010000Z/pytest_agc.log
-pytest tests/torch/test_grid_lines_torch_runner.py -v 2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T010000Z/pytest_torch_runner_regression.log
-```
+Archive each command’s stdout/stderr in `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T020500Z/` following `docs/TESTING_GUIDE.md` log naming conventions.
 
 ---
 
 ## Next Up
 
-Phase 2: StablePtychoBlock + StableHybridGenerator + registry (see implementation.md Tasks 2.1–2.3).
+Once config + CLI plumbing are green, proceed to Phase 2 (`StablePtychoBlock`, `StableHybridGenerator`, registry + tests) before launching the shootout in Phase 3.
