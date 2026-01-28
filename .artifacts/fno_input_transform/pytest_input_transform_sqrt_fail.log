@@ -1,0 +1,37 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... ERROR: found no collectors for /home/ollie/Documents/tmp/PtychoPINN/tests/torch/test_fno_generators.py::TestInputTransform::test_input_transform_sqrt_matches_expected
+
+collected 0 items / 1 error
+
+==================================== ERRORS ====================================
+_____________ ERROR collecting tests/torch/test_fno_generators.py ______________
+ImportError while importing test module '/home/ollie/Documents/tmp/PtychoPINN/tests/torch/test_fno_generators.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../../miniconda3/envs/ptycho311/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/torch/test_fno_generators.py:7: in <module>
+    from ptycho_torch.generators.fno import (
+E   ImportError: cannot import name 'InputTransform' from 'ptycho_torch.generators.fno' (/home/ollie/Documents/tmp/PtychoPINN/ptycho_torch/generators/fno.py)
+------------------------------- Captured stderr --------------------------------
+2026-01-27 01:18:59.232667: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1769505539.243857  121301 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1769505539.247710  121301 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1769505539.258495  121301 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769505539.258506  121301 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769505539.258508  121301 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769505539.258510  121301 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-27 01:18:59.261234: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+=========================== short test summary info ============================
+ERROR tests/torch/test_fno_generators.py
+=============================== 1 error in 4.60s ===============================

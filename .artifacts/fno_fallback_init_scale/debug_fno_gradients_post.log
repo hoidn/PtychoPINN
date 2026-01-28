@@ -1,0 +1,19 @@
+2026-01-27 00:42:24.444409: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1769503344.455929   86129 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1769503344.459793   86129 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1769503344.470827   86129 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769503344.470838   86129 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769503344.470840   86129 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769503344.470842   86129 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-27 00:42:24.473630: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+--- Debugging FNO Gradients (Hidden Dim=32) ---
+Spectral Weights: mean=0.000088+0.000020j, std=0.176615, abs_mean=0.156521
+Local Conv Weights: mean=-0.001145, std=0.033888
+
+Gradients:
+Spectral Grad: mean=0.000005, std=0.000010, max=0.000297
+Local Conv Grad: mean=0.000528, std=0.000616, max=0.001459
+
+Ratio (Local/Spectral Grad Magnitude): 107.37

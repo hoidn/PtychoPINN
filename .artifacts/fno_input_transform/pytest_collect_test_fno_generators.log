@@ -1,0 +1,55 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 14 items
+
+<Dir PtychoPINN>
+  <Package tests>
+    <Dir torch>
+      <Module test_fno_generators.py>
+        Tests for FNO/Hybrid generator implementations.
+        <Class TestSpatialLifter>
+          Tests for the SpatialLifter module.
+          <Function test_lifter_preserves_spatial_dims>
+            Lifter should preserve H, W dimensions.
+          <Function test_lifter_with_custom_hidden>
+            Lifter should work with custom hidden channels.
+        <Class TestInputTransform>
+          Tests for optional input dynamic-range transforms.
+          <Function test_input_transform_sqrt_matches_expected>
+          <Function test_input_transform_log1p_matches_expected>
+        <Class TestPtychoBlock>
+          Tests for the PtychoBlock module.
+          <Function test_block_preserves_dims>
+            PtychoBlock should preserve all dimensions.
+          <Function test_block_has_residual>
+            PtychoBlock should have residual connection.
+        <Class TestHybridUNOGenerator>
+          Tests for the HybridUNOGenerator model.
+          <Function test_output_shape>
+            Generator should produce correct output shape.
+          <Function test_output_contract_real_imag>
+            Output should have real/imag in last dimension.
+        <Class TestCascadedFNOGenerator>
+          Tests for the CascadedFNOGenerator model.
+          <Function test_output_shape>
+            Generator should produce correct output shape.
+          <Function test_output_is_differentiable>
+            Output should be differentiable for training.
+        <Class TestGeneratorRegistry>
+          Tests for generator registry with FNO/Hybrid generators.
+          <Function test_resolve_fno_generator>
+            Registry should resolve FNO generator.
+          <Function test_resolve_hybrid_generator>
+            Registry should resolve Hybrid generator.
+          <Function test_fno_generator_builds_model>
+            FNO generator should build a model.
+          <Function test_hybrid_generator_builds_model>
+            Hybrid generator should build a model.
+
+========================= 14 tests collected in 4.51s ==========================

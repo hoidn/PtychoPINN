@@ -1,0 +1,32 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: mock-3.15.1, typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_grid_lines_torch_runner_grad_norm_flag.py::test_runner_config_propagates_grad_clip_to_training_config FAILED [100%]
+
+=================================== FAILURES ===================================
+__________ test_runner_config_propagates_grad_clip_to_training_config __________
+
+    def test_runner_config_propagates_grad_clip_to_training_config():
+        cfg = TorchRunnerConfig(
+            train_npz="/tmp/train.npz",
+            test_npz="/tmp/test.npz",
+            output_dir="/tmp/out",
+            architecture="hybrid",
+            gradient_clip_val=50.0,
+        )
+        training_config, execution_config = setup_torch_configs(cfg)
+>       assert training_config.gradient_clip_val == 50.0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'TrainingConfig' object has no attribute 'gradient_clip_val'
+
+tests/torch/test_grid_lines_torch_runner_grad_norm_flag.py:24: AttributeError
+=========================== short test summary info ============================
+FAILED tests/torch/test_grid_lines_torch_runner_grad_norm_flag.py::test_runner_config_propagates_grad_clip_to_training_config
+============================== 1 failed in 0.90s ===============================

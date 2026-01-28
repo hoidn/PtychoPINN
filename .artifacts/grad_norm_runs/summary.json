@@ -1,0 +1,23 @@
+{
+  "unclipped": {
+    "count": 14050,
+    "preclip_max": 134725.125,
+    "preclip_median": 9.064611434936523,
+    "preclip_p95": 24.315456962585447,
+    "preclip_gt1_pct": 0.9779359430604982,
+    "preclip_max_epoch30plus": 134725.125,
+    "preclip_gt1_pct_epoch30plus": 0.974580579562786
+  },
+  "clip1": {
+    "count": 14050,
+    "preclip_max": 347.0893249511719,
+    "preclip_median": 8.90917682647705,
+    "preclip_p95": 19.933220767974845,
+    "preclip_gt1_pct": 0.9906049822064057,
+    "postclip_max": 1.0000001192092896,
+    "postclip_median": 0.9999998807907104,
+    "postclip_p95": 1.0,
+    "preclip_max_epoch30plus": 26.13953971862793,
+    "preclip_gt1_pct_epoch30plus": 0.9935604134892391
+  }
+}

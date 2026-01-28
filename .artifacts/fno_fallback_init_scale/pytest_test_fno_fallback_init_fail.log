@@ -1,0 +1,31 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_fno_fallback_init.py::test_fallback_spectral_init_scale FAILED [100%]
+
+=================================== FAILURES ===================================
+______________________ test_fallback_spectral_init_scale _______________________
+
+    def test_fallback_spectral_init_scale():
+        torch.manual_seed(0)
+        in_ch, out_ch, modes = 4, 4, 8
+        layer = _FallbackSpectralConv2d(in_ch, out_ch, modes)
+    
+        real_std = layer.weights.real.std().item()
+        expected = 1.0 / math.sqrt(in_ch)
+    
+>       assert abs(real_std - expected) / expected < 0.2
+E       assert (0.4558205418288708 / 0.5) < 0.2
+E        +  where 0.4558205418288708 = abs((0.04417945817112923 - 0.5))
+
+tests/torch/test_fno_fallback_init.py:16: AssertionError
+=========================== short test summary info ============================
+FAILED tests/torch/test_fno_fallback_init.py::test_fallback_spectral_init_scale
+============================== 1 failed in 4.54s ===============================

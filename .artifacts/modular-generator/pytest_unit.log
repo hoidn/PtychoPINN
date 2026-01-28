@@ -1,0 +1,17 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 74 items / 69 deselected / 5 selected
+
+tests/test_model_config_architecture.py::test_model_config_architecture_default_ok PASSED [ 20%]
+tests/test_model_config_architecture.py::test_model_config_architecture_invalid_raises PASSED [ 40%]
+tests/torch/test_config_bridge.py::TestConfigBridgeArchitecture::test_config_bridge_architecture_override PASSED [ 60%]
+tests/torch/test_config_bridge.py::TestConfigBridgeArchitecture::test_config_bridge_architecture_default PASSED [ 80%]
+tests/torch/test_config_bridge.py::TestConfigBridgeArchitecture::test_config_bridge_architecture_from_pt_model PASSED [100%]
+
+======================= 5 passed, 69 deselected in 4.90s =======================

@@ -1,0 +1,25 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: mock-3.15.1, typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_grad_norm_logging_flag.py::test_training_config_has_grad_norm_flags FAILED [100%]
+
+=================================== FAILURES ===================================
+___________________ test_training_config_has_grad_norm_flags ___________________
+
+    def test_training_config_has_grad_norm_flags():
+        cfg = TrainingConfig()
+>       assert hasattr(cfg, "log_grad_norm")
+E       AssertionError: assert False
+E        +  where False = hasattr(TrainingConfig(training_directories=[], nll=True, device='cuda', strategy='ddp', n_devices=1, framework='Lightning', orchestrator='Mlflow', learning_rate=0.001, epochs=50, batch_size=16, epochs_fine_tune=0, fine_tune_gamma=0.1, scheduler='Default', num_workers=4, accum_steps=1, gradient_clip_val=None, stage_1_epochs=0, stage_2_epochs=0, stage_3_epochs=0, physics_weight_schedule='cosine', stage_3_lr_factor=0.1, torch_loss_mode='poisson', experiment_name='Synthetic_Runs', notes='', model_name='PtychoPINNv2', output_dir='training_outputs', train_data_file=None, test_data_file=None, n_groups=None), 'log_grad_norm')
+
+tests/torch/test_grad_norm_logging_flag.py:6: AssertionError
+=========================== short test summary info ============================
+FAILED tests/torch/test_grad_norm_logging_flag.py::test_training_config_has_grad_norm_flags
+============================== 1 failed in 4.59s ===============================

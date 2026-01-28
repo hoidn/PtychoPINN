@@ -1,0 +1,14 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 2 items
+
+tests/torch/test_loss_units.py::test_poisson_intensity_layer_squares_observations PASSED [ 50%]
+tests/torch/test_loss_units.py::test_mae_loss_operates_on_amplitude PASSED [100%]
+
+============================== 2 passed in 4.97s ===============================

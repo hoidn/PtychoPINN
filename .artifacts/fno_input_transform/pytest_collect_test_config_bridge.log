@@ -1,0 +1,340 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 52 items
+
+<Dir PtychoPINN>
+  <Package tests>
+    <Dir torch>
+      <Module test_config_bridge.py>
+        Tests for PyTorch config bridge adapter translating PyTorch configs to TensorFlow spec format.
+        
+        This module validates Phase B.B2 of INTEGRATE-PYTORCH-001: the configuration bridge that
+        translates PyTorch singleton configs to TensorFlow dataclass configs, enabling population
+        of the legacy params.cfg dictionary through the standard update_legacy_dict() function.
+        
+        MVP Test Coverage (9 fields):
+        - N, gridsize, model_type (model essentials)
+        - train_data_file, test_data_file, model_path (lifecycle paths)
+        - n_groups, neighbor_count (data grouping)
+        - nphotons (physics scaling)
+        
+        Test Strategy:
+        1. Instantiate PyTorch configs with MVP-aligned values
+        2. Call adapter functions to convert to TensorFlow dataclass configs
+        3. Use update_legacy_dict() to populate params.cfg
+        4. Assert params.cfg contains expected keys with correct values
+        
+        Implementation Status: Adapter module (ptycho_torch.config_bridge) implemented in Phase B.B3.
+        This test validates the MVP translation functions convert PyTorch configs to TensorFlow dataclasses.
+        <UnitTestCase TestConfigBridgeMVP>
+          Test suite for PyTorch → TensorFlow config bridge MVP functionality.
+          <TestCaseFunction test_mvp_config_bridge_populates_params_cfg>
+            Test that PyTorch configs populate params.cfg with MVP fields via bridge adapter.
+            
+            This test exercises the complete configuration bridge workflow:
+            1. Create PyTorch configs using existing singleton pattern
+            2. Invoke adapter to translate to TensorFlow dataclass format
+            3. Call update_legacy_dict() to populate params.cfg
+            4. Verify all MVP fields present with correct values and types
+            
+            Note: This test will be automatically skipped if PyTorch runtime is unavailable
+            (handled by tests/conftest.py). When PyTorch is available, validates full workflow.
+        <Class TestConfigBridgeParity>
+          Comprehensive parity tests for PyTorch → TensorFlow config bridge adapter.
+          
+          This test suite implements Phase B.B4 of INTEGRATE-PYTORCH-001, extending beyond
+          the MVP 9-field coverage to validate all spec-required fields across ModelConfig,
+          TrainingConfig, and InferenceConfig.
+          
+          Test organization:
+          - Direct fields: Pass through without transformation
+          - Transform fields: Require name/type conversion
+          - Override-required fields: Missing from PyTorch, use defaults or overrides
+          - Default divergence: Different PyTorch/TensorFlow defaults
+          - Error handling: Invalid inputs raise actionable errors
+          
+          References:
+          - Field matrix: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/field_matrix.md
+          - Test design: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/testcase_design.md
+          - Canonical fixtures: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/fixtures.py
+          <Function test_model_config_direct_fields[N-direct]>
+            Test ModelConfig fields that translate directly without transformation.
+            
+            Spec coverage: §5.1:1 (N), §5.1:3 (n_filters_scale), §5.1:6 (object_big), §5.1:7 (probe_big)
+          <Function test_model_config_direct_fields[n_filters_scale-direct]>
+            Test ModelConfig fields that translate directly without transformation.
+            
+            Spec coverage: §5.1:1 (N), §5.1:3 (n_filters_scale), §5.1:6 (object_big), §5.1:7 (probe_big)
+          <Function test_model_config_direct_fields[object_big-direct]>
+            Test ModelConfig fields that translate directly without transformation.
+            
+            Spec coverage: §5.1:1 (N), §5.1:3 (n_filters_scale), §5.1:6 (object_big), §5.1:7 (probe_big)
+          <Function test_model_config_direct_fields[probe_big-direct]>
+            Test ModelConfig fields that translate directly without transformation.
+            
+            Spec coverage: §5.1:1 (N), §5.1:3 (n_filters_scale), §5.1:6 (object_big), §5.1:7 (probe_big)
+          <Function test_training_config_direct_fields[batch_size-direct]>
+            Test TrainingConfig fields that translate directly without transformation.
+            
+            Spec coverage: §5.2:3 (batch_size)
+          <Function test_model_config_transform_fields[gridsize-tuple-to-int]>
+            Test ModelConfig fields that require transformation during translation.
+            
+            Spec coverage: §5.1:2 (gridsize), §5.1:4 (model_type), §5.1:5 (amp_activation)
+          <Function test_model_config_transform_fields[model_type-unsupervised]>
+            Test ModelConfig fields that require transformation during translation.
+            
+            Spec coverage: §5.1:2 (gridsize), §5.1:4 (model_type), §5.1:5 (amp_activation)
+          <Function test_model_config_transform_fields[model_type-supervised]>
+            Test ModelConfig fields that require transformation during translation.
+            
+            Spec coverage: §5.1:2 (gridsize), §5.1:4 (model_type), §5.1:5 (amp_activation)
+          <Function test_model_config_transform_fields[amp_activation-silu]>
+            Test ModelConfig fields that require transformation during translation.
+            
+            Spec coverage: §5.1:2 (gridsize), §5.1:4 (model_type), §5.1:5 (amp_activation)
+          <Function test_model_config_transform_fields[amp_activation-SiLU]>
+            Test ModelConfig fields that require transformation during translation.
+            
+            Spec coverage: §5.1:2 (gridsize), §5.1:4 (model_type), §5.1:5 (amp_activation)
+          <Function test_model_config_transform_fields[amp_activation-passthrough]>
+            Test ModelConfig fields that require transformation during translation.
+            
+            Spec coverage: §5.1:2 (gridsize), §5.1:4 (model_type), §5.1:5 (amp_activation)
+          <Function test_training_config_transform_fields[nepochs-rename]>
+            Test TrainingConfig fields that require transformation during translation.
+            
+            Spec coverage: §5.2:4 (nepochs), §5.2:6 (nll_weight)
+          <Function test_training_config_transform_fields[nll_weight-true]>
+            Test TrainingConfig fields that require transformation during translation.
+            
+            Spec coverage: §5.2:4 (nepochs), §5.2:6 (nll_weight)
+          <Function test_training_config_transform_fields[nll_weight-false]>
+            Test TrainingConfig fields that require transformation during translation.
+            
+            Spec coverage: §5.2:4 (nepochs), §5.2:6 (nll_weight)
+          <Function test_model_config_override_fields[pad_object-default]>
+            Test ModelConfig fields that now have defaults in PyTorch or use overrides.
+            
+            Spec coverage: §5.1:9 (pad_object), §5.1:11 (gaussian_smoothing_sigma)
+            Phase: Phase C.C3 spec defaults backfill
+          <Function test_model_config_override_fields[pad_object-override]>
+            Test ModelConfig fields that now have defaults in PyTorch or use overrides.
+            
+            Spec coverage: §5.1:9 (pad_object), §5.1:11 (gaussian_smoothing_sigma)
+            Phase: Phase C.C3 spec defaults backfill
+          <Function test_model_config_override_fields[gaussian_smoothing_sigma-default]>
+            Test ModelConfig fields that now have defaults in PyTorch or use overrides.
+            
+            Spec coverage: §5.1:9 (pad_object), §5.1:11 (gaussian_smoothing_sigma)
+            Phase: Phase C.C3 spec defaults backfill
+          <Function test_model_config_override_fields[gaussian_smoothing_sigma-override]>
+            Test ModelConfig fields that now have defaults in PyTorch or use overrides.
+            
+            Spec coverage: §5.1:9 (pad_object), §5.1:11 (gaussian_smoothing_sigma)
+            Phase: Phase C.C3 spec defaults backfill
+          <Function test_training_config_override_fields[mae_weight-default]>
+            Test TrainingConfig fields missing from PyTorch that require defaults/overrides.
+            
+            Spec coverage: §5.2:5 (mae_weight), §5.2:7 (realspace_mae_weight),
+            §5.2:8 (realspace_weight), §5.2:15 (positions_provided),
+            §5.2:16 (probe_trainable), §5.2:19 (sequential_sampling)
+          <Function test_training_config_override_fields[mae_weight-override]>
+            Test TrainingConfig fields missing from PyTorch that require defaults/overrides.
+            
+            Spec coverage: §5.2:5 (mae_weight), §5.2:7 (realspace_mae_weight),
+            §5.2:8 (realspace_weight), §5.2:15 (positions_provided),
+            §5.2:16 (probe_trainable), §5.2:19 (sequential_sampling)
+          <Function test_training_config_override_fields[realspace_mae_weight-default]>
+            Test TrainingConfig fields missing from PyTorch that require defaults/overrides.
+            
+            Spec coverage: §5.2:5 (mae_weight), §5.2:7 (realspace_mae_weight),
+            §5.2:8 (realspace_weight), §5.2:15 (positions_provided),
+            §5.2:16 (probe_trainable), §5.2:19 (sequential_sampling)
+          <Function test_training_config_override_fields[realspace_weight-default]>
+            Test TrainingConfig fields missing from PyTorch that require defaults/overrides.
+            
+            Spec coverage: §5.2:5 (mae_weight), §5.2:7 (realspace_mae_weight),
+            §5.2:8 (realspace_weight), §5.2:15 (positions_provided),
+            §5.2:16 (probe_trainable), §5.2:19 (sequential_sampling)
+          <Function test_training_config_override_fields[positions_provided-default]>
+            Test TrainingConfig fields missing from PyTorch that require defaults/overrides.
+            
+            Spec coverage: §5.2:5 (mae_weight), §5.2:7 (realspace_mae_weight),
+            §5.2:8 (realspace_weight), §5.2:15 (positions_provided),
+            §5.2:16 (probe_trainable), §5.2:19 (sequential_sampling)
+          <Function test_training_config_override_fields[probe_trainable-default]>
+            Test TrainingConfig fields missing from PyTorch that require defaults/overrides.
+            
+            Spec coverage: §5.2:5 (mae_weight), §5.2:7 (realspace_mae_weight),
+            §5.2:8 (realspace_weight), §5.2:15 (positions_provided),
+            §5.2:16 (probe_trainable), §5.2:19 (sequential_sampling)
+          <Function test_training_config_override_fields[sequential_sampling-default]>
+            Test TrainingConfig fields missing from PyTorch that require defaults/overrides.
+            
+            Spec coverage: §5.2:5 (mae_weight), §5.2:7 (realspace_mae_weight),
+            §5.2:8 (realspace_weight), §5.2:15 (positions_provided),
+            §5.2:16 (probe_trainable), §5.2:19 (sequential_sampling)
+          <Function test_inference_config_override_fields[debug-default]>
+            Test InferenceConfig fields missing from PyTorch that require defaults/overrides.
+            
+            Spec coverage: §5.3:8 (debug)
+          <Function test_inference_config_override_fields[debug-override]>
+            Test InferenceConfig fields missing from PyTorch that require defaults/overrides.
+            
+            Spec coverage: §5.3:8 (debug)
+          <Function test_model_config_probe_mask_translation[probe_mask-default]>
+            Test probe_mask translation from Optional[Tensor] to bool.
+            
+            Without torch: None → False (default behavior)
+            With torch: None → False, Tensor → True
+            
+            Spec coverage: §5.1:8 (probe_mask)
+            Phase: B.B5.B2 parity extension
+          <Function test_model_config_probe_mask_override>
+            Test that probe_mask can be explicitly overridden via overrides dict.
+            
+            This allows external callers to force True even when PyTorch config has None.
+            
+            Spec coverage: §5.1:8 (probe_mask override pattern)
+            Phase: B.B5.B2 parity extension
+          <Function test_default_divergence_detection[nphotons-divergence]>
+            Test that fields with different PyTorch/TensorFlow defaults use explicit values.
+            
+            This ensures the adapter doesn't silently fall back to incompatible defaults.
+            
+            Spec coverage: §5.2:9 (nphotons HIGH risk), §5.1:10 (probe_scale MEDIUM risk)
+          <Function test_default_divergence_detection[probe_scale-divergence]>
+            Test that fields with different PyTorch/TensorFlow defaults use explicit values.
+            
+            This ensures the adapter doesn't silently fall back to incompatible defaults.
+            
+            Spec coverage: §5.2:9 (nphotons HIGH risk), §5.1:10 (probe_scale MEDIUM risk)
+          <Function test_gridsize_error_handling[gridsize-non-square]>
+            Test grid_size validation (non-square grids should raise ValueError).
+          <Function test_model_type_error_handling[model_type-invalid-enum]>
+            Test mode validation (invalid enum should raise ValueError).
+          <Function test_activation_error_handling[amp_activation-unknown]>
+            Test amp_activation validation (unknown activation should raise ValueError).
+          <Function test_train_data_file_required_error>
+            Test that missing train_data_file raises actionable ValueError (MVP field).
+          <Function test_model_path_required_error>
+            Test that missing model_path raises actionable ValueError (MVP field).
+          <Function test_nphotons_default_divergence_error>
+            Test that using PyTorch default nphotons without override raises informative error.
+            
+            Regression test for Phase B.B5.B4: Validates that the adapter enforces explicit
+            nphotons override when PyTorch default (1e5) differs from TensorFlow default (1e9).
+            
+            Error message should provide actionable guidance: overrides=dict(..., nphotons=1e9)
+            
+            Spec coverage: §5.2:9 (nphotons HIGH risk divergence)
+            Phase: B.B5.B4 override validation
+          <Function test_nphotons_override_passes_validation>
+            Test that explicit nphotons override passes validation (green path).
+            
+            Paired with test_nphotons_default_divergence_error to confirm validation
+            accepts explicit overrides and only rejects PyTorch defaults.
+            
+            Spec coverage: §5.2:9 (nphotons override pattern)
+            Phase: B.B5.B4 override validation
+          <Function test_training_config_n_subsample_missing_override_uses_none>
+            Test that missing n_subsample override defaults to None in TrainingConfig.
+            
+            Semantic collision context: PyTorch DataConfig.n_subsample exists but has
+            different semantics (coordinate subsampling factor, not sample count). The
+            adapter must NOT propagate PyTorch n_subsample to TensorFlow; explicit
+            override is required to set training sample count.
+            
+            Spec coverage: §5.2:12 (n_subsample override_required)
+            Phase: Phase C.C1-C2 (n_subsample parity)
+            Reference: field_matrix.md row 51
+          <Function test_training_config_n_subsample_explicit_override>
+            Test that explicit n_subsample override is applied to TrainingConfig.
+            
+            Green path confirming that when caller provides explicit n_subsample value,
+            adapter applies it to TensorFlow config regardless of PyTorch value.
+            
+            Spec coverage: §5.2:12 (n_subsample override pattern)
+            Phase: Phase C.C1-C2 (n_subsample parity)
+          <Function test_inference_config_n_subsample_missing_override_uses_none>
+            Test that missing n_subsample override defaults to None in InferenceConfig.
+            
+            Same semantic collision as TrainingConfig: PyTorch n_subsample has different
+            meaning, so adapter must not propagate without explicit override.
+            
+            Spec coverage: §5.3:5 (n_subsample override_required)
+            Phase: Phase C.C1-C2 (n_subsample parity)
+            Reference: field_matrix.md row 69
+          <Function test_inference_config_n_subsample_explicit_override>
+            Test that explicit n_subsample override is applied to InferenceConfig.
+            
+            Green path for inference-time sample count control.
+            
+            Spec coverage: §5.3:5 (n_subsample override pattern)
+            Phase: Phase C.C1-C2 (n_subsample parity)
+          <Function test_training_config_subsample_seed_from_dataconfig>
+            Test that subsample_seed propagates from DataConfig to TrainingConfig.
+            
+            Now that subsample_seed exists in PyTorch DataConfig, verify that
+            config_bridge correctly propagates it to TensorFlow TrainingConfig.
+            
+            Spec coverage: §5.2:13 (subsample_seed)
+            Phase: Phase C.C3 spec defaults backfill
+          <Function test_training_config_subsample_seed_override>
+            Test that subsample_seed override takes precedence over DataConfig value.
+            
+            Spec coverage: §5.2:13 (subsample_seed override pattern)
+            Phase: Phase C.C3 spec defaults backfill
+          <Function test_n_groups_missing_override_warning>
+            Test that missing n_groups override in TrainingConfig raises warning/error.
+            
+            From override_matrix.md: n_groups training stage with no override leaves
+            params.cfg['n_groups'] = None if inference also omits value, breaking
+            downstream workflows that expect a valid integer.
+            
+            Spec coverage: §5.2:10 (n_groups override_required)
+            Phase: B.B5.D3 override warning coverage
+            Reference: override_matrix.md row for n_groups
+          <Function test_test_data_file_training_missing_warning>
+            Test that missing test_data_file in TrainingConfig emits warning (optional field).
+            
+            From override_matrix.md: test_data_file (training stage) remains None until
+            inference override applied. Consider warning to surface absent evaluation data.
+            
+            Note: This is a softer validation than train_data_file (which is required).
+            The warning helps callers understand inference update is needed for evaluation flows.
+            
+            Spec coverage: §5.2:2 (test_data_file optional)
+            Phase: B.B5.D3 override warning coverage
+            Reference: override_matrix.md row for test_data_file (training)
+          <Function test_params_cfg_matches_baseline>
+            Test that adapter-populated params.cfg matches canonical TensorFlow baseline.
+            
+            This test validates end-to-end config bridge correctness by instantiating
+            PyTorch configs with canonical values, translating through the adapter,
+            populating params.cfg via update_legacy_dict, and comparing the resulting
+            legacy dictionary against a pre-captured TensorFlow baseline snapshot.
+            
+            Baseline: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/baseline_params.json
+            Spec coverage: §5.1-§5.3 (all config fields)
+            Phase: Phase B.B5.D1 baseline comparison
+            References: supervisor_summary.md for canonical config inputs
+        <Class TestConfigBridgeArchitecture>
+          Tests for model.architecture field bridging.
+          <Function test_config_bridge_architecture_override>
+            Test that architecture field can be bridged through config_bridge.
+          <Function test_config_bridge_architecture_default>
+            Test that architecture defaults to 'cnn' when not provided.
+          <Function test_config_bridge_architecture_from_pt_model>
+            Test that architecture is passed through from PyTorch ModelConfig.
+          <Function test_config_bridge_fno_input_transform>
+            Test that fno_input_transform is passed through to TF ModelConfig.
+
+========================= 52 tests collected in 0.83s ==========================

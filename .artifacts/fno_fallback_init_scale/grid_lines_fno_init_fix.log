@@ -1,0 +1,12 @@
+usage: grid_lines_torch_runner.py [-h] --train-npz TRAIN_NPZ --test-npz
+                                  TEST_NPZ --output-dir OUTPUT_DIR
+                                  --architecture {fno,hybrid} [--seed SEED]
+                                  [--epochs EPOCHS] [--batch-size BATCH_SIZE]
+                                  [--learning-rate LEARNING_RATE]
+                                  [--infer-batch-size INFER_BATCH_SIZE]
+                                  [--fno-modes FNO_MODES]
+                                  [--fno-width FNO_WIDTH]
+                                  [--fno-blocks FNO_BLOCKS]
+                                  [--fno-cnn-blocks FNO_CNN_BLOCKS] [--N N]
+                                  [--gridsize GRIDSIZE]
+grid_lines_torch_runner.py: error: the following arguments are required: --train-npz, --test-npz

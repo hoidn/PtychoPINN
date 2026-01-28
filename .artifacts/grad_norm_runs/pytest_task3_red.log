@@ -1,0 +1,30 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: mock-3.15.1, typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_grid_lines_torch_runner_grad_norm_flag.py::test_runner_config_supports_grad_norm_logging FAILED [100%]
+
+=================================== FAILURES ===================================
+________________ test_runner_config_supports_grad_norm_logging _________________
+
+    def test_runner_config_supports_grad_norm_logging():
+        cfg = TorchRunnerConfig(
+            train_npz="/tmp/train.npz",
+            test_npz="/tmp/test.npz",
+            output_dir="/tmp/out",
+            architecture="hybrid",
+        )
+>       assert hasattr(cfg, "log_grad_norm")
+E       AssertionError: assert False
+E        +  where False = hasattr(TorchRunnerConfig(train_npz='/tmp/train.npz', test_npz='/tmp/test.npz', output_dir='/tmp/out', architecture='hybrid', seed=42, epochs=50, batch_size=16, learning_rate=0.001, infer_batch_size=16, gradient_clip_val=1.0, N=64, gridsize=1, torch_loss_mode='mae', fno_modes=12, fno_width=32, fno_blocks=4, fno_cnn_blocks=2, fno_input_transform='none'), 'log_grad_norm')
+
+tests/torch/test_grid_lines_torch_runner_grad_norm_flag.py:11: AssertionError
+=========================== short test summary info ============================
+FAILED tests/torch/test_grid_lines_torch_runner_grad_norm_flag.py::test_runner_config_supports_grad_norm_logging
+============================== 1 failed in 0.85s ===============================

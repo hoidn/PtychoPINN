@@ -1,0 +1,9 @@
+{
+  "max_preclip": {
+    "epoch": 19,
+    "step": 8258,
+    "grad_norm_preclip_step": 1910397.625,
+    "grad_norm_postclip_step": 50.00000381469727,
+    "mae_train_loss_step": 89960.8046875
+  }
+}

@@ -1,0 +1,134 @@
+{
+  "spike_step": 8258,
+  "spike_epoch": 19,
+  "batch_idx": 68,
+  "global_step": 8258,
+  "intensity_norm_factor": 0.34692222879959106,
+  "inputs": {
+    "x": {
+      "shape": [
+        16,
+        1,
+        64,
+        64
+      ],
+      "dtype": "torch.float32",
+      "device": "cuda:0",
+      "mean": 0.34692221879959106,
+      "std": 0.3045913577079773,
+      "min": 0.0,
+      "max": 1.2661436796188354
+    },
+    "positions": {
+      "shape": [
+        16,
+        1,
+        1,
+        2
+      ],
+      "dtype": "torch.float32",
+      "device": "cuda:0",
+      "mean": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    "rms_scale": {
+      "shape": [
+        16,
+        1,
+        1,
+        1
+      ],
+      "dtype": "torch.float32",
+      "device": "cuda:0",
+      "mean": 1.0,
+      "std": 0.0,
+      "min": 1.0,
+      "max": 1.0
+    },
+    "physics_scale": {
+      "shape": [
+        16,
+        1,
+        1,
+        1
+      ],
+      "dtype": "torch.float32",
+      "device": "cuda:0",
+      "mean": 1.0,
+      "std": 0.0,
+      "min": 1.0,
+      "max": 1.0
+    },
+    "experiment_ids": {
+      "shape": [
+        16
+      ],
+      "dtype": "torch.float32",
+      "device": "cuda:0",
+      "mean": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    "probe_real": {
+      "shape": [
+        16,
+        64,
+        64,
+        2
+      ],
+      "dtype": "torch.float32",
+      "device": "cuda:0",
+      "mean": -0.010490774177014828,
+      "std": 0.5164394974708557,
+      "min": -4.01528787612915,
+      "max": 3.2499160766601562
+    }
+  },
+  "outputs": {
+    "pred": {
+      "shape": [
+        16,
+        1,
+        64,
+        64
+      ],
+      "dtype": "torch.float32",
+      "device": "cuda:0",
+      "mean": 0.347229540348053,
+      "std": 0.3058001399040222,
+      "min": 0.00018750956223811954,
+      "max": 1.262323260307312
+    },
+    "amp": {
+      "shape": [
+        16,
+        1,
+        64,
+        64
+      ],
+      "dtype": "torch.float32",
+      "device": "cuda:0",
+      "mean": 0.03726343438029289,
+      "std": 0.007391106337308884,
+      "min": 0.016538532450795174,
+      "max": 0.06222302094101906
+    },
+    "phase": {
+      "shape": [
+        16,
+        1,
+        64,
+        64
+      ],
+      "dtype": "torch.float32",
+      "device": "cuda:0",
+      "mean": -0.5030841827392578,
+      "std": 0.1941089928150177,
+      "min": -1.0617485046386719,
+      "max": 0.13672731816768646
+    }
+  }
+}

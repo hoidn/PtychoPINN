@@ -1,0 +1,1084 @@
+2026-01-27 04:49:10.130416: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1769518150.142058  392195 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1769518150.145947  392195 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1769518150.155888  392195 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769518150.155902  392195 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769518150.155904  392195 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769518150.155906  392195 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-27 04:49:10.158763: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+/home/ollie/Documents/tmp/PtychoPINN/ptycho_torch/config_factory.py:259: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+  tf_training_config = to_training_config(
+/home/ollie/Documents/tmp/PtychoPINN/ptycho_torch/config_factory.py:618: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+  warnings.warn(
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+INFO:pytorch_lightning.utilities.rank_zero:You are using a CUDA device ('NVIDIA GeForce RTX 3090') that has Tensor Cores. To properly utilize them, you should set `torch.set_float32_matmul_precision('medium' | 'high')` which will trade-off precision for performance. For more details, read https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/callbacks/model_checkpoint.py:751: Checkpoint directory /home/ollie/Documents/tmp/PtychoPINN/training_outputs/checkpoints exists and is not empty.
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 17.2 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+17.2 M    Trainable params
+0         Non-trainable params
+17.2 M    Total params
+68.810    Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+INFO:pytorch_lightning.utilities.rank_zero:`Trainer.fit` stopped: `max_epochs=20` reached.
+I0000 00:00:1769518517.293191  392195 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1769518517.295202  392195 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 15145 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+/home/ollie/Documents/tmp/PtychoPINN/ptycho/FRC/fourier_ring_corr.py:38: RuntimeWarning: divide by zero encountered in divide
+  FSC = abs(C)/np.sqrt(abs(np.multiply(C1,C2)))
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 38.7 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+38.7 M    Trainable params
+0         Non-trainable params
+38.7 M    Total params
+154.815   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+INFO:pytorch_lightning.utilities.rank_zero:`Trainer.fit` stopped: `max_epochs=20` reached.
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 68.8 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+68.8 M    Trainable params
+0         Non-trainable params
+68.8 M    Total params
+275.220   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+INFO:pytorch_lightning.utilities.rank_zero:`Trainer.fit` stopped: `max_epochs=20` reached.
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 28.8 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+28.8 M    Trainable params
+0         Non-trainable params
+28.8 M    Total params
+115.144   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+INFO:pytorch_lightning.utilities.rank_zero:`Trainer.fit` stopped: `max_epochs=20` reached.
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 64.8 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+64.8 M    Trainable params
+0         Non-trainable params
+64.8 M    Total params
+259.066   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 115 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+115 M     Trainable params
+0         Non-trainable params
+115 M     Total params
+460.556   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 61.9 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+61.9 M    Trainable params
+0         Non-trainable params
+61.9 M    Total params
+247.526   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 139 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+139 M     Trainable params
+0         Non-trainable params
+139 M     Total params
+556.927   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: CUDA out of memory. Tried to allocate 648.00 MiB. GPU 0 has a total capacity of 23.56 GiB of which 373.81 MiB is free. Including non-PyTorch memory, this process has 10.90 GiB memory in use. Process 392195 has 5.72 GiB memory in use. Process 395842 has 6.49 GiB memory in use. Of the allocated memory 10.34 GiB is allocated by PyTorch, and 167.10 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 247 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+247 M     Trainable params
+0         Non-trainable params
+247 M     Total params
+990.087   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: CUDA out of memory. Tried to allocate 1.12 GiB. GPU 0 has a total capacity of 23.56 GiB of which 431.81 MiB is free. Including non-PyTorch memory, this process has 10.85 GiB memory in use. Process 392195 has 5.72 GiB memory in use. Process 395842 has 6.49 GiB memory in use. Of the allocated memory 10.18 GiB is allocated by PyTorch, and 268.46 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 17.2 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+17.2 M    Trainable params
+0         Non-trainable params
+17.2 M    Total params
+68.810    Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 38.7 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+38.7 M    Trainable params
+0         Non-trainable params
+38.7 M    Total params
+154.815   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 68.8 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+68.8 M    Trainable params
+0         Non-trainable params
+68.8 M    Total params
+275.220   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 28.8 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+28.8 M    Trainable params
+0         Non-trainable params
+28.8 M    Total params
+115.144   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 64.8 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+64.8 M    Trainable params
+0         Non-trainable params
+64.8 M    Total params
+259.066   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 115 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+115 M     Trainable params
+0         Non-trainable params
+115 M     Total params
+460.556   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 61.9 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+61.9 M    Trainable params
+0         Non-trainable params
+61.9 M    Total params
+247.526   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 139 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+139 M     Trainable params
+0         Non-trainable params
+139 M     Total params
+556.927   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 247 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+247 M     Trainable params
+0         Non-trainable params
+247 M     Total params
+990.087   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: CUDA out of memory. Tried to allocate 1.12 GiB. GPU 0 has a total capacity of 23.56 GiB of which 892.31 MiB is free. Including non-PyTorch memory, this process has 16.12 GiB memory in use. Process 395842 has 6.49 GiB memory in use. Of the allocated memory 15.37 GiB is allocated by PyTorch, and 359.84 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 17.2 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+17.2 M    Trainable params
+0         Non-trainable params
+17.2 M    Total params
+68.810    Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 38.7 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+38.7 M    Trainable params
+0         Non-trainable params
+38.7 M    Total params
+154.815   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 68.8 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+68.8 M    Trainable params
+0         Non-trainable params
+68.8 M    Total params
+275.220   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 28.8 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+28.8 M    Trainable params
+0         Non-trainable params
+28.8 M    Total params
+115.144   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 64.8 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+64.8 M    Trainable params
+0         Non-trainable params
+64.8 M    Total params
+259.066   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 115 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+115 M     Trainable params
+0         Non-trainable params
+115 M     Total params
+460.556   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 61.9 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+61.9 M    Trainable params
+0         Non-trainable params
+61.9 M    Total params
+247.526   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 139 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+139 M     Trainable params
+0         Non-trainable params
+139 M     Total params
+556.927   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 247 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+247 M     Trainable params
+0         Non-trainable params
+247 M     Total params
+990.087   Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 656 K  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+656 K     Trainable params
+0         Non-trainable params
+656 K     Total params
+2.624     Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+INFO:pytorch_lightning.utilities.rank_zero:`Trainer.fit` stopped: `max_epochs=20` reached.
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 1.5 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+1.5 M     Trainable params
+0         Non-trainable params
+1.5 M     Total params
+5.902     Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+INFO:pytorch_lightning.utilities.rank_zero:`Trainer.fit` stopped: `max_epochs=20` reached.
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 2.6 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+2.6 M     Trainable params
+0         Non-trainable params
+2.6 M     Total params
+10.491    Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 1.1 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+1.1 M     Trainable params
+0         Non-trainable params
+1.1 M     Total params
+4.459     Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 2.5 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+2.5 M     Trainable params
+0         Non-trainable params
+2.5 M     Total params
+10.031    Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 4.5 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+4.5 M     Trainable params
+0         Non-trainable params
+4.5 M     Total params
+17.831    Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 2.4 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+2.4 M     Trainable params
+0         Non-trainable params
+2.4 M     Total params
+9.702     Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 5.5 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+5.5 M     Trainable params
+0         Non-trainable params
+5.5 M     Total params
+21.827    Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 9.7 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+9.7 M     Trainable params
+0         Non-trainable params
+9.7 M     Total params
+38.802    Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 656 K  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+656 K     Trainable params
+0         Non-trainable params
+656 K     Total params
+2.624     Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 1.5 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+1.5 M     Trainable params
+0         Non-trainable params
+1.5 M     Total params
+5.902     Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 2.6 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+2.6 M     Trainable params
+0         Non-trainable params
+2.6 M     Total params
+10.491    Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 1.1 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+1.1 M     Trainable params
+0         Non-trainable params
+1.1 M     Total params
+4.459     Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 2.5 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+2.5 M     Trainable params
+0         Non-trainable params
+2.5 M     Total params
+10.031    Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 4.5 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+4.5 M     Trainable params
+0         Non-trainable params
+4.5 M     Total params
+17.831    Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 2.4 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+2.4 M     Trainable params
+0         Non-trainable params
+2.4 M     Total params
+9.702     Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 5.5 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+5.5 M     Trainable params
+0         Non-trainable params
+5.5 M     Total params
+21.827    Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 9.7 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+9.7 M     Trainable params
+0         Non-trainable params
+9.7 M     Total params
+38.802    Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 656 K  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+656 K     Trainable params
+0         Non-trainable params
+656 K     Total params
+2.624     Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 1.5 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+1.5 M     Trainable params
+0         Non-trainable params
+1.5 M     Total params
+5.902     Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 2.6 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+2.6 M     Trainable params
+0         Non-trainable params
+2.6 M     Total params
+10.491    Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 1.1 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+1.1 M     Trainable params
+0         Non-trainable params
+1.1 M     Total params
+4.459     Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 2.5 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+2.5 M     Trainable params
+0         Non-trainable params
+2.5 M     Total params
+10.031    Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 4.5 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+4.5 M     Trainable params
+0         Non-trainable params
+4.5 M     Total params
+17.831    Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 2.4 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+2.4 M     Trainable params
+0         Non-trainable params
+2.4 M     Total params
+9.702     Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 5.5 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+5.5 M     Trainable params
+0         Non-trainable params
+5.5 M     Total params
+21.827    Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 9.7 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+9.7 M     Trainable params
+0         Non-trainable params
+9.7 M     Total params
+38.802    Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+ERROR:ptycho_torch.workflows.components:Lightning training failed: [Errno 28] No space left on device
+DEBUG: Setting nimgs_test to 1 in params
+DEBUG: Setting outer_offset_test to 20 in params
+Amplitude normalization scale factor: 17.342789
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [pinn_hybrid]: amp_target stats: mean=2.889508, std=0.641223, shape=(326, 326, 1)
+DEBUG eval_reconstruction [pinn_hybrid]: amp_pred stats: mean=0.166612, std=0.000000, shape=(326, 326, 1)
+DEBUG eval_reconstruction [pinn_hybrid]: phi_target stats: mean=0.000000, std=0.000000, shape=(326, 326)
+DEBUG eval_reconstruction [pinn_hybrid]: phi_pred stats: mean=0.000000, std=0.000000, shape=(326, 326)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [0.000, 0.000] -> scaled range [0.500, 0.500]
+DEBUG: Setting nimgs_test to 1 in params
+DEBUG: Setting outer_offset_test to 20 in params
+Amplitude normalization scale factor: 0.302369
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [pinn_hybrid]: amp_target stats: mean=2.889508, std=0.641223, shape=(326, 326, 1)
+DEBUG eval_reconstruction [pinn_hybrid]: amp_pred stats: mean=9.556243, std=4.108294, shape=(326, 326, 1)
+DEBUG eval_reconstruction [pinn_hybrid]: phi_target stats: mean=0.000000, std=0.000000, shape=(326, 326)
+DEBUG eval_reconstruction [pinn_hybrid]: phi_pred stats: mean=0.000000, std=0.760574, shape=(326, 326)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [0.000, 0.000] -> scaled range [0.500, 0.500]
+DEBUG: Setting nimgs_test to 1 in params
+DEBUG: Setting outer_offset_test to 20 in params
+Amplitude normalization scale factor: 17.307671
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [pinn_hybrid]: amp_target stats: mean=2.889508, std=0.641223, shape=(326, 326, 1)
+DEBUG eval_reconstruction [pinn_hybrid]: amp_pred stats: mean=0.166950, std=0.035294, shape=(326, 326, 1)
+DEBUG eval_reconstruction [pinn_hybrid]: phi_target stats: mean=0.000000, std=0.000000, shape=(326, 326)
+DEBUG eval_reconstruction [pinn_hybrid]: phi_pred stats: mean=-0.000000, std=0.036350, shape=(326, 326)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [0.000, 0.000] -> scaled range [0.500, 0.500]
+DEBUG: Setting nimgs_test to 1 in params
+DEBUG: Setting outer_offset_test to 20 in params
+Amplitude normalization scale factor: 17.172592
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [pinn_hybrid]: amp_target stats: mean=2.889508, std=0.641223, shape=(326, 326, 1)
+DEBUG eval_reconstruction [pinn_hybrid]: amp_pred stats: mean=0.168263, std=0.034668, shape=(326, 326, 1)
+DEBUG eval_reconstruction [pinn_hybrid]: phi_target stats: mean=0.000000, std=0.000000, shape=(326, 326)
+DEBUG eval_reconstruction [pinn_hybrid]: phi_pred stats: mean=0.000000, std=0.022858, shape=(326, 326)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [0.000, 0.000] -> scaled range [0.500, 0.500]
+DEBUG: Setting nimgs_test to 1 in params
+DEBUG: Setting outer_offset_test to 20 in params
+Amplitude normalization scale factor: 17.331129
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [pinn_fno]: amp_target stats: mean=2.889508, std=0.641223, shape=(326, 326, 1)
+DEBUG eval_reconstruction [pinn_fno]: amp_pred stats: mean=0.166724, std=0.036110, shape=(326, 326, 1)
+DEBUG eval_reconstruction [pinn_fno]: phi_target stats: mean=0.000000, std=0.000000, shape=(326, 326)
+DEBUG eval_reconstruction [pinn_fno]: phi_pred stats: mean=0.000000, std=0.018931, shape=(326, 326)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [0.000, 0.000] -> scaled range [0.500, 0.500]
+DEBUG: Setting nimgs_test to 1 in params
+DEBUG: Setting outer_offset_test to 20 in params
+Amplitude normalization scale factor: 17.431175
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [pinn_fno]: amp_target stats: mean=2.889508, std=0.641223, shape=(326, 326, 1)
+DEBUG eval_reconstruction [pinn_fno]: amp_pred stats: mean=0.165767, std=0.035413, shape=(326, 326, 1)
+DEBUG eval_reconstruction [pinn_fno]: phi_target stats: mean=0.000000, std=0.000000, shape=(326, 326)
+DEBUG eval_reconstruction [pinn_fno]: phi_pred stats: mean=-0.000000, std=0.015065, shape=(326, 326)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [0.000, 0.000] -> scaled range [0.500, 0.500]

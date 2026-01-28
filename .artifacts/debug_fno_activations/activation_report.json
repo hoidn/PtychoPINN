@@ -1,0 +1,256 @@
+{
+  "summary": {
+    "architecture": "fno",
+    "n_samples": 8,
+    "batch_size": 1,
+    "channels": 1
+  },
+  "layers": {
+    "lifter/mean": [
+      0.07105521112680435
+    ],
+    "lifter/std": [
+      0.049875084310770035
+    ],
+    "lifter/p50": [
+      0.0604526549577713
+    ],
+    "lifter/p95": [
+      0.1676403284072876
+    ],
+    "lifter/p99": [
+      0.19379140436649323
+    ],
+    "lifter/low_freq_ratio": [
+      62.27196502685547
+    ],
+    "fno_blocks.0.spectral/mean": [
+      0.04863756150007248
+    ],
+    "fno_blocks.0.spectral/std": [
+      0.03644223138689995
+    ],
+    "fno_blocks.0.spectral/p50": [
+      0.04157229885458946
+    ],
+    "fno_blocks.0.spectral/p95": [
+      0.12143608927726746
+    ],
+    "fno_blocks.0.spectral/p99": [
+      0.1561764031648636
+    ],
+    "fno_blocks.0.spectral/low_freq_ratio": [
+      64.54815673828125
+    ],
+    "fno_blocks.0.local_conv/mean": [
+      0.05066300928592682
+    ],
+    "fno_blocks.0.local_conv/std": [
+      0.03780465945601463
+    ],
+    "fno_blocks.0.local_conv/p50": [
+      0.03958860784769058
+    ],
+    "fno_blocks.0.local_conv/p95": [
+      0.1240808516740799
+    ],
+    "fno_blocks.0.local_conv/p99": [
+      0.14747479557991028
+    ],
+    "fno_blocks.0.local_conv/low_freq_ratio": [
+      64.00491333007812
+    ],
+    "fno_blocks.0/spectral_local_ratio": [
+      0.9600211709805211
+    ],
+    "fno_blocks.0/mean": [
+      0.07759220898151398
+    ],
+    "fno_blocks.0/std": [
+      0.05567546933889389
+    ],
+    "fno_blocks.0/p50": [
+      0.06498967111110687
+    ],
+    "fno_blocks.0/p95": [
+      0.1918572187423706
+    ],
+    "fno_blocks.0/p99": [
+      0.22743280231952667
+    ],
+    "fno_blocks.0/low_freq_ratio": [
+      62.57039260864258
+    ],
+    "fno_blocks.1.spectral/mean": [
+      0.05008085072040558
+    ],
+    "fno_blocks.1.spectral/std": [
+      0.038794949650764465
+    ],
+    "fno_blocks.1.spectral/p50": [
+      0.04057803750038147
+    ],
+    "fno_blocks.1.spectral/p95": [
+      0.13017703592777252
+    ],
+    "fno_blocks.1.spectral/p99": [
+      0.1603887379169464
+    ],
+    "fno_blocks.1.spectral/low_freq_ratio": [
+      64.16075897216797
+    ],
+    "fno_blocks.1.local_conv/mean": [
+      0.051868826150894165
+    ],
+    "fno_blocks.1.local_conv/std": [
+      0.04277171194553375
+    ],
+    "fno_blocks.1.local_conv/p50": [
+      0.04017581418156624
+    ],
+    "fno_blocks.1.local_conv/p95": [
+      0.13321314752101898
+    ],
+    "fno_blocks.1.local_conv/p99": [
+      0.1753097027540207
+    ],
+    "fno_blocks.1.local_conv/low_freq_ratio": [
+      63.332374572753906
+    ],
+    "fno_blocks.1/spectral_local_ratio": [
+      0.9655288318620846
+    ],
+    "fno_blocks.1/mean": [
+      0.09299197793006897
+    ],
+    "fno_blocks.1/std": [
+      0.06990604102611542
+    ],
+    "fno_blocks.1/p50": [
+      0.07915142178535461
+    ],
+    "fno_blocks.1/p95": [
+      0.2225845754146576
+    ],
+    "fno_blocks.1/p99": [
+      0.2919856309890747
+    ],
+    "fno_blocks.1/low_freq_ratio": [
+      63.22191619873047
+    ],
+    "fno_blocks.2.spectral/mean": [
+      0.07717834413051605
+    ],
+    "fno_blocks.2.spectral/std": [
+      0.0573798343539238
+    ],
+    "fno_blocks.2.spectral/p50": [
+      0.06629034876823425
+    ],
+    "fno_blocks.2.spectral/p95": [
+      0.1843591183423996
+    ],
+    "fno_blocks.2.spectral/p99": [
+      0.23253172636032104
+    ],
+    "fno_blocks.2.spectral/low_freq_ratio": [
+      64.9527587890625
+    ],
+    "fno_blocks.2.local_conv/mean": [
+      0.06129555031657219
+    ],
+    "fno_blocks.2.local_conv/std": [
+      0.04786526784300804
+    ],
+    "fno_blocks.2.local_conv/p50": [
+      0.04974789172410965
+    ],
+    "fno_blocks.2.local_conv/p95": [
+      0.1564267873764038
+    ],
+    "fno_blocks.2.local_conv/p99": [
+      0.20736461877822876
+    ],
+    "fno_blocks.2.local_conv/low_freq_ratio": [
+      63.47043991088867
+    ],
+    "fno_blocks.2/spectral_local_ratio": [
+      1.2591181422033682
+    ],
+    "fno_blocks.2/mean": [
+      0.10402510315179825
+    ],
+    "fno_blocks.2/std": [
+      0.08406965434551239
+    ],
+    "fno_blocks.2/p50": [
+      0.08423106372356415
+    ],
+    "fno_blocks.2/p95": [
+      0.24018926918506622
+    ],
+    "fno_blocks.2/p99": [
+      0.3939109146595001
+    ],
+    "fno_blocks.2/low_freq_ratio": [
+      63.58115768432617
+    ],
+    "fno_blocks.3.spectral/mean": [
+      0.07243163883686066
+    ],
+    "fno_blocks.3.spectral/std": [
+      0.055531732738018036
+    ],
+    "fno_blocks.3.spectral/p50": [
+      0.06011924892663956
+    ],
+    "fno_blocks.3.spectral/p95": [
+      0.1837594211101532
+    ],
+    "fno_blocks.3.spectral/p99": [
+      0.22768425941467285
+    ],
+    "fno_blocks.3.spectral/low_freq_ratio": [
+      64.5721435546875
+    ],
+    "fno_blocks.3.local_conv/mean": [
+      0.06534804403781891
+    ],
+    "fno_blocks.3.local_conv/std": [
+      0.05100393667817116
+    ],
+    "fno_blocks.3.local_conv/p50": [
+      0.05276518315076828
+    ],
+    "fno_blocks.3.local_conv/p95": [
+      0.16679398715496063
+    ],
+    "fno_blocks.3.local_conv/p99": [
+      0.19180217385292053
+    ],
+    "fno_blocks.3.local_conv/low_freq_ratio": [
+      63.193084716796875
+    ],
+    "fno_blocks.3/spectral_local_ratio": [
+      1.108397962071248
+    ],
+    "fno_blocks.3/mean": [
+      0.11879276484251022
+    ],
+    "fno_blocks.3/std": [
+      0.08956848829984665
+    ],
+    "fno_blocks.3/p50": [
+      0.1023557037115097
+    ],
+    "fno_blocks.3/p95": [
+      0.28826749324798584
+    ],
+    "fno_blocks.3/p99": [
+      0.3549090623855591
+    ],
+    "fno_blocks.3/low_freq_ratio": [
+      63.961673736572266
+    ]
+  }
+}

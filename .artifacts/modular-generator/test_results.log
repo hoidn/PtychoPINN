@@ -1,0 +1,51 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.18, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho-tf/bin/python
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 11 items
+
+tests/test_model_config_architecture.py::test_model_config_architecture_default_ok PASSED [  9%]
+tests/test_model_config_architecture.py::test_model_config_architecture_invalid_raises PASSED [ 18%]
+tests/test_generator_registry.py::test_resolve_generator_cnn PASSED      [ 27%]
+tests/test_generator_registry.py::test_resolve_generator_unknown_raises PASSED [ 36%]
+tests/torch/test_generator_registry.py::test_resolve_generator_cnn PASSED [ 45%]
+tests/torch/test_generator_registry.py::test_resolve_generator_unknown_raises PASSED [ 54%]
+tests/test_workflow_generator_integration.py::TestTFWorkflowGeneratorIntegration::test_train_cdi_model_calls_resolve_generator PASSED [ 63%]
+tests/test_workflow_generator_integration.py::TestTorchWorkflowGeneratorIntegration::test_train_with_lightning_calls_resolve_generator SKIPPED [ 72%]
+tests/torch/test_config_bridge.py::TestConfigBridgeArchitecture::test_config_bridge_architecture_override PASSED [ 81%]
+tests/torch/test_config_bridge.py::TestConfigBridgeArchitecture::test_config_bridge_architecture_default PASSED [ 90%]
+tests/torch/test_config_bridge.py::TestConfigBridgeArchitecture::test_config_bridge_architecture_from_pt_model PASSED [100%]
+
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_workflow_generator_integration.py:74: could not import 'lightning': No module named 'lightning'
+======================== 10 passed, 1 skipped in 3.36s =========================
+============================= test session starts ==============================
+platform linux -- Python 3.10.18, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho-tf/bin/python
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... ERROR: file or directory not found: tests/test_config.py
+
+collected 0 items
+
+============================ no tests ran in 0.89s =============================
+============================= test session starts ==============================
+platform linux -- Python 3.10.18, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho-tf/bin/python
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... ERROR: file or directory not found: tests/test_config_dataclass.py
+
+collected 0 items
+
+============================ no tests ran in 0.90s =============================

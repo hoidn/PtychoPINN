@@ -1,0 +1,77 @@
+INFO:__main__:Starting Torch grid-lines runner: arch=fno
+INFO:__main__:Loading train data from outputs/grid_lines_gs1_n64_e5/datasets/N64/gs1/train.npz
+INFO:__main__:Loading test data from outputs/grid_lines_gs1_n64_e5/datasets/N64/gs1/test.npz
+INFO:__main__:Training fno model...
+2026-01-27 00:45:52.942785: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1769503552.954117   89195 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1769503552.957845   89195 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1769503552.968690   89195 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769503552.968699   89195 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769503552.968700   89195 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769503552.968702   89195 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-27 00:45:52.971452: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+INFO:ptycho_torch.workflows.components:_train_with_lightning orchestrating Lightning training
+INFO:ptycho_torch.workflows.components:Training config: nepochs=5, n_groups=512
+/home/ollie/Documents/tmp/PtychoPINN/ptycho_torch/config_factory.py:258: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+  tf_training_config = to_training_config(
+/home/ollie/Documents/tmp/PtychoPINN/ptycho_torch/config_factory.py:617: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+  warnings.warn(
+INFO: Seed set to 42
+INFO:lightning.fabric.utilities.seed:Seed set to 42
+INFO:ptycho_torch.workflows.components:Enabled CSVLogger: metrics saved to training_outputs/lightning_logs/
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+INFO:ptycho_torch.workflows.components:Starting Lightning training: 5 epochs
+INFO:pytorch_lightning.utilities.rank_zero:You are using a CUDA device ('NVIDIA GeForce RTX 3090') that has Tensor Cores. To properly utilize them, you should set `torch.set_float32_matmul_precision('medium' | 'high')` which will trade-off precision for performance. For more details, read https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/callbacks/model_checkpoint.py:751: Checkpoint directory /home/ollie/Documents/tmp/PtychoPINN/training_outputs/checkpoints exists and is not empty.
+INFO: LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+INFO:lightning.pytorch.accelerators.cuda:LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+INFO: 
+  | Name  | Type        | Params | Mode 
+----------------------------------------------
+0 | model | PtychoPINN  | 656 K  | train
+1 | Loss  | PoissonLoss | 0      | train
+----------------------------------------------
+656 K     Trainable params
+0         Non-trainable params
+656 K     Total params
+2.624     Total estimated model params size (MB)
+41        Modules in train mode
+0         Modules in eval mode
+INFO:lightning.pytorch.callbacks.model_summary:
+  | Name  | Type        | Params | Mode 
+----------------------------------------------
+0 | model | PtychoPINN  | 656 K  | train
+1 | Loss  | PoissonLoss | 0      | train
+----------------------------------------------
+656 K     Trainable params
+0         Non-trainable params
+656 K     Total params
+2.624     Total estimated model params size (MB)
+41        Modules in train mode
+0         Modules in eval mode
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+INFO:pytorch_lightning.utilities.rank_zero:`Trainer.fit` stopped: `max_epochs=5` reached.
+INFO:ptycho_torch.workflows.components:Lightning training complete
+INFO:__main__:Running inference...
+INFO:__main__:Computing metrics...
+Traceback (most recent call last):
+  File "/home/ollie/Documents/tmp/PtychoPINN/scripts/studies/grid_lines_torch_runner.py", line 522, in <module>
+    main()
+  File "/home/ollie/Documents/tmp/PtychoPINN/scripts/studies/grid_lines_torch_runner.py", line 517, in main
+    result = run_grid_lines_torch(cfg)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/tmp/PtychoPINN/scripts/studies/grid_lines_torch_runner.py", line 437, in run_grid_lines_torch
+    metrics = compute_metrics(pred_for_metrics, ground_truth, f"pinn_{cfg.architecture}")
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/tmp/PtychoPINN/scripts/studies/grid_lines_torch_runner.py", line 353, in compute_metrics
+    return eval_reconstruction(predictions, ground_truth, label=label)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/tmp/PtychoPINN/ptycho/evaluation.py", line 514, in eval_reconstruction
+    assert stitched_obj.shape[0] == ground_truth_obj.shape[0]  # height
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

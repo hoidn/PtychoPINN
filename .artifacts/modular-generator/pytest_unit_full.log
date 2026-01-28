@@ -1,0 +1,95 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 25 items
+
+tests/test_model_config_architecture.py::test_model_config_architecture_default_ok PASSED [  4%]
+tests/test_model_config_architecture.py::test_model_config_architecture_invalid_raises PASSED [  8%]
+tests/test_generator_registry.py::test_resolve_generator_cnn PASSED      [ 12%]
+tests/test_generator_registry.py::test_resolve_generator_unknown_raises PASSED [ 16%]
+tests/torch/test_grid_lines_torch_runner.py::TestTorchRunnerConfig::test_config_creation PASSED [ 20%]
+tests/torch/test_grid_lines_torch_runner.py::TestLoadCachedDataset::test_load_valid_npz PASSED [ 24%]
+tests/torch/test_grid_lines_torch_runner.py::TestLoadCachedDataset::test_load_missing_key_raises PASSED [ 28%]
+tests/torch/test_grid_lines_torch_runner.py::TestSetupTorchConfigs::test_creates_training_config PASSED [ 32%]
+tests/torch/test_grid_lines_torch_runner.py::TestSetupTorchConfigs::test_creates_execution_config PASSED [ 36%]
+tests/torch/test_grid_lines_torch_runner.py::TestRunGridLinesTorchScaffold::test_runner_emits_metrics_json PASSED [ 40%]
+tests/torch/test_grid_lines_torch_runner.py::TestRunGridLinesTorchScaffold::test_runner_creates_run_directory_structure PASSED [ 44%]
+tests/torch/test_fno_generators.py::TestSpatialLifter::test_lifter_preserves_spatial_dims PASSED [ 48%]
+tests/torch/test_fno_generators.py::TestSpatialLifter::test_lifter_with_custom_hidden PASSED [ 52%]
+tests/torch/test_fno_generators.py::TestPtychoBlock::test_block_preserves_dims PASSED [ 56%]
+tests/torch/test_fno_generators.py::TestPtychoBlock::test_block_has_residual PASSED [ 60%]
+tests/torch/test_fno_generators.py::TestHybridUNOGenerator::test_output_shape PASSED [ 64%]
+tests/torch/test_fno_generators.py::TestHybridUNOGenerator::test_output_contract_real_imag PASSED [ 68%]
+tests/torch/test_fno_generators.py::TestCascadedFNOGenerator::test_output_shape PASSED [ 72%]
+tests/torch/test_fno_generators.py::TestCascadedFNOGenerator::test_output_is_differentiable PASSED [ 76%]
+tests/torch/test_fno_generators.py::TestGeneratorRegistry::test_resolve_fno_generator PASSED [ 80%]
+tests/torch/test_fno_generators.py::TestGeneratorRegistry::test_resolve_hybrid_generator PASSED [ 84%]
+tests/torch/test_fno_generators.py::TestGeneratorRegistry::test_fno_generator_builds_model PASSED [ 88%]
+tests/torch/test_fno_generators.py::TestGeneratorRegistry::test_hybrid_generator_builds_model PASSED [ 92%]
+tests/test_workflow_generator_integration.py::TestTFWorkflowGeneratorIntegration::test_train_cdi_model_calls_resolve_generator PASSED [ 96%]
+tests/test_workflow_generator_integration.py::TestTorchWorkflowGeneratorIntegration::test_train_with_lightning_calls_resolve_generator FAILED [100%]
+
+=================================== FAILURES ===================================
+_ TestTorchWorkflowGeneratorIntegration.test_train_with_lightning_calls_resolve_generator _
+
+self = <tests.test_workflow_generator_integration.TestTorchWorkflowGeneratorIntegration object at 0x784215a39c10>
+minimal_config = TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', architecture='cnn', amp_activ..., output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow', torch_loss_mode='poisson')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x784215a79150>
+
+    def test_train_with_lightning_calls_resolve_generator(self, minimal_config, monkeypatch):
+        """Verify _train_with_lightning uses generator registry."""
+        torch = pytest.importorskip("torch")
+        lightning = pytest.importorskip("lightning")
+    
+        # Mock the generator
+        mock_generator = MagicMock()
+        mock_generator.name = 'cnn'
+        mock_model = MagicMock()
+        mock_model.automatic_optimization = True
+        mock_model.val_loss_name = 'val_loss'
+        mock_generator.build_model.return_value = mock_model
+    
+        # Patch resolve_generator
+>       with patch('ptycho_torch.workflows.components.resolve_generator', return_value=mock_generator) as mock_resolve:
+
+tests/test_workflow_generator_integration.py:85: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../../miniconda3/envs/ptycho311/lib/python3.11/unittest/mock.py:1446: in __enter__
+    original, local = self.get_original()
+                      ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <unittest.mock._patch object at 0x7842b4d8de50>
+
+    def get_original(self):
+        target = self.getter()
+        name = self.attribute
+    
+        original = DEFAULT
+        local = False
+    
+        try:
+            original = target.__dict__[name]
+        except (AttributeError, KeyError):
+            original = getattr(target, name, DEFAULT)
+        else:
+            local = True
+    
+        if name in _builtins and isinstance(target, ModuleType):
+            self.create = True
+    
+        if not self.create and original is DEFAULT:
+>           raise AttributeError(
+                "%s does not have the attribute %r" % (target, name)
+            )
+E           AttributeError: <module 'ptycho_torch.workflows.components' from '/home/ollie/Documents/tmp/PtychoPINN/ptycho_torch/workflows/components.py'> does not have the attribute 'resolve_generator'
+
+../../../miniconda3/envs/ptycho311/lib/python3.11/unittest/mock.py:1419: AttributeError
+=========================== short test summary info ============================
+FAILED tests/test_workflow_generator_integration.py::TestTorchWorkflowGeneratorIntegration::test_train_with_lightning_calls_resolve_generator
+========================= 1 failed, 24 passed in 5.84s =========================

@@ -1,0 +1,33 @@
+2026-01-27 14:10:29.799555: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1769551829.811420  875390 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1769551829.815169  875390 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1769551829.825402  875390 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769551829.825412  875390 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769551829.825414  875390 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769551829.825415  875390 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-27 14:10:29.828267: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+usage: grid_lines_compare_wrapper.py [-h] --N {64,128} --gridsize {1,2}
+                                     --output-dir OUTPUT_DIR
+                                     [--probe-npz PROBE_NPZ]
+                                     [--architectures ARCHITECTURES]
+                                     [--seed SEED] [--nimgs-train NIMGS_TRAIN]
+                                     [--nimgs-test NIMGS_TEST]
+                                     [--nphotons NPHOTONS] [--nepochs NEPOCHS]
+                                     [--batch-size BATCH_SIZE]
+                                     [--nll-weight NLL_WEIGHT]
+                                     [--mae-weight MAE_WEIGHT]
+                                     [--realspace-weight REALSPACE_WEIGHT]
+                                     [--probe-smoothing-sigma PROBE_SMOOTHING_SIGMA]
+                                     [--set-phi] [--torch-epochs TORCH_EPOCHS]
+                                     [--torch-batch-size TORCH_BATCH_SIZE]
+                                     [--torch-learning-rate TORCH_LEARNING_RATE]
+                                     [--torch-infer-batch-size TORCH_INFER_BATCH_SIZE]
+                                     [--torch-grad-clip TORCH_GRAD_CLIP]
+                                     [--torch-loss-mode {poisson,mae}]
+                                     [--fno-modes FNO_MODES]
+                                     [--fno-width FNO_WIDTH]
+                                     [--fno-blocks FNO_BLOCKS]
+                                     [--fno-cnn-blocks FNO_CNN_BLOCKS]
+grid_lines_compare_wrapper.py: error: unrecognized arguments: --fno-input-transform log1p

@@ -1,0 +1,46 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_debug_fno_gradients.py::test_debug_fno_gradients_emits_report FAILED [100%]
+
+=================================== FAILURES ===================================
+____________________ test_debug_fno_gradients_emits_report _____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-242/test_debug_fno_gradients_emits0')
+
+    def test_debug_fno_gradients_emits_report(tmp_path: Path) -> None:
+        out_dir = tmp_path / "out"
+        cmd = [
+            "python",
+            "scripts/debug_fno_gradients.py",
+            "--output",
+            str(out_dir),
+            "--channels",
+            "32",
+            "--modes",
+            "12",
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        assert result.returncode == 0, result.stderr
+    
+        report_path = out_dir / "gradient_report.json"
+>       assert report_path.exists(), "gradient_report.json not written"
+E       AssertionError: gradient_report.json not written
+E       assert False
+E        +  where False = exists()
+E        +    where exists = PosixPath('/tmp/pytest-of-ollie/pytest-242/test_debug_fno_gradients_emits0/out/gradient_report.json').exists
+
+tests/torch/test_debug_fno_gradients.py:22: AssertionError
+=========================== short test summary info ============================
+FAILED tests/torch/test_debug_fno_gradients.py::test_debug_fno_gradients_emits_report - AssertionError: gradient_report.json not written
+assert False
+ +  where False = exists()
+ +    where exists = PosixPath('/tmp/pytest-of-ollie/pytest-242/test_debug_fno_gradients_emits0/out/gradient_report.json').exists
+============================== 1 failed in 6.45s ===============================

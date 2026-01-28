@@ -1,0 +1,27 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 15 items
+
+tests/torch/test_grid_lines_torch_runner.py::TestTorchRunnerConfig::test_config_creation PASSED [  6%]
+tests/torch/test_grid_lines_torch_runner.py::TestLoadCachedDataset::test_load_valid_npz PASSED [ 13%]
+tests/torch/test_grid_lines_torch_runner.py::TestLoadCachedDataset::test_load_missing_key_raises PASSED [ 20%]
+tests/torch/test_grid_lines_torch_runner.py::TestSetupTorchConfigs::test_creates_training_config PASSED [ 26%]
+tests/torch/test_grid_lines_torch_runner.py::TestSetupTorchConfigs::test_creates_execution_config PASSED [ 33%]
+tests/torch/test_grid_lines_torch_runner.py::TestRunGridLinesTorchScaffold::test_runner_emits_metrics_json PASSED [ 40%]
+tests/torch/test_grid_lines_torch_runner.py::TestRunGridLinesTorchScaffold::test_runner_creates_run_directory_structure PASSED [ 46%]
+tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_runner_sets_gridsize_from_config PASSED [ 53%]
+tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_runner_channels_derived_from_gridsize PASSED [ 60%]
+tests/torch/test_grid_lines_torch_runner.py::TestForwardSignatureEnforcement::test_fno_inference_uses_single_input PASSED [ 66%]
+tests/torch/test_grid_lines_torch_runner.py::TestOutputContractConversion::test_to_complex_patches_basic PASSED [ 73%]
+tests/torch/test_grid_lines_torch_runner.py::TestOutputContractConversion::test_to_complex_patches_preserves_values PASSED [ 80%]
+tests/torch/test_grid_lines_torch_runner.py::TestOutputContractConversion::test_runner_returns_predictions_complex PASSED [ 86%]
+tests/torch/test_grid_lines_torch_runner.py::TestTorchTrainingPath::test_runner_uses_generator_registry PASSED [ 93%]
+tests/torch/test_grid_lines_torch_runner.py::TestTorchTrainingPath::test_runner_returns_scaffold_when_generator_unavailable PASSED [100%]
+
+============================== 15 passed in 5.43s ==============================
