@@ -16,7 +16,7 @@
 
 **Contract:** `gradient_clip_algorithm` selects the clipping method. Default `'norm'` preserves current behavior.
 
-**Status 2026-01-28:** Torch `TrainingConfig` already exposes the field, but TF `TrainingConfig` and the bridge adapter still lack it. Next action: add the field to `ptycho/config/config.py` and thread it through `to_training_config` + parity tests.
+**Status 2026-01-28:** COMPLETE — TF `TrainingConfig` now exposes the field, `config_bridge.to_training_config()` threads it through to the TF dataclass + `params.cfg`, and `tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_gradient_clip_algorithm_roundtrip` proves the bridge + `update_legacy_dict` path.
 
 ### Task 1.2: Implement AGC utility
 
@@ -53,7 +53,7 @@ if self.gradient_clip_val is not None and self.gradient_clip_val > 0:
 **File:** `scripts/studies/grid_lines_compare_wrapper.py`
 - Forward the flag to torch runner invocations
 
-**Status 2026-01-28:** Runner CLI flag and `TorchRunnerConfig` wiring are in place. Compare wrapper/CLI still lack the `--torch-grad-clip-algorithm` flag, so the compare harness cannot request AGC yet. Tests covering this flow are also missing.
+**Status 2026-01-28:** COMPLETE — `scripts/studies/grid_lines_compare_wrapper.py` now threads `--torch-grad-clip-algorithm` through to `TorchRunnerConfig`, and `tests/test_grid_lines_compare_wrapper.py::test_wrapper_passes_grad_clip_algorithm` exercises the end-to-end flag propagation.
 
 ---
 
@@ -61,33 +61,54 @@ if self.gradient_clip_val is not None and self.gradient_clip_val > 0:
 
 ### Task 2.1: Implement StablePtychoBlock
 
-**File:** `ptycho_torch/generators/fno.py`
+**Files:**
+- Modify `ptycho_torch/generators/fno.py` right after `PtychoBlock`.
+- Extend `HybridUNOGenerator` ctor to accept a `block_cls` (default `PtychoBlock`) so downstream subclasses can swap the block without copying code.
+- Tests live in `tests/torch/test_fno_generators.py`.
 
-After `PtychoBlock` (line ~120), add `StablePtychoBlock`:
-```
-y = x + InstanceNorm(GELU(SpectralConv(x) + Conv3x3(x)))
-```
-
-Key differences from `PtychoBlock`:
-- Add `nn.InstanceNorm2d(channels, affine=True)` after GELU
-- **Zero-Gamma init:** In `__init__`, set `self.norm.weight.data.zero_()` and `self.norm.bias.data.zero_()`
-- This ensures the block acts as Identity at initialization (zero output from norm → residual = x)
+**Steps:**
+1. **Add block implementation.** Introduce `StablePtychoBlock(channels, modes=12)` with the residual form `x + InstanceNorm(GELU(SpectralConv(x) + Conv3x3(x)))`. Use the same spectral + local conv branches as `PtychoBlock`, add `nn.InstanceNorm2d(channels, affine=True, eps=1e-5)` and zero-initialize `weight`/`bias` so the block is identity pre-training.
+2. **Parameterize HybridUNOGenerator.** Update the Hybrid constructor so encoder blocks and bottleneck are instantiated via the injected `block_cls`. Default behaviour must stay unchanged for `'hybrid'`.
+3. **Add TDD coverage.** Extend `tests/torch/test_fno_generators.py` with `TestStablePtychoBlock`:
+   - `test_identity_init` — feed random tensor and assert `torch.allclose(block(x), x, atol=1e-6)`.
+   - `test_zero_mean_update` — set `block.norm.weight.data.fill_(1.0)` and verify `(block(x) - x).mean(dim=(2,3))` is ≈0.
+   - Keep shapes consistent with existing tests.
 
 ### Task 2.2: Implement StableHybridGenerator
 
-**File:** `ptycho_torch/generators/fno.py`
+**Files:**
+- `ptycho_torch/generators/fno.py`
+- `ptycho_torch/generators/registry.py`
+- Config dataclasses: `ptycho/config/config.py` (`ModelConfig.architecture`) + `ptycho_torch/config_params.py`.
+- Docs: `docs/workflows/pytorch.md` (architecture list).
+- Tests: `tests/torch/test_fno_generators.py`.
 
-Subclass `HybridUNOGenerator`:
-- Override the block construction to use `StablePtychoBlock` instead of `PtychoBlock`
-- All other architecture (U-Net skip connections, decoder) remains identical
+**Steps:**
+1. **Generator subclass.** Add `StableHybridUNOGenerator` that simply calls `super().__init__(..., block_cls=StablePtychoBlock)` so it reuses the parametrized Hybrid base.
+2. **Registry + adapter.** Create `StableHybridGenerator` (mirrors `HybridGenerator` but instantiates `StableHybridUNOGenerator`) and register it under `'stable_hybrid'` in `ptycho_torch/generators/registry.py`.
+3. **Config surface.** Allow the new architecture everywhere:
+   - Extend the `Literal[...]` list for `ModelConfig.architecture` (both TF + Torch dataclasses) to include `'stable_hybrid'`.
+   - Update any validation/usage sites (e.g., `scripts/studies/grid_lines_torch_runner.py` casting) so the literal type accepts the new string.
+4. **Docs.** Update `docs/workflows/pytorch.md` §3 to mention `'stable_hybrid'` (Norm-Last residual with zero-mean updates) referencing `docs/strategy/mainstrategy.md §1.A`.
+5. **TDD.** Expand `tests/torch/test_fno_generators.py`:
+   - Add `test_stable_hybrid_generator_output_shape` (instantiates `StableHybridUNOGenerator`, asserts `(B, H, W, C, 2)` output).
+   - Update registry tests to cover `'stable_hybrid'`.
 
-### Task 2.3: Register `stable_hybrid`
+### Task 2.3: Wire `stable_hybrid` through CLI + compare harness
 
-**File:** `ptycho_torch/generators/registry.py`
-- Import `StableHybridGenerator` (or the wrapper class)
-- Add `'stable_hybrid': StableHybridGenerator` to `_REGISTRY`
+**Files:**
+- `scripts/studies/grid_lines_torch_runner.py`
+- `scripts/studies/grid_lines_compare_wrapper.py`
+- `tests/test_grid_lines_compare_wrapper.py`
+- `tests/torch/test_grid_lines_torch_runner.py`
 
-**Status 2026-01-28:** Pending Phase 2. No changes yet.
+**Steps:**
+1. **Runner CLI + config.** Allow `--architecture stable_hybrid` by updating argparse choices, `TorchRunnerConfig` docstring, and the literal cast inside `setup_torch_configs`. Ensure metrics/reporting use `pinn_stable_hybrid` naming consistently.
+2. **Compare wrapper.** Update `run_grid_lines_compare` to treat `'stable_hybrid'` exactly like `'hybrid'` when invoking the Torch runner, and append `'pinn_stable_hybrid'` to the `order` tuple so visuals land in the merge.
+3. **Tests.** Extend `tests/test_grid_lines_compare_wrapper.py` with `test_wrapper_handles_stable_hybrid` that injects a fake torch runner and ensures the merged metrics include the new key + parse_args accepts the value. Add a simple `tests/torch/test_grid_lines_torch_runner.py` assertion proving `setup_torch_configs` propagates `'stable_hybrid'` into the training config.
+4. **Docs.** Mention the new CLI option in `docs/workflows/pytorch.md` (Torch runner recap) when you touch the doc for Task 2.2.
+
+**Status 2026-01-28:** Pending Phase 2 implementation.
 
 ---
 

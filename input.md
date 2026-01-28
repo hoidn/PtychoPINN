@@ -1,44 +1,45 @@
-# FNO-STABILITY-OVERHAUL-001 — Phase 1: Finish config + CLI plumbing
+# FNO-STABILITY-OVERHAUL-001 — Phase 2: Stable Hybrid Generator
 
-**Summary:** Close the remaining gaps in Phase 1 so every runner can actually request AGC (`docs/strategy/mainstrategy.md` §2B).
+**Summary:** Implement the Phase 2 architectural fix from `docs/strategy/mainstrategy.md §1.A` by adding the StablePtychoBlock + `stable_hybrid` generator path and exposing it through the Torch runner + compare harness.
 
-**Focus:** FNO-STABILITY-OVERHAUL-001 — Phase 1 (Foundation)
+**Focus:** FNO-STABILITY-OVERHAUL-001 — Phase 2 (Stable hybrid generator)
 
 **Branch:** fno2
 
 **Mapped tests:**
-- `pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_gradient_clip_algorithm_roundtrip -v`
-- `pytest tests/torch/test_grid_lines_torch_runner.py -k gradient_clip_algorithm -v`
-- `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_passes_grad_clip_algorithm -v`
+- `pytest tests/torch/test_fno_generators.py -k stable -v`
+- `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_handles_stable_hybrid -v`
+- `pytest tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_runner_accepts_stable_hybrid -v`
 
-**Artifacts:** `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T020500Z/`
+**Artifacts:** `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T050000Z/`
+
+**Next Up (optional):** Phase 3 Stage A shootout once `stable_hybrid` + AGC paths are wired.
 
 ---
 
 ## Do Now
 
-Implement the remaining Phase 1 work from `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md` (Tasks 1.1 & 1.4). Keep Task IDs in commit messages.
+Work through Phase 2 Tasks 2.1–2.3 in `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md`, keeping the new instructions from the writing-plans update. Capture the pytest logs for each mapped selector under the artifacts path above (see `docs/TESTING_GUIDE.md` on naming). Reference `docs/strategy/mainstrategy.md §1.A` + `docs/workflows/pytorch.md` for architectural contracts.
 
-### Task 1 — Finish `gradient_clip_algorithm` config parity
-1. **TF dataclass:** In `ptycho/config/config.py:232` add `gradient_clip_algorithm: Literal['norm','value','agc'] = 'norm'` immediately after `gradient_clip_val` inside `PyTorchExecutionConfig`. (Torch `TrainingConfig` already has the field; we need parity on the canonical config used by the runner bridge per `docs/workflows/pytorch.md`.)
-2. **Bridge plumbing:** Update `ptycho_torch/config_bridge.py::to_training_config` so it copies `training.gradient_clip_algorithm` into the TensorFlow `TrainingConfig`. Add a regression test in `tests/torch/test_config_bridge.py::TestConfigBridgeParity` that constructs a PyTorch TrainingConfig with algorithm `'agc'`, runs through the bridge, calls `update_legacy_dict`, and asserts both the TF dataclass and `params.cfg['gradient_clip_algorithm']` match.
-3. **Docs/tests:** If the new test changes collected selectors, update `docs/development/TEST_SUITE_INDEX.md` entry for `tests/torch/test_config_bridge.py` per `docs/TESTING_GUIDE.md` §2 only if names change (not required if just adding a case).
+### Task 1 — Implement StablePtychoBlock + parametrized Hybrid
+1. In `ptycho_torch/generators/fno.py` add `StablePtychoBlock` next to `PtychoBlock` (same spectral + local branches) but wrap the GELU sum with `nn.InstanceNorm2d(channels, affine=True, eps≈1e-5)` and zero-init gamma/beta so the residual is identity before training. This block must retain the `(B,C,H,W)` contract.
+2. Update `HybridUNOGenerator.__init__` to accept `block_cls=PtychoBlock` and instantiate encoder/bottleneck blocks via that callable so subclasses can inject the stable block without copy/paste. Default behaviour must stay identical for `'hybrid'`.
+3. Add `TestStablePtychoBlock` to `tests/torch/test_fno_generators.py`:
+   - `test_identity_init` (block(x) ≈ x with zero gamma).
+   - `test_zero_mean_update` (set `block.norm.weight.data.fill_(1.0)` and assert `(block(x)-x).mean(dim=(2,3))` ≈ 0).
+   - Shapes consistent with existing tests.
 
-### Task 2 — Expose AGC selection end-to-end on the compare harness
-1. **CLI flag:** In `scripts/studies/grid_lines_compare_wrapper.py`, add `--torch-grad-clip-algorithm` (choices `['norm','value','agc']`, default `'norm'`) to `parse_args`. Thread this argument through `run_grid_lines_compare()` to the `TorchRunnerConfig` constructor (`gradient_clip_algorithm=...`). Follow the precedent from `--torch-grad-clip` introduced in `docs/plans/2026-01-27-wire-torch-grad-clip-val.md`.
-2. **Wrapper tests:** Extend `tests/test_grid_lines_compare_wrapper.py` with `test_wrapper_passes_grad_clip_algorithm` that monkeypatches the torch runner, runs the wrapper with `--torch-grad-clip-algorithm agc`, and asserts the captured config field equals `'agc'`. While there, add a parse_args assertion for the default.
-3. **Runner regression:** `tests/torch/test_grid_lines_torch_runner.py` already builds configs via `setup_torch_configs`. Add a focused test (e.g., `test_gradient_clip_algorithm_forwarded`) ensuring the dataclass inherits the CLI value and that `TrainingConfig.gradient_clip_algorithm` feeds through to `PyTorchExecutionConfig` if needed. Keep coverage under the existing class to avoid new fixtures.
+### Task 2 — Expose `stable_hybrid` generator
+1. Add `StableHybridUNOGenerator` (calls `super().__init__(..., block_cls=StablePtychoBlock)`) and `StableHybridGenerator` to `ptycho_torch/generators/fno.py`.
+2. Register `'stable_hybrid'` in `ptycho_torch/generators/registry.py`, mirroring the existing `HybridGenerator`.
+3. Extend the `architecture` `Literal[...]` in both `ptycho/config/config.py::ModelConfig` and `ptycho_torch/config_params.py::ModelConfig` to include `'stable_hybrid'`. Update any helper casting (e.g., `scripts/studies/grid_lines_torch_runner.py::setup_torch_configs`) so type hints accept the new value.
+4. Update `docs/workflows/pytorch.md` (architecture section + CLI recap) to mention the stable hybrid option (cite `docs/strategy/mainstrategy.md §1.A`).
+5. Extend `tests/torch/test_fno_generators.py` to cover the new generator: add `test_stable_hybrid_generator_output_shape` and update registry tests so `resolve_generator` accepts `'stable_hybrid'`.
 
-### Task 3 — Verification
-Run the mapped selectors from above (capture logs under the artifacts path):
-1. `pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_gradient_clip_algorithm_roundtrip -v`
-2. `pytest tests/torch/test_grid_lines_torch_runner.py -k gradient_clip_algorithm -v`
-3. `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_passes_grad_clip_algorithm -v`
+### Task 3 — Wire `stable_hybrid` through CLI + compare harness
+1. Allow `--architecture stable_hybrid` via `scripts/studies/grid_lines_torch_runner.py` (argparse choices, `TorchRunnerConfig` comments, and the literal cast inside `setup_torch_configs`). Ensure metrics key naming uses `pinn_stable_hybrid`.
+2. Update `scripts/studies/grid_lines_compare_wrapper.py` so `architectures` containing `'stable_hybrid'` invoke the Torch runner and append `'pinn_stable_hybrid'` to the visuals ordering/metrics dict.
+3. Extend `tests/test_grid_lines_compare_wrapper.py` with `test_wrapper_handles_stable_hybrid` (fake runners + asserts merged metrics include the new key and parse_args accepts the string). Add a quick `tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_runner_accepts_stable_hybrid` (or similar) that exercises `setup_torch_configs`.
 
-Archive each command’s stdout/stderr in `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T020500Z/` following `docs/TESTING_GUIDE.md` log naming conventions.
-
----
-
-## Next Up
-
-Once config + CLI plumbing are green, proceed to Phase 2 (`StablePtychoBlock`, `StableHybridGenerator`, registry + tests) before launching the shootout in Phase 3.
+### Task 4 — Verification
+Run the mapped selectors (in order) and archive each log under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T050000Z/` per `docs/TESTING_GUIDE.md`.

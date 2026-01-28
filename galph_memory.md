@@ -1,3 +1,25 @@
+# 2026-01-28T05:00:00Z: FNO-STABILITY-OVERHAUL-001 — Phase 1 verified, Phase 2 handoff
+
+- dwell: 0 (still ready_for_implementation; handed new production work to engineer)
+- Focus issue: FNO-STABILITY-OVERHAUL-001 — Phase 2 (StablePtychoBlock + stable_hybrid registry/CLI)
+- Action type: Review/Planning (verified engineer progress, updated plan + Do Now)
+- Mode: Implementation guidance
+- Git sync: skipped (dirty working tree noted earlier; no pulls)
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (FORWARD-SIG-001 / OUTPUT-COMPLEX-001), docs/strategy/mainstrategy.md, docs/workflows/pytorch.md, plans/active/FNO-STABILITY-OVERHAUL-001/{implementation.md,summary.md}, plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T020500Z/{summary.md,*.log}, tests/torch/test_fno_generators.py, scripts/studies/grid_lines_{torch_runner.py,compare_wrapper.py}
+
+**Phase 1 verification:**
+- Confirmed `gradient_clip_algorithm` now lives on TF TrainingConfig, config_bridge, and params.cfg; `tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_gradient_clip_algorithm_roundtrip` collected/passed (log archived under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T020500Z/test_config_bridge_grad_clip.log`).
+- Verified compare wrapper flag + runner propagation via `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_passes_grad_clip_algorithm -v` and `pytest tests/torch/test_grid_lines_torch_runner.py -k gradient_clip_algorithm -v` (logs archived beside above).
+- Updated plan Task 1.1 + 1.4 statuses to COMPLETE, expanded Phase 2 tasks with explicit steps/tests per writing-plans skill.
+
+**Phase 2 handoff:**
+- Do Now: Implement StablePtychoBlock + StableHybrid generator + CLI wiring (plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md Tasks 2.1–2.3).
+- Input.md next loop should map selectors: `pytest tests/torch/test_fno_generators.py -k stable -v`, `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_handles_stable_hybrid -v`, `pytest tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_runner_accepts_stable_hybrid -v` (or similar).
+- Artifacts path reserved: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T050000Z/`.
+
+- <Action State>: [ready_for_implementation]
+- focus=FNO-STABILITY-OVERHAUL-001 state=ready_for_implementation dwell=0 artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T050000Z/ next_action=engineer implements Phase 2 Tasks 2.1–2.3 (see plan + mapped pytest selectors)
+
 # 2026-01-28T00:00:00Z: GRID-LINES-WORKFLOW-001 — Review + implementation handoff (test fixture fix)
 
 - dwell: 0 (new focus; switched from PARALLEL-API-INFERENCE)
@@ -274,4 +296,3 @@ FEAT-LAZY-LOADING-001 is DONE. All phases complete:
 - focus=FEAT-LAZY-LOADING-001 state=ready_for_implementation dwell=0 ralph_last_commit=37985157 artifacts=plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-08T030000Z/ next_action=implement Phase C (streaming training + integration tests)
 
 ---
-
