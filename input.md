@@ -1,145 +1,64 @@
-# PARALLEL-API-INFERENCE — Task 2: Update Demo Script to Use New TF Helper
+# GRID-LINES-WORKFLOW-001 — Fix 2 Failing Torch Runner Tests
 
-**Summary:** Update `scripts/pytorch_api_demo.py` to use `_run_tf_inference_and_reconstruct` and add smoke test.
+**Summary:** Fix 2 test failures in `tests/torch/test_grid_lines_torch_runner.py` caused by missing NPZ metadata in the `synthetic_npz` fixture.
 
-**Focus:** PARALLEL-API-INFERENCE — Programmatic TF/PyTorch API parity (Task 2-3)
+**Focus:** GRID-LINES-WORKFLOW-001 — Grid-based lines simulation + training workflow
 
-**Branch:** feature/torchapi-newprompt-2
+**Branch:** fno2
 
 **Mapped tests:**
-- `tests/scripts/test_api_demo.py::TestPyTorchApiDemo` — new smoke test (to be created)
-- `tests/scripts/test_tf_inference_helper.py::TestTFInferenceHelper` — regression (existing, 7 tests)
+- `tests/torch/test_grid_lines_torch_runner.py::TestRunGridLinesTorchScaffold::test_runner_creates_run_directory_structure` — currently FAILING
+- `tests/torch/test_grid_lines_torch_runner.py::TestOutputContractConversion::test_runner_returns_predictions_complex` — currently FAILING
+- `tests/torch/test_grid_lines_torch_runner.py` — full suite regression (21 pass, 2 fail)
 
-**Artifacts:** `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/`
+**Artifacts:** `plans/active/GRID-LINES-WORKFLOW-001/reports/2026-01-28T000000Z/`
 
 ---
 
 ## Do Now
 
-### Task 2: Update demo script to use new TF helper
+### Fix: `tests/torch/test_grid_lines_torch_runner.py::synthetic_npz` fixture
 
-**Implement: `scripts/pytorch_api_demo.py::run_backend`**
+**Implement: `tests/torch/test_grid_lines_torch_runner.py::synthetic_npz`**
 
-The demo script currently uses the old TF inference path (`tf_components.perform_inference`). Update it to use the new `_run_tf_inference_and_reconstruct` helper for API parity.
+The `synthetic_npz` fixture at line 22 saves NPZ files using plain `np.savez()`, but the runner's `_stitch_for_metrics()` → `_configure_stitching_params()` at `scripts/studies/grid_lines_torch_runner.py:140-155` loads NPZ via `MetadataManager.load_with_metadata()` and requires metadata with `additional_parameters.nimgs_test` and `additional_parameters.outer_offset_test`.
 
-1. **Add import for new helper** (replace `tf_components.perform_inference`):
+**Root cause:** The fixture doesn't embed metadata. `MetadataManager.load_with_metadata()` returns `None` for metadata, then `_configure_stitching_params` raises `ValueError("Missing metadata; cannot stitch predictions for metrics.")`.
 
-   ```python
-   from scripts.inference.inference import (
-       _run_tf_inference_and_reconstruct as tf_infer,
-       extract_ground_truth,
-   )
-   ```
-
-2. **Update TF inference call** in `run_backend()` (lines 79-82):
-
-   Replace:
-   ```python
-   else:
-       container = tf_components.create_ptycho_data_container(test_data, infer_cfg.model)
-       amp, phase = tf_components.perform_inference(model, container, params_dict, infer_cfg, quiet=True)
-       tf_components.save_outputs(amp, phase, {}, infer_cfg.output_dir)
-   ```
-
-   With:
-   ```python
-   else:
-       # Use new helper for API parity with PyTorch path
-       config = {'N': infer_cfg.model.N, 'gridsize': infer_cfg.model.gridsize}
-       amp, phase = tf_infer(
-           model=model,
-           raw_data=RawData.from_file(str(DATA)),
-           config=config,
-           K=7,  # neighbor_count
-           nsamples=infer_cfg.n_groups,
-           quiet=True,
-       )
-       # Save outputs
-       import numpy as np
-       out_path = infer_cfg.output_dir
-       out_path.mkdir(parents=True, exist_ok=True)
-       np.savez(out_path / "reconstruction.npz", amplitude=amp, phase=phase)
-   ```
-
-3. **Remove unused import** `tf_components` if no longer needed.
-
-### Task 3: Add smoke test
-
-**Implement: `tests/scripts/test_api_demo.py`**
-
-Create minimal smoke test that verifies the demo script's `run_backend` function works for both backends.
+**Fix:** Update the `synthetic_npz` fixture to save using `MetadataManager.save_with_metadata()` instead of `np.savez()`. This is the same pattern used in the passing test `test_metrics_stitch_predictions_to_ground_truth` (line 296-316).
 
 ```python
-"""Smoke tests for scripts/pytorch_api_demo.py (PARALLEL-API-INFERENCE)."""
-import pytest
-from pathlib import Path
-import shutil
+# In synthetic_npz fixture, replace:
+#   np.savez(train_path, **data)
+#   np.savez(test_path, **data)
+# With:
+from ptycho.metadata import MetadataManager
+from ptycho.config.config import TrainingConfig, ModelConfig
 
-
-class TestPyTorchApiDemo:
-    """Smoke tests for the unified API demo script."""
-
-    @pytest.fixture
-    def work_dir(self, tmp_path):
-        """Create temporary work directory."""
-        return tmp_path / "api_demo_test"
-
-    def test_demo_module_importable(self):
-        """Demo script can be imported without side effects."""
-        from scripts import pytorch_api_demo
-        assert hasattr(pytorch_api_demo, 'run_backend')
-        assert hasattr(pytorch_api_demo, 'main')
-
-    def test_run_backend_function_signature(self):
-        """run_backend function has expected signature."""
-        import inspect
-        from scripts.pytorch_api_demo import run_backend
-        sig = inspect.signature(run_backend)
-        params = list(sig.parameters.keys())
-        assert 'backend' in params
-        assert 'out_dir' in params
-
-    @pytest.mark.slow
-    def test_tensorflow_backend_runs(self, work_dir):
-        """TensorFlow backend executes without error (slow)."""
-        from scripts.pytorch_api_demo import run_backend
-
-        out_dir = work_dir / "tf"
-        run_backend("tensorflow", out_dir)
-
-        # Verify outputs exist
-        assert (out_dir / "train_outputs").exists()
-        assert (out_dir / "inference_outputs").exists()
-        assert (out_dir / "inference_outputs" / "reconstruction.npz").exists()
-
-    @pytest.mark.slow
-    @pytest.mark.skipif(
-        not pytest.importorskip("torch", reason="PyTorch not available"),
-        reason="PyTorch required"
-    )
-    def test_pytorch_backend_runs(self, work_dir):
-        """PyTorch backend executes without error (slow)."""
-        from scripts.pytorch_api_demo import run_backend
-
-        out_dir = work_dir / "pytorch"
-        run_backend("pytorch", out_dir)
-
-        # Verify outputs exist
-        assert (out_dir / "train_outputs").exists()
-        assert (out_dir / "inference_outputs").exists()
+cfg_for_meta = TrainingConfig(model=ModelConfig(N=64, gridsize=1))
+metadata = MetadataManager.create_metadata(
+    cfg_for_meta,
+    script_name="test_fixture",
+    nimgs_test=4,  # matches n_samples
+    outer_offset_test=20,
+)
+MetadataManager.save_with_metadata(str(train_path), data, metadata)
+MetadataManager.save_with_metadata(str(test_path), data, metadata)
 ```
+
+Also update the test data's `YY_ground_truth` shape to match what stitching produces for the given params. Add `norm_Y_I` to the data dict if not present. Verify by running the test after the fix.
 
 ### Verification
 
 ```bash
-# Run new smoke tests (imports only, fast)
-pytest tests/scripts/test_api_demo.py -v -k "not slow" 2>&1 | tee plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/pytest_api_demo.log
+# Run the 2 failing tests
+pytest tests/torch/test_grid_lines_torch_runner.py::TestRunGridLinesTorchScaffold::test_runner_creates_run_directory_structure tests/torch/test_grid_lines_torch_runner.py::TestOutputContractConversion::test_runner_returns_predictions_complex -v 2>&1 | tee plans/active/GRID-LINES-WORKFLOW-001/reports/2026-01-28T000000Z/pytest_fix.log
 
-# Run TF helper regression
-pytest tests/scripts/test_tf_inference_helper.py -v 2>&1 | tee plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/pytest_tf_helper_regression.log
+# Full torch runner test suite regression
+pytest tests/torch/test_grid_lines_torch_runner.py -v 2>&1 | tee plans/active/GRID-LINES-WORKFLOW-001/reports/2026-01-28T000000Z/pytest_torch_runner_full.log
 
-# Collect test count
-pytest tests/scripts/ --collect-only 2>&1 | tee plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/pytest_collect.log
+# TF workflow tests regression
+pytest tests/test_grid_lines_workflow.py -v 2>&1 | tee plans/active/GRID-LINES-WORKFLOW-001/reports/2026-01-28T000000Z/pytest_tf_workflow.log
 ```
 
 ---
@@ -148,30 +67,30 @@ pytest tests/scripts/ --collect-only 2>&1 | tee plans/active/PARALLEL-API-INFERE
 
 | Step | Command | Artifact |
 |------|---------|----------|
-| Run smoke tests (fast) | `pytest tests/scripts/test_api_demo.py -v -k "not slow"` | `pytest_api_demo.log` |
-| Run TF helper regression | `pytest tests/scripts/test_tf_inference_helper.py -v` | `pytest_tf_helper_regression.log` |
-| Collect test count | `pytest tests/scripts/ --collect-only` | `pytest_collect.log` |
+| Fix fixture | Edit `tests/torch/test_grid_lines_torch_runner.py::synthetic_npz` | N/A |
+| Run failing tests | `pytest tests/torch/test_grid_lines_torch_runner.py -k "test_runner_creates_run or test_runner_returns"` | `pytest_fix.log` |
+| Full regression | `pytest tests/torch/test_grid_lines_torch_runner.py -v` | `pytest_torch_runner_full.log` |
+| TF regression | `pytest tests/test_grid_lines_workflow.py -v` | `pytest_tf_workflow.log` |
 
 ---
 
 ## Pitfalls To Avoid
 
-1. **DO NOT** break the existing PyTorch path — only update TF path
-2. **DO NOT** change the `DATA` path or fixture requirements
-3. **DO** ensure params.cfg is populated before TF inference (CONFIG-001)
-4. **DO** use `from __future__ import annotations` for forward references
-5. **DO** preserve the training step — only update inference
-6. **DO** add `# noqa: F401` if imports appear unused (they're for CLI/main)
-7. **DO** mark slow tests with `@pytest.mark.slow` for CI gating
+1. **DO NOT** change the runner code (`grid_lines_torch_runner.py`) — this is a test fixture bug, not a code bug
+2. **DO** keep the fixture's data shapes consistent (N=64, gridsize=1, n_samples=4)
+3. **DO** verify that `norm_Y_I` is available in the loaded test data (add to fixture if missing)
+4. **DO** ensure `YY_ground_truth` shape matches what stitching produces for the given params
+5. **DO NOT** add mocks for `_stitch_for_metrics` — the fixture should provide real metadata so the integration path is tested
+6. **DO** check the passing test `test_metrics_stitch_predictions_to_ground_truth` (line 296) as a reference for correct metadata setup
 
 ---
 
 ## If Blocked
 
-If imports fail or the demo script errors:
-1. Check `params.cfg` initialization via `update_legacy_dict`
-2. Verify the minimal fixture exists at `tests/fixtures/pytorch_integration/minimal_dataset_v1.npz`
-3. Log exact error to `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/blocker.md`
+If `MetadataManager.create_metadata` or `save_with_metadata` fail:
+1. Check import: `from ptycho.metadata import MetadataManager`
+2. Check `MetadataManager.create_metadata` signature matches current API
+3. Log exact error to `plans/active/GRID-LINES-WORKFLOW-001/reports/2026-01-28T000000Z/blocker.md`
 
 ---
 
@@ -179,22 +98,15 @@ If imports fail or the demo script errors:
 
 | Finding ID | Adherence |
 |------------|-----------|
-| CONFIG-001 | Ensure params.cfg populated before TF inference |
-| POLICY-001 | PyTorch path unchanged, torch available |
-| ANTIPATTERN-001 | Lazy imports inside function; no module-level side effects |
+| CONFIG-001 | Fixture sets N/gridsize via TrainingConfig for metadata |
+| STITCH-GRIDSIZE-001 | Using workflow's stitch_predictions which bypasses guard |
 
 ---
 
 ## Pointers
 
-- New TF helper: `scripts/inference/inference.py:353-457`
-- PyTorch helper: `ptycho_torch/inference.py:426-632`
-- Demo script: `scripts/pytorch_api_demo.py:33-84`
-- Fix plan item: `docs/fix_plan.md` § PARALLEL-API-INFERENCE
-- Testing guide: `docs/TESTING_GUIDE.md` § Integration Tests
-
----
-
-## Next Up (if finished early)
-
-- Task 4: Document in `docs/workflows/pytorch.md` (add "Programmatic usage" section)
+- Fixture: `tests/torch/test_grid_lines_torch_runner.py:22-45`
+- Runner stitch path: `scripts/studies/grid_lines_torch_runner.py:140-167`
+- Reference passing test: `tests/torch/test_grid_lines_torch_runner.py:296-316`
+- MetadataManager: `ptycho/metadata.py`
+- Fix plan: `docs/fix_plan.md` § GRID-LINES-WORKFLOW-001

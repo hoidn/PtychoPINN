@@ -1,3 +1,33 @@
+# 2026-01-28T00:00:00Z: GRID-LINES-WORKFLOW-001 — Review + implementation handoff (test fixture fix)
+
+- dwell: 0 (new focus; switched from PARALLEL-API-INFERENCE)
+- Focus issue: GRID-LINES-WORKFLOW-001 — Grid-based lines simulation + training workflow
+- Action type: Review → Implementation handoff
+- Mode: Implementation
+- Git sync: `git pull --rebase` → failed (unstaged changes: sync/state.json, train_debug.log). Skipped.
+- Documents reviewed: docs/fix_plan.md, galph_memory.md, plans/active/GRID-LINES-WORKFLOW-001/plan.md, plans/active/GRID-LINES-WORKFLOW-001/summary.md, plans/active/GRID-LINES-WORKFLOW-001/test_strategy.md, docs/plans/2026-01-27-grid-lines-workflow.md, ptycho/workflows/grid_lines_workflow.py, scripts/studies/grid_lines_workflow.py, tests/test_grid_lines_workflow.py, tests/torch/test_grid_lines_torch_runner.py, docs/findings.md (CONFIG-001, STITCH-GRIDSIZE-001).
+
+**Initiative Status Assessment:**
+- All plan tasks (0-7) implemented; workflow module, CLI, torch runner, compare wrapper all complete
+- TF workflow tests: 15/15 PASSED (4.13s)
+- Torch runner tests: 21/23 passed, **2 FAILED**
+  - `test_runner_creates_run_directory_structure`: ValueError from missing metadata in fixture
+  - `test_runner_returns_predictions_complex`: Same root cause
+- Root cause: `synthetic_npz` fixture uses `np.savez()` instead of `MetadataManager.save_with_metadata()`, so `_stitch_for_metrics` → `_configure_stitching_params` raises ValueError
+- No stubs, TODOs, or NotImplementedError remaining in production code
+
+**Delegation:**
+- Fix: Update `synthetic_npz` fixture to save with metadata (matching pattern in passing test at line 296)
+- Validate: 23/23 torch runner tests + 15/15 TF workflow tests
+
+**input.md Updated:** Test fixture fix with root cause analysis and verification commands.
+
+- Next: Ralph fixes fixture, runs full regression
+- <Action State>: [ready_for_implementation]
+- focus=GRID-LINES-WORKFLOW-001 state=ready_for_implementation dwell=0 artifacts=plans/active/GRID-LINES-WORKFLOW-001/reports/2026-01-28T000000Z/ next_action=implement test fixture fix (2 failing tests)
+
+---
+
 # 2026-01-09T03:00:00Z: PARALLEL-API-INFERENCE — Task 1 verified, Task 2-3 handoff
 
 - dwell: 2 (continuing focus; dwell incremented since last loop was implementation)

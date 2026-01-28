@@ -1,3 +1,7 @@
+### Turn Summary (2026-01-28)
+Assessed initiative near-complete: all plan tasks implemented, TF tests 15/15, Torch runner 21/23 (2 fixture failures). Delegated fixture fix to Ralph.
+Artifacts: plans/active/GRID-LINES-WORKFLOW-001/reports/2026-01-28T000000Z/
+
 ### Turn Summary (2026-01-26)
 Created a new initiative for the grid-based lines workflow and inspected the deprecated notebook + probe source.
 Findings:
