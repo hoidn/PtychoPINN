@@ -1333,11 +1333,18 @@ class PtychoPINN_Lightning(L.LightningModule):
         if (batch_idx+1) % self.accum_steps == 0:
             #Clip gradients
             if self.gradient_clip_val is not None and self.gradient_clip_val > 0:
-                torch.nn.utils.clip_grad_norm_(
-                    parameters = self.parameters(),
-                    max_norm = self.gradient_clip_val,
-                    norm_type = 2.0 #L2 norm, default
-                )
+                algo = getattr(self.training_config, 'gradient_clip_algorithm', 'norm')
+                if algo == 'norm':
+                    torch.nn.utils.clip_grad_norm_(
+                        parameters=self.parameters(),
+                        max_norm=self.gradient_clip_val,
+                        norm_type=2.0,
+                    )
+                elif algo == 'value':
+                    torch.nn.utils.clip_grad_value_(self.parameters(), self.gradient_clip_val)
+                elif algo == 'agc':
+                    from ptycho_torch.train_utils import adaptive_gradient_clip_
+                    adaptive_gradient_clip_(self.parameters(), clip_factor=self.gradient_clip_val)
                 if self.training_config.log_grad_norm and (batch_idx % self.training_config.grad_norm_log_freq == 0):
                     post_clip = compute_grad_norm(self.parameters(), norm_type=2.0)
                     self.log("grad_norm_postclip", post_clip, on_step=True, on_epoch=True, prog_bar=False, logger=True)

@@ -89,6 +89,7 @@ class TorchRunnerConfig:
     learning_rate: float = 1e-3
     infer_batch_size: int = 16
     gradient_clip_val: Optional[float] = 1.0
+    gradient_clip_algorithm: str = 'norm'  # 'norm', 'value', or 'agc'
     generator_output_mode: str = "real_imag"
     N: int = 64
     gridsize: int = 1
@@ -204,6 +205,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     training_config.log_grad_norm = cfg.log_grad_norm
     training_config.grad_norm_log_freq = cfg.grad_norm_log_freq
     training_config.gradient_clip_val = cfg.gradient_clip_val
+    training_config.gradient_clip_algorithm = cfg.gradient_clip_algorithm
 
     execution_config = PyTorchExecutionConfig(
         learning_rate=cfg.learning_rate,
@@ -577,6 +579,8 @@ def main() -> None:
                         help="Inference batch size (OOM guard)")
     parser.add_argument("--grad-clip", type=float, default=1.0,
                         help="Gradient clipping max norm (<=0 disables clipping)")
+    parser.add_argument("--gradient-clip-algorithm", choices=['norm', 'value', 'agc'],
+                        default='norm', help='Gradient clipping algorithm')
     parser.add_argument("--output-mode", type=str, default="real_imag",
                         choices=["real_imag", "amp_phase_logits", "amp_phase"],
                         help="Generator output mode for Torch models")
@@ -619,6 +623,7 @@ def main() -> None:
         learning_rate=args.learning_rate,
         infer_batch_size=args.infer_batch_size,
         gradient_clip_val=args.grad_clip,
+        gradient_clip_algorithm=args.gradient_clip_algorithm,
         generator_output_mode=args.output_mode,
         N=args.N,
         gridsize=args.gridsize,

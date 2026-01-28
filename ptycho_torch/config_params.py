@@ -129,6 +129,7 @@ class TrainingConfig:
     num_workers: int = 4 #Dataloader workers
     accum_steps: int = 1 #Batch size accumulation, manually implemented for DDP
     gradient_clip_val: Union[float,None] = None #Gradient clip value
+    gradient_clip_algorithm: str = 'norm'  # Gradient clipping algorithm: 'norm', 'value', or 'agc'
     log_grad_norm: bool = False
     grad_norm_log_freq: int = 1
     # batch_size: int = 32

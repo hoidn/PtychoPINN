@@ -89,6 +89,24 @@ def find_learning_rate(base_lr, n_devices, batch_size_per_gpu):
     return lr_scaled
 
 
+def adaptive_gradient_clip_(parameters, clip_factor: float = 0.01, eps: float = 1e-3):
+    """Adaptive Gradient Clipping (AGC).
+
+    Clips gradients based on the unit-wise ratio of gradient norm to parameter norm.
+    See Brock et al., 2021 (NFNet), Algorithm 2.
+
+    Operates in-place on parameter .grad tensors.
+    """
+    for p in parameters:
+        if p.grad is None:
+            continue
+        p_norm = p.data.norm(2).clamp(min=eps)
+        g_norm = p.grad.data.norm(2)
+        max_norm = p_norm * clip_factor
+        if g_norm > max_norm:
+            p.grad.data.mul_(max_norm / g_norm)
+
+
 def compute_grad_norm(parameters, norm_type=2.0):
     total = 0.0
     for param in parameters:

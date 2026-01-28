@@ -230,6 +230,7 @@ class PyTorchExecutionConfig:
     strategy: str = 'auto'  # Options: 'auto', 'ddp', 'fsdp', 'deepspeed'
     deterministic: bool = True  # Enforce reproducibility (seed_everything + deterministic mode)
     gradient_clip_val: Optional[float] = None  # Gradient clipping threshold (None = disabled)
+    gradient_clip_algorithm: Literal['norm', 'value', 'agc'] = 'norm'  # Gradient clipping algorithm
     accum_steps: int = 1  # Gradient accumulation steps (simulate larger batch size)
 
     # DataLoader knobs
