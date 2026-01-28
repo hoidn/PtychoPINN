@@ -1,0 +1,22 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 8 items
+
+tests/torch/test_fno_integration.py::test_synthetic_npz_fixture_contract PASSED [ 12%]
+tests/torch/test_fno_integration.py::test_pinn_uses_fno_generator_when_selected PASSED [ 25%]
+tests/torch/test_fno_integration.py::test_fno_hyperparams_propagate_to_generator PASSED [ 37%]
+tests/torch/test_fno_integration.py::test_fno_generator_forward_pass PASSED [ 50%]
+tests/torch/test_fno_integration.py::test_hybrid_generator_forward_pass PASSED [ 62%]
+tests/torch/test_fno_integration.py::test_neuraloperator_spectral_conv_available PASSED [ 75%]
+tests/torch/test_fno_integration.py::test_ptychoblock_uses_neuraloperator_when_available SKIPPED [ 87%]
+tests/torch/test_fno_integration.py::test_fno_generator_training_loop PASSED [100%]
+
+=========================== short test summary info ============================
+SKIPPED [1] tests/torch/test_fno_integration.py:134: neuraloperator not installed
+========================= 7 passed, 1 skipped in 5.73s =========================

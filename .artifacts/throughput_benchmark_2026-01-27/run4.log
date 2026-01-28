@@ -1,0 +1,120 @@
+2026-01-26 20:54:28.562340: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1769489668.574008 3978486 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1769489668.578065 3978486 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1769489668.588554 3978486 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769489668.588567 3978486 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769489668.588569 3978486 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769489668.588570 3978486 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-26 20:54:28.591566: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-01-26 20:54:31,237 - INFO - Starting ptychography inference script...
+2026-01-26 20:54:31,238 - INFO - Final inference config - gridsize: 1
+2026-01-26 20:54:31,238 - INFO - Legacy mode: using 1000 individual images (gridsize=1)
+2026-01-26 20:54:31,238 - INFO - Loading model...
+2026-01-26 20:54:31,238 - INFO - Backend dispatcher: loading TensorFlow model (ptycho.workflows.components)
+2026-01-26 20:54:31,238 - INFO - Loading model from: artifacts/sim_lines_4x/gs1_ideal/train_outputs
+I0000 00:00:1769489671.487591 3978486 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1769489671.488825 3978486 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+2026-01-26 20:54:32,832 - INFO - Successfully loaded model from artifacts/sim_lines_4x/gs1_ideal/train_outputs
+2026-01-26 20:54:32,835 - INFO - Backend dispatcher: inference bundle loaded (backend=tensorflow)
+2026-01-26 20:54:32,835 - INFO - Loading test data...
+2026-01-26 20:54:32,835 - INFO - Loading data from datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=1000, n_subsample=1000
+2026-01-26 20:54:32,853 - INFO - Independent sampling: subsampling 1000 images from 1087 total
+2026-01-26 20:54:32,853 - INFO - Randomly subsampled 1000 images
+2026-01-26 20:54:32,864 - INFO - Inference config: gridsize=1, using 1000 individual patterns
+2026-01-26 20:54:32,864 - INFO - Performing inference...
+/home/ollie/Documents/tmp/PtychoPINN/scripts/inference/inference.py:781: DeprecationWarning: perform_inference is deprecated; use _run_tf_inference_and_reconstruct
+  reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase = perform_inference(
+2026-01-26 20:54:32,866 - INFO - DEBUG: Using gridsize=1 for data generation
+2026-01-26 20:54:32,866 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=1000, n_points=1000, C=1, K=4
+2026-01-26 20:54:32,866 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
+2026-01-26 20:54:32,866 - INFO - [OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling=False, neighbor_pool_size=None, effective_K=4
+2026-01-26 20:54:32,866 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 1000 > 1000 = False
+2026-01-26 20:54:32,866 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+2026-01-26 20:54:32,866 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2026-01-26 20:54:32,867 - INFO - Using efficient random sampling strategy for gridsize=1
+2026-01-26 20:54:32,867 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2026-01-26 20:54:32,867 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=1000, K=4, C=1
+2026-01-26 20:54:32,867 - INFO - Generating 1000 groups efficiently from 1000 points (K=4, C=1)
+2026-01-26 20:54:32,867 - INFO - [OVERSAMPLING DEBUG] Standard case: using 1000 groups from 1000 points
+2026-01-26 20:54:32,867 - INFO - [OVERSAMPLING DEBUG] Using all 1000 points as seeds (no sampling needed)
+2026-01-26 20:54:32,867 - INFO - Using all 1000 points as seeds
+2026-01-26 20:54:32,867 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2026-01-26 20:54:32,867 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 1000 groups
+2026-01-26 20:54:32,867 - INFO - Successfully generated 1000 groups with shape (1000, 1)
+2026-01-26 20:54:32,867 - INFO - [OVERSAMPLING DEBUG] Generated 1000 groups in total
+2026-01-26 20:54:32,867 - INFO - Generated 1000 groups efficiently
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1769489673.657828 3978486 service.cc:152] XLA service 0x28b78f00 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1769489673.657848 3978486 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2026-01-26 20:54:33.676780: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1769489673.695281 3978486 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1769489673.838922 3978486 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+2026-01-26 20:54:38,734 - INFO - DEBUG: Generated diffraction data shape: (1000, 64, 64, 1)
+2026-01-26 20:54:38,734 - INFO - DEBUG: Generated Y data shape: (1000, 64, 64, 1)
+2026-01-26 20:54:39,217 - INFO - DEBUG: PtychoDataContainer shapes - X (diffraction): (1000, 64, 64, 1), Y: (1000, 64, 64, 1)
+2026-01-26 20:54:40.429019: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_1_1/padded_obj_2_1/cond/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0
+2026-01-26 20:54:40.500400: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_1_1/padded_obj_2_1/cond_1/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_1_1/padded_obj_2_1/cond_1/while/cond_0
+2026-01-26 20:54:40.550346: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_1_1/padded_obj_2_1/cond_2/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_1_1/padded_obj_2_1/cond_2/while/cond_0
+2026-01-26 20:54:40.600754: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_1_1/padded_obj_2_1/cond_3/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_1_1/padded_obj_2_1/cond_3/while/cond_0
+diff3d shape: (1000, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (1000,)
+objectGuess shape: (227, 226)
+xcoords shape: (1000,)
+ycoords shape: (1000,)
+xcoords_start shape: (1000,)
+ycoords_start shape: (1000,)
+DEBUG: nsamples: 1000, gridsize: 1 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (1000, 64, 64, 1)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(1000, 64, 64, 1) mean=0.383 Y_I=(1000, 64, 64, 1) mean=0.780 Y_phi=(1000, 64, 64, 1) mean=-0.031 coords_nominal=(1000, 1, 2, 1) mean=0.000 coords_true=(1000, 1, 2, 1) mean=0.000 probe=(64, 64) mean_amplitude=0.322 norm_Y_I=<scalar> nn_indices=(1000, 1) global_offsets=(1000, 1, 2, 1) local_offsets=(1000, 1, 2, 1)>
+DEBUG _flat_to_channel: gridsize from parameter: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(32, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from parameter: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(32, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from parameter: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(32, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from parameter: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(32, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+[1m 1/32[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m1:46[0m 3s/step[1m12/32[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m0s[0m 5ms/step [1m23/32[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 5ms/step2026-01-26 20:54:43.771413: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_1_1/padded_obj_2_1/cond/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_1_1/padded_obj_2_1/cond/while/cond_0
+2026-01-26 20:54:43.813750: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_1_1/padded_obj_2_1/cond_1/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_1_1/padded_obj_2_1/cond_1/while/cond_tfg_inlined_functional_1_1/padded_obj_2_1/cond_1/while_1_0
+2026-01-26 20:54:43.855643: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_1_1/padded_obj_2_1/cond_2/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_1_1/padded_obj_2_1/cond_2/while/cond_0
+2026-01-26 20:54:43.898127: W tensorflow/compiler/tf2xla/kernels/assert_op.cc:39] Ignoring Assert operator functional_1_1/padded_obj_2_1/cond_3/while/cond/assert_equal_1/Assert/Assert_tfg_inlined_functional_1_1/padded_obj_2_1/cond_3/while/cond_0
+DEBUG _flat_to_channel: gridsize from parameter: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from parameter: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from parameter: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+DEBUG _flat_to_channel: gridsize from parameter: 1
+DEBUG _flat_to_channel: N from parameter: 74
+DEBUG _flat_to_channel: input shape=(None, 74, 74, 1), reshaping to (-1, 1, 74, 74)
+[1m32/32[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 62ms/step[1m32/32[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m5s[0m 63ms/step
+2026-01-26 20:54:44,659 - INFO - Reconstruction completed in 5.44 seconds
+2026-01-26 20:54:45,757 - INFO - Reconstructed amplitude shape: (68, 68, 1)
+2026-01-26 20:54:45,757 - INFO - Reconstructed phase shape: (68, 68, 1)
+2026-01-26 20:54:45,761 - INFO - Saving reconstruction images...
+2026-01-26 20:54:45,761 - INFO - Amplitude array shape: (68, 68)
+2026-01-26 20:54:45,761 - INFO - Phase array shape: (68, 68)
+2026-01-26 20:54:45,916 - INFO - Reconstructed amplitude saved to: .artifacts/throughput_benchmark_2026-01-27/run4/reconstructed_amplitude.png
+2026-01-26 20:54:45,916 - INFO - Reconstructed phase saved to: .artifacts/throughput_benchmark_2026-01-27/run4/reconstructed_phase.png
+2026-01-26 20:54:45,916 - INFO - Inference process completed successfully.
+2026-01-26 20:54:45,916 - INFO - Cleaning up resources...
+real 19.12
+user 24.13
+sys 3.39

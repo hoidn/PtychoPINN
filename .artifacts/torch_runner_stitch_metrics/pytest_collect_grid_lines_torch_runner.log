@@ -1,0 +1,74 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 17 items
+
+<Dir PtychoPINN>
+  <Package tests>
+    <Dir torch>
+      <Module test_grid_lines_torch_runner.py>
+        Smoke tests for the Torch grid-lines runner.
+        <Class TestTorchRunnerConfig>
+          Tests for TorchRunnerConfig dataclass.
+          <Function test_config_creation>
+            Test config can be created with required fields.
+        <Class TestLoadCachedDataset>
+          Tests for load_cached_dataset function.
+          <Function test_load_valid_npz>
+            Test loading valid NPZ with required keys.
+          <Function test_load_missing_key_raises>
+            Test loading NPZ missing required keys raises KeyError.
+        <Class TestSetupTorchConfigs>
+          Tests for setup_torch_configs function.
+          <Function test_creates_training_config>
+            Test config setup creates valid TrainingConfig.
+          <Function test_creates_execution_config>
+            Test config setup creates valid PyTorchExecutionConfig.
+        <Class TestRunGridLinesTorchScaffold>
+          Smoke tests for the main runner function (scaffold mode).
+          <Function test_runner_emits_metrics_json>
+            Test runner creates metrics.json in output directory.
+          <Function test_runner_creates_run_directory_structure>
+            Test runner creates proper directory structure.
+          <Function test_metrics_stitch_predictions_to_ground_truth>
+            Runner should stitch predictions before eval_reconstruction.
+        <Class TestChannelGridsizeAlignment>
+          Tests for channel/gridsize alignment in runner configuration.
+          <Function test_runner_sets_gridsize_from_config>
+            Test that setup_torch_configs propagates gridsize to model config.
+          <Function test_runner_channels_derived_from_gridsize>
+            Test that channel count C = gridsize^2 is derived correctly.
+            
+            For FNO/Hybrid architectures, the number of channels should match
+            gridsize squared to handle multi-patch stitching.
+          <Function test_create_training_payload_sets_channels_from_gridsize>
+            Test that config_factory derives C/grid_size from gridsize overrides.
+        <Class TestArchitecturePropagation>
+          Tests for architecture propagation into torch factory overrides.
+          <Function test_training_payload_receives_architecture>
+        <Class TestForwardSignatureEnforcement>
+          Tests for FNO/Hybrid forward signature enforcement.
+          <Function test_fno_inference_uses_forward_predict>
+            Test that FNO/Hybrid inference calls forward_predict with full signature.
+        <Class TestOutputContractConversion>
+          Tests for output contract conversion (real/imag to complex).
+          <Function test_to_complex_patches_basic>
+            Test that to_complex_patches converts real/imag to complex correctly.
+          <Function test_to_complex_patches_preserves_values>
+            Test that to_complex_patches preserves real and imaginary values.
+          <Function test_runner_returns_predictions_complex>
+            Test that run_grid_lines_torch returns predictions_complex key.
+            
+            The runner should convert model outputs (real/imag format) to complex
+            patches for downstream physics consistency checks.
+        <Class TestTorchTrainingPath>
+          Tests for PyTorch training path usage.
+          <Function test_runner_uses_lightning_training>
+            Test that runner delegates training to Lightning workflow.
+
+========================= 17 tests collected in 0.84s ==========================

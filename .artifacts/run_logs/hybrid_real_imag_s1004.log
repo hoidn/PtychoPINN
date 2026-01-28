@@ -1,0 +1,174 @@
+INFO:__main__:Starting Torch grid-lines runner: arch=hybrid
+INFO:__main__:Loading train data from outputs/grid_lines_gs1_n64_e20_phi/datasets/N64/gs1/train.npz
+INFO:__main__:Loading test data from outputs/grid_lines_gs1_n64_e20_phi/datasets/N64/gs1/test.npz
+INFO:__main__:Training hybrid model...
+2026-01-27 15:55:13.502403: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1769558113.514345  975024 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1769558113.518274  975024 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1769558113.529324  975024 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769558113.529340  975024 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769558113.529342  975024 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769558113.529344  975024 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-27 15:55:13.532383: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+INFO:ptycho_torch.workflows.components:_train_with_lightning orchestrating Lightning training
+INFO:ptycho_torch.workflows.components:Training config: nepochs=20, n_groups=512
+/home/ollie/Documents/tmp/PtychoPINN/ptycho_torch/config_factory.py:259: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+  tf_training_config = to_training_config(
+/home/ollie/Documents/tmp/PtychoPINN/ptycho_torch/config_factory.py:618: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+  warnings.warn(
+INFO:ptycho_torch.model:Overriding model_config.loss_function=Poisson to MAE to match torch_loss_mode=mae
+INFO: Seed set to 42
+INFO:lightning.fabric.utilities.seed:Seed set to 42
+INFO:ptycho_torch.workflows.components:Enabled CSVLogger: metrics saved to training_outputs/lightning_logs/
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+INFO:ptycho_torch.workflows.components:Starting Lightning training: 20 epochs
+INFO:pytorch_lightning.utilities.rank_zero:You are using a CUDA device ('NVIDIA GeForce RTX 3090') that has Tensor Cores. To properly utilize them, you should set `torch.set_float32_matmul_precision('medium' | 'high')` which will trade-off precision for performance. For more details, read https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/callbacks/model_checkpoint.py:751: Checkpoint directory /home/ollie/Documents/tmp/PtychoPINN/training_outputs/checkpoints exists and is not empty.
+INFO: LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+INFO:lightning.pytorch.accelerators.cuda:LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+INFO: 
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 17.2 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+17.2 M    Trainable params
+0         Non-trainable params
+17.2 M    Total params
+68.810    Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+INFO:lightning.pytorch.callbacks.model_summary:
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 17.2 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+17.2 M    Trainable params
+0         Non-trainable params
+17.2 M    Total params
+68.810    Total estimated model params size (MB)
+60        Modules in train mode
+0         Modules in eval mode
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+INFO:pytorch_lightning.utilities.rank_zero:`Trainer.fit` stopped: `max_epochs=20` reached.
+INFO:ptycho_torch.workflows.components:Lightning training complete
+INFO:__main__:Running inference...
+INFO:__main__:Computing metrics...
+I0000 00:00:1769558300.667264  975024 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1769558300.668806  975024 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 21709 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+/home/ollie/Documents/tmp/PtychoPINN/ptycho/evaluation.py:168: RuntimeWarning: Negative SSIM value (-0.0025) encountered in MS-SSIM calculation. Clamping to 0.0001 to avoid NaN.
+  warnings.warn(f"Negative SSIM value ({ssim_val:.4f}) encountered in MS-SSIM calculation. "
+/home/ollie/Documents/tmp/PtychoPINN/ptycho/evaluation.py:168: RuntimeWarning: Negative SSIM value (-0.0444) encountered in MS-SSIM calculation. Clamping to 0.0001 to avoid NaN.
+  warnings.warn(f"Negative SSIM value ({ssim_val:.4f}) encountered in MS-SSIM calculation. "
+/home/ollie/Documents/tmp/PtychoPINN/ptycho/evaluation.py:168: RuntimeWarning: Negative SSIM value (-0.0556) encountered in MS-SSIM calculation. Clamping to 0.0001 to avoid NaN.
+  warnings.warn(f"Negative SSIM value ({ssim_val:.4f}) encountered in MS-SSIM calculation. "
+INFO:__main__:Saved artifacts to outputs/grid_lines_gs1_n64_setphi_hybrid_real_imag_s1004/runs/pinn_hybrid
+INFO:__main__:Torch runner complete. Artifacts in outputs/grid_lines_gs1_n64_setphi_hybrid_real_imag_s1004/runs/pinn_hybrid
+DEBUG: Setting nimgs_test to 1 in params
+DEBUG: Setting outer_offset_test to 20 in params
+Amplitude normalization scale factor: 15.661223
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [pinn_hybrid]: amp_target stats: mean=2.889508, std=0.641223, shape=(326, 326, 1)
+DEBUG eval_reconstruction [pinn_hybrid]: amp_pred stats: mean=0.184501, std=0.039200, shape=(326, 326, 1)
+DEBUG eval_reconstruction [pinn_hybrid]: phi_target stats: mean=0.000000, std=0.240429, shape=(326, 326)
+DEBUG eval_reconstruction [pinn_hybrid]: phi_pred stats: mean=-0.000000, std=0.022503, shape=(326, 326)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [-0.709, 0.734] -> scaled range [0.387, 0.617]
+performed by index method
+performed by index method
+performed by index method
+{
+  "architecture": "hybrid",
+  "run_dir": "outputs/grid_lines_gs1_n64_setphi_hybrid_real_imag_s1004/runs/pinn_hybrid",
+  "metrics": {
+    "mae": [
+      "0.19518973",
+      0.2059393374282292
+    ],
+    "mse": [
+      "0.06106568",
+      0.06686469309683117
+    ],
+    "psnr": [
+      60.272831223024134,
+      59.87883505247973
+    ],
+    "ssim": [
+      0.5688624784579153,
+      0.8267373401882823
+    ],
+    "ms_ssim": [
+      0.8709500468380432,
+      0.0009415129376121405
+    ],
+    "frc50": [
+      "29",
+      "27"
+    ],
+    "frc": [
+      "[1.         0.99743055 0.99210978 0.96252265 0.98493043 0.98943109\n 0.96800989 0.95721767 0.96793255 0.95570106 0.96507654 0.95225789\n 0.94985659 0.96000847 0.94043728 0.92863804 0.92823707 0.9052929\n 0.87749926 0.90182633 0.85681229 0.85616448 0.82169632 0.75166953\n 0.68045785 0.78080935 0.65935939 0.56984994 0.63388823 0.36676984\n 0.5805618  0.51225208 0.38100244 0.32537902 0.49218262 0.40092748\n 0.5188994  0.42611246 0.40996667 0.4689082  0.33191019 0.36716511\n 0.20053714 0.27635454 0.18704363 0.13410553 0.12638848 0.0196972\n 0.06605375 0.14989532 0.06107505 0.03765583 0.00864266 0.05527405\n 0.09399335 0.02552285 0.05876153 0.03556763 0.05018812 0.01967747\n 0.05529644 0.08103499 0.11226068 0.16257064 0.14102295 0.02665959\n 0.15088389 0.20005908 0.20682181 0.26014632 0.21130236 0.29851448\n 0.21586054 0.21755709 0.28689287 0.26512479 0.18240085 0.19644061\n 0.16582893 0.20834938 0.10344509 0.18258303 0.14860359 0.20916612\n 0.19324473 0.13650604 0.21904386 0.10470026 0.1597741  0.11322541\n 0.16059817 0.14944703 0.19281113 0.21391417 0.18000206 0.24123239\n 0.31503287 0.28256344 0.16586719 0.30535068 0.33742191 0.2279249\n 0.25829606 0.26918897 0.36015402 0.28690674 0.30784117 0.32013359\n 0.32453756 0.29399012 0.31554279 0.26888292 0.37698254 0.34705912\n 0.38955048 0.38537504 0.40297338 0.36856332 0.37942931 0.44890398\n 0.3684816  0.43132274 0.39302875 0.42856322 0.43008931 0.42906533\n 0.47375599 0.41762625 0.52871023 0.51478203 0.403994   0.40353133\n 0.53035397 0.48098548 0.38925719 0.51446071 0.47799318 0.53667808\n 0.47724718 0.49834483 0.47964211 0.50249406 0.44024958 0.43247827\n 0.43922001 0.42639805 0.45735832 0.43501144 0.48745584 0.54715491\n 0.3935164  0.46923955 0.5316383  0.58019143 0.48277122 0.3686851\n 0.39968634 0.49077469 0.39250041 0.50614083 0.2979528  0.38534716\n 0.31182314 0.30704482 0.0340626  0.01601782 0.05231439 0.10001639\n 0.04852336 0.05869292 0.04566751 0.01896983 0.10147235 0.04118783\n 0.13472933 0.08345964 0.1200882  0.13561622 0.13502819 0.09584048\n 0.11852586 0.07199774 0.14029261 0.12926162 0.01808563 0.00366946\n 0.11541165 0.10448571 0.17063815 0.08682662 0.00245279 0.09077064\n 0.12479502 0.08346678 0.00734339 0.11531877 0.03533717 0.01897295\n 0.09912288 0.00664761 0.05695449 0.10444183 0.11080792 0.14023294\n 0.02807737 0.10221282 0.20947115 0.01947665 0.02952881 0.1075188\n 0.15526144 0.13558023 0.16082311 0.12128962 0.00826506 0.08507911\n 0.02846465 0.15809249 0.20208494 0.20792929 0.03692438 0.03708156\n 0.03404245 0.018593   0.05593242 0.12839321 0.06880301 0.27354731\n 0.21987807 0.09085695 0.90681893 0.99999998]",
+      "[1.00000000e+00 9.83565722e-01 9.83083857e-01 9.13952350e-01\n 9.50051743e-01 9.47894086e-01 8.95467161e-01 8.54020823e-01\n 8.93620024e-01 8.78992228e-01 9.10297865e-01 8.46677791e-01\n 8.37319513e-01 8.31033178e-01 7.55337547e-01 7.78421941e-01\n 7.92259426e-01 7.69894029e-01 7.37707670e-01 7.14210537e-01\n 6.17958171e-01 6.16461412e-01 6.45244376e-01 5.38570037e-01\n 5.20632532e-01 6.54633004e-01 5.07218320e-01 3.53113634e-01\n 4.45539479e-01 1.41941984e-01 4.30895513e-01 3.73623950e-01\n 3.02799904e-01 2.96280732e-01 3.82692437e-01 2.62866183e-01\n 3.28079117e-01 2.90569703e-01 3.24750007e-01 3.91288841e-01\n 2.61404092e-01 3.60205412e-01 1.07550276e-01 2.09097018e-01\n 1.56901000e-01 1.14871075e-01 1.24914986e-01 2.99490368e-02\n 2.88702847e-02 3.40039276e-02 2.90360623e-02 4.63625206e-02\n 3.80370181e-02 1.10963371e-01 1.03186756e-01 7.21696445e-02\n 3.07669166e-02 3.95732501e-02 1.05585112e-01 1.64886731e-02\n 3.93122575e-02 5.66359397e-02 1.37447088e-01 1.47114711e-01\n 4.93621210e-02 2.87406079e-02 1.94079918e-01 1.59755837e-01\n 2.47792224e-01 2.37945106e-01 1.95103890e-01 3.28128821e-01\n 1.69086200e-01 1.80009711e-01 2.15434191e-01 2.34109493e-01\n 1.83932406e-01 1.73333790e-01 1.59298316e-01 1.51682016e-01\n 6.83974576e-02 1.82432936e-01 1.11805569e-01 1.96283076e-01\n 1.33181240e-01 1.35829023e-01 1.87963143e-01 7.02502216e-02\n 1.30496348e-01 9.70060760e-02 1.16960847e-01 1.85589580e-01\n 1.91304053e-01 1.69830532e-01 2.13189977e-01 1.95720642e-01\n 3.62183478e-01 2.91461221e-01 6.24663664e-02 2.48363816e-01\n 2.37905455e-01 1.98326323e-01 2.26859537e-01 2.30612915e-01\n 2.85173964e-01 2.09775884e-01 2.26029527e-01 1.47069483e-01\n 2.45560020e-01 2.23801828e-01 2.97564517e-01 2.32707666e-01\n 2.98640452e-01 3.18757014e-01 3.21316680e-01 2.87824726e-01\n 3.00806230e-01 2.53673897e-01 3.11896093e-01 4.11213398e-01\n 2.69425778e-01 2.69261715e-01 2.54933255e-01 2.63611297e-01\n 3.35653004e-01 3.67780755e-01 3.50804499e-01 3.42050629e-01\n 3.88195534e-01 3.79223960e-01 3.38050190e-01 1.32963508e-01\n 2.47099595e-01 2.76614341e-01 1.55712994e-01 2.10322403e-01\n 1.21441339e-01 3.27597616e-01 2.11441219e-01 1.93010982e-01\n 7.64049705e-02 1.28101119e-01 1.47734477e-01 1.67807166e-01\n 9.38047264e-02 2.14608372e-01 2.17270435e-01 2.97500717e-01\n 1.52950779e-01 2.96686953e-01 5.24683561e-02 1.48797934e-01\n 1.90169278e-01 3.04970738e-01 3.01084639e-02 2.59598890e-02\n 9.22746344e-02 1.04208322e-01 9.22019046e-02 1.63301198e-01\n 8.55912464e-02 9.40216450e-02 8.88220049e-03 1.88496035e-01\n 8.71500657e-02 1.31147726e-02 3.00760863e-02 3.38088617e-02\n 2.55078062e-02 1.60886529e-02 1.19350229e-02 2.86896902e-02\n 4.65344272e-02 1.49470810e-02 1.22008669e-02 5.54181817e-02\n 1.78906720e-02 6.04421008e-03 1.24966422e-01 2.16619750e-02\n 3.16481879e-02 3.20168587e-02 1.78337769e-02 1.61690051e-02\n 3.14072634e-02 4.47451650e-02 5.09554565e-02 8.90559138e-02\n 9.60569503e-02 1.76415956e-01 1.19274264e-02 8.31744914e-02\n 5.66472220e-02 2.60046098e-02 1.77352669e-02 3.34184367e-02\n 4.25437686e-02 1.69604511e-02 1.08924879e-01 4.05758904e-02\n 1.09114663e-01 9.63891302e-02 6.35920353e-02 5.21111420e-02\n 6.00699901e-03 1.69675976e-02 3.88276282e-02 5.49070919e-03\n 9.09463901e-04 1.38155814e-01 2.66899706e-03 8.95478449e-02\n 1.45418697e-01 4.08230113e-02 1.54342256e-01 4.33085161e-02\n 1.46741382e-01 9.80872133e-02 4.46544291e-02 7.60934054e-02\n 4.94918008e-02 3.07236814e-02 1.61580492e-01 7.99528362e-02\n 2.63933359e-02 1.54308192e-01 5.98363052e-02 8.40442405e-02\n 3.64402264e-01 5.86971729e-01 5.82259208e-01 1.00000000e+00]"
+    ]
+  },
+  "history": {
+    "train_loss": [
+      0.11067260056734085,
+      0.05278293043375015,
+      0.045733895152807236,
+      0.0400494709610939,
+      0.03628624603152275,
+      0.030532825738191605,
+      0.03011457249522209,
+      0.02925671823322773,
+      0.027328943833708763,
+      0.03070688806474209,
+      0.025406578555703163,
+      0.02444964088499546,
+      0.022572815418243408,
+      0.023307960480451584,
+      0.022497976198792458,
+      0.020754773169755936,
+      0.02123178355395794,
+      5.336459159851074,
+      0.12152224779129028,
+      0.1087963655591011
+    ],
+    "val_loss": [
+      0.5824035406112671,
+      0.15328653156757355,
+      0.13883331418037415,
+      0.16150562465190887,
+      0.05151555687189102,
+      0.0989714115858078,
+      0.06054789945483208,
+      0.07133674621582031,
+      0.07658901810646057,
+      0.06400790810585022,
+      0.07476221024990082,
+      0.05532904341816902,
+      0.042027849704027176,
+      0.052841391414403915,
+      0.05469257012009621,
+      0.026725871488451958,
+      0.03747302293777466,
+      0.03522944822907448,
+      0.1438506692647934,
+      0.16469283401966095,
+      0.15572364628314972
+    ]
+  },
+  "recon_path": "outputs/grid_lines_gs1_n64_setphi_hybrid_real_imag_s1004/recons/pinn_hybrid/recon.npz",
+  "model_params": 17202404,
+  "inference_time_s": 4.334840809926391
+}

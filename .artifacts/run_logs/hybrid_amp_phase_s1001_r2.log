@@ -1,0 +1,170 @@
+INFO:__main__:Starting Torch grid-lines runner: arch=hybrid
+INFO:__main__:Loading train data from /home/ollie/Documents/tmp/PtychoPINN/outputs/grid_lines_gs1_n64_e20_phi/datasets/N64/gs1/train.npz
+INFO:__main__:Loading test data from /home/ollie/Documents/tmp/PtychoPINN/outputs/grid_lines_gs1_n64_e20_phi/datasets/N64/gs1/test.npz
+INFO:__main__:Training hybrid model...
+2026-01-27 16:35:13.467464: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1769560513.479204 1010314 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1769560513.483064 1010314 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1769560513.494325 1010314 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769560513.494337 1010314 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769560513.494339 1010314 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769560513.494341 1010314 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-27 16:35:13.497682: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+INFO:ptycho_torch.workflows.components:_train_with_lightning orchestrating Lightning training
+INFO:ptycho_torch.workflows.components:Training config: nepochs=20, n_groups=512
+/home/ollie/Documents/tmp/PtychoPINN/ptycho_torch/config_factory.py:259: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+  tf_training_config = to_training_config(
+/home/ollie/Documents/tmp/PtychoPINN/ptycho_torch/config_factory.py:618: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+  warnings.warn(
+INFO:ptycho_torch.model:Overriding model_config.loss_function=Poisson to MAE to match torch_loss_mode=mae
+INFO: Seed set to 42
+INFO:lightning.fabric.utilities.seed:Seed set to 42
+INFO:ptycho_torch.workflows.components:Enabled CSVLogger: metrics saved to training_outputs/lightning_logs/
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+INFO:ptycho_torch.workflows.components:Starting Lightning training: 20 epochs
+INFO:pytorch_lightning.utilities.rank_zero:You are using a CUDA device ('NVIDIA GeForce RTX 3090') that has Tensor Cores. To properly utilize them, you should set `torch.set_float32_matmul_precision('medium' | 'high')` which will trade-off precision for performance. For more details, read https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/callbacks/model_checkpoint.py:751: Checkpoint directory /home/ollie/Documents/tmp/PtychoPINN/training_outputs/checkpoints exists and is not empty.
+INFO: LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+INFO:lightning.pytorch.accelerators.cuda:LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+INFO: 
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 17.2 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+17.2 M    Trainable params
+0         Non-trainable params
+17.2 M    Total params
+68.810    Total estimated model params size (MB)
+61        Modules in train mode
+0         Modules in eval mode
+INFO:lightning.pytorch.callbacks.model_summary:
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 17.2 M | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+17.2 M    Trainable params
+0         Non-trainable params
+17.2 M    Total params
+68.810    Total estimated model params size (MB)
+61        Modules in train mode
+0         Modules in eval mode
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+INFO:pytorch_lightning.utilities.rank_zero:`Trainer.fit` stopped: `max_epochs=20` reached.
+INFO:ptycho_torch.workflows.components:Lightning training complete
+INFO:__main__:Running inference...
+INFO:__main__:Computing metrics...
+I0000 00:00:1769560668.415874 1010314 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1769560668.417355 1010314 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 21709 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+/home/ollie/Documents/tmp/PtychoPINN/ptycho/FRC/fourier_ring_corr.py:38: RuntimeWarning: divide by zero encountered in divide
+  FSC = abs(C)/np.sqrt(abs(np.multiply(C1,C2)))
+INFO:__main__:Saved artifacts to /home/ollie/Documents/tmp/PtychoPINN/outputs/grid_lines_gs1_n64_e20_phi_hybrid_amp_phase_s1001_r2/runs/pinn_hybrid
+INFO:__main__:Torch runner complete. Artifacts in /home/ollie/Documents/tmp/PtychoPINN/outputs/grid_lines_gs1_n64_e20_phi_hybrid_amp_phase_s1001_r2/runs/pinn_hybrid
+DEBUG: Setting nimgs_test to 1 in params
+DEBUG: Setting outer_offset_test to 20 in params
+Amplitude normalization scale factor: 0.683163
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [pinn_hybrid]: amp_target stats: mean=2.889508, std=0.641223, shape=(326, 326, 1)
+DEBUG eval_reconstruction [pinn_hybrid]: amp_pred stats: mean=4.229604, std=0.000001, shape=(326, 326, 1)
+DEBUG eval_reconstruction [pinn_hybrid]: phi_target stats: mean=0.000000, std=0.240429, shape=(326, 326)
+DEBUG eval_reconstruction [pinn_hybrid]: phi_pred stats: mean=-0.000000, std=0.000000, shape=(326, 326)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [-0.709, 0.734] -> scaled range [0.387, 0.617]
+performed by index method
+performed by index method
+performed by index method
+{
+  "architecture": "hybrid",
+  "run_dir": "/home/ollie/Documents/tmp/PtychoPINN/outputs/grid_lines_gs1_n64_e20_phi_hybrid_amp_phase_s1001_r2/runs/pinn_hybrid",
+  "metrics": {
+    "mae": [
+      "0.513058",
+      0.1919630089334617
+    ],
+    "mse": [
+      "0.4111674",
+      0.05780597127725391
+    ],
+    "psnr": [
+      51.9906169526276,
+      60.51107658035281
+    ],
+    "ssim": [
+      0.27711374258753496,
+      0.8427619482806401
+    ],
+    "ms_ssim": [
+      0.10228897095612838,
+      0.08199184930344044
+    ],
+    "frc50": [
+      "2",
+      "1"
+    ],
+    "frc": [
+      "[1.         0.76345638 0.19878358 0.05071506 0.04459016 0.414321\n 0.27610137 0.19851381 0.10344343 0.00810884 0.04184301 0.0471349\n 0.05260539 0.1892956  0.13863934 0.23676119 0.02493299 0.13417948\n 0.03556064 0.05583231 0.10956552 0.0885418  0.10373749 0.15200965\n 0.22550972 0.01924459 0.05839351 0.09283994 0.14348136 0.01542415\n 0.03241845 0.1570047  0.08777108 0.06151989 0.07434288 0.06285174\n 0.06102924 0.06095034 0.04518794 0.06503303 0.03963507 0.08165859\n 0.05490428 0.06349379 0.10323487 0.06862791 0.02166258 0.14215163\n 0.09473857 0.01903929 0.01936727 0.03373039 0.01522862 0.12604937\n 0.05449585 0.0563274  0.08119698 0.05193476 0.05053156 0.02068622\n 0.0642495  0.10910062 0.02738198 0.07414032 0.02218113 0.05600413\n 0.09887771 0.08827921 0.02732691 0.02620865 0.0321638  0.02001172\n 0.08529253 0.05694003 0.11650515 0.07814915 0.09677421 0.10390931\n 0.0483868  0.03842612 0.00608099 0.04368215 0.08513349 0.03280914\n 0.11742807 0.18024197 0.01746103 0.07142548 0.1155044  0.06723679\n 0.03661952 0.02609754 0.09056478 0.10111498 0.09018342 0.14066565\n 0.13588774 0.05805104 0.10803513 0.01975342 0.02164766 0.03888413\n 0.02082595 0.10206711 0.13352674 0.05477669 0.0559211  0.12953939\n 0.11595696 0.10757122 0.02754206 0.06549232 0.12773022 0.1416634\n 0.06506628 0.06535625 0.07778282 0.07492772 0.16990748 0.12296071\n 0.11928474 0.09435311 0.056787   0.11279282 0.17919703 0.21565247\n 0.12917791 0.15177678 0.08151266 0.14075488 0.18017706 0.11389288\n 0.13171854 0.13788437 0.14483502 0.2054647  0.22125469 0.24018592\n 0.2165019  0.22163944 0.15466554 0.19679778 0.1843986  0.19036526\n 0.08883833 0.1492796  0.14893997 0.14578031 0.09653217 0.24133163\n 0.09167512 0.12714572 0.11252744 0.19274758 0.22618636 0.23169956\n 0.23147263 0.1739511  0.21080059 0.1941286  0.17471028 0.2352245\n 0.21105929 0.20508043        inf        inf        inf        inf\n        inf        inf        inf        inf        inf        inf\n        inf        inf        inf        inf        inf        inf\n        inf        inf        inf        inf        inf        inf\n        inf        inf        inf        inf        inf        inf\n        inf        inf        inf        inf        inf        inf\n        inf        inf        inf        inf        inf        inf\n        inf        inf        inf        inf        inf        inf\n        inf        inf        inf        inf        inf        inf\n        inf        inf        inf        inf        inf        inf\n        inf        inf        inf        inf        inf        inf\n        inf        inf        inf        inf]",
+      "[1.00000000e+00 7.71435721e-02 5.58383269e-02 4.36992657e-01\n 1.56966351e-01 1.97444127e-02 1.76480799e-03 2.42367664e-01\n 8.49154082e-02 1.09293572e-01 1.53599895e-02 5.85233531e-03\n 9.16941136e-02 4.67085757e-02 1.24092248e-01 2.36154194e-02\n 1.06059060e-01 3.91385145e-02 1.70105039e-01 1.30905706e-01\n 1.13229503e-01 1.04972795e-01 5.19735607e-04 8.71626794e-02\n 8.89190000e-02 2.75667863e-02 1.16533019e-01 5.59490306e-03\n 2.62617724e-01 2.81306811e-02 7.17066615e-03 1.15986462e-01\n 1.45676363e-02 1.25709452e-02 3.75019792e-02 8.85673326e-02\n 6.01990581e-02 1.37443297e-02 5.09001367e-02 1.69729285e-01\n 3.63068917e-02 7.92050999e-02 6.45112753e-02 6.83112437e-02\n 1.61232869e-02 9.51369910e-02 7.22486747e-03 9.91283797e-04\n 6.26762848e-02 7.80701386e-02 5.37826475e-02 8.00639319e-02\n 2.08092957e-02 3.63392048e-02 1.86685124e-02 1.20412630e-02\n 5.85745833e-03 3.56618355e-02 3.18642301e-02 7.36867751e-02\n 1.30339328e-01 6.42246869e-02 3.07668486e-02 6.08289465e-02\n 7.19817285e-02 2.52043477e-02 6.29458674e-02 1.99266692e-02\n 6.95835570e-02 7.79558675e-02 3.06732039e-02 7.99691382e-02\n 8.46640993e-02 2.03364903e-02 7.31000557e-02 6.54868248e-02\n 9.03441606e-03 1.25503625e-02 4.67144252e-02 3.04247246e-02\n 8.00973657e-02 7.25446223e-02 4.06183531e-02 1.13342676e-02\n 1.52189193e-02 9.53997437e-04 3.54652452e-02 7.13964834e-03\n 4.76596362e-02 8.96993656e-02 7.18005361e-02 9.68507057e-02\n 1.08153554e-01 4.38403580e-02 2.80292070e-02 2.06150832e-02\n 4.57307978e-02 1.53123401e-02 9.91528660e-03 8.34114571e-02\n 1.24711771e-01 1.34718890e-01 7.39599802e-02 6.51809979e-02\n 3.73458173e-02 1.70295353e-02 4.46568710e-02 5.00245497e-03\n 5.17063757e-02 9.00085933e-02 9.83611052e-02 1.45650294e-01\n 1.09626126e-01 7.62502777e-02 6.89123497e-02 9.02492364e-03\n 2.84406220e-02 5.30758997e-02 4.15503774e-02 7.29020468e-02\n 1.01270340e-01 1.57103503e-01 1.04120769e-01 7.93367523e-02\n 9.49190170e-02 5.96090384e-02 5.01710700e-02 6.45062986e-02\n 8.88325275e-02 9.72528891e-02 9.43248115e-02 9.34091855e-02\n 1.34397717e-01 1.11847138e-01 9.94458810e-02 8.63602430e-02\n 6.43089272e-02 9.19983242e-02 6.37510464e-02 8.67839894e-02\n 1.14482574e-01 1.12625449e-01 1.10073883e-01 1.13913846e-01\n 1.05288403e-01 1.06572159e-01 8.41083102e-02 6.94729998e-02\n 8.17170951e-02 8.52884327e-02 1.02720049e-01 1.04252725e-01\n 1.15228253e-01 1.13100665e-01 1.03225401e-01 9.65736249e-02\n 8.52503361e-02 8.91692997e-02 7.35718799e-02 8.32325000e-02\n 9.45918334e-02 1.10605310e-01 1.09690655e-01 9.86008275e-02\n 3.49047703e-02 3.53823172e-02 1.05434790e-02 3.98267952e-04\n 5.97248101e-03 1.41498571e-03 1.29611260e-02 2.35856566e-02\n 3.80769957e-03 1.29263104e-02 6.47649385e-03 2.19970598e-02\n 1.80297589e-02 1.08793438e-02 1.73011301e-02 2.79599393e-02\n 3.50328339e-02 1.81084392e-02 1.18893780e-02 1.84189616e-02\n 2.44349750e-02 4.94077653e-02 4.27342282e-02 1.39297790e-03\n 6.77241142e-02 2.19382368e-02 3.95567501e-04 3.50161467e-02\n 1.23594912e-02 1.00601654e-02 2.48740846e-02 1.95473755e-02\n 1.61198049e-02 1.14471327e-02 7.60328452e-04 3.62298267e-02\n 1.35314810e-02 9.48850976e-03 3.02577978e-02 9.59753857e-03\n 2.70574585e-02 8.25438840e-02 7.99061074e-02 2.58022850e-02\n 5.63160004e-02 7.85600060e-02 8.14371528e-02 1.47033540e-01\n 3.84310315e-02 1.22246475e-01 5.82264542e-02 6.69644849e-02\n 3.21967409e-03 1.10054962e-01 6.01186492e-02 3.00399940e-02\n 9.82570600e-02 1.04492299e-01 2.76296732e-02 1.62078646e-02\n 1.69015972e-01 1.44114296e-01 1.78157657e-02 6.63296028e-02\n 7.91756579e-02 1.81957906e-02 2.54935524e-01 1.00000000e+00]"
+    ]
+  },
+  "history": {
+    "train_loss": [
+      21.35991668701172,
+      25.605247497558594,
+      25.602031707763672,
+      25.607913970947266,
+      25.594341278076172,
+      25.609600067138672,
+      25.603759765625,
+      25.607202529907227,
+      25.607492446899414,
+      25.601484298706055,
+      25.59926986694336,
+      25.601505279541016,
+      25.596696853637695,
+      25.594348907470703,
+      25.606273651123047,
+      25.607812881469727,
+      25.5955753326416,
+      25.59449005126953,
+      25.604034423828125,
+      25.60738182067871
+    ],
+    "val_loss": [
+      11.503368377685547,
+      24.959110260009766,
+      24.959110260009766,
+      24.959110260009766,
+      24.959110260009766,
+      24.959110260009766,
+      24.959110260009766,
+      24.959110260009766,
+      24.959110260009766,
+      24.959110260009766,
+      24.959110260009766,
+      24.959110260009766,
+      24.959110260009766,
+      24.959110260009766,
+      24.959110260009766,
+      24.959110260009766,
+      24.959110260009766,
+      24.959110260009766,
+      24.959110260009766,
+      24.959110260009766,
+      24.959110260009766
+    ]
+  },
+  "recon_path": "/home/ollie/Documents/tmp/PtychoPINN/outputs/grid_lines_gs1_n64_e20_phi_hybrid_amp_phase_s1001_r2/recons/pinn_hybrid/recon.npz",
+  "model_params": 17202404,
+  "inference_time_s": 4.442552999826148
+}

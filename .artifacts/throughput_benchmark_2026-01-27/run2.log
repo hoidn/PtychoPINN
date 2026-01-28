@@ -1,0 +1,29 @@
+2026-01-26 20:49:36.656789: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1769489376.668804 3971177 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1769489376.672546 3971177 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1769489376.682966 3971177 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769489376.682978 3971177 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769489376.682980 3971177 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769489376.682981 3971177 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-26 20:49:36.685848: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-01-26 20:49:39,240 - INFO - Starting ptychography inference script...
+2026-01-26 20:49:39,240 - INFO - Final inference config - gridsize: 1
+2026-01-26 20:49:39,241 - INFO - Legacy mode: using 250 individual images (gridsize=1)
+2026-01-26 20:49:39,241 - INFO - Loading model...
+2026-01-26 20:49:39,241 - INFO - Backend dispatcher: loading TensorFlow model (ptycho.workflows.components)
+2026-01-26 20:49:39,241 - INFO - Loading model from: fly64_pinn_gridsize2_final
+I0000 00:00:1769489379.491698 3971177 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1769489379.492909 3971177 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+2026-01-26 20:49:40,362 - ERROR - Failed to load model from fly64_pinn_gridsize2_final: Layer functional weight shape (3, 3, 64, 4) is not compatible with provided weight shape (3, 3, 64, 1).
+2026-01-26 20:49:40,362 - INFO - Script execution failed: Layer functional weight shape (3, 3, 64, 4) is not compatible with provided weight shape (3, 3, 64, 1).
+2026-01-26 20:49:40,362 - INFO - Cleaning up resources...
+Error loading model from /tmp/tmp5kydmzub/autoencoder: Layer functional weight shape (3, 3, 64, 4) is not compatible with provided weight shape (3, 3, 64, 1).
+real 5.08
+user 9.31
+sys 1.01

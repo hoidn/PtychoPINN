@@ -1,11 +1,12 @@
 {
-  "iteration": 399,
-  "expected_actor": "ralph",
-  "status": "waiting-ralph",
-  "last_update": "2026-01-28T23:26:27Z",
-  "lease_expires_at": "2026-01-28T23:36:27Z",
-  "galph_commit": "2aabfb8b",
+  "workflow_name": "standard2",
+  "step_index": 399,
+  "iteration": 400,
+  "expected_step": "supervisor2.md",
+  "status": "waiting-next",
+  "last_update": "2026-01-28T23:34:41Z",
+  "lease_expires_at": "2026-01-28T23:44:41Z",
+  "galph_commit": "97b5b44b",
   "ralph_commit": "6dc01d16",
-  "last_prompt": null,
-  "last_prompt_actor": null
+  "last_prompt": null
 }

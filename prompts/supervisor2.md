@@ -235,6 +235,7 @@ Run ~/.codex/superpowers/.codex/superpowers-codex bootstrap
       </step>
 
       <step id="10" name="End-of-loop hygiene and persistence">
+        - If any progress from this iteration is in a worktree or feature branch, merge it back into the proper checked out branch
         - Perform all actions in <end_of_loop_hygiene/> and <fsm/>: update <code>fix_plan.md</code>, fix‑plan metadata, and scriptization state.  
         - Ensure git hygiene and a clean repo (unless an intentional dirty state is documented).  
         - End your <em>reply</em> with the required <code>### Turn Summary</code> block, which must also be written to the loop’s <code>summary.md</code>.

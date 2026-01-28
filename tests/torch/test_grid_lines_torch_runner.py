@@ -36,11 +36,27 @@ def synthetic_npz(tmp_path):
         'YY_ground_truth': np.random.rand(1, N * 2, N * 2).astype(np.complex64),
     }
 
+    # Compute correct YY_ground_truth shape for stitching params
+    outer_offset_test = 20
+    bordersize = (N - outer_offset_test / 2) / 2
+    borderleft = int(np.ceil(bordersize))
+    borderright = int(np.floor(bordersize))
+    tile_size = N - (borderleft + borderright)
+    data["YY_ground_truth"] = np.random.rand(tile_size, tile_size, 1).astype(np.complex64)
+    data["norm_Y_I"] = np.array(1.0, dtype=np.float32)
+
     train_path = tmp_path / "train.npz"
     test_path = tmp_path / "test.npz"
 
-    np.savez(train_path, **data)
-    np.savez(test_path, **data)
+    cfg_for_meta = TrainingConfig(model=ModelConfig(N=N, gridsize=gridsize))
+    metadata = MetadataManager.create_metadata(
+        cfg_for_meta,
+        script_name="test_fixture",
+        nimgs_test=n_samples,
+        outer_offset_test=outer_offset_test,
+    )
+    MetadataManager.save_with_metadata(str(train_path), data, metadata)
+    MetadataManager.save_with_metadata(str(test_path), data, metadata)
 
     return train_path, test_path
 
@@ -283,7 +299,7 @@ class TestRunGridLinesTorchScaffold:
                 'scaffold': True,
             }
             with patch('scripts.studies.grid_lines_torch_runner.run_torch_inference') as mock_infer:
-                mock_infer.return_value = np.random.rand(1, 64, 64).astype(np.complex64)
+                mock_infer.return_value = np.random.rand(4, 64, 64, 1).astype(np.complex64)
                 with patch('scripts.studies.grid_lines_torch_runner.compute_metrics') as mock_metrics:
                     mock_metrics.return_value = {}
 

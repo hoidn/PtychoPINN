@@ -1,0 +1,118 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/tmp/PtychoPINN
+configfile: pyproject.toml
+plugins: typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_grid_lines_torch_runner.py::TestRunGridLinesTorchScaffold::test_metrics_stitch_predictions_to_ground_truth FAILED [100%]
+
+=================================== FAILURES ===================================
+_ TestRunGridLinesTorchScaffold.test_metrics_stitch_predictions_to_ground_truth _
+
+self = <test_grid_lines_torch_runner.TestRunGridLinesTorchScaffold object at 0x727d188b8c90>
+synthetic_npz = (PosixPath('/tmp/pytest-of-ollie/pytest-235/test_metrics_stitch_prediction0/train.npz'), PosixPath('/tmp/pytest-of-ollie/pytest-235/test_metrics_stitch_prediction0/test.npz'))
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-235/test_metrics_stitch_prediction0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x727d18fa6250>
+
+    def test_metrics_stitch_predictions_to_ground_truth(self, synthetic_npz, tmp_path, monkeypatch):
+        """Runner should stitch predictions before eval_reconstruction."""
+        train_path, test_path = synthetic_npz
+    
+        cfg = TrainingConfig(model=ModelConfig(N=64, gridsize=1))
+        metadata = MetadataManager.create_metadata(
+            cfg,
+            script_name="test_grid_lines_torch_runner",
+            nimgs_test=1,
+            outer_offset_test=20,
+        )
+        data = dict(np.load(test_path, allow_pickle=True))
+        data["norm_Y_I"] = np.array(1.0, dtype=np.float32)
+        MetadataManager.save_with_metadata(str(test_path), data, metadata)
+    
+        called = {"ok": False}
+    
+        def fake_eval(stitched_obj, ground_truth_obj, label=""):
+            assert stitched_obj.shape[0] == ground_truth_obj.shape[0]
+            assert stitched_obj.shape[1] == ground_truth_obj.shape[1]
+            called["ok"] = True
+            return {"mse": 0.0}
+    
+        monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", fake_eval)
+    
+        cfg = TorchRunnerConfig(
+            train_npz=train_path,
+            test_npz=test_path,
+            output_dir=tmp_path,
+            architecture="fno",
+            epochs=1,
+        )
+    
+        def fake_train(*args, **kwargs):
+            return {
+                "model": None,
+                "history": {"train_loss": [], "val_loss": []},
+                "generator": "fno",
+                "scaffold": True,
+            }
+    
+        def fake_infer(*args, **kwargs):
+            return np.random.rand(1, 64, 64, 1, 2).astype(np.float32)
+    
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner.run_torch_training",
+            fake_train,
+        )
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner.run_torch_inference",
+            fake_infer,
+        )
+    
+>       run_grid_lines_torch(cfg)
+
+tests/torch/test_grid_lines_torch_runner.py:254: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/studies/grid_lines_torch_runner.py:437: in run_grid_lines_torch
+    metrics = compute_metrics(pred_for_metrics, ground_truth, f"pinn_{cfg.architecture}")
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts/studies/grid_lines_torch_runner.py:353: in compute_metrics
+    return eval_reconstruction(predictions, ground_truth, label=label)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stitched_obj = array([[[[0.46288726+0.56587666j],
+         [0.9921786 +0.7914946j ],
+         [0.27104118+0.79924846j],
+         ...,...,
+         [0.01786272+0.63677967j],
+         [0.12224226+0.04065927j]]]],
+      shape=(1, 64, 64, 1), dtype=complex64)
+ground_truth_obj = array([[[0.41664317+0.j, 0.8904927 +0.j, 0.34141502+0.j, ...,
+         0.32586423+0.j, 0.54406804+0.j, 0.91380626+0.j]...40173+0.j, ...,
+         0.34795988+0.j, 0.19087783+0.j, 0.20503819+0.j]]],
+      shape=(1, 128, 128), dtype=complex64)
+label = 'pinn_fno'
+
+    def fake_eval(stitched_obj, ground_truth_obj, label=""):
+        assert stitched_obj.shape[0] == ground_truth_obj.shape[0]
+>       assert stitched_obj.shape[1] == ground_truth_obj.shape[1]
+E       assert 64 == 128
+
+tests/torch/test_grid_lines_torch_runner.py:220: AssertionError
+----------------------------- Captured stderr call -----------------------------
+2026-01-27 01:14:08.205710: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1769505248.217089  116033 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1769505248.220831  116033 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1769505248.231699  116033 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769505248.231710  116033 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769505248.231712  116033 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769505248.231713  116033 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-27 01:14:08.234491: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+=========================== short test summary info ============================
+FAILED tests/torch/test_grid_lines_torch_runner.py::TestRunGridLinesTorchScaffold::test_metrics_stitch_predictions_to_ground_truth
+============================== 1 failed in 3.45s ===============================
