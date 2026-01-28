@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
 **Last Updated:** 2026-01-27 (Poisson loss parity investigation logged)
-**Active Focus:** GRID-LINES-WORKFLOW-001 — grid-based lines workflow modularization (planning)
+**Active Focus:** FNO-STABILITY-OVERHAUL-001 — FNO/Hybrid stability overhaul (planning)
 
 ---
 
@@ -17,7 +17,7 @@
 ### [GRID-LINES-WORKFLOW-001] Grid-based lines simulation + training workflow (module)
 - Depends on: legacy grid pipeline (`diffsim.mk_simdata`, `ptycho.data_preprocessing`)
 - Priority: **High** (restores reproducible grid workflow)
-- Status: planning
+- Status: done — All 23/23 torch runner tests + 15/15 TF workflow tests PASSED. Fixture metadata fix landed.
 - Owner/Date: Codex/2026-01-26
 - Working Plan: `plans/active/GRID-LINES-WORKFLOW-001/plan.md`
 - Summary: `plans/active/GRID-LINES-WORKFLOW-001/summary.md`
@@ -39,6 +39,28 @@
   - *2026-01-27T00:35:00Z (Task 1):* Added workflow + CLI skeleton for grid lines pipeline; CLI help verified. Artifacts: `ptycho/workflows/grid_lines_workflow.py`, `scripts/studies/grid_lines_workflow.py`.
   - *2026-01-27 – 2026-01-28 (Tasks 2-7 + FNO/Hybrid):* All plan tasks implemented: probe helpers, simulation/persistence, stitching, training/inference, orchestrator, comparison script. Additionally: Torch runner (`grid_lines_torch_runner.py`) for FNO/hybrid architectures, compare wrapper (`grid_lines_compare_wrapper.py`), FNO sweep orchestrator, gradient clipping, output mode config. **TF workflow tests: 15/15 PASSED. Torch runner tests: 21/23 passed, 2 FAILED** (fixture missing metadata for stitching path).
   - *2026-01-28T00:00:00Z (supervisor review):* Assessed initiative near-complete. Root cause of 2 failures: `synthetic_npz` fixture uses `np.savez()` instead of `MetadataManager.save_with_metadata()`. Delegated fixture fix to Ralph. Artifacts: `plans/active/GRID-LINES-WORKFLOW-001/reports/2026-01-28T000000Z/`.
+  - *2026-01-28T01:00:00Z (COMPLETE):* Engineer applied fixture fix (MetadataManager.save_with_metadata + correct YY_ground_truth shape + norm_Y_I). **Result: ALL 23/23 TORCH RUNNER TESTS PASSED (5.67s).** Initiative complete.
+
+### [FNO-STABILITY-OVERHAUL-001] FNO/Hybrid Stability Overhaul (stable_hybrid + AGC)
+- Depends on: GRID-LINES-WORKFLOW-001 ✅ (test harness complete)
+- Priority: **Critical** (Main strategy execution — `docs/strategy/mainstrategy.md`)
+- Status: planning → ready_for_implementation
+- Owner/Date: Codex/2026-01-28
+- Working Plan: `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md`
+- Reports Hub: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/`
+- Goals:
+  - Phase 1: Config (`gradient_clip_algorithm`), AGC utility, training_step dispatch, CLI flags
+  - Phase 2: StablePtychoBlock (Norm-Last/Zero-Gamma), StableHybridGenerator, registry
+  - Phase 3: Stage A shootout (3-arm comparison via grid_lines_compare_wrapper)
+- Exit Criteria:
+  - `stable_hybrid` resolves from registry, identity-init and zero-mean tests pass
+  - AGC utility clips correctly, training_step dispatches by algorithm
+  - All existing tests pass (no regressions)
+- Return Condition: Phase 1+2 implemented with tests; Phase 3 (shootout) triggered.
+- Attempts History:
+  - *2026-01-28T01:00:00Z (planning):* Created implementation plan covering 2 phases + test strategy. Codebase audit: 0% of strategy implemented. All config, AGC, stable block, and registry changes pending. Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md`.
+
+---
 
 ### [POISSON-LOSS-PARITY-001] TF/Torch Poisson loss parity investigation
 - Depends on: None
@@ -322,3 +344,7 @@
 
 ### [INTEGRATE-PYTORCH-001-DATALOADER] Restore PyTorch dataloader DATA-001 compliance
 - Status: archived 2025-10-20 — see `docs/archive/2025-10-20_fix_plan_archive.md`.
+
+---
+
+Supervisor state: `focus=FNO-STABILITY-OVERHAUL-001` `state=ready_for_implementation` `dwell=0` `artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T010000Z/` `next_action=engineer executes Phase 1 (config + AGC + dispatch + CLI)`
