@@ -332,7 +332,67 @@ Archive the pytest logs plus Stage B CLI log, stats JSON, and metrics JSON under
 6. Update `stage_b_summary.md` comparing Stage A vs the capped Stage B run. Note whether gradients stay bounded and whether loss/SSIM degrade relative to Stage A. If the run still OOMs, fall back to `fno_blocks=6` with the cap and record the gap.
 7. Refresh `docs/strategy/mainstrategy.md` §Stage B, `docs/fix_plan.md` attempts history, and `docs/findings.md` if new behavior (e.g., capped-depth stability) requires a durable lesson.
 
-**Status 2026-01-29:** BLOCKED on Task 4.2 due to CUDA OOM at model load (`fno_blocks=8` with unconstrained channel doubling). Tasks 4.1 + 4.4 completed; Task 4.3 summary documents the blocker. Task 4.5 defines the remediation path (channel cap + rerun) and is the current Do Now.
+**Status 2026-01-29:** PARTIALLY COMPLETE. `fno_blocks=8` with `max_hidden_channels=512` still OOMs (18 GiB allocation at model-to-device). Fallback `fno_blocks=6` succeeded: 276M params, 50 epochs, no NaNs, grad_norm median=8.56, max spike=39927 (single occurrence in 43K steps). Metrics: val_loss=0.024, amp_ssim=0.815, phase_ssim=0.987. Lower than Stage A control (nimgs=2 vs 1, different dataset sizes). Stability confirmed. See `reports/2026-01-29T210000Z/stage_b_summary.md`.
+
+---
+
+## Phase 5: LayerScale Residual Unlock
+
+Stage A proved `stable_hybrid` collapses because InstanceNorm gamma/beta stay ~0 even after 50 epochs. We will add a LayerScale gate (tiny, learnable per-channel scale) so the residual branch can leave the identity manifold without exploding, then rerun the Stage A stable arm to see whether the architecture finally beats control. See `docs/strategy/mainstrategy.md §1.A` and Finding `STABLE-GAMMA-001` for the failure mode.
+
+### Task 5.1: LayerScale-enhanced StablePtychoBlock
+
+**Files:**
+- `ptycho_torch/generators/fno.py` — `StablePtychoBlock`, docstrings, `StableHybridUNOGenerator`
+
+**Steps:**
+1. Extend `StablePtychoBlock.__init__` signature with `layerscale_init: float = 1e-3` (small positive scalar).
+2. Stop zeroing the InstanceNorm affine weights. Initialize `self.norm.weight` to ones and `self.norm.bias` to zeros so the norm behaves normally.
+3. Add `self.layerscale = nn.Parameter(torch.full((channels,), layerscale_init))` and cache a reshaped view (e.g., helper `self._ls_shape = (1, channels, 1, 1)`) to avoid re-allocations.
+4. In `forward`, compute `update = self.act(self.spectral(x) + self.local_conv(x))`, pass through InstanceNorm, then apply LayerScale: `update = self.layerscale.view(1, -1, 1, 1) * self.norm(update)`.
+5. Return `x + update`. This keeps the residual on the order of 1e-3 at init but allows fast growth if gradients demand it.
+6. Update class docstring + comments to mention LayerScale gating and cite `docs/strategy/mainstrategy.md` (Norm-Last + LayerScale).
+
+### Task 5.2: Stabilized unit tests for the new block
+
+**Files:**
+- `tests/torch/test_fno_generators.py`
+
+**Steps:**
+1. Update `TestStablePtychoBlock.test_identity_init` to assert "near" identity (e.g., `assert torch.allclose(out, x, atol=5e-3)` and also `assert torch.max(torch.abs(out - x)) > 1e-6` so we know the residual is not forced to zero).
+2. Add a new test `test_layerscale_grad_flow` that:
+   - Builds a block, runs a simple `loss = (block(x) ** 2).mean()`,
+   - Calls `loss.backward()`, and asserts `block.layerscale.grad is not None` and has non-zero norm.
+3. Keep `test_zero_mean_update` but drop the manual `norm.weight=1` override (norm now defaults to 1); update assertions accordingly.
+4. Run `pytest tests/torch/test_fno_generators.py::TestStablePtychoBlock -v` and archive the log under the initiative reports hub when executing.
+
+### Task 5.3: Stage A stable_hybrid rerun (LayerScale)
+
+**Files / Paths:**
+- CLI: `scripts/studies/grid_lines_compare_wrapper.py`
+- Outputs: `outputs/grid_lines_stage_a/arm_stable_layerscale`
+- Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/`
+
+**Steps:**
+1. Copy the Stage A control datasets so the new arm matches control/AGC data: `rsync -a outputs/grid_lines_stage_a/arm_control/datasets/ outputs/grid_lines_stage_a/arm_stable_layerscale/datasets/`.
+2. Remove any stale `runs/` under the new arm.
+3. Run the stable arm with the LayerScale-capable block:
+   ```bash
+   AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md \
+   python scripts/studies/grid_lines_compare_wrapper.py \
+     --N 64 --gridsize 1 \
+     --output-dir outputs/grid_lines_stage_a/arm_stable_layerscale \
+     --architectures stable_hybrid \
+     --seed 20260128 \
+     --nimgs-train 1 --nimgs-test 1 --nphotons 1e9 \
+     --nepochs 50 --torch-epochs 50 \
+     --torch-grad-clip 0.0 --torch-grad-clip-algorithm norm \
+     --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8 \
+     2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/stage_a_arm_stable_layerscale.log
+   ```
+4. Copy `runs/pinn_stable_hybrid/{history.json,metrics.json,model.pt}` and the top-level `metrics.json` into the same artifacts hub.
+5. Extend `stage_a_metrics.json` (or write `stage_a_metrics_layerscale.json`) with a new row for this arm and summarize the outcome in `stage_a_summary.md`, calling out whether LayerScale fixed the constant-output collapse.
+6. Update `docs/strategy/mainstrategy.md` (Stage A + outcome table), `docs/fix_plan.md` attempts history, and `docs/findings.md` if the experiment yields a durable lesson (e.g., "LayerScale unlocks stable_hybrid").
 
 ---
 

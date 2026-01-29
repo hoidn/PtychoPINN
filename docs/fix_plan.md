@@ -44,7 +44,7 @@
 -### [FNO-STABILITY-OVERHAUL-001] FNO/Hybrid Stability Overhaul (stable_hybrid + AGC)
 - Depends on: GRID-LINES-WORKFLOW-001 ✅ (test harness complete)
 - Priority: **Critical** (Main strategy execution — `docs/strategy/mainstrategy.md`)
-- Status: planning (Phase 4 — Stage B blocked pending max_hidden_channels cap + rerun)
+- Status: Phase 4 complete (Stage B capped run: 6 blocks stable, 8 blocks infeasible on RTX 3090)
 - Owner/Date: Codex/2026-01-28
 - Working Plan: `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md`
 - Reports Hub: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/`
@@ -66,6 +66,8 @@
   - *2026-01-29T12:00:00Z (Stage A complete):* All three arms executed. Control (hybrid, norm 1.0): best val_loss=0.0138, amp_ssim=0.925, phase_ssim=0.997. AGC (hybrid, agc 0.01): best val_loss=0.0243, amp_ssim=0.811, phase_ssim=0.989. Stable (stable_hybrid, no clip): best val_loss=0.178, amp_ssim=0.277, phase_ssim=1.0 (vacuous). stable_hybrid norm.weight stayed near zero (abs_max<0.09), confirming zero-gamma stagnation. Control won — neither fix outperformed baseline at fno_blocks=4. Stage B recommendation: run control at fno_blocks=8. Artifacts: `stage_a_summary.md`, `stage_a_metrics.json`, `stage_a_arm_*_stats.json`, logs for all arms.
   - *2026-01-29T18:00:00Z (Stage B planning):* Added Phase 4 to implementation plan and docs/strategy: Stage B will rerun the winning control arm at `fno_blocks=8` using the same dataset + grad norm logging. New artifacts hub `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/` reserved; CLI recipe + regression selectors captured in implementation.md §Phase 4. Findings ledger includes STABLE-GAMMA-001 documenting zero-gamma stagnation. Next: engineer executes Phase 4 Tasks 4.1–4.4.
   - *2026-01-29T21:00:00Z (Stage B remediation plan):* Added Task 4.5 to implementation plan + strategy doc. Action items: (1) add `max_hidden_channels` knob to `ModelConfig`, PyTorch configs, runner CLI (`--torch-max-hidden-channels`), and `HybridUNOGenerator`/`StableHybridUNOGenerator`; (2) enforce channel-doubling cap (512 for Stage B) so the bottleneck stops growing beyond the cap; (3) rerun Stage B with `fno_blocks=8`, `max_hidden_channels=512`, grad-norm logs, and archive under `reports/2026-01-29T210000Z/`; (4) if capped depth still fails, drop to `fno_blocks=6` with cap. Regression selectors unchanged. Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T210000Z/README.md` (capped hyperparams).
+  - *2026-01-29T22:00:00Z (Stage B capped run complete):* Task 4.5 executed. All 3 mapped tests pass. `fno_blocks=8` + `max_hidden_channels=512` OOMs (18 GiB allocation). Fallback `fno_blocks=6` succeeded: 276M params, 50 epochs, no NaNs, grad_norm median=8.56, p99=22.85. Metrics: val_loss=0.024, amp_ssim=0.815, phase_ssim=0.987. Depth scaling partially validated (6 blocks stable, 8 infeasible on 24 GB GPU). Next: consider LayerScale spike or gradient checkpointing for deeper models. Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T210000Z/`.
+  - *2026-01-29T23:00:00Z (Phase 5 planning):* Authored `docs/plans/2026-01-29-layerscale-stable-hybrid.md` (mirrored to `plans/active/FNO-STABILITY-OVERHAUL-001/plan_layerscale.md`) outlining LayerScale-gated StablePtychoBlock updates, Stage A rerun instructions, and doc sync steps. Implementation plan §Phase 5 + docs/strategy Stage B updated accordingly. Ready for engineer execution. Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T230000Z/`.
 
 ---
 
@@ -354,4 +356,4 @@
 
 ---
 
-Supervisor state: `focus=FNO-STABILITY-OVERHAUL-001` `state=ready_for_implementation` `dwell=0` `artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T210000Z/` `next_action=run capped Stage B + archive metrics/docs`
+Supervisor state: `focus=FNO-STABILITY-OVERHAUL-001` `state=ready_for_implementation` `dwell=0` `artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T230000Z/` `next_action=Implement Phase 5 LayerScale block + Stage A rerun`
