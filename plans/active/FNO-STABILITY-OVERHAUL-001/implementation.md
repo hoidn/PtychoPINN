@@ -424,3 +424,30 @@ Stage A proved `stable_hybrid` collapses because InstanceNorm gamma/beta stay ~0
 - [ ] `stable_hybrid` resolves from registry and produces correct output shapes
 - [ ] StablePtychoBlock passes identity-init and zero-mean tests
 - [ ] All existing tests continue to pass (no regressions)
+
+---
+
+## Phase 5: LayerScale Stable Hybrid (2026-01-29)
+
+**Plan:** `docs/plans/2026-01-29-layerscale-stable-hybrid.md`
+
+### Task 5.1: LayerScale-Enhanced StablePtychoBlock — COMPLETE
+- Replaced zero-gamma InstanceNorm with: InstanceNorm(weight=1, bias=0) + LayerScale(init=1e-3)
+- Forward: `update = norm(act(spectral(x) + local(x))); return x + layerscale * update`
+- Tests: 4/4 pass (`test_identity_init` relaxed to atol=1e-2, new `test_layerscale_grad_flow`)
+- Files changed: `ptycho_torch/generators/fno.py`, `tests/torch/test_fno_generators.py`
+
+### Task 5.2: Stage A Rerun — COMPLETE (partial success)
+- Datasets reused from arm_control. Training: 50 epochs, MAE loss, no clipping, seed=20260128.
+- Norm weights healthy (mean~0.82-1.0) — STABLE-GAMMA-001 resolved.
+- Best val_loss=0.024 (epoch ~4), final val_loss=0.179 (collapsed).
+- Inference: amp_ssim=0.277, amp_mae=0.513, constant amplitude output.
+- Diagnosis: "learns then collapses" — training dynamics issue, not architecture.
+- Finding: STABLE-LS-001 documents this new failure mode.
+- Artifacts: `reports/2026-01-29T230000Z/`
+
+### Task 5.3: Docs & Findings — COMPLETE
+- Updated `docs/strategy/mainstrategy.md` with LayerScale arm metrics table.
+- Updated `docs/fix_plan.md` with Phase 5 execution log.
+- Updated `docs/findings.md`: STABLE-GAMMA-001 → Resolved, added STABLE-LS-001.
+- Updated this file with Phase 5 status.

@@ -85,7 +85,15 @@ Control unexpectedly dominated; the hypothesized drift did not appear at 4 block
 
 **Stage B outcome (2026-01-28):** BLOCKED — `fno_blocks=8` is infeasible on RTX 3090 (24 GB). The `HybridUNOGenerator` channel-doubling encoder produces 4.4B parameters (17.7 GB FP32) at 8 blocks vs 17M at 4 blocks. The bottleneck reaches 4096 channels, and spectral conv weights scale as `channels^2 * modes^2`. CUDA OOM occurs at model load before any training step. This is a **structural scalability issue**, not a gradient stability issue. See `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/stage_b_summary.md` for full analysis.
 
-**Current remediation (Task 4.5, queued for 2026-01-29 21:00Z):** introduce a `max_hidden_channels` cap (Stage B uses 512) that stops the Hybrid encoder from doubling channels once the cap is reached. Wire the knob through `ModelConfig`, the PyTorch singleton configs, `TorchRunnerConfig`, and `grid_lines_compare_wrapper.py` (`--torch-max-hidden-channels`). After the cap exists, rerun the deep control arm with `fno_blocks=8`, `max_hidden_channels=512`, grad-norm logging, and the original Stage A dataset; archive under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T210000Z/`. If the capped run still OOMs, fall back to `fno_blocks=6` with the same cap so Stage B remains a depth-stress experiment.
+**Remediation outcome (Task 4.5, 2026-01-29):** `max_hidden_channels=512` cap wired end-to-end (ModelConfig → TorchRunnerConfig → CLI). `fno_blocks=8` with cap still OOMs (18 GiB allocation at model-to-device; spectral conv activations at 512 channels dominate). **Fallback `fno_blocks=6`** succeeded: 276M params, 1.1 GB model, ~10.4 GB VRAM. 50 epochs completed with **no NaNs, no gradient explosions** (grad_norm median=8.56, p99=22.85, single max spike=39927 in 43K steps). Metrics: val_loss=0.024, amp_ssim=0.815, phase_ssim=0.987, amp_mae=0.105. Lower than Stage A (nimgs=2→1 dataset change, so not directly comparable). Stability stress test **partially passed**: cap mechanism works, 6-block depth feasible, 8-block requires gradient checkpointing or larger GPU. Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T210000Z/`.
+
+**Phase 5 outcome (LayerScale — 2026-01-29):** LayerScale (init=1e-3) replaced zero-gamma InstanceNorm in `StablePtychoBlock`. Norm weights now train to healthy values (mean~0.82-1.0 vs ~0.09 with zero-gamma), confirming `STABLE-GAMMA-001` resolved. However, final metrics match the zero-gamma run:
+
+| Arm | Architecture | Clipping | Best val_loss | Final val_loss | Amp SSIM | Phase SSIM | Amp MAE | Notes |
+|-----|--------------|----------|---------------|----------------|----------|------------|---------|-------|
+| LayerScale | stable_hybrid | none (0.0) | **0.0237** | 0.1790 | 0.277 | 1.000 | 0.513 | Early convergence → late collapse; norm weights healthy |
+
+The best val_loss (0.024) approaches control (0.014), but training collapses after epoch ~4, ending at 0.179 with constant amplitude output. Failure mode shifted from "can't learn" (architecture/STABLE-GAMMA-001) to "learns then collapses" (training dynamics/STABLE-LS-001). Next investigation: LR warmup/cosine schedule, reduced LR, or optimizer tuning for stable_hybrid.
 
 ---
 

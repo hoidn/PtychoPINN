@@ -237,24 +237,26 @@ class TestGeneratorRegistry:
 class TestStablePtychoBlock:
     """Tests for the StablePtychoBlock module.
 
-    Task ID: FNO-STABILITY-OVERHAUL-001 Task 2.1
+    Task ID: FNO-STABILITY-OVERHAUL-001 Phase 5 (LayerScale)
     """
 
     def test_identity_init(self):
-        """At initialization (zero gamma/beta), block(x) should equal x."""
+        """At initialization (layerscale ~1e-3), block(x) should be near x."""
         block = StablePtychoBlock(channels=32, modes=8)
         x = torch.randn(2, 32, 64, 64)
         with torch.no_grad():
             out = block(x)
-        assert torch.allclose(out, x, atol=1e-6), (
-            "StablePtychoBlock should be identity at init (zero gamma/beta)"
+        assert torch.allclose(out, x, atol=1e-2), (
+            "StablePtychoBlock should be near-identity at init (small layerscale)"
+        )
+        # But NOT exactly identity — layerscale > 0 allows residual signal
+        assert torch.max(torch.abs(out - x)) > 1e-6, (
+            "LayerScale init > 0 should produce nonzero residual"
         )
 
     def test_zero_mean_update(self):
-        """With gamma=1, the norm-wrapped update should have zero spatial mean."""
+        """The norm-wrapped update should have zero spatial mean."""
         block = StablePtychoBlock(channels=32, modes=8)
-        # Set gamma to 1 so norm is active
-        block.norm.weight.data.fill_(1.0)
         x = torch.randn(2, 32, 64, 64)
         with torch.no_grad():
             update = block(x) - x  # isolate the residual branch
@@ -270,6 +272,15 @@ class TestStablePtychoBlock:
         x = torch.randn(2, 16, 32, 32)
         out = block(x)
         assert out.shape == x.shape
+
+    def test_layerscale_grad_flow(self):
+        """LayerScale parameter should receive gradients during backprop."""
+        block = StablePtychoBlock(channels=8, modes=4, layerscale_init=1e-3)
+        x = torch.randn(2, 8, 16, 16, requires_grad=True)
+        loss = (block(x) ** 2).mean()
+        loss.backward()
+        assert block.layerscale.grad is not None
+        assert block.layerscale.grad.norm().item() > 0
 
 
 class TestStableHybridUNOGenerator:

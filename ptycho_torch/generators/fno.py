@@ -121,23 +121,27 @@ class PtychoBlock(nn.Module):
 
 
 class StablePtychoBlock(nn.Module):
-    """Spectral + local convolution block with instance-norm stabilized residual.
+    """Spectral + local convolution block with LayerScale-gated residual.
 
     Architecture:
-        y = x + InstanceNorm(GELU(SpectralConv(x) + Conv3x3(x)))
+        update = InstanceNorm(GELU(SpectralConv(x) + Conv3x3(x)))
+        y = x + layerscale * update
 
-    The InstanceNorm uses affine=True with zero-initialized weight (gamma)
-    and bias (beta), so at initialization the block is an identity map.
-    This prevents early-training gradient explosions in deep FNO stacks.
+    Uses InstanceNorm (affine weights=1, bias=0) for centered updates, and a
+    per-channel LayerScale parameter (init ~1e-3) to gate residual magnitude.
+    At initialization the block is near-identity, preventing gradient explosions
+    in deep FNO stacks while still allowing residual learning (unlike the
+    zero-gamma approach which trapped weights on the identity manifold;
+    see Finding STABLE-GAMMA-001).
 
     Contract: input/output shape (B, C, H, W).
 
     See also:
         - docs/strategy/mainstrategy.md §1.A (Norm-Last residual)
-        - plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md Task 2.1
+        - docs/plans/2026-01-29-layerscale-stable-hybrid.md Task 1
     """
 
-    def __init__(self, channels: int, modes: int = 12):
+    def __init__(self, channels: int, modes: int = 12, layerscale_init: float = 1e-3):
         super().__init__()
         self.channels = channels
         self.modes = modes
@@ -153,16 +157,19 @@ class StablePtychoBlock(nn.Module):
 
         self.act = nn.GELU()
 
-        # Instance norm with affine parameters, zero-initialized for identity at init
+        # InstanceNorm with default affine (weight=1, bias=0)
         self.norm = nn.InstanceNorm2d(channels, affine=True, eps=1e-5)
-        nn.init.zeros_(self.norm.weight)
-        nn.init.zeros_(self.norm.bias)
+
+        # LayerScale: per-channel learnable gate, small init for near-identity start
+        self.layerscale = nn.Parameter(torch.full((channels,), layerscale_init))
+        self._layerscale_shape = (1, channels, 1, 1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (B, C, H, W)
-        spectral_out = self.spectral(x)
-        local_out = self.local_conv(x)
-        return x + self.norm(self.act(spectral_out + local_out))
+        update = self.act(self.spectral(x) + self.local_conv(x))
+        update = self.norm(update)
+        ls = self.layerscale.view(*self._layerscale_shape)
+        return x + ls * update
 
 
 class _FallbackSpectralConv2d(nn.Module):
