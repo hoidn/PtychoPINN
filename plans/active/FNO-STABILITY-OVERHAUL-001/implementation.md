@@ -314,7 +314,25 @@ Re-run the Phase 3 regression selectors to prove the CLI plumbing and runner fla
 
 Archive the pytest logs plus Stage B CLI log, stats JSON, and metrics JSON under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/` per `docs/TESTING_GUIDE.md`.
 
-**Status 2026-01-28:** BLOCKED — Task 4.2 hit CUDA OOM. `fno_blocks=8` produces 4.4B parameters (17.7 GB FP32) due to channel-doubling encoder (bottleneck = 4096 channels). Model cannot fit on RTX 3090 (24 GB). Tasks 4.1 and 4.4 completed; Task 4.3 summary written documenting the blocker. See `reports/2026-01-29T180000Z/stage_b_summary.md` for analysis and recommended alternatives (cap channels, try fno_blocks=6, constant-width blocks).
+### Task 4.5: Cap Hybrid channel growth + rerun Stage B
+
+`HybridUNOGenerator` doubles channels at every encoder level (`ch *= 2`), so `fno_blocks=8` reaches 4096 channels and ~4.4B parameters (17.7 GB). To make Stage B feasible on RTX 3090 while keeping Stage A behavior intact, add a **max hidden channel cap** that defaults to `None` (legacy behavior) and clamp when set.
+
+**Code + config work:**
+1. Add `max_hidden_channels: Optional[int] = None` to canonical `ModelConfig` (`ptycho/config/config.py`) and PyTorch singleton configs (`ptycho_torch/config_params.py`, `ptycho_torch/config_bridge.py`).
+2. Extend CLI plumbing: new flag `--torch-max-hidden-channels` in `grid_lines_compare_wrapper.py` → `TorchRunnerConfig` (dataclass field) → `setup_torch_configs()` overrides → stored on the PyTorch model config.
+3. Update `HybridUNOGenerator`/`StableHybridUNOGenerator` to accept `max_hidden_channels`. When provided, encoder downsample convs should compute `next_ch = min(ch * 2, max_hidden_channels)` so the bottleneck never exceeds the cap; decoder upsample path must use the same schedule to keep skip-concat channel counts aligned. Record the channel schedule (e.g., `self.channel_schedule`) for diagnostics.
+4. Tests:
+   - `tests/torch/test_fno_generators.py::TestHybridUNOGenerator` — new test verifying an 8-block hybrid with `max_hidden_channels=512` never allocates >512 channels and still returns the correct output shape.
+   - `tests/torch/test_grid_lines_torch_runner.py` — extend config setup test to assert `_train_with_lightning` receives `model_config.fno_blocks=8` and `model_config.max_hidden_channels=512` when the runner config sets it.
+   - `tests/test_grid_lines_compare_wrapper.py` — add selector ensuring the CLI flag forwards through to the runner call.
+
+**Stage B rerun:**
+5. After the cap is wired, re-run Task 4.2 with `--fno-blocks 8 --torch-max-hidden-channels 512 --torch-log-grad-norm`. Archive `stage_b_deep_control_max512.log`, new stats JSON, metrics JSON, and run artifacts under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T210000Z/`.
+6. Update `stage_b_summary.md` comparing Stage A vs the capped Stage B run. Note whether gradients stay bounded and whether loss/SSIM degrade relative to Stage A. If the run still OOMs, fall back to `fno_blocks=6` with the cap and record the gap.
+7. Refresh `docs/strategy/mainstrategy.md` §Stage B, `docs/fix_plan.md` attempts history, and `docs/findings.md` if new behavior (e.g., capped-depth stability) requires a durable lesson.
+
+**Status 2026-01-29:** BLOCKED on Task 4.2 due to CUDA OOM at model load (`fno_blocks=8` with unconstrained channel doubling). Tasks 4.1 + 4.4 completed; Task 4.3 summary documents the blocker. Task 4.5 defines the remediation path (channel cap + rerun) and is the current Do Now.
 
 ---
 
