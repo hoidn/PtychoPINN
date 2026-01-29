@@ -49,5 +49,8 @@ Updated all required docs with Phase 5 results and metrics.
 - `pytest tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_runner_accepts_stable_hybrid -v` — PASSED
 - `pytest tests/torch/test_fno_generators.py::TestGeneratorRegistry::test_resolve_stable_hybrid_generator -v` — PASSED
 
+## Verification Turn (2026-01-29, iteration 2)
+All plan tasks were already completed by the prior session (commit `1be27b5f`). This turn re-ran all 6 mapped regression tests — all passed. No code changes needed.
+
 ## Blockers / Open Questions
 - **STABLE-LS-001:** LayerScale stable_hybrid learns early then collapses. Next step: investigate LR warmup/cosine schedule or reduced learning rate. The architecture is no longer the bottleneck — training dynamics need tuning.
