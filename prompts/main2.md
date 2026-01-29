@@ -8,6 +8,14 @@ If you are codex:
   your superpowers:executing-plans skill to execute any associated plans.
 </role>
 
+<strict_constraints>
+  CRITICAL:
+  1. DO NOT implement code logic manually in this conversation.
+  2. You MUST use the `executing-plans` skill to perform the implementation.
+  3. If you attempt to write Python/Code blocks directly for the implementation, you are violating the protocol.
+  4. Your job is to READ context, INVOKE the skill, and then CLEAN UP (git/summary).
+</strict_constraints>
+
 <required_reading>
   - docs/index.md
   - input.md
@@ -44,17 +52,17 @@ If you are codex:
  IMPORTANT
 </ground_rules>
 
-<implementation_flow>
-  1) Read `input.md` fully (instructions, tests, artifacts path).
-  2) Read the relevant strategy/plan docs referenced by input.md
-  3) Implement the implementation plan (or implementation plan sections) using your executing-plans skill
-  4) Run tests only when requested; otherwise skip and note “tests not run.”
-  5) Update docs or plans if explicitly requested by input.md or plans.
-  6) Summarize changes and provide next steps if any.
-  7) Stage and commit code / doc additions from this round. Use a discriptive commit message
-  8) If any progress from this iteration is in a worktree or feature branch, merge it back into the proper checked out branch. Always follow <git hygiene>
+<instruction steps>
+1) Read `input.md` fully (instructions, tests, artifacts path).
+2) Read the relevant strategy/plan docs referenced by input.md
+/superpowers:execute-plan ((3) Implement the implementation plan (or implementation plan sections) using your executing-plans skill)
+4) Run tests only when requested; otherwise skip and note “tests not run.”
+5) Update docs or plans if explicitly requested by input.md or plans.
+6) Summarize changes and provide next steps if any.
+7) Stage and commit code / doc additions from this round. Use a discriptive commit message
+8) If any progress from this iteration is in a worktree or feature branch, merge it back into the proper checked out branch. Always follow <git hygiene>
 
-</implementation_flow>
+</instruction steps>
 
 <output_format>
   write the following to ./engineer_summary.md:
@@ -63,3 +71,5 @@ If you are codex:
   - Any tests run (or “tests not run”)
   - Any blockers or open questions
 </output_format>
+
+Follow the <instruction steps> in order
