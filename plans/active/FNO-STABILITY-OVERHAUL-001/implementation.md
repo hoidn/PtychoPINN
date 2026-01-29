@@ -422,6 +422,42 @@ Detailed task steps live in `docs/plans/2026-01-29-stable-hybrid-training-dynami
 
 ---
 
+## Phase 7: LR Sweep + Gradient Guard (Stage A stability levers)
+
+Phase 6 proved scheduler plumbing works but the warmup+cosine attempt still collapsed as soon as LR peaked. Phase 7 targets the remaining STABLE-LS-001 hypotheses — lowering peak LR and/or adding clipping near the warmup exit — without touching datasets, epochs, or any other knobs so metrics stay comparable.
+
+**Plan reference:** `docs/plans/2026-01-29-stable-hybrid-lr-gradient-study.md` (mirrored under `plans/active/FNO-STABILITY-OVERHAUL-001/plan_lr_sweep.md`).
+
+### Task 7.1: Prep shared workspace
+- rsync the Stage A control datasets into three dedicated arm directories (`arm_stable_lowlr`, `arm_stable_warmup_lowlr`, `arm_stable_warmup_clip`).
+- Clear stale `runs/` folders so new metrics/models cannot mix with prior attempts.
+- Create the reports hub `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/` with a README describing shared seeds/params.
+
+### Task 7.2: Constant low-LR baseline
+- Run `grid_lines_compare_wrapper.py` with `--torch-learning-rate 2.5e-4`, scheduler disabled, and grad norm logging enabled.
+- Archive `history.json`, `metrics.json`, `model.pt`, CLI log, and `stage_a_arm_stable_lowlr_stats.json` under the new reports hub.
+
+### Task 7.3: WarmupCosine with reduced peak LR
+- Repeat the Stage A stable arm using WarmupCosine but cap the base LR at `2.5e-4` while keeping warmup epochs/min ratio identical.
+- Capture the same artifacts + stats to see if the collapse disappears when the LR curve is flattened.
+
+### Task 7.4: WarmupCosine + gradient clipping guard
+- Re-run WarmupCosine with the original LR (`5e-4`) but add norm clipping `--torch-grad-clip 0.5` so gradients are damped as the warmup exits.
+- Keep grad-norm logging on to verify the guard truncates the spike.
+
+### Task 7.5: Aggregate + doc sync
+- Extend `stage_a_metrics*.json` with the three new arms and summarize the comparison in `stage_a_summary.md` + `docs/strategy/mainstrategy.md`.
+- Update `docs/fix_plan.md` (Attempts History + FSM), `docs/findings.md` (STABLE-LS-001 evidence), and `plans/active/FNO-STABILITY-OVERHAUL-001/summary.md` with a new turn entry.
+- Required regression selectors (unchanged from Phase 5/6):
+  - `pytest tests/torch/test_fno_generators.py::TestStablePtychoBlock::test_layerscale_grad_flow -v`
+  - `pytest tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_runner_accepts_stable_hybrid -v`
+  - `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_handles_stable_hybrid -v`
+- Archive the pytest logs alongside CLI logs in the Phase 7 reports hub.
+
+**Exit criteria:** Stable_hybrid completes Stage A without collapse under at least one LR/clipping variant (amp_ssim ≥0.80, amp_mae ≤0.15, no post-epoch-7 divergence) **or** the runs demonstrate LR/clipping alone are insufficient, in which case STABLE-LS-001 is updated with quantitative LR thresholds to guide the next intervention (optimizer or diagnostics).
+
+---
+
 ## Test Strategy
 
 ### Unit Tests (Phase 1)

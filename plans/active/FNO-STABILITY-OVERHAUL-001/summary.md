@@ -1,3 +1,10 @@
+### Turn Summary (2026-01-29 supervisor loop)
+Authored the Phase 7 LR+gradient guard study plan for stable_hybrid (docs/plans/2026-01-29-stable-hybrid-lr-gradient-study.md) and mirrored the tasks into implementation.md.
+Extended docs/strategy/mainstrategy.md with the upcoming sweep context so Stage A levers stay visible to downstream engineers.
+Provisioned isolated worktree `.worktrees/fno2-phase7-lr-sweep` (pytest tests/torch/test_fno_generators.py::TestStablePtychoBlock::test_layerscale_grad_flow ✅) to host the execution.
+Next: run the low-LR, warmup-lowLR, and warmup+clip Stage A arms, archive metrics/logs, and update STABLE-LS-001.
+Artifacts: plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/
+
 ### Turn Summary (2026-01-28 — Phase 6 Task 6.3 complete)
 Executed WarmupCosine Stage A rerun: stable_hybrid with LR=5e-4, warmup=5 epochs, min_ratio=0.05, 20 epochs, no clipping.
 **Result: collapse NOT prevented.** val_loss converged to 0.024 by epoch 6, then catastrophic spike at epoch 7 (train_loss 0.025→17.07 at warmup→cosine LR transition), permanent plateau at val_loss≈0.198. amp_ssim=0.277, amp_mae=0.513 (identical to LayerScale-only run). Norm weights healthy.
