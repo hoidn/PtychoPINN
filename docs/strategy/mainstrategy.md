@@ -4,12 +4,12 @@
 
 **Goal (updated):** Enable scalable, robust training for deep FNOs (depth 6+).
 
-**Hypothesis (refined):** Instability is accumulative and stochastic. At shallow depths (4), some initializations can survive. At greater depths, failure probability (P_crash) rises toward 100%. We must validate solutions by reducing P_crash to 0% across multiple random seeds.
+**Hypothesis (refined):** Instability is accumulative and stochastic. At shallow depths (4), some initializations survive. At greater depths, failure probability (P_crash) approaches 100%. We must validate solutions by reducing P_crash to 0% across multiple random seeds.
 
-**Key findings driving the pivot:**
-- **Zero-Gamma dead branches:** Zero-gamma InstanceNorm in the stable block suppresses branch learning, producing near-identity behavior and collapsed reconstructions.
-- **Stochastic instability:** Single-shot runs are not reliable. Stability must be measured as a failure rate across seeds.
-- **Depth blocked by memory:** Deep FNOs (depth 8) are currently OOM on 24 GB GPUs without architectural caps.
+**Findings that drive the pivot:**
+- **Zero-gamma dead branches:** Zero-gamma InstanceNorm suppresses the residual branch, causing collapsed reconstructions.
+- **Stochastic instability:** Single runs are not reliable; stability must be measured by failure rate across seeds.
+- **Depth blocked by memory:** Depth 8 models OOM on 24 GB GPUs without architectural caps.
 
 ---
 
@@ -19,31 +19,29 @@ Before stability testing, the architecture must be physically runnable at depth.
 
 ### A) Memory Cap
 - **Parameter:** `max_channels` for `HybridUNOGenerator` (config name: `max_hidden_channels`).
-- **Logic:** Channels double on downsample (32 -> 64 -> 128 -> ...) **until** they hit `max_channels` (default 512), then stay constant.
+- **Logic:** Channels double on downsample (32 -> 64 -> 128 -> ...) until they hit `max_channels` (default 512), then stay constant.
 - **Rationale:** Prevents parameter explosion (>4B at depth 8) and enables deep runs on 24 GB GPUs.
 
 ### B) Data Validity (Phase Metrics)
 - **Requirement:** All grid-lines dataset generation must use `--set-phi`.
-- **Rationale:** Without `--set-phi`, phase metrics are not meaningful and should not be compared.
+- **Rationale:** Without `--set-phi`, phase metrics are not meaningful.
 
 ---
 
 ## 2) Redefined Solution Candidates
 
-The prior fixes (Zero-Gamma stable_hybrid and aggressive AGC 0.01) failed in practice.
-We replace them with the following pivoted candidates.
+The prior fixes (Zero-Gamma stable_hybrid and aggressive AGC 0.01) failed in practice. Replace them with the following pivoted candidates.
 
 ### A) Architecture (Pivot): LayerScale
 - **Replace:** StablePtychoBlock (Norm-Last + Zero-Gamma)
 - **With:** LayerScalePtychoBlock
-- **Mechanism:**
-  - y = x + diag(lambda) * Branch(x)
+- **Mechanism:** y = x + diag(lambda) * Branch(x)
 - **Initialization:** lambda initialized to a small non-zero value (e.g., 1e-2).
 - **Rationale:** Damps residual updates for stability without dead-branch risk.
 
 ### B) Optimization (Relaxed Constraint): Soft AGC
 - **Update:** AGC clip factor from 0.01 -> 0.1.
-- **Rationale:** Avoids over-clipping and allows healthy learning dynamics while still limiting extreme outliers.
+- **Rationale:** Avoids over-clipping while still limiting extreme outliers.
 
 ---
 
@@ -71,8 +69,39 @@ We replace them with the following pivoted candidates.
 
 ---
 
-## 4) Decision Logic
+## 4) Evidence to Date (Historical)
 
-- **Winner:** The candidate that drives P_crash to 0% at depth X **and** delivers comparable or better median loss.
-- **If no winner:** Re-evaluate architecture (PreNorm or constant-width blocks) and/or pivot optimizer (AdamW/SGD).
+### Stage A (single-seed) outcome, 2026-01-29
+**Config:** N=64, gridsize=1, fno_blocks=4, nimgs_train=2, nimgs_test=2, nphotons=1e9, loss=MAE, seed=20260128, epochs=50.
+
+| Arm | Architecture | Clipping | Best val_loss | Amp SSIM | Phase SSIM | Amp MAE | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Control | hybrid | norm (1.0) | 0.0138 | 0.925 | 0.997 | 0.063 | No failure |
+| AGC | hybrid | agc (0.01) | 0.0243 | 0.811 | 0.989 | 0.102 | Stable but slower |
+| Stable | stable_hybrid | none (0.0) | 0.1783 | 0.277 | 1.000 | 0.513 | Collapsed amplitude |
+
+**Interpretation:** Control did not explode at depth 4. Stable_hybrid collapsed due to dead branches. AGC 0.01 over-damped learning.
+
+### Stage B (depth 8) OOM blocker
+- Depth 8 OOMs on RTX 3090 (24 GB) due to exponential channel growth.
+- Even with `max_hidden_channels=512`, depth 8 still OOMs.
+- Depth 6 with cap is feasible and should be treated as the current deep stress depth unless checkpointing or a larger GPU is available.
+
+---
+
+## 5) Retired Attempts (Do Not Reuse)
+
+- **Zero-Gamma stable_hybrid:** Dead branch failure mode (collapsed amplitude output).
+- **AGC 0.01:** Overly conservative; degraded performance without improving stability.
+
+---
+
+## 6) Implementation Plan (Updated)
+
+1. Ensure `max_hidden_channels` is present in ModelConfig, PyTorch config, CLI, and generators.
+2. Enforce `--set-phi` in dataset generation for any run reporting phase metrics.
+3. Replace stable_hybrid block with LayerScalePtychoBlock (small non-zero lambda init).
+4. Update AGC default threshold to 0.1 for experiments.
+5. Run Protocol A (Crash Hunt) to identify crash depth.
+6. Run Protocol B (Shootout) at the crash depth with 3 seeds per arm.
 
