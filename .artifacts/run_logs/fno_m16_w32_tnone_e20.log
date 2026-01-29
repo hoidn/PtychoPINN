@@ -1,0 +1,167 @@
+INFO:root:Using random seed 2990072708
+INFO:__main__:Starting Torch grid-lines runner: arch=fno
+INFO:__main__:Loading train data from /home/ollie/Documents/tmp/PtychoPINN/outputs/fno_hyperparam_study_e10/datasets/N64/gs1/train.npz
+INFO:__main__:Loading test data from /home/ollie/Documents/tmp/PtychoPINN/outputs/fno_hyperparam_study_e10/datasets/N64/gs1/test.npz
+INFO:__main__:Training fno model...
+2026-01-28 16:24:40.831169: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1769646280.842701 2115631 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1769646280.846585 2115631 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1769646280.857287 2115631 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769646280.857302 2115631 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769646280.857304 2115631 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769646280.857306 2115631 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-28 16:24:40.860179: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+INFO:ptycho_torch.workflows.components:_train_with_lightning orchestrating Lightning training
+INFO:ptycho_torch.workflows.components:Training config: nepochs=20, n_groups=512
+/home/ollie/Documents/tmp/PtychoPINN/ptycho_torch/config_factory.py:259: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+  tf_training_config = to_training_config(
+/home/ollie/Documents/tmp/PtychoPINN/ptycho_torch/config_factory.py:618: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+  warnings.warn(
+INFO:ptycho_torch.model:Overriding model_config.loss_function=Poisson to MAE to match torch_loss_mode=mae
+INFO: Seed set to 42
+INFO:lightning.fabric.utilities.seed:Seed set to 42
+INFO:ptycho_torch.workflows.components:Enabled CSVLogger: metrics saved to training_outputs/lightning_logs/
+INFO:ptycho_torch.workflows.components:Manual optimization enabled; disabling Lightning Trainer gradient_clip_val and relying on model-level gradient clipping.
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+INFO:ptycho_torch.workflows.components:Starting Lightning training: 20 epochs
+INFO:pytorch_lightning.utilities.rank_zero:You are using a CUDA device ('NVIDIA GeForce RTX 3090') that has Tensor Cores. To properly utilize them, you should set `torch.set_float32_matmul_precision('medium' | 'high')` which will trade-off precision for performance. For more details, read https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/callbacks/model_checkpoint.py:751: Checkpoint directory /home/ollie/Documents/tmp/PtychoPINN/training_outputs/checkpoints exists and is not empty.
+INFO: LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+INFO:lightning.pytorch.accelerators.cuda:LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+INFO: 
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 1.1 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+1.1 M     Trainable params
+0         Non-trainable params
+1.1 M     Total params
+4.459     Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+INFO:lightning.pytorch.callbacks.model_summary:
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 1.1 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+1.1 M     Trainable params
+0         Non-trainable params
+1.1 M     Total params
+4.459     Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+INFO:pytorch_lightning.utilities.rank_zero:`Trainer.fit` stopped: `max_epochs=20` reached.
+INFO:ptycho_torch.workflows.components:Lightning training complete
+INFO:__main__:Running inference...
+INFO:__main__:Computing metrics...
+I0000 00:00:1769646442.200758 2115631 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1769646442.202924 2115631 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 20897 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+INFO:__main__:Saved artifacts to /home/ollie/Documents/tmp/PtychoPINN/outputs/fno_hyperparam_study_e20_rerun/run_fno_m16_w32_tnone/runs/pinn_fno
+INFO:__main__:Torch runner complete. Artifacts in /home/ollie/Documents/tmp/PtychoPINN/outputs/fno_hyperparam_study_e20_rerun/run_fno_m16_w32_tnone/runs/pinn_fno
+DEBUG: Setting nimgs_test to 1 in params
+DEBUG: Setting outer_offset_test to 20 in params
+Amplitude normalization scale factor: 17.353630
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [pinn_fno]: amp_target stats: mean=2.889508, std=0.641223, shape=(326, 326, 1)
+DEBUG eval_reconstruction [pinn_fno]: amp_pred stats: mean=0.166507, std=0.034985, shape=(326, 326, 1)
+DEBUG eval_reconstruction [pinn_fno]: phi_target stats: mean=0.000000, std=0.000000, shape=(326, 326)
+DEBUG eval_reconstruction [pinn_fno]: phi_pred stats: mean=0.000000, std=0.021480, shape=(326, 326)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [0.000, 0.000] -> scaled range [0.500, 0.500]
+{
+  "architecture": "fno",
+  "run_dir": "/home/ollie/Documents/tmp/PtychoPINN/outputs/fno_hyperparam_study_e20_rerun/run_fno_m16_w32_tnone/runs/pinn_fno",
+  "metrics": {
+    "mae": [
+      "0.08192258",
+      0.016777447073682474
+    ],
+    "mse": [
+      "0.010361649",
+      0.00046137933642493055
+    ],
+    "psnr": [
+      67.9765151002853,
+      81.49022220521772
+    ],
+    "ssim": [
+      0.8843132678797702,
+      0.9908442131533812
+    ],
+    "ms_ssim": [
+      0.9784868927988646,
+      0.11392438717906672
+    ],
+    "frc50": [
+      "98",
+      NaN
+    ],
+    "frc": [
+      "[1.         0.99999681 0.999957   0.99993385 0.99993379 0.99993511\n 0.99986965 0.99981283 0.99978138 0.99956819 0.99955863 0.99946227\n 0.99883908 0.99894524 0.99846899 0.99716899 0.99779703 0.99697512\n 0.99624047 0.99325564 0.9937015  0.99394651 0.99191581 0.98779161\n 0.9861982  0.98213216 0.9696478  0.97762254 0.96952262 0.9594585\n 0.95713975 0.94433243 0.77766112 0.69866777 0.88740606 0.87100981\n 0.89941954 0.85052168 0.84965244 0.81190234 0.79002507 0.77518121\n 0.68684815 0.77261029 0.7946449  0.80207708 0.79114982 0.80442543\n 0.86464976 0.89152646 0.8910414  0.91182401 0.92611022 0.93781656\n 0.93666602 0.91343238 0.93613887 0.93271587 0.91523189 0.92510894\n 0.90305252 0.91059843 0.88715488 0.91613162 0.90095457 0.74056023\n 0.88567273 0.8777453  0.83634102 0.82890226 0.77176572 0.78990536\n 0.70065448 0.65531267 0.78336401 0.73768828 0.73278194 0.70360435\n 0.73102232 0.70512594 0.72081496 0.692191   0.7391953  0.67757853\n 0.68234165 0.71289771 0.71005237 0.62567524 0.62787275 0.66840461\n 0.67739036 0.62989251 0.51051419 0.54731624 0.5866382  0.61425708\n 0.57317371 0.63573495 0.39762301 0.58263872 0.54253005 0.4825952\n 0.49720759 0.33087117 0.58253032 0.52079023 0.50194267 0.54780627\n 0.51749145 0.57951901 0.52286817 0.54478422 0.63709412 0.61928073\n 0.62698849 0.59767749 0.60220859 0.56774481 0.48374909 0.62999517\n 0.67355894 0.64736725 0.65197166 0.65611421 0.68074778 0.64727658\n 0.63575675 0.66182528 0.6839258  0.67751508 0.59123765 0.59021869\n 0.70790692 0.72356673 0.62556331 0.70189348 0.7342529  0.74910211\n 0.75142666 0.74577643 0.77806534 0.77243733 0.77021791 0.79930647\n 0.80282065 0.70179472 0.75655658 0.82146829 0.82358473 0.82232655\n 0.8306691  0.83348918 0.84177411 0.85930784 0.8350595  0.82593176\n 0.83885057 0.83248124 0.7946872  0.80666464 0.7833973  0.77392893\n 0.77455078 0.65683026 0.32437413 0.21425427 0.08919542 0.23498522\n 0.25657724 0.29284571 0.2631847  0.21122254 0.29037353 0.23776348\n 0.13293474 0.0647524  0.22154153 0.32507668 0.22367156 0.23972083\n 0.27622064 0.26972149 0.28494062 0.20768728 0.18793817 0.21689433\n 0.20710685 0.17733974 0.25667482 0.34413055 0.14489225 0.24627808\n 0.40084166 0.25247904 0.29963605 0.36389876 0.33001173 0.36407241\n 0.38887344 0.35514728 0.44276349 0.29851132 0.32960617 0.31338352\n 0.36645406 0.2973643  0.37869556 0.29035263 0.22613049 0.10040696\n 0.32892211 0.2786257  0.35883718 0.41156219 0.32701301 0.38893875\n 0.49048485 0.39682385 0.31334111 0.34484151 0.41344487 0.36197383\n 0.61417845 0.17377914 0.37092348 0.14192167 0.26428427 0.18768484\n 0.42652001 0.22695536 0.24835541 0.99999996]",
+      null
+    ]
+  },
+  "history": {
+    "train_loss": [
+      0.1338866651058197,
+      0.08947122097015381,
+      0.08365920186042786,
+      0.06471007317304611,
+      0.054877594113349915,
+      0.04898001626133919,
+      0.045786600559949875,
+      0.042666975408792496,
+      0.04333200305700302,
+      0.0443568155169487,
+      0.03386683389544487,
+      0.035112835466861725,
+      0.037127453833818436,
+      0.03296712785959244,
+      0.028679504990577698,
+      0.035478103905916214,
+      0.03249606117606163,
+      0.0312570296227932,
+      0.027572521939873695,
+      0.02526644617319107
+    ],
+    "val_loss": [
+      2.4048867225646973,
+      0.15321491658687592,
+      0.08966786414384842,
+      0.05716193839907646,
+      0.06633440405130386,
+      0.07275868952274323,
+      0.044910725206136703,
+      0.05962473526597023,
+      0.03713880106806755,
+      0.23668217658996582,
+      0.041945889592170715,
+      0.026346614584326744,
+      0.02652554027736187,
+      0.04114123061299324,
+      0.02905943989753723,
+      0.050780609250068665,
+      0.03853011503815651,
+      0.027380047366023064,
+      0.026702869683504105,
+      0.024310601875185966,
+      0.024993769824504852
+    ]
+  },
+  "recon_path": "/home/ollie/Documents/tmp/PtychoPINN/outputs/fno_hyperparam_study_e20_rerun/run_fno_m16_w32_tnone/recons/pinn_fno/recon.npz",
+  "model_params": 1114756,
+  "inference_time_s": 3.9644967750646174
+}

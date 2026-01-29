@@ -764,7 +764,7 @@ def _train_with_lightning(
     }
     if execution_config is not None and execution_config.gradient_clip_val is not None:
         factory_overrides['gradient_clip_val'] = execution_config.gradient_clip_val
-    for field_name in ('fno_modes', 'fno_width', 'fno_blocks', 'fno_cnn_blocks'):
+    for field_name in ('fno_modes', 'fno_width', 'fno_blocks', 'fno_cnn_blocks', 'fno_input_transform'):
         field_val = getattr(config.model, field_name, None)
         if field_val is not None:
             factory_overrides[field_name] = field_val
