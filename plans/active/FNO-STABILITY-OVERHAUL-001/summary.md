@@ -1,3 +1,9 @@
+### Turn Summary (2026-01-29 supervisor — Crash Hunt disk guard)
+Recorded Crash Hunt readiness (warm-up tests + Stage A symlinks) and identified the 100% disk blocker that must be cleared before launching the Phase 9 depth sweep.
+Updated docs/strategy mainstrategy.md §3, docs/fix_plan.md, and input.md so the engineer has precise free-space, command, and aggregation instructions tied to the Phase 9 artifacts hub.
+Next: Free ≥5 GB (delete `outputs/fno_hyperparam_study_e10`), rerun the warm-up selectors, execute all 9 Crash Hunt runs with stats aggregation, then sync docs/findings with the measured crash depth.
+Artifacts: plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T085840Z/ (summary.md)
+
 ### Turn Summary (2026-01-30 supervisor — Crash Hunt handoff)
 Prepped Phase 9 Crash Hunt by refreshing plan_crash_hunt.md with Step 0 instructions, stats aggregation script, and README heuristics so runs land in the right hub.
 Updated docs/fix_plan.md FSM to hand off Phase 9 to engineering and rewrote input.md with detailed crash-sweep steps, dataset provenance, and aggregation requirements.
