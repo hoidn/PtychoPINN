@@ -14,6 +14,17 @@
 
 ---
 
+## High-Priority Next Actions
+
+1. **Add ReduceLROnPlateau to PyTorch training (FNO/Hybrid priority).**
+   - Extend Torch scheduler options to include a plateau scheduler and wire it into `PtychoPINN_Lightning.configure_optimizers` with a monitored metric (use `self.val_loss_name`).
+   - Surface it via CLI/config so runs can switch between `Default` vs `Plateau` without code edits.
+2. **Test whether plateau scheduling reduces loss spikes in FNO/Hybrid.**
+   - Run an A/B comparison with identical data/seed: baseline (constant LR) vs plateau scheduler.
+   - Success signal: fewer or delayed loss spikes and smoother val_loss trajectory without degrading final metrics.
+
+---
+
 ## 1) Infrastructure Upgrades (Prerequisites)
 
 Before stability testing, the architecture must be physically runnable at depth.
@@ -69,6 +80,11 @@ The prior fixes (Zero-Gamma stable_hybrid and aggressive AGC 0.01) failed in pra
 | Arch Fix | LayerScale Hybrid (Depth X), No Clip | 3 | Robustness: 3/3 runs converge; lower variance than Control |
 | Opt Fix | Hybrid (Depth X), AGC 0.1 | 3 | Survival: 3/3 runs survive; loss competitive |
 
+### Status — Crash Hunt Prep (2026-01-29 08:58 UTC)
+- Crash Hunt artifacts hub `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/` now contains the depth/seed README, crash heuristics, and warm-up evidence (`pytest_warmup.log` from `tests/test_grid_lines_compare_wrapper.py::{test_wrapper_handles_stable_hybrid,test_wrapper_passes_max_hidden_channels}`).
+- All depth/seed directories (`outputs/grid_lines_crash_hunt/depth{4,6,8}_seed{A,B,C}`) are pre-synced via symlinks to the canonical Stage A dataset (`outputs/grid_lines_stage_a/arm_control/datasets`) so every run consumes identical NPZs with `--set-phi`.
+- Execution is **blocked** by disk pressure: `df -h .` reports `/` at 100% utilization (869 MB free). Delete or archive `outputs/fno_hyperparam_study_e10/` (~18 GB) or equivalent before launching the nine Crash Hunt runs; Phase 9 needs at least 5 GB of headroom for Lightning checkpoints plus logs.
+
 ---
 
 ## 4) Hypothesis Backlog (Supervisor-Owned)
@@ -98,6 +114,16 @@ The supervisor should evaluate, develop and priorize these, figuring out a desig
 | Stable | stable_hybrid | none (0.0) | 0.1783 | 0.277 | 1.000 | 0.513 | Collapsed amplitude |
 
 **Interpretation:** Control did not explode at depth 4. Stable_hybrid collapsed due to dead branches. AGC 0.01 over-damped learning.
+
+### Phase 8 Optimizer Sweep (2026-01-30)
+**Config:** N=64, gridsize=1, fno_blocks=4, nimgs=1, nphotons=1e9, loss=MAE, seed=20260128, epochs=20, WarmupCosine(warmup=5, min_ratio=0.05), LR=3e-4, `--set-phi`.
+
+| Arm | Optimizer | Best val_loss | Amp SSIM | Phase SSIM | Amp MAE | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| arm_stable_sgd | SGD (mom=0.9) | 0.0237 | 0.277 | 1.000 | 0.513 | Collapsed — identical to Adam |
+| arm_stable_adamw | AdamW (wd=0.01) | 0.0237 | 0.277 | 1.000 | 0.513 | Collapsed — identical to Adam |
+
+**Interpretation:** Collapse is **optimizer-independent**. Both SGD and AdamW produce metrics identical to Adam. Combined with Phase 7 (LR-independent) and Phase 6 (scheduler-independent), this eliminates all training-dynamics hypotheses. The collapse is architectural: the Norm-Last + LayerScale topology in `StablePtychoBlock` is fundamentally incompatible with this physics task. Hypothesis §4.2 (optimizer-specific instability) is retired.
 
 ### Stage B (depth 8) OOM blocker
 - Depth 8 OOMs on RTX 3090 (24 GB) due to exponential channel growth.
