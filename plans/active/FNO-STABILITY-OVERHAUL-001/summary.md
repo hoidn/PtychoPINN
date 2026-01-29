@@ -1,3 +1,9 @@
+### Turn Summary (2026-01-29 late night)
+Captured engineer progress for Phase 6 Tasks 6.1–6.2 (scheduler knobs + WarmupCosine helper) and updated docs/strategy + fix_plan with the new status.
+Selected Task 6.3 (Stage A warmup rerun + doc sync) as the next execution target, defined CLI + artifact requirements, and refreshed input.md + FSM state accordingly.
+Next: run the stable_hybrid WarmupCosine Stage A arm, archive metrics/logs, and update docs/findings depending on whether STABLE-LS-001 is resolved.
+Artifacts: plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T235959Z/
+
 ### Turn Summary
 Closed GRID-LINES-WORKFLOW-001 (23/23 torch runner tests green) and created FNO-STABILITY-OVERHAUL-001 to execute the main strategy (stable_hybrid + AGC).
 Codebase audit confirmed 0% of the stability strategy is implemented; all config, AGC utility, stable block, and registry changes are pending.

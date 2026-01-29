@@ -1,40 +1,36 @@
-# FNO-STABILITY-OVERHAUL-001 — Phase 6: Training Dynamics Plan
+# FNO-STABILITY-OVERHAUL-001 — Phase 6 Task 6.3 (WarmupCosine Stage A rerun)
 
-**Summary:** Implement the Warmup+Cosine scheduler plumbing (Task 6.1), add the scheduler helper (Task 6.2), then rerun the Stage A stable arm per the new plan to test whether the collapse is resolved.
+**Summary:** Execute the stable_hybrid Stage A arm with the new Warmup+Cosine scheduler and propagate the results through metrics, docs, and findings.
 
-**Focus:** FNO-STABILITY-OVERHAUL-001 — Phase 6 (Training dynamics / warmup-cosine scheduler)
+**Focus:** FNO-STABILITY-OVERHAUL-001 — Phase 6 (Training dynamics / WarmupCosine scheduler)
 
 **Branch:** fno2
 
 **Mapped tests:**
-- `pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_lr_scheduler_roundtrip -v`
-- `pytest tests/torch/test_grid_lines_torch_runner.py::TestTorchRunnerConfig::test_setup_configs_threads_scheduler_fields -v`
-- `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_passes_scheduler_knobs -v`
-- `pytest tests/torch/test_lr_scheduler.py::test_warmup_cosine_scheduler_progression -v`
-- `pytest tests/torch/test_model_training.py::test_configure_optimizers_selects_warmup_scheduler -v`
-- `pytest tests/torch/test_fno_generators.py::TestStablePtychoBlock -v`
+- `pytest tests/torch/test_fno_generators.py::TestStablePtychoBlock::test_layerscale_grad_flow -v`
 - `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_handles_stable_hybrid -v`
 - `pytest tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_runner_accepts_stable_hybrid -v`
 
-**Artifacts:** `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T235500Z/` (plan_training_dynamics.md, README)
+**Artifacts:** `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T235959Z/`
 
-**Next Up (optional):** If scheduler run succeeds quickly, start evaluating gradient-checkpointing requirements for fno_blocks>6.
+**Next Up (optional):** If WarmupCosine succeeds quickly, start outlining gradient-checkpointing requirements for `fno_blocks>6` depth tests.
 
 ---
 
-## Do Now — Execute plan_training_dynamics.md Tasks
+## Do Now — Phase 6 plan_training_dynamics.md Task 6.3
 
-1. **Read Phase 6 plan:** `plans/active/FNO-STABILITY-OVERHAUL-001/plan_training_dynamics.md` (same content as `docs/plans/2026-01-29-stable-hybrid-training-dynamics.md`). Follow Tasks 6.1–6.3 in order; do not skip tests.
-2. **Task 6.1 (scheduler plumbing):**
-   - Extend TF/Torch `TrainingConfig` dataclasses + config bridge with `scheduler`, `lr_warmup_epochs`, and `lr_min_ratio`.
-   - Update `TorchRunnerConfig`, `setup_torch_configs()`, and the torch runner CLI to accept `--scheduler`, `--lr-warmup-epochs`, `--lr-min-ratio`, and ensure `training_config.learning_rate` honors `--learning-rate`.
-   - Propagate the new flags through `grid_lines_compare_wrapper.py`.
-   - Add/adjust the three targeted regression tests listed above plus rerun the existing grid-lines CLI tests the plan calls out. Archive all pytest logs in the artifacts directory.
-3. **Task 6.2 (WarmupCosine helper):**
-   - Add `ptycho_torch/schedulers.py` with `build_warmup_cosine_scheduler()` (Linear warmup → Cosine anneal) and teach `PtychoPINN_Lightning.configure_optimizers()` to dispatch it when `scheduler == 'WarmupCosine'`.
-   - Create the new scheduler unit test + Lightning smoke test selectors. Ensure they pass along with `tests/torch/test_fno_generators.py::TestStablePtychoBlock -v`.
-4. **Task 6.3 (Stage A rerun + docs):**
-   - Reuse the Stage A control dataset and run the stable arm with `--torch-scheduler WarmupCosine --torch-learning-rate 5e-4 --torch-lr-warmup-epochs 5 --torch-lr-min-ratio 0.05`. Tee logs to the artifacts path and copy `history.json`, `metrics.json`, `model.pt`, and stats JSONs there.
-   - (Optional but helpful) Run a low constant LR baseline for comparison if time permits.
-   - Update `stage_a_metrics.json`, `stage_a_summary.md`, `docs/strategy/mainstrategy.md`, `docs/fix_plan.md`, `docs/findings.md`, and `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md` with the new results. Keep STABLE-LS-001 status accurate.
-5. **Archiving & hygiene:** Stick to CLAUDE.md rules—no datasets committed, run all mapped selectors, and drop every new log/README/test output under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T235500Z/`. EOF
+1. **Re-read Phase 6 instructions:** `plans/active/FNO-STABILITY-OVERHAUL-001/plan_training_dynamics.md` (§Task 6.3) for the exact CLI, artifact expectations, and doc sync checklist. Keep STABLE-LS-001 (docs/findings.md) in mind when evaluating outcomes.
+2. **Prep datasets + run WarmupCosine arm:**
+   - Mirror the Stage A control datasets into `outputs/grid_lines_stage_a/arm_stable_warmup` (rsync command is spelled out in the plan) and clear any stale `runs/` directories.
+   - Run the stable_hybrid arm with the WarmupCosine knobs via `python scripts/studies/grid_lines_compare_wrapper.py ...`: `--output-dir outputs/grid_lines_stage_a/arm_stable_warmup --architectures stable_hybrid --torch-scheduler WarmupCosine --torch-learning-rate 5e-4 --torch-lr-warmup-epochs 5 --torch-lr-min-ratio 0.05 --torch-grad-clip 0.0 --fno-blocks 4 --torch-epochs 20 --torch-loss-mode mae --torch-infer-batch-size 8 --seed 20260128`, reusing the cached dataset and `--nimgs-train 1 --nimgs-test 1 --nphotons 1e9 --gridsize 1 --N 64 --set-phi`. Tee the CLI output to `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T235959Z/stage_a_arm_stable_warmup.log`.
+   - Optional comparison (time permitting): rerun with `--torch-scheduler Default --torch-learning-rate 2.5e-4` into `arm_stable_lowlr` to isolate whether improvements come from the schedule vs. LR magnitude.
+3. **Archive metrics + stats:**
+   - Copy each run’s `history.json`, `metrics.json`, checkpoints, and grad norm traces into the artifacts directory.
+   - Run `python scripts/internal/stage_a_dump_stats.py --run-dir .../arm_stable_warmup/runs/pinn_stable_hybrid --out-json plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T235959Z/stage_a_arm_stable_warmup_stats.json` (repeat for the optional low-LR run if executed).
+   - Append the new rows to `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/stage_a_metrics.json` (or create a Phase 6 metrics file if structure requires) and summarize findings in `stage_a_summary.md`, highlighting whether WarmupCosine prevents the collapse noted in STABLE-LS-001.
+4. **Docs + findings sync:**
+   - Update `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md` (Phase 6 status), `plans/active/FNO-STABILITY-OVERHAUL-001/summary.md`, `docs/strategy/mainstrategy.md` (Stage A table), `docs/fix_plan.md`, and `docs/findings.md` with the new evidence. Close or update STABLE-LS-001; add any new findings if behavior changes.
+   - If WarmupCosine fails to stabilize, document the observed failure curve (epoch/time of collapse) and hypothesis for next levers.
+5. **Regression tests + hygiene:**
+   - Run the mapped selectors listed above plus any additional quick checks you need for touched modules, archiving `pytest` logs under the artifacts directory.
+   - Keep large artifacts out of git; ensure all logs/metrics from this task live under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T235959Z/`. EOF
