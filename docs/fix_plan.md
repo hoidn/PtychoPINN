@@ -354,4 +354,4 @@
 
 ---
 
-Supervisor state: `focus=FNO-STABILITY-OVERHAUL-001` `state=planning` `dwell=1` `artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T210000Z/` `next_action=implement Task 4.5 (max_hidden_channels cap + Stage B rerun)`
+Supervisor state: `focus=FNO-STABILITY-OVERHAUL-001` `state=ready_for_implementation` `dwell=0` `artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T210000Z/` `next_action=run capped Stage B + archive metrics/docs`
