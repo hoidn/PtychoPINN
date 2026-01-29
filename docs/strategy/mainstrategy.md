@@ -38,12 +38,13 @@ An advanced clipping algorithm integrated into the training loop as a fallback s
 We will select the winner through a rigorous 2-stage process using the `grid_lines` workflow.
 
 ### Stage A: The "Shootout" (Standard Depth)
-**Context:** `fno_blocks=4` (The known failure case). 50 Epochs.
+**Context:** `fno_blocks=4` (the known failure case). **Cap test/comparison runs at 20 epochs** (Stage A historical run used 50).
 
 **Metrics:**
 *   **Primary:** `model.val_loss_name` (e.g., `poisson_val_Amp_loss` or `mae_val_Phase_loss`, depending on mode).
 *   **Secondary:** `ssim_phase` (Test set reconstruction quality).
 *   **Stability:** Failure rate across seeds + time-to-failure distribution.
+*   **Epoch cap:** Test/comparison runs must use **≤20 epochs** unless explicitly labeled as a stress test.
 
 **Protocol:**
 *   Dataset generation must use `--set-phi`; otherwise phase metrics are meaningless.
@@ -54,9 +55,9 @@ We will select the winner through a rigorous 2-stage process using the `grid_lin
 | :--- | :--- | :--- | :--- | :--- |
 | **1. Control** | `hybrid` | **Disabled** (no clipping; `gradient_clip_val=None`) | **Baseline Failure:** Stagnates or explodes. | N/A (Negative Control) |
 | **2. Arch Fix** | `stable_hybrid` | **Disabled** (no clipping; `gradient_clip_val=None`) | **Stability:** Converges smoothly with NO clipping. | Lowest `model.val_loss_name`; No NaNs; lowest failure rate. |
-| **3. Opt Fix** | `hybrid` | **AGC** (`val=0.01`) | **Survival:** Survives 50 epochs despite drift. | Lower failure rate than Control; `model.val_loss_name` not worse by >10% (median, successful runs only). |
+| **3. Opt Fix** | `hybrid` | **AGC** (`val=0.01`) | **Survival:** Survives 20 epochs despite drift. | Lower failure rate than Control; `model.val_loss_name` not worse by >10% (median, successful runs only). |
 
-**Stage A outcome (2026-01-29):** Single-seed execution (N=64, gridsize=1, `fno_blocks=4`, `nimgs_{train,test}=2`, `nphotons=1e9`, MAE loss, 50 epochs, seed=20260128) produced the following metrics. Going forward, full runs should use `nimgs_train=1` and `nimgs_test=1`.
+**Stage A outcome (2026-01-29):** Single-seed execution (N=64, gridsize=1, `fno_blocks=4`, `nimgs_{train,test}=2`, `nphotons=1e9`, MAE loss, 50 epochs, seed=20260128) produced the following metrics. Going forward, full runs should use `nimgs_train=1` and `nimgs_test=1`, and **test/comparison runs must not exceed 20 epochs**.
 
 | Arm | Architecture | Clipping | Best val_loss | Amp SSIM | Phase SSIM | Amp MAE | Notes |
 |-----|--------------|----------|---------------|----------|------------|---------|-------|
@@ -76,6 +77,7 @@ Control unexpectedly dominated; the hypothesized drift did not appear at 4 block
 *   **Protocol:** Run the **Winner of Stage A** (control arm: `hybrid`, norm clip 1.0) with `fno_blocks=8`, same dataset/probe, and log gradient norms every epoch (`--torch-log-grad-norm`).
 *   **Success Condition:** The deep model avoids gradient explosion (no NaNs, grad_norm bounded) and matches or beats the Stage A val_loss/SSIM metrics.
 *   **Run sizing:** use `nimgs_train=1` and `nimgs_test=1` for full runs; do not scale back to 2 unless explicitly required.
+*   **Epoch cap:** Test/comparison runs must use **≤20 epochs** unless explicitly labeled as a stress test.
 
 **Stage B plan (scheduled 2026-01-29T18:00Z):**
 - Output dir: `outputs/grid_lines_stage_b/deep_control`
@@ -94,6 +96,8 @@ Control unexpectedly dominated; the hypothesized drift did not appear at 4 block
 | LayerScale | stable_hybrid | none (0.0) | **0.0237** | 0.1790 | 0.277 | 1.000 | 0.513 | Early convergence → late collapse; norm weights healthy |
 
 The best val_loss (0.024) approaches control (0.014), but training collapses after epoch ~4, ending at 0.179 with constant amplitude output. Failure mode shifted from "can't learn" (architecture/STABLE-GAMMA-001) to "learns then collapses" (training dynamics/STABLE-LS-001). Next investigation: LR warmup/cosine schedule, reduced LR, or optimizer tuning for stable_hybrid.
+
+**Phase 6 scope (2026-01-29):** Authored `docs/plans/2026-01-29-stable-hybrid-training-dynamics.md` to surface Warmup+Cosine scheduler knobs (config/CLI), implement a deterministic scheduler helper in `PtychoPINN_Lightning`, and rerun the Stage A stable arm with shared datasets. Success criteria: stable training past epoch 5 without amplitude collapse and improved val_loss vs. LayerScale-only runs.
 
 ---
 

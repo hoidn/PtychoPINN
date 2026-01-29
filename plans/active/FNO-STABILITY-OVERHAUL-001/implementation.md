@@ -131,7 +131,7 @@ Stage A validates the architectural fix (`stable_hybrid`) against the optimizati
    rsync -a outputs/grid_lines_stage_a/arm_control/datasets/ outputs/grid_lines_stage_a/arm_agc/datasets/
    ```
    (Re-run the copy whenever you regenerate the control arm.)
-3. Record the shared seed (`20260128`) and hyperparameters (N=64, gridsize=1, nimgs_train/test=1, nphotons=1e9, nepochs=50, fno_blocks=4) in a short README inside the artifacts hub for traceability.
+3. Record the shared seed (`20260128`) and hyperparameters (N=64, gridsize=1, nimgs_train/test=1, nphotons=1e9, nepochs=20, fno_blocks=4) in a short README inside the artifacts hub for traceability.
    - Full runs should use `nimgs_train=1` and `nimgs_test=1` to reduce runtime/GPU memory.
 
 ### Task 3.2: Arm 1 — Control (`hybrid`, norm clip 1.0)
@@ -146,7 +146,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
   --architectures hybrid \
   --seed 20260128 \
   --nimgs-train 1 --nimgs-test 1 --nphotons 1e9 \
-  --nepochs 50 --torch-epochs 50 \
+  --nepochs 20 --torch-epochs 20 \
   --torch-grad-clip 1.0 --torch-grad-clip-algorithm norm \
   --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8
 ```
@@ -167,7 +167,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
   --architectures stable_hybrid \
   --seed 20260128 \
   --nimgs-train 1 --nimgs-test 1 --nphotons 1e9 \
-  --nepochs 50 --torch-epochs 50 \
+  --nepochs 20 --torch-epochs 20 \
   --torch-grad-clip 0.0 --torch-grad-clip-algorithm norm \
   --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8
 ```
@@ -186,7 +186,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
   --architectures hybrid \
   --seed 20260128 \
   --nimgs-train 1 --nimgs-test 1 --nphotons 1e9 \
-  --nepochs 50 --torch-epochs 50 \
+  --nepochs 20 --torch-epochs 20 \
   --torch-grad-clip 0.01 --torch-grad-clip-algorithm agc \
   --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8
 ```
@@ -276,7 +276,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
   --architectures hybrid \
   --seed 20260128 \
   --nimgs-train 1 --nimgs-test 1 --nphotons 1e9 \
-  --nepochs 50 --torch-epochs 50 \
+  --nepochs 20 --torch-epochs 20 \
   --fno-blocks 8 \
   --torch-grad-clip 1.0 --torch-grad-clip-algorithm norm \
   --torch-loss-mode mae --torch-infer-batch-size 8 \
@@ -285,7 +285,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
 ```
 
 **Notes:**
-- Keep epochs at 50 so `fno_blocks` is the only variable relative to Stage A. If gradients spike, the log will show per-epoch norms via `--torch-log-grad-norm`.
+- Keep epochs at 20 for test/comparison runs so `fno_blocks` is the only variable relative to Stage A. If gradients spike, the log will show per-epoch norms via `--torch-log-grad-norm`.
 - After the run, copy `metrics.json`, `history.json`, and `model.pt` from `outputs/grid_lines_stage_b/deep_control/runs/pinn_hybrid/` into the artifacts hub.
 - Capture quick stats by reusing the Stage A helper:
   ```bash
@@ -385,7 +385,7 @@ Stage A proved `stable_hybrid` collapses because InstanceNorm gamma/beta stay ~0
      --architectures stable_hybrid \
      --seed 20260128 \
      --nimgs-train 1 --nimgs-test 1 --nphotons 1e9 \
-     --nepochs 50 --torch-epochs 50 \
+     --nepochs 20 --torch-epochs 20 \
      --torch-grad-clip 0.0 --torch-grad-clip-algorithm norm \
      --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8 \
      2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/stage_a_arm_stable_layerscale.log
@@ -393,6 +393,28 @@ Stage A proved `stable_hybrid` collapses because InstanceNorm gamma/beta stay ~0
 4. Copy `runs/pinn_stable_hybrid/{history.json,metrics.json,model.pt}` and the top-level `metrics.json` into the same artifacts hub.
 5. Extend `stage_a_metrics.json` (or write `stage_a_metrics_layerscale.json`) with a new row for this arm and summarize the outcome in `stage_a_summary.md`, calling out whether LayerScale fixed the constant-output collapse.
 6. Update `docs/strategy/mainstrategy.md` (Stage A + outcome table), `docs/fix_plan.md` attempts history, and `docs/findings.md` if the experiment yields a durable lesson (e.g., "LayerScale unlocks stable_hybrid").
+
+---
+
+## Phase 6: Training Dynamics (Warmup + Cosine Scheduler)
+
+LayerScale freed the norm weights but the Stage A arm still collapses after epoch ~4 (Finding STABLE-LS-001). Phase 6 introduces a deterministic warmup+cosine scheduler plus CLI/config plumbing so we can reduce the effective learning rate after the early convergence window and validate whether training remains stable.
+
+### Task 6.1: Surface scheduler knobs
+- Extend TF/Torch `TrainingConfig` dataclasses with `scheduler='WarmupCosine'`, `lr_warmup_epochs`, and `lr_min_ratio` defaults, bridge them, and expose matching CLI flags in `grid_lines_torch_runner.py` + `grid_lines_compare_wrapper.py`.
+- Update `TorchRunnerConfig` + `setup_torch_configs()` so the CLI `--learning-rate` actually programs `training_config.learning_rate` (currently only the execution config sees it).
+- Regression tests: config bridge parity + runner CLI integration (extend the existing gradient clip tests to cover scheduler args).
+
+### Task 6.2: Implement scheduler helper
+- Add `ptycho_torch/schedulers.py` with `build_warmup_cosine_scheduler()` returning a LinearLR warmup followed by CosineAnnealingLR and wire it into `PtychoPINN_Lightning.configure_optimizers()` when `scheduler == 'WarmupCosine'`.
+- Unit-test the helper (LR monotonically increases during warmup and reaches `eta_min = base_lr * lr_min_ratio`) plus a smoke test that `configure_optimizers()` attaches the SequentialLR when requested.
+
+### Task 6.3: Stage A rerun + docs
+- Rerun the Stage A stable arm with `--torch-scheduler WarmupCosine --torch-learning-rate 5e-4 --torch-lr-warmup-epochs 5 --torch-lr-min-ratio 0.05` (and optionally a constant low-LR baseline) by reusing the cached datasets.
+- Archive logs/history/stats under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/`, update `stage_a_metrics.json`, summarize in `stage_a_summary.md`, and sync `docs/strategy`, `docs/fix_plan`, and `docs/findings` with the outcome (close or update STABLE-LS-001 depending on results).
+- Mapped regression selectors: `pytest tests/torch/test_fno_generators.py::TestStablePtychoBlock -v`, `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_handles_stable_hybrid -v`, `pytest tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_runner_accepts_stable_hybrid -v`.
+
+Detailed task steps live in `docs/plans/2026-01-29-stable-hybrid-training-dynamics.md` (mirrored to `plans/active/FNO-STABILITY-OVERHAUL-001/plan_training_dynamics.md`).
 
 ---
 
@@ -438,7 +460,7 @@ Stage A proved `stable_hybrid` collapses because InstanceNorm gamma/beta stay ~0
 - Files changed: `ptycho_torch/generators/fno.py`, `tests/torch/test_fno_generators.py`
 
 ### Task 5.2: Stage A Rerun — COMPLETE (partial success)
-- Datasets reused from arm_control. Training: 50 epochs, MAE loss, no clipping, seed=20260128.
+- Datasets reused from arm_control. Training: 20 epochs, MAE loss, no clipping, seed=20260128.
 - Norm weights healthy (mean~0.82-1.0) — STABLE-GAMMA-001 resolved.
 - Best val_loss=0.024 (epoch ~4), final val_loss=0.179 (collapsed).
 - Inference: amp_ssim=0.277, amp_mae=0.513, constant amplitude output.
