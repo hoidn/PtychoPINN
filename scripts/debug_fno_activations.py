@@ -8,7 +8,10 @@ import numpy as np
 import torch
 
 from ptycho.log_config import setup_logging
-from ptycho_torch.generators.fno import CascadedFNOGenerator, HybridUNOGenerator, PtychoBlock, SpatialLifter
+from ptycho_torch.generators.fno import (
+    CascadedFNOGenerator, HybridUNOGenerator, StableHybridUNOGenerator,
+    PtychoBlock, StablePtychoBlock, SpatialLifter,
+)
 
 
 class ActivationMonitor:
@@ -72,7 +75,7 @@ class ActivationMonitor:
 
     def register(self) -> None:
         for module_name, module in self.model.named_modules():
-            if isinstance(module, (SpatialLifter, PtychoBlock)):
+            if isinstance(module, (SpatialLifter, PtychoBlock, StablePtychoBlock)):
                 hook = module.register_forward_hook(
                     lambda m, i, o, n=module_name: self._hook_fn(m, i, o, n)
                 )
@@ -94,7 +97,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Capture FNO activation statistics")
     parser.add_argument("--input", required=True, help="Path to train.npz")
     parser.add_argument("--output", required=True, help="Output directory")
-    parser.add_argument("--architecture", default="fno", choices=["fno", "hybrid"])
+    parser.add_argument("--architecture", default="fno", choices=["fno", "hybrid", "stable_hybrid"])
+    parser.add_argument("--checkpoint", default=None, help="Path to saved model.pt checkpoint")
+    parser.add_argument("--output-json-name", default="activation_report.json",
+                        help="Output JSON filename (default: activation_report.json)")
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--max-samples", type=int, default=1)
     parser.add_argument("--device", default="cpu")
@@ -115,6 +121,15 @@ def _load_diffraction(path: Path) -> np.ndarray:
 
 def _build_model(architecture: str, n: int, channels: int) -> torch.nn.Module:
     modes = min(12, max(1, n // 4))
+    if architecture == "stable_hybrid":
+        return StableHybridUNOGenerator(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=32,
+            n_blocks=4,
+            modes=modes,
+            C=channels,
+        )
     if architecture == "hybrid":
         return HybridUNOGenerator(
             in_channels=1,
@@ -135,6 +150,20 @@ def _build_model(architecture: str, n: int, channels: int) -> torch.nn.Module:
     )
 
 
+def _load_checkpoint(model: torch.nn.Module, checkpoint_path: str) -> None:
+    """Load a saved checkpoint, stripping 'model.' prefix from keys."""
+    state = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    # Lightning checkpoints wrap state_dict under 'state_dict' key with 'model.' prefix
+    if "state_dict" in state:
+        state = state["state_dict"]
+    cleaned = {}
+    for k, v in state.items():
+        new_key = k.removeprefix("model.")
+        cleaned[new_key] = v
+    model.load_state_dict(cleaned)
+    print(f"Loaded checkpoint from {checkpoint_path} ({len(cleaned)} keys)")
+
+
 def main() -> int:
     args = parse_args()
     out_dir = Path(args.output)
@@ -150,6 +179,8 @@ def main() -> int:
     channels = batch.shape[-1]
 
     model = _build_model(args.architecture, n, channels)
+    if args.checkpoint:
+        _load_checkpoint(model, args.checkpoint)
     device = torch.device(args.device)
     model.to(device)
     model.eval()
@@ -173,7 +204,7 @@ def main() -> int:
         "layers": {key: values for key, values in monitor.stats.items()},
     }
 
-    report_path = out_dir / "activation_report.json"
+    report_path = out_dir / args.output_json_name
     report_path.write_text(json.dumps(report, indent=2))
     return 0
 

@@ -17,3 +17,44 @@ def test_configure_optimizers_selects_warmup_scheduler():
     opt = torch.optim.Adam(model.parameters(), lr=1e-3)
     sched = build_warmup_cosine_scheduler(opt, total_epochs=50, warmup_epochs=5, min_lr_ratio=0.05)
     assert sched.__class__.__name__ == 'SequentialLR'
+
+
+class TestOptimizerSelection:
+    """Tests for optimizer selection in PtychoPINN_Lightning.
+
+    Task ID: FNO-STABILITY-OVERHAUL-001 Phase 8 Task 1
+    """
+
+    def _build_optimizer(self, optimizer_name, **kwargs):
+        """Helper: build optimizer via the same logic as configure_optimizers."""
+        from ptycho_torch.model import _build_optimizer
+        model = torch.nn.Linear(4, 4)
+        return _build_optimizer(model.parameters(), lr=1e-3, optimizer=optimizer_name, **kwargs)
+
+    def test_configures_sgd(self):
+        """Test that optimizer='sgd' returns SGD with momentum."""
+        opt = self._build_optimizer('sgd', momentum=0.9, weight_decay=0.0,
+                                    adam_beta1=0.9, adam_beta2=0.999)
+        assert isinstance(opt, torch.optim.SGD)
+        assert opt.defaults['momentum'] == 0.9
+        assert opt.defaults['weight_decay'] == 0.0
+
+    def test_configures_adamw(self):
+        """Test that optimizer='adamw' returns AdamW with weight_decay."""
+        opt = self._build_optimizer('adamw', momentum=0.9, weight_decay=0.01,
+                                    adam_beta1=0.9, adam_beta2=0.999)
+        assert isinstance(opt, torch.optim.AdamW)
+        assert opt.defaults['weight_decay'] == 0.01
+        assert opt.defaults['betas'] == (0.9, 0.999)
+
+    def test_configures_adam(self):
+        """Test that optimizer='adam' returns Adam (default)."""
+        opt = self._build_optimizer('adam', momentum=0.9, weight_decay=0.0,
+                                    adam_beta1=0.9, adam_beta2=0.999)
+        assert isinstance(opt, torch.optim.Adam)
+
+    def test_invalid_optimizer_raises(self):
+        """Test that unsupported optimizer string raises ValueError."""
+        with pytest.raises(ValueError, match="Unsupported optimizer"):
+            self._build_optimizer('rmsprop', momentum=0.9, weight_decay=0.0,
+                                  adam_beta1=0.9, adam_beta2=0.999)

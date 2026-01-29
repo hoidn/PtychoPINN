@@ -52,6 +52,11 @@ def run_grid_lines_compare(
     fno_cnn_blocks: int = 2,
     fno_input_transform: str = "none",
     torch_max_hidden_channels: Optional[int] = None,
+    torch_optimizer: str = "adam",
+    torch_weight_decay: float = 0.0,
+    torch_momentum: float = 0.9,
+    torch_beta1: float = 0.9,
+    torch_beta2: float = 0.999,
     torch_scheduler: str = "Default",
     torch_lr_warmup_epochs: int = 0,
     torch_lr_min_ratio: float = 0.1,
@@ -123,6 +128,11 @@ def run_grid_lines_compare(
                 fno_cnn_blocks=fno_cnn_blocks,
                 fno_input_transform=fno_input_transform,
                 max_hidden_channels=torch_max_hidden_channels,
+                optimizer=torch_optimizer,
+                weight_decay=torch_weight_decay,
+                momentum=torch_momentum,
+                adam_beta1=torch_beta1,
+                adam_beta2=torch_beta2,
                 log_grad_norm=torch_log_grad_norm,
                 grad_norm_log_freq=torch_grad_norm_log_freq,
                 scheduler=torch_scheduler,
@@ -218,6 +228,12 @@ def parse_args(argv=None):
     )
     parser.add_argument("--torch-max-hidden-channels", type=int, default=None,
                         help="Cap on hidden channels in Hybrid encoder (default: no cap)")
+    parser.add_argument("--torch-optimizer", type=str, default="adam",
+                        choices=["adam", "adamw", "sgd"], help="Optimizer algorithm")
+    parser.add_argument("--torch-weight-decay", type=float, default=0.0, help="Weight decay")
+    parser.add_argument("--torch-momentum", type=float, default=0.9, help="SGD momentum")
+    parser.add_argument("--torch-beta1", type=float, default=0.9, help="Adam/AdamW beta1")
+    parser.add_argument("--torch-beta2", type=float, default=0.999, help="Adam/AdamW beta2")
     parser.add_argument("--torch-scheduler", type=str, default="Default",
                         choices=["Default", "Exponential", "WarmupCosine"])
     parser.add_argument("--torch-lr-warmup-epochs", type=int, default=0)
@@ -262,6 +278,11 @@ def main(argv=None) -> None:
         fno_cnn_blocks=args.fno_cnn_blocks,
         fno_input_transform=args.fno_input_transform,
         torch_max_hidden_channels=args.torch_max_hidden_channels,
+        torch_optimizer=args.torch_optimizer,
+        torch_weight_decay=args.torch_weight_decay,
+        torch_momentum=args.torch_momentum,
+        torch_beta1=args.torch_beta1,
+        torch_beta2=args.torch_beta2,
         torch_scheduler=args.torch_scheduler,
         torch_lr_warmup_epochs=args.torch_lr_warmup_epochs,
         torch_lr_min_ratio=args.torch_lr_min_ratio,

@@ -245,6 +245,63 @@ def test_wrapper_passes_max_hidden_channels():
     assert args.torch_max_hidden_channels == 512
 
 
+def test_wrapper_passes_optimizer(monkeypatch, tmp_path):
+    """Test --torch-optimizer and related flags thread through to runner.
+
+    Task ID: FNO-STABILITY-OVERHAUL-001 Phase 8 Task 1
+    """
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare, parse_args
+
+    # Test parse_args
+    args = parse_args([
+        "--N", "64", "--gridsize", "1", "--output-dir", str(tmp_path),
+        "--architectures", "stable_hybrid",
+        "--torch-optimizer", "sgd",
+        "--torch-momentum", "0.9",
+        "--torch-weight-decay", "0.01",
+        "--torch-beta1", "0.9",
+        "--torch-beta2", "0.999",
+    ])
+    assert args.torch_optimizer == "sgd"
+    assert args.torch_momentum == 0.9
+    assert args.torch_weight_decay == 0.01
+
+    # Test end-to-end passthrough
+    def fake_tf_run(cfg):
+        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+        datasets_dir.mkdir(parents=True, exist_ok=True)
+        (datasets_dir / "train.npz").write_bytes(b"stub")
+        (datasets_dir / "test.npz").write_bytes(b"stub")
+        (cfg.output_dir / "metrics.json").write_text("{}")
+        return {"train_npz": str(datasets_dir / "train.npz"), "test_npz": str(datasets_dir / "test.npz")}
+
+    captured = {}
+
+    def fake_torch_run(cfg):
+        captured["optimizer"] = cfg.optimizer
+        captured["momentum"] = cfg.momentum
+        captured["weight_decay"] = cfg.weight_decay
+        return {"metrics": {"mse": 0.3}}
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
+
+    run_grid_lines_compare(
+        N=64,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=("stable_hybrid",),
+        probe_npz=Path("dummy_probe.npz"),
+        torch_optimizer="sgd",
+        torch_momentum=0.9,
+        torch_weight_decay=0.01,
+    )
+
+    assert captured["optimizer"] == "sgd"
+    assert captured["momentum"] == 0.9
+    assert captured["weight_decay"] == 0.01
+
+
 def test_wrapper_passes_scheduler_knobs(monkeypatch, tmp_path):
     """Test --torch-scheduler and related flags thread through to runner."""
     from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare, parse_args

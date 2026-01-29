@@ -483,6 +483,29 @@ class TestChannelGridsizeAlignment:
         training_config, _ = setup_torch_configs(cfg)
         assert training_config.model.max_hidden_channels == 512
 
+    def test_runner_accepts_optimizer(self, tmp_path):
+        """Test that setup_torch_configs copies optimizer fields from CLI.
+
+        Task ID: FNO-STABILITY-OVERHAUL-001 Phase 8 Task 1
+        """
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="stable_hybrid",
+            optimizer="adamw",
+            weight_decay=0.01,
+            momentum=0.9,
+            adam_beta1=0.9,
+            adam_beta2=0.999,
+        )
+        training_config, _ = setup_torch_configs(cfg)
+        assert training_config.optimizer == "adamw"
+        assert training_config.weight_decay == 0.01
+        assert training_config.momentum == 0.9
+        assert training_config.adam_beta1 == 0.9
+        assert training_config.adam_beta2 == 0.999
+
     def test_runner_channels_derived_from_gridsize(self, synthetic_npz, tmp_path):
         """Test that channel count C = gridsize^2 is derived correctly.
 

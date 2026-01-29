@@ -141,6 +141,11 @@ class TrainingConfig:
     torch_loss_mode: Literal['poisson', 'mae'] = 'poisson'  # Backend-specific loss mode selector
     gradient_clip_val: Optional[float] = None  # Gradient clipping threshold (None = disabled)
     gradient_clip_algorithm: Literal['norm', 'value', 'agc'] = 'norm'  # Gradient clipping algorithm: norm, value, or agc
+    optimizer: Literal['adam', 'adamw', 'sgd'] = 'adam'  # Optimizer algorithm
+    momentum: float = 0.9  # SGD momentum (ignored for Adam/AdamW)
+    weight_decay: float = 0.0  # Weight decay (L2 penalty)
+    adam_beta1: float = 0.9  # Adam/AdamW beta1
+    adam_beta2: float = 0.999  # Adam/AdamW beta2
     scheduler: Literal['Default', 'Exponential', 'WarmupCosine'] = 'Default'  # LR scheduler type
     lr_warmup_epochs: int = 0  # Number of warmup epochs for WarmupCosine scheduler
     lr_min_ratio: float = 0.1  # Minimum LR ratio for WarmupCosine scheduler (eta_min = base_lr * ratio)

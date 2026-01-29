@@ -133,6 +133,11 @@ class TrainingConfig:
     accum_steps: int = 1 #Batch size accumulation, manually implemented for DDP
     gradient_clip_val: Union[float,None] = None #Gradient clip value
     gradient_clip_algorithm: str = 'norm'  # Gradient clipping algorithm: 'norm', 'value', or 'agc'
+    optimizer: str = 'adam'  # Optimizer algorithm: 'adam', 'adamw', or 'sgd'
+    momentum: float = 0.9  # SGD momentum (ignored for Adam/AdamW)
+    weight_decay: float = 0.0  # Weight decay (L2 penalty)
+    adam_beta1: float = 0.9  # Adam/AdamW beta1
+    adam_beta2: float = 0.999  # Adam/AdamW beta2
     log_grad_norm: bool = False
     grad_norm_log_freq: int = 1
     # batch_size: int = 32

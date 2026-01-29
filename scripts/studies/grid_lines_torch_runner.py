@@ -100,6 +100,11 @@ class TorchRunnerConfig:
     fno_cnn_blocks: int = 2
     fno_input_transform: str = "none"
     max_hidden_channels: Optional[int] = None
+    optimizer: str = 'adam'  # 'adam', 'adamw', or 'sgd'
+    weight_decay: float = 0.0
+    momentum: float = 0.9
+    adam_beta1: float = 0.9
+    adam_beta2: float = 0.999
     log_grad_norm: bool = False
     grad_norm_log_freq: int = 1
     enable_checkpointing: bool = True
@@ -211,6 +216,11 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     training_config.grad_norm_log_freq = cfg.grad_norm_log_freq
     training_config.gradient_clip_val = cfg.gradient_clip_val
     training_config.gradient_clip_algorithm = cfg.gradient_clip_algorithm
+    training_config.optimizer = cfg.optimizer
+    training_config.weight_decay = cfg.weight_decay
+    training_config.momentum = cfg.momentum
+    training_config.adam_beta1 = cfg.adam_beta1
+    training_config.adam_beta2 = cfg.adam_beta2
     training_config.scheduler = cfg.scheduler
     training_config.lr_warmup_epochs = cfg.lr_warmup_epochs
     training_config.lr_min_ratio = cfg.lr_min_ratio
@@ -611,6 +621,16 @@ def main() -> None:
                         help="Patch size N")
     parser.add_argument("--gridsize", type=int, default=1,
                         help="Grid size for stitching")
+    parser.add_argument("--optimizer", choices=['adam', 'adamw', 'sgd'], default='adam',
+                        help="Optimizer algorithm")
+    parser.add_argument("--weight-decay", type=float, default=0.0,
+                        help="Weight decay (L2 penalty)")
+    parser.add_argument("--momentum", type=float, default=0.9,
+                        help="SGD momentum")
+    parser.add_argument("--beta1", type=float, default=0.9,
+                        help="Adam/AdamW beta1")
+    parser.add_argument("--beta2", type=float, default=0.999,
+                        help="Adam/AdamW beta2")
     parser.add_argument("--scheduler", choices=['Default', 'Exponential', 'WarmupCosine'], default='Default',
                         help="LR scheduler type")
     parser.add_argument("--lr-warmup-epochs", type=int, default=0,
@@ -646,6 +666,11 @@ def main() -> None:
         fno_width=args.fno_width,
         fno_blocks=args.fno_blocks,
         fno_cnn_blocks=args.fno_cnn_blocks,
+        optimizer=args.optimizer,
+        weight_decay=args.weight_decay,
+        momentum=args.momentum,
+        adam_beta1=args.beta1,
+        adam_beta2=args.beta2,
         log_grad_norm=args.log_grad_norm,
         grad_norm_log_freq=args.grad_norm_log_freq,
         scheduler=args.scheduler,

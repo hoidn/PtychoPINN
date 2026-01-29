@@ -1169,6 +1169,44 @@ class TestConfigBridgeParity:
             "params.cfg['gradient_clip_algorithm'] should be 'agc' after update_legacy_dict"
 
 
+    def test_training_config_optimizer_roundtrip(self, params_cfg_snapshot):
+        """
+        Test that optimizer='sgd', momentum=0.9, weight_decay=1e-4 round-trips
+        through the bridge and populates params.cfg correctly.
+
+        Task ID: FNO-STABILITY-OVERHAUL-001 Phase 8 Task 1
+        """
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
+        from ptycho_torch import config_bridge
+        from ptycho.config.config import update_legacy_dict
+        import ptycho.params as params
+
+        pt_data = DataConfig(nphotons=1e9)
+        pt_model = ModelConfig()
+        pt_train = TrainingConfig(
+            optimizer='sgd',
+            momentum=0.9,
+            weight_decay=1e-4,
+            adam_beta1=0.9,
+            adam_beta2=0.999,
+        )
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+        tf_train = config_bridge.to_training_config(
+            tf_model, pt_data, pt_model, pt_train,
+            overrides=dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=1e9)
+        )
+
+        assert tf_train.optimizer == 'sgd'
+        assert tf_train.momentum == 0.9
+        assert tf_train.weight_decay == 1e-4
+        assert tf_train.adam_beta1 == 0.9
+        assert tf_train.adam_beta2 == 0.999
+
+        update_legacy_dict(params.cfg, tf_train)
+        assert params.cfg.get('optimizer') == 'sgd'
+
+
 class TestConfigBridgeArchitecture:
     """Tests for model.architecture field bridging."""
 

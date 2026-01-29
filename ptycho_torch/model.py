@@ -21,6 +21,26 @@ from ptycho_torch.train_utils import compute_grad_norm
 
 logger = logging.getLogger(__name__)
 
+
+def _build_optimizer(parameters, *, lr, optimizer='adam', momentum=0.9,
+                     weight_decay=0.0, adam_beta1=0.9, adam_beta2=0.999):
+    """Build optimizer from string name + hyperparams.
+
+    See: plans/active/FNO-STABILITY-OVERHAUL-001/plan_optimizer_diagnostics.md Task 1.
+    """
+    if optimizer == 'adam':
+        return torch.optim.Adam(parameters, lr=lr, betas=(adam_beta1, adam_beta2),
+                                weight_decay=weight_decay)
+    elif optimizer == 'adamw':
+        return torch.optim.AdamW(parameters, lr=lr, betas=(adam_beta1, adam_beta2),
+                                 weight_decay=weight_decay)
+    elif optimizer == 'sgd':
+        return torch.optim.SGD(parameters, lr=lr, momentum=momentum,
+                               weight_decay=weight_decay, nesterov=(momentum > 0))
+    else:
+        raise ValueError(f"Unsupported optimizer '{optimizer}'. Choose from: adam, adamw, sgd")
+
+
 #Lightning
 import lightning as L
 
@@ -1370,9 +1390,16 @@ class PtychoPINN_Lightning(L.LightningModule):
         return val_loss
     
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(),
-                                     lr = self.lr)
-        
+        optimizer = _build_optimizer(
+            self.parameters(),
+            lr=self.lr,
+            optimizer=getattr(self.training_config, 'optimizer', 'adam'),
+            momentum=getattr(self.training_config, 'momentum', 0.9),
+            weight_decay=getattr(self.training_config, 'weight_decay', 0.0),
+            adam_beta1=getattr(self.training_config, 'adam_beta1', 0.9),
+            adam_beta2=getattr(self.training_config, 'adam_beta2', 0.999),
+        )
+
         result = {"optimizer": optimizer}
         
         # Configure scheduler based on training type
