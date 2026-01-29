@@ -762,8 +762,17 @@ def _train_with_lightning(
         'log_grad_norm': getattr(config, 'log_grad_norm', False),
         'grad_norm_log_freq': getattr(config, 'grad_norm_log_freq', 1),
     }
+    if execution_config is not None and execution_config.learning_rate is not None:
+        factory_overrides['learning_rate'] = execution_config.learning_rate
     if execution_config is not None and execution_config.gradient_clip_val is not None:
         factory_overrides['gradient_clip_val'] = execution_config.gradient_clip_val
+    # Thread optimizer/scheduler config from TF TrainingConfig into factory overrides
+    for opt_field in ('scheduler', 'optimizer', 'weight_decay', 'momentum',
+                      'adam_beta1', 'adam_beta2', 'plateau_factor', 'plateau_patience',
+                      'plateau_min_lr', 'plateau_threshold'):
+        val = getattr(config, opt_field, None)
+        if val is not None:
+            factory_overrides[opt_field] = val
     for field_name in ('fno_modes', 'fno_width', 'fno_blocks', 'fno_cnn_blocks', 'fno_input_transform'):
         field_val = getattr(config.model, field_name, None)
         if field_val is not None:

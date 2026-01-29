@@ -225,6 +225,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     training_config.momentum = cfg.momentum
     training_config.adam_beta1 = cfg.adam_beta1
     training_config.adam_beta2 = cfg.adam_beta2
+    training_config.learning_rate = cfg.learning_rate
     training_config.scheduler = cfg.scheduler
     training_config.lr_warmup_epochs = cfg.lr_warmup_epochs
     training_config.lr_min_ratio = cfg.lr_min_ratio
