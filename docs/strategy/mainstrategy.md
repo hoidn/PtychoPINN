@@ -82,7 +82,7 @@ The supervisor should prioritize and test the following hypotheses when late-epo
 5. **Constant-width blocks:** Avoid channel doubling to reduce variance amplification. (Test: constant-width encoder/decoder.)
 6. **Data/loss scaling:** Late explosions are driven by loss scaling or phase noise. (Test: loss re-weighting or normalization sweep.)
 
-The supervisor should sequence these by expected impact and cost, and update the plan/Do Now each loop accordingly.
+The supervisor should evaluate, develop and priorize these, figuring out a design / implementation for the most promising hypotheses, and populate new plans and design documents accordingly
 
 ---
 
