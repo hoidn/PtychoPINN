@@ -314,6 +314,8 @@ Re-run the Phase 3 regression selectors to prove the CLI plumbing and runner fla
 
 Archive the pytest logs plus Stage B CLI log, stats JSON, and metrics JSON under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/` per `docs/TESTING_GUIDE.md`.
 
+**Status 2026-01-28:** BLOCKED — Task 4.2 hit CUDA OOM. `fno_blocks=8` produces 4.4B parameters (17.7 GB FP32) due to channel-doubling encoder (bottleneck = 4096 channels). Model cannot fit on RTX 3090 (24 GB). Tasks 4.1 and 4.4 completed; Task 4.3 summary written documenting the blocker. See `reports/2026-01-29T180000Z/stage_b_summary.md` for analysis and recommended alternatives (cap channels, try fno_blocks=6, constant-width blocks).
+
 ---
 
 ## Test Strategy
