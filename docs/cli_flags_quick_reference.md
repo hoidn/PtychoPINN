@@ -130,6 +130,13 @@ params.cfg (Legacy TensorFlow backend)
 | `--train_data_file` | overrides dict | TrainingConfig.train_data_file | str → Path |
 | `--max_epochs` | TrainingConfig.epochs | TrainingConfig.nepochs | int (rename) |
 | `--batch_size` | TrainingConfig.batch_size | TrainingConfig.batch_size | direct |
+| `--scheduler` | TrainingConfig.scheduler | TrainingConfig.scheduler | str |
+| `--lr_warmup_epochs` | TrainingConfig.lr_warmup_epochs | TrainingConfig.lr_warmup_epochs | int |
+| `--lr_min_ratio` | TrainingConfig.lr_min_ratio | TrainingConfig.lr_min_ratio | float |
+| `--torch-plateau-factor` | TrainingConfig.plateau_factor | TrainingConfig.plateau_factor | float |
+| `--torch-plateau-patience` | TrainingConfig.plateau_patience | TrainingConfig.plateau_patience | int |
+| `--torch-plateau-min-lr` | TrainingConfig.plateau_min_lr | TrainingConfig.plateau_min_lr | float |
+| `--torch-plateau-threshold` | TrainingConfig.plateau_threshold | TrainingConfig.plateau_threshold | float |
 | `--gridsize` | DataConfig.grid_size | ModelConfig.gridsize | int → Tuple[int, int] |
 | `--n_images` | overrides dict | TrainingConfig.n_groups | int (rename) |
 | `--device` | TrainingConfig.n_devices | n_devices (computed) | str → int |
