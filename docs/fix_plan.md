@@ -1,6 +1,6 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2026-01-27 (Poisson loss parity investigation logged)
+**Last Updated:** 2026-01-29 (Phase 8 optimizer + diagnostics planning logged)
 **Active Focus:** FNO-STABILITY-OVERHAUL-001 — FNO/Hybrid stability overhaul (planning)
 
 ---
@@ -41,10 +41,10 @@
   - *2026-01-28T00:00:00Z (supervisor review):* Assessed initiative near-complete. Root cause of 2 failures: `synthetic_npz` fixture uses `np.savez()` instead of `MetadataManager.save_with_metadata()`. Delegated fixture fix to Ralph. Artifacts: `plans/active/GRID-LINES-WORKFLOW-001/reports/2026-01-28T000000Z/`.
   - *2026-01-28T01:00:00Z (COMPLETE):* Engineer applied fixture fix (MetadataManager.save_with_metadata + correct YY_ground_truth shape + norm_Y_I). **Result: ALL 23/23 TORCH RUNNER TESTS PASSED (5.67s).** Initiative complete.
 
--### [FNO-STABILITY-OVERHAUL-001] FNO/Hybrid Stability Overhaul (stable_hybrid + AGC)
+### [FNO-STABILITY-OVERHAUL-001] FNO/Hybrid Stability Overhaul (stable_hybrid + AGC)
 - Depends on: GRID-LINES-WORKFLOW-001 ✅ (test harness complete)
 - Priority: **Critical** (Main strategy execution — `docs/strategy/mainstrategy.md`)
-- Status: Phase 7 COMPLETE — all 3 LR/clipping arms collapsed; STABLE-LS-001 remains open (LR-independent failure confirmed)
+- Status: Phase 7 COMPLETE (negative); Phase 8 optimizer + activation diagnostics plan ready — STABLE-LS-001 remains open (LR-independent failure confirmed)
 - Owner/Date: Codex/2026-01-28
 - Working Plan: `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md`
 - Reports Hub: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/`
@@ -74,6 +74,7 @@
   - *2026-01-28T22:40:00Z (Phase 6 Task 6.3 — WarmupCosine rerun):* Executed stable_hybrid Stage A arm with `--torch-scheduler WarmupCosine --torch-lr-warmup-epochs 5 --torch-lr-min-ratio 0.05 --torch-learning-rate 5e-4`, 20 epochs, no clipping. **Result: collapse NOT prevented.** Training showed early convergence (val_loss=0.024 at epoch 6, near control's 0.014) then catastrophic spike at epoch 7 (train_loss jumped from 0.025 to 17.07) followed by permanent plateau at val_loss≈0.18. Final metrics: amp_ssim=0.277, amp_mae=0.513 (same as LayerScale-only and zero-gamma runs). Norm weights remained healthy (mean~0.82-1.0), confirming this is not a weight stagnation issue. The collapse occurs right at the warmup→cosine transition (LR reaches peak at epoch 5). Hypothesis: the peak LR of 5e-4 is too aggressive for stable_hybrid; the architecture may need a lower LR or gradient clipping during warmup exit. STABLE-LS-001 remains open. Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T235959Z/`.
   - *2026-01-29T18:05:00Z (Phase 7 planning):* Authored the LR+gradient guard sweep (`docs/plans/2026-01-29-stable-hybrid-lr-gradient-study.md`) covering three Stage A arms (low LR, low-LR WarmupCosine, WarmupCosine+clip), mirrored the tasks into implementation.md §Phase 7, and updated `docs/strategy/mainstrategy.md` with the new lever summary. Provisioned isolated worktree `.worktrees/fno2-phase7-lr-sweep` (baseline pytest `tests/torch/test_fno_generators.py::TestStablePtychoBlock::test_layerscale_grad_flow` ✅) for execution, artifacts hub `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/` reserved for logs/metrics.
   - *2026-01-29T23:50:00Z (Phase 7 execution):* Executed all 3 Phase 7 arms from fno2-phase7-lr-sweep worktree. **ALL THREE COLLAPSED.** (1) Constant LR=2.5e-4: val_loss_best=0.024, collapsed to 0.198, amp_ssim=0.277. (2) WarmupCosine LR=2.5e-4: identical to arm 1. (3) WarmupCosine LR=5e-4 + clip 0.5: val_loss_best=0.140 (clipping hurt early convergence), collapsed to 0.188, amp_ssim=0.277. **Conclusion: collapse is LR-independent.** Halving LR from 5e-4→2.5e-4 did not help. Gradient clipping worsened convergence without preventing collapse. Hypotheses (a) peak LR too high and (b) gradient clipping needed are ruled out. STABLE-LS-001 updated with quantitative evidence. Remaining levers: optimizer change (Adam→SGD/AdamW), activation diagnostics, or topology revert. 3/3 regression selectors pass. Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/`.
+  - *2026-01-29T23:59:30Z (Phase 8 planning kickoff):* Authored `docs/plans/2026-01-30-stable-hybrid-optimizer-diagnostics.md` (mirrored to `plans/active/FNO-STABILITY-OVERHAUL-001/plan_optimizer_diagnostics.md`) defining Phase 8 scope: (1) add optimizer selection plumbing (Adam/AdamW/SGD) across configs/CLI/lightning, (2) enhance `scripts/debug_fno_activations.py` to load `stable_hybrid` checkpoints, (3) rerun Stage A with SGD + AdamW plus activation captures, and (4) sync findings/documents depending on outcomes. Implementation.md updated with Phase 8 section; new reports hub `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T050000Z/` reserved for optimizer runs.
 
 ---
 
@@ -362,4 +363,4 @@
 
 ---
 
-Supervisor state: `focus=FNO-STABILITY-OVERHAUL-001` `state=ready_for_implementation` `dwell=1` `artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/` `next_action=Engineer to execute Phase 7 LR/clipping Stage A sweep (low-LR, warmup-lowLR, warmup+clip) and update docs/tests per plan`
+Supervisor state: `focus=FNO-STABILITY-OVERHAUL-001` `state=planning` `dwell=1` `artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T050000Z/` `next_action=Engineer to execute Phase 8 Task 1 (optimizer plumbing + tests) before running SGD/AdamW arms`

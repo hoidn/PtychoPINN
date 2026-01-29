@@ -1,92 +1,85 @@
-# FNO-STABILITY-OVERHAUL-001 — Phase 7 LR/Clipping Stage A Sweep
+# FNO-STABILITY-OVERHAUL-001 — Phase 8 Optimizer Sweep + Activation Diagnostics
 
-**Summary:** Run the three Phase 7 Stage A experiments (low LR, WarmupCosine low LR, WarmupCosine + clip) for `stable_hybrid`, then publish metrics and doc updates per the new LR/gradient guard plan.
+Plan: `plans/active/FNO-STABILITY-OVERHAUL-001/plan_optimizer_diagnostics.md`
 
-**Focus:** FNO-STABILITY-OVERHAUL-001 — Phase 7 (LR + gradient guard for STABLE-LS-001)
+References:
+- `docs/strategy/mainstrategy.md`
+- `docs/plans/2026-01-30-stable-hybrid-optimizer-diagnostics.md`
+- `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md`
+- `docs/findings.md`
+- `docs/TESTING_GUIDE.md`
 
-**Branch:** fno2-phase7-lr-sweep
+**Summary:** Implement Phase 8 Tasks 1–3 from `plan_optimizer_diagnostics.md`: add optimizer selection plumbing (Adam/AdamW/SGD) with tests across config_bridge, runner, and Lightning; enhance `scripts/debug_fno_activations.py` so it loads `stable_hybrid` checkpoints; then run the two Stage A experiments (SGD + AdamW) with activation captures and archive everything under the new reports hub.
+**Summary (goal):** Ship optimizer plumbing + activation tooling, then determine whether SGD or AdamW prevents the STABLE-LS-001 collapse.
+
+**Focus:** FNO-STABILITY-OVERHAUL-001 — Phase 8 (optimizer + activation diagnostics)
+
+**Branch:** fno2-phase8-optimizers
 
 **Mapped tests:**
-- `pytest tests/torch/test_fno_generators.py::TestStablePtychoBlock::test_layerscale_grad_flow -v`
-- `pytest tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_runner_accepts_stable_hybrid -v`
-- `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_handles_stable_hybrid -v`
+- `pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_optimizer_roundtrip -vv`
+- `pytest tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_runner_accepts_optimizer -vv`
+- `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_passes_optimizer -vv`
+- `pytest tests/torch/test_model_training.py::TestOptimizerSelection::test_configures_sgd -vv`
+- `pytest tests/torch/test_debug_fno_activations.py::test_debug_fno_activations_emits_report -vv`
+- `pytest tests/torch/test_fno_generators.py::TestStablePtychoBlock::test_layerscale_grad_flow -vv`
 
-**Artifacts:** `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/`
+**Artifacts:** `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T050000Z/`
 
-**Next Up (optional):** If all three runs finish early, capture activation traces at the epoch-7 collapse using `scripts/debug_fno_activations.py` for whichever arm still fails.
+**Next Up (optional):** If both optimizers still collapse, pull gradient histograms at the collapse epoch (`scripts/internal/stage_a_dump_stats.py --plot-grad-hist`) to prep for Phase 9 architecture pivots.
 
 ---
 
-## Do Now — Phase 7 plan_lr_sweep.md Tasks 7.1–7.5
+## Do Now — plan_optimizer_diagnostics.md Tasks 1–3
 
-1. **Re-read the plan + findings:** Study `plans/active/FNO-STABILITY-OVERHAUL-001/plan_lr_sweep.md` (mirrors `docs/plans/2026-01-29-stable-hybrid-lr-gradient-study.md`) and Finding STABLE-LS-001 in `docs/findings.md` so the acceptance criteria (amp_ssim ≥0.80 without post-epoch-7 collapse) are fresh.
-2. **Workspace prep:** From the `fno2-phase7-lr-sweep` worktree, sync datasets per Task 7.1:
+1. **Re-read references:** `docs/strategy/mainstrategy.md` (Phase 7 outcome + Phase 8 intent), `docs/findings.md` (STABLE-LS-001), `docs/plans/2026-01-30-stable-hybrid-optimizer-diagnostics.md` + `plans/active/FNO-STABILITY-OVERHAUL-001/plan_optimizer_diagnostics.md` (Task details), and `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md` (Phase 8 section). Keep `docs/TESTING_GUIDE.md` handy for artifacting rules.
+2. **Task 1 — Optimizer plumbing & tests:**
+   - Extend TF + Torch `TrainingConfig` dataclasses with `optimizer` literal + `momentum`, `weight_decay`, `adam_beta1`, `adam_beta2`; mirror fields through `config_bridge`, `config_factory`, and `TorchRunnerConfig`.
+   - Add CLI flags to `scripts/studies/grid_lines_torch_runner.py` (`--torch-optimizer`, `--torch-weight-decay`, `--torch-momentum`, `--torch-beta1`, `--torch-beta2`) and forward them via `grid_lines_compare_wrapper.py`.
+   - Update `PtychoPINN_Lightning.configure_optimizers()` to branch on the new field (Adam/AdamW/SGD) and keep scheduler wiring intact.
+   - Tests: update/add the selectors listed above (config bridge roundtrip, runner CLI, wrapper forwarding, Lightning optimizer smoke test). Archive each pytest log under the artifacts directory.
+3. **Task 2 — Activation debug upgrades:**
+   - Enhance `scripts/debug_fno_activations.py` to accept `--architecture stable_hybrid`, `--checkpoint <model.pt>`, and optional `--output-json-name`; load checkpoints by stripping the `model.` prefix before calling `load_state_dict`.
+   - Expand `tests/torch/test_debug_fno_activations.py` so it saves a temporary `StableHybridUNOGenerator` state_dict, runs the script with the new flags, and asserts the custom JSON filename exists.
+   - Run `pytest tests/torch/test_debug_fno_activations.py -vv` and archive the log.
+4. **Task 3 prep — workspace + datasets:** from `fno2-phase8-optimizers`, create Stage A arm directories:
    ```bash
-   rsync -a outputs/grid_lines_stage_a/arm_control/datasets/ outputs/grid_lines_stage_a/arm_stable_lowlr/datasets/
-   rsync -a outputs/grid_lines_stage_a/arm_control/datasets/ outputs/grid_lines_stage_a/arm_stable_warmup_lowlr/datasets/
-   rsync -a outputs/grid_lines_stage_a/arm_control/datasets/ outputs/grid_lines_stage_a/arm_stable_warmup_clip/datasets/
-   rm -rf outputs/grid_lines_stage_a/arm_stable_lowlr/runs outputs/grid_lines_stage_a/arm_stable_warmup_lowlr/runs outputs/grid_lines_stage_a/arm_stable_warmup_clip/runs
+   mkdir -p outputs/grid_lines_stage_a/{arm_stable_sgd,arm_stable_adamw}
+   rsync -a outputs/grid_lines_stage_a/arm_control/datasets/ outputs/grid_lines_stage_a/arm_stable_sgd/datasets/
+   rsync -a outputs/grid_lines_stage_a/arm_control/datasets/ outputs/grid_lines_stage_a/arm_stable_adamw/datasets/
+   rm -rf outputs/grid_lines_stage_a/arm_stable_sgd/runs outputs/grid_lines_stage_a/arm_stable_adamw/runs
+   echo "Stage A shared params: seed=20260128, N=64, gridsize=1, nimgs=1, nphotons=1e9, epochs=20" > plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T050000Z/README.md
    ```
-   Ensure `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/README.md` captures shared seeds/params (seed 20260128, N=64, gridsize=1, nimgs_train/test=1, nphotons=1e9, epochs=20).
-3. **Arm 1 — Constant low LR (no scheduler):**
+5. **Task 3 — SGD arm (WarmupCosine, LR 3e-4, no clip):**
    ```bash
    AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md \
    python scripts/studies/grid_lines_compare_wrapper.py \
      --N 64 --gridsize 1 \
-     --output-dir outputs/grid_lines_stage_a/arm_stable_lowlr \
+     --output-dir outputs/grid_lines_stage_a/arm_stable_sgd \
      --architectures stable_hybrid \
      --seed 20260128 \
      --nimgs-train 1 --nimgs-test 1 --nphotons 1e9 \
      --nepochs 20 --torch-epochs 20 \
-     --torch-learning-rate 2.5e-4 \
-     --torch-scheduler Default \
+     --torch-learning-rate 3e-4 \
+     --torch-optimizer sgd --torch-momentum 0.9 --torch-weight-decay 0.0 \
+     --torch-scheduler WarmupCosine --torch-lr-warmup-epochs 5 --torch-lr-min-ratio 0.05 \
      --torch-grad-clip 0.0 --torch-grad-clip-algorithm norm \
      --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8 \
      --torch-log-grad-norm --torch-grad-norm-log-freq 1 \
-     2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_arm_stable_lowlr.log
+     2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T050000Z/stage_a_arm_stable_sgd.log
    ```
-4. **Arm 2 — WarmupCosine with low LR:** Repeat with the WarmupCosine knobs and the same LR cap:
+   - Copy `history.json`, `metrics.json`, `model.pt`, grad-norm traces into the hub, run `scripts/internal/stage_a_dump_stats.py --run-dir outputs/grid_lines_stage_a/arm_stable_sgd/runs/pinn_stable_hybrid --out-json plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T050000Z/stage_a_arm_stable_sgd_stats.json`.
+   - Immediately capture activations:
    ```bash
-   AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md \
-   python scripts/studies/grid_lines_compare_wrapper.py \
-     --N 64 --gridsize 1 \
-     --output-dir outputs/grid_lines_stage_a/arm_stable_warmup_lowlr \
-     --architectures stable_hybrid \
-     --seed 20260128 \
-     --nimgs-train 1 --nimgs-test 1 --nphotons 1e9 \
-     --nepochs 20 --torch-epochs 20 \
-     --torch-learning-rate 2.5e-4 \
-     --torch-scheduler WarmupCosine \
-     --torch-lr-warmup-epochs 5 \
-     --torch-lr-min-ratio 0.05 \
-     --torch-grad-clip 0.0 --torch-grad-clip-algorithm norm \
-     --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8 \
-     --torch-log-grad-norm --torch-grad-norm-log-freq 1 \
-     2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_arm_stable_warmup_lowlr.log
+   python scripts/debug_fno_activations.py \
+     --input outputs/grid_lines_stage_a/arm_control/datasets/N64/gs1/train/train.npz \
+     --output plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T050000Z \
+     --architecture stable_hybrid \
+     --checkpoint outputs/grid_lines_stage_a/arm_stable_sgd/runs/pinn_stable_hybrid/model.pt \
+     --batch-size 1 --max-samples 1 --device cpu \
+     --output-json-name activation_report_sgd.json
    ```
-5. **Arm 3 — WarmupCosine + norm clip:** Repeat with the original LR and clipping:
-   ```bash
-   AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md \
-   python scripts/studies/grid_lines_compare_wrapper.py \
-     --N 64 --gridsize 1 \
-     --output-dir outputs/grid_lines_stage_a/arm_stable_warmup_clip \
-     --architectures stable_hybrid \
-     --seed 20260128 \
-     --nimgs-train 1 --nimgs-test 1 --nphotons 1e9 \
-     --nepochs 20 --torch-epochs 20 \
-     --torch-learning-rate 5e-4 \
-     --torch-scheduler WarmupCosine \
-     --torch-lr-warmup-epochs 5 \
-     --torch-lr-min-ratio 0.05 \
-     --torch-grad-clip 0.5 --torch-grad-clip-algorithm norm \
-     --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8 \
-     --torch-log-grad-norm --torch-grad-norm-log-freq 1 \
-     2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_arm_stable_warmup_clip.log
-   ```
-6. **Archive + stats:** For each arm copy `history.json`, `metrics.json`, `model.pt`, and grad-norm traces into the artifacts hub with descriptive filenames, then run:
-   ```bash
-   python scripts/internal/stage_a_dump_stats.py --run-dir <arm_run_dir> --out-json plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_arm_<arm>_stats.json
-   ```
-   Aggregate the rows into `stage_a_metrics_phase7.json` (or append to the existing metrics file) and update `stage_a_summary.md` with a new table highlighting which arms (if any) avoided collapse.
-7. **Docs + findings sync:** Refresh `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md` (Phase 7 status), `plans/active/FNO-STABILITY-OVERHAUL-001/summary.md`, `docs/strategy/mainstrategy.md`, `docs/fix_plan.md`, and `docs/findings.md` (STABLE-LS-001). Document whether LR/clipping resolved the failure mode; if not, record quantitative LR thresholds to justify next hypotheses.
-8. **Testing + hygiene:** Run the mapped pytest selectors above (archive logs under the artifacts directory) and ensure git only stages intentional changes plus the new reports. Keep large artifacts out of git; everything for this loop stays under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/`.
+6. **Task 3 — AdamW arm (weight decay 0.01):** repeat Step 5 with `--output-dir .../arm_stable_adamw`, `--torch-optimizer adamw --torch-weight-decay 0.01 --torch-beta1 0.9 --torch-beta2 0.999`, and log to `stage_a_arm_stable_adamw.log`. Archive artifacts + stats JSON and run the activation capture with `activation_report_adamw.json`.
+7. **Aggregate + docs:** append both runs to `stage_a_metrics_phase8.json` (new file under the hub) and write `stage_a_optimizer_summary.md` comparing SGD/AdamW vs Phase 7 metrics. Update `plans/active/.../implementation.md`, `plans/active/.../summary.md`, `docs/strategy/mainstrategy.md`, `docs/findings.md` (update STABLE-LS-001 or add STABLE-OPT-001), and `docs/fix_plan.md` with the outcomes.
+8. **Regression selectors:** after code + runs are done, re-run the mapped regression selectors listed above (plus the three existing stable_hybrid selectors if time allows) and place the pytest logs inside the artifacts directory.
+9. **Git hygiene:** keep large logs/models out of git (only references in hub). Stage only source + doc changes, leave `outputs/` untracked.

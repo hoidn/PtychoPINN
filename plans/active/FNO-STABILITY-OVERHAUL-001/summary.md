@@ -1,3 +1,9 @@
+### Turn Summary (2026-01-29 supervisor — Phase 8 optimizer/diagnostics plan)
+Captured Phase 7 evidence into docs/strategy and fix_plan, then authored the Phase 8 optimizer + activation diagnostics plan (`docs/plans/2026-01-30-stable-hybrid-optimizer-diagnostics.md` mirrored to `plan_optimizer_diagnostics.md`) covering optimizer plumbing, activation script upgrades, and SGD/AdamW Stage A runs.
+Updated `plans/active/.../implementation.md` with the new Phase 8 section, refreshed `docs/strategy/mainstrategy.md` with the pending optimizer sweep, and set fix_plan FSM state back to planning (artifacts hub `reports/2026-01-30T050000Z/` reserved).
+Next: engineer executes Task 1 (optimizer selection plumbing + tests), then runs the SGD/AdamW arms with activation captures per the new plan.
+Artifacts: plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T050000Z/
+
 ### Turn Summary (2026-01-29 engineer — Phase 7 LR sweep complete)
 Executed Phase 7 Tasks 7.1–7.5: three Stage A arms (low LR 2.5e-4, WarmupCosine 2.5e-4, WarmupCosine 5e-4 + clip 0.5) all collapsed with amp_ssim=0.277. LR halving and gradient clipping do NOT prevent the stable_hybrid collapse. STABLE-LS-001 remains open — the failure is LR-independent and structural. 3/3 regression selectors pass. Artifacts: `reports/2026-01-30T010000Z/`.
 

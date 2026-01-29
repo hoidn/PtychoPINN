@@ -460,6 +460,24 @@ Phase 6 proved scheduler plumbing works but the warmup+cosine attempt still coll
 
 ---
 
+## Phase 8: Optimizer Sweep + Activation Diagnostics
+
+Phase 7 eliminated LR and gradient clipping as levers, leaving optimizer sensitivity and architectural incompatibility as the remaining hypotheses in STABLE-LS-001. Phase 8 adds optimizer selection plumbing plus checkpoint-aware activation tooling, then reruns Stage A with SGD and AdamW to see whether either optimizer avoids the collapse (target amp_ssim ≥0.80). Whether the runs succeed or fail, we will immediately capture activation reports from each checkpoint to quantify branch imbalance right before collapse.
+
+**Plan reference:** `docs/plans/2026-01-30-stable-hybrid-optimizer-diagnostics.md` (mirrored to `plans/active/FNO-STABILITY-OVERHAUL-001/plan_optimizer_diagnostics.md`).
+
+### Phase 8 Tasks
+1. **Optimizer selection plumbing (Task 1).** Add `optimizer`, `momentum`, `weight_decay`, and Adam betas to TF/Torch `TrainingConfig`, thread them through `config_bridge`, `config_factory`, and both Stage A CLIs. Update `PtychoPINN_Lightning.configure_optimizers()` to instantiate Adam/AdamW/SGD per config, and extend docs/tests accordingly (`tests/torch/test_model_training.py`, runner/wrapper selectors).
+2. **Activation debug upgrades (Task 2).** Teach `scripts/debug_fno_activations.py` to accept `--architecture stable_hybrid`, load saved `model.pt` checkpoints via `--checkpoint`, and emit multiple JSONs per run. Expand `tests/torch/test_debug_fno_activations.py` to exercise the new code paths.
+3. **Stage A optimizer sweep (Task 3).** Reuse the cached Stage A dataset to run two `stable_hybrid` arms: SGD+momentum (LR 3e-4) and AdamW (LR 5e-4, weight_decay 0.01) with WarmupCosine scheduler. Record logs/history/model.pt under `reports/2026-01-30T050000Z/`, compute stats, and capture activation reports (`activation_report_sgd.json`, `activation_report_adamw.json`). Required regression selectors remain the Phase 5–7 trio.
+4. **Docs + findings sync (Task 4).** Update `docs/strategy/mainstrategy.md`, `docs/findings.md` (STABLE-LS-001 or new STABLE-OPT-001), `docs/fix_plan.md`, and this file’s status table depending on whether the optimizer sweep resolves the collapse.
+
+**Exit criteria:** (a) Optimizer settings are configurable end-to-end via CLI/config and covered by tests, (b) activation script can analyze any saved stable_hybrid checkpoint, and (c) Stage A optimizer runs either succeed (amp_ssim ≥0.80) or conclusively show optimizer independence with activation evidence archived for downstream architectural work.
+
+**Status 2026-01-29:** PLANNING. Awaiting Task 1 execution.
+
+---
+
 ## Test Strategy
 
 ### Unit Tests (Phase 1)
