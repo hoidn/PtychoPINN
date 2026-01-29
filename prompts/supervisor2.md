@@ -56,7 +56,7 @@ Run ~/.codex/superpowers/.codex/superpowers-codex bootstrap
   <retrospective_cadence>
     At the start of every third loop for a given focus (or when anomalies arise),
     perform a brief retrospective: scan ~10 prior iterations' commits/diffs for this focus,
-    verify the last `input.md` Do Now was followed, and note regressions/hygiene issues.
+    verify the last `input.md` instructions were followed, and note regressions/hygiene issues.
   </retrospective_cadence>
 
   <focus_selection>
@@ -132,7 +132,7 @@ Run ~/.codex/superpowers/.codex/superpowers-codex bootstrap
     - <strong>Artifacts</strong>: `plans/active/<initiative-id>/reports/<YYYY-MM-DDTHHMMSSZ>/{...}`.
     - <strong>Next Up (optional)</strong>: 1–2 candidates Ralph may choose if he finishes early.
 
-    - <strong>Mapped Tests Guardrail</strong>: At least one mapped selector must collect (>0) in `--collect-only`. If none exist, first Do Now step is "author minimal targeted test," then Doc Sync Plan + collect‑only artifacting (after code passes).
+    - <strong>Mapped Tests Guardrail</strong>: At least one mapped selector must collect (>0) in `--collect-only`. If none exist, include instruction to "author minimal targeted test".
 
     - <strong>Normative Math/Physics</strong>: Do not paraphrase spec equations into pseudo-code or sample math. Reference the exact Spec section (e.g., "See `docs/specs/spec-ptycho-core.md §Forward Model`") so the engineer reads the normative source.
   </input_md_requirements>

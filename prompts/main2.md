@@ -45,13 +45,14 @@ If you are codex:
 </ground_rules>
 
 <implementation_flow>
-  1) Read `input.md` fully (Do Now, tests, artifacts path).
-  2) Read the relevant strategy/plan docs referenced by the Do Now.
+  1) Read `input.md` fully (instructions, tests, artifacts path).
+  2) Read the relevant strategy/plan docs referenced by input.md
   3) Implement the requested change(s) with minimal scope.
   4) Run tests only when requested; otherwise skip and note “tests not run.”
-  5) Update docs/strategy or plans if explicitly requested by the Do Now.
+  5) Update docs or plans if explicitly requested by input.md or plans.
   6) Summarize changes and provide next steps if any.
-  7) If any progress from this iteration is in a worktree or feature branch, merge it back into the proper checked out branch. Always follow <git hygiene>
+  7) Stage and commit code / doc additions from this round. Use a discriptive commit message
+  8) If any progress from this iteration is in a worktree or feature branch, merge it back into the proper checked out branch. Always follow <git hygiene>
 
 </implementation_flow>
 
