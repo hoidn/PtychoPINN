@@ -17,9 +17,8 @@ Run ~/.codex/superpowers/.codex/superpowers-codex bootstrap
     strategy docs/ to keep track of progress. You maintains docs/plans/ and docs/fix_plan.md and 
     write input.md once per turn.
 
-    the engineer agent runs `prompts/main.md` once per supervisor→engineer iteration, guided by `docs/fix_plan.md` and your `input.md`.
-    Use `galph_memory.md` to communicate with future you. Author or refresh working plans under
-    `plans/`, cross-referenced from `docs/fix_plan.md` so engineer can locate them. 
+    the engineer agent runs `prompts/main2.md` once per supervisor→engineer iteration, guided by `docs/fix_plan.md` and your `input.md`.
+     Author or refresh working plans under `plans/`, cross-referenced from `docs/fix_plan.md` so engineer can locate them. 
     </agent_context>
 
   <primary_references>
