@@ -416,6 +416,10 @@ LayerScale freed the norm weights but the Stage A arm still collapses after epoc
 
 Detailed task steps live in `docs/plans/2026-01-29-stable-hybrid-training-dynamics.md` (mirrored to `plans/active/FNO-STABILITY-OVERHAUL-001/plan_training_dynamics.md`).
 
+**Status 2026-01-28:** Phase 6 COMPLETE.
+- Tasks 6.1–6.2: Scheduler knobs surfaced across configs/CLI, `build_warmup_cosine_scheduler()` wired into Lightning, unit tests pass.
+- Task 6.3: WarmupCosine rerun executed (LR=5e-4, warmup=5ep, min_ratio=0.05, 20 epochs, no clip). **Result: collapse NOT prevented.** Training converged to val_loss=0.024 by epoch 6, then catastrophic train_loss spike (0.025→17.07) at epoch 7 (warmup→cosine LR transition). Permanent plateau at val_loss≈0.198, amp_ssim=0.277. Norm weights healthy. STABLE-LS-001 remains open. Artifacts: `reports/2026-01-29T235959Z/`.
+
 ---
 
 ## Test Strategy

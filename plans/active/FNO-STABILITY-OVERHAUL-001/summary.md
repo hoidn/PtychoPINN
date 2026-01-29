@@ -1,3 +1,10 @@
+### Turn Summary (2026-01-28 — Phase 6 Task 6.3 complete)
+Executed WarmupCosine Stage A rerun: stable_hybrid with LR=5e-4, warmup=5 epochs, min_ratio=0.05, 20 epochs, no clipping.
+**Result: collapse NOT prevented.** val_loss converged to 0.024 by epoch 6, then catastrophic spike at epoch 7 (train_loss 0.025→17.07 at warmup→cosine LR transition), permanent plateau at val_loss≈0.198. amp_ssim=0.277, amp_mae=0.513 (identical to LayerScale-only run). Norm weights healthy.
+Updated docs/strategy, docs/fix_plan, docs/findings (STABLE-LS-001 remains open), and implementation.md Phase 6 status.
+Next levers for stable_hybrid: lower peak LR, gradient clipping, optimizer change, or activation diagnostics at collapse epoch.
+Artifacts: plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T235959Z/
+
 ### Turn Summary (2026-01-29 late night)
 Captured engineer progress for Phase 6 Tasks 6.1–6.2 (scheduler knobs + WarmupCosine helper) and updated docs/strategy + fix_plan with the new status.
 Selected Task 6.3 (Stage A warmup rerun + doc sync) as the next execution target, defined CLI + artifact requirements, and refreshed input.md + FSM state accordingly.
