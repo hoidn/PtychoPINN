@@ -132,6 +132,7 @@ Stage A validates the architectural fix (`stable_hybrid`) against the optimizati
    ```
    (Re-run the copy whenever you regenerate the control arm.)
 3. Record the shared seed (`20260128`) and hyperparameters (N=64, gridsize=1, nimgs_train/test=2, nphotons=1e9, nepochs=50, fno_blocks=4) in a short README inside the artifacts hub for traceability.
+   - For quick test runs, use `nimgs_train=1` and `nimgs_test=1` to reduce runtime/GPU memory before running the full settings.
 
 ### Task 3.2: Arm 1 — Control (`hybrid`, norm clip 1.0)
 
@@ -262,6 +263,7 @@ Stage B validates whether the Stage A winner (control arm: `hybrid` + norm clip 
    rm -rf outputs/grid_lines_stage_b/deep_control/runs
    ```
 3. Drop a short README under the artifacts hub documenting the shared hyperparameters (N=64, gridsize=1, `fno_blocks=8`, seed=20260128, nimgs_train/test=2, nphotons=1e9, loss=MAE, clip=1.0 norm). This mirrors the Stage A README for traceability.
+   - For quick test runs, start with `nimgs_train=1` and `nimgs_test=1` to confirm stability before re-running the full settings.
 
 ### Task 4.2: Execute Stage B deep control run (`fno_blocks=8`)
 

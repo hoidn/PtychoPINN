@@ -48,6 +48,7 @@ We will select the winner through a rigorous 2-stage process using the `grid_lin
 **Protocol:**
 *   Dataset generation must use `--set-phi`; otherwise phase metrics are meaningless.
 *   Run each arm across **N seeds** (suggested: 5–10). Report median + IQR for metrics **conditional on successful runs**.
+*   **Test runs:** use `nimgs_train=1` and `nimgs_test=1` to cut runtime and GPU memory; full runs should keep `nimgs_train/test=2` unless otherwise stated.
 
 | Arm | Architecture | Clipping Strategy | Hypothesis | Success Condition |
 | :--- | :--- | :--- | :--- | :--- |
@@ -74,6 +75,7 @@ Control unexpectedly dominated; the hypothesized drift did not appear at 4 block
 
 *   **Protocol:** Run the **Winner of Stage A** (control arm: `hybrid`, norm clip 1.0) with `fno_blocks=8`, same dataset/probe, and log gradient norms every epoch (`--torch-log-grad-norm`).
 *   **Success Condition:** The deep model avoids gradient explosion (no NaNs, grad_norm bounded) and matches or beats the Stage A val_loss/SSIM metrics.
+*   **Test runs:** start with `nimgs_train=1` and `nimgs_test=1` to validate stability before scaling back to `nimgs_train/test=2`.
 
 **Stage B plan (scheduled 2026-01-29T18:00Z):**
 - Output dir: `outputs/grid_lines_stage_b/deep_control`
