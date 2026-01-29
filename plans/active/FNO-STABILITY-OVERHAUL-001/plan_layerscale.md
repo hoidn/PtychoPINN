@@ -74,11 +74,12 @@
   AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md \
   python scripts/studies/grid_lines_compare_wrapper.py \
     --N 64 --gridsize 1 \
+    --set-phi \
     --output-dir outputs/grid_lines_stage_a/arm_stable_layerscale \
     --architectures stable_hybrid \
     --seed 20260128 \
     --nimgs-train 1 --nimgs-test 1 --nphotons 1e9 \
-    --nepochs 20 --torch-epochs 20 \
+    --nepochs 50 --torch-epochs 50 \
     --torch-grad-clip 0.0 --torch-grad-clip-algorithm norm \
     --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8 \
     2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/stage_a_arm_stable_layerscale.log
@@ -134,3 +135,4 @@
 2. **Parallel Session:** Start a new session/worktree, invoke superpowers:executing-plans, and implement tasks with checkpoint reviews between groups of steps.
 
 Which approach? (Respond `1` or `2`).
+

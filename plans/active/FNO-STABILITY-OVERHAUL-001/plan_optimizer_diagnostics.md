@@ -92,12 +92,13 @@ Same commands as Step 2; archive logs under the initiative report hub.
 
 **Step 1: Prep workspace**
 - `mkdir -p` the two arm directories and rsync Stage A control datasets into each.
-- Create the new reports hub with README listing shared hyperparams (N=64, gridsize=1, nimgs=1, fno_blocks=4, seed=20260128, scheduler=WarmupCosine(5,0.05)).
+- Create the new reports hub with README listing shared hyperparams (N=64, gridsize=1, nimgs=1, fno_blocks=4, seed=20260128, scheduler=WarmupCosine(5,0.05) plus the enforced `--set-phi` flag for all Stage A runs).
 
 **Step 2: Run SGD arm**
 ```bash
 python scripts/studies/grid_lines_compare_wrapper.py \
   --N 64 --gridsize 1 \
+  --set-phi \
   --output-dir outputs/grid_lines_stage_a/arm_stable_sgd \
   --architectures stable_hybrid \
   --seed 20260128 \
@@ -123,7 +124,7 @@ python scripts/debug_fno_activations.py \
   --output-json-name activation_report_sgd.json
 ```
 
-**Step 4: Run AdamW arm** (same command but `--output-dir .../arm_stable_adamw`, `--torch-optimizer adamw --torch-weight-decay 0.01 --torch-beta1 0.9 --torch-beta2 0.999`). Capture logs, stats, and activations (JSON named `activation_report_adamw.json`).
+**Step 4: Run AdamW arm** (same command but `--output-dir .../arm_stable_adamw`, `--torch-optimizer adamw --torch-weight-decay 0.01 --torch-beta1 0.9 --torch-beta2 0.999`); ensure `--set-phi` stays present just like the SGD arm. Capture logs, stats, and activations (JSON named `activation_report_adamw.json`).
 
 **Step 5: Regression selectors**
 - `pytest tests/torch/test_fno_generators.py::TestStablePtychoBlock::test_layerscale_grad_flow`

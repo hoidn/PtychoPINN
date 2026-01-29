@@ -10,7 +10,7 @@ References:
 - `docs/TESTING_GUIDE.md`
 
 **Summary:** Implement Phase 8 Tasks 1–3 from `plan_optimizer_diagnostics.md`: add optimizer selection plumbing (Adam/AdamW/SGD) with tests across config_bridge, runner, and Lightning; enhance `scripts/debug_fno_activations.py` so it loads `stable_hybrid` checkpoints; then run the two Stage A experiments (SGD + AdamW) with activation captures and archive everything under the new reports hub.
-**Summary (goal):** Ship optimizer plumbing + activation tooling, then determine whether SGD or AdamW prevents the STABLE-LS-001 collapse.
+**Summary (goal):** Ship optimizer plumbing + activation tooling, then determine whether SGD or AdamW prevents the STABLE-LS-001 collapse. All Stage A invocations must include `--set-phi` per docs/strategy/mainstrategy.md.
 
 **Focus:** FNO-STABILITY-OVERHAUL-001 — Phase 8 (optimizer + activation diagnostics)
 
@@ -48,13 +48,14 @@ References:
    rsync -a outputs/grid_lines_stage_a/arm_control/datasets/ outputs/grid_lines_stage_a/arm_stable_sgd/datasets/
    rsync -a outputs/grid_lines_stage_a/arm_control/datasets/ outputs/grid_lines_stage_a/arm_stable_adamw/datasets/
    rm -rf outputs/grid_lines_stage_a/arm_stable_sgd/runs outputs/grid_lines_stage_a/arm_stable_adamw/runs
-   echo "Stage A shared params: seed=20260128, N=64, gridsize=1, nimgs=1, nphotons=1e9, epochs=20" > plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T050000Z/README.md
+   echo "Stage A shared params: seed=20260128, N=64, gridsize=1, nimgs=1, nphotons=1e9, epochs=20, ALWAYS pass --set-phi" > plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T050000Z/README.md
    ```
 5. **Task 3 — SGD arm (WarmupCosine, LR 3e-4, no clip):**
    ```bash
    AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md \
    python scripts/studies/grid_lines_compare_wrapper.py \
      --N 64 --gridsize 1 \
+     --set-phi \
      --output-dir outputs/grid_lines_stage_a/arm_stable_sgd \
      --architectures stable_hybrid \
      --seed 20260128 \
@@ -79,7 +80,7 @@ References:
      --batch-size 1 --max-samples 1 --device cpu \
      --output-json-name activation_report_sgd.json
    ```
-6. **Task 3 — AdamW arm (weight decay 0.01):** repeat Step 5 with `--output-dir .../arm_stable_adamw`, `--torch-optimizer adamw --torch-weight-decay 0.01 --torch-beta1 0.9 --torch-beta2 0.999`, and log to `stage_a_arm_stable_adamw.log`. Archive artifacts + stats JSON and run the activation capture with `activation_report_adamw.json`.
+6. **Task 3 — AdamW arm (weight decay 0.01):** repeat Step 5 with `--output-dir .../arm_stable_adamw`, `--torch-optimizer adamw --torch-weight-decay 0.01 --torch-beta1 0.9 --torch-beta2 0.999`, and log to `stage_a_arm_stable_adamw.log`. Keep `--set-phi` in place to preserve phase metrics. Archive artifacts + stats JSON and run the activation capture with `activation_report_adamw.json`.
 7. **Aggregate + docs:** append both runs to `stage_a_metrics_phase8.json` (new file under the hub) and write `stage_a_optimizer_summary.md` comparing SGD/AdamW vs Phase 7 metrics. Update `plans/active/.../implementation.md`, `plans/active/.../summary.md`, `docs/strategy/mainstrategy.md`, `docs/findings.md` (update STABLE-LS-001 or add STABLE-OPT-001), and `docs/fix_plan.md` with the outcomes.
 8. **Regression selectors:** after code + runs are done, re-run the mapped regression selectors listed above (plus the three existing stable_hybrid selectors if time allows) and place the pytest logs inside the artifacts directory.
 9. **Git hygiene:** keep large logs/models out of git (only references in hub). Stage only source + doc changes, leave `outputs/` untracked.

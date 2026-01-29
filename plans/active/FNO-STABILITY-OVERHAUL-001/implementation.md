@@ -131,7 +131,7 @@ Stage A validates the architectural fix (`stable_hybrid`) against the optimizati
    rsync -a outputs/grid_lines_stage_a/arm_control/datasets/ outputs/grid_lines_stage_a/arm_agc/datasets/
    ```
    (Re-run the copy whenever you regenerate the control arm.)
-3. Record the shared seed (`20260128`) and hyperparameters (N=64, gridsize=1, nimgs_train/test=1, nphotons=1e9, nepochs=20, fno_blocks=4) in a short README inside the artifacts hub for traceability.
+3. Record the shared seed (`20260128`), hyperparameters (N=64, gridsize=1, nimgs_train/test=1, nphotons=1e9, nepochs=20, fno_blocks=4), and the explicit use of `--set-phi` (Phase metrics requirement from docs/strategy/mainstrategy.md §1) in a short README inside the artifacts hub for traceability.
    - Full runs should use `nimgs_train=1` and `nimgs_test=1` to reduce runtime/GPU memory.
 
 ### Task 3.2: Arm 1 — Control (`hybrid`, norm clip 1.0)
@@ -142,6 +142,7 @@ Command:
 ```bash
 python scripts/studies/grid_lines_compare_wrapper.py \
   --N 64 --gridsize 1 \
+  --set-phi \
   --output-dir outputs/grid_lines_stage_a/arm_control \
   --architectures hybrid \
   --seed 20260128 \
@@ -163,6 +164,7 @@ Command:
 ```bash
 python scripts/studies/grid_lines_compare_wrapper.py \
   --N 64 --gridsize 1 \
+  --set-phi \
   --output-dir outputs/grid_lines_stage_a/arm_stable \
   --architectures stable_hybrid \
   --seed 20260128 \
@@ -182,6 +184,7 @@ Command:
 ```bash
 python scripts/studies/grid_lines_compare_wrapper.py \
   --N 64 --gridsize 1 \
+  --set-phi \
   --output-dir outputs/grid_lines_stage_a/arm_agc \
   --architectures hybrid \
   --seed 20260128 \
@@ -262,7 +265,7 @@ Stage B validates whether the Stage A winner (control arm: `hybrid` + norm clip 
      outputs/grid_lines_stage_b/deep_control/datasets/
    rm -rf outputs/grid_lines_stage_b/deep_control/runs
    ```
-3. Drop a short README under the artifacts hub documenting the shared hyperparameters (N=64, gridsize=1, `fno_blocks=8`, seed=20260128, nimgs_train/test=1, nphotons=1e9, loss=MAE, clip=1.0 norm). This mirrors the Stage A README for traceability.
+3. Drop a short README under the artifacts hub documenting the shared hyperparameters (N=64, gridsize=1, `fno_blocks=8`, seed=20260128, nimgs_train/test=1, nphotons=1e9, loss=MAE, clip=1.0 norm) **and reiterate that Stage B inherits the Stage A `--set-phi` requirement for valid phase metrics**. This mirrors the Stage A README for traceability.
    - Full runs should use `nimgs_train=1` and `nimgs_test=1` to keep the deep control run tractable.
 
 ### Task 4.2: Execute Stage B deep control run (`fno_blocks=8`)
@@ -272,6 +275,7 @@ Stage B validates whether the Stage A winner (control arm: `hybrid` + norm clip 
 AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md \
 python scripts/studies/grid_lines_compare_wrapper.py \
   --N 64 --gridsize 1 \
+  --set-phi \
   --output-dir outputs/grid_lines_stage_b/deep_control \
   --architectures hybrid \
   --seed 20260128 \
@@ -381,6 +385,7 @@ Stage A proved `stable_hybrid` collapses because InstanceNorm gamma/beta stay ~0
    AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md \
    python scripts/studies/grid_lines_compare_wrapper.py \
      --N 64 --gridsize 1 \
+     --set-phi \
      --output-dir outputs/grid_lines_stage_a/arm_stable_layerscale \
      --architectures stable_hybrid \
      --seed 20260128 \
@@ -533,3 +538,29 @@ Phase 7 eliminated LR and gradient clipping as levers, leaving optimizer sensiti
 - Updated `docs/fix_plan.md` with Phase 5 execution log.
 - Updated `docs/findings.md`: STABLE-GAMMA-001 → Resolved, added STABLE-LS-001.
 - Updated this file with Phase 5 status.
+
+---
+
+## Phase 9: Crash Hunt + Shootout (Stochastic Stability)
+
+With LayerScale, optimizer, and depth prerequisites in place, Phase 9 executes the Crash Hunt and Shootout protocols from `docs/strategy/mainstrategy.md §3`. Every run **must** pass `--set-phi` and obey the `max_hidden_channels` cap (512) so both phase metrics and VRAM constraints follow the pivot rules. Detailed steps live in `docs/plans/2026-01-30-stable-hybrid-crash-hunt.md` (mirrored to `plans/active/FNO-STABILITY-OVERHAUL-001/plan_crash_hunt.md`).
+
+### Task 9.1: Crash Hunt depth sweep (control hybrid)
+- Reuse the Stage A dataset by rsync-ing into `outputs/grid_lines_crash_hunt/depth{4,6,8}_seed{A,B,C}`; seeds 20260128/20260129/20260130.
+- Run the control arm with `--fno-blocks {4,6,8}` (capping channels at 512 for depth≥6) and capture per-seed logs/stats under `reports/2026-02-01T000000Z/`.
+- Determine the shallowest depth where ≥1 of 3 seeds collapses (val_loss spike or amp_ssim=0.277) to define `DEPTH_CRASH`.
+
+### Task 9.2: Three-arm Shootout at crash depth
+- Arms: (a) control hybrid (norm clip 1.0), (b) LayerScale stable_hybrid (no clip), (c) best optimizer candidate from Phase 8 (e.g., AdamW or SGD based on outcomes).
+- For each arm, run 3 seeds at `DEPTH_CRASH` with `--set-phi`, WarmupCosine scheduler, and `--torch-max-hidden-channels 512` if depth≥6.
+- Record success/failure per seed plus amp/phase SSIM into `shootout_results.json` to compute P_crash.
+
+### Task 9.3: Aggregation + doc sync
+- Update this implementation plan, `docs/strategy/mainstrategy.md`, `docs/findings.md` (new finding if crash depth confirmed), and `docs/fix_plan.md` with Crash Hunt + Shootout evidence.
+- Archive logs/stats under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/` and refresh `input.md` with the Shootout focus.
+
+**Exit Criteria:**
+- Crash Hunt table identifies crash depth with P_crash statistics.
+- Shootout report shows per-arm P_crash (0% target) with activation evidence if failures persist.
+- Docs and plans updated to reflect stochastic stability results.
+

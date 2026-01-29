@@ -1,3 +1,9 @@
+### Turn Summary (2026-01-30 supervisor — strategy pivot sync)
+Aligned the stability plan with the updated strategy: enforced `--set-phi` in every Stage A/B CLI snippet, added README notes about the phase-metric requirement, and captured the memory-cap guardrails inside the implementation plan.
+Authored the Crash Hunt + Shootout plan (`docs/plans/2026-01-30-stable-hybrid-crash-hunt.md`, mirrored under `plan_crash_hunt.md`) and appended Phase 9 so the engineer can execute the multi-seed stochastic tests once Phase 8 wraps.
+Next: finish Phase 8 optimizer runs, then kick off Crash Hunt depth sweep using the new plan before moving to the three-arm Shootout.
+Artifacts: plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T120000Z/ (plan updates + crash-hunt blueprint)
+
 ### Turn Summary (2026-01-29 supervisor — Phase 8 optimizer/diagnostics plan)
 Captured Phase 7 evidence into docs/strategy and fix_plan, then authored the Phase 8 optimizer + activation diagnostics plan (`docs/plans/2026-01-30-stable-hybrid-optimizer-diagnostics.md` mirrored to `plan_optimizer_diagnostics.md`) covering optimizer plumbing, activation script upgrades, and SGD/AdamW Stage A runs.
 Updated `plans/active/.../implementation.md` with the new Phase 8 section, refreshed `docs/strategy/mainstrategy.md` with the pending optimizer sweep, and set fix_plan FSM state back to planning (artifacts hub `reports/2026-01-30T050000Z/` reserved).

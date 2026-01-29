@@ -38,7 +38,7 @@ rm -rf outputs/grid_lines_stage_a/arm_stable_warmup_clip/runs
 ```bash
 mkdir -p plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z
 cat > plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/README.md <<'MARK'
-Stage A LR + gradient guard sweep (stable_hybrid)
+Stage A LR + gradient guard sweep (stable_hybrid) — all runs reuse Stage A datasets and **must include `--set-phi`** so phase metrics stay meaningful.
 - dataset: outputs/grid_lines_stage_a/arm_control/datasets (rsync copy per Task 1)
 - seed: 20260128
 - hyperparams vary per task (see individual logs)
@@ -57,6 +57,7 @@ MARK
 AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md \
 python scripts/studies/grid_lines_compare_wrapper.py \
   --N 64 --gridsize 1 \
+  --set-phi \
   --output-dir outputs/grid_lines_stage_a/arm_stable_lowlr \
   --architectures stable_hybrid \
   --seed 20260128 \
@@ -96,6 +97,7 @@ python scripts/internal/stage_a_dump_stats.py \
 AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md \
 python scripts/studies/grid_lines_compare_wrapper.py \
   --N 64 --gridsize 1 \
+  --set-phi \
   --output-dir outputs/grid_lines_stage_a/arm_stable_warmup_lowlr \
   --architectures stable_hybrid \
   --seed 20260128 \
@@ -124,6 +126,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
 AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md \
 python scripts/studies/grid_lines_compare_wrapper.py \
   --N 64 --gridsize 1 \
+  --set-phi \
   --output-dir outputs/grid_lines_stage_a/arm_stable_warmup_clip \
   --architectures stable_hybrid \
   --seed 20260128 \
