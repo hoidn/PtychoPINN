@@ -80,10 +80,21 @@ The prior fixes (Zero-Gamma stable_hybrid and aggressive AGC 0.01) failed in pra
 | Arch Fix | LayerScale Hybrid (Depth X), No Clip | 3 | Robustness: 3/3 runs converge; lower variance than Control |
 | Opt Fix | Hybrid (Depth X), AGC 0.1 | 3 | Survival: 3/3 runs survive; loss competitive |
 
-### Status — Crash Hunt Prep (2026-01-29 08:58 UTC)
-- Crash Hunt artifacts hub `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/` now contains the depth/seed README, crash heuristics, and warm-up evidence (`pytest_warmup.log` from `tests/test_grid_lines_compare_wrapper.py::{test_wrapper_handles_stable_hybrid,test_wrapper_passes_max_hidden_channels}`).
-- All depth/seed directories (`outputs/grid_lines_crash_hunt/depth{4,6,8}_seed{A,B,C}`) are pre-synced via symlinks to the canonical Stage A dataset (`outputs/grid_lines_stage_a/arm_control/datasets`) so every run consumes identical NPZs with `--set-phi`.
-- Execution is **blocked** by disk pressure: `df -h .` reports `/` at 100% utilization (869 MB free). Delete or archive `outputs/fno_hyperparam_study_e10/` (~18 GB) or equivalent before launching the nine Crash Hunt runs; Phase 9 needs at least 5 GB of headroom for Lightning checkpoints plus logs.
+### Status — Crash Hunt COMPLETE (2026-01-29)
+
+**Result: DEPTH_CRASH = 4** (unexpected — planning assumption was depth 6).
+
+| Depth | P_crash | Detail |
+|-------|---------|--------|
+| 4     | 33%     | Seed 20260129 collapsed (amp_ssim=0.277, constant amplitude). Seeds 20260128/30 survived (amp_ssim 0.90/0.77). |
+| 6     | 0%      | All 3 seeds stable (amp_ssim 0.78–0.80). Channel cap may be stabilizing. |
+| 8     | 100%    | All OOM (18 GiB allocation on 24 GB GPU). |
+
+**Key insight:** Depth 6 with max_hidden_channels=512 is paradoxically more stable than depth 4 (no cap effect). Hypotheses: (a) the channel cap constrains the parameter space, acting as implicit regularization; (b) 3 seeds is too small to observe depth-6 failures; (c) the deeper encoder/decoder symmetry provides better gradient flow.
+
+**Shootout recommendation:** Run at depth 4 (confirmed crash depth) with ≥5 seeds per arm. Consider also running depth 6 as a stress test. Note that stable_hybrid (LayerScale) collapses at ALL depths (STABLE-LS-001 — architectural incompatibility), so the Shootout would only compare control hybrid variants (clip vs AGC vs no-clip).
+
+Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/crash_hunt_summary.{json,md}`.
 
 ---
 

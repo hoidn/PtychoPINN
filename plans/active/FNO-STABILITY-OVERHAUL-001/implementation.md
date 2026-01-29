@@ -564,3 +564,12 @@ With LayerScale, optimizer, and depth prerequisites in place, Phase 9 executes t
 - Shootout report shows per-arm P_crash (0% target) with activation evidence if failures persist.
 - Docs and plans updated to reflect stochastic stability results.
 
+**Status 2026-01-29:** Task 9.1 COMPLETE (Crash Hunt). Results:
+- **DEPTH_CRASH = 4** (unexpected; planning assumption was depth 6).
+- P_crash: depth 4 = 33% (1/3 seeds crashed), depth 6 = 0% (all stable), depth 8 = 100% (all OOM).
+- Crashed seed (20260129 @ depth 4): amp_ssim=0.277, final_val=0.181 (constant amplitude collapse).
+- Depth 6 survivors: amp_ssim 0.78–0.80, val_loss 0.024–0.033. Channel cap (512) may be stabilizing.
+- Depth 8: CUDA OOM (18 GiB allocation on 24 GB GPU) — blocked without gradient checkpointing.
+- Artifacts: `reports/2026-02-01T000000Z/crash_hunt_summary.{json,md}`.
+- Task 9.2 (Shootout) not yet executed. Recommend running at depth 4 with more seeds or dual depth 4+6.
+
