@@ -56,7 +56,7 @@ If you are codex:
 </implementation_flow>
 
 <output_format>
-  Provide:
+  write the following to ./engineer_summary.md:
   - A detailed summary of what you did in this turn, including any unexpected findings
   - What you changed (file paths)
   - Any tests run (or “tests not run”)
