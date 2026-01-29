@@ -47,7 +47,7 @@ If you are codex:
 <implementation_flow>
   1) Read `input.md` fully (instructions, tests, artifacts path).
   2) Read the relevant strategy/plan docs referenced by input.md
-  3) Implement the requested change(s) with minimal scope.
+  3) Implement the implementation plan (or implementation plan sections) using your executing-plans skill
   4) Run tests only when requested; otherwise skip and note “tests not run.”
   5) Update docs or plans if explicitly requested by input.md or plans.
   6) Summarize changes and provide next steps if any.
