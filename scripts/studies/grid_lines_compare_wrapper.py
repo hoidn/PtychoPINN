@@ -235,7 +235,7 @@ def parse_args(argv=None):
     parser.add_argument("--torch-beta1", type=float, default=0.9, help="Adam/AdamW beta1")
     parser.add_argument("--torch-beta2", type=float, default=0.999, help="Adam/AdamW beta2")
     parser.add_argument("--torch-scheduler", type=str, default="Default",
-                        choices=["Default", "Exponential", "WarmupCosine"])
+                        choices=["Default", "Exponential", "WarmupCosine", "ReduceLROnPlateau"])
     parser.add_argument("--torch-lr-warmup-epochs", type=int, default=0)
     parser.add_argument("--torch-lr-min-ratio", type=float, default=0.1)
     args = parser.parse_args(argv)

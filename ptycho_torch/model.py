@@ -1419,6 +1419,19 @@ class PtychoPINN_Lightning(L.LightningModule):
                 'interval': 'epoch',
                 'frequency': 1,
             }
+        elif scheduler_choice == 'ReduceLROnPlateau':
+            result['lr_scheduler'] = {
+                'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(
+                    optimizer,
+                    mode='min',
+                    factor=0.5,
+                    patience=2,
+                    min_lr=1e-4,
+                ),
+                'monitor': self.val_loss_name,
+                'interval': 'epoch',
+                'frequency': 1,
+            }
         elif scheduler_choice in ('MultiStage', 'Adaptive'):
             logger.warning(
                 "Scheduler '%s' is no longer supported in single-loss mode. "

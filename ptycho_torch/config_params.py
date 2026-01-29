@@ -126,7 +126,7 @@ class TrainingConfig:
     batch_size: int = 16
     epochs_fine_tune: int = 0 #Default 0 fine-tune means no fine-tuning
     fine_tune_gamma: float = 0.1 #Scales base LR for fine-tuning
-    scheduler: Literal['Default', 'Exponential', 'MultiStage', 'Adaptive', 'WarmupCosine'] = 'Default'
+    scheduler: Literal['Default', 'Exponential', 'MultiStage', 'Adaptive', 'WarmupCosine', 'ReduceLROnPlateau'] = 'Default'
     lr_warmup_epochs: int = 0  # Number of warmup epochs for WarmupCosine scheduler
     lr_min_ratio: float = 0.1  # Minimum LR ratio for WarmupCosine scheduler (eta_min = base_lr * ratio)
     num_workers: int = 4 #Dataloader workers

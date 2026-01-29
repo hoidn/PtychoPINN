@@ -366,7 +366,7 @@ The following execution config flags are available in `ptycho_torch/train.py`:
 | `--deterministic` / `--no-deterministic` | bool | `True` | Enable deterministic training (reproducibility) |
 | `--num-workers` | int | `0` | Number of DataLoader worker processes (0 = main thread) |
 | `--learning-rate` | float | `1e-3` | Optimizer learning rate |
-| `--scheduler` | str | `'Default'` | Learning rate scheduler type: `'Default'` (no scheduler), `'Exponential'` (exponential decay), `'MultiStage'` (step-wise decay), `'Adaptive'` (plateau-based reduction) |
+| `--scheduler` | str | `'Default'` | Learning rate scheduler type: `'Default'` (no scheduler), `'Exponential'` (exponential decay), `'MultiStage'` (step-wise decay), `'Adaptive'` (plateau-based reduction), `'WarmupCosine'` (linear warmup + cosine annealing), `'ReduceLROnPlateau'` (halve LR after 2 epochs without val-loss improvement, min_lr=1e-4) |
 | `--accumulate-grad-batches` | int | `1` | Gradient accumulation steps. Simulates larger effective batch sizes (effective batch = batch_size × accumulate_grad_batches). Values >1 reduce GPU memory usage but may affect training dynamics. |
 | `--quiet` | flag | `False` | Suppress progress bars and reduce console logging |
 | `--enable-checkpointing` / `--disable-checkpointing` | bool | `True` | Enable automatic model checkpointing (default: enabled). Use `--disable-checkpointing` to turn off checkpoint saving. |

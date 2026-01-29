@@ -352,3 +352,16 @@ def test_wrapper_passes_scheduler_knobs(monkeypatch, tmp_path):
     assert captured["scheduler"] == "WarmupCosine"
     assert captured["lr_warmup_epochs"] == 5
     assert captured["lr_min_ratio"] == 0.05
+
+
+def test_wrapper_accepts_plateau_scheduler(tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import parse_args
+
+    args = parse_args([
+        "--N", "64",
+        "--gridsize", "1",
+        "--output-dir", str(tmp_path),
+        "--architectures", "hybrid",
+        "--torch-scheduler", "ReduceLROnPlateau",
+    ])
+    assert args.torch_scheduler == "ReduceLROnPlateau"

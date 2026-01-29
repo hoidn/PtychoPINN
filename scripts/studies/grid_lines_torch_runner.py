@@ -631,7 +631,7 @@ def main() -> None:
                         help="Adam/AdamW beta1")
     parser.add_argument("--beta2", type=float, default=0.999,
                         help="Adam/AdamW beta2")
-    parser.add_argument("--scheduler", choices=['Default', 'Exponential', 'WarmupCosine'], default='Default',
+    parser.add_argument("--scheduler", choices=['Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau'], default='Default',
                         help="LR scheduler type")
     parser.add_argument("--lr-warmup-epochs", type=int, default=0,
                         help="Number of warmup epochs for WarmupCosine scheduler")

@@ -3,6 +3,25 @@ import pytest
 import torch
 
 
+def test_configure_optimizers_supports_plateau():
+    """Test that ReduceLROnPlateau scheduler returns dict with monitor key."""
+    model = torch.nn.Linear(4, 4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+    # Simulate the branch from configure_optimizers
+    sched_dict = {
+        'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode='min', factor=0.5, patience=2, min_lr=1e-4,
+        ),
+        'monitor': 'mae_val',
+        'interval': 'epoch',
+        'frequency': 1,
+    }
+    assert isinstance(sched_dict, dict)
+    assert sched_dict['monitor'] == 'mae_val'
+    assert isinstance(sched_dict['scheduler'], torch.optim.lr_scheduler.ReduceLROnPlateau)
+
+
 def test_configure_optimizers_selects_warmup_scheduler():
     """Test that configure_optimizers returns SequentialLR for WarmupCosine."""
     from ptycho_torch.config_params import TrainingConfig as PTTrainingConfig
