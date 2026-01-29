@@ -111,6 +111,24 @@ class TestHybridUNOGenerator:
         assert out.shape[-1] == 2
 
 
+    def test_max_hidden_channel_cap(self):
+        """HybridUNOGenerator with max_hidden_channels=512 keeps all layers ≤512 channels."""
+        gen = HybridUNOGenerator(
+            in_channels=1, out_channels=2, hidden_channels=32,
+            n_blocks=6, modes=4, C=1, max_hidden_channels=512,
+        )
+        # Without cap, 6 blocks would reach 32*2^5=1024; cap should keep ≤512
+        for ch in gen._encoder_channels:
+            assert ch <= 512, f"Encoder channel {ch} exceeds cap 512"
+        for name, module in gen.named_modules():
+            if isinstance(module, (torch.nn.Conv2d, torch.nn.ConvTranspose2d)):
+                assert module.out_channels <= 512, f"{name} out_channels={module.out_channels} exceeds cap"
+                assert module.in_channels <= 1024, f"{name} in_channels={module.in_channels} exceeds 2*cap (skip concat)"
+        x = torch.randn(2, 1, 64, 64)
+        y = gen(x)
+        assert y.shape == (2, 64, 64, 1, 2), f"Output shape {y.shape} != expected (2, 64, 64, 1, 2)"
+
+
 class TestCascadedFNOGenerator:
     """Tests for the CascadedFNOGenerator model."""
 
@@ -273,3 +291,4 @@ class TestStableHybridUNOGenerator:
         x = torch.randn(2, 4, 64, 64)
         out = model(x)
         assert out.shape == (2, 64, 64, 4, 2)
+

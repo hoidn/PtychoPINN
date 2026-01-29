@@ -31,12 +31,17 @@ If you are codex:
 </secondary_references>
 
 <ground_rules>
-  - **One focus per loop.** Execute only the item selected in `input.md`.
   - **Input is authoritative.** If `input.md` conflicts with other docs, ask for clarification and stop.
   - **Search first.** Before coding, search the repo to avoid duplicating existing work.
   - **Environment changes:** Do not change runtime environment except side-effect-free pip installs.
   - **Tests:** Run tests only if requested by `input.md` or required by the referenced plan.
   - **Artifacts:** Store evidence in the requested output dirs and reference paths in your response.
+ IMPORTANT
+ <git hygiene>
+ - always commit code changes at the end of your turn 
+ - if code changes are in a worktree, always merge the worktree into the locally checked out branch at the end of your turn 
+ </git hygiene>
+ IMPORTANT
 </ground_rules>
 
 <implementation_flow>
@@ -46,12 +51,13 @@ If you are codex:
   4) Run tests only when requested; otherwise skip and note “tests not run.”
   5) Update docs/strategy or plans if explicitly requested by the Do Now.
   6) Summarize changes and provide next steps if any.
-  7) If any progress from this iteration is in a worktree or feature branch, merge it back into the proper checked out branch
+  7) If any progress from this iteration is in a worktree or feature branch, merge it back into the proper checked out branch. Always follow <git hygiene>
 
 </implementation_flow>
 
 <output_format>
   Provide:
+  - A detailed summary of what you did in this turn, including any unexpected findings
   - What you changed (file paths)
   - Any tests run (or “tests not run”)
   - Any blockers or open questions

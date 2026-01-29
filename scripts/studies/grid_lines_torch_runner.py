@@ -99,6 +99,7 @@ class TorchRunnerConfig:
     fno_blocks: int = 4
     fno_cnn_blocks: int = 2
     fno_input_transform: str = "none"
+    max_hidden_channels: Optional[int] = None
     log_grad_norm: bool = False
     grad_norm_log_freq: int = 1
     enable_checkpointing: bool = True
@@ -190,6 +191,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         fno_blocks=cfg.fno_blocks,
         fno_cnn_blocks=cfg.fno_cnn_blocks,
         fno_input_transform=cfg.fno_input_transform,
+        max_hidden_channels=cfg.max_hidden_channels,
         generator_output_mode=cfg.generator_output_mode,
     )
 

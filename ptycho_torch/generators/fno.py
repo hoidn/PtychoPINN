@@ -229,6 +229,7 @@ class HybridUNOGenerator(nn.Module):
         input_transform: str = "none",
         output_mode: str = "real_imag",
         block_cls=None,
+        max_hidden_channels: Optional[int] = None,
     ):
         super().__init__()
         self.C = C
@@ -247,11 +248,16 @@ class HybridUNOGenerator(nn.Module):
         self.encoder_blocks = nn.ModuleList()
         self.downsample = nn.ModuleList()
         ch = hidden_channels
+        self._encoder_channels = [ch]
         for i in range(n_blocks):
             self.encoder_blocks.append(block_cls(ch, modes=modes))
             if i < n_blocks - 1:
-                self.downsample.append(nn.Conv2d(ch, ch * 2, kernel_size=2, stride=2))
-                ch *= 2
+                next_ch = ch * 2
+                if max_hidden_channels is not None:
+                    next_ch = min(next_ch, max_hidden_channels)
+                self.downsample.append(nn.Conv2d(ch, next_ch, kernel_size=2, stride=2))
+                ch = next_ch
+                self._encoder_channels.append(ch)
 
         # Bottleneck
         self.bottleneck = block_cls(ch, modes=modes // 2)
@@ -260,13 +266,14 @@ class HybridUNOGenerator(nn.Module):
         self.decoder_blocks = nn.ModuleList()
         self.upsample = nn.ModuleList()
         for i in range(n_blocks - 1):
-            self.upsample.append(nn.ConvTranspose2d(ch, ch // 2, kernel_size=2, stride=2))
-            ch //= 2
+            dec_ch = self._encoder_channels[-(i + 2)]
+            self.upsample.append(nn.ConvTranspose2d(ch, dec_ch, kernel_size=2, stride=2))
             self.decoder_blocks.append(nn.Sequential(
-                nn.Conv2d(ch * 2, ch, kernel_size=3, padding=1),  # *2 for skip
+                nn.Conv2d(dec_ch * 2, dec_ch, kernel_size=3, padding=1),
                 nn.GELU(),
-                nn.Conv2d(ch, ch, kernel_size=3, padding=1),
+                nn.Conv2d(dec_ch, dec_ch, kernel_size=3, padding=1),
             ))
+            ch = dec_ch
 
         # Output projection
         if self.output_mode == "amp_phase":
@@ -460,6 +467,7 @@ class HybridGenerator:
         input_transform = getattr(model_config, "fno_input_transform", "none")
         output_mode = getattr(model_config, "generator_output_mode", "real_imag")
         generator_mode = "amp_phase" if output_mode == "amp_phase" else "real_imag"
+        max_hidden_channels = getattr(model_config, 'max_hidden_channels', None)
 
         # Build core generator module
         core = HybridUNOGenerator(
@@ -471,6 +479,7 @@ class HybridGenerator:
             C=C,
             input_transform=input_transform,
             output_mode=generator_mode,
+            max_hidden_channels=max_hidden_channels,
         )
 
         # Wrap in Lightning module with physics pipeline
@@ -517,6 +526,7 @@ class StableHybridGenerator:
         input_transform = getattr(model_config, "fno_input_transform", "none")
         output_mode = getattr(model_config, "generator_output_mode", "real_imag")
         generator_mode = "amp_phase" if output_mode == "amp_phase" else "real_imag"
+        max_hidden_channels = getattr(model_config, 'max_hidden_channels', None)
 
         core = StableHybridUNOGenerator(
             in_channels=1,
@@ -527,6 +537,7 @@ class StableHybridGenerator:
             C=C,
             input_transform=input_transform,
             output_mode=generator_mode,
+            max_hidden_channels=max_hidden_channels,
         )
 
         return PtychoPINN_Lightning(

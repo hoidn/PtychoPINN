@@ -452,6 +452,20 @@ class TestChannelGridsizeAlignment:
         training_config, _ = setup_torch_configs(cfg)
         assert training_config.model.architecture == "stable_hybrid"
 
+    def test_runner_accepts_capped_channels(self):
+        """TorchRunnerConfig max_hidden_channels propagates to ModelConfig."""
+        from scripts.studies.grid_lines_torch_runner import TorchRunnerConfig, setup_torch_configs
+        from pathlib import Path
+        cfg = TorchRunnerConfig(
+            train_npz=Path("/tmp/fake_train.npz"),
+            test_npz=Path("/tmp/fake_test.npz"),
+            output_dir=Path("/tmp/fake_out"),
+            architecture="hybrid",
+            max_hidden_channels=512,
+        )
+        training_config, _ = setup_torch_configs(cfg)
+        assert training_config.model.max_hidden_channels == 512
+
     def test_runner_channels_derived_from_gridsize(self, synthetic_npz, tmp_path):
         """Test that channel count C = gridsize^2 is derived correctly.
 
@@ -468,10 +482,7 @@ class TestChannelGridsizeAlignment:
                 gridsize=gridsize,
             )
             training_config, _ = setup_torch_configs(cfg)
-            # Channel count should be gridsize squared
             assert training_config.model.gridsize == gridsize, f"gridsize mismatch for gridsize={gridsize}"
-            # Note: TrainingConfig doesn't expose C directly, but downstream
-            # consumers derive it from gridsize. This test ensures gridsize is correct.
 
     def test_create_training_payload_sets_channels_from_gridsize(self, synthetic_ptycho_npz, tmp_path):
         """Test that config_factory derives C/grid_size from gridsize overrides."""

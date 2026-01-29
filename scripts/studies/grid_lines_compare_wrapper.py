@@ -51,6 +51,7 @@ def run_grid_lines_compare(
     fno_blocks: int = 4,
     fno_cnn_blocks: int = 2,
     fno_input_transform: str = "none",
+    torch_max_hidden_channels: Optional[int] = None,
 ) -> dict:
     os.environ.setdefault("PTYCHO_MEMOIZE_KEY_MODE", "dataset")
     output_dir = Path(output_dir)
@@ -118,6 +119,7 @@ def run_grid_lines_compare(
                 fno_blocks=fno_blocks,
                 fno_cnn_blocks=fno_cnn_blocks,
                 fno_input_transform=fno_input_transform,
+                max_hidden_channels=torch_max_hidden_channels,
                 log_grad_norm=torch_log_grad_norm,
                 grad_norm_log_freq=torch_grad_norm_log_freq,
             )
@@ -208,6 +210,8 @@ def parse_args(argv=None):
         default="none",
         choices=["none", "sqrt", "log1p", "instancenorm"],
     )
+    parser.add_argument("--torch-max-hidden-channels", type=int, default=None,
+                        help="Cap on hidden channels in Hybrid encoder (default: no cap)")
     args = parser.parse_args(argv)
     args.architectures = _parse_architectures(args.architectures)
     return args
@@ -247,6 +251,7 @@ def main(argv=None) -> None:
         fno_blocks=args.fno_blocks,
         fno_cnn_blocks=args.fno_cnn_blocks,
         fno_input_transform=args.fno_input_transform,
+        torch_max_hidden_channels=args.torch_max_hidden_channels,
     )
 
 

@@ -231,3 +231,15 @@ def test_wrapper_handles_stable_hybrid(monkeypatch, tmp_path):
     assert captured["architecture"] == "stable_hybrid"
     merged = json.loads((tmp_path / "metrics.json").read_text())
     assert "pinn_stable_hybrid" in merged
+
+
+def test_wrapper_passes_max_hidden_channels():
+    """--torch-max-hidden-channels 512 propagates to the mocked runner call."""
+    from scripts.studies.grid_lines_compare_wrapper import parse_args
+    args = parse_args([
+        "--N", "64", "--gridsize", "1",
+        "--output-dir", "/tmp/test_out",
+        "--architectures", "hybrid",
+        "--torch-max-hidden-channels", "512",
+    ])
+    assert args.torch_max_hidden_channels == 512

@@ -83,6 +83,10 @@ Control unexpectedly dominated; the hypothesized drift did not appear at 4 block
 - Command template mirrors Stage A control but with `--fno-blocks 8` and grad norm logging enabled.
 - After the run, `scripts/internal/stage_a_dump_stats.py` captures stats, and `stage_b_summary.md` compares Stage A vs Stage B.
 
+**Stage B outcome (2026-01-28):** BLOCKED — `fno_blocks=8` is infeasible on RTX 3090 (24 GB). The `HybridUNOGenerator` channel-doubling encoder produces 4.4B parameters (17.7 GB FP32) at 8 blocks vs 17M at 4 blocks. The bottleneck reaches 4096 channels, and spectral conv weights scale as `channels^2 * modes^2`. CUDA OOM occurs at model load before any training step. This is a **structural scalability issue**, not a gradient stability issue. See `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/stage_b_summary.md` for full analysis.
+
+**Current remediation (Task 4.5, queued for 2026-01-29 21:00Z):** introduce a `max_hidden_channels` cap (Stage B uses 512) that stops the Hybrid encoder from doubling channels once the cap is reached. Wire the knob through `ModelConfig`, the PyTorch singleton configs, `TorchRunnerConfig`, and `grid_lines_compare_wrapper.py` (`--torch-max-hidden-channels`). After the cap exists, rerun the deep control arm with `fno_blocks=8`, `max_hidden_channels=512`, grad-norm logging, and the original Stage A dataset; archive under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T210000Z/`. If the capped run still OOMs, fall back to `fno_blocks=6` with the same cap so Stage B remains a depth-stress experiment.
+
 ---
 
 ## 3. Implementation Plan
