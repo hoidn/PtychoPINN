@@ -16,6 +16,16 @@
 - Outputs: `outputs/grid_lines_crash_hunt/depth{4,6,8}_seed{A,B,C}`
 - Artifacts hub: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/`
 
+**Step 0:** Create the artifacts hub + README skeleton so every log has a home before runs begin.
+```bash
+mkdir -p plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z
+cat <<'EOF' > plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/README.md
+Crash Hunt datasets: Stage A control cache (seed=20260128, N=64, gridsize=1, nimgs=1, nphotons=1e9, --set-phi required).
+Depths: 4/6/8; Seeds: 20260128/20260129/20260130; Torch epochs=30; clip=1.0 norm.
+Each run logs to depth<depth>_seed<seed>.log and stats to *_stats.json.
+EOF
+```
+
 **Step 1:** Prep datasets per depth.
 ```bash
 for depth in 4 6 8; do
@@ -46,7 +56,43 @@ python scripts/studies/grid_lines_compare_wrapper.py \
 ```
 - Depth 8 runs may still OOM; note blockers in README if so.
 
-**Step 3:** Capture stats per run via `scripts/internal/stage_a_dump_stats.py --run-dir ... --out-json .../depth${DEPTH}_seed${SEED}_stats.json` and tabulate P_crash (count collapsed runs / total). Save summary to `crash_hunt_summary.json`.
+**Step 3:** Capture stats + crash annotations and tabulate P_crash. For each run:
+```bash
+python scripts/internal/stage_a_dump_stats.py \
+  --run-dir outputs/grid_lines_crash_hunt/depth${DEPTH}_seed${SEED}/runs/pinn_hybrid \
+  --out-json plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/depth${DEPTH}_seed${SEED}_stats.json
+```
+Then build a single summary table (best/final val_loss, amp_ssim, crashed flag) using the heuristic `crashed = (amp_ssim < 0.5) or (final_val_loss > 0.15) or (log shows NaN/OOM)`:
+```bash
+python - <<'PY'
+import json, pathlib, re
+hub = pathlib.Path('plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z')
+rows = []
+pattern = re.compile(r'depth(\d+)_seed(\d+)_stats.json')
+for stats_file in hub.glob('depth*_stats.json'):
+    m = pattern.match(stats_file.name)
+    if not m:
+        continue
+    depth, seed = map(int, m.groups())
+    stats = json.loads(stats_file.read_text())
+    best_val = stats['val_loss']['min']
+    final_val = stats['val_loss']['last']
+    amp_ssim = stats['ssim']['amplitude']
+    crash = (amp_ssim is not None and amp_ssim < 0.5) or (final_val is not None and final_val > 0.15)
+    rows.append({
+        'depth': depth,
+        'seed': seed,
+        'best_val_loss': best_val,
+        'final_val_loss': final_val,
+        'amp_ssim': amp_ssim,
+        'crashed': crash,
+    })
+rows.sort(key=lambda r: (r['depth'], r['seed']))
+out = hub/'crash_hunt_summary.json'
+out.write_text(json.dumps({'runs': rows}, indent=2))
+PY
+```
+Add a short Markdown rollup (`crash_hunt_summary.md`) explaining which depth first exhibited crashes and any OOM notes.
 
 ### Task 2: Three-Arm Shootout at Crash Depth
 
@@ -79,7 +125,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
 ```
 - Control and optimizer arms follow the same template with their respective clipping/optimizer flags.
 
-**Step 3:** After each seed finishes, capture stats JSON + `model.pt` path. Compute P_crash per arm (number of NaNs / constant-amp collapses out of 3). Store aggregated table in `shootout_results.json` with columns: arm, seed, best_val_loss, amp_ssim, crashed (bool).
+**Step 3:** After each seed finishes, capture stats JSON + `model.pt` path. Compute P_crash per arm (number of NaNs / constant-amp collapses out of 3). Reuse the Python snippet above but include `arm` in the summary (derive from directory name) and emit `shootout_results.json` plus `shootout_summary.md` describing winners.
 
 ### Task 3: Aggregation, Findings, and Plan Sync
 
@@ -88,4 +134,3 @@ python scripts/studies/grid_lines_compare_wrapper.py \
 3. Add/refresh findings (e.g., new `STABLE-CRASH-DEPTH-001` capturing the crash depth evidence).
 4. Update `docs/fix_plan.md` attempts history + FSM entry with the new artifacts hub path.
 5. Run regression selectors after code changes (if any) and archive logs with the crash hunt evidence.
-

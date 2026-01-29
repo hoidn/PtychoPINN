@@ -365,4 +365,4 @@
 
 ---
 
-Supervisor state: `focus=FNO-STABILITY-OVERHAUL-001` `state=planning` `dwell=2` `artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T120000Z/` `next_action=Engineer to run Phase 8 Tasks 1–3 with --set-phi enforced, then proceed to Crash Hunt per Phase 9`
+Supervisor state: `focus=FNO-STABILITY-OVERHAUL-001` `state=ready_for_implementation` `dwell=0` `artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/` `next_action=Engineer executes Phase 9 Crash Hunt depth sweep (control arm seeds)`
