@@ -1386,9 +1386,23 @@ class PtychoPINN_Lightning(L.LightningModule):
         
         # Log validation loss
         self.log(self.val_loss_name, val_loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        
+
         return val_loss
-    
+
+    def on_validation_epoch_end(self):
+        """Step ReduceLROnPlateau scheduler manually (automatic_optimization=False
+        skips Lightning's built-in scheduler stepping)."""
+        sch = self.lr_schedulers()
+        if sch is None:
+            return
+        from torch.optim.lr_scheduler import ReduceLROnPlateau
+        if isinstance(sch, ReduceLROnPlateau):
+            val_metric = self.trainer.callback_metrics.get(self.val_loss_name)
+            if val_metric is not None:
+                sch.step(val_metric)
+                self.log('learning_rate', sch.optimizer.param_groups[0]['lr'],
+                         on_epoch=True, prog_bar=False, logger=True)
+
     def configure_optimizers(self):
         optimizer = _build_optimizer(
             self.parameters(),
@@ -1424,11 +1438,13 @@ class PtychoPINN_Lightning(L.LightningModule):
                 'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimizer,
                     mode='min',
-                    factor=0.5,
-                    patience=2,
-                    min_lr=1e-4,
+                    factor=getattr(self.training_config, 'plateau_factor', 0.5),
+                    patience=getattr(self.training_config, 'plateau_patience', 2),
+                    min_lr=getattr(self.training_config, 'plateau_min_lr', 1e-4),
+                    threshold=getattr(self.training_config, 'plateau_threshold', 0.0),
                 ),
                 'monitor': self.val_loss_name,
+                'reduce_on_plateau': True,
                 'interval': 'epoch',
                 'frequency': 1,
             }

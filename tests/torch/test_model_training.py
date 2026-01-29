@@ -4,22 +4,44 @@ import torch
 
 
 def test_configure_optimizers_supports_plateau():
-    """Test that ReduceLROnPlateau scheduler returns dict with monitor key."""
-    model = torch.nn.Linear(4, 4)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    """Test that ReduceLROnPlateau uses TrainingConfig params and monitor."""
+    from ptycho import params
+    from ptycho.config.config import update_legacy_dict
+    from ptycho_torch.config_params import ModelConfig, DataConfig, TrainingConfig, InferenceConfig
+    from ptycho_torch.model import PtychoPINN_Lightning
 
-    # Simulate the branch from configure_optimizers
-    sched_dict = {
-        'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode='min', factor=0.5, patience=2, min_lr=1e-4,
-        ),
-        'monitor': 'mae_val',
-        'interval': 'epoch',
-        'frequency': 1,
-    }
-    assert isinstance(sched_dict, dict)
-    assert sched_dict['monitor'] == 'mae_val'
-    assert isinstance(sched_dict['scheduler'], torch.optim.lr_scheduler.ReduceLROnPlateau)
+    model_cfg = ModelConfig()
+    data_cfg = DataConfig(N=64, C=1, grid_size=(1, 1))
+    train_cfg = TrainingConfig(
+        train_data_file="train.npz",
+        test_data_file="test.npz",
+        output_dir="training_outputs",
+        scheduler="ReduceLROnPlateau",
+        plateau_factor=0.25,
+        plateau_patience=5,
+        plateau_min_lr=1e-5,
+        plateau_threshold=1e-3,
+    )
+    infer_cfg = InferenceConfig()
+
+    update_legacy_dict(params.cfg, train_cfg)
+
+    module = PtychoPINN_Lightning(
+        model_config=model_cfg,
+        data_config=data_cfg,
+        training_config=train_cfg,
+        inference_config=infer_cfg,
+    )
+    result = module.configure_optimizers()
+    sched_dict = result["lr_scheduler"]
+
+    assert sched_dict["monitor"] == module.val_loss_name
+    scheduler = sched_dict["scheduler"]
+    assert isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau)
+    assert scheduler.factor == 0.25
+    assert scheduler.patience == 5
+    assert scheduler.min_lrs == [1e-5]
+    assert scheduler.threshold == 1e-3
 
 
 def test_configure_optimizers_selects_warmup_scheduler():
