@@ -162,7 +162,7 @@ Run ~/.codex/superpowers/.codex/superpowers-codex bootstrap
 
   <end_of_loop_hygiene>
     - If this loop's focus involved a bug report .md in ./docs/bugs/, make sure that information in the bug report was fully ingested (i.e. incorporated 
-      into a plan or input.md instructions), along with a principled plan to fix the bug. Then, delete the bug report .md.
+      into a plan or input.md instructions, or found to be obsolete / irrelevant), along with a principled plan to fix the bug. Then, delete the bug report .md.
     - Verify `input.md` is fully rewritten and saved.
     - Ensure `docs/fix_plan.md` reflects latest decisions or document why changes were deferred.
     - <strong>Git hygiene:</strong>
