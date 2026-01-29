@@ -131,8 +131,8 @@ Stage A validates the architectural fix (`stable_hybrid`) against the optimizati
    rsync -a outputs/grid_lines_stage_a/arm_control/datasets/ outputs/grid_lines_stage_a/arm_agc/datasets/
    ```
    (Re-run the copy whenever you regenerate the control arm.)
-3. Record the shared seed (`20260128`) and hyperparameters (N=64, gridsize=1, nimgs_train/test=2, nphotons=1e9, nepochs=50, fno_blocks=4) in a short README inside the artifacts hub for traceability.
-   - For quick test runs, use `nimgs_train=1` and `nimgs_test=1` to reduce runtime/GPU memory before running the full settings.
+3. Record the shared seed (`20260128`) and hyperparameters (N=64, gridsize=1, nimgs_train/test=1, nphotons=1e9, nepochs=50, fno_blocks=4) in a short README inside the artifacts hub for traceability.
+   - Full runs should use `nimgs_train=1` and `nimgs_test=1` to reduce runtime/GPU memory.
 
 ### Task 3.2: Arm 1 — Control (`hybrid`, norm clip 1.0)
 
@@ -145,7 +145,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
   --output-dir outputs/grid_lines_stage_a/arm_control \
   --architectures hybrid \
   --seed 20260128 \
-  --nimgs-train 2 --nimgs-test 2 --nphotons 1e9 \
+  --nimgs-train 1 --nimgs-test 1 --nphotons 1e9 \
   --nepochs 50 --torch-epochs 50 \
   --torch-grad-clip 1.0 --torch-grad-clip-algorithm norm \
   --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8
@@ -166,7 +166,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
   --output-dir outputs/grid_lines_stage_a/arm_stable \
   --architectures stable_hybrid \
   --seed 20260128 \
-  --nimgs-train 2 --nimgs-test 2 --nphotons 1e9 \
+  --nimgs-train 1 --nimgs-test 1 --nphotons 1e9 \
   --nepochs 50 --torch-epochs 50 \
   --torch-grad-clip 0.0 --torch-grad-clip-algorithm norm \
   --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8
@@ -185,7 +185,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
   --output-dir outputs/grid_lines_stage_a/arm_agc \
   --architectures hybrid \
   --seed 20260128 \
-  --nimgs-train 2 --nimgs-test 2 --nphotons 1e9 \
+  --nimgs-train 1 --nimgs-test 1 --nphotons 1e9 \
   --nepochs 50 --torch-epochs 50 \
   --torch-grad-clip 0.01 --torch-grad-clip-algorithm agc \
   --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8
@@ -262,8 +262,8 @@ Stage B validates whether the Stage A winner (control arm: `hybrid` + norm clip 
      outputs/grid_lines_stage_b/deep_control/datasets/
    rm -rf outputs/grid_lines_stage_b/deep_control/runs
    ```
-3. Drop a short README under the artifacts hub documenting the shared hyperparameters (N=64, gridsize=1, `fno_blocks=8`, seed=20260128, nimgs_train/test=2, nphotons=1e9, loss=MAE, clip=1.0 norm). This mirrors the Stage A README for traceability.
-   - For quick test runs, start with `nimgs_train=1` and `nimgs_test=1` to confirm stability before re-running the full settings.
+3. Drop a short README under the artifacts hub documenting the shared hyperparameters (N=64, gridsize=1, `fno_blocks=8`, seed=20260128, nimgs_train/test=1, nphotons=1e9, loss=MAE, clip=1.0 norm). This mirrors the Stage A README for traceability.
+   - Full runs should use `nimgs_train=1` and `nimgs_test=1` to keep the deep control run tractable.
 
 ### Task 4.2: Execute Stage B deep control run (`fno_blocks=8`)
 
@@ -275,7 +275,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
   --output-dir outputs/grid_lines_stage_b/deep_control \
   --architectures hybrid \
   --seed 20260128 \
-  --nimgs-train 2 --nimgs-test 2 --nphotons 1e9 \
+  --nimgs-train 1 --nimgs-test 1 --nphotons 1e9 \
   --nepochs 50 --torch-epochs 50 \
   --fno-blocks 8 \
   --torch-grad-clip 1.0 --torch-grad-clip-algorithm norm \

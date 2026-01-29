@@ -48,7 +48,7 @@ We will select the winner through a rigorous 2-stage process using the `grid_lin
 **Protocol:**
 *   Dataset generation must use `--set-phi`; otherwise phase metrics are meaningless.
 *   Run each arm across **N seeds** (suggested: 5–10). Report median + IQR for metrics **conditional on successful runs**.
-*   **Test runs:** use `nimgs_train=1` and `nimgs_test=1` to cut runtime and GPU memory; full runs should keep `nimgs_train/test=2` unless otherwise stated.
+*   **Run sizing:** use `nimgs_train=1` and `nimgs_test=1` for both test and full runs to cut runtime and GPU memory.
 
 | Arm | Architecture | Clipping Strategy | Hypothesis | Success Condition |
 | :--- | :--- | :--- | :--- | :--- |
@@ -56,7 +56,7 @@ We will select the winner through a rigorous 2-stage process using the `grid_lin
 | **2. Arch Fix** | `stable_hybrid` | **Disabled** (no clipping; `gradient_clip_val=None`) | **Stability:** Converges smoothly with NO clipping. | Lowest `model.val_loss_name`; No NaNs; lowest failure rate. |
 | **3. Opt Fix** | `hybrid` | **AGC** (`val=0.01`) | **Survival:** Survives 50 epochs despite drift. | Lower failure rate than Control; `model.val_loss_name` not worse by >10% (median, successful runs only). |
 
-**Stage A outcome (2026-01-29):** Single-seed execution (N=64, gridsize=1, `fno_blocks=4`, `nimgs_{train,test}=2`, `nphotons=1e9`, MAE loss, 50 epochs, seed=20260128) produced the following metrics:
+**Stage A outcome (2026-01-29):** Single-seed execution (N=64, gridsize=1, `fno_blocks=4`, `nimgs_{train,test}=2`, `nphotons=1e9`, MAE loss, 50 epochs, seed=20260128) produced the following metrics. Going forward, full runs should use `nimgs_train=1` and `nimgs_test=1`.
 
 | Arm | Architecture | Clipping | Best val_loss | Amp SSIM | Phase SSIM | Amp MAE | Notes |
 |-----|--------------|----------|---------------|----------|------------|---------|-------|
@@ -75,7 +75,7 @@ Control unexpectedly dominated; the hypothesized drift did not appear at 4 block
 
 *   **Protocol:** Run the **Winner of Stage A** (control arm: `hybrid`, norm clip 1.0) with `fno_blocks=8`, same dataset/probe, and log gradient norms every epoch (`--torch-log-grad-norm`).
 *   **Success Condition:** The deep model avoids gradient explosion (no NaNs, grad_norm bounded) and matches or beats the Stage A val_loss/SSIM metrics.
-*   **Test runs:** start with `nimgs_train=1` and `nimgs_test=1` to validate stability before scaling back to `nimgs_train/test=2`.
+*   **Run sizing:** use `nimgs_train=1` and `nimgs_test=1` for full runs; do not scale back to 2 unless explicitly required.
 
 **Stage B plan (scheduled 2026-01-29T18:00Z):**
 - Output dir: `outputs/grid_lines_stage_b/deep_control`
