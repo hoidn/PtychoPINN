@@ -645,6 +645,14 @@ def main() -> None:
                         help="Number of warmup epochs for WarmupCosine scheduler")
     parser.add_argument("--lr-min-ratio", type=float, default=0.1,
                         help="Minimum LR ratio for WarmupCosine scheduler (eta_min = base_lr * ratio)")
+    parser.add_argument("--plateau-factor", type=float, default=0.5,
+                        help="ReduceLROnPlateau factor")
+    parser.add_argument("--plateau-patience", type=int, default=2,
+                        help="ReduceLROnPlateau patience")
+    parser.add_argument("--plateau-min-lr", type=float, default=1e-4,
+                        help="ReduceLROnPlateau min lr")
+    parser.add_argument("--plateau-threshold", type=float, default=0.0,
+                        help="ReduceLROnPlateau threshold")
 
     args = parser.parse_args()
 
@@ -684,6 +692,10 @@ def main() -> None:
         scheduler=args.scheduler,
         lr_warmup_epochs=args.lr_warmup_epochs,
         lr_min_ratio=args.lr_min_ratio,
+        plateau_factor=args.plateau_factor,
+        plateau_patience=args.plateau_patience,
+        plateau_min_lr=args.plateau_min_lr,
+        plateau_threshold=args.plateau_threshold,
     )
 
     result = run_grid_lines_torch(cfg)

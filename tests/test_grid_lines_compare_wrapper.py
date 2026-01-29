@@ -245,6 +245,28 @@ def test_wrapper_passes_max_hidden_channels():
     assert args.torch_max_hidden_channels == 512
 
 
+def test_wrapper_accepts_plateau_params(tmp_path):
+    """Test ReduceLROnPlateau args parse in grid_lines_compare_wrapper."""
+    from scripts.studies.grid_lines_compare_wrapper import parse_args
+
+    args = parse_args([
+        "--N", "64",
+        "--gridsize", "1",
+        "--output-dir", str(tmp_path),
+        "--architectures", "hybrid",
+        "--torch-scheduler", "ReduceLROnPlateau",
+        "--torch-plateau-factor", "0.25",
+        "--torch-plateau-patience", "5",
+        "--torch-plateau-min-lr", "1e-5",
+        "--torch-plateau-threshold", "1e-3",
+    ])
+    assert args.torch_scheduler == "ReduceLROnPlateau"
+    assert args.torch_plateau_factor == 0.25
+    assert args.torch_plateau_patience == 5
+    assert args.torch_plateau_min_lr == 1e-5
+    assert args.torch_plateau_threshold == 1e-3
+
+
 def test_wrapper_passes_optimizer(monkeypatch, tmp_path):
     """Test --torch-optimizer and related flags thread through to runner.
 

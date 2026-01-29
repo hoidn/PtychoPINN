@@ -60,6 +60,10 @@ def run_grid_lines_compare(
     torch_scheduler: str = "Default",
     torch_lr_warmup_epochs: int = 0,
     torch_lr_min_ratio: float = 0.1,
+    torch_plateau_factor: float = 0.5,
+    torch_plateau_patience: int = 2,
+    torch_plateau_min_lr: float = 1e-4,
+    torch_plateau_threshold: float = 0.0,
 ) -> dict:
     os.environ.setdefault("PTYCHO_MEMOIZE_KEY_MODE", "dataset")
     output_dir = Path(output_dir)
@@ -138,6 +142,10 @@ def run_grid_lines_compare(
                 scheduler=torch_scheduler,
                 lr_warmup_epochs=torch_lr_warmup_epochs,
                 lr_min_ratio=torch_lr_min_ratio,
+                plateau_factor=torch_plateau_factor,
+                plateau_patience=torch_plateau_patience,
+                plateau_min_lr=torch_plateau_min_lr,
+                plateau_threshold=torch_plateau_threshold,
             )
             from scripts.studies import grid_lines_torch_runner as torch_runner
             torch_result = torch_runner.run_grid_lines_torch(torch_cfg)
@@ -238,6 +246,10 @@ def parse_args(argv=None):
                         choices=["Default", "Exponential", "WarmupCosine", "ReduceLROnPlateau"])
     parser.add_argument("--torch-lr-warmup-epochs", type=int, default=0)
     parser.add_argument("--torch-lr-min-ratio", type=float, default=0.1)
+    parser.add_argument("--torch-plateau-factor", type=float, default=0.5)
+    parser.add_argument("--torch-plateau-patience", type=int, default=2)
+    parser.add_argument("--torch-plateau-min-lr", type=float, default=1e-4)
+    parser.add_argument("--torch-plateau-threshold", type=float, default=0.0)
     args = parser.parse_args(argv)
     args.architectures = _parse_architectures(args.architectures)
     return args
@@ -286,6 +298,10 @@ def main(argv=None) -> None:
         torch_scheduler=args.torch_scheduler,
         torch_lr_warmup_epochs=args.torch_lr_warmup_epochs,
         torch_lr_min_ratio=args.torch_lr_min_ratio,
+        torch_plateau_factor=args.torch_plateau_factor,
+        torch_plateau_patience=args.torch_plateau_patience,
+        torch_plateau_min_lr=args.torch_plateau_min_lr,
+        torch_plateau_threshold=args.torch_plateau_threshold,
     )
 
 
