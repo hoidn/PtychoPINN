@@ -111,6 +111,10 @@ class TorchRunnerConfig:
     scheduler: str = 'Default'
     lr_warmup_epochs: int = 0
     lr_min_ratio: float = 0.1
+    plateau_factor: float = 0.5
+    plateau_patience: int = 2
+    plateau_min_lr: float = 1e-4
+    plateau_threshold: float = 0.0
 
 
 def load_cached_dataset(npz_path: Path) -> Dict[str, np.ndarray]:
@@ -224,6 +228,10 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     training_config.scheduler = cfg.scheduler
     training_config.lr_warmup_epochs = cfg.lr_warmup_epochs
     training_config.lr_min_ratio = cfg.lr_min_ratio
+    training_config.plateau_factor = cfg.plateau_factor
+    training_config.plateau_patience = cfg.plateau_patience
+    training_config.plateau_min_lr = cfg.plateau_min_lr
+    training_config.plateau_threshold = cfg.plateau_threshold
 
     execution_config = PyTorchExecutionConfig(
         learning_rate=cfg.learning_rate,

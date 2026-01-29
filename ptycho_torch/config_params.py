@@ -129,6 +129,10 @@ class TrainingConfig:
     scheduler: Literal['Default', 'Exponential', 'MultiStage', 'Adaptive', 'WarmupCosine', 'ReduceLROnPlateau'] = 'Default'
     lr_warmup_epochs: int = 0  # Number of warmup epochs for WarmupCosine scheduler
     lr_min_ratio: float = 0.1  # Minimum LR ratio for WarmupCosine scheduler (eta_min = base_lr * ratio)
+    plateau_factor: float = 0.5
+    plateau_patience: int = 2
+    plateau_min_lr: float = 1e-4
+    plateau_threshold: float = 0.0
     num_workers: int = 4 #Dataloader workers
     accum_steps: int = 1 #Batch size accumulation, manually implemented for DDP
     gradient_clip_val: Union[float,None] = None #Gradient clip value

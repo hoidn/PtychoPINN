@@ -186,6 +186,26 @@ class TestSetupTorchConfigs:
         assert training_cfg.lr_warmup_epochs == 5
         assert training_cfg.lr_min_ratio == 0.05
 
+    def test_setup_configs_threads_plateau_params(self, tmp_path):
+        """Test that ReduceLROnPlateau params propagate through setup_torch_configs."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "output",
+            architecture="hybrid",
+            scheduler="ReduceLROnPlateau",
+            plateau_factor=0.25,
+            plateau_patience=5,
+            plateau_min_lr=1e-5,
+            plateau_threshold=1e-3,
+        )
+        training_cfg, _ = setup_torch_configs(cfg)
+        assert training_cfg.scheduler == "ReduceLROnPlateau"
+        assert training_cfg.plateau_factor == 0.25
+        assert training_cfg.plateau_patience == 5
+        assert training_cfg.plateau_min_lr == 1e-5
+        assert training_cfg.plateau_threshold == 1e-3
+
 
 class TestRunGridLinesTorchScaffold:
     """Smoke tests for the main runner function (scaffold mode)."""
