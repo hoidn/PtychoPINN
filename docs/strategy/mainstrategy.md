@@ -46,6 +46,7 @@ We will select the winner through a rigorous 2-stage process using the `grid_lin
 *   **Stability:** Failure rate across seeds + time-to-failure distribution.
 
 **Protocol:**
+*   Dataset generation must use `--set-phi`; otherwise phase metrics are meaningless.
 *   Run each arm across **N seeds** (suggested: 5–10). Report median + IQR for metrics **conditional on successful runs**.
 
 | Arm | Architecture | Clipping Strategy | Hypothesis | Success Condition |
@@ -54,6 +55,16 @@ We will select the winner through a rigorous 2-stage process using the `grid_lin
 | **2. Arch Fix** | `stable_hybrid` | **Disabled** (no clipping; `gradient_clip_val=None`) | **Stability:** Converges smoothly with NO clipping. | Lowest `model.val_loss_name`; No NaNs; lowest failure rate. |
 | **3. Opt Fix** | `hybrid` | **AGC** (`val=0.01`) | **Survival:** Survives 50 epochs despite drift. | Lower failure rate than Control; `model.val_loss_name` not worse by >10% (median, successful runs only). |
 
+**Stage A outcome (2026-01-29):** Single-seed execution (N=64, gridsize=1, `fno_blocks=4`, `nimgs_{train,test}=2`, `nphotons=1e9`, MAE loss, 50 epochs, seed=20260128) produced the following metrics:
+
+| Arm | Architecture | Clipping | Best val_loss | Amp SSIM | Phase SSIM | Amp MAE | Notes |
+|-----|--------------|----------|---------------|----------|------------|---------|-------|
+| Control | hybrid | norm (1.0) | **0.0138** | **0.925** | **0.997** | **0.063** | Healthy variance, no failures |
+| AGC | hybrid | agc (0.01) | 0.0243 | 0.811 | 0.989 | 0.102 | Stable but slower convergence |
+| Stable | stable_hybrid | none (0.0) | 0.1783 | 0.277 | 1.000 | 0.513 | Collapsed amplitude; InstanceNorm weights stayed near zero |
+
+Control unexpectedly dominated; the hypothesized drift did not appear at 4 blocks/50 epochs. `stable_hybrid` stagnated because zero-gamma InstanceNorm prevented residual learning, and AGC’s 0.01 threshold over-damped gradients. Stage B therefore promotes the control arm to the deep test while we revisit the architectural hypothesis.
+
 **Clip sweep (control sensitivity):**
 *   Run the control arm with global norm clip values across a wide range (e.g., `val` in {1, 5, 10, 20, 50, 100}) to confirm conclusions are not artifacts of aggressive clipping.
 
@@ -61,8 +72,14 @@ We will select the winner through a rigorous 2-stage process using the `grid_lin
 **Context:** `fno_blocks=8` (2x Depth).
 **Why:** Instability scales with depth. A solution is only valid if it allows scaling.
 
-*   **Protocol:** Run the **Winner of Stage A** with `fno_blocks=8` and `gradient_clip_val=None` (if Arch Fix) or `val=0.01` (if Opt Fix).
-*   **Success Condition:** The deep model reduces failure rate vs. shallow runs and achieves lower `model.val_loss_name` (median of successful runs).
+*   **Protocol:** Run the **Winner of Stage A** (control arm: `hybrid`, norm clip 1.0) with `fno_blocks=8`, same dataset/probe, and log gradient norms every epoch (`--torch-log-grad-norm`).
+*   **Success Condition:** The deep model avoids gradient explosion (no NaNs, grad_norm bounded) and matches or beats the Stage A val_loss/SSIM metrics.
+
+**Stage B plan (scheduled 2026-01-29T18:00Z):**
+- Output dir: `outputs/grid_lines_stage_b/deep_control`
+- Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/`
+- Command template mirrors Stage A control but with `--fno-blocks 8` and grad norm logging enabled.
+- After the run, `scripts/internal/stage_a_dump_stats.py` captures stats, and `stage_b_summary.md` compares Stage A vs Stage B.
 
 ---
 
