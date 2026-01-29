@@ -479,7 +479,7 @@ Phase 7 eliminated LR and gradient clipping as levers, leaving optimizer sensiti
 
 **Exit criteria:** (a) Optimizer settings are configurable end-to-end via CLI/config and covered by tests, (b) activation script can analyze any saved stable_hybrid checkpoint, and (c) Stage A optimizer runs either succeed (amp_ssim ≥0.80) or conclusively show optimizer independence with activation evidence archived for downstream architectural work.
 
-**Status 2026-01-29:** PLANNING. Awaiting Task 1 execution.
+**Status 2026-01-30:** COMPLETE (negative result). Tasks 1-2 (optimizer plumbing + activation debug) were already implemented in prior commits. Task 3 executed: SGD and AdamW arms both collapsed identically to Adam (best_val=0.0237, amp_ssim=0.277). Activation reports captured. Collapse is confirmed architecture-driven and optimizer-independent. See `reports/2026-01-30T050000Z/stage_a_optimizer_summary.md`.
 
 ---
 

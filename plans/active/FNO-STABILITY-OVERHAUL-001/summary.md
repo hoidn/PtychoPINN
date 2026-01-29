@@ -1,3 +1,8 @@
+### Turn Summary (2026-01-30 engineer — Phase 8 optimizer sweep complete)
+Executed Phase 8 Tasks 1-3. Tasks 1-2 (optimizer plumbing + activation debug) were already implemented. Task 3: ran SGD (mom=0.9, LR=3e-4, WarmupCosine) and AdamW (wd=0.01, LR=3e-4, WarmupCosine) arms. **BOTH COLLAPSED IDENTICALLY** — best_val=0.0237, amp_ssim=0.277, metrics identical to Adam. Activation reports captured. 6/6 mapped test selectors pass.
+**Conclusion:** Collapse is optimizer-independent. Combined with Phase 7 (LR-independent), all training-dynamics hypotheses are eliminated. The failure is architectural — the Norm-Last + LayerScale topology in StablePtychoBlock is incompatible with this physics task. STABLE-LS-001 updated. Next: Phase 9 crash hunt on control arm, or topology revert.
+Artifacts: plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T050000Z/
+
 ### Turn Summary (2026-01-30 supervisor — strategy pivot sync)
 Aligned the stability plan with the updated strategy: enforced `--set-phi` in every Stage A/B CLI snippet, added README notes about the phase-metric requirement, and captured the memory-cap guardrails inside the implementation plan.
 Authored the Crash Hunt + Shootout plan (`docs/plans/2026-01-30-stable-hybrid-crash-hunt.md`, mirrored under `plan_crash_hunt.md`) and appended Phase 9 so the engineer can execute the multi-seed stochastic tests once Phase 8 wraps.
