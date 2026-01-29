@@ -40,7 +40,7 @@ def run_grid_lines_compare(
     torch_batch_size: Optional[int] = None,
     torch_learning_rate: float = 1e-3,
     torch_infer_batch_size: int = 16,
-    torch_gradient_clip_val: float = 1.0,
+    torch_gradient_clip_val: float = 0.0,
     torch_gradient_clip_algorithm: str = "norm",
     torch_output_mode: str = "real_imag",
     torch_loss_mode: str = "mae",
@@ -178,7 +178,7 @@ def parse_args(argv=None):
     parser.add_argument(
         "--torch-grad-clip",
         type=float,
-        default=1.0,
+        default=0.0,
         help="Torch gradient clipping max norm (<=0 disables clipping).",
     )
     parser.add_argument(

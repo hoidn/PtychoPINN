@@ -88,7 +88,7 @@ class TorchRunnerConfig:
     batch_size: int = 16
     learning_rate: float = 1e-3
     infer_batch_size: int = 16
-    gradient_clip_val: Optional[float] = 1.0
+    gradient_clip_val: Optional[float] = 0.0
     gradient_clip_algorithm: str = 'norm'  # 'norm', 'value', or 'agc'
     generator_output_mode: str = "real_imag"
     N: int = 64
@@ -577,7 +577,7 @@ def main() -> None:
                         help="Learning rate")
     parser.add_argument("--infer-batch-size", type=int, default=16,
                         help="Inference batch size (OOM guard)")
-    parser.add_argument("--grad-clip", type=float, default=1.0,
+    parser.add_argument("--grad-clip", type=float, default=0.0,
                         help="Gradient clipping max norm (<=0 disables clipping)")
     parser.add_argument("--gradient-clip-algorithm", choices=['norm', 'value', 'agc'],
                         default='norm', help='Gradient clipping algorithm')
