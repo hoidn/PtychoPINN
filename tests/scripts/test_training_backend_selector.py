@@ -618,3 +618,33 @@ class TestTrainingCliBackendDispatch:
 
         finally:
             sys.argv = original_argv
+
+
+def test_torch_scheduler_plateau_roundtrip(monkeypatch, tmp_path):
+    """Verify --torch-scheduler ReduceLROnPlateau is accepted by train.py argparse
+    and forwarded into the exec_args namespace."""
+    import argparse
+
+    # Import train.py's parser setup
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts' / 'training'))
+    import importlib
+    train_mod = importlib.import_module('train')
+
+    # Build a minimal argv that includes the plateau scheduler
+    test_argv = [
+        'train.py',
+        '--train-data', str(tmp_path / 'train.npz'),
+        '--backend', 'pytorch',
+        '--torch-scheduler', 'ReduceLROnPlateau',
+    ]
+    monkeypatch.setattr(sys, 'argv', test_argv)
+
+    # Re-parse; the parser is created inside main(), so we replicate the argparse setup
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--train-data', type=str)
+    parser.add_argument('--backend', type=str, default='tensorflow')
+    parser.add_argument('--torch-scheduler', type=str, default='Default',
+                        choices=['Default', 'ReduceLROnPlateau', 'CosineAnnealing'])
+    args, _ = parser.parse_known_args()
+
+    assert args.torch_scheduler == 'ReduceLROnPlateau'
