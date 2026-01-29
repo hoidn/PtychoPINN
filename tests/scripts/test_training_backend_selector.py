@@ -648,3 +648,35 @@ def test_torch_scheduler_plateau_roundtrip(monkeypatch, tmp_path):
     args, _ = parser.parse_known_args()
 
     assert args.torch_scheduler == 'ReduceLROnPlateau'
+
+
+def test_torch_scheduler_plateau_params_roundtrip(monkeypatch, tmp_path):
+    """Verify torch plateau params map into TrainingConfig when provided."""
+    import importlib
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts' / 'training'))
+    train_mod = importlib.import_module('train')
+
+    test_argv = [
+        'train.py',
+        '--backend', 'pytorch',
+        '--train_data_file', str(tmp_path / 'train.npz'),
+        '--scheduler', 'ReduceLROnPlateau',
+        '--torch-plateau-factor', '0.25',
+        '--torch-plateau-patience', '5',
+        '--torch-plateau-min-lr', '1e-5',
+        '--torch-plateau-threshold', '1e-3',
+    ]
+    monkeypatch.setattr(sys, 'argv', test_argv)
+
+    args = train_mod.parse_arguments()
+    train_mod.apply_torch_plateau_overrides(args, argv=test_argv)
+
+    from ptycho.workflows.components import setup_configuration
+    config = setup_configuration(args, None)
+
+    assert config.scheduler == 'ReduceLROnPlateau'
+    assert config.plateau_factor == 0.25
+    assert config.plateau_patience == 5
+    assert config.plateau_min_lr == 1e-5
+    assert config.plateau_threshold == 1e-3

@@ -146,9 +146,13 @@ class TrainingConfig:
     weight_decay: float = 0.0  # Weight decay (L2 penalty)
     adam_beta1: float = 0.9  # Adam/AdamW beta1
     adam_beta2: float = 0.999  # Adam/AdamW beta2
-    scheduler: Literal['Default', 'Exponential', 'WarmupCosine'] = 'Default'  # LR scheduler type
+    scheduler: Literal['Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau'] = 'Default'  # LR scheduler type
     lr_warmup_epochs: int = 0  # Number of warmup epochs for WarmupCosine scheduler
     lr_min_ratio: float = 0.1  # Minimum LR ratio for WarmupCosine scheduler (eta_min = base_lr * ratio)
+    plateau_factor: float = 0.5
+    plateau_patience: int = 2
+    plateau_min_lr: float = 1e-4
+    plateau_threshold: float = 0.0
 
     def __post_init__(self):
         """Handle backward compatibility for n_images → n_groups migration."""

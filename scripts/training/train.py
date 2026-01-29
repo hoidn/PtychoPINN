@@ -282,6 +282,14 @@ def parse_arguments():
                        choices=['Default', 'ReduceLROnPlateau', 'CosineAnnealing'],
                        help="Learning rate scheduler for PyTorch training (default: 'Default'). "
                             "Only applies when --backend pytorch.")
+    parser.add_argument("--torch-plateau-factor", type=float, default=None,
+                       help="ReduceLROnPlateau factor (only applies when --backend pytorch).")
+    parser.add_argument("--torch-plateau-patience", type=int, default=None,
+                       help="ReduceLROnPlateau patience (only applies when --backend pytorch).")
+    parser.add_argument("--torch-plateau-min-lr", type=float, default=None,
+                       help="ReduceLROnPlateau min lr (only applies when --backend pytorch).")
+    parser.add_argument("--torch-plateau-threshold", type=float, default=None,
+                       help="ReduceLROnPlateau threshold (only applies when --backend pytorch).")
     parser.add_argument("--torch-logger", type=str, default='csv',
                        choices=['csv', 'tensorboard', 'mlflow', 'none'],
                        help="Logger backend for PyTorch training (default: 'csv'). "
@@ -297,6 +305,20 @@ def parse_arguments():
 
     return parser.parse_args()
 
+
+def apply_torch_plateau_overrides(args, argv=None) -> None:
+    """Map torch-specific plateau flags onto TrainingConfig fields."""
+    argv = argv or sys.argv
+    if "--torch-plateau-factor" in argv and getattr(args, "torch_plateau_factor", None) is not None:
+        args.plateau_factor = args.torch_plateau_factor
+    if "--torch-plateau-patience" in argv and getattr(args, "torch_plateau_patience", None) is not None:
+        args.plateau_patience = args.torch_plateau_patience
+    if "--torch-plateau-min-lr" in argv and getattr(args, "torch_plateau_min_lr", None) is not None:
+        args.plateau_min_lr = args.torch_plateau_min_lr
+    if "--torch-plateau-threshold" in argv and getattr(args, "torch_plateau_threshold", None) is not None:
+        args.plateau_threshold = args.torch_plateau_threshold
+
+
 def main() -> None:
     """Main function to orchestrate the CDI example script execution."""
     args = parse_arguments()
@@ -305,7 +327,9 @@ def main() -> None:
     if hasattr(args, 'train_data_file_path'):
         args.train_data_file = args.train_data_file_path
         delattr(args, 'train_data_file_path')
-        
+
+    apply_torch_plateau_overrides(args)
+
     config = setup_configuration(args, args.config)
     
     # Interpret sampling parameters with new independent control support

@@ -85,6 +85,13 @@ These parameters control the training loop, data handling, and loss functions.
 | `probe_trainable` | `bool` | `False` | If True, allows the model to learn and update the probe function during training. |
 | `intensity_scale_trainable` | `bool` | `True` | If True, allows the model to learn the global intensity scaling factor. |
 | `output_dir` | `Path` | `"training_outputs"` | The directory where training outputs (model, logs, images) will be saved. |
+| `scheduler` | `str` | `'Default'` | Learning rate scheduler type: `'Default'`, `'Exponential'`, `'WarmupCosine'`, `'ReduceLROnPlateau'`. |
+| `lr_warmup_epochs` | `int` | `0` | Warmup epochs for the WarmupCosine scheduler. |
+| `lr_min_ratio` | `float` | `0.1` | Minimum LR ratio for WarmupCosine (eta_min = base_lr × ratio). |
+| `plateau_factor` | `float` | `0.5` | ReduceLROnPlateau factor (multiplier applied when plateau detected). |
+| `plateau_patience` | `int` | `2` | ReduceLROnPlateau patience (epochs without improvement before reducing LR). |
+| `plateau_min_lr` | `float` | `1e-4` | ReduceLROnPlateau minimum learning rate. |
+| `plateau_threshold` | `float` | `0.0` | ReduceLROnPlateau threshold for measuring improvement. |
 
 ### Inference Parameters (InferenceConfig)
 
