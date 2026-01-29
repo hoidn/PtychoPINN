@@ -41,26 +41,27 @@
   - *2026-01-28T00:00:00Z (supervisor review):* Assessed initiative near-complete. Root cause of 2 failures: `synthetic_npz` fixture uses `np.savez()` instead of `MetadataManager.save_with_metadata()`. Delegated fixture fix to Ralph. Artifacts: `plans/active/GRID-LINES-WORKFLOW-001/reports/2026-01-28T000000Z/`.
   - *2026-01-28T01:00:00Z (COMPLETE):* Engineer applied fixture fix (MetadataManager.save_with_metadata + correct YY_ground_truth shape + norm_Y_I). **Result: ALL 23/23 TORCH RUNNER TESTS PASSED (5.67s).** Initiative complete.
 
-### [FNO-STABILITY-OVERHAUL-001] FNO/Hybrid Stability Overhaul (stable_hybrid + AGC)
+-### [FNO-STABILITY-OVERHAUL-001] FNO/Hybrid Stability Overhaul (stable_hybrid + AGC)
 - Depends on: GRID-LINES-WORKFLOW-001 ✅ (test harness complete)
 - Priority: **Critical** (Main strategy execution — `docs/strategy/mainstrategy.md`)
-- Status: ready_for_implementation (Phase 2 kickoff)
+- Status: ready_for_implementation (Phase 3 — Stage A shootout planning ready)
 - Owner/Date: Codex/2026-01-28
 - Working Plan: `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md`
 - Reports Hub: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/`
 - Goals:
-  - Phase 1: Config (`gradient_clip_algorithm`), AGC utility, training_step dispatch, CLI flags
-  - Phase 2: StablePtychoBlock (Norm-Last/Zero-Gamma), StableHybridGenerator, registry
-  - Phase 3: Stage A shootout (3-arm comparison via grid_lines_compare_wrapper)
+  - Phase 1: Config (`gradient_clip_algorithm`), AGC utility, training_step dispatch, CLI flags ✅
+  - Phase 2: StablePtychoBlock (Norm-Last/Zero-Gamma), StableHybridGenerator, registry ✅
+  - Phase 3: Stage A shootout (3-arm comparison via grid_lines_compare_wrapper) — dataset + CLI plan ready
 - Exit Criteria:
   - `stable_hybrid` resolves from registry, identity-init and zero-mean tests pass
   - AGC utility clips correctly, training_step dispatches by algorithm
   - All existing tests pass (no regressions)
-- Return Condition: Phase 1+2 implemented with tests; Phase 3 (shootout) triggered.
+- Return Condition: Phase 1+2 implemented with tests; Phase 3 shootout executed with archived metrics + Stage B candidate selected.
 - Attempts History:
   - *2026-01-28T01:00:00Z (planning):* Created implementation plan covering 2 phases + test strategy. Codebase audit: 0% of strategy implemented. All config, AGC, stable block, and registry changes pending. Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md`.
   - *2026-01-28T02:05:00Z (supervisor audit):* Verified Phase 1 partial progress. Torch TrainingConfig + runner CLI already define `gradient_clip_algorithm`, but TF TrainingConfig + config_bridge do not, so Task 1.1 remains incomplete. Found training_step dispatch + AGC utility implemented with unit tests, yet grid_lines compare wrapper lacks a CLI flag to select AGC (`--torch-grad-clip-algorithm`), so Task 1.4 only partially delivered. Next engineering pass must (1) add the TF config field + bridge plumbing + config_bridge parity test, (2) expose/forward the compare-wrapper flag with argparse/runner tests, and (3) keep mapped regression selectors green.
-  - *2026-01-28T05:00:00Z (supervisor review):* Phase 1 COMPLETE — TF TrainingConfig + config_bridge now carry `gradient_clip_algorithm`, compare wrapper exposes `--torch-grad-clip-algorithm`, and regression selectors are archived (`pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_gradient_clip_algorithm_roundtrip -v`, `pytest tests/torch/test_grid_lines_torch_runner.py -k gradient_clip_algorithm -v`, `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_passes_grad_clip_algorithm -v`). Phase 2 Do Now: build `StablePtychoBlock`, register `stable_hybrid`, and wire it through the Torch runner per `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md` Tasks 2.1–2.3. Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T050000Z/`.
+-  - *2026-01-28T05:00:00Z (supervisor review):* Phase 1 COMPLETE — TF TrainingConfig + config_bridge now carry `gradient_clip_algorithm`, compare wrapper exposes `--torch-grad-clip-algorithm`, and regression selectors are archived (`pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_gradient_clip_algorithm_roundtrip -v`, `pytest tests/torch/test_grid_lines_torch_runner.py -k gradient_clip_algorithm -v`, `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_passes_grad_clip_algorithm -v`). Phase 2 Do Now: build `StablePtychoBlock`, register `stable_hybrid`, and wire it through the Torch runner per `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md` Tasks 2.1–2.3. Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T050000Z/`.
+-  - *2026-01-28T23:59:00Z (supervisor review):* Phase 2 COMPLETE — stable block, registry wiring, CLI/docs/tests implemented; logs archived under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T050000Z/`. Phase 3 plan drafted: Stage A shootout instructions + CLI recipes added to implementation.md §Phase 3. Next: engineer executes Tasks 3.1–3.5 (dataset prep + three arms + summary) with logs under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/`.
 
 ---
 
@@ -349,4 +350,4 @@
 
 ---
 
-Supervisor state: `focus=FNO-STABILITY-OVERHAUL-001` `state=ready_for_implementation` `dwell=0` `artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T050000Z/` `next_action=implement Phase 2 Tasks 2.1–2.3 (StablePtychoBlock + stable_hybrid registry/CLI + mapped pytest selectors)`
+Supervisor state: `focus=FNO-STABILITY-OVERHAUL-001` `state=planning` `dwell=1` `artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/` `next_action=run Stage A shootout per plan Tasks 3.1–3.5`

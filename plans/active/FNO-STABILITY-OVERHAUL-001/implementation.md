@@ -114,10 +114,107 @@ if self.gradient_clip_val is not None and self.gradient_clip_val > 0:
 
 ## Phase 3: Validation (Stage A Shootout)
 
-Deferred to post-implementation. Uses `grid_lines_compare_wrapper.py` with 3 arms:
-1. Control: `hybrid` + `norm` clip (1.0)
-2. Arch Fix: `stable_hybrid` + no clip (0.0)
-3. Opt Fix: `hybrid` + `agc` (0.01)
+Stage A validates the architectural fix (`stable_hybrid`) against the optimization fix (Hybrid + AGC) using the grid-lines harness described in `docs/strategy/mainstrategy.md §2.Stage A`. All three arms must share the exact cached dataset and probe so that loss/SSIM comparisons are meaningful. Use the compare wrapper to run the TF workflow + Torch runner in lockstep, and archive every CLI log under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/` per `docs/TESTING_GUIDE.md`.
+
+### Task 3.1: Prepare shared dataset + run directories
+
+**Files / Paths:** `scripts/studies/grid_lines_compare_wrapper.py`; output root `outputs/grid_lines_stage_a/`; artifacts hub `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/`.
+
+1. Create the root folders:
+   ```bash
+   mkdir -p outputs/grid_lines_stage_a/{arm_control,arm_stable,arm_agc}
+   mkdir -p plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z
+   ```
+2. The first arm (`arm_control`) generates the canonical dataset under `arm_control/datasets/N64/gs1/`. After it finishes, copy that `datasets` tree to the other arms **before** running them so all NPZs/metadata match:
+   ```bash
+   rsync -a outputs/grid_lines_stage_a/arm_control/datasets/ outputs/grid_lines_stage_a/arm_stable/datasets/
+   rsync -a outputs/grid_lines_stage_a/arm_control/datasets/ outputs/grid_lines_stage_a/arm_agc/datasets/
+   ```
+   (Re-run the copy whenever you regenerate the control arm.)
+3. Record the shared seed (`20260128`) and hyperparameters (N=64, gridsize=1, nimgs_train/test=2, nphotons=1e9, nepochs=50, fno_blocks=4) in a short README inside the artifacts hub for traceability.
+
+### Task 3.2: Arm 1 — Control (`hybrid`, norm clip 1.0)
+
+Goal: Establish the failure baseline and produce the shared dataset.
+
+Command:
+```bash
+python scripts/studies/grid_lines_compare_wrapper.py \
+  --N 64 --gridsize 1 \
+  --output-dir outputs/grid_lines_stage_a/arm_control \
+  --architectures hybrid \
+  --seed 20260128 \
+  --nimgs-train 2 --nimgs-test 2 --nphotons 1e9 \
+  --nepochs 50 --torch-epochs 50 \
+  --torch-grad-clip 1.0 --torch-grad-clip-algorithm norm \
+  --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8
+```
+
+Artifacts: capture stdout/stderr to `.../stage_a_arm_control.log` and copy:
+- `outputs/grid_lines_stage_a/arm_control/metrics.json`
+- `outputs/grid_lines_stage_a/arm_control/runs/pinn_hybrid/{history.json,metrics.json}`
+
+### Task 3.3: Arm 2 — Architectural Fix (`stable_hybrid`, no clip)
+
+Prep: ensure `outputs/grid_lines_stage_a/arm_stable/datasets` exists (copied from control) and delete any stale `runs/pinn_stable_hybrid` files.
+
+Command:
+```bash
+python scripts/studies/grid_lines_compare_wrapper.py \
+  --N 64 --gridsize 1 \
+  --output-dir outputs/grid_lines_stage_a/arm_stable \
+  --architectures stable_hybrid \
+  --seed 20260128 \
+  --nimgs-train 2 --nimgs-test 2 --nphotons 1e9 \
+  --nepochs 50 --torch-epochs 50 \
+  --torch-grad-clip 0.0 --torch-grad-clip-algorithm norm \
+  --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8
+```
+
+Artifacts: log to `stage_a_arm_stable.log` and archive `runs/pinn_stable_hybrid/{history.json,metrics.json,model.pt}` plus the top-level `metrics.json`.
+
+### Task 3.4: Arm 3 — Optimization Fix (`hybrid`, AGC 0.01)
+
+Prep: copy the dataset into `outputs/grid_lines_stage_a/arm_agc/datasets` and remove any previous `runs/pinn_hybrid` inside `arm_agc`.
+
+Command:
+```bash
+python scripts/studies/grid_lines_compare_wrapper.py \
+  --N 64 --gridsize 1 \
+  --output-dir outputs/grid_lines_stage_a/arm_agc \
+  --architectures hybrid \
+  --seed 20260128 \
+  --nimgs-train 2 --nimgs-test 2 --nphotons 1e9 \
+  --nepochs 50 --torch-epochs 50 \
+  --torch-grad-clip 0.01 --torch-grad-clip-algorithm agc \
+  --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8
+```
+
+Artifacts: log to `stage_a_arm_agc.log` and archive the `runs/pinn_hybrid` metrics/history for reference.
+
+### Task 3.5: Summarize metrics + pick Stage B candidate
+
+1. Use a short Python snippet to pull the key numbers (val loss + `ssim_phase`) from each arm:
+   ```bash
+   python - <<'PY'
+   import json, pathlib
+   base = pathlib.Path('outputs/grid_lines_stage_a')
+   arms = {
+       'control': base/'arm_control'/'runs'/'pinn_hybrid'/'metrics.json',
+       'stable': base/'arm_stable'/'runs'/'pinn_stable_hybrid'/'metrics.json',
+       'agc': base/'arm_agc'/'runs'/'pinn_hybrid'/'metrics.json',
+   }
+   rows = []
+   for name, path in arms.items():
+       data = json.loads(path.read_text())
+       rows.append((name, data.get('val_loss', data.get('mse')), data.get('ssim_phase')))
+   rows.sort(key=lambda r: r[1])
+   out = pathlib.Path('plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/stage_a_metrics.json')
+   out.write_text(json.dumps(rows, indent=2))
+   PY
+   ```
+2. Write `stage_a_summary.md` with a table ranking the arms, note any NaNs/instability, and recommend the Stage B candidate per `docs/strategy/mainstrategy.md §2.Stage B` (if `stable_hybrid` wins, Stage B uses it; otherwise AGC).
+3. Update this plan + `docs/fix_plan.md` with the outcome and Stage B next tasks.
 
 ---
 
