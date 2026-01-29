@@ -52,6 +52,9 @@ def run_grid_lines_compare(
     fno_cnn_blocks: int = 2,
     fno_input_transform: str = "none",
     torch_max_hidden_channels: Optional[int] = None,
+    torch_scheduler: str = "Default",
+    torch_lr_warmup_epochs: int = 0,
+    torch_lr_min_ratio: float = 0.1,
 ) -> dict:
     os.environ.setdefault("PTYCHO_MEMOIZE_KEY_MODE", "dataset")
     output_dir = Path(output_dir)
@@ -122,6 +125,9 @@ def run_grid_lines_compare(
                 max_hidden_channels=torch_max_hidden_channels,
                 log_grad_norm=torch_log_grad_norm,
                 grad_norm_log_freq=torch_grad_norm_log_freq,
+                scheduler=torch_scheduler,
+                lr_warmup_epochs=torch_lr_warmup_epochs,
+                lr_min_ratio=torch_lr_min_ratio,
             )
             from scripts.studies import grid_lines_torch_runner as torch_runner
             torch_result = torch_runner.run_grid_lines_torch(torch_cfg)
@@ -212,6 +218,10 @@ def parse_args(argv=None):
     )
     parser.add_argument("--torch-max-hidden-channels", type=int, default=None,
                         help="Cap on hidden channels in Hybrid encoder (default: no cap)")
+    parser.add_argument("--torch-scheduler", type=str, default="Default",
+                        choices=["Default", "Exponential", "WarmupCosine"])
+    parser.add_argument("--torch-lr-warmup-epochs", type=int, default=0)
+    parser.add_argument("--torch-lr-min-ratio", type=float, default=0.1)
     args = parser.parse_args(argv)
     args.architectures = _parse_architectures(args.architectures)
     return args
@@ -252,6 +262,9 @@ def main(argv=None) -> None:
         fno_cnn_blocks=args.fno_cnn_blocks,
         fno_input_transform=args.fno_input_transform,
         torch_max_hidden_channels=args.torch_max_hidden_channels,
+        torch_scheduler=args.torch_scheduler,
+        torch_lr_warmup_epochs=args.torch_lr_warmup_epochs,
+        torch_lr_min_ratio=args.torch_lr_min_ratio,
     )
 
 

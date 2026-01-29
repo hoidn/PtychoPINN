@@ -169,6 +169,23 @@ class TestSetupTorchConfigs:
         training_config, _ = setup_torch_configs(cfg)
         assert training_config.model.fno_input_transform == "sqrt"
 
+    def test_setup_configs_threads_scheduler_fields(self, tmp_path):
+        """Test that scheduler fields propagate through setup_torch_configs."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "output",
+            architecture="stable_hybrid",
+            learning_rate=5e-4,
+            scheduler='WarmupCosine',
+            lr_warmup_epochs=5,
+            lr_min_ratio=0.05,
+        )
+        training_cfg, exec_cfg = setup_torch_configs(cfg)
+        assert training_cfg.scheduler == 'WarmupCosine'
+        assert training_cfg.lr_warmup_epochs == 5
+        assert training_cfg.lr_min_ratio == 0.05
+
 
 class TestRunGridLinesTorchScaffold:
     """Smoke tests for the main runner function (scaffold mode)."""

@@ -1379,6 +1379,19 @@ class PtychoPINN_Lightning(L.LightningModule):
         scheduler_choice = getattr(self.training_config, 'scheduler', 'Default')
         if scheduler_choice == 'Exponential':
             result['lr_scheduler'] = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+        elif scheduler_choice == 'WarmupCosine':
+            from ptycho_torch.schedulers import build_warmup_cosine_scheduler
+            scheduler = build_warmup_cosine_scheduler(
+                optimizer,
+                total_epochs=self.training_config.epochs,
+                warmup_epochs=getattr(self.training_config, 'lr_warmup_epochs', 0),
+                min_lr_ratio=getattr(self.training_config, 'lr_min_ratio', 0.1),
+            )
+            result['lr_scheduler'] = {
+                'scheduler': scheduler,
+                'interval': 'epoch',
+                'frequency': 1,
+            }
         elif scheduler_choice in ('MultiStage', 'Adaptive'):
             logger.warning(
                 "Scheduler '%s' is no longer supported in single-loss mode. "

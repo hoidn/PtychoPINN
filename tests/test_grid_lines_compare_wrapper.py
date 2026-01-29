@@ -243,3 +243,55 @@ def test_wrapper_passes_max_hidden_channels():
         "--torch-max-hidden-channels", "512",
     ])
     assert args.torch_max_hidden_channels == 512
+
+
+def test_wrapper_passes_scheduler_knobs(monkeypatch, tmp_path):
+    """Test --torch-scheduler and related flags thread through to runner."""
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare, parse_args
+
+    # Test parse_args
+    args = parse_args([
+        "--N", "64", "--gridsize", "1", "--output-dir", str(tmp_path),
+        "--architectures", "stable_hybrid",
+        "--torch-scheduler", "WarmupCosine",
+        "--torch-lr-warmup-epochs", "5",
+        "--torch-lr-min-ratio", "0.05",
+    ])
+    assert args.torch_scheduler == "WarmupCosine"
+    assert args.torch_lr_warmup_epochs == 5
+    assert args.torch_lr_min_ratio == 0.05
+
+    # Test end-to-end passthrough
+    def fake_tf_run(cfg):
+        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+        datasets_dir.mkdir(parents=True, exist_ok=True)
+        (datasets_dir / "train.npz").write_bytes(b"stub")
+        (datasets_dir / "test.npz").write_bytes(b"stub")
+        (cfg.output_dir / "metrics.json").write_text("{}")
+        return {"train_npz": str(datasets_dir / "train.npz"), "test_npz": str(datasets_dir / "test.npz")}
+
+    captured = {}
+
+    def fake_torch_run(cfg):
+        captured["scheduler"] = cfg.scheduler
+        captured["lr_warmup_epochs"] = cfg.lr_warmup_epochs
+        captured["lr_min_ratio"] = cfg.lr_min_ratio
+        return {"metrics": {"mse": 0.3}}
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
+
+    run_grid_lines_compare(
+        N=64,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=("stable_hybrid",),
+        probe_npz=Path("dummy_probe.npz"),
+        torch_scheduler="WarmupCosine",
+        torch_lr_warmup_epochs=5,
+        torch_lr_min_ratio=0.05,
+    )
+
+    assert captured["scheduler"] == "WarmupCosine"
+    assert captured["lr_warmup_epochs"] == 5
+    assert captured["lr_min_ratio"] == 0.05

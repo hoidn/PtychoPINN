@@ -260,6 +260,9 @@ def to_training_config(
         'output_dir': Path(training.output_dir) if training.output_dir else Path('training_outputs'),
         'torch_loss_mode': getattr(training, 'torch_loss_mode', 'poisson'),
         'gradient_clip_algorithm': getattr(training, 'gradient_clip_algorithm', 'norm'),
+        'scheduler': getattr(training, 'scheduler', 'Default'),
+        'lr_warmup_epochs': getattr(training, 'lr_warmup_epochs', 0),
+        'lr_min_ratio': getattr(training, 'lr_min_ratio', 0.1),
     }
 
     # Apply overrides (critical for MVP fields)

@@ -141,6 +141,9 @@ class TrainingConfig:
     torch_loss_mode: Literal['poisson', 'mae'] = 'poisson'  # Backend-specific loss mode selector
     gradient_clip_val: Optional[float] = None  # Gradient clipping threshold (None = disabled)
     gradient_clip_algorithm: Literal['norm', 'value', 'agc'] = 'norm'  # Gradient clipping algorithm: norm, value, or agc
+    scheduler: Literal['Default', 'Exponential', 'WarmupCosine'] = 'Default'  # LR scheduler type
+    lr_warmup_epochs: int = 0  # Number of warmup epochs for WarmupCosine scheduler
+    lr_min_ratio: float = 0.1  # Minimum LR ratio for WarmupCosine scheduler (eta_min = base_lr * ratio)
 
     def __post_init__(self):
         """Handle backward compatibility for n_images → n_groups migration."""

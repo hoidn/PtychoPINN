@@ -103,6 +103,9 @@ class TorchRunnerConfig:
     log_grad_norm: bool = False
     grad_norm_log_freq: int = 1
     enable_checkpointing: bool = True
+    scheduler: str = 'Default'
+    lr_warmup_epochs: int = 0
+    lr_min_ratio: float = 0.1
 
 
 def load_cached_dataset(npz_path: Path) -> Dict[str, np.ndarray]:
@@ -208,6 +211,9 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     training_config.grad_norm_log_freq = cfg.grad_norm_log_freq
     training_config.gradient_clip_val = cfg.gradient_clip_val
     training_config.gradient_clip_algorithm = cfg.gradient_clip_algorithm
+    training_config.scheduler = cfg.scheduler
+    training_config.lr_warmup_epochs = cfg.lr_warmup_epochs
+    training_config.lr_min_ratio = cfg.lr_min_ratio
 
     execution_config = PyTorchExecutionConfig(
         learning_rate=cfg.learning_rate,
@@ -605,6 +611,12 @@ def main() -> None:
                         help="Patch size N")
     parser.add_argument("--gridsize", type=int, default=1,
                         help="Grid size for stitching")
+    parser.add_argument("--scheduler", choices=['Default', 'Exponential', 'WarmupCosine'], default='Default',
+                        help="LR scheduler type")
+    parser.add_argument("--lr-warmup-epochs", type=int, default=0,
+                        help="Number of warmup epochs for WarmupCosine scheduler")
+    parser.add_argument("--lr-min-ratio", type=float, default=0.1,
+                        help="Minimum LR ratio for WarmupCosine scheduler (eta_min = base_lr * ratio)")
 
     args = parser.parse_args()
 
@@ -636,6 +648,9 @@ def main() -> None:
         fno_cnn_blocks=args.fno_cnn_blocks,
         log_grad_norm=args.log_grad_norm,
         grad_norm_log_freq=args.grad_norm_log_freq,
+        scheduler=args.scheduler,
+        lr_warmup_epochs=args.lr_warmup_epochs,
+        lr_min_ratio=args.lr_min_ratio,
     )
 
     result = run_grid_lines_torch(cfg)

@@ -1225,6 +1225,29 @@ class TestConfigBridgeArchitecture:
 
         assert tf_model.fno_input_transform == 'sqrt'
 
+    def test_training_config_lr_scheduler_roundtrip(self, params_cfg_snapshot):
+        """Test scheduler fields round-trip through config bridge."""
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
+        from ptycho_torch import config_bridge
+
+        pt_data = DataConfig(nphotons=1e9)
+        pt_model = ModelConfig()
+        pt_train = TrainingConfig(
+            scheduler='WarmupCosine',
+            lr_warmup_epochs=5,
+            lr_min_ratio=0.05,
+        )
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+        tf_train = config_bridge.to_training_config(
+            tf_model, pt_data, pt_model, pt_train,
+            overrides=dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=1e9)
+        )
+
+        assert tf_train.scheduler == 'WarmupCosine'
+        assert tf_train.lr_warmup_epochs == 5
+        assert tf_train.lr_min_ratio == 0.05
+
 
 if __name__ == '__main__':
     unittest.main()
