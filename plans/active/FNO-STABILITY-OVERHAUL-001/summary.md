@@ -1,3 +1,10 @@
+### Turn Summary (2026-01-29 supervisor loop — LR sweep delegation)
+Re-read docs/index.md, docs/findings.md (STABLE-LS-001), docs/strategy/mainstrategy.md, and the Phase 7 LR + gradient guard plan to confirm acceptance criteria and artifacts expectations; noted docs/prompt_sources_map.json is still absent so no new sources needed syncing.
+Verified the Stage A control datasets already exist under outputs/grid_lines_stage_a/arm_control, confirmed the 2026-01-30T010000Z reports hub is provisioned, and aligned execution scope to the existing plan without altering core physics files.
+Refreshed input.md so the engineer will run the three Stage A arms (low LR, WarmupCosine low LR, WarmupCosine + clip) from the fno2-phase7-lr-sweep worktree, archive stats/logs under the shared hub, and update docs/tests afterward.
+Next: execute the sweep, aggregate `stage_a_metrics_phase7.json`, update docs/strategy, docs/fix_plan, docs/findings (STABLE-LS-001), plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md, and run the mapped pytest selectors.
+Artifacts: plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/
+
 ### Turn Summary (2026-01-29 supervisor loop)
 Authored the Phase 7 LR+gradient guard study plan for stable_hybrid (docs/plans/2026-01-29-stable-hybrid-lr-gradient-study.md) and mirrored the tasks into implementation.md.
 Extended docs/strategy/mainstrategy.md with the upcoming sweep context so Stage A levers stay visible to downstream engineers.

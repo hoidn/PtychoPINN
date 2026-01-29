@@ -361,4 +361,4 @@
 
 ---
 
-Supervisor state: `focus=FNO-STABILITY-OVERHAUL-001` `state=ready_for_implementation` `dwell=3` `artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/` `next_action=Run Phase 7 LR/clipping Stage A sweep (low-LR, warmup-lowLR, warmup+clip) and sync docs`
+Supervisor state: `focus=FNO-STABILITY-OVERHAUL-001` `state=ready_for_implementation` `dwell=1` `artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/` `next_action=Engineer to execute Phase 7 LR/clipping Stage A sweep (low-LR, warmup-lowLR, warmup+clip) and update docs/tests per plan`
