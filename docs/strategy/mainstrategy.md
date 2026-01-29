@@ -50,9 +50,12 @@ We will select the winner through a rigorous 2-stage process using the `grid_lin
 
 | Arm | Architecture | Clipping Strategy | Hypothesis | Success Condition |
 | :--- | :--- | :--- | :--- | :--- |
-| **1. Control** | `hybrid` | Global Norm (`val=1.0`) | **Baseline Failure:** Stagnates or explodes. | N/A (Negative Control) |
+| **1. Control** | `hybrid` | **Disabled** (no clipping; `gradient_clip_val=None`) | **Baseline Failure:** Stagnates or explodes. | N/A (Negative Control) |
 | **2. Arch Fix** | `stable_hybrid` | **Disabled** (no clipping; `gradient_clip_val=None`) | **Stability:** Converges smoothly with NO clipping. | Lowest `model.val_loss_name`; No NaNs; lowest failure rate. |
 | **3. Opt Fix** | `hybrid` | **AGC** (`val=0.01`) | **Survival:** Survives 50 epochs despite drift. | Lower failure rate than Control; `model.val_loss_name` not worse by >10% (median, successful runs only). |
+
+**Clip sweep (control sensitivity):**
+*   Run the control arm with global norm clip values across a wide range (e.g., `val` in {1, 5, 10, 20, 50, 100}) to confirm conclusions are not artifacts of aggressive clipping.
 
 ### Stage B: The "Deep" Stress Test (Robustness)
 **Context:** `fno_blocks=8` (2x Depth).
