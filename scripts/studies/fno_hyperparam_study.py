@@ -54,8 +54,11 @@ def _ensure_dataset(output_dir: Path, epochs: int, nimgs_train: int, nimgs_test:
     return train_npz, test_npz
 
 
-def _grid(light: bool) -> Iterable[Tuple[str, str, int, int]]:
-    architectures = ["fno"] if light else ["hybrid", "fno"]
+def _grid(light: bool, architectures: Iterable[str] | None = None) -> Iterable[Tuple[str, str, int, int]]:
+    if architectures is None:
+        architectures = ["fno"] if light else ["hybrid", "fno"]
+    else:
+        architectures = list(architectures)
     transforms = ["none"] if light else ["none", "log1p", "sqrt"]
     modes = [12] if light else [12, 16, 24]
     widths = [32] if light else [32, 48, 64]
@@ -76,6 +79,13 @@ def run_sweep(
     nimgs_train: int = 1,
     nimgs_test: int = 1,
     enable_checkpointing: bool = False,
+    torch_scheduler: str = "Default",
+    torch_learning_rate: float = 1e-3,
+    plateau_factor: float = 0.5,
+    plateau_patience: int = 2,
+    plateau_min_lr: float = 1e-4,
+    plateau_threshold: float = 0.0,
+    architectures: Iterable[str] | None = None,
 ) -> Path:
     os.environ.setdefault("PTYCHO_DISABLE_MEMOIZE", "1")
     os.environ.setdefault("PTYCHO_MEMOIZE_KEY_MODE", "dataset")
@@ -91,7 +101,7 @@ def run_sweep(
 
     results: List[Dict[str, Any]] = []
 
-    for idx, (arch, transform, mode, width) in enumerate(_grid(light), start=1):
+    for idx, (arch, transform, mode, width) in enumerate(_grid(light, architectures), start=1):
         run_root = output_dir / f"run_{idx:03d}_{arch}_m{mode}_w{width}_t{transform}"
         run_root.mkdir(parents=True, exist_ok=True)
 
@@ -115,10 +125,16 @@ def run_sweep(
             output_dir=run_root,
             architecture=arch,
             epochs=epochs,
+            learning_rate=torch_learning_rate,
             fno_modes=mode,
             fno_width=width,
             fno_input_transform=transform,
             enable_checkpointing=enable_checkpointing,
+            scheduler=torch_scheduler,
+            plateau_factor=plateau_factor,
+            plateau_patience=plateau_patience,
+            plateau_min_lr=plateau_min_lr,
+            plateau_threshold=plateau_threshold,
         )
 
         try:
@@ -197,6 +213,48 @@ def parse_args(argv=None):
     parser.add_argument("--nimgs-train", type=int, default=1)
     parser.add_argument("--nimgs-test", type=int, default=1)
     parser.add_argument(
+        "--architectures",
+        type=str,
+        default=None,
+        help="Comma-separated list of architectures to sweep (hybrid,fno). Overrides --light.",
+    )
+    parser.add_argument(
+        "--torch-scheduler",
+        choices=["Default", "Exponential", "WarmupCosine", "ReduceLROnPlateau"],
+        default="Default",
+        help="Torch LR scheduler for sweep runs.",
+    )
+    parser.add_argument(
+        "--torch-learning-rate",
+        type=float,
+        default=1e-3,
+        help="Torch learning rate for sweep runs.",
+    )
+    parser.add_argument(
+        "--torch-plateau-factor",
+        type=float,
+        default=0.5,
+        help="ReduceLROnPlateau factor (torch).",
+    )
+    parser.add_argument(
+        "--torch-plateau-patience",
+        type=int,
+        default=2,
+        help="ReduceLROnPlateau patience (torch).",
+    )
+    parser.add_argument(
+        "--torch-plateau-min-lr",
+        type=float,
+        default=1e-4,
+        help="ReduceLROnPlateau min lr (torch).",
+    )
+    parser.add_argument(
+        "--torch-plateau-threshold",
+        type=float,
+        default=0.0,
+        help="ReduceLROnPlateau threshold (torch).",
+    )
+    parser.add_argument(
         "--enable-checkpointing",
         action="store_true",
         help="Enable Lightning checkpoints for sweep runs (default: disabled).",
@@ -206,6 +264,9 @@ def parse_args(argv=None):
 
 def main(argv=None) -> None:
     args = parse_args(argv)
+    architectures = None
+    if args.architectures:
+        architectures = [item.strip() for item in args.architectures.split(",") if item.strip()]
     run_sweep(
         output_dir=args.output_dir,
         epochs=args.epochs,
@@ -214,6 +275,13 @@ def main(argv=None) -> None:
         nimgs_train=args.nimgs_train,
         nimgs_test=args.nimgs_test,
         enable_checkpointing=args.enable_checkpointing,
+        torch_scheduler=args.torch_scheduler,
+        torch_learning_rate=args.torch_learning_rate,
+        plateau_factor=args.torch_plateau_factor,
+        plateau_patience=args.torch_plateau_patience,
+        plateau_min_lr=args.torch_plateau_min_lr,
+        plateau_threshold=args.torch_plateau_threshold,
+        architectures=architectures,
     )
 
 
