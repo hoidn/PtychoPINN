@@ -456,6 +456,8 @@ Phase 6 proved scheduler plumbing works but the warmup+cosine attempt still coll
 
 **Exit criteria:** Stable_hybrid completes Stage A without collapse under at least one LR/clipping variant (amp_ssim ≥0.80, amp_mae ≤0.15, no post-epoch-7 divergence) **or** the runs demonstrate LR/clipping alone are insufficient, in which case STABLE-LS-001 is updated with quantitative LR thresholds to guide the next intervention (optimizer or diagnostics).
 
+**Status 2026-01-29:** COMPLETE (negative result). All 3 arms collapsed. LR=2.5e-4 (constant or WarmupCosine) collapses identically to LR=5e-4. Gradient clipping (norm 0.5) worsens early convergence without preventing collapse. STABLE-LS-001 updated: collapse is LR-independent. Next: optimizer change, activation diagnostics, or topology revert.
+
 ---
 
 ## Test Strategy

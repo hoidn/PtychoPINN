@@ -1,3 +1,6 @@
+### Turn Summary (2026-01-29 engineer — Phase 7 LR sweep complete)
+Executed Phase 7 Tasks 7.1–7.5: three Stage A arms (low LR 2.5e-4, WarmupCosine 2.5e-4, WarmupCosine 5e-4 + clip 0.5) all collapsed with amp_ssim=0.277. LR halving and gradient clipping do NOT prevent the stable_hybrid collapse. STABLE-LS-001 remains open — the failure is LR-independent and structural. 3/3 regression selectors pass. Artifacts: `reports/2026-01-30T010000Z/`.
+
 ### Turn Summary (2026-01-29 supervisor loop — LR sweep delegation)
 Re-read docs/index.md, docs/findings.md (STABLE-LS-001), docs/strategy/mainstrategy.md, and the Phase 7 LR + gradient guard plan to confirm acceptance criteria and artifacts expectations; noted docs/prompt_sources_map.json is still absent so no new sources needed syncing.
 Verified the Stage A control datasets already exist under outputs/grid_lines_stage_a/arm_control, confirmed the 2026-01-30T010000Z reports hub is provisioned, and aligned execution scope to the existing plan without altering core physics files.
