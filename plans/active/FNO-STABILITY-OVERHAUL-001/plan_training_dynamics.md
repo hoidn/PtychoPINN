@@ -243,7 +243,7 @@ git commit -m "feat: add warmup+cosine LR scheduler"
     --architectures stable_hybrid \
     --seed 20260128 \
     --nimgs-train 1 --nimgs-test 1 --nphotons 1e9 \
-    --torch-epochs 50 --torch-learning-rate 5e-4 \
+    --torch-epochs 20 --torch-learning-rate 5e-4 \
     --torch-scheduler WarmupCosine \
     --torch-lr-warmup-epochs 5 \
     --torch-lr-min-ratio 0.05 \
