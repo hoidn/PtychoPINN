@@ -194,21 +194,35 @@ Artifacts: log to `stage_a_arm_agc.log` and archive the `runs/pinn_hybrid` metri
 
 ### Task 3.5: Summarize metrics + pick Stage B candidate
 
-1. Use a short Python snippet to pull the key numbers (val loss + `ssim_phase`) from each arm:
+1. Use a short Python snippet to pull the key numbers (best `val_loss` + phase SSIM) from each arm. `val_loss` lives in `history.json`, while the phase SSIM is the second element of the `ssim` tuple returned by `eval_reconstruction`:
    ```bash
    python - <<'PY'
    import json, pathlib
    base = pathlib.Path('outputs/grid_lines_stage_a')
    arms = {
-       'control': base/'arm_control'/'runs'/'pinn_hybrid'/'metrics.json',
-       'stable': base/'arm_stable'/'runs'/'pinn_stable_hybrid'/'metrics.json',
-       'agc': base/'arm_agc'/'runs'/'pinn_hybrid'/'metrics.json',
+       'control': ('pinn_hybrid', base/'arm_control'),
+       'stable': ('pinn_stable_hybrid', base/'arm_stable'),
+       'agc': ('pinn_hybrid', base/'arm_agc'),
    }
    rows = []
-   for name, path in arms.items():
-       data = json.loads(path.read_text())
-       rows.append((name, data.get('val_loss', data.get('mse')), data.get('ssim_phase')))
-   rows.sort(key=lambda r: r[1])
+   for name, (arch_key, arm_dir) in arms.items():
+       run_dir = arm_dir/'runs'/arch_key
+       history_path = run_dir/'history.json'
+       metrics_path = run_dir/'metrics.json'
+       if not history_path.exists() or not metrics_path.exists():
+           continue
+       history = json.loads(history_path.read_text())
+       val_losses = history.get('val_loss', [])
+       best_val_loss = min(val_losses) if val_losses else None
+       metrics = json.loads(metrics_path.read_text())
+       ssim = metrics.get('ssim', [None, None])
+       rows.append({
+           'arm': name,
+           'arch': arch_key,
+           'best_val_loss': best_val_loss,
+           'phase_ssim': ssim[1] if isinstance(ssim, (list, tuple)) else None,
+       })
+   rows.sort(key=lambda r: (r['best_val_loss'] is None, r['best_val_loss']))
    out = pathlib.Path('plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/stage_a_metrics.json')
    out.write_text(json.dumps(rows, indent=2))
    PY

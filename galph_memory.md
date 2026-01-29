@@ -296,3 +296,25 @@ FEAT-LAZY-LOADING-001 is DONE. All phases complete:
 - focus=FEAT-LAZY-LOADING-001 state=ready_for_implementation dwell=0 ralph_last_commit=37985157 artifacts=plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-08T030000Z/ next_action=implement Phase C (streaming training + integration tests)
 
 ---
+# 2026-01-29T08:30:00Z: FNO-STABILITY-OVERHAUL-001 — Stage A audit (control ✅, stable collapsed, AGC pending)
+
+- dwell: 1 (continuing focus; planning loop because Stage A evidence missing)
+- Focus issue: FNO-STABILITY-OVERHAUL-001 — Phase 3 (Stage A shootout)
+- Action type: Debug/Review (audited existing runs, diagnosed stable_hybrid failure)
+- Mode: Evidence + implementation guidance
+- Git sync: skipped (dirty tree from Stage A artifacts)
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (FORWARD-SIG-001, OUTPUT-COMPLEX-001), docs/strategy/mainstrategy.md, plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md, plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/{summary.md,stage_a_arm_control.log}, outputs/grid_lines_stage_a/arm_{control,stable}/runs/*
+
+**Findings:**
+- Control arm (hybrid + norm clip 1.0) converged: best val_loss 1.38e-2, phase SSIM 0.9974, recon variance healthy (`amp std ≈ 0.036`).
+- Stable_hybrid arm (no clip) finished but produced a constant reconstruction (`amp std ≈ 3e-8`, `phase std ≈ 9e-10`). History shows val_loss stuck ≈1.78e-1; metrics: amplitude MAE 0.513, SSIM 0.277. No CLI log or diagnostics were archived.
+- AGC arm was never executed—`outputs/grid_lines_stage_a/arm_agc` only has the copied dataset.
+- `implementation.md` §3.5 still referenced non-existent `val_loss` fields inside metrics files; updated instructions to pull best val_loss from `runs/.../history.json` instead.
+
+**Next Do Now (for engineer):**
+1. Instrument the existing stable_hybrid checkpoint (`outputs/grid_lines_stage_a/arm_stable/runs/pinn_stable_hybrid/model.pt`) to confirm whether `StablePtychoBlock.norm.weight` stayed near zero and capture CLI stdout/stderr to `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/stage_a_arm_stable.log`.
+2. Run the AGC arm per plan Task 3.4 (`--torch-grad-clip 0.01 --torch-grad-clip-algorithm agc`), archiving logs + `runs/pinn_hybrid` artifacts under the arm_agc directory.
+3. Execute the updated §3.5 aggregation snippet (reads history.json for val_loss) to emit `stage_a_metrics.json` and write `stage_a_summary.md` comparing all three arms + Stage B recommendation, then refresh `docs/fix_plan.md`/plan status.
+
+- <Action State>: [planning]
+- focus=FNO-STABILITY-OVERHAUL-001 state=planning dwell=1 artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/ next_action=engineer gathers stable diagnostics, runs AGC arm, and completes Stage A summary

@@ -1,0 +1,99 @@
+2026-01-28 16:51:49.616480: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1769647909.627973 2150945 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1769647909.631802 2150945 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1769647909.642668 2150945 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769647909.642679 2150945 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769647909.642681 2150945 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1769647909.642683 2150945 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-01-28 16:51:49.645525: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+/home/ollie/Documents/tmp/PtychoPINN/ptycho_torch/config_factory.py:259: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+  tf_training_config = to_training_config(
+/home/ollie/Documents/tmp/PtychoPINN/ptycho_torch/config_factory.py:618: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+  warnings.warn(
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+INFO:pytorch_lightning.utilities.rank_zero:You are using a CUDA device ('NVIDIA GeForce RTX 3090') that has Tensor Cores. To properly utilize them, you should set `torch.set_float32_matmul_precision('medium' | 'high')` which will trade-off precision for performance. For more details, read https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name  | Type       | Params | Mode 
+---------------------------------------------
+0 | model | PtychoPINN | 1.1 M  | train
+1 | Loss  | MAELoss    | 0      | train
+---------------------------------------------
+1.1 M     Trainable params
+0         Non-trainable params
+1.1 M     Total params
+4.459     Total estimated model params size (MB)
+43        Modules in train mode
+0         Modules in eval mode
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+INFO:pytorch_lightning.utilities.rank_zero:`Trainer.fit` stopped: `max_epochs=20` reached.
+I0000 00:00:1769647995.266067 2150945 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1769647995.267421 2150945 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22133 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+DEBUG: Setting nimgs_test to 1 in params
+DEBUG: Setting outer_offset_test to 20 in params
+Amplitude normalization scale factor: 17.212902
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [pinn_fno]: amp_target stats: mean=2.889508, std=0.641223, shape=(326, 326, 1)
+DEBUG eval_reconstruction [pinn_fno]: amp_pred stats: mean=0.167869, std=0.035211, shape=(326, 326, 1)
+DEBUG eval_reconstruction [pinn_fno]: phi_target stats: mean=0.000000, std=0.000000, shape=(326, 326)
+DEBUG eval_reconstruction [pinn_fno]: phi_pred stats: mean=0.000000, std=0.023350, shape=(326, 326)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [0.000, 0.000] -> scaled range [0.500, 0.500]
+{'architecture': 'fno', 'run_dir': '/home/ollie/Documents/tmp/PtychoPINN/outputs/fno_hyperparam_study_e20_rerun2/run_fno_m16_w32_tnone/runs/pinn_fno', 'metrics': {'mae': (np.float32(0.0883213), np.float64(0.017992762525596926)), 'mse': (np.float32(0.011891238), np.float64(0.0005452128839644407)), 'psnr': (67.3785329414831, 80.76514250809171), 'ssim': (np.float64(0.8649563467620465), np.float64(0.9908800647107074)), 'ms_ssim': (np.float64(0.9744432840238793), np.float64(0.14767501305524713)), 'frc50': (np.int64(73), nan), 'frc': (array([1.        , 0.99998402, 0.99999179, 0.99995711, 0.99995834,
+       0.99990867, 0.99982756, 0.99973677, 0.99981949, 0.99939473,
+       0.99940488, 0.99908188, 0.99837029, 0.9988956 , 0.99757104,
+       0.99663799, 0.99705803, 0.99583482, 0.9942428 , 0.99025072,
+       0.98808985, 0.98746603, 0.98303389, 0.98044844, 0.97808402,
+       0.97195321, 0.96047853, 0.97308554, 0.96381035, 0.94578513,
+       0.94660094, 0.92162135, 0.78220523, 0.67728127, 0.84236893,
+       0.84959844, 0.86728739, 0.85890285, 0.85466814, 0.80003898,
+       0.77329099, 0.77307362, 0.69980751, 0.75129719, 0.79035154,
+       0.76259383, 0.75449472, 0.75148593, 0.80616598, 0.85935527,
+       0.82073489, 0.86748526, 0.89046204, 0.88820346, 0.90584934,
+       0.89419003, 0.92024952, 0.90165911, 0.89504067, 0.90287577,
+       0.88903063, 0.881592  , 0.86536101, 0.89248607, 0.86431142,
+       0.6289414 , 0.8305144 , 0.8329767 , 0.81352338, 0.80203791,
+       0.76818686, 0.75489399, 0.59028659, 0.48352371, 0.68455988,
+       0.7129066 , 0.7211067 , 0.66752668, 0.71127945, 0.65257116,
+       0.67881867, 0.62141948, 0.69566777, 0.64152151, 0.61286809,
+       0.67036979, 0.69042979, 0.57126117, 0.62217504, 0.63941318,
+       0.65138336, 0.6108426 , 0.50891962, 0.57261295, 0.58286552,
+       0.62379286, 0.6168891 , 0.61203198, 0.29901196, 0.61689294,
+       0.56391528, 0.53595849, 0.55949606, 0.40621038, 0.63627928,
+       0.54577702, 0.50550457, 0.59623123, 0.54440693, 0.61754164,
+       0.55840812, 0.56549814, 0.64053187, 0.62777953, 0.64726305,
+       0.60121542, 0.62516611, 0.59105839, 0.61539388, 0.62992036,
+       0.67017781, 0.64711835, 0.64351557, 0.67915369, 0.69088229,
+       0.70480735, 0.69825679, 0.69721645, 0.71208515, 0.68475576,
+       0.42864808, 0.40551342, 0.67045978, 0.70947236, 0.58436612,
+       0.70263577, 0.74720112, 0.75021377, 0.76963374, 0.75232355,
+       0.79039393, 0.76483046, 0.78914991, 0.81574739, 0.80553677,
+       0.7089948 , 0.7680703 , 0.81451159, 0.81335182, 0.81032708,
+       0.80795921, 0.82603094, 0.8271419 , 0.85162131, 0.840866  ,
+       0.84538688, 0.84021069, 0.85141457, 0.83427833, 0.81675623,
+       0.81276309, 0.79292409, 0.79056294, 0.43146476, 0.34662509,
+       0.24252775, 0.10268426, 0.24735608, 0.23068341, 0.27358145,
+       0.21890131, 0.24252916, 0.32515719, 0.28791339, 0.12871793,
+       0.02926243, 0.24200486, 0.25902534, 0.2358489 , 0.25592508,
+       0.27697178, 0.27893491, 0.32219106, 0.19592441, 0.19941869,
+       0.23476471, 0.24839122, 0.20143236, 0.20367224, 0.3495504 ,
+       0.13683614, 0.31738588, 0.37858835, 0.23724338, 0.3337543 ,
+       0.34569511, 0.34916491, 0.33268969, 0.41040701, 0.3532096 ,
+       0.45662128, 0.46082611, 0.34074222, 0.42024091, 0.3822296 ,
+       0.38768207, 0.41136262, 0.31885976, 0.23965487, 0.2216982 ,
+       0.37558344, 0.34246394, 0.49165955, 0.27925824, 0.3486038 ,
+       0.33519169, 0.44066117, 0.40981913, 0.38289145, 0.3451094 ,
+       0.35724642, 0.41393558, 0.56796155, 0.37733724, 0.39127616,
+       0.28396452, 0.35352113, 0.30802493, 0.51783882, 0.25602972,
+       0.0453199 , 1.00000003]), None)}, 'history': {'train_loss': [0.1253921240568161, 0.08318682760000229, 0.06525538861751556, 0.04891005530953407, 0.051221512258052826, 0.049901045858860016, 0.04218151420354843, 0.04354006052017212, 0.03956793248653412, 0.03593086078763008, 0.03690612316131592, 0.04388686269521713, 0.038787681609392166, 0.03217528760433197, 0.029309554025530815, 0.03199758008122444, 0.03070070408284664, 0.030199840664863586, 0.03254131227731705, 0.027771273627877235], 'val_loss': [0.23147878050804138, 0.22578658163547516, 0.07381165772676468, 0.06655270606279373, 0.06559232622385025, 0.0523938424885273, 0.036658238619565964, 0.08323537558317184, 0.047476865351200104, 0.06706438958644867, 0.028471769765019417, 0.06307946145534515, 0.07786489278078079, 0.04267355054616928, 0.026253551244735718, 0.028209952637553215, 0.039874520152807236, 0.025707539170980453, 0.022828690707683563, 0.03900570794939995, 0.03455011919140816]}, 'recon_path': '/home/ollie/Documents/tmp/PtychoPINN/outputs/fno_hyperparam_study_e20_rerun2/run_fno_m16_w32_tnone/recons/pinn_fno/recon.npz', 'model_params': 1114756, 'inference_time_s': 4.0749064278788865}
