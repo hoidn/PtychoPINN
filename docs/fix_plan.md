@@ -44,14 +44,14 @@
 -### [FNO-STABILITY-OVERHAUL-001] FNO/Hybrid Stability Overhaul (stable_hybrid + AGC)
 - Depends on: GRID-LINES-WORKFLOW-001 ✅ (test harness complete)
 - Priority: **Critical** (Main strategy execution — `docs/strategy/mainstrategy.md`)
-- Status: ready_for_implementation (Phase 3 — Stage A shootout planning ready)
+- Status: stage_a_complete (Phase 3 — Stage A executed, control won, Stage B pending)
 - Owner/Date: Codex/2026-01-28
 - Working Plan: `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md`
 - Reports Hub: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/`
 - Goals:
   - Phase 1: Config (`gradient_clip_algorithm`), AGC utility, training_step dispatch, CLI flags ✅
   - Phase 2: StablePtychoBlock (Norm-Last/Zero-Gamma), StableHybridGenerator, registry ✅
-  - Phase 3: Stage A shootout (3-arm comparison via grid_lines_compare_wrapper) — dataset + CLI plan ready
+  - Phase 3: Stage A shootout ✅ — control won (val_loss=0.0138), stable_hybrid stagnated, AGC underperformed
 - Exit Criteria:
   - `stable_hybrid` resolves from registry, identity-init and zero-mean tests pass
   - AGC utility clips correctly, training_step dispatches by algorithm
@@ -63,6 +63,8 @@
 -  - *2026-01-28T05:00:00Z (supervisor review):* Phase 1 COMPLETE — TF TrainingConfig + config_bridge now carry `gradient_clip_algorithm`, compare wrapper exposes `--torch-grad-clip-algorithm`, and regression selectors are archived (`pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_gradient_clip_algorithm_roundtrip -v`, `pytest tests/torch/test_grid_lines_torch_runner.py -k gradient_clip_algorithm -v`, `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_passes_grad_clip_algorithm -v`). Phase 2 Do Now: build `StablePtychoBlock`, register `stable_hybrid`, and wire it through the Torch runner per `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md` Tasks 2.1–2.3. Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T050000Z/`.
 -  - *2026-01-28T23:59:00Z (supervisor review):* Phase 2 COMPLETE — stable block, registry wiring, CLI/docs/tests implemented; logs archived under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T050000Z/`. Phase 3 plan drafted: Stage A shootout instructions + CLI recipes added to implementation.md §Phase 3. Next: engineer executes Tasks 3.1–3.5 (dataset prep + three arms + summary) with logs under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/`.
 -  - *2026-01-29T08:30:00Z (Stage A audit):* Stage A datasets copied into `outputs/grid_lines_stage_a/arm_{control,stable,agc}` and the control arm (hybrid, norm clip 1.0) completed successfully — `best val_loss=1.38e-2`, `ssim_phase=0.9974`, recon variance looks healthy. The stable_hybrid arm ran with clipping disabled per plan but collapsed to a constant reconstruction: `best val_loss≈1.78e-1`, amplitude MAE 0.51, amplitude std ≈3e-8 (flat 0.1647), phase std ≈9e-10. No AGC arm evidence yet, and Stage A metrics/summary are still TODO. Action items: (1) capture a proper `stage_a_arm_stable.log` + checkpoint diagnostics (are the StablePtychoBlock norm weights still near zero?), (2) run the AGC arm with `--torch-grad-clip 0.01 --torch-grad-clip-algorithm agc` and archive its artifacts, and (3) aggregate the three arms via the updated history-aware script (implementation plan §3.5) to produce `stage_a_metrics.json` + `stage_a_summary.md` recommending the Stage B candidate. Artifacts so far: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/` (control log + preliminary notes).
+  - *2026-01-29T12:00:00Z (Stage A complete):* All three arms executed. Control (hybrid, norm 1.0): best val_loss=0.0138, amp_ssim=0.925, phase_ssim=0.997. AGC (hybrid, agc 0.01): best val_loss=0.0243, amp_ssim=0.811, phase_ssim=0.989. Stable (stable_hybrid, no clip): best val_loss=0.178, amp_ssim=0.277, phase_ssim=1.0 (vacuous). stable_hybrid norm.weight stayed near zero (abs_max<0.09), confirming zero-gamma stagnation. Control won — neither fix outperformed baseline at fno_blocks=4. Stage B recommendation: run control at fno_blocks=8. Artifacts: `stage_a_summary.md`, `stage_a_metrics.json`, `stage_a_arm_*_stats.json`, logs for all arms.
+  - *2026-01-29T18:00:00Z (Stage B planning):* Added Phase 4 to implementation plan and docs/strategy: Stage B will rerun the winning control arm at `fno_blocks=8` using the same dataset + grad norm logging. New artifacts hub `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/` reserved; CLI recipe + regression selectors captured in implementation.md §Phase 4. Findings ledger includes STABLE-GAMMA-001 documenting zero-gamma stagnation. Next: engineer executes Phase 4 Tasks 4.1–4.4.
 
 ---
 
@@ -351,4 +353,4 @@
 
 ---
 
-Supervisor state: `focus=FNO-STABILITY-OVERHAUL-001` `state=planning` `dwell=1` `artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/` `next_action=run Stage A shootout per plan Tasks 3.1–3.5`
+Supervisor state: `focus=FNO-STABILITY-OVERHAUL-001` `state=planning` `dwell=2` `artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/` `next_action=run Stage B deep control per plan Phase 4`

@@ -230,6 +230,88 @@ Artifacts: log to `stage_a_arm_agc.log` and archive the `runs/pinn_hybrid` metri
 2. Write `stage_a_summary.md` with a table ranking the arms, note any NaNs/instability, and recommend the Stage B candidate per `docs/strategy/mainstrategy.md §2.Stage B` (if `stable_hybrid` wins, Stage B uses it; otherwise AGC).
 3. Update this plan + `docs/fix_plan.md` with the outcome and Stage B next tasks.
 
+**Status 2026-01-29:** COMPLETE — All Stage A arms executed. Results:
+- Control (hybrid, norm 1.0): best val_loss=0.0138, amp_ssim=0.925, phase_ssim=0.997
+- AGC (hybrid, agc 0.01): best val_loss=0.0243, amp_ssim=0.811, phase_ssim=0.989
+- Stable (stable_hybrid, no clip): best val_loss=0.178, amp_ssim=0.277, phase_ssim=1.0 (vacuous)
+
+**Outcome:** Control won. Neither fix outperformed baseline. stable_hybrid stagnated in near-identity regime due to zero-gamma initialization preventing gradient flow through branches. See `reports/2026-01-29T010000Z/stage_a_summary.md` for full analysis.
+
+**Stage B recommendation:** Run control at fno_blocks=8 to test depth scaling. If control survives, revise the instability hypothesis.
+
+---
+
+## Phase 4: Stage B Stress Test (Deep Control Run)
+
+Stage B validates whether the Stage A winner (control arm: `hybrid` + norm clip 1.0) remains stable when we double the model depth to `fno_blocks=8` per `docs/strategy/mainstrategy.md §Stage B`. The deep arm must reuse the exact Stage A dataset/probe so the only changed factor is depth.
+
+### Task 4.1: Prep Stage B workspace
+
+**Paths:**
+- Output root: `outputs/grid_lines_stage_b/deep_control`
+- Shared datasets: copy from `outputs/grid_lines_stage_a/arm_control/datasets/`
+- Artifacts hub: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/`
+
+**Steps:**
+1. Ensure the artifacts hub exists: `mkdir -p plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z`.
+2. Create the Stage B output tree and wipe any stale runs:
+   ```bash
+   mkdir -p outputs/grid_lines_stage_b/deep_control
+   rsync -a --delete outputs/grid_lines_stage_a/arm_control/datasets/ \
+     outputs/grid_lines_stage_b/deep_control/datasets/
+   rm -rf outputs/grid_lines_stage_b/deep_control/runs
+   ```
+3. Drop a short README under the artifacts hub documenting the shared hyperparameters (N=64, gridsize=1, `fno_blocks=8`, seed=20260128, nimgs_train/test=2, nphotons=1e9, loss=MAE, clip=1.0 norm). This mirrors the Stage A README for traceability.
+
+### Task 4.2: Execute Stage B deep control run (`fno_blocks=8`)
+
+**Command:**
+```bash
+AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md \
+python scripts/studies/grid_lines_compare_wrapper.py \
+  --N 64 --gridsize 1 \
+  --output-dir outputs/grid_lines_stage_b/deep_control \
+  --architectures hybrid \
+  --seed 20260128 \
+  --nimgs-train 2 --nimgs-test 2 --nphotons 1e9 \
+  --nepochs 50 --torch-epochs 50 \
+  --fno-blocks 8 \
+  --torch-grad-clip 1.0 --torch-grad-clip-algorithm norm \
+  --torch-loss-mode mae --torch-infer-batch-size 8 \
+  --torch-log-grad-norm --torch-grad-norm-log-freq 1 \
+  2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/stage_b_deep_control.log
+```
+
+**Notes:**
+- Keep epochs at 50 so `fno_blocks` is the only variable relative to Stage A. If gradients spike, the log will show per-epoch norms via `--torch-log-grad-norm`.
+- After the run, copy `metrics.json`, `history.json`, and `model.pt` from `outputs/grid_lines_stage_b/deep_control/runs/pinn_hybrid/` into the artifacts hub.
+- Capture quick stats by reusing the Stage A helper:
+  ```bash
+  python scripts/internal/stage_a_dump_stats.py \
+    --run-dir outputs/grid_lines_stage_b/deep_control/runs/pinn_hybrid \
+    --out-json plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/stage_b_deep_control_stats.json
+  ```
+
+### Task 4.3: Summarize Stage B metrics + decide next move
+
+1. Extend the existing metrics snippet to produce `stage_b_metrics.json` under the new artifacts hub (same format as Stage A, but single-row). Include `best_val_loss`, amp/phase SSIM, amp MAE, and gradient norm extrema.
+2. Author `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/stage_b_summary.md` with:
+   - Table comparing Stage A control vs Stage B deep control (val_loss, SSIMs, MAEs, grad norm max/median).
+   - Narrative on whether instability emerged at depth; cite `docs/strategy/mainstrategy.md §Stage B` for the success criteria.
+   - Decision tree: if the deep run fails, outline remediation (e.g., rerun with AGC or stable_hybrid); if it survives, explicitly state the hypothesis revision and propose next experiments (e.g., higher epochs or multi-seed sweep).
+3. Update this implementation plan (§Phase 4 status), `docs/strategy/mainstrategy.md` (Stage A outcome + Stage B status), and `docs/fix_plan.md` attempts history with the Stage B verdict.
+4. Append any durable lessons (e.g., zero-gamma stagnation evidence, deep-control behavior) to `docs/findings.md`.
+
+### Task 4.4: Regression guard (unchanged selectors)
+
+Re-run the Phase 3 regression selectors to prove the CLI plumbing and runner flags still work with `fno_blocks=8`:
+- `pytest tests/torch/test_fno_generators.py -k stable -v`
+- `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_handles_stable_hybrid -v`
+- `pytest tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_runner_accepts_stable_hybrid -v`
+- `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_passes_grad_clip_algorithm -v`
+
+Archive the pytest logs plus Stage B CLI log, stats JSON, and metrics JSON under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/` per `docs/TESTING_GUIDE.md`.
+
 ---
 
 ## Test Strategy
