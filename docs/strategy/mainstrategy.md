@@ -10,6 +10,7 @@
 - **Zero-gamma dead branches:** Zero-gamma InstanceNorm suppresses the residual branch, causing collapsed reconstructions.
 - **Stochastic instability:** Single runs are not reliable; stability must be measured by failure rate across seeds.
 - **Depth blocked by memory:** Depth 8 models OOM on 24 GB GPUs without architectural caps.
+- **Late-epoch explosions remain unexplained:** Damping at initialization (LayerScale) only helps if drift starts early. If explosions trigger late (e.g., LR schedule transitions, optimizer dynamics), fixes must target training dynamics directly.
 
 ---
 
@@ -38,6 +39,7 @@ The prior fixes (Zero-Gamma stable_hybrid and aggressive AGC 0.01) failed in pra
 - **Mechanism:** y = x + diag(lambda) * Branch(x)
 - **Initialization:** lambda initialized to a small non-zero value (e.g., 1e-2).
 - **Rationale:** Damps residual updates for stability without dead-branch risk.
+- **Scope note:** This is a stability prior, not a complete fix. If failures occur late, LayerScale alone is insufficient.
 
 ### B) Optimization (Relaxed Constraint): Soft AGC
 - **Update:** AGC clip factor from 0.01 -> 0.1.
@@ -69,7 +71,22 @@ The prior fixes (Zero-Gamma stable_hybrid and aggressive AGC 0.01) failed in pra
 
 ---
 
-## 4) Evidence to Date (Historical)
+## 4) Hypothesis Backlog (Supervisor-Owned)
+
+The supervisor should prioritize and test the following hypotheses when late-epoch explosions persist:
+
+1. **Training dynamics trigger:** LR warmup-to-cosine transitions or peak LR spikes cause the late collapse. (Test: lower peak LR, extend warmup, remove transition.)
+2. **Optimizer-specific instability:** Adam/AdamW induces late drift; SGD+momentum may stabilize. (Test: optimizer sweep at fixed depth.)
+3. **Targeted clipping efficacy:** Clip only at transition epochs, or use per-layer norm clipping. (Test: schedule-aware clipping.)
+4. **Architecture normalization variant:** Pre-Norm/RMSNorm yields better late-phase stability than Norm-Last. (Test: swap norm placement.)
+5. **Constant-width blocks:** Avoid channel doubling to reduce variance amplification. (Test: constant-width encoder/decoder.)
+6. **Data/loss scaling:** Late explosions are driven by loss scaling or phase noise. (Test: loss re-weighting or normalization sweep.)
+
+The supervisor should sequence these by expected impact and cost, and update the plan/Do Now each loop accordingly.
+
+---
+
+## 5) Evidence to Date (Historical)
 
 ### Stage A (single-seed) outcome, 2026-01-29
 **Config:** N=64, gridsize=1, fno_blocks=4, nimgs_train=2, nimgs_test=2, nphotons=1e9, loss=MAE, seed=20260128, epochs=50.
@@ -89,14 +106,14 @@ The prior fixes (Zero-Gamma stable_hybrid and aggressive AGC 0.01) failed in pra
 
 ---
 
-## 5) Retired Attempts (Do Not Reuse)
+## 6) Retired Attempts (Do Not Reuse)
 
 - **Zero-Gamma stable_hybrid:** Dead branch failure mode (collapsed amplitude output).
 - **AGC 0.01:** Overly conservative; degraded performance without improving stability.
 
 ---
 
-## 6) Implementation Plan (Updated)
+## 7) Implementation Plan (Updated)
 
 1. Ensure `max_hidden_channels` is present in ModelConfig, PyTorch config, CLI, and generators.
 2. Enforce `--set-phi` in dataset generation for any run reporting phase metrics.
@@ -104,4 +121,3 @@ The prior fixes (Zero-Gamma stable_hybrid and aggressive AGC 0.01) failed in pra
 4. Update AGC default threshold to 0.1 for experiments.
 5. Run Protocol A (Crash Hunt) to identify crash depth.
 6. Run Protocol B (Shootout) at the crash depth with 3 seeds per arm.
-
