@@ -64,7 +64,8 @@ Run ~/.codex/superpowers/.codex/superpowers-codex bootstrap
     - Evaluate whether we recently completed a plan, or a mid-progress in a plan, or encountered a 
     failure / blocker in the most-recently active plan 
     - Evaluate whether implementation and / or debugging and / or testing can continue from existing plans or whether we need to draft a new plan 
-    - choose your focus as one of planning or management (implementation guidance)
+    - Evaluate whether there's a new reported bug in ./docs/bugs/
+    - choose your focus 
 
     - Before other docs: `grep` `docs/findings.md` for focus keywords; list relevant Finding IDs.
     - From `docs/index.md`, enumerate and read the most relevant documents; note file paths you will rely on (with one‑line rationale each).
@@ -160,6 +161,8 @@ Run ~/.codex/superpowers/.codex/superpowers-codex bootstrap
   </plan_alignment>
 
   <end_of_loop_hygiene>
+    - If this loop's focus involved a bug report .md in ./docs/bugs/, make sure that information in the bug report was fully ingested (i.e. incorporated 
+      into a plan or input.md instructions), along with a principled plan to fix the bug. Then, delete the bug report .md.
     - Verify `input.md` is fully rewritten and saved.
     - Ensure `docs/fix_plan.md` reflects latest decisions or document why changes were deferred.
     - <strong>Git hygiene:</strong>
@@ -189,7 +192,7 @@ Run ~/.codex/superpowers/.codex/superpowers-codex bootstrap
       </step>
 
       <step id="2" name="Select or validate the current focus">
-        - Using <focus_selection/>, choose exactly one strategy aspect, plan, or item from <code>docs/fix_plan.md</code> as the loop’s focus.  
+        - Using <focus_selection/>, choose exactly one strategy aspect, plan, ./docs/bugs item, or item from <code>docs/fix_plan.md</code> as the loop’s focus.  
         - Honor dependencies and the roadmap
         - If blocked, record the block and either switch focus or adjust the plan. If blocked 
          at the strategy level, write a report to docs/strategy/issues/.
