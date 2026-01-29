@@ -2,8 +2,8 @@
 
 **Objective:** Stabilize deep FNO/Hybrid model training (currently prone to gradient explosion at >30 epochs) by eliminating the mathematical root cause of signal drift, without relying on aggressive global gradient clipping.
 
-**Core Hypothesis:** The instability is accumulative. The current `y = x + GELU(...)` topology adds a positive bias at every block. As depth (`fno_blocks`) increases, this drift accelerates, pushing latent statistics into saturation.
-*   *Evidence (to link):* In run <RUN_ID>, `grad_norm_preclip` exceeded $10^5$ around epoch 30. (Add log path or remove this line if no citation.)
+**Core Hypothesis:** The instability is accumulative. The current `y = x + GELU(...)` topology adds a positive bias at every block. As depth (`fno_blocks`) increases, this drift accelerates, pushing latent statistics into saturation. Instability is treated as **probabilistic** (some seeds fail, others do not).
+*   *Evidence (to link):* Report failure rate across multiple seeds (e.g., 3/10 runs explode) rather than a single run. (Add run IDs/log paths or remove this line if no citations.)
 *   *Verification:* `scripts/debug_fno_activations.py` will be used to confirm activation mean growth vs. depth.
 
 We will validate two solution classes: an **Architectural Fix** (preventing drift) and an **Optimization Fix** (managing drift), followed by a **Hyperparameter Stress Test** to ensure the solution holds for deeper networks.
@@ -43,19 +43,23 @@ We will select the winner through a rigorous 2-stage process using the `grid_lin
 **Metrics:**
 *   **Primary:** `model.val_loss_name` (e.g., `poisson_val_Amp_loss` or `mae_val_Phase_loss`, depending on mode).
 *   **Secondary:** `ssim_phase` (Test set reconstruction quality).
+*   **Stability:** Failure rate across seeds + time-to-failure distribution.
+
+**Protocol:**
+*   Run each arm across **N seeds** (suggested: 5–10). Report median + IQR for metrics **conditional on successful runs**.
 
 | Arm | Architecture | Clipping Strategy | Hypothesis | Success Condition |
 | :--- | :--- | :--- | :--- | :--- |
 | **1. Control** | `hybrid` | Global Norm (`val=1.0`) | **Baseline Failure:** Stagnates or explodes. | N/A (Negative Control) |
-| **2. Arch Fix** | `stable_hybrid` | **Disabled** (no clipping; `gradient_clip_val=None`) | **Stability:** Converges smoothly with NO clipping. | Lowest `model.val_loss_name`; No NaNs. |
-| **3. Opt Fix** | `hybrid` | **AGC** (`val=0.01`) | **Survival:** Survives 50 epochs despite drift. | Lower `model.val_loss_name` than Control. |
+| **2. Arch Fix** | `stable_hybrid` | **Disabled** (no clipping; `gradient_clip_val=None`) | **Stability:** Converges smoothly with NO clipping. | Lowest `model.val_loss_name`; No NaNs; lowest failure rate. |
+| **3. Opt Fix** | `hybrid` | **AGC** (`val=0.01`) | **Survival:** Survives 50 epochs despite drift. | Lower failure rate than Control; `model.val_loss_name` not worse by >10% (median, successful runs only). |
 
 ### Stage B: The "Deep" Stress Test (Robustness)
 **Context:** `fno_blocks=8` (2x Depth).
 **Why:** Instability scales with depth. A solution is only valid if it allows scaling.
 
 *   **Protocol:** Run the **Winner of Stage A** with `fno_blocks=8` and `gradient_clip_val=None` (if Arch Fix) or `val=0.01` (if Opt Fix).
-*   **Success Condition:** The deep model trains for 50 epochs without NaNs and achieves lower `model.val_loss_name` than the shallow model.
+*   **Success Condition:** The deep model reduces failure rate vs. shallow runs and achieves lower `model.val_loss_name` (median of successful runs).
 
 ---
 
@@ -108,6 +112,6 @@ This section maps the strategic goals to the specific components in the codebase
 
 ## 5. Decision Logic & Outcome
 
-*   **Gold Standard:** If `stable_hybrid` passes Stage A (beats Control) AND Stage B (scales to depth), it becomes the **new default FNO architecture**. The legacy `PtychoBlock` will be deprecated.
-*   **Silver Standard:** If `stable_hybrid` fails but `AGC` works, AGC becomes the **mandatory training policy** for FNO models.
+*   **Gold Standard:** If `stable_hybrid` passes Stage A (beats Control on median loss **and** has lower failure rate) AND Stage B (scales to depth with lower failure rate), it becomes the **new default FNO architecture**. The legacy `PtychoBlock` will be deprecated.
+*   **Silver Standard:** If `stable_hybrid` fails but `AGC` reduces failure rate without >10% median‑loss regression, AGC becomes the **mandatory training policy** for FNO models.
 *   **Pivot:** If both fail Stage B (Deep Test), pivot to investigating **LayerScale** (explicit depth damping).
