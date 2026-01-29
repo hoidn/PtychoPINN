@@ -122,7 +122,9 @@ Run ~/.codex/superpowers/.codex/superpowers-codex bootstrap
 
   <input_md_requirements>
     Overwrite `./input.md` each loop with:
-
+    - Plan: path to relevant implementation plan
+    - References: paths to any relevant docs, such as specs, architecture references, readmes, or workflow guides 
+    - Summary: A free-form description of what is to be done and why
     - <strong>Summary</strong>: One‑sentence goal.
     - <strong>Focus</strong>: `<plan item ID> — <title>` from `docs/fix_plan.md`.
     - <strong>Branch</strong>: Expected working branch.
