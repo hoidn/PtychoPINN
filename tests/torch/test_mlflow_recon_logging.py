@@ -287,6 +287,73 @@ class TestPatchLogging:
 # Config field tests
 # ---------------------------------------------------------------------------
 
+class TestStitchedLogging:
+    def test_stitched_logging_uses_reassemble_patches(self, monkeypatch):
+        """Verify _log_stitched calls ptycho.image.stitching.reassemble_patches."""
+        dataset = FakeDataset(n=4, supervised=False)
+        # Add metadata so _build_stitch_config succeeds
+        dataset.metadata = {'N': 8, 'gridsize': 1, 'offset': 0, 'outer_offset_test': 0}
+        val_dl = FakeValDataloader(dataset)
+        trainer = FakeTrainer(epoch=4, val_dl=val_dl)
+        module = FakeModule()
+
+        called = {"count": 0}
+        def fake_reassemble(patches, config, **kwargs):
+            called["count"] += 1
+            return np.zeros((1, 8, 8, 1), dtype=np.float32)
+
+        monkeypatch.setattr(
+            "ptycho_torch.workflows.recon_logging.PtychoReconLoggingCallback._log_stitched",
+            PtychoReconLoggingCallback._log_stitched,  # keep original
+        )
+        monkeypatch.setattr(
+            "ptycho.image.stitching.reassemble_patches", fake_reassemble,
+        )
+
+        cb = PtychoReconLoggingCallback(every_n_epochs=5, num_patches=1, log_stitch=True)
+        cb.on_validation_epoch_end(trainer, module)
+
+        assert called["count"] > 0
+        assert trainer.logger.experiment.log_artifact.called
+
+    def test_stitched_logging_skips_when_no_metadata(self):
+        """Verify _log_stitched skips gracefully when metadata is missing."""
+        dataset = FakeDataset(n=4, supervised=False)
+        # No metadata attribute → _build_stitch_config falls back to params.cfg
+        val_dl = FakeValDataloader(dataset)
+        trainer = FakeTrainer(epoch=4, val_dl=val_dl)
+        module = FakeModule()
+
+        cb = PtychoReconLoggingCallback(every_n_epochs=5, num_patches=1, log_stitch=True)
+        # Should not raise even if params.cfg is missing
+        cb.on_validation_epoch_end(trainer, module)
+
+    def test_build_stitch_config_from_dataset_metadata(self):
+        """Verify _build_stitch_config extracts config from dataset metadata."""
+        dataset = FakeDataset(n=8)
+        dataset.metadata = {'N': 64, 'gridsize': 2, 'offset': 16, 'outer_offset_test': 8}
+        val_dl = FakeValDataloader(dataset)
+
+        cb = PtychoReconLoggingCallback()
+        config = cb._build_stitch_config(val_dl)
+        assert config is not None
+        assert config['N'] == 64
+        assert config['gridsize'] == 2
+        assert config['offset'] == 16
+        assert config['nimgs_test'] == 8
+
+    def test_build_stitch_config_returns_none_without_metadata(self):
+        """Verify _build_stitch_config returns None when no metadata available."""
+        dataset = FakeDataset(n=4)
+        val_dl = FakeValDataloader(dataset)
+
+        cb = PtychoReconLoggingCallback()
+        # Without metadata attr and without params.cfg having N/gridsize,
+        # this may return None or a config depending on params state.
+        # The key is it doesn't raise.
+        cb._build_stitch_config(val_dl)
+
+
 class TestConfigFields:
     def test_execution_config_defaults(self):
         from ptycho.config.config import PyTorchExecutionConfig

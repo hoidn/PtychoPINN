@@ -279,24 +279,21 @@ class PtychoReconLoggingCallback(L.Callback):
     ) -> None:
         """Log stitched full-resolution reconstructions.
 
-        Requires params.cfg to have nimgs_test, outer_offset_test, N, gridsize
-        populated (via update_legacy_dict). Gracefully skips if metadata is missing.
+        Uses ptycho.image.stitching.reassemble_patches with a config dict
+        derived from the dataset metadata. Falls back gracefully when
+        required metadata (N, gridsize, offset, nimgs_test) is unavailable.
         """
         try:
-            from ptycho.workflows.grid_lines_workflow import stitch_predictions
-            from ptycho import params as p
+            from ptycho.image.stitching import reassemble_patches
         except ImportError:
             logger.warning("Recon logging: stitching import failed, skipping.")
             return
 
-        # Verify required metadata exists in params.cfg
-        required_keys = ['nimgs_test', 'N', 'gridsize']
-        missing = [k for k in required_keys if p.get(k) is None and k not in p.cfg]
-        if missing:
-            logger.warning("Recon logging: stitching requires %s in params.cfg, skipping.", missing)
+        # Build stitch config from dataset metadata
+        stitch_config = self._build_stitch_config(val_dl)
+        if stitch_config is None:
+            logger.warning("Recon logging: cannot derive stitch config, skipping.")
             return
-
-        gridsize = p.cfg['gridsize']
 
         # Collect all predictions from val set
         all_amp = []
@@ -313,11 +310,9 @@ class PtychoReconLoggingCallback(L.Callback):
                 exp_ids = data_dict['experiment_id'].to(device)
                 probe_t = probe.to(device)
 
-                # Use full forward (matching training scaling) for amp/phase
                 _pred_diff, amp_pred, phase_pred = pl_module(
                     images, coords, probe_t, rms_scale, rms_scale, exp_ids,
                 )
-                # Channel-first (B, C, H, W) → channel-last (B, H, W, C) for stitching
                 all_amp.append(amp_pred.permute(0, 2, 3, 1).cpu().numpy())
                 all_phase.append(phase_pred.permute(0, 2, 3, 1).cpu().numpy())
 
@@ -328,15 +323,16 @@ class PtychoReconLoggingCallback(L.Callback):
         if not all_amp:
             return
 
-        amp_all = np.concatenate(all_amp, axis=0)   # (N_total, H, W, C)
+        amp_all = np.concatenate(all_amp, axis=0)
         phase_all = np.concatenate(all_phase, axis=0)
 
-        # For gridsize>1, C = gridsize^2; stitch_predictions handles reshaping.
-        # For gridsize=1, C = 1; shape is already (N, H, W, 1).
+        # Update nimgs_test to reflect actual collected count
+        stitch_config['nimgs_test'] = amp_all.shape[0]
+
         try:
             norm_Y_I = 1.0
-            amp_stitched = stitch_predictions(amp_all, norm_Y_I=norm_Y_I, part="amp")
-            phase_stitched = stitch_predictions(phase_all, norm_Y_I=norm_Y_I, part="phase")
+            amp_stitched = reassemble_patches(amp_all, stitch_config, norm_Y_I=norm_Y_I, part="amp")
+            phase_stitched = reassemble_patches(phase_all, stitch_config, norm_Y_I=norm_Y_I, part="phase")
         except Exception as e:
             logger.warning("Recon logging: stitching failed (%s), skipping.", e)
             return
@@ -356,7 +352,6 @@ class PtychoReconLoggingCallback(L.Callback):
         if dataset is not None and len(dataset) > 0:
             sample_dict = dataset[0][0]
             if 'label_amp' in sample_dict:
-                # Collect GT labels for stitching
                 all_gt_amp = []
                 all_gt_phase = []
                 for batch in val_dl:
@@ -369,9 +364,12 @@ class PtychoReconLoggingCallback(L.Callback):
                 gt_amp = np.concatenate(all_gt_amp, axis=0)
                 gt_phase = np.concatenate(all_gt_phase, axis=0)
 
+                gt_stitch_config = dict(stitch_config)
+                gt_stitch_config['nimgs_test'] = gt_amp.shape[0]
+
                 try:
-                    gt_amp_stitched = stitch_predictions(gt_amp, norm_Y_I=norm_Y_I, part="amp")
-                    gt_phase_stitched = stitch_predictions(gt_phase, norm_Y_I=norm_Y_I, part="phase")
+                    gt_amp_stitched = reassemble_patches(gt_amp, gt_stitch_config, norm_Y_I=norm_Y_I, part="amp")
+                    gt_phase_stitched = reassemble_patches(gt_phase, gt_stitch_config, norm_Y_I=norm_Y_I, part="phase")
                 except Exception as e:
                     logger.warning("Recon logging: GT stitching failed (%s), skipping GT.", e)
                     return
@@ -394,3 +392,53 @@ class PtychoReconLoggingCallback(L.Callback):
                 fig = self._make_image_fig(phase_err, 'Stitched phase error', cmap='hot')
                 self._log_figure(trainer, artifact_base, "phase_error.png", fig)
                 plt.close(fig)
+
+    def _build_stitch_config(self, val_dl) -> Optional[dict]:
+        """Build a stitch config dict from dataset metadata.
+
+        Attempts to extract N, gridsize, offset from the dataset's metadata
+        or from params.cfg as a fallback. Returns None if insufficient metadata.
+        """
+        dataset = getattr(val_dl, 'dataset', None)
+        if dataset is None:
+            return None
+
+        # Try to get metadata from the dataset (PtychoDataset stores it)
+        metadata = getattr(dataset, 'metadata', None)
+
+        # Try params.cfg as fallback
+        if metadata is None:
+            try:
+                from ptycho import params as p
+                cfg = getattr(p, 'cfg', {})
+                N = cfg.get('N')
+                gridsize = cfg.get('gridsize')
+                offset = cfg.get('offset', 0)
+                outer_offset_test = cfg.get('outer_offset_test', offset)
+                if N is None or gridsize is None:
+                    return None
+                return {
+                    'N': N,
+                    'gridsize': gridsize,
+                    'offset': offset,
+                    'outer_offset_test': outer_offset_test,
+                    'nimgs_test': len(dataset),
+                }
+            except ImportError:
+                return None
+
+        # Extract from dataset metadata dict
+        N = metadata.get('N')
+        gridsize = metadata.get('gridsize')
+        offset = metadata.get('offset', 0)
+        outer_offset_test = metadata.get('outer_offset_test', offset)
+        if N is None or gridsize is None:
+            return None
+
+        return {
+            'N': N,
+            'gridsize': gridsize,
+            'offset': offset,
+            'outer_offset_test': outer_offset_test,
+            'nimgs_test': len(dataset),
+        }
