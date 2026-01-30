@@ -25,14 +25,24 @@ class TestProbeHelpers:
     def test_scale_probe_resizes_and_smooths(self):
         """scale_probe should resize 4x4 to 8x8 and preserve complex dtype."""
         probe = (np.ones((4, 4)) + 1j * np.ones((4, 4))).astype(np.complex64)
-        scaled = scale_probe(probe, target_N=8, smoothing_sigma=0.5)
+        scaled = scale_probe(
+            probe,
+            target_N=8,
+            smoothing_sigma=0.5,
+            scale_mode="interpolate",
+        )
         assert scaled.shape == (8, 8)
         assert scaled.dtype == np.complex64
 
     def test_scale_probe_no_resize_when_same_size(self):
         """scale_probe should not resize if already target size."""
         probe = (np.ones((8, 8)) + 1j * np.ones((8, 8))).astype(np.complex64)
-        scaled = scale_probe(probe, target_N=8, smoothing_sigma=0.0)
+        scaled = scale_probe(
+            probe,
+            target_N=8,
+            smoothing_sigma=0.0,
+            scale_mode="interpolate",
+        )
         assert scaled.shape == (8, 8)
         # No smoothing with sigma=0, should be similar
         np.testing.assert_array_almost_equal(scaled, probe)
@@ -41,7 +51,43 @@ class TestProbeHelpers:
         """scale_probe should raise for non-square probes."""
         probe = (np.ones((4, 6)) + 1j * np.ones((4, 6))).astype(np.complex64)
         with pytest.raises(ValueError, match="probe must be square"):
-            scale_probe(probe, target_N=8, smoothing_sigma=0.5)
+            scale_probe(
+                probe,
+                target_N=8,
+                smoothing_sigma=0.5,
+                scale_mode="interpolate",
+            )
+
+    def test_scale_probe_pad_extrapolate_pads_amplitude_and_extrapolates_phase(self):
+        """pad_extrapolate should edge-pad amplitude and extrapolate phase."""
+        amplitude = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+        phase = np.zeros_like(amplitude)
+        probe = (amplitude * np.exp(1j * phase)).astype(np.complex64)
+
+        scaled = scale_probe(
+            probe,
+            target_N=4,
+            smoothing_sigma=0.0,
+            scale_mode="pad_extrapolate",
+        )
+
+        expected_amp = np.pad(amplitude, pad_width=1, mode="edge")
+        np.testing.assert_allclose(np.abs(scaled), expected_amp, atol=1e-6)
+        assert np.allclose(np.angle(scaled), 0.0, atol=1e-5)
+
+    def test_scale_probe_pad_extrapolate_rejects_downscale(self):
+        """pad_extrapolate should reject target sizes smaller than probe."""
+        probe = (np.ones((8, 8)) + 1j * np.ones((8, 8))).astype(np.complex64)
+        with pytest.raises(
+            ValueError,
+            match="pad_extrapolate requires target_N >= probe size",
+        ):
+            scale_probe(
+                probe,
+                target_N=4,
+                smoothing_sigma=0.0,
+                scale_mode="pad_extrapolate",
+            )
 
 
 class TestDatasetPersistence:
