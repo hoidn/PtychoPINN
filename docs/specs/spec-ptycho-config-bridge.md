@@ -37,7 +37,7 @@ The following mappings are normative. Where not listed, identical field names/ty
     - Validate against allowed set.
   - `ModelConfig.mode: {'Unsupervised','Supervised'}` → `ModelConfig.model_type: {'pinn','supervised'}`
     - Map: Unsupervised→pinn, Supervised→supervised.
-  - `ModelConfig.architecture: {'cnn','fno','hybrid'}` → `ModelConfig.architecture: {'cnn','fno','hybrid'}`
+  - `ModelConfig.architecture: {'cnn','fno','hybrid','stable_hybrid','fno_vanilla','hybrid_resnet'}` → `ModelConfig.architecture: {'cnn','fno','hybrid','stable_hybrid','fno_vanilla','hybrid_resnet'}`
     - Direct pass-through. Generator architecture for PINN models. Default: 'cnn'.
   - `ModelConfig.amp_activation: {'silu','SiLU','swish','relu','sigmoid','softplus'}` → `ModelConfig.amp_activation: {'swish','relu','sigmoid','softplus'}`
     - Map: silu/SiLU→swish; others must be supported by TF enum.

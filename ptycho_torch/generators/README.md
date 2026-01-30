@@ -11,6 +11,9 @@ The generator registry enables architecture selection via the `config.model.arch
 | `cnn` | U-Net based CNN generator (default) | ✅ Integrated |
 | `fno` | Cascaded FNO + CNN refiner (Arch A) | ✅ Integrated |
 | `hybrid` | Hybrid U-NO (Arch B) | ✅ Integrated |
+| `stable_hybrid` | InstanceNorm-stabilized Hybrid U-NO | ✅ Integrated |
+| `fno_vanilla` | Constant-resolution FNO baseline | ✅ Integrated |
+| `hybrid_resnet` | FNO encoder + CycleGAN ResNet‑6 decoder | ✅ Integrated |
 
 All architectures train through `PtychoPINN_Lightning` with the same physics loss and stitching behavior.
 
@@ -40,6 +43,21 @@ The Hybrid architecture (`architecture='hybrid'`) combines U-Net with FNO:
 **Key parameters:**
 - `fno_blocks`: Number of FNO blocks per level (default: 4)
 - `fno_modes`: Spectral modes (default: min(12, N//4))
+
+### Stable Hybrid (U-NO)
+The Stable Hybrid architecture (`architecture='stable_hybrid'`) swaps in InstanceNorm‑stabilized residual blocks for improved training stability in deep FNO stacks.
+
+### FNO Vanilla (constant-resolution)
+The FNO Vanilla architecture (`architecture='fno_vanilla'`) removes down/upsampling entirely:
+1. Spatial lifter (3×3 convs)
+2. Constant‑resolution FNO block stack
+3. 1×1 output projection
+
+### Hybrid ResNet‑6
+The Hybrid ResNet architecture (`architecture='hybrid_resnet'`) replaces the Hybrid U‑NO bottleneck/decoder with the CycleGAN backend:
+1. FNO encoder with two downsampling steps (N → N/4)
+2. ResNet‑6 bottleneck at constant N/4 resolution
+3. CycleGAN upsamplers (ConvTranspose2d kernel=3, stride=2, padding=1, output_padding=1)
 
 ## Integration Contract
 

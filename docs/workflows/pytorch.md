@@ -64,15 +64,15 @@ update_legacy_dict(params.cfg, config)
 ```
 
 **Key configuration fields for PyTorch workflows:**
-- `config.model.architecture`: Generator architecture for PINN models (`'cnn'`, `'fno'`, `'hybrid'`, `'stable_hybrid'`). Default: `'cnn'`. All architectures train via Lightning with the full physics pipeline. The `'stable_hybrid'` variant uses InstanceNorm-stabilized residual blocks (Norm-Last, zero-init gamma/beta) for improved training stability in deep FNO stacks; see `docs/strategy/mainstrategy.md §1.A`. See `ptycho_torch/generators/README.md` for adding new architectures.
+- `config.model.architecture`: Generator architecture for PINN models (`'cnn'`, `'fno'`, `'hybrid'`, `'stable_hybrid'`, `'fno_vanilla'`, `'hybrid_resnet'`). Default: `'cnn'`. All architectures train via Lightning with the full physics pipeline. The `'stable_hybrid'` variant uses InstanceNorm-stabilized residual blocks (Norm-Last, zero-init gamma/beta) for improved training stability in deep FNO stacks; see `docs/strategy/mainstrategy.md §1.A`. The `'fno_vanilla'` baseline runs a constant‑resolution FNO stack, while `'hybrid_resnet'` uses an FNO encoder with a CycleGAN ResNet‑6 decoder. See `ptycho_torch/generators/README.md` for adding new architectures.
 - `config.model.fno_input_transform`: Optional input dynamic-range transform for FNO/Hybrid (`'none'`, `'sqrt'`, `'log1p'`, `'instancenorm'`). Default: `'none'`.
 
 **Architecture Selection via Generator Registry:**
 Starting 2026-01-27, the `config.model.architecture` field routes through the generator registry (`ptycho_torch/generators/registry.py`). This means:
-- FNO, Hybrid, and Stable Hybrid architectures now train through `PtychoPINN_Lightning` with the same physics loss as CNN
+- FNO, Hybrid, Stable Hybrid, FNO Vanilla, and Hybrid ResNet architectures now train through `PtychoPINN_Lightning` with the same physics loss as CNN
 - The registry resolves the architecture, builds the appropriate generator model, and wraps it in `PtychoPINN_Lightning`
 - FNO/Hybrid/Stable Hybrid generators use `generator_output="real_imag"` format, which is converted to complex channel-first via `_real_imag_to_complex_channel_first()` in `ptycho_torch/model.py`
-- The Torch runner CLI (`grid_lines_torch_runner.py`) accepts `--architecture stable_hybrid` and the compare wrapper (`grid_lines_compare_wrapper.py`) routes it through the Torch runner with metrics key `pinn_stable_hybrid`
+- The Torch runner CLI (`grid_lines_torch_runner.py`) accepts `--architecture stable_hybrid`, `fno_vanilla`, and `hybrid_resnet`; the compare wrapper (`grid_lines_compare_wrapper.py`) routes them through the Torch runner with metrics keys `pinn_stable_hybrid`, `pinn_fno_vanilla`, and `pinn_hybrid_resnet`
 - No changes to stitching behavior - all architectures use the same TF reassembly helper
 
 - `config.debug`: Controls progress bars and logging verbosity (default: `False`)

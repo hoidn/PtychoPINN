@@ -48,7 +48,7 @@ These parameters define the structure and physics of the neural network.
 | `gridsize` | `int` | `1` | For PINN models, the number of neighboring patches to process together (e.g., 2 for a 2×2 grid). For supervised models, this defines the input channel depth. |
 | `n_filters_scale` | `int` | `2` | A multiplier for the number of filters in the U-Net's convolutional layers. |
 | `model_type` | `Literal['pinn', 'supervised']` | `'pinn'` | The type of model to use. 'pinn' is the main physics-informed model. |
-| `architecture` | `Literal['cnn', 'fno', 'hybrid']` | `'cnn'` | The generator architecture for PINN models. Used by the generator registry to select the network backbone. 'cnn' is the default U-Net based generator. 'fno' (Cascaded FNO→CNN) and 'hybrid' (Hybrid U-NO) are available in PyTorch backend only. See `docs/architecture_torch.md` §4.1. |
+| `architecture` | `Literal['cnn', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet']` | `'cnn'` | The generator architecture for PINN models. Used by the generator registry to select the network backbone. 'cnn' is the default U-Net based generator. PyTorch-only options include: 'fno' (Cascaded FNO→CNN), 'hybrid' (Hybrid U‑NO), 'stable_hybrid' (InstanceNorm-stabilized Hybrid), 'fno_vanilla' (constant‑resolution FNO), and 'hybrid_resnet' (FNO encoder + CycleGAN ResNet‑6 decoder). See `docs/architecture_torch.md` §4.1. |
 | `fno_modes` | `int` | `12` | Number of spectral modes retained in FNO/Hybrid spectral convolutions (PyTorch only). |
 | `fno_width` | `int` | `32` | Hidden channel width for FNO/Hybrid blocks (PyTorch only). |
 | `fno_blocks` | `int` | `4` | Number of spectral blocks in the FNO/Hybrid encoder (PyTorch only). |
