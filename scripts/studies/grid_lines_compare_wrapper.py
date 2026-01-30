@@ -109,7 +109,7 @@ def run_grid_lines_compare(
         merged["baseline"] = tf_metrics["baseline"]
 
     for arch in architectures:
-        if arch in ("fno", "hybrid", "stable_hybrid"):
+        if arch in ("fno", "hybrid", "stable_hybrid", "fno_vanilla", "hybrid_resnet"):
             torch_cfg = TorchRunnerConfig(
                 train_npz=train_npz,
                 test_npz=test_npz,
@@ -163,6 +163,10 @@ def run_grid_lines_compare(
         order.append("pinn_hybrid")
     if "stable_hybrid" in architectures:
         order.append("pinn_stable_hybrid")
+    if "fno_vanilla" in architectures:
+        order.append("pinn_fno_vanilla")
+    if "hybrid_resnet" in architectures:
+        order.append("pinn_hybrid_resnet")
 
     from ptycho.workflows.grid_lines_workflow import render_grid_lines_visuals
     render_grid_lines_visuals(output_dir, order=tuple(order))
@@ -185,7 +189,11 @@ def parse_args(argv=None):
         type=Path,
         default=Path("datasets/Run1084_recon3_postPC_shrunk_3.npz"),
     )
-    parser.add_argument("--architectures", type=str, default="cnn,baseline,fno,hybrid")
+    parser.add_argument(
+        "--architectures",
+        type=str,
+        default="cnn,baseline,fno,hybrid,stable_hybrid,fno_vanilla,hybrid_resnet",
+    )
     parser.add_argument("--seed", type=int, default=None, help="Random seed (random if omitted)")
     parser.add_argument("--nimgs-train", type=int, default=2)
     parser.add_argument("--nimgs-test", type=int, default=2)

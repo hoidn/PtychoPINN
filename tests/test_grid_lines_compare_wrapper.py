@@ -3,6 +3,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 
 def test_wrapper_merges_metrics(monkeypatch, tmp_path):
     from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
@@ -232,6 +234,52 @@ def test_wrapper_handles_stable_hybrid(monkeypatch, tmp_path):
     merged = json.loads((tmp_path / "metrics.json").read_text())
     assert "pinn_stable_hybrid" in merged
 
+
+@pytest.mark.parametrize(
+    "arch,metric_key",
+    [
+        ("fno_vanilla", "pinn_fno_vanilla"),
+        ("hybrid_resnet", "pinn_hybrid_resnet"),
+    ],
+)
+def test_wrapper_handles_new_architectures(monkeypatch, tmp_path, arch, metric_key):
+    """Test that new torch architectures are wired through and merged."""
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare, parse_args
+
+    args = parse_args([
+        "--N", "64", "--gridsize", "1", "--output-dir", str(tmp_path),
+        "--architectures", arch,
+    ])
+    assert arch in args.architectures
+
+    def fake_tf_run(cfg):
+        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+        datasets_dir.mkdir(parents=True, exist_ok=True)
+        (datasets_dir / "train.npz").write_bytes(b"stub")
+        (datasets_dir / "test.npz").write_bytes(b"stub")
+        (cfg.output_dir / "metrics.json").write_text(json.dumps({}))
+        return {"train_npz": str(datasets_dir / "train.npz"), "test_npz": str(datasets_dir / "test.npz")}
+
+    captured = {}
+
+    def fake_torch_run(cfg):
+        captured["architecture"] = cfg.architecture
+        return {"metrics": {"mse": 0.25}}
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
+
+    run_grid_lines_compare(
+        N=64,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=(arch,),
+        probe_npz=Path("dummy_probe.npz"),
+    )
+
+    assert captured["architecture"] == arch
+    merged = json.loads((tmp_path / "metrics.json").read_text())
+    assert metric_key in merged
 
 def test_wrapper_passes_max_hidden_channels():
     """--torch-max-hidden-channels 512 propagates to the mocked runner call."""
