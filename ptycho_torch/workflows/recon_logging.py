@@ -1,7 +1,7 @@
 """MLflow intermediate reconstruction logging callback (Torch Lightning).
 
 Logs patch-level and optionally stitched reconstructions to MLflow every N epochs.
-See docs/plans/2026-01-30-mlflow-intermediate-recon-logging-design.md for design.
+Design: docs/plans/2026-01-30-mlflow-intermediate-recon-logging-design.md
 """
 
 from __future__ import annotations
@@ -19,6 +19,44 @@ import numpy as np
 import torch
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_val_dataloader(trainer: L.Trainer):
+    """Extract a single DataLoader from trainer.val_dataloaders.
+
+    Lightning may provide a single DataLoader, a list of DataLoaders,
+    or a CombinedLoader. We always want the first one.
+    Returns (dataloader, dataset) or (None, None).
+    """
+    val_dl = trainer.val_dataloaders
+    if val_dl is None:
+        return None, None
+
+    # Lightning may wrap in a list or CombinedLoader
+    if isinstance(val_dl, (list, tuple)):
+        if len(val_dl) == 0:
+            return None, None
+        val_dl = val_dl[0]
+
+    # CombinedLoader has .flattened attribute
+    if hasattr(val_dl, 'flattened'):
+        flattened = val_dl.flattened
+        if flattened:
+            val_dl = flattened[0]
+
+    dataset = getattr(val_dl, 'dataset', None)
+    if dataset is None:
+        return None, None
+    return val_dl, dataset
+
+
+def _to_2d(array: np.ndarray) -> np.ndarray:
+    """Squeeze a tensor to 2D for imshow. Takes first channel if multi-channel."""
+    arr = np.squeeze(array)
+    if arr.ndim == 3:
+        # Multi-channel (gridsize > 1): show first channel
+        return arr[0]
+    return arr
 
 
 class PtychoReconLoggingCallback(L.Callback):
@@ -113,8 +151,9 @@ class PtychoReconLoggingCallback(L.Callback):
 
     def _make_image_fig(self, array: np.ndarray, title: str, cmap: str = 'viridis'):
         """Create a single-image matplotlib figure."""
+        img = _to_2d(array)
         fig, ax = plt.subplots(1, 1, figsize=(4, 4))
-        ax.imshow(array, cmap=cmap)
+        ax.imshow(img, cmap=cmap)
         ax.set_title(title)
         ax.axis('off')
         return fig
@@ -126,16 +165,14 @@ class PtychoReconLoggingCallback(L.Callback):
         if not self._should_log(trainer):
             return
 
-        val_dl = trainer.val_dataloaders
-        if val_dl is None:
+        val_dl, dataset = _resolve_val_dataloader(trainer)
+        if val_dl is None or dataset is None:
             logger.debug("Recon logging: no val dataloader, skipping.")
             return
 
         epoch = trainer.current_epoch + 1
         epoch_str = f"epoch_{epoch:04d}"
 
-        # Collect all val batches for index selection
-        dataset = val_dl.dataset
         dataset_len = len(dataset)
         indices = self._select_indices(dataset_len)
         if not indices:
@@ -143,7 +180,7 @@ class PtychoReconLoggingCallback(L.Callback):
 
         pl_module.eval()
         try:
-            self._log_patches(trainer, pl_module, val_dl, indices, epoch_str)
+            self._log_patches(trainer, pl_module, dataset, indices, epoch_str)
             if self.log_stitch:
                 self._log_stitched(trainer, pl_module, val_dl, epoch_str)
         finally:
@@ -153,13 +190,11 @@ class PtychoReconLoggingCallback(L.Callback):
         self,
         trainer: L.Trainer,
         pl_module: L.LightningModule,
-        val_dl,
+        dataset,
         indices: List[int],
         epoch_str: str,
     ) -> None:
         """Log patch-level reconstructions for fixed indices."""
-        dataset = val_dl.dataset
-
         for patch_idx in indices:
             sample = dataset[patch_idx]
             # dataset returns (dict, probe, scale) tuple
@@ -170,16 +205,15 @@ class PtychoReconLoggingCallback(L.Callback):
             images = data_dict['images'].unsqueeze(0).to(device)
             coords = data_dict['coords_relative'].unsqueeze(0).to(device)
             rms_scale = data_dict['rms_scaling_constant'].unsqueeze(0).to(device)
-            physics_scale = data_dict['physics_scaling_constant'].unsqueeze(0).to(device)
             exp_ids = data_dict['experiment_id'].unsqueeze(0).to(device)
             probe_t = probe.unsqueeze(0).to(device) if probe.dim() < 4 else probe.to(device)
 
             artifact_base = f"{epoch_str}/patch_{patch_idx:02d}"
 
             with torch.no_grad():
-                # Full forward for diffraction comparison
+                # Match training: use rms_scale for both input and output scaling
                 pred_diff, amp_pred, phase_pred = pl_module(
-                    images, coords, probe_t, rms_scale, physics_scale, exp_ids,
+                    images, coords, probe_t, rms_scale, rms_scale, exp_ids,
                 )
 
             # Amp/phase predictions
@@ -219,8 +253,8 @@ class PtychoReconLoggingCallback(L.Callback):
                 self._log_figure(trainer, artifact_base, "phase_gt.png", fig)
                 plt.close(fig)
 
-                amp_err = np.abs(amp_np - amp_gt)
-                phase_err = np.abs(phase_np - phase_gt)
+                amp_err = np.abs(_to_2d(amp_np) - _to_2d(amp_gt))
+                phase_err = np.abs(_to_2d(phase_np) - _to_2d(phase_gt))
 
                 fig = self._make_image_fig(amp_err, 'Amplitude error', cmap='hot')
                 self._log_figure(trainer, artifact_base, "amp_error.png", fig)
@@ -231,7 +265,7 @@ class PtychoReconLoggingCallback(L.Callback):
                 plt.close(fig)
 
             # Diffraction error
-            diff_err = np.abs(diff_obs_log - diff_pred_log)
+            diff_err = np.abs(_to_2d(diff_obs_log) - _to_2d(diff_pred_log))
             fig = self._make_image_fig(diff_err, 'Diffraction error (log)', cmap='hot')
             self._log_figure(trainer, artifact_base, "diff_error_logI.png", fig)
             plt.close(fig)
@@ -243,15 +277,30 @@ class PtychoReconLoggingCallback(L.Callback):
         val_dl,
         epoch_str: str,
     ) -> None:
-        """Log stitched full-resolution reconstructions."""
+        """Log stitched full-resolution reconstructions.
+
+        Requires params.cfg to have nimgs_test, outer_offset_test, N, gridsize
+        populated (via update_legacy_dict). Gracefully skips if metadata is missing.
+        """
         try:
             from ptycho.workflows.grid_lines_workflow import stitch_predictions
+            from ptycho import params as p
         except ImportError:
-            logger.warning("Recon logging: stitching import failed, skipping stitched log.")
+            logger.warning("Recon logging: stitching import failed, skipping.")
             return
 
+        # Verify required metadata exists in params.cfg
+        required_keys = ['nimgs_test', 'N', 'gridsize']
+        missing = [k for k in required_keys if p.get(k) is None and k not in p.cfg]
+        if missing:
+            logger.warning("Recon logging: stitching requires %s in params.cfg, skipping.", missing)
+            return
+
+        gridsize = p.cfg['gridsize']
+
         # Collect all predictions from val set
-        all_complex = []
+        all_amp = []
+        all_phase = []
         device = pl_module.device
         count = 0
 
@@ -261,45 +310,33 @@ class PtychoReconLoggingCallback(L.Callback):
                 images = data_dict['images'].to(device)
                 coords = data_dict['coords_relative'].to(device)
                 rms_scale = data_dict['rms_scaling_constant'].to(device)
+                exp_ids = data_dict['experiment_id'].to(device)
                 probe_t = probe.to(device)
 
-                complex_out = pl_module.forward_predict(images, coords, probe_t, rms_scale)
-                all_complex.append(complex_out.cpu())
+                # Use full forward (matching training scaling) for amp/phase
+                _pred_diff, amp_pred, phase_pred = pl_module(
+                    images, coords, probe_t, rms_scale, rms_scale, exp_ids,
+                )
+                # Channel-first (B, C, H, W) → channel-last (B, H, W, C) for stitching
+                all_amp.append(amp_pred.permute(0, 2, 3, 1).cpu().numpy())
+                all_phase.append(phase_pred.permute(0, 2, 3, 1).cpu().numpy())
 
                 count += images.shape[0]
                 if self.max_stitch_samples is not None and count >= self.max_stitch_samples:
                     break
 
-        if not all_complex:
+        if not all_amp:
             return
 
-        all_complex_np = torch.cat(all_complex, dim=0).numpy()
+        amp_all = np.concatenate(all_amp, axis=0)   # (N_total, H, W, C)
+        phase_all = np.concatenate(all_phase, axis=0)
 
-        # Extract amp and phase (complex tensor: real+imag channels or complex64)
-        if np.iscomplexobj(all_complex_np):
-            amp_all = np.abs(all_complex_np)
-            phase_all = np.angle(all_complex_np)
-        else:
-            # real_imag channels: first half real, second half imag
-            c = all_complex_np.shape[1]
-            real_part = all_complex_np[:, :c // 2]
-            imag_part = all_complex_np[:, c // 2:]
-            amp_all = np.sqrt(real_part**2 + imag_part**2)
-            phase_all = np.arctan2(imag_part, real_part)
-
-        # Squeeze channel dim for stitching (expects (N, H, W, 1) or (N, H, W))
-        amp_pred = amp_all.squeeze(1)  # (N, H, W)
-        phase_pred = phase_all.squeeze(1)
-
-        # Attempt stitching - this depends on config/metadata being available
+        # For gridsize>1, C = gridsize^2; stitch_predictions handles reshaping.
+        # For gridsize=1, C = 1; shape is already (N, H, W, 1).
         try:
-            norm_Y_I = 1.0  # default normalization
-            amp_stitched = stitch_predictions(
-                amp_pred[..., np.newaxis], norm_Y_I=norm_Y_I, part="amp"
-            )
-            phase_stitched = stitch_predictions(
-                phase_pred[..., np.newaxis], norm_Y_I=norm_Y_I, part="phase"
-            )
+            norm_Y_I = 1.0
+            amp_stitched = stitch_predictions(amp_all, norm_Y_I=norm_Y_I, part="amp")
+            phase_stitched = stitch_predictions(phase_all, norm_Y_I=norm_Y_I, part="phase")
         except Exception as e:
             logger.warning("Recon logging: stitching failed (%s), skipping.", e)
             return
@@ -313,3 +350,47 @@ class PtychoReconLoggingCallback(L.Callback):
         fig = self._make_image_fig(phase_stitched.squeeze(), 'Stitched phase', cmap='twilight')
         self._log_figure(trainer, artifact_base, "phase_pred.png", fig)
         plt.close(fig)
+
+        # Stitched GT + error if validation dataset has labels
+        val_dl_resolved, dataset = _resolve_val_dataloader(trainer)
+        if dataset is not None and len(dataset) > 0:
+            sample_dict = dataset[0][0]
+            if 'label_amp' in sample_dict:
+                # Collect GT labels for stitching
+                all_gt_amp = []
+                all_gt_phase = []
+                for batch in val_dl:
+                    data_dict, _, _ = batch
+                    all_gt_amp.append(data_dict['label_amp'].permute(0, 2, 3, 1).numpy())
+                    all_gt_phase.append(data_dict['label_phase'].permute(0, 2, 3, 1).numpy())
+                    if self.max_stitch_samples is not None and sum(a.shape[0] for a in all_gt_amp) >= self.max_stitch_samples:
+                        break
+
+                gt_amp = np.concatenate(all_gt_amp, axis=0)
+                gt_phase = np.concatenate(all_gt_phase, axis=0)
+
+                try:
+                    gt_amp_stitched = stitch_predictions(gt_amp, norm_Y_I=norm_Y_I, part="amp")
+                    gt_phase_stitched = stitch_predictions(gt_phase, norm_Y_I=norm_Y_I, part="phase")
+                except Exception as e:
+                    logger.warning("Recon logging: GT stitching failed (%s), skipping GT.", e)
+                    return
+
+                fig = self._make_image_fig(gt_amp_stitched.squeeze(), 'Stitched amplitude (GT)')
+                self._log_figure(trainer, artifact_base, "amp_gt.png", fig)
+                plt.close(fig)
+
+                fig = self._make_image_fig(gt_phase_stitched.squeeze(), 'Stitched phase (GT)', cmap='twilight')
+                self._log_figure(trainer, artifact_base, "phase_gt.png", fig)
+                plt.close(fig)
+
+                amp_err = np.abs(amp_stitched.squeeze() - gt_amp_stitched.squeeze())
+                phase_err = np.abs(phase_stitched.squeeze() - gt_phase_stitched.squeeze())
+
+                fig = self._make_image_fig(amp_err, 'Stitched amplitude error', cmap='hot')
+                self._log_figure(trainer, artifact_base, "amp_error.png", fig)
+                plt.close(fig)
+
+                fig = self._make_image_fig(phase_err, 'Stitched phase error', cmap='hot')
+                self._log_figure(trainer, artifact_base, "phase_error.png", fig)
+                plt.close(fig)
