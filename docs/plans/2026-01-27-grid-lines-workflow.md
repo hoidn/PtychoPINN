@@ -15,7 +15,7 @@
 - **Workflow location:** `ptycho/workflows/grid_lines_workflow.py` (module) + `scripts/studies/grid_lines_workflow.py` (thin CLI wrapper).
 - **Alignment:** This workflow is the canonical harness for modular generator comparisons (see `docs/plans/2026-01-27-modular-generator-implementation.md`).
 - **Probe source:** `datasets/Run1084_recon3_postPC_shrunk_3.npz` (`probeGuess` key). Produce 64x64 and upscaled 128x128 probes.
-- **Probe scaling:** Use `scripts/tools/prepare_data_tool.py::interpolate_array` on real/imag and smooth with `smooth_complex_array` using `sigma=0.5` (reuse prepare.sh components).
+- **Probe scaling:** Default to pad+extrapolate (edge-pad amplitude + quadratic phase fit/extrapolation, then optional smoothing). Interpolation remains available via `--probe-scale-mode interpolate` (cubic spline on real/imag with `smooth_complex_array`).
 - **Simulation:** Legacy grid pipeline via `data_preprocessing.generate_data()` (which calls `diffsim.mk_simdata`). Must set legacy params via `update_legacy_dict(params.cfg, config)` before invoking.
 - **Config:** Match notebook defaults: `data_source='lines'`, `size=392`, `offset=4`, `outer_offset_train=8`, `outer_offset_test=20`, `nimgs_train=2`, `nimgs_test=2`, `nphotons=1e9`, `sim_jitter_scale=0.0`.
 - **Runs:** Separate invocations per `N` (64 or 128) and per `gridsize` (1 or 2). Allow multiple generator architectures per call via `--architectures cnn,fno,hybrid`.
