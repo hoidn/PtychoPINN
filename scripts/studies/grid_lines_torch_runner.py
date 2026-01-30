@@ -192,7 +192,10 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
 
     # Cast N and architecture to their Literal types
     N_literal = cast(Literal[64, 128, 256], cfg.N)
-    arch_literal = cast(Literal['cnn', 'fno', 'hybrid', 'stable_hybrid'], cfg.architecture)
+    arch_literal = cast(
+        Literal['cnn', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet'],
+        cfg.architecture,
+    )
 
     model_config = ModelConfig(
         N=N_literal,
@@ -592,7 +595,7 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True,
                         help="Output directory for artifacts")
     parser.add_argument("--architecture", type=str, required=True,
-                        choices=['fno', 'hybrid', 'stable_hybrid'],
+                        choices=['fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet'],
                         help="Generator architecture to use")
     parser.add_argument("--seed", type=int, default=None,
                         help="Random seed for reproducibility (random if omitted)")

@@ -489,6 +489,28 @@ class TestChannelGridsizeAlignment:
         training_config, _ = setup_torch_configs(cfg)
         assert training_config.model.architecture == "stable_hybrid"
 
+    def test_runner_accepts_hybrid_resnet(self, tmp_path):
+        """Test that setup_torch_configs accepts 'hybrid_resnet' architecture."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+        )
+        training_config, _ = setup_torch_configs(cfg)
+        assert training_config.model.architecture == "hybrid_resnet"
+
+    def test_runner_accepts_fno_vanilla(self, tmp_path):
+        """Test that setup_torch_configs accepts 'fno_vanilla' architecture."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="fno_vanilla",
+        )
+        training_config, _ = setup_torch_configs(cfg)
+        assert training_config.model.architecture == "fno_vanilla"
+
     def test_runner_accepts_capped_channels(self):
         """TorchRunnerConfig max_hidden_channels propagates to ModelConfig."""
         from scripts.studies.grid_lines_torch_runner import TorchRunnerConfig, setup_torch_configs
