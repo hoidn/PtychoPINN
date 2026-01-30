@@ -1,5 +1,6 @@
 # tests/torch/test_fno_generators.py
 """Tests for FNO/Hybrid generator implementations."""
+import math
 import pytest
 import torch
 
@@ -16,6 +17,7 @@ from ptycho_torch.generators.fno import (
     FnoGenerator,
 )
 from ptycho_torch.generators.fno_vanilla import FnoVanillaGeneratorModule
+from ptycho_torch.generators.hybrid_resnet import HybridResnetGeneratorModule
 from ptycho_torch.generators.registry import resolve_generator
 from ptycho.config.config import TrainingConfig, ModelConfig
 
@@ -182,6 +184,42 @@ class TestFnoVanillaGenerator:
         x = torch.randn(2, 4, 32, 32)
         out = model(x)
         assert out.shape == (2, 32, 32, 4, 2)
+
+
+class TestHybridResnetGenerator:
+    """Tests for the HybridResnetGenerator module."""
+
+    def test_output_shape_real_imag(self):
+        """HybridResnetGenerator should preserve resolution and emit real/imag output."""
+        model = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+        )
+        x = torch.randn(2, 4, 32, 32)
+        out = model(x)
+        assert out.shape == (2, 32, 32, 4, 2)
+
+    def test_amp_phase_bounds(self):
+        """amp_phase output should be bounded by sigmoid/tanh scaling."""
+        model = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            output_mode="amp_phase",
+        )
+        x = torch.randn(1, 4, 32, 32)
+        amp, phase = model(x)
+        assert amp.min().item() >= 0.0
+        assert amp.max().item() <= 1.0
+        assert phase.min().item() >= -math.pi - 1e-3
+        assert phase.max().item() <= math.pi + 1e-3
 
 
 class TestGeneratorRegistry:
