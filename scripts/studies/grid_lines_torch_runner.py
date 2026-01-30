@@ -690,6 +690,20 @@ def main() -> None:
                         help="ReduceLROnPlateau min lr")
     parser.add_argument("--plateau-threshold", type=float, default=0.0,
                         help="ReduceLROnPlateau threshold")
+    # Recon logging CLI flags
+    parser.add_argument("--torch-logger", type=str, default=None,
+                        choices=["csv", "tensorboard", "mlflow", "none"],
+                        help="Logger backend (default: None)")
+    parser.add_argument("--recon-log-every-n-epochs", type=int, default=None,
+                        help="Log reconstructions every N epochs (default: disabled)")
+    parser.add_argument("--recon-log-num-patches", type=int, default=4,
+                        help="Number of fixed patch indices to log (default: 4)")
+    parser.add_argument("--recon-log-fixed-indices", type=int, nargs='+', default=None,
+                        help="Explicit patch indices to log (default: auto-select)")
+    parser.add_argument("--recon-log-stitch", action="store_true", default=False,
+                        help="Log stitched full-resolution reconstructions")
+    parser.add_argument("--recon-log-max-stitch-samples", type=int, default=None,
+                        help="Cap on stitched samples (default: no limit)")
 
     args = parser.parse_args()
 
@@ -734,6 +748,12 @@ def main() -> None:
         plateau_patience=args.plateau_patience,
         plateau_min_lr=args.plateau_min_lr,
         plateau_threshold=args.plateau_threshold,
+        logger_backend=args.torch_logger,
+        recon_log_every_n_epochs=args.recon_log_every_n_epochs,
+        recon_log_num_patches=args.recon_log_num_patches,
+        recon_log_fixed_indices=args.recon_log_fixed_indices,
+        recon_log_stitch=args.recon_log_stitch,
+        recon_log_max_stitch_samples=args.recon_log_max_stitch_samples,
     )
 
     result = run_grid_lines_torch(cfg)

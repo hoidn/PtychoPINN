@@ -167,8 +167,17 @@ class PtychoReconLoggingCallback(L.Callback):
 
         val_dl, dataset = _resolve_val_dataloader(trainer)
         if val_dl is None or dataset is None:
-            logger.debug("Recon logging: no val dataloader, skipping.")
-            return
+            # Fallback to train dataloader for train-only workflows
+            train_dl = getattr(trainer, 'train_dataloader', None)
+            if callable(train_dl):
+                train_dl = train_dl()
+            if train_dl is not None:
+                logger.warning("Recon logging: no val dataloader, falling back to train loader.")
+                dataset = getattr(train_dl, 'dataset', None)
+                val_dl = train_dl
+            if val_dl is None or dataset is None:
+                logger.debug("Recon logging: no dataloader available, skipping.")
+                return
 
         epoch = trainer.current_epoch + 1
         epoch_str = f"epoch_{epoch:04d}"

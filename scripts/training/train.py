@@ -304,6 +304,8 @@ def parse_arguments():
                        help="Explicit patch indices to log (default: auto-select).")
     parser.add_argument("--torch-recon-log-stitch", action='store_true', default=False,
                        help="Log stitched full-resolution reconstructions (default: disabled).")
+    parser.add_argument("--torch-recon-log-max-stitch-samples", type=int, default=None,
+                       help="Cap on number of samples for stitched logging (default: no limit).")
     parser.add_argument("--torch-enable-checkpointing", action='store_true',
                        default=True,
                        help="Enable checkpoint saving during training (default: True). "

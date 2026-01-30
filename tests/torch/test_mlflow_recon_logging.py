@@ -89,11 +89,15 @@ class FakeModule(torch.nn.Module):
 
 
 class FakeTrainer:
-    def __init__(self, epoch=4, has_logger=True, is_global_zero=True, val_dl=None):
+    def __init__(self, epoch=4, has_logger=True, is_global_zero=True, val_dl=None, train_dl=None):
         self.current_epoch = epoch
         self.is_global_zero = is_global_zero
         self.logger = FakeLogger() if has_logger else None
         self.val_dataloaders = val_dl
+        self._train_dl = train_dl
+
+    def train_dataloader(self):
+        return self._train_dl
 
 
 # ---------------------------------------------------------------------------
@@ -266,6 +270,17 @@ class TestPatchLogging:
         dataset = MultiChannelDataset(n=2, supervised=False)
         val_dl = FakeValDataloader(dataset)
         trainer = FakeTrainer(epoch=4, val_dl=val_dl)
+        module = FakeModule()
+
+        cb = PtychoReconLoggingCallback(every_n_epochs=5, num_patches=1)
+        cb.on_validation_epoch_end(trainer, module)
+
+        assert trainer.logger.experiment.log_artifact.called
+
+    def test_falls_back_to_train_dataloader(self):
+        dataset = FakeDataset(n=4, supervised=False)
+        train_dl = FakeValDataloader(dataset)
+        trainer = FakeTrainer(epoch=4, val_dl=None, train_dl=train_dl)
         module = FakeModule()
 
         cb = PtychoReconLoggingCallback(every_n_epochs=5, num_patches=1)
