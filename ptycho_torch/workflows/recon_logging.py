@@ -6,11 +6,12 @@ from dataclasses import dataclass
 from typing import Iterable, List, Optional
 
 import numpy as np
+import torch
 
 
 @dataclass
 class PtychoReconLoggingCallback:
-    """Minimal MLflow recon logging callback (stub for TDD)."""
+    """MLflow recon logging callback (patch logging scaffold)."""
 
     every_n_epochs: int
     num_patches: int = 4
@@ -29,6 +30,35 @@ class PtychoReconLoggingCallback:
             return
         experiment.log_image(image, key)
 
+    def _to_numpy(self, tensor: torch.Tensor) -> np.ndarray:
+        array = tensor.detach().cpu().numpy()
+        return np.squeeze(array)
+
+    def _log_patch_bundle(self, trainer, pl_module, idx: int, batch) -> None:
+        data, probe, _scale = batch
+        images = data["images"]
+        coords = data["coords_relative"]
+        rms_scale = data["rms_scaling_constant"]
+        experiment_ids = data.get("experiment_id")
+
+        pred_diffraction, amp_pred, phase_pred = pl_module.forward(
+            images,
+            coords,
+            probe,
+            rms_scale,
+            rms_scale,
+            experiment_ids=experiment_ids,
+        )
+
+        diff_pred_log = torch.log1p(torch.abs(pred_diffraction))
+        diff_obs_log = torch.log1p(torch.abs(images))
+
+        prefix = f"{self.artifact_root}/patch_{idx}"
+        self._log_image(trainer, f"{prefix}/amp_pred", self._to_numpy(amp_pred))
+        self._log_image(trainer, f"{prefix}/phase_pred", self._to_numpy(phase_pred))
+        self._log_image(trainer, f"{prefix}/diff_pred_logI", self._to_numpy(diff_pred_log))
+        self._log_image(trainer, f"{prefix}/diff_obs_logI", self._to_numpy(diff_obs_log))
+
     def on_train_epoch_end(self, trainer, pl_module) -> None:
         if not trainer.is_global_zero:
             return
@@ -36,6 +66,5 @@ class PtychoReconLoggingCallback:
             return
         indices: Iterable[int] = self.fixed_indices or list(range(self.num_patches))
         for idx in indices:
-            _ = self._get_patch_batch(idx)
-            dummy = np.zeros((8, 8), dtype=np.float32)
-            self._log_image(trainer, f"{self.artifact_root}/patch_{idx}/amp_pred", dummy)
+            batch = self._get_patch_batch(idx)
+            self._log_patch_bundle(trainer, pl_module, idx, batch)
