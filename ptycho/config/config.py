@@ -65,7 +65,7 @@ State Dependencies:
 
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Dict, Any, Optional, Literal
+from typing import Dict, Any, List, Optional, Literal
 import yaml
 import warnings
 
@@ -271,6 +271,13 @@ class PyTorchExecutionConfig:
 
     # Logging knobs (Phase EB3.B - ADR-003)
     logger_backend: Optional[str] = 'csv'  # Experiment tracking backend: 'csv' (default), 'tensorboard', 'mlflow', or None
+
+    # Reconstruction logging knobs (MLflow only)
+    recon_log_every_n_epochs: Optional[int] = None  # Log intermediate reconstructions every N epochs (None = disabled)
+    recon_log_num_patches: int = 4  # Number of fixed patch indices to log
+    recon_log_fixed_indices: Optional[List[int]] = None  # Explicit patch indices (None = auto-select)
+    recon_log_stitch: bool = False  # Log stitched full-resolution reconstructions (opt-in)
+    recon_log_max_stitch_samples: Optional[int] = None  # Cap stitched samples (None = no limit)
 
     # Inference-specific knobs
     inference_batch_size: Optional[int] = None  # Override batch_size for inference (None = use training batch_size)

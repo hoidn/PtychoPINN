@@ -192,6 +192,11 @@ def build_execution_config_from_args(
             accum_steps=getattr(args, 'accumulate_grad_batches', 1),
             # Logger backend (Phase EB3.B - ADR-003)
             logger_backend=logger_backend,
+            # Recon logging knobs
+            recon_log_every_n_epochs=getattr(args, 'recon_log_every_n_epochs', None),
+            recon_log_num_patches=getattr(args, 'recon_log_num_patches', 4),
+            recon_log_fixed_indices=getattr(args, 'recon_log_fixed_indices', None),
+            recon_log_stitch=getattr(args, 'recon_log_stitch', False),
         )
     elif mode == 'inference':
         return PyTorchExecutionConfig(

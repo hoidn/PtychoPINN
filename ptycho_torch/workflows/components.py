@@ -966,6 +966,23 @@ def _train_with_lightning(
             )
             callbacks.append(early_stop_callback)
 
+    # Recon logging callback (MLflow only, opt-in via recon_log_every_n_epochs)
+    if (execution_config.logger_backend == 'mlflow'
+            and execution_config.recon_log_every_n_epochs is not None):
+        from ptycho_torch.workflows.recon_logging import PtychoReconLoggingCallback
+        recon_cb = PtychoReconLoggingCallback(
+            every_n_epochs=execution_config.recon_log_every_n_epochs,
+            num_patches=execution_config.recon_log_num_patches,
+            fixed_indices=execution_config.recon_log_fixed_indices,
+            log_stitch=execution_config.recon_log_stitch,
+            max_stitch_samples=execution_config.recon_log_max_stitch_samples,
+        )
+        callbacks.append(recon_cb)
+        logger.info("Enabled recon logging callback (every %d epochs, %d patches, stitch=%s)",
+                     execution_config.recon_log_every_n_epochs,
+                     execution_config.recon_log_num_patches,
+                     execution_config.recon_log_stitch)
+
     # Instantiate logger based on execution config (Phase EB3.B - ADR-003)
     lightning_logger = False  # Default: no logger
     if execution_config.logger_backend is not None:

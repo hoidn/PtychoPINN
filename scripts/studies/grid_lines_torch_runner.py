@@ -38,7 +38,7 @@ import logging
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple
 
 import numpy as np
 
@@ -116,6 +116,12 @@ class TorchRunnerConfig:
     plateau_patience: int = 2
     plateau_min_lr: float = 1e-4
     plateau_threshold: float = 0.0
+    # Recon logging
+    logger_backend: Optional[str] = None  # 'csv', 'mlflow', etc.
+    recon_log_every_n_epochs: Optional[int] = None
+    recon_log_num_patches: int = 4
+    recon_log_fixed_indices: Optional[List[int]] = None
+    recon_log_stitch: bool = False
 
 
 def load_cached_dataset(npz_path: Path) -> Dict[str, np.ndarray]:
@@ -260,6 +266,11 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         deterministic=True,
         gradient_clip_val=cfg.gradient_clip_val,
         enable_checkpointing=cfg.enable_checkpointing,
+        logger_backend=cfg.logger_backend,
+        recon_log_every_n_epochs=cfg.recon_log_every_n_epochs,
+        recon_log_num_patches=cfg.recon_log_num_patches,
+        recon_log_fixed_indices=cfg.recon_log_fixed_indices,
+        recon_log_stitch=cfg.recon_log_stitch,
     )
 
     return training_config, execution_config

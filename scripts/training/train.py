@@ -295,6 +295,15 @@ def parse_arguments():
                        help="Logger backend for PyTorch training (default: 'csv'). "
                             "Options: 'csv' (zero deps), 'tensorboard', 'mlflow' (requires server), 'none' (disable). "
                             "See CONFIG-LOGGER-001. Only applies when --backend pytorch.")
+    parser.add_argument("--torch-recon-log-every-n-epochs", type=int, default=None,
+                       help="Log intermediate reconstructions every N epochs (default: disabled). "
+                            "Only applies when --torch-logger mlflow.")
+    parser.add_argument("--torch-recon-log-num-patches", type=int, default=4,
+                       help="Number of fixed patch indices to log (default: 4).")
+    parser.add_argument("--torch-recon-log-fixed-indices", type=int, nargs='+', default=None,
+                       help="Explicit patch indices to log (default: auto-select).")
+    parser.add_argument("--torch-recon-log-stitch", action='store_true', default=False,
+                       help="Log stitched full-resolution reconstructions (default: disabled).")
     parser.add_argument("--torch-enable-checkpointing", action='store_true',
                        default=True,
                        help="Enable checkpoint saving during training (default: True). "
@@ -430,7 +439,12 @@ def main() -> None:
                     checkpoint_mode='min',  # Default
                     early_stop_patience=100,  # Default
                     quiet=getattr(args, 'debug', False) == False,  # Invert debug flag for quiet
-                    disable_mlflow=False  # Not applicable for training in this context
+                    disable_mlflow=False,  # Not applicable for training in this context
+                    # Recon logging knobs
+                    recon_log_every_n_epochs=getattr(args, 'torch_recon_log_every_n_epochs', None),
+                    recon_log_num_patches=getattr(args, 'torch_recon_log_num_patches', 4),
+                    recon_log_fixed_indices=getattr(args, 'torch_recon_log_fixed_indices', None),
+                    recon_log_stitch=getattr(args, 'torch_recon_log_stitch', False),
                 )
 
                 # Build validated execution config from CLI args (POLICY-001, CONFIG-002, CONFIG-LOGGER-001)
