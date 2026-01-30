@@ -15,6 +15,7 @@ from ptycho_torch.generators.fno import (
     StableHybridGenerator,
     FnoGenerator,
 )
+from ptycho_torch.generators.fno_vanilla import FnoVanillaGeneratorModule
 from ptycho_torch.generators.registry import resolve_generator
 from ptycho.config.config import TrainingConfig, ModelConfig
 
@@ -165,6 +166,24 @@ class TestCascadedFNOGenerator:
         assert x.grad is not None
 
 
+class TestFnoVanillaGenerator:
+    """Tests for the FnoVanillaGenerator module."""
+
+    def test_output_shape_real_imag(self):
+        """FnoVanillaGenerator should preserve resolution and emit real/imag output."""
+        model = FnoVanillaGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=2,
+            modes=8,
+            C=4,
+        )
+        x = torch.randn(2, 4, 32, 32)
+        out = model(x)
+        assert out.shape == (2, 32, 32, 4, 2)
+
+
 class TestGeneratorRegistry:
     """Tests for generator registry with FNO/Hybrid generators."""
 
@@ -302,4 +321,3 @@ class TestStableHybridUNOGenerator:
         x = torch.randn(2, 4, 64, 64)
         out = model(x)
         assert out.shape == (2, 64, 64, 4, 2)
-
