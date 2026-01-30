@@ -398,6 +398,9 @@ The legacy `--disable_mlflow` flag now emits a DeprecationWarning directing user
 - To suppress progress bars: use `--quiet`
 This flag currently maps to `--logger none` internally for backward compatibility but will be removed in a future release. Update your scripts to use the explicit `--logger` flag instead.
 
+**Intermediate Reconstruction Logging (MLflow only):**
+When using the MLflow logger, you can log intermediate reconstruction images during training. This is controlled by `--torch-recon-log-every-n-epochs N` which logs patch-level amplitude, phase, and diffraction images every N epochs. By default, 4 evenly spaced patch indices are sampled from the validation set; override with `--torch-recon-log-num-patches` or `--torch-recon-log-fixed-indices`. Add `--torch-recon-log-stitch` to also log full-resolution stitched reconstructions (opt-in due to performance cost). Artifacts are organized under `epoch_NNNN/patch_NN/*.png` and `epoch_NNNN/stitched/*.png` in the MLflow run. When supervised labels exist, ground-truth and error maps are logged alongside predictions. All logging is guarded by `trainer.is_global_zero` to avoid duplicate artifacts in DDP.
+
 **Deprecated Flags:**
 - `--device`: Superseded by `--accelerator`. Using `--device` will emit a deprecation warning and map to `--accelerator` automatically. Remove from scripts; this flag will be dropped in a future release.
 - `--disable_mlflow`: **DEPRECATED.** Use `--logger none` (disable tracking) + `--quiet` (suppress progress) instead. Emits DeprecationWarning; will be removed in future release.
@@ -434,7 +437,7 @@ The training CLI delegates to shared helper functions in `ptycho_torch/cli/share
 
 These helpers enforce CONFIG-001 compliance by calling factory functions that populate `params.cfg` via `update_legacy_dict()` before data loading or model construction. See `ptycho_torch/config_factory.py` for factory implementation details.
 
-**PyTorch Execution Configuration:** For the complete catalog of execution configuration fields (17 total, including programmatic-only parameters like scheduler and logger backend), see <doc-ref type="spec">specs/ptychodus_api_spec.md</doc-ref> §4.9 "PyTorch Execution Configuration Contract". The spec documents validation rules, priority levels, and CONFIG-001 isolation guarantees.
+**PyTorch Execution Configuration:** For the complete catalog of execution configuration fields (22 total, including programmatic-only parameters like scheduler and logger backend), see <doc-ref type="spec">specs/ptychodus_api_spec.md</doc-ref> §4.9 "PyTorch Execution Configuration Contract". The spec documents validation rules, priority levels, and CONFIG-001 isolation guarantees.
 
 **Evidence:** Phase C4.D validation confirmed gridsize=2 training with execution config flags completes successfully. See `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/manual_cli_smoke_gs2.log` for full smoke test output.
 
