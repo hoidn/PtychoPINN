@@ -197,6 +197,7 @@ def build_execution_config_from_args(
             recon_log_num_patches=getattr(args, 'recon_log_num_patches', 4),
             recon_log_fixed_indices=getattr(args, 'recon_log_fixed_indices', None),
             recon_log_stitch=getattr(args, 'recon_log_stitch', False),
+            recon_log_max_stitch_samples=getattr(args, 'recon_log_max_stitch_samples', None),
         )
     elif mode == 'inference':
         return PyTorchExecutionConfig(

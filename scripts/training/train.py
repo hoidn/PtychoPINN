@@ -445,6 +445,7 @@ def main() -> None:
                     recon_log_num_patches=getattr(args, 'torch_recon_log_num_patches', 4),
                     recon_log_fixed_indices=getattr(args, 'torch_recon_log_fixed_indices', None),
                     recon_log_stitch=getattr(args, 'torch_recon_log_stitch', False),
+                    recon_log_max_stitch_samples=getattr(args, 'torch_recon_log_max_stitch_samples', None),
                 )
 
                 # Build validated execution config from CLI args (POLICY-001, CONFIG-002, CONFIG-LOGGER-001)

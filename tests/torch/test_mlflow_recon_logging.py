@@ -224,6 +224,55 @@ class TestPatchLogging:
         assert all("epoch_0005" in p for p in artifact_paths)
         assert all("patch_03" in p for p in artifact_paths)
 
+    def test_handles_val_dataloader_list(self):
+        dataset = FakeDataset(n=4, supervised=False)
+        val_dl = FakeValDataloader(dataset)
+        trainer = FakeTrainer(epoch=4, val_dl=[val_dl])
+        module = FakeModule()
+
+        cb = PtychoReconLoggingCallback(every_n_epochs=5, num_patches=1)
+        cb.on_validation_epoch_end(trainer, module)
+
+        assert trainer.logger.experiment.log_artifact.called
+
+    def test_uses_rms_scale_for_output(self):
+        class CaptureModule(FakeModule):
+            def __init__(self):
+                super().__init__()
+                self.calls = []
+            def forward(self, x, positions, probe, input_scale, output_scale, experiment_ids):
+                self.calls.append((input_scale, output_scale))
+                return x, torch.abs(x), torch.zeros_like(x)
+
+        dataset = FakeDataset(n=2, supervised=False)
+        val_dl = FakeValDataloader(dataset)
+        trainer = FakeTrainer(epoch=4, val_dl=val_dl)
+        module = CaptureModule()
+
+        cb = PtychoReconLoggingCallback(every_n_epochs=5, num_patches=1)
+        cb.on_validation_epoch_end(trainer, module)
+
+        assert module.calls
+        input_scale, output_scale = module.calls[0]
+        assert torch.allclose(input_scale, output_scale)
+
+    def test_multi_channel_patch_logging(self):
+        class MultiChannelDataset(FakeDataset):
+            def __getitem__(self, idx):
+                data, probe, scale = super().__getitem__(idx)
+                data["images"] = torch.randn(2, 8, 8)
+                return data, probe, scale
+
+        dataset = MultiChannelDataset(n=2, supervised=False)
+        val_dl = FakeValDataloader(dataset)
+        trainer = FakeTrainer(epoch=4, val_dl=val_dl)
+        module = FakeModule()
+
+        cb = PtychoReconLoggingCallback(every_n_epochs=5, num_patches=1)
+        cb.on_validation_epoch_end(trainer, module)
+
+        assert trainer.logger.experiment.log_artifact.called
+
     def test_no_logging_when_no_val_dataloader(self):
         trainer = FakeTrainer(epoch=4, val_dl=None)
         module = FakeModule()
@@ -260,3 +309,18 @@ class TestConfigFields:
         assert cfg.recon_log_every_n_epochs == 10
         assert cfg.recon_log_fixed_indices == [0, 7]
         assert cfg.recon_log_stitch is True
+        assert cfg.recon_log_max_stitch_samples == 50
+
+
+class TestRunnerPropagation:
+    def test_runner_propagates_recon_log_max_stitch_samples(self, tmp_path):
+        from scripts.studies.grid_lines_torch_runner import TorchRunnerConfig, setup_torch_configs
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="fno",
+            recon_log_max_stitch_samples=8,
+        )
+        _, exec_cfg = setup_torch_configs(cfg)
+        assert exec_cfg.recon_log_max_stitch_samples == 8

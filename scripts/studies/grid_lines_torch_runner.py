@@ -122,6 +122,7 @@ class TorchRunnerConfig:
     recon_log_num_patches: int = 4
     recon_log_fixed_indices: Optional[List[int]] = None
     recon_log_stitch: bool = False
+    recon_log_max_stitch_samples: Optional[int] = None
 
 
 def load_cached_dataset(npz_path: Path) -> Dict[str, np.ndarray]:
@@ -271,6 +272,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         recon_log_num_patches=cfg.recon_log_num_patches,
         recon_log_fixed_indices=cfg.recon_log_fixed_indices,
         recon_log_stitch=cfg.recon_log_stitch,
+        recon_log_max_stitch_samples=cfg.recon_log_max_stitch_samples,
     )
 
     return training_config, execution_config
