@@ -65,6 +65,7 @@ update_legacy_dict(params.cfg, config)
 
 **Key configuration fields for PyTorch workflows:**
 - `config.model.architecture`: Generator architecture for PINN models (`'cnn'`, `'fno'`, `'hybrid'`, `'stable_hybrid'`, `'fno_vanilla'`, `'hybrid_resnet'`). Default: `'cnn'`. All architectures train via Lightning with the full physics pipeline. The `'stable_hybrid'` variant uses InstanceNorm-stabilized residual blocks (Norm-Last, zero-init gamma/beta) for improved training stability in deep FNO stacks; see `docs/strategy/mainstrategy.md §1.A`. The `'fno_vanilla'` baseline runs a constant‑resolution FNO stack, while `'hybrid_resnet'` uses an FNO encoder with a CycleGAN ResNet‑6 decoder. See `ptycho_torch/generators/README.md` for adding new architectures.
+- `config.model.resnet_width`: Optional fixed bottleneck width for `hybrid_resnet`. When set, must be divisible by 4 so the CycleGAN upsamplers produce integer channel sizes.
 - `config.model.fno_input_transform`: Optional input dynamic-range transform for FNO/Hybrid (`'none'`, `'sqrt'`, `'log1p'`, `'instancenorm'`). Default: `'none'`.
 
 **Architecture Selection via Generator Registry:**

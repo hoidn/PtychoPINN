@@ -59,6 +59,9 @@ The Hybrid ResNet architecture (`architecture='hybrid_resnet'`) replaces the Hyb
 2. ResNet‑6 bottleneck at constant N/4 resolution
 3. CycleGAN upsamplers (ConvTranspose2d kernel=3, stride=2, padding=1, output_padding=1)
 
+**Optional parameter:**
+- `resnet_width`: Fixed bottleneck width for `hybrid_resnet` (must be divisible by 4).
+
 ## Integration Contract
 
 All FNO/Hybrid generators integrate with `PtychoPINN_Lightning` via:

@@ -52,6 +52,7 @@ def run_grid_lines_compare(
     fno_cnn_blocks: int = 2,
     fno_input_transform: str = "none",
     torch_max_hidden_channels: Optional[int] = None,
+    torch_resnet_width: Optional[int] = None,
     torch_optimizer: str = "adam",
     torch_weight_decay: float = 0.0,
     torch_momentum: float = 0.9,
@@ -132,6 +133,7 @@ def run_grid_lines_compare(
                 fno_cnn_blocks=fno_cnn_blocks,
                 fno_input_transform=fno_input_transform,
                 max_hidden_channels=torch_max_hidden_channels,
+                resnet_width=torch_resnet_width,
                 optimizer=torch_optimizer,
                 weight_decay=torch_weight_decay,
                 momentum=torch_momentum,
@@ -244,6 +246,8 @@ def parse_args(argv=None):
     )
     parser.add_argument("--torch-max-hidden-channels", type=int, default=None,
                         help="Cap on hidden channels in Hybrid encoder (default: no cap)")
+    parser.add_argument("--torch-resnet-width", type=int, default=None,
+                        help="Fixed bottleneck width for hybrid_resnet (must be divisible by 4)")
     parser.add_argument("--torch-optimizer", type=str, default="adam",
                         choices=["adam", "adamw", "sgd"], help="Optimizer algorithm")
     parser.add_argument("--torch-weight-decay", type=float, default=0.0, help="Weight decay")
@@ -298,6 +302,7 @@ def main(argv=None) -> None:
         fno_cnn_blocks=args.fno_cnn_blocks,
         fno_input_transform=args.fno_input_transform,
         torch_max_hidden_channels=args.torch_max_hidden_channels,
+        torch_resnet_width=args.torch_resnet_width,
         torch_optimizer=args.torch_optimizer,
         torch_weight_decay=args.torch_weight_decay,
         torch_momentum=args.torch_momentum,

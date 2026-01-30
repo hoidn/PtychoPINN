@@ -39,6 +39,8 @@ The following mappings are normative. Where not listed, identical field names/ty
     - Map: Unsupervised→pinn, Supervised→supervised.
   - `ModelConfig.architecture: {'cnn','fno','hybrid','stable_hybrid','fno_vanilla','hybrid_resnet'}` → `ModelConfig.architecture: {'cnn','fno','hybrid','stable_hybrid','fno_vanilla','hybrid_resnet'}`
     - Direct pass-through. Generator architecture for PINN models. Default: 'cnn'.
+  - `ModelConfig.resnet_width: Optional[int]` → `ModelConfig.resnet_width: Optional[int]`
+    - Direct pass-through. Used by the hybrid_resnet generator to fix bottleneck width.
   - `ModelConfig.amp_activation: {'silu','SiLU','swish','relu','sigmoid','softplus'}` → `ModelConfig.amp_activation: {'swish','relu','sigmoid','softplus'}`
     - Map: silu/SiLU→swish; others must be supported by TF enum.
 

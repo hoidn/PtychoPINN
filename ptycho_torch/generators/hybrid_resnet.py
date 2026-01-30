@@ -28,7 +28,10 @@ class HybridResnetGeneratorModule(nn.Module):
     ):
         super().__init__()
         if n_blocks < 3:
-            raise ValueError("hybrid_resnet requires n_blocks>=3 for two downsample steps")
+            raise ValueError(
+                "hybrid_resnet requires fno_blocks >= 3 for two downsample steps "
+                f"(got fno_blocks={n_blocks})."
+            )
         self.C = C
         self.output_mode = output_mode
 
@@ -54,6 +57,16 @@ class HybridResnetGeneratorModule(nn.Module):
                 ch = next_ch
 
         # Adapter for ResNet bottleneck width
+        if resnet_width is not None:
+            if resnet_width <= 0:
+                raise ValueError(
+                    f"resnet_width must be positive when set, got {resnet_width}."
+                )
+            if resnet_width % 4 != 0:
+                raise ValueError(
+                    "resnet_width must be divisible by 4 so the CycleGAN upsamplers "
+                    f"produce integer channel sizes (got {resnet_width})."
+                )
         target_width = ch if resnet_width is None else resnet_width
         self.adapter = nn.Identity()
         if ch != target_width:
@@ -118,6 +131,7 @@ class HybridResnetGenerator:
         generator_mode = "amp_phase" if output_mode == "amp_phase" else "real_imag"
         max_hidden_channels = getattr(model_config, "max_hidden_channels", None)
 
+        resnet_width = getattr(model_config, "resnet_width", None)
         core = HybridResnetGeneratorModule(
             in_channels=1,
             out_channels=2,
@@ -128,6 +142,7 @@ class HybridResnetGenerator:
             input_transform=input_transform,
             output_mode=generator_mode,
             max_hidden_channels=max_hidden_channels,
+            resnet_width=resnet_width,
         )
 
         return PtychoPINN_Lightning(

@@ -100,6 +100,7 @@ class TorchRunnerConfig:
     fno_cnn_blocks: int = 2
     fno_input_transform: str = "none"
     max_hidden_channels: Optional[int] = None
+    resnet_width: Optional[int] = None
     optimizer: str = 'adam'  # 'adam', 'adamw', or 'sgd'
     weight_decay: float = 0.0
     momentum: float = 0.9
@@ -196,6 +197,22 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         Literal['cnn', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet'],
         cfg.architecture,
     )
+    if cfg.architecture == "hybrid_resnet":
+        if cfg.fno_blocks < 3:
+            raise ValueError(
+                "hybrid_resnet requires --fno-blocks >= 3 to downsample to N/4 "
+                f"(got {cfg.fno_blocks})."
+            )
+        if cfg.resnet_width is not None:
+            if cfg.resnet_width <= 0:
+                raise ValueError(
+                    f"--torch-resnet-width must be positive when set (got {cfg.resnet_width})."
+                )
+            if cfg.resnet_width % 4 != 0:
+                raise ValueError(
+                    "--torch-resnet-width must be divisible by 4 so the CycleGAN "
+                    f"upsamplers produce integer channel sizes (got {cfg.resnet_width})."
+                )
 
     model_config = ModelConfig(
         N=N_literal,
@@ -207,6 +224,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         fno_cnn_blocks=cfg.fno_cnn_blocks,
         fno_input_transform=cfg.fno_input_transform,
         max_hidden_channels=cfg.max_hidden_channels,
+        resnet_width=cfg.resnet_width,
         generator_output_mode=cfg.generator_output_mode,
     )
 
@@ -621,6 +639,8 @@ def main() -> None:
     parser.add_argument("--torch-loss-mode", type=str, default="mae",
                         choices=["poisson", "mae"],
                         help="Training loss mode ('poisson' or 'mae')")
+    parser.add_argument("--torch-resnet-width", type=int, default=None,
+                        help="Hybrid ResNet bottleneck width (must be divisible by 4)")
     parser.add_argument("--fno-modes", type=int, default=12,
                         help="FNO spectral modes")
     parser.add_argument("--fno-width", type=int, default=32,
@@ -686,6 +706,7 @@ def main() -> None:
         fno_width=args.fno_width,
         fno_blocks=args.fno_blocks,
         fno_cnn_blocks=args.fno_cnn_blocks,
+        resnet_width=args.torch_resnet_width,
         optimizer=args.optimizer,
         weight_decay=args.weight_decay,
         momentum=args.momentum,

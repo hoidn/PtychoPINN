@@ -293,6 +293,18 @@ def test_wrapper_passes_max_hidden_channels():
     assert args.torch_max_hidden_channels == 512
 
 
+def test_wrapper_accepts_resnet_width():
+    """--torch-resnet-width propagates to parsed args."""
+    from scripts.studies.grid_lines_compare_wrapper import parse_args
+    args = parse_args([
+        "--N", "64", "--gridsize", "1",
+        "--output-dir", "/tmp/test_out",
+        "--architectures", "hybrid_resnet",
+        "--torch-resnet-width", "256",
+    ])
+    assert args.torch_resnet_width == 256
+
+
 def test_wrapper_accepts_plateau_params(tmp_path):
     """Test ReduceLROnPlateau args parse in grid_lines_compare_wrapper."""
     from scripts.studies.grid_lines_compare_wrapper import parse_args

@@ -58,6 +58,7 @@ class ModelConfig:
     fno_cnn_blocks: int = 2
     fno_input_transform: Literal['none', 'sqrt', 'log1p', 'instancenorm'] = 'none'
     max_hidden_channels: Optional[int] = None
+    resnet_width: Optional[int] = None
     generator_output_mode: Literal['real_imag', 'amp_phase_logits', 'amp_phase'] = 'real_imag'
 
     #Intensity Parameters

@@ -104,6 +104,7 @@ class ModelConfig:
     fno_blocks: int = 4
     fno_cnn_blocks: int = 2
     max_hidden_channels: Optional[int] = None
+    resnet_width: Optional[int] = None
     fno_input_transform: Literal['none', 'sqrt', 'log1p', 'instancenorm'] = 'none'
     generator_output_mode: Literal['real_imag', 'amp_phase_logits', 'amp_phase'] = 'real_imag'
     amp_activation: Literal['sigmoid', 'swish', 'softplus', 'relu'] = 'sigmoid'
@@ -390,6 +391,22 @@ def validate_model_config(config: ModelConfig) -> None:
             f"Invalid architecture '{config.architecture}'. "
             f"Expected one of {sorted(valid_arches)}."
         )
+    if config.architecture == "hybrid_resnet":
+        if config.fno_blocks < 3:
+            raise ValueError(
+                "hybrid_resnet requires fno_blocks >= 3 to downsample to N/4 "
+                f"(got fno_blocks={config.fno_blocks})."
+            )
+        if config.resnet_width is not None:
+            if config.resnet_width <= 0:
+                raise ValueError(
+                    f"resnet_width must be positive when set, got {config.resnet_width}."
+                )
+            if config.resnet_width % 4 != 0:
+                raise ValueError(
+                    "resnet_width must be divisible by 4 so the CycleGAN upsamplers "
+                    f"produce integer channel sizes (got {config.resnet_width})."
+                )
     if config.gridsize <= 0:
         raise ValueError(f"gridsize must be positive, got {config.gridsize}")
     if config.n_filters_scale <= 0:

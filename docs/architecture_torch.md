@@ -119,7 +119,7 @@ The generator registry enables architecture selection via `config.model.architec
 - `cnn.py`: CNN generator wrapping `PtychoPINN_Lightning`
 - `fno.py`: FNO and Hybrid generators with spectral convolutions
 - `fno_vanilla.py`: Constant-resolution FNO baseline
-- `hybrid_resnet.py`: FNO encoder + CycleGAN ResNet‑6 decoder
+- `hybrid_resnet.py`: FNO encoder + CycleGAN ResNet‑6 decoder (supports optional fixed `resnet_width`)
 
 **FNO Architecture Components (`fno.py`):**
 - `SpatialLifter`: 2×3x3 convs with GELU before Fourier layers
