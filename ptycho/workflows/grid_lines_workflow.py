@@ -128,17 +128,20 @@ def scale_probe_with_mode(
     elif scale_mode == "pad_extrapolate":
         if target_N < probe.shape[0]:
             raise ValueError("pad_extrapolate requires target_N >= probe size")
-        amplitude = np.abs(probe)
-        phase = unwrap_phase(np.angle(probe))
-        padded_amp = _pad_amplitude(amplitude, target_N)
-        coeff_a, coeff_b = _fit_quadratic_phase(phase)
-        cy = (target_N - 1) / 2.0
-        cx = (target_N - 1) / 2.0
-        yy, xx = np.indices((target_N, target_N))
-        r2 = (yy - cy) ** 2 + (xx - cx) ** 2
-        extrap_phase = coeff_a * r2 + coeff_b
-        extrap_phase = np.angle(np.exp(1j * extrap_phase))
-        probe = (padded_amp * np.exp(1j * extrap_phase)).astype(np.complex64)
+        if target_N == probe.shape[0]:
+            probe = probe.astype(np.complex64)
+        else:
+            amplitude = np.abs(probe)
+            phase = unwrap_phase(np.angle(probe))
+            padded_amp = _pad_amplitude(amplitude, target_N)
+            coeff_a, coeff_b = _fit_quadratic_phase(phase)
+            cy = (target_N - 1) / 2.0
+            cx = (target_N - 1) / 2.0
+            yy, xx = np.indices((target_N, target_N))
+            r2 = (yy - cy) ** 2 + (xx - cx) ** 2
+            extrap_phase = coeff_a * r2 + coeff_b
+            extrap_phase = np.angle(np.exp(1j * extrap_phase))
+            probe = (padded_amp * np.exp(1j * extrap_phase)).astype(np.complex64)
     else:
         raise ValueError(f"Unknown scale_mode '{scale_mode}'")
 
