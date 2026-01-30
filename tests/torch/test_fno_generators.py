@@ -257,14 +257,19 @@ class TestGeneratorRegistry:
 
         gen = resolve_generator(fno_config)
 
-        pt_configs = (
-            DataConfig(N=64, C=4),
-            PTModelConfig(architecture='fno'),
-            PTTrainingConfig(),
-        )
+        from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
+        from ptycho_torch.model import PtychoPINN_Lightning
+
+        pt_configs = {
+            "data_config": DataConfig(N=64, C=4),
+            "model_config": PTModelConfig(architecture='fno'),
+            "training_config": PTTrainingConfig(),
+            "inference_config": PTInferenceConfig(),
+        }
 
         model = gen.build_model(pt_configs)
-        assert isinstance(model, CascadedFNOGenerator)
+        assert isinstance(model, PtychoPINN_Lightning)
+        assert isinstance(model.model.generator, CascadedFNOGenerator)
 
     def test_hybrid_generator_builds_model(self, hybrid_config):
         """Hybrid generator should build a model."""
@@ -272,14 +277,19 @@ class TestGeneratorRegistry:
 
         gen = resolve_generator(hybrid_config)
 
-        pt_configs = (
-            DataConfig(N=64, C=4),
-            PTModelConfig(architecture='hybrid'),
-            PTTrainingConfig(),
-        )
+        from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
+        from ptycho_torch.model import PtychoPINN_Lightning
+
+        pt_configs = {
+            "data_config": DataConfig(N=64, C=4),
+            "model_config": PTModelConfig(architecture='hybrid'),
+            "training_config": PTTrainingConfig(),
+            "inference_config": PTInferenceConfig(),
+        }
 
         model = gen.build_model(pt_configs)
-        assert isinstance(model, HybridUNOGenerator)
+        assert isinstance(model, PtychoPINN_Lightning)
+        assert isinstance(model.model.generator, HybridUNOGenerator)
 
     def test_resolve_stable_hybrid_generator(self):
         """Registry should resolve stable_hybrid generator."""
