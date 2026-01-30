@@ -250,6 +250,53 @@ class TestWorkflowsComponentsTraining:
             scan_index=dummy_scan_index,
         )
 
+    def test_train_with_lightning_passes_fno_input_transform(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+    ):
+        """_train_with_lightning must forward fno_input_transform to factory overrides."""
+        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho_torch.workflows import components as torch_components
+
+        captured = {}
+
+        def fake_create_training_payload(*, train_data_file, output_dir, execution_config=None, overrides=None):
+            captured["overrides"] = overrides or {}
+            raise RuntimeError("stop after overrides capture")
+
+        monkeypatch.setattr(
+            "ptycho_torch.config_factory.create_training_payload",
+            fake_create_training_payload
+        )
+
+        model_config = ModelConfig(
+            N=64,
+            gridsize=1,
+            model_type='pinn',
+            architecture='fno',
+            fno_input_transform='log1p',
+        )
+
+        training_config = TrainingConfig(
+            model=model_config,
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            test_data_file=Path("/tmp/dummy_test.npz"),
+            n_groups=10,
+            neighbor_count=1,
+            nphotons=1e9,
+            nepochs=1,
+        )
+
+        with pytest.raises(RuntimeError, match="stop after overrides capture"):
+            torch_components._train_with_lightning(
+                train_container={"X": np.ones((1, 64, 64)), "Y": np.ones((1, 64, 64))},
+                test_container=None,
+                config=training_config,
+            )
+
+        assert captured["overrides"].get("fno_input_transform") == "log1p"
+
     def test_train_cdi_model_torch_invokes_lightning(
         self,
         monkeypatch,

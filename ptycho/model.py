@@ -172,6 +172,7 @@ def _get_initial_probe_guess():
 # TODO hyperparameters:
 # TODO total variation loss
 # -probe smoothing scale(?)
+@tf.keras.utils.register_keras_serializable(package='ptycho')
 class ProbeIllumination(tf.keras.layers.Layer):
     def __init__(self, name=None, initial_probe=None, N=None, **kwargs):
         # Remove any kwargs that shouldn't be passed to parent
@@ -261,6 +262,7 @@ def _get_log_scale():
         )
     return _lazy_cache['log_scale']
 
+@tf.keras.utils.register_keras_serializable(package='ptycho')
 class IntensityScaler(tf.keras.layers.Layer):
     def __init__(self, **kwargs):
         kwargs.pop('dtype', None)
@@ -274,6 +276,7 @@ class IntensityScaler(tf.keras.layers.Layer):
 
 # TODO use a bijector instead of separately defining the transform and its
 # inverse
+@tf.keras.utils.register_keras_serializable(package='ptycho')
 class IntensityScaler_inv(tf.keras.layers.Layer):
     def __init__(self, **kwargs):
         kwargs.pop('dtype', None)

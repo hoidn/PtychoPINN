@@ -93,9 +93,9 @@ def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=
     params.print_params()
     return model_instance, model.train(nepochs, train_data, model_instance=model_instance)
 
-def train_eval(ptycho_dataset):
+def train_eval(ptycho_dataset, model_instance=None):
     ## TODO reconstructed_obj -> pred_Y or something
-    model_instance, history = train(ptycho_dataset.train_data)
+    model_instance, history = train(ptycho_dataset.train_data, model_instance=model_instance)
     results = {
         'history': history,
         'model_instance': model_instance

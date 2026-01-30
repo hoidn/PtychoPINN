@@ -92,6 +92,7 @@ from ptycho.config.config import TrainingConfig, update_legacy_dict
 from ptycho import params
 from ptycho.image import reassemble_patches
 from ptycho.model_manager import ModelManager
+from ptycho.generators.registry import resolve_generator
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -729,11 +730,20 @@ def train_cdi_model(
     # Initialize probe
     probe.set_probe_guess(None, train_container.probe)
 
-#    # Calculate intensity scale
-#    intensity_scale = train_pinn.calculate_intensity_scale(train_container)
+    # Resolve generator from config and build model
+    # See ptycho/generators/README.md for adding new generators
+    generator = resolve_generator(config)
+    logger.info(f"Using generator: {generator.name}")
+    model_instance, diffraction_to_obj = generator.build_models()
+
+    # Update module-level singletons so model_manager.save() saves the trained model
+    # (SINGLETON-SAVE-001: save() hardcodes model.autoencoder/diffraction_to_obj)
+    from ptycho import model
+    model.autoencoder = model_instance
+    model.diffraction_to_obj = diffraction_to_obj
 
     # Train the model
-    results = train_pinn.train_eval(PtychoDataset(train_container, test_container))
+    results = train_pinn.train_eval(PtychoDataset(train_container, test_container), model_instance=model_instance)
 
     # Normalize history payload so downstream consumers always receive a dict.
     history_payload = results.get('history')
@@ -870,76 +880,7 @@ def run_cdi_example(
     return recon_amp, recon_phase, train_results
 
 
-def _nonzero_mask(amplitude: np.ndarray) -> Optional[np.ndarray]:
-    if amplitude.size == 0:
-        return None
-    max_val = float(np.max(amplitude))
-    if max_val <= 0.0:
-        return None
-    threshold = max(max_val * 1e-6, 1e-12)
-    mask = amplitude > threshold
-    if not np.any(mask):
-        return None
-    return mask
-
-
-def _crop_nonzero_bbox(
-    amplitude: np.ndarray,
-    phase: np.ndarray,
-) -> Tuple[np.ndarray, np.ndarray]:
-    if amplitude.ndim != 2 or phase.ndim != 2:
-        return amplitude, phase
-    mask = _nonzero_mask(amplitude)
-    if mask is None:
-        return amplitude, phase
-
-    rows, cols = np.where(mask)
-    rmin, rmax = int(rows.min()), int(rows.max())
-    cmin, cmax = int(cols.min()), int(cols.max())
-    return amplitude[rmin : rmax + 1, cmin : cmax + 1], phase[rmin : rmax + 1, cmin : cmax + 1]
-
-
-def _crop_square_nonzero(
-    amplitude: np.ndarray,
-    phase: np.ndarray,
-) -> Tuple[np.ndarray, np.ndarray]:
-    if amplitude.ndim != 2 or phase.ndim != 2:
-        return amplitude, phase
-    mask = _nonzero_mask(amplitude)
-    if mask is None:
-        return amplitude, phase
-
-    rows, cols = np.where(mask)
-    rmin, rmax = int(rows.min()), int(rows.max())
-    cmin, cmax = int(cols.min()), int(cols.max())
-    height = rmax - rmin + 1
-    width = cmax - cmin + 1
-
-    if height == width:
-        return amplitude[rmin : rmax + 1, cmin : cmax + 1], phase[rmin : rmax + 1, cmin : cmax + 1]
-
-    if height > width:
-        size = width
-        r_start = rmin + (height - size) // 2
-        r_end = r_start + size
-        c_start, c_end = cmin, cmax + 1
-    else:
-        size = height
-        c_start = cmin + (width - size) // 2
-        c_end = c_start + size
-        r_start, r_end = rmin, rmax + 1
-
-    return amplitude[r_start:r_end, c_start:c_end], phase[r_start:r_end, c_start:c_end]
-
-
-def save_outputs(
-    amplitude: Optional[np.ndarray],
-    phase: Optional[np.ndarray],
-    results: Dict[str, Any],
-    output_prefix: str,
-    cmap: str = "jet",
-    crop_mode: Literal["square", "bbox", "none"] = "square",
-) -> None:
+def save_outputs(amplitude: Optional[np.ndarray], phase: Optional[np.ndarray], results: Dict[str, Any], output_prefix: str) -> None:
     """Save the generated images and results."""
     os.makedirs(output_prefix, exist_ok=True)
     
@@ -957,41 +898,15 @@ def save_outputs(
         logger.info(f"Squeezed amplitude shape: {amplitude.shape}")
         logger.info(f"Squeezed phase shape: {phase.shape}")
         
-        if crop_mode == "square":
-            amplitude, phase = _crop_square_nonzero(amplitude, phase)
-        elif crop_mode == "bbox":
-            amplitude, phase = _crop_nonzero_bbox(amplitude, phase)
-        elif crop_mode != "none":
-            raise ValueError(f"Unknown crop_mode: {crop_mode}")
-
-        amp_mask = _nonzero_mask(amplitude)
-        amp_vmin = amp_vmax = None
-        if amp_mask is not None:
-            amp_values = amplitude[amp_mask]
-            if amp_values.size:
-                amp_vmin = float(np.min(amp_values))
-                amp_vmax = float(np.max(amp_values))
-                if amp_vmin == amp_vmax:
-                    amp_vmin = amp_vmax = None
-
-        phase_vmin = phase_vmax = None
-        if amp_mask is not None:
-            phase_values = phase[amp_mask]
-            if phase_values.size:
-                phase_vmin = float(np.min(phase_values))
-                phase_vmax = float(np.max(phase_values))
-                if phase_vmin == phase_vmax:
-                    phase_vmin = phase_vmax = None
-
         # Save as PNG files using plt.figure() to handle 2D arrays properly
-        plt.figure(figsize=(8, 8))
-        plt.imshow(amplitude, cmap=cmap, vmin=amp_vmin, vmax=amp_vmax)
+        plt.figure(figsize=(8,8))
+        plt.imshow(amplitude, cmap='gray')
         plt.colorbar()
         plt.savefig(os.path.join(output_prefix, "reconstructed_amplitude.png"))
         plt.close()
         
-        plt.figure(figsize=(8, 8))
-        plt.imshow(phase, cmap=cmap, vmin=phase_vmin, vmax=phase_vmax)
+        plt.figure(figsize=(8,8))
+        plt.imshow(phase, cmap='viridis')
         plt.colorbar()
         plt.savefig(os.path.join(output_prefix, "reconstructed_phase.png"))
         plt.close()

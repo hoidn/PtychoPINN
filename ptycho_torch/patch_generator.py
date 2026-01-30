@@ -33,8 +33,21 @@ def group_coords(xcoords_full, ycoords_full,
         C = data_config.C # Use config C
     #No overlaps enforced
     if C == 1:
-        nn_indices = get_neighbor_self_indices(xcoords_full,
-                                               ycoords_full)
+        # For C==1, use bounded (valid) coordinates, not full coordinates
+        nn_indices = get_neighbor_self_indices(xcoords_bounded,
+                                               ycoords_bounded)
+        # Map bounded indices to global indices using valid_mask
+        nn_indices_global = valid_mask[nn_indices.flatten()].reshape(-1, 1)
+
+        # Apply n_subsample: repeat each index n_subsample times
+        # This creates multiple samples per coordinate, matching the calculate_length expectation
+        n_subsample = data_config.n_subsample
+        nn_indices_global = np.repeat(nn_indices_global, n_subsample, axis=0)
+
+        # Create coords_nn with shape (N*n_subsample, 1, 1, 2) for C==1 case using global indices
+        coords_nn = np.stack([xcoords_full[nn_indices_global],
+                            ycoords_full[nn_indices_global]], axis=2)[:, :, None, :]
+        nn_indices = nn_indices_global
     #Yes overlaps enforced
     else:
         #Various neighbor sampling procedures

@@ -81,8 +81,13 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
     # --- 2. Pad Images ---
     # Pad flat images to the target size M
     # (B*C, N, N) -> (B*C, M, M)
-    pad_dim = (M - N) // 2
-    imgs_flat_bigN = F.pad(imgs_flat, (pad_dim, pad_dim, pad_dim, pad_dim), "constant", 0.)
+    # Support odd total padding by splitting remainder across sides
+    total_pad = M - N
+    left_pad = total_pad // 2
+    right_pad = total_pad - left_pad
+    top_pad = total_pad // 2
+    bottom_pad = total_pad - top_pad
+    imgs_flat_bigN = F.pad(imgs_flat, (left_pad, right_pad, top_pad, bottom_pad), "constant", 0.)
 
 
     # --- 3. Translate Images ---
@@ -99,7 +104,7 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
             prototype_mask_N[center_slice, center_slice] = 1.0
 
             # Pad the SINGLE prototype mask to (M, M)
-            prototype_mask_M = F.pad(prototype_mask_N, (pad_dim, pad_dim, pad_dim, pad_dim), "constant", 0.)
+            prototype_mask_M = F.pad(prototype_mask_N, (left_pad, right_pad, top_pad, bottom_pad), "constant", 0.)
 
             # Expand the single (M, M) mask to (B*C, M, M) without copying memory (views)
             # This is the input to the Translation function for the counts
@@ -704,35 +709,6 @@ def poisson_scale(input: torch.Tensor):
 
     return noisy_intensities
 
-def remove_phase_ramp_and_offset(probe):
-    """
-    Removes phase tilt from probe. Should be done during dataset instantiation
-    """
-
-    #Coordinate grids
-    x, y = np.mgrid[:probe.shape[0], :probe.shape[1]]
-
-    x_flat = x.flatten()
-    y_flat = y.flatten()
-    probe_flat = probe.flatten()
-
-    #Fit phase = a*x + b*y + c
-    A_mat = np.column_stack([x_flat, y_flat, np.ones_like(x_flat)])
-
-    #Weighted least squares, weighing each point by the amplitude/intensity
-    weights = np.abs(probe_flat)**2
-    W = np.diag(weights)
-
-    #Fit
-    phase = np.angle(probe_flat)
-    coeffs = np.linalg.solve(A_mat.T @ W @ A_mat, A_mat.T @ W @ phase)
-
-    #Remove ramp
-    phase_ramp = coeffs[0] * x + coeffs[1] * y + coeffs[2]
-    probe_corrected = probe * np.exp(-1j * phase_ramp)
-
-    return probe_corrected
-
 #Other operations
 
 def center_crop(larger_img, target_size):
@@ -740,136 +716,3 @@ def center_crop(larger_img, target_size):
     start_h = (h - target_size) // 2
     start_w = (w - target_size) // 2
     return larger_img[start_h:start_h+target_size, start_w:start_w+target_size]
-
-#Inference-specific modules that don't go into inference.py (since it's a script)
-
-def solve_scaling_during_inference(model, infer_loader, primary_device, use_mixed_precision=False):
-    """
-    Solve scaling using streaming accumulation during batched inference
-    """
-    # Initialize accumulators for A^T A and A^T y
-    AtA_accum = None
-    Aty_accum = None
-    device = primary_device
-    
-    with torch.no_grad():
-        for i, batch in enumerate(infer_loader):
-            batch_start_time = time.time()
-            
-            # Prepare data
-            batch_data = batch[0]
-            x = batch_data['images'].to(primary_device, non_blocking=True)
-            positions = batch_data['coords_relative'].to(primary_device, non_blocking=True)
-            probe = batch[1].to(primary_device, non_blocking=True)
-            in_scale = batch_data['rms_scaling_constant'].to(primary_device, non_blocking=True)
-            batch_coords_global = batch_data['coords_global'].to(primary_device, non_blocking=True)
-            
-            # Model inference with optional mixed precision
-            inference_start = time.time()
-            if use_mixed_precision:
-                with torch.autocast(device_type='cuda', dtype=torch.float16):
-                    if isinstance(model, nn.DataParallel):
-                        inputs = (x, positions, probe, in_scale)
-                        batch_output = model(inputs)
-                    else:
-                        batch_output = model.forward_predict(x, positions, probe, in_scale)
-            else:
-                if isinstance(model, nn.DataParallel):
-                    inputs = (x, positions, probe, in_scale)
-                    batch_output = model(inputs)
-                else:
-                    batch_output = model.forward_predict(x, positions, probe, in_scale)
-            
-            # Compute diffraction patterns from model output
-            # Assuming batch_output is the object estimate with shape (B, C, H, W)
-            # and you need to multiply with probe and take Fourier transform
-            diffraction_pred = compute_diffraction_patterns(batch_output, probe)  # (B, C, H, W)
-            
-            # Accumulate statistics for this batch
-            AtA_accum, Aty_accum = accumulate_batch_statistics(
-                diffraction_pred, x, AtA_accum, Aty_accum, device
-            )
-            
-            # Optional: print progress
-            if i % 10 == 0:
-                print(f"Processed batch {i}/{len(infer_loader)}")
-            
-            # Clear memory
-            del batch_output, diffraction_pred, intensity_measured
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-    
-    # Solve the accumulated system
-    if AtA_accum is not None:
-        solution = torch.linalg.solve(AtA_accum, Aty_accum)
-        alpha_squared = solution[0]
-        b = solution[1]
-        alpha = torch.sqrt(torch.clamp(alpha_squared, min=1e-8))
-        return alpha, b
-    else:
-        raise ValueError("No data was processed")
-
-def accumulate_batch_statistics(diffraction_pred, intensity_measured, AtA_accum, Aty_accum, device):
-    """
-    Accumulate A^T A and A^T y statistics for a single batch
-    """
-    B, C, H, W = diffraction_pred.shape
-    
-    # Handle broadcasting if intensity_measured is (B, H, W)
-    if intensity_measured.dim() == 3:
-        intensity_measured = intensity_measured.unsqueeze(1).expand(-1, C, -1, -1)
-    
-    # Flatten spatial dimensions and reshape to (B*C, H*W)
-    diff_flat = diffraction_pred.view(B * C, H * W)  # (B*C, H*W)
-    intensity_flat = intensity_measured.view(B * C, H * W)  # (B*C, H*W)
-    
-    # Further flatten to (B*C*H*W,) for creating design matrix
-    diff_vec = diff_flat.flatten()  # (B*C*H*W,)
-    intensity_vec = intensity_flat.flatten()  # (B*C*H*W,)
-    ones_vec = torch.ones_like(diff_vec)  # (B*C*H*W,)
-    
-    # Create design matrix A = [diff_vec, ones_vec] with shape (B*C*H*W, 2)
-    A_batch = torch.stack([diff_vec, ones_vec], dim=1)  # (B*C*H*W, 2)
-    y_batch = intensity_vec  # (B*C*H*W,)
-    
-    # Compute A^T A and A^T y for this batch
-    AtA_batch = A_batch.T @ A_batch  # (2, 2)
-    Aty_batch = A_batch.T @ y_batch  # (2,)
-    
-    # Initialize or accumulate
-    if AtA_accum is None:
-        AtA_accum = AtA_batch
-        Aty_accum = Aty_batch
-    else:
-        AtA_accum += AtA_batch
-        Aty_accum += Aty_batch
-    
-    return AtA_accum, Aty_accum
-
-def compute_diffraction_patterns(object_estimate, probe):
-    """
-    Compute |F[object * probe]|^2 for each object estimate
-    
-    Args:
-        object_estimate: (B, C, H, W) - object estimates from model
-        probe: (H, W) or (B, H, W) - probe function
-    
-    Returns:
-        diffraction_patterns: (B, C, H, W) - |F[object * probe]|^2
-    """
-    B, C, H, W = object_estimate.shape
-    
-    # Handle probe broadcasting
-    if probe.dim() == 2:
-        probe = probe.unsqueeze(0).unsqueeze(0).expand(B, C, -1, -1)  # (B, C, H, W)
-    elif probe.dim() == 3:
-        probe = probe.unsqueeze(1).expand(-1, C, -1, -1)  # (B, C, H, W)
-    
-    # Multiply object with probe
-    exit_wave = object_estimate * probe  # (B, C, H, W)
-    
-    # Fourier transform and take magnitude squared
-    fft_result = torch.fft.fft2(exit_wave)  # (B, C, H, W)
-    diffraction_patterns = torch.abs(fft_result) ** 2  # (B, C, H, W)
-    
-    return diffraction_patterns

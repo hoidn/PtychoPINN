@@ -13,43 +13,69 @@ from typing import Tuple, Optional, List, Dict, Any
 # Register all custom layers for serialization
 @tf.keras.utils.register_keras_serializable(package='ptycho')
 class CombineComplexLayer(layers.Layer):
-    """Combines real and imaginary parts into complex tensor."""
-    
-    def __init__(self, **kwargs):
+    """Combines amplitude and phase into complex tensor using Euler's formula.
+
+    This layer applies Z = A * exp(i * φ) to convert polar (amplitude, phase)
+    representation to Cartesian (real, imaginary) complex numbers.
+
+    Bug fix: Previously used Z = A + i*φ which incorrectly treated phase as
+    imaginary component. This broke phase averaging in patch stitching.
+    See docs/bugs/MATH_POLAR_001.md for details.
+
+    Args:
+        use_polar: If True (default), use correct Euler's formula Z = A*exp(iφ).
+                   If False, use legacy buggy behavior Z = A + iφ for loading
+                   old models trained before this fix.
+    """
+
+    def __init__(self, use_polar: bool = True, **kwargs):
         # Don't set dtype in kwargs - let it be inferred
         kwargs.pop('dtype', None)
         super().__init__(**kwargs)
+        self.use_polar = use_polar
         # Force output dtype to be complex
         self._compute_dtype_object = tf.complex64
-    
+
     def call(self, inputs: List[tf.Tensor]) -> tf.Tensor:
-        """Combine real and imaginary parts.
-        
+        """Combine amplitude and phase into complex tensor.
+
         Args:
-            inputs: List of [real_part, imag_part] tensors
-            
+            inputs: List of [amplitude, phase] tensors
+
         Returns:
-            Complex tensor
+            Complex tensor: amplitude * exp(i * phase)
         """
-        real_part, imag_part = inputs
+        amp, phase = inputs
+
         # Ensure inputs are float32 for combining
-        if real_part.dtype in [tf.complex64, tf.complex128]:
-            real_part = tf.math.real(real_part)
-        if imag_part.dtype in [tf.complex64, tf.complex128]:
-            imag_part = tf.math.real(imag_part)
-        
+        if amp.dtype in [tf.complex64, tf.complex128]:
+            amp = tf.math.real(amp)
+        if phase.dtype in [tf.complex64, tf.complex128]:
+            phase = tf.math.real(phase)
+
         # Cast to float32 if needed
-        real_part = tf.cast(real_part, tf.float32)
-        imag_part = tf.cast(imag_part, tf.float32)
-        
+        amp = tf.cast(amp, tf.float32)
+        phase = tf.cast(phase, tf.float32)
+
+        if self.use_polar:
+            # CORRECT: Euler's formula Z = A * exp(i * φ) = A * (cos(φ) + i*sin(φ))
+            real_part = amp * tf.cos(phase)
+            imag_part = amp * tf.sin(phase)
+        else:
+            # LEGACY (buggy): Z = A + i*φ - kept for loading old models
+            real_part = amp
+            imag_part = phase
+
         return tf.complex(real_part, imag_part)
-    
+
     def compute_output_shape(self, input_shape: List[tf.TensorShape]) -> tf.TensorShape:
         # Output shape is same as input shapes
         return input_shape[0]
-    
+
     def get_config(self) -> Dict[str, Any]:
-        return super().get_config()
+        config = super().get_config()
+        config['use_polar'] = self.use_polar
+        return config
 
 
 @tf.keras.utils.register_keras_serializable(package='ptycho')
@@ -160,9 +186,13 @@ class ReassemblePatchesLayer(layers.Layer):
         from . import tf_helper as hh
         patches, positions = inputs
 
-        # Use non-batched reassembly; outer training/inference controls batch size.
-        fn_reassemble = hh.mk_reassemble_position_real(
-            positions, padded_size=self.padded_size, N=self.N, gridsize=self.gridsize
+        # Always use batched reassembly with a conservative batch size
+        # This handles Translation layer shape variations robustly
+        # The batched function automatically falls back to non-batched mode for small inputs
+        batch_size = 64
+        fn_reassemble = hh.mk_reassemble_position_batched_real(
+            positions, batch_size=batch_size, padded_size=self.padded_size, N=self.N,
+            gridsize=self.gridsize
         )
 
         return hh.reassemble_patches(patches, fn_reassemble_real=fn_reassemble,
@@ -172,7 +202,8 @@ class ReassemblePatchesLayer(layers.Layer):
         from . import params
         padded_size = self.padded_size or params.get_padded_size()
         batch_size = input_shape[0][0]
-        return tf.TensorShape([batch_size, padded_size, padded_size, 1])
+        channels = input_shape[0][-1]
+        return tf.TensorShape([batch_size, padded_size, padded_size, channels])
 
     def get_config(self) -> Dict[str, Any]:
         config = super().get_config()

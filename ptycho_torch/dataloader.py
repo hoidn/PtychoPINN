@@ -32,27 +32,53 @@ def npz_headers(npz):
     We can use this to determine shape of the scan tensor in the npz file without loading it
     This will be useful in the __len__ method for the dataset
 
+    Prefers canonical 'diffraction' key per DATA-001 spec (specs/data_contracts.md),
+    with graceful fallback to legacy 'diff3d' key for backward compatibility.
+
     Taken from: https://stackoverflow.com/questions/68224572/how-to-determine-the-shape-size-of-npz-file
     Modified to quickly grab dimension we care about
     """
     with zipfile.ZipFile(npz) as archive:
         npy_header_found = False
-        diff3d_shape = None
+        diffraction_shape = None
         xcoords = None
         ycoords = None
 
-        # First pass for diff3d shape
+        # First pass: try canonical 'diffraction' key (DATA-001 spec)
         for name in archive.namelist():
-            if name.startswith('diff3d') and name.endswith('.npy'):
+            if name.startswith('diffraction') and name.endswith('.npy'):
                 npy = archive.open(name)
                 version = np.lib.format.read_magic(npy)
                 shape, _, _ = np.lib.format._read_array_header(npy, version)
-                diff3d_shape = shape
+                diffraction_shape = shape
                 npy_header_found = True
-                break # Found the primary data shape
+                break
+
+        # Fallback: try legacy 'diff3d' key for backward compatibility
+        if not npy_header_found:
+            for name in archive.namelist():
+                if name.startswith('diff3d') and name.endswith('.npy'):
+                    npy = archive.open(name)
+                    version = np.lib.format.read_magic(npy)
+                    shape, _, _ = np.lib.format._read_array_header(npy, version)
+                    diffraction_shape = shape
+                    npy_header_found = True
+                    break
 
         if not npy_header_found:
-             raise ValueError(f"Could not find diff3d data in {npz}")
+             raise ValueError(
+                 f"Could not find diffraction data in {npz}. "
+                 f"Expected canonical 'diffraction' key or legacy 'diff3d' key. "
+                 f"See specs/data_contracts.md for required NPZ format."
+             )
+
+        # Auto-detect and fix legacy (H, W, N) format
+        # This MUST match the transpose logic in _get_diffraction_stack()
+        # so memory maps are allocated with correct dimensions
+        if len(diffraction_shape) == 3:
+            if diffraction_shape[2] > max(diffraction_shape[0], diffraction_shape[1]):
+                # Legacy format detected: transpose (H, W, N) → (N, H, W)
+                diffraction_shape = (diffraction_shape[2], diffraction_shape[0], diffraction_shape[1])
 
         # Second pass for coordinates (load them) - needed for filtering
         with np.load(npz) as data:
@@ -62,8 +88,55 @@ def npz_headers(npz):
             else:
                 raise ValueError(f"Could not find 'xcoords' or 'ycoords' in {npz}")
 
-        return diff3d_shape, xcoords, ycoords
-    
+        return diffraction_shape, xcoords, ycoords
+
+
+def _get_diffraction_stack(npz_file):
+    """
+    Helper to load diffraction stack from NPZ with canonical key preference
+    and automatic legacy format handling.
+
+    Prefers canonical 'diffraction' key per DATA-001 spec, with fallback to
+    legacy 'diff3d' key for backward compatibility. Automatically detects and
+    transposes legacy (H, W, N) format to DATA-001 compliant (N, H, W) format.
+
+    Args:
+        npz_file: Path to NPZ file
+
+    Returns:
+        numpy.ndarray: Diffraction patterns (amplitude, float32) in shape (N, H, W)
+
+    Raises:
+        ValueError: If neither canonical nor legacy key exists
+    """
+    with np.load(npz_file) as data:
+        # Try canonical key first (DATA-001 spec)
+        if 'diffraction' in data:
+            diff_array = data['diffraction']
+        # Fallback to legacy key
+        elif 'diff3d' in data:
+            diff_array = data['diff3d']
+        else:
+            raise ValueError(
+                f"Could not find diffraction data in {npz_file}. "
+                f"Expected canonical 'diffraction' key or legacy 'diff3d' key. "
+                f"See specs/data_contracts.md for required NPZ format."
+            )
+
+        # Auto-detect and fix legacy (H, W, N) format
+        # DATA-001 requires (N, H, W) where N is typically >> H,W (e.g., 1087 vs 64)
+        if len(diff_array.shape) == 3:
+            # Heuristic: if last dim is much larger than first two, assume legacy format
+            if diff_array.shape[2] > max(diff_array.shape[0], diff_array.shape[1]):
+                print(
+                    f"⚠ Legacy format {diff_array.shape} detected in {npz_file}, "
+                    f"transposing to DATA-001 compliant (N, H, W)"
+                )
+                diff_array = np.transpose(diff_array, [2, 0, 1])
+
+        return diff_array
+
+
 # --- Tensordict patcher function ---
 def fix_tensordict_memmap_state(tensordict, prefix):
     """
@@ -122,6 +195,7 @@ class PtychoDataset(Dataset):
 
     """
     def __init__(self, ptycho_dir: str, model_config: 'ModelConfig', data_config: 'DataConfig',
+                 training_config: 'TrainingConfig' = None,
                  data_dir: str = 'data/memmap', remake_map: bool = False):
         
         # --- Initial loading ---
@@ -161,46 +235,91 @@ class PtychoDataset(Dataset):
                 print(f"[Rank 0] ERROR in calculate_length(): {e}")
                 raise
 
+        #Backwards compatibility
+        if not training_config:
+            training_config = TrainingConfig()
+            training_config.orchestrator = 'Mlflow'
+
         # --- Coordinated Memory Map Creation/Loading (Multi-GPU, Rank 0 orchestrates) ---
         # This is set up so the memory map is ONLY created from Rank 0 and isn't duplicated. All ranks 
         # (i.e. GPUs) will access the same memory map that was initialized by Rank 0.
-        if self.current_rank == 0:
-            create_the_map_on_rank_0 = False
-            map_files_exist = self.data_dir_path.exists() and any(self.data_dir_path.iterdir())
-            state_file_exists = self.state_path.exists()
 
-            if remake_map or not map_files_exist or not state_file_exists:
-                create_the_map_on_rank_0 = True
-            
-            if create_the_map_on_rank_0: #Creates memory map only at Rank 0. All other ranks wait at barrier
-                try:
-                    data_prefix_path.mkdir(parents=True, exist_ok=True)
-                    self.data_dir_path.mkdir(parents=True, exist_ok=True)
-                    self.memory_map_data(self.file_list)
-                    np.savez(self.state_path, data_dict=self.data_dict)
-                except Exception as e:
-                    print(f"[Rank 0] FATAL ERROR during map creation/saving: {e}")
-                    raise # This will halt rank 0; other ranks will time out at barrier.
+        #Old Mlflow setup
+        if training_config.orchestrator == 'Mlflow':
+            if self.current_rank == 0:
+                create_the_map_on_rank_0 = False
+                map_files_exist = self.data_dir_path.exists() and any(self.data_dir_path.iterdir())
+                state_file_exists = self.state_path.exists()
 
-        # --- Barrier for DDP synchronization ---
-        if self.is_ddp_active:
-            dist.barrier()
+                if remake_map or not map_files_exist or not state_file_exists:
+                    create_the_map_on_rank_0 = True
+                
+                if create_the_map_on_rank_0: #Creates memory map only at Rank 0. All other ranks wait at barrier
+                    try:
+                        data_prefix_path.mkdir(parents=True, exist_ok=True)
+                        self.data_dir_path.mkdir(parents=True, exist_ok=True)
+                        self.memory_map_data(self.file_list)
+                        np.savez(self.state_path, data_dict=self.data_dict)
+                    except Exception as e:
+                        print(f"[Rank 0] FATAL ERROR during map creation/saving: {e}")
+                        raise # This will halt rank 0; other ranks will time out at barrier.
 
-        # --- Load map and state for ALL ranks ---
-        # All ranks must execute this to get handles to the memory map.
-        try:
-            if not self.data_dir_path.exists() or not any(self.data_dir_path.iterdir()) or not self.state_path.exists():
-                # This indicates rank 0 failed to create the files, or they were deleted.
-                raise FileNotFoundError(f"[Rank {self.current_rank}] Critical map/state files missing after barrier. "
-                                        f"Map dir: {self.data_dir_path} (exists: {self.data_dir_path.exists()}), "
-                                        f"State file: {self.state_path} (exists: {self.state_path.exists()})")
-            self.mmap_ptycho = TensorDict.load_memmap(str(self.data_dir_path)) # Load memory map that was initialized by Rank 0
-            loaded_state = np.load(self.state_path, allow_pickle=True)
-            self.data_dict = loaded_state['data_dict'].item()
+            # --- Barrier for DDP synchronization ---
+            if self.is_ddp_active:
+                dist.barrier()
 
-        except Exception as e:
-            print(f"[Rank {self.current_rank}] FATAL ERROR loading map files or state AFTER barrier: {e}")
-            raise
+            # --- Load map and state for ALL ranks ---
+            # All ranks must execute this to get handles to the memory map.
+            try:
+                if not self.data_dir_path.exists() or not any(self.data_dir_path.iterdir()) or not self.state_path.exists():
+                    # This indicates rank 0 failed to create the files, or they were deleted.
+                    raise FileNotFoundError(f"[Rank {self.current_rank}] Critical map/state files missing after barrier. "
+                                            f"Map dir: {self.data_dir_path} (exists: {self.data_dir_path.exists()}), "
+                                            f"State file: {self.state_path} (exists: {self.state_path.exists()})")
+                self.mmap_ptycho = TensorDict.load_memmap(str(self.data_dir_path)) # Load memory map that was initialized by Rank 0
+                loaded_state = np.load(self.state_path, allow_pickle=True)
+                self.data_dict = loaded_state['data_dict'].item()
+
+            except Exception as e:
+                print(f"[Rank {self.current_rank}] FATAL ERROR loading map files or state AFTER barrier: {e}")
+                raise
+        
+        #Lightning-only setup
+        elif training_config.orchestrator == 'Lightning':
+            print("Lightning")
+            if remake_map:
+                # Rank 0 will enter here via prepare_data
+                print(f"Creating memory mapped tensor dictionary...")
+                self.memory_map_data(self.file_list)
+                np.savez(self.state_path, data_dict=self.data_dict)
+            else:
+                # All ranks will enter here via setup
+                print(f"Loading existing dataset on rank {self.current_rank}")
+                if not self.state_path.exists():
+                    raise FileNotFoundError(f"Map files missing. prepare_data should have created them.")
+                self.mmap_ptycho = TensorDict.load_memmap(str(self.data_dir_path))
+                sample_sum = self.mmap_ptycho["images"][:10].sum()
+                if sample_sum == 0:
+                    print(f"[Rank {self.current_rank}] WARNING: Loaded memory map contains only zeros!")
+                    # If Rank 1 sees zeros, it means the OS sync hasn't propagated.
+                    # In a real DDP scenario, you might want to raise an error here
+                    # so the process restarts, rather than training on garbage.
+                    raise RuntimeError(f"Rank {self.current_rank} loaded empty memory map data.")
+                loaded_state = np.load(self.state_path, allow_pickle=True)
+                self.data_dict = loaded_state['data_dict'].item()
+
+                # 1. Check a sample from the END of the file (Validation data area)
+                end_sample = self.mmap_ptycho["images"][-10:].sum()
+                
+                # 2. Check the scaling constants (If these are 0, loss collapses)
+                rms_sample = self.mmap_ptycho["rms_scaling_constant"][:10].sum()
+                
+                if end_sample == 0 or rms_sample == 0:
+                    print(f"[Rank {self.current_rank}] CRITICAL: Metadata or End-of-file data is ZERO.")
+                    print(f"  End images sum: {end_sample}")
+                    print(f"  RMS constant sum: {rms_sample}")
+                    raise RuntimeError(f"Rank {self.current_rank} loaded corrupted data.")
+        
         
         # Minimal success log, good for confirming init completion on all ranks
         if self.current_rank == 0:
@@ -291,6 +410,51 @@ class PtychoDataset(Dataset):
              raise ValueError("Could not determine image shape from any NPZ file.")
 
         return total_length, first_im_shape, cumulative_length, valid_indices_per_file
+    
+    @classmethod
+    def from_existing_map(cls, map_path, model_config, data_config, current_rank = 0, is_ddp_active = False):
+        """
+        Creates data instance from existing memory map. Do NOT run without a memory map!
+
+        Assumes:
+        1. Memory map already exists at map_path
+        2. State files exist
+        3. No rank coordination
+        4. No file operations
+        """
+
+        instance = cls.__new__(cls)
+
+        #Set basic attributes
+        instance.model_config = model_config
+        instance.data_config = data_config
+        instance.current_rank = current_rank
+        instance.is_ddp_active = is_ddp_active
+
+        #Set paths
+        instance.data_dir = str(map_path)
+        instance.data_dir_path = Path(map_path)
+        data_prefix_path = instance.data_dir_path.parent
+        instance.state_path = data_prefix_path / 'state_files.npz'
+
+        #Load existing map
+        try:
+            instance.mmap_ptycho = TensorDict.load_memmap(str(instance.data_dir_path))
+            instance.length = len(instance.mmap_ptycho)
+
+            #Load state data
+            loaded_state = np.load(instance.state_path, allow_pickle = True)
+            instance.data_dict = loaded_state['data_dict'].item()
+            
+            print(f"[PtychoDataset Rank {current_rank}] Loaded existing memory map: {instance.length} samples")
+
+        except Exception as e:
+            raise RuntimeError(
+                f"[Rank {current_rank}] Failed to load existing memory map from {map_path}. "
+                f"Ensure prepare_memory_mapped_data() was called first. Error: {e}"
+            )
+        
+        return instance
 
     # Methods for diffraction data mapping
     def memory_map_data(self, image_paths):
@@ -529,8 +693,8 @@ class PtychoDataset(Dataset):
             diff_timer_start = time.time()
             curr_nn_index_length = len(nn_indices)
 
-            #Load diffraction images
-            diff_stack = torch.from_numpy(np.load(npz_file)['diff3d']).round().to(torch.float32) #Round for non-photon detectors
+            #Load diffraction images (canonical 'diffraction' key with 'diff3d' fallback)
+            diff_stack = torch.from_numpy(_get_diffraction_stack(npz_file)).round().to(torch.float32) #Round for non-photon detectors
 
             #Inserting dummy channel dimension if channel number = 1
             if not self.model_config.object_big: # Use stored config

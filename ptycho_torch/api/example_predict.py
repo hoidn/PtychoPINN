@@ -9,43 +9,31 @@ from ptycho_torch.model import PtychoPINN_Lightning
 #1. Config Manager
 
 mlflow_tracking_uri = "/local/CDI-PINN/mlruns"
-run_id = "f637381fd7fe49158bb0ed2e7a28ca45"
+run_id = "06822d7239504a93ae0f7a6c4577cdc8" #Trained model
 
 config_manager_mlflow = ConfigManager._from_mlflow(run_id,
                                                    mlflow_tracking_uri)
-# Update config manager                                              
-training_update = {'epochs': 1,
-                   'epochs_fine_tune': 0}
-config_manager_mlflow.update(training_config = training_update)
-config_manager_mlflow.training_config
 
 
 #2. Dataloader
 ptycho_data_dir = "/local/CDI-PINN/data/pinn_velo_ncm"
-lightning_dataloader = PtychoDataLoader(data_dir = ptycho_data_dir,
+tensordict_dataloader = PtychoDataLoader(data_dir = ptycho_data_dir,
                                         config_manager = config_manager_mlflow,
-                                        data_format = DataloaderFormats('lightning_module'))
+                                        data_format = 'tensordict')
 
 #3. Model
-new_ptycho_model = PtychoModel._new_model(model = PtychoPINN_Lightning,
-                                          config_manager = config_manager_mlflow)
+trained_ptycho_model = PtychoModel._load(config_manager = config_manager_mlflow,
+                                         strategy = 'mlflow',
+                                         run_id = run_id,
+                                         mlflow_tracking_uri = mlflow_tracking_uri)
 
-lightning_trainer = Trainer._from_lightning(model = new_ptycho_model,
-                                            dataloader = lightning_dataloader,
-                                            config_manager = config_manager_mlflow)
 
-run_ids = lightning_trainer.train(orchestration = "mlflow",
-                                  experiment_name = 'Test_run')
+#4. Inference
+print(f"Beginning inference...")
+ptycho_inference = InferenceEngine(config_manager = config_manager_mlflow,
+                                   ptycho_model = trained_ptycho_model,
+                                   ptycho_dataloader = tensordict_dataloader)     
+ 
 
-print(f"Run ids are {run_ids}")
 
-#4. Saving
-#A bit awkward since you'll have to load your new model and then save it elsewhere 
-trained_ptycho_model = PtychoModel._load(strategy = 'mlflow',
-                                        run_id = run_ids.get('training'),
-                                        mlflow_tracking_uri = mlflow_tracking_uri)
-
-new_destination = '/local/Demo_Directory_PtychoPINN'
-trained_ptycho_model.save(new_destination,
-                          strategy = 'mlflow')                                        
 

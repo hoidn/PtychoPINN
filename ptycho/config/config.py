@@ -96,6 +96,14 @@ class ModelConfig:
     gridsize: int = 1
     n_filters_scale: int = 2
     model_type: Literal['pinn', 'supervised'] = 'pinn'
+    architecture: Literal['cnn', 'fno', 'hybrid', 'stable_hybrid'] = 'cnn'
+    fno_modes: int = 12
+    fno_width: int = 32
+    fno_blocks: int = 4
+    fno_cnn_blocks: int = 2
+    max_hidden_channels: Optional[int] = None
+    fno_input_transform: Literal['none', 'sqrt', 'log1p', 'instancenorm'] = 'none'
+    generator_output_mode: Literal['real_imag', 'amp_phase_logits', 'amp_phase'] = 'real_imag'
     amp_activation: Literal['sigmoid', 'swish', 'softplus', 'relu'] = 'sigmoid'
     object_big: bool = True
     probe_big: bool = True  # Changed default
@@ -131,6 +139,20 @@ class TrainingConfig:
     sequential_sampling: bool = False  # Use sequential sampling instead of random
     backend: Literal['tensorflow', 'pytorch'] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility
     torch_loss_mode: Literal['poisson', 'mae'] = 'poisson'  # Backend-specific loss mode selector
+    gradient_clip_val: Optional[float] = None  # Gradient clipping threshold (None = disabled)
+    gradient_clip_algorithm: Literal['norm', 'value', 'agc'] = 'norm'  # Gradient clipping algorithm: norm, value, or agc
+    optimizer: Literal['adam', 'adamw', 'sgd'] = 'adam'  # Optimizer algorithm
+    momentum: float = 0.9  # SGD momentum (ignored for Adam/AdamW)
+    weight_decay: float = 0.0  # Weight decay (L2 penalty)
+    adam_beta1: float = 0.9  # Adam/AdamW beta1
+    adam_beta2: float = 0.999  # Adam/AdamW beta2
+    scheduler: Literal['Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau'] = 'Default'  # LR scheduler type
+    lr_warmup_epochs: int = 0  # Number of warmup epochs for WarmupCosine scheduler
+    lr_min_ratio: float = 0.1  # Minimum LR ratio for WarmupCosine scheduler (eta_min = base_lr * ratio)
+    plateau_factor: float = 0.5
+    plateau_patience: int = 2
+    plateau_min_lr: float = 1e-4
+    plateau_threshold: float = 0.0
 
     def __post_init__(self):
         """Handle backward compatibility for n_images → n_groups migration."""
@@ -223,6 +245,7 @@ class PyTorchExecutionConfig:
     strategy: str = 'auto'  # Options: 'auto', 'ddp', 'fsdp', 'deepspeed'
     deterministic: bool = True  # Enforce reproducibility (seed_everything + deterministic mode)
     gradient_clip_val: Optional[float] = None  # Gradient clipping threshold (None = disabled)
+    gradient_clip_algorithm: Literal['norm', 'value', 'agc'] = 'norm'  # Gradient clipping algorithm
     accum_steps: int = 1  # Gradient accumulation steps (simulate larger batch size)
 
     # DataLoader knobs
@@ -359,6 +382,12 @@ class PyTorchExecutionConfig:
 
 def validate_model_config(config: ModelConfig) -> None:
     """Validate model configuration."""
+    valid_arches = {'cnn', 'fno', 'hybrid', 'stable_hybrid'}
+    if config.architecture not in valid_arches:
+        raise ValueError(
+            f"Invalid architecture '{config.architecture}'. "
+            f"Expected one of {sorted(valid_arches)}."
+        )
     if config.gridsize <= 0:
         raise ValueError(f"gridsize must be positive, got {config.gridsize}")
     if config.n_filters_scale <= 0:

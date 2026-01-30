@@ -814,12 +814,28 @@ def translate(imgs: tf.Tensor, offsets: tf.Tensor, **kwargs: Any) -> tf.Tensor:
     return translate_core(imgs, offsets, interpolation=interpolation, use_xla_workaround=use_xla_workaround)
 
 # TODO consolidate this and translate()
+@tf.keras.utils.register_keras_serializable(package='ptycho')
 class Translation(tf.keras.layers.Layer):
-    def __init__(self, jitter_stddev: float = 0.0, use_xla: bool = False) -> None:
-        super(Translation, self).__init__()
+    """Translation layer with XLA support.
+
+    CRITICAL: Always uses XLA-compatible path during inference to avoid
+    dynamic shape issues. See docs/bugs/XLA_INFERENCE_BUG.md.
+    """
+    def __init__(self, jitter_stddev: float = 0.0, use_xla: bool = False, **kwargs) -> None:
+        super(Translation, self).__init__(**kwargs)
         self.jitter_stddev = jitter_stddev
-        self.use_xla = use_xla
-        
+        # CRITICAL FIX: Always use XLA-compatible path to avoid tf.repeat issues
+        # The translate_xla function uses tf.gather which works with dynamic batch sizes
+        self.use_xla = True  # Force XLA path regardless of constructor argument
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            'jitter_stddev': self.jitter_stddev,
+            'use_xla': self.use_xla,
+        })
+        return config
+
     def call(self, inputs: Union[List[tf.Tensor], tf.Tensor]) -> tf.Tensor:
         # In TF 2.19, we pass jitter as a constructor parameter instead
         if isinstance(inputs, list):
@@ -908,7 +924,7 @@ def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_
         **kwargs: Additional keyword arguments for compatibility
 
     Returns:
-        Assembled image tensor with shape (B, padded_size, padded_size, 1)
+        Assembled image tensor with shape (1, padded_size, padded_size, 1)
 
     Note:
         When batch_size is larger than the number of patches, the function
@@ -916,8 +932,6 @@ def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_
     """
     offsets_flat = flatten_offsets(offsets_xy)
     imgs_flat = _channel_to_flat(imgs)
-    batch_count = tf.shape(imgs)[0]
-    channels = tf.shape(imgs)[-1]
 
     # Get the number of patches
     num_patches = tf.shape(imgs_flat)[0]
@@ -935,7 +949,7 @@ def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_
     
     def batched_approach():
         # Initialize the canvas with zeros
-        final_canvas = tf.zeros((batch_count, padded_size, padded_size, 1), dtype=imgs_flat.dtype)
+        final_canvas = tf.zeros((1, padded_size, padded_size, 1), dtype=imgs_flat.dtype)
         
         # Use tf.while_loop for batching
         i = tf.constant(0)
@@ -968,20 +982,14 @@ def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_
                 # Log batch dimensions for debugging
                 tf.debugging.check_numerics(batch_translated, "batch_translated contains NaN or Inf")
 
-                # Align each translated patch to the canvas size, then accumulate per sample.
-                # batch_aligned shape: (batch_size, padded_size, padded_size, 1)
-                batch_aligned = tf.image.resize_with_crop_or_pad(batch_translated, padded_size, padded_size)
+                # Sum all translated patches in the batch first
+                # Shape: (batch_size, H, W, 1) -> (1, H, W, 1)
+                batch_summed = tf.reduce_sum(batch_translated, axis=0, keepdims=True)
 
-                # Map each patch back to its parent sample based on flatten order.
-                patch_indices = tf.range(start_idx, end_idx)
-                sample_indices = tf.math.floordiv(patch_indices, channels)
-
-                # Sum patches into per-sample canvases (B, padded_size, padded_size, 1)
-                batch_aligned = tf.math.unsorted_segment_sum(
-                    batch_aligned,
-                    sample_indices,
-                    num_segments=batch_count,
-                )
+                # Now align the summed result to canvas dimensions using static padded_size
+                # This is CRITICAL for graph mode (tf.while_loop shape_invariants requirement)
+                # Use static padded_size integer, not tf.shape(canvas) which is dynamic
+                batch_aligned = tf.image.resize_with_crop_or_pad(batch_summed, padded_size, padded_size)
 
                 # Verify shapes and dtypes match before accumulation
                 tf.debugging.assert_equal(
@@ -1015,7 +1023,7 @@ def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_
             loop_vars=[i, final_canvas],
             shape_invariants=[
                 i.get_shape(),
-                tf.TensorShape([None, padded_size, padded_size, 1])
+                tf.TensorShape([1, padded_size, padded_size, 1])
             ],
             parallel_iterations=1,
             back_prop=True
@@ -1219,7 +1227,7 @@ def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 1
     # Streaming fallback: chunk to avoid OOM on gigantic datasets    #
     # -------------------------------------------------------------- #
     def _streaming():
-        chunk_sz = tf.constant(256, tf.int32)
+        chunk_sz = tf.constant(1024, tf.int32)
         result   = tf.zeros([padded_size, padded_size, 1], dtype=obj_tensor.dtype)
 
         # Use tf.while_loop instead of Python for loop
@@ -1343,9 +1351,10 @@ def mk_reassemble_position_batched_real(input_positions: tf.Tensor, batch_size: 
         # Merge outer_kwargs with kwargs (kwargs takes precedence)
         merged_kwargs = {**outer_kwargs, **kwargs}
 
-        padded_size = merged_kwargs.pop('padded_size', None)
-        if padded_size is None:
+        if 'padded_size' not in merged_kwargs:
             padded_size = get_padded_size()
+        else:
+            padded_size = merged_kwargs.pop('padded_size')
 
         return _reassemble_position_batched(imgs, input_positions, padded_size, batch_size, **merged_kwargs)
 

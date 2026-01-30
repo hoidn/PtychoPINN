@@ -63,12 +63,7 @@ class TestConfigBridgeMVP(unittest.TestCase):
         from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig
 
         # Import TensorFlow config utilities
-        from ptycho.config.config import (
-            ModelConfig as TFModelConfig,
-            TrainingConfig as TFTrainingConfig,
-            InferenceConfig as TFInferenceConfig,
-            update_legacy_dict
-        )
+        from ptycho.config.config import update_legacy_dict
         import ptycho.params as params
 
         # 1. Instantiate PyTorch configs with MVP-aligned values
@@ -502,9 +497,9 @@ class TestConfigBridgeParity:
             f"{field_name} should use explicit value {test_value}, not defaults " \
             f"(PyTorch={pytorch_default}, TF={tf_default})"
         assert actual_value != pytorch_default, \
-            f"Should not fall back to PyTorch default"
+            "Should not fall back to PyTorch default"
         assert actual_value != tf_default, \
-            f"Should not fall back to TensorFlow default"
+            "Should not fall back to TensorFlow default"
 
     # ============================================================================
     # Test Case 5: Error Handling & Validation
@@ -973,7 +968,7 @@ class TestConfigBridgeParity:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
 
-            tf_train = config_bridge.to_training_config(
+            _ = config_bridge.to_training_config(
                 tf_model, pt_data, pt_model, pt_train,
                 overrides=dict(
                     train_data_file=Path('train.npz'),
@@ -1138,8 +1133,158 @@ class TestConfigBridgeParity:
                     'baseline': baseline
                 }, fp, indent=2)
 
-            pytest.fail(f"params.cfg does not match baseline:\n" + "\n".join(mismatches) +
+            pytest.fail("params.cfg does not match baseline:\n" + "\n".join(mismatches) +
                        f"\n\nDiff saved to: {diff_path}")
+
+
+    def test_training_config_gradient_clip_algorithm_roundtrip(self, params_cfg_snapshot):
+        """
+        Test that gradient_clip_algorithm='agc' round-trips through the bridge
+        and populates params.cfg correctly.
+
+        Task ID: FNO-STABILITY-OVERHAUL-001 Task 1.1
+        """
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
+        from ptycho_torch import config_bridge
+        from ptycho.config.config import update_legacy_dict
+        import ptycho.params as params
+
+        pt_data = DataConfig(nphotons=1e9)
+        pt_model = ModelConfig()
+        pt_train = TrainingConfig(gradient_clip_algorithm='agc')
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+        tf_train = config_bridge.to_training_config(
+            tf_model, pt_data, pt_model, pt_train,
+            overrides=dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=1e9)
+        )
+
+        # Assert TF dataclass has the field
+        assert tf_train.gradient_clip_algorithm == 'agc', \
+            "gradient_clip_algorithm should be 'agc' on TF TrainingConfig"
+
+        # Populate params.cfg and check
+        update_legacy_dict(params.cfg, tf_train)
+        assert params.cfg.get('gradient_clip_algorithm') == 'agc', \
+            "params.cfg['gradient_clip_algorithm'] should be 'agc' after update_legacy_dict"
+
+
+    def test_training_config_optimizer_roundtrip(self, params_cfg_snapshot):
+        """
+        Test that optimizer='sgd', momentum=0.9, weight_decay=1e-4 round-trips
+        through the bridge and populates params.cfg correctly.
+
+        Task ID: FNO-STABILITY-OVERHAUL-001 Phase 8 Task 1
+        """
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
+        from ptycho_torch import config_bridge
+        from ptycho.config.config import update_legacy_dict
+        import ptycho.params as params
+
+        pt_data = DataConfig(nphotons=1e9)
+        pt_model = ModelConfig()
+        pt_train = TrainingConfig(
+            optimizer='sgd',
+            momentum=0.9,
+            weight_decay=1e-4,
+            adam_beta1=0.9,
+            adam_beta2=0.999,
+        )
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+        tf_train = config_bridge.to_training_config(
+            tf_model, pt_data, pt_model, pt_train,
+            overrides=dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=1e9)
+        )
+
+        assert tf_train.optimizer == 'sgd'
+        assert tf_train.momentum == 0.9
+        assert tf_train.weight_decay == 1e-4
+        assert tf_train.adam_beta1 == 0.9
+        assert tf_train.adam_beta2 == 0.999
+
+        update_legacy_dict(params.cfg, tf_train)
+        assert params.cfg.get('optimizer') == 'sgd'
+
+
+class TestConfigBridgeArchitecture:
+    """Tests for model.architecture field bridging."""
+
+    def test_config_bridge_architecture_override(self, params_cfg_snapshot):
+        """Test that architecture field can be bridged through config_bridge."""
+        from ptycho_torch.config_params import DataConfig, ModelConfig
+        from ptycho_torch import config_bridge
+
+        pt_data = DataConfig(N=64, grid_size=(1, 1))
+        pt_model = ModelConfig()
+
+        tf_model = config_bridge.to_model_config(
+            pt_data,
+            pt_model,
+            overrides={'architecture': 'cnn'}
+        )
+
+        assert tf_model.architecture == 'cnn'
+
+    def test_config_bridge_architecture_default(self, params_cfg_snapshot):
+        """Test that architecture defaults to 'cnn' when not provided."""
+        from ptycho_torch.config_params import DataConfig, ModelConfig
+        from ptycho_torch import config_bridge
+
+        pt_data = DataConfig(N=64, grid_size=(1, 1))
+        pt_model = ModelConfig()
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+
+        assert tf_model.architecture == 'cnn'
+
+    def test_config_bridge_architecture_from_pt_model(self, params_cfg_snapshot):
+        """Test that architecture is passed through from PyTorch ModelConfig."""
+        from ptycho_torch.config_params import DataConfig, ModelConfig
+        from ptycho_torch import config_bridge
+
+        pt_data = DataConfig(N=64, grid_size=(1, 1))
+        pt_model = ModelConfig(architecture='fno')
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+
+        assert tf_model.architecture == 'fno'
+
+    def test_config_bridge_fno_input_transform(self, params_cfg_snapshot):
+        """Test that fno_input_transform is passed through to TF ModelConfig."""
+        from ptycho_torch.config_params import DataConfig, ModelConfig
+        from ptycho_torch import config_bridge
+
+        pt_data = DataConfig(N=64, grid_size=(1, 1))
+        pt_model = ModelConfig(architecture='fno')
+        pt_model.fno_input_transform = 'sqrt'
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+
+        assert tf_model.fno_input_transform == 'sqrt'
+
+    def test_training_config_lr_scheduler_roundtrip(self, params_cfg_snapshot):
+        """Test scheduler fields round-trip through config bridge."""
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
+        from ptycho_torch import config_bridge
+
+        pt_data = DataConfig(nphotons=1e9)
+        pt_model = ModelConfig()
+        pt_train = TrainingConfig(
+            scheduler='WarmupCosine',
+            lr_warmup_epochs=5,
+            lr_min_ratio=0.05,
+        )
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+        tf_train = config_bridge.to_training_config(
+            tf_model, pt_data, pt_model, pt_train,
+            overrides=dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=1e9)
+        )
+
+        assert tf_train.scheduler == 'WarmupCosine'
+        assert tf_train.lr_warmup_epochs == 5
+        assert tf_train.lr_min_ratio == 0.05
 
 
 if __name__ == '__main__':
