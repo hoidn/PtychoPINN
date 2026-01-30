@@ -19,12 +19,16 @@ Supported architectures:
 """
 from ptycho_torch.generators.cnn import CnnGenerator
 from ptycho_torch.generators.fno import FnoGenerator, HybridGenerator, StableHybridGenerator
+from ptycho_torch.generators.fno_vanilla import FnoVanillaGenerator
+from ptycho_torch.generators.hybrid_resnet import HybridResnetGenerator
 
 _REGISTRY = {
     'cnn': CnnGenerator,
     'fno': FnoGenerator,
     'hybrid': HybridGenerator,
     'stable_hybrid': StableHybridGenerator,
+    'fno_vanilla': FnoVanillaGenerator,
+    'hybrid_resnet': HybridResnetGenerator,
 }
 
 

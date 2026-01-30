@@ -14,3 +14,15 @@ def test_resolve_generator_unknown_raises():
     cfg = TrainingConfig(model=ModelConfig(architecture='unknown'))
     with pytest.raises(ValueError):
         resolve_generator(cfg)
+
+
+def test_resolve_generator_fno_vanilla():
+    cfg = TrainingConfig(model=ModelConfig(architecture='fno_vanilla'))
+    gen = resolve_generator(cfg)
+    assert gen.name == 'fno_vanilla'
+
+
+def test_resolve_generator_hybrid_resnet():
+    cfg = TrainingConfig(model=ModelConfig(architecture='hybrid_resnet'))
+    gen = resolve_generator(cfg)
+    assert gen.name == 'hybrid_resnet'
