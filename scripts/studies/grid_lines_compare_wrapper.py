@@ -35,6 +35,7 @@ def run_grid_lines_compare(
     mae_weight: float = 1.0,
     realspace_weight: float = 0.0,
     probe_smoothing_sigma: float = 0.5,
+    probe_scale_mode: str = "pad_extrapolate",
     set_phi: bool = False,
     torch_epochs: Optional[int] = None,
     torch_batch_size: Optional[int] = None,
@@ -93,6 +94,7 @@ def run_grid_lines_compare(
             mae_weight=mae_weight,
             realspace_weight=realspace_weight,
             probe_smoothing_sigma=probe_smoothing_sigma,
+            probe_scale_mode=probe_scale_mode,
             set_phi=set_phi,
         )
         from ptycho.workflows import grid_lines_workflow as tf_workflow
@@ -206,6 +208,11 @@ def parse_args(argv=None):
     parser.add_argument("--mae-weight", type=float, default=1.0)
     parser.add_argument("--realspace-weight", type=float, default=0.0)
     parser.add_argument("--probe-smoothing-sigma", type=float, default=0.5)
+    parser.add_argument(
+        "--probe-scale-mode",
+        choices=["pad_extrapolate", "interpolate"],
+        default="pad_extrapolate",
+    )
     parser.add_argument("--set-phi", action="store_true", help="Enable non-zero phase in synthetic grid data.")
     parser.add_argument("--torch-epochs", type=int, default=None)
     parser.add_argument("--torch-batch-size", type=int, default=None)
@@ -285,6 +292,7 @@ def main(argv=None) -> None:
         mae_weight=args.mae_weight,
         realspace_weight=args.realspace_weight,
         probe_smoothing_sigma=args.probe_smoothing_sigma,
+        probe_scale_mode=args.probe_scale_mode,
         set_phi=args.set_phi,
         torch_epochs=args.torch_epochs,
         torch_batch_size=args.torch_batch_size,

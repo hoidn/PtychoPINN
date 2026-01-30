@@ -28,6 +28,11 @@ def main() -> None:
     parser.add_argument("--mae-weight", type=float, default=1.0)
     parser.add_argument("--realspace-weight", type=float, default=0.0)
     parser.add_argument("--probe-smoothing-sigma", type=float, default=0.5)
+    parser.add_argument(
+        "--probe-scale-mode",
+        choices=["pad_extrapolate", "interpolate"],
+        default="pad_extrapolate",
+    )
     args = parser.parse_args()
 
     cfg = GridLinesConfig(
@@ -44,6 +49,7 @@ def main() -> None:
         mae_weight=args.mae_weight,
         realspace_weight=args.realspace_weight,
         probe_smoothing_sigma=args.probe_smoothing_sigma,
+        probe_scale_mode=args.probe_scale_mode,
     )
     run_grid_lines_workflow(cfg)
 
