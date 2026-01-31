@@ -35,6 +35,7 @@ def run_grid_lines_compare(
     mae_weight: float = 1.0,
     realspace_weight: float = 0.0,
     probe_smoothing_sigma: float = 0.5,
+    probe_mask_diameter: Optional[int] = None,
     probe_source: str = "custom",
     probe_scale_mode: str = "pad_extrapolate",
     set_phi: bool = False,
@@ -95,6 +96,7 @@ def run_grid_lines_compare(
             mae_weight=mae_weight,
             realspace_weight=realspace_weight,
             probe_smoothing_sigma=probe_smoothing_sigma,
+            probe_mask_diameter=probe_mask_diameter,
             probe_source=probe_source,
             probe_scale_mode=probe_scale_mode,
             set_phi=set_phi,
@@ -210,6 +212,7 @@ def parse_args(argv=None):
     parser.add_argument("--mae-weight", type=float, default=1.0)
     parser.add_argument("--realspace-weight", type=float, default=0.0)
     parser.add_argument("--probe-smoothing-sigma", type=float, default=0.5)
+    parser.add_argument("--probe-mask-diameter", type=int, default=None)
     parser.add_argument(
         "--probe-source",
         choices=["custom", "ideal_disk"],
@@ -300,6 +303,7 @@ def main(argv=None) -> None:
         mae_weight=args.mae_weight,
         realspace_weight=args.realspace_weight,
         probe_smoothing_sigma=args.probe_smoothing_sigma,
+        probe_mask_diameter=args.probe_mask_diameter,
         probe_source=args.probe_source,
         probe_scale_mode=args.probe_scale_mode,
         set_phi=args.set_phi,

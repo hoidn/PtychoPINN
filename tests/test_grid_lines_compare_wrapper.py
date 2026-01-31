@@ -447,3 +447,39 @@ def test_wrapper_accepts_plateau_scheduler(tmp_path):
         "--torch-scheduler", "ReduceLROnPlateau",
     ])
     assert args.torch_scheduler == "ReduceLROnPlateau"
+
+
+def test_compare_wrapper_probe_mask_diameter_passthrough(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare, parse_args
+
+    args = parse_args([
+        "--N", "64",
+        "--gridsize", "1",
+        "--output-dir", str(tmp_path),
+        "--probe-mask-diameter", "64",
+    ])
+    assert args.probe_mask_diameter == 64
+
+    captured = {}
+
+    def fake_tf_run(cfg):
+        captured["probe_mask_diameter"] = cfg.probe_mask_diameter
+        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+        datasets_dir.mkdir(parents=True, exist_ok=True)
+        (datasets_dir / "train.npz").write_bytes(b"stub")
+        (datasets_dir / "test.npz").write_bytes(b"stub")
+        (cfg.output_dir / "metrics.json").write_text("{}")
+        return {"train_npz": str(datasets_dir / "train.npz"), "test_npz": str(datasets_dir / "test.npz")}
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+
+    run_grid_lines_compare(
+        N=64,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=("cnn",),
+        probe_npz=Path("dummy_probe.npz"),
+        probe_mask_diameter=64,
+    )
+
+    assert captured["probe_mask_diameter"] == 64
