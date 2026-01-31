@@ -76,6 +76,7 @@ Starting 2026-01-27, the `config.model.architecture` field routes through the ge
 - The Torch runner CLI (`grid_lines_torch_runner.py`) accepts `--architecture stable_hybrid`, `fno_vanilla`, and `hybrid_resnet`; the compare wrapper (`grid_lines_compare_wrapper.py`) routes them through the Torch runner with metrics keys `pinn_stable_hybrid`, `pinn_fno_vanilla`, and `pinn_hybrid_resnet`
 - The Torch runner CLI accepts `--probe-source {custom,ideal_disk}` to validate dataset metadata (warns on mismatch)
 - The compare wrapper accepts `--probe-scale-mode {pad_extrapolate,interpolate}` to control probe scaling when generating grid-lines datasets (default: `pad_extrapolate`)
+- The compare wrapper accepts `--probe-mask-diameter` to apply a centered disk mask to the probe during grid-lines dataset generation
 - No changes to stitching behavior - all architectures use the same TF reassembly helper
 
 - `config.debug`: Controls progress bars and logging verbosity (default: `False`)

@@ -80,6 +80,7 @@ python scripts/studies/grid_lines_workflow.py \
 - `--nimgs-train`: Number of training object images (default: 2)
 - `--nimgs-test`: Number of test object images (default: 2)
 - `--output-dir`: Output directory for all artifacts
+- `--probe-mask-diameter`: Optional centered disk diameter (pixels) to mask the probe
 - `--probe-source {custom,ideal_disk}`: Selects the probe source used in simulation
 - `--probe-scale-mode {pad_extrapolate,interpolate}`: Probe scaling strategy when N changes (default: `pad_extrapolate`)
 
@@ -114,6 +115,7 @@ Orchestrates TensorFlow grid-lines workflow and Torch FNO/Hybrid runners, then m
   - `amp_phase`: Use dual-head amp/phase outputs from the generator.
 - `--probe-source {custom,ideal_disk}`: Selects the probe source when generating grid-lines datasets.
 - `--probe-scale-mode {pad_extrapolate,interpolate}`: Probe scaling strategy when N changes (default: `pad_extrapolate`).
+- `--probe-mask-diameter`: Optional centered disk diameter (pixels) to mask the probe during dataset generation.
 
 ### `grid_lines_torch_runner.py`
 Runs Torch-only training/inference for a single FNO/Hybrid architecture using cached NPZs.

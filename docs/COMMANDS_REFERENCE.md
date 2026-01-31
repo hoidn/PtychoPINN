@@ -388,6 +388,14 @@ python scripts/studies/grid_lines_compare_wrapper.py \
     --output-dir outputs/grid_lines_gs1_n64_interp \
     --architectures cnn,baseline \
     --probe-scale-mode interpolate
+
+# Apply a centered disk probe mask during dataset generation
+python scripts/studies/grid_lines_compare_wrapper.py \
+    --N 64 \
+    --gridsize 1 \
+    --output-dir outputs/grid_lines_gs1_n64_mask64 \
+    --architectures cnn,baseline \
+    --probe-mask-diameter 64
 ```
 
 ---
