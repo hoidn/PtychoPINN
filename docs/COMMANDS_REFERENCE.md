@@ -370,6 +370,26 @@ python scripts/compare_models.py \
 python scripts/studies/aggregate_and_plot_results.py study_results --output plots/
 ```
 
+### Grid-Lines (TF + Torch) Comparison Harness
+
+```bash
+# Run the grid-lines harness (TF cnn+baseline + Torch FNO/Hybrid)
+python scripts/studies/grid_lines_compare_wrapper.py \
+    --N 64 \
+    --gridsize 1 \
+    --output-dir outputs/grid_lines_gs1_n64 \
+    --architectures cnn,baseline,fno,hybrid \
+    --set-phi
+
+# Use cubic interpolation instead of the default pad+phase-extrapolate probe scaling
+python scripts/studies/grid_lines_compare_wrapper.py \
+    --N 64 \
+    --gridsize 1 \
+    --output-dir outputs/grid_lines_gs1_n64_interp \
+    --architectures cnn,baseline \
+    --probe-scale-mode interpolate
+```
+
 ---
 
 ## Best Practices & Key Guidelines

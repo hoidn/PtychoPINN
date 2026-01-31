@@ -80,6 +80,8 @@ python scripts/studies/grid_lines_workflow.py \
 - `--nimgs-train`: Number of training object images (default: 2)
 - `--nimgs-test`: Number of test object images (default: 2)
 - `--output-dir`: Output directory for all artifacts
+- `--probe-source {custom,ideal_disk}`: Selects the probe source used in simulation
+- `--probe-scale-mode {pad_extrapolate,interpolate}`: Probe scaling strategy when N changes (default: `pad_extrapolate`)
 
 **Memoization:**
 - Grid studies default to dataset-only memoization keys (`PTYCHO_MEMOIZE_KEY_MODE=dataset`).
@@ -110,6 +112,8 @@ Orchestrates TensorFlow grid-lines workflow and Torch FNO/Hybrid runners, then m
   - `real_imag` (default): Treat output channels as real/imag.
   - `amp_phase_logits`: Interpret channels as amp/phase logits and apply sigmoid/tanh.
   - `amp_phase`: Use dual-head amp/phase outputs from the generator.
+- `--probe-source {custom,ideal_disk}`: Selects the probe source when generating grid-lines datasets.
+- `--probe-scale-mode {pad_extrapolate,interpolate}`: Probe scaling strategy when N changes (default: `pad_extrapolate`).
 
 ### `grid_lines_torch_runner.py`
 Runs Torch-only training/inference for a single FNO/Hybrid architecture using cached NPZs.
@@ -129,6 +133,7 @@ python scripts/studies/grid_lines_torch_runner.py \
 - `--seed`: Random seed (random if omitted).
 - `--output-mode {real_imag,amp_phase_logits,amp_phase}`: Output interpretation mode.
 - `--grad-clip`: Gradient clip max norm (<=0 disables clipping).
+- `--probe-source {custom,ideal_disk}`: Optional expected probe source (warns if metadata differs).
 
 ### `aggregate_and_plot_results.py`
 Analysis script that processes results from multiple training runs and generates visualization plots.

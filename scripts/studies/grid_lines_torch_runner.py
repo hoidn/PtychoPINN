@@ -93,6 +93,7 @@ class TorchRunnerConfig:
     generator_output_mode: str = "real_imag"
     N: int = 64
     gridsize: int = 1
+    probe_source: Optional[str] = None
     torch_loss_mode: str = "mae"
     fno_modes: int = 12
     fno_width: int = 32
@@ -476,6 +477,41 @@ def compute_metrics(
     return eval_reconstruction(predictions, ground_truth, label=label)
 
 
+def _collect_visual_order(output_dir: Path, architecture: str) -> Tuple[str, ...]:
+    recon_dir = output_dir / "recons"
+    if not recon_dir.exists():
+        return ()
+    existing = {path.name for path in recon_dir.iterdir() if path.is_dir()}
+    arch_label = f"pinn_{architecture}"
+    preferred = [
+        "gt",
+        "baseline",
+        "pinn",
+        "pinn_fno",
+        "pinn_hybrid",
+        "pinn_stable_hybrid",
+        "pinn_fno_vanilla",
+        "pinn_hybrid_resnet",
+    ]
+    if arch_label not in preferred:
+        preferred.append(arch_label)
+    order = [label for label in preferred if label in existing]
+    extras = sorted(existing - set(order))
+    return tuple(order + extras)
+
+
+def _save_gt_recon_if_missing(output_dir: Path, ground_truth: np.ndarray) -> None:
+    if ground_truth is None:
+        return
+    gt_path = output_dir / "recons" / "gt" / "recon.npz"
+    if gt_path.exists():
+        return
+    from ptycho.workflows.grid_lines_workflow import save_recon_artifact
+    if not np.iscomplexobj(ground_truth):
+        ground_truth = np.asarray(ground_truth).astype(np.complex64)
+    save_recon_artifact(output_dir, "gt", ground_truth)
+
+
 def save_run_artifacts(
     cfg: TorchRunnerConfig,
     results: Dict[str, Any],
@@ -533,6 +569,16 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
 
     logger.info(f"Loading test data from {cfg.test_npz}")
     test_data, test_metadata = load_cached_dataset_with_metadata(cfg.test_npz)
+    if cfg.probe_source:
+        meta_probe_source = None
+        if test_metadata:
+            meta_probe_source = test_metadata.get("additional_parameters", {}).get("probe_source")
+        if meta_probe_source and meta_probe_source != cfg.probe_source:
+            logger.warning(
+                "Probe source mismatch: CLI=%s metadata=%s",
+                cfg.probe_source,
+                meta_probe_source,
+            )
 
     # Step 2: Train model
     logger.info(f"Training {cfg.architecture} model...")
@@ -607,6 +653,17 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
         'inference_time_s': float(inference_time_s),
     }
 
+    # Step 6: Render post-run visuals (best-effort)
+    try:
+        from ptycho.workflows.grid_lines_workflow import render_grid_lines_visuals
+        _save_gt_recon_if_missing(cfg.output_dir, ground_truth)
+        order = _collect_visual_order(cfg.output_dir, cfg.architecture)
+        if order:
+            visuals = render_grid_lines_visuals(cfg.output_dir, order=order)
+            result_dict["visuals"] = visuals
+    except Exception as e:
+        logger.warning("Failed to render visuals: %s", e)
+
     # Include complex predictions if conversion was done
     if predictions_complex is not None:
         result_dict['predictions_complex'] = predictions_complex
@@ -662,6 +719,9 @@ def main() -> None:
                         help="FNO spectral block count")
     parser.add_argument("--fno-cnn-blocks", type=int, default=2,
                         help="FNO CNN refiner block count")
+    parser.add_argument("--probe-source", type=str, default=None,
+                        choices=["custom", "ideal_disk"],
+                        help="Expected probe source in dataset metadata")
     parser.add_argument("--N", type=int, default=64,
                         help="Patch size N")
     parser.add_argument("--gridsize", type=int, default=1,
@@ -728,6 +788,7 @@ def main() -> None:
         generator_output_mode=args.output_mode,
         N=args.N,
         gridsize=args.gridsize,
+        probe_source=args.probe_source,
         torch_loss_mode=args.torch_loss_mode,
         fno_modes=args.fno_modes,
         fno_width=args.fno_width,

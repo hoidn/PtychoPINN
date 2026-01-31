@@ -29,6 +29,12 @@ def main() -> None:
     parser.add_argument("--realspace-weight", type=float, default=0.0)
     parser.add_argument("--probe-smoothing-sigma", type=float, default=0.5)
     parser.add_argument(
+        "--probe-source",
+        choices=["custom", "ideal_disk"],
+        default="custom",
+        help="Probe source for grid-lines datasets.",
+    )
+    parser.add_argument(
         "--probe-scale-mode",
         choices=["pad_extrapolate", "interpolate"],
         default="pad_extrapolate",
@@ -49,6 +55,7 @@ def main() -> None:
         mae_weight=args.mae_weight,
         realspace_weight=args.realspace_weight,
         probe_smoothing_sigma=args.probe_smoothing_sigma,
+        probe_source=args.probe_source,
         probe_scale_mode=args.probe_scale_mode,
     )
     run_grid_lines_workflow(cfg)

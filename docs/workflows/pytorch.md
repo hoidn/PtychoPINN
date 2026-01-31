@@ -74,6 +74,8 @@ Starting 2026-01-27, the `config.model.architecture` field routes through the ge
 - The registry resolves the architecture, builds the appropriate generator model, and wraps it in `PtychoPINN_Lightning`
 - FNO/Hybrid/Stable Hybrid generators use `generator_output="real_imag"` format, which is converted to complex channel-first via `_real_imag_to_complex_channel_first()` in `ptycho_torch/model.py`
 - The Torch runner CLI (`grid_lines_torch_runner.py`) accepts `--architecture stable_hybrid`, `fno_vanilla`, and `hybrid_resnet`; the compare wrapper (`grid_lines_compare_wrapper.py`) routes them through the Torch runner with metrics keys `pinn_stable_hybrid`, `pinn_fno_vanilla`, and `pinn_hybrid_resnet`
+- The Torch runner CLI accepts `--probe-source {custom,ideal_disk}` to validate dataset metadata (warns on mismatch)
+- The compare wrapper accepts `--probe-scale-mode {pad_extrapolate,interpolate}` to control probe scaling when generating grid-lines datasets (default: `pad_extrapolate`)
 - No changes to stitching behavior - all architectures use the same TF reassembly helper
 
 - `config.debug`: Controls progress bars and logging verbosity (default: `False`)
