@@ -8,8 +8,7 @@ from pathlib import Path
 from ptycho.workflows.grid_lines_workflow import GridLinesConfig, run_grid_lines_workflow
 
 
-def main() -> None:
-    os.environ.setdefault("PTYCHO_MEMOIZE_KEY_MODE", "dataset")
+def parse_args(argv=None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--N", type=int, required=True, choices=[64, 128])
     parser.add_argument("--gridsize", type=int, required=True, choices=[1, 2])
@@ -28,6 +27,7 @@ def main() -> None:
     parser.add_argument("--mae-weight", type=float, default=1.0)
     parser.add_argument("--realspace-weight", type=float, default=0.0)
     parser.add_argument("--probe-smoothing-sigma", type=float, default=0.5)
+    parser.add_argument("--probe-mask-diameter", type=int, default=None)
     parser.add_argument(
         "--probe-source",
         choices=["custom", "ideal_disk"],
@@ -39,9 +39,11 @@ def main() -> None:
         choices=["pad_extrapolate", "interpolate"],
         default="pad_extrapolate",
     )
-    args = parser.parse_args()
+    return parser.parse_args(argv)
 
-    cfg = GridLinesConfig(
+
+def build_config(args: argparse.Namespace) -> GridLinesConfig:
+    return GridLinesConfig(
         N=args.N,
         gridsize=args.gridsize,
         output_dir=args.output_dir,
@@ -55,9 +57,16 @@ def main() -> None:
         mae_weight=args.mae_weight,
         realspace_weight=args.realspace_weight,
         probe_smoothing_sigma=args.probe_smoothing_sigma,
+        probe_mask_diameter=args.probe_mask_diameter,
         probe_source=args.probe_source,
         probe_scale_mode=args.probe_scale_mode,
     )
+
+
+def main() -> None:
+    os.environ.setdefault("PTYCHO_MEMOIZE_KEY_MODE", "dataset")
+    args = parse_args()
+    cfg = build_config(args)
     run_grid_lines_workflow(cfg)
 
 

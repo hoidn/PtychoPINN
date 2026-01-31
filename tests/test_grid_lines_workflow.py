@@ -476,3 +476,17 @@ class TestColorbarSharing:
             order=("pinn", "baseline"),
         )
         assert out.exists()
+
+
+class TestGridLinesCLI:
+    def test_grid_lines_cli_probe_mask_diameter(self, tmp_path: Path):
+        from scripts.studies import grid_lines_workflow as cli
+
+        args = cli.parse_args([
+            "--N", "64",
+            "--gridsize", "1",
+            "--output-dir", str(tmp_path),
+            "--probe-mask-diameter", "64",
+        ])
+        cfg = cli.build_config(args)
+        assert cfg.probe_mask_diameter == 64
