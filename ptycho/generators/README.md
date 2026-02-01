@@ -4,11 +4,14 @@ This module provides a central registry for generator architectures used in PINN
 
 ## Overview
 
-The generator registry enables architecture selection via the `config.model.architecture` field. Currently supported architectures:
+The generator registry enables architecture selection via the `config.model.architecture` field. Currently supported TensorFlow architectures:
 
 - `cnn` (default): U-Net based CNN generator from `ptycho/model.py`
-- `fno`: Reserved for Fourier Neural Operator (not yet implemented)
-- `hybrid`: Reserved for hybrid CNN/FNO architecture (not yet implemented)
+
+This README covers the TensorFlow generator registry. Other architecture
+strings (e.g., `fno`, `hybrid`, `hybrid_resnet`) are handled by the
+PyTorch stack under `ptycho_torch/` and are not registered here—attempting
+to resolve them in the TensorFlow registry will raise a ValueError.
 
 ## Adding a New Generator
 
@@ -78,11 +81,11 @@ def test_resolve_generator_my_arch():
 
 - Add entry to this README
 - Document architecture-specific parameters in `docs/CONFIGURATION.md`
-- Update `docs/workflows/pytorch.md` if applicable to PyTorch backend
+- Update `docs/workflows/pytorch.md` only if you also add a PyTorch generator
 
 ## Naming Conventions
 
-- Generator runs are labeled `pinn_<arch>` in grid-lines outputs (e.g., `pinn_cnn`, `pinn_fno`).
+- Generator runs are labeled `pinn_<arch>` in grid-lines outputs (e.g., `pinn_cnn` for TensorFlow).
 - The supervised baseline is labeled `baseline` (never aliased with `cnn`).
 
 ## API Contract
@@ -100,3 +103,4 @@ All generators must:
 - `ptycho/workflows/components.py`: Workflow integration via `resolve_generator`
 - `ptycho/model.py`: CNN model implementation
 - `docs/CONFIGURATION.md`: Configuration documentation
+- `docs/workflows/pytorch.md`: PyTorch workflow documentation
