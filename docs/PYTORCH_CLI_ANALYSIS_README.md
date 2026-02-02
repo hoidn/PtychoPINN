@@ -5,6 +5,9 @@
 **Total Documentation**: 1,314 lines across 3 comprehensive documents  
 **Scope**: train.py + inference.py CLI entry points with full config mapping
 
+**Practical guide:** For a hands-on, minimal path to load and run PyTorch inference
+(including state_dict-only models), see `ptycho_torch/README.md`.
+
 ---
 
 ## Document Suite Overview

@@ -42,6 +42,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** pytorch, lightning, mlflow, configuration, training  
 **Use this when:** Working on the `ptycho_torch/` stack or porting TensorFlow workflows to PyTorch.
 
+### [PyTorch Model Loading & Inference Guide](../ptycho_torch/README.md)
+**Description:** Practical guide to loading PyTorch models for inference, including the recommended CLI path and manual reconstruction from state_dict-only `model.pt` files.  
+**Keywords:** pytorch, inference, model-loading, state_dict, lightning, config-factory  
+**Use this when:** You need to run inference or benchmarks with PyTorch models and want a reliable, repeatable loading path.
+
 ### [Knowledge Base Ledger](findings.md)
 **Description:** Centralized record of critical discoveries, conventions, and recurring bugs, maintained as the agent's long-term memory.  
 **Keywords:** knowledge-base, lessons-learned, debugging, conventions  
