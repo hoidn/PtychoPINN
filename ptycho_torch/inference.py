@@ -342,15 +342,21 @@ def _run_inference_and_reconstruct(
             pass
     if gridsize and gridsize > 1:
         from ptycho_torch.raw_data_bridge import RawDataTorch
+        diff3d = raw_data.diff3d
+        if diff3d.ndim == 3:
+            if diff3d.shape[0] == diff3d.shape[1] and diff3d.shape[2] != diff3d.shape[0]:
+                diff3d = np.transpose(diff3d, (2, 0, 1))
+            elif diff3d.shape[-1] > max(diff3d.shape[0], diff3d.shape[1]):
+                diff3d = np.transpose(diff3d, (2, 0, 1))
 
         scan_index = getattr(raw_data, 'scan_index', None)
         if scan_index is None:
-            scan_index = np.zeros(raw_data.diff3d.shape[0], dtype=int)
+            scan_index = np.zeros(diff3d.shape[0], dtype=int)
 
         raw_torch = RawDataTorch(
             xcoords=raw_data.xcoords,
             ycoords=raw_data.ycoords,
-            diff3d=raw_data.diff3d,
+            diff3d=diff3d,
             probeGuess=raw_data.probeGuess,
             scan_index=scan_index,
             objectGuess=getattr(raw_data, 'objectGuess', None),
@@ -378,6 +384,13 @@ def _run_inference_and_reconstruct(
             positions = positions.permute(0, 3, 1, 2).contiguous()
 
         offsets = positions
+        coords_offsets_np = grouped.get('coords_offsets')
+        if coords_offsets_np is not None:
+            coords_offsets = torch.from_numpy(coords_offsets_np).to(device, dtype=torch.float32)
+            if coords_offsets.ndim == 4:
+                coords_offsets = coords_offsets.permute(0, 3, 1, 2).contiguous()
+            coords_abs = coords_offsets - positions
+            offsets = coords_abs - coords_abs.mean(dim=(0, 1, 2), keepdim=True)
     else:
         diffraction = torch.from_numpy(raw_data.diff3d).to(device, dtype=torch.float32)
 

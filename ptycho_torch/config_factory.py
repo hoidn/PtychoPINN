@@ -80,8 +80,8 @@ class TrainingPayload:
     pt_data_config: PTDataConfig  # PyTorch singleton
     pt_model_config: PTModelConfig  # PyTorch singleton
     pt_training_config: PTTrainingConfig  # PyTorch singleton
-    pt_inference_config: PTInferenceConfig  # PyTorch singleton
     execution_config: PyTorchExecutionConfig  # Execution knobs (Phase C2)
+    pt_inference_config: PTInferenceConfig = field(default_factory=PTInferenceConfig)  # PyTorch singleton
     overrides_applied: Dict[str, Any] = field(default_factory=dict)  # Audit trail
 
 
