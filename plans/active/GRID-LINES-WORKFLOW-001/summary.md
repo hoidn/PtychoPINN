@@ -1,3 +1,21 @@
+### Turn Summary (2026-02-04)
+Verified GPU availability via `nvidia-smi` (RTX 3090). Clean rerun of gs2_ideal (npseed=4, nan-check) still went NaN (first nan-check at epoch 11; intensity_scaler_inv_loss/loss/pred_intensity_loss) and failed at FRC with ValueError; no metrics.json/visuals produced. Seed sweeps remain unstable: seed1 NaN at epoch 42, seed2 at epoch 20, seed3 at epoch 19 (all fail at FRC with NaN predictions). 
+Artifacts: .artifacts/sim_lines_4x_metrics_2026-01-27/gs2_ideal/run.log; .artifacts/sim_lines_4x_metrics_2026-01-27/gs2_ideal_seed{1,2,3}/run.log
+
+### Turn Summary (2026-02-04)
+Updated `paper/data/sim_lines_4x_metrics.json` with refreshed gs1_ideal metrics and new gs2_ideal (NLL-only) metrics, then regenerated the LaTeX table.
+Artifacts: .artifacts/sim_lines_4x_metrics_2026-01-27/gs1_ideal/metrics.json; .artifacts/sim_lines_4x_metrics_2026-01-27/gs2_ideal_nll/metrics.json
+
+### Turn Summary (2026-02-04)
+Reran gs2_ideal with NLL-only loss (mae_weight=0.0, nll_weight=1.0, npseed=4, nan-check). Run completed without NaNs; metrics.json and visuals produced. Warnings noted: FRC divide-by-zero and MS-SSIM negative clamp. 
+Artifacts: .artifacts/sim_lines_4x_metrics_2026-01-27/gs2_ideal_nll/metrics.json; .artifacts/sim_lines_4x_metrics_2026-01-27/gs2_ideal_nll/visuals/compare_amp_phase.png; .artifacts/sim_lines_4x_metrics_2026-01-27/gs2_ideal_nll/run.log
+
+### Turn Summary (2026-01-30)
+Added probe mask metadata persistence and short-circuited workflow tests to validate masking without running training.
+Added a metadata persistence test for probe_mask_diameter and updated the probe mask workflow test to stop after simulation.
+Ran pytest for grid_lines_workflow (18/18 passed) and attempted pytest -m integration (failed with KeyError: intensity_scale in training script).
+Artifacts: plans/active/GRID-LINES-WORKFLOW-001/reports/2026-01-30T232747Z/
+
 ### Turn Summary (2026-01-28)
 Assessed initiative near-complete: all plan tasks implemented, TF tests 15/15, Torch runner 21/23 (2 fixture failures). Delegated fixture fix to Ralph.
 Artifacts: plans/active/GRID-LINES-WORKFLOW-001/reports/2026-01-28T000000Z/
