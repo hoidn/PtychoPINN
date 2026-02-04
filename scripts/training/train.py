@@ -290,10 +290,10 @@ def parse_arguments():
                        help="ReduceLROnPlateau min lr (only applies when --backend pytorch).")
     parser.add_argument("--torch-plateau-threshold", type=float, default=None,
                        help="ReduceLROnPlateau threshold (only applies when --backend pytorch).")
-    parser.add_argument("--torch-logger", type=str, default='csv',
+    parser.add_argument("--torch-logger", type=str, default='mlflow',
                        choices=['csv', 'tensorboard', 'mlflow', 'none'],
-                       help="Logger backend for PyTorch training (default: 'csv'). "
-                            "Options: 'csv' (zero deps), 'tensorboard', 'mlflow' (requires server), 'none' (disable). "
+                       help="Logger backend for PyTorch training (default: 'mlflow'). "
+                            "Options: 'mlflow' (requires server), 'csv' (zero deps), 'tensorboard', 'none' (disable). "
                             "See CONFIG-LOGGER-001. Only applies when --backend pytorch.")
     parser.add_argument("--torch-recon-log-every-n-epochs", type=int, default=None,
                        help="Log intermediate reconstructions every N epochs (default: disabled). "
@@ -433,7 +433,7 @@ def main() -> None:
                     num_workers=getattr(args, 'torch_num_workers', 0),
                     learning_rate=getattr(args, 'torch_learning_rate', None),
                     scheduler=getattr(args, 'torch_scheduler', 'Default'),
-                    logger_backend=getattr(args, 'torch_logger', 'csv'),
+                    logger_backend=getattr(args, 'torch_logger', 'mlflow'),
                     enable_checkpointing=getattr(args, 'torch_enable_checkpointing', True),
                     checkpoint_save_top_k=getattr(args, 'torch_checkpoint_save_top_k', 1),
                     accumulate_grad_batches=getattr(args, 'torch_accumulate_grad_batches', 1),

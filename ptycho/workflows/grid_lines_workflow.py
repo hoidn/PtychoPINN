@@ -48,6 +48,8 @@ class GridLinesConfig:
     probe_source: str = "custom"
     probe_scale_mode: str = "pad_extrapolate"
     set_phi: bool = False
+    npseed: int = 42
+    nan_check: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -203,6 +205,7 @@ def configure_legacy_params(cfg: GridLinesConfig, probe_np: np.ndarray) -> Train
         realspace_weight=cfg.realspace_weight,
     )
     update_legacy_dict(p.cfg, config)
+    p.set("npseed", cfg.npseed)
     p.set("set_phi", cfg.set_phi)
     p.set("data_source", "lines")
     p.set("size", cfg.size)
@@ -214,6 +217,11 @@ def configure_legacy_params(cfg: GridLinesConfig, probe_np: np.ndarray) -> Train
     p.set("nphotons", cfg.nphotons)
     p.set("sim_jitter_scale", 0.0)
     probe_mod.set_probe_guess(probe_guess=probe_np)
+    import random
+    import tensorflow as tf
+    np.random.seed(cfg.npseed)
+    random.seed(cfg.npseed)
+    tf.random.set_seed(cfg.npseed)
     return config
 
 
@@ -388,11 +396,31 @@ def stitch_predictions(predictions: np.ndarray, norm_Y_I: float, part: str = "am
 # ---------------------------------------------------------------------------
 
 
-def train_pinn_model(train_data):
+def train_pinn_model(train_data, nan_check: bool = False):
     """Train PtychoPINN model and return model + history."""
     from ptycho import train_pinn
 
-    model, history = train_pinn.train(train_data)
+    callbacks = []
+    if nan_check:
+        import tensorflow as tf
+
+        class NanWeightCallback(tf.keras.callbacks.Callback):
+            def on_epoch_end(self, epoch, logs=None):
+                nan_weights = []
+                for w in self.model.weights:
+                    arr = w.numpy()
+                    if np.isnan(arr).any():
+                        nan_weights.append(w.name)
+                if nan_weights:
+                    print(f"[nan-check] epoch={epoch + 1} nan_weights={len(nan_weights)}")
+                if logs:
+                    nan_logs = [k for k, v in logs.items() if isinstance(v, (int, float)) and np.isnan(v)]
+                    if nan_logs:
+                        print(f"[nan-check] epoch={epoch + 1} nan_logs={nan_logs}")
+
+        callbacks.append(NanWeightCallback())
+
+    model, history = train_pinn.train(train_data, extra_callbacks=callbacks)
     return model, history
 
 
@@ -744,7 +772,7 @@ def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
 
     # Step 4: Training
     print("[4/7] Training PINN model...")
-    pinn_model, _ = train_pinn_model(sim["train"]["container"])
+    pinn_model, _ = train_pinn_model(sim["train"]["container"], nan_check=cfg.nan_check)
     save_pinn_model(cfg)
 
     print("[4/7] Training Baseline model...")

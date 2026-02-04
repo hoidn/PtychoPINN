@@ -149,7 +149,7 @@ def build_execution_config_from_args(
     enable_progress_bar = not quiet_mode
 
     # Handle logger backend with deprecation (Phase EB3.B - ADR-003)
-    logger_backend_raw = getattr(args, 'logger_backend', 'csv')  # default to CSV
+    logger_backend_raw = getattr(args, 'logger_backend', 'mlflow')  # default to MLflow
     if getattr(args, 'disable_mlflow', False):
         # Emit deprecation warning for --disable_mlflow
         warnings.warn(

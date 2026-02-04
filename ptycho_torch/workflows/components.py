@@ -976,6 +976,7 @@ def _train_with_lightning(
             fixed_indices=execution_config.recon_log_fixed_indices,
             log_stitch=execution_config.recon_log_stitch,
             max_stitch_samples=execution_config.recon_log_max_stitch_samples,
+            metadata_path=getattr(config, "test_data_file", None),
         )
         callbacks.append(recon_cb)
         logger.info("Enabled recon logging callback (every %d epochs, %d patches, stitch=%s)",

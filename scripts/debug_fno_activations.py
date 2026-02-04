@@ -156,11 +156,23 @@ def _load_checkpoint(model: torch.nn.Module, checkpoint_path: str) -> None:
     # Lightning checkpoints wrap state_dict under 'state_dict' key with 'model.' prefix
     if "state_dict" in state:
         state = state["state_dict"]
-    cleaned = {}
-    for k, v in state.items():
-        new_key = k.removeprefix("model.")
-        cleaned[new_key] = v
-    model.load_state_dict(cleaned)
+    # Try multiple prefix-stripping strategies to match generator state_dict
+    # Lightning checkpoints: keys like "model.generator.lifter..." or "generator.lifter..."
+    prefixes_to_try = ["model.generator.", "generator.", "model.", ""]
+    for prefix in prefixes_to_try:
+        cleaned = {}
+        for k, v in state.items():
+            if k.startswith(prefix):
+                cleaned[k[len(prefix):]] = v
+        if cleaned:
+            try:
+                model.load_state_dict(cleaned, strict=True)
+                print(f"Loaded checkpoint from {checkpoint_path} ({len(cleaned)} keys, prefix='{prefix}')")
+                return
+            except RuntimeError:
+                continue
+    # Last resort: try as-is
+    model.load_state_dict(state)
     print(f"Loaded checkpoint from {checkpoint_path} ({len(cleaned)} keys)")
 
 

@@ -67,7 +67,7 @@ from ptycho import params
 from .loader import PtychoDataContainer
 from .image import reassemble_patches
 
-def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=None):
+def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=None, extra_callbacks=None):
     from . import params as p
     # Model requires intensity_scale to be defined to set the initial
     # value of the corresponding model parameter
@@ -91,7 +91,12 @@ def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=
 
     nepochs = params.cfg['nepochs']
     params.print_params()
-    return model_instance, model.train(nepochs, train_data, model_instance=model_instance)
+    return model_instance, model.train(
+        nepochs,
+        train_data,
+        model_instance=model_instance,
+        extra_callbacks=extra_callbacks,
+    )
 
 def train_eval(ptycho_dataset, model_instance=None):
     ## TODO reconstructed_obj -> pred_Y or something

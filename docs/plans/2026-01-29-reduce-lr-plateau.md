@@ -250,8 +250,122 @@ git commit -m "report: plateau scheduler A/B run"
 
 ---
 
+### Task 5: Multi-Seed Stage A Extension
+
+**Goal:** Extend Task 4’s single-seed comparison to three seeds so we can quantify scheduler stability, report loss-spike variance, and decide whether ReduceLROnPlateau is worth pursuing.
+
+**Files / Paths:**
+- Modify: `outputs/grid_lines_stage_a/arm_control_seed*/`, `outputs/grid_lines_stage_a/arm_plateau_seed*/`
+- Create: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T220000Z/` (logs + stats hub)
+- Use: `scripts/internal/stage_a_dump_stats.py`
+
+**Shared Seeds:** `SEEDS=(20260128 20260129 20260130)`
+
+**Step 1: Prep per-seed directories**
+
+```bash
+mkdir -p outputs/grid_lines_stage_a/arm_control_seed{A,B,C}/datasets
+mkdir -p outputs/grid_lines_stage_a/arm_plateau_seed{A,B,C}/datasets
+
+for seed in "${SEEDS[@]}"; do
+  rsync -a outputs/grid_lines_stage_a/arm_control/datasets/ \
+        outputs/grid_lines_stage_a/arm_control_seed"${seed}"/datasets/
+  rsync -a outputs/grid_lines_stage_a/arm_control/datasets/ \
+        outputs/grid_lines_stage_a/arm_plateau_seed"${seed}"/datasets/
+  rm -rf outputs/grid_lines_stage_a/arm_control_seed"${seed}"/runs
+  rm -rf outputs/grid_lines_stage_a/arm_plateau_seed"${seed}"/runs
+done
+
+mkdir -p plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T220000Z
+```
+
+**Step 2: Default (constant LR) arm per seed**
+
+```bash
+for seed in "${SEEDS[@]}"; do
+  log="plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T220000Z/stage_a_arm_control_seed${seed}.log"
+  python scripts/studies/grid_lines_compare_wrapper.py \
+    --N 64 --gridsize 1 --set-phi \
+    --output-dir outputs/grid_lines_stage_a/arm_control_seed"${seed}" \
+    --architectures hybrid \
+    --seed "${seed}" \
+    --nimgs-train 1 --nimgs-test 1 --nphotons 1e9 \
+    --nepochs 20 --torch-epochs 20 \
+    --torch-scheduler Default \
+    --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8 \
+    2>&1 | tee "${log}"
+done
+```
+
+**Step 3: ReduceLROnPlateau arm per seed**
+
+```bash
+for seed in "${SEEDS[@]}"; do
+  log="plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T220000Z/stage_a_arm_plateau_seed${seed}.log"
+  python scripts/studies/grid_lines_compare_wrapper.py \
+    --N 64 --gridsize 1 --set-phi \
+    --output-dir outputs/grid_lines_stage_a/arm_plateau_seed"${seed}" \
+    --architectures hybrid \
+    --seed "${seed}" \
+    --nimgs-train 1 --nimgs-test 1 --nphotons 1e9 \
+    --nepochs 20 --torch-epochs 20 \
+    --torch-scheduler ReduceLROnPlateau \
+    --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8 \
+    2>&1 | tee "${log}"
+done
+```
+
+**Step 4: Dump per-run stats**
+
+```bash
+for arm in control plateau; do
+  for seed in "${SEEDS[@]}"; do
+    run_dir="outputs/grid_lines_stage_a/arm_${arm}_seed${seed}/runs/pinn_hybrid"
+    python scripts/internal/stage_a_dump_stats.py \
+      --run-dir "${run_dir}" \
+      --out-json plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T220000Z/stage_a_arm_${arm}_seed${seed}_stats.json
+  done
+done
+```
+
+**Step 5: Aggregate to multi-seed summary**
+
+```bash
+python - <<'PY'
+import json, pathlib
+hub = pathlib.Path("plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T220000Z")
+summary = {"control": [], "plateau": []}
+for arm in summary:
+    for stats_file in sorted(hub.glob(f"stage_a_arm_{arm}_seed*_stats.json")):
+        data = json.loads(stats_file.read_text())
+        summary[arm].append({"seed": stats_file.stem.split('seed')[-1].split('_')[0], **data})
+hub.joinpath("stage_a_plateau_multiseed_summary.json").write_text(json.dumps(summary, indent=2))
+print(json.dumps(summary, indent=2))
+PY
+```
+
+Capture amp/phase SSIM deltas, `val_loss_best`, and any `has_nan` entries in `stage_a_plateau_multiseed_summary.json` for downstream docs.
+
+**Step 6: Sync documentation**
+- Append the multi-seed findings to `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md` (Phase 10 section) and `docs/strategy/mainstrategy.md` High-Priority Actions §2.
+- If Plateau reduces spike variance, add a new finding (e.g., STABLE-PLATEAU-001) to `docs/findings.md`; otherwise, document the negative result under STABLE-LS-001.
+- Update `docs/fix_plan.md` attempts history + FSM log with execution notes and reference the `2026-01-29T220000Z` artifacts hub.
+- Archive the aggregated stats summary (`stage_a_plateau_multiseed_summary.json`) and a short markdown recap (`stage_a_plateau_multiseed.md`) in the reports hub.
+
+**Step 7: Commit artifacts**
+
+```bash
+git add plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T220000Z/*.log \
+        plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T220000Z/*_stats.json \
+        plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T220000Z/stage_a_plateau_multiseed_summary.json \
+        plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md \
+        docs/strategy/mainstrategy.md docs/fix_plan.md docs/findings.md
+git commit -m "report: ReduceLROnPlateau multi-seed Stage A comparison"
+```
+
+---
+
 ## Execution Notes
 - Follow @superpowers:test-driven-development for each task.
 - Keep commits small and focused after each task.
 - Use `pytest <test> -v` for the exact tests listed above.
-

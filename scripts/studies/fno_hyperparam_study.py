@@ -33,8 +33,16 @@ def _phase_metric(metrics: Dict[str, Any], key: str) -> float | None:
         return None
 
 
-def _ensure_dataset(output_dir: Path, epochs: int, nimgs_train: int, nimgs_test: int) -> Tuple[Path, Path]:
-    dataset_dir = output_dir / "datasets" / f"N{DEFAULT_N}" / f"gs{DEFAULT_GRIDSIZE}"
+def _ensure_dataset(
+    output_dir: Path,
+    epochs: int,
+    nimgs_train: int,
+    nimgs_test: int,
+    N: int,
+    gridsize: int,
+    set_phi: bool,
+) -> Tuple[Path, Path]:
+    dataset_dir = output_dir / "datasets" / f"N{N}" / f"gs{gridsize}"
     train_npz = dataset_dir / "train.npz"
     test_npz = dataset_dir / "test.npz"
 
@@ -42,13 +50,14 @@ def _ensure_dataset(output_dir: Path, epochs: int, nimgs_train: int, nimgs_test:
         return train_npz, test_npz
 
     cfg = GridLinesConfig(
-        N=DEFAULT_N,
-        gridsize=DEFAULT_GRIDSIZE,
+        N=N,
+        gridsize=gridsize,
         output_dir=output_dir,
         probe_npz=DEFAULT_PROBE_NPZ,
         nimgs_train=nimgs_train,
         nimgs_test=nimgs_test,
         nepochs=epochs,
+        set_phi=set_phi,
     )
     run_grid_lines_workflow(cfg)
     return train_npz, test_npz
@@ -59,8 +68,8 @@ def _grid(light: bool, architectures: Iterable[str] | None = None) -> Iterable[T
         architectures = ["fno"] if light else ["hybrid", "fno"]
     else:
         architectures = list(architectures)
-    transforms = ["none"] if light else ["none", "log1p", "sqrt"]
-    modes = [12] if light else [12, 16, 24]
+    transforms = ["none"]
+    modes = [16, 32]
     widths = [32] if light else [32, 48, 64]
 
     for arch in architectures:
@@ -78,6 +87,9 @@ def run_sweep(
     ensure_data: bool = True,
     nimgs_train: int = 1,
     nimgs_test: int = 1,
+    N: int = DEFAULT_N,
+    gridsize: int = DEFAULT_GRIDSIZE,
+    set_phi: bool = False,
     enable_checkpointing: bool = False,
     torch_scheduler: str = "Default",
     torch_learning_rate: float = 1e-3,
@@ -92,12 +104,20 @@ def run_sweep(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    dataset_dir = output_dir / "datasets" / f"N{DEFAULT_N}" / f"gs{DEFAULT_GRIDSIZE}"
+    dataset_dir = output_dir / "datasets" / f"N{N}" / f"gs{gridsize}"
     train_npz = dataset_dir / "train.npz"
     test_npz = dataset_dir / "test.npz"
 
     if ensure_data:
-        train_npz, test_npz = _ensure_dataset(output_dir, epochs, nimgs_train, nimgs_test)
+        train_npz, test_npz = _ensure_dataset(
+            output_dir,
+            epochs,
+            nimgs_train,
+            nimgs_test,
+            N,
+            gridsize,
+            set_phi,
+        )
 
     results: List[Dict[str, Any]] = []
 
@@ -135,6 +155,8 @@ def run_sweep(
             plateau_patience=plateau_patience,
             plateau_min_lr=plateau_min_lr,
             plateau_threshold=plateau_threshold,
+            N=N,
+            gridsize=gridsize,
         )
 
         try:
@@ -212,6 +234,9 @@ def parse_args(argv=None):
     parser.add_argument("--light", action="store_true", help="Run a light sweep for validation")
     parser.add_argument("--nimgs-train", type=int, default=1)
     parser.add_argument("--nimgs-test", type=int, default=1)
+    parser.add_argument("--N", type=int, default=DEFAULT_N)
+    parser.add_argument("--gridsize", type=int, default=DEFAULT_GRIDSIZE)
+    parser.add_argument("--set-phi", action="store_true")
     parser.add_argument(
         "--architectures",
         type=str,
@@ -274,6 +299,9 @@ def main(argv=None) -> None:
         ensure_data=True,
         nimgs_train=args.nimgs_train,
         nimgs_test=args.nimgs_test,
+        N=args.N,
+        gridsize=args.gridsize,
+        set_phi=args.set_phi,
         enable_checkpointing=args.enable_checkpointing,
         torch_scheduler=args.torch_scheduler,
         torch_learning_rate=args.torch_learning_rate,

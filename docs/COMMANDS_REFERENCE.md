@@ -313,6 +313,14 @@ python scripts/compare_models.py \
     --output_dir comparison_out \
     --tike_recon_path tike_output/tike_reconstruction.npz
 
+# Optional metrics table (LaTeX/PDF/PNG when available)
+python scripts/compare_models.py \
+    --pinn_dir pinn_model/ \
+    --baseline_dir baseline_model/ \
+    --test_data test.npz \
+    --output_dir comparison_out \
+    --metrics-table
+
 # Complete training + comparison workflow
 ./scripts/run_comparison.sh train.npz test.npz output_dir
 

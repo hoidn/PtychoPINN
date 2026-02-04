@@ -79,8 +79,8 @@ def to_complex_patches(real_imag: np.ndarray) -> np.ndarray:
 @dataclass
 class TorchRunnerConfig:
     """Configuration for Torch grid-lines runner."""
-    train_npz: Path
-    test_npz: Path
+    train_npz: Optional[Path]
+    test_npz: Optional[Path]
     output_dir: Path
     architecture: str  # 'fno' or 'hybrid'
     seed: int = 42
@@ -118,7 +118,7 @@ class TorchRunnerConfig:
     plateau_min_lr: float = 1e-4
     plateau_threshold: float = 0.0
     # Recon logging
-    logger_backend: Optional[str] = None  # 'csv', 'mlflow', etc.
+    logger_backend: Optional[str] = 'mlflow'  # 'mlflow', 'csv', etc.
     recon_log_every_n_epochs: Optional[int] = None
     recon_log_num_patches: int = 4
     recon_log_fixed_indices: Optional[List[int]] = None
@@ -144,6 +144,16 @@ def load_cached_dataset(npz_path: Path) -> Dict[str, np.ndarray]:
         if key not in data:
             raise KeyError(f"Missing required key '{key}' in {npz_path}")
     return data
+
+
+def _validate_cli_args(args: argparse.Namespace) -> None:
+    """Validate CLI arguments based on sim backend selection."""
+    if args.sim_backend is None:
+        if args.train_npz is None or args.test_npz is None:
+            raise ValueError("train-npz and test-npz are required when sim-backend is unset.")
+        return
+    if args.probe_npz is None:
+        raise ValueError("probe-npz is required when sim-backend is set.")
 
 
 def load_cached_dataset_with_metadata(
@@ -676,10 +686,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Torch runner for grid-lines FNO/hybrid architectures"
     )
-    parser.add_argument("--train-npz", type=Path, required=True,
-                        help="Path to cached training NPZ")
-    parser.add_argument("--test-npz", type=Path, required=True,
-                        help="Path to cached test NPZ")
+    parser.add_argument("--train-npz", type=Path, required=False,
+                        help="Path to cached training NPZ (required without --sim-backend)")
+    parser.add_argument("--test-npz", type=Path, required=False,
+                        help="Path to cached test NPZ (required without --sim-backend)")
     parser.add_argument("--output-dir", type=Path, required=True,
                         help="Output directory for artifacts")
     parser.add_argument("--architecture", type=str, required=True,
@@ -751,9 +761,9 @@ def main() -> None:
     parser.add_argument("--plateau-threshold", type=float, default=0.0,
                         help="ReduceLROnPlateau threshold")
     # Recon logging CLI flags
-    parser.add_argument("--torch-logger", type=str, default=None,
+    parser.add_argument("--torch-logger", type=str, default='mlflow',
                         choices=["csv", "tensorboard", "mlflow", "none"],
-                        help="Logger backend (default: None)")
+                        help="Logger backend (default: mlflow)")
     parser.add_argument("--recon-log-every-n-epochs", type=int, default=None,
                         help="Log reconstructions every N epochs (default: disabled)")
     parser.add_argument("--recon-log-num-patches", type=int, default=4,
@@ -768,6 +778,8 @@ def main() -> None:
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
+
+    _validate_cli_args(args)
 
     seed = args.seed if args.seed is not None else random.SystemRandom().randrange(0, 2**32)
     if args.seed is None:

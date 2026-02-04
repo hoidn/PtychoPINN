@@ -28,6 +28,8 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--realspace-weight", type=float, default=0.0)
     parser.add_argument("--probe-smoothing-sigma", type=float, default=0.5)
     parser.add_argument("--probe-mask-diameter", type=int, default=None)
+    parser.add_argument("--npseed", type=int, default=42)
+    parser.add_argument("--nan-check", action="store_true")
     parser.add_argument(
         "--probe-source",
         choices=["custom", "ideal_disk"],
@@ -60,6 +62,8 @@ def build_config(args: argparse.Namespace) -> GridLinesConfig:
         probe_mask_diameter=args.probe_mask_diameter,
         probe_source=args.probe_source,
         probe_scale_mode=args.probe_scale_mode,
+        npseed=args.npseed,
+        nan_check=args.nan_check,
     )
 
 

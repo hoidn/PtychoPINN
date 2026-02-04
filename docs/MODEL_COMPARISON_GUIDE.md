@@ -13,6 +13,7 @@ Use this guide to pick the right entry point, reuse existing runs, and apply sam
 - Stitching: `--stitch-crop-size M` (default 20); `--fixed-canvas` to keep plots consistent across subsets by using full test-data coords.
 - Chunking/batching: `--pinn-chunk-size`, `--baseline-chunk-size`, `--pinn-predict-batch-size`, `--baseline-predict-batch-size`.
 - 3‑way: `--tike_recon_path <ptychi_or_tike_reconstruction.npz>`; auto-detected as PtyChi/Tike via metadata.
+- Reporting: `--metrics-table` to generate `metrics_table.tex` (and PDF/PNG when rendering tools are available).
 
 ## PtyChi Recon Recipe (example)
 ```
@@ -32,6 +33,7 @@ Then pass `tmp/ptychi_out/ptychi_reconstruction.npz` to `compare_models.py --tik
 - Model dirs: `pinn_run/`, `baseline_run/` with `wts.h5.zip` and logs.
 - Recon arms: `ptychi_run/` or `tike_run/` with `*reconstruction.npz`.
 - Compare outputs: `comparison_metrics.csv`, `comparison_plot.png`, `reconstructions.npz` and `reconstructions_aligned.npz`, `*_frc_curves.csv`, logs under `output_dir/logs/`.
+- Optional table: `metrics_table.tex` (+ `metrics_table.pdf`/`metrics_table.png` when enabled).
 
 ## Special Case: Run1084 Axis Fix for PtyChi
 Some Run1084 NPZs store diffraction as H×W×N. Transpose to N×H×W first:

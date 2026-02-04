@@ -88,6 +88,14 @@ class FakeModule(torch.nn.Module):
         return self
 
 
+class FakeModuleWithConfigs(FakeModule):
+    def __init__(self, N=8, C=1):
+        super().__init__()
+        from ptycho_torch.config_params import DataConfig, ModelConfig
+        self.data_config = DataConfig(N=N, C=C)
+        self.model_config = ModelConfig(C_forward=C)
+
+
 class FakeTrainer:
     def __init__(self, epoch=4, has_logger=True, is_global_zero=True, val_dl=None, train_dl=None):
         self.current_epoch = epoch
@@ -346,7 +354,10 @@ class TestStitchedLogging:
     def test_build_stitch_config_from_dataset_metadata(self):
         """Verify _build_stitch_config extracts config from dataset metadata."""
         dataset = FakeDataset(n=8)
-        dataset.metadata = {'N': 64, 'gridsize': 2, 'offset': 16, 'outer_offset_test': 8}
+        dataset.metadata = {
+            'physics_parameters': {'N': 64, 'gridsize': 2},
+            'additional_parameters': {'offset': 16, 'outer_offset_test': 8, 'nimgs_test': 8},
+        }
         val_dl = FakeValDataloader(dataset)
 
         cb = PtychoReconLoggingCallback()
@@ -356,6 +367,88 @@ class TestStitchedLogging:
         assert config['gridsize'] == 2
         assert config['offset'] == 16
         assert config['nimgs_test'] == 8
+
+    def test_build_stitch_config_from_metadata_manager(self, tmp_path):
+        """Verify _build_stitch_config uses MetadataManager when provided."""
+        from ptycho.metadata import MetadataManager
+
+        metadata = {
+            'physics_parameters': {'N': 32, 'gridsize': 1},
+            'additional_parameters': {'offset': 4, 'outer_offset_test': 6, 'nimgs_test': 7},
+        }
+        npz_path = tmp_path / "test_with_metadata.npz"
+        MetadataManager.save_with_metadata(str(npz_path), {'dummy': np.zeros((1,))}, metadata)
+
+        dataset = FakeDataset(n=4)
+        val_dl = FakeValDataloader(dataset)
+
+        cb = PtychoReconLoggingCallback(metadata_path=npz_path)
+        config = cb._build_stitch_config(val_dl)
+
+        assert config is not None
+        assert config['N'] == 32
+        assert config['gridsize'] == 1
+        assert config['offset'] == 4
+        assert config['outer_offset_test'] == 6
+        assert config['nimgs_test'] == 7
+
+    def test_stitched_logging_reorders_gridsize_channels(self, monkeypatch):
+        """Verify gridsize>1 channels are reordered before stitching."""
+        class GridDataset(FakeDataset):
+            def __getitem__(self, idx):
+                data, probe, scale = super().__getitem__(idx)
+                data["images"] = torch.randn(4, 8, 8)
+                data["coords_relative"] = torch.zeros(4, 1, 2)
+                return data, probe, scale
+
+        dataset = GridDataset(n=1, supervised=False)
+        dataset.metadata = {
+            'physics_parameters': {'N': 8, 'gridsize': 2},
+            'additional_parameters': {'offset': 0, 'outer_offset_test': 0, 'nimgs_test': 1},
+        }
+        val_dl = FakeValDataloader(dataset)
+        trainer = FakeTrainer(epoch=4, val_dl=val_dl)
+        module = FakeModuleWithConfigs(N=8, C=4)
+
+        captured = {}
+        def fake_reassemble(patches, config, **kwargs):
+            captured['shape'] = patches.shape
+            return np.zeros((1, 8, 8, 1), dtype=np.float32)
+
+        monkeypatch.setattr("ptycho.image.stitching.reassemble_patches", fake_reassemble)
+
+        cb = PtychoReconLoggingCallback(every_n_epochs=5, num_patches=1, log_stitch=True)
+        cb.on_validation_epoch_end(trainer, module)
+
+        assert captured['shape'] == (4, 8, 8, 1)
+
+    def test_stitched_logging_uses_position_when_grid_missing(self, monkeypatch):
+        """Verify position-based stitching when grid metadata is unavailable."""
+        import ptycho.params as params
+
+        monkeypatch.setattr(params, 'cfg', {}, raising=False)
+
+        dataset = FakeDataset(n=1, supervised=False)
+        val_dl = FakeValDataloader(dataset)
+        trainer = FakeTrainer(epoch=4, val_dl=val_dl)
+        module = FakeModuleWithConfigs(N=8, C=1)
+
+        called = {}
+        def fake_position_stitch(inputs, offsets_xy, data_config, model_config, **kwargs):
+            called['inputs_shape'] = tuple(inputs.shape)
+            called['offsets_shape'] = tuple(offsets_xy.shape)
+            return torch.zeros((inputs.shape[0], 8, 8), dtype=torch.complex64)
+
+        monkeypatch.setattr(
+            "ptycho_torch.helper.reassemble_patches_position_real",
+            fake_position_stitch,
+        )
+
+        cb = PtychoReconLoggingCallback(every_n_epochs=5, num_patches=1, log_stitch=True)
+        cb.on_validation_epoch_end(trainer, module)
+
+        assert called['inputs_shape'] == (1, 1, 8, 8)
+        assert called['offsets_shape'] == (1, 1, 1, 2)
 
     def test_build_stitch_config_returns_none_without_metadata(self):
         """Verify _build_stitch_config returns None when no metadata available."""

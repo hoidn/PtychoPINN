@@ -270,7 +270,7 @@ class PyTorchExecutionConfig:
     early_stop_patience: int = 100  # Early stopping patience epochs (hardcoded in legacy code)
 
     # Logging knobs (Phase EB3.B - ADR-003)
-    logger_backend: Optional[str] = 'csv'  # Experiment tracking backend: 'csv' (default), 'tensorboard', 'mlflow', or None
+    logger_backend: Optional[str] = 'mlflow'  # Experiment tracking backend: 'mlflow' (default), 'csv', 'tensorboard', or None
 
     # Reconstruction logging knobs (MLflow only)
     recon_log_every_n_epochs: Optional[int] = None  # Log intermediate reconstructions every N epochs (None = disabled)

@@ -4,7 +4,7 @@ This document provides guidance for integrating the PyTorch backend's logging ca
 
 ## Background
 
-As of Phase EB3 (ADR-003-BACKEND-API), the PyTorch training CLI (`ptycho_torch/train.py`) defaults to **CSV logging** via Lightning's `CSVLogger` backend. This captures training and validation metrics (loss values, learning rates, etc.) to disk without requiring external services like MLflow or TensorBoard.
+As of Phase EB3 (ADR-003-BACKEND-API), the PyTorch training CLI (`ptycho_torch/train.py`) defaults to **MLflow logging**. For CI workflows that should avoid external services, use `--logger csv` to capture training and validation metrics (loss values, learning rates, etc.) to disk without requiring MLflow or TensorBoard.
 
 For full context on logger configuration and policy decisions, see:
 - **Policy**: `docs/findings.md#CONFIG-LOGGER-001`
@@ -15,7 +15,7 @@ For full context on logger configuration and policy decisions, see:
 
 ### Default Behavior
 
-When `--logger csv` is specified (or omitted, as it's the default):
+When `--logger csv` is specified (recommended for CI):
 
 ```bash
 python -m ptycho_torch.train \
@@ -208,7 +208,7 @@ python -m ptycho_torch.train \
 
 | Use Case | Command | Artifacts Generated | Cleanup |
 |----------|---------|---------------------|---------|
-| **Full training with metrics** | `--logger csv` (default) | `lightning_logs/version_0/metrics.csv` | Keep CSV, delete checkpoints after upload |
+| **Full training with metrics** | `--logger csv` | `lightning_logs/version_0/metrics.csv` | Keep CSV, delete checkpoints after upload |
 | **Smoke test (no metrics needed)** | `--logger none --quiet` | None | No cleanup needed |
 | **Rich visualization (local)** | `--logger tensorboard` | TensorBoard event files | Upload entire `lightning_logs/` dir |
 | **Experiment tracking (production)** | `--logger mlflow` | MLflow server entries | Server-side retention policy |
@@ -217,10 +217,10 @@ python -m ptycho_torch.train \
 
 - **Logger backend field spec**: `specs/ptychodus_api_spec.md` §4.9 (PyTorchExecutionConfig.logger_backend)
 - **CLI flag documentation**: `docs/workflows/pytorch.md` §12 (Training Execution Flags, `--logger` row)
-- **Policy decision**: `docs/findings.md#CONFIG-LOGGER-001` (CSV default, allowed backends, deprecation policy)
+- **Policy decision**: `docs/findings.md#CONFIG-LOGGER-001` (MLflow default, allowed backends, deprecation policy)
 - **Smoke test evidence**: `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/smoke/2025-10-24T050500Z/summary.md`
 - **Implementation plan**: `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/plan.md` (Phase EB3)
 
 ---
 
-*Last updated: 2025-10-24 (Phase EB3.D2 completion)*
+*Last updated: 2026-01-31 (MLflow default update)*

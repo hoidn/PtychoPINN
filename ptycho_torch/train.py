@@ -628,13 +628,13 @@ Examples:
     parser.add_argument(
         '--logger',
         type=str,
-        default='csv',
+        default='mlflow',
         choices=['none', 'csv', 'tensorboard', 'mlflow'],
         dest='logger_backend',
         help=(
-            'Experiment tracking logger backend (default: csv). '
-            'Options: none (no logging), csv (Lightning CSVLogger), '
-            'tensorboard (TensorBoard via Lightning), mlflow (MLflow via Lightning). '
+            'Experiment tracking logger backend (default: mlflow). '
+            'Options: none (no logging), mlflow (MLflow via Lightning), '
+            'csv (Lightning CSVLogger), tensorboard (TensorBoard via Lightning). '
             'Loss metrics are logged to {output_dir}/lightning_logs/{version}/. '
             'Use --logger none if you only need progress suppression (no metrics).'
         )

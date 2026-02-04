@@ -285,6 +285,40 @@ class TestRunGridLinesTorchScaffold:
         assert recon_path.exists()
         assert "recon_path" in result
 
+    def test_runner_creates_visuals(self, synthetic_npz, tmp_path):
+        """Runner should generate post-run visuals from recon artifacts."""
+        train_path, test_path = synthetic_npz
+        output_dir = tmp_path / "output"
+
+        cfg = TorchRunnerConfig(
+            train_npz=train_path,
+            test_npz=test_path,
+            output_dir=output_dir,
+            architecture="fno",
+            epochs=1,
+        )
+
+        gt_complex = np.load(test_path, allow_pickle=True)["YY_ground_truth"].astype(np.complex64)
+
+        with patch('scripts.studies.grid_lines_torch_runner.run_torch_training') as mock_train:
+            mock_train.return_value = {
+                'model': None,
+                'history': {},
+                'generator': 'fno',
+                'scaffold': True,
+            }
+            with patch('scripts.studies.grid_lines_torch_runner.run_torch_inference') as mock_infer:
+                mock_infer.return_value = gt_complex
+                with patch('scripts.studies.grid_lines_torch_runner.compute_metrics') as mock_metrics:
+                    mock_metrics.return_value = {'mse': 0.1}
+                    with patch('scripts.studies.grid_lines_torch_runner._stitch_for_metrics') as mock_stitch:
+                        mock_stitch.side_effect = lambda preds, *_args, **_kwargs: preds
+                        run_grid_lines_torch(cfg)
+
+        visuals_dir = output_dir / "visuals"
+        assert (visuals_dir / "amp_phase_pinn_fno.png").exists()
+        assert (visuals_dir / "compare_amp_phase.png").exists()
+
     def test_runner_reports_model_params_and_inference_time(self, synthetic_npz, tmp_path):
         """Runner should report model params and inference time."""
         train_path, test_path = synthetic_npz

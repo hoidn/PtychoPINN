@@ -622,7 +622,7 @@ def prepare_outputs(train_data: PtychoDataContainer):
                 (p.get('intensity_scale') * train_data.X)**2]
 
 #def train(epochs, X_train, coords_train, Y_obj_train):
-def train(epochs, trainset: PtychoDataContainer, model_instance=None, use_streaming=None):
+def train(epochs, trainset: PtychoDataContainer, model_instance=None, use_streaming=None, extra_callbacks=None):
     """Train the ptychography model.
 
     Args:
@@ -653,6 +653,9 @@ def train(epochs, trainset: PtychoDataContainer, model_instance=None, use_stream
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                   patience=2, min_lr=0.0001, verbose=1)
     earlystop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
+    callbacks = [reduce_lr, earlystop]
+    if extra_callbacks:
+        callbacks.extend(extra_callbacks)
 
     checkpoints = tf.keras.callbacks.ModelCheckpoint(
                             '%s/weights.{epoch:02d}.h5' % wt_path,
@@ -670,7 +673,7 @@ def train(epochs, trainset: PtychoDataContainer, model_instance=None, use_stream
             dataset,
             epochs=epochs,
             verbose=1,
-            callbacks=[reduce_lr, earlystop]
+            callbacks=callbacks
         )
     else:
         # Standard mode for smaller datasets (current behavior)
@@ -679,7 +682,7 @@ def train(epochs, trainset: PtychoDataContainer, model_instance=None, use_stream
             prepare_outputs(trainset),
             shuffle=True, batch_size=batch_size, verbose=1,
             epochs=epochs, validation_split=0.05,
-            callbacks=[reduce_lr, earlystop])
+            callbacks=callbacks)
 
     return history
 import numpy as np
