@@ -143,7 +143,7 @@ class TestWorkflowsComponentsScaffold:
         # (training path tested separately in TestWorkflowsComponentsTraining)
 
         # Monkeypatch train_cdi_model_torch to prevent full training execution in this test
-        def mock_train_cdi_model_torch(train_data, test_data, config):
+        def mock_train_cdi_model_torch(train_data, test_data, config, execution_config=None):
             """Minimal stub to prevent full training in scaffold test."""
             return {"history": {"train_loss": [0.5]}, "train_container": None, "test_container": None}
 
@@ -340,7 +340,7 @@ class TestWorkflowsComponentsTraining:
             # In Phase D2.B implementation, this would be a real container
             return {"X": np.ones((2, 64, 64)), "Y": np.ones((2, 64, 64), dtype=np.complex64)}
 
-        def mock_lightning_orchestrator(train_container, test_container, config):
+        def mock_lightning_orchestrator(train_container, test_container, config, execution_config=None):
             """Spy that records Lightning trainer invocation."""
             lightning_trainer_called["called"] = True
             lightning_trainer_called["config"] = config
@@ -951,10 +951,10 @@ class TestWorkflowsComponentsRun:
         # Spy flag to track train_cdi_model_torch invocation
         train_cdi_model_torch_called = {"called": False, "args": None}
 
-        def mock_train_cdi_model_torch(train_data, test_data, config):
+        def mock_train_cdi_model_torch(train_data, test_data, config, execution_config=None):
             """Spy that records train_cdi_model_torch invocation."""
             train_cdi_model_torch_called["called"] = True
-            train_cdi_model_torch_called["args"] = (train_data, test_data, config)
+            train_cdi_model_torch_called["args"] = (train_data, test_data, config, execution_config)
             # Return minimal training results dict
             return {
                 "history": {"train_loss": [0.5, 0.3]},
@@ -986,7 +986,7 @@ class TestWorkflowsComponentsRun:
         )
 
         # Validate correct arguments passed
-        train_data_arg, test_data_arg, config_arg = train_cdi_model_torch_called["args"]
+        train_data_arg, test_data_arg, config_arg, exec_cfg_arg = train_cdi_model_torch_called["args"]
         assert train_data_arg is dummy_raw_data
         assert test_data_arg is None
         assert config_arg is minimal_training_config
@@ -1050,7 +1050,7 @@ class TestWorkflowsComponentsRun:
         )
 
         # Monkeypatch train_cdi_model_torch to return minimal results with models
-        def mock_train_cdi_model_torch(train_data, test_data, config):
+        def mock_train_cdi_model_torch(train_data, test_data, config, execution_config=None):
             """Return stub results including models dict for persistence."""
             return {
                 "history": {"train_loss": [0.5, 0.3]},
@@ -1450,6 +1450,8 @@ class TestTrainWithLightningRed:
 
         # Monkeypatch Lightning module to prevent import errors
         class StubLightningModule:
+            automatic_optimization = True
+
             def save_hyperparameters(self):
                 pass
 
@@ -1530,6 +1532,8 @@ class TestTrainWithLightningRed:
 
         # Stub Lightning module with sentinel identity
         class StubLightningModule:
+            automatic_optimization = True
+
             def save_hyperparameters(self):
                 pass
 
@@ -1732,6 +1736,9 @@ class TestReassembleCdiImageTorchGreen:
                 imag = torch.ones(batch_size, C, self.N, self.N, dtype=torch.float32) * 0.5
                 return torch.complex(real, imag)
 
+            def forward_predict(self, X, *args, **kwargs):
+                return self.forward(X)
+
         return MockLightningModule(
             N=64,
             gridsize=minimal_training_config.model.gridsize
@@ -1927,7 +1934,7 @@ class TestReassembleCdiImageTorchGreen:
         update_legacy_dict(params.cfg, minimal_training_config)
 
         # Monkeypatch _train_with_lightning to return mock results with Lightning module
-        def mock_train_with_lightning(train_container, test_container, config):
+        def mock_train_with_lightning(train_container, test_container, config, execution_config=None):
             """Stub that returns train_results with mock Lightning module."""
             # Return the stitch_train_results fixture enriched with containers
             results = stitch_train_results.copy()
@@ -2559,6 +2566,8 @@ class TestTrainWithLightningGreen:
 
         # Monkeypatch Lightning module to prevent errors
         class StubLightningModule:
+            automatic_optimization = True
+
             def save_hyperparameters(self):
                 pass
 
@@ -2655,6 +2664,8 @@ class TestTrainWithLightningGreen:
 
         # Monkeypatch Lightning module
         class StubLightningModule:
+            automatic_optimization = True
+
             def save_hyperparameters(self):
                 pass
 
@@ -3167,26 +3178,17 @@ class TestLightningExecutionConfig:
 
         from ptycho_torch.workflows.components import _train_with_lightning
 
-        # Patch Trainer at import site
+        # Patch Trainer at import site and assert EXEC-ACCUM-001 guard fires before Trainer init
         with patch('lightning.pytorch.Trainer', mock_trainer_cls):
-            try:
+            with pytest.raises(RuntimeError, match="accumulate_grad_batches"):
                 _train_with_lightning(
                     train_container=mock_train_container,
                     test_container=mock_test_container,
                     config=minimal_training_config_with_val,
                     execution_config=exec_config,
                 )
-            except Exception:
-                pass  # May fail during training; we only care about Trainer instantiation
 
-        # GREEN Phase Assertion:
-        # Trainer should receive accumulate_grad_batches from execution_config.accum_steps
-        assert mock_trainer_cls.called, "Trainer not instantiated"
-        trainer_kwargs = mock_trainer_cls.call_args.kwargs
-        assert 'accumulate_grad_batches' in trainer_kwargs, \
-            "accumulate_grad_batches not passed to Trainer"
-        assert trainer_kwargs['accumulate_grad_batches'] == 4, \
-            f"Expected accumulate_grad_batches=4, got {trainer_kwargs['accumulate_grad_batches']}"
+        assert not mock_trainer_cls.called, "Trainer should not instantiate when accum_steps > 1"
 
     def test_monitor_uses_val_loss_name(self, minimal_training_config_with_val, monkeypatch):
         """

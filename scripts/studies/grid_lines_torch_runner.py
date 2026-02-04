@@ -184,6 +184,9 @@ def _configure_stitching_params(cfg: TorchRunnerConfig, metadata: Optional[Dict[
 
     p.cfg["N"] = cfg.N
     p.cfg["gridsize"] = cfg.gridsize
+    p.cfg.setdefault("data_source", "lines")
+    p.cfg.setdefault("realspace_mae_weight", 0.0)
+    p.cfg.setdefault("realspace_weight", 0.0)
     p.set("nimgs_test", nimgs_test)
     p.set("outer_offset_test", outer_offset_test)
 

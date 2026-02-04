@@ -120,6 +120,15 @@ def _infer_probe_size(npz_file):
 
     try:
         with zipfile.ZipFile(npz_file) as archive:
+            def _read_array_header(npy, version):
+                if hasattr(np.lib.format, '_read_array_header'):
+                    return np.lib.format._read_array_header(npy, version)
+                if version == (1, 0):
+                    return np.lib.format.read_array_header_1_0(npy)
+                if version == (2, 0):
+                    return np.lib.format.read_array_header_2_0(npy)
+                return np.lib.format.read_array_header_1_0(npy)
+
             # Search for probeGuess key in NPZ archive
             for name in archive.namelist():
                 if name.startswith('probeGuess') and name.endswith('.npy'):
@@ -127,7 +136,7 @@ def _infer_probe_size(npz_file):
                     npy = archive.open(name)
                     # Read array header without loading data
                     version = np.lib.format.read_magic(npy)
-                    shape, _, _ = np.lib.format._read_array_header(npy, version)
+                    shape, _, _ = _read_array_header(npy, version)
                     # Return first dimension (probe is typically N x N)
                     return shape[0]
 
@@ -512,6 +521,74 @@ def main_lightning(
     return model, trainer, run_dir
 
 
+def _log_patch_stats_from_training(results, payload, execution_config, output_dir, limit=None, quiet=False):
+    """
+    Emit patch-level statistics artifacts after training.
+
+    Uses the trained Lightning module to generate amplitude patches for a few
+    batches and writes torch_patch_stats.json + torch_patch_grid.png under
+    <output_dir>/analysis.
+    """
+    from ptycho_torch.patch_stats_instrumentation import PatchStatsLogger
+    from ptycho_torch.workflows.components import _build_lightning_dataloaders
+
+    try:
+        import torch
+    except ImportError as e:
+        print(f"Patch stats logging skipped: torch unavailable ({e})")
+        return
+
+    if not results or 'train_container' not in results or 'models' not in results:
+        print("Patch stats logging skipped: missing training results or model.")
+        return
+
+    model = results['models'].get('diffraction_to_obj')
+    train_container = results.get('train_container')
+    if model is None or train_container is None:
+        print("Patch stats logging skipped: missing model or train_container.")
+        return
+
+    # Build a train loader for a small forward pass
+    train_loader, _ = _build_lightning_dataloaders(
+        train_container, None, payload.tf_training_config, payload
+    )
+
+    analysis_dir = Path(output_dir) / "analysis"
+    patch_logger = PatchStatsLogger(output_dir=analysis_dir, enabled=True, limit=limit)
+
+    device_map = {
+        'cpu': 'cpu',
+        'gpu': 'cuda',
+        'cuda': 'cuda',
+        'mps': 'mps',
+        'auto': 'cuda' if torch.cuda.is_available() else 'cpu',
+    }
+    device = device_map.get(getattr(execution_config, 'accelerator', 'cpu'), 'cpu')
+    model.to(device)
+    model.eval()
+
+    with torch.no_grad():
+        for batch_idx, batch in enumerate(train_loader):
+            if not patch_logger.should_log():
+                break
+            data_dict, probe, _scale = batch
+            images = data_dict['images'].to(device)
+            coords = data_dict['coords_relative'].to(device)
+            rms_scale = data_dict['rms_scaling_constant'].to(device)
+            exp_ids = data_dict['experiment_id'].to(device)
+
+            probe_t = probe.to(device) if hasattr(probe, 'to') else probe
+            _pred_diff, amp_pred, _phase_pred = model(
+                images, coords, probe_t, rms_scale, rms_scale, exp_ids
+            )
+            patch_logger.log_batch(amp_pred, phase="train", batch_idx=batch_idx)
+
+    patch_logger.finalize()
+
+    if not quiet:
+        print(f"✓ Patch stats artifacts saved to {analysis_dir}")
+
+
 def cli_main():
     """
     CLI entrypoint for PyTorch training workflow (Phase E2.C1).
@@ -559,6 +636,23 @@ Examples:
                        help='[DEPRECATED] Use --logger none instead. Disable all experiment tracking loggers.')
     parser.add_argument('--quiet', action='store_true',
                        help='Suppress progress bars and verbose output')
+    parser.add_argument(
+        '--log-patch-stats',
+        action='store_true',
+        help=(
+            'Enable patch statistics instrumentation (writes torch_patch_stats.json and '
+            'torch_patch_grid.png under <output_dir>/analysis).'
+        )
+    )
+    parser.add_argument(
+        '--patch-stats-limit',
+        type=int,
+        default=None,
+        help=(
+            'Maximum number of batches to log for patch stats (default: None = unlimited). '
+            'Use small values (1-4) for fast diagnostics.'
+        )
+    )
     parser.add_argument(
         '--torch-loss-mode',
         type=str,
@@ -814,6 +908,8 @@ Examples:
             'gridsize': args.gridsize,
             'max_epochs': args.max_epochs,
             'torch_loss_mode': args.torch_loss_mode,
+            'log_patch_stats': args.log_patch_stats,
+            'patch_stats_limit': args.patch_stats_limit,
         }
         if test_data_file:
             overrides['test_data_file'] = test_data_file
@@ -872,6 +968,19 @@ Examples:
 
             print(f"✓ Training completed successfully. Outputs saved to {output_dir}")
             print(f"✓ Model bundle saved to {output_dir}/wts.h5.zip")
+
+            if args.log_patch_stats:
+                try:
+                    _log_patch_stats_from_training(
+                        results=results,
+                        payload=payload,
+                        execution_config=execution_config,
+                        output_dir=output_dir,
+                        limit=args.patch_stats_limit,
+                        quiet=args.quiet,
+                    )
+                except Exception as e:
+                    print(f"WARNING: Patch stats logging failed: {e}")
 
         except Exception as e:
             print(f"Training failed: {str(e)}")

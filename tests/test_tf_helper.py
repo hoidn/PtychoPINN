@@ -38,7 +38,7 @@ class TestReassemblePosition(unittest.TestCase):
         tf.random.set_seed(42)
         # Clear and properly initialize params to avoid validation errors
         p.cfg.clear()
-        config = TrainingConfig(model=ModelConfig(gridsize=2, N=64))
+        config = TrainingConfig(model=ModelConfig(gridsize=2, N=32))
         update_legacy_dict(p.cfg, config)
         # Set required params that aren't in modern config
         p.cfg['data_source'] = 'generic'

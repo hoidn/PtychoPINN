@@ -291,7 +291,15 @@ def save_individual_reconstructions(obj_amp, obj_phase, output_dir):
     print(f"Saved phase reconstruction to: {phase_path}")
 
 
-def _run_inference_and_reconstruct(model, raw_data, config, execution_config, device, quiet=False):
+def _run_inference_and_reconstruct(
+    model,
+    raw_data,
+    config,
+    execution_config,
+    device,
+    quiet=False,
+    patch_stats_logger=None,
+):
     """
     Extract inference logic into testable helper function (Phase D.C C3).
 
@@ -321,21 +329,74 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     model.eval()
 
     # DTYPE ENFORCEMENT (Phase D1d): Cast to float32 per DATA-001
-    diffraction = torch.from_numpy(raw_data.diff3d).to(device, dtype=torch.float32)
     probe = torch.from_numpy(raw_data.probeGuess).to(device, dtype=torch.complex64)
 
-    # Handle different diffraction shapes (H, W, n) vs (n, H, W)
-    # Auto-detect legacy (H, W, n) format where the last dim (n) is the largest
-    if diffraction.ndim == 3 and diffraction.shape[-1] > max(diffraction.shape[0], diffraction.shape[1]):
-        # Transpose from (H, W, n) to (n, H, W)
-        diffraction = diffraction.permute(2, 0, 1)
+    gridsize = getattr(getattr(config, 'model', None), 'gridsize', 1)
+    if not gridsize or gridsize == 1:
+        try:
+            from ptycho import params as p
+            cfg_gridsize = p.cfg.get('gridsize', None)
+            if cfg_gridsize:
+                gridsize = int(cfg_gridsize)
+        except Exception:
+            pass
+    if gridsize and gridsize > 1:
+        from ptycho_torch.raw_data_bridge import RawDataTorch
 
-    # Limit to n_groups
-    diffraction = diffraction[:config.n_groups]
+        scan_index = getattr(raw_data, 'scan_index', None)
+        if scan_index is None:
+            scan_index = np.zeros(raw_data.diff3d.shape[0], dtype=int)
 
-    # Add channel dimension if needed: (n, H, W) -> (n, 1, H, W)
-    if diffraction.ndim == 3:
-        diffraction = diffraction.unsqueeze(1)
+        raw_torch = RawDataTorch(
+            xcoords=raw_data.xcoords,
+            ycoords=raw_data.ycoords,
+            diff3d=raw_data.diff3d,
+            probeGuess=raw_data.probeGuess,
+            scan_index=scan_index,
+            objectGuess=getattr(raw_data, 'objectGuess', None),
+            config=config,
+        )
+
+        nsamples = int(config.n_groups) if config.n_groups is not None else raw_data.diff3d.shape[0]
+        grouped = raw_torch.generate_grouped_data(
+            N=int(raw_data.diff3d.shape[1]),
+            K=getattr(config, 'neighbor_count', 4),
+            nsamples=nsamples,
+            gridsize=gridsize,
+        )
+
+        diffraction_np = grouped.get('X_full', None)
+        if diffraction_np is None:
+            diffraction_np = grouped.get('diffraction')
+        diffraction = torch.from_numpy(diffraction_np).to(device, dtype=torch.float32)
+        if diffraction.ndim == 4:
+            diffraction = diffraction.permute(0, 3, 1, 2).contiguous()
+
+        positions_np = grouped.get('coords_relative')
+        positions = torch.from_numpy(positions_np).to(device, dtype=torch.float32)
+        if positions.ndim == 4:
+            positions = positions.permute(0, 3, 1, 2).contiguous()
+
+        offsets = positions
+    else:
+        diffraction = torch.from_numpy(raw_data.diff3d).to(device, dtype=torch.float32)
+
+        # Handle different diffraction shapes (H, W, n) vs (n, H, W)
+        # Auto-detect legacy (H, W, n) format where the last dim (n) is the largest
+        if diffraction.ndim == 3 and diffraction.shape[-1] > max(diffraction.shape[0], diffraction.shape[1]):
+            # Transpose from (H, W, n) to (n, H, W)
+            diffraction = diffraction.permute(2, 0, 1)
+
+        # Limit to n_groups
+        diffraction = diffraction[:config.n_groups]
+
+        # Add channel dimension if needed: (n, H, W) -> (n, 1, H, W)
+        if diffraction.ndim == 3:
+            diffraction = diffraction.unsqueeze(1)
+
+        # Prepare positions (API requires it), real offsets computed for reassembly below
+        batch_size = diffraction.shape[0]
+        positions = torch.zeros((batch_size, 1, 1, 2), device=device)
 
     # Ensure probe is complex64
     if not torch.is_complex(probe):
@@ -345,18 +406,22 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     if probe.ndim == 2:
         probe = probe.unsqueeze(0).unsqueeze(0).unsqueeze(0)  # (1, 1, 1, H, W)
 
-    # Prepare positions (API requires it), real offsets computed for reassembly below
+    # Prepare positions and sizes
     batch_size = diffraction.shape[0]
     N = diffraction.shape[-1]
-    positions = torch.zeros((batch_size, 1, 1, 2), device=device)
+    if 'positions' not in locals():
+        positions = torch.zeros((batch_size, 1, 1, 2), device=device)
 
     # Prepare scaling factors (match training normalization)
     from ptycho_torch import helper as hh
     from ptycho_torch.config_params import DataConfig as PTDataConfig
 
-    data_cfg_norm = PTDataConfig(N=int(N), grid_size=(1, 1))
-    rms_scale = hh.get_rms_scaling_factor(diffraction.squeeze(1), data_cfg_norm)
-    physics_scale = hh.get_physics_scaling_factor(diffraction.squeeze(1), data_cfg_norm)
+    data_cfg_norm = PTDataConfig(N=int(N), grid_size=(gridsize, gridsize) if gridsize else (1, 1))
+    diffraction_for_scale = diffraction
+    if diffraction_for_scale.ndim == 4 and diffraction_for_scale.shape[1] == 1:
+        diffraction_for_scale = diffraction_for_scale.squeeze(1)
+    rms_scale = hh.get_rms_scaling_factor(diffraction_for_scale, data_cfg_norm)
+    physics_scale = hh.get_physics_scaling_factor(diffraction_for_scale, data_cfg_norm)
     if not isinstance(rms_scale, torch.Tensor):
         rms_scale = torch.from_numpy(rms_scale)
     if not isinstance(physics_scale, torch.Tensor):
@@ -384,12 +449,18 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
             input_scale_factor
         )
 
+    if patch_stats_logger is not None:
+        patch_stats_logger.log_batch(patch_complex, phase="inference", batch_idx=0)
+
     # Compute pixel offsets relative to center-of-mass (B, 1, 1, 2)
-    x = torch.from_numpy(raw_data.xcoords[:batch_size]).to(device=device, dtype=torch.float32)
-    y = torch.from_numpy(raw_data.ycoords[:batch_size]).to(device=device, dtype=torch.float32)
-    dx = x - torch.mean(x)
-    dy = y - torch.mean(y)
-    offsets = torch.stack([dx, dy], dim=-1).view(batch_size, 1, 1, 2)
+    if gridsize and gridsize > 1:
+        offsets = offsets  # (B, C, 1, 2) from grouped coords
+    else:
+        x = torch.from_numpy(raw_data.xcoords[:batch_size]).to(device=device, dtype=torch.float32)
+        y = torch.from_numpy(raw_data.ycoords[:batch_size]).to(device=device, dtype=torch.float32)
+        dx = x - torch.mean(x)
+        dy = y - torch.mean(y)
+        offsets = torch.stack([dx, dy], dim=-1).view(batch_size, 1, 1, 2)
 
     # Position-aware reassembly using torch helper to produce stitched canvas
     from ptycho_torch.config_params import DataConfig, ModelConfig
@@ -403,7 +474,10 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     model_cfg.C_forward = int(patch_complex.shape[1])
 
     # Compute dynamic canvas size to avoid clipping: M >= N + 2*max(|dx|, |dy|)
-    max_shift = torch.max(torch.stack([dx.abs(), dy.abs()], dim=0)).item()
+    if gridsize and gridsize > 1:
+        max_shift = offsets.abs().max().item()
+    else:
+        max_shift = torch.max(torch.stack([dx.abs(), dy.abs()], dim=0)).item()
     M = int(np.ceil(N + 2 * max_shift))
     imgs_merged, _, _ = hh.reassemble_patches_position_real(
         patch_complex, offsets, data_cfg, model_cfg, padded_size=M
@@ -418,6 +492,9 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
         print(f"Reconstruction shape: {result_amp.shape}")
         print(f"Amplitude range: [{result_amp.min():.4f}, {result_amp.max():.4f}]")
         print(f"Phase range: [{result_phase.min():.4f}, {result_phase.max():.4f}]")
+
+    if patch_stats_logger is not None:
+        patch_stats_logger.finalize()
 
     return result_amp, result_phase
 
@@ -507,6 +584,23 @@ Examples:
         '--quiet',
         action='store_true',
         help='Suppress progress output'
+    )
+    parser.add_argument(
+        '--log-patch-stats',
+        action='store_true',
+        help=(
+            'Enable patch statistics instrumentation (writes torch_patch_stats.json and '
+            'torch_patch_grid.png under <output_dir>/analysis).'
+        )
+    )
+    parser.add_argument(
+        '--patch-stats-limit',
+        type=int,
+        default=None,
+        help=(
+            'Maximum number of batches to log for patch stats (default: None = unlimited). '
+            'Use small values (1-4) for fast diagnostics.'
+        )
     )
 
     # Execution config flags (Phase C4.C5 - ADR-003)
@@ -684,6 +778,15 @@ Examples:
 
     # --- Phase D.C C3: Delegate to inference helper ---
     try:
+        patch_stats_logger = None
+        if args.log_patch_stats:
+            from ptycho_torch.patch_stats_instrumentation import PatchStatsLogger
+            patch_stats_logger = PatchStatsLogger(
+                output_dir=output_dir / 'analysis',
+                enabled=True,
+                limit=args.patch_stats_limit,
+            )
+
         amplitude, phase = _run_inference_and_reconstruct(
             model=model,
             raw_data=raw_data,
@@ -691,6 +794,7 @@ Examples:
             execution_config=execution_config,
             device=device,
             quiet=args.quiet,
+            patch_stats_logger=patch_stats_logger,
         )
 
         # Save individual reconstructions (required by test contract)

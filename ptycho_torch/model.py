@@ -419,6 +419,21 @@ class Decoder_last(nn.Module):
 
         x2 = F.silu(x2) #05-20-2025 for now
 
+        if x2.shape[-2:] != x1.shape[-2:]:
+            h1, w1 = x1.shape[-2:]
+            h2, w2 = x2.shape[-2:]
+            if h2 >= h1 and w2 >= w1:
+                top = (h2 - h1) // 2
+                left = (w2 - w1) // 2
+                x2 = x2[..., top:top + h1, left:left + w1]
+            else:
+                pad_h = max(0, h1 - h2)
+                pad_w = max(0, w1 - w2)
+                x2 = F.pad(
+                    x2,
+                    (pad_w // 2, pad_w - pad_w // 2, pad_h // 2, pad_h - pad_h // 2),
+                )
+
         outputs = x1 + x2
 
 

@@ -21,6 +21,11 @@ def _import_orchestrator_module():
     return module
 
 
+def _stub_generate_overlap_views(monkeypatch: pytest.MonkeyPatch) -> None:
+    import studies.fly64_dose_overlap.overlap as overlap_module
+    monkeypatch.setattr(overlap_module, "generate_overlap_views", lambda **kwargs: None)
+
+
 def _import_summarize_phase_g_outputs():
     """Import summarize_phase_g_outputs() from the orchestrator script using spec loader."""
     return _import_orchestrator_module().summarize_phase_g_outputs
@@ -85,7 +90,7 @@ def test_run_phase_g_dense_collect_only_generates_commands(tmp_path: Path, monke
 
     # Check for specific command keywords
     assert "studies.fly64_dose_overlap.generation" in stdout, "Missing generation module in command output"
-    assert "studies.fly64_dose_overlap.overlap" in stdout, "Missing overlap module in command output"
+    assert "__PHASE_D_PROGRAMMATIC__" in stdout, "Missing programmatic Phase D marker in command output"
     assert "studies.fly64_dose_overlap.training" in stdout, "Missing training module in command output"
     assert "studies.fly64_dose_overlap.reconstruction" in stdout, "Missing reconstruction module in command output"
     assert "studies.fly64_dose_overlap.comparison" in stdout, "Missing comparison module in command output"
@@ -220,6 +225,7 @@ def test_run_phase_g_dense_post_verify_hooks(tmp_path: Path, monkeypatch: pytest
     monkeypatch.setattr(module, "validate_phase_c_metadata", stub_validate_phase_c_metadata)
     monkeypatch.setattr(module, "summarize_phase_g_outputs", stub_summarize_phase_g_outputs)
     monkeypatch.setattr(module, "generate_artifact_inventory", stub_generate_artifact_inventory)
+    _stub_generate_overlap_views(monkeypatch)
 
     # Record run_command invocations
     run_command_calls = []
@@ -279,7 +285,7 @@ def test_run_phase_g_dense_post_verify_hooks(tmp_path: Path, monkeypatch: pytest
 
     # Assert: run_command should have been called for all phases + reporting helper + analyze digest + ssim_grid + post-verify (2 commands)
     # Expected: 1 Phase C + 1 Phase D + 2 Phase E + 2 Phase F + 2 Phase G + 1 reporting + 1 analyze + 1 ssim_grid + 2 post-verify = 13 total
-    assert len(run_command_calls) >= 13, f"Expected at least 13 run_command calls (C/D/E/F/G phases + reporting + analyze + ssim_grid + post-verify), got {len(run_command_calls)}"
+    assert len(run_command_calls) >= 12, f"Expected at least 12 run_command calls (C/E/F/G phases + reporting + analyze + ssim_grid + post-verify), got {len(run_command_calls)}"
 
     # Find ssim_grid, verify, and check command indices
     ssim_grid_idx = None
@@ -1027,6 +1033,7 @@ def test_run_phase_g_dense_exec_invokes_reporting_helper(tmp_path: Path, monkeyp
     monkeypatch.setattr(module, "prepare_hub", stub_prepare_hub)
     monkeypatch.setattr(module, "validate_phase_c_metadata", stub_validate_phase_c_metadata)
     monkeypatch.setattr(module, "summarize_phase_g_outputs", stub_summarize_phase_g_outputs)
+    _stub_generate_overlap_views(monkeypatch)
 
     # Record run_command invocations
     run_command_calls = []
@@ -1154,6 +1161,7 @@ def test_run_phase_g_dense_exec_prints_highlights_preview(tmp_path: Path, monkey
     monkeypatch.setattr(module, "prepare_hub", stub_prepare_hub)
     monkeypatch.setattr(module, "validate_phase_c_metadata", stub_validate_phase_c_metadata)
     monkeypatch.setattr(module, "summarize_phase_g_outputs", stub_summarize_phase_g_outputs)
+    _stub_generate_overlap_views(monkeypatch)
 
     # Create deterministic highlights file when reporting helper is invoked
     def stub_run_command(cmd, log_path):
@@ -1372,6 +1380,7 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
     monkeypatch.setattr(module, "validate_phase_c_metadata", stub_validate_phase_c_metadata)
     monkeypatch.setattr(module, "summarize_phase_g_outputs", stub_summarize_phase_g_outputs)
     monkeypatch.setattr(module, "generate_artifact_inventory", stub_generate_artifact_inventory)
+    _stub_generate_overlap_views(monkeypatch)
 
     # Record run_command invocations
     run_command_calls = []

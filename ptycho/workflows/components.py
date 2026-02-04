@@ -730,6 +730,13 @@ def train_cdi_model(
     # Initialize probe
     probe.set_probe_guess(None, train_container.probe)
 
+    # Ensure intensity_scale is available before model construction.
+    # Model init reads params.cfg['intensity_scale'] via IntensityScaler.
+    from ptycho import params as p
+    if 'intensity_scale' not in p.cfg:
+        intensity_scale = train_pinn.calculate_intensity_scale(train_container)
+        p.set('intensity_scale', intensity_scale)
+
     # Resolve generator from config and build model
     # See ptycho/generators/README.md for adding new generators
     generator = resolve_generator(config)

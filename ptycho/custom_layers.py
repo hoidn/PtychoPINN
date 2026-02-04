@@ -190,10 +190,15 @@ class ReassemblePatchesLayer(layers.Layer):
         # This handles Translation layer shape variations robustly
         # The batched function automatically falls back to non-batched mode for small inputs
         batch_size = 64
-        fn_reassemble = hh.mk_reassemble_position_batched_real(
-            positions, batch_size=batch_size, padded_size=self.padded_size, N=self.N,
-            gridsize=self.gridsize
-        )
+        reassemble_kwargs = {
+            "batch_size": batch_size,
+            "N": self.N,
+            "gridsize": self.gridsize,
+        }
+        if self.padded_size is not None:
+            reassemble_kwargs["padded_size"] = self.padded_size
+
+        fn_reassemble = hh.mk_reassemble_position_batched_real(positions, **reassemble_kwargs)
 
         return hh.reassemble_patches(patches, fn_reassemble_real=fn_reassemble,
                                      N=self.N, gridsize=self.gridsize)

@@ -80,6 +80,7 @@ class TrainingPayload:
     pt_data_config: PTDataConfig  # PyTorch singleton
     pt_model_config: PTModelConfig  # PyTorch singleton
     pt_training_config: PTTrainingConfig  # PyTorch singleton
+    pt_inference_config: PTInferenceConfig  # PyTorch singleton
     execution_config: PyTorchExecutionConfig  # Execution knobs (Phase C2)
     overrides_applied: Dict[str, Any] = field(default_factory=dict)  # Audit trail
 
@@ -202,6 +203,8 @@ def create_training_payload(
     # Ensure downstream config updates see derived grid_size and channels
     overrides['grid_size'] = grid_size
     overrides['C'] = C
+    if 'neighbor_count' in overrides and 'K' not in overrides:
+        overrides['K'] = overrides['neighbor_count']
 
     #Going to use update_existing_config from ptycho_torch.config_params
     #The default settings are already set up to work in most use cases, so there's no point in instantiating 
@@ -217,18 +220,26 @@ def create_training_payload(
     # consistent with the grouping strategy. Fixes ADR-003 C4.D3 coords_relative mismatch.
     overrides['C_forward'] = C
     overrides['C_model'] = C
+    # Match TensorFlow default behavior (object_big=True) unless explicitly overridden.
+    overrides.setdefault('object_big', True)
 
     pt_model_config = PTModelConfig()
     update_existing_config(pt_model_config, overrides)
 
     # TrainingConfig: Extract training-specific fields from overrides
     overrides['nll'] = overrides.get('nll_weight', 1.0) > 0
+    if 'max_epochs' in overrides and 'epochs' not in overrides:
+        overrides['epochs'] = overrides['max_epochs']
     overrides['train_data_file'] = str(train_data_file)
     overrides['test_data_file'] = str(overrides['test_data_file']) if 'test_data_file' in overrides else None
     overrides['output_dir'] = str(output_dir)
 
     pt_training_config = PTTrainingConfig()
     update_existing_config(pt_training_config, overrides)
+
+    # InferenceConfig: capture patch stats knobs for downstream logging
+    pt_inference_config = PTInferenceConfig()
+    update_existing_config(pt_inference_config, overrides)
 
 
     # Step 4: Translate to TensorFlow canonical configs via config_bridge
@@ -291,6 +302,7 @@ def create_training_payload(
         pt_data_config=pt_data_config,
         pt_model_config=pt_model_config,
         pt_training_config=pt_training_config,
+        pt_inference_config=pt_inference_config,
         execution_config=execution_config,  # Now always PyTorchExecutionConfig instance
         overrides_applied=overrides_applied,
     )

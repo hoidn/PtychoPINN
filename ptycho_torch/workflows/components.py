@@ -296,7 +296,7 @@ def _build_lightning_dataloaders(
     train_container: Union['PtychoDataContainerTorch', Dict, 'PtychoDataset'],
     test_container: Optional[Union['PtychoDataContainerTorch', Dict, 'PtychoDataset']],
     config: Optional[TrainingConfig],
-    payload: Optional[TrainingPayload]
+    payload: Optional[TrainingPayload] = None,
 ):
     """
     Build PyTorch DataLoader instances from container data for Lightning training. This is training-specific,
@@ -1239,7 +1239,27 @@ def _reassemble_cdi_image_torch(
 
     # Step 5: Run inference to collect predictions and offsets
     obj_patches = []
-    global_offsets = test_container.global_offsets.clone()  # (n_samples, 1, 2, 1)
+    global_offsets = test_container.global_offsets.clone()
+    # Normalize to (n_samples, 1, 1, 2) for TensorFlow reassembly
+    if global_offsets.ndim == 4:
+        if global_offsets.shape[-1] == 1 and global_offsets.shape[-2] == 2:
+            global_offsets = global_offsets.permute(0, 1, 3, 2).contiguous()
+        elif global_offsets.shape[-1] != 2:
+            raise ValueError(
+                f"Unsupported global_offsets shape {tuple(global_offsets.shape)}; "
+                "expected last dim 2 or (.., 2, 1)."
+            )
+    elif global_offsets.ndim == 3:
+        if global_offsets.shape[-1] != 2:
+            raise ValueError(
+                f"Unsupported global_offsets shape {tuple(global_offsets.shape)}; "
+                "expected last dim 2."
+            )
+        global_offsets = global_offsets.unsqueeze(1).unsqueeze(2)
+    else:
+        raise ValueError(
+            f"Unsupported global_offsets ndim {global_offsets.ndim}; expected 3 or 4."
+        )
 
     with torch.no_grad():
         for batch in infer_loader:
@@ -1277,9 +1297,9 @@ def _reassemble_cdi_image_torch(
         obj_tensor_full = obj_tensor_full.transpose(-2, -1)
 
     if flip_x:
-        global_offsets[:, 0, 0, :] = -global_offsets[:, 0, 0, :]
+        global_offsets[..., 0] = -global_offsets[..., 0]
     if flip_y:
-        global_offsets[:, 0, 1, :] = -global_offsets[:, 0, 1, :]
+        global_offsets[..., 1] = -global_offsets[..., 1]
 
     # Step 6: Prepare tensor for TensorFlow reassembly helper
     # TensorFlow helper expects (n_samples, H, W, 1) single-channel complex tensor
@@ -1300,9 +1320,17 @@ def _reassemble_cdi_image_torch(
     # For Phase D2.C, delegate to TensorFlow reassembly to maintain exact parity
     # Future enhancement: use native PyTorch reassembly from ptycho_torch.reassembly
     from ptycho import tf_helper as hh
+    from ptycho import params as p
+    if 'offset' not in p.cfg:
+        p.cfg['offset'] = 0
+    if 'outer_offset_test' not in p.cfg:
+        p.cfg['outer_offset_test'] = p.cfg['offset']
     obj_tensor_np = obj_tensor_full.cpu().numpy()
     global_offsets_np = global_offsets.cpu().numpy()
 
+    if M > config.model.N:
+        logger.warning("Requested M=%d exceeds N=%d; clamping to N for reassembly.", M, config.model.N)
+        M = config.model.N
     obj_image = hh.reassemble_position(obj_tensor_np, global_offsets_np, M=M)
 
     # Squeeze trailing channel dimension if present (reassembly may return (H, W, 1))

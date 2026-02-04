@@ -221,6 +221,8 @@ class TestInferenceCLI:
         mock_raw_data.probeGuess = np.random.rand(64, 64).astype(np.complex64)
         mock_raw_data.xcoords = np.random.rand(10)
         mock_raw_data.ycoords = np.random.rand(10)
+        mock_raw_data.scan_index = np.arange(10, dtype=int)
+        mock_raw_data.objectGuess = np.random.rand(64, 64).astype(np.complex64)
 
         # Mock model with .to() and .eval() tracking
         mock_model = MagicMock()
@@ -237,15 +239,16 @@ class TestInferenceCLI:
 
         mock_model.to = MagicMock(side_effect=track_to_call)
         mock_model.eval = MagicMock(side_effect=track_eval_call)
-        mock_model.forward_predict = MagicMock(
-            return_value=MagicMock(
-                cpu=MagicMock(
-                    return_value=MagicMock(
-                        numpy=MagicMock(return_value=np.random.rand(1, 1, 64, 64).astype(np.complex64))
-                    )
-                )
+        import torch
+
+        def forward_predict(diffraction, positions, probe, input_scale_factor):
+            return torch.ones(
+                (diffraction.shape[0], 1, diffraction.shape[-1], diffraction.shape[-1]),
+                device=diffraction.device,
+                dtype=torch.complex64,
             )
-        )
+
+        mock_model.forward_predict = MagicMock(side_effect=forward_predict)
 
         # Import and call _run_inference_and_reconstruct directly
         from ptycho_torch.inference import _run_inference_and_reconstruct
@@ -265,6 +268,19 @@ class TestInferenceCLI:
             num_workers=0,
             inference_batch_size=None
         )
+
+        # Stub reassembly to avoid heavy computation in this unit test
+        import ptycho_torch.helper as hh
+
+        def fake_reassemble(patch_complex, offsets, data_cfg, model_cfg, padded_size):
+            canvas = torch.zeros(
+                (1, padded_size, padded_size),
+                device=patch_complex.device,
+                dtype=torch.complex64,
+            )
+            return canvas, None, None
+
+        monkeypatch.setattr(hh, "reassemble_patches_position_real", fake_reassemble)
 
         # Call helper with 'cuda' device
         _run_inference_and_reconstruct(

@@ -38,6 +38,17 @@ def npz_headers(npz):
     Taken from: https://stackoverflow.com/questions/68224572/how-to-determine-the-shape-size-of-npz-file
     Modified to quickly grab dimension we care about
     """
+    def _read_array_header(npy, version):
+        """Handle NumPy header parsing across versions."""
+        if hasattr(np.lib.format, '_read_array_header'):
+            return np.lib.format._read_array_header(npy, version)
+        if version == (1, 0):
+            return np.lib.format.read_array_header_1_0(npy)
+        if version == (2, 0):
+            return np.lib.format.read_array_header_2_0(npy)
+        # Fallback to 1.0 header reader for unexpected versions
+        return np.lib.format.read_array_header_1_0(npy)
+
     with zipfile.ZipFile(npz) as archive:
         npy_header_found = False
         diffraction_shape = None
@@ -49,7 +60,7 @@ def npz_headers(npz):
             if name.startswith('diffraction') and name.endswith('.npy'):
                 npy = archive.open(name)
                 version = np.lib.format.read_magic(npy)
-                shape, _, _ = np.lib.format._read_array_header(npy, version)
+                shape, _, _ = _read_array_header(npy, version)
                 diffraction_shape = shape
                 npy_header_found = True
                 break
@@ -60,7 +71,7 @@ def npz_headers(npz):
                 if name.startswith('diff3d') and name.endswith('.npy'):
                     npy = archive.open(name)
                     version = np.lib.format.read_magic(npy)
-                    shape, _, _ = np.lib.format._read_array_header(npy, version)
+                    shape, _, _ = _read_array_header(npy, version)
                     diffraction_shape = shape
                     npy_header_found = True
                     break

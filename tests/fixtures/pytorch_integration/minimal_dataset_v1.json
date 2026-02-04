@@ -1,6 +1,6 @@
 {
   "version": "v1",
-  "created": "2025-10-19T22:11:18.816842+00:00",
+  "created": "2026-02-04T08:01:57.598516+00:00",
   "generator_script": "scripts/tools/make_pytorch_integration_fixture.py",
   "generator_commit": "7be7ab5c68c95e58601a6ec6497e08bca85e6d88",
   "source_dataset": "datasets/Run1084_recon3_postPC_shrunk_3.npz",
@@ -14,6 +14,6 @@
     "probeGuess: dtype complex128 \u2192 complex64",
     "coordinates: stratified uniform sampling (step=1087/64=17.0)"
   ],
-  "sha256_checksum": "6c2fbea0dcadd950385a54383e6f5f731282156d19ca4634a5a19ba3d1a5899c",
+  "sha256_checksum": "db1e95863e204c5dd76c8e0252a648e83106893a321dee3efc1cf51170263e55",
   "validation_notes": "Compliant with specs/data_contracts.md \u00a71; tested via tests/torch/test_fixture_pytorch_integration.py"
 }

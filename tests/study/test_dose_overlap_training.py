@@ -44,7 +44,7 @@ def test_train_cdi_model_normalizes_history(monkeypatch):
             self.history = {'loss': [0.4, 0.2]}
             self.epoch = [0, 1]
 
-    def fake_train_eval(dataset):
+    def fake_train_eval(dataset, model_instance=None):
         return {'history': FakeHistory(), 'model_instance': object()}
 
     monkeypatch.setattr(workflow_components, 'create_ptycho_data_container', fake_create_container)
@@ -52,7 +52,16 @@ def test_train_cdi_model_normalizes_history(monkeypatch):
     monkeypatch.setattr('ptycho.loader.PtychoDataset', FakeDataset)
     monkeypatch.setattr('ptycho.train_pinn.train_eval', fake_train_eval)
 
-    config = SimpleNamespace()
+    class FakeGenerator:
+        name = "fake"
+
+        def build_models(self):
+            return object(), object()
+
+    monkeypatch.setattr(workflow_components, "resolve_generator", lambda config: FakeGenerator())
+
+    from ptycho.config.config import TrainingConfig, ModelConfig
+    config = TrainingConfig(model=ModelConfig())
     results = workflow_components.train_cdi_model(train_raw, test_raw, config)
 
     assert isinstance(results['history'], dict), "History payload must be normalized to a dict"

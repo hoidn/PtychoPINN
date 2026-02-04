@@ -183,6 +183,8 @@ class InferenceConfig:
     experiment_number: int = 0  #Experiment number for inference
     pad_eval: bool = True #Pads the evaluation edges, enforced during training for Nyquist frequency. Can turn off for eval
     window: int = 20 #Window padding around reconstruction due to edge errors
+    log_patch_stats: bool = False
+    patch_stats_limit: Optional[int] = None
 
 @dataclass
 class DatagenConfig:

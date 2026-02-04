@@ -215,9 +215,11 @@ def create_torch_model_with_gridsize(
     params_dict = params_dict or {}
 
     # Build DataConfig from params
+    C = gridsize * gridsize
     data_config = DataConfig(
         N=N,
         grid_size=(gridsize, gridsize),
+        C=C,
         K=params_dict.get('neighbor_count', 6),
         nphotons=params_dict.get('nphotons', 1e5),
     )
@@ -227,9 +229,11 @@ def create_torch_model_with_gridsize(
         n_filters_scale=int(params_dict.get('n_filters_scale', 2)),
         amp_activation=params_dict.get('amp_activation', 'silu'),
         mode='Unsupervised' if params_dict.get('model_type') == 'pinn' else 'Supervised',
-        object_big=params_dict.get('object.big', False),
+        object_big=params_dict.get('object.big', True),
         probe_big=params_dict.get('probe.big', True),
         loss_function=params_dict.get('loss_function', 'Poisson'),
+        C_model=C,
+        C_forward=C,
     )
 
     # Build TrainingConfig (minimal — weights will override from checkpoint)
