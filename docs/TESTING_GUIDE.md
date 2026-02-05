@@ -479,6 +479,12 @@ pytest tests/torch/test_debug_fno_activations.py -vv
 # Run FNO fallback init scale test
 pytest tests/torch/test_fno_fallback_init.py -vv
 
+# Run coords-relative contract tests
+pytest tests/torch/test_coords_relative_contract.py -v
+
+# Run Lightning dataloader coords guard tests
+pytest tests/torch/test_lightning_dataloader_coords_guard.py -v
+
 # Run torch runner stitched-metrics test
 pytest tests/torch/test_grid_lines_torch_runner.py::TestRunGridLinesTorchScaffold::test_metrics_stitch_predictions_to_ground_truth -v
 
