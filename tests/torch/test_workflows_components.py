@@ -143,7 +143,7 @@ class TestWorkflowsComponentsScaffold:
         # (training path tested separately in TestWorkflowsComponentsTraining)
 
         # Monkeypatch train_cdi_model_torch to prevent full training execution in this test
-        def mock_train_cdi_model_torch(train_data, test_data, config):
+        def mock_train_cdi_model_torch(*args, **kwargs):
             """Minimal stub to prevent full training in scaffold test."""
             return {"history": {"train_loss": [0.5]}, "train_container": None, "test_container": None}
 
@@ -1732,6 +1732,10 @@ class TestReassembleCdiImageTorchGreen:
                 imag = torch.ones(batch_size, C, self.N, self.N, dtype=torch.float32) * 0.5
                 return torch.complex(real, imag)
 
+            def forward_predict(self, X, positions, probe, input_scale_factor):
+                """Match inference signature used by _reassemble_cdi_image_torch."""
+                return self.forward(X)
+
         return MockLightningModule(
             N=64,
             gridsize=minimal_training_config.model.gridsize
@@ -2559,6 +2563,9 @@ class TestTrainWithLightningGreen:
 
         # Monkeypatch Lightning module to prevent errors
         class StubLightningModule:
+            def __init__(self):
+                self.automatic_optimization = True
+
             def save_hyperparameters(self):
                 pass
 
