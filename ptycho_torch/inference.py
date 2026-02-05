@@ -337,6 +337,18 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     if diffraction.ndim == 3:
         diffraction = diffraction.unsqueeze(1)
 
+    # Match expected channel count for grouped inputs (gridsize>1)
+    expected_channels = None
+    if hasattr(model, 'data_config') and hasattr(model.data_config, 'C'):
+        expected_channels = int(model.data_config.C)
+    elif hasattr(model, 'model_config') and hasattr(model.model_config, 'C_model'):
+        expected_channels = int(model.model_config.C_model)
+    elif hasattr(config, 'model') and hasattr(config.model, 'gridsize'):
+        expected_channels = int(config.model.gridsize) ** 2
+
+    if expected_channels and diffraction.shape[1] == 1 and expected_channels > 1:
+        diffraction = diffraction.repeat(1, expected_channels, 1, 1)
+
     # Ensure probe is complex64
     if not torch.is_complex(probe):
         probe = probe.to(torch.complex64)
@@ -394,6 +406,8 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     dx = x - torch.mean(x)
     dy = y - torch.mean(y)
     offsets = torch.stack([dx, dy], dim=-1).view(batch_size, 1, 1, 2)
+    if offsets.shape[1] == 1 and patch_complex.ndim == 4 and patch_complex.shape[1] > 1:
+        offsets = offsets.repeat(1, patch_complex.shape[1], 1, 1)
 
     # Position-aware reassembly using torch helper to produce stitched canvas
     from ptycho_torch.config_params import DataConfig, ModelConfig
@@ -512,6 +526,17 @@ Examples:
         action='store_true',
         help='Suppress progress output'
     )
+    parser.add_argument(
+        '--log-patch-stats',
+        action='store_true',
+        help='Log per-patch statistics during inference (default: disabled)'
+    )
+    parser.add_argument(
+        '--patch-stats-limit',
+        type=int,
+        default=None,
+        help='Maximum number of batches to log for patch stats (default: no limit)'
+    )
 
     # Execution config flags (Phase C4.C5 - ADR-003)
     parser.add_argument(
@@ -597,6 +622,8 @@ Examples:
     # Build overrides dict for factory
     overrides = {
         'n_groups': args.n_images,  # Map CLI arg to config field
+        'log_patch_stats': args.log_patch_stats,
+        'patch_stats_limit': args.patch_stats_limit,
     }
 
     # Call factory to construct all configs and populate params.cfg
@@ -700,6 +727,19 @@ Examples:
 
         # Save individual reconstructions (required by test contract)
         save_individual_reconstructions(amplitude, phase, output_dir)
+
+        if payload.pt_inference_config.log_patch_stats:
+            from ptycho_torch.patch_stats_instrumentation import PatchStatsLogger
+            import torch
+
+            amp_tensor = torch.as_tensor(amplitude).unsqueeze(0).unsqueeze(0)
+            logger = PatchStatsLogger(
+                output_dir=output_dir / "analysis",
+                enabled=True,
+                limit=payload.pt_inference_config.patch_stats_limit,
+            )
+            logger.log_batch(amp_tensor, phase="inference", batch_idx=0)
+            logger.finalize()
 
         if not args.quiet:
             print(f"\nInference completed successfully!")

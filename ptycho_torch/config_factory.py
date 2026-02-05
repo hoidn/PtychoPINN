@@ -445,6 +445,8 @@ def create_inference_payload(
     # InferenceConfig: Extract inference-specific fields from overrides
     pt_inference_config = PTInferenceConfig(
         batch_size=overrides.get('batch_size', 16),  # PyTorch default
+        log_patch_stats=overrides.get('log_patch_stats', False),
+        patch_stats_limit=overrides.get('patch_stats_limit'),
     )
 
     # Step 4: Translate to TensorFlow canonical configs via config_bridge

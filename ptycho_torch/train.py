@@ -553,6 +553,10 @@ Examples:
                        help='Grid size for spatial grouping (default: 2)')
     parser.add_argument('--batch_size', type=int, default=16,
                        help='Training batch size (default: 16)')
+    parser.add_argument('--log-patch-stats', action='store_true',
+                       help='Log per-patch statistics during training/inference (default: disabled)')
+    parser.add_argument('--patch-stats-limit', type=int, default=None,
+                       help='Maximum number of batches to log for patch stats (default: no limit)')
     parser.add_argument('--device', type=str, choices=['cpu', 'cuda'], default='cpu',
                        help='[DEPRECATED] Use --accelerator instead. Compute device: cpu or cuda (default: cpu)')
     parser.add_argument('--disable_mlflow', action='store_true',
@@ -814,6 +818,9 @@ Examples:
             'gridsize': args.gridsize,
             'max_epochs': args.max_epochs,
             'torch_loss_mode': args.torch_loss_mode,
+            'log_patch_stats': args.log_patch_stats,
+            'patch_stats_limit': args.patch_stats_limit,
+            'object_big': args.gridsize > 1,
         }
         if test_data_file:
             overrides['test_data_file'] = test_data_file
@@ -836,12 +843,12 @@ Examples:
 
             # Extract configs for main()
             # Note: Factory only creates training-relevant configs; create InferenceConfig/DatagenConfig defaults
-            from ptycho_torch.config_params import InferenceConfig, DatagenConfig
+            from ptycho_torch.config_params import DatagenConfig
             existing_config = (
                 payload.pt_data_config,
                 payload.pt_model_config,
                 payload.pt_training_config,
-                InferenceConfig(),  # Not in payload, use default
+                payload.pt_inference_config,
                 DatagenConfig(),  # Not in payload, use default
             )
 
@@ -869,6 +876,32 @@ Examples:
                 config=payload.tf_training_config,
                 do_stitching=False  # CLI only needs training, not reconstruction
             )
+
+            if payload.pt_inference_config.log_patch_stats:
+                from ptycho_torch.patch_stats_instrumentation import PatchStatsLogger
+                import torch
+
+                train_container = results.get('train_container') if isinstance(results, dict) else None
+                amp_tensor = None
+                if train_container is not None:
+                    if hasattr(train_container, 'Y_I'):
+                        amp_tensor = train_container.Y_I
+                    elif hasattr(train_container, 'Y'):
+                        amp_tensor = torch.abs(train_container.Y)
+
+                if amp_tensor is not None:
+                    amp_tensor = torch.as_tensor(amp_tensor)
+                    if (amp_tensor.ndim == 4
+                            and amp_tensor.shape[1] == amp_tensor.shape[2]
+                            and amp_tensor.shape[3] != amp_tensor.shape[1]):
+                        amp_tensor = amp_tensor.permute(0, 3, 1, 2)
+                    logger = PatchStatsLogger(
+                        output_dir=output_dir / "analysis",
+                        enabled=True,
+                        limit=payload.pt_inference_config.patch_stats_limit,
+                    )
+                    logger.log_batch(amp_tensor, phase="train", batch_idx=0)
+                    logger.finalize()
 
             print(f"✓ Training completed successfully. Outputs saved to {output_dir}")
             print(f"✓ Model bundle saved to {output_dir}/wts.h5.zip")
