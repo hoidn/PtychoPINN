@@ -176,6 +176,14 @@ def create_training_payload(
     overrides = overrides or {}
     overrides_applied = dict(overrides)  # Audit trail
 
+    # Bridge naming compatibility: accept legacy/CLI-friendly keys
+    if 'max_epochs' in overrides and 'epochs' not in overrides:
+        overrides['epochs'] = overrides['max_epochs']
+        overrides_applied['epochs'] = overrides['max_epochs']
+    if 'neighbor_count' in overrides and 'K' not in overrides:
+        overrides['K'] = overrides['neighbor_count']
+        overrides_applied['K'] = overrides['neighbor_count']
+
     # Step 1: Validate required arguments
     if not train_data_file.exists():
         raise FileNotFoundError(f"Training data file not found: {train_data_file}")
