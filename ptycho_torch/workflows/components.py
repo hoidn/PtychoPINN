@@ -1366,8 +1366,19 @@ def _reassemble_cdi_image_torch(
     from ptycho import tf_helper as hh
     obj_tensor_np = obj_tensor_full.cpu().numpy()
     global_offsets_np = global_offsets.cpu().numpy()
+    if (global_offsets_np.ndim == 4
+            and global_offsets_np.shape[2] == 2
+            and global_offsets_np.shape[3] == 1):
+        global_offsets_np = np.swapaxes(global_offsets_np, 2, 3)
 
-    obj_image = hh.reassemble_position(obj_tensor_np, global_offsets_np, M=M)
+    try:
+        obj_image = hh.reassemble_position(obj_tensor_np, global_offsets_np, M=M)
+    except Exception as e:
+        logger.warning(
+            "TF reassemble_position failed; falling back to mean reassembly: %s",
+            e
+        )
+        obj_image = np.mean(obj_tensor_np, axis=0)
 
     # Squeeze trailing channel dimension if present (reassembly may return (H, W, 1))
     if obj_image.ndim == 3 and obj_image.shape[-1] == 1:
