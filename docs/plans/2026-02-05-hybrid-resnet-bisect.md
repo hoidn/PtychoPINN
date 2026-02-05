@@ -4,7 +4,7 @@
 
 **Goal:** Identify the first commit on `fno2-phase8-optimizers` (after the LCA with `fno-stable`) that causes `tests/torch/test_grid_lines_hybrid_resnet_integration.py` to fail.
 
-**Architecture:** Manual bisect by repeatedly merging a target commit from `fno2-phase8-optimizers` into a throwaway branch based on `fno-stable`, running the integration test, and narrowing the commit range.
+**Architecture:** Manual bisect by repeatedly merging a target commit from `fno2-phase8-optimizers` into a throwaway branch based on `fno-stable`, running the integration test, and narrowing the commit range. **No worktrees** (run directly from the repo root to avoid editable-install confusion).
 
 **Tech Stack:** git, pytest (via `python -m pytest`), bash.
 
@@ -15,6 +15,17 @@
 **Files:**
 - Modify: none
 - Test: `tests/torch/test_grid_lines_hybrid_resnet_integration.py`
+
+**Step 0: Ensure a clean starting point (no worktrees)**
+
+Run:
+```bash
+git status -sb
+```
+If the working tree is dirty, stash it to avoid contamination:
+```bash
+git stash push -u -m "pre-bisect"
+```
 
 **Step 1: Create log dir**
 
@@ -33,13 +44,16 @@ python -m pytest -v -m integration tests/torch/test_grid_lines_hybrid_resnet_int
 ```
 Expected: PASS. If FAIL, record failure and stop (no known good).
 
-**Step 3: Run test on known-bad branch (`fno2-phase8-optimizers`)**
+**Step 3: Run test on known-bad tip (merge into throwaway)**
 
 Run:
 ```bash
-git checkout fno2-phase8-optimizers
+git checkout fno-stable
+git branch -D bisect-temp 2>/dev/null || true
+git checkout -b bisect-temp
+git merge --no-ff fno2-phase8-optimizers
 python -m pytest -v -m integration tests/torch/test_grid_lines_hybrid_resnet_integration.py \
-  | tee .artifacts/bisect/baseline_fno2-phase8-optimizers.log
+  | tee .artifacts/bisect/baseline_merge_fno2-phase8-optimizers.log
 ```
 Expected: FAIL. If PASS, there’s no regression to bisect.
 
@@ -48,6 +62,7 @@ Expected: FAIL. If PASS, there’s no regression to bisect.
 Run:
 ```bash
 git checkout fno-stable
+git branch -D bisect-temp
 ```
 
 ---
