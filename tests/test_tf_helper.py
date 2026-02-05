@@ -56,6 +56,7 @@ class TestReassemblePosition(unittest.TestCase):
         print("\n--- Test 1: Perfect Overlap Averaging ---")
         N = 32
         M = 16
+        p.set('N', N)
         
         # Create two identical patches
         patch_value = 1.0 + 2.0j
@@ -64,7 +65,7 @@ class TestReassemblePosition(unittest.TestCase):
         
         # Position them at the exact same offset
         offsets = np.array([[0, 0], [0, 0]], dtype=np.float64)
-        global_offsets = offsets.reshape((2, 1, 2, 1))
+        global_offsets = offsets.reshape((2, 1, 1, 2))
         
         # Execute reassembly
         result = reassemble_position(obj_tensor, global_offsets, M=M)
@@ -94,18 +95,19 @@ class TestReassemblePosition(unittest.TestCase):
         N = 32
         M = 16
         patch_value = 1.0 + 2.0j
+        p.set('N', N)
         
         # Single patch
         single_patch = tf.constant(patch_value, shape=(1, N, N, 1), dtype=tf.complex64)
         offsets_single = np.array([[0, 0]], dtype=np.float64)
-        global_offsets_single = offsets_single.reshape((1, 1, 2, 1))
+        global_offsets_single = offsets_single.reshape((1, 1, 1, 2))
         
         result_single = reassemble_position(single_patch, global_offsets_single, M=M)
         
         # Double identical patches at same position
         double_patch = tf.constant(patch_value, shape=(2, N, N, 1), dtype=tf.complex64)
         offsets_double = np.array([[0, 0], [0, 0]], dtype=np.float64)
-        global_offsets_double = offsets_double.reshape((2, 1, 2, 1))
+        global_offsets_double = offsets_double.reshape((2, 1, 1, 2))
         
         result_double = reassemble_position(double_patch, global_offsets_double, M=M)
         
@@ -123,11 +125,12 @@ class TestReassemblePosition(unittest.TestCase):
         print("\n--- Test 3: Basic Functionality ---")
         N = 32
         M = 16
+        p.set('N', N)
         
         # Create simple test input
         obj_tensor = tf.ones((4, N, N, 1), dtype=tf.complex64)
         offsets = np.array([[0, 0], [0, 20], [20, 0], [20, 20]], dtype=np.float64)
-        global_offsets = offsets.reshape((4, 1, 2, 1))
+        global_offsets = offsets.reshape((4, 1, 1, 2))
         
         # Execute reassembly
         result = reassemble_position(obj_tensor, global_offsets, M=M)
@@ -151,6 +154,7 @@ class TestReassemblePosition(unittest.TestCase):
         print("\n--- Test 4: Different Patch Values Blend ---")
         N = 32
         M = 16
+        p.set('N', N)
         
         # Create patches with different values
         value1 = 1.0 + 0.0j
@@ -162,7 +166,7 @@ class TestReassemblePosition(unittest.TestCase):
         
         # Position patches to overlap
         offsets = np.array([[0, 0], [0, 0]], dtype=np.float64)  # Perfect overlap
-        global_offsets = offsets.reshape((2, 1, 2, 1))
+        global_offsets = offsets.reshape((2, 1, 1, 2))
         
         # Execute reassembly
         result = reassemble_position(obj_tensor, global_offsets, M=M)
