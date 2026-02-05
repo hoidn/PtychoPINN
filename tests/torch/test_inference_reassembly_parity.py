@@ -81,12 +81,14 @@ def test_inference_helper_uses_reassembly(tmp_path):
         dy = torch.from_numpy(ycoords - ycoords.mean()).to(device=device, dtype=torch.float32)
         offsets = torch.stack([dx, dy], dim=-1).view(B, 1, 1, 2)
 
-        # Minimal configs for reassembly padding
+        # Minimal configs for reassembly padding (collapse patches into channel dimension)
         data_cfg = DataConfig(N=N, grid_size=(1, 1))
         model_cfg = ModelConfig()
-        model_cfg.C_forward = 1
+        inputs_reassemble = inputs.reshape(1, -1, N, N)
+        offsets_reassemble = offsets.reshape(1, -1, 1, 2)
+        model_cfg.C_forward = int(inputs_reassemble.shape[1])
         imgs_merged, _, _ = hh.reassemble_patches_position_real(
-            inputs, offsets, data_cfg, model_cfg, crop_size=tf_infer_cfg.stitch_crop_size
+            inputs_reassemble, offsets_reassemble, data_cfg, model_cfg, crop_size=tf_infer_cfg.stitch_crop_size
         )
         amp_gt = torch.abs(imgs_merged[0]).cpu().numpy()
 
