@@ -230,6 +230,8 @@ def create_torch_model_with_gridsize(
         object_big=params_dict.get('object.big', False),
         probe_big=params_dict.get('probe.big', True),
         loss_function=params_dict.get('loss_function', 'Poisson'),
+        intensity_scale=params_dict.get('intensity_scale', 1.0),
+        intensity_scale_trainable=params_dict.get('intensity_scale.trainable', False),
     )
 
     # Build TrainingConfig (minimal — weights will override from checkpoint)

@@ -61,6 +61,7 @@ from typing import Union, Optional, Tuple, Dict, Any
 from ptycho import params
 from ptycho.config.config import TrainingConfig, InferenceConfig, PyTorchExecutionConfig
 from ptycho.config import config as ptycho_config  # For update_legacy_dict
+from ptycho.metadata import MetadataManager
 from ptycho.raw_data import RawData
 
 # PyTorch imports (now mandatory per Phase F3.1/F3.2)
@@ -80,6 +81,27 @@ except ImportError as e:
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+
+def _resolve_nphotons(data, config):
+    metadata = getattr(data, "metadata", None)
+    if metadata is not None:
+        return MetadataManager.get_nphotons(metadata), "metadata"
+    return getattr(config, "nphotons", 1e9), "config"
+
+
+def _attach_physics_scale(container, config, nphotons_source: Optional[str] = None):
+    from ptycho_torch import helper as hh
+
+    nphotons, source = _resolve_nphotons(container, config)
+    if nphotons_source is not None:
+        source = nphotons_source
+
+    scale = hh.derive_intensity_scale_from_amplitudes(container.X, nphotons)
+    container.physics_scaling_constant = scale.view(1, 1, 1)
+    container.nphotons_source = source
+    container.nphotons_resolved = nphotons
+    return scale, source
 
 
 def run_cdi_example_torch(
@@ -185,10 +207,12 @@ def run_cdi_example_torch(
         logger.info(f"Saving trained models to {config.output_dir} via save_torch_bundle")
         # Build archive path following TensorFlow convention (wts.h5.zip)
         archive_path = Path(config.output_dir) / "wts.h5"
+        intensity_scale = train_results.get('intensity_scale')
         save_torch_bundle(
             models_dict=train_results['models'],
             base_path=str(archive_path),
-            config=config
+            config=config,
+            intensity_scale=intensity_scale
         )
         logger.info(f"Models saved successfully to {archive_path}.zip")
     else:
@@ -231,6 +255,8 @@ def _ensure_container(
     # Case 1: Already a container - return as-is
     if hasattr(data, 'X') and hasattr(data, 'Y'):  # Duck-type check for PtychoDataContainerTorch
         logger.debug("Input is already PtychoDataContainerTorch, returning as-is")
+        if not hasattr(data, 'physics_scaling_constant'):
+            _attach_physics_scale(data, config, nphotons_source=None)
         return data
 
     # Case 2: TensorFlow RawData - wrap with RawDataTorch
@@ -239,6 +265,7 @@ def _ensure_container(
         # Wrap with RawDataTorch (Phase C adapter)
         # Note: Y patches are embedded in TF RawData and will be extracted during grouping
         sample_indices = getattr(data, 'sample_indices', None)
+        metadata = getattr(data, 'metadata', None)
         torch_raw_data = RawDataTorch(
             xcoords=data.xcoords,
             ycoords=data.ycoords,
@@ -258,6 +285,9 @@ def _ensure_container(
         logger.debug("Generating grouped data from RawDataTorch")
         if sample_indices is None:
             sample_indices = getattr(data, 'sample_indices', None)
+        metadata = getattr(data, 'metadata', None)
+        if metadata is None and hasattr(data, '_tf_raw_data'):
+            metadata = getattr(data._tf_raw_data, 'metadata', None)
         grouped_data = data.generate_grouped_data(
             N=config.model.N,
             K=config.neighbor_count,
@@ -284,6 +314,9 @@ def _ensure_container(
         # Extract probe from RawDataTorch (required by PtychoDataContainerTorch constructor)
         probe = data.probeGuess
         container = PtychoDataContainerTorch(grouped_data, probe)
+        if metadata is not None:
+            container.metadata = metadata
+        _attach_physics_scale(container, config, nphotons_source=None)
         return container
 
     # Case 4: Unknown type
@@ -1396,6 +1429,10 @@ def train_cdi_model_torch(
     # Step 4: Delegate to Lightning trainer
     logger.info("Delegating to Lightning trainer via _train_with_lightning")
     results = _train_with_lightning(train_container, test_container, config, execution_config=execution_config)
+    if hasattr(train_container, 'physics_scaling_constant'):
+        import torch
+        scale_tensor = torch.as_tensor(train_container.physics_scaling_constant)
+        results['intensity_scale'] = float(scale_tensor.reshape(-1)[0].item())
 
     return results
 

@@ -1307,7 +1307,9 @@ class PtychoPINN_Lightning(L.LightningModule):
         intensity_norm_factor = torch.mean(x).detach() + 1e-8
 
         if self.model_config.mode == 'Unsupervised':
-            total_loss += self.Loss(pred, x).mean()
+            pred_physics = pred * physics_scale
+            obs_physics = x * physics_scale
+            total_loss += self.Loss(pred_physics, obs_physics).mean()
             total_loss /= intensity_norm_factor
 
         elif self.model_config.mode == 'Supervised':
