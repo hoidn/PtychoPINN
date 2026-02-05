@@ -419,6 +419,9 @@ class Decoder_last(nn.Module):
 
         x2 = F.silu(x2) #05-20-2025 for now
 
+        if x2.shape[-2:] != x1.shape[-2:]:
+            x2 = x2[..., :x1.shape[-2], :x1.shape[-1]]
+
         outputs = x1 + x2
 
 

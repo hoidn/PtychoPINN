@@ -54,6 +54,8 @@ def test_train_cdi_model_normalizes_history(monkeypatch):
 
     from ptycho import params
     params.cfg['intensity_scale'] = 1.0
+    params.cfg['N'] = 64
+    params.cfg['gridsize'] = 1
     config = SimpleNamespace(model=SimpleNamespace(architecture="cnn"))
     results = workflow_components.train_cdi_model(train_raw, test_raw, config)
 

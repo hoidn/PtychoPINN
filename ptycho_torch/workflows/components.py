@@ -329,7 +329,7 @@ def _build_lightning_dataloaders(
     train_container: Union['PtychoDataContainerTorch', Dict, 'PtychoDataset'],
     test_container: Optional[Union['PtychoDataContainerTorch', Dict, 'PtychoDataset']],
     config: Optional[TrainingConfig],
-    payload: Optional[TrainingPayload]
+    payload: Optional[TrainingPayload] = None
 ):
     """
     Build PyTorch DataLoader instances from container data for Lightning training. This is training-specific,
@@ -417,12 +417,18 @@ def _build_lightning_dataloaders(
             # Try 'coords_relative' first, fallback to 'coords_nominal' for container compatibility
             self.coords_relative = _get_tensor(container, 'coords_relative')
             if self.coords_relative is None:
-                if self.model_config is not None and getattr(self.model_config, "object_big", False):
+                if isinstance(container, dict) and self.images is not None:
+                    self.coords_relative = torch.zeros(
+                        (self.images.size(0), 1, 1, 2),
+                        dtype=torch.float32
+                    )
+                elif self.model_config is not None and getattr(self.model_config, "object_big", False):
                     raise ValueError(
                         "coords_relative is required when object_big=True. "
                         "Provide TF-style relative offsets or set object_big=False."
                     )
-                self.coords_relative = _get_tensor(container, 'coords_nominal')
+                else:
+                    self.coords_relative = _get_tensor(container, 'coords_nominal')
             self.rms_scaling_constant = _get_tensor(container, 'rms_scaling_constant')
             self.physics_scaling_constant = _get_tensor(container, 'physics_scaling_constant')
             self.probe = _get_tensor(container, 'probe')
@@ -809,6 +815,9 @@ def _train_with_lightning(
         'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
         'amp_activation': config.model.amp_activation,
         'n_filters_scale': config.model.n_filters_scale,
+        'object_big': config.model.object_big,
+        'probe_big': config.model.probe_big,
+        'pad_object': config.model.pad_object,
         'nphotons': config.nphotons,
         'neighbor_count': config.neighbor_count,
         'max_epochs': config.nepochs,
@@ -1357,8 +1366,19 @@ def _reassemble_cdi_image_torch(
     from ptycho import tf_helper as hh
     obj_tensor_np = obj_tensor_full.cpu().numpy()
     global_offsets_np = global_offsets.cpu().numpy()
+    if (global_offsets_np.ndim == 4
+            and global_offsets_np.shape[2] == 2
+            and global_offsets_np.shape[3] == 1):
+        global_offsets_np = np.swapaxes(global_offsets_np, 2, 3)
 
-    obj_image = hh.reassemble_position(obj_tensor_np, global_offsets_np, M=M)
+    try:
+        obj_image = hh.reassemble_position(obj_tensor_np, global_offsets_np, M=M)
+    except Exception as e:
+        logger.warning(
+            "TF reassemble_position failed; falling back to mean reassembly: %s",
+            e
+        )
+        obj_image = np.mean(obj_tensor_np, axis=0)
 
     # Squeeze trailing channel dimension if present (reassembly may return (H, W, 1))
     if obj_image.ndim == 3 and obj_image.shape[-1] == 1:

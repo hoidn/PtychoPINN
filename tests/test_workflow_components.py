@@ -17,7 +17,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from ptycho.workflows.components import load_inference_bundle
+from ptycho.workflows.components import DiffractionToObjectAdapter, load_inference_bundle
 
 
 class TestLoadInferenceBundle(unittest.TestCase):
@@ -79,7 +79,8 @@ class TestLoadInferenceBundle(unittest.TestCase):
             
             # Verify results
             self.assertIsNotNone(model)
-            self.assertEqual(model, mock_model)
+            self.assertIsInstance(model, DiffractionToObjectAdapter)
+            self.assertIs(model._model, mock_model)
             self.assertIsInstance(config, dict)
             
             # Verify ModelManager was called correctly

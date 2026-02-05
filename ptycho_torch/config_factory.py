@@ -80,6 +80,7 @@ class TrainingPayload:
     pt_data_config: PTDataConfig  # PyTorch singleton
     pt_model_config: PTModelConfig  # PyTorch singleton
     pt_training_config: PTTrainingConfig  # PyTorch singleton
+    pt_inference_config: PTInferenceConfig  # PyTorch singleton (patch-stats, inference defaults)
     execution_config: PyTorchExecutionConfig  # Execution knobs (Phase C2)
     overrides_applied: Dict[str, Any] = field(default_factory=dict)  # Audit trail
 
@@ -115,7 +116,7 @@ def create_training_payload(
     a single factory function that:
     1. Validates required arguments (train_data_file, output_dir, n_groups)
     2. Infers probe size from NPZ metadata (or uses override)
-    3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig)
+    3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig, InferenceConfig)
     4. Applies CLI overrides with precedence rules
     5. Translates to TensorFlow canonical configs via config_bridge
     6. Populates params.cfg (CONFIG-001 compliance checkpoint)
@@ -137,6 +138,8 @@ def create_training_payload(
             - pt_data_config: DataConfig (PyTorch singleton)
             - pt_model_config: ModelConfig (PyTorch singleton)
             - pt_training_config: TrainingConfig (PyTorch singleton)
+            - pt_inference_config: InferenceConfig (PyTorch singleton)
+            - pt_inference_config: InferenceConfig (PyTorch singleton)
             - execution_config: PyTorchExecutionConfig (runtime knobs)
             - overrides_applied: Dict[str, Any] (audit trail)
 
@@ -175,6 +178,14 @@ def create_training_payload(
     # Defensive copy of overrides
     overrides = overrides or {}
     overrides_applied = dict(overrides)  # Audit trail
+
+    # Bridge naming compatibility: accept legacy/CLI-friendly keys
+    if 'max_epochs' in overrides and 'epochs' not in overrides:
+        overrides['epochs'] = overrides['max_epochs']
+        overrides_applied['epochs'] = overrides['max_epochs']
+    if 'neighbor_count' in overrides and 'K' not in overrides:
+        overrides['K'] = overrides['neighbor_count']
+        overrides_applied['K'] = overrides['neighbor_count']
 
     # Step 1: Validate required arguments
     if not train_data_file.exists():
@@ -229,6 +240,12 @@ def create_training_payload(
 
     pt_training_config = PTTrainingConfig()
     update_existing_config(pt_training_config, overrides)
+
+    # InferenceConfig: track patch-stats flags for instrumentation
+    pt_inference_config = PTInferenceConfig(
+        log_patch_stats=overrides.get('log_patch_stats', False),
+        patch_stats_limit=overrides.get('patch_stats_limit'),
+    )
 
 
     # Step 4: Translate to TensorFlow canonical configs via config_bridge
@@ -291,6 +308,7 @@ def create_training_payload(
         pt_data_config=pt_data_config,
         pt_model_config=pt_model_config,
         pt_training_config=pt_training_config,
+        pt_inference_config=pt_inference_config,
         execution_config=execution_config,  # Now always PyTorchExecutionConfig instance
         overrides_applied=overrides_applied,
     )
@@ -427,6 +445,8 @@ def create_inference_payload(
     # InferenceConfig: Extract inference-specific fields from overrides
     pt_inference_config = PTInferenceConfig(
         batch_size=overrides.get('batch_size', 16),  # PyTorch default
+        log_patch_stats=overrides.get('log_patch_stats', False),
+        patch_stats_limit=overrides.get('patch_stats_limit'),
     )
 
     # Step 4: Translate to TensorFlow canonical configs via config_bridge
