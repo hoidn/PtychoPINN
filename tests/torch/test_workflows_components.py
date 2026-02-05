@@ -288,9 +288,15 @@ class TestWorkflowsComponentsTraining:
             nepochs=1,
         )
 
+        c = training_config.model.gridsize ** 2
+        train_container = {
+            "X": np.ones((1, 64, 64, c), dtype=np.float32),
+            "coords_relative": np.zeros((1, 1, 2, c), dtype=np.float32),
+        }
+
         with pytest.raises(RuntimeError, match="stop after overrides capture"):
             torch_components._train_with_lightning(
-                train_container={"X": np.ones((1, 64, 64)), "Y": np.ones((1, 64, 64))},
+                train_container=train_container,
                 test_container=None,
                 config=training_config,
             )
@@ -655,14 +661,18 @@ class TestWorkflowsComponentsTraining:
         from ptycho_torch.config_params import DataConfig, ModelConfig as PTModelConfig, TrainingConfig as PTTrainingConfig, InferenceConfig
 
         # Create PyTorch config objects matching the TensorFlow configuration
+        c = minimal_training_config.model.gridsize ** 2
         pt_data_config = DataConfig(
             N=minimal_training_config.model.N,
+            C=c,
             grid_size=(minimal_training_config.model.gridsize, minimal_training_config.model.gridsize),
         )
 
         pt_model_config = PTModelConfig(
             mode='Unsupervised',  # 'pinn' in TF maps to 'Unsupervised' in PyTorch
             n_filters_scale=minimal_training_config.model.n_filters_scale,
+            C_model=c,
+            C_forward=c,
         )
 
         pt_training_config = PTTrainingConfig(
@@ -821,9 +831,11 @@ class TestWorkflowsComponentsTraining:
         )
 
         # Create minimal train_container
+        c = training_config.model.gridsize ** 2
         train_container = {
-            "X": np.ones((10, 64, 64)),
-            "Y": np.ones((10, 64, 64), dtype=np.complex64),
+            "X": np.ones((10, 64, 64, c), dtype=np.float32),
+            "Y": np.ones((10, 64, 64, c), dtype=np.complex64),
+            "coords_relative": np.zeros((10, 1, 2, c), dtype=np.float32),
         }
 
         # Call _train_with_lightning with gridsize=2 config
@@ -1459,9 +1471,11 @@ class TestTrainWithLightningRed:
 
         # Create minimal train_container (dict placeholder for red phase)
         # Phase C adapters will produce actual PtychoDataContainerTorch
+        c = minimal_training_config.model.gridsize ** 2
         train_container = {
-            "X": np.ones((10, 64, 64)),
-            "Y": np.ones((10, 64, 64), dtype=np.complex64),
+            "X": np.ones((10, 64, 64, c), dtype=np.float32),
+            "Y": np.ones((10, 64, 64, c), dtype=np.complex64),
+            "coords_relative": np.zeros((10, 1, 2, c), dtype=np.float32),
         }
 
         # Call _train_with_lightning
@@ -1562,8 +1576,12 @@ class TestTrainWithLightningRed:
         # For red phase, assume _train_with_lightning will eventually call helper
         # For now, test just validates fit() invocation pattern
 
-        # Create minimal containers
-        train_container = {"X": np.ones((10, 64, 64))}
+        # Create minimal containers with coords_relative (object_big default is True)
+        c = minimal_training_config.model.gridsize ** 2
+        train_container = {
+            "X": np.ones((10, 64, 64, c), dtype=np.float32),
+            "coords_relative": np.zeros((10, 1, 2, c), dtype=np.float32),
+        }
 
         # Call _train_with_lightning
         results = torch_components._train_with_lightning(
@@ -1643,7 +1661,11 @@ class TestTrainWithLightningRed:
         )
 
         # Create minimal containers
-        train_container = {"X": np.ones((10, 64, 64))}
+        c = minimal_training_config.model.gridsize ** 2
+        train_container = {
+            "X": np.ones((10, 64, 64, c), dtype=np.float32),
+            "coords_relative": np.zeros((10, 1, 2, c), dtype=np.float32),
+        }
 
         # Call _train_with_lightning
         results = torch_components._train_with_lightning(
@@ -2672,7 +2694,11 @@ class TestTrainWithLightningGreen:
         )
 
         # Create minimal containers
-        train_container = {"X": np.ones((10, 64, 64))}
+        c = minimal_training_config.model.gridsize ** 2
+        train_container = {
+            "X": np.ones((10, 64, 64, c), dtype=np.float32),
+            "coords_relative": np.zeros((10, 1, 2, c), dtype=np.float32),
+        }
 
         # Call _train_with_lightning with execution_config
         results = torch_components._train_with_lightning(
@@ -2766,7 +2792,11 @@ class TestTrainWithLightningGreen:
         )
 
         # Create minimal containers
-        train_container = {"X": np.ones((10, 64, 64))}
+        c = minimal_training_config.model.gridsize ** 2
+        train_container = {
+            "X": np.ones((10, 64, 64, c), dtype=np.float32),
+            "coords_relative": np.zeros((10, 1, 2, c), dtype=np.float32),
+        }
 
         # Call _train_with_lightning
         results = torch_components._train_with_lightning(
@@ -2981,8 +3011,11 @@ class TestLightningCheckpointCallbacks:
         mock_trainer_instance = MagicMock()
         mock_trainer_cls.return_value = mock_trainer_instance
 
-        # Mock data containers to avoid actual data loading
-        mock_train_container = MagicMock()
+        c = minimal_training_config.model.gridsize ** 2
+        mock_train_container = {
+            "X": np.zeros((2, 64, 64, c), dtype=np.float32),
+            "coords_relative": np.zeros((2, 1, 2, c), dtype=np.float32),
+        }
         mock_test_container = None  # No validation data
 
         from ptycho_torch.workflows.components import _train_with_lightning
@@ -3149,9 +3182,16 @@ class TestLightningCheckpointCallbacks:
         mock_trainer_instance = MagicMock()
         mock_trainer_cls.return_value = mock_trainer_instance
 
-        # Mock data containers
-        mock_train_container = MagicMock()
-        mock_test_container = MagicMock()
+        # Mock data containers with minimal required fields
+        c = minimal_training_config.model.gridsize ** 2
+        mock_train_container = {
+            "X": np.zeros((2, 64, 64, c), dtype=np.float32),
+            "coords_relative": np.zeros((2, 1, 2, c), dtype=np.float32),
+        }
+        mock_test_container = {
+            "X": np.zeros((2, 64, 64, c), dtype=np.float32),
+            "coords_relative": np.zeros((2, 1, 2, c), dtype=np.float32),
+        }
 
         from ptycho_torch.workflows.components import _train_with_lightning
 
@@ -3252,14 +3292,16 @@ class TestLightningExecutionConfig:
             enable_checkpointing=False,  # Disable callbacks for simpler mocking
         )
 
-        # Mock Trainer to spy on kwargs
-        mock_trainer_cls = MagicMock(spec=L.Trainer)
-        mock_trainer_instance = MagicMock()
-        mock_trainer_cls.return_value = mock_trainer_instance
-
-        # Mock data containers
-        mock_train_container = MagicMock()
-        mock_test_container = MagicMock()
+        # Mock data containers with minimal required fields (object_big default is True)
+        c = minimal_training_config_with_val.model.gridsize ** 2
+        mock_train_container = {
+            "X": np.zeros((2, 64, 64, c), dtype=np.float32),
+            "coords_relative": np.zeros((2, 1, 2, c), dtype=np.float32),
+        }
+        mock_test_container = {
+            "X": np.zeros((2, 64, 64, c), dtype=np.float32),
+            "coords_relative": np.zeros((2, 1, 2, c), dtype=np.float32),
+        }
 
         from ptycho_torch.workflows.components import _train_with_lightning
 

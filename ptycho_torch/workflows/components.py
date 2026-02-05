@@ -420,15 +420,15 @@ def _build_lightning_dataloaders(
             # Try 'coords_relative' first, fallback to 'coords_nominal' for container compatibility
             self.coords_relative = _get_tensor(container, 'coords_relative')
             if self.coords_relative is None:
+                if self.model_config is not None and getattr(self.model_config, "object_big", False):
+                    raise ValueError(
+                        "coords_relative is required when object_big=True. "
+                        "Provide TF-style relative offsets or set object_big=False."
+                    )
                 if isinstance(container, dict) and self.images is not None:
                     self.coords_relative = torch.zeros(
                         (self.images.size(0), 1, 1, 2),
                         dtype=torch.float32
-                    )
-                elif self.model_config is not None and getattr(self.model_config, "object_big", False):
-                    raise ValueError(
-                        "coords_relative is required when object_big=True. "
-                        "Provide TF-style relative offsets or set object_big=False."
                     )
                 else:
                     self.coords_relative = _get_tensor(container, 'coords_nominal')
