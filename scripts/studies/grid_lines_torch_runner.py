@@ -722,6 +722,8 @@ def main() -> None:
     parser.add_argument("--probe-source", type=str, default=None,
                         choices=["custom", "ideal_disk"],
                         help="Expected probe source in dataset metadata")
+    parser.add_argument("--sim-backend", type=str, default=None,
+                        help="Optional simulation backend selector (legacy compatibility)")
     parser.add_argument("--N", type=int, default=64,
                         help="Patch size N")
     parser.add_argument("--gridsize", type=int, default=1,
