@@ -341,6 +341,12 @@ def _build_lightning_dataloaders(
     if payload and not config:
         config = payload.tf_training_config
 
+    model_config = None
+    if payload and hasattr(payload, "pt_model_config"):
+        model_config = payload.pt_model_config
+    elif config is not None and getattr(config, "model", None) is not None:
+        model_config = config.model
+
     # Set deterministic seed if provided
     seed = getattr(config, 'subsample_seed', None) or 42
     L.seed_everything(seed)
@@ -370,13 +376,19 @@ def _build_lightning_dataloaders(
         Mimics the structure from ptycho_torch/dataloader.py PtychoDataset.__getitem__
         to maintain compatibility with PtychoPINN_Lightning.compute_loss.
         """
-        def __init__(self, container):
+        def __init__(self, container, model_config=None):
             self.container = container
+            self.model_config = model_config
             # Extract all tensors at init
             self.images = _get_tensor(container, 'X')
             # Try 'coords_relative' first, fallback to 'coords_nominal' for container compatibility
             self.coords_relative = _get_tensor(container, 'coords_relative')
             if self.coords_relative is None:
+                if self.model_config is not None and getattr(self.model_config, "object_big", False):
+                    raise ValueError(
+                        "coords_relative is required when object_big=True. "
+                        "Provide TF-style relative offsets or set object_big=False."
+                    )
                 self.coords_relative = _get_tensor(container, 'coords_nominal')
             self.rms_scaling_constant = _get_tensor(container, 'rms_scaling_constant')
             self.physics_scaling_constant = _get_tensor(container, 'physics_scaling_constant')
@@ -485,7 +497,7 @@ def _build_lightning_dataloaders(
         return memory_mapped_data_product
 
     # Build training dataset if train_container is PtychoDataContainerTorch
-    train_dataset = PtychoLightningDataset(train_container)
+    train_dataset = PtychoLightningDataset(train_container, model_config=model_config)
 
     # Configure shuffle based on sequential_sampling flag
     shuffle = not getattr(config, 'sequential_sampling', False)
@@ -502,7 +514,7 @@ def _build_lightning_dataloaders(
     # Build validation loader if test container provided
     val_loader = None
     if test_container is not None:
-        test_dataset = PtychoLightningDataset(test_container)
+        test_dataset = PtychoLightningDataset(test_container, model_config=model_config)
         val_loader = DataLoader(
             test_dataset,
             batch_size=getattr(config, 'batch_size', 4),
