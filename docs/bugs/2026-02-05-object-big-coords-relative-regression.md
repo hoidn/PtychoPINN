@@ -64,3 +64,8 @@ python -m pytest -v -m integration tests/torch/test_grid_lines_hybrid_resnet_int
   - `.artifacts/object_big_relative_offsets/pytest_grid_lines_coords_relative_selection.log`
   - `.artifacts/object_big_relative_offsets/pytest_lightning_coords_guard.green.log`
   - `.artifacts/object_big_relative_offsets/pytest_grid_lines_hybrid_resnet_integration.log`
+- **Parity evidence:** `tmp/patch_parity/object_big_relative_offsets/tensorflow_epoch0.png` and `tmp/patch_parity/object_big_relative_offsets/pytorch_epoch0.png` generated via `patch_parity_helper.py` using:
+  - TF source: `outputs/grid_lines_gs1_n128_e50_phi_all/recons/pinn/recon.npz` → `tmp/tf_patch_parity_amp_phase.npz`
+  - Torch source: `.artifacts/integration/grid_lines_hybrid_resnet/recons/pinn_hybrid_resnet/recon.npz` → `tmp/torch_patch_parity_amp_phase.npz`
+  - Log: `.artifacts/object_big_relative_offsets/patch_parity_helper.log`
+- **Integration marker:** `pytest -v -m integration` passes after cherry-picking `ce9743b9` (torch-fix) to initialize `intensity_scale` before TF generator build. Log: `.artifacts/object_big_relative_offsets/pytest_integration_marker.log`
