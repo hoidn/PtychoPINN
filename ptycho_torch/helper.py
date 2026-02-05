@@ -600,8 +600,8 @@ def derive_intensity_scale_from_amplitudes(x_norm: torch.Tensor, nphotons: float
     if not isinstance(nphotons, (int, float)) or nphotons <= 0:
         raise ValueError("nphotons must be positive")
 
-    spatial_dims = tuple(range(x_norm.ndim - 2, x_norm.ndim))
-    mean_intensity = torch.mean(torch.sum(x_norm ** 2, dim=spatial_dims))
+    sum_dims = tuple(range(1, x_norm.ndim))
+    mean_intensity = torch.mean(torch.sum(x_norm ** 2, dim=sum_dims))
     if mean_intensity.item() <= 0:
         raise ValueError("mean intensity must be positive")
     return torch.sqrt(torch.tensor(float(nphotons), dtype=mean_intensity.dtype) / mean_intensity)

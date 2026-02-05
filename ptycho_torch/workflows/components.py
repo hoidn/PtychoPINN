@@ -90,6 +90,20 @@ def _resolve_nphotons(data, config):
     return getattr(config, "nphotons", 1e9), "config"
 
 
+def _attach_physics_scale(container, config, nphotons_source: Optional[str] = None):
+    from ptycho_torch import helper as hh
+
+    nphotons, source = _resolve_nphotons(container, config)
+    if nphotons_source is not None:
+        source = nphotons_source
+
+    scale = hh.derive_intensity_scale_from_amplitudes(container.X, nphotons)
+    container.physics_scaling_constant = scale.view(1, 1, 1)
+    container.nphotons_source = source
+    container.nphotons_resolved = nphotons
+    return scale, source
+
+
 def run_cdi_example_torch(
     train_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
     test_data: Optional[Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch']],
@@ -239,6 +253,8 @@ def _ensure_container(
     # Case 1: Already a container - return as-is
     if hasattr(data, 'X') and hasattr(data, 'Y'):  # Duck-type check for PtychoDataContainerTorch
         logger.debug("Input is already PtychoDataContainerTorch, returning as-is")
+        if not hasattr(data, 'physics_scaling_constant'):
+            _attach_physics_scale(data, config, nphotons_source=None)
         return data
 
     # Case 2: TensorFlow RawData - wrap with RawDataTorch
@@ -247,6 +263,7 @@ def _ensure_container(
         # Wrap with RawDataTorch (Phase C adapter)
         # Note: Y patches are embedded in TF RawData and will be extracted during grouping
         sample_indices = getattr(data, 'sample_indices', None)
+        metadata = getattr(data, 'metadata', None)
         torch_raw_data = RawDataTorch(
             xcoords=data.xcoords,
             ycoords=data.ycoords,
@@ -266,6 +283,9 @@ def _ensure_container(
         logger.debug("Generating grouped data from RawDataTorch")
         if sample_indices is None:
             sample_indices = getattr(data, 'sample_indices', None)
+        metadata = getattr(data, 'metadata', None)
+        if metadata is None and hasattr(data, '_tf_raw_data'):
+            metadata = getattr(data._tf_raw_data, 'metadata', None)
         grouped_data = data.generate_grouped_data(
             N=config.model.N,
             K=config.neighbor_count,
@@ -292,6 +312,9 @@ def _ensure_container(
         # Extract probe from RawDataTorch (required by PtychoDataContainerTorch constructor)
         probe = data.probeGuess
         container = PtychoDataContainerTorch(grouped_data, probe)
+        if metadata is not None:
+            container.metadata = metadata
+        _attach_physics_scale(container, config, nphotons_source=None)
         return container
 
     # Case 4: Unknown type
