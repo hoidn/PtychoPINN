@@ -185,6 +185,24 @@ logger.debug(f"Config object: gridsize={config.model.gridsize}")
 
 ---
 
+## Parity Debug Logging (TF ↔ Torch)
+
+When diagnosing TF vs Torch discrepancies, enable the parity probes:
+```bash
+PTYCHO_DEBUG_PARITY=1 python scripts/inference/inference.py ...
+PTYCHO_DEBUG_PARITY=1 python -m ptycho_torch.inference ...
+```
+
+This emits `[PARITY]` lines for:
+- Raw diffraction stats
+- Probe stats
+- Offsets stats
+- Reassembly output stats
+
+Use `tmp/parity_baseline/logs/*_parity.log` to compare stages.
+
+---
+
 ## Oversampling Not Working
 
 ### Problem: Can't create more groups than images (e.g., 1024 groups from 128 images)

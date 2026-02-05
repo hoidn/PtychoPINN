@@ -65,6 +65,10 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
 
     B, _, N, _ = inputs.shape
 
+    from ptycho import debug_parity
+    debug_parity.log_array_stats("torch.reassemble.inputs", inputs)
+    debug_parity.log_offsets_stats("torch.reassemble.offsets", offsets_xy)
+
     if os.getenv("PTYCHO_TORCH_STITCH_DEBUG") == "1":
         from ptycho_torch.debug import summarize_offsets
         print(summarize_offsets("offsets_input", offsets_xy))
@@ -134,6 +138,8 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
             imgs_merged = imgs_summed / norm_factor
             boolean_mask = non_zeros_float > 1e-6
 
+            debug_parity.log_array_stats("torch.reassemble.output", imgs_merged)
+
             return imgs_merged, boolean_mask, M # Shape: (B, M, M)
 
         # --- 4a. Prepare and Translate *Prototype* Normalization Mask ---
@@ -174,6 +180,8 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
 
         # Apply normalization: zero out regions outside mask, then divide by count
         imgs_merged = (imgs_summed * boolean_mask) / norm_factor
+
+        debug_parity.log_array_stats("torch.reassemble.output", imgs_merged)
 
         return imgs_merged, boolean_mask, M # Shape: (B, M, M)
 

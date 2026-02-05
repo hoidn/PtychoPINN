@@ -349,6 +349,10 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     diffraction = torch.from_numpy(raw_data.diff3d).to(device, dtype=torch.float32)
     probe = torch.from_numpy(raw_data.probeGuess).to(device, dtype=torch.complex64)
 
+    from ptycho import debug_parity
+    debug_parity.log_array_stats("torch.diffraction_raw", raw_data.diff3d)
+    debug_parity.log_array_stats("torch.probe_raw", raw_data.probeGuess)
+
     # Handle different diffraction shapes (H, W, n) vs (n, H, W)
     # Auto-detect legacy (H, W, n) format where the last dim (n) is the largest
     if diffraction.ndim == 3 and diffraction.shape[-1] > max(diffraction.shape[0], diffraction.shape[1]):
@@ -429,6 +433,7 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     offsets = torch.stack([dx, dy], dim=-1).view(batch_size, 1, 1, 2)
     if offsets.shape[1] == 1 and patch_complex.ndim == 4 and patch_complex.shape[1] > 1:
         offsets = offsets.repeat(1, patch_complex.shape[1], 1, 1)
+    debug_parity.log_offsets_stats("torch.offsets_global", offsets)
 
     if os.getenv("PTYCHO_TORCH_STITCH_DEBUG") == "1":
         from ptycho_torch.debug import summarize_offsets
@@ -442,15 +447,19 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     N = patch_complex.shape[-1]
     data_cfg = DataConfig(N=int(N), grid_size=(1, 1))
     model_cfg = ModelConfig()
+    # Collapse batch into channel dimension so reassembly uses all patches
+    patch_complex_reassemble = patch_complex.reshape(1, -1, N, N)
+    offsets_reassemble = offsets.reshape(1, -1, 1, 2)
     # Ensure channel consistency for reassembly (C_forward must match predicted channels)
-    model_cfg.C_forward = int(patch_complex.shape[1])
+    model_cfg.C_forward = int(patch_complex_reassemble.shape[1])
 
     crop_size = getattr(config, "stitch_crop_size", 20)
     if crop_size > N:
         crop_size = int(N)
     imgs_merged, _, _ = hh.reassemble_patches_position_real(
-        patch_complex, offsets, data_cfg, model_cfg, crop_size=crop_size
+        patch_complex_reassemble, offsets_reassemble, data_cfg, model_cfg, crop_size=crop_size
     )
+    debug_parity.log_array_stats("torch.reassembly_output", imgs_merged)
 
     # Convert to numpy amplitude/phase
     canvas = imgs_merged[0]  # (M, M)

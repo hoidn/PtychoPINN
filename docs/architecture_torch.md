@@ -80,7 +80,7 @@ sequenceDiagram
     Script->>W: predict(test_container)
     W-->>Script: reconstructed_patches
 
-    Script->>Img: reassemble (TF helper used for MVP parity)
+    Script->>Img: reassemble (Torch helper aggregates all patches into one canvas)
     Img-->>Script: amplitude, phase
 
     Script->>E: eval_reconstruction(amplitude, phase, ground_truth)
@@ -88,6 +88,29 @@ sequenceDiagram
 ```
 
 See details and current status in **<doc-ref type="guide">docs/workflows/pytorch.md</doc-ref>**.
+
+## 3.1 Reassembly Contract (Torch)
+
+`ptycho_torch.helper.reassemble_patches_position_real` aggregates **across channels (C)** within each batch item. The required semantic contract is:
+
+- Inputs must be shaped `(B, C, N, N)` where **C is the number of patches to stitch** for each sample.
+- Offsets must be shaped `(B, C, 1, 2)` in the same order as the C‑dimension patches.
+- Output is one stitched canvas per batch item: `(B, M, M)`.
+
+**Inference rule:** when you have one patch per sample (no grouping), **collapse batch into channels** before reassembly so all patches are aggregated into one canvas:
+
+```python
+# patch_complex: (num_patches, 1, N, N)
+# offsets: (num_patches, 1, 1, 2)
+patch_complex_reassemble = patch_complex.reshape(1, -1, N, N)
+offsets_reassemble = offsets.reshape(1, -1, 1, 2)
+imgs_merged, _, _ = reassemble_patches_position_real(
+    patch_complex_reassemble, offsets_reassemble, data_cfg, model_cfg, crop_size=crop_size
+)
+canvas = imgs_merged[0]  # single stitched image
+```
+
+This mirrors TensorFlow’s `shift_and_sum` behavior, which aggregates all patches into a single stitched canvas.
 
 ## 4. Component Reference (PyTorch)
 
@@ -172,4 +195,4 @@ Config Bridging:
 - Container: `PtychoDataContainerTorch` ↔ `loader.PtychoDataContainer`
 - Data loader: `ptycho_torch.dataloader.PtychoDataset` + Lightning DataLoader ↔ TF `loader.py` pipelines
 - Model: `ptycho_torch/model.py` ↔ `ptycho/model.py`
-- Reassembly: parity path uses TF helper; native Torch path planned
+- Reassembly: Torch inference reassembles via `ptycho_torch.helper.reassemble_patches_position_real` by collapsing batch into channels to aggregate all patches; TF path continues to use `ptycho.tf_helper.reassemble_position`

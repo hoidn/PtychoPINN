@@ -397,6 +397,10 @@ def _run_tf_inference_and_reconstruct(
         tf.random.set_seed(seed)
         np.random.seed(seed)
 
+        from ptycho import debug_parity
+        debug_parity.log_array_stats("tf.diffraction_raw", raw_data.diff3d)
+        debug_parity.log_array_stats("tf.probe_raw", raw_data.probeGuess)
+
         # Generate grouped data
         if not quiet:
             logger.info(f"DEBUG: Using gridsize={config.get('gridsize', 'NOT_SET')} for data generation")
@@ -429,8 +433,11 @@ def _run_tf_inference_and_reconstruct(
         if not quiet:
             logger.info(f"Reconstruction completed in {reconstruction_time:.2f} seconds")
 
+        debug_parity.log_offsets_stats("tf.offsets_global", global_offsets)
+
         # Process the reconstructed image
         obj_image = reassemble_position(obj_tensor_full, global_offsets, M=20)
+        debug_parity.log_array_stats("tf.reassembly_output", obj_image)
 
         # Extract amplitude and phase
         reconstructed_amplitude = np.abs(obj_image)

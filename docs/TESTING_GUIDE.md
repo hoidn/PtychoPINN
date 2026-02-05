@@ -46,6 +46,8 @@ Fast, focused tests that validate individual components and functions in isolati
   - `test_tf_helper.py` - Tests TensorFlow helper functions
   - `tests/torch/test_debug_fno_gradients.py` - Smoke test for the FNO gradient diagnostic script
   - `tests/torch/test_loss_units.py` - Validates Poisson/MAE loss unit contracts in PyTorch
+  - `tests/torch/test_parity_*.py` - TF↔Torch parity unit checks (offsets, probe normalization, intensity scale, reassembly)
+  - `tests/torch/test_inference_reassembly_aggregation.py` - Regression test ensuring Torch inference aggregates all patches
 - **Execution time:** Typically < 1 second per test
 - **Dependencies:** Minimal, often using mocks or small test fixtures
 

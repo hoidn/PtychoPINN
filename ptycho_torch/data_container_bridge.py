@@ -218,6 +218,7 @@ class PtychoDataContainerTorch:
         self.coords_nominal = torch.from_numpy(
             coords_relative
         ).to(torch.float32)
+<<<<<<< HEAD
         self.coords_relative = self.coords_nominal  # Explicit alias for relative offsets
         self.coords_true = self.coords_nominal  # Alias per TensorFlow loader.py:295
         self.global_offsets = torch.from_numpy(
