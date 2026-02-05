@@ -207,10 +207,12 @@ def run_cdi_example_torch(
         logger.info(f"Saving trained models to {config.output_dir} via save_torch_bundle")
         # Build archive path following TensorFlow convention (wts.h5.zip)
         archive_path = Path(config.output_dir) / "wts.h5"
+        intensity_scale = train_results.get('intensity_scale')
         save_torch_bundle(
             models_dict=train_results['models'],
             base_path=str(archive_path),
-            config=config
+            config=config,
+            intensity_scale=intensity_scale
         )
         logger.info(f"Models saved successfully to {archive_path}.zip")
     else:
@@ -1415,6 +1417,10 @@ def train_cdi_model_torch(
     # Step 4: Delegate to Lightning trainer
     logger.info("Delegating to Lightning trainer via _train_with_lightning")
     results = _train_with_lightning(train_container, test_container, config, execution_config=execution_config)
+    if hasattr(train_container, 'physics_scaling_constant'):
+        import torch
+        scale_tensor = torch.as_tensor(train_container.physics_scaling_constant)
+        results['intensity_scale'] = float(scale_tensor.reshape(-1)[0].item())
 
     return results
 

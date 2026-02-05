@@ -291,7 +291,7 @@ def save_individual_reconstructions(obj_amp, obj_phase, output_dir):
     print(f"Saved phase reconstruction to: {phase_path}")
 
 
-def _run_inference_and_reconstruct(model, raw_data, config, execution_config, device, quiet=False):
+def _run_inference_and_reconstruct(model, raw_data, config, execution_config, device, quiet=False, intensity_scale=None):
     """
     Extract inference logic into testable helper function (Phase D.C C3).
 
@@ -356,17 +356,21 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
 
     data_cfg_norm = PTDataConfig(N=int(N), grid_size=(1, 1))
     rms_scale = hh.get_rms_scaling_factor(diffraction.squeeze(1), data_cfg_norm)
-    physics_scale = hh.get_physics_scaling_factor(diffraction.squeeze(1), data_cfg_norm)
     if not isinstance(rms_scale, torch.Tensor):
         rms_scale = torch.from_numpy(rms_scale)
-    if not isinstance(physics_scale, torch.Tensor):
-        physics_scale = torch.from_numpy(physics_scale)
     rms_scale = rms_scale.to(device=device, dtype=torch.float32)
-    physics_scale = physics_scale.to(device=device, dtype=torch.float32)
     if rms_scale.ndim == 1:
         rms_scale = rms_scale.view(-1, 1, 1, 1)
-    if physics_scale.ndim == 1:
-        physics_scale = physics_scale.view(-1, 1, 1, 1)
+
+    if intensity_scale is not None:
+        physics_scale = torch.full((batch_size, 1, 1, 1), float(intensity_scale), device=device, dtype=torch.float32)
+    else:
+        physics_scale = hh.get_physics_scaling_factor(diffraction.squeeze(1), data_cfg_norm)
+        if not isinstance(physics_scale, torch.Tensor):
+            physics_scale = torch.from_numpy(physics_scale)
+        physics_scale = physics_scale.to(device=device, dtype=torch.float32)
+        if physics_scale.ndim == 1:
+            physics_scale = physics_scale.view(-1, 1, 1, 1)
 
     physics_weight = 1.0 if getattr(model, 'torch_loss_mode', 'poisson') == 'poisson' else 0.0
     input_scale_factor = rms_scale
@@ -691,6 +695,7 @@ Examples:
             execution_config=execution_config,
             device=device,
             quiet=args.quiet,
+            intensity_scale=params_dict.get('intensity_scale'),
         )
 
         # Save individual reconstructions (required by test contract)
