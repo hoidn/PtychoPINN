@@ -61,6 +61,7 @@ from typing import Union, Optional, Tuple, Dict, Any
 from ptycho import params
 from ptycho.config.config import TrainingConfig, InferenceConfig, PyTorchExecutionConfig
 from ptycho.config import config as ptycho_config  # For update_legacy_dict
+from ptycho.metadata import MetadataManager
 from ptycho.raw_data import RawData
 
 # PyTorch imports (now mandatory per Phase F3.1/F3.2)
@@ -80,6 +81,13 @@ except ImportError as e:
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+
+def _resolve_nphotons(data, config):
+    metadata = getattr(data, "metadata", None)
+    if metadata is not None:
+        return MetadataManager.get_nphotons(metadata), "metadata"
+    return getattr(config, "nphotons", 1e9), "config"
 
 
 def run_cdi_example_torch(
