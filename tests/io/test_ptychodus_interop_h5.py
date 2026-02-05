@@ -61,7 +61,7 @@ def test_interop_h5_reader(tmp_path: Path):
     assert product.metadata.probe_energy_eV == pytest.approx(meta.probe_energy_eV)
 
     # Positions count
-    assert len(product.positions) == len(raw.xcoords)
+    assert len(product.probe_positions) == len(raw.xcoords)
 
     # Probe geometry
     pg = product.probes.get_pixel_geometry()
