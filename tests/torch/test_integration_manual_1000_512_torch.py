@@ -125,7 +125,7 @@ def test_train_infer_cycle_1000_train_512_test(tmp_path):
         "--output_dir",
         str(train_dir),
         "--max_epochs",
-        "50",
+        "20",
         "--n_images",
         "1000",
         "--gridsize",
