@@ -25,7 +25,7 @@ dependencies = [
     "scikit-image",
     "scikit-learn",
     "scipy",
-    "tensorflow[and-cuda]>=2.13.0",
+    "tensorflow>=2.13.0",
     "tensorflow-datasets",
     "tensorflow-hub",
     "tensorflow-metadata",
