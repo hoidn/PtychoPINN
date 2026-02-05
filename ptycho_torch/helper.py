@@ -2,6 +2,7 @@
 from typing import Tuple, Optional, Union, Callable, Any
 
 #Additional helper functions ported from original tensorflow lib
+import os
 import math
 import torch
 from torch import nn
@@ -63,6 +64,10 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
     assert inputs.dtype == torch.complex64, 'Input must be complex'
 
     B, _, N, _ = inputs.shape
+
+    if os.getenv("PTYCHO_TORCH_STITCH_DEBUG") == "1":
+        from ptycho_torch.debug import summarize_offsets
+        print(summarize_offsets("offsets_input", offsets_xy))
 
     #Setting the channels for forward model to a specific C_forward. Model may use this differently
     C = model_config.C_forward

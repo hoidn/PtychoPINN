@@ -430,6 +430,10 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     if offsets.shape[1] == 1 and patch_complex.ndim == 4 and patch_complex.shape[1] > 1:
         offsets = offsets.repeat(1, patch_complex.shape[1], 1, 1)
 
+    if os.getenv("PTYCHO_TORCH_STITCH_DEBUG") == "1":
+        from ptycho_torch.debug import summarize_offsets
+        print(summarize_offsets("offsets_before_reassembly", offsets))
+
     # Position-aware reassembly using torch helper to produce stitched canvas
     from ptycho_torch.config_params import DataConfig, ModelConfig
     from ptycho_torch import helper as hh
