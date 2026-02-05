@@ -479,8 +479,19 @@ def _build_lightning_dataloaders(
                 # Single sample case: (1, 2, C) → (C, 1, 2)
                 coords_rel = coords_rel.permute(2, 0, 1).contiguous()
 
-            rms_scale = self.rms_scaling_constant[idx] if self.rms_scaling_constant is not None else torch.ones(1, 1, 1)
-            phys_scale = self.physics_scaling_constant[idx] if self.physics_scaling_constant is not None else torch.ones(1, 1, 1)
+            def _index_or_scalar(tensor, index):
+                if tensor is None:
+                    return None
+                if tensor.numel() == 1:
+                    return tensor
+                return tensor[index]
+
+            rms_scale = _index_or_scalar(self.rms_scaling_constant, idx)
+            if rms_scale is None:
+                rms_scale = torch.ones(1, 1, 1)
+            phys_scale = _index_or_scalar(self.physics_scaling_constant, idx)
+            if phys_scale is None:
+                phys_scale = torch.ones(1, 1, 1)
 
             # Reshape scaling constants for proper broadcasting with 4D image tensors
             # Model's scale() function does x * scale_factor, so scale_factor needs shape (1, 1, 1)
