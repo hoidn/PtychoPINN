@@ -288,6 +288,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         resnet_width=cfg.resnet_width,
         generator_output_mode=cfg.generator_output_mode,
         object_big=False,
+        probe_big=False,
     )
 
     training_config = TrainingConfig(
