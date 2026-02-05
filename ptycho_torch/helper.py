@@ -591,7 +591,7 @@ def derive_intensity_scale_from_amplitudes(x_norm: torch.Tensor, nphotons: float
     """
     Derive dataset-level physics scale from normalized amplitudes.
 
-    intensity_scale = sqrt(nphotons / mean(sum(x_norm**2)))
+    intensity_scale = sqrt(nphotons / mean(avg_channel(sum(x_norm**2))))
     """
     if not isinstance(x_norm, torch.Tensor):
         x_norm = torch.as_tensor(x_norm)
@@ -600,8 +600,17 @@ def derive_intensity_scale_from_amplitudes(x_norm: torch.Tensor, nphotons: float
     if not isinstance(nphotons, (int, float)) or nphotons <= 0:
         raise ValueError("nphotons must be positive")
 
-    sum_dims = tuple(range(1, x_norm.ndim))
-    mean_intensity = torch.mean(torch.sum(x_norm ** 2, dim=sum_dims))
+    x_sq = x_norm ** 2
+    if x_sq.ndim == 3:
+        per_sample = torch.sum(x_sq, dim=(1, 2))
+    else:
+        non_batch_dims = list(range(1, x_sq.ndim))
+        channel_dim = min(non_batch_dims, key=lambda d: x_sq.shape[d])
+        x_reordered = x_sq.movedim(channel_dim, -1)
+        spatial_dims = tuple(range(1, x_reordered.ndim - 1))
+        per_channel = torch.sum(x_reordered, dim=spatial_dims)
+        per_sample = torch.mean(per_channel, dim=-1)
+    mean_intensity = torch.mean(per_sample)
     if mean_intensity.item() <= 0:
         raise ValueError("mean intensity must be positive")
     return torch.sqrt(torch.tensor(float(nphotons), dtype=mean_intensity.dtype) / mean_intensity)

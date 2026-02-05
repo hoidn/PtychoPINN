@@ -18,6 +18,6 @@ def test_container_gets_physics_scale_value():
     config = SimpleNamespace(nphotons=32.0)
     scale, source = components._attach_physics_scale(container, config, nphotons_source="config")
     assert torch.is_tensor(scale)
-    assert torch.isclose(scale, torch.tensor(2.0), atol=1e-6)  # sqrt(32 / 8)
+    assert torch.isclose(scale, torch.tensor(2.828427), atol=1e-6)  # sqrt(32 / 4)
     assert source == "config"
     assert hasattr(container, "physics_scaling_constant")
