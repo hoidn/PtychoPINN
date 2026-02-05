@@ -21,6 +21,7 @@ from ptycho_torch.patch_generator import group_coords, get_relative_coords, get_
 
 #Parameters
 from ptycho_torch.config_params import TrainingConfig, DataConfig, ModelConfig
+from ptycho_torch.npz_utils import read_npy_shape
 
 #Helper methods
 import ptycho_torch.helper as hh
@@ -48,8 +49,7 @@ def npz_headers(npz):
         for name in archive.namelist():
             if name.startswith('diffraction') and name.endswith('.npy'):
                 npy = archive.open(name)
-                version = np.lib.format.read_magic(npy)
-                shape, _, _ = np.lib.format._read_array_header(npy, version)
+                shape = read_npy_shape(npy)
                 diffraction_shape = shape
                 npy_header_found = True
                 break
@@ -59,8 +59,7 @@ def npz_headers(npz):
             for name in archive.namelist():
                 if name.startswith('diff3d') and name.endswith('.npy'):
                     npy = archive.open(name)
-                    version = np.lib.format.read_magic(npy)
-                    shape, _, _ = np.lib.format._read_array_header(npy, version)
+                    shape = read_npy_shape(npy)
                     diffraction_shape = shape
                     npy_header_found = True
                     break

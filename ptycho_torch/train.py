@@ -117,6 +117,7 @@ def _infer_probe_size(npz_file):
     """
     import zipfile
     import numpy as np
+    from ptycho_torch.npz_utils import read_npy_shape
 
     try:
         with zipfile.ZipFile(npz_file) as archive:
@@ -126,8 +127,7 @@ def _infer_probe_size(npz_file):
                     # Open the .npy file inside the archive
                     npy = archive.open(name)
                     # Read array header without loading data
-                    version = np.lib.format.read_magic(npy)
-                    shape, _, _ = np.lib.format._read_array_header(npy, version)
+                    shape = read_npy_shape(npy)
                     # Return first dimension (probe is typically N x N)
                     return shape[0]
 
