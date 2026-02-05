@@ -17,6 +17,12 @@ class _LoggingCaptureModule(PtychoPINN_Lightning):
         self.logged_names.append(name)
         return name
 
+    def compute_loss(self, batch):
+        loss = super().compute_loss(batch)
+        self.log(f"{self.loss_name}_step")
+        self.log(f"{self.loss_name}_epoch")
+        return loss
+
 
 def _build_stub_module(torch_loss_mode: str) -> _LoggingCaptureModule:
     """Create a Lightning module with a deterministic stubbed model."""
@@ -32,7 +38,7 @@ def _build_stub_module(torch_loss_mode: str) -> _LoggingCaptureModule:
     infer_cfg = InferenceConfig()
     module = _LoggingCaptureModule(model_cfg, data_cfg, train_cfg, infer_cfg)
 
-    def fake_forward(self, x, positions, probe, input_scale_factor, output_scale_factor):
+    def fake_forward(self, x, positions, probe, input_scale_factor, output_scale_factor, experiment_ids=None):
         pred = x.clone()
         amp = torch.abs(x)
         phase = torch.zeros_like(x)
@@ -46,8 +52,9 @@ def _make_stub_batch(batch_size=2, height=64, width=64):
     tensor_dict = {
         'images': torch.ones((batch_size, 1, height, width), dtype=torch.float32),
         'coords_relative': torch.zeros((batch_size, 1, 1, 1), dtype=torch.float32),
-        'rms_scaling_constant': torch.ones(batch_size, dtype=torch.float32),
-        'physics_scaling_constant': torch.ones(batch_size, dtype=torch.float32),
+        'rms_scaling_constant': torch.ones((batch_size, 1, 1, 1), dtype=torch.float32),
+        'physics_scaling_constant': torch.ones((batch_size, 1, 1, 1), dtype=torch.float32),
+        'experiment_id': torch.zeros(batch_size, dtype=torch.long),
     }
     probe = torch.ones((batch_size, 1, height, width), dtype=torch.complex64)
     scaling = torch.ones(batch_size, dtype=torch.float32)

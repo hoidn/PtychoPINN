@@ -50,6 +50,31 @@ import numpy as np
 # MLflow is only needed for legacy inference path
 # Imported conditionally in load_and_predict() to avoid blocking new CLI path
 
+def _training_normalization_scale(diffraction: "torch.Tensor") -> "torch.Tensor":
+    """
+    Match RawData.normalize_data() normalization used in training.
+
+    RawData.normalize_data() computes:
+        scale = sqrt(((N/2)^2) / mean(sum(diffraction^2)))
+
+    Returns a (B, 1, 1, 1) tensor for broadcast with (B, C, H, W).
+    """
+    import torch
+
+    if diffraction.ndim == 4:
+        diff = diffraction.squeeze(1)
+    else:
+        diff = diffraction
+
+    mean_sum = torch.mean(torch.sum(diff ** 2, dim=(-2, -1)))
+    if mean_sum.item() <= 0:
+        raise ValueError("Mean diffraction intensity must be positive for normalization.")
+
+    n = float(diff.shape[-1])
+    scale = torch.sqrt(torch.tensor((n / 2.0) ** 2, device=diffraction.device, dtype=diffraction.dtype) / mean_sum)
+    return scale.view(1, 1, 1, 1).expand(diffraction.shape[0], 1, 1, 1)
+
+
 def load_all_configs(config_path, file_index):
     """
     Helper functions that loads all relevant configs specifically for inference
@@ -291,7 +316,7 @@ def save_individual_reconstructions(obj_amp, obj_phase, output_dir):
     print(f"Saved phase reconstruction to: {phase_path}")
 
 
-def _run_inference_and_reconstruct(model, raw_data, config, execution_config, device, quiet=False):
+def _run_inference_and_reconstruct(model, raw_data, config, execution_config, device, quiet=False, intensity_scale=None):
     """
     Extract inference logic into testable helper function (Phase D.C C3).
 
@@ -324,6 +349,10 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     diffraction = torch.from_numpy(raw_data.diff3d).to(device, dtype=torch.float32)
     probe = torch.from_numpy(raw_data.probeGuess).to(device, dtype=torch.complex64)
 
+    from ptycho import debug_parity
+    debug_parity.log_array_stats("torch.diffraction_raw", raw_data.diff3d)
+    debug_parity.log_array_stats("torch.probe_raw", raw_data.probeGuess)
+
     # Handle different diffraction shapes (H, W, n) vs (n, H, W)
     # Auto-detect legacy (H, W, n) format where the last dim (n) is the largest
     if diffraction.ndim == 3 and diffraction.shape[-1] > max(diffraction.shape[0], diffraction.shape[1]):
@@ -336,6 +365,18 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     # Add channel dimension if needed: (n, H, W) -> (n, 1, H, W)
     if diffraction.ndim == 3:
         diffraction = diffraction.unsqueeze(1)
+
+    # Match expected channel count for grouped inputs (gridsize>1)
+    expected_channels = None
+    if hasattr(model, 'data_config') and hasattr(model.data_config, 'C'):
+        expected_channels = int(model.data_config.C)
+    elif hasattr(model, 'model_config') and hasattr(model.model_config, 'C_model'):
+        expected_channels = int(model.model_config.C_model)
+    elif hasattr(config, 'model') and hasattr(config.model, 'gridsize'):
+        expected_channels = int(config.model.gridsize) ** 2
+
+    if expected_channels and diffraction.shape[1] == 1 and expected_channels > 1:
+        diffraction = diffraction.repeat(1, expected_channels, 1, 1)
 
     # Ensure probe is complex64
     if not torch.is_complex(probe):
@@ -355,18 +396,18 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     from ptycho_torch.config_params import DataConfig as PTDataConfig
 
     data_cfg_norm = PTDataConfig(N=int(N), grid_size=(1, 1))
-    rms_scale = hh.get_rms_scaling_factor(diffraction.squeeze(1), data_cfg_norm)
-    physics_scale = hh.get_physics_scaling_factor(diffraction.squeeze(1), data_cfg_norm)
-    if not isinstance(rms_scale, torch.Tensor):
-        rms_scale = torch.from_numpy(rms_scale)
-    if not isinstance(physics_scale, torch.Tensor):
-        physics_scale = torch.from_numpy(physics_scale)
+    rms_scale = _training_normalization_scale(diffraction)
     rms_scale = rms_scale.to(device=device, dtype=torch.float32)
-    physics_scale = physics_scale.to(device=device, dtype=torch.float32)
-    if rms_scale.ndim == 1:
-        rms_scale = rms_scale.view(-1, 1, 1, 1)
-    if physics_scale.ndim == 1:
-        physics_scale = physics_scale.view(-1, 1, 1, 1)
+
+    if intensity_scale is not None:
+        physics_scale = torch.full((batch_size, 1, 1, 1), float(intensity_scale), device=device, dtype=torch.float32)
+    else:
+        physics_scale = hh.get_physics_scaling_factor(diffraction.squeeze(1), data_cfg_norm)
+        if not isinstance(physics_scale, torch.Tensor):
+            physics_scale = torch.from_numpy(physics_scale)
+        physics_scale = physics_scale.to(device=device, dtype=torch.float32)
+        if physics_scale.ndim == 1:
+            physics_scale = physics_scale.view(-1, 1, 1, 1)
 
     physics_weight = 1.0 if getattr(model, 'torch_loss_mode', 'poisson') == 'poisson' else 0.0
     input_scale_factor = rms_scale
@@ -390,6 +431,13 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     dx = x - torch.mean(x)
     dy = y - torch.mean(y)
     offsets = torch.stack([dx, dy], dim=-1).view(batch_size, 1, 1, 2)
+    if offsets.shape[1] == 1 and patch_complex.ndim == 4 and patch_complex.shape[1] > 1:
+        offsets = offsets.repeat(1, patch_complex.shape[1], 1, 1)
+    debug_parity.log_offsets_stats("torch.offsets_global", offsets)
+
+    if os.getenv("PTYCHO_TORCH_STITCH_DEBUG") == "1":
+        from ptycho_torch.debug import summarize_offsets
+        print(summarize_offsets("offsets_before_reassembly", offsets))
 
     # Position-aware reassembly using torch helper to produce stitched canvas
     from ptycho_torch.config_params import DataConfig, ModelConfig
@@ -399,15 +447,19 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     N = patch_complex.shape[-1]
     data_cfg = DataConfig(N=int(N), grid_size=(1, 1))
     model_cfg = ModelConfig()
+    # Collapse batch into channel dimension so reassembly uses all patches
+    patch_complex_reassemble = patch_complex.reshape(1, -1, N, N)
+    offsets_reassemble = offsets.reshape(1, -1, 1, 2)
     # Ensure channel consistency for reassembly (C_forward must match predicted channels)
-    model_cfg.C_forward = int(patch_complex.shape[1])
+    model_cfg.C_forward = int(patch_complex_reassemble.shape[1])
 
-    # Compute dynamic canvas size to avoid clipping: M >= N + 2*max(|dx|, |dy|)
-    max_shift = torch.max(torch.stack([dx.abs(), dy.abs()], dim=0)).item()
-    M = int(np.ceil(N + 2 * max_shift))
+    crop_size = getattr(config, "stitch_crop_size", 20)
+    if crop_size > N:
+        crop_size = int(N)
     imgs_merged, _, _ = hh.reassemble_patches_position_real(
-        patch_complex, offsets, data_cfg, model_cfg, padded_size=M
+        patch_complex_reassemble, offsets_reassemble, data_cfg, model_cfg, crop_size=crop_size
     )
+    debug_parity.log_array_stats("torch.reassembly_output", imgs_merged)
 
     # Convert to numpy amplitude/phase
     canvas = imgs_merged[0]  # (M, M)
@@ -508,6 +560,17 @@ Examples:
         action='store_true',
         help='Suppress progress output'
     )
+    parser.add_argument(
+        '--log-patch-stats',
+        action='store_true',
+        help='Log per-patch statistics during inference (default: disabled)'
+    )
+    parser.add_argument(
+        '--patch-stats-limit',
+        type=int,
+        default=None,
+        help='Maximum number of batches to log for patch stats (default: no limit)'
+    )
 
     # Execution config flags (Phase C4.C5 - ADR-003)
     parser.add_argument(
@@ -593,6 +656,8 @@ Examples:
     # Build overrides dict for factory
     overrides = {
         'n_groups': args.n_images,  # Map CLI arg to config field
+        'log_patch_stats': args.log_patch_stats,
+        'patch_stats_limit': args.patch_stats_limit,
     }
 
     # Call factory to construct all configs and populate params.cfg
@@ -691,10 +756,24 @@ Examples:
             execution_config=execution_config,
             device=device,
             quiet=args.quiet,
+            intensity_scale=params_dict.get('intensity_scale'),
         )
 
         # Save individual reconstructions (required by test contract)
         save_individual_reconstructions(amplitude, phase, output_dir)
+
+        if payload.pt_inference_config.log_patch_stats:
+            from ptycho_torch.patch_stats_instrumentation import PatchStatsLogger
+            import torch
+
+            amp_tensor = torch.as_tensor(amplitude).unsqueeze(0).unsqueeze(0)
+            logger = PatchStatsLogger(
+                output_dir=output_dir / "analysis",
+                enabled=True,
+                limit=payload.pt_inference_config.patch_stats_limit,
+            )
+            logger.log_batch(amp_tensor, phase="inference", batch_idx=0)
+            logger.finalize()
 
         if not args.quiet:
             print(f"\nInference completed successfully!")

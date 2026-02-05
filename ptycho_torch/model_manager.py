@@ -214,9 +214,11 @@ def create_torch_model_with_gridsize(
     # Extract config values from params_dict (with sensible defaults)
     params_dict = params_dict or {}
 
+    channels = int(params_dict.get('C', gridsize * gridsize))
     # Build DataConfig from params
     data_config = DataConfig(
         N=N,
+        C=channels,
         grid_size=(gridsize, gridsize),
         K=params_dict.get('neighbor_count', 6),
         nphotons=params_dict.get('nphotons', 1e5),
@@ -224,12 +226,16 @@ def create_torch_model_with_gridsize(
 
     # Build ModelConfig from params
     model_config = ModelConfig(
+        C_model=channels,
+        C_forward=channels,
         n_filters_scale=int(params_dict.get('n_filters_scale', 2)),
         amp_activation=params_dict.get('amp_activation', 'silu'),
         mode='Unsupervised' if params_dict.get('model_type') == 'pinn' else 'Supervised',
         object_big=params_dict.get('object.big', False),
         probe_big=params_dict.get('probe.big', True),
         loss_function=params_dict.get('loss_function', 'Poisson'),
+        intensity_scale=params_dict.get('intensity_scale', 1.0),
+        intensity_scale_trainable=params_dict.get('intensity_scale.trainable', False),
     )
 
     # Build TrainingConfig (minimal — weights will override from checkpoint)

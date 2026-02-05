@@ -50,6 +50,8 @@ def test_run_phase_g_dense_collect_only_generates_commands(tmp_path: Path, monke
 
     # Set AUTHORITATIVE_CMDS_DOC to satisfy orchestrator env check
     monkeypatch.setenv("AUTHORITATIVE_CMDS_DOC", "./docs/TESTING_GUIDE.md")
+    from studies.fly64_dose_overlap import overlap as overlap_mod
+    monkeypatch.setattr(overlap_mod, "generate_overlap_views", lambda **kwargs: None)
 
     # Prepare sys.argv for argparse
     monkeypatch.setattr(
@@ -85,7 +87,7 @@ def test_run_phase_g_dense_collect_only_generates_commands(tmp_path: Path, monke
 
     # Check for specific command keywords
     assert "studies.fly64_dose_overlap.generation" in stdout, "Missing generation module in command output"
-    assert "studies.fly64_dose_overlap.overlap" in stdout, "Missing overlap module in command output"
+    assert "__PHASE_D_PROGRAMMATIC__" in stdout, "Missing programmatic Phase D marker in command output"
     assert "studies.fly64_dose_overlap.training" in stdout, "Missing training module in command output"
     assert "studies.fly64_dose_overlap.reconstruction" in stdout, "Missing reconstruction module in command output"
     assert "studies.fly64_dose_overlap.comparison" in stdout, "Missing comparison module in command output"
@@ -153,6 +155,10 @@ def test_run_phase_g_dense_post_verify_hooks(tmp_path: Path, monkeypatch: pytest
 
     # Set AUTHORITATIVE_CMDS_DOC to satisfy orchestrator env check
     monkeypatch.setenv("AUTHORITATIVE_CMDS_DOC", "./docs/TESTING_GUIDE.md")
+    from studies.fly64_dose_overlap import overlap as overlap_mod
+    monkeypatch.setattr(overlap_mod, "generate_overlap_views", lambda **kwargs: None)
+    from studies.fly64_dose_overlap import overlap as overlap_mod
+    monkeypatch.setattr(overlap_mod, "generate_overlap_views", lambda **kwargs: None)
 
     # Prepare sys.argv for argparse (NO --skip-post-verify, so post-verify enabled)
     monkeypatch.setattr(
@@ -176,6 +182,9 @@ def test_run_phase_g_dense_post_verify_hooks(tmp_path: Path, monkeypatch: pytest
     def stub_validate_phase_c_metadata(hub_path):
         """No-op stub for validate_phase_c_metadata."""
         pass
+
+    import studies.fly64_dose_overlap.overlap as overlap_mod
+    monkeypatch.setattr(overlap_mod, "generate_overlap_views", lambda **kwargs: None)
 
     def stub_summarize_phase_g_outputs(hub_path):
         """Create metrics_summary.json with test data for delta computation."""
@@ -278,8 +287,9 @@ def test_run_phase_g_dense_post_verify_hooks(tmp_path: Path, monkeypatch: pytest
     assert exit_code == 0, f"Expected exit code 0 from real execution mode, got {exit_code}"
 
     # Assert: run_command should have been called for all phases + reporting helper + analyze digest + ssim_grid + post-verify (2 commands)
-    # Expected: 1 Phase C + 1 Phase D + 2 Phase E + 2 Phase F + 2 Phase G + 1 reporting + 1 analyze + 1 ssim_grid + 2 post-verify = 13 total
-    assert len(run_command_calls) >= 13, f"Expected at least 13 run_command calls (C/D/E/F/G phases + reporting + analyze + ssim_grid + post-verify), got {len(run_command_calls)}"
+    # Expected: 1 Phase C + 2 Phase E + 2 Phase F + 2 Phase G + 1 reporting + 1 analyze + 1 ssim_grid + 2 post-verify = 12 total
+    # Phase D runs programmatically and does not call run_command.
+    assert len(run_command_calls) >= 12, f"Expected at least 12 run_command calls (C/E/F/G phases + reporting + analyze + ssim_grid + post-verify), got {len(run_command_calls)}"
 
     # Find ssim_grid, verify, and check command indices
     ssim_grid_idx = None
@@ -996,6 +1006,8 @@ def test_run_phase_g_dense_exec_invokes_reporting_helper(tmp_path: Path, monkeyp
 
     # Set AUTHORITATIVE_CMDS_DOC to satisfy orchestrator env check
     monkeypatch.setenv("AUTHORITATIVE_CMDS_DOC", "./docs/TESTING_GUIDE.md")
+    from studies.fly64_dose_overlap import overlap as overlap_mod
+    monkeypatch.setattr(overlap_mod, "generate_overlap_views", lambda **kwargs: None)
 
     # Prepare sys.argv for argparse (NO --collect-only, so real execution)
     monkeypatch.setattr(
@@ -1055,8 +1067,9 @@ def test_run_phase_g_dense_exec_invokes_reporting_helper(tmp_path: Path, monkeyp
     assert exit_code == 0, f"Expected exit code 0 from real execution mode, got {exit_code}"
 
     # Assert: run_command should have been called multiple times (Phase C/D/E/F/G + reporting helper + analyze digest + ssim_grid)
-    # Expected: 1 Phase C + 1 Phase D + 2 Phase E (baseline gs1 + dense gs2) + 2 Phase F (train/test) + 2 Phase G (train/test) + 1 reporting helper + 1 analyze digest + 1 ssim_grid = 11 total
-    assert len(run_command_calls) >= 11, f"Expected at least 11 run_command calls (C/D/E/F/G phases + reporting + analyze + ssim_grid), got {len(run_command_calls)}"
+    # Expected: 1 Phase C + 2 Phase E (baseline gs1 + dense gs2) + 2 Phase F (train/test) + 2 Phase G (train/test) + 1 reporting helper + 1 analyze digest + 1 ssim_grid = 10 total
+    # Phase D runs programmatically and does not call run_command.
+    assert len(run_command_calls) >= 10, f"Expected at least 10 run_command calls (C/E/F/G phases + reporting + analyze + ssim_grid), got {len(run_command_calls)}"
 
     # Find the reporting helper command (no longer predictable by position due to ssim_grid)
     reporting_helper_idx = None
@@ -1123,6 +1136,8 @@ def test_run_phase_g_dense_exec_prints_highlights_preview(tmp_path: Path, monkey
 
     # Set AUTHORITATIVE_CMDS_DOC to satisfy orchestrator env check
     monkeypatch.setenv("AUTHORITATIVE_CMDS_DOC", "./docs/TESTING_GUIDE.md")
+    from studies.fly64_dose_overlap import overlap as overlap_mod
+    monkeypatch.setattr(overlap_mod, "generate_overlap_views", lambda **kwargs: None)
 
     # Prepare sys.argv for argparse (NO --collect-only, so real execution)
     monkeypatch.setattr(
@@ -1285,6 +1300,9 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
     def stub_validate_phase_c_metadata(hub_path):
         """No-op stub for validate_phase_c_metadata."""
         pass
+
+    import studies.fly64_dose_overlap.overlap as overlap_mod
+    monkeypatch.setattr(overlap_mod, "generate_overlap_views", lambda **kwargs: None)
 
     def stub_summarize_phase_g_outputs(hub_path):
         """Create metrics_summary.json with test data for delta computation."""
@@ -1459,8 +1477,9 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
     assert exit_code == 0, f"Expected exit code 0 from real execution mode, got {exit_code}"
 
     # Assert: run_command should have been called for all phases + reporting helper + analyze digest + ssim_grid
-    # Expected: 1 Phase C + 1 Phase D + 2 Phase E (baseline gs1 + dense gs2) + 2 Phase F (train/test) + 2 Phase G (train/test) + 1 reporting helper + 1 analyze digest + 1 ssim_grid = 11 total
-    assert len(run_command_calls) >= 11, f"Expected at least 11 run_command calls (C/D/E/F/G phases + reporting + analyze + ssim_grid), got {len(run_command_calls)}"
+    # Expected: 1 Phase C + 2 Phase E (baseline gs1 + dense gs2) + 2 Phase F (train/test) + 2 Phase G (train/test) + 1 reporting helper + 1 analyze digest + 1 ssim_grid = 10 total
+    # Phase D runs programmatically and does not call run_command.
+    assert len(run_command_calls) >= 10, f"Expected at least 10 run_command calls (C/E/F/G phases + reporting + analyze + ssim_grid), got {len(run_command_calls)}"
 
     # Find reporting helper, analyze digest, and ssim_grid calls
     reporting_helper_idx = None

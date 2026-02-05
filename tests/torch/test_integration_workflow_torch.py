@@ -24,6 +24,8 @@ import sys
 import subprocess
 from pathlib import Path
 import os
+from datetime import datetime
+import numpy as np
 import pytest
 
 # Add project root to path
@@ -57,28 +59,99 @@ def cuda_gpu_env(monkeypatch):
     return env
 
 
-@pytest.fixture
+CANONICAL_DATASET_DIR = Path(".artifacts") / "pytorch_integration_workflow" / "canonical"
+CANONICAL_DATASET_PATH = CANONICAL_DATASET_DIR / "Run1084_recon3_postPC_shrunk_3_canonical.npz"
+
+
+def _ensure_canonical_dataset(source_path: Path, output_path: Path) -> Path:
+    if output_path.exists():
+        return output_path
+
+    if not source_path.exists():
+        raise FileNotFoundError(f"Source dataset not found: {source_path}")
+
+    with np.load(source_path) as data:
+        if "diff3d" in data:
+            diff3d = data["diff3d"]
+        elif "diffraction" in data:
+            diff3d = data["diffraction"]
+        else:
+            raise KeyError("Dataset missing required key 'diff3d' or legacy 'diffraction'")
+
+        xcoords = data["xcoords"]
+        ycoords = data["ycoords"]
+
+        if diff3d.ndim == 3 and diff3d.shape[0] != len(xcoords) and diff3d.shape[-1] == len(xcoords):
+            diff3d = np.moveaxis(diff3d, -1, 0)
+
+        if diff3d.shape[0] != len(xcoords):
+            raise ValueError(
+                f"diff3d first dimension {diff3d.shape[0]} does not match xcoords length {len(xcoords)}"
+            )
+
+        xcoords_start = data["xcoords_start"] if "xcoords_start" in data else xcoords
+        ycoords_start = data["ycoords_start"] if "ycoords_start" in data else ycoords
+        scan_index = data["scan_index"] if "scan_index" in data else np.zeros(len(xcoords), dtype=int)
+
+        def _cast_complex(arr):
+            if arr is None:
+                return None
+            if np.iscomplexobj(arr) and arr.dtype != np.complex64:
+                return arr.astype(np.complex64)
+            return arr
+
+        if "probeGuess" not in data:
+            raise KeyError("Dataset missing required key 'probeGuess'")
+
+        payload = {
+            "xcoords": xcoords.astype(np.float32),
+            "ycoords": ycoords.astype(np.float32),
+            "xcoords_start": xcoords_start.astype(np.float32),
+            "ycoords_start": ycoords_start.astype(np.float32),
+            "diff3d": diff3d.astype(np.float32),
+            "probeGuess": _cast_complex(data["probeGuess"]),
+            "scan_index": scan_index.astype(np.int32),
+        }
+
+        object_guess = _cast_complex(data["objectGuess"] if "objectGuess" in data else None)
+        if object_guess is not None:
+            payload["objectGuess"] = object_guess
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(output_path, **payload)
+    return output_path
+
+
+@pytest.fixture(scope="session")
 def data_file():
     """
-    Return path to the minimal fixture for PyTorch integration testing.
+    Return path to the full Run1084 dataset for PyTorch integration testing.
 
-    Dataset: minimal_dataset_v1.npz (64 scan positions, deterministic subset)
-    Per TEST-PYTORCH-001 Phase B3 plan at reports/2025-10-19T214052Z/phase_b_fixture/plan.md
-    Previous: Run1084_recon3_postPC_shrunk_3.npz (35 MB, 1087 scan positions) - Phase B1 baseline
+    Dataset: Run1084_recon3_postPC_shrunk_3.npz (35 MB, 1087 scan positions).
+    A canonicalized copy with diff3d is materialized under .artifacts if needed.
     """
-    return project_root / "tests" / "fixtures" / "pytorch_integration" / "minimal_dataset_v1.npz"
+    source = project_root / "datasets" / "Run1084_recon3_postPC_shrunk_3.npz"
+    return _ensure_canonical_dataset(source, CANONICAL_DATASET_PATH)
 
 
 # ============================================================================
 # Helper Functions
 # ============================================================================
 
-def _run_pytorch_workflow(tmp_path, data_file, cuda_gpu_env):
+def _persistent_output_root() -> Path:
+    """Create a persistent output root so reconstructions are preserved."""
+    timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    root = Path(".artifacts") / "pytorch_integration_workflow" / timestamp
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _run_pytorch_workflow(output_root, data_file, cuda_gpu_env):
     """
     Execute PyTorch train→save→load→infer workflow via subprocess calls.
 
     Parameters:
-        tmp_path: pytest tmp_path fixture for output directories
+        output_root: Persistent output directory root
         data_file: Path to NPZ dataset
         cuda_gpu_env: Environment dict with CUDA_VISIBLE_DEVICES="0"
 
@@ -98,22 +171,21 @@ def _run_pytorch_workflow(tmp_path, data_file, cuda_gpu_env):
     """
     from types import SimpleNamespace
 
-    # Define output paths
-    training_output_dir = tmp_path / "training_outputs"
-    inference_output_dir = tmp_path / "pytorch_output"
+    # Define output paths (persistent, not auto-cleaned)
+    training_output_dir = output_root / "training_outputs"
+    inference_output_dir = output_root / "pytorch_output"
 
     # --- 1. Training Step (PyTorch) ---
-    # CLI parameters aligned with Phase B1 scope (fixture n_subset=64, deterministic config)
     # Preserves CONFIG-001 ordering per docs/workflows/pytorch.md §12
     train_command = [
         sys.executable, "-m", "ptycho_torch.train",
         "--train_data_file", str(data_file),
         "--test_data_file", str(data_file),
         "--output_dir", str(training_output_dir),
-        "--max_epochs", "2",  # Aligned with Phase B1 runtime budget (<45s)
-        "--n_images", "64",   # Matches fixture subset size
+        "--max_epochs", "50",
+        "--n_images", "1024",
         "--gridsize", "1",
-        "--batch_size", "4",
+        "--batch_size", "16",
         "--accelerator", "cuda",  # Deterministic single-GPU execution per cuda_gpu_env fixture
         "--disable_mlflow",
     ]
@@ -137,13 +209,12 @@ def _run_pytorch_workflow(tmp_path, data_file, cuda_gpu_env):
     checkpoint_path = training_output_dir / "checkpoints" / "last.ckpt"
 
     # --- 2. Inference Step (PyTorch) ---
-    # Inference parameters aligned with Phase B1 scope (subset inference on minimal fixture)
     inference_command = [
         sys.executable, "-m", "ptycho_torch.inference",
         "--model_path", str(training_output_dir),
         "--test_data", str(data_file),
         "--output_dir", str(inference_output_dir),
-        "--n_images", "32",  # Half of fixture size for faster inference validation
+        "--n_images", "1024",
         "--accelerator", "cuda",
     ]
 
@@ -213,7 +284,7 @@ def test_bundle_loader_returns_modules(tmp_path, data_file, cuda_gpu_env):
         "--max_epochs", "1",  # Minimal training for faster test
         "--n_images", "32",
         "--gridsize", "1",
-        "--batch_size", "4",
+        "--batch_size", "16",
         "--accelerator", "cuda",
         "--disable_mlflow",
     ]
@@ -252,7 +323,7 @@ def test_bundle_loader_returns_modules(tmp_path, data_file, cuda_gpu_env):
         pytest.fail(f"Model does not support .eval(): {e}")
 
 
-def test_run_pytorch_train_save_load_infer(tmp_path, data_file, cuda_gpu_env):
+def test_run_pytorch_train_save_load_infer(data_file, cuda_gpu_env):
     """
     Tests the complete PyTorch train → save → load → infer workflow.
 
@@ -269,7 +340,8 @@ def test_run_pytorch_train_save_load_infer(tmp_path, data_file, cuda_gpu_env):
     Implementation: _run_pytorch_workflow executes train/infer via subprocess
     """
     # Execute complete workflow via subprocess helper (Phase C2 implementation)
-    result = _run_pytorch_workflow(tmp_path, data_file, cuda_gpu_env)
+    output_root = _persistent_output_root()
+    result = _run_pytorch_workflow(output_root, data_file, cuda_gpu_env)
 
     # Assertions
     assert result.training_output_dir.exists(), "Training output directory not created"

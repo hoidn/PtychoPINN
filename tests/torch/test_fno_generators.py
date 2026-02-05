@@ -1,5 +1,6 @@
 # tests/torch/test_fno_generators.py
 """Tests for FNO/Hybrid generator implementations."""
+import math
 import pytest
 import torch
 
@@ -15,6 +16,8 @@ from ptycho_torch.generators.fno import (
     StableHybridGenerator,
     FnoGenerator,
 )
+from ptycho_torch.generators.fno_vanilla import FnoVanillaGeneratorModule
+from ptycho_torch.generators.hybrid_resnet import HybridResnetGeneratorModule
 from ptycho_torch.generators.registry import resolve_generator
 from ptycho.config.config import TrainingConfig, ModelConfig
 
@@ -165,6 +168,60 @@ class TestCascadedFNOGenerator:
         assert x.grad is not None
 
 
+class TestFnoVanillaGenerator:
+    """Tests for the FnoVanillaGenerator module."""
+
+    def test_output_shape_real_imag(self):
+        """FnoVanillaGenerator should preserve resolution and emit real/imag output."""
+        model = FnoVanillaGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=2,
+            modes=8,
+            C=4,
+        )
+        x = torch.randn(2, 4, 32, 32)
+        out = model(x)
+        assert out.shape == (2, 32, 32, 4, 2)
+
+
+class TestHybridResnetGenerator:
+    """Tests for the HybridResnetGenerator module."""
+
+    def test_output_shape_real_imag(self):
+        """HybridResnetGenerator should preserve resolution and emit real/imag output."""
+        model = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+        )
+        x = torch.randn(2, 4, 32, 32)
+        out = model(x)
+        assert out.shape == (2, 32, 32, 4, 2)
+
+    def test_amp_phase_bounds(self):
+        """amp_phase output should be bounded by sigmoid/tanh scaling."""
+        model = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            output_mode="amp_phase",
+        )
+        x = torch.randn(1, 4, 32, 32)
+        amp, phase = model(x)
+        assert amp.min().item() >= 0.0
+        assert amp.max().item() <= 1.0
+        assert phase.min().item() >= -math.pi - 1e-3
+        assert phase.max().item() <= math.pi + 1e-3
+
+
 class TestGeneratorRegistry:
     """Tests for generator registry with FNO/Hybrid generators."""
 
@@ -200,14 +257,19 @@ class TestGeneratorRegistry:
 
         gen = resolve_generator(fno_config)
 
-        pt_configs = (
-            DataConfig(N=64, C=4),
-            PTModelConfig(architecture='fno'),
-            PTTrainingConfig(),
-        )
+        from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
+        from ptycho_torch.model import PtychoPINN_Lightning
+
+        pt_configs = {
+            "data_config": DataConfig(N=64, C=4),
+            "model_config": PTModelConfig(architecture='fno'),
+            "training_config": PTTrainingConfig(),
+            "inference_config": PTInferenceConfig(),
+        }
 
         model = gen.build_model(pt_configs)
-        assert isinstance(model, CascadedFNOGenerator)
+        assert isinstance(model, PtychoPINN_Lightning)
+        assert isinstance(model.model.generator, CascadedFNOGenerator)
 
     def test_hybrid_generator_builds_model(self, hybrid_config):
         """Hybrid generator should build a model."""
@@ -215,14 +277,19 @@ class TestGeneratorRegistry:
 
         gen = resolve_generator(hybrid_config)
 
-        pt_configs = (
-            DataConfig(N=64, C=4),
-            PTModelConfig(architecture='hybrid'),
-            PTTrainingConfig(),
-        )
+        from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
+        from ptycho_torch.model import PtychoPINN_Lightning
+
+        pt_configs = {
+            "data_config": DataConfig(N=64, C=4),
+            "model_config": PTModelConfig(architecture='hybrid'),
+            "training_config": PTTrainingConfig(),
+            "inference_config": PTInferenceConfig(),
+        }
 
         model = gen.build_model(pt_configs)
-        assert isinstance(model, HybridUNOGenerator)
+        assert isinstance(model, PtychoPINN_Lightning)
+        assert isinstance(model.model.generator, HybridUNOGenerator)
 
     def test_resolve_stable_hybrid_generator(self):
         """Registry should resolve stable_hybrid generator."""
@@ -302,4 +369,3 @@ class TestStableHybridUNOGenerator:
         x = torch.randn(2, 4, 64, 64)
         out = model(x)
         assert out.shape == (2, 64, 64, 4, 2)
-

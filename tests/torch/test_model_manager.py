@@ -77,7 +77,7 @@ class TestSaveTorchBundle:
             neighbor_count=4,
             nphotons=1e9,
             nepochs=5,
-            batch_size=4,
+            batch_size=16,
         )
 
         return training_config
@@ -419,7 +419,7 @@ class TestLoadTorchBundle:
             neighbor_count=4,
             nphotons=1e9,
             nepochs=5,
-            batch_size=4,
+            batch_size=16,
         )
 
         return training_config
@@ -454,6 +454,28 @@ class TestLoadTorchBundle:
                 'autoencoder': {'_sentinel': 'torch_unavailable', 'name': 'autoencoder'},
                 'diffraction_to_obj': {'_sentinel': 'torch_unavailable', 'name': 'diffraction_to_obj'},
             }
+
+    def test_create_torch_model_with_gridsize_sets_channel_count(self):
+        """create_torch_model_with_gridsize must align channels to gridsize**2."""
+        pytest.importorskip("torch")
+        from ptycho_torch.model_manager import create_torch_model_with_gridsize
+
+        model = create_torch_model_with_gridsize(
+            gridsize=1,
+            N=64,
+            params_dict={'gridsize': 1, 'N': 64, 'model_type': 'pinn'}
+        )
+
+        assert model.data_config.C == 1, (
+            f"Expected data_config.C=1 for gridsize=1, got {model.data_config.C}"
+        )
+        assert model.model_config.C_model == 1, (
+            f"Expected model_config.C_model=1 for gridsize=1, got {model.model_config.C_model}"
+        )
+        conv_weight = model.model.autoencoder.encoder.blocks[0].conv1.weight
+        assert conv_weight.shape[1] == 1, (
+            f"Expected conv1 input channels=1, got {conv_weight.shape[1]}"
+        )
 
     def test_load_round_trip_updates_params_cfg(
         self,

@@ -12,6 +12,7 @@ from ptycho.metadata import MetadataManager
 from scripts.studies.grid_lines_torch_runner import (
     TorchRunnerConfig,
     load_cached_dataset,
+    _select_coords_relative,
     setup_torch_configs,
     run_grid_lines_torch,
     run_torch_training,
@@ -118,6 +119,32 @@ class TestLoadCachedDataset:
 
         with pytest.raises(KeyError, match="Missing required key"):
             load_cached_dataset(bad_path)
+
+
+class TestCoordsRelativeSelection:
+    def test_coords_relative_wins_over_nominal(self):
+        coords_rel = np.array([[[[1.0, 2.0], [3.0, 4.0]]]], dtype=np.float32)
+        coords_nominal = np.array([[[[9.0, 9.0], [9.0, 9.0]]]], dtype=np.float32)
+        data = {"coords_relative": coords_rel, "coords_nominal": coords_nominal}
+        metadata = {"additional_parameters": {"coords_type": "nominal"}}
+        selected = _select_coords_relative(data, metadata, n_samples=1, channels=2)
+        assert np.allclose(selected, coords_rel)
+
+    def test_coords_type_nominal_normalizes(self):
+        coords_nominal = np.array([[[[1.0, 3.0], [2.0, 0.0]]]], dtype=np.float32)
+        data = {"coords_nominal": coords_nominal}
+        metadata = {"additional_parameters": {"coords_type": "nominal"}}
+        selected = _select_coords_relative(data, metadata, n_samples=1, channels=2)
+        mean = coords_nominal.mean(axis=3, keepdims=True)
+        expected = -(coords_nominal - mean)
+        assert np.allclose(selected, expected)
+
+    def test_coords_type_relative_passthrough(self):
+        coords_nominal = np.array([[[[1.0, 3.0], [2.0, 0.0]]]], dtype=np.float32)
+        data = {"coords_nominal": coords_nominal}
+        metadata = {"additional_parameters": {"coords_type": "relative"}}
+        selected = _select_coords_relative(data, metadata, n_samples=1, channels=2)
+        assert np.allclose(selected, coords_nominal)
 
 
 class TestSetupTorchConfigs:
@@ -488,6 +515,64 @@ class TestChannelGridsizeAlignment:
         )
         training_config, _ = setup_torch_configs(cfg)
         assert training_config.model.architecture == "stable_hybrid"
+
+    def test_runner_accepts_hybrid_resnet(self, tmp_path):
+        """Test that setup_torch_configs accepts 'hybrid_resnet' architecture."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+        )
+        training_config, _ = setup_torch_configs(cfg)
+        assert training_config.model.architecture == "hybrid_resnet"
+
+    def test_runner_accepts_fno_vanilla(self, tmp_path):
+        """Test that setup_torch_configs accepts 'fno_vanilla' architecture."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="fno_vanilla",
+        )
+        training_config, _ = setup_torch_configs(cfg)
+        assert training_config.model.architecture == "fno_vanilla"
+
+    def test_runner_rejects_hybrid_resnet_shallow_blocks(self, tmp_path):
+        """hybrid_resnet should reject fno_blocks < 3 with a clear error."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            fno_blocks=2,
+        )
+        with pytest.raises(ValueError, match="fno-blocks"):
+            setup_torch_configs(cfg)
+
+    def test_runner_rejects_invalid_resnet_width(self, tmp_path):
+        """hybrid_resnet should reject resnet_width not divisible by 4."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            resnet_width=255,
+        )
+        with pytest.raises(ValueError, match="divisible by 4"):
+            setup_torch_configs(cfg)
+
+    def test_runner_passes_resnet_width(self, tmp_path):
+        """resnet_width should propagate into ModelConfig for hybrid_resnet."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            resnet_width=256,
+        )
+        training_config, _ = setup_torch_configs(cfg)
+        assert training_config.model.resnet_width == 256
 
     def test_runner_accepts_capped_channels(self):
         """TorchRunnerConfig max_hidden_channels propagates to ModelConfig."""

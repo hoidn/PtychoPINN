@@ -143,7 +143,7 @@ class TestWorkflowsComponentsScaffold:
         # (training path tested separately in TestWorkflowsComponentsTraining)
 
         # Monkeypatch train_cdi_model_torch to prevent full training execution in this test
-        def mock_train_cdi_model_torch(train_data, test_data, config):
+        def mock_train_cdi_model_torch(*args, **kwargs):
             """Minimal stub to prevent full training in scaffold test."""
             return {"history": {"train_loss": [0.5]}, "train_container": None, "test_container": None}
 
@@ -449,7 +449,8 @@ class TestWorkflowsComponentsTraining:
         train_loader, _ = torch_components._build_lightning_dataloaders(
             train_container=train_container,
             test_container=None,
-            config=minimal_training_config
+            config=minimal_training_config,
+            payload=None,
         )
 
         # Extract first batch
@@ -489,6 +490,94 @@ class TestWorkflowsComponentsTraining:
         assert images.ndim == 4, (
             f"batch[0]['images'] must be 4D (batch, channels, H, W), got shape {images.shape}"
         )
+
+    def test_lightning_dataloader_defaults_batch_size_when_missing(
+        self,
+        params_cfg_snapshot,
+        minimal_training_config
+    ):
+        """
+        Ensure _build_lightning_dataloaders falls back to batch_size=16 when config lacks it.
+        """
+        from types import SimpleNamespace
+        from ptycho_torch.workflows import components as torch_components
+        import torch
+
+        N = minimal_training_config.model.N
+        gridsize = minimal_training_config.model.gridsize
+        n_samples = 32
+        n_channels = gridsize * gridsize
+
+        # Minimal container fixture
+        train_container = {
+            "X": torch.randn(n_samples, n_channels, N, N, dtype=torch.float32),
+            "coords_nominal": torch.randn(n_samples, n_channels, 1, 2, dtype=torch.float32),
+            "coords_relative": torch.randn(n_samples, n_channels, 1, 2, dtype=torch.float32),
+            "rms_scaling_constant": torch.ones(n_samples, 1, 1, 1, dtype=torch.float32),
+            "physics_scaling_constant": torch.ones(n_samples, 1, 1, 1, dtype=torch.float32),
+            "probe": torch.randn(N, N, dtype=torch.complex64),
+            "scaling_constant": torch.ones(1, dtype=torch.float32),
+        }
+
+        # Config stub intentionally missing batch_size
+        config = SimpleNamespace(
+            model=minimal_training_config.model,
+            sequential_sampling=False,
+            subsample_seed=None,
+        )
+
+        train_loader, _ = torch_components._build_lightning_dataloaders(
+            train_container=train_container,
+            test_container=None,
+            config=config,
+            payload=None,
+        )
+
+        assert train_loader.batch_size == 16
+
+    def test_lightning_scalar_physics_scale_broadcasts(
+        self,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        Ensure scalar physics_scaling_constant is broadcast safely in the Lightning dataset.
+        """
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+        import torch
+
+        update_legacy_dict(params.cfg, minimal_training_config)
+
+        N = minimal_training_config.model.N
+        gridsize = minimal_training_config.model.gridsize
+        n_samples = 4
+        n_channels = gridsize * gridsize
+
+        train_container = {
+            "X": torch.randn(n_samples, n_channels, N, N, dtype=torch.float32),
+            "coords_nominal": torch.randn(n_samples, n_channels, 1, 2, dtype=torch.float32),
+            "coords_relative": torch.randn(n_samples, n_channels, 1, 2, dtype=torch.float32),
+            "rms_scaling_constant": torch.ones(1, 1, 1, dtype=torch.float32),
+            "physics_scaling_constant": torch.ones(1, 1, 1, dtype=torch.float32),
+            "probe": torch.randn(N, N, dtype=torch.complex64),
+            "scaling_constant": torch.ones(1, dtype=torch.float32),
+        }
+
+        train_loader, _ = torch_components._build_lightning_dataloaders(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config,
+            payload=None,
+        )
+
+        batch = next(iter(train_loader))
+        tensor_dict = batch[0]
+        phys_scale = tensor_dict['physics_scaling_constant']
+        expected_batch = min(minimal_training_config.batch_size, n_samples)
+        assert phys_scale.shape[0] == expected_batch
 
     def test_lightning_poisson_count_contract(
         self,
@@ -813,7 +902,7 @@ class TestWorkflowsComponentsTraining:
             neighbor_count=4,
             nphotons=1e9,
             nepochs=2,
-            batch_size=4,  # Explicit batch size for shape check
+            batch_size=16,  # Explicit batch size for shape check
         )
 
         # Populate params.cfg (CONFIG-001 requirement)
@@ -1732,6 +1821,10 @@ class TestReassembleCdiImageTorchGreen:
                 imag = torch.ones(batch_size, C, self.N, self.N, dtype=torch.float32) * 0.5
                 return torch.complex(real, imag)
 
+            def forward_predict(self, X, positions, probe, input_scale_factor):
+                """Match inference signature used by _reassemble_cdi_image_torch."""
+                return self.forward(X)
+
         return MockLightningModule(
             N=64,
             gridsize=minimal_training_config.model.gridsize
@@ -2078,7 +2171,7 @@ class TestReassembleCdiImageTorchFloat32:
             n_groups=10,
             neighbor_count=4,
             nphotons=1e9,
-            batch_size=4,
+            batch_size=16,
         )
 
         return training_config
@@ -2559,6 +2652,9 @@ class TestTrainWithLightningGreen:
 
         # Monkeypatch Lightning module to prevent errors
         class StubLightningModule:
+            def __init__(self):
+                self.automatic_optimization = True
+
             def save_hyperparameters(self):
                 pass
 
@@ -2723,7 +2819,7 @@ class TestInferenceExecutionConfig:
             train_data_file=Path("/tmp/dummy_train.npz"),
             test_data_file=Path("/tmp/dummy_test.npz"),
             n_groups=10,
-            batch_size=4,
+            batch_size=16,
             neighbor_count=4,
             nphotons=1e9,
         )
@@ -2746,7 +2842,7 @@ class TestInferenceExecutionConfig:
 
         Test mechanism:
         - Create mock container
-        - Supply execution_config with inference_batch_size=2 (override default 4)
+        - Supply execution_config with inference_batch_size=2 (override default 16)
         - Build inference dataloader
         - Assert dataloader.batch_size == 2
         - Expect FAILURE because _build_inference_dataloader currently ignores execution_config
@@ -2767,7 +2863,7 @@ class TestInferenceExecutionConfig:
 
         # Create execution config with inference batch size override
         exec_config = PyTorchExecutionConfig(
-            inference_batch_size=2,  # Override config.batch_size (4)
+            inference_batch_size=2,  # Override config.batch_size (16)
             num_workers=0,
             accelerator='cpu'
         )
@@ -2829,7 +2925,7 @@ class TestLightningCheckpointCallbacks:
             model=model_config,
             train_data_file=Path("/tmp/dummy_train.npz"),
             n_groups=10,
-            batch_size=4,
+            batch_size=16,
             nepochs=2,
             neighbor_count=1,
             nphotons=1e9,
@@ -3121,7 +3217,7 @@ class TestLightningExecutionConfig:
             train_data_file=train_file,
             test_data_file=test_file,  # Validation data present
             n_groups=64,
-            batch_size=4,
+            batch_size=16,
             nepochs=2,
             output_dir=tmp_path / "outputs",
         )

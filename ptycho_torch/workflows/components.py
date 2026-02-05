@@ -61,6 +61,7 @@ from typing import Union, Optional, Tuple, Dict, Any
 from ptycho import params
 from ptycho.config.config import TrainingConfig, InferenceConfig, PyTorchExecutionConfig
 from ptycho.config import config as ptycho_config  # For update_legacy_dict
+from ptycho.metadata import MetadataManager
 from ptycho.raw_data import RawData
 
 # PyTorch imports (now mandatory per Phase F3.1/F3.2)
@@ -80,6 +81,27 @@ except ImportError as e:
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+
+def _resolve_nphotons(data, config):
+    metadata = getattr(data, "metadata", None)
+    if metadata is not None:
+        return MetadataManager.get_nphotons(metadata), "metadata"
+    return getattr(config, "nphotons", 1e9), "config"
+
+
+def _attach_physics_scale(container, config, nphotons_source: Optional[str] = None):
+    from ptycho_torch import helper as hh
+
+    nphotons, source = _resolve_nphotons(container, config)
+    if nphotons_source is not None:
+        source = nphotons_source
+
+    scale = hh.derive_intensity_scale_from_amplitudes(container.X, nphotons)
+    container.physics_scaling_constant = scale.view(1, 1, 1)
+    container.nphotons_source = source
+    container.nphotons_resolved = nphotons
+    return scale, source
 
 
 def run_cdi_example_torch(
@@ -185,10 +207,12 @@ def run_cdi_example_torch(
         logger.info(f"Saving trained models to {config.output_dir} via save_torch_bundle")
         # Build archive path following TensorFlow convention (wts.h5.zip)
         archive_path = Path(config.output_dir) / "wts.h5"
+        intensity_scale = train_results.get('intensity_scale')
         save_torch_bundle(
             models_dict=train_results['models'],
             base_path=str(archive_path),
-            config=config
+            config=config,
+            intensity_scale=intensity_scale
         )
         logger.info(f"Models saved successfully to {archive_path}.zip")
     else:
@@ -231,6 +255,8 @@ def _ensure_container(
     # Case 1: Already a container - return as-is
     if hasattr(data, 'X') and hasattr(data, 'Y'):  # Duck-type check for PtychoDataContainerTorch
         logger.debug("Input is already PtychoDataContainerTorch, returning as-is")
+        if not hasattr(data, 'physics_scaling_constant'):
+            _attach_physics_scale(data, config, nphotons_source=None)
         return data
 
     # Case 2: TensorFlow RawData - wrap with RawDataTorch
@@ -239,6 +265,7 @@ def _ensure_container(
         # Wrap with RawDataTorch (Phase C adapter)
         # Note: Y patches are embedded in TF RawData and will be extracted during grouping
         sample_indices = getattr(data, 'sample_indices', None)
+        metadata = getattr(data, 'metadata', None)
         torch_raw_data = RawDataTorch(
             xcoords=data.xcoords,
             ycoords=data.ycoords,
@@ -258,6 +285,9 @@ def _ensure_container(
         logger.debug("Generating grouped data from RawDataTorch")
         if sample_indices is None:
             sample_indices = getattr(data, 'sample_indices', None)
+        metadata = getattr(data, 'metadata', None)
+        if metadata is None and hasattr(data, '_tf_raw_data'):
+            metadata = getattr(data._tf_raw_data, 'metadata', None)
         grouped_data = data.generate_grouped_data(
             N=config.model.N,
             K=config.neighbor_count,
@@ -284,6 +314,9 @@ def _ensure_container(
         # Extract probe from RawDataTorch (required by PtychoDataContainerTorch constructor)
         probe = data.probeGuess
         container = PtychoDataContainerTorch(grouped_data, probe)
+        if metadata is not None:
+            container.metadata = metadata
+        _attach_physics_scale(container, config, nphotons_source=None)
         return container
 
     # Case 4: Unknown type
@@ -296,7 +329,7 @@ def _build_lightning_dataloaders(
     train_container: Union['PtychoDataContainerTorch', Dict, 'PtychoDataset'],
     test_container: Optional[Union['PtychoDataContainerTorch', Dict, 'PtychoDataset']],
     config: Optional[TrainingConfig],
-    payload: Optional[TrainingPayload]
+    payload: Optional[TrainingPayload] = None
 ):
     """
     Build PyTorch DataLoader instances from container data for Lightning training. This is training-specific,
@@ -341,6 +374,12 @@ def _build_lightning_dataloaders(
     if payload and not config:
         config = payload.tf_training_config
 
+    model_config = None
+    if payload and hasattr(payload, "pt_model_config"):
+        model_config = payload.pt_model_config
+    elif config is not None and getattr(config, "model", None) is not None:
+        model_config = config.model
+
     # Set deterministic seed if provided
     seed = getattr(config, 'subsample_seed', None) or 42
     L.seed_everything(seed)
@@ -370,14 +409,26 @@ def _build_lightning_dataloaders(
         Mimics the structure from ptycho_torch/dataloader.py PtychoDataset.__getitem__
         to maintain compatibility with PtychoPINN_Lightning.compute_loss.
         """
-        def __init__(self, container):
+        def __init__(self, container, model_config=None):
             self.container = container
+            self.model_config = model_config
             # Extract all tensors at init
             self.images = _get_tensor(container, 'X')
             # Try 'coords_relative' first, fallback to 'coords_nominal' for container compatibility
             self.coords_relative = _get_tensor(container, 'coords_relative')
             if self.coords_relative is None:
-                self.coords_relative = _get_tensor(container, 'coords_nominal')
+                if isinstance(container, dict) and self.images is not None:
+                    self.coords_relative = torch.zeros(
+                        (self.images.size(0), 1, 1, 2),
+                        dtype=torch.float32
+                    )
+                elif self.model_config is not None and getattr(self.model_config, "object_big", False):
+                    raise ValueError(
+                        "coords_relative is required when object_big=True. "
+                        "Provide TF-style relative offsets or set object_big=False."
+                    )
+                else:
+                    self.coords_relative = _get_tensor(container, 'coords_nominal')
             self.rms_scaling_constant = _get_tensor(container, 'rms_scaling_constant')
             self.physics_scaling_constant = _get_tensor(container, 'physics_scaling_constant')
             self.probe = _get_tensor(container, 'probe')
@@ -434,8 +485,17 @@ def _build_lightning_dataloaders(
                 # Single sample case: (1, 2, C) → (C, 1, 2)
                 coords_rel = coords_rel.permute(2, 0, 1).contiguous()
 
-            rms_scale = self.rms_scaling_constant[idx] if self.rms_scaling_constant is not None else torch.ones(1, 1, 1)
-            phys_scale = self.physics_scaling_constant[idx] if self.physics_scaling_constant is not None else torch.ones(1, 1, 1)
+            def _select_scale(scale):
+                if scale is None:
+                    return torch.ones(1, 1, 1)
+                if scale.numel() == 1:
+                    return scale
+                if scale.shape[0] == 1:
+                    return scale[0]
+                return scale[idx]
+
+            rms_scale = _select_scale(self.rms_scaling_constant)
+            phys_scale = _select_scale(self.physics_scaling_constant)
 
             # Reshape scaling constants for proper broadcasting with 4D image tensors
             # Model's scale() function does x * scale_factor, so scale_factor needs shape (1, 1, 1)
@@ -485,7 +545,7 @@ def _build_lightning_dataloaders(
         return memory_mapped_data_product
 
     # Build training dataset if train_container is PtychoDataContainerTorch
-    train_dataset = PtychoLightningDataset(train_container)
+    train_dataset = PtychoLightningDataset(train_container, model_config=model_config)
 
     # Configure shuffle based on sequential_sampling flag
     shuffle = not getattr(config, 'sequential_sampling', False)
@@ -493,7 +553,7 @@ def _build_lightning_dataloaders(
     # Build train loader
     train_loader = DataLoader(
         train_dataset,
-        batch_size=getattr(config, 'batch_size', 4),
+        batch_size=getattr(config, 'batch_size', 16),
         shuffle=shuffle,
         num_workers=0,  # Keep simple for MVP; avoid multiprocessing overhead
         pin_memory=False
@@ -502,10 +562,10 @@ def _build_lightning_dataloaders(
     # Build validation loader if test container provided
     val_loader = None
     if test_container is not None:
-        test_dataset = PtychoLightningDataset(test_container)
+        test_dataset = PtychoLightningDataset(test_container, model_config=model_config)
         val_loader = DataLoader(
             test_dataset,
-            batch_size=getattr(config, 'batch_size', 4),
+            batch_size=getattr(config, 'batch_size', 16),
             shuffle=False,  # Never shuffle validation
             num_workers=0,
             pin_memory=False
@@ -753,6 +813,9 @@ def _train_with_lightning(
         'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
         'amp_activation': config.model.amp_activation,
         'n_filters_scale': config.model.n_filters_scale,
+        'object_big': config.model.object_big,
+        'probe_big': config.model.probe_big,
+        'pad_object': config.model.pad_object,
         'nphotons': config.nphotons,
         'neighbor_count': config.neighbor_count,
         'max_epochs': config.nepochs,
@@ -965,6 +1028,23 @@ def _train_with_lightning(
                 verbose=False,
             )
             callbacks.append(early_stop_callback)
+
+    # Recon logging callback (MLflow only, opt-in via recon_log_every_n_epochs)
+    if (execution_config.logger_backend == 'mlflow'
+            and execution_config.recon_log_every_n_epochs is not None):
+        from ptycho_torch.workflows.recon_logging import PtychoReconLoggingCallback
+        recon_cb = PtychoReconLoggingCallback(
+            every_n_epochs=execution_config.recon_log_every_n_epochs,
+            num_patches=execution_config.recon_log_num_patches,
+            fixed_indices=execution_config.recon_log_fixed_indices,
+            log_stitch=execution_config.recon_log_stitch,
+            max_stitch_samples=execution_config.recon_log_max_stitch_samples,
+        )
+        callbacks.append(recon_cb)
+        logger.info("Enabled recon logging callback (every %d epochs, %d patches, stitch=%s)",
+                     execution_config.recon_log_every_n_epochs,
+                     execution_config.recon_log_num_patches,
+                     execution_config.recon_log_stitch)
 
     # Instantiate logger based on execution config (Phase EB3.B - ADR-003)
     lightning_logger = False  # Default: no logger
@@ -1284,8 +1364,19 @@ def _reassemble_cdi_image_torch(
     from ptycho import tf_helper as hh
     obj_tensor_np = obj_tensor_full.cpu().numpy()
     global_offsets_np = global_offsets.cpu().numpy()
+    if (global_offsets_np.ndim == 4
+            and global_offsets_np.shape[2] == 2
+            and global_offsets_np.shape[3] == 1):
+        global_offsets_np = np.swapaxes(global_offsets_np, 2, 3)
 
-    obj_image = hh.reassemble_position(obj_tensor_np, global_offsets_np, M=M)
+    try:
+        obj_image = hh.reassemble_position(obj_tensor_np, global_offsets_np, M=M)
+    except Exception as e:
+        logger.warning(
+            "TF reassemble_position failed; falling back to mean reassembly: %s",
+            e
+        )
+        obj_image = np.mean(obj_tensor_np, axis=0)
 
     # Squeeze trailing channel dimension if present (reassembly may return (H, W, 1))
     if obj_image.ndim == 3 and obj_image.shape[-1] == 1:
@@ -1367,6 +1458,10 @@ def train_cdi_model_torch(
     # Step 4: Delegate to Lightning trainer
     logger.info("Delegating to Lightning trainer via _train_with_lightning")
     results = _train_with_lightning(train_container, test_container, config, execution_config=execution_config)
+    if hasattr(train_container, 'physics_scaling_constant'):
+        import torch
+        scale_tensor = torch.as_tensor(train_container.physics_scaling_constant)
+        results['intensity_scale'] = float(scale_tensor.reshape(-1)[0].item())
 
     return results
 

@@ -93,12 +93,12 @@ def test_non_xla_translation_matching_batch():
     should successfully use the ImageProjectiveTransformV3 fast path without
     falling back to the slower _translate_images_simple.
     """
-    batch_size = 4
+    batch_size = 16
     N = 64
 
     # Both images and translations have matching batch dimension
     fake_images = tf.ones((batch_size, N, N, 1), dtype=tf.float32)
-    fake_translations = tf.constant([[10.0, 20.0]] * batch_size, dtype=tf.float32)  # shape: (4, 2)
+    fake_translations = tf.constant([[10.0, 20.0]] * batch_size, dtype=tf.float32)  # shape: (16, 2)
 
     # Force non-XLA path
     with patch.object(tf_helper, 'should_use_xla', return_value=False):

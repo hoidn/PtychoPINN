@@ -3,6 +3,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 
 def test_wrapper_merges_metrics(monkeypatch, tmp_path):
     from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
@@ -233,6 +235,52 @@ def test_wrapper_handles_stable_hybrid(monkeypatch, tmp_path):
     assert "pinn_stable_hybrid" in merged
 
 
+@pytest.mark.parametrize(
+    "arch,metric_key",
+    [
+        ("fno_vanilla", "pinn_fno_vanilla"),
+        ("hybrid_resnet", "pinn_hybrid_resnet"),
+    ],
+)
+def test_wrapper_handles_new_architectures(monkeypatch, tmp_path, arch, metric_key):
+    """Test that new torch architectures are wired through and merged."""
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare, parse_args
+
+    args = parse_args([
+        "--N", "64", "--gridsize", "1", "--output-dir", str(tmp_path),
+        "--architectures", arch,
+    ])
+    assert arch in args.architectures
+
+    def fake_tf_run(cfg):
+        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+        datasets_dir.mkdir(parents=True, exist_ok=True)
+        (datasets_dir / "train.npz").write_bytes(b"stub")
+        (datasets_dir / "test.npz").write_bytes(b"stub")
+        (cfg.output_dir / "metrics.json").write_text(json.dumps({}))
+        return {"train_npz": str(datasets_dir / "train.npz"), "test_npz": str(datasets_dir / "test.npz")}
+
+    captured = {}
+
+    def fake_torch_run(cfg):
+        captured["architecture"] = cfg.architecture
+        return {"metrics": {"mse": 0.25}}
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
+
+    run_grid_lines_compare(
+        N=64,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=(arch,),
+        probe_npz=Path("dummy_probe.npz"),
+    )
+
+    assert captured["architecture"] == arch
+    merged = json.loads((tmp_path / "metrics.json").read_text())
+    assert metric_key in merged
+
 def test_wrapper_passes_max_hidden_channels():
     """--torch-max-hidden-channels 512 propagates to the mocked runner call."""
     from scripts.studies.grid_lines_compare_wrapper import parse_args
@@ -243,6 +291,18 @@ def test_wrapper_passes_max_hidden_channels():
         "--torch-max-hidden-channels", "512",
     ])
     assert args.torch_max_hidden_channels == 512
+
+
+def test_wrapper_accepts_resnet_width():
+    """--torch-resnet-width propagates to parsed args."""
+    from scripts.studies.grid_lines_compare_wrapper import parse_args
+    args = parse_args([
+        "--N", "64", "--gridsize", "1",
+        "--output-dir", "/tmp/test_out",
+        "--architectures", "hybrid_resnet",
+        "--torch-resnet-width", "256",
+    ])
+    assert args.torch_resnet_width == 256
 
 
 def test_wrapper_accepts_plateau_params(tmp_path):
@@ -387,3 +447,39 @@ def test_wrapper_accepts_plateau_scheduler(tmp_path):
         "--torch-scheduler", "ReduceLROnPlateau",
     ])
     assert args.torch_scheduler == "ReduceLROnPlateau"
+
+
+def test_compare_wrapper_probe_mask_diameter_passthrough(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare, parse_args
+
+    args = parse_args([
+        "--N", "64",
+        "--gridsize", "1",
+        "--output-dir", str(tmp_path),
+        "--probe-mask-diameter", "64",
+    ])
+    assert args.probe_mask_diameter == 64
+
+    captured = {}
+
+    def fake_tf_run(cfg):
+        captured["probe_mask_diameter"] = cfg.probe_mask_diameter
+        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+        datasets_dir.mkdir(parents=True, exist_ok=True)
+        (datasets_dir / "train.npz").write_bytes(b"stub")
+        (datasets_dir / "test.npz").write_bytes(b"stub")
+        (cfg.output_dir / "metrics.json").write_text("{}")
+        return {"train_npz": str(datasets_dir / "train.npz"), "test_npz": str(datasets_dir / "test.npz")}
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+
+    run_grid_lines_compare(
+        N=64,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=("cnn",),
+        probe_npz=Path("dummy_probe.npz"),
+        probe_mask_diameter=64,
+    )
+
+    assert captured["probe_mask_diameter"] == 64

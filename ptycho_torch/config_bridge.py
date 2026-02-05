@@ -169,6 +169,7 @@ def to_model_config(
         'fno_blocks': model.fno_blocks,
         'fno_cnn_blocks': model.fno_cnn_blocks,
         'max_hidden_channels': getattr(model, 'max_hidden_channels', None),
+        'resnet_width': getattr(model, 'resnet_width', None),
         'fno_input_transform': model.fno_input_transform,
         'amp_activation': amp_activation,  # Normalized activation
         'object_big': model.object_big,

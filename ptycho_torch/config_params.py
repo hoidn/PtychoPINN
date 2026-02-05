@@ -35,7 +35,7 @@ class DataConfig:
 
     #Miscellaneous
     normalize: Literal['Group', 'Batch'] = 'Batch' # Whether to normalize the data
-    probe_scale: float = 1.0
+    probe_scale: float = 4.0
     probe_normalize: bool = True
     data_scaling: Literal['Parseval','Max'] = 'Parseval'
     phase_subtraction: bool = True #Only useful for supervised training dataset
@@ -49,19 +49,22 @@ class ModelConfig:
     """Configuration parameters related to the model architecture and behavior."""
     #Mode Category
     mode: Literal['Supervised', 'Unsupervised'] = 'Unsupervised' # Training mode, affects all aspects of model
-    architecture: Literal['cnn', 'fno', 'hybrid', 'stable_hybrid'] = 'cnn'  # Generator architecture selection
+    architecture: Literal[
+        'cnn', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet'
+    ] = 'cnn'  # Generator architecture selection
     fno_modes: int = 12
     fno_width: int = 32
     fno_blocks: int = 4
     fno_cnn_blocks: int = 2
     fno_input_transform: Literal['none', 'sqrt', 'log1p', 'instancenorm'] = 'none'
     max_hidden_channels: Optional[int] = None
+    resnet_width: Optional[int] = None
     generator_output_mode: Literal['real_imag', 'amp_phase_logits', 'amp_phase'] = 'real_imag'
 
     #Intensity Parameters
     intensity_scale_trainable: bool = False
     intensity_scale: float = 10000.0 # General intensity scale guess
-    max_position_jitter: int = 10 # Random jitter for translation (robustness)
+    max_position_jitter: int = 10 # Deprecated in Torch path (padded size ignores this)
     num_datasets: int = 1 #Number of unique datasets being trained. For instantiating fitting constants
 
     #Model architecture parameters
@@ -86,7 +89,7 @@ class ModelConfig:
     decoder_spatial_kernel: int = 7 #Spatial attention kernel for decoder
 
     #Forward model parameters
-    object_big: bool = False # True if object requires patch reassembly
+    object_big: bool = True # True if object requires patch reassembly
     probe_big: bool = True # True if probe requires patch reassembly
     offset: int = 6 # Offset parameter (for nearest neighbor patches)
     C_forward: int = DataConfig.C # Number of channels
@@ -180,6 +183,8 @@ class InferenceConfig:
     experiment_number: int = 0  #Experiment number for inference
     pad_eval: bool = True #Pads the evaluation edges, enforced during training for Nyquist frequency. Can turn off for eval
     window: int = 20 #Window padding around reconstruction due to edge errors
+    log_patch_stats: bool = False  # Emit patch stats during training/inference
+    patch_stats_limit: Optional[int] = None  # Max number of batches to log
 
 @dataclass
 class DatagenConfig:

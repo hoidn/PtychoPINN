@@ -10,9 +10,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
 import json
 import numpy as np
+from skimage.restoration import unwrap_phase
 
 from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
 from ptycho import params as p
@@ -43,6 +44,9 @@ class GridLinesConfig:
     mae_weight: float = 1.0
     realspace_weight: float = 0.0
     probe_smoothing_sigma: float = 0.5
+    probe_mask_diameter: Optional[int] = None
+    probe_source: str = "custom"
+    probe_scale_mode: str = "pad_extrapolate"
     set_phi: bool = False
 
 
@@ -59,20 +63,122 @@ def load_probe_guess(npz_path: Path) -> np.ndarray:
     return data["probeGuess"]
 
 
-def scale_probe(probe: np.ndarray, target_N: int, smoothing_sigma: float) -> np.ndarray:
+def load_ideal_disk_probe(N: int) -> np.ndarray:
+    """Return the idealized disk probe at size N as complex64."""
+    from ptycho import probe as probe_mod
+
+    probe_np = probe_mod.get_default_probe(N, fmt="np")
+    return np.asarray(probe_np, dtype=np.complex64)
+
+
+def scale_probe(
+    probe: np.ndarray,
+    target_N: int,
+    smoothing_sigma: float,
+    scale_mode: str = "pad_extrapolate",
+) -> np.ndarray:
     """Resize probe to target_N and optionally smooth.
 
-    Uses interpolate_array for cubic spline interpolation on real/imag parts,
-    then smooth_complex_array for Gaussian smoothing on amp/phase.
+    Modes:
+        - interpolate: cubic spline interpolation on real/imag parts.
+        - pad_extrapolate: edge amplitude padding + quadratic phase extrapolation.
+    """
+    return scale_probe_with_mode(
+        probe,
+        target_N,
+        smoothing_sigma,
+        scale_mode=scale_mode,
+    )
+
+
+def _fit_quadratic_phase(phase: np.ndarray) -> tuple[float, float]:
+    """Fit phase ~= a * r^2 + b to an unwrapped phase map."""
+    h, w = phase.shape
+    cy = (h - 1) / 2.0
+    cx = (w - 1) / 2.0
+    yy, xx = np.indices((h, w))
+    r2 = (yy - cy) ** 2 + (xx - cx) ** 2
+    A = np.stack([r2.ravel(), np.ones(r2.size)], axis=1)
+    coeffs, _, _, _ = np.linalg.lstsq(A, phase.ravel(), rcond=None)
+    return float(coeffs[0]), float(coeffs[1])
+
+
+def _pad_amplitude(amplitude: np.ndarray, target_N: int) -> np.ndarray:
+    """Pad amplitude to target_N using nearest-neighbor (edge) padding."""
+    h, w = amplitude.shape
+    if h != w:
+        raise ValueError("probe must be square")
+    if target_N < h:
+        raise ValueError("pad_extrapolate requires target_N >= probe size")
+    pad_total = target_N - h
+    pad_before = pad_total // 2
+    pad_after = pad_total - pad_before
+    pad_width = ((pad_before, pad_after), (pad_before, pad_after))
+    return np.pad(amplitude, pad_width=pad_width, mode="edge")
+
+
+def scale_probe_with_mode(
+    probe: np.ndarray,
+    target_N: int,
+    smoothing_sigma: float,
+    scale_mode: str = "pad_extrapolate",
+) -> np.ndarray:
+    """Resize probe to target_N and optionally smooth using specified mode.
+
+    Modes:
+        - interpolate: cubic spline interpolation on real/imag parts.
+        - pad_extrapolate: edge-pad amplitude + quadratic phase extrapolation.
     """
     if probe.shape[0] != probe.shape[1]:
         raise ValueError("probe must be square")
-    if probe.shape[0] != target_N:
-        zoom_factor = target_N / probe.shape[0]
-        probe = interpolate_array(probe, zoom_factor)
+
+    if scale_mode == "interpolate":
+        if probe.shape[0] != target_N:
+            zoom_factor = target_N / probe.shape[0]
+            probe = interpolate_array(probe, zoom_factor)
+        if smoothing_sigma and smoothing_sigma > 0:
+            probe = smooth_complex_array(probe, smoothing_sigma)
+        return probe.astype(np.complex64)
+
+    if scale_mode != "pad_extrapolate":
+        raise ValueError(f"Unknown scale_mode '{scale_mode}'")
+
+    amplitude = np.abs(probe)
+    phase = unwrap_phase(np.angle(probe))
+    amplitude_padded = _pad_amplitude(amplitude, target_N)
+
+    a, b = _fit_quadratic_phase(phase)
+    yy, xx = np.indices((target_N, target_N))
+    cy = (target_N - 1) / 2.0
+    cx = (target_N - 1) / 2.0
+    r2 = (yy - cy) ** 2 + (xx - cx) ** 2
+    phase_extrap = a * r2 + b
+
+    phase_wrapped = (phase_extrap + np.pi) % (2 * np.pi) - np.pi
+    probe_scaled = amplitude_padded * np.exp(1j * phase_wrapped)
+
     if smoothing_sigma and smoothing_sigma > 0:
-        probe = smooth_complex_array(probe, smoothing_sigma)
-    return probe.astype(np.complex64)
+        probe_scaled = smooth_complex_array(probe_scaled, smoothing_sigma)
+    return probe_scaled.astype(np.complex64)
+
+
+def make_disk_mask(N: int, diameter: int) -> np.ndarray:
+    """Create a centered binary disk mask."""
+    radius = diameter / 2.0
+    yy, xx = np.ogrid[:N, :N]
+    center = (N - 1) / 2.0
+    dist_sq = (yy - center) ** 2 + (xx - center) ** 2
+    return (dist_sq <= radius ** 2).astype(np.float32)
+
+
+def apply_probe_mask(probe: np.ndarray, diameter: Optional[int]) -> np.ndarray:
+    """Apply a centered disk mask to the probe if diameter is provided."""
+    if diameter is None:
+        return probe
+    if probe.shape[0] != probe.shape[1]:
+        raise ValueError("probe must be square")
+    mask = make_disk_mask(probe.shape[0], diameter)
+    return (probe * mask).astype(probe.dtype)
 
 
 # ---------------------------------------------------------------------------
@@ -190,6 +296,9 @@ def save_split_npz(
         outer_offset_test=cfg.outer_offset_test,
         nimgs_train=cfg.nimgs_train,
         nimgs_test=cfg.nimgs_test,
+        probe_mask_diameter=cfg.probe_mask_diameter,
+        probe_source=cfg.probe_source,
+        coords_type="relative",
     )
     MetadataManager.save_with_metadata(str(path), payload, metadata)
     return path
@@ -610,8 +719,17 @@ def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
 
     # Step 1: Probe preparation
     print("[1/7] Loading and scaling probe...")
-    probe_guess = load_probe_guess(cfg.probe_npz)
-    probe_scaled = scale_probe(probe_guess, cfg.N, cfg.probe_smoothing_sigma)
+    if cfg.probe_source == "ideal_disk":
+        probe_guess = load_ideal_disk_probe(cfg.N)
+    else:
+        probe_guess = load_probe_guess(cfg.probe_npz)
+    probe_scaled = scale_probe(
+        probe_guess,
+        cfg.N,
+        cfg.probe_smoothing_sigma,
+        scale_mode=cfg.probe_scale_mode,
+    )
+    probe_scaled = apply_probe_mask(probe_scaled, cfg.probe_mask_diameter)
 
     # Step 2: Simulation
     print("[2/7] Running grid simulation...")

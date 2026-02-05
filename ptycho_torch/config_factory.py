@@ -80,6 +80,7 @@ class TrainingPayload:
     pt_data_config: PTDataConfig  # PyTorch singleton
     pt_model_config: PTModelConfig  # PyTorch singleton
     pt_training_config: PTTrainingConfig  # PyTorch singleton
+    pt_inference_config: PTInferenceConfig  # PyTorch singleton (patch-stats, inference defaults)
     execution_config: PyTorchExecutionConfig  # Execution knobs (Phase C2)
     overrides_applied: Dict[str, Any] = field(default_factory=dict)  # Audit trail
 
@@ -101,6 +102,31 @@ class InferencePayload:
     overrides_applied: Dict[str, Any] = field(default_factory=dict)  # Audit trail
 
 
+def _load_nphotons_from_metadata(data_file: Path) -> Optional[float]:
+    """Return nphotons from embedded NPZ metadata if present."""
+    import json
+    import numpy as np
+    from ptycho.metadata import MetadataManager
+
+    try:
+        with np.load(data_file, allow_pickle=True) as data:
+            if MetadataManager.METADATA_KEY not in data.files:
+                return None
+            raw = data[MetadataManager.METADATA_KEY]
+            # Metadata stored as 0-d object array or string
+            if hasattr(raw, "item"):
+                raw = raw.item()
+            if isinstance(raw, bytes):
+                raw = raw.decode("utf-8")
+            if raw is None:
+                return None
+            metadata = json.loads(raw)
+    except Exception:
+        return None
+
+    return MetadataManager.get_nphotons(metadata, default=None)
+
+
 def create_training_payload(
     train_data_file: Path,
     output_dir: Path,
@@ -115,7 +141,7 @@ def create_training_payload(
     a single factory function that:
     1. Validates required arguments (train_data_file, output_dir, n_groups)
     2. Infers probe size from NPZ metadata (or uses override)
-    3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig)
+    3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig, InferenceConfig)
     4. Applies CLI overrides with precedence rules
     5. Translates to TensorFlow canonical configs via config_bridge
     6. Populates params.cfg (CONFIG-001 compliance checkpoint)
@@ -137,6 +163,8 @@ def create_training_payload(
             - pt_data_config: DataConfig (PyTorch singleton)
             - pt_model_config: ModelConfig (PyTorch singleton)
             - pt_training_config: TrainingConfig (PyTorch singleton)
+            - pt_inference_config: InferenceConfig (PyTorch singleton)
+            - pt_inference_config: InferenceConfig (PyTorch singleton)
             - execution_config: PyTorchExecutionConfig (runtime knobs)
             - overrides_applied: Dict[str, Any] (audit trail)
 
@@ -152,7 +180,7 @@ def create_training_payload(
         ...     output_dir=Path('outputs/exp001'),
         ...     overrides={
         ...         'n_groups': 512,
-        ...         'batch_size': 4,
+        ...         'batch_size': 16,
         ...         'gridsize': 2,
         ...         'max_epochs': 10,
         ...     },
@@ -176,6 +204,14 @@ def create_training_payload(
     overrides = overrides or {}
     overrides_applied = dict(overrides)  # Audit trail
 
+    # Bridge naming compatibility: accept legacy/CLI-friendly keys
+    if 'max_epochs' in overrides and 'epochs' not in overrides:
+        overrides['epochs'] = overrides['max_epochs']
+        overrides_applied['epochs'] = overrides['max_epochs']
+    if 'neighbor_count' in overrides and 'K' not in overrides:
+        overrides['K'] = overrides['neighbor_count']
+        overrides_applied['K'] = overrides['neighbor_count']
+
     # Step 1: Validate required arguments
     if not train_data_file.exists():
         raise FileNotFoundError(f"Training data file not found: {train_data_file}")
@@ -193,6 +229,19 @@ def create_training_payload(
         N = infer_probe_size(train_data_file)
         overrides['N'] = N
         overrides_applied['N'] = N  # Record inferred value
+
+    # Step 2b: Resolve nphotons (override > metadata > TF default)
+    if 'nphotons' not in overrides:
+        nphotons_from_metadata = _load_nphotons_from_metadata(train_data_file)
+        if nphotons_from_metadata is not None:
+            overrides['nphotons'] = nphotons_from_metadata
+            overrides_applied['nphotons'] = nphotons_from_metadata
+            overrides_applied['nphotons_source'] = 'metadata'
+        else:
+            tf_default_nphotons = TFTrainingConfig(model=TFModelConfig()).nphotons
+            overrides['nphotons'] = tf_default_nphotons
+            overrides_applied['nphotons'] = tf_default_nphotons
+            overrides_applied['nphotons_source'] = 'tf_default'
 
     # Step 3: Build PyTorch singleton configs with defaults + overrides
     # DataConfig: Extract data-related fields from overrides
@@ -229,6 +278,12 @@ def create_training_payload(
 
     pt_training_config = PTTrainingConfig()
     update_existing_config(pt_training_config, overrides)
+
+    # InferenceConfig: track patch-stats flags for instrumentation
+    pt_inference_config = PTInferenceConfig(
+        log_patch_stats=overrides.get('log_patch_stats', False),
+        patch_stats_limit=overrides.get('patch_stats_limit'),
+    )
 
 
     # Step 4: Translate to TensorFlow canonical configs via config_bridge
@@ -291,6 +346,7 @@ def create_training_payload(
         pt_data_config=pt_data_config,
         pt_model_config=pt_model_config,
         pt_training_config=pt_training_config,
+        pt_inference_config=pt_inference_config,
         execution_config=execution_config,  # Now always PyTorchExecutionConfig instance
         overrides_applied=overrides_applied,
     )
@@ -404,7 +460,7 @@ def create_inference_payload(
         grid_size=grid_size,
         C=C,  # Set C based on grid_size
         K=overrides.get('neighbor_count', 4),  # Canonical default=4 per specs/ptychodus_api_spec.md §4.6
-        probe_scale=overrides.get('probe_scale', 1.0),  # PyTorch default
+        probe_scale=overrides.get('probe_scale', 4.0),  # Align with TF defaults
         subsample_seed=overrides.get('subsample_seed'),  # Optional field
     )
 
@@ -427,6 +483,8 @@ def create_inference_payload(
     # InferenceConfig: Extract inference-specific fields from overrides
     pt_inference_config = PTInferenceConfig(
         batch_size=overrides.get('batch_size', 16),  # PyTorch default
+        log_patch_stats=overrides.get('log_patch_stats', False),
+        patch_stats_limit=overrides.get('patch_stats_limit'),
     )
 
     # Step 4: Translate to TensorFlow canonical configs via config_bridge

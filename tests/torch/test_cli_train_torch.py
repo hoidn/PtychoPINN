@@ -821,7 +821,7 @@ class TestPatchStatsCLI:
             '--output_dir', str(tmp_path / 'outputs'),
             '--n_images', '8',
             '--max_epochs', '1',
-            '--batch_size', '4',
+            '--batch_size', '16',
             '--gridsize', '2',
         ]
 

@@ -118,6 +118,37 @@ def mock_train_npz_128(tmp_path):
 
 
 @pytest.fixture
+def mock_train_npz_with_metadata(tmp_path):
+    """Mock training NPZ with embedded metadata including nphotons."""
+    import numpy as np
+    from ptycho.metadata import MetadataManager
+    from ptycho.config.config import TrainingConfig as TFTrainingConfig, ModelConfig as TFModelConfig
+
+    N = 64
+    n_images = 100
+    M = 256
+    nphotons = 5e8
+
+    npz_path = tmp_path / "mock_train_with_metadata.npz"
+    payload = {
+        "diffraction": np.random.rand(n_images, N, N).astype(np.float32),
+        "probeGuess": np.random.rand(N, N).astype(np.complex64),
+        "objectGuess": np.random.rand(M, M).astype(np.complex64),
+        "xcoords": np.linspace(0, 1, n_images).astype(np.float64),
+        "ycoords": np.linspace(0, 1, n_images).astype(np.float64),
+        "scan_index": np.arange(n_images).astype(np.int32),
+    }
+    tf_config = TFTrainingConfig(model=TFModelConfig(N=N, gridsize=1), nphotons=nphotons)
+    metadata = MetadataManager.create_metadata(
+        tf_config,
+        script_name="unit-test",
+        source="unit-test",
+    )
+    MetadataManager.save_with_metadata(str(npz_path), payload, metadata)
+    return npz_path
+
+
+@pytest.fixture
 def mock_test_npz(tmp_path):
     """Mock test NPZ file (smaller than training for faster tests)."""
     import numpy as np
@@ -178,7 +209,7 @@ class TestTrainingPayloadStructure:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512, 'batch_size': 4},
+            overrides={'n_groups': 512, 'batch_size': 16},
         )
         # GREEN phase assertions (will run after implementation):
         assert is_dataclass(payload)
@@ -455,6 +486,24 @@ class TestOverridePrecedence:
         )
         # GREEN phase:
         assert payload.tf_training_config.model.N == 128
+
+    def test_nphotons_defaults_to_tf_without_metadata(self, mock_train_npz, temp_output_dir):
+        """When no metadata or override, factory should use TF default nphotons."""
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 128},
+        )
+        assert payload.tf_training_config.nphotons == TFTrainingConfig(model=TFModelConfig()).nphotons
+
+    def test_nphotons_uses_metadata_when_present(self, mock_train_npz_with_metadata, temp_output_dir):
+        """Metadata nphotons should override defaults when present."""
+        payload = create_training_payload(
+            train_data_file=mock_train_npz_with_metadata,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 128},
+        )
+        assert payload.tf_training_config.nphotons == 5e8
 
 
 # ============================================================================
