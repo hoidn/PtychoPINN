@@ -92,7 +92,8 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
 
     # --- 3. Translate Images ---
     # (B*C, M, M) -> (B*C, 1, M, M) -> (B*C, M, M) complex
-    imgs_flat_bigN_translated = Translation(imgs_flat_bigN, offsets_flat, 0.).squeeze(1)
+    # TF reassembly pre-negates offsets before translation; mirror that here.
+    imgs_flat_bigN_translated = Translation(imgs_flat_bigN, -offsets_flat, 0.).squeeze(1)
 
     # --- 4. Handle Aggregation vs. No Aggregation ---
     if agg:
