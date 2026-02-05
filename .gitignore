@@ -84,6 +84,7 @@ datasets/Run1084_recon3_postPC_shrunk_lowpass.npz
 data/memmap/
 data/state_files.npz
 train_debug.log
+training_outputs/
 # Artifacts (new policy)
 .artifacts/
 
