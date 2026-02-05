@@ -171,15 +171,14 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
         non_zeros_float = norm_flat_bigN_translated.reshape(B, C, M, M).sum(dim=1)
         #gc.collect()
         # --- 4c. Normalize ---
-        # Create a boolean mask where at least one patch contributed centrally
-        boolean_mask = non_zeros_float.real > 1e-6 # Use tolerance for float comparison
+        # Use a boolean mask for downstream consumers, but do not zero the output.
+        boolean_mask = non_zeros_float.real > 1e-6  # Use tolerance for float comparison
 
-        # Prepare normalization factor, avoiding division by zero
-        # Clamp ensures values are at least 1.0 where division occurs
-        norm_factor = torch.clamp(non_zeros_float.real, min=1.0)
+        # Mirror TF behavior: add epsilon to the normalization factor (mk_norm)
+        norm_factor = non_zeros_float.real + 0.001
 
-        # Apply normalization: zero out regions outside mask, then divide by count
-        imgs_merged = (imgs_summed * boolean_mask) / norm_factor
+        # Normalize by counts only (no hard mask)
+        imgs_merged = imgs_summed / norm_factor
 
         debug_parity.log_array_stats("torch.reassemble.output", imgs_merged)
 
@@ -359,7 +358,7 @@ def pad_obj(input: torch.Tensor, h: int, w: int) -> torch.Tensor:
 
 def get_padded_size(data_config: DataConfig, model_config: ModelConfig) -> int: # Added configs
     bigN = get_bigN(data_config, model_config) # Pass configs
-    buffer = model_config.max_position_jitter # Use config
+    buffer = 0
 
     return bigN + buffer
 

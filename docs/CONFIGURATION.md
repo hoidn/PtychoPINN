@@ -56,7 +56,7 @@ These parameters define the structure and physics of the neural network.
 | `fno_input_transform` | `Literal['none','sqrt','log1p','instancenorm']` | `'none'` | Optional input dynamic-range transform for FNO/Hybrid lifter (PyTorch only). |
 | `resnet_width` | `Optional[int]` | `None` | Fixed bottleneck width for `hybrid_resnet`. Must be divisible by 4 when set (PyTorch only). |
 | `amp_activation` | `str` | `'sigmoid'` | The activation function for the amplitude output layer. Choices: 'sigmoid', 'swish', 'softplus', 'relu'. |
-| `object_big` | `bool` | `True` | If True, the model reconstructs a large area by stitching patches. If False, it reconstructs a single N×N patch. |
+| `object_big` | `bool` | `True` | If True, the model reconstructs a large area by stitching patches. If False, it reconstructs a single N×N patch. Some workflows (e.g., grid-lines Torch runner) explicitly set `object_big=False` for TF parity; treat this as a workflow-level config decision, not an implicit default. |
 | `probe_big` | `bool` | `True` | If True, the probe representation can vary across the solution region. |
 | `probe_mask` | `bool` | `False` | If True, applies a circular mask to the probe to enforce a finite support. |
 | `pad_object` | `bool` | `True` | Controls padding behavior in the model. |

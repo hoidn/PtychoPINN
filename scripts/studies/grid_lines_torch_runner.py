@@ -287,6 +287,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         max_hidden_channels=cfg.max_hidden_channels,
         resnet_width=cfg.resnet_width,
         generator_output_mode=cfg.generator_output_mode,
+        object_big=False,
     )
 
     training_config = TrainingConfig(

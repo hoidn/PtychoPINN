@@ -64,7 +64,7 @@ class ModelConfig:
     #Intensity Parameters
     intensity_scale_trainable: bool = False
     intensity_scale: float = 10000.0 # General intensity scale guess
-    max_position_jitter: int = 10 # Random jitter for translation (robustness)
+    max_position_jitter: int = 10 # Deprecated in Torch path (padded size ignores this)
     num_datasets: int = 1 #Number of unique datasets being trained. For instantiating fitting constants
 
     #Model architecture parameters

@@ -146,7 +146,7 @@ Triggered when first arg NOT in `['--model_path', '--help', '-h']` (line 576)
 | `mode` | Literal['Unsupervised', 'Supervised'] | 'Unsupervised' | Hardcoded (line 485) | PINN mode for training |
 | `amp_activation` | str | 'silu' | Hardcoded (line 486) | Set to 'silu' in training config creation |
 | `intensity_scale_trainable` | bool | False | Not exposed | Uses default; moved to TrainingConfig in bridge |
-| `object_big` | bool | False | Not exposed | Uses PyTorch default |
+| `object_big` | bool | False | Not exposed | Grid-lines Torch runner forces `object_big=False` for TF parity; other workflows use the PyTorch default unless overridden in config |
 | `probe_big` | bool | True | Not exposed | Uses PyTorch default |
 | `loss_function` | Literal | 'Poisson' | Not exposed | Uses PyTorch default |
 
