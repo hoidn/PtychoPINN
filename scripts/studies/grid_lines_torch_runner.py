@@ -160,6 +160,59 @@ def load_cached_dataset_with_metadata(
     return data, metadata
 
 
+def _reshape_coords(coords: Optional[np.ndarray], n_samples: int, channels: int) -> np.ndarray:
+    if coords is None:
+        return np.zeros((n_samples, 1, 2, channels), dtype=np.float32)
+    coords_np = np.asarray(coords)
+    if coords_np.ndim == 2 and coords_np.shape[1] == 2:
+        if coords_np.shape[0] == n_samples * channels:
+            coords_np = coords_np.reshape(n_samples, channels, 2)
+        elif coords_np.shape[0] == n_samples:
+            coords_np = np.repeat(coords_np[:, None, :], channels, axis=1)
+        else:
+            coords_np = np.zeros((n_samples, channels, 2), dtype=np.float32)
+        coords_np = coords_np.transpose(0, 2, 1)
+        coords_np = coords_np[:, None, :, :]
+    elif coords_np.ndim == 3 and coords_np.shape[2] == 2:
+        coords_np = coords_np.transpose(0, 2, 1)
+        coords_np = coords_np[:, None, :, :]
+    elif coords_np.ndim == 4 and coords_np.shape[1] == 1 and coords_np.shape[2] == 2:
+        coords_np = coords_np
+    else:
+        coords_np = np.zeros((n_samples, 1, 2, channels), dtype=np.float32)
+    return coords_np.astype(np.float32)
+
+
+def _select_coords_relative(
+    data: Dict[str, np.ndarray],
+    metadata: Optional[Dict[str, Any]],
+    n_samples: int,
+    channels: int,
+) -> np.ndarray:
+    from ptycho_torch.coords import coords_relative_from_nominal
+
+    coords_rel = data.get("coords_relative")
+    if coords_rel is not None:
+        return _reshape_coords(coords_rel, n_samples, channels)
+    coords_nom = _reshape_coords(data.get("coords_nominal"), n_samples, channels)
+    coords_type = (metadata or {}).get("additional_parameters", {}).get("coords_type")
+    if coords_type == "relative" or coords_type is None:
+        return coords_nom
+    if coords_type == "nominal":
+        return coords_relative_from_nominal(coords_nom)
+    raise ValueError(f"Unknown coords_type='{coords_type}'.")
+
+
+def _coords_relative_for_inference(
+    data: Dict[str, np.ndarray],
+    metadata: Optional[Dict[str, Any]],
+    n_samples: int,
+    channels: int,
+) -> np.ndarray:
+    coords_rel = _select_coords_relative(data, metadata, n_samples, channels)
+    return np.transpose(coords_rel, (0, 3, 1, 2)).astype(np.float32)
+
+
 def _configure_stitching_params(cfg: TorchRunnerConfig, metadata: Optional[Dict[str, Any]]) -> None:
     if not metadata:
         raise ValueError("Missing metadata; cannot stitch predictions for metrics.")
@@ -283,6 +336,8 @@ def run_torch_training(
     cfg: TorchRunnerConfig,
     train_data: Dict[str, np.ndarray],
     test_data: Dict[str, np.ndarray],
+    train_metadata: Optional[Dict[str, Any]] = None,
+    test_metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Run PyTorch training using the Lightning workflow.
 
@@ -307,41 +362,20 @@ def run_torch_training(
     # Set up configs
     training_config, execution_config = setup_torch_configs(cfg)
 
-    def _reshape_coords(coords: Optional[np.ndarray], n_samples: int, channels: int) -> np.ndarray:
-        if coords is None:
-            return np.zeros((n_samples, 1, 2, channels), dtype=np.float32)
-        coords_np = np.asarray(coords)
-        if coords_np.ndim == 2 and coords_np.shape[1] == 2:
-            if coords_np.shape[0] == n_samples * channels:
-                coords_np = coords_np.reshape(n_samples, channels, 2)
-            elif coords_np.shape[0] == n_samples:
-                coords_np = np.repeat(coords_np[:, None, :], channels, axis=1)
-            else:
-                coords_np = np.zeros((n_samples, channels, 2), dtype=np.float32)
-            coords_np = coords_np.transpose(0, 2, 1)
-            coords_np = coords_np[:, None, :, :]
-        elif coords_np.ndim == 3 and coords_np.shape[2] == 2:
-            coords_np = coords_np.transpose(0, 2, 1)
-            coords_np = coords_np[:, None, :, :]
-        elif coords_np.ndim == 4 and coords_np.shape[1] == 1 and coords_np.shape[2] == 2:
-            coords_np = coords_np
-        else:
-            coords_np = np.zeros((n_samples, 1, 2, channels), dtype=np.float32)
-        return coords_np.astype(np.float32)
-
     X = np.asarray(train_data["diffraction"])
     if X.ndim == 3:
         X = X[..., np.newaxis]
     n_samples = X.shape[0]
     channels = X.shape[-1]
-    coords = _reshape_coords(train_data.get("coords_nominal"), n_samples, channels)
+    coords = _select_coords_relative(train_data, train_metadata, n_samples, channels)
     probe = train_data.get("probeGuess")
     if probe is None:
         probe = np.ones((cfg.N, cfg.N), dtype=np.complex64)
 
     train_container = {
         "X": X,
-        "coords_nominal": coords,
+        "coords_nominal": _reshape_coords(train_data.get("coords_nominal"), n_samples, channels),
+        "coords_relative": coords,
         "probe": probe,
     }
 
@@ -352,11 +386,12 @@ def run_torch_training(
             X_te = X_te[..., np.newaxis]
         n_te = X_te.shape[0]
         channels_te = X_te.shape[-1]
-        coords_te = _reshape_coords(test_data.get("coords_nominal"), n_te, channels_te)
+        coords_te = _select_coords_relative(test_data, test_metadata, n_te, channels_te)
         test_probe = test_data.get("probeGuess", probe)
         test_container = {
             "X": X_te,
-            "coords_nominal": coords_te,
+            "coords_nominal": _reshape_coords(test_data.get("coords_nominal"), n_te, channels_te),
+            "coords_relative": coords_te,
             "probe": test_probe,
         }
 
@@ -374,6 +409,7 @@ def run_torch_inference(
     model: Any,
     test_data: Dict[str, np.ndarray],
     cfg: TorchRunnerConfig,
+    metadata: Optional[Dict[str, Any]] = None,
 ) -> np.ndarray:
     """Run inference using trained PyTorch model.
 
@@ -391,33 +427,6 @@ def run_torch_inference(
     """
     import torch
 
-    def _normalize_coords(coords: Optional[np.ndarray], n_samples: int, channels: int) -> np.ndarray:
-        if coords is None:
-            return np.zeros((n_samples, channels, 1, 2), dtype=np.float32)
-        coords_np = np.asarray(coords)
-        if coords_np.ndim == 2 and coords_np.shape[1] == 2:
-            if coords_np.shape[0] == n_samples * channels:
-                coords_np = coords_np.reshape(n_samples, channels, 2)
-            elif coords_np.shape[0] == n_samples:
-                coords_np = np.repeat(coords_np[:, None, :], channels, axis=1)
-            else:
-                coords_np = np.zeros((n_samples, channels, 2), dtype=np.float32)
-            coords_np = coords_np[:, :, None, :]
-        elif coords_np.ndim == 3 and coords_np.shape[2] == 2:
-            if coords_np.shape[1] != channels:
-                coords_np = coords_np[:, :channels, :]
-            coords_np = coords_np[:, :, None, :]
-        elif coords_np.ndim == 4:
-            if coords_np.shape[1] == 1 and coords_np.shape[2] == 2:
-                coords_np = np.transpose(coords_np, (0, 3, 1, 2))
-            elif coords_np.shape[2] == 1 and coords_np.shape[3] == 2:
-                coords_np = coords_np
-            else:
-                coords_np = np.zeros((n_samples, channels, 1, 2), dtype=np.float32)
-        else:
-            coords_np = np.zeros((n_samples, channels, 1, 2), dtype=np.float32)
-        return coords_np.astype(np.float32)
-
     if model is None:
         raise ValueError("Model is required for inference")
 
@@ -429,7 +438,7 @@ def run_torch_inference(
 
     n_samples = X_np.shape[0]
     channels = X_np.shape[-1]
-    coords_np = _normalize_coords(test_data.get('coords_nominal'), n_samples, channels)
+    coords_np = _coords_relative_for_inference(test_data, metadata, n_samples, channels)
     probe_np = test_data.get('probeGuess')
     if probe_np is None:
         probe_np = np.ones((cfg.N, cfg.N), dtype=np.complex64)
@@ -565,7 +574,7 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
 
     # Step 1: Load cached datasets
     logger.info(f"Loading train data from {cfg.train_npz}")
-    train_data = load_cached_dataset(cfg.train_npz)
+    train_data, train_metadata = load_cached_dataset_with_metadata(cfg.train_npz)
 
     logger.info(f"Loading test data from {cfg.test_npz}")
     test_data, test_metadata = load_cached_dataset_with_metadata(cfg.test_npz)
@@ -582,7 +591,7 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
 
     # Step 2: Train model
     logger.info(f"Training {cfg.architecture} model...")
-    results = run_torch_training(cfg, train_data, test_data)
+    results = run_torch_training(cfg, train_data, test_data, train_metadata=train_metadata, test_metadata=test_metadata)
 
     # Step 3: Run inference
     logger.info("Running inference...")
@@ -603,7 +612,7 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
     if cuda_available:
         torch.cuda.synchronize()
     start = time.perf_counter()
-    predictions = run_torch_inference(model, test_data, cfg)
+    predictions = run_torch_inference(model, test_data, cfg, metadata=test_metadata)
     if cuda_available:
         torch.cuda.synchronize()
     inference_time_s = time.perf_counter() - start

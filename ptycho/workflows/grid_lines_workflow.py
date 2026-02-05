@@ -298,6 +298,7 @@ def save_split_npz(
         nimgs_test=cfg.nimgs_test,
         probe_mask_diameter=cfg.probe_mask_diameter,
         probe_source=cfg.probe_source,
+        coords_type="relative",
     )
     MetadataManager.save_with_metadata(str(path), payload, metadata)
     return path

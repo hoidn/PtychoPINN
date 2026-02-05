@@ -12,6 +12,7 @@ from ptycho.metadata import MetadataManager
 from scripts.studies.grid_lines_torch_runner import (
     TorchRunnerConfig,
     load_cached_dataset,
+    _select_coords_relative,
     setup_torch_configs,
     run_grid_lines_torch,
     run_torch_training,
@@ -118,6 +119,32 @@ class TestLoadCachedDataset:
 
         with pytest.raises(KeyError, match="Missing required key"):
             load_cached_dataset(bad_path)
+
+
+class TestCoordsRelativeSelection:
+    def test_coords_relative_wins_over_nominal(self):
+        coords_rel = np.array([[[[1.0, 2.0], [3.0, 4.0]]]], dtype=np.float32)
+        coords_nominal = np.array([[[[9.0, 9.0], [9.0, 9.0]]]], dtype=np.float32)
+        data = {"coords_relative": coords_rel, "coords_nominal": coords_nominal}
+        metadata = {"additional_parameters": {"coords_type": "nominal"}}
+        selected = _select_coords_relative(data, metadata, n_samples=1, channels=2)
+        assert np.allclose(selected, coords_rel)
+
+    def test_coords_type_nominal_normalizes(self):
+        coords_nominal = np.array([[[[1.0, 3.0], [2.0, 0.0]]]], dtype=np.float32)
+        data = {"coords_nominal": coords_nominal}
+        metadata = {"additional_parameters": {"coords_type": "nominal"}}
+        selected = _select_coords_relative(data, metadata, n_samples=1, channels=2)
+        mean = coords_nominal.mean(axis=3, keepdims=True)
+        expected = -(coords_nominal - mean)
+        assert np.allclose(selected, expected)
+
+    def test_coords_type_relative_passthrough(self):
+        coords_nominal = np.array([[[[1.0, 3.0], [2.0, 0.0]]]], dtype=np.float32)
+        data = {"coords_nominal": coords_nominal}
+        metadata = {"additional_parameters": {"coords_type": "relative"}}
+        selected = _select_coords_relative(data, metadata, n_samples=1, channels=2)
+        assert np.allclose(selected, coords_nominal)
 
 
 class TestSetupTorchConfigs:
