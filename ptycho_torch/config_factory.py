@@ -180,7 +180,7 @@ def create_training_payload(
         ...     output_dir=Path('outputs/exp001'),
         ...     overrides={
         ...         'n_groups': 512,
-        ...         'batch_size': 4,
+        ...         'batch_size': 16,
         ...         'gridsize': 2,
         ...         'max_epochs': 10,
         ...     },

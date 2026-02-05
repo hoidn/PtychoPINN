@@ -38,7 +38,7 @@ class TestPatchStatsCLI:
             '--n_images', '64',
             '--max_epochs', '2',
             '--gridsize', '2',
-            '--batch_size', '4',
+            '--batch_size', '16',
         ]
 
     def test_patch_stats_flags_accepted(self, minimal_train_args, monkeypatch, tmp_path):

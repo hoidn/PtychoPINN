@@ -34,7 +34,7 @@ ptycho_train \
     --n_subsample 512 \
     --n_images 128 \
     --gridsize 2 \
-    --batch_size 4 \
+    --batch_size 16 \
     --subsample_seed 42 \
     --output_dir memory_balanced_example \
     --nepochs 10

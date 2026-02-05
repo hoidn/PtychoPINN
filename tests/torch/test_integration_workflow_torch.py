@@ -185,7 +185,7 @@ def _run_pytorch_workflow(output_root, data_file, cuda_gpu_env):
         "--max_epochs", "50",
         "--n_images", "1024",
         "--gridsize", "1",
-        "--batch_size", "4",
+        "--batch_size", "16",
         "--accelerator", "cuda",  # Deterministic single-GPU execution per cuda_gpu_env fixture
         "--disable_mlflow",
     ]
@@ -284,7 +284,7 @@ def test_bundle_loader_returns_modules(tmp_path, data_file, cuda_gpu_env):
         "--max_epochs", "1",  # Minimal training for faster test
         "--n_images", "32",
         "--gridsize", "1",
-        "--batch_size", "4",
+        "--batch_size", "16",
         "--accelerator", "cuda",
         "--disable_mlflow",
     ]

@@ -131,7 +131,7 @@ def test_train_infer_cycle_1000_train_512_test(tmp_path):
         "--gridsize",
         "1",
         "--batch_size",
-        "4",
+        "16",
         "--accelerator",
         "cuda",
         "--disable_mlflow",

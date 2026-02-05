@@ -64,7 +64,7 @@ class TestLightningCheckpointSerialization:
 
         train_cfg = TrainingConfig(
             epochs=0,  # Zero epochs for checkpoint creation only
-            batch_size=4,
+            batch_size=16,
             learning_rate=1e-4,
         )
 
@@ -84,7 +84,7 @@ class TestLightningCheckpointSerialization:
             train_data_file=Path('dummy_train.npz'),
             test_data_file=None,
             n_groups=16,
-            batch_size=4,
+            batch_size=16,
             nepochs=0,
             nphotons=1e6,
             neighbor_count=4,

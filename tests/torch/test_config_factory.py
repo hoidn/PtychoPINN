@@ -209,7 +209,7 @@ class TestTrainingPayloadStructure:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512, 'batch_size': 4},
+            overrides={'n_groups': 512, 'batch_size': 16},
         )
         # GREEN phase assertions (will run after implementation):
         assert is_dataclass(payload)

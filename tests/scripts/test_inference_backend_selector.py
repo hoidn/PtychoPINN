@@ -332,7 +332,7 @@ class TestInferenceCliBackendDispatch:
 
                 execution_config = PyTorchExecutionConfig(
                     accelerator='cpu',
-                    batch_size=4
+                    batch_size=16
                 )
 
                 device = 'cpu'

@@ -553,7 +553,7 @@ def _build_lightning_dataloaders(
     # Build train loader
     train_loader = DataLoader(
         train_dataset,
-        batch_size=getattr(config, 'batch_size', 4),
+        batch_size=getattr(config, 'batch_size', 16),
         shuffle=shuffle,
         num_workers=0,  # Keep simple for MVP; avoid multiprocessing overhead
         pin_memory=False
@@ -565,7 +565,7 @@ def _build_lightning_dataloaders(
         test_dataset = PtychoLightningDataset(test_container, model_config=model_config)
         val_loader = DataLoader(
             test_dataset,
-            batch_size=getattr(config, 'batch_size', 4),
+            batch_size=getattr(config, 'batch_size', 16),
             shuffle=False,  # Never shuffle validation
             num_workers=0,
             pin_memory=False

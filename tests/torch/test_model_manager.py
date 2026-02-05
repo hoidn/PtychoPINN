@@ -77,7 +77,7 @@ class TestSaveTorchBundle:
             neighbor_count=4,
             nphotons=1e9,
             nepochs=5,
-            batch_size=4,
+            batch_size=16,
         )
 
         return training_config
@@ -419,7 +419,7 @@ class TestLoadTorchBundle:
             neighbor_count=4,
             nphotons=1e9,
             nepochs=5,
-            batch_size=4,
+            batch_size=16,
         )
 
         return training_config

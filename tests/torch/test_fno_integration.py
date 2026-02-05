@@ -166,7 +166,7 @@ def test_fno_generator_training_loop():
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
     # Synthetic data
-    batch_size = 4
+    batch_size = 16
     N = 32
     x = torch.randn(batch_size, 1, N, N)
     target = torch.randn(batch_size, N, N, 1, 2)

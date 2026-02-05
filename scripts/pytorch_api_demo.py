@@ -45,7 +45,7 @@ def run_backend(backend: str, out_dir: Path) -> None:
         n_groups=4,
         n_subsample=16,
         neighbor_count=7,
-        batch_size=4,
+        batch_size=16,
         nepochs=1,
     )
 
