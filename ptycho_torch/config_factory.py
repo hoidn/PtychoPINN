@@ -102,6 +102,31 @@ class InferencePayload:
     overrides_applied: Dict[str, Any] = field(default_factory=dict)  # Audit trail
 
 
+def _load_nphotons_from_metadata(data_file: Path) -> Optional[float]:
+    """Return nphotons from embedded NPZ metadata if present."""
+    import json
+    import numpy as np
+    from ptycho.metadata import MetadataManager
+
+    try:
+        with np.load(data_file, allow_pickle=True) as data:
+            if MetadataManager.METADATA_KEY not in data.files:
+                return None
+            raw = data[MetadataManager.METADATA_KEY]
+            # Metadata stored as 0-d object array or string
+            if hasattr(raw, "item"):
+                raw = raw.item()
+            if isinstance(raw, bytes):
+                raw = raw.decode("utf-8")
+            if raw is None:
+                return None
+            metadata = json.loads(raw)
+    except Exception:
+        return None
+
+    return MetadataManager.get_nphotons(metadata, default=None)
+
+
 def create_training_payload(
     train_data_file: Path,
     output_dir: Path,
@@ -204,6 +229,19 @@ def create_training_payload(
         N = infer_probe_size(train_data_file)
         overrides['N'] = N
         overrides_applied['N'] = N  # Record inferred value
+
+    # Step 2b: Resolve nphotons (override > metadata > TF default)
+    if 'nphotons' not in overrides:
+        nphotons_from_metadata = _load_nphotons_from_metadata(train_data_file)
+        if nphotons_from_metadata is not None:
+            overrides['nphotons'] = nphotons_from_metadata
+            overrides_applied['nphotons'] = nphotons_from_metadata
+            overrides_applied['nphotons_source'] = 'metadata'
+        else:
+            tf_default_nphotons = TFTrainingConfig(model=TFModelConfig()).nphotons
+            overrides['nphotons'] = tf_default_nphotons
+            overrides_applied['nphotons'] = tf_default_nphotons
+            overrides_applied['nphotons_source'] = 'tf_default'
 
     # Step 3: Build PyTorch singleton configs with defaults + overrides
     # DataConfig: Extract data-related fields from overrides
