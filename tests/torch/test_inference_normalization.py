@@ -38,7 +38,7 @@ def test_inference_uses_training_normalization_scale(monkeypatch):
                 device=diffraction.device,
             )
 
-    def fake_reassemble(patches, offsets, data_cfg, model_cfg, padded_size=None):
+    def fake_reassemble(patches, offsets, data_cfg, model_cfg, padded_size=None, **_kwargs):
         b, _, h, w = patches.shape
         return torch.ones((b, h, w), dtype=patches.dtype, device=patches.device), None, h
 

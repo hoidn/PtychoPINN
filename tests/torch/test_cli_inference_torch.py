@@ -244,7 +244,7 @@ class TestInferenceCLI:
         )
         mock_model.forward_predict = MagicMock(return_value=patch_complex)
 
-        def fake_reassemble(patches, offsets, data_cfg, model_cfg, padded_size=None):
+        def fake_reassemble(patches, offsets, data_cfg, model_cfg, padded_size=None, **_kwargs):
             size = int(padded_size or patches.shape[-1])
             imgs = torch.zeros((1, size, size), dtype=patches.dtype)
             return imgs, None, None
