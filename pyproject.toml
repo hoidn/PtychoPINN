@@ -67,7 +67,8 @@ markers = [
     "study: marks tests for study infrastructure (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001)",
     "mini: marks tests as minimal/fast unit tests",
     "integration: marks end-to-end integration smoke tests (project-level alias)",
-    "tf_integration: marks TensorFlow end-to-end workflow integration smoke test"
+    "tf_integration: marks TensorFlow end-to-end workflow integration smoke test",
+    "grid_lines_hybrid_resnet_integration: marks grid-lines hybrid_resnet integration gate"
 ]
 # Configure test collection to handle import errors gracefully
 addopts = [
