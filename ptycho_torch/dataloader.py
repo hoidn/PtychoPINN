@@ -670,7 +670,10 @@ class PtychoDataset(Dataset):
             #Optional: normalize probe for forward model to be photon agnostic. We almost always normalize.
             if len(probe_data.shape) == 2:
                 if self.data_config.probe_normalize:
-                    probe_data, scaling_factor = hh.normalize_probe(probe_data)
+                    probe_data, scaling_factor = hh.normalize_probe_like_tf(
+                        probe_data,
+                        probe_scale=self.data_config.probe_scale,
+                    )
                     self.data_dict['probe_scaling'][i] = float(scaling_factor)
                 else:
                     #Save a scaling constant, it's just 1 though

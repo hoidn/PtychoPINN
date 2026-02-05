@@ -35,7 +35,7 @@ class DataConfig:
 
     #Miscellaneous
     normalize: Literal['Group', 'Batch'] = 'Batch' # Whether to normalize the data
-    probe_scale: float = 1.0
+    probe_scale: float = 4.0
     probe_normalize: bool = True
     data_scaling: Literal['Parseval','Max'] = 'Parseval'
     phase_subtraction: bool = True #Only useful for supervised training dataset
@@ -89,7 +89,7 @@ class ModelConfig:
     decoder_spatial_kernel: int = 7 #Spatial attention kernel for decoder
 
     #Forward model parameters
-    object_big: bool = False # True if object requires patch reassembly
+    object_big: bool = True # True if object requires patch reassembly
     probe_big: bool = True # True if probe requires patch reassembly
     offset: int = 6 # Offset parameter (for nearest neighbor patches)
     C_forward: int = DataConfig.C # Number of channels

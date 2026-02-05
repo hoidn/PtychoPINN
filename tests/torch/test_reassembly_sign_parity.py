@@ -23,7 +23,7 @@ def test_reassembly_offset_sign_matches_tf():
     # TF reference: direct translation with TF's XLA warp (dx, dy order)
     tf_out = translate_xla(
         tf.convert_to_tensor(patch_tf),
-        tf.convert_to_tensor((-offsets).reshape(1, 2)),
+        tf.convert_to_tensor(offsets.reshape(1, 2)),
         interpolation="bilinear",
         use_jit=False,
     ).numpy()

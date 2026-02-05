@@ -441,11 +441,11 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     # Ensure channel consistency for reassembly (C_forward must match predicted channels)
     model_cfg.C_forward = int(patch_complex.shape[1])
 
-    # Compute dynamic canvas size to avoid clipping: M >= N + 2*max(|dx|, |dy|)
-    max_shift = torch.max(torch.stack([dx.abs(), dy.abs()], dim=0)).item()
-    M = int(np.ceil(N + 2 * max_shift))
+    crop_size = getattr(config, "stitch_crop_size", 20)
+    if crop_size > N:
+        crop_size = int(N)
     imgs_merged, _, _ = hh.reassemble_patches_position_real(
-        patch_complex, offsets, data_cfg, model_cfg, padded_size=M
+        patch_complex, offsets, data_cfg, model_cfg, crop_size=crop_size
     )
 
     # Convert to numpy amplitude/phase

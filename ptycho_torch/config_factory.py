@@ -460,7 +460,7 @@ def create_inference_payload(
         grid_size=grid_size,
         C=C,  # Set C based on grid_size
         K=overrides.get('neighbor_count', 4),  # Canonical default=4 per specs/ptychodus_api_spec.md §4.6
-        probe_scale=overrides.get('probe_scale', 1.0),  # PyTorch default
+        probe_scale=overrides.get('probe_scale', 4.0),  # Align with TF defaults
         subsample_seed=overrides.get('subsample_seed'),  # Optional field
     )
 

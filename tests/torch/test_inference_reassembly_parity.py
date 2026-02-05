@@ -52,7 +52,7 @@ def test_inference_helper_uses_reassembly(tmp_path):
     model = StubModel()
 
     # Minimal configs for the helper
-    tf_infer_cfg = SimpleNamespace(n_groups=B)  # map to number of patches taken
+    tf_infer_cfg = SimpleNamespace(n_groups=B, stitch_crop_size=20)  # map to number of patches taken
     exec_cfg = SimpleNamespace(accelerator='cpu')
 
     # Current inference helper output (was averaging pre-fix)
@@ -85,10 +85,8 @@ def test_inference_helper_uses_reassembly(tmp_path):
         data_cfg = DataConfig(N=N, grid_size=(1, 1))
         model_cfg = ModelConfig()
         model_cfg.C_forward = 1
-        max_shift = torch.max(torch.stack([dx.abs(), dy.abs()], dim=0)).item()
-        padded_size = int(np.ceil(N + 2 * max_shift))
         imgs_merged, _, _ = hh.reassemble_patches_position_real(
-            inputs, offsets, data_cfg, model_cfg, padded_size=padded_size
+            inputs, offsets, data_cfg, model_cfg, crop_size=tf_infer_cfg.stitch_crop_size
         )
         amp_gt = torch.abs(imgs_merged[0]).cpu().numpy()
 
@@ -130,14 +128,15 @@ def test_reassembly_canvas_padding_invariants(monkeypatch):
             return torch.ones((x.shape[0], 1, x.shape[-1], x.shape[-1]), dtype=torch.complex64, device=x.device)
 
     model = StubModel()
-    tf_infer_cfg = SimpleNamespace(n_groups=B)
+    tf_infer_cfg = SimpleNamespace(n_groups=B, stitch_crop_size=20)
     exec_cfg = SimpleNamespace(accelerator='cpu')
 
     captured = {}
 
-    def fake_reassemble(patches, offsets, data_cfg, model_cfg, padded_size):
-        captured['padded_size'] = padded_size
+    def fake_reassemble(patches, offsets, data_cfg, model_cfg, **kwargs):
+        captured['crop_size'] = kwargs.get('crop_size')
         captured['offsets'] = offsets.detach().cpu().numpy()
+        padded_size = patches.shape[-1]
         canvas = torch.zeros((patches.shape[0], padded_size, padded_size), dtype=torch.complex64, device=patches.device)
         return canvas, None, None
 
@@ -151,10 +150,8 @@ def test_reassembly_canvas_padding_invariants(monkeypatch):
         quiet=True,
     )
 
-    assert 'padded_size' in captured, "reassemble helper was not invoked"
-    expected_max_shift = max(np.max(np.abs(xcoords - xcoords.mean())), np.max(np.abs(ycoords - ycoords.mean())))
-    expected_canvas = int(np.ceil(N + 2 * expected_max_shift))
-    assert captured['padded_size'] >= expected_canvas
+    assert 'crop_size' in captured, "reassemble helper was not invoked"
+    assert captured['crop_size'] == min(N, tf_infer_cfg.stitch_crop_size)
 
     offsets = captured['offsets'].reshape(B, 2)
     assert not np.allclose(offsets, 0.0), "Offsets should not collapse to zero"

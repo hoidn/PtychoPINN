@@ -449,7 +449,8 @@ class TestWorkflowsComponentsTraining:
         train_loader, _ = torch_components._build_lightning_dataloaders(
             train_container=train_container,
             test_container=None,
-            config=minimal_training_config
+            config=minimal_training_config,
+            payload=None,
         )
 
         # Extract first batch
@@ -489,6 +490,50 @@ class TestWorkflowsComponentsTraining:
         assert images.ndim == 4, (
             f"batch[0]['images'] must be 4D (batch, channels, H, W), got shape {images.shape}"
         )
+
+    def test_lightning_scalar_physics_scale_broadcasts(
+        self,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        Ensure scalar physics_scaling_constant is broadcast safely in the Lightning dataset.
+        """
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+        import torch
+
+        update_legacy_dict(params.cfg, minimal_training_config)
+
+        N = minimal_training_config.model.N
+        gridsize = minimal_training_config.model.gridsize
+        n_samples = 4
+        n_channels = gridsize * gridsize
+
+        train_container = {
+            "X": torch.randn(n_samples, n_channels, N, N, dtype=torch.float32),
+            "coords_nominal": torch.randn(n_samples, n_channels, 1, 2, dtype=torch.float32),
+            "coords_relative": torch.randn(n_samples, n_channels, 1, 2, dtype=torch.float32),
+            "rms_scaling_constant": torch.ones(1, 1, 1, dtype=torch.float32),
+            "physics_scaling_constant": torch.ones(1, 1, 1, dtype=torch.float32),
+            "probe": torch.randn(N, N, dtype=torch.complex64),
+            "scaling_constant": torch.ones(1, dtype=torch.float32),
+        }
+
+        train_loader, _ = torch_components._build_lightning_dataloaders(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config,
+            payload=None,
+        )
+
+        batch = next(iter(train_loader))
+        tensor_dict = batch[0]
+        phys_scale = tensor_dict['physics_scaling_constant']
+        expected_batch = min(minimal_training_config.batch_size, n_samples)
+        assert phys_scale.shape[0] == expected_batch
 
     def test_lightning_poisson_count_contract(
         self,

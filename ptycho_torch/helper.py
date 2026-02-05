@@ -36,6 +36,7 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
                                       data_config: DataConfig, model_config: ModelConfig, # Added configs
                                       agg: bool = True,
                                       padded_size: Optional[int] = None,
+                                      crop_size: Optional[int] = None,
                                       **kwargs: Any) -> torch.Tensor:
     '''
     Given image patches (shaped such that the channel dimension indexes
@@ -64,25 +65,44 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
     B, _, N, _ = inputs.shape
 
     #Setting the channels for forward model to a specific C_forward. Model may use this differently
-
     C = model_config.C_forward
 
-    if padded_size is None:
-        padded_size = get_padded_size(data_config, model_config)
+    if crop_size is not None:
+        if crop_size <= 0 or crop_size > N:
+            raise ValueError(f"crop_size must be in (0, {N}], got {crop_size}")
+        start = N // 2 - crop_size // 2
+        end = start + crop_size
+        inputs = inputs[..., start:end, start:end]
+        N_eff = crop_size
+
+        offsets_flat = offsets_xy.flatten(start_dim=0, end_dim=1)
+        offsets_flat = offsets_flat - offsets_flat.mean(dim=0, keepdim=True)
+        if padded_size is None:
+            max_shift = float(offsets_flat.abs().max().item())
+            dynamic_pad = int(math.ceil(max_shift))
+            if dynamic_pad % 2 != 0:
+                dynamic_pad += 1
+            padded_size = N_eff + 2 * dynamic_pad
+    else:
+        N_eff = N
+        offsets_flat = offsets_xy.flatten(start_dim=0, end_dim=1)
+        if padded_size is None:
+            padded_size = get_padded_size(data_config, model_config)
+
     M = padded_size # Use M for clarity
 
-    # --- 1. Prepare Flat Inputs and Offsets ---
+    # --- 1. Prepare Flat Inputs ---
     # Flatten batch and channel dimensions for efficient translation
-    # Input images: (B, C, N, N) -> (B*C, N, N)
+    # Input images: (B, C, N_eff, N_eff) -> (B*C, N_eff, N_eff)
     imgs_flat = inputs.flatten(start_dim=0, end_dim=1)
-    # Offsets: (B, C, 1, 2) -> (B*C, 1, 2)
-    offsets_flat = offsets_xy.flatten(start_dim=0, end_dim=1)
 
     # --- 2. Pad Images ---
     # Pad flat images to the target size M
-    # (B*C, N, N) -> (B*C, M, M)
+    # (B*C, N_eff, N_eff) -> (B*C, M, M)
     # Support odd total padding by splitting remainder across sides
-    total_pad = M - N
+    total_pad = M - N_eff
+    if total_pad < 0:
+        raise ValueError(f"padded_size ({M}) must be >= crop size ({N_eff})")
     left_pad = total_pad // 2
     right_pad = total_pad - left_pad
     top_pad = total_pad // 2
@@ -92,16 +112,30 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
 
     # --- 3. Translate Images ---
     # (B*C, M, M) -> (B*C, 1, M, M) -> (B*C, M, M) complex
-    # TF reassembly pre-negates offsets before translation; mirror that here.
-    imgs_flat_bigN_translated = Translation(imgs_flat_bigN, -offsets_flat, 0.).squeeze(1)
+    imgs_flat_bigN_translated = Translation(imgs_flat_bigN, offsets_flat, 0.).squeeze(1)
 
     # --- 4. Handle Aggregation vs. No Aggregation ---
     if agg:
+        if crop_size is not None:
+            with torch.no_grad():
+                ones_flat = torch.ones((B * C, N_eff, N_eff), device=inputs.device, dtype=torch.float32)
+                ones_padded = F.pad(ones_flat, (left_pad, right_pad, top_pad, bottom_pad), "constant", 0.)
+
+            norm_flat_bigN_translated = Translation(ones_padded, offsets_flat, 0.).squeeze(1)
+
+            imgs_summed = imgs_flat_bigN_translated.reshape(B, C, M, M).sum(dim=1)
+            non_zeros_float = norm_flat_bigN_translated.reshape(B, C, M, M).sum(dim=1)
+            norm_factor = non_zeros_float + 1e-9
+            imgs_merged = imgs_summed / norm_factor
+            boolean_mask = non_zeros_float > 1e-6
+
+            return imgs_merged, boolean_mask, M # Shape: (B, M, M)
+
         # --- 4a. Prepare and Translate *Prototype* Normalization Mask ---
         # Create ONE small (N, N) mask for the central region
         with torch.no_grad(): # Mask creation doesn't need gradients
-            prototype_mask_N = torch.zeros(N, N, device=inputs.device, dtype=torch.float32)
-            center_slice = slice(N // 4, N // 4 + N // 2)
+            prototype_mask_N = torch.zeros(N_eff, N_eff, device=inputs.device, dtype=torch.float32)
+            center_slice = slice(N_eff // 4, N_eff // 4 + N_eff // 2)
             prototype_mask_N[center_slice, center_slice] = 1.0
 
             # Pad the SINGLE prototype mask to (M, M)
@@ -629,6 +663,40 @@ def normalize_probe(X):
     X /= np.sqrt(total_intensity)
 
     return X, scaling_factor
+
+
+def normalize_probe_like_tf(probe_guess: np.ndarray, probe_scale: float) -> Tuple[np.ndarray, float]:
+    """
+    Normalize probe using the same mask + mean-abs scaling as TF set_probe.
+    """
+    from ptycho import probe as tf_probe
+
+    if probe_scale <= 0:
+        raise ValueError(f"probe_scale must be positive, got {probe_scale}")
+
+    probe_np = np.asarray(probe_guess, dtype=np.complex64)
+    if probe_np.ndim == 2:
+        probe_2d = probe_np
+        probe_for_norm = probe_np[..., None]
+        expand_back = False
+    elif probe_np.ndim == 3 and probe_np.shape[-1] == 1:
+        probe_2d = probe_np[..., 0]
+        probe_for_norm = probe_np
+        expand_back = True
+    else:
+        raise ValueError("probe_guess must have shape (N, N) or (N, N, 1)")
+
+    mask = tf_probe.get_probe_mask(probe_2d.shape[0]).numpy()
+    tamped = mask * probe_for_norm
+    norm = float(probe_scale * np.mean(np.abs(tamped)))
+    if norm <= 0:
+        raise ValueError("probe normalization norm must be positive")
+
+    normalized = (probe_2d / norm).astype(np.complex64)
+    if expand_back:
+        normalized = normalized[..., None]
+
+    return normalized, 1.0 / norm
 
 
 
