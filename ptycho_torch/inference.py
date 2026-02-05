@@ -50,6 +50,31 @@ import numpy as np
 # MLflow is only needed for legacy inference path
 # Imported conditionally in load_and_predict() to avoid blocking new CLI path
 
+def _training_normalization_scale(diffraction: "torch.Tensor") -> "torch.Tensor":
+    """
+    Match RawData.normalize_data() normalization used in training.
+
+    RawData.normalize_data() computes:
+        scale = sqrt(((N/2)^2) / mean(sum(diffraction^2)))
+
+    Returns a (B, 1, 1, 1) tensor for broadcast with (B, C, H, W).
+    """
+    import torch
+
+    if diffraction.ndim == 4:
+        diff = diffraction.squeeze(1)
+    else:
+        diff = diffraction
+
+    mean_sum = torch.mean(torch.sum(diff ** 2, dim=(-2, -1)))
+    if mean_sum.item() <= 0:
+        raise ValueError("Mean diffraction intensity must be positive for normalization.")
+
+    n = float(diff.shape[-1])
+    scale = torch.sqrt(torch.tensor((n / 2.0) ** 2, device=diffraction.device, dtype=diffraction.dtype) / mean_sum)
+    return scale.view(1, 1, 1, 1).expand(diffraction.shape[0], 1, 1, 1)
+
+
 def load_all_configs(config_path, file_index):
     """
     Helper functions that loads all relevant configs specifically for inference
@@ -355,12 +380,8 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     from ptycho_torch.config_params import DataConfig as PTDataConfig
 
     data_cfg_norm = PTDataConfig(N=int(N), grid_size=(1, 1))
-    rms_scale = hh.get_rms_scaling_factor(diffraction.squeeze(1), data_cfg_norm)
-    if not isinstance(rms_scale, torch.Tensor):
-        rms_scale = torch.from_numpy(rms_scale)
+    rms_scale = _training_normalization_scale(diffraction)
     rms_scale = rms_scale.to(device=device, dtype=torch.float32)
-    if rms_scale.ndim == 1:
-        rms_scale = rms_scale.view(-1, 1, 1, 1)
 
     if intensity_scale is not None:
         physics_scale = torch.full((batch_size, 1, 1, 1), float(intensity_scale), device=device, dtype=torch.float32)
