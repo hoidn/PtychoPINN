@@ -39,6 +39,7 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 
 ### [PyTorch Workflow Guide](workflows/pytorch.md)
 **Description:** End-to-end instructions for configuring, training, and running inference with the PyTorch implementation, highlighting differences from the TensorFlow pipelines and reusing the shared data contracts.  
+**Highlights:** Includes a synthetic grid‑lines Hybrid ResNet reference command (N=128, set‑phi) under “Common Workflows.”  
 **Keywords:** pytorch, lightning, mlflow, configuration, training  
 **Use this when:** Working on the `ptycho_torch/` stack or porting TensorFlow workflows to PyTorch.
 

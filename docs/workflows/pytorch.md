@@ -295,6 +295,45 @@ plt.subplot(122); plt.imshow(phase); plt.title('Phase')
 plt.show()
 ```
 
+### Synthetic Grid-Lines (Hybrid ResNet)
+
+This command reproduces the synthetic grid‑lines Hybrid ResNet run stored at:
+`outputs/grid_lines_n128_compare_padex_lr2e4_plateau_e10_seed3_hybrid_resnet_4e1e262c_mlflow_abinitio_20260204/`.
+It generates the dataset, trains the TensorFlow baseline + PINN, and then runs
+the PyTorch `hybrid_resnet` arm into the same output directory.
+
+```bash
+python scripts/studies/grid_lines_compare_wrapper.py \
+  --N 128 \
+  --gridsize 1 \
+  --output-dir outputs/grid_lines_n128_compare_padex_lr2e4_plateau_e10_seed3_hybrid_resnet_4e1e262c_mlflow_abinitio_20260204 \
+  --architectures hybrid_resnet \
+  --set-phi \
+  --nimgs-train 2 \
+  --nimgs-test 2 \
+  --nphotons 1e9 \
+  --nepochs 10 \
+  --batch-size 16 \
+  --probe-npz datasets/Run1084_recon3_postPC_shrunk_3.npz \
+  --probe-source custom \
+  --probe-scale-mode pad_extrapolate \
+  --probe-smoothing-sigma 0.5 \
+  --seed 3 \
+  --torch-epochs 10 \
+  --torch-learning-rate 2e-4 \
+  --torch-scheduler ReduceLROnPlateau \
+  --torch-plateau-factor 0.5 \
+  --torch-plateau-patience 2 \
+  --torch-plateau-min-lr 1e-4 \
+  --torch-plateau-threshold 0.0 \
+  --torch-loss-mode mae \
+  --torch-output-mode real_imag \
+  --fno-modes 12 \
+  --fno-width 32 \
+  --fno-blocks 4 \
+  --fno-cnn-blocks 2
+```
+
 ## 11. Regression Test & Runtime Expectations
 
 The PyTorch integration workflow is validated by a comprehensive pytest regression test that exercises the complete train→save→load→infer cycle.

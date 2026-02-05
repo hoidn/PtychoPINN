@@ -10,7 +10,7 @@ from ptycho.workflows.grid_lines_workflow import (
     GridLinesConfig,
     apply_probe_mask,
     configure_legacy_params,
-    load_ideal_disk_probe,
+    load_probe_guess,
     save_split_npz,
     scale_probe,
     simulate_grid_data,
@@ -33,26 +33,26 @@ def grid_lines_scratch_root():
 
 
 def _ensure_dataset(grid_lines_scratch_root: Path) -> tuple[Path, Path]:
-    train_npz = grid_lines_scratch_root / "datasets/N64/gs1/train.npz"
-    test_npz = grid_lines_scratch_root / "datasets/N64/gs1/test.npz"
+    train_npz = grid_lines_scratch_root / "datasets/N128/gs1/train.npz"
+    test_npz = grid_lines_scratch_root / "datasets/N128/gs1/test.npz"
     if train_npz.exists() and test_npz.exists():
         return train_npz, test_npz
 
     cfg = GridLinesConfig(
-        N=64,
+        N=128,
         gridsize=1,
         output_dir=grid_lines_scratch_root,
-        probe_npz=grid_lines_scratch_root / "probe_unused.npz",
+        probe_npz=Path("datasets/Run1084_recon3_postPC_shrunk_3.npz"),
         nimgs_train=2,
         nimgs_test=2,
         nphotons=1e9,
-        probe_source="ideal_disk",
+        probe_source="custom",
         probe_smoothing_sigma=0.5,
         probe_scale_mode="pad_extrapolate",
         set_phi=True,
     )
 
-    probe = load_ideal_disk_probe(cfg.N)
+    probe = load_probe_guess(cfg.probe_npz)
     probe = scale_probe(probe, cfg.N, cfg.probe_smoothing_sigma, cfg.probe_scale_mode)
     probe = apply_probe_mask(probe, cfg.probe_mask_diameter)
 
@@ -106,7 +106,7 @@ def test_grid_lines_hybrid_resnet_metrics(grid_lines_scratch_root):
         "--architecture", "hybrid_resnet",
         "--train-npz", str(train_npz),
         "--test-npz", str(test_npz),
-        "--N", "64",
+        "--N", "128",
         "--gridsize", "1",
         "--epochs", "10",
         "--batch-size", "16",
@@ -117,7 +117,7 @@ def test_grid_lines_hybrid_resnet_metrics(grid_lines_scratch_root):
         "--plateau-patience", "2",
         "--plateau-min-lr", "1e-4",
         "--plateau-threshold", "0.0",
-        "--seed", "2147483645",
+        "--seed", "3",
         "--optimizer", "adam",
         "--weight-decay", "0.0",
         "--beta1", "0.9",
@@ -129,7 +129,7 @@ def test_grid_lines_hybrid_resnet_metrics(grid_lines_scratch_root):
         "--fno-width", "32",
         "--fno-blocks", "4",
         "--fno-cnn-blocks", "2",
-        "--torch-logger", "none",
+        "--torch-logger", "mlflow",
     ]
 
     subprocess.run(cmd, check=True)
