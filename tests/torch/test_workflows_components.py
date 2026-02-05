@@ -3263,26 +3263,14 @@ class TestLightningExecutionConfig:
 
         from ptycho_torch.workflows.components import _train_with_lightning
 
-        # Patch Trainer at import site
-        with patch('lightning.pytorch.Trainer', mock_trainer_cls):
-            try:
-                _train_with_lightning(
-                    train_container=mock_train_container,
-                    test_container=mock_test_container,
-                    config=minimal_training_config_with_val,
-                    execution_config=exec_config,
-                )
-            except Exception:
-                pass  # May fail during training; we only care about Trainer instantiation
-
-        # GREEN Phase Assertion:
-        # Trainer should receive accumulate_grad_batches from execution_config.accum_steps
-        assert mock_trainer_cls.called, "Trainer not instantiated"
-        trainer_kwargs = mock_trainer_cls.call_args.kwargs
-        assert 'accumulate_grad_batches' in trainer_kwargs, \
-            "accumulate_grad_batches not passed to Trainer"
-        assert trainer_kwargs['accumulate_grad_batches'] == 4, \
-            f"Expected accumulate_grad_batches=4, got {trainer_kwargs['accumulate_grad_batches']}"
+        # EXEC-ACCUM-001: manual optimization is incompatible with accumulation > 1
+        with pytest.raises(RuntimeError, match="accumulate_grad_batches"):
+            _train_with_lightning(
+                train_container=mock_train_container,
+                test_container=mock_test_container,
+                config=minimal_training_config_with_val,
+                execution_config=exec_config,
+            )
 
     def test_monitor_uses_val_loss_name(self, minimal_training_config_with_val, monkeypatch):
         """

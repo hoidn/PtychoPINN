@@ -182,7 +182,10 @@ def run_cdi_example_torch(
     logger.info("Invoking PyTorch training orchestration via train_cdi_model_torch")
     # Note: train_cdi_model_torch will need to be updated to accept execution_config
     # For now, we pass it as a keyword argument for forward compatibility
-    train_results = train_cdi_model_torch(train_data, test_data, config, execution_config=execution_config)
+    if execution_config is None:
+        train_results = train_cdi_model_torch(train_data, test_data, config)
+    else:
+        train_results = train_cdi_model_torch(train_data, test_data, config, execution_config=execution_config)
 
     # Step 2: Initialize return values for reconstruction outputs
     recon_amp, recon_phase = None, None
@@ -1089,7 +1092,8 @@ def _train_with_lightning(
     # Lightning's manual optimization (automatic_optimization=False) is incompatible with
     # Trainer(accumulate_grad_batches>1). The PtychoPINN_Lightning module uses manual optimization
     # for custom physics loss integration, so gradient accumulation must be disabled.
-    if not model.automatic_optimization and execution_config.accum_steps > 1:
+    automatic_optimization = getattr(model, "automatic_optimization", True)
+    if not automatic_optimization and execution_config.accum_steps > 1:
         raise RuntimeError(
             f"Manual optimization (PtychoPINN_Lightning.automatic_optimization=False) "
             f"is incompatible with gradient accumulation (accumulate_grad_batches={execution_config.accum_steps}). "
@@ -1099,7 +1103,7 @@ def _train_with_lightning(
 
     # Build Trainer kwargs from execution config (Phase C3.A3)
     trainer_gradient_clip_val = execution_config.gradient_clip_val
-    if not model.automatic_optimization and trainer_gradient_clip_val:
+    if not automatic_optimization and trainer_gradient_clip_val:
         logger.info(
             "Manual optimization enabled; disabling Lightning Trainer gradient_clip_val "
             "and relying on model-level gradient clipping."
@@ -1457,7 +1461,10 @@ def train_cdi_model_torch(
 
     # Step 4: Delegate to Lightning trainer
     logger.info("Delegating to Lightning trainer via _train_with_lightning")
-    results = _train_with_lightning(train_container, test_container, config, execution_config=execution_config)
+    if execution_config is None:
+        results = _train_with_lightning(train_container, test_container, config)
+    else:
+        results = _train_with_lightning(train_container, test_container, config, execution_config=execution_config)
     if hasattr(train_container, 'physics_scaling_constant'):
         import torch
         scale_tensor = torch.as_tensor(train_container.physics_scaling_constant)
