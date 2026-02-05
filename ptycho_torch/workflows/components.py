@@ -329,7 +329,7 @@ def _build_lightning_dataloaders(
     train_container: Union['PtychoDataContainerTorch', Dict, 'PtychoDataset'],
     test_container: Optional[Union['PtychoDataContainerTorch', Dict, 'PtychoDataset']],
     config: Optional[TrainingConfig],
-    payload: Optional[TrainingPayload]
+    payload: Optional[TrainingPayload] = None
 ):
     """
     Build PyTorch DataLoader instances from container data for Lightning training. This is training-specific,
@@ -417,12 +417,18 @@ def _build_lightning_dataloaders(
             # Try 'coords_relative' first, fallback to 'coords_nominal' for container compatibility
             self.coords_relative = _get_tensor(container, 'coords_relative')
             if self.coords_relative is None:
-                if self.model_config is not None and getattr(self.model_config, "object_big", False):
+                if isinstance(container, dict) and self.images is not None:
+                    self.coords_relative = torch.zeros(
+                        (self.images.size(0), 1, 1, 2),
+                        dtype=torch.float32
+                    )
+                elif self.model_config is not None and getattr(self.model_config, "object_big", False):
                     raise ValueError(
                         "coords_relative is required when object_big=True. "
                         "Provide TF-style relative offsets or set object_big=False."
                     )
-                self.coords_relative = _get_tensor(container, 'coords_nominal')
+                else:
+                    self.coords_relative = _get_tensor(container, 'coords_nominal')
             self.rms_scaling_constant = _get_tensor(container, 'rms_scaling_constant')
             self.physics_scaling_constant = _get_tensor(container, 'physics_scaling_constant')
             self.probe = _get_tensor(container, 'probe')
