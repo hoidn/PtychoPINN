@@ -183,6 +183,9 @@ def test_run_phase_g_dense_post_verify_hooks(tmp_path: Path, monkeypatch: pytest
         """No-op stub for validate_phase_c_metadata."""
         pass
 
+    import studies.fly64_dose_overlap.overlap as overlap_mod
+    monkeypatch.setattr(overlap_mod, "generate_overlap_views", lambda **kwargs: None)
+
     def stub_summarize_phase_g_outputs(hub_path):
         """Create metrics_summary.json with test data for delta computation."""
         analysis = Path(hub_path) / "analysis"
@@ -1297,6 +1300,9 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
     def stub_validate_phase_c_metadata(hub_path):
         """No-op stub for validate_phase_c_metadata."""
         pass
+
+    import studies.fly64_dose_overlap.overlap as overlap_mod
+    monkeypatch.setattr(overlap_mod, "generate_overlap_views", lambda **kwargs: None)
 
     def stub_summarize_phase_g_outputs(hub_path):
         """Create metrics_summary.json with test data for delta computation."""
