@@ -156,6 +156,11 @@ return RawData(..., X, ...)  # Return normalized data
 - Handles Poisson noise modeling
 - Keeps reconstruction in normalized space
 
+### PyTorch backend
+- Derives a dataset-level `intensity_scale` from normalized training amplitudes and resolved `nphotons`
+- Persists the derived scale in the model bundle (and hparams) and reuses it for inference
+- Does not write derived scale back into dataset metadata
+
 ### loader.py
 - Handles statistical normalization for ML
 - Separate from physics normalization
