@@ -587,6 +587,25 @@ def illuminate_and_diffract(
 
 #Photon scaling functions
 
+def derive_intensity_scale_from_amplitudes(x_norm: torch.Tensor, nphotons: float) -> torch.Tensor:
+    """
+    Derive dataset-level physics scale from normalized amplitudes.
+
+    intensity_scale = sqrt(nphotons / mean(sum(x_norm**2)))
+    """
+    if not isinstance(x_norm, torch.Tensor):
+        x_norm = torch.as_tensor(x_norm)
+    if x_norm.ndim < 2:
+        raise ValueError("x_norm must have at least 2 dims")
+    if not isinstance(nphotons, (int, float)) or nphotons <= 0:
+        raise ValueError("nphotons must be positive")
+
+    spatial_dims = tuple(range(x_norm.ndim - 2, x_norm.ndim))
+    mean_intensity = torch.mean(torch.sum(x_norm ** 2, dim=spatial_dims))
+    if mean_intensity.item() <= 0:
+        raise ValueError("mean intensity must be positive")
+    return torch.sqrt(torch.tensor(float(nphotons), dtype=mean_intensity.dtype) / mean_intensity)
+
 def normalize_probe(X):
     """
     Normalizes numpy array. Currently only works on 1D
