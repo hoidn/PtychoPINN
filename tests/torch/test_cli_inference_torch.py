@@ -213,6 +213,7 @@ class TestInferenceCLI:
         Reference: input.md Do Now step 3, DEVICE-MISMATCH-001 finding
         """
         import numpy as np
+        import torch
         from unittest.mock import MagicMock, patch
 
         # Mock RawData with minimal required fields
@@ -237,15 +238,16 @@ class TestInferenceCLI:
 
         mock_model.to = MagicMock(side_effect=track_to_call)
         mock_model.eval = MagicMock(side_effect=track_eval_call)
-        mock_model.forward_predict = MagicMock(
-            return_value=MagicMock(
-                cpu=MagicMock(
-                    return_value=MagicMock(
-                        numpy=MagicMock(return_value=np.random.rand(1, 1, 64, 64).astype(np.complex64))
-                    )
-                )
-            )
+        patch_complex = torch.complex(
+            torch.rand(1, 1, 64, 64, dtype=torch.float32),
+            torch.rand(1, 1, 64, 64, dtype=torch.float32),
         )
+        mock_model.forward_predict = MagicMock(return_value=patch_complex)
+
+        def fake_reassemble(patches, offsets, data_cfg, model_cfg, padded_size=None):
+            size = int(padded_size or patches.shape[-1])
+            imgs = torch.zeros((1, size, size), dtype=patches.dtype)
+            return imgs, None, None
 
         # Import and call _run_inference_and_reconstruct directly
         from ptycho_torch.inference import _run_inference_and_reconstruct
@@ -267,9 +269,10 @@ class TestInferenceCLI:
         )
 
         # Call helper with 'cuda' device
-        _run_inference_and_reconstruct(
-            mock_model, mock_raw_data, config, execution_config, 'cuda', quiet=True
-        )
+        with patch('ptycho_torch.helper.reassemble_patches_position_real', side_effect=fake_reassemble):
+            _run_inference_and_reconstruct(
+                mock_model, mock_raw_data, config, execution_config, 'cuda', quiet=True
+            )
 
         # Verify model.to('cuda') was called
         assert len(device_calls) > 0, \
