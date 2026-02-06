@@ -291,3 +291,7 @@ Plan complete and saved to `docs/plans/2026-02-06-ptycho-model-facade-implementa
 2. Parallel Session (separate) - Open new session with executing-plans, batch execution with checkpoints
 
 Which approach?
+
+## Related Backlog
+
+- `docs/backlog/2026-02-06-ptycho-model-facade.md`
