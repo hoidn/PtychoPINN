@@ -10,6 +10,68 @@
 
 ---
 
+## Architecture & Design
+
+This refactor formalizes the config flow boundaries and keeps the legacy bridge intact, but centralized. The goal is not to change physics behavior, only to make the config path deterministic and auditable.
+
+### Config Flow Ownership
+
+- The runner owns defaults and overrides through a single `build_torch_runner_config(...)`.
+- The compare wrapper delegates config construction to the runner and stays thin.
+- `update_legacy_dict(params.cfg, config)` is called in exactly one place via a centralized legacy bridge.
+- No core physics modules are modified unless an exception is explicitly approved.
+
+### Probe Handling (Data + Override)
+
+Probe is treated as **data**, not config. The dataset is the default source of truth.
+
+- `probe_path` is an optional config override for cases where probe is sourced externally.
+- Resolution order: `probe_path` override (if provided) → dataset probe (default).
+- The resolved `probe_path` is recorded in model bundle metadata/hparams for traceability.
+
+### Intensity Scale & Normalization (Derived + Torch Handling)
+
+`intensity_scale` is a **derived physics normalization factor** computed from data (`scale_nphotons(Y_I * probe_amplitude)`), not a free parameter. The pipeline returns normalized data and the scale separately; internal data stays normalized and the scale is applied only at the physics loss boundary. Do **not** apply it in data loading or in `prepare.sh` workflows (double-scaling risk).
+
+Torch-specific handling (current behavior):
+- Dataset-level physics scale is derived in the workflow container via
+  `derive_intensity_scale_from_amplitudes(container.X, nphotons)` and stored on the
+  container as `physics_scaling_constant`. `nphotons` resolves from dataset metadata
+  when present, otherwise from config.
+- `train_cdi_model_torch` surfaces the physics scale as `results['intensity_scale']`
+  (pulled from the container) for downstream persistence.
+- `save_torch_bundle(..., intensity_scale=...)` writes the scale into `params.dill`
+  inside `wts.h5.zip`. If not provided, it falls back to `params.cfg['intensity_scale']`
+  or `1.0`.
+- Inference reads `params_dict['intensity_scale']` from the bundle and uses it if
+  available; otherwise it derives a physics scale from diffraction data.
+- **Separate concern:** the model’s `IntensityScalerModule` uses a trainable `log_scale`
+  based on `ModelConfig.intensity_scale` when `intensity_scale_trainable=True`. This
+  is *not* the dataset physics scale and must not be conflated with it.
+
+### Design Rationale (Config Dataclasses & Facade Style)
+
+This plan **keeps** the existing dataclass config stack (TensorFlow dataclasses + PyTorch
+dataclasses bridged via current helpers) and avoids introducing a new functional façade or
+OO “API layer” in this pass. The core problem is not “dataclasses vs functions”; it is
+duplication and ambiguity. The fastest path to clarity is to centralize construction
+(`build_torch_runner_config`) and enforce a single mutation point for `params.cfg` via the
+legacy bridge. That preserves compatibility while reducing “config pinball.”
+
+We are **not** collapsing the wrapper/runner into a new `ptycho_torch.api.*` layer here.
+That larger facade/ownership shift is a separate architectural decision and would require
+its own spec and testing scope. This plan instead makes the wrapper thin and the runner
+authoritative for config defaults so the façade debate becomes optional, not blocking.
+
+### Non-Goals (Explicitly Out of Scope)
+
+- Removing `config_bridge.py` or `config_factory.py`.
+- Deleting `TorchRunnerConfig` or replacing dataclasses with a new functional API.
+- Reworking CLI surfaces or introducing a new `ptycho_torch.api` namespace.
+- Changing legacy module contracts or skipping `update_legacy_dict`.
+
+---
+
 ### Task 1: Capture the expected config flow (RED)
 
 **Files:**
