@@ -33,7 +33,7 @@ PtychoPINN supports both TensorFlow and PyTorch backends:
 
 ## Usage
 ### Ptychodus 
-Ptychodus supports PtychoPINN-CNN. See, for example: https://github.com/AdvancedPhotonSource/ptychodus/blob/misc/src/ptychodus/scripts/ptychopinn_tf_test.py
+[Ptychodus](https://github.com/AdvancedPhotonSource/ptychodus) supports PtychoPINN-CNN. See, for example: https://github.com/AdvancedPhotonSource/ptychodus/blob/misc/src/ptychodus/scripts/ptychopinn_tf_test.py
 
 ### Training
 `ptycho_train --train_data_file <train_path.npz> --test_data_file <test_path.npz> --output_dir <my_run>`
