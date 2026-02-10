@@ -127,7 +127,7 @@ The training script generates the following outputs in the specified `--output_d
 
 ## Enhanced Logging
 
-The script uses an advanced centralized logging system with comprehensive output capture:
+The script uses a centralized logging system with comprehensive output capture:
 
 **Key Features:**
 - **Complete Output Capture**: ALL stdout (including print statements from any module) is captured to log files
@@ -195,4 +195,4 @@ ptycho_evaluate --model-dir my_model --test-data datasets/test.npz --output-dir 
 python scripts/compare_models.py --pinn_dir my_model --baseline_dir other_model --test_data datasets/test.npz --output_dir comparison_results
 ```
 
-For more advanced evaluation options and detailed command references, see [docs/COMMANDS_REFERENCE.md](../../docs/COMMANDS_REFERENCE.md#model-evaluation).
+For more evaluation options and detailed command references, see [docs/COMMANDS_REFERENCE.md](../../docs/COMMANDS_REFERENCE.md#model-evaluation).

@@ -64,7 +64,7 @@ All outputs are organized within the specified output directory.
 
 ## Enhanced Logging
 
-The script uses an advanced centralized logging system with comprehensive output capture:
+The script uses a centralized logging system with comprehensive output capture:
 
 **Key Features:**
 - **Complete Output Capture**: ALL stdout (including print statements from any module) is captured to log files
