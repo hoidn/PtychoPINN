@@ -3,25 +3,25 @@
 This repository contains the codebase for the methods presented in the paper "[Physics Constrained Unsupervised Deep Learning for Rapid, High Resolution Scanning Coherent Diffraction Reconstruction](https://www.nature.com/articles/s41598-023-48351-7)". 
 
 ## Overview
-PtychoPINN is an unsupervised physics-informed neural network reconstruction method for scanning CDI designed to improve upon the speed of conventional reconstruction methods without sacrificing image quality. Compared to prior NN approaches, the main source of improvements in image quality are its combination of the diffraction forward map with real-space overlap constraints.
+PtychoPINN is an unsupervised, physics-informed neural network method for scanning CDI reconstruction. It combines the diffraction forward model with real-space overlap constraints.
 
 ## For Developers
 
-Developers looking to contribute to the codebase or understand its deeper architectural principles should first read the **[Unified Developer Guide](./docs/DEVELOPER_GUIDE.md)**. It contains critical information on the project's design, data pipeline, and best practices.
+Start with the **[Unified Developer Guide](./docs/DEVELOPER_GUIDE.md)** for architecture, data flow, and development conventions.
 
 ## Features
-- **Unsupervised / self-supervised learning**: There is no need for extensive labeled training data, making the model more practical to train.
-- **Resolution**: PtychoPINN outperforms existing deep learning models for ptychographic reconstruction in terms of image quality, with a 10 dB PSNR increase and a 3- to 6-fold gain in linear resolution. Generalizability and robustness are also improved.
-- **Scalability and Speed**: PtychoPINN is two or three orders of magnitude as fast as iterative scanning CDI reconstruction.
+- **Unsupervised / self-supervised learning**: Does not require large labeled datasets.
+- **Resolution**: Reported gains include about 10 dB PSNR and 3x to 6x improvement in linear resolution.
+- **Speed**: Runs much faster than iterative scanning CDI reconstruction.
 
 ### Dual-Backend Architecture
 
-PtychoPINN supports both TensorFlow and PyTorch backends for production workflows:
+PtychoPINN supports both TensorFlow and PyTorch backends:
 
-- **Default Backend**: TensorFlow remains the default backend for backward compatibility with existing integrations.
-- **PyTorch Backend**: Production-ready PyTorch implementation available via Lightning orchestration (`ptycho_torch/workflows/components.py`). The PyTorch backend provides equivalent functionality with deterministic training, checkpoint persistence, and full inference/stitching capabilities.
+- **Default Backend**: TensorFlow remains the default for backward compatibility.
+- **PyTorch Backend**: PyTorch implementation is available via Lightning orchestration (`ptycho_torch/workflows/components.py`) with training, checkpointing, inference, and stitching.
 - **Backend Selection**: Configure backend choice through `TrainingConfig.backend` or `InferenceConfig.backend` fields (`'tensorflow'` or `'pytorch'`). See [PyTorch Workflow Guide](./docs/workflows/pytorch.md) §12 for configuration details.
-- **Runtime Evidence**: PyTorch integration validated with ~36s runtime baseline on CPU (test suite: `tests/torch/test_integration_workflow_torch.py`). Detailed performance metrics documented at `plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md`.
+- **Runtime Evidence**: PyTorch integration has a ~36s CPU baseline in `tests/torch/test_integration_workflow_torch.py`. More timing details are in `plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md`.
 
 Both backends share the same data pipeline and configuration system, ensuring consistent behavior across workflows.
 
@@ -50,6 +50,29 @@ Both backends share the same data pipeline and configuration system, ensuring co
 ### Inference 
 `ptycho_inference --model_path <my_run> --test_data <test_path.npz> --output_dir <inference_out>`
 
+### Workflow Status
+
+#### Use These by Default
+- Train with `scripts/training/train.py` (or `ptycho_train`).
+- Run inference with `scripts/inference/inference.py` (or `ptycho_inference`).
+- Pick backend with `--backend tensorflow` or `--backend pytorch`.
+- Use `--n_groups` for sample count. Add `--n_subsample` only when you want separate subsampling control.
+- For PyTorch execution flags:
+  - Unified scripts: use `--torch-accelerator` and `--torch-logger`
+  - PyTorch-native CLIs: use `--accelerator` and `--logger`
+
+#### Also Supported
+- Grid-lines multi-model runs:
+  - `scripts/studies/grid_lines_compare_wrapper.py`
+- Grid-lines Torch runner:
+  - `scripts/studies/grid_lines_torch_runner.py`
+  - Architectures: `fno`, `hybrid`, `stable_hybrid`, `fno_vanilla`, `hybrid_resnet`
+
+#### Older Flags and Modes
+- `--n_images` in training is older; use `--n_groups`.
+- PyTorch `--device` and `--disable_mlflow` are older; use `--accelerator` and `--logger none`.
+- MLflow-only inference mode in `ptycho_torch/inference.py` (`--run_id`, `--infer_dir`) is still available, but not the default path.
+
 See examples and READMEs under scripts/.
 
 For an example of interactive (Jupyter) usage, see notebooks/nongrid_simulations.ipynb. If you don't have inputs in the right .npz format you can simulate data.
@@ -58,7 +81,7 @@ non_grid_CDI_example.ipynb shows interactive usage using a dataset that is provi
 
 ### Model Evaluation & Generalization Studies
 
-Run comprehensive generalization studies with statistical robustness:
+Run generalization studies:
 ```bash
 # Multi-trial study with uncertainty quantification
 ./scripts/studies/run_complete_generalization_study.sh \
@@ -91,4 +114,3 @@ See `scripts/studies/QUICK_REFERENCE.md` for detailed usage and options.
 
 * characterize robustness impact of Poisson likelihood vs. MAE
  -->
-
