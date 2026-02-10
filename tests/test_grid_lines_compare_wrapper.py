@@ -3,6 +3,8 @@
 import json
 from pathlib import Path
 
+import h5py
+import numpy as np
 import pytest
 
 
@@ -54,6 +56,211 @@ def test_wrapper_accepts_architecture_list(tmp_path):
         "--architectures", "cnn,fno",
     ])
     assert args.architectures == ("cnn", "fno")
+
+
+def test_wrapper_keeps_architectures_backward_compat(tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import parse_args
+
+    args = parse_args([
+        "--N", "64",
+        "--gridsize", "1",
+        "--output-dir", str(tmp_path),
+        "--architectures", "cnn,baseline,fno",
+    ])
+    assert args.architectures == ("cnn", "baseline", "fno")
+
+
+def test_wrapper_accepts_models_and_model_n(tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import parse_args
+
+    args = parse_args([
+        "--N", "64",
+        "--gridsize", "1",
+        "--output-dir", str(tmp_path),
+        "--models", "pinn_hybrid,pinn_ptychovit",
+        "--model-n", "pinn_hybrid=128,pinn_ptychovit=256",
+    ])
+    assert args.models == ("pinn_hybrid", "pinn_ptychovit")
+    assert args.model_n["pinn_hybrid"] == 128
+    assert args.model_n["pinn_ptychovit"] == 256
+
+
+def test_wrapper_rejects_ptychovit_non_256():
+    from scripts.studies.grid_lines_compare_wrapper import validate_model_specs
+
+    with pytest.raises(ValueError, match="pinn_ptychovit.*N=256"):
+        validate_model_specs(
+            models=("pinn_ptychovit",),
+            model_n={"pinn_ptychovit": 128},
+        )
+
+
+def test_compute_required_ns_from_models_and_model_n():
+    from scripts.studies.grid_lines_compare_wrapper import compute_required_ns
+
+    required = compute_required_ns(
+        models=("pinn_hybrid", "pinn_ptychovit"),
+        model_n={"pinn_hybrid": 128, "pinn_ptychovit": 256},
+        default_n=128,
+    )
+    assert required == [128, 256]
+
+
+def test_resolve_model_ns_defaults_ptychovit_to_256():
+    from scripts.studies.grid_lines_compare_wrapper import resolve_model_ns
+
+    resolved = resolve_model_ns(
+        models=("pinn_ptychovit",),
+        model_n_overrides={},
+        default_n=128,
+    )
+    assert resolved["pinn_ptychovit"] == 256
+
+
+def test_wrapper_models_mode_honors_tf_model_n(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    gt_recon = tmp_path / "recons" / "gt" / "recon.npz"
+    gt_recon.parent.mkdir(parents=True, exist_ok=True)
+    gt = (np.ones((392, 392)) + 1j * np.ones((392, 392))).astype(np.complex64)
+    np.savez(gt_recon, YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+
+    train_64 = tmp_path / "datasets" / "N64" / "gs1" / "train.npz"
+    test_64 = tmp_path / "datasets" / "N64" / "gs1" / "test.npz"
+    for path in (train_64, test_64):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(path, ok=np.array([1], dtype=np.int8))
+
+    def fake_build_by_n(base_cfg, required_ns):
+        _ = base_cfg
+        assert sorted(required_ns) == [64]
+        return {
+            64: {"train_npz": str(train_64), "test_npz": str(test_64), "gt_recon": str(gt_recon), "tag": "N64"},
+        }
+
+    captured = {}
+
+    def fake_tf_run(cfg):
+        captured["N"] = cfg.N
+        recon_path = cfg.output_dir / "recons" / "pinn" / "recon.npz"
+        recon_path.parent.mkdir(parents=True, exist_ok=True)
+        pred = (np.ones((64, 64)) + 1j * np.ones((64, 64))).astype(np.complex64)
+        np.savez(recon_path, YY_pred=pred, amp=np.abs(pred), phase=np.angle(pred))
+        return {"train_npz": str(train_64), "test_npz": str(test_64), "metrics": {"mse": 0.1}}
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.build_grid_lines_datasets_by_n", fake_build_by_n)
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals", lambda output_dir, order: {})
+    monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", lambda pred, gt, label: {"mse": float(np.mean(np.abs(pred - gt)))})
+
+    run_grid_lines_compare(
+        N=128,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=("cnn",),
+        models=("pinn",),
+        model_n={"pinn": 64},
+        probe_npz=Path("dummy_probe.npz"),
+    )
+    assert captured["N"] == 64
+
+
+def test_wrapper_writes_metrics_by_model_for_selected_models(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    gt_recon = tmp_path / "recons" / "gt" / "recon.npz"
+    gt_recon.parent.mkdir(parents=True, exist_ok=True)
+    gt = (np.ones((392, 392)) + 1j * np.ones((392, 392))).astype(np.complex64)
+    np.savez(gt_recon, YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+
+    train_128 = tmp_path / "datasets" / "N128" / "gs1" / "train.npz"
+    test_128 = tmp_path / "datasets" / "N128" / "gs1" / "test.npz"
+    train_256 = tmp_path / "datasets" / "N256" / "gs1" / "train.npz"
+    test_256 = tmp_path / "datasets" / "N256" / "gs1" / "test.npz"
+    for path in (train_128, test_128, train_256, test_256):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(path, ok=np.array([1], dtype=np.int8))
+
+    def fake_build_by_n(base_cfg, required_ns):
+        _ = base_cfg
+        assert sorted(required_ns) == [128, 256]
+        return {
+            128: {"train_npz": str(train_128), "test_npz": str(test_128), "gt_recon": str(gt_recon), "tag": "N128"},
+            256: {"train_npz": str(train_256), "test_npz": str(test_256), "gt_recon": str(gt_recon), "tag": "N256"},
+        }
+
+    def fake_torch_run(cfg):
+        recon_path = cfg.output_dir / "recons" / "pinn_hybrid" / "recon.npz"
+        recon_path.parent.mkdir(parents=True, exist_ok=True)
+        pred = (np.ones((128, 128)) + 1j * np.ones((128, 128))).astype(np.complex64)
+        np.savez(recon_path, YY_pred=pred, amp=np.abs(pred), phase=np.angle(pred))
+        return {"recon_npz": str(recon_path), "metrics": {"mse": 0.1}}
+
+    def fake_ptychovit_run(cfg):
+        _ = cfg
+        recon_path = tmp_path / "recons" / "pinn_ptychovit" / "recon.npz"
+        recon_path.parent.mkdir(parents=True, exist_ok=True)
+        pred = (np.ones((256, 256)) + 1j * np.ones((256, 256))).astype(np.complex64)
+        np.savez(recon_path, YY_pred=pred, amp=np.abs(pred), phase=np.angle(pred))
+        return {"recon_npz": str(recon_path), "status": "ok"}
+
+    def fake_convert(npz_path, out_dir, object_name, pixel_size_m=1.0):
+        from ptycho.interop.ptychovit.contracts import PtychoViTHdf5Pair
+
+        _ = (npz_path, object_name, pixel_size_m)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        dp = out_dir / "x_dp.hdf5"
+        para = out_dir / "x_para.hdf5"
+        with h5py.File(dp, "w") as dp_file:
+            dp_file.create_dataset("dp", data=np.ones((2, 8, 8), dtype=np.float32))
+        with h5py.File(para, "w") as para_file:
+            obj = para_file.create_dataset("object", data=np.ones((1, 16, 16), dtype=np.complex64))
+            obj.attrs["pixel_height_m"] = 1.0
+            obj.attrs["pixel_width_m"] = 1.0
+            probe = para_file.create_dataset("probe", data=np.ones((1, 1, 8, 8), dtype=np.complex64))
+            probe.attrs["pixel_height_m"] = 1.0
+            probe.attrs["pixel_width_m"] = 1.0
+            para_file.create_dataset("probe_position_x_m", data=np.zeros(2, dtype=np.float64))
+            para_file.create_dataset("probe_position_y_m", data=np.zeros(2, dtype=np.float64))
+        return PtychoViTHdf5Pair(dp_hdf5=dp, para_hdf5=para, object_name="x")
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.build_grid_lines_datasets_by_n", fake_build_by_n)
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
+    monkeypatch.setattr("scripts.studies.grid_lines_ptychovit_runner.run_grid_lines_ptychovit", fake_ptychovit_run)
+    monkeypatch.setattr("ptycho.interop.ptychovit.convert.convert_npz_split_to_hdf5_pair", fake_convert)
+    monkeypatch.setattr("ptycho.interop.ptychovit.validate.validate_hdf5_pair", lambda dp_path, para_path: None)
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals", lambda output_dir, order: {})
+    monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", lambda pred, gt, label: {"mse": float(np.mean(np.abs(pred - gt)))})
+
+    run_grid_lines_compare(
+        N=128,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=("hybrid",),
+        models=("pinn_hybrid", "pinn_ptychovit"),
+        model_n={"pinn_hybrid": 128, "pinn_ptychovit": 256},
+        probe_npz=Path("dummy_probe.npz"),
+    )
+    metrics = json.loads((tmp_path / "metrics_by_model.json").read_text())
+    assert "pinn_hybrid" in metrics
+    assert "pinn_ptychovit" in metrics
+
+
+def test_harmonized_metrics_run_on_canonical_gt_grid(tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import evaluate_selected_models
+
+    gt_path = tmp_path / "recons" / "gt" / "recon.npz"
+    gt_path.parent.mkdir(parents=True, exist_ok=True)
+    gt = (np.ones((392, 392)) + 1j * np.ones((392, 392))).astype(np.complex64)
+    np.savez(gt_path, YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+
+    pred_path = tmp_path / "recons" / "pinn_hybrid" / "recon.npz"
+    pred_path.parent.mkdir(parents=True, exist_ok=True)
+    pred = (np.ones((128, 128)) + 1j * np.ones((128, 128))).astype(np.complex64)
+    np.savez(pred_path, YY_pred=pred, amp=np.abs(pred), phase=np.angle(pred))
+
+    out = evaluate_selected_models({"pinn_hybrid": pred_path}, gt_path)
+    assert out["pinn_hybrid"]["reference_shape"] == [392, 392]
 
 
 def test_wrapper_defaults_torch_loss_mode_mae(tmp_path):
