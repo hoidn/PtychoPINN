@@ -89,6 +89,18 @@ You can provide a custom configuration file using the `--config` command-line ar
    ```
    Note: The script supports both `--train_data_file` and the legacy `--train_data_file_path` arguments.
 
+4. (Optional) Configure PyTorch ReduceLROnPlateau:
+   ```bash
+   python train.py --backend pytorch \
+     --train_data_file /path/to/your/train_data.npz \
+     --scheduler ReduceLROnPlateau \
+     --torch-plateau-factor 0.5 \
+     --torch-plateau-patience 2 \
+     --torch-plateau-min-lr 1e-4 \
+     --torch-plateau-threshold 0.0
+   ```
+   Note: The `--torch-plateau-*` flags only apply when `--backend pytorch` is set.
+
 4. The script will:
    - Load and validate the configuration
    - Load the training data (and test data if specified)
@@ -184,4 +196,3 @@ python scripts/compare_models.py --pinn_dir my_model --baseline_dir other_model 
 ```
 
 For more advanced evaluation options and detailed command references, see [docs/COMMANDS_REFERENCE.md](../../docs/COMMANDS_REFERENCE.md#model-evaluation).
-
