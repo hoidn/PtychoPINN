@@ -24,7 +24,7 @@ PtychoPINN supports both TensorFlow and PyTorch backends:
 
 
 ## Installation
-`conda create -n ptycho python=3.10`
+`conda create -n ptycho python=3.11`
 
 `conda activate ptycho`
 
