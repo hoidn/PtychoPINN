@@ -1,6 +1,6 @@
 # Physics constrained machine learning for rapid, high resolution diffractive imaging
 
-This repository contains the codebase for the methods presented in the paper "[Physics Constrained Unsupervised Deep Learning for Rapid, High Resolution Scanning Coherent Diffraction Reconstruction](https://www.nature.com/articles/s41598-023-48351-7)". 
+This repository contains the codebase for the methods presented in the papers "[Physics Constrained Unsupervised Deep Learning for Rapid, High Resolution Scanning Coherent Diffraction Reconstruction](https://www.nature.com/articles/s41598-023-48351-7)" and "[Towards generalizable deep ptychography neural networks](https://arxiv.org/pdf/2509.25104)".
 
 ## Overview
 PtychoPINN is a library of self-supervised neural networks for ptychography reconstruction. Its main features are its speed (relative to iterative solvers) and high resolution (relative to other ML methods).
