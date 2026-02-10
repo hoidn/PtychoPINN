@@ -6,6 +6,7 @@ Test strategy: plans/active/GRID-LINES-WORKFLOW-001/test_strategy.md
 import numpy as np
 import pytest
 from pathlib import Path
+from types import SimpleNamespace
 
 from ptycho.workflows.grid_lines_workflow import (
     GridLinesConfig,
@@ -532,3 +533,254 @@ class TestGridLinesCLI:
         ])
         cfg = cli.build_config(args)
         assert cfg.probe_mask_diameter == 64
+
+
+def test_build_grid_lines_datasets_writes_train_test_npz(monkeypatch, tmp_path: Path):
+    from ptycho.workflows.grid_lines_workflow import GridLinesConfig, build_grid_lines_datasets
+
+    def fake_sim(cfg, probe_np):
+        _ = probe_np
+        gt = (np.ones((392, 392)) + 1j * np.ones((392, 392))).astype(np.complex64)
+        return {"train": {}, "test": {"YY_ground_truth": gt}}
+
+    def fake_cfg(cfg, probe_np):
+        _ = (cfg, probe_np)
+        return object()
+
+    def fake_save(cfg, split, data, config):
+        _ = (data, config)
+        out = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+        out.mkdir(parents=True, exist_ok=True)
+        path = out / f"{split}.npz"
+        np.savez(path, ok=np.array([1], dtype=np.int8))
+        return path
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.simulate_grid_data", fake_sim)
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.configure_legacy_params", fake_cfg)
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.save_split_npz", fake_save)
+
+    cfg = GridLinesConfig(N=128, gridsize=1, output_dir=tmp_path, probe_npz=tmp_path / "probe.npz")
+    np.savez(
+        cfg.probe_npz,
+        probeGuess=(np.ones((128, 128)) + 1j * np.ones((128, 128))).astype(np.complex64),
+    )
+    result = build_grid_lines_datasets(cfg)
+    assert Path(result["train_npz"]).exists()
+    assert Path(result["test_npz"]).exists()
+    assert Path(result["gt_recon"]).exists()
+
+
+def test_build_grid_lines_datasets_uses_shared_canonical_gt(monkeypatch, tmp_path: Path):
+    from ptycho.workflows.grid_lines_workflow import GridLinesConfig, build_grid_lines_datasets
+
+    def fake_sim(cfg, probe_np):
+        _ = (cfg, probe_np)
+        gt = (np.ones((392, 392)) + 1j * np.ones((392, 392))).astype(np.complex64)
+        return {"train": {}, "test": {"YY_ground_truth": gt}}
+
+    def fake_cfg(cfg, probe_np):
+        _ = (cfg, probe_np)
+        return object()
+
+    def fake_save(cfg, split, data, config):
+        _ = (data, config)
+        out = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+        out.mkdir(parents=True, exist_ok=True)
+        path = out / f"{split}.npz"
+        np.savez(path, ok=np.array([1], dtype=np.int8))
+        return path
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.simulate_grid_data", fake_sim)
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.configure_legacy_params", fake_cfg)
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.save_split_npz", fake_save)
+
+    cfg128 = GridLinesConfig(N=128, gridsize=1, output_dir=tmp_path, probe_npz=tmp_path / "probe128.npz")
+    cfg256 = GridLinesConfig(N=256, gridsize=1, output_dir=tmp_path, probe_npz=tmp_path / "probe256.npz")
+    np.savez(
+        cfg128.probe_npz,
+        probeGuess=(np.ones((128, 128)) + 1j * np.ones((128, 128))).astype(np.complex64),
+    )
+    np.savez(
+        cfg256.probe_npz,
+        probeGuess=(np.ones((256, 256)) + 1j * np.ones((256, 256))).astype(np.complex64),
+    )
+    out128 = build_grid_lines_datasets(cfg128, dataset_tag="N128", canonical_gt_label="gt")
+    out256 = build_grid_lines_datasets(cfg256, dataset_tag="N256", canonical_gt_label="gt")
+    assert out128["gt_recon"] == out256["gt_recon"]
+    assert out128["gt_recon"].endswith("recons/gt/recon.npz")
+
+
+def test_build_grid_lines_datasets_by_n_builds_each_required_n(monkeypatch, tmp_path: Path):
+    from ptycho.workflows.grid_lines_workflow import GridLinesConfig, build_grid_lines_datasets_by_n
+
+    called = []
+
+    def fake_build(cfg, dataset_tag=None, canonical_gt_label="gt"):
+        called.append((cfg.N, dataset_tag, canonical_gt_label))
+        return {
+            "train_npz": "train.npz",
+            "test_npz": "test.npz",
+            "gt_recon": f"recons/gt_{dataset_tag}/recon.npz",
+            "tag": dataset_tag,
+        }
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.build_grid_lines_datasets", fake_build)
+    base_cfg = GridLinesConfig(N=128, gridsize=1, output_dir=tmp_path, probe_npz=tmp_path / "probe.npz")
+    out = build_grid_lines_datasets_by_n(base_cfg, required_ns=[256, 128, 256])
+    assert sorted(out.keys()) == [128, 256]
+    assert called == [(128, "N128", "gt"), (256, "N256", "gt")]
+
+
+def test_build_grid_lines_datasets_by_n_resets_backend_state(monkeypatch, tmp_path: Path):
+    from ptycho.workflows.grid_lines_workflow import GridLinesConfig, build_grid_lines_datasets_by_n
+
+    reset_calls = []
+
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow._reset_backend_state",
+        lambda: reset_calls.append("reset"),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.build_grid_lines_datasets",
+        lambda cfg, dataset_tag=None, canonical_gt_label="gt": {
+            "train_npz": "train.npz",
+            "test_npz": "test.npz",
+            "gt_recon": "recons/gt/recon.npz",
+            "tag": dataset_tag,
+        },
+    )
+
+    base_cfg = GridLinesConfig(N=128, gridsize=1, output_dir=tmp_path, probe_npz=tmp_path / "probe.npz")
+    build_grid_lines_datasets_by_n(base_cfg, required_ns=[256, 128, 256])
+    assert reset_calls == ["reset", "reset"]
+
+
+def test_build_grid_lines_datasets_persists_nonconstant_scan_positions(monkeypatch, tmp_path: Path):
+    from ptycho.workflows.grid_lines_workflow import GridLinesConfig, build_grid_lines_datasets
+
+    coords_offsets = np.zeros((3, 1, 2, 1), dtype=np.float32)
+    coords_offsets[:, 0, 0, 0] = np.array([0.0, 0.25, 0.5], dtype=np.float32)
+    coords_offsets[:, 0, 1, 0] = np.array([0.0, -0.25, -0.5], dtype=np.float32)
+
+    def fake_sim(cfg, probe_np):
+        _ = (cfg, probe_np)
+        gt = (np.ones((16, 16)) + 1j * np.ones((16, 16))).astype(np.complex64)
+        split = {
+            "X": np.ones((3, 8, 8, 1), dtype=np.float32),
+            "Y_I": np.ones((3, 8, 8, 1), dtype=np.float32),
+            "Y_phi": np.zeros((3, 8, 8, 1), dtype=np.float32),
+            "coords_nominal": np.zeros((3, 1, 2, 1), dtype=np.float32),
+            "coords_true": np.zeros((3, 1, 2, 1), dtype=np.float32),
+            "coords_offsets": coords_offsets,
+            "YY_full": np.ones((16, 16), dtype=np.complex64),
+        }
+        return {
+            "train": dict(split),
+            "test": {
+                **split,
+                "YY_ground_truth": gt,
+                "norm_Y_I": np.array([1.0], dtype=np.float32),
+            },
+        }
+
+    def fake_cfg(cfg, probe_np):
+        _ = (cfg, probe_np)
+        return TrainingConfig(
+            model=ModelConfig(N=8, gridsize=1, object_big=False),
+            nphotons=1e9,
+            nepochs=1,
+            batch_size=1,
+            nll_weight=0.0,
+            mae_weight=1.0,
+            realspace_weight=0.0,
+        )
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.simulate_grid_data", fake_sim)
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.configure_legacy_params", fake_cfg)
+
+    probe_path = tmp_path / "probe.npz"
+    np.savez(
+        probe_path,
+        probeGuess=(np.ones((8, 8)) + 1j * np.ones((8, 8))).astype(np.complex64),
+    )
+    cfg = GridLinesConfig(N=8, gridsize=1, output_dir=tmp_path, probe_npz=probe_path)
+    out = build_grid_lines_datasets(cfg)
+
+    with np.load(out["train_npz"], allow_pickle=True) as train_data:
+        assert "coords_offsets" in train_data.files
+        pos = np.asarray(train_data["coords_offsets"])
+        assert np.unique(pos).size > 1
+
+
+def test_simulate_grid_data_derives_global_scan_positions_when_container_offsets_degenerate(
+    monkeypatch,
+    tmp_path: Path,
+):
+    from ptycho.workflows.grid_lines_workflow import GridLinesConfig, simulate_grid_data
+
+    train_x = np.ones((3, 8, 8, 1), dtype=np.float32)
+    test_x = np.ones((2, 8, 8, 1), dtype=np.float32)
+    zeros_train = np.zeros((3, 1, 2, 1), dtype=np.float32)
+    zeros_test = np.zeros((2, 1, 2, 1), dtype=np.float32)
+    gt = (np.ones((16, 16)) + 1j * np.ones((16, 16))).astype(np.complex64)
+
+    dataset = SimpleNamespace(
+        train_data=SimpleNamespace(
+            coords_nominal=zeros_train,
+            coords_true=zeros_train,
+            global_offsets=None,
+            YY_full=np.ones((16, 16), dtype=np.complex64),
+        ),
+        test_data=SimpleNamespace(
+            coords_nominal=zeros_test,
+            coords_true=zeros_test,
+            global_offsets=None,
+            YY_full=np.ones((16, 16), dtype=np.complex64),
+        ),
+    )
+
+    def fake_generate_data():
+        return (
+            train_x,
+            np.ones_like(train_x),
+            np.zeros_like(train_x),
+            test_x,
+            np.ones_like(test_x),
+            np.zeros_like(test_x),
+            gt,
+            dataset,
+            np.ones((16, 16), dtype=np.complex64),
+            np.array([1.0], dtype=np.float32),
+        )
+
+    def fake_extract_coords(size, repeats=1, coord_type="offsets", outer_offset=None, **kwargs):
+        _ = (size, repeats, coord_type, outer_offset, kwargs)
+        if outer_offset == 8:
+            ix = np.array([0.0, 1.0, 2.0], dtype=np.float32)[:, None, None, None]
+            iy = np.array([10.0, 11.0, 12.0], dtype=np.float32)[:, None, None, None]
+            return ix, iy
+        ix = np.array([5.0, 6.0], dtype=np.float32)[:, None, None, None]
+        iy = np.array([15.0, 16.0], dtype=np.float32)[:, None, None, None]
+        return ix, iy
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.configure_legacy_params", lambda *args, **kwargs: None)
+    monkeypatch.setattr("ptycho.data_preprocessing.generate_data", fake_generate_data)
+    monkeypatch.setattr("ptycho.diffsim.extract_coords", fake_extract_coords)
+    p.set("intensity_scale", 1.0)
+
+    cfg = GridLinesConfig(
+        N=8,
+        gridsize=1,
+        output_dir=tmp_path,
+        probe_npz=tmp_path / "probe.npz",
+        nimgs_train=3,
+        nimgs_test=2,
+    )
+    out = simulate_grid_data(cfg, probe_np=np.ones((8, 8), dtype=np.complex64))
+
+    train_offsets = np.asarray(out["train"]["coords_offsets"])
+    test_offsets = np.asarray(out["test"]["coords_offsets"])
+    assert train_offsets.shape == (3, 1, 2, 1)
+    assert test_offsets.shape == (2, 1, 2, 1)
+    assert np.unique(train_offsets).size > 1
+    assert np.unique(test_offsets).size > 1

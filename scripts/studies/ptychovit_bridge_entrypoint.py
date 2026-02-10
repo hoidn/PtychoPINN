@@ -7,11 +7,12 @@ import argparse
 import json
 import os
 from pathlib import Path
+import pickle
 import shutil
 import subprocess
 import sys
 from typing import Any, Dict
-
+import h5py
 import numpy as np
 import torch
 import yaml
@@ -54,6 +55,37 @@ def _save_yaml(path: Path, payload: Dict[str, Any]) -> None:
         yaml.safe_dump(payload, handle, sort_keys=False)
 
 
+def _object_name_from_dp_path(dp_path: Path) -> str:
+    stem = dp_path.stem
+    if stem.endswith("_dp"):
+        return stem[:-3]
+    return stem
+
+
+def _read_dp_max(dp_path: Path) -> float:
+    with h5py.File(dp_path, "r") as handle:
+        if "dp" not in handle:
+            raise KeyError(f"Missing 'dp' dataset in {dp_path}")
+        dp = np.asarray(handle["dp"])
+    if dp.size == 0:
+        raise ValueError(f"Empty 'dp' dataset in {dp_path}")
+    max_value = float(np.max(dp))
+    if not np.isfinite(max_value):
+        raise ValueError(f"Non-finite max(dp) in {dp_path}: {max_value}")
+    return max_value
+
+
+def _write_runtime_normalization_dict(train_dp: Path, test_dp: Path, out_path: Path) -> Path:
+    payload = {
+        _object_name_from_dp_path(train_dp): _read_dp_max(train_dp),
+        _object_name_from_dp_path(test_dp): _read_dp_max(test_dp),
+    }
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with out_path.open("wb") as handle:
+        pickle.dump(payload, handle)
+    return out_path
+
+
 def _prepare_runtime_training_config(args) -> tuple[Path, Dict[str, Any]]:
     repo_cfg_path = args.ptychovit_repo / "config.yaml"
     if not repo_cfg_path.exists():
@@ -67,10 +99,16 @@ def _prepare_runtime_training_config(args) -> tuple[Path, Dict[str, Any]]:
     if not test_para.exists():
         raise FileNotFoundError(f"test para file not found: {test_para}")
 
-    work_dir = args.output_dir / "bridge_work"
+    output_dir = args.output_dir.resolve()
+    work_dir = output_dir / "bridge_work"
     data_dir = work_dir / "data"
     train_dp, train_para = _copy_pair(args.train_dp, train_para, data_dir, prefix="train")
     test_dp, test_para = _copy_pair(args.test_dp, test_para, data_dir, prefix="test")
+    normalization_dict_path = _write_runtime_normalization_dict(
+        train_dp=train_dp,
+        test_dp=test_dp,
+        out_path=data_dir / "normalization.pkl",
+    )
 
     config.setdefault("data", {})
     config.setdefault("training", {})
@@ -78,10 +116,10 @@ def _prepare_runtime_training_config(args) -> tuple[Path, Dict[str, Any]]:
     config.setdefault("trainer", {})
     config.setdefault("wandb", {})
 
-    config["data"]["data_path"] = str(data_dir)
-    config["data"]["test_path"] = str(test_dp)
-    config["data"]["normalization_dict_path"] = None
-    config["data"]["test_normalization"] = None
+    config["data"]["data_path"] = str(data_dir.resolve())
+    config["data"]["test_path"] = str(test_dp.resolve())
+    config["data"]["normalization_dict_path"] = str(normalization_dict_path.resolve())
+    config["data"]["test_normalization"] = str(normalization_dict_path.resolve())
     config["data"]["num_workers"] = 0
     config["data"]["pin_memory"] = False
     config["data"]["persistent_workers"] = False
@@ -100,7 +138,7 @@ def _prepare_runtime_training_config(args) -> tuple[Path, Dict[str, Any]]:
 
     config["wandb"]["enabled"] = False
 
-    config["paths"]["model_save_path"] = str(args.output_dir)
+    config["paths"]["model_save_path"] = str(output_dir)
     config["trainer"]["run_num"] = int(args.run_num)
 
     runtime_cfg_path = work_dir / "config.yaml"
@@ -112,6 +150,8 @@ def _run_training_subprocess(args, runtime_cfg_path: Path) -> tuple[int, str, st
     env = os.environ.copy()
     repo_str = str(args.ptychovit_repo)
     env["PYTHONPATH"] = repo_str if "PYTHONPATH" not in env else f"{repo_str}:{env['PYTHONPATH']}"
+    # Upstream training code has known mixed-device loss paths on GPU; force CPU for stable bridge execution.
+    env["CUDA_VISIBLE_DEVICES"] = ""
     cmd = ["python", str(args.ptychovit_repo / "main.py")]
     completed = subprocess.run(
         cmd,
@@ -168,6 +208,99 @@ def _load_checkpoint_path(args) -> Path:
     )
 
 
+def _stitch_complex_predictions_fallback(
+    *,
+    patches: np.ndarray,
+    positions_px: np.ndarray,
+    object_shape: tuple[int, int],
+) -> np.ndarray:
+    """Integer placement fallback when upstream Fourier-shift helper is unavailable."""
+    h_obj, w_obj = int(object_shape[0]), int(object_shape[1])
+    canvas = np.zeros((h_obj, w_obj), dtype=np.complex64)
+    occupancy = np.zeros((h_obj, w_obj), dtype=np.float32)
+
+    n_scan, h_patch, w_patch = patches.shape
+    half_h = (h_patch - 1.0) / 2.0
+    half_w = (w_patch - 1.0) / 2.0
+    for i in range(n_scan):
+        cy = float(positions_px[i, 0])
+        cx = float(positions_px[i, 1])
+        top = int(np.floor(cy - half_h))
+        left = int(np.floor(cx - half_w))
+        bottom = top + h_patch
+        right = left + w_patch
+
+        dst_y0 = max(0, top)
+        dst_x0 = max(0, left)
+        dst_y1 = min(h_obj, bottom)
+        dst_x1 = min(w_obj, right)
+        if dst_y0 >= dst_y1 or dst_x0 >= dst_x1:
+            continue
+
+        src_y0 = dst_y0 - top
+        src_x0 = dst_x0 - left
+        src_y1 = src_y0 + (dst_y1 - dst_y0)
+        src_x1 = src_x0 + (dst_x1 - dst_x0)
+
+        canvas[dst_y0:dst_y1, dst_x0:dst_x1] += patches[i, src_y0:src_y1, src_x0:src_x1]
+        occupancy[dst_y0:dst_y1, dst_x0:dst_x1] += 1.0
+
+    return (canvas / np.clip(occupancy, a_min=1.0, a_max=None)).astype(np.complex64)
+
+
+def _stitch_complex_predictions(
+    *,
+    patches: np.ndarray,
+    positions_px: np.ndarray,
+    object_shape: tuple[int, int],
+) -> np.ndarray:
+    """Assemble predicted scan patches into object space with occupancy normalization."""
+    patches = np.asarray(patches, dtype=np.complex64)
+    positions_px = np.asarray(positions_px, dtype=np.float32)
+    if patches.ndim != 3:
+        raise ValueError(f"Expected predicted patches with shape [N,H,W], got {patches.shape}")
+    if positions_px.ndim != 2 or positions_px.shape[1] != 2:
+        raise ValueError(f"Expected probe positions with shape [N,2], got {positions_px.shape}")
+    if patches.shape[0] != positions_px.shape[0]:
+        raise ValueError(
+            f"Scan-count mismatch between patches ({patches.shape[0]}) and positions ({positions_px.shape[0]})"
+        )
+    if patches.shape[0] == 0:
+        raise ValueError("No predicted patches available for stitching")
+
+    try:
+        from utils.ptychi_utils import place_patches_fourier_shift  # pylint: disable=import-error
+
+        patch_tensor = torch.from_numpy(patches)
+        position_tensor = torch.from_numpy(positions_px)
+        canvas = torch.zeros(tuple(int(v) for v in object_shape), dtype=torch.complex64, device="cpu")
+        occupancy = torch.zeros(tuple(int(v) for v in object_shape), dtype=torch.float32, device="cpu")
+        canvas = place_patches_fourier_shift(
+            canvas,
+            position_tensor,
+            patch_tensor,
+            op="add",
+            adjoint_mode=False,
+            pad=0,
+        )
+        occupancy = place_patches_fourier_shift(
+            occupancy,
+            position_tensor,
+            torch.ones_like(patch_tensor, dtype=torch.float32),
+            op="add",
+            adjoint_mode=False,
+            pad=0,
+        )
+        stitched = canvas / torch.clip(occupancy, min=1.0)
+        return stitched.detach().cpu().numpy().astype(np.complex64)
+    except Exception:
+        return _stitch_complex_predictions_fallback(
+            patches=patches,
+            positions_px=positions_px,
+            object_shape=object_shape,
+        )
+
+
 def _run_model_inference(args, checkpoint_path: Path) -> Path:
     repo_str = str(args.ptychovit_repo)
     if repo_str not in sys.path:
@@ -212,8 +345,9 @@ def _run_model_inference(args, checkpoint_path: Path) -> Path:
     model.eval()
 
     preds = []
+    probe_positions = []
     with torch.no_grad():
-        for diff_amp, _amp_patch, _phase_patch, probe, _probe_position, norm, scale in loader:
+        for diff_amp, _amp_patch, _phase_patch, probe, probe_position, norm, scale in loader:
             input_diff = diff_amp.to(device=device, dtype=torch.float32)
             input_probe = torch.view_as_real(probe.clone().detach()).to(device=device)
             input_norm = torch.as_tensor(norm, dtype=torch.float32, device=device)
@@ -223,9 +357,17 @@ def _run_model_inference(args, checkpoint_path: Path) -> Path:
             pred_ph = pred_ph.squeeze(1)
             pred_complex = torch.complex(pred_amp * torch.cos(pred_ph), pred_amp * torch.sin(pred_ph))
             preds.append(pred_complex.detach().cpu().numpy())
+            probe_positions.append(probe_position.detach().cpu().numpy())
 
     pred_stack = np.concatenate(preds, axis=0).astype(np.complex64)
-    recon = np.mean(pred_stack, axis=0).astype(np.complex64)
+    position_stack = np.concatenate(probe_positions, axis=0).astype(np.float32)
+    if len(dataset.object_shape) != 2:
+        raise ValueError(f"Expected object_shape rank-2, got {dataset.object_shape}")
+    recon = _stitch_complex_predictions(
+        patches=pred_stack,
+        positions_px=position_stack,
+        object_shape=(int(dataset.object_shape[0]), int(dataset.object_shape[1])),
+    )
 
     args.recon_npz.parent.mkdir(parents=True, exist_ok=True)
     np.savez(
@@ -266,14 +408,28 @@ def main(argv=None) -> int:
 
     if not args.ptychovit_repo.exists():
         raise FileNotFoundError(f"ptychovit repo not found: {args.ptychovit_repo}")
+    if args.mode == "finetune" and not bool(args.resume_from_checkpoint):
+        raise ValueError(
+            "finetune mode requires --resume-from-checkpoint=true to avoid accidental scratch retraining"
+        )
 
     training_returncode = None
     training_stdout = ""
     training_stderr = ""
     checkpoint_artifacts: Dict[str, str] = {}
+    runtime_cfg_path: Path | None = None
+    runtime_cfg: Dict[str, Any] | None = None
+
+    if args.mode == "inference":
+        # Always materialize runtime config + normalization dictionary for inference,
+        # even when loading an existing checkpoint.
+        runtime_cfg_path, runtime_cfg = _prepare_runtime_training_config(args)
+        shutil.copy2(runtime_cfg_path, args.output_dir / "config.yaml")
+        args.train_dp = Path(runtime_cfg["data"]["data_path"]) / "train_dp.hdf5"
+        args.test_dp = Path(runtime_cfg["data"]["test_path"])
 
     if args.mode == "finetune":
-        runtime_cfg_path, _config = _prepare_runtime_training_config(args)
+        runtime_cfg_path, runtime_cfg = _prepare_runtime_training_config(args)
         training_returncode, training_stdout, training_stderr = _run_training_subprocess(args, runtime_cfg_path)
         if training_returncode != 0:
             raise RuntimeError(
@@ -288,7 +444,8 @@ def main(argv=None) -> int:
         try:
             checkpoint_path = _load_checkpoint_path(args)
         except FileNotFoundError:
-            runtime_cfg_path, _config = _prepare_runtime_training_config(args)
+            if runtime_cfg_path is None:
+                runtime_cfg_path, runtime_cfg = _prepare_runtime_training_config(args)
             training_returncode, training_stdout, training_stderr = _run_training_subprocess(args, runtime_cfg_path)
             if training_returncode != 0:
                 raise RuntimeError(

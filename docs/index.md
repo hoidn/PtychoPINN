@@ -43,6 +43,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** pytorch, lightning, mlflow, configuration, training  
 **Use this when:** Working on the `ptycho_torch/` stack or porting TensorFlow workflows to PyTorch.
 
+### [PtychoViT Workflow Guide](workflows/ptychovit.md)
+**Description:** Source-pinned interop contract for running the `pinn_ptychovit` model arm from grid-lines studies, including paired HDF5 requirements, checkpoint semantics, and troubleshooting notes.
+**Keywords:** ptychovit, interop, hdf5, checkpoints, grid-lines, studies
+**Use this when:** Integrating or debugging the PtychoViT backend path in `scripts/studies/grid_lines_compare_wrapper.py`.
+
 ### [PyTorch Model Loading & Inference Guide](../ptycho_torch/README.md)
 **Description:** Practical guide to loading PyTorch models for inference, including the recommended CLI path and manual reconstruction from state_dict-only `model.pt` files.  
 **Keywords:** pytorch, inference, model-loading, state_dict, lightning, config-factory  
@@ -57,6 +62,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Description:** Interface/behavior contract for `compare_models.py` (CLI + future API), including inputs, outputs, sampling, registration, stitching, metrics, and recon NPZ expectations.  
 **Keywords:** spec, comparison, interface, contract  
 **Use this when:** You need authoritative details on `compare_models.py` behavior or are refactoring the compare pipeline.
+
+### [PtychoViT Interop Contract Spec](../specs/ptychovit_interop_contract.md)
+**Description:** Normative interop contract for `pinn_ptychovit` bridge inputs/outputs, including HDF5 object/position frame semantics, normalization requirements, and reconstruction assembly parity rules.
+**Keywords:** spec, ptychovit, interop, hdf5, coordinates, normalization, stitching
+**Use this when:** Implementing or debugging the PtychoViT bridge path and validating contract compliance.
 
 ## Project Management
 

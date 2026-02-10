@@ -8,9 +8,10 @@ Data contracts: see specs/data_contracts.md
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Dict, Any, Tuple, Optional
+from typing import Any, Dict, Iterable, Optional, Tuple
+import gc
 import json
 import numpy as np
 from skimage.restoration import unwrap_phase
@@ -228,6 +229,64 @@ def simulate_grid_data(cfg: GridLinesConfig, probe_np: np.ndarray) -> Dict[str, 
         YY_gt, dataset, YY_full, norm_Y_I
     ) = data_preprocessing.generate_data()
 
+    def _build_scan_positions(
+        container: Any,
+        *,
+        n_repeats: int,
+        outer_offset: int,
+        n_samples: int,
+        channels: int,
+    ) -> np.ndarray | None:
+        coords_offsets = getattr(container, "global_offsets", None)
+        if coords_offsets is not None:
+            coords_offsets = np.asarray(coords_offsets)
+            if coords_offsets.ndim == 4 and coords_offsets.shape[0] == n_samples:
+                if np.unique(coords_offsets).size > 1:
+                    return coords_offsets
+
+        # Simulated gridsize=1 data frequently carries degenerate relative coordinates.
+        # Reconstruct global scan positions for interop from the simulation geometry.
+        from ptycho import diffsim
+
+        ix, iy = diffsim.extract_coords(
+            size=cfg.size,
+            repeats=n_repeats,
+            coord_type="global",
+            outer_offset=outer_offset,
+        )
+        ix = np.asarray(ix)
+        iy = np.asarray(iy)
+        if ix.ndim != 4 or iy.ndim != 4:
+            return None
+
+        coords_global = np.zeros((ix.shape[0], 1, 2, ix.shape[3]), dtype=np.float32)
+        coords_global[:, 0, 0, :] = iy[:, 0, 0, :]
+        coords_global[:, 0, 1, :] = ix[:, 0, 0, :]
+
+        if coords_global.shape[0] < n_samples:
+            return None
+        coords_global = coords_global[:n_samples]
+
+        if coords_global.shape[3] < channels:
+            return None
+        coords_global = coords_global[..., :channels]
+        return coords_global
+
+    train_offsets = _build_scan_positions(
+        dataset.train_data,
+        n_repeats=cfg.nimgs_train,
+        outer_offset=cfg.outer_offset_train,
+        n_samples=int(np.asarray(X_tr).shape[0]),
+        channels=int(np.asarray(X_tr).shape[-1]),
+    )
+    test_offsets = _build_scan_positions(
+        dataset.test_data,
+        n_repeats=cfg.nimgs_test,
+        outer_offset=cfg.outer_offset_test,
+        n_samples=int(np.asarray(X_te).shape[0]),
+        channels=int(np.asarray(X_te).shape[-1]),
+    )
+
     return {
         "train": {
             "X": X_tr,
@@ -235,6 +294,7 @@ def simulate_grid_data(cfg: GridLinesConfig, probe_np: np.ndarray) -> Dict[str, 
             "Y_phi": Yphi_tr,
             "coords_nominal": dataset.train_data.coords_nominal,
             "coords_true": dataset.train_data.coords_true,
+            "coords_offsets": train_offsets,
             "YY_full": dataset.train_data.YY_full,
             "container": dataset.train_data,
         },
@@ -244,6 +304,7 @@ def simulate_grid_data(cfg: GridLinesConfig, probe_np: np.ndarray) -> Dict[str, 
             "Y_phi": Yphi_te,
             "coords_nominal": dataset.test_data.coords_nominal,
             "coords_true": dataset.test_data.coords_true,
+            "coords_offsets": test_offsets,
             "YY_full": dataset.test_data.YY_full,
             "YY_ground_truth": YY_gt,
             "norm_Y_I": norm_Y_I,
@@ -279,6 +340,8 @@ def save_split_npz(
         "coords_true": data["coords_true"],
         "YY_full": data["YY_full"],
     }
+    if data.get("coords_offsets") is not None:
+        payload["coords_offsets"] = data["coords_offsets"]
     if data.get("probeGuess") is not None:
         payload["probeGuess"] = data["probeGuess"]
     if split == "test":
@@ -302,6 +365,86 @@ def save_split_npz(
     )
     MetadataManager.save_with_metadata(str(path), payload, metadata)
     return path
+
+
+def build_grid_lines_datasets(
+    cfg: GridLinesConfig,
+    dataset_tag: str | None = None,
+    canonical_gt_label: str = "gt",
+) -> Dict[str, str]:
+    """Build train/test NPZ datasets and persist a canonical GT recon artifact."""
+    if cfg.probe_source == "ideal_disk":
+        probe_guess = load_ideal_disk_probe(cfg.N)
+    else:
+        probe_guess = load_probe_guess(cfg.probe_npz)
+    probe_scaled = scale_probe(
+        probe_guess,
+        cfg.N,
+        cfg.probe_smoothing_sigma,
+        scale_mode=cfg.probe_scale_mode,
+    )
+    probe_scaled = apply_probe_mask(probe_scaled, cfg.probe_mask_diameter)
+
+    sim = simulate_grid_data(cfg, probe_scaled)
+    config = configure_legacy_params(cfg, probe_scaled)
+
+    sim["train"]["probeGuess"] = probe_scaled
+    sim["test"]["probeGuess"] = probe_scaled
+    train_npz = save_split_npz(cfg, "train", sim["train"], config)
+    test_npz = save_split_npz(cfg, "test", sim["test"], config)
+
+    tag = dataset_tag or f"N{cfg.N}"
+    gt_path = cfg.output_dir / "recons" / canonical_gt_label / "recon.npz"
+    gt_complex = np.squeeze(sim["test"]["YY_ground_truth"])
+    if gt_path.exists():
+        with np.load(gt_path) as existing:
+            existing_gt = np.squeeze(existing["YY_pred"])
+        if existing_gt.shape != gt_complex.shape or not np.allclose(
+            existing_gt,
+            gt_complex,
+            rtol=1e-6,
+            atol=1e-6,
+        ):
+            raise ValueError(
+                "Canonical GT mismatch across N builds; enforce shared synthetic object identity/seed"
+            )
+    else:
+        gt_path = save_recon_artifact(cfg.output_dir, canonical_gt_label, gt_complex)
+
+    return {
+        "train_npz": str(train_npz),
+        "test_npz": str(test_npz),
+        "gt_recon": str(gt_path),
+        "tag": tag,
+    }
+
+
+def build_grid_lines_datasets_by_n(
+    base_cfg: GridLinesConfig,
+    required_ns: Iterable[int],
+) -> Dict[int, Dict[str, str]]:
+    """Build dataset bundles for each unique required N value."""
+    bundles: Dict[int, Dict[str, str]] = {}
+    for n_value in sorted(set(required_ns)):
+        _reset_backend_state()
+        cfg_n = replace(base_cfg, N=n_value)
+        bundles[n_value] = build_grid_lines_datasets(
+            cfg_n,
+            dataset_tag=f"N{n_value}",
+            canonical_gt_label="gt",
+        )
+    return bundles
+
+
+def _reset_backend_state() -> None:
+    """Best-effort backend cleanup between heavy multi-N dataset builds."""
+    try:
+        import tensorflow as tf
+
+        tf.keras.backend.clear_session()
+    except Exception:
+        pass
+    gc.collect()
 
 
 # ---------------------------------------------------------------------------

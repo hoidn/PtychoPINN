@@ -107,6 +107,11 @@ output_dir/
 ### `grid_lines_compare_wrapper.py`
 Orchestrates TensorFlow grid-lines workflow and Torch FNO/Hybrid runners, then merges metrics.
 
+PtychoViT backend workflow reference: `docs/workflows/ptychovit.md`.
+Fresh checkpoint-restored initial baseline helper scripts:
+- `scripts/studies/run_fresh_ptychovit_initial_metrics.py`
+- `scripts/studies/verify_fresh_ptychovit_initial_metrics.py`
+
 **Key Torch Options:**
 - `--seed`: Random seed for Torch runs (random if omitted).
 - `--torch-output-mode {real_imag,amp_phase_logits,amp_phase}`: Control how FNO/Hybrid outputs are interpreted.

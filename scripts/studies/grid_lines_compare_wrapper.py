@@ -37,6 +37,20 @@ def _parse_architectures(value: str) -> Tuple[str, ...]:
     return tuple(a.strip() for a in value.split(",") if a.strip())
 
 
+def _json_default(value):
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, np.bool_):
+        return bool(value)
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        return float(value)
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
 def _parse_models(value: str) -> Tuple[str, ...]:
     return tuple(x.strip() for x in value.split(",") if x.strip())
 
@@ -118,6 +132,7 @@ def run_grid_lines_compare(
     architectures: Iterable[str],
     models: Optional[Tuple[str, ...]] = None,
     model_n: Optional[Dict[str, int]] = None,
+    reuse_existing_recons: bool = False,
     ptychovit_repo: Optional[Path] = None,
     seed: Optional[int] = None,
     nimgs_train: int = 2,
@@ -199,15 +214,15 @@ def run_grid_lines_compare(
             for model_id in selected_models
             if (output_dir / "recons" / model_id / "recon.npz").exists()
         }
-        if precomputed_gt.exists() and len(precomputed_recons) == len(selected_models):
+        if reuse_existing_recons and precomputed_gt.exists() and len(precomputed_recons) == len(selected_models):
             metrics_by_model = evaluate_selected_models(precomputed_recons, precomputed_gt)
             metrics_by_model_path = output_dir / "metrics_by_model.json"
-            metrics_by_model_path.write_text(json.dumps(metrics_by_model, indent=2, default=str))
+            metrics_by_model_path.write_text(json.dumps(metrics_by_model, indent=2, default=_json_default))
             legacy_metrics = {
                 model_id: payload["metrics"] for model_id, payload in metrics_by_model.items()
             }
             metrics_path = output_dir / "metrics.json"
-            metrics_path.write_text(json.dumps(legacy_metrics, indent=2, default=str))
+            metrics_path.write_text(json.dumps(legacy_metrics, indent=2, default=_json_default))
             for model_id in selected_models:
                 run_dir = output_dir / "runs" / model_id
                 run_dir.mkdir(parents=True, exist_ok=True)
@@ -262,7 +277,7 @@ def run_grid_lines_compare(
             train_npz = Path(bundle["train_npz"])
             test_npz = Path(bundle["test_npz"])
             existing_recon = output_dir / "recons" / model_id / "recon.npz"
-            if existing_recon.exists():
+            if reuse_existing_recons and existing_recon.exists():
                 recon_paths[model_id] = existing_recon
                 continue
 
@@ -392,13 +407,13 @@ def run_grid_lines_compare(
 
         metrics_by_model = evaluate_selected_models(recon_paths, gt_path)
         metrics_by_model_path = output_dir / "metrics_by_model.json"
-        metrics_by_model_path.write_text(json.dumps(metrics_by_model, indent=2, default=str))
+        metrics_by_model_path.write_text(json.dumps(metrics_by_model, indent=2, default=_json_default))
 
         legacy_metrics = {
             model_id: payload["metrics"] for model_id, payload in metrics_by_model.items()
         }
         metrics_path = output_dir / "metrics.json"
-        metrics_path.write_text(json.dumps(legacy_metrics, indent=2, default=str))
+        metrics_path.write_text(json.dumps(legacy_metrics, indent=2, default=_json_default))
 
         from ptycho.workflows.grid_lines_workflow import render_grid_lines_visuals
 
@@ -522,7 +537,7 @@ def run_grid_lines_compare(
     from ptycho.workflows.grid_lines_workflow import render_grid_lines_visuals
     render_grid_lines_visuals(output_dir, order=tuple(order))
 
-    metrics_path.write_text(json.dumps(merged, indent=2, default=str))
+    metrics_path.write_text(json.dumps(merged, indent=2, default=_json_default))
     return {
         "train_npz": str(train_npz),
         "test_npz": str(test_npz),
@@ -556,6 +571,11 @@ def parse_args(argv=None):
         type=str,
         default="",
         help="Optional per-model N overrides as comma-separated model_id=N entries.",
+    )
+    parser.add_argument(
+        "--reuse-existing-recons",
+        action="store_true",
+        help="Reuse existing recon artifacts in output-dir instead of re-running selected backends.",
     )
     parser.add_argument(
         "--ptychovit-repo",
@@ -660,6 +680,7 @@ def main(argv=None) -> None:
         architectures=args.architectures,
         models=args.models,
         model_n=args.model_n,
+        reuse_existing_recons=args.reuse_existing_recons,
         ptychovit_repo=args.ptychovit_repo,
         seed=args.seed,
         nimgs_train=args.nimgs_train,

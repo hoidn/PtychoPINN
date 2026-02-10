@@ -885,3 +885,34 @@ git commit -m "chore: record full fine-tune and post-tune comparison evidence"
   - `tmp/ptychovit_smoke/recons/pinn_ptychovit/recon.npz`
   - `tmp/ptychovit_smoke/runs/pinn_hybrid/stdout.log`
   - `tmp/ptychovit_smoke/runs/pinn_ptychovit/stdout.log`
+
+## Verification Evidence (2026-02-10 Task 9/10)
+
+- Full inference + comparison evidence index:
+  - `.artifacts/ptychovit_integration/full_inference_comparison/README.md`
+- Full inference logs:
+  - `.artifacts/ptychovit_integration/full_inference_comparison/full_infer_command.log`
+  - `.artifacts/ptychovit_integration/full_inference_comparison/metrics_payload_check.log`
+  - `.artifacts/ptychovit_integration/full_inference_comparison/visual_sanity_check.log`
+- Full inference artifacts:
+  - `tmp/ptychovit_full_infer/metrics_by_model.json`
+  - `tmp/ptychovit_full_infer/metrics.json`
+  - `tmp/ptychovit_full_infer/recons/gt/recon.npz`
+  - `tmp/ptychovit_full_infer/recons/pinn_hybrid/recon.npz`
+  - `tmp/ptychovit_full_infer/recons/pinn_ptychovit/recon.npz`
+
+- Full fine-tune + post-tune evidence index:
+  - `.artifacts/ptychovit_integration/full_finetune/README.md`
+- Full fine-tune logs:
+  - `.artifacts/ptychovit_integration/full_finetune/interop_resize_to_256.log`
+  - `.artifacts/ptychovit_integration/full_finetune/finetune_command.log`
+  - `.artifacts/ptychovit_integration/full_finetune/inference_with_checkpoint.log`
+  - `.artifacts/ptychovit_integration/full_finetune/posttune_compare_command.log`
+  - `.artifacts/ptychovit_integration/full_finetune/pre_post_delta.log`
+- Full fine-tune artifacts:
+  - `tmp/ptychovit_full_finetune/runs/pinn_ptychovit/best_model.pth`
+  - `tmp/ptychovit_full_finetune/runs/pinn_ptychovit/checkpoint_model.pth`
+  - `tmp/ptychovit_full_finetune/runs/pinn_ptychovit/checkpoint.state`
+  - `tmp/ptychovit_full_finetune/infer/recons/pinn_ptychovit/recon.npz`
+  - `tmp/ptychovit_full_posttune_compare/metrics_by_model.json`
+  - `tmp/ptychovit_full_posttune_compare/ptychovit_pre_post_delta.json`

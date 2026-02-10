@@ -85,6 +85,29 @@ def test_wrapper_accepts_models_and_model_n(tmp_path):
     assert args.model_n["pinn_ptychovit"] == 256
 
 
+def test_parse_args_reuse_existing_recons_defaults_false(tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import parse_args
+
+    args = parse_args([
+        "--N", "64",
+        "--gridsize", "1",
+        "--output-dir", str(tmp_path),
+    ])
+    assert args.reuse_existing_recons is False
+
+
+def test_parse_args_reuse_existing_recons_flag_sets_true(tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import parse_args
+
+    args = parse_args([
+        "--N", "64",
+        "--gridsize", "1",
+        "--output-dir", str(tmp_path),
+        "--reuse-existing-recons",
+    ])
+    assert args.reuse_existing_recons is True
+
+
 def test_wrapper_rejects_ptychovit_non_256():
     from scripts.studies.grid_lines_compare_wrapper import validate_model_specs
 
@@ -244,6 +267,117 @@ def test_wrapper_writes_metrics_by_model_for_selected_models(monkeypatch, tmp_pa
     metrics = json.loads((tmp_path / "metrics_by_model.json").read_text())
     assert "pinn_hybrid" in metrics
     assert "pinn_ptychovit" in metrics
+    mse_val = metrics["pinn_hybrid"]["metrics"]["mse"]
+    if isinstance(mse_val, list):
+        mse_val = mse_val[0]
+    assert isinstance(mse_val, float)
+
+
+def test_wrapper_does_not_reuse_precomputed_recons_by_default(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    gt_recon = tmp_path / "recons" / "gt" / "recon.npz"
+    gt_recon.parent.mkdir(parents=True, exist_ok=True)
+    gt = (np.ones((392, 392)) + 1j * np.ones((392, 392))).astype(np.complex64)
+    np.savez(gt_recon, YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+
+    stale_recon = tmp_path / "recons" / "pinn_hybrid" / "recon.npz"
+    stale_recon.parent.mkdir(parents=True, exist_ok=True)
+    stale = (np.zeros((392, 392)) + 1j * np.zeros((392, 392))).astype(np.complex64)
+    np.savez(stale_recon, YY_pred=stale, amp=np.abs(stale), phase=np.angle(stale))
+
+    train_128 = tmp_path / "datasets" / "N128" / "gs1" / "train.npz"
+    test_128 = tmp_path / "datasets" / "N128" / "gs1" / "test.npz"
+    for path in (train_128, test_128):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(path, ok=np.array([1], dtype=np.int8))
+
+    called = {"build": 0, "torch": 0}
+
+    def fake_build_by_n(base_cfg, required_ns):
+        _ = base_cfg
+        assert sorted(required_ns) == [128]
+        called["build"] += 1
+        return {
+            128: {"train_npz": str(train_128), "test_npz": str(test_128), "gt_recon": str(gt_recon), "tag": "N128"},
+        }
+
+    def fake_torch_run(cfg):
+        called["torch"] += 1
+        recon_path = cfg.output_dir / "recons" / "pinn_hybrid" / "recon.npz"
+        recon_path.parent.mkdir(parents=True, exist_ok=True)
+        pred = (np.ones((128, 128)) + 1j * np.ones((128, 128))).astype(np.complex64)
+        np.savez(recon_path, YY_pred=pred, amp=np.abs(pred), phase=np.angle(pred))
+        return {"recon_npz": str(recon_path), "metrics": {"mse": 0.1}}
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.build_grid_lines_datasets_by_n", fake_build_by_n)
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals", lambda output_dir, order: {})
+    monkeypatch.setattr(
+        "ptycho.evaluation.eval_reconstruction",
+        lambda pred, gt, label: {"mse": float(np.mean(np.abs(pred - gt)))},
+    )
+
+    run_grid_lines_compare(
+        N=128,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=("hybrid",),
+        models=("pinn_hybrid",),
+        model_n={"pinn_hybrid": 128},
+        probe_npz=Path("dummy_probe.npz"),
+    )
+    assert called["build"] == 1
+    assert called["torch"] == 1
+
+
+def test_wrapper_reuses_precomputed_recons_when_opted_in(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    gt_recon = tmp_path / "recons" / "gt" / "recon.npz"
+    gt_recon.parent.mkdir(parents=True, exist_ok=True)
+    gt = (np.ones((392, 392)) + 1j * np.ones((392, 392))).astype(np.complex64)
+    np.savez(gt_recon, YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+
+    recon_path = tmp_path / "recons" / "pinn_hybrid" / "recon.npz"
+    recon_path.parent.mkdir(parents=True, exist_ok=True)
+    pred = (np.ones((392, 392)) + 1j * np.ones((392, 392))).astype(np.complex64)
+    np.savez(recon_path, YY_pred=pred, amp=np.abs(pred), phase=np.angle(pred))
+
+    called = {"build": 0, "torch": 0}
+
+    def fake_build_by_n(base_cfg, required_ns):
+        _ = (base_cfg, required_ns)
+        called["build"] += 1
+        raise AssertionError("build_grid_lines_datasets_by_n should not run when reusing precomputed artifacts")
+
+    def fake_torch_run(cfg):
+        _ = cfg
+        called["torch"] += 1
+        raise AssertionError("run_grid_lines_torch should not run when reusing precomputed artifacts")
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.build_grid_lines_datasets_by_n", fake_build_by_n)
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals", lambda output_dir, order: {})
+    monkeypatch.setattr(
+        "ptycho.evaluation.eval_reconstruction",
+        lambda pred, gt, label: {"mse": float(np.mean(np.abs(pred - gt)))},
+    )
+
+    run_grid_lines_compare(
+        N=128,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=("hybrid",),
+        models=("pinn_hybrid",),
+        model_n={"pinn_hybrid": 128},
+        probe_npz=Path("dummy_probe.npz"),
+        reuse_existing_recons=True,
+    )
+    assert called["build"] == 0
+    assert called["torch"] == 0
+    stdout_log = tmp_path / "runs" / "pinn_hybrid" / "stdout.log"
+    assert "Skipped backend execution; reused existing reconstruction artifact." in stdout_log.read_text()
 
 
 def test_harmonized_metrics_run_on_canonical_gt_grid(tmp_path):
