@@ -29,12 +29,16 @@
 ```python
 # tests/test_docs_ptychovit_workflow.py
 
+import re
+
 def test_ptychovit_doc_records_interop_contract_source():
     text = Path("docs/workflows/ptychovit.md").read_text()
     assert "Interop Contract Source" in text
     assert "Checkpoint Contract Source" in text
     assert "source_repo" in text
     assert "source_commit" in text
+    assert "TBD" not in text
+    assert re.search(r"source_commit:\\s*`?[0-9a-f]{7,40}`?", text)
 ```
 
 **Step 2: Run test to verify it fails**
@@ -53,6 +57,7 @@ Update `docs/workflows/ptychovit.md` with:
   - `source_paths`
   - `validated_on`
 - Explicit list of required input/output datasets and checkpoint filenames derived from those sources.
+- Concrete source values (no placeholders) and commit hash pinning.
 
 **Step 4: Run test to verify it passes**
 
@@ -109,11 +114,57 @@ def test_wrapper_rejects_ptychovit_non_256():
             models=("pinn_ptychovit",),
             model_n={"pinn_ptychovit": 128},
         )
+
+
+def test_wrapper_accepts_canonical_eval_n_flag(tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import parse_args
+    args = parse_args([
+        "--N", "64",
+        "--gridsize", "1",
+        "--output-dir", str(tmp_path),
+        "--canonical-eval-n", "256",
+    ])
+    assert args.canonical_eval_n == 256
+
+
+def test_wrapper_builds_datasets_per_unique_model_n(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+    called_ns = []
+
+    def fake_build(cfg, dataset_tag=None):
+        called_ns.append(cfg.N)
+        base = tmp_path / f"N{cfg.N}"
+        base.mkdir(parents=True, exist_ok=True)
+        train_npz = base / "train.npz"
+        test_npz = base / "test.npz"
+        gt_recon = tmp_path / "recons" / f"gt_N{cfg.N}" / "recon.npz"
+        gt_recon.parent.mkdir(parents=True, exist_ok=True)
+        train_npz.write_bytes(b"stub")
+        test_npz.write_bytes(b"stub")
+        gt_recon.write_bytes(b"stub")
+        return {"train_npz": str(train_npz), "test_npz": str(test_npz), "gt_recon": str(gt_recon)}
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.build_grid_lines_datasets", fake_build)
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", lambda cfg: {"metrics": {}, "recon_npz": str(tmp_path / "recons" / "pinn_hybrid" / "recon.npz")})
+    monkeypatch.setattr("scripts.studies.grid_lines_ptychovit_runner.run_grid_lines_ptychovit", lambda cfg: {"status": "ok", "model_id": "pinn_ptychovit", "recon_npz": str(tmp_path / "recons" / "pinn_ptychovit" / "recon.npz")})
+    monkeypatch.setattr("scripts.studies.grid_lines_compare_wrapper.evaluate_selected_models", lambda *args, **kwargs: {})
+
+    run_grid_lines_compare(
+        N=128,
+        gridsize=1,
+        output_dir=tmp_path,
+        probe_npz=Path("dummy_probe.npz"),
+        architectures=("hybrid",),
+        models=("pinn_hybrid", "pinn_ptychovit"),
+        model_n={"pinn_hybrid": 128, "pinn_ptychovit": 256},
+        canonical_eval_n=256,
+    )
+    assert sorted(set(called_ns)) == [128, 256]
 ```
 
 **Step 2: Run tests to verify they fail**
 
-Run: `pytest tests/test_grid_lines_compare_wrapper.py -k "backward_compat or models_and_model_n or ptychovit_non_256" -v`  
+Run: `pytest tests/test_grid_lines_compare_wrapper.py -k "backward_compat or models_and_model_n or ptychovit_non_256 or canonical_eval_n or unique_model_n" -v`  
 Expected: FAIL with missing args/functions.
 
 **Step 3: Write minimal implementation**
@@ -151,16 +202,21 @@ def validate_model_specs(models: tuple[str, ...], model_n: dict[str, int]) -> No
             raise ValueError(f"Invalid N for model '{model_id}'")
     if "pinn_ptychovit" in models and model_n.get("pinn_ptychovit", 256) != 256:
         raise ValueError("pinn_ptychovit currently supports only N=256")
+
+# argparse contract
+parser.add_argument("--canonical-eval-n", type=int, default=256)
 ```
 
 Implementation notes:
 - Keep `--architectures` fully functional.
 - Add `--models` and `--model-n` as additive options, not replacements.
 - Resolve selected models from `--models` when present, otherwise derive from `--architectures`.
+- Thread `--canonical-eval-n` through `run_grid_lines_compare(..., canonical_eval_n=...)` into `evaluate_selected_models`.
+- Build datasets per unique N in `model_n` (defaulting missing entries to top-level `N`) and route each model to the matching dataset bundle.
 
 **Step 4: Run tests to verify they pass**
 
-Run: `pytest tests/test_grid_lines_compare_wrapper.py -k "backward_compat or models_and_model_n or ptychovit_non_256" -v`  
+Run: `pytest tests/test_grid_lines_compare_wrapper.py -k "backward_compat or models_and_model_n or ptychovit_non_256 or canonical_eval_n or unique_model_n" -v`  
 Expected: PASS.
 
 **Step 5: Commit**
@@ -170,7 +226,7 @@ git add scripts/studies/grid_lines_compare_wrapper.py tests/test_grid_lines_comp
 git commit -m "feat: add non-breaking model selection and per-model N contract"
 ```
 
-### Task 2: Dataset-Only Builder For Multi-N Synthetic Runs
+### Task 2: Dataset Builders For Multi-N Synthetic Runs
 
 **Files:**
 - Modify: `ptycho/workflows/grid_lines_workflow.py`
@@ -189,11 +245,24 @@ def test_build_grid_lines_datasets_writes_train_test_npz(tmp_path):
     assert Path(result["train_npz"]).exists()
     assert Path(result["test_npz"]).exists()
     assert Path(result["gt_recon"]).exists()
+
+
+def test_build_grid_lines_datasets_namespaces_gt_by_n(tmp_path):
+    from ptycho.workflows.grid_lines_workflow import GridLinesConfig, build_grid_lines_datasets
+    cfg128 = GridLinesConfig(N=128, gridsize=1, output_dir=tmp_path, probe_npz=tmp_path / "probe128.npz")
+    cfg256 = GridLinesConfig(N=256, gridsize=1, output_dir=tmp_path, probe_npz=tmp_path / "probe256.npz")
+    np.savez(cfg128.probe_npz, probeGuess=(np.ones((128, 128)) + 1j * np.ones((128, 128))).astype(np.complex64))
+    np.savez(cfg256.probe_npz, probeGuess=(np.ones((256, 256)) + 1j * np.ones((256, 256))).astype(np.complex64))
+    out128 = build_grid_lines_datasets(cfg128, dataset_tag="N128")
+    out256 = build_grid_lines_datasets(cfg256, dataset_tag="N256")
+    assert out128["gt_recon"] != out256["gt_recon"]
+    assert "gt_N128" in out128["gt_recon"]
+    assert "gt_N256" in out256["gt_recon"]
 ```
 
 **Step 2: Run test to verify it fails**
 
-Run: `pytest tests/test_grid_lines_workflow.py::test_build_grid_lines_datasets_writes_train_test_npz -v`  
+Run: `pytest tests/test_grid_lines_workflow.py -k "build_grid_lines_datasets_writes_train_test_npz or namespaces_gt_by_n" -v`  
 Expected: FAIL with missing function.
 
 **Step 3: Write minimal implementation**
@@ -201,7 +270,7 @@ Expected: FAIL with missing function.
 ```python
 # ptycho/workflows/grid_lines_workflow.py
 
-def build_grid_lines_datasets(cfg: GridLinesConfig) -> Dict[str, str]:
+def build_grid_lines_datasets(cfg: GridLinesConfig, dataset_tag: str | None = None) -> Dict[str, str]:
     probe_guess = load_ideal_disk_probe(cfg.N) if cfg.probe_source == "ideal_disk" else load_probe_guess(cfg.probe_npz)
     probe_scaled = scale_probe(probe_guess, cfg.N, cfg.probe_smoothing_sigma, scale_mode=cfg.probe_scale_mode)
     probe_scaled = apply_probe_mask(probe_scaled, cfg.probe_mask_diameter)
@@ -211,13 +280,21 @@ def build_grid_lines_datasets(cfg: GridLinesConfig) -> Dict[str, str]:
     sim["test"]["probeGuess"] = probe_scaled
     train_npz = save_split_npz(cfg, "train", sim["train"], config)
     test_npz = save_split_npz(cfg, "test", sim["test"], config)
-    gt_path = save_recon_artifact(cfg.output_dir, "gt", np.squeeze(sim["test"]["YY_ground_truth"]))
-    return {"train_npz": str(train_npz), "test_npz": str(test_npz), "gt_recon": str(gt_path)}
+    tag = dataset_tag or f"N{cfg.N}"
+    gt_path = save_recon_artifact(cfg.output_dir, f"gt_{tag}", np.squeeze(sim["test"]["YY_ground_truth"]))
+    return {"train_npz": str(train_npz), "test_npz": str(test_npz), "gt_recon": str(gt_path), "tag": tag}
+
+def build_grid_lines_datasets_by_n(base_cfg: GridLinesConfig, required_ns: Iterable[int]) -> dict[int, Dict[str, str]]:
+    bundles = {}
+    for n in sorted(set(required_ns)):
+        cfg_n = dataclasses.replace(base_cfg, N=n)
+        bundles[n] = build_grid_lines_datasets(cfg_n, dataset_tag=f"N{n}")
+    return bundles
 ```
 
 **Step 4: Run test to verify it passes**
 
-Run: `pytest tests/test_grid_lines_workflow.py::test_build_grid_lines_datasets_writes_train_test_npz -v`  
+Run: `pytest tests/test_grid_lines_workflow.py -k "build_grid_lines_datasets_writes_train_test_npz or namespaces_gt_by_n" -v`  
 Expected: PASS.
 
 **Step 5: Commit**
@@ -345,6 +422,12 @@ def test_validate_hdf5_pair_rejects_mismatched_position_lengths(tmp_path):
     from ptycho.interop.ptychovit.validate import validate_hdf5_pair
     with pytest.raises(ValueError, match="same length"):
         validate_hdf5_pair(dp_path, para_path)
+
+
+def test_validate_hdf5_pair_rejects_scan_count_mismatch(tmp_path):
+    from ptycho.interop.ptychovit.validate import validate_hdf5_pair
+    with pytest.raises(ValueError, match="dp scan count"):
+        validate_hdf5_pair(dp_path, para_path)
 ```
 
 **Step 2: Run tests to verify they fail**
@@ -366,8 +449,17 @@ def validate_hdf5_pair(dp_hdf5: Path, para_hdf5: Path) -> None:
                 raise ValueError(f"Missing required dataset '{key}'")
         x = np.asarray(para["probe_position_x_m"])
         y = np.asarray(para["probe_position_y_m"])
+        dp_arr = np.asarray(dp["dp"])
         if x.shape[0] != y.shape[0]:
             raise ValueError("probe_position_x_m and probe_position_y_m must have same length")
+        if dp_arr.shape[0] != x.shape[0]:
+            raise ValueError("dp scan count must match probe position vector length")
+        if dp_arr.ndim != 3:
+            raise ValueError("dp must be rank-3 [N,H,W]")
+        if not np.issubdtype(dp_arr.dtype, np.floating):
+            raise ValueError("dp must be float dtype")
+        if not np.all(np.isfinite(x)) or not np.all(np.isfinite(y)):
+            raise ValueError("probe positions must be finite")
         for ds_name in ("object", "probe"):
             ds = para[ds_name]
             if "pixel_height_m" not in ds.attrs or "pixel_width_m" not in ds.attrs:
@@ -377,8 +469,10 @@ def validate_hdf5_pair(dp_hdf5: Path, para_hdf5: Path) -> None:
 Validation policy:
 - Key existence
 - Position vector shape/length consistency
+- `len(dp scans) == len(position vectors)` consistency
 - Required pixel-size attrs on `object` and `probe`
 - Finite-valued numeric position arrays
+- Rank/dtype checks for `dp`
 
 **Step 4: Run tests to verify they pass**
 
@@ -414,6 +508,16 @@ def test_runner_invokes_subprocess_with_resolved_paths(monkeypatch, tmp_path):
     result = run_grid_lines_ptychovit(...)
     assert captured["cmd"][0] == "python"
     assert result["status"] == "ok"
+
+
+def test_runner_returns_recon_npz_for_metrics_handoff(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_ptychovit_runner import run_grid_lines_ptychovit
+    recon_path = tmp_path / "recons" / "pinn_ptychovit" / "recon.npz"
+    recon_path.parent.mkdir(parents=True, exist_ok=True)
+    recon_path.write_bytes(b"stub")
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 0, stdout="", stderr=""))
+    result = run_grid_lines_ptychovit(...)
+    assert result["recon_npz"] == str(recon_path)
 ```
 
 **Step 2: Run tests to verify they fail**
@@ -453,8 +557,15 @@ def run_grid_lines_ptychovit(cfg: PtychoViTRunnerConfig) -> dict:
     (logs_dir / "stderr.log").write_text(completed.stderr)
     if completed.returncode != 0:
         raise RuntimeError(f"ptychovit subprocess failed (exit={completed.returncode})")
-    return {"status": "ok", "run_dir": str(logs_dir), "model_id": "pinn_ptychovit"}
+    recon_npz = cfg.output_dir / "recons" / "pinn_ptychovit" / "recon.npz"
+    if not recon_npz.exists():
+        raise RuntimeError(f"ptychovit subprocess succeeded but recon artifact missing: {recon_npz}")
+    return {"status": "ok", "run_dir": str(logs_dir), "model_id": "pinn_ptychovit", "recon_npz": str(recon_npz)}
 ```
+
+Runner handoff contract (mandatory):
+- `run_grid_lines_ptychovit` must return a `recon_npz` path.
+- Wrapper must consume `recon_npz` into `recon_paths["pinn_ptychovit"]` before calling `evaluate_selected_models`.
 
 **Step 4: Run tests to verify they pass**
 
@@ -508,8 +619,13 @@ from scripts.tools.prepare_data_tool import interpolate_array
 
 def resize_complex_to_square(arr: np.ndarray, target_n: int = 256) -> np.ndarray:
     z = np.squeeze(arr).astype(np.complex64)
-    real = interpolate_array(z.real, target_n)
-    imag = interpolate_array(z.imag, target_n)
+    if z.ndim != 2 or z.shape[0] != z.shape[1]:
+        raise ValueError("resize_complex_to_square expects square 2D complex input")
+    if z.shape[0] == target_n:
+        return z
+    zoom_factor = target_n / z.shape[0]
+    real = interpolate_array(z.real, zoom_factor)
+    imag = interpolate_array(z.imag, zoom_factor)
     return (real + 1j * imag).astype(np.complex64)
 ```
 
@@ -531,6 +647,7 @@ def evaluate_selected_models(recon_paths: dict[str, Path], gt_path: Path, canoni
 Compatibility requirement:
 - Continue writing legacy `metrics.json` for current users.
 - Also write new `metrics_by_model.json` for selected-model orchestration.
+- Build `recon_paths` exclusively from runner return contracts (`recon_npz`) and GT bundle selected for canonical evaluation.
 
 **Step 4: Run tests to verify they pass**
 
@@ -615,7 +732,7 @@ Run:
 Expected:
 - `metrics_by_model.json`
 - `metrics.json` (legacy compatibility)
-- `recons/gt/recon.npz`
+- `recons/gt_N128/recon.npz` and `recons/gt_N256/recon.npz` (or equivalent N-namespaced GT artifacts)
 - selected model recon folders and run logs
 
 **Step 3: Archive logs and note paths**
