@@ -6,8 +6,8 @@ This document summarizes key architectural principles, data pipeline best practi
 
 ## Related Documentation
 
-- **<doc-ref type="guide">docs/TROUBLESHOOTING.md</doc-ref>** - Debug common issues like shape mismatches and config problems
-- **<doc-ref type="guide">docs/QUICK_REFERENCE_PARAMS.md</doc-ref>** - Quick reference for params.cfg initialization patterns
+- **<doc-ref type="guide">docs/debugging/TROUBLESHOOTING.md</doc-ref>** - Debug common issues like shape mismatches and config problems
+- **<doc-ref type="guide">docs/debugging/QUICK_REFERENCE_PARAMS.md</doc-ref>** - Quick reference for params.cfg initialization patterns
 - **`tests/test_template_gridsize.py`** - Template for writing tests with proper params initialization
 
 ---
@@ -72,11 +72,36 @@ Until the codebase is fully refactored, all modern scripts must follow this orde
 
 ---
 
+### 2.3. Interpreter & Subprocess Policy (PYTHON-ENV-001)
+
+Rule: invoke Python via the default PATH `python` for code, scripts, and documentation.
+
+Why: The default interpreter selected by the user's environment is the single source of truth for commands and subprocesses. Keeping examples and subprocess invocations consistent with `python` avoids hidden per-host overrides and simplifies instructions.
+
+Canonical patterns:
+- In Python code spawning Python subprocesses:
+  ```python
+  import subprocess
+  subprocess.run(["python", "-m", "pkg.module", "--flag", "value"], check=True)
+  ```
+- In shell scripts and docs examples:
+  ```bash
+  python -m pkg.module --flag value
+  ```
+
+Scope: applies to new/modified code, orchestration helpers, and command examples. Keep commands environment-agnostic (no hardcoded conda env names).
+
+Exceptions: legacy archives under `archive/` and tests expressly validating legacy behavior may retain historical commands.
+
+Enforcement: avoid introducing repository-specific interpreter indirection (e.g., `PYTHON_BIN` wrappers) in docs/snippets.
+
+---
+
 ## 3. The Data Pipeline: Contracts and Bookkeeping
 
 A data pipeline's file formats and loading logic constitute a public API. Its behavior must be explicit and robust.
 
-**The Canonical Data Format:** All tools that produce or consume ptychography datasets for training or evaluation **MUST** adhere to the format defined in the official **<doc-ref type="contract">Data Contracts Document (docs/data_contracts.md)</doc-ref>**. This document is the single source of truth for array shapes, key names, and data types.
+**The Canonical Data Format:** All tools that produce or consume ptychography datasets for training or evaluation **MUST** adhere to the format defined in the official **<doc-ref type="contract">Data Contracts Document (specs/data_contracts.md)</doc-ref>**. This document is the single source of truth for array shapes, key names, and data types.
 
 ### 3.1. Lesson: Implicit `dtype` is a Time Bomb (The Deepest Bug)
 
@@ -434,7 +459,7 @@ Before merging any PR that touches data loading or configuration:
   - Solution: Pass as explicit parameters instead
 - [ ] Is the initialization order documented?
   - Add comments explaining when params must be set
-  - Reference `docs/TROUBLESHOOTING.md` for common issues
+  - Reference `docs/debugging/TROUBLESHOOTING.md` for common issues
 
 ### 7.2. Shape Validation  
 - [ ] For gridsize-dependent code, are there tests for gridsize=1 AND gridsize=2?
@@ -663,4 +688,3 @@ def build_model(X_train, Y_I_train, Y_phi_train):
     ...
     decoded1 = Conv2D(c, (3, 3), padding='same')(x1) # <-- BUG!
 ```
-
