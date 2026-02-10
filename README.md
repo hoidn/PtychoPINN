@@ -17,8 +17,6 @@ PtychoPINN supports both TensorFlow and PyTorch backends:
 - **PyTorch Backend**: PyTorch implementation is available via Lightning orchestration (`ptycho_torch/workflows/components.py`) with training, checkpointing, inference, and stitching.
 - **Backend Selection**: Configure backend choice through `TrainingConfig.backend` or `InferenceConfig.backend` fields (`'tensorflow'` or `'pytorch'`). 
 
-Both backends share the same data pipeline and configuration system, ensuring consistent behavior across workflows.
-
 ![Architecture diagram](diagram/lett.png)
 <!---
 *Fig. 1: Caption for the figure.*
