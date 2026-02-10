@@ -56,7 +56,7 @@ import numpy as np
 import tensorflow as tf
 # TODO naming convention for different types of parameters
 # TODO what default value and initialization for the probe scale?
-cfg = {
+DEFAULT_CFG = {
     'N': 128, 'offset': 4, 'gridsize': 2,
     'outer_offset_train': None, 'outer_offset_test': None, 'batch_size': 16,
     'nepochs': 60, 'n_filters_scale': 2, 'output_prefix': 'outputs',
@@ -73,12 +73,20 @@ cfg = {
     'gaussian_smoothing_sigma': 0.0,  # New parameter for Gaussian smoothing sigma
     'use_xla_translate': True  # Enable XLA-compatible translation by default for better performance
     }
+cfg = DEFAULT_CFG.copy()
+
+def ensure_defaults():
+    """Ensure legacy params.cfg contains baseline defaults."""
+    for key, value in DEFAULT_CFG.items():
+        if key not in cfg:
+            cfg[key] = value
 
 # TODO parameter description
 # probe.big: if True, increase the real space solution from 32x32 to 64x64
 
 # TODO bigoffset should be a derived quantity, at least for simulation
 def get_bigN():
+    ensure_defaults()
     N = cfg['N']
     gridsize = cfg['gridsize']
     offset = cfg['offset']
@@ -96,12 +104,14 @@ def get_padded_size():
     return bigN + buffer
 
 def params():
+    ensure_defaults()
     d = {k:v for k, v in cfg.items()}
     d['bigN'] = get_bigN()
     return d
 
 # TODO refactor
 def validate():
+    ensure_defaults()
     valid_data_sources = ['lines', 'grf', 'experimental', 'points',
         'testimg', 'diagonals', 'xpp', 'V', 'generic']
     assert cfg['data_source'] in valid_data_sources, \
@@ -119,6 +129,7 @@ def set(key, value):
 _NO_DEFAULT = object()
 
 def get(key, default=_NO_DEFAULT):
+    ensure_defaults()
     if key == 'bigN':
         cfg['bigN'] = get_bigN()
         return cfg['bigN']
