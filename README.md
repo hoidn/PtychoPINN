@@ -15,8 +15,7 @@ PtychoPINN supports both TensorFlow and PyTorch backends:
 
 - **Default Backend**: TensorFlow remains the default for backward compatibility.
 - **PyTorch Backend**: PyTorch implementation is available via Lightning orchestration (`ptycho_torch/workflows/components.py`) with training, checkpointing, inference, and stitching.
-- **Backend Selection**: Configure backend choice through `TrainingConfig.backend` or `InferenceConfig.backend` fields (`'tensorflow'` or `'pytorch'`). See [PyTorch Workflow Guide](./docs/workflows/pytorch.md) §12 for configuration details.
-- **Runtime Evidence**: PyTorch integration has a ~36s CPU baseline in `tests/torch/test_integration_workflow_torch.py`. More timing details are in `plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md`.
+- **Backend Selection**: Configure backend choice through `TrainingConfig.backend` or `InferenceConfig.backend` fields (`'tensorflow'` or `'pytorch'`). 
 
 Both backends share the same data pipeline and configuration system, ensuring consistent behavior across workflows.
 
@@ -33,14 +32,10 @@ Both backends share the same data pipeline and configuration system, ensuring co
 
 `pip install .`
 
-**Note:** This will automatically install PyTorch >= 2.2 as a required dependency. For GPU acceleration with specific CUDA versions, you may want to install PyTorch manually first following the [official PyTorch installation guide](https://pytorch.org/get-started/locally/), then run `pip install .`
 
 ## Usage
 ### Training
 `ptycho_train --train_data_file <train_path.npz> --test_data_file <test_path.npz> --output_dir <my_run>`
-
-### Evaluation
-`ptycho_evaluate --model-dir <my_run> --test-data <test_path.npz> --output-dir <eval_results>`
 
 ### Inference 
 `ptycho_inference --model_path <my_run> --test_data <test_path.npz> --output_dir <inference_out>`
