@@ -746,6 +746,113 @@ git add docs/plans/2026-02-10-grid-lines-ptychovit-backend-integration.md
 git commit -m "chore: record verification evidence for ptychovit backend integration"
 ```
 
+### Task 9: Full Inference + Comparison Execution (Non-Smoke)
+
+**Files:**
+- Modify: `docs/plans/2026-02-10-grid-lines-ptychovit-backend-integration.md` (append evidence links)
+- Create: `.artifacts/ptychovit_integration/full_inference_comparison/README.md` (gitignored; artifact pointer only)
+
+**Step 1: Execute a full selected-model run (not smoke-sized)**
+
+Run:
+- `python scripts/studies/grid_lines_compare_wrapper.py --N 128 --gridsize 1 --output-dir tmp/ptychovit_full_infer --architectures hybrid --models pinn_hybrid,pinn_ptychovit --model-n pinn_hybrid=128,pinn_ptychovit=256 --set-phi --nimgs-train 8 --nimgs-test 8 --torch-epochs 120`
+
+Expected:
+- Both model arms execute end-to-end (no skipped model).
+- `tmp/ptychovit_full_infer/metrics_by_model.json` exists and includes `pinn_hybrid` and `pinn_ptychovit`.
+- `tmp/ptychovit_full_infer/recons/pinn_hybrid/recon.npz` exists.
+- `tmp/ptychovit_full_infer/recons/pinn_ptychovit/recon.npz` exists.
+- `tmp/ptychovit_full_infer/recons/gt/recon.npz` exists.
+
+**Step 2: Validate metric payload integrity**
+
+Run:
+- `python - <<'PY'\nimport json, math\nfrom pathlib import Path\nm = json.loads(Path('tmp/ptychovit_full_infer/metrics_by_model.json').read_text())\nfor mid in ('pinn_hybrid','pinn_ptychovit'):\n    assert mid in m, f'missing model: {mid}'\n    metrics = m[mid]['metrics']\n    for key in ('mae','mse','psnr','ssim','ms_ssim','frc50'):\n        assert key in metrics, f'{mid} missing metric {key}'\n        vals = metrics[key]\n        for v in vals:\n            assert v is None or (isinstance(v,(int,float)) and math.isfinite(v)), f'non-finite {mid}:{key}:{v}'\nprint('metrics payload OK')\nPY`
+
+Expected: script exits 0 with `metrics payload OK`.
+
+**Step 3: Validate visual sanity artifacts**
+
+Run:
+- `test -f tmp/ptychovit_full_infer/visuals/compare_amp_phase.png`
+- `test -f tmp/ptychovit_full_infer/visuals/amp_phase_pinn_ptychovit.png`
+- `python - <<'PY'\nimport numpy as np\nfrom pathlib import Path\np = Path('tmp/ptychovit_full_infer/recons/pinn_ptychovit/recon.npz')\nd = np.load(p)\namp = d['amp']\nphase = d['phase']\nassert np.isfinite(amp).all() and np.isfinite(phase).all()\nassert float(amp.std()) > 0.0, 'amplitude collapsed'\nassert float(phase.std()) > 0.0, 'phase collapsed'\nprint('visual sanity OK')\nPY`
+
+Expected: visual files exist and script prints `visual sanity OK`.
+
+**Step 4: Archive full-inference evidence**
+
+Run:
+- `mkdir -p .artifacts/ptychovit_integration/full_inference_comparison`
+- copy command logs, `metrics_by_model.json`, and visual sanity outputs into artifact folder (or record durable external path in README).
+
+Expected: reproducible evidence index for full inference + comparison.
+
+**Step 5: Commit plan evidence update**
+
+```bash
+git add docs/plans/2026-02-10-grid-lines-ptychovit-backend-integration.md
+git commit -m "chore: record full inference and comparison evidence"
+```
+
+### Task 10: Full Fine-Tuning Execution + Post-Tune Comparison
+
+**Files:**
+- Modify: `docs/plans/2026-02-10-grid-lines-ptychovit-backend-integration.md` (append evidence links)
+- Create: `.artifacts/ptychovit_integration/full_finetune/README.md` (gitignored; artifact pointer only)
+
+**Step 1: Execute full PtychoViT fine-tune run**
+
+Run:
+- `python scripts/studies/ptychovit_bridge_entrypoint.py --ptychovit-repo <path-to-ptychovit> --mode finetune --train-dp tmp/ptychovit_full_infer/interop/train_dp.hdf5 --test-dp tmp/ptychovit_full_infer/interop/test_dp.hdf5 --output-dir tmp/ptychovit_full_finetune/runs/pinn_ptychovit --resume-from-checkpoint false`
+
+Expected:
+- Fine-tune run exits 0.
+- Checkpoint artifacts exist under `tmp/ptychovit_full_finetune/runs/pinn_ptychovit/`:
+  - `best_model.pth`
+  - `checkpoint_model.pth`
+  - `checkpoint.state`
+
+**Step 2: Run post-fine-tune inference using fine-tuned checkpoint**
+
+Run:
+- `python scripts/studies/ptychovit_bridge_entrypoint.py --ptychovit-repo <path-to-ptychovit> --mode inference --train-dp tmp/ptychovit_full_infer/interop/train_dp.hdf5 --test-dp tmp/ptychovit_full_infer/interop/test_dp.hdf5 --output-dir tmp/ptychovit_full_finetune/infer --checkpoint tmp/ptychovit_full_finetune/runs/pinn_ptychovit/best_model.pth`
+
+Expected:
+- `tmp/ptychovit_full_finetune/infer/recons/pinn_ptychovit/recon.npz` exists.
+- inference logs are persisted (stdout/stderr).
+
+**Step 3: Run post-tune comparison against selected model set**
+
+Run:
+- `python scripts/studies/grid_lines_compare_wrapper.py --N 128 --gridsize 1 --output-dir tmp/ptychovit_full_posttune_compare --architectures hybrid --models pinn_hybrid,pinn_ptychovit --model-n pinn_hybrid=128,pinn_ptychovit=256 --set-phi --nimgs-train 8 --nimgs-test 8 --torch-epochs 120`
+
+Expected:
+- `tmp/ptychovit_full_posttune_compare/metrics_by_model.json` exists.
+- includes both `pinn_hybrid` and `pinn_ptychovit`.
+
+**Step 4: Record pre/post fine-tune metric deltas for PtychoViT**
+
+Run:
+- `python - <<'PY'\nimport json\nfrom pathlib import Path\npre = json.loads(Path('tmp/ptychovit_full_infer/metrics_by_model.json').read_text())['pinn_ptychovit']['metrics']\npost = json.loads(Path('tmp/ptychovit_full_posttune_compare/metrics_by_model.json').read_text())['pinn_ptychovit']['metrics']\nsummary = {\n  'ms_ssim_amp_pre': pre['ms_ssim'][0],\n  'ms_ssim_amp_post': post['ms_ssim'][0],\n  'mae_amp_pre': pre['mae'][0],\n  'mae_amp_post': post['mae'][0],\n}\nPath('tmp/ptychovit_full_posttune_compare/ptychovit_pre_post_delta.json').write_text(json.dumps(summary, indent=2))\nprint(json.dumps(summary, indent=2))\nPY`
+
+Expected:
+- `ptychovit_pre_post_delta.json` exists for audit.
+- values are finite.
+
+**Step 5: Archive full fine-tune evidence and commit plan update**
+
+Run:
+- `mkdir -p .artifacts/ptychovit_integration/full_finetune`
+- copy checkpoints/logs/comparison metrics or record durable external path in README.
+
+Then:
+
+```bash
+git add docs/plans/2026-02-10-grid-lines-ptychovit-backend-integration.md
+git commit -m "chore: record full fine-tune and post-tune comparison evidence"
+```
+
 ## Notes On Non-Goals (YAGNI)
 - No physical-unit harmonization in v1 (pixel-space canonicalization only).
 - No support for PtychoViT at `N!=256` in v1.
@@ -757,3 +864,24 @@ git commit -m "chore: record verification evidence for ptychovit backend integra
 - `output_dir/recons/<model_id>/recon.npz`
 - `output_dir/runs/<model_id>/` logs and manifests
 - `docs/workflows/ptychovit.md` as the authoritative backend workflow guide
+- `.artifacts/ptychovit_integration/full_inference_comparison/` evidence index
+- `.artifacts/ptychovit_integration/full_finetune/` evidence index
+
+## Verification Evidence (2026-02-09)
+
+- Pytest logs:
+  - `.artifacts/ptychovit_integration/pytest_grid_lines_compare_wrapper.log`
+  - `.artifacts/ptychovit_integration/pytest_grid_lines_workflow_datasets.log`
+  - `.artifacts/ptychovit_integration/pytest_ptychovit_adapter.log`
+  - `.artifacts/ptychovit_integration/pytest_grid_lines_ptychovit_runner.log`
+  - `.artifacts/ptychovit_integration/pytest_docs_ptychovit_workflow.log`
+- Smoke command log:
+  - `.artifacts/ptychovit_integration/smoke_grid_lines_compare_wrapper.log`
+- Smoke artifacts:
+  - `tmp/ptychovit_smoke/metrics_by_model.json`
+  - `tmp/ptychovit_smoke/metrics.json`
+  - `tmp/ptychovit_smoke/recons/gt/recon.npz`
+  - `tmp/ptychovit_smoke/recons/pinn_hybrid/recon.npz`
+  - `tmp/ptychovit_smoke/recons/pinn_ptychovit/recon.npz`
+  - `tmp/ptychovit_smoke/runs/pinn_hybrid/stdout.log`
+  - `tmp/ptychovit_smoke/runs/pinn_ptychovit/stdout.log`
