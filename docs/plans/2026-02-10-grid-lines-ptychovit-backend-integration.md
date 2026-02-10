@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Add `pinn_ptychovit` as a selectable model arm in the grid-lines study workflow with a source-backed NPZ->HDF5 adapter, strict compatibility validation, subprocess execution, and canonical-256 harmonized metrics.
+**Goal:** Add `pinn_ptychovit` as a selectable model arm in the grid-lines study workflow with a source-backed NPZ->HDF5 adapter, strict compatibility validation, subprocess execution, and object-space canonical harmonized metrics.
 
-**Architecture:** Keep a strict adapter boundary: grid-lines synthetic data remains authoritative in PtychoPINN NPZ, and an interop layer converts NPZ splits into PtychoViT-compatible HDF5 inputs. Wrapper orchestration must be non-breaking for existing `--architectures` flows, while adding explicit `--models/--model-n` selection for cross-backend orchestration. Evaluation is centralized: all selected model reconstructions are resized to canonical `256x256` before a single metrics pass.
+**Architecture:** Keep a strict adapter boundary: grid-lines synthetic data remains authoritative in PtychoPINN NPZ, and an interop layer converts NPZ splits into PtychoViT-compatible HDF5 inputs. Wrapper orchestration must be non-breaking for existing `--architectures` flows, while adding explicit `--models/--model-n` selection for cross-backend orchestration. Evaluation is centralized in object space: all selected model reconstructions are aligned/resized to one canonical full-object GT grid before a single metrics pass.
 
 **Tech Stack:** Python 3, NumPy, h5py, pytest, subprocess, existing `ptycho.workflows.grid_lines_workflow`, existing `ptycho.evaluation.eval_reconstruction`, `scripts/studies/grid_lines_compare_wrapper.py`.
 
@@ -116,55 +116,19 @@ def test_wrapper_rejects_ptychovit_non_256():
         )
 
 
-def test_wrapper_accepts_canonical_eval_n_flag(tmp_path):
-    from scripts.studies.grid_lines_compare_wrapper import parse_args
-    args = parse_args([
-        "--N", "64",
-        "--gridsize", "1",
-        "--output-dir", str(tmp_path),
-        "--canonical-eval-n", "256",
-    ])
-    assert args.canonical_eval_n == 256
-
-
-def test_wrapper_builds_datasets_per_unique_model_n(monkeypatch, tmp_path):
-    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
-    called_ns = []
-
-    def fake_build(cfg, dataset_tag=None):
-        called_ns.append(cfg.N)
-        base = tmp_path / f"N{cfg.N}"
-        base.mkdir(parents=True, exist_ok=True)
-        train_npz = base / "train.npz"
-        test_npz = base / "test.npz"
-        gt_recon = tmp_path / "recons" / f"gt_N{cfg.N}" / "recon.npz"
-        gt_recon.parent.mkdir(parents=True, exist_ok=True)
-        train_npz.write_bytes(b"stub")
-        test_npz.write_bytes(b"stub")
-        gt_recon.write_bytes(b"stub")
-        return {"train_npz": str(train_npz), "test_npz": str(test_npz), "gt_recon": str(gt_recon)}
-
-    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.build_grid_lines_datasets", fake_build)
-    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", lambda cfg: {"metrics": {}, "recon_npz": str(tmp_path / "recons" / "pinn_hybrid" / "recon.npz")})
-    monkeypatch.setattr("scripts.studies.grid_lines_ptychovit_runner.run_grid_lines_ptychovit", lambda cfg: {"status": "ok", "model_id": "pinn_ptychovit", "recon_npz": str(tmp_path / "recons" / "pinn_ptychovit" / "recon.npz")})
-    monkeypatch.setattr("scripts.studies.grid_lines_compare_wrapper.evaluate_selected_models", lambda *args, **kwargs: {})
-
-    run_grid_lines_compare(
-        N=128,
-        gridsize=1,
-        output_dir=tmp_path,
-        probe_npz=Path("dummy_probe.npz"),
-        architectures=("hybrid",),
+def test_compute_required_ns_from_models_and_model_n():
+    from scripts.studies.grid_lines_compare_wrapper import compute_required_ns
+    required = compute_required_ns(
         models=("pinn_hybrid", "pinn_ptychovit"),
         model_n={"pinn_hybrid": 128, "pinn_ptychovit": 256},
-        canonical_eval_n=256,
+        default_n=128,
     )
-    assert sorted(set(called_ns)) == [128, 256]
+    assert required == [128, 256]
 ```
 
 **Step 2: Run tests to verify they fail**
 
-Run: `pytest tests/test_grid_lines_compare_wrapper.py -k "backward_compat or models_and_model_n or ptychovit_non_256 or canonical_eval_n or unique_model_n" -v`  
+Run: `pytest tests/test_grid_lines_compare_wrapper.py -k "backward_compat or models_and_model_n or ptychovit_non_256 or compute_required_ns" -v`  
 Expected: FAIL with missing args/functions.
 
 **Step 3: Write minimal implementation**
@@ -203,20 +167,22 @@ def validate_model_specs(models: tuple[str, ...], model_n: dict[str, int]) -> No
     if "pinn_ptychovit" in models and model_n.get("pinn_ptychovit", 256) != 256:
         raise ValueError("pinn_ptychovit currently supports only N=256")
 
-# argparse contract
-parser.add_argument("--canonical-eval-n", type=int, default=256)
+def compute_required_ns(models: tuple[str, ...], model_n: dict[str, int], default_n: int) -> list[int]:
+    return sorted({model_n.get(model_id, default_n) for model_id in models})
+
 ```
 
 Implementation notes:
 - Keep `--architectures` fully functional.
 - Add `--models` and `--model-n` as additive options, not replacements.
 - Resolve selected models from `--models` when present, otherwise derive from `--architectures`.
-- Thread `--canonical-eval-n` through `run_grid_lines_compare(..., canonical_eval_n=...)` into `evaluate_selected_models`.
 - Build datasets per unique N in `model_n` (defaulting missing entries to top-level `N`) and route each model to the matching dataset bundle.
+- Keep a single authoritative full-object GT artifact (`recons/gt/recon.npz`) across all selected model-N arms.
+- Task 1 tests must stay independent of Task 5/6 symbols (`run_grid_lines_ptychovit`, `evaluate_selected_models`).
 
 **Step 4: Run tests to verify they pass**
 
-Run: `pytest tests/test_grid_lines_compare_wrapper.py -k "backward_compat or models_and_model_n or ptychovit_non_256 or canonical_eval_n or unique_model_n" -v`  
+Run: `pytest tests/test_grid_lines_compare_wrapper.py -k "backward_compat or models_and_model_n or ptychovit_non_256 or compute_required_ns" -v`  
 Expected: PASS.
 
 **Step 5: Commit**
@@ -226,7 +192,7 @@ git add scripts/studies/grid_lines_compare_wrapper.py tests/test_grid_lines_comp
 git commit -m "feat: add non-breaking model selection and per-model N contract"
 ```
 
-### Task 2: Dataset Builders For Multi-N Synthetic Runs
+### Task 2: Dataset Builders For Multi-N Synthetic Runs (Shared Full-Object GT)
 
 **Files:**
 - Modify: `ptycho/workflows/grid_lines_workflow.py`
@@ -247,22 +213,36 @@ def test_build_grid_lines_datasets_writes_train_test_npz(tmp_path):
     assert Path(result["gt_recon"]).exists()
 
 
-def test_build_grid_lines_datasets_namespaces_gt_by_n(tmp_path):
+def test_build_grid_lines_datasets_uses_shared_canonical_gt(tmp_path):
     from ptycho.workflows.grid_lines_workflow import GridLinesConfig, build_grid_lines_datasets
     cfg128 = GridLinesConfig(N=128, gridsize=1, output_dir=tmp_path, probe_npz=tmp_path / "probe128.npz")
     cfg256 = GridLinesConfig(N=256, gridsize=1, output_dir=tmp_path, probe_npz=tmp_path / "probe256.npz")
     np.savez(cfg128.probe_npz, probeGuess=(np.ones((128, 128)) + 1j * np.ones((128, 128))).astype(np.complex64))
     np.savez(cfg256.probe_npz, probeGuess=(np.ones((256, 256)) + 1j * np.ones((256, 256))).astype(np.complex64))
-    out128 = build_grid_lines_datasets(cfg128, dataset_tag="N128")
-    out256 = build_grid_lines_datasets(cfg256, dataset_tag="N256")
-    assert out128["gt_recon"] != out256["gt_recon"]
-    assert "gt_N128" in out128["gt_recon"]
-    assert "gt_N256" in out256["gt_recon"]
+    out128 = build_grid_lines_datasets(cfg128, dataset_tag="N128", canonical_gt_label="gt")
+    out256 = build_grid_lines_datasets(cfg256, dataset_tag="N256", canonical_gt_label="gt")
+    assert out128["gt_recon"] == out256["gt_recon"]
+    assert out128["gt_recon"].endswith("recons/gt/recon.npz")
+
+
+def test_build_grid_lines_datasets_by_n_builds_each_required_n(monkeypatch, tmp_path):
+    from ptycho.workflows.grid_lines_workflow import GridLinesConfig, build_grid_lines_datasets_by_n
+    called = []
+
+    def fake_build(cfg, dataset_tag=None):
+        called.append((cfg.N, dataset_tag))
+        return {"train_npz": "train.npz", "test_npz": "test.npz", "gt_recon": f"recons/gt_{dataset_tag}/recon.npz", "tag": dataset_tag}
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.build_grid_lines_datasets", fake_build)
+    base_cfg = GridLinesConfig(N=128, gridsize=1, output_dir=tmp_path, probe_npz=tmp_path / "probe.npz")
+    out = build_grid_lines_datasets_by_n(base_cfg, required_ns=[256, 128, 256])
+    assert sorted(out.keys()) == [128, 256]
+    assert called == [(128, "N128"), (256, "N256")]
 ```
 
 **Step 2: Run test to verify it fails**
 
-Run: `pytest tests/test_grid_lines_workflow.py -k "build_grid_lines_datasets_writes_train_test_npz or namespaces_gt_by_n" -v`  
+Run: `pytest tests/test_grid_lines_workflow.py -k "build_grid_lines_datasets_writes_train_test_npz or uses_shared_canonical_gt or by_n_builds_each_required_n" -v`  
 Expected: FAIL with missing function.
 
 **Step 3: Write minimal implementation**
@@ -270,7 +250,13 @@ Expected: FAIL with missing function.
 ```python
 # ptycho/workflows/grid_lines_workflow.py
 
-def build_grid_lines_datasets(cfg: GridLinesConfig, dataset_tag: str | None = None) -> Dict[str, str]:
+from dataclasses import replace
+
+def build_grid_lines_datasets(
+    cfg: GridLinesConfig,
+    dataset_tag: str | None = None,
+    canonical_gt_label: str = "gt",
+) -> Dict[str, str]:
     probe_guess = load_ideal_disk_probe(cfg.N) if cfg.probe_source == "ideal_disk" else load_probe_guess(cfg.probe_npz)
     probe_scaled = scale_probe(probe_guess, cfg.N, cfg.probe_smoothing_sigma, scale_mode=cfg.probe_scale_mode)
     probe_scaled = apply_probe_mask(probe_scaled, cfg.probe_mask_diameter)
@@ -281,20 +267,27 @@ def build_grid_lines_datasets(cfg: GridLinesConfig, dataset_tag: str | None = No
     train_npz = save_split_npz(cfg, "train", sim["train"], config)
     test_npz = save_split_npz(cfg, "test", sim["test"], config)
     tag = dataset_tag or f"N{cfg.N}"
-    gt_path = save_recon_artifact(cfg.output_dir, f"gt_{tag}", np.squeeze(sim["test"]["YY_ground_truth"]))
+    gt_path = cfg.output_dir / "recons" / canonical_gt_label / "recon.npz"
+    gt_complex = np.squeeze(sim["test"]["YY_ground_truth"])
+    if gt_path.exists():
+        existing_gt = np.load(gt_path)["YY_pred"]
+        if not np.allclose(np.squeeze(existing_gt), gt_complex, rtol=1e-6, atol=1e-6):
+            raise ValueError("Canonical GT mismatch across N builds; enforce shared synthetic object identity/seed")
+    else:
+        gt_path = save_recon_artifact(cfg.output_dir, canonical_gt_label, gt_complex)
     return {"train_npz": str(train_npz), "test_npz": str(test_npz), "gt_recon": str(gt_path), "tag": tag}
 
 def build_grid_lines_datasets_by_n(base_cfg: GridLinesConfig, required_ns: Iterable[int]) -> dict[int, Dict[str, str]]:
     bundles = {}
     for n in sorted(set(required_ns)):
-        cfg_n = dataclasses.replace(base_cfg, N=n)
-        bundles[n] = build_grid_lines_datasets(cfg_n, dataset_tag=f"N{n}")
+        cfg_n = replace(base_cfg, N=n)
+        bundles[n] = build_grid_lines_datasets(cfg_n, dataset_tag=f"N{n}", canonical_gt_label="gt")
     return bundles
 ```
 
 **Step 4: Run test to verify it passes**
 
-Run: `pytest tests/test_grid_lines_workflow.py -k "build_grid_lines_datasets_writes_train_test_npz or namespaces_gt_by_n" -v`  
+Run: `pytest tests/test_grid_lines_workflow.py -k "build_grid_lines_datasets_writes_train_test_npz or uses_shared_canonical_gt or by_n_builds_each_required_n" -v`  
 Expected: PASS.
 
 **Step 5: Commit**
@@ -579,7 +572,7 @@ git add scripts/studies/grid_lines_ptychovit_runner.py scripts/studies/ptychovit
 git commit -m "feat: add subprocess ptychovit runner for studies"
 ```
 
-### Task 6: Canonical-256 Harmonized Metrics For Selected Models
+### Task 6: Canonical Full-Object-Grid Harmonized Metrics For Selected Models
 
 **Files:**
 - Create: `ptycho/image/harmonize.py`
@@ -599,15 +592,15 @@ def test_wrapper_writes_metrics_by_model_for_selected_models(monkeypatch, tmp_pa
     assert "pinn_ptychovit" in metrics
 
 
-def test_harmonized_metrics_run_on_canonical_256(monkeypatch, tmp_path):
+def test_harmonized_metrics_run_on_canonical_gt_grid(monkeypatch, tmp_path):
     from scripts.studies.grid_lines_compare_wrapper import evaluate_selected_models
     out = evaluate_selected_models(...)
-    assert out["pinn_hybrid"]["canonical_shape"] == [256, 256]
+    assert out["pinn_hybrid"]["reference_shape"] == [392, 392]  # example: matches GT object grid
 ```
 
 **Step 2: Run tests to verify they fail**
 
-Run: `pytest tests/test_grid_lines_compare_wrapper.py -k "metrics_by_model or canonical_256" -v`  
+Run: `pytest tests/test_grid_lines_compare_wrapper.py -k "metrics_by_model or canonical_gt_grid" -v`  
 Expected: FAIL with missing file/functions.
 
 **Step 3: Write minimal implementation**
@@ -615,50 +608,52 @@ Expected: FAIL with missing file/functions.
 ```python
 # ptycho/image/harmonize.py
 
-from scripts.tools.prepare_data_tool import interpolate_array
+from scipy.ndimage import zoom
 
-def resize_complex_to_square(arr: np.ndarray, target_n: int = 256) -> np.ndarray:
+def resize_complex_to_shape(arr: np.ndarray, target_hw: tuple[int, int]) -> np.ndarray:
     z = np.squeeze(arr).astype(np.complex64)
-    if z.ndim != 2 or z.shape[0] != z.shape[1]:
-        raise ValueError("resize_complex_to_square expects square 2D complex input")
-    if z.shape[0] == target_n:
+    if z.ndim != 2:
+        raise ValueError("resize_complex_to_shape expects 2D complex input")
+    if z.shape == target_hw:
         return z
-    zoom_factor = target_n / z.shape[0]
-    real = interpolate_array(z.real, zoom_factor)
-    imag = interpolate_array(z.imag, zoom_factor)
+    zoom_factors = (target_hw[0] / z.shape[0], target_hw[1] / z.shape[1])
+    real = zoom(z.real, zoom_factors, order=3)
+    imag = zoom(z.imag, zoom_factors, order=3)
     return (real + 1j * imag).astype(np.complex64)
 ```
 
 ```python
 # scripts/studies/grid_lines_compare_wrapper.py
 
-def evaluate_selected_models(recon_paths: dict[str, Path], gt_path: Path, canonical_n: int = 256) -> dict:
+def evaluate_selected_models(recon_paths: dict[str, Path], gt_path: Path) -> dict:
     gt = np.load(gt_path)["YY_pred"]
-    gt256 = resize_complex_to_square(gt, canonical_n)
+    gt_ref = np.squeeze(gt).astype(np.complex64)
+    target_hw = tuple(gt_ref.shape)
     out = {}
     for model_id, recon_path in recon_paths.items():
         pred = np.load(recon_path)["YY_pred"]
-        pred256 = resize_complex_to_square(pred, canonical_n)
-        metrics = eval_reconstruction(pred256[..., None], gt256[..., None], label=model_id)
-        out[model_id] = {"canonical_shape": [canonical_n, canonical_n], "metrics": metrics}
+        pred_ref = resize_complex_to_shape(pred, target_hw)
+        metrics = eval_reconstruction(pred_ref[..., None], gt_ref[..., None], label=model_id)
+        out[model_id] = {"reference_shape": [target_hw[0], target_hw[1]], "metrics": metrics}
     return out
 ```
 
 Compatibility requirement:
 - Continue writing legacy `metrics.json` for current users.
 - Also write new `metrics_by_model.json` for selected-model orchestration.
-- Build `recon_paths` exclusively from runner return contracts (`recon_npz`) and GT bundle selected for canonical evaluation.
+- Build `recon_paths` exclusively from runner return contracts (`recon_npz`) and the single canonical full-object GT artifact (`recons/gt/recon.npz`).
+- Canonicalization target is GT object grid shape (real-space object), not diffraction patch size `N`.
 
 **Step 4: Run tests to verify they pass**
 
-Run: `pytest tests/test_grid_lines_compare_wrapper.py -k "metrics_by_model or canonical_256" -v`  
+Run: `pytest tests/test_grid_lines_compare_wrapper.py -k "metrics_by_model or canonical_gt_grid" -v`  
 Expected: PASS.
 
 **Step 5: Commit**
 
 ```bash
 git add ptycho/image/harmonize.py scripts/studies/grid_lines_compare_wrapper.py tests/test_grid_lines_compare_wrapper.py
-git commit -m "feat: add canonical-256 harmonized metrics for selected model arms"
+git commit -m "feat: add canonical object-grid harmonized metrics for selected model arms"
 ```
 
 ### Task 7: Documentation Publication (No Top-Level Commands Reference Changes)
@@ -727,12 +722,13 @@ Expected: PASS.
 **Step 2: Run dry integration command**
 
 Run:
-- `python scripts/studies/grid_lines_compare_wrapper.py --N 128 --gridsize 1 --output-dir tmp/ptychovit_smoke --architectures hybrid --models pinn_hybrid,pinn_ptychovit --model-n pinn_hybrid=128,pinn_ptychovit=256 --canonical-eval-n 256 --set-phi`
+- `python scripts/studies/grid_lines_compare_wrapper.py --N 128 --gridsize 1 --output-dir tmp/ptychovit_smoke --architectures hybrid --models pinn_hybrid,pinn_ptychovit --model-n pinn_hybrid=128,pinn_ptychovit=256 --set-phi`
 
 Expected:
 - `metrics_by_model.json`
 - `metrics.json` (legacy compatibility)
-- `recons/gt_N128/recon.npz` and `recons/gt_N256/recon.npz` (or equivalent N-namespaced GT artifacts)
+- `recons/gt/recon.npz` (single canonical full-object GT artifact)
+- Harmonization target is GT object grid shape from `recons/gt/recon.npz` (independent of diffraction `N`)
 - selected model recon folders and run logs
 
 **Step 3: Archive logs and note paths**
