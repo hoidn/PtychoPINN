@@ -6,19 +6,11 @@ import hashlib
 import sys
 import pytest
 
-# Gracefully handle PyTorch import failures
+# Import torch; skip module if unavailable in TF-only envs
 try:
     import torch
-    TORCH_AVAILABLE = True
-except ImportError as e:
-    TORCH_AVAILABLE = False
-    torch = None
-    import warnings
-    warnings.warn(f"PyTorch not available: {e}. Skipping PyTorch-related tests.")
-
-# Skip entire module if torch is not available
-if not TORCH_AVAILABLE:
-    pytest.skip("PyTorch not available", allow_module_level=True)
+except Exception as e:  # pragma: no cover - environment-dependent
+    pytest.skip(f"PyTorch not available: {e}", allow_module_level=True)
 
 #Define helper functions found in wrapper "output_consistency"
 
@@ -174,8 +166,6 @@ def debug(func):
 #         return output
 
 #     return wrapper
-
-
 
 
 

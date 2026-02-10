@@ -14,33 +14,74 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+def pytest_addoption(parser):
+    """Add custom command-line options."""
+    parser.addoption(
+        "--run-oom",
+        action="store_true",
+        default=False,
+        help="Run OOM tests that intentionally exhaust memory",
+    )
+
+
 def pytest_configure(config):
     """Configure pytest with custom settings."""
-    
+
     # Register custom markers
     config.addinivalue_line("markers", "torch: mark test as requiring PyTorch")
     config.addinivalue_line("markers", "optional: mark test as requiring optional dependencies")
     config.addinivalue_line("markers", "slow: mark test as slow running")
+    config.addinivalue_line("markers", "oom: mark test as OOM-triggering (requires --run-oom)")
 
 def pytest_collection_modifyitems(config, items):
     """
     Modify test collection to handle optional dependencies.
-    This runs after test collection and can modify the collected items.
+
+    In torch-required environments (Ptychodus CI), PyTorch must be installed;
+    tests in tests/torch/ will FAIL (not skip) if torch unavailable.
+
+    In TF-only CI environments, tests/torch/ directory is skipped entirely.
+
+    OOM tests require --run-oom flag to execute (they intentionally exhaust memory).
     """
-    
-    # Check what optional dependencies are available
+
+    # Check if PyTorch is available
     torch_available = True
     try:
         import torch
     except ImportError:
         torch_available = False
-        
-    # Add skip markers for tests requiring unavailable dependencies
+
+    # Check if --run-oom option was provided
+    run_oom = config.getoption("--run-oom", default=False)
+
+    # Skip torch tests only in TF-only CI environments (directory-based)
+    # Skip OOM tests unless --run-oom is provided
     for item in items:
-        # Skip torch tests if torch is not available
         if "torch" in str(item.fspath).lower() or item.get_closest_marker("torch"):
             if not torch_available:
-                item.add_marker(pytest.mark.skip(reason="PyTorch not available"))
+                # No whitelist exceptions: ALL torch tests skip in TF-only CI
+                item.add_marker(pytest.mark.skip(reason="PyTorch not available (TF-only CI)"))
+
+        # Handle OOM tests
+        if item.get_closest_marker("oom") and not run_oom:
+            item.add_marker(pytest.mark.skip(reason="Need --run-oom option to run OOM tests"))
+
+def pytest_ignore_collect(path, config):
+    """Avoid importing torch test modules when PyTorch is unavailable.
+
+    This prevents import-time errors from modules that import torch at module scope
+    (before pytest can mark/skip them). When torch is missing, ignore collection of
+    files under tests/torch/ entirely.
+    """
+    p = str(path).replace("\\", "/").lower()
+    if "/tests/torch/" in p:
+        try:
+            import torch  # noqa: F401
+            return False
+        except Exception:
+            return True
+    return False
 
 def pytest_runtest_setup(item):
     """
@@ -76,14 +117,6 @@ def suppress_warnings():
     # Reset warning filters after tests
     warnings.resetwarnings()
 
-@pytest.fixture(scope="session")
-def torch_available():
-    """Fixture to check if PyTorch is available."""
-    try:
-        import torch
-        return True
-    except ImportError:
-        return False
 
 def pytest_report_header(config):
     """Add information to the test report header."""

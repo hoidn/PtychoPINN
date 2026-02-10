@@ -213,7 +213,7 @@ class TestCoordinateGrouping(unittest.TestCase):
             self.raw_data._generate_groups_efficiently(
                 nsamples=nsamples, K=K, C=C
             )
-
+        
         # Updated for improved technical error message
         self.assertIn("K=3 must be >= C=5", str(context.exception))
     

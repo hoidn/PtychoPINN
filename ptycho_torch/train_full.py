@@ -114,21 +114,21 @@ def prepare_data(ptycho_dir, mode, config_path):
             obj_arg = {}
             probe_arg = {}
 
+            # Try creating synthetic object
+            try:
+                print(f"Creating objects for class: {datagen_config.object_class}")
+                image_size = datagen_config.image_size
+                synthetic_obj_list = simulate_synthetic_objects(image_size, data_config, datagen_config.objects_per_probe,
+                                                                datagen_config.object_class, obj_arg)
+            except:
+                raise ValueError("Inputted synthetic object class not valid")
+            
             # Assemble object/probe lists
             exp_probe_list = assemble_precomputed_images(ptycho_dir, 'probe', True)
             probe_list = [item for item in exp_probe_list for _ in range(datagen_config.objects_per_probe)]
             probe_name_idx = [idx for idx in list(range(len(exp_probe_list))) for _ in range(datagen_config.objects_per_probe)]
             probe_arg['probe_name_idx'] = probe_name_idx
 
-            # Try creating synthetic object
-            try:
-                print(f"Creating objects for class: {datagen_config.object_class}")
-                image_size = datagen_config.image_size
-                synthetic_obj_list = simulate_synthetic_objects(image_size, data_config, len(probe_list),
-                                                                datagen_config.object_class, obj_arg)
-            except:
-                raise ValueError("Inputted synthetic object class not valid")
-            
             # Remove all existing files from directory
             if not os.path.exists(synthetic_path):
                 os.mkdir(synthetic_path)

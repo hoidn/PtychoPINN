@@ -6,6 +6,7 @@ import json
 import random
 import math
 import warnings
+import dataclasses
 
 #Typing
 from dataclasses import asdict
@@ -26,7 +27,7 @@ from torch.optim.lr_scheduler import _LRScheduler
 #Automation modules
 #Lightning
 import lightning as L
-from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
+from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint, Callback
 from lightning.pytorch.strategies import DDPStrategy
 
 #Dataloader
@@ -87,6 +88,34 @@ def find_learning_rate(base_lr, n_devices, batch_size_per_gpu):
 
     return lr_scaled
 
+
+def adaptive_gradient_clip_(parameters, clip_factor: float = 0.01, eps: float = 1e-3):
+    """Adaptive Gradient Clipping (AGC).
+
+    Clips gradients based on the unit-wise ratio of gradient norm to parameter norm.
+    See Brock et al., 2021 (NFNet), Algorithm 2.
+
+    Operates in-place on parameter .grad tensors.
+    """
+    for p in parameters:
+        if p.grad is None:
+            continue
+        p_norm = p.data.norm(2).clamp(min=eps)
+        g_norm = p.grad.data.norm(2)
+        max_norm = p_norm * clip_factor
+        if g_norm > max_norm:
+            p.grad.data.mul_(max_norm / g_norm)
+
+
+def compute_grad_norm(parameters, norm_type=2.0):
+    total = 0.0
+    for param in parameters:
+        if param.grad is None:
+            continue
+        param_norm = param.grad.data.norm(norm_type)
+        total += param_norm.item() ** norm_type
+    return total ** (1.0 / norm_type) if total > 0.0 else 0.0
+
 def log_parameters_mlflow(data_config: DataConfig,
                           model_config: ModelConfig,
                           training_config: TrainingConfig,
@@ -122,6 +151,57 @@ def is_effectively_global_rank_zero():
     return True
 
 # Other classes
+
+class LightningConfigSaveCallback(Callback):
+    def __init__(self, config_map: dict, base_output_dir: str):
+        super().__init__()
+        self.config_map = config_map
+        self.base_output_dir = base_output_dir
+        self.run_dir = None
+
+    def setup(self, trainer, pl_module, stage=None):
+        from datetime import datetime
+        
+        # 1. Define the unique run directory
+        self.run_dir = self.base_output_dir #os.path.join(self.base_output_dir, f"run_{timestamp}")
+        config_dir = os.path.join(self.run_dir, "configs")
+        checkpoint_dir = os.path.join(self.run_dir, "checkpoints")
+
+        # 2. Rank 0 creates the directory structure
+        if trainer.global_rank == 0:
+            os.makedirs(config_dir, exist_ok=True)
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            print(f"[Rank 0] Created unique run directory: {self.run_dir}")
+
+        # 3. Update the ModelCheckpoint callback to point to this new unique folder
+        for callback in trainer.callbacks:
+            if isinstance(callback, ModelCheckpoint):
+                callback.dirpath = checkpoint_dir
+
+    def on_train_start(self, trainer, pl_module):
+        # Only Rank 0 writes the JSON files
+        if trainer.global_rank == 0:
+            config_dir = os.path.join(self.run_dir, "configs")
+            for name, cfg_instance in self.config_map.items():
+                file_path = os.path.join(config_dir, f"{name}.json")
+                
+                # Use dataclasses.asdict for clean serialization
+                cfg_dict = dataclasses.asdict(cfg_instance)
+                serializable_dict = self._make_serializable(cfg_dict)
+                
+                with open(file_path, 'w') as f:
+                    json.dump(serializable_dict, f, indent=4)
+
+    def _make_serializable(self, d):
+        """Recursively converts tensors/non-JSON types to primitives."""
+        for k, v in d.items():
+            if torch.is_tensor(v):
+                d[k] = v.tolist() if v.numel() < 100 else f"Tensor(shape={list(v.shape)})"
+            elif isinstance(v, dict):
+                self._make_serializable(v)
+            elif isinstance(v, (tuple, list)):
+                d[k] = [x.tolist() if torch.is_tensor(x) else x for x in v]
+        return d
 
 #-----Fine-tuning------
 class ModelFineTuner:
@@ -212,6 +292,73 @@ class ModelFineTuner:
 
         # FIXED: Use the consistent rank checking function instead of trainer.is_global_zero
         return fine_tune_run_id if is_effectively_global_rank_zero() else None
+    
+class ModelFineTuner_Lightning:
+    """
+    Fine-tuning class specifically for lightning-only training. Works differently enough form mlflow-aided implementation
+    I decided to keep them as separate classes. There is likely room for refactoring/class merging but dev time not priority.
+    """
+    def __init__(self, model, train_module, training_config, run_dir):
+        self.model = model
+        self.train_module = train_module
+        self.training_config = training_config
+        self.run_dir = run_dir  # The unique folder created in main_lightning
+
+    def fine_tune(self):
+        print(f"\n[Rank {self.model.global_rank}] Starting Fine-Tuning Stage...")
+
+        # 1. Freeze encoder (Implementation depends on your model architecture)
+        if hasattr(self.model, 'freeze_encoder'):
+            self.model.freeze_encoder()
+        else:
+            # Generic fallback: freeze parameters starting with 'encoder'
+            for name, param in self.model.named_parameters():
+                if "encoder" in name:
+                    param.requires_grad = False
+            print("Encoder parameters frozen manually.")
+
+        # 2. Update Learning Rate
+        fine_tuning_lr = self.model.lr * self.training_config.fine_tune_gamma
+        self.model.lr = fine_tuning_lr
+        print(f"Fine-tuning LR set to: {fine_tuning_lr}")
+
+        # 3. Setup Fine-tuning specific checkpointing
+        ft_ckpt_path = os.path.join(self.run_dir, "finetune_checkpoints")
+        checkpoint_callback = ModelCheckpoint(
+            dirpath=ft_ckpt_path,
+            monitor=self.model.val_loss_name,
+            mode='min',
+            save_top_k=1,
+            filename='best-finetune-checkpoint'
+        )
+
+        callbacks = [
+            EarlyStopping(monitor=self.model.val_loss_name, patience=5, mode='min', verbose=True),
+            checkpoint_callback
+        ]
+
+        # 4. Create a fresh trainer for fine-tuning
+        fine_tune_trainer = L.Trainer(
+            max_epochs=self.training_config.epochs_fine_tune,
+            devices=self.training_config.n_devices,
+            accelerator='gpu',
+            strategy=DDPStrategy(
+                find_unused_parameters=False,
+                static_graph=True,
+                gradient_as_bucket_view=True,
+                process_group_backend='nccl'
+            ) if self.training_config.n_devices > 1 else 'auto', # Reuse the strategy from the previous trainer
+            callbacks=callbacks,
+            enable_checkpointing=True,
+            # Use CSVLogger in a subfolder for fine-tuning logs
+            logger=L.pytorch.loggers.CSVLogger(save_dir=self.run_dir, name="logs_finetune"),
+        )
+
+        # 5. Fit
+        fine_tune_trainer.fit(self.model, datamodule=self.train_module)
+        
+        print(f"[Rank {self.model.global_rank}] Fine-tuning complete.")
+        return ft_ckpt_path if self.model.global_rank == 0 else None
         
 # --- Lightning Data Classes ---
 class PtychoDataModule(L.LightningDataModule):
@@ -237,44 +384,72 @@ class PtychoDataModule(L.LightningDataModule):
         self.val_seed = val_seed    # Seed for reproducible train/val split
         self.memory_map_dir = memory_map_dir
 
+        #Self state tracking
+        self._is_setup_done = False
+
     def prepare_data(self):
         # Called once per node on global rank 0.
-        print(f"[DataModule prepare_data] Global Rank: {self.trainer.global_rank if self.trainer else 'N/A'}. Creating/Verifying map.")
-
+        if self.training_config.orchestrator == 'Mlflow':
+            print(f"[DataModule prepare_data] Global Rank: {self.trainer.global_rank if self.trainer else 'N/A'}. Creating/Verifying map.")
+        elif self.training_config.orchestrator == 'Lightning':
+            #Check if rank 0 setup has been done already, this will be called when fine-tuning after training
+            if self._is_setup_done:
+                return
+            if self.initial_remake_map:
+                print("[Rank 0] Creating memory map...")
+                # Create dataset to generate map files
+                _ = PtychoDataset(
+                    ptycho_dir=self.ptycho_dir,
+                    model_config=self.model_config,
+                    data_config=self.data_config,
+                    training_config=self.training_config,
+                    remake_map=True
+                )
+                print("[Rank 0] Memory map created.")
+    
     def setup(self, stage: str = None):
+
+        if self.training_config.orchestrator == 'Mlflow':
             # Called on every GPU.
-            # `remake_map` is False because `prepare_data` handles creation.
+            # `remake_map` is True for the first "iteration" because of how Mlflow handles memory map creation
+            # memory map creation happens in rank 0 "setup", not in prepare_data
             print(f"[DataModule setup] Stage: {stage}, Global Rank: {self.trainer.global_rank if self.trainer else 'N/A'}. Loading map.")
             remake_flag_for_this_setup = self.initial_remake_map
-            if hasattr(self, '_setup_has_run_once') and self._setup_has_run_once:
+            if hasattr(self, '_setup_has_run_once') and self._is_setup_done:
                 remake_flag_for_this_setup = False #Don't remake if it has run before on rank 0
 
-            print(f"[DataModule setup] remake = {remake_flag_for_this_setup}")
-            
-            if stage == "fit" or stage is None:
-                if not hasattr(self, 'train_dataset') or remake_flag_for_this_setup:
-                    print("Creating dataset...")
-                    full_dataset = PtychoDataset(
-                        ptycho_dir=self.ptycho_dir,
-                        model_config=self.model_config,
-                        data_config=self.data_config,
-                        remake_map=remake_flag_for_this_setup, # Always False here, map should exist
-                        data_dir = self.memory_map_dir
-                    )
+        elif self.training_config.orchestrator == 'Lightning':
+            remake_flag_for_this_setup = False
+            if self._is_setup_done:
+                print(f"[Rank {self.trainer.global_rank}] Skipping redundant data setup.")
+                return
+        
+        if stage == "fit" or stage is None:
+            if not hasattr(self, 'train_dataset'):
+                print("Creating dataset...")
+                full_dataset = PtychoDataset(
+                    ptycho_dir=self.ptycho_dir,
+                    model_config=self.model_config,
+                    data_config=self.data_config,
+                    training_config=self.training_config,
+                    remake_map=remake_flag_for_this_setup, # Always False here, map should exist
+                    data_dir = self.memory_map_dir
+                )
 
-                    # Create train/validation split
-                    dataset_size = len(full_dataset)
-                    val_size = int(self.val_split * dataset_size)
-                    train_size = dataset_size - val_size
-                    
-                    print(f"Dataset split: Total={dataset_size}, Train={train_size}, Val={val_size}")
-                    
-                    # Use generator for reproducible split
-                    generator = torch.Generator().manual_seed(self.val_seed)
-                    self.train_dataset, self.val_dataset = torch.utils.data.random_split(
-                        full_dataset, [train_size, val_size], generator=generator
-                    )
-            self._setup_has_run_once = True #Mark rank 0 having triggered the setup
+                # Create train/validation split
+                dataset_size = len(full_dataset)
+                val_size = int(self.val_split * dataset_size)
+                train_size = dataset_size - val_size
+                
+                print(f"Dataset split: Total={dataset_size}, Train={train_size}, Val={val_size}")
+                
+                # Use generator for reproducible split
+                generator = torch.Generator().manual_seed(self.val_seed)
+                self.train_dataset, self.val_dataset = torch.utils.data.random_split(
+                    full_dataset, [train_size, val_size], generator=generator
+                )
+
+        self._is_setup_done = True
 
     def train_dataloader(self):
             return TensorDictDataLoader(
@@ -297,6 +472,80 @@ class PtychoDataModule(L.LightningDataModule):
             pin_memory=True,
             persistent_workers=True,
             prefetch_factor = 4,
+        )
+    
+class PrebuiltPtychoDataModule(L.LightningDataModule):
+    def __init__(self, map_path,
+                 model_config, data_config, training_config):
+        super().__init__()
+        self.map_path = map_path
+        self.model_config = model_config
+        self.data_config = data_config
+        self.training_config = training_config
+        self.dataset = None
+        self.train_dataset = None
+        self.val_dataset = None
+
+    def setup(self, stage=None):
+        """Setup that respects rank separation"""
+
+        from ptycho_torch.dataloader import get_current_rank, is_ddp_initialized_and_active
+        
+        # Only create dataset once per rank
+        if self.dataset is None:
+            if stage == "fit" or stage is None:
+                
+                # Rank-aware dataset creation
+                current_rank = get_current_rank()
+                is_ddp_active = is_ddp_initialized_and_active()
+                
+                print(f"[DataModule setup] Rank {current_rank}: Loading existing memory map")
+                
+                # Create dataset with NO setup logic - just load existing map
+                self.dataset = PtychoDataset.from_existing_map(
+                    self.map_path, 
+                    self.model_config,
+                    self.data_config,
+                    current_rank=current_rank,
+                    is_ddp_active=is_ddp_active
+                )
+                
+                # Train/val split (all ranks do this identically)
+                dataset_size = len(self.dataset)
+                val_size = int(0.1 * dataset_size)
+                train_size = dataset_size - val_size
+                
+                # Use same seed for reproducible split across ranks
+                generator = torch.Generator().manual_seed(42)
+                self.train_dataset, self.val_dataset = torch.utils.data.random_split(
+                    self.dataset, [train_size, val_size], generator=generator
+                )
+                
+                print(f"[DataModule setup] Rank {current_rank}: Dataset ready, "
+                      f"train={train_size}, val={val_size}")
+
+    def train_dataloader(self):
+        return TensorDictDataLoader(
+            self.train_dataset,
+            batch_size=self.config.batch_size,
+            shuffle=True,
+            num_workers=self.config.num_workers,
+            collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
+            pin_memory=True,
+            persistent_workers=True,
+            prefetch_factor=4,
+        )
+
+    def val_dataloader(self):
+        return TensorDictDataLoader(
+            self.val_dataset,
+            batch_size=self.config.batch_size,
+            shuffle=False,
+            num_workers=self.config.num_workers,
+            collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
+            pin_memory=True,
+            persistent_workers=True,
+            prefetch_factor=4,
         )
     
 # Schedulers
@@ -419,8 +668,12 @@ class AdaptiveLRScheduler(_LRScheduler):
             warnings.warn("To get the last learning rate computed by the scheduler, "
                          "please use `get_last_lr()`.", UserWarning)
         
-        # Get current stage and physics weight from lightning module
-        stage, physics_weight = self.lightning_module.get_current_stage_and_weight()
+        # Get current stage and physics weight from lightning module (fallback to single-stage defaults)
+        if hasattr(self.lightning_module, 'get_current_stage_and_weight'):
+            stage, physics_weight = self.lightning_module.get_current_stage_and_weight()
+        else:
+            stage = 1
+            physics_weight = 1.0 if getattr(self.lightning_module, 'torch_loss_mode', 'poisson') == 'poisson' else 0.0
         
         lrs = []
         for base_lr in self.base_lrs:

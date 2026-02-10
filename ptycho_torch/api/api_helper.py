@@ -42,6 +42,36 @@ def config_from_json(json_path):
         "inference_config": inference_config,
     }, json_loaded
 
+def load_configs_from_local_dir(run_root_path):
+    """
+    Reads JSON files from the run directory and reconstructs the dataclasses.
+    """
+    config_dir = os.path.join(run_root_path, "configs")
+    
+    # Map file names to their respective Dataclasses
+    mapping = {
+        "data_config.json": DataConfig(),
+        "model_config.json": ModelConfig(),
+        "training_config.json": TrainingConfig(),
+        "inference_config.json": InferenceConfig(),
+        "datagen_config.json": DatagenConfig()
+    }
+    
+    loaded_configs = []
+    
+    for filename, instance in mapping.items():
+        file_path = os.path.join(config_dir, filename)
+        if os.path.exists(file_path):
+            with open(file_path, 'r') as f:
+                config_dict = json.load(f)
+            update_existing_config(instance, config_dict)
+            print(f"Loaded: {filename}")
+        else:
+            print(f"Warning: {filename} not found in {config_dir}, using defaults.")
+        loaded_configs.append(instance)
+        
+    return tuple(loaded_configs)
+
 def update_manager_with_json(mlflow_manager: ConfigManager,
                              json_loaded,
                              json_manager: ConfigManager = None):
@@ -398,8 +428,8 @@ def assemble_probes_from_npz(npz_path,
     from ptycho_torch.datagen.datagen import assemble_precomputed_images
 
     if config_manager is not None:
-            datagen_config = config_manager.datagen_config
-            data_config = config_manager.data_config
+        datagen_config = config_manager.datagen_config
+        data_config = config_manager.data_config
     elif datagen_config is not None:
         datagen_config = ConfigManager._parse_config(datagen_config,
                                                         DatagenConfig)
@@ -408,8 +438,14 @@ def assemble_probes_from_npz(npz_path,
     # Only rank 0 does the actual data generation
     print("Rank 0: Preparing synthetic data...")
 
+    #Check for multiple specified objects
+    if isinstance(datagen_config.object_class, str):
+        num_obj = 1
+    elif isinstance(datagen_config.object_class, list):
+        num_obj = len(datagen_config.object_class)
+
     exp_probe_list = assemble_precomputed_images(npz_path, 'probe', True)
-    probe_list = [item for item in exp_probe_list for _ in range(datagen_config.objects_per_probe)]
+    probe_list = [item for item in exp_probe_list for _ in range(num_obj * datagen_config.objects_per_probe)]
     probe_name_idx = [idx for idx in list(range(len(exp_probe_list))) for _ in range(datagen_config.objects_per_probe)]
     probe_arg['probe_name_idx'] = probe_name_idx
 

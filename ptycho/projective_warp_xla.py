@@ -94,9 +94,24 @@ def projective_warp_xla(
     grid = tf.tile(grid, [B, 1, 1, 1])         # [B,H,W,3]
 
     # Apply homography: src = M @ [x, y, 1]^T
-    src = tf.einsum("bij,bhwj->bhwi", M, grid)  # [B,H,W,3]
-    sx = src[..., 0] / src[..., 2]
-    sy = src[..., 1] / src[..., 2]
+    # Avoid einsum/dot to keep XLA happy with dynamic H/W; use explicit broadcasts.
+    m00 = tf.reshape(M[:, 0, 0], [-1, 1, 1])
+    m01 = tf.reshape(M[:, 0, 1], [-1, 1, 1])
+    m02 = tf.reshape(M[:, 0, 2], [-1, 1, 1])
+    m10 = tf.reshape(M[:, 1, 0], [-1, 1, 1])
+    m11 = tf.reshape(M[:, 1, 1], [-1, 1, 1])
+    m12 = tf.reshape(M[:, 1, 2], [-1, 1, 1])
+    m20 = tf.reshape(M[:, 2, 0], [-1, 1, 1])
+    m21 = tf.reshape(M[:, 2, 1], [-1, 1, 1])
+    m22 = tf.reshape(M[:, 2, 2], [-1, 1, 1])
+
+    # Numerators and homogeneous w
+    sx_num = m00 * xx + m01 * yy + m02 * 1.0
+    sy_num = m10 * xx + m11 * yy + m12 * 1.0
+    sw = m20 * xx + m21 * yy + m22 * 1.0
+
+    sx = sx_num / sw
+    sy = sy_num / sw
 
     if interpolation not in ("nearest", "bilinear"):
         raise ValueError("interpolation must be 'nearest' or 'bilinear'")
@@ -251,9 +266,26 @@ def translate_xla(images: tf.Tensor, translations: tf.Tensor,
     
     # Ensure translations has correct shape
     translations = tf.ensure_shape(translations, [None, 2])
-    
+
+    # === Broadcast translations to match images batch dimension ===
+    # When gridsize > 1, images are flattened from (b, N, N, C) to (b*C, N, N, 1)
+    # but translations may still be (b, 2) or (b*C, 2). Broadcast if needed.
+    #
+    # XLA-compatible approach: Use modular indexing with tf.gather instead of
+    # tf.repeat/tf.cond which require compile-time constant repeat factors.
+    # This creates indices [0, 1, ..., trans_batch-1, 0, 1, ...] that wrap around.
+    images_batch = tf.shape(images)[0]
+    trans_batch = tf.shape(translations)[0]
+
+    # Modular indexing: indices cycle through [0, trans_batch) repeatedly
+    # When batches match, this is identity. When images_batch > trans_batch,
+    # translations are broadcast correctly.
+    indices = tf.range(images_batch) % trans_batch
+    translations = tf.gather(translations, indices)
+    # === END broadcast ===
+
     # Build translation-only homography matrices
-    B = tf.shape(translations)[0]
+    B = tf.shape(translations)[0]  # Now matches images batch
     # Use same dtype as images for consistency
     matrix_dtype = images.dtype.real_dtype if images.dtype.is_complex else images.dtype
     

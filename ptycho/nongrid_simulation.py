@@ -161,9 +161,14 @@ def _generate_simulated_data_legacy_params(config: TrainingConfig, objectGuess: 
     if random_seed is not None:
         np.random.seed(random_seed)
 
-    xcoords = np.random.uniform(buffer, width - buffer, config.n_images)
-    ycoords = np.random.uniform(buffer, height - buffer, config.n_images)
-    scan_index = np.zeros(config.n_images, dtype=int)
+    # Use n_groups (modern) with fallback to n_images (deprecated) for compatibility
+    n_positions = config.n_groups if config.n_groups is not None else config.n_images
+    if n_positions is None:
+        raise ValueError("Either n_groups or n_images must be specified in config")
+
+    xcoords = np.random.uniform(buffer, width - buffer, n_positions)
+    ycoords = np.random.uniform(buffer, height - buffer, n_positions)
+    scan_index = np.zeros(n_positions, dtype=int)
 
     # This is the non-conforming part: it manipulates global state.
     # It sets N, gridsize, and nphotons for the duration of the call to from_simulation.

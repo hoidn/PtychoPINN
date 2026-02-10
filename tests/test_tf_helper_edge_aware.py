@@ -259,7 +259,7 @@ class TestPtychoPINNRelevantCases(unittest.TestCase):
         """Test batch processing with smooth patterns only."""
         print("\n--- Test: Batch processing with smooth patterns ---")
         
-        batch_size = 4
+        batch_size = 16
         size = 32
         
         # Create batch of smooth patterns

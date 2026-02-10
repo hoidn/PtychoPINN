@@ -2,6 +2,7 @@
 from typing import Tuple, Optional, Union, Callable, Any
 
 #Additional helper functions ported from original tensorflow lib
+import os
 import math
 import torch
 from torch import nn
@@ -36,6 +37,7 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
                                       data_config: DataConfig, model_config: ModelConfig, # Added configs
                                       agg: bool = True,
                                       padded_size: Optional[int] = None,
+                                      crop_size: Optional[int] = None,
                                       **kwargs: Any) -> torch.Tensor:
     '''
     Given image patches (shaped such that the channel dimension indexes
@@ -63,26 +65,58 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
 
     B, _, N, _ = inputs.shape
 
-    #Setting the channels for forward model to a specific C_forward. Model may use this differently
+    from ptycho import debug_parity
+    debug_parity.log_array_stats("torch.reassemble.inputs", inputs)
+    debug_parity.log_offsets_stats("torch.reassemble.offsets", offsets_xy)
 
+    if os.getenv("PTYCHO_TORCH_STITCH_DEBUG") == "1":
+        from ptycho_torch.debug import summarize_offsets
+        print(summarize_offsets("offsets_input", offsets_xy))
+
+    #Setting the channels for forward model to a specific C_forward. Model may use this differently
     C = model_config.C_forward
 
-    if padded_size is None:
-        padded_size = get_padded_size(data_config, model_config)
+    if crop_size is not None:
+        if crop_size <= 0 or crop_size > N:
+            raise ValueError(f"crop_size must be in (0, {N}], got {crop_size}")
+        start = N // 2 - crop_size // 2
+        end = start + crop_size
+        inputs = inputs[..., start:end, start:end]
+        N_eff = crop_size
+
+        offsets_flat = offsets_xy.flatten(start_dim=0, end_dim=1)
+        offsets_flat = offsets_flat - offsets_flat.mean(dim=0, keepdim=True)
+        if padded_size is None:
+            max_shift = float(offsets_flat.abs().max().item())
+            dynamic_pad = int(math.ceil(max_shift))
+            if dynamic_pad % 2 != 0:
+                dynamic_pad += 1
+            padded_size = N_eff + 2 * dynamic_pad
+    else:
+        N_eff = N
+        offsets_flat = offsets_xy.flatten(start_dim=0, end_dim=1)
+        if padded_size is None:
+            padded_size = get_padded_size(data_config, model_config)
+
     M = padded_size # Use M for clarity
 
-    # --- 1. Prepare Flat Inputs and Offsets ---
+    # --- 1. Prepare Flat Inputs ---
     # Flatten batch and channel dimensions for efficient translation
-    # Input images: (B, C, N, N) -> (B*C, N, N)
+    # Input images: (B, C, N_eff, N_eff) -> (B*C, N_eff, N_eff)
     imgs_flat = inputs.flatten(start_dim=0, end_dim=1)
-    # Offsets: (B, C, 1, 2) -> (B*C, 1, 2)
-    offsets_flat = offsets_xy.flatten(start_dim=0, end_dim=1)
 
     # --- 2. Pad Images ---
     # Pad flat images to the target size M
-    # (B*C, N, N) -> (B*C, M, M)
-    pad_dim = (M - N) // 2
-    imgs_flat_bigN = F.pad(imgs_flat, (pad_dim, pad_dim, pad_dim, pad_dim), "constant", 0.)
+    # (B*C, N_eff, N_eff) -> (B*C, M, M)
+    # Support odd total padding by splitting remainder across sides
+    total_pad = M - N_eff
+    if total_pad < 0:
+        raise ValueError(f"padded_size ({M}) must be >= crop size ({N_eff})")
+    left_pad = total_pad // 2
+    right_pad = total_pad - left_pad
+    top_pad = total_pad // 2
+    bottom_pad = total_pad - top_pad
+    imgs_flat_bigN = F.pad(imgs_flat, (left_pad, right_pad, top_pad, bottom_pad), "constant", 0.)
 
 
     # --- 3. Translate Images ---
@@ -91,15 +125,32 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
 
     # --- 4. Handle Aggregation vs. No Aggregation ---
     if agg:
+        if crop_size is not None:
+            with torch.no_grad():
+                ones_flat = torch.ones((B * C, N_eff, N_eff), device=inputs.device, dtype=torch.float32)
+                ones_padded = F.pad(ones_flat, (left_pad, right_pad, top_pad, bottom_pad), "constant", 0.)
+
+            norm_flat_bigN_translated = Translation(ones_padded, offsets_flat, 0.).squeeze(1)
+
+            imgs_summed = imgs_flat_bigN_translated.reshape(B, C, M, M).sum(dim=1)
+            non_zeros_float = norm_flat_bigN_translated.reshape(B, C, M, M).sum(dim=1)
+            norm_factor = non_zeros_float + 1e-9
+            imgs_merged = imgs_summed / norm_factor
+            boolean_mask = non_zeros_float > 1e-6
+
+            debug_parity.log_array_stats("torch.reassemble.output", imgs_merged)
+
+            return imgs_merged, boolean_mask, M # Shape: (B, M, M)
+
         # --- 4a. Prepare and Translate *Prototype* Normalization Mask ---
         # Create ONE small (N, N) mask for the central region
         with torch.no_grad(): # Mask creation doesn't need gradients
-            prototype_mask_N = torch.zeros(N, N, device=inputs.device, dtype=torch.float32)
-            center_slice = slice(N // 4, N // 4 + N // 2)
+            prototype_mask_N = torch.zeros(N_eff, N_eff, device=inputs.device, dtype=torch.float32)
+            center_slice = slice(N_eff // 4, N_eff // 4 + N_eff // 2)
             prototype_mask_N[center_slice, center_slice] = 1.0
 
             # Pad the SINGLE prototype mask to (M, M)
-            prototype_mask_M = F.pad(prototype_mask_N, (pad_dim, pad_dim, pad_dim, pad_dim), "constant", 0.)
+            prototype_mask_M = F.pad(prototype_mask_N, (left_pad, right_pad, top_pad, bottom_pad), "constant", 0.)
 
             # Expand the single (M, M) mask to (B*C, M, M) without copying memory (views)
             # This is the input to the Translation function for the counts
@@ -120,15 +171,16 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
         non_zeros_float = norm_flat_bigN_translated.reshape(B, C, M, M).sum(dim=1)
         #gc.collect()
         # --- 4c. Normalize ---
-        # Create a boolean mask where at least one patch contributed centrally
-        boolean_mask = non_zeros_float.real > 1e-6 # Use tolerance for float comparison
+        # Use a boolean mask for downstream consumers, but do not zero the output.
+        boolean_mask = non_zeros_float.real > 1e-6  # Use tolerance for float comparison
 
-        # Prepare normalization factor, avoiding division by zero
-        # Clamp ensures values are at least 1.0 where division occurs
-        norm_factor = torch.clamp(non_zeros_float.real, min=1.0)
+        # Mirror TF behavior: add epsilon to the normalization factor (mk_norm)
+        norm_factor = non_zeros_float.real + 0.001
 
-        # Apply normalization: zero out regions outside mask, then divide by count
-        imgs_merged = (imgs_summed * boolean_mask) / norm_factor
+        # Normalize by counts only (no hard mask)
+        imgs_merged = imgs_summed / norm_factor
+
+        debug_parity.log_array_stats("torch.reassemble.output", imgs_merged)
 
         return imgs_merged, boolean_mask, M # Shape: (B, M, M)
 
@@ -306,7 +358,7 @@ def pad_obj(input: torch.Tensor, h: int, w: int) -> torch.Tensor:
 
 def get_padded_size(data_config: DataConfig, model_config: ModelConfig) -> int: # Added configs
     bigN = get_bigN(data_config, model_config) # Pass configs
-    buffer = model_config.max_position_jitter # Use config
+    buffer = 0
 
     return bigN + buffer
 
@@ -582,6 +634,34 @@ def illuminate_and_diffract(
 
 #Photon scaling functions
 
+def derive_intensity_scale_from_amplitudes(x_norm: torch.Tensor, nphotons: float) -> torch.Tensor:
+    """
+    Derive dataset-level physics scale from normalized amplitudes.
+
+    intensity_scale = sqrt(nphotons / mean(avg_channel(sum(x_norm**2))))
+    """
+    if not isinstance(x_norm, torch.Tensor):
+        x_norm = torch.as_tensor(x_norm)
+    if x_norm.ndim < 2:
+        raise ValueError("x_norm must have at least 2 dims")
+    if not isinstance(nphotons, (int, float)) or nphotons <= 0:
+        raise ValueError("nphotons must be positive")
+
+    x_sq = x_norm ** 2
+    if x_sq.ndim == 3:
+        per_sample = torch.sum(x_sq, dim=(1, 2))
+    else:
+        non_batch_dims = list(range(1, x_sq.ndim))
+        channel_dim = min(non_batch_dims, key=lambda d: x_sq.shape[d])
+        x_reordered = x_sq.movedim(channel_dim, -1)
+        spatial_dims = tuple(range(1, x_reordered.ndim - 1))
+        per_channel = torch.sum(x_reordered, dim=spatial_dims)
+        per_sample = torch.mean(per_channel, dim=-1)
+    mean_intensity = torch.mean(per_sample)
+    if mean_intensity.item() <= 0:
+        raise ValueError("mean intensity must be positive")
+    return torch.sqrt(torch.tensor(float(nphotons), dtype=mean_intensity.dtype) / mean_intensity)
+
 def normalize_probe(X):
     """
     Normalizes numpy array. Currently only works on 1D
@@ -595,6 +675,40 @@ def normalize_probe(X):
     X /= np.sqrt(total_intensity)
 
     return X, scaling_factor
+
+
+def normalize_probe_like_tf(probe_guess: np.ndarray, probe_scale: float) -> Tuple[np.ndarray, float]:
+    """
+    Normalize probe using the same mask + mean-abs scaling as TF set_probe.
+    """
+    from ptycho import probe as tf_probe
+
+    if probe_scale <= 0:
+        raise ValueError(f"probe_scale must be positive, got {probe_scale}")
+
+    probe_np = np.asarray(probe_guess, dtype=np.complex64)
+    if probe_np.ndim == 2:
+        probe_2d = probe_np
+        probe_for_norm = probe_np[..., None]
+        expand_back = False
+    elif probe_np.ndim == 3 and probe_np.shape[-1] == 1:
+        probe_2d = probe_np[..., 0]
+        probe_for_norm = probe_np
+        expand_back = True
+    else:
+        raise ValueError("probe_guess must have shape (N, N) or (N, N, 1)")
+
+    mask = tf_probe.get_probe_mask(probe_2d.shape[0]).numpy()
+    tamped = mask * probe_for_norm
+    norm = float(probe_scale * np.mean(np.abs(tamped)))
+    if norm <= 0:
+        raise ValueError("probe normalization norm must be positive")
+
+    normalized = (probe_2d / norm).astype(np.complex64)
+    if expand_back:
+        normalized = normalized[..., None]
+
+    return normalized, 1.0 / norm
 
 
 
@@ -704,35 +818,6 @@ def poisson_scale(input: torch.Tensor):
 
     return noisy_intensities
 
-def remove_phase_ramp_and_offset(probe):
-    """
-    Removes phase tilt from probe. Should be done during dataset instantiation
-    """
-
-    #Coordinate grids
-    x, y = np.mgrid[:probe.shape[0], :probe.shape[1]]
-
-    x_flat = x.flatten()
-    y_flat = y.flatten()
-    probe_flat = probe.flatten()
-
-    #Fit phase = a*x + b*y + c
-    A_mat = np.column_stack([x_flat, y_flat, np.ones_like(x_flat)])
-
-    #Weighted least squares, weighing each point by the amplitude/intensity
-    weights = np.abs(probe_flat)**2
-    W = np.diag(weights)
-
-    #Fit
-    phase = np.angle(probe_flat)
-    coeffs = np.linalg.solve(A_mat.T @ W @ A_mat, A_mat.T @ W @ phase)
-
-    #Remove ramp
-    phase_ramp = coeffs[0] * x + coeffs[1] * y + coeffs[2]
-    probe_corrected = probe * np.exp(-1j * phase_ramp)
-
-    return probe_corrected
-
 #Other operations
 
 def center_crop(larger_img, target_size):
@@ -740,136 +825,3 @@ def center_crop(larger_img, target_size):
     start_h = (h - target_size) // 2
     start_w = (w - target_size) // 2
     return larger_img[start_h:start_h+target_size, start_w:start_w+target_size]
-
-#Inference-specific modules that don't go into inference.py (since it's a script)
-
-def solve_scaling_during_inference(model, infer_loader, primary_device, use_mixed_precision=False):
-    """
-    Solve scaling using streaming accumulation during batched inference
-    """
-    # Initialize accumulators for A^T A and A^T y
-    AtA_accum = None
-    Aty_accum = None
-    device = primary_device
-    
-    with torch.no_grad():
-        for i, batch in enumerate(infer_loader):
-            batch_start_time = time.time()
-            
-            # Prepare data
-            batch_data = batch[0]
-            x = batch_data['images'].to(primary_device, non_blocking=True)
-            positions = batch_data['coords_relative'].to(primary_device, non_blocking=True)
-            probe = batch[1].to(primary_device, non_blocking=True)
-            in_scale = batch_data['rms_scaling_constant'].to(primary_device, non_blocking=True)
-            batch_coords_global = batch_data['coords_global'].to(primary_device, non_blocking=True)
-            
-            # Model inference with optional mixed precision
-            inference_start = time.time()
-            if use_mixed_precision:
-                with torch.autocast(device_type='cuda', dtype=torch.float16):
-                    if isinstance(model, nn.DataParallel):
-                        inputs = (x, positions, probe, in_scale)
-                        batch_output = model(inputs)
-                    else:
-                        batch_output = model.forward_predict(x, positions, probe, in_scale)
-            else:
-                if isinstance(model, nn.DataParallel):
-                    inputs = (x, positions, probe, in_scale)
-                    batch_output = model(inputs)
-                else:
-                    batch_output = model.forward_predict(x, positions, probe, in_scale)
-            
-            # Compute diffraction patterns from model output
-            # Assuming batch_output is the object estimate with shape (B, C, H, W)
-            # and you need to multiply with probe and take Fourier transform
-            diffraction_pred = compute_diffraction_patterns(batch_output, probe)  # (B, C, H, W)
-            
-            # Accumulate statistics for this batch
-            AtA_accum, Aty_accum = accumulate_batch_statistics(
-                diffraction_pred, x, AtA_accum, Aty_accum, device
-            )
-            
-            # Optional: print progress
-            if i % 10 == 0:
-                print(f"Processed batch {i}/{len(infer_loader)}")
-            
-            # Clear memory
-            del batch_output, diffraction_pred, intensity_measured
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-    
-    # Solve the accumulated system
-    if AtA_accum is not None:
-        solution = torch.linalg.solve(AtA_accum, Aty_accum)
-        alpha_squared = solution[0]
-        b = solution[1]
-        alpha = torch.sqrt(torch.clamp(alpha_squared, min=1e-8))
-        return alpha, b
-    else:
-        raise ValueError("No data was processed")
-
-def accumulate_batch_statistics(diffraction_pred, intensity_measured, AtA_accum, Aty_accum, device):
-    """
-    Accumulate A^T A and A^T y statistics for a single batch
-    """
-    B, C, H, W = diffraction_pred.shape
-    
-    # Handle broadcasting if intensity_measured is (B, H, W)
-    if intensity_measured.dim() == 3:
-        intensity_measured = intensity_measured.unsqueeze(1).expand(-1, C, -1, -1)
-    
-    # Flatten spatial dimensions and reshape to (B*C, H*W)
-    diff_flat = diffraction_pred.view(B * C, H * W)  # (B*C, H*W)
-    intensity_flat = intensity_measured.view(B * C, H * W)  # (B*C, H*W)
-    
-    # Further flatten to (B*C*H*W,) for creating design matrix
-    diff_vec = diff_flat.flatten()  # (B*C*H*W,)
-    intensity_vec = intensity_flat.flatten()  # (B*C*H*W,)
-    ones_vec = torch.ones_like(diff_vec)  # (B*C*H*W,)
-    
-    # Create design matrix A = [diff_vec, ones_vec] with shape (B*C*H*W, 2)
-    A_batch = torch.stack([diff_vec, ones_vec], dim=1)  # (B*C*H*W, 2)
-    y_batch = intensity_vec  # (B*C*H*W,)
-    
-    # Compute A^T A and A^T y for this batch
-    AtA_batch = A_batch.T @ A_batch  # (2, 2)
-    Aty_batch = A_batch.T @ y_batch  # (2,)
-    
-    # Initialize or accumulate
-    if AtA_accum is None:
-        AtA_accum = AtA_batch
-        Aty_accum = Aty_batch
-    else:
-        AtA_accum += AtA_batch
-        Aty_accum += Aty_batch
-    
-    return AtA_accum, Aty_accum
-
-def compute_diffraction_patterns(object_estimate, probe):
-    """
-    Compute |F[object * probe]|^2 for each object estimate
-    
-    Args:
-        object_estimate: (B, C, H, W) - object estimates from model
-        probe: (H, W) or (B, H, W) - probe function
-    
-    Returns:
-        diffraction_patterns: (B, C, H, W) - |F[object * probe]|^2
-    """
-    B, C, H, W = object_estimate.shape
-    
-    # Handle probe broadcasting
-    if probe.dim() == 2:
-        probe = probe.unsqueeze(0).unsqueeze(0).expand(B, C, -1, -1)  # (B, C, H, W)
-    elif probe.dim() == 3:
-        probe = probe.unsqueeze(1).expand(-1, C, -1, -1)  # (B, C, H, W)
-    
-    # Multiply object with probe
-    exit_wave = object_estimate * probe  # (B, C, H, W)
-    
-    # Fourier transform and take magnitude squared
-    fft_result = torch.fft.fft2(exit_wave)  # (B, C, H, W)
-    diffraction_patterns = torch.abs(fft_result) ** 2  # (B, C, H, W)
-    
-    return diffraction_patterns

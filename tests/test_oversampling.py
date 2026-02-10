@@ -67,8 +67,8 @@ class TestAutomaticOversampling(unittest.TestCase):
         self.assertEqual(dataset['nn_indices'].shape[0], nsamples)
         self.assertEqual(dataset['nn_indices'].shape[1], 4)  # gridsize² = 4
         
-    def test_automatic_oversampling_triggers(self):
-        """Test that oversampling automatically triggers when requesting more groups than points."""
+    def test_enable_oversampling_flag_required(self):
+        """Test that oversampling requires explicit enable_oversampling=True flag."""
         # Create RawData instance
         raw_data = RawData(
             xcoords=self.xcoords,
@@ -80,19 +80,85 @@ class TestAutomaticOversampling(unittest.TestCase):
             scan_index=np.arange(len(self.xcoords)),
             objectGuess=self.objectGuess
         )
-        
-        # Request 200 groups (more than 100 points available)
+
+        # Request 200 groups (more than 100 points available) WITHOUT enabling oversampling
+        nsamples = 200
+        K = 7
+        N = 64
+
+        # Should raise ValueError referencing OVERSAMPLING-001
+        with self.assertRaises(ValueError) as context:
+            dataset = raw_data.generate_grouped_data(
+                N, K=K, nsamples=nsamples, seed=42,
+                enable_oversampling=False  # Explicit False
+            )
+
+        # Check error message references OVERSAMPLING-001
+        self.assertIn("OVERSAMPLING-001", str(context.exception))
+        self.assertIn("enable_oversampling", str(context.exception))
+        print(f"Correctly raised ValueError when enable_oversampling=False: {context.exception}")
+
+    def test_neighbor_pool_size_guard(self):
+        """Test that oversampling enforces neighbor_pool_size >= C."""
+        # Create RawData instance
+        raw_data = RawData(
+            xcoords=self.xcoords,
+            ycoords=self.ycoords,
+            xcoords_start=self.xcoords,
+            ycoords_start=self.ycoords,
+            diff3d=self.diffraction,
+            probeGuess=self.probeGuess,
+            scan_index=np.arange(len(self.xcoords)),
+            objectGuess=self.objectGuess
+        )
+
+        # Request 200 groups with neighbor_pool_size < C (gridsize=2 → C=4)
+        nsamples = 200
+        N = 64
+
+        # Should raise ValueError when neighbor_pool_size < C
+        with self.assertRaises(ValueError) as context:
+            dataset = raw_data.generate_grouped_data(
+                N, K=4, nsamples=nsamples, seed=42,
+                enable_oversampling=True,
+                neighbor_pool_size=3  # Less than C=4
+            )
+
+        # Check error message references the constraint
+        self.assertIn("neighbor_pool_size >= C", str(context.exception))
+        self.assertIn("OVERSAMPLING-001", str(context.exception))
+        print(f"Correctly raised ValueError when neighbor_pool_size < C: {context.exception}")
+
+    def test_automatic_oversampling_triggers(self):
+        """Test that oversampling works when properly enabled."""
+        # Create RawData instance
+        raw_data = RawData(
+            xcoords=self.xcoords,
+            ycoords=self.ycoords,
+            xcoords_start=self.xcoords,
+            ycoords_start=self.ycoords,
+            diff3d=self.diffraction,
+            probeGuess=self.probeGuess,
+            scan_index=np.arange(len(self.xcoords)),
+            objectGuess=self.objectGuess
+        )
+
+        # Request 200 groups (more than 100 points available) WITH proper flags
         nsamples = 200
         K = 7  # Higher K for more combinations
         N = 64
-        
-        dataset = raw_data.generate_grouped_data(N, K=K, nsamples=nsamples, seed=42)
-        
+
+        dataset = raw_data.generate_grouped_data(
+            N, K=K, nsamples=nsamples, seed=42,
+            enable_oversampling=True,  # Explicit opt-in
+            neighbor_pool_size=7  # >= C=4
+        )
+
         # Check that we got the requested number of groups through oversampling
         self.assertEqual(dataset['diffraction'].shape[0], nsamples)
         self.assertEqual(dataset['nn_indices'].shape[0], nsamples)
         self.assertEqual(dataset['nn_indices'].shape[1], 4)  # gridsize² = 4
-        
+
         print(f"Successfully generated {nsamples} groups from {len(self.xcoords)} points using K={K}")
         
     def test_oversampling_with_different_k_values(self):
@@ -107,18 +173,22 @@ class TestAutomaticOversampling(unittest.TestCase):
             scan_index=np.arange(len(self.xcoords)),
             objectGuess=self.objectGuess
         )
-        
+
         nsamples = 150
         N = 64
-        
+
         # Test with different K values
         for K in [5, 6, 7, 8]:
             with self.subTest(K=K):
-                dataset = raw_data.generate_grouped_data(N, K=K, nsamples=nsamples, seed=42)
-                
+                dataset = raw_data.generate_grouped_data(
+                    N, K=K, nsamples=nsamples, seed=42,
+                    enable_oversampling=True,
+                    neighbor_pool_size=K
+                )
+
                 # Should always get requested number of groups
                 self.assertEqual(dataset['diffraction'].shape[0], nsamples)
-                
+
                 # Higher K should allow more diverse combinations
                 unique_indices = len(np.unique(dataset['nn_indices']))
                 print(f"K={K}: Generated {nsamples} groups using {unique_indices} unique indices")
@@ -163,22 +233,34 @@ class TestAutomaticOversampling(unittest.TestCase):
             scan_index=np.arange(len(self.xcoords)),
             objectGuess=self.objectGuess
         )
-        
+
         nsamples = 200
         K = 7
         N = 64
         seed = 123
-        
+
         # Generate two datasets with same seed
-        dataset1 = raw_data.generate_grouped_data(N, K=K, nsamples=nsamples, seed=seed)
-        dataset2 = raw_data.generate_grouped_data(N, K=K, nsamples=nsamples, seed=seed)
-        
+        dataset1 = raw_data.generate_grouped_data(
+            N, K=K, nsamples=nsamples, seed=seed,
+            enable_oversampling=True,
+            neighbor_pool_size=K
+        )
+        dataset2 = raw_data.generate_grouped_data(
+            N, K=K, nsamples=nsamples, seed=seed,
+            enable_oversampling=True,
+            neighbor_pool_size=K
+        )
+
         # Should be identical
         np.testing.assert_array_equal(dataset1['nn_indices'], dataset2['nn_indices'])
-        
+
         # Generate with different seed
-        dataset3 = raw_data.generate_grouped_data(N, K=K, nsamples=nsamples, seed=456)
-        
+        dataset3 = raw_data.generate_grouped_data(
+            N, K=K, nsamples=nsamples, seed=456,
+            enable_oversampling=True,
+            neighbor_pool_size=K
+        )
+
         # Should be different
         with self.assertRaises(AssertionError):
             np.testing.assert_array_equal(dataset1['nn_indices'], dataset3['nn_indices'])

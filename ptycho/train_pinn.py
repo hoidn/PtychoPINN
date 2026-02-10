@@ -38,24 +38,29 @@ Key Functions:
     calculate_intensity_scale(): Computes physics-consistent intensity normalization
 
 Example:
-    # Complete PINN training workflow with physics constraints
-    from ptycho.loader import PtychoDataContainer
-    
-    # Load experimental diffraction data (no ground truth needed)
-    train_data = PtychoDataContainer.from_file('experimental_data.npz')
-    
-    # Configure physics parameters for PINN training
+    # Complete PINN training workflow with physics constraints (no ground truth required)
+    from ptycho.raw_data import RawData
+    from ptycho.loader import load
     from ptycho import params
-    params.set('nll_weight', 1.0)      # Poisson NLL physics constraint weight
+
+    # Load experimental dataset (NPZ with xcoords/ycoords/diff3d/probeGuess)
+    raw = RawData.from_file('experimental_data.npz')
+
+    # Group and convert to tensors via callback
+    def cb():
+        return raw.generate_grouped_data(N=params.get('N'), K=7, nsamples=1024, gridsize=params.get('gridsize'))
+    train_data = load(cb, raw.probeGuess, which='train', create_split=False)
+
+    # Configure physics parameters
+    params.set('nll_weight', 1.0)       # Poisson NLL physics constraint weight
     params.set('realspace_weight', 0.1) # Real-space consistency weight
-    params.set('nphotons', 1e6)        # Expected photon count for Poisson model
-    
+    params.set('nphotons', 1e6)         # Expected photon count for Poisson model
+
     # Train with physics-informed loss functions
-    model, history = train(train_data)
-    
-    # Evaluate reconstruction quality
-    results = eval(test_data, trained_model=model)
-    reconstructed_object = results['reconstructed_obj']
+    model_instance, history = train(train_data)
+
+    # Evaluate reconstruction quality (optional test split)
+    # results = eval(test_data, trained_model=model_instance)
 """
 
 from ptycho import params
@@ -74,15 +79,23 @@ def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=
     probe.set_probe_guess(None, train_data.probe)
 
     from ptycho import model
+
+    # Create fresh model with current params instead of using stale singleton
+    # This fixes MODULE-SINGLETON-001: model architecture must match current gridsize
     if model_instance is None:
-        model_instance = model.autoencoder
+        model_instance, diffraction_to_obj = model.create_compiled_model()
+        # Update module-level singletons so model_manager.save() saves the trained model
+        # (SINGLETON-SAVE-001: save() hardcodes model.autoencoder/diffraction_to_obj)
+        model.autoencoder = model_instance
+        model.diffraction_to_obj = diffraction_to_obj
+
     nepochs = params.cfg['nepochs']
     params.print_params()
-    return model_instance, model.train(nepochs, train_data)
+    return model_instance, model.train(nepochs, train_data, model_instance=model_instance)
 
-def train_eval(ptycho_dataset):
+def train_eval(ptycho_dataset, model_instance=None):
     ## TODO reconstructed_obj -> pred_Y or something
-    model_instance, history = train(ptycho_dataset.train_data)
+    model_instance, history = train(ptycho_dataset.train_data, model_instance=model_instance)
     results = {
         'history': history,
         'model_instance': model_instance
