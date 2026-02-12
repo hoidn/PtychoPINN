@@ -7,7 +7,7 @@ from typing import Dict, Iterable, List, Mapping, Optional, Tuple
 
 
 MODEL_LABELS = {
-    "pinn": "PINN (CNN)",
+    "pinn": "PtychoPINN (CNN)",
     "baseline": "Baseline",
     "pinn_fno_vanilla": "FNO Vanilla",
     "pinn_fno": "FNO",

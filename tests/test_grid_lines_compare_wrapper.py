@@ -122,7 +122,7 @@ def test_wrapper_writes_metrics_table_tex_architecture_mode(monkeypatch, tmp_pat
     assert "N & Model" in table_text
     assert "MAE" in table_text
     assert "64" in table_text
-    assert "PINN (CNN)" in table_text
+    assert "PtychoPINN (CNN)" in table_text
     assert "Baseline" in table_text
     assert "FNO" in table_text
 
