@@ -8,6 +8,17 @@ import numpy as np
 import pytest
 
 
+def _full_pair_metrics(amp: float, phase: float):
+    return {
+        "mae": [amp, phase],
+        "mse": [amp * 0.1, phase * 0.1],
+        "psnr": [70.0 + amp, 65.0 + phase],
+        "ssim": [0.9, 0.8],
+        "ms_ssim": [0.85, 0.75],
+        "frc50": [64, 48],
+    }
+
+
 def _mock_dataset_builder(monkeypatch):
     def fake_build_grid_lines_datasets(cfg):
         datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
@@ -64,6 +75,96 @@ def test_wrapper_merges_metrics(monkeypatch, tmp_path):
     assert "pinn_fno" in merged
     assert "pinn_hybrid" in merged
     assert "metrics" in result
+
+
+def test_wrapper_writes_metrics_table_tex_architecture_mode(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    def fake_tf_run(cfg):
+        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+        datasets_dir.mkdir(parents=True, exist_ok=True)
+        (datasets_dir / "train.npz").write_bytes(b"stub")
+        (datasets_dir / "test.npz").write_bytes(b"stub")
+        (cfg.output_dir / "metrics.json").write_text(
+            json.dumps(
+                {
+                    "pinn": _full_pair_metrics(0.02, 0.05),
+                    "baseline": _full_pair_metrics(0.03, 0.07),
+                }
+            )
+        )
+        return {
+            "train_npz": str(datasets_dir / "train.npz"),
+            "test_npz": str(datasets_dir / "test.npz"),
+        }
+
+    def fake_torch_run(cfg):
+        _ = cfg
+        return {"metrics": _full_pair_metrics(0.01, 0.04)}
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals",
+        lambda output_dir, order: {},
+    )
+
+    run_grid_lines_compare(
+        N=64,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=("cnn", "baseline", "fno"),
+        probe_npz=Path("dummy_probe.npz"),
+    )
+    table_path = tmp_path / "metrics_table.tex"
+    assert table_path.exists()
+    table_text = table_path.read_text()
+    assert "N & Model" in table_text
+    assert "MAE" in table_text
+    assert "64" in table_text
+    assert "PINN (CNN)" in table_text
+    assert "Baseline" in table_text
+    assert "FNO" in table_text
+
+
+def test_wrapper_writes_metrics_table_tex_models_reuse_path(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    gt_recon = tmp_path / "recons" / "gt" / "recon.npz"
+    gt_recon.parent.mkdir(parents=True, exist_ok=True)
+    gt = (np.ones((392, 392)) + 1j * np.ones((392, 392))).astype(np.complex64)
+    np.savez(gt_recon, YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+
+    recon_path = tmp_path / "recons" / "pinn_hybrid" / "recon.npz"
+    recon_path.parent.mkdir(parents=True, exist_ok=True)
+    pred = (np.ones((392, 392)) + 1j * np.ones((392, 392))).astype(np.complex64)
+    np.savez(recon_path, YY_pred=pred, amp=np.abs(pred), phase=np.angle(pred))
+
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals",
+        lambda output_dir, order: {},
+    )
+    monkeypatch.setattr(
+        "ptycho.evaluation.eval_reconstruction",
+        lambda pred, gt, label: _full_pair_metrics(0.01, 0.03),
+    )
+
+    run_grid_lines_compare(
+        N=128,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=("hybrid",),
+        models=("pinn_hybrid",),
+        model_n={"pinn_hybrid": 128},
+        probe_npz=Path("dummy_probe.npz"),
+        reuse_existing_recons=True,
+    )
+    table_path = tmp_path / "metrics_table.tex"
+    assert table_path.exists()
+    table_text = table_path.read_text()
+    assert "N & Model" in table_text
+    assert "128" in table_text
+    assert "Hybrid" in table_text
 
 
 def test_wrapper_accepts_architecture_list(tmp_path):
@@ -307,6 +408,9 @@ def test_wrapper_writes_metrics_by_model_for_selected_models(monkeypatch, tmp_pa
     if isinstance(mse_val, list):
         mse_val = mse_val[0]
     assert isinstance(mse_val, float)
+    table_text = (tmp_path / "metrics_table.tex").read_text()
+    assert "128" in table_text
+    assert "256" in table_text
 
 
 def test_wrapper_does_not_reuse_precomputed_recons_by_default(monkeypatch, tmp_path):

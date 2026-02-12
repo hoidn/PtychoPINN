@@ -145,6 +145,27 @@ def evaluate_selected_models(recon_paths: Dict[str, Path], gt_path: Path) -> Dic
     return out
 
 
+def _finalize_compare_outputs(
+    *,
+    output_dir: Path,
+    merged_metrics: Dict[str, dict],
+    visual_order: Tuple[str, ...],
+    model_ns: Optional[Dict[str, int]] = None,
+) -> Dict[str, str]:
+    metrics_path = output_dir / "metrics.json"
+    metrics_path.write_text(json.dumps(merged_metrics, indent=2, default=_json_default))
+
+    from ptycho.workflows.grid_lines_workflow import render_grid_lines_visuals
+    from scripts.studies.metrics_tables import write_metrics_tables
+
+    render_grid_lines_visuals(output_dir, order=visual_order)
+    table_paths = write_metrics_tables(output_dir, merged_metrics, model_ns=model_ns)
+    return {
+        "metrics_path": str(metrics_path),
+        **table_paths,
+    }
+
+
 def run_grid_lines_compare(
     *,
     N: int,
@@ -243,8 +264,6 @@ def run_grid_lines_compare(
             legacy_metrics = {
                 model_id: payload["metrics"] for model_id, payload in metrics_by_model.items()
             }
-            metrics_path = output_dir / "metrics.json"
-            metrics_path.write_text(json.dumps(legacy_metrics, indent=2, default=_json_default))
             for model_id in selected_models:
                 run_dir = output_dir / "runs" / model_id
                 run_dir.mkdir(parents=True, exist_ok=True)
@@ -253,9 +272,16 @@ def run_grid_lines_compare(
                 )
                 (run_dir / "stderr.log").write_text("")
 
-            from ptycho.workflows.grid_lines_workflow import render_grid_lines_visuals
-
-            render_grid_lines_visuals(output_dir, order=tuple(["gt", *precomputed_recons.keys()]))
+            model_ns_for_metrics = {
+                model_id: int(resolved_model_n.get(model_id, N))
+                for model_id in legacy_metrics.keys()
+            }
+            _finalize_compare_outputs(
+                output_dir=output_dir,
+                merged_metrics=legacy_metrics,
+                visual_order=tuple(["gt", *precomputed_recons.keys()]),
+                model_ns=model_ns_for_metrics,
+            )
             return {
                 "train_npz": "",
                 "test_npz": "",
@@ -463,12 +489,16 @@ def run_grid_lines_compare(
         legacy_metrics = {
             model_id: payload["metrics"] for model_id, payload in metrics_by_model.items()
         }
-        metrics_path = output_dir / "metrics.json"
-        metrics_path.write_text(json.dumps(legacy_metrics, indent=2, default=_json_default))
-
-        from ptycho.workflows.grid_lines_workflow import render_grid_lines_visuals
-
-        render_grid_lines_visuals(output_dir, order=tuple(["gt", *recon_paths.keys()]))
+        model_ns_for_metrics = {
+            model_id: int(resolved_model_n.get(model_id, N))
+            for model_id in legacy_metrics.keys()
+        }
+        _finalize_compare_outputs(
+            output_dir=output_dir,
+            merged_metrics=legacy_metrics,
+            visual_order=tuple(["gt", *recon_paths.keys()]),
+            model_ns=model_ns_for_metrics,
+        )
         first_bundle = bundles_by_n[required_ns[0]]
         return {
             "train_npz": str(first_bundle["train_npz"]),
@@ -614,10 +644,13 @@ def run_grid_lines_compare(
     if "hybrid_resnet" in selected_architectures:
         order.append("pinn_hybrid_resnet")
 
-    from ptycho.workflows.grid_lines_workflow import render_grid_lines_visuals
-    render_grid_lines_visuals(output_dir, order=tuple(order))
-
-    metrics_path.write_text(json.dumps(merged, indent=2, default=_json_default))
+    model_ns_for_metrics = {model_id: int(N) for model_id in merged.keys()}
+    _finalize_compare_outputs(
+        output_dir=output_dir,
+        merged_metrics=merged,
+        visual_order=tuple(order),
+        model_ns=model_ns_for_metrics,
+    )
     return {
         "train_npz": str(train_npz),
         "test_npz": str(test_npz),

@@ -303,6 +303,12 @@ This command reproduces the synthetic grid‑lines Hybrid ResNet run stored at:
 It generates the dataset, trains the TensorFlow baseline + PINN, and then runs
 the PyTorch `hybrid_resnet` arm into the same output directory.
 
+Expected wrapper artifacts include:
+- `metrics.json`
+- `visuals/compare_amp_phase.png`
+- `metrics_table.tex` (hierarchical table grouped by `N`, with per-metric `A/P` columns)
+- `metrics_table_best.tex` (best-model summary per `N` and metric)
+
 ```bash
 python scripts/studies/grid_lines_compare_wrapper.py \
   --N 128 \

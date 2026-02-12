@@ -408,6 +408,12 @@ Invocation artifacts emitted by `grid_lines_compare_wrapper.py`:
 - `OUTPUT_DIR/invocation.json`
 - `OUTPUT_DIR/invocation.sh`
 
+Standard result artifacts emitted by `grid_lines_compare_wrapper.py`:
+- `OUTPUT_DIR/metrics.json` (merged per-model metrics payload)
+- `OUTPUT_DIR/visuals/compare_amp_phase.png` (plus per-model amp/phase visuals)
+- `OUTPUT_DIR/metrics_table.tex` (LaTeX comparison table with hierarchical `N` + `Model` rows and metric `A/P` subcolumns)
+- `OUTPUT_DIR/metrics_table_best.tex` (per-`N` best-model summary by metric)
+
 ### Grid-Lines Torch Runner (Self-Contained Workflow)
 
 This is a self-contained two-step workflow: generate grid-lines train/test NPZ
