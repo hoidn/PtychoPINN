@@ -372,6 +372,12 @@ python scripts/studies/aggregate_and_plot_results.py study_results --output plot
 
 ### Grid-Lines (TF + Torch) Comparison Harness
 
+`grid_lines_compare_wrapper.py` defaults to:
+- `--architectures cnn,fno,hybrid,stable_hybrid,fno_vanilla,hybrid_resnet`
+
+`baseline` is opt-in and runs only when explicitly selected (for example
+`--architectures cnn,baseline,fno` or `--models baseline,...`).
+
 ```bash
 # Run the grid-lines harness (TF cnn+baseline + Torch FNO/Hybrid)
 python scripts/studies/grid_lines_compare_wrapper.py \

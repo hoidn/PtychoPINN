@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 import os
 import random
@@ -32,6 +33,14 @@ LEGACY_ARCH_TO_MODEL = {
 MODEL_TO_LEGACY_ARCH = {model_id: arch for arch, model_id in LEGACY_ARCH_TO_MODEL.items()}
 SUPPORTED_MODEL_IDS = set(LEGACY_ARCH_TO_MODEL.values()) | {"pinn_ptychovit"}
 MODEL_DEFAULT_N = {"pinn_ptychovit": 256}
+TF_MODEL_IDS = {"pinn", "baseline"}
+TORCH_MODEL_IDS = {
+    "pinn_fno",
+    "pinn_hybrid",
+    "pinn_stable_hybrid",
+    "pinn_fno_vanilla",
+    "pinn_hybrid_resnet",
+}
 
 
 def _parse_architectures(value: str) -> Tuple[str, ...]:
@@ -69,6 +78,18 @@ def _parse_model_n(value: str) -> Dict[str, int]:
         name, raw_n = item.split("=", 1)
         out[name.strip()] = int(raw_n)
     return out
+
+
+def _run_tf_workflow_with_selected_models(tf_workflow_module, cfg: GridLinesConfig, tf_models: Tuple[str, ...]):
+    """Run TF workflow with explicit model selection when supported.
+
+    Test doubles may still expose the legacy single-arg signature; keep a
+    compatibility fallback for those call sites.
+    """
+    run_fn = tf_workflow_module.run_grid_lines_workflow
+    if "tf_models" in inspect.signature(run_fn).parameters:
+        return run_fn(cfg, tf_models=tf_models)
+    return run_fn(cfg)
 
 
 def validate_model_specs(models: Tuple[str, ...], model_n: Dict[str, int]) -> None:
@@ -272,7 +293,58 @@ def run_grid_lines_compare(
         gt_path = Path(next(iter(gt_candidates)))
 
         recon_paths: Dict[str, Path] = {}
+        tf_models_by_n: Dict[int, Tuple[str, ...]] = {}
         for model_id in selected_models:
+            if model_id in TF_MODEL_IDS:
+                n_for_model = resolved_model_n[model_id]
+                existing = list(tf_models_by_n.get(n_for_model, ()))
+                if model_id not in existing:
+                    existing.append(model_id)
+                tf_models_by_n[n_for_model] = tuple(existing)
+
+        # Run TF workflow at most once per N for the selected TF models.
+        for n_for_model, tf_models_for_n in tf_models_by_n.items():
+            bundle = bundles_by_n[n_for_model]
+            existing_tf_recons = {
+                model_id: output_dir / "recons" / model_id / "recon.npz"
+                for model_id in tf_models_for_n
+                if (output_dir / "recons" / model_id / "recon.npz").exists()
+            }
+            if reuse_existing_recons and len(existing_tf_recons) == len(tf_models_for_n):
+                recon_paths.update(existing_tf_recons)
+                continue
+
+            tf_model_cfg = GridLinesConfig(
+                N=n_for_model,
+                gridsize=gridsize,
+                output_dir=output_dir,
+                probe_npz=probe_npz,
+                nimgs_train=nimgs_train,
+                nimgs_test=nimgs_test,
+                nphotons=nphotons,
+                nepochs=nepochs,
+                batch_size=batch_size,
+                nll_weight=nll_weight,
+                mae_weight=mae_weight,
+                realspace_weight=realspace_weight,
+                probe_smoothing_sigma=probe_smoothing_sigma,
+                probe_mask_diameter=probe_mask_diameter,
+                probe_source=probe_source,
+                probe_scale_mode=probe_scale_mode,
+                set_phi=set_phi,
+            )
+            _run_tf_workflow_with_selected_models(tf_workflow, tf_model_cfg, tf_models_for_n)
+            for model_id in tf_models_for_n:
+                recon_path = output_dir / "recons" / model_id / "recon.npz"
+                if not recon_path.exists():
+                    raise RuntimeError(
+                        f"Expected recon artifact missing for {model_id}: {recon_path}"
+                    )
+                recon_paths[model_id] = recon_path
+
+        for model_id in selected_models:
+            if model_id in recon_paths:
+                continue
             n_for_model = resolved_model_n[model_id]
             bundle = bundles_by_n[n_for_model]
             train_npz = Path(bundle["train_npz"])
@@ -282,13 +354,7 @@ def run_grid_lines_compare(
                 recon_paths[model_id] = existing_recon
                 continue
 
-            if model_id in {
-                "pinn_fno",
-                "pinn_hybrid",
-                "pinn_stable_hybrid",
-                "pinn_fno_vanilla",
-                "pinn_hybrid_resnet",
-            }:
+            if model_id in TORCH_MODEL_IDS:
                 arch = MODEL_TO_LEGACY_ARCH[model_id]
                 torch_cfg = TorchRunnerConfig(
                     train_npz=train_npz,
@@ -375,33 +441,17 @@ def run_grid_lines_compare(
                 recon_paths[model_id] = Path(pvit_result["recon_npz"])
                 continue
 
-            if model_id in {"pinn", "baseline"}:
-                tf_model_cfg = GridLinesConfig(
-                    N=n_for_model,
-                    gridsize=gridsize,
-                    output_dir=output_dir,
-                    probe_npz=probe_npz,
-                    nimgs_train=nimgs_train,
-                    nimgs_test=nimgs_test,
-                    nphotons=nphotons,
-                    nepochs=nepochs,
-                    batch_size=batch_size,
-                    nll_weight=nll_weight,
-                    mae_weight=mae_weight,
-                    realspace_weight=realspace_weight,
-                    probe_smoothing_sigma=probe_smoothing_sigma,
-                    probe_mask_diameter=probe_mask_diameter,
-                    probe_source=probe_source,
-                    probe_scale_mode=probe_scale_mode,
-                    set_phi=set_phi,
+            if model_id in TF_MODEL_IDS:
+                # Selected TF model should have been handled by grouped per-N flow above.
+                recon_path = output_dir / "recons" / model_id / "recon.npz"
+                if recon_path.exists():
+                    recon_paths[model_id] = recon_path
+                    continue
+                raise RuntimeError(
+                    f"Expected recon artifact missing for {model_id}: {recon_path}"
                 )
-                tf_result = tf_workflow.run_grid_lines_workflow(tf_model_cfg)
-                recon_paths[model_id] = Path(output_dir / "recons" / model_id / "recon.npz")
-                if not recon_paths[model_id].exists():
-                    raise RuntimeError(
-                        f"Expected recon artifact missing for {model_id}: {recon_paths[model_id]}"
-                    )
-                _ = tf_result
+
+            if model_id == "gt":
                 continue
 
             raise ValueError(f"Unsupported model '{model_id}'")
@@ -439,8 +489,13 @@ def run_grid_lines_compare(
         for m in selected_models
         if m in MODEL_TO_LEGACY_ARCH
     )
+    selected_tf_models = tuple(
+        model_id
+        for model_id in ("pinn", "baseline")
+        if MODEL_TO_LEGACY_ARCH.get(model_id) in selected_architectures
+    )
 
-    if ("cnn" in selected_architectures or "baseline" in selected_architectures) or not train_npz.exists() or not test_npz.exists():
+    if selected_tf_models:
         tf_cfg = GridLinesConfig(
             N=N,
             gridsize=gridsize,
@@ -461,9 +516,33 @@ def run_grid_lines_compare(
             set_phi=set_phi,
         )
         from ptycho.workflows import grid_lines_workflow as tf_workflow
-        tf_result = tf_workflow.run_grid_lines_workflow(tf_cfg)
+        tf_result = _run_tf_workflow_with_selected_models(tf_workflow, tf_cfg, selected_tf_models)
         train_npz = Path(tf_result["train_npz"])
         test_npz = Path(tf_result["test_npz"])
+    elif not train_npz.exists() or not test_npz.exists():
+        tf_cfg = GridLinesConfig(
+            N=N,
+            gridsize=gridsize,
+            output_dir=output_dir,
+            probe_npz=probe_npz,
+            nimgs_train=nimgs_train,
+            nimgs_test=nimgs_test,
+            nphotons=nphotons,
+            nepochs=nepochs,
+            batch_size=batch_size,
+            nll_weight=nll_weight,
+            mae_weight=mae_weight,
+            realspace_weight=realspace_weight,
+            probe_smoothing_sigma=probe_smoothing_sigma,
+            probe_mask_diameter=probe_mask_diameter,
+            probe_source=probe_source,
+            probe_scale_mode=probe_scale_mode,
+            set_phi=set_phi,
+        )
+        from ptycho.workflows import grid_lines_workflow as tf_workflow
+        datasets = tf_workflow.build_grid_lines_datasets(tf_cfg)
+        train_npz = Path(datasets["train_npz"])
+        test_npz = Path(datasets["test_npz"])
     metrics_path = output_dir / "metrics.json"
     if metrics_path.exists():
         tf_metrics = json.loads(metrics_path.read_text())
@@ -559,7 +638,7 @@ def parse_args(argv=None):
     parser.add_argument(
         "--architectures",
         type=str,
-        default="cnn,baseline,fno,hybrid,stable_hybrid,fno_vanilla,hybrid_resnet",
+        default="cnn,fno,hybrid,stable_hybrid,fno_vanilla,hybrid_resnet",
     )
     parser.add_argument(
         "--models",

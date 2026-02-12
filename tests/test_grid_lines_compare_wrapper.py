@@ -8,6 +8,26 @@ import numpy as np
 import pytest
 
 
+def _mock_dataset_builder(monkeypatch):
+    def fake_build_grid_lines_datasets(cfg):
+        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+        datasets_dir.mkdir(parents=True, exist_ok=True)
+        train_npz = datasets_dir / "train.npz"
+        test_npz = datasets_dir / "test.npz"
+        train_npz.write_bytes(b"stub")
+        test_npz.write_bytes(b"stub")
+        gt_dir = cfg.output_dir / "recons" / "gt"
+        gt_dir.mkdir(parents=True, exist_ok=True)
+        gt = (np.ones((cfg.N, cfg.N)) + 1j * np.ones((cfg.N, cfg.N))).astype(np.complex64)
+        np.savez(gt_dir / "recon.npz", YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+        return {"train_npz": str(train_npz), "test_npz": str(test_npz), "gt_recon": str(gt_dir / "recon.npz")}
+
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.build_grid_lines_datasets",
+        fake_build_grid_lines_datasets,
+    )
+
+
 def test_wrapper_merges_metrics(monkeypatch, tmp_path):
     from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
 
@@ -56,6 +76,22 @@ def test_wrapper_accepts_architecture_list(tmp_path):
         "--architectures", "cnn,fno",
     ])
     assert args.architectures == ("cnn", "fno")
+
+
+def test_parse_args_default_architectures_excludes_baseline(tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import parse_args
+
+    args = parse_args(
+        [
+            "--N",
+            "64",
+            "--gridsize",
+            "1",
+            "--output-dir",
+            str(tmp_path),
+        ]
+    )
+    assert "baseline" not in args.architectures
 
 
 def test_wrapper_keeps_architectures_backward_compat(tmp_path):
@@ -411,21 +447,13 @@ def test_wrapper_defaults_torch_loss_mode_mae(tmp_path):
 def test_wrapper_passes_torch_loss_mode_to_runner(monkeypatch, tmp_path):
     from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
 
-    def fake_tf_run(cfg):
-        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
-        datasets_dir.mkdir(parents=True, exist_ok=True)
-        (datasets_dir / "train.npz").write_bytes(b"stub")
-        (datasets_dir / "test.npz").write_bytes(b"stub")
-        (cfg.output_dir / "metrics.json").write_text(json.dumps({}))
-        return {"train_npz": str(datasets_dir / "train.npz"), "test_npz": str(datasets_dir / "test.npz")}
-
     captured = {}
 
     def fake_torch_run(cfg):
         captured["torch_loss_mode"] = getattr(cfg, "torch_loss_mode", None)
         return {"metrics": {"mse": 0.3}}
 
-    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+    _mock_dataset_builder(monkeypatch)
     monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
 
     run_grid_lines_compare(
@@ -437,6 +465,93 @@ def test_wrapper_passes_torch_loss_mode_to_runner(monkeypatch, tmp_path):
     )
 
     assert captured["torch_loss_mode"] == "mae"
+
+
+def test_wrapper_cnn_only_excludes_baseline_metrics(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    def fake_tf_run(cfg):
+        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+        datasets_dir.mkdir(parents=True, exist_ok=True)
+        (datasets_dir / "train.npz").write_bytes(b"stub")
+        (datasets_dir / "test.npz").write_bytes(b"stub")
+        (cfg.output_dir / "metrics.json").write_text(
+            json.dumps({"pinn": {"mse": 0.1}, "baseline": {"mse": 0.2}})
+        )
+        return {
+            "train_npz": str(datasets_dir / "train.npz"),
+            "test_npz": str(datasets_dir / "test.npz"),
+        }
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals",
+        lambda output_dir, order: {},
+    )
+
+    run_grid_lines_compare(
+        N=64,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=("cnn",),
+        probe_npz=Path("dummy_probe.npz"),
+    )
+    merged = json.loads((tmp_path / "metrics.json").read_text())
+    assert "pinn" in merged
+    assert "baseline" not in merged
+
+
+def test_wrapper_torch_only_uses_dataset_builder_not_tf_workflow(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    called = {"build_datasets": False, "tf_workflow": False}
+
+    def fake_build_grid_lines_datasets(cfg):
+        called["build_datasets"] = True
+        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+        datasets_dir.mkdir(parents=True, exist_ok=True)
+        train_npz = datasets_dir / "train.npz"
+        test_npz = datasets_dir / "test.npz"
+        train_npz.write_bytes(b"stub")
+        test_npz.write_bytes(b"stub")
+        gt_dir = cfg.output_dir / "recons" / "gt"
+        gt_dir.mkdir(parents=True, exist_ok=True)
+        gt = (np.ones((64, 64)) + 1j * np.ones((64, 64))).astype(np.complex64)
+        np.savez(gt_dir / "recon.npz", YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+        return {"train_npz": str(train_npz), "test_npz": str(test_npz), "gt_recon": str(gt_dir / "recon.npz")}
+
+    def fake_tf_workflow(cfg):
+        called["tf_workflow"] = True
+        raise AssertionError("Torch-only run should not invoke TF training workflow")
+
+    def fake_torch_run(cfg):
+        recon_dir = cfg.output_dir / "recons" / f"pinn_{cfg.architecture}"
+        recon_dir.mkdir(parents=True, exist_ok=True)
+        pred = (np.ones((64, 64)) + 1j * np.ones((64, 64))).astype(np.complex64)
+        np.savez(recon_dir / "recon.npz", YY_pred=pred, amp=np.abs(pred), phase=np.angle(pred))
+        return {"metrics": {"mse": 0.3}, "recon_npz": str(recon_dir / "recon.npz")}
+
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.build_grid_lines_datasets",
+        fake_build_grid_lines_datasets,
+    )
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_workflow)
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals",
+        lambda output_dir, order: {},
+    )
+
+    run_grid_lines_compare(
+        N=64,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=("fno",),
+        probe_npz=Path("dummy_probe.npz"),
+    )
+
+    assert called["build_datasets"] is True
+    assert called["tf_workflow"] is False
 
 
 def test_wrapper_passes_grad_clip_algorithm(monkeypatch, tmp_path):
@@ -457,21 +572,13 @@ def test_wrapper_passes_grad_clip_algorithm(monkeypatch, tmp_path):
     assert args.torch_grad_clip_algorithm == "agc"
 
     # Test end-to-end passthrough to TorchRunnerConfig
-    def fake_tf_run(cfg):
-        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
-        datasets_dir.mkdir(parents=True, exist_ok=True)
-        (datasets_dir / "train.npz").write_bytes(b"stub")
-        (datasets_dir / "test.npz").write_bytes(b"stub")
-        (cfg.output_dir / "metrics.json").write_text(json.dumps({}))
-        return {"train_npz": str(datasets_dir / "train.npz"), "test_npz": str(datasets_dir / "test.npz")}
-
     captured = {}
 
     def fake_torch_run(cfg):
         captured["gradient_clip_algorithm"] = cfg.gradient_clip_algorithm
         return {"metrics": {"mse": 0.3}}
 
-    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+    _mock_dataset_builder(monkeypatch)
     monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
 
     run_grid_lines_compare(
@@ -546,21 +653,13 @@ def test_wrapper_handles_stable_hybrid(monkeypatch, tmp_path):
     assert "stable_hybrid" in args.architectures
 
     # Test end-to-end: stable_hybrid invokes torch runner and merges metrics
-    def fake_tf_run(cfg):
-        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
-        datasets_dir.mkdir(parents=True, exist_ok=True)
-        (datasets_dir / "train.npz").write_bytes(b"stub")
-        (datasets_dir / "test.npz").write_bytes(b"stub")
-        (cfg.output_dir / "metrics.json").write_text(json.dumps({}))
-        return {"train_npz": str(datasets_dir / "train.npz"), "test_npz": str(datasets_dir / "test.npz")}
-
     captured = {}
 
     def fake_torch_run(cfg):
         captured["architecture"] = cfg.architecture
         return {"metrics": {"mse": 0.25}}
 
-    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+    _mock_dataset_builder(monkeypatch)
     monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
 
     result = run_grid_lines_compare(
@@ -593,21 +692,13 @@ def test_wrapper_handles_new_architectures(monkeypatch, tmp_path, arch, metric_k
     ])
     assert arch in args.architectures
 
-    def fake_tf_run(cfg):
-        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
-        datasets_dir.mkdir(parents=True, exist_ok=True)
-        (datasets_dir / "train.npz").write_bytes(b"stub")
-        (datasets_dir / "test.npz").write_bytes(b"stub")
-        (cfg.output_dir / "metrics.json").write_text(json.dumps({}))
-        return {"train_npz": str(datasets_dir / "train.npz"), "test_npz": str(datasets_dir / "test.npz")}
-
     captured = {}
 
     def fake_torch_run(cfg):
         captured["architecture"] = cfg.architecture
         return {"metrics": {"mse": 0.25}}
 
-    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+    _mock_dataset_builder(monkeypatch)
     monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
 
     run_grid_lines_compare(
@@ -690,14 +781,6 @@ def test_wrapper_passes_optimizer(monkeypatch, tmp_path):
     assert args.torch_weight_decay == 0.01
 
     # Test end-to-end passthrough
-    def fake_tf_run(cfg):
-        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
-        datasets_dir.mkdir(parents=True, exist_ok=True)
-        (datasets_dir / "train.npz").write_bytes(b"stub")
-        (datasets_dir / "test.npz").write_bytes(b"stub")
-        (cfg.output_dir / "metrics.json").write_text("{}")
-        return {"train_npz": str(datasets_dir / "train.npz"), "test_npz": str(datasets_dir / "test.npz")}
-
     captured = {}
 
     def fake_torch_run(cfg):
@@ -706,7 +789,7 @@ def test_wrapper_passes_optimizer(monkeypatch, tmp_path):
         captured["weight_decay"] = cfg.weight_decay
         return {"metrics": {"mse": 0.3}}
 
-    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+    _mock_dataset_builder(monkeypatch)
     monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
 
     run_grid_lines_compare(
@@ -742,14 +825,6 @@ def test_wrapper_passes_scheduler_knobs(monkeypatch, tmp_path):
     assert args.torch_lr_min_ratio == 0.05
 
     # Test end-to-end passthrough
-    def fake_tf_run(cfg):
-        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
-        datasets_dir.mkdir(parents=True, exist_ok=True)
-        (datasets_dir / "train.npz").write_bytes(b"stub")
-        (datasets_dir / "test.npz").write_bytes(b"stub")
-        (cfg.output_dir / "metrics.json").write_text("{}")
-        return {"train_npz": str(datasets_dir / "train.npz"), "test_npz": str(datasets_dir / "test.npz")}
-
     captured = {}
 
     def fake_torch_run(cfg):
@@ -758,7 +833,7 @@ def test_wrapper_passes_scheduler_knobs(monkeypatch, tmp_path):
         captured["lr_min_ratio"] = cfg.lr_min_ratio
         return {"metrics": {"mse": 0.3}}
 
-    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+    _mock_dataset_builder(monkeypatch)
     monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
 
     run_grid_lines_compare(

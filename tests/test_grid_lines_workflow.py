@@ -232,6 +232,159 @@ class TestProbeHelpers:
         assert np.abs(probe[0, 0]) < 1e-3
 
 
+def _stub_grid_lines_simulation(monkeypatch, tmp_path: Path):
+    class DummyModel:
+        def save(self, *args, **kwargs):
+            return None
+
+    def fake_sim(cfg, probe_np):
+        _ = (cfg, probe_np)
+        return {
+            "train": {
+                "container": object(),
+                "X": np.zeros((1, 1, 1, 1), dtype=np.float32),
+                "Y_I": np.zeros((1, 1, 1, 1), dtype=np.float32),
+                "Y_phi": np.zeros((1, 1, 1, 1), dtype=np.float32),
+            },
+            "test": {
+                "X": np.zeros((1, 1, 1, 1), dtype=np.float32),
+                "coords_nominal": np.zeros((1, 2), dtype=np.float32),
+                "norm_Y_I": 1.0,
+                "YY_ground_truth": np.ones((1, 1, 1, 1), dtype=np.complex64),
+            },
+        }
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.simulate_grid_data", fake_sim)
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.configure_legacy_params",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.save_split_npz",
+        lambda *args, **kwargs: tmp_path / "split.npz",
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.save_pinn_model",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.stitch_predictions",
+        lambda *args, **kwargs: np.zeros((1, 1, 1, 1), dtype=np.float32),
+    )
+    monkeypatch.setattr(
+        "ptycho.evaluation.eval_reconstruction",
+        lambda *args, **kwargs: {"mse": 0.0},
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.save_recon_artifact",
+        lambda out, label, recon: out / "recons" / label / "recon.npz",
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.save_comparison_png_dynamic",
+        lambda *args, **kwargs: tmp_path / "compare.png",
+    )
+    return DummyModel
+
+
+def test_run_grid_lines_workflow_tf_models_pinn_only(monkeypatch, tmp_path: Path):
+    DummyModel = _stub_grid_lines_simulation(monkeypatch, tmp_path)
+
+    calls = {"pinn_train": 0, "baseline_train": 0, "pinn_infer": 0, "baseline_infer": 0}
+
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.train_pinn_model",
+        lambda *args, **kwargs: (calls.__setitem__("pinn_train", calls["pinn_train"] + 1) or (DummyModel(), {})),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.train_baseline_model",
+        lambda *args, **kwargs: (calls.__setitem__("baseline_train", calls["baseline_train"] + 1) or (DummyModel(), {})),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.run_pinn_inference",
+        lambda *args, **kwargs: (calls.__setitem__("pinn_infer", calls["pinn_infer"] + 1) or np.zeros((1, 1, 1, 1), dtype=np.complex64)),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.run_baseline_inference",
+        lambda *args, **kwargs: (calls.__setitem__("baseline_infer", calls["baseline_infer"] + 1) or np.zeros((1, 1, 1, 1), dtype=np.complex64)),
+    )
+
+    probe_path = tmp_path / "probe.npz"
+    np.savez(probe_path, probeGuess=(np.ones((8, 8)) + 1j * np.ones((8, 8))).astype(np.complex64))
+    cfg = GridLinesConfig(N=8, gridsize=1, output_dir=tmp_path, probe_npz=probe_path)
+
+    result = run_grid_lines_workflow(cfg, tf_models=("pinn",))
+    assert "pinn" in result["metrics"]
+    assert "baseline" not in result["metrics"]
+    assert calls["pinn_train"] == 1
+    assert calls["baseline_train"] == 0
+    assert calls["pinn_infer"] == 1
+    assert calls["baseline_infer"] == 0
+
+
+def test_run_grid_lines_workflow_tf_models_baseline_only(monkeypatch, tmp_path: Path):
+    DummyModel = _stub_grid_lines_simulation(monkeypatch, tmp_path)
+
+    calls = {"pinn_train": 0, "baseline_train": 0, "pinn_infer": 0, "baseline_infer": 0}
+
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.train_pinn_model",
+        lambda *args, **kwargs: (calls.__setitem__("pinn_train", calls["pinn_train"] + 1) or (DummyModel(), {})),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.train_baseline_model",
+        lambda *args, **kwargs: (calls.__setitem__("baseline_train", calls["baseline_train"] + 1) or (DummyModel(), {})),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.run_pinn_inference",
+        lambda *args, **kwargs: (calls.__setitem__("pinn_infer", calls["pinn_infer"] + 1) or np.zeros((1, 1, 1, 1), dtype=np.complex64)),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.run_baseline_inference",
+        lambda *args, **kwargs: (calls.__setitem__("baseline_infer", calls["baseline_infer"] + 1) or np.zeros((1, 1, 1, 1), dtype=np.complex64)),
+    )
+
+    probe_path = tmp_path / "probe.npz"
+    np.savez(probe_path, probeGuess=(np.ones((8, 8)) + 1j * np.ones((8, 8))).astype(np.complex64))
+    cfg = GridLinesConfig(N=8, gridsize=1, output_dir=tmp_path, probe_npz=probe_path)
+
+    result = run_grid_lines_workflow(cfg, tf_models=("baseline",))
+    assert "pinn" not in result["metrics"]
+    assert "baseline" in result["metrics"]
+    assert calls["pinn_train"] == 0
+    assert calls["baseline_train"] == 1
+    assert calls["pinn_infer"] == 0
+    assert calls["baseline_infer"] == 1
+
+
+def test_run_grid_lines_workflow_default_runs_both_models(monkeypatch, tmp_path: Path):
+    DummyModel = _stub_grid_lines_simulation(monkeypatch, tmp_path)
+
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.train_pinn_model",
+        lambda *args, **kwargs: (DummyModel(), {}),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.train_baseline_model",
+        lambda *args, **kwargs: (DummyModel(), {}),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.run_pinn_inference",
+        lambda *args, **kwargs: np.zeros((1, 1, 1, 1), dtype=np.complex64),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.run_baseline_inference",
+        lambda *args, **kwargs: np.zeros((1, 1, 1, 1), dtype=np.complex64),
+    )
+
+    probe_path = tmp_path / "probe.npz"
+    np.savez(probe_path, probeGuess=(np.ones((8, 8)) + 1j * np.ones((8, 8))).astype(np.complex64))
+    cfg = GridLinesConfig(N=8, gridsize=1, output_dir=tmp_path, probe_npz=probe_path)
+
+    result = run_grid_lines_workflow(cfg)
+    assert "pinn" in result["metrics"]
+    assert "baseline" in result["metrics"]
+
+
 class TestDatasetPersistence:
     """Tests for simulation and dataset persistence helpers (Task 3)."""
 

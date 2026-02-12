@@ -113,6 +113,8 @@ Fresh checkpoint-restored initial baseline helper scripts:
 - `scripts/studies/verify_fresh_ptychovit_initial_metrics.py`
 
 **Key Torch Options:**
+- Default architectures are `cnn,fno,hybrid,stable_hybrid,fno_vanilla,hybrid_resnet`.
+- `baseline` is opt-in: include it explicitly via `--architectures ...baseline` (or `--models baseline,...`).
 - `--seed`: Random seed for Torch runs (random if omitted).
 - `--torch-output-mode {real_imag,amp_phase_logits,amp_phase}`: Control how FNO/Hybrid outputs are interpreted.
   - `real_imag` (default): Treat output channels as real/imag.

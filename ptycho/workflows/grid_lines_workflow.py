@@ -841,22 +841,40 @@ def render_grid_lines_visuals(output_dir: Path, order: Tuple[str, ...]) -> Dict[
     return outputs
 
 
-def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
+def run_grid_lines_workflow(
+    cfg: GridLinesConfig,
+    tf_models: Tuple[str, ...] = ("pinn", "baseline"),
+) -> Dict[str, Any]:
     """Orchestrate probe prep → sim → train → infer → stitch → metrics.
 
     Steps:
     1. Load and scale probe to target N
     2. Configure legacy params and simulate grid data
     3. Save train/test datasets as NPZ
-    4. Train PINN and baseline models
-    5. Run inference on test data
-    6. Stitch predictions and compute metrics
+    4. Train selected TF models
+    5. Run selected inference paths on test data
+    6. Stitch selected predictions and compute metrics
     7. Save comparison PNG and metrics JSON
 
     Returns:
         Dict with train_npz, test_npz, metrics paths and values.
     """
     from ptycho.evaluation import eval_reconstruction
+
+    selected_models = tuple(tf_models)
+    if not selected_models:
+        raise ValueError("tf_models must include at least one of {'pinn', 'baseline'}")
+    unsupported_models = sorted(set(selected_models) - {"pinn", "baseline"})
+    if unsupported_models:
+        raise ValueError(f"Unsupported tf_models entries: {unsupported_models}")
+    # Preserve user order while removing accidental duplicates.
+    deduped = []
+    seen_models = set()
+    for model_id in selected_models:
+        if model_id not in seen_models:
+            deduped.append(model_id)
+            seen_models.add(model_id)
+    selected_models = tuple(deduped)
 
     print(f"[grid_lines_workflow] Starting N={cfg.N}, gridsize={cfg.gridsize}")
 
@@ -887,87 +905,90 @@ def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
     test_npz = save_split_npz(cfg, "test", sim["test"], config)
 
     # Step 4: Training
-    print("[4/7] Training PINN model...")
-    pinn_model, _ = train_pinn_model(sim["train"]["container"])
-    save_pinn_model(cfg)
-
-    print("[4/7] Training Baseline model...")
-    base_model, _ = train_baseline_model(
-        sim["train"]["X"], sim["train"]["Y_I"], sim["train"]["Y_phi"]
-    )
-    base_dir = cfg.output_dir / "baseline"
-    base_dir.mkdir(parents=True, exist_ok=True)
-    base_model.save(base_dir / "baseline.keras")
+    print(f"[4/7] Training selected TF models: {selected_models}...")
+    pinn_model = None
+    base_model = None
+    if "pinn" in selected_models:
+        pinn_model, _ = train_pinn_model(sim["train"]["container"])
+        save_pinn_model(cfg)
+    if "baseline" in selected_models:
+        base_model, _ = train_baseline_model(
+            sim["train"]["X"], sim["train"]["Y_I"], sim["train"]["Y_phi"]
+        )
+        base_dir = cfg.output_dir / "baseline"
+        base_dir.mkdir(parents=True, exist_ok=True)
+        base_model.save(base_dir / "baseline.keras")
 
     # Step 5: Inference
-    print("[5/7] Running inference...")
-    pinn_pred = run_pinn_inference(
-        pinn_model, sim["test"]["X"], sim["test"]["coords_nominal"]
-    )
-    if pinn_pred is None:
-        print("[5/7] WARNING: PINN inference failed (XLA issue). Skipping PINN evaluation.")
-
-    base_pred = run_baseline_inference(base_model, sim["test"]["X"])
+    print(f"[5/7] Running selected inference paths: {selected_models}...")
+    pinn_pred = None
+    base_pred = None
+    if "pinn" in selected_models:
+        pinn_pred = run_pinn_inference(
+            pinn_model, sim["test"]["X"], sim["test"]["coords_nominal"]
+        )
+        if pinn_pred is None:
+            print("[5/7] WARNING: PINN inference failed (XLA issue). Skipping PINN evaluation.")
+    if "baseline" in selected_models:
+        base_pred = run_baseline_inference(base_model, sim["test"]["X"])
 
     # Step 6: Stitch and evaluate
     print("[6/7] Stitching and computing metrics...")
     norm_Y_I = sim["test"]["norm_Y_I"]
     YY_gt = sim["test"]["YY_ground_truth"]
+    metrics_payload: Dict[str, Any] = {}
+    recons: Dict[str, Dict[str, np.ndarray]] = {}
+    pinn_stitched = None
+    base_stitched = None
 
-    # PINN stitching (may be None if inference failed)
-    if pinn_pred is not None:
-        pinn_amp = stitch_predictions(pinn_pred, norm_Y_I, part="amp")
-        pinn_phase = stitch_predictions(pinn_pred, norm_Y_I, part="phase")
-        pinn_stitched = pinn_amp * np.exp(1j * pinn_phase)
-        pinn_metrics = eval_reconstruction(pinn_stitched, YY_gt, label="pinn")
-    else:
-        pinn_amp = pinn_phase = pinn_stitched = None
-        pinn_metrics = {"error": "PINN inference failed (XLA issue)"}
+    if "pinn" in selected_models:
+        if pinn_pred is not None:
+            pinn_amp = stitch_predictions(pinn_pred, norm_Y_I, part="amp")
+            pinn_phase = stitch_predictions(pinn_pred, norm_Y_I, part="phase")
+            pinn_stitched = pinn_amp * np.exp(1j * pinn_phase)
+            metrics_payload["pinn"] = eval_reconstruction(pinn_stitched, YY_gt, label="pinn")
+            recons["pinn"] = {
+                "amp": pinn_amp[0, :, :, 0],
+                "phase": pinn_phase[0, :, :, 0],
+            }
+        else:
+            metrics_payload["pinn"] = {"error": "PINN inference failed (XLA issue)"}
 
-    # Baseline stitching
-    base_amp = stitch_predictions(base_pred, norm_Y_I, part="amp")
-    base_phase = stitch_predictions(base_pred, norm_Y_I, part="phase")
-    base_stitched = base_amp * np.exp(1j * base_phase)
-    base_metrics = eval_reconstruction(base_stitched, YY_gt, label="baseline")
+    if "baseline" in selected_models:
+        base_amp = stitch_predictions(base_pred, norm_Y_I, part="amp")
+        base_phase = stitch_predictions(base_pred, norm_Y_I, part="phase")
+        base_stitched = base_amp * np.exp(1j * base_phase)
+        metrics_payload["baseline"] = eval_reconstruction(
+            base_stitched, YY_gt, label="baseline"
+        )
+        recons["baseline"] = {
+            "amp": base_amp[0, :, :, 0],
+            "phase": base_phase[0, :, :, 0],
+        }
 
     # Step 7: Save outputs
     print("[7/7] Saving outputs...")
 
-    # Metrics JSON
-    metrics_payload = {
-        "pinn": pinn_metrics,
-        "baseline": base_metrics,
-    }
     metrics_path = cfg.output_dir / "metrics.json"
     metrics_path.write_text(json.dumps(metrics_payload, indent=2, default=str))
 
-    # Comparison PNG - squeeze any singleton dims from GT
+    # Comparison PNG - squeeze any singleton dims from GT.
     gt_squeezed = np.squeeze(YY_gt)
     gt_amp_2d = np.abs(gt_squeezed)
     gt_phase_2d = np.angle(gt_squeezed)
-    base_amp_2d = base_amp[0, :, :, 0]
-    base_phase_2d = base_phase[0, :, :, 0]
 
     save_recon_artifact(cfg.output_dir, "gt", gt_squeezed)
-    save_recon_artifact(cfg.output_dir, "baseline", base_stitched)
-    if pinn_pred is not None:
+    if "baseline" in selected_models and base_stitched is not None:
+        save_recon_artifact(cfg.output_dir, "baseline", base_stitched)
+    if "pinn" in selected_models and pinn_stitched is not None:
         save_recon_artifact(cfg.output_dir, "pinn", pinn_stitched)
-
-    recons = {
-        "baseline": {"amp": base_amp_2d, "phase": base_phase_2d},
-    }
-    if pinn_amp is not None:
-        recons["pinn"] = {
-            "amp": pinn_amp[0, :, :, 0],
-            "phase": pinn_phase[0, :, :, 0],
-        }
 
     png_path = save_comparison_png_dynamic(
         cfg.output_dir,
         gt_amp_2d,
         gt_phase_2d,
         recons,
-        order=("pinn", "baseline"),
+        order=tuple(model_id for model_id in selected_models if model_id in {"pinn", "baseline"}),
     )
 
     print(f"[grid_lines_workflow] Complete. Outputs in {cfg.output_dir}")
