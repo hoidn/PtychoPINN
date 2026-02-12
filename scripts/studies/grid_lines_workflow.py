@@ -3,6 +3,7 @@
 
 import argparse
 import os
+import sys
 from pathlib import Path
 
 from ptycho.workflows.grid_lines_workflow import GridLinesConfig, run_grid_lines_workflow
@@ -63,9 +64,18 @@ def build_config(args: argparse.Namespace) -> GridLinesConfig:
     )
 
 
-def main() -> None:
+def main(argv=None) -> None:
     os.environ.setdefault("PTYCHO_MEMOIZE_KEY_MODE", "dataset")
-    args = parse_args()
+    args = parse_args(argv)
+    from scripts.studies.invocation_logging import write_invocation_artifacts
+
+    raw_argv = list(argv) if argv is not None else sys.argv[1:]
+    write_invocation_artifacts(
+        output_dir=args.output_dir,
+        script_path="scripts/studies/grid_lines_workflow.py",
+        argv=raw_argv,
+        parsed_args=vars(args),
+    )
     cfg = build_config(args)
     run_grid_lines_workflow(cfg)
 

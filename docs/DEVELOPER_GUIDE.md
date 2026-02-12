@@ -8,6 +8,7 @@ This document summarizes key architectural principles, data pipeline best practi
 
 - **<doc-ref type="guide">docs/debugging/TROUBLESHOOTING.md</doc-ref>** - Debug common issues like shape mismatches and config problems
 - **<doc-ref type="guide">docs/debugging/QUICK_REFERENCE_PARAMS.md</doc-ref>** - Quick reference for params.cfg initialization patterns
+- **<doc-ref type="guide">docs/development/INVOCATION_LOGGING_GUIDE.md</doc-ref>** - Standard pattern for CLI/orchestration invocation provenance artifacts
 - **`tests/test_template_gridsize.py`** - Template for writing tests with proper params initialization
 
 ---
@@ -94,6 +95,19 @@ Scope: applies to new/modified code, orchestration helpers, and command examples
 Exceptions: legacy archives under `archive/` and tests expressly validating legacy behavior may retain historical commands.
 
 Enforcement: avoid introducing repository-specific interpreter indirection (e.g., `PYTHON_BIN` wrappers) in docs/snippets.
+
+---
+
+### 2.4. Invocation Provenance for Scripts and Orchestrators
+
+Rule: study scripts and wrappers (`scripts/studies/*`) MUST persist invocation
+artifacts in deterministic output locations using the shared helper pattern.
+This is mandatory for new scripts and for modified existing scripts.
+
+Use the repo-wide standard in
+<doc-ref type="guide">docs/development/INVOCATION_LOGGING_GUIDE.md</doc-ref>
+for artifact names (`invocation.json`, `invocation.sh`), placement conventions,
+and test requirements.
 
 ---
 

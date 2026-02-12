@@ -824,3 +824,37 @@ def test_compare_wrapper_probe_mask_diameter_passthrough(monkeypatch, tmp_path):
     )
 
     assert captured["probe_mask_diameter"] == 64
+
+
+def test_main_writes_cli_invocation_artifacts(tmp_path, monkeypatch):
+    from scripts.studies import grid_lines_compare_wrapper as wrapper
+
+    called = {"run": False}
+
+    def fake_run_grid_lines_compare(**kwargs):
+        called["run"] = True
+        return {"metrics": {}}
+
+    monkeypatch.setattr(wrapper, "run_grid_lines_compare", fake_run_grid_lines_compare)
+
+    wrapper.main(
+        [
+            "--N",
+            "64",
+            "--gridsize",
+            "1",
+            "--output-dir",
+            str(tmp_path),
+            "--architectures",
+            "cnn",
+        ]
+    )
+
+    assert called["run"] is True
+    inv_json = tmp_path / "invocation.json"
+    inv_sh = tmp_path / "invocation.sh"
+    assert inv_json.exists()
+    assert inv_sh.exists()
+    payload = json.loads(inv_json.read_text())
+    assert "grid_lines_compare_wrapper.py" in payload["command"]
+    assert "--architectures" in payload["argv"]

@@ -534,6 +534,38 @@ class TestGridLinesCLI:
         cfg = cli.build_config(args)
         assert cfg.probe_mask_diameter == 64
 
+    def test_main_writes_cli_invocation_artifacts(self, tmp_path: Path, monkeypatch):
+        import json
+        from scripts.studies import grid_lines_workflow as cli
+
+        called = {"run": False}
+
+        def fake_run_grid_lines_workflow(cfg):
+            called["run"] = True
+            return {"metrics": {}}
+
+        monkeypatch.setattr(cli, "run_grid_lines_workflow", fake_run_grid_lines_workflow)
+
+        cli.main(
+            [
+                "--N",
+                "64",
+                "--gridsize",
+                "1",
+                "--output-dir",
+                str(tmp_path),
+            ]
+        )
+
+        assert called["run"] is True
+        inv_json = tmp_path / "invocation.json"
+        inv_sh = tmp_path / "invocation.sh"
+        assert inv_json.exists()
+        assert inv_sh.exists()
+        payload = json.loads(inv_json.read_text())
+        assert "grid_lines_workflow.py" in payload["command"]
+        assert "--output-dir" in payload["argv"]
+
 
 def test_build_grid_lines_datasets_writes_train_test_npz(monkeypatch, tmp_path: Path):
     from ptycho.workflows.grid_lines_workflow import GridLinesConfig, build_grid_lines_datasets

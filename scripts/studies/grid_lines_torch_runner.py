@@ -36,6 +36,7 @@ import argparse
 import json
 import logging
 import random
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
@@ -682,7 +683,7 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
     return result_dict
 
 
-def main() -> None:
+def main(argv=None) -> None:
     """CLI entry point."""
     parser = argparse.ArgumentParser(
         description="Torch runner for grid-lines FNO/hybrid architectures"
@@ -778,9 +779,21 @@ def main() -> None:
     parser.add_argument("--recon-log-max-stitch-samples", type=int, default=None,
                         help="Cap on stitched samples (default: no limit)")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO)
+
+    # Persist exact invocation details alongside run artifacts.
+    from scripts.studies.invocation_logging import write_invocation_artifacts
+
+    raw_argv = list(argv) if argv is not None else sys.argv[1:]
+    run_dir = args.output_dir / "runs" / f"pinn_{args.architecture}"
+    write_invocation_artifacts(
+        output_dir=run_dir,
+        script_path="scripts/studies/grid_lines_torch_runner.py",
+        argv=raw_argv,
+        parsed_args=vars(args),
+    )
 
     seed = args.seed if args.seed is not None else random.SystemRandom().randrange(0, 2**32)
     if args.seed is None:

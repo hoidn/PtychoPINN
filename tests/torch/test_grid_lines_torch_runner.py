@@ -834,3 +834,47 @@ class TestTorchTrainingPath:
         result = run_torch_training(cfg, train_data, test_data)
         assert called["train"] is True
         assert "models" in result
+
+
+def test_main_writes_cli_invocation_artifacts(tmp_path, monkeypatch):
+    from scripts.studies import grid_lines_torch_runner as runner
+
+    called = {"run": False}
+
+    def fake_run_grid_lines_torch(cfg):
+        called["run"] = True
+        run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        return {"run_dir": str(run_dir), "metrics": {}}
+
+    monkeypatch.setattr(runner, "run_grid_lines_torch", fake_run_grid_lines_torch)
+
+    out_dir = tmp_path / "output"
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    train_npz.write_bytes(b"stub")
+    test_npz.write_bytes(b"stub")
+
+    runner.main(
+        [
+            "--train-npz",
+            str(train_npz),
+            "--test-npz",
+            str(test_npz),
+            "--output-dir",
+            str(out_dir),
+            "--architecture",
+            "hybrid_resnet",
+            "--epochs",
+            "1",
+        ]
+    )
+
+    assert called["run"] is True
+    inv_json = out_dir / "runs" / "pinn_hybrid_resnet" / "invocation.json"
+    inv_sh = out_dir / "runs" / "pinn_hybrid_resnet" / "invocation.sh"
+    assert inv_json.exists()
+    assert inv_sh.exists()
+    payload = json.loads(inv_json.read_text())
+    assert "grid_lines_torch_runner.py" in payload["command"]
+    assert "--architecture" in payload["argv"]

@@ -109,6 +109,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** architecture, TDD, anti-patterns, configuration, data-pipeline  
 **Use this when:** Starting any development work, debugging shape mismatches, understanding the codebase architecture, or implementing new features using TDD methodology.
 
+#### [Invocation Logging Guide](development/INVOCATION_LOGGING_GUIDE.md)
+**Description:** Repo-wide standard for logging exact script/orchestration command invocations via `invocation.json` and `invocation.sh`, including placement rules and testing expectations.  
+**Keywords:** invocation, provenance, reproducibility, cli, orchestration, logging  
+**Use this when:** Adding or modifying CLI entrypoints and wrappers that write run artifacts.
+
 #### [Architecture Overview](architecture.md)
 **Description:** Shared core architecture (data contracts, grouping, configuration, orchestration concepts) across both backends. Includes Scripts Overview and stable-modules policy, plus config lifecycle snippet (`update_legacy_dict(params.cfg, config)`). Backend-specific sequences and diagrams are in the TF/PyTorch pages below.  
 **Keywords:** components, data-flow, scripts, shared-architecture, stable-modules, configuration  
@@ -259,6 +264,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Description:** Study scripts and workflows for generalization experiments, comparisons, and metrics aggregation.  
 **Keywords:** studies, generalization, comparisons, workflows  
 **Use this when:** Running study workflows or comparing multiple models.
+
+#### [Studies Index](studies/index.md)
+**Description:** Registry of reproducible study runbooks with exact launcher scripts, full CLI commands, and output directories.  
+**Keywords:** studies-index, runbook, cli, reproducibility, outputs  
+**Use this when:** Finding the exact commands and artifacts for a specific study run.
 
 ## Datasets & Experiments
 

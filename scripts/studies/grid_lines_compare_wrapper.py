@@ -8,6 +8,7 @@ import json
 import os
 import random
 import shutil
+import sys
 from pathlib import Path
 from typing import Dict, Iterable, Optional, Tuple
 
@@ -672,6 +673,16 @@ def parse_args(argv=None):
 
 def main(argv=None) -> None:
     args = parse_args(argv)
+    from scripts.studies.invocation_logging import write_invocation_artifacts
+
+    raw_argv = list(argv) if argv is not None else sys.argv[1:]
+    write_invocation_artifacts(
+        output_dir=args.output_dir,
+        script_path="scripts/studies/grid_lines_compare_wrapper.py",
+        argv=raw_argv,
+        parsed_args=vars(args),
+    )
+
     run_grid_lines_compare(
         N=args.N,
         gridsize=args.gridsize,

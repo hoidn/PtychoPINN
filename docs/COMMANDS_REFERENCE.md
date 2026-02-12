@@ -398,6 +398,113 @@ python scripts/studies/grid_lines_compare_wrapper.py \
     --probe-mask-diameter 64
 ```
 
+Invocation artifacts emitted by `grid_lines_compare_wrapper.py`:
+- `OUTPUT_DIR/invocation.json`
+- `OUTPUT_DIR/invocation.sh`
+
+### Grid-Lines Torch Runner (Self-Contained Workflow)
+
+This is a self-contained two-step workflow: generate grid-lines train/test NPZ
+splits first, then run the Torch runner on those generated files. No preexisting
+cached dataset is required.
+
+```bash
+# 1) Generate train/test NPZ files (matches integration test setup)
+python - <<'PY'
+from pathlib import Path
+from ptycho.workflows.grid_lines_workflow import (
+    GridLinesConfig,
+    apply_probe_mask,
+    configure_legacy_params,
+    load_probe_guess,
+    save_split_npz,
+    scale_probe,
+    simulate_grid_data,
+)
+
+out = Path(".artifacts/integration/grid_lines_hybrid_resnet")
+cfg = GridLinesConfig(
+    N=128,
+    gridsize=1,
+    output_dir=out,
+    probe_npz=Path("datasets/Run1084_recon3_postPC_shrunk_3.npz"),
+    nimgs_train=2,
+    nimgs_test=1,
+    nphotons=1e9,
+    probe_source="custom",
+    probe_smoothing_sigma=0.5,
+    probe_scale_mode="pad_extrapolate",
+    set_phi=True,
+)
+
+probe = load_probe_guess(cfg.probe_npz)
+probe = scale_probe(probe, cfg.N, cfg.probe_smoothing_sigma, cfg.probe_scale_mode)
+probe = apply_probe_mask(probe, cfg.probe_mask_diameter)
+
+sim = simulate_grid_data(cfg, probe)
+config = configure_legacy_params(cfg, probe)
+sim["train"]["probeGuess"] = probe
+sim["test"]["probeGuess"] = probe
+save_split_npz(cfg, "train", sim["train"], config)
+save_split_npz(cfg, "test", sim["test"], config)
+print("Prepared datasets under", out / "datasets/N128/gs1")
+PY
+
+# 2) Run Torch grid-lines Hybrid ResNet (matches integration test command)
+python scripts/studies/grid_lines_torch_runner.py \
+    --output-dir .artifacts/integration/grid_lines_hybrid_resnet \
+    --architecture hybrid_resnet \
+    --train-npz .artifacts/integration/grid_lines_hybrid_resnet/datasets/N128/gs1/train.npz \
+    --test-npz .artifacts/integration/grid_lines_hybrid_resnet/datasets/N128/gs1/test.npz \
+    --N 128 \
+    --gridsize 1 \
+    --epochs 5 \
+    --batch-size 16 \
+    --infer-batch-size 16 \
+    --learning-rate 2e-4 \
+    --scheduler ReduceLROnPlateau \
+    --plateau-factor 0.5 \
+    --plateau-patience 2 \
+    --plateau-min-lr 1e-4 \
+    --plateau-threshold 0.0 \
+    --seed 3 \
+    --optimizer adam \
+    --weight-decay 0.0 \
+    --beta1 0.9 \
+    --beta2 0.999 \
+    --torch-loss-mode mae \
+    --output-mode real_imag \
+    --probe-source custom \
+    --fno-modes 12 \
+    --fno-width 32 \
+    --fno-blocks 4 \
+    --fno-cnn-blocks 2 \
+    --torch-logger mlflow
+```
+
+Invocation artifacts emitted by `grid_lines_torch_runner.py`:
+- `OUTPUT_DIR/runs/pinn_<architecture>/invocation.json`
+- `OUTPUT_DIR/runs/pinn_<architecture>/invocation.sh`
+
+### Grid-Lines TensorFlow Workflow CLI
+
+```bash
+python scripts/studies/grid_lines_workflow.py \
+    --N 64 \
+    --gridsize 1 \
+    --output-dir outputs/grid_lines_workflow_n64 \
+    --nimgs-train 2 \
+    --nimgs-test 1 \
+    --nepochs 20 \
+    --batch-size 16 \
+    --probe-source custom \
+    --probe-scale-mode pad_extrapolate
+```
+
+Invocation artifacts emitted by `grid_lines_workflow.py`:
+- `OUTPUT_DIR/invocation.json`
+- `OUTPUT_DIR/invocation.sh`
+
 ---
 
 ## Best Practices & Key Guidelines
