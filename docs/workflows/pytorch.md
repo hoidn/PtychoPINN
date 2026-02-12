@@ -78,7 +78,10 @@ Starting 2026-01-27, the `config.model.architecture` field routes through the ge
 - The grid-lines Torch runner sets `object_big=False` in `ModelConfig` to match the TF grid-lines workflow defaults (parity guard for gridsize=1)
 - The compare wrapper accepts `--probe-scale-mode {pad_extrapolate,interpolate}` to control probe scaling when generating grid-lines datasets (default: `pad_extrapolate`)
 - The compare wrapper accepts `--probe-mask-diameter` to apply a centered disk mask to the probe during grid-lines dataset generation
-- No changes to stitching behavior - all architectures use the same TF reassembly helper
+- The compare wrapper accepts `--dataset-source {synthetic_lines,external_raw_npz}`:
+  - `synthetic_lines`: existing TF/Torch/PtychoViT study behavior.
+  - `external_raw_npz` (phase 1): Torch model IDs only, with `--train-data` and `--test-data` required.
+- In `external_raw_npz` mode, the Torch runner uses position-based reassembly (`coords_offsets`) instead of grid-lines stitching metadata.
 
 - `config.debug`: Controls progress bars and logging verbosity (default: `False`)
 - `config.output_dir`: Directory for checkpoints and artifacts (required for persistence)

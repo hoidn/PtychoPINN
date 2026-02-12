@@ -44,3 +44,22 @@ def test_ptychovit_workflow_requires_position_aware_stitching_contract():
     assert "scan-wise mean aggregation" in workflow_text
     assert "position-aware stitching" in spec_text
     assert "scan-wise mean aggregation" in spec_text
+
+
+def test_ptychovit_workflow_documents_stationary_point_diagnostic_runbook():
+    text = Path("docs/workflows/ptychovit.md").read_text()
+    assert "stationary-point diagnostic" in text
+    assert "input optimization" in text
+    assert "diagnostic only" in text
+
+
+def test_grid_lines_docs_cover_external_raw_npz_mode():
+    commands = Path("docs/COMMANDS_REFERENCE.md").read_text()
+    pytorch = Path("docs/workflows/pytorch.md").read_text()
+    studies = Path("scripts/studies/README.md").read_text()
+
+    assert "--dataset-source external_raw_npz" in commands
+    assert "--train-data" in commands and "--test-data" in commands
+    assert "external_raw_npz" in pytorch
+    assert "position-based reassembly" in pytorch
+    assert "external_raw_npz" in studies

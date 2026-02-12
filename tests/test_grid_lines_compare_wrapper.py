@@ -222,6 +222,69 @@ def test_wrapper_accepts_models_and_model_n(tmp_path):
     assert args.model_n["pinn_ptychovit"] == 256
 
 
+def test_parse_args_accepts_external_raw_npz_mode(tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import parse_args
+
+    args = parse_args(
+        [
+            "--N",
+            "64",
+            "--gridsize",
+            "1",
+            "--output-dir",
+            str(tmp_path),
+            "--dataset-source",
+            "external_raw_npz",
+            "--train-data",
+            "datasets/fly64/fly001_64_train_converted.npz",
+            "--test-data",
+            "datasets/fly64/fly001_64_train_converted.npz",
+            "--models",
+            "pinn_hybrid_resnet",
+        ]
+    )
+    assert args.dataset_source == "external_raw_npz"
+    assert args.train_data.name.endswith(".npz")
+    assert args.test_data.name.endswith(".npz")
+
+
+def test_parse_args_external_raw_requires_train_and_test_data(tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import parse_args
+
+    with pytest.raises(SystemExit):
+        parse_args(
+            [
+                "--N",
+                "64",
+                "--gridsize",
+                "1",
+                "--output-dir",
+                str(tmp_path),
+                "--dataset-source",
+                "external_raw_npz",
+                "--models",
+                "pinn_hybrid_resnet",
+            ]
+        )
+
+
+def test_external_raw_rejects_tf_and_ptychovit_models(tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    with pytest.raises(ValueError, match="external_raw_npz.*Torch model IDs"):
+        run_grid_lines_compare(
+            N=64,
+            gridsize=1,
+            output_dir=tmp_path,
+            probe_npz=Path("dummy_probe.npz"),
+            architectures=("cnn",),
+            models=("pinn",),
+            dataset_source="external_raw_npz",
+            train_data=Path("datasets/fly64/fly001_64_train_converted.npz"),
+            test_data=Path("datasets/fly64/fly001_64_train_converted.npz"),
+        )
+
+
 def test_parse_args_reuse_existing_recons_defaults_false(tmp_path):
     from scripts.studies.grid_lines_compare_wrapper import parse_args
 
@@ -766,7 +829,7 @@ def test_wrapper_handles_stable_hybrid(monkeypatch, tmp_path):
     _mock_dataset_builder(monkeypatch)
     monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
 
-    result = run_grid_lines_compare(
+    run_grid_lines_compare(
         N=64,
         gridsize=1,
         output_dir=tmp_path,
@@ -954,6 +1017,121 @@ def test_wrapper_passes_scheduler_knobs(monkeypatch, tmp_path):
     assert captured["scheduler"] == "WarmupCosine"
     assert captured["lr_warmup_epochs"] == 5
     assert captured["lr_min_ratio"] == 0.05
+
+
+def test_external_raw_mode_uses_shared_builder_not_synthetic_builder(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    called = {"shared_builder": False, "synthetic_builder": False}
+    gt_path = tmp_path / "recons" / "gt" / "recon.npz"
+    gt_path.parent.mkdir(parents=True, exist_ok=True)
+    gt = (np.ones((64, 64)) + 1j * np.ones((64, 64))).astype(np.complex64)
+    np.savez(gt_path, YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+
+    train_npz = tmp_path / "datasets" / "N64" / "gs1" / "train.npz"
+    test_npz = tmp_path / "datasets" / "N64" / "gs1" / "test.npz"
+    for path in (train_npz, test_npz):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(path, diffraction=np.ones((2, 64, 64, 1), dtype=np.float32))
+
+    def fake_shared_builder(*, dataset_source, cfg, required_ns, train_data=None, test_data=None, **kwargs):
+        called["shared_builder"] = True
+        assert dataset_source == "external_raw_npz"
+        assert train_data is not None
+        assert test_data is not None
+        assert sorted(required_ns) == [64]
+        return {
+            64: {
+                "train_npz": str(train_npz),
+                "test_npz": str(test_npz),
+                "gt_recon": str(gt_path),
+                "tag": "N64",
+            }
+        }
+
+    def fail_synthetic_builder(*args, **kwargs):
+        called["synthetic_builder"] = True
+        raise AssertionError("synthetic builder should not run in external_raw_npz mode")
+
+    def fake_torch_run(cfg):
+        recon_path = tmp_path / "recons" / "pinn_hybrid_resnet" / "recon.npz"
+        recon_path.parent.mkdir(parents=True, exist_ok=True)
+        pred = (np.ones((64, 64)) + 1j * np.ones((64, 64))).astype(np.complex64)
+        np.savez(recon_path, YY_pred=pred, amp=np.abs(pred), phase=np.angle(pred))
+        return {"recon_npz": str(recon_path), "metrics": {"mse": 0.1}}
+
+    monkeypatch.setattr("scripts.studies.grid_study_dataset_builder.build_datasets", fake_shared_builder)
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.build_grid_lines_datasets_by_n", fail_synthetic_builder)
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals", lambda output_dir, order: {})
+    monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", lambda pred, gt, label: {"mse": 0.0})
+
+    run_grid_lines_compare(
+        N=64,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=("hybrid_resnet",),
+        models=("pinn_hybrid_resnet",),
+        probe_npz=Path("dummy_probe.npz"),
+        dataset_source="external_raw_npz",
+        train_data=Path("datasets/fly64/fly001_64_train_converted.npz"),
+        test_data=Path("datasets/fly64/fly001_64_train_converted.npz"),
+    )
+    assert called["shared_builder"] is True
+    assert called["synthetic_builder"] is False
+
+
+def test_external_raw_mode_sets_torch_reassembly_mode_position(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    gt_path = tmp_path / "recons" / "gt" / "recon.npz"
+    gt_path.parent.mkdir(parents=True, exist_ok=True)
+    gt = (np.ones((64, 64)) + 1j * np.ones((64, 64))).astype(np.complex64)
+    np.savez(gt_path, YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+    train_npz = tmp_path / "datasets" / "N64" / "gs1" / "train.npz"
+    test_npz = tmp_path / "datasets" / "N64" / "gs1" / "test.npz"
+    for path in (train_npz, test_npz):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(path, diffraction=np.ones((2, 64, 64, 1), dtype=np.float32))
+
+    monkeypatch.setattr(
+        "scripts.studies.grid_study_dataset_builder.build_datasets",
+        lambda **kwargs: {
+            64: {
+                "train_npz": str(train_npz),
+                "test_npz": str(test_npz),
+                "gt_recon": str(gt_path),
+                "tag": "N64",
+            }
+        },
+    )
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals", lambda output_dir, order: {})
+    monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", lambda pred, gt, label: {"mse": 0.0})
+
+    captured = {}
+
+    def fake_torch_run(cfg):
+        captured["reassembly_mode"] = cfg.reassembly_mode
+        recon_path = tmp_path / "recons" / "pinn_hybrid_resnet" / "recon.npz"
+        recon_path.parent.mkdir(parents=True, exist_ok=True)
+        pred = (np.ones((64, 64)) + 1j * np.ones((64, 64))).astype(np.complex64)
+        np.savez(recon_path, YY_pred=pred, amp=np.abs(pred), phase=np.angle(pred))
+        return {"recon_npz": str(recon_path), "metrics": {"mse": 0.1}}
+
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
+
+    run_grid_lines_compare(
+        N=64,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=("hybrid_resnet",),
+        models=("pinn_hybrid_resnet",),
+        probe_npz=Path("dummy_probe.npz"),
+        dataset_source="external_raw_npz",
+        train_data=Path("datasets/fly64/fly001_64_train_converted.npz"),
+        test_data=Path("datasets/fly64/fly001_64_train_converted.npz"),
+    )
+    assert captured["reassembly_mode"] == "position"
 
 
 def test_wrapper_accepts_plateau_scheduler(tmp_path):

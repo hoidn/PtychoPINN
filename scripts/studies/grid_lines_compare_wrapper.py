@@ -220,6 +220,9 @@ def run_grid_lines_compare(
     torch_plateau_patience: int = 2,
     torch_plateau_min_lr: float = 1e-4,
     torch_plateau_threshold: float = 0.0,
+    dataset_source: str = "synthetic_lines",
+    train_data: Optional[Path] = None,
+    test_data: Optional[Path] = None,
 ) -> dict:
     os.environ.setdefault("PTYCHO_MEMOIZE_KEY_MODE", "dataset")
     output_dir = Path(output_dir)
@@ -240,11 +243,28 @@ def run_grid_lines_compare(
     resolved_model_n = resolve_model_ns(selected_models, model_n, default_n=N)
     validate_model_specs(selected_models, resolved_model_n)
     required_ns = compute_required_ns(selected_models, resolved_model_n, default_n=N)
+    external_mode = dataset_source == "external_raw_npz"
 
-    if models:
+    if dataset_source not in {"synthetic_lines", "external_raw_npz"}:
+        raise ValueError(f"Unsupported dataset_source '{dataset_source}'")
+    if external_mode:
+        if train_data is None or test_data is None:
+            raise ValueError("external_raw_npz mode requires both train_data and test_data.")
+        unsupported = [model_id for model_id in selected_models if model_id not in TORCH_MODEL_IDS]
+        if unsupported:
+            supported = ", ".join(sorted(TORCH_MODEL_IDS))
+            bad = ", ".join(sorted(unsupported))
+            raise ValueError(
+                f"external_raw_npz supports only Torch model IDs ({supported}); got unsupported: {bad}"
+            )
+        if len(set(required_ns)) != 1:
+            raise ValueError("external_raw_npz mode currently supports only a single N override.")
+
+    if models or external_mode:
         from ptycho.interop.ptychovit.convert import convert_npz_split_to_hdf5_pair
         from ptycho.interop.ptychovit.validate import validate_hdf5_pair
         from ptycho.workflows import grid_lines_workflow as tf_workflow
+        from scripts.studies.grid_study_dataset_builder import build_datasets
         from scripts.studies import grid_lines_torch_runner as torch_runner
         from scripts.studies.grid_lines_ptychovit_runner import (
             PtychoViTRunnerConfig,
@@ -310,7 +330,17 @@ def run_grid_lines_compare(
             probe_scale_mode=probe_scale_mode,
             set_phi=set_phi,
         )
-        bundles_by_n = tf_workflow.build_grid_lines_datasets_by_n(tf_cfg, required_ns=required_ns)
+        bundles_by_n = build_datasets(
+            dataset_source=dataset_source,
+            cfg=tf_cfg,
+            required_ns=required_ns,
+            train_data=train_data,
+            test_data=test_data,
+            n_groups=max(1, int(nimgs_train)),
+            n_subsample=None,
+            neighbor_count=7,
+            subsample_seed=seed,
+        )
         gt_candidates = {bundle["gt_recon"] for bundle in bundles_by_n.values() if "gt_recon" in bundle}
         if not gt_candidates:
             raise RuntimeError("Dataset builders did not provide canonical gt_recon path")
@@ -419,6 +449,7 @@ def run_grid_lines_compare(
                     plateau_patience=torch_plateau_patience,
                     plateau_min_lr=torch_plateau_min_lr,
                     plateau_threshold=torch_plateau_threshold,
+                    reassembly_mode="position" if external_mode else "grid_lines",
                 )
                 torch_result = torch_runner.run_grid_lines_torch(torch_cfg)
                 recon_path = torch_result.get("recon_npz")
@@ -680,6 +711,25 @@ def parse_args(argv=None):
         help="Optional explicit model IDs (overrides --architectures).",
     )
     parser.add_argument(
+        "--dataset-source",
+        type=str,
+        default="synthetic_lines",
+        choices=["synthetic_lines", "external_raw_npz"],
+        help="Dataset source for study inputs.",
+    )
+    parser.add_argument(
+        "--train-data",
+        type=Path,
+        default=None,
+        help="Training NPZ path for external_raw_npz mode.",
+    )
+    parser.add_argument(
+        "--test-data",
+        type=Path,
+        default=None,
+        help="Test NPZ path for external_raw_npz mode.",
+    )
+    parser.add_argument(
         "--model-n",
         type=str,
         default="",
@@ -778,6 +828,9 @@ def parse_args(argv=None):
     args.architectures = _parse_architectures(args.architectures)
     args.models = _parse_models(args.models) if args.models else None
     args.model_n = _parse_model_n(args.model_n)
+    if args.dataset_source == "external_raw_npz":
+        if args.train_data is None or args.test_data is None:
+            parser.error("--dataset-source external_raw_npz requires --train-data and --test-data")
     if args.models:
         validate_model_specs(args.models, resolve_model_ns(args.models, args.model_n, default_n=args.N))
     return args
@@ -848,6 +901,9 @@ def main(argv=None) -> None:
         torch_plateau_patience=args.torch_plateau_patience,
         torch_plateau_min_lr=args.torch_plateau_min_lr,
         torch_plateau_threshold=args.torch_plateau_threshold,
+        dataset_source=args.dataset_source,
+        train_data=args.train_data,
+        test_data=args.test_data,
     )
 
 

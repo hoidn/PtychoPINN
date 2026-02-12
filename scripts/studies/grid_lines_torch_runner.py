@@ -125,6 +125,7 @@ class TorchRunnerConfig:
     recon_log_fixed_indices: Optional[List[int]] = None
     recon_log_stitch: bool = False
     recon_log_max_stitch_samples: Optional[int] = None
+    reassembly_mode: str = "grid_lines"  # "grid_lines" | "position"
 
 
 def load_cached_dataset(npz_path: Path) -> Dict[str, np.ndarray]:
@@ -242,6 +243,49 @@ def _stitch_for_metrics(
 
     _configure_stitching_params(cfg, metadata)
     return stitch_predictions(pred_complex, float(norm_Y_I), part="complex")
+
+
+def _reassemble_with_coords_offsets(
+    pred_complex: np.ndarray,
+    test_data: Dict[str, np.ndarray],
+    M: int = 20,
+) -> np.ndarray:
+    """Reassemble predicted patches using coords_offsets (external dataset mode)."""
+    from ptycho import tf_helper as hh
+
+    coords_offsets = test_data.get("coords_offsets")
+    if coords_offsets is None:
+        raise ValueError("Position reassembly requires 'coords_offsets' in test data.")
+
+    coords_np = np.asarray(coords_offsets)
+    if coords_np.ndim != 4 or coords_np.shape[1] != 1 or coords_np.shape[2] != 2:
+        raise ValueError(
+            f"coords_offsets has unsupported shape {coords_np.shape}; expected (B, 1, 2, C1)."
+        )
+
+    pred_np = np.asarray(pred_complex)
+    if pred_np.ndim == 2:
+        patches = pred_np[None, :, :, None]
+    elif pred_np.ndim == 3:
+        patches = pred_np[:, :, :, None]
+    elif pred_np.ndim == 4:
+        batch, h, w, channels = pred_np.shape
+        patches = np.transpose(pred_np, (0, 3, 1, 2)).reshape(batch * channels, h, w, 1)
+    else:
+        raise ValueError(f"Unsupported prediction shape for position reassembly: {pred_np.shape}")
+
+    offsets = np.transpose(coords_np, (0, 1, 3, 2))  # (B,1,1,2) when C1=1
+    if offsets.shape[0] != patches.shape[0]:
+        if patches.shape[0] % offsets.shape[0] != 0:
+            raise ValueError(
+                f"Cannot align coords_offsets batch {offsets.shape[0]} with patches {patches.shape[0]}."
+            )
+        repeats = patches.shape[0] // offsets.shape[0]
+        offsets = np.repeat(offsets, repeats, axis=0)
+
+    stitched = hh.reassemble_position(patches, offsets, M=M)
+    stitched_np = np.asarray(stitched)
+    return np.squeeze(stitched_np).astype(np.complex64)
 
 
 def setup_torch_configs(cfg: TorchRunnerConfig):
@@ -629,10 +673,18 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
 
     # Step 4: Compute metrics
     logger.info("Computing metrics...")
-    ground_truth = test_data.get('YY_ground_truth', test_data['YY_full'])
+    ground_truth = test_data.get("YY_ground_truth")
+    if ground_truth is None:
+        ground_truth = test_data.get("YY_full")
+    if ground_truth is None:
+        ground_truth = test_data.get("objectGuess")
+    if ground_truth is None:
+        raise ValueError("Test data must provide one of: YY_ground_truth, YY_full, objectGuess.")
     # Use complex predictions for metrics if available
     pred_for_metrics = predictions_complex if predictions_complex is not None else predictions
-    if pred_for_metrics.ndim >= 3:
+    if cfg.reassembly_mode == "position":
+        pred_for_metrics = _reassemble_with_coords_offsets(pred_for_metrics, test_data)
+    elif pred_for_metrics.ndim >= 3:
         pred_h, pred_w = pred_for_metrics.shape[-3], pred_for_metrics.shape[-2]
         gt_h, gt_w = ground_truth.shape[-2], ground_truth.shape[-1]
         if (pred_h, pred_w) != (gt_h, gt_w):

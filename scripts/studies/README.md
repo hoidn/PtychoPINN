@@ -115,6 +115,9 @@ Fresh checkpoint-restored initial baseline helper scripts:
 **Key Torch Options:**
 - Default architectures are `cnn,fno,hybrid,stable_hybrid,fno_vanilla,hybrid_resnet`.
 - `baseline` is opt-in: include it explicitly via `--architectures ...baseline` (or `--models baseline,...`).
+- Dataset source modes:
+  - `synthetic_lines` (default): TF + Torch + PtychoViT routes are available.
+  - `external_raw_npz` (phase 1): Torch model IDs only (`pinn_fno`, `pinn_hybrid`, `pinn_stable_hybrid`, `pinn_fno_vanilla`, `pinn_hybrid_resnet`).
 - `--seed`: Random seed for Torch runs (random if omitted).
 - `--torch-output-mode {real_imag,amp_phase_logits,amp_phase}`: Control how FNO/Hybrid outputs are interpreted.
   - `real_imag` (default): Treat output channels as real/imag.
@@ -123,6 +126,20 @@ Fresh checkpoint-restored initial baseline helper scripts:
 - `--probe-source {custom,ideal_disk}`: Selects the probe source when generating grid-lines datasets.
 - `--probe-scale-mode {pad_extrapolate,interpolate}`: Probe scaling strategy when N changes (default: `pad_extrapolate`).
 - `--probe-mask-diameter`: Optional centered disk diameter (pixels) to mask the probe during dataset generation.
+- `--dataset-source {synthetic_lines,external_raw_npz}`: Select dataset preparation path.
+- `--train-data` / `--test-data`: Required when `--dataset-source external_raw_npz`.
+
+**External raw NPZ mode example (Torch-only):**
+```bash
+python scripts/studies/grid_lines_compare_wrapper.py \
+  --N 64 --gridsize 1 \
+  --output-dir outputs/grid_lines_external_raw_fly64_smoke \
+  --dataset-source external_raw_npz \
+  --train-data datasets/fly64/fly001_64_train_converted.npz \
+  --test-data datasets/fly64/fly001_64_train_converted.npz \
+  --models pinn_hybrid_resnet \
+  --nepochs 3 --batch-size 16 --seed 3
+```
 
 ### `grid_lines_torch_runner.py`
 Runs Torch-only training/inference for a single FNO/Hybrid architecture using cached NPZs.

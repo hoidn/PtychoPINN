@@ -378,6 +378,10 @@ python scripts/studies/aggregate_and_plot_results.py study_results --output plot
 `baseline` is opt-in and runs only when explicitly selected (for example
 `--architectures cnn,baseline,fno` or `--models baseline,...`).
 
+Dataset source capability matrix:
+- `synthetic_lines` (default): TF + Torch + PtychoViT
+- `external_raw_npz` (phase 1): Torch model IDs only (`pinn_fno`, `pinn_hybrid`, `pinn_stable_hybrid`, `pinn_fno_vanilla`, `pinn_hybrid_resnet`)
+
 ```bash
 # Run the grid-lines harness (TF cnn+baseline + Torch FNO/Hybrid)
 python scripts/studies/grid_lines_compare_wrapper.py \
@@ -402,6 +406,17 @@ python scripts/studies/grid_lines_compare_wrapper.py \
     --output-dir outputs/grid_lines_gs1_n64_mask64 \
     --architectures cnn,baseline \
     --probe-mask-diameter 64
+
+# External raw NPZ mode (Torch-only phase 1)
+python scripts/studies/grid_lines_compare_wrapper.py \
+    --N 64 \
+    --gridsize 1 \
+    --output-dir outputs/grid_lines_external_raw_fly64_smoke \
+    --dataset-source external_raw_npz \
+    --train-data datasets/fly64/fly001_64_train_converted.npz \
+    --test-data datasets/fly64/fly001_64_train_converted.npz \
+    --models pinn_hybrid_resnet \
+    --nepochs 3 --batch-size 16 --seed 3
 ```
 
 Invocation artifacts emitted by `grid_lines_compare_wrapper.py`:

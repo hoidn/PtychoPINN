@@ -13,6 +13,7 @@ from scripts.studies.grid_lines_torch_runner import (
     TorchRunnerConfig,
     load_cached_dataset,
     _select_coords_relative,
+    _reassemble_with_coords_offsets,
     setup_torch_configs,
     run_grid_lines_torch,
     run_torch_training,
@@ -437,6 +438,99 @@ class TestRunGridLinesTorchScaffold:
 
         run_grid_lines_torch(cfg)
         assert called["ok"] is True
+
+    def test_position_reassembly_mode_uses_coords_offsets(self, synthetic_npz, tmp_path, monkeypatch):
+        """Position mode should use coords_offsets-based reassembly."""
+        train_path, test_path = synthetic_npz
+
+        cfg = TorchRunnerConfig(
+            train_npz=train_path,
+            test_npz=test_path,
+            output_dir=tmp_path,
+            architecture="fno",
+            epochs=1,
+            reassembly_mode="position",
+        )
+
+        called = {"position": False}
+
+        def fake_reassemble(obj_tensor, global_offsets, M=20):
+            called["position"] = True
+            assert global_offsets.shape[-1] == 2
+            return np.ones((64, 64), dtype=np.complex64)
+
+        def fake_load_with_metadata(npz_path):
+            _ = npz_path
+            data = {
+                "diffraction": np.ones((4, 64, 64, 1), dtype=np.float32),
+                "Y_I": np.ones((4, 64, 64, 1), dtype=np.float32),
+                "Y_phi": np.zeros((4, 64, 64, 1), dtype=np.float32),
+                "coords_nominal": np.zeros((4, 1, 2, 1), dtype=np.float32),
+                "coords_offsets": np.zeros((4, 1, 2, 1), dtype=np.float32),
+                "YY_full": np.ones((64, 64), dtype=np.complex64),
+            }
+            return data, {"additional_parameters": {}}
+
+        monkeypatch.setattr("ptycho.tf_helper.reassemble_position", fake_reassemble)
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner.load_cached_dataset_with_metadata",
+            fake_load_with_metadata,
+        )
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner.run_torch_training",
+            lambda *args, **kwargs: {"model": None, "history": {}},
+        )
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner.run_torch_inference",
+            lambda *args, **kwargs: np.random.rand(4, 64, 64, 1, 2).astype(np.float32),
+        )
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner.compute_metrics",
+            lambda predictions, ground_truth, label: {"mse": 0.0},
+        )
+
+        run_grid_lines_torch(cfg)
+        assert called["position"] is True
+
+    def test_position_reassembly_mode_requires_coords_offsets(self):
+        """Position mode should fail fast when coords_offsets are absent."""
+        pred = np.ones((2, 64, 64, 1), dtype=np.complex64)
+        with pytest.raises(ValueError, match="coords_offsets"):
+            _reassemble_with_coords_offsets(pred, {"diffraction": np.ones((2, 64, 64, 1), dtype=np.float32)})
+
+    def test_grid_lines_mode_keeps_existing_stitching_path(self, synthetic_npz, tmp_path, monkeypatch):
+        """grid_lines mode should still use the stitch helper path."""
+        train_path, test_path = synthetic_npz
+        cfg = TorchRunnerConfig(
+            train_npz=train_path,
+            test_npz=test_path,
+            output_dir=tmp_path,
+            architecture="fno",
+            epochs=1,
+            reassembly_mode="grid_lines",
+        )
+        called = {"stitch": False}
+
+        def fake_stitch(pred_complex, cfg_obj, metadata, norm_Y_I):
+            called["stitch"] = True
+            return np.ones((64, 64), dtype=np.complex64)
+
+        monkeypatch.setattr("scripts.studies.grid_lines_torch_runner._stitch_for_metrics", fake_stitch)
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner.run_torch_training",
+            lambda *args, **kwargs: {"model": None, "history": {}},
+        )
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner.run_torch_inference",
+            lambda *args, **kwargs: np.random.rand(4, 64, 64, 1, 2).astype(np.float32),
+        )
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner.compute_metrics",
+            lambda predictions, ground_truth, label: {"mse": 0.0},
+        )
+
+        run_grid_lines_torch(cfg)
+        assert called["stitch"] is True
 
 
 class TestGradientClipAlgorithm:
