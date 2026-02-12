@@ -445,6 +445,11 @@ When adding new documentation:
 
 ## Bug Reports & Fixes
 
+### [TF Bundle Loader Keras 3 Graph Disconnect](bugs/2026-02-11-tf-loader-keras3-graph-disconnect.md) - OPEN
+**Description:** Some valid TensorFlow `wts.h5.zip` bundles fail to load via Keras 3 deserialization with `ValueError: inputs not connected to outputs`.
+**Status:** Open (reported 2026-02-11)
+**Tracking Backlog:** [Loader Fallback Hardening](backlog/2026-02-11-tf-loader-keras3-fallback.md)
+
 ### [MATH-POLAR-001: CombineComplexLayer Bug](bugs/MATH_POLAR_001.md) - FIXED
 **Description:** `CombineComplexLayer` incorrectly combined amplitude and phase as Z=A+iφ instead of Z=A*exp(iφ). This broke phase averaging in patch stitching.
 **Status:** Fixed 2026-01-26
@@ -465,5 +470,5 @@ When adding new documentation:
 
 ---
 
-*Last updated: September 2025*
+*Last updated: February 2026*
 *added detailed descriptions for improved navigation*
