@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -54,6 +55,10 @@ def prepare_dataset(*, raw_npz: Path, output_dir: Path) -> dict[str, str | float
     split_threshold = float((ycoords.min() + ycoords.max()) / 2.0)
     train_mask = ycoords >= split_threshold
     test_mask = ~train_mask
+    if not bool(train_mask.any()) or not bool(test_mask.any()):
+        raise ValueError(
+            "Split produced an empty train or test partition; check ycoords and threshold."
+        )
 
     canonical_npz = output_dir / "fly001_128_train_converted.npz"
     train_npz = output_dir / "fly001_128_top_half_converted.npz"
@@ -85,3 +90,19 @@ def prepare_dataset(*, raw_npz: Path, output_dir: Path) -> dict[str, str | float
         "manifest_json": str(manifest_json),
         "split_threshold": split_threshold,
     }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Canonicalize fly001 N=128 NPZ and create disjoint top/bottom split."
+    )
+    parser.add_argument("--input-npz", type=Path, required=True, help="Path to raw fly001 N=128 NPZ.")
+    parser.add_argument("--output-dir", type=Path, required=True, help="Output directory for prepared NPZ files.")
+    args = parser.parse_args()
+
+    result = prepare_dataset(raw_npz=args.input_npz, output_dir=args.output_dir)
+    print(f"Prepared dataset manifest: {result['manifest_json']}")
+
+
+if __name__ == "__main__":
+    main()

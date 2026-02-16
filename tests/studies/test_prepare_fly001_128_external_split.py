@@ -3,7 +3,7 @@ import json
 
 import numpy as np
 
-from scripts.studies.prepare_fly001_128_external_split import prepare_dataset
+from scripts.studies.prepare_fly001_128_external_split import main, prepare_dataset
 
 
 def _write_raw_npz(path: Path) -> None:
@@ -46,3 +46,31 @@ def test_prepare_dataset_writes_canonical_and_disjoint_splits(tmp_path):
     assert manifest["source_file"] == str(raw)
     assert manifest["n_total"] == 10
     assert manifest["n_train"] + manifest["n_test"] == 10
+
+
+def test_cli_writes_manifest_with_required_fields(tmp_path, monkeypatch, capsys):
+    raw = tmp_path / "raw.npz"
+    out = tmp_path / "out"
+    _write_raw_npz(raw)
+
+    argv = [
+        "prepare_fly001_128_external_split.py",
+        "--input-npz",
+        str(raw),
+        "--output-dir",
+        str(out),
+    ]
+    monkeypatch.setattr("sys.argv", argv)
+    main()
+    _ = capsys.readouterr()
+
+    manifest = json.loads((out / "manifest.json").read_text())
+    for key in [
+        "source_sha256",
+        "canonical_npz",
+        "train_npz",
+        "test_npz",
+        "n_train",
+        "n_test",
+    ]:
+        assert key in manifest
