@@ -28,16 +28,16 @@ python scripts/studies/prepare_fly001_128_external_split.py \
 This writes:
 - `datasets/fly001_128/fly001_128_train_converted.npz`
 - `datasets/fly001_128/fly001_128_top_half_converted.npz`
-- `datasets/fly001_128/fly001_128_bottom_half_converted.npz`
+- `datasets/fly001_128/fly001_128_full_test_converted.npz`
 - `datasets/fly001_128/manifest.json`
 
 ## Split Policy
 
-The split uses `ycoords` midpoint threshold:
+The train split uses `ycoords` midpoint threshold:
 - train (`top_half`): `ycoords >= threshold`
-- test (`bottom_half`): `ycoords < threshold`
+- test (`full_test`): full canonical dataset (no spatial filtering)
 
-This guarantees disjoint train/test coordinates.
+This enforces spatial restriction only on training data while preserving complete-object evaluation.
 
 ## Manifest Provenance
 
@@ -53,7 +53,7 @@ Use this manifest as the canonical provenance record for study documentation and
 ## Study Runbook
 
 Runbook for the external `N=128` grid-lines comparison:
-- `scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_bottom_test_e40.sh`
+- `scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_test_e40.sh`
 
 Study index entry:
-- `docs/studies/index.md` → `grid-lines-external-fly001-n128-top-train-bottom-test-e40`
+- `docs/studies/index.md` → `grid-lines-external-fly001-n128-top-train-full-test-e40`

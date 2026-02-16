@@ -83,7 +83,7 @@ def run_sweep(
     torch_learning_rate: float = 1e-3,
     plateau_factor: float = 0.5,
     plateau_patience: int = 2,
-    plateau_min_lr: float = 1e-4,
+    plateau_min_lr: float = 5e-5,
     plateau_threshold: float = 0.0,
     architectures: Iterable[str] | None = None,
 ) -> Path:
@@ -245,7 +245,7 @@ def parse_args(argv=None):
     parser.add_argument(
         "--torch-plateau-min-lr",
         type=float,
-        default=1e-4,
+        default=5e-5,
         help="ReduceLROnPlateau min lr (torch).",
     )
     parser.add_argument(

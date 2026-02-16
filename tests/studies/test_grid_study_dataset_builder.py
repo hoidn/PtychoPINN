@@ -3,8 +3,7 @@ from pathlib import Path
 import numpy as np
 
 
-def _write_external_raw_npz(path: Path, *, include_object: bool = True) -> None:
-    n = 96
+def _write_external_raw_npz(path: Path, *, include_object: bool = True, n: int = 96) -> None:
     N = 64
     data = {
         "diffraction": np.random.rand(n, N, N).astype(np.float32),
@@ -123,3 +122,32 @@ def test_build_external_raw_fails_without_object_ground_truth(tmp_path):
             neighbor_count=3,
             subsample_seed=7,
         )
+
+
+def test_build_external_raw_with_none_n_groups_uses_full_split_sizes(tmp_path):
+    from scripts.studies.grid_study_dataset_builder import build_datasets
+
+    train_raw = tmp_path / "fly_train_raw.npz"
+    test_raw = tmp_path / "fly_test_raw.npz"
+    _write_external_raw_npz(train_raw, include_object=True, n=80)
+    _write_external_raw_npz(test_raw, include_object=True, n=120)
+
+    out = build_datasets(
+        dataset_source="external_raw_npz",
+        cfg=_grid_cfg(tmp_path),
+        required_ns=[64],
+        train_data=train_raw,
+        test_data=test_raw,
+        n_groups=None,
+        n_subsample=None,
+        neighbor_count=3,
+        subsample_seed=7,
+    )
+    bundle = out[64]
+    train_npz = Path(bundle["train_npz"])
+    test_npz = Path(bundle["test_npz"])
+
+    with np.load(train_npz, allow_pickle=True) as train_data:
+        assert train_data["diffraction"].shape[0] == 80
+    with np.load(test_npz, allow_pickle=True) as test_data:
+        assert test_data["diffraction"].shape[0] == 120

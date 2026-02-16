@@ -194,7 +194,7 @@ def run_grid_lines_compare(
     torch_epochs: Optional[int] = None,
     torch_batch_size: Optional[int] = None,
     torch_learning_rate: float = 1e-3,
-    torch_infer_batch_size: int = 16,
+    torch_infer_batch_size: int = 128,
     torch_gradient_clip_val: float = 0.0,
     torch_gradient_clip_algorithm: str = "norm",
     torch_output_mode: str = "real_imag",
@@ -218,7 +218,7 @@ def run_grid_lines_compare(
     torch_lr_min_ratio: float = 0.1,
     torch_plateau_factor: float = 0.5,
     torch_plateau_patience: int = 2,
-    torch_plateau_min_lr: float = 1e-4,
+    torch_plateau_min_lr: float = 5e-5,
     torch_plateau_threshold: float = 0.0,
     dataset_source: str = "synthetic_lines",
     train_data: Optional[Path] = None,
@@ -772,7 +772,7 @@ def parse_args(argv=None):
     parser.add_argument("--torch-epochs", type=int, default=None)
     parser.add_argument("--torch-batch-size", type=int, default=None)
     parser.add_argument("--torch-learning-rate", type=float, default=1e-3)
-    parser.add_argument("--torch-infer-batch-size", type=int, default=16)
+    parser.add_argument("--torch-infer-batch-size", type=int, default=128)
     parser.add_argument(
         "--torch-grad-clip",
         type=float,
@@ -822,7 +822,7 @@ def parse_args(argv=None):
     parser.add_argument("--torch-lr-min-ratio", type=float, default=0.1)
     parser.add_argument("--torch-plateau-factor", type=float, default=0.5)
     parser.add_argument("--torch-plateau-patience", type=int, default=2)
-    parser.add_argument("--torch-plateau-min-lr", type=float, default=1e-4)
+    parser.add_argument("--torch-plateau-min-lr", type=float, default=5e-5)
     parser.add_argument("--torch-plateau-threshold", type=float, default=0.0)
     args = parser.parse_args(argv)
     args.architectures = _parse_architectures(args.architectures)

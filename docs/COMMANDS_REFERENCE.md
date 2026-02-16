@@ -426,11 +426,11 @@ python scripts/studies/prepare_fly001_128_external_split.py \
 # Outputs:
 #   datasets/fly001_128/fly001_128_train_converted.npz
 #   datasets/fly001_128/fly001_128_top_half_converted.npz
-#   datasets/fly001_128/fly001_128_bottom_half_converted.npz
+#   datasets/fly001_128/fly001_128_full_test_converted.npz
 #   datasets/fly001_128/manifest.json
 
-# Reproducible fly001 N=128 external runbook (top-half train, bottom-half test)
-bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_bottom_test_e40.sh
+# Reproducible fly001 N=128 external runbook (top-half train, full-object test; no downsampling)
+bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_test_e40.sh
 ```
 
 Invocation artifacts emitted by `grid_lines_compare_wrapper.py`:

@@ -485,9 +485,12 @@ class RawData:
         else:
             # Use random sampling (default)
             seed_indices = None
-            strategy = "K choose C oversampling" if needs_oversampling else "efficient"
-            print('DEBUG:', f'nsamples: {nsamples}, gridsize: {gridsize} (using {strategy} random sample-then-group strategy)')
-            logging.info(f"Using {strategy} random sampling strategy for gridsize={gridsize}")
+            if needs_oversampling:
+                print('DEBUG:', f'nsamples: {nsamples}, gridsize: {gridsize} (using K choose C oversampling strategy)')
+                logging.info(f"Using K choose C oversampling strategy for gridsize={gridsize}")
+            else:
+                print('DEBUG:', f'nsamples: {nsamples}, gridsize: {gridsize} (using standard random sample-then-group strategy)')
+                logging.info(f"Using standard random sampling strategy for gridsize={gridsize}")
         
         # Automatically route to appropriate implementation
         if needs_oversampling:
@@ -502,8 +505,8 @@ class RawData:
                 seed_indices=seed_indices
             )
         else:
-            # Use the existing efficient method for standard cases
-            logging.info(f"[OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group")
+            # Use the standard method for non-oversampling cases
+            logging.info(f"[OVERSAMPLING DEBUG] Taking standard branch: sample-then-group")
             selected_groups = self._generate_groups_efficiently(
                 nsamples=nsamples, 
                 K=K, 
@@ -513,7 +516,7 @@ class RawData:
             )
         
         logging.info(f"[OVERSAMPLING DEBUG] Generated {len(selected_groups)} groups in total")
-        logging.info(f"Generated {len(selected_groups)} groups efficiently")
+        logging.info(f"Generated {len(selected_groups)} groups")
         
         # Generate the final dataset from the selected groups
         return self._generate_dataset_from_groups(selected_groups, N, K, gridsize)
@@ -627,7 +630,7 @@ class RawData:
             
             n_points = len(self.xcoords)
             logging.info(f"[OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples={nsamples}, K={K}, C={C}")
-            logging.info(f"Generating {nsamples} groups efficiently from {n_points} points (K={K}, C={C})")
+            logging.info(f"Generating {nsamples} groups from {n_points} points (K={K}, C={C})")
             
             # Validate inputs
             if n_points < C:
@@ -715,7 +718,7 @@ class RawData:
             return groups
             
         except Exception as e:
-            logging.error(f"Failed to generate groups efficiently: {e}")
+            logging.error(f"Failed to generate groups: {e}")
             raise
 
     def _generate_groups_with_oversampling(self, nsamples, K, C, seed=None, seed_indices=None):

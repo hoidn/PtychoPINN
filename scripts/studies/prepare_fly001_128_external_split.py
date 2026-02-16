@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare canonical and disjoint fly001 N=128 external-study datasets."""
+"""Prepare canonical fly001 N=128 data with top-half train and full-object test outputs."""
 
 from __future__ import annotations
 
@@ -54,20 +54,20 @@ def prepare_dataset(*, raw_npz: Path, output_dir: Path) -> dict[str, str | float
     ycoords = np.asarray(canonical["ycoords"], dtype=np.float64)
     split_threshold = float((ycoords.min() + ycoords.max()) / 2.0)
     train_mask = ycoords >= split_threshold
-    test_mask = ~train_mask
-    if not bool(train_mask.any()) or not bool(test_mask.any()):
+    bottom_mask = ~train_mask
+    if not bool(train_mask.any()) or not bool(bottom_mask.any()):
         raise ValueError(
             "Split produced an empty train or test partition; check ycoords and threshold."
         )
 
     canonical_npz = output_dir / "fly001_128_train_converted.npz"
     train_npz = output_dir / "fly001_128_top_half_converted.npz"
-    test_npz = output_dir / "fly001_128_bottom_half_converted.npz"
+    test_npz = output_dir / "fly001_128_full_test_converted.npz"
     manifest_json = output_dir / "manifest.json"
 
     np.savez_compressed(canonical_npz, **canonical)
     np.savez_compressed(train_npz, **_split_payload(canonical, train_mask))
-    np.savez_compressed(test_npz, **_split_payload(canonical, test_mask))
+    np.savez_compressed(test_npz, **canonical)
 
     manifest = {
         "source_file": str(raw_npz),
@@ -75,11 +75,12 @@ def prepare_dataset(*, raw_npz: Path, output_dir: Path) -> dict[str, str | float
         "canonical_npz": str(canonical_npz),
         "train_npz": str(train_npz),
         "test_npz": str(test_npz),
-        "split_axis": "ycoords",
+        "train_split_axis": "ycoords",
         "split_threshold": split_threshold,
         "n_total": int(ycoords.size),
         "n_train": int(train_mask.sum()),
-        "n_test": int(test_mask.sum()),
+        "n_test": int(ycoords.size),
+        "test_policy": "full_object",
     }
     manifest_json.write_text(json.dumps(manifest, indent=2))
 
@@ -94,7 +95,7 @@ def prepare_dataset(*, raw_npz: Path, output_dir: Path) -> dict[str, str | float
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Canonicalize fly001 N=128 NPZ and create disjoint top/bottom split."
+        description="Canonicalize fly001 N=128 NPZ, write top-half train split, and full-object test set."
     )
     parser.add_argument("--input-npz", type=Path, required=True, help="Path to raw fly001 N=128 NPZ.")
     parser.add_argument("--output-dir", type=Path, required=True, help="Output directory for prepared NPZ files.")

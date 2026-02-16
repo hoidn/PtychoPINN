@@ -88,7 +88,7 @@ class TorchRunnerConfig:
     epochs: int = 50
     batch_size: int = 16
     learning_rate: float = 1e-3
-    infer_batch_size: int = 16
+    infer_batch_size: int = 128
     gradient_clip_val: Optional[float] = 0.0
     gradient_clip_algorithm: str = 'norm'  # 'norm', 'value', or 'agc'
     generator_output_mode: str = "real_imag"
@@ -116,10 +116,10 @@ class TorchRunnerConfig:
     lr_min_ratio: float = 0.1
     plateau_factor: float = 0.5
     plateau_patience: int = 2
-    plateau_min_lr: float = 1e-4
+    plateau_min_lr: float = 5e-5
     plateau_threshold: float = 0.0
     # Recon logging
-    logger_backend: Optional[str] = None  # 'csv', 'mlflow', etc.
+    logger_backend: Optional[str] = "csv"  # 'csv', 'mlflow', etc.; set None to disable
     recon_log_every_n_epochs: Optional[int] = None
     recon_log_num_patches: int = 4
     recon_log_fixed_indices: Optional[List[int]] = None
@@ -264,6 +264,9 @@ def _reassemble_with_coords_offsets(
         )
 
     pred_np = np.asarray(pred_complex)
+    # Normalize channel-first prediction layout (B, C, H, W) to channel-last.
+    if pred_np.ndim == 4 and pred_np.shape[1] <= 8 and pred_np.shape[-1] > 8:
+        pred_np = np.transpose(pred_np, (0, 2, 3, 1))
     if pred_np.ndim == 2:
         patches = pred_np[None, :, :, None]
     elif pred_np.ndim == 3:
@@ -274,7 +277,7 @@ def _reassemble_with_coords_offsets(
     else:
         raise ValueError(f"Unsupported prediction shape for position reassembly: {pred_np.shape}")
 
-    offsets = np.transpose(coords_np, (0, 1, 3, 2))  # (B,1,1,2) when C1=1
+    offsets = np.transpose(coords_np, (0, 1, 3, 2)).astype(np.float64)  # (B,1,1,2) when C1=1
     if offsets.shape[0] != patches.shape[0]:
         if patches.shape[0] % offsets.shape[0] != 0:
             raise ValueError(
@@ -283,9 +286,26 @@ def _reassemble_with_coords_offsets(
         repeats = patches.shape[0] // offsets.shape[0]
         offsets = np.repeat(offsets, repeats, axis=0)
 
+    from ptycho import params as p
+    p.set("N", int(patches.shape[1]))
     stitched = hh.reassemble_position(patches, offsets, M=M)
     stitched_np = np.asarray(stitched)
     return np.squeeze(stitched_np).astype(np.complex64)
+
+
+def _harmonize_prediction_shape(
+    prediction: np.ndarray,
+    ground_truth: np.ndarray,
+) -> np.ndarray:
+    """Align prediction spatial shape to ground truth shape for metric evaluation."""
+    pred = np.squeeze(np.asarray(prediction))
+    gt = np.squeeze(np.asarray(ground_truth))
+
+    if pred.ndim == 2 and gt.ndim == 2 and pred.shape != gt.shape:
+        from ptycho.image.harmonize import resize_complex_to_shape
+
+        pred = resize_complex_to_shape(pred, (int(gt.shape[0]), int(gt.shape[1])))
+    return pred
 
 
 def setup_torch_configs(cfg: TorchRunnerConfig):
@@ -530,7 +550,14 @@ def compute_metrics(
         Metrics dict with MSE, SSIM, etc.
     """
     from ptycho.evaluation import eval_reconstruction
-    return eval_reconstruction(predictions, ground_truth, label=label)
+
+    pred = np.asarray(predictions)
+    gt = np.asarray(ground_truth)
+    if pred.ndim == 2:
+        pred = pred[..., None]
+    if gt.ndim == 2:
+        gt = gt[..., None]
+    return eval_reconstruction(pred, gt, label=label)
 
 
 def _collect_visual_order(output_dir: Path, architecture: str) -> Tuple[str, ...]:
@@ -683,7 +710,8 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
     # Use complex predictions for metrics if available
     pred_for_metrics = predictions_complex if predictions_complex is not None else predictions
     if cfg.reassembly_mode == "position":
-        pred_for_metrics = _reassemble_with_coords_offsets(pred_for_metrics, test_data)
+        # External coordinate datasets should stitch full patch support (M=N).
+        pred_for_metrics = _reassemble_with_coords_offsets(pred_for_metrics, test_data, M=cfg.N)
     elif pred_for_metrics.ndim >= 3:
         pred_h, pred_w = pred_for_metrics.shape[-3], pred_for_metrics.shape[-2]
         gt_h, gt_w = ground_truth.shape[-2], ground_truth.shape[-1]
@@ -695,6 +723,7 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
                 test_metadata,
                 norm_Y_I,
             )
+    pred_for_metrics = _harmonize_prediction_shape(pred_for_metrics, ground_truth)
     from ptycho.workflows.grid_lines_workflow import save_recon_artifact
     recon_target = pred_for_metrics
     if not np.iscomplexobj(recon_target):
@@ -757,7 +786,7 @@ def main(argv=None) -> None:
                         help="Training batch size")
     parser.add_argument("--learning-rate", type=float, default=1e-3,
                         help="Learning rate")
-    parser.add_argument("--infer-batch-size", type=int, default=16,
+    parser.add_argument("--infer-batch-size", type=int, default=128,
                         help="Inference batch size (OOM guard)")
     parser.add_argument("--grad-clip", type=float, default=0.0,
                         help="Gradient clipping max norm (<=0 disables clipping)")
@@ -812,14 +841,14 @@ def main(argv=None) -> None:
                         help="ReduceLROnPlateau factor")
     parser.add_argument("--plateau-patience", type=int, default=2,
                         help="ReduceLROnPlateau patience")
-    parser.add_argument("--plateau-min-lr", type=float, default=1e-4,
+    parser.add_argument("--plateau-min-lr", type=float, default=5e-5,
                         help="ReduceLROnPlateau min lr")
     parser.add_argument("--plateau-threshold", type=float, default=0.0,
                         help="ReduceLROnPlateau threshold")
     # Recon logging CLI flags
-    parser.add_argument("--torch-logger", type=str, default=None,
+    parser.add_argument("--torch-logger", type=str, default="csv",
                         choices=["csv", "tensorboard", "mlflow", "none"],
-                        help="Logger backend (default: None)")
+                        help="Logger backend (default: csv). Use 'none' to disable.")
     parser.add_argument("--recon-log-every-n-epochs", type=int, default=None,
                         help="Log reconstructions every N epochs (default: disabled)")
     parser.add_argument("--recon-log-num-patches", type=int, default=4,
@@ -850,6 +879,8 @@ def main(argv=None) -> None:
     seed = args.seed if args.seed is not None else random.SystemRandom().randrange(0, 2**32)
     if args.seed is None:
         logging.info("Using random seed %s", seed)
+
+    logger_backend = None if args.torch_logger == "none" else args.torch_logger
 
     cfg = TorchRunnerConfig(
         train_npz=args.train_npz,
@@ -887,7 +918,7 @@ def main(argv=None) -> None:
         plateau_patience=args.plateau_patience,
         plateau_min_lr=args.plateau_min_lr,
         plateau_threshold=args.plateau_threshold,
-        logger_backend=args.torch_logger,
+        logger_backend=logger_backend,
         recon_log_every_n_epochs=args.recon_log_every_n_epochs,
         recon_log_num_patches=args.recon_log_num_patches,
         recon_log_fixed_indices=args.recon_log_fixed_indices,

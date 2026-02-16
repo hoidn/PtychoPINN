@@ -1445,7 +1445,7 @@ class PtychoPINN_Lightning(L.LightningModule):
                     mode='min',
                     factor=getattr(self.training_config, 'plateau_factor', 0.5),
                     patience=getattr(self.training_config, 'plateau_patience', 2),
-                    min_lr=getattr(self.training_config, 'plateau_min_lr', 1e-4),
+                    min_lr=getattr(self.training_config, 'plateau_min_lr', 5e-5),
                     threshold=getattr(self.training_config, 'plateau_threshold', 0.0),
                 ),
                 'monitor': self.val_loss_name,

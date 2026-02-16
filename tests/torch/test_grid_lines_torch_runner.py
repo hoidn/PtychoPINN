@@ -11,6 +11,7 @@ from ptycho.metadata import MetadataManager
 
 from scripts.studies.grid_lines_torch_runner import (
     TorchRunnerConfig,
+    compute_metrics,
     load_cached_dataset,
     _select_coords_relative,
     _reassemble_with_coords_offsets,
@@ -439,6 +440,27 @@ class TestRunGridLinesTorchScaffold:
         run_grid_lines_torch(cfg)
         assert called["ok"] is True
 
+    def test_compute_metrics_accepts_2d_complex_inputs(self, monkeypatch):
+        """compute_metrics should normalize 2D complex arrays to (H,W,1)."""
+        captured = {}
+
+        def fake_eval(pred, gt, label=""):
+            captured["pred_shape"] = tuple(np.asarray(pred).shape)
+            captured["gt_shape"] = tuple(np.asarray(gt).shape)
+            captured["label"] = label
+            return {"mse": 0.0}
+
+        monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", fake_eval)
+
+        pred = np.ones((64, 64), dtype=np.complex64)
+        gt = np.ones((64, 64), dtype=np.complex64)
+        out = compute_metrics(pred, gt, label="pinn_hybrid_resnet")
+
+        assert out["mse"] == 0.0
+        assert captured["pred_shape"] == (64, 64, 1)
+        assert captured["gt_shape"] == (64, 64, 1)
+        assert captured["label"] == "pinn_hybrid_resnet"
+
     def test_position_reassembly_mode_uses_coords_offsets(self, synthetic_npz, tmp_path, monkeypatch):
         """Position mode should use coords_offsets-based reassembly."""
         train_path, test_path = synthetic_npz
@@ -492,11 +514,93 @@ class TestRunGridLinesTorchScaffold:
         run_grid_lines_torch(cfg)
         assert called["position"] is True
 
+    def test_position_reassembly_aligns_prediction_to_ground_truth_shape(self, synthetic_npz, tmp_path, monkeypatch):
+        """Position mode should harmonize non-square GT and square reassembly outputs."""
+        train_path, test_path = synthetic_npz
+        cfg = TorchRunnerConfig(
+            train_npz=train_path,
+            test_npz=test_path,
+            output_dir=tmp_path,
+            architecture="fno",
+            epochs=1,
+            reassembly_mode="position",
+        )
+
+        captured = {}
+
+        def fake_reassemble(obj_tensor, global_offsets, M=20):
+            _ = obj_tensor
+            _ = global_offsets
+            _ = M
+            return np.ones((464, 464), dtype=np.complex64)
+
+        def fake_load_with_metadata(npz_path):
+            _ = npz_path
+            data = {
+                "diffraction": np.ones((4, 64, 64, 1), dtype=np.float32),
+                "Y_I": np.ones((4, 64, 64, 1), dtype=np.float32),
+                "Y_phi": np.zeros((4, 64, 64, 1), dtype=np.float32),
+                "coords_nominal": np.zeros((4, 1, 2, 1), dtype=np.float32),
+                "coords_offsets": np.zeros((4, 1, 2, 1), dtype=np.float32),
+                "YY_full": np.ones((462, 461), dtype=np.complex64),
+                "YY_ground_truth": np.ones((462, 461), dtype=np.complex64),
+            }
+            return data, {"additional_parameters": {}}
+
+        def fake_compute_metrics(predictions, ground_truth, label):
+            captured["pred_shape"] = tuple(np.asarray(predictions).shape)
+            captured["gt_shape"] = tuple(np.asarray(ground_truth).shape)
+            _ = label
+            return {"mse": 0.0}
+
+        monkeypatch.setattr("ptycho.tf_helper.reassemble_position", fake_reassemble)
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner.load_cached_dataset_with_metadata",
+            fake_load_with_metadata,
+        )
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner.run_torch_training",
+            lambda *args, **kwargs: {"model": None, "history": {}},
+        )
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner.run_torch_inference",
+            lambda *args, **kwargs: np.random.rand(4, 64, 64, 1, 2).astype(np.float32),
+        )
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner.compute_metrics",
+            fake_compute_metrics,
+        )
+
+        run_grid_lines_torch(cfg)
+
+        assert captured["gt_shape"] == (462, 461)
+        assert captured["pred_shape"] == (462, 461)
+
     def test_position_reassembly_mode_requires_coords_offsets(self):
         """Position mode should fail fast when coords_offsets are absent."""
         pred = np.ones((2, 64, 64, 1), dtype=np.complex64)
         with pytest.raises(ValueError, match="coords_offsets"):
             _reassemble_with_coords_offsets(pred, {"diffraction": np.ones((2, 64, 64, 1), dtype=np.float32)})
+
+    def test_position_reassembly_handles_channel_first_predictions(self, monkeypatch):
+        """Channel-first predictions should be normalized before position reassembly."""
+        captured = {}
+
+        def fake_reassemble(obj_tensor, global_offsets, M=20):
+            captured["obj_shape"] = tuple(np.asarray(obj_tensor).shape)
+            captured["offsets_shape"] = tuple(np.asarray(global_offsets).shape)
+            captured["M"] = int(M)
+            return np.ones((64, 64), dtype=np.complex64)
+
+        monkeypatch.setattr("ptycho.tf_helper.reassemble_position", fake_reassemble)
+
+        pred_channel_first = np.ones((4, 1, 64, 64), dtype=np.complex64)
+        test_data = {"coords_offsets": np.zeros((4, 1, 2, 1), dtype=np.float64)}
+        _ = _reassemble_with_coords_offsets(pred_channel_first, test_data, M=64)
+
+        assert captured["obj_shape"] == (4, 64, 64, 1)
+        assert captured["offsets_shape"] == (4, 1, 1, 2)
+        assert captured["M"] == 64
 
     def test_grid_lines_mode_keeps_existing_stitching_path(self, synthetic_npz, tmp_path, monkeypatch):
         """grid_lines mode should still use the stitch helper path."""
@@ -972,3 +1076,81 @@ def test_main_writes_cli_invocation_artifacts(tmp_path, monkeypatch):
     payload = json.loads(inv_json.read_text())
     assert "grid_lines_torch_runner.py" in payload["command"]
     assert "--architecture" in payload["argv"]
+
+
+def test_main_defaults_torch_logger_to_csv(tmp_path, monkeypatch):
+    from scripts.studies import grid_lines_torch_runner as runner
+
+    captured = {"cfg": None}
+
+    def fake_run_grid_lines_torch(cfg):
+        captured["cfg"] = cfg
+        run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        return {"run_dir": str(run_dir), "metrics": {}}
+
+    monkeypatch.setattr(runner, "run_grid_lines_torch", fake_run_grid_lines_torch)
+
+    out_dir = tmp_path / "output"
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    train_npz.write_bytes(b"stub")
+    test_npz.write_bytes(b"stub")
+
+    runner.main(
+        [
+            "--train-npz",
+            str(train_npz),
+            "--test-npz",
+            str(test_npz),
+            "--output-dir",
+            str(out_dir),
+            "--architecture",
+            "fno",
+            "--epochs",
+            "1",
+        ]
+    )
+
+    assert captured["cfg"] is not None
+    assert captured["cfg"].logger_backend == "csv"
+
+
+def test_main_maps_torch_logger_none_to_disabled(tmp_path, monkeypatch):
+    from scripts.studies import grid_lines_torch_runner as runner
+
+    captured = {"cfg": None}
+
+    def fake_run_grid_lines_torch(cfg):
+        captured["cfg"] = cfg
+        run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        return {"run_dir": str(run_dir), "metrics": {}}
+
+    monkeypatch.setattr(runner, "run_grid_lines_torch", fake_run_grid_lines_torch)
+
+    out_dir = tmp_path / "output"
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    train_npz.write_bytes(b"stub")
+    test_npz.write_bytes(b"stub")
+
+    runner.main(
+        [
+            "--train-npz",
+            str(train_npz),
+            "--test-npz",
+            str(test_npz),
+            "--output-dir",
+            str(out_dir),
+            "--architecture",
+            "fno",
+            "--epochs",
+            "1",
+            "--torch-logger",
+            "none",
+        ]
+    )
+
+    assert captured["cfg"] is not None
+    assert captured["cfg"].logger_backend is None

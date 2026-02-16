@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Make the `N=128` fly001 external study reproducible and discoverable by adding a canonicalization/split pipeline, registering the study runbook, and updating dataset/study documentation.
+**Goal:** Make the `N=128` fly001 external study reproducible and discoverable with a deterministic prep pipeline where training uses only the top half of the object while test uses the full object (no subsampling), then register the runbook and documentation.
 
-**Architecture:** Add one deterministic dataset-prep script that converts raw fly001-128 NPZ into canonical NPZ and creates disjoint top/bottom splits plus a manifest. Use those split files as the fixed inputs for a dedicated study launcher under `.artifacts/studies/...`. Register the launcher in `docs/studies/index.md` and add dataset-level docs linked from `docs/index.md` and command recipes.
+**Architecture:** Add one deterministic dataset-prep script that converts raw fly001-128 NPZ into canonical NPZ, creates a top-half train split, and emits a full-object test NPZ plus manifest. Update the external study launcher to consume top-half train + full test with no `n_groups`/`n_subsample` downsampling. Register the launcher in `docs/studies/index.md` and add dataset-level docs linked from `docs/index.md` and command recipes.
 
 **Tech Stack:** Python 3.11, NumPy NPZ I/O, existing `transpose_rename_convert_tool` semantics, pytest, shell launcher scripts, Markdown docs.
 
@@ -17,7 +17,7 @@
 - Follow TDD with small commits (`@superpowers:test-driven-development`, `@superpowers:verification-before-completion`).
 - Keep artifacts lightweight in git; store executable runbook in `.artifacts/studies/...` and document outputs in docs.
 
-### Task 1: Build Deterministic N=128 Prep Script (Canonicalize + Top/Bottom Split + Manifest)
+### Task 1: Build Deterministic N=128 Prep Script (Canonicalize + Top-Half Train + Full-Test + Manifest)
 
 **Files:**
 - Create: `scripts/studies/prepare_fly001_128_external_split.py`
@@ -50,7 +50,7 @@ def _write_raw_npz(path: Path):
     )
 
 
-def test_prepare_dataset_writes_canonical_and_disjoint_splits(tmp_path):
+def test_prepare_dataset_writes_top_half_train_and_full_test(tmp_path):
     raw = tmp_path / "fly001_128_train.npz"
     out = tmp_path / "fly001_128"
     _write_raw_npz(raw)
@@ -59,21 +59,24 @@ def test_prepare_dataset_writes_canonical_and_disjoint_splits(tmp_path):
 
     canonical = np.load(result["canonical_npz"], allow_pickle=True)
     top = np.load(result["train_npz"], allow_pickle=True)
-    bottom = np.load(result["test_npz"], allow_pickle=True)
+    full_test = np.load(result["test_npz"], allow_pickle=True)
 
     assert "diffraction" in canonical.files
     assert canonical["diffraction"].dtype == np.float32
     assert "diff3d" not in canonical.files
 
     y_top = top["ycoords"]
-    y_bottom = bottom["ycoords"]
+    y_test = full_test["ycoords"]
     assert y_top.min() >= result["split_threshold"]
-    assert y_bottom.max() < result["split_threshold"]
+    assert y_top.size < canonical["ycoords"].size
+    assert y_test.size == canonical["ycoords"].size
+    assert np.array_equal(np.sort(y_test), np.sort(canonical["ycoords"]))
 
     manifest = json.loads(Path(result["manifest_json"]).read_text())
     assert manifest["source_file"] == str(raw)
     assert manifest["n_total"] == 10
-    assert manifest["n_train"] + manifest["n_test"] == 10
+    assert manifest["n_train"] < manifest["n_total"]
+    assert manifest["n_test"] == manifest["n_total"]
 ```
 
 **Step 2: Run test to verify it fails**
@@ -130,16 +133,14 @@ def prepare_dataset(*, raw_npz: Path, output_dir: Path) -> dict[str, str]:
     threshold = float((y.min() + y.max()) / 2.0)
 
     train_mask = y >= threshold
-    test_mask = ~train_mask
-
     canonical_npz = output_dir / "fly001_128_train_converted.npz"
     train_npz = output_dir / "fly001_128_top_half_converted.npz"
-    test_npz = output_dir / "fly001_128_bottom_half_converted.npz"
+    test_npz = output_dir / "fly001_128_full_test_converted.npz"
     manifest_json = output_dir / "manifest.json"
 
     np.savez_compressed(canonical_npz, **canonical)
     np.savez_compressed(train_npz, **_split_payload(canonical, train_mask))
-    np.savez_compressed(test_npz, **_split_payload(canonical, test_mask))
+    np.savez_compressed(test_npz, **canonical)
 
     manifest = {
         "source_file": str(raw_npz),
@@ -147,11 +148,12 @@ def prepare_dataset(*, raw_npz: Path, output_dir: Path) -> dict[str, str]:
         "canonical_npz": str(canonical_npz),
         "train_npz": str(train_npz),
         "test_npz": str(test_npz),
-        "split_axis": "ycoords",
+        "train_split_axis": "ycoords",
         "split_threshold": threshold,
         "n_total": int(y.size),
         "n_train": int(train_mask.sum()),
-        "n_test": int(test_mask.sum()),
+        "n_test": int(y.size),
+        "test_policy": "full_object",
     }
     manifest_json.write_text(json.dumps(manifest, indent=2))
 
@@ -238,7 +240,9 @@ git commit -m "feat(studies): add CLI and manifest guarantees for fly001 N128 pr
 ### Task 3: Add Reproducible N=128 Study Launcher + Studies Index Entry
 
 **Files:**
-- Create: `.artifacts/studies/grid_lines_external_fly001_n128_top_train_bottom_test_e40/run_study.sh`
+- Modify: `scripts/studies/grid_study_dataset_builder.py`
+- Modify: `tests/studies/test_grid_study_dataset_builder.py`
+- Create: `.artifacts/studies/grid_lines_external_fly001_n128_top_train_full_test_e40/run_study.sh`
 - Modify: `docs/studies/index.md`
 - Create: `tests/studies/test_studies_index_entries.py`
 
@@ -250,8 +254,8 @@ from pathlib import Path
 
 def test_study_index_registers_fly001_n128_external_runbook():
     index = Path("docs/studies/index.md").read_text()
-    assert "grid-lines-external-fly001-n128-top-train-bottom-test-e40" in index
-    script = Path(".artifacts/studies/grid_lines_external_fly001_n128_top_train_bottom_test_e40/run_study.sh")
+    assert "grid-lines-external-fly001-n128-top-train-full-test-e40" in index
+    script = Path(".artifacts/studies/grid_lines_external_fly001_n128_top_train_full_test_e40/run_study.sh")
     assert script.exists()
 ```
 
@@ -263,21 +267,22 @@ Expected: FAIL (entry/script missing).
 **Step 3: Write minimal implementation**
 
 ```bash
-# .artifacts/studies/grid_lines_external_fly001_n128_top_train_bottom_test_e40/run_study.sh
+# .artifacts/studies/grid_lines_external_fly001_n128_top_train_full_test_e40/run_study.sh
 # - call build_datasets(dataset_source="external_raw_npz", required_ns=[128])
 # - use train_data=~/Documents/128_res/fly001_128_top_half_converted.npz
-# - use test_data=~/Documents/128_res/fly001_128_bottom_half_converted.npz
-# - set N=128, n_groups=4096, epochs=40, reassembly_mode="position"
+# - use test_data=~/Documents/128_res/fly001_128_full_test_converted.npz
+# - set N=128, epochs=40, reassembly_mode="position"
+# - pass n_groups=None and n_subsample=None (no downsampling; use full available groups from each split)
 # - run hybrid_resnet and cnn
 # - finalize compare outputs
 ```
 
 ```markdown
 <!-- docs/studies/index.md -->
-### `grid-lines-external-fly001-n128-top-train-bottom-test-e40`
-- Purpose: External raw NPZ study on fly001 N=128 with disjoint top-half train / bottom-half test.
-- Script: `.artifacts/studies/grid_lines_external_fly001_n128_top_train_bottom_test_e40/run_study.sh`
-- Output directory: `outputs/grid_lines_external_fly001_n128_top_train_bottom_test_n4096_e40_seed3_cnn_hybrid_resnet`
+### `grid-lines-external-fly001-n128-top-train-full-test-e40`
+- Purpose: External raw NPZ study on fly001 N=128 with top-half train and full-object test.
+- Script: `.artifacts/studies/grid_lines_external_fly001_n128_top_train_full_test_e40/run_study.sh`
+- Output directory: `outputs/grid_lines_external_fly001_n128_top_train_full_test_e40_seed3_cnn_hybrid_resnet`
 - Dataset manifest: `datasets/fly001_128/manifest.json`
 ```
 
@@ -289,7 +294,7 @@ Expected: PASS.
 **Step 5: Commit**
 
 ```bash
-git add tests/studies/test_studies_index_entries.py docs/studies/index.md .artifacts/studies/grid_lines_external_fly001_n128_top_train_bottom_test_e40/run_study.sh
+git add tests/studies/test_grid_study_dataset_builder.py scripts/studies/grid_study_dataset_builder.py tests/studies/test_studies_index_entries.py docs/studies/index.md .artifacts/studies/grid_lines_external_fly001_n128_top_train_full_test_e40/run_study.sh
 git commit -m "docs(studies): register fly001 N128 external runbook"
 ```
 
@@ -313,7 +318,7 @@ def test_docs_index_links_fly001_128_dataset_guide():
 def test_commands_reference_contains_fly001_128_recipe():
     text = Path("docs/COMMANDS_REFERENCE.md").read_text()
     assert "fly001_128_top_half_converted.npz" in text
-    assert "fly001_128_bottom_half_converted.npz" in text
+    assert "fly001_128_full_test_converted.npz" in text
 ```
 
 **Step 2: Run test to verify it fails**
@@ -327,7 +332,7 @@ Expected: FAIL.
 # docs/FLY001_128_DATASET_GUIDE.md
 - Raw file format summary for `~/Documents/128_res/fly001_128_train.npz`
 - Canonicalization rule (`diff3d` -> `diffraction`, uint16 -> float32)
-- Deterministic split policy (`ycoords >= threshold` train, `< threshold` test)
+- Deterministic split policy (`ycoords >= threshold` for train top half; test uses full canonical object)
 - Paths produced in `datasets/fly001_128/`
 - Manifest schema and example
 ```
@@ -368,7 +373,7 @@ git commit -m "docs: add fly001 N128 dataset guide and command recipes"
 # check required files
 ls docs/FLY001_128_DATASET_GUIDE.md \
    docs/studies/index.md \
-   .artifacts/studies/grid_lines_external_fly001_n128_top_train_bottom_test_e40/run_study.sh \
+   .artifacts/studies/grid_lines_external_fly001_n128_top_train_full_test_e40/run_study.sh \
    scripts/studies/prepare_fly001_128_external_split.py
 ```
 
@@ -391,11 +396,11 @@ python scripts/studies/prepare_fly001_128_external_split.py \
   --output-dir datasets/fly001_128
 ```
 
-Expected: writes canonical + split NPZs + `datasets/fly001_128/manifest.json`.
+Expected: writes canonical NPZ + top-half train NPZ + full-test NPZ + `datasets/fly001_128/manifest.json`.
 
 **Step 4: Optional study smoke (short)**
 
-Run (optional quick validation): edit launcher to `nepochs=1`, `n_groups=64` and execute once.
+Run (optional quick validation): edit launcher to `nepochs=1` and execute once.
 Expected: output tree created, metrics emitted.
 
 **Step 5: Commit**
@@ -408,5 +413,5 @@ git commit -m "chore(studies): finalize fly001 N128 reproducibility verification
 ## Notes for Execution
 
 - The full 40-epoch N=128 study is computationally heavy; use a short smoke first, then full run.
-- Keep train/test disjoint by construction (top vs bottom split); avoid using identical train/test paths.
+- Keep train spatially restricted (`top-half`) and test full-object; do not apply additional n_subsample/n_groups downsampling in this study path.
 - Do not rely on `scan_index` as unique identity for fly001/fly64 provenance checks; use coordinate matching.

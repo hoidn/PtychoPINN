@@ -99,7 +99,7 @@ You can provide a custom configuration file using the `--config` command-line ar
      --scheduler ReduceLROnPlateau \
      --torch-plateau-factor 0.5 \
      --torch-plateau-patience 2 \
-     --torch-plateau-min-lr 1e-4 \
+     --torch-plateau-min-lr 5e-5 \
      --torch-plateau-threshold 0.0
    ```
    Note: The `--torch-plateau-*` flags only apply when `--backend pytorch` is set.

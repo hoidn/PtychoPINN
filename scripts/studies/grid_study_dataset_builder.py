@@ -118,35 +118,48 @@ def _build_external_bundle_for_n(
     n_value: int,
     train_data: Path,
     test_data: Path,
-    n_groups: int,
+    n_groups: Optional[int],
     n_subsample: Optional[int],
     neighbor_count: int,
     subsample_seed: Optional[int],
 ) -> GridStudyDatasetBundle:
-    meta_cfg = _build_metadata_config(
-        n_value=n_value,
-        cfg=cfg,
-        n_groups=n_groups,
-        n_subsample=n_subsample,
-        neighbor_count=neighbor_count,
-        subsample_seed=subsample_seed,
-    )
-    update_legacy_dict(params.cfg, meta_cfg)
-
     raw_train = wf_components.load_data(
         str(train_data),
         n_images=n_groups,
         n_subsample=n_subsample,
-        n_samples=n_groups,
+        n_samples=(n_groups if n_groups is not None else 1),
         subsample_seed=subsample_seed,
     )
     raw_test = wf_components.load_data(
         str(test_data),
         n_images=n_groups,
         n_subsample=n_subsample,
-        n_samples=n_groups,
+        n_samples=(n_groups if n_groups is not None else 1),
         subsample_seed=subsample_seed,
     )
+
+    train_group_count = int(n_groups) if n_groups is not None else int(raw_train.xcoords.shape[0])
+    test_group_count = int(n_groups) if n_groups is not None else int(raw_test.xcoords.shape[0])
+    if train_group_count <= 0 or test_group_count <= 0:
+        raise ValueError("Resolved n_groups must be positive for both train and test splits.")
+
+    meta_cfg_train = _build_metadata_config(
+        n_value=n_value,
+        cfg=cfg,
+        n_groups=train_group_count,
+        n_subsample=n_subsample,
+        neighbor_count=neighbor_count,
+        subsample_seed=subsample_seed,
+    )
+    meta_cfg_test = _build_metadata_config(
+        n_value=n_value,
+        cfg=cfg,
+        n_groups=test_group_count,
+        n_subsample=n_subsample,
+        neighbor_count=neighbor_count,
+        subsample_seed=subsample_seed,
+    )
+    update_legacy_dict(params.cfg, meta_cfg_train)
 
     if raw_train.objectGuess is None or raw_test.objectGuess is None:
         raise ValueError("external_raw_npz requires objectGuess for canonical GT reconstruction.")
@@ -154,7 +167,7 @@ def _build_external_bundle_for_n(
     grouped_train = raw_train.generate_grouped_data(
         N=n_value,
         K=neighbor_count,
-        nsamples=n_groups,
+        nsamples=train_group_count,
         dataset_path=str(train_data),
         seed=subsample_seed,
         gridsize=cfg.gridsize,
@@ -162,7 +175,7 @@ def _build_external_bundle_for_n(
     grouped_test = raw_test.generate_grouped_data(
         N=n_value,
         K=neighbor_count,
-        nsamples=n_groups,
+        nsamples=test_group_count,
         dataset_path=str(test_data),
         seed=subsample_seed,
         gridsize=cfg.gridsize,
@@ -195,9 +208,9 @@ def _build_external_bundle_for_n(
     _save_external_split(
         path=train_npz,
         payload=train_payload,
-        metadata_cfg=meta_cfg,
+        metadata_cfg=meta_cfg_train,
         cfg=cfg,
-        n_groups=n_groups,
+        n_groups=train_group_count,
         n_subsample=n_subsample,
         neighbor_count=neighbor_count,
         subsample_seed=subsample_seed,
@@ -205,9 +218,9 @@ def _build_external_bundle_for_n(
     _save_external_split(
         path=test_npz,
         payload=test_payload,
-        metadata_cfg=meta_cfg,
+        metadata_cfg=meta_cfg_test,
         cfg=cfg,
-        n_groups=n_groups,
+        n_groups=test_group_count,
         n_subsample=n_subsample,
         neighbor_count=neighbor_count,
         subsample_seed=subsample_seed,
@@ -228,7 +241,7 @@ def build_datasets(
     required_ns: Iterable[int],
     train_data: Optional[Path] = None,
     test_data: Optional[Path] = None,
-    n_groups: int = 512,
+    n_groups: Optional[int] = 512,
     n_subsample: Optional[int] = None,
     neighbor_count: int = 7,
     subsample_seed: Optional[int] = None,

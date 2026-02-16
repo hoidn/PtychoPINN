@@ -22,7 +22,7 @@ def _write_raw_npz(path: Path) -> None:
     )
 
 
-def test_prepare_dataset_writes_canonical_and_disjoint_splits(tmp_path):
+def test_prepare_dataset_writes_top_half_train_and_full_test(tmp_path):
     raw = tmp_path / "fly001_128_train.npz"
     out = tmp_path / "fly001_128"
     _write_raw_npz(raw)
@@ -31,21 +31,24 @@ def test_prepare_dataset_writes_canonical_and_disjoint_splits(tmp_path):
 
     canonical = np.load(result["canonical_npz"], allow_pickle=True)
     top = np.load(result["train_npz"], allow_pickle=True)
-    bottom = np.load(result["test_npz"], allow_pickle=True)
+    full_test = np.load(result["test_npz"], allow_pickle=True)
 
     assert "diffraction" in canonical.files
     assert canonical["diffraction"].dtype == np.float32
     assert "diff3d" not in canonical.files
 
     y_top = top["ycoords"]
-    y_bottom = bottom["ycoords"]
+    y_test = full_test["ycoords"]
     assert y_top.min() >= result["split_threshold"]
-    assert y_bottom.max() < result["split_threshold"]
+    assert y_top.size < canonical["ycoords"].size
+    assert y_test.size == canonical["ycoords"].size
+    assert np.array_equal(np.sort(y_test), np.sort(canonical["ycoords"]))
 
     manifest = json.loads(Path(result["manifest_json"]).read_text())
     assert manifest["source_file"] == str(raw)
     assert manifest["n_total"] == 10
-    assert manifest["n_train"] + manifest["n_test"] == 10
+    assert manifest["n_train"] < manifest["n_total"]
+    assert manifest["n_test"] == manifest["n_total"]
 
 
 def test_cli_writes_manifest_with_required_fields(tmp_path, monkeypatch, capsys):
