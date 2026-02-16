@@ -277,6 +277,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** fly64, experimental-data, preprocessing, dataset-variants  
 **Use this when:** Working with real experimental ptychography data (fly64) or need to understand dataset preprocessing requirements.
 
+#### [FLY001 N=128 Dataset Guide](FLY001_128_DATASET_GUIDE.md)
+**Description:** Reproducible preparation guide for the fly001 `N=128` dataset, including canonicalization, deterministic top/bottom split generation, and manifest provenance fields used by external grid-lines studies.  
+**Keywords:** fly001, n128, external-dataset, canonicalization, split, provenance  
+**Use this when:** Preparing or validating the disjoint train/test fly001 `N=128` external-study datasets.
+
 #### [FLY64 Generalization Analysis](FLY64_GENERALIZATION_STUDY_ANALYSIS.md)
 **Description:** Detailed analysis of a complete generalization study on fly64 dataset revealing unexpected results where baseline models significantly outperform PtychoPINN.  
 **Keywords:** fly64-analysis, unexpected-results, baseline-superiority, methodology-validation  

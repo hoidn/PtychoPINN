@@ -417,6 +417,20 @@ python scripts/studies/grid_lines_compare_wrapper.py \
     --test-data datasets/fly64/fly001_64_train_converted.npz \
     --models pinn_hybrid_resnet \
     --nepochs 3 --batch-size 16 --seed 3
+
+# Reproducible fly001 N=128 disjoint external study prep
+python scripts/studies/prepare_fly001_128_external_split.py \
+    --input-npz ~/Documents/128_res/fly001_128_train.npz \
+    --output-dir datasets/fly001_128
+
+# Outputs:
+#   datasets/fly001_128/fly001_128_train_converted.npz
+#   datasets/fly001_128/fly001_128_top_half_converted.npz
+#   datasets/fly001_128/fly001_128_bottom_half_converted.npz
+#   datasets/fly001_128/manifest.json
+
+# Reproducible fly001 N=128 external runbook (top-half train, bottom-half test)
+bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_bottom_test_e40.sh
 ```
 
 Invocation artifacts emitted by `grid_lines_compare_wrapper.py`:
