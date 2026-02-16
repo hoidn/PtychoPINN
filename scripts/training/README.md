@@ -25,6 +25,9 @@ The data should be provided as a NumPy `.npz` file with the following keys:
 - `probeGuess`: complex-valued probe ground truth
 - `scan_index`: array indicating the scan index for each diffraction pattern
 
+Note: Some legacy datasets (including fly64 variants) may contain non-unique or placeholder `scan_index` values.
+For dataset alignment/provenance checks, prefer coordinate-based matching (`xcoords`, `ycoords`).
+
 Note: The distinction between `xcoords`/`ycoords` and `xcoords_start`/`ycoords_start` is only relevant if the iterative solver used to generate the probe ground truth used position correction. This distinction is deprecated, so `xcoords` and `xcoords_start` (and `ycoords` and `ycoords_start`) can be assumed to be the same.
 
 The height and width of the diffraction patterns are equal and determined by the model parameter `N`, which is typically set to 64 or 128. The value of `N` should be consistent with the model configuration.

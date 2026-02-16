@@ -82,6 +82,9 @@ Starting 2026-01-27, the `config.model.architecture` field routes through the ge
   - `synthetic_lines`: existing TF/Torch/PtychoViT study behavior.
   - `external_raw_npz` (phase 1): Torch model IDs only, with `--train-data` and `--test-data` required.
 - In `external_raw_npz` mode, the Torch runner uses position-based reassembly (`coords_offsets`) instead of grid-lines stitching metadata.
+  - Reassembly in this mode uses full patch support (`M = N`) for external coordinate datasets.
+  - Channel-first predictions (`B, C, H, W`) are normalized to channel-last before position reassembly.
+  - Metrics evaluation normalizes 2D complex reconstructions to `(H, W, 1)` before calling evaluation helpers.
 
 - `config.debug`: Controls progress bars and logging verbosity (default: `False`)
 - `config.output_dir`: Directory for checkpoints and artifacts (required for persistence)

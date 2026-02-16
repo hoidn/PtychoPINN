@@ -29,7 +29,7 @@ Choose the path that matches your starting point and goal.
 
 ```bash
 # 1. Canonicalize raw data (REQUIRED FIRST STEP for experimental data)
-#    Why: Converts uint16 intensity to float32 amplitude and renames keys.
+#    Why: Converts uint16 diffraction/intensity arrays to float32 and renames keys.
 python scripts/tools/transpose_rename_convert_tool.py raw_data.npz converted_data.npz
 
 # 2. Shuffle the dataset (OPTIONAL - useful for creating canonical benchmark datasets)
