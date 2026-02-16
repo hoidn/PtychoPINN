@@ -2,6 +2,22 @@
 
 ## Grid-Lines Studies
 
+### `grid-lines-external-fly001-n128-top-train-bottom-test-e40`
+
+- Purpose: Run external-raw `fly001` study at `N=128` with disjoint split (`top-half` train, `bottom-half` test), comparing Torch `cnn` and `hybrid_resnet`.
+- Script: `scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_bottom_test_e40.sh`
+- Output directory: `outputs/grid_lines_external_fly001_n128_top_train_bottom_test_n4096_e40_seed3_cnn_hybrid_resnet`
+- Dataset inputs:
+  - `datasets/fly001_128/fly001_128_top_half_converted.npz`
+  - `datasets/fly001_128/fly001_128_bottom_half_converted.npz`
+  - `datasets/fly001_128/manifest.json`
+
+CLI entry point (full command):
+
+```bash
+bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_bottom_test_e40.sh
+```
+
 ### `grid-lines-n64-pinn-hybrid-resnet-e20`
 
 - Purpose: Run `N=64` grid-lines with `pinn` (TF) and `pinn_hybrid_resnet` (Torch) at `20` epochs, then render combined visuals.
