@@ -3,6 +3,9 @@
 
 ---
 
+## 0. Rules / suggestions 
+- use the tmux skill when launching long-running commands
+
 ## 1. ⚙️ Identity & Workflow Guardrails
 
 - **Plans & artifacts:** Keep evidence lean. For each initiative, maintain a single `plans/active/<initiative>/summary.md` and prepend a short Turn Summary per loop. Store bulky artifacts outside the repo (or under a git‑ignored `.artifacts/` folder) and link to them from the plan/ledger.
