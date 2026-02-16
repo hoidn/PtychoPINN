@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, Tuple
 import gc
 import json
+import re
 import numpy as np
 from skimage.restoration import unwrap_phase
 
@@ -663,6 +664,43 @@ _LABEL_TITLES = {
 }
 
 
+def _infer_patch_size_from_output_dir(output_dir: Path) -> Optional[int]:
+    """Infer N from path tokens like 'n64'/'n128' in study output directories."""
+    path_text = str(output_dir).lower()
+    matches = re.findall(r"(?:^|[_\-/])n(\d{2,4})(?:[_\-/]|$)", path_text)
+    if not matches:
+        return None
+    try:
+        return int(matches[-1])
+    except ValueError:
+        return None
+
+
+def _resolve_display_border_pixels(output_dir: Path, override: Optional[int] = None) -> int:
+    """Resolve border size used for color-limit estimation."""
+    if override is not None:
+        return max(0, int(override))
+    inferred_n = _infer_patch_size_from_output_dir(output_dir)
+    if inferred_n is None:
+        try:
+            inferred_n = int(p.get("N"))
+        except Exception:
+            inferred_n = 0
+    return max(0, int(inferred_n) // 2)
+
+
+def _inner_crop_for_display_bounds(array: np.ndarray, border_pixels: int) -> np.ndarray:
+    """Crop outer border when computing display bounds; fallback to full array if too small."""
+    arr = np.asarray(array)
+    if arr.ndim != 2 or border_pixels <= 0:
+        return arr
+    h, w = arr.shape
+    border = min(int(border_pixels), (h - 1) // 2, (w - 1) // 2)
+    if border <= 0:
+        return arr
+    return arr[border:h - border, border:w - border]
+
+
 def _safe_min_max(array: np.ndarray) -> Tuple[float, float] | None:
     if array is None or array.size == 0:
         return None
@@ -673,6 +711,15 @@ def _safe_min_max(array: np.ndarray) -> Tuple[float, float] | None:
     if np.isnan(vmin) or np.isnan(vmax):
         return None
     return float(vmin), float(vmax)
+
+
+def _display_bounds(array: np.ndarray, border_pixels: int = 0) -> Tuple[float, float] | None:
+    """Compute min/max for plotting, optionally excluding an outer artifact band."""
+    cropped = _inner_crop_for_display_bounds(array, border_pixels=border_pixels)
+    bounds = _safe_min_max(cropped)
+    if bounds is None and border_pixels > 0:
+        return _safe_min_max(array)
+    return bounds
 
 
 def _should_share_colorbar(
@@ -726,6 +773,7 @@ def save_comparison_png_dynamic(
     gt_phase: np.ndarray,
     recons: Dict[str, Dict[str, np.ndarray]],
     order: Tuple[str, ...],
+    border_pixels: Optional[int] = None,
 ) -> Path:
     """Save comparison plot with GT plus available model reconstructions."""
     import matplotlib.pyplot as plt
@@ -733,15 +781,24 @@ def save_comparison_png_dynamic(
     labels = [label for label in order if label in recons]
     ncols = 1 + len(labels)
     fig, axes = plt.subplots(2, ncols, figsize=(5 * ncols, 8), squeeze=False)
+    resolved_border = _resolve_display_border_pixels(output_dir, override=border_pixels)
 
     amp_arrays = [gt_amp]
     phase_arrays = [gt_phase]
+    amp_gt_bounds = _display_bounds(gt_amp, border_pixels=0)
+    phase_gt_bounds = _display_bounds(gt_phase, border_pixels=0)
 
-    amp_mappables = [axes[0, 0].imshow(gt_amp, cmap="viridis")]
+    amp_gt_kwargs = {}
+    if amp_gt_bounds is not None:
+        amp_gt_kwargs = {"vmin": amp_gt_bounds[0], "vmax": amp_gt_bounds[1]}
+    amp_mappables = [axes[0, 0].imshow(gt_amp, cmap="viridis", **amp_gt_kwargs)]
     axes[0, 0].set_title("GT Amplitude")
     axes[0, 0].axis("off")
 
-    phase_mappables = [axes[1, 0].imshow(gt_phase, cmap="twilight")]
+    phase_gt_kwargs = {}
+    if phase_gt_bounds is not None:
+        phase_gt_kwargs = {"vmin": phase_gt_bounds[0], "vmax": phase_gt_bounds[1]}
+    phase_mappables = [axes[1, 0].imshow(gt_phase, cmap="twilight", **phase_gt_kwargs)]
     axes[1, 0].set_title("GT Phase")
     axes[1, 0].axis("off")
 
@@ -749,15 +806,27 @@ def save_comparison_png_dynamic(
         amp = recons[label]["amp"]
         phase = recons[label]["phase"]
         title = _LABEL_TITLES.get(label, label)
+        amp_bounds = _display_bounds(amp, border_pixels=resolved_border)
+        phase_bounds = _display_bounds(phase, border_pixels=resolved_border)
+        amp_kwargs = {}
+        if amp_bounds is not None:
+            amp_kwargs = {"vmin": amp_bounds[0], "vmax": amp_bounds[1]}
+        phase_kwargs = {}
+        if phase_bounds is not None:
+            phase_kwargs = {"vmin": phase_bounds[0], "vmax": phase_bounds[1]}
 
         amp_arrays.append(amp)
         phase_arrays.append(phase)
 
-        amp_mappables.append(axes[0, idx].imshow(amp, cmap="viridis"))
+        amp_mappables.append(
+            axes[0, idx].imshow(amp, cmap="viridis", **amp_kwargs)
+        )
         axes[0, idx].set_title(f"{title} Amplitude")
         axes[0, idx].axis("off")
 
-        phase_mappables.append(axes[1, idx].imshow(phase, cmap="twilight"))
+        phase_mappables.append(
+            axes[1, idx].imshow(phase, cmap="twilight", **phase_kwargs)
+        )
         axes[1, idx].set_title(f"{title} Phase")
         axes[1, idx].axis("off")
 
@@ -778,18 +847,27 @@ def save_amp_phase_png(
     label: str,
     amp: np.ndarray,
     phase: np.ndarray,
+    border_pixels: int = 0,
 ) -> Path:
     """Save per-model amplitude/phase visualization."""
     import matplotlib.pyplot as plt
 
     fig, axes = plt.subplots(2, 1, figsize=(6, 8), squeeze=False)
     title = _LABEL_TITLES.get(label, label)
+    amp_bounds = _display_bounds(amp, border_pixels=border_pixels)
+    phase_bounds = _display_bounds(phase, border_pixels=border_pixels)
+    amp_kwargs = {}
+    if amp_bounds is not None:
+        amp_kwargs = {"vmin": amp_bounds[0], "vmax": amp_bounds[1]}
+    phase_kwargs = {}
+    if phase_bounds is not None:
+        phase_kwargs = {"vmin": phase_bounds[0], "vmax": phase_bounds[1]}
 
-    amp_mappable = axes[0, 0].imshow(amp, cmap="viridis")
+    amp_mappable = axes[0, 0].imshow(amp, cmap="viridis", **amp_kwargs)
     axes[0, 0].set_title(f"{title} Amplitude")
     axes[0, 0].axis("off")
 
-    phase_mappable = axes[1, 0].imshow(phase, cmap="twilight")
+    phase_mappable = axes[1, 0].imshow(phase, cmap="twilight", **phase_kwargs)
     axes[1, 0].set_title(f"{title} Phase")
     axes[1, 0].axis("off")
 
@@ -807,6 +885,7 @@ def render_grid_lines_visuals(output_dir: Path, order: Tuple[str, ...]) -> Dict[
     """Render composite and per-model visuals from recon artifacts."""
     visuals_dir = output_dir / "visuals"
     visuals_dir.mkdir(parents=True, exist_ok=True)
+    resolved_border = _resolve_display_border_pixels(output_dir)
 
     recons: Dict[str, Dict[str, np.ndarray]] = {}
     per_model_paths: Dict[str, str] = {}
@@ -820,7 +899,10 @@ def render_grid_lines_visuals(output_dir: Path, order: Tuple[str, ...]) -> Dict[
             amp = data["amp"]
             phase = data["phase"]
         recons[label] = {"amp": amp, "phase": phase}
-        per_model_paths[label] = str(save_amp_phase_png(visuals_dir, label, amp, phase))
+        label_border = 0 if label == "gt" else resolved_border
+        per_model_paths[label] = str(
+            save_amp_phase_png(visuals_dir, label, amp, phase, border_pixels=label_border)
+        )
 
     outputs: Dict[str, str] = {}
     for label, path in per_model_paths.items():
@@ -836,6 +918,7 @@ def render_grid_lines_visuals(output_dir: Path, order: Tuple[str, ...]) -> Dict[
         gt["phase"],
         {label: data for label, data in recons.items() if label != "gt"},
         order=tuple(label for label in order if label != "gt"),
+        border_pixels=resolved_border,
     )
     outputs["compare"] = str(compare)
     return outputs

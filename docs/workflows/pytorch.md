@@ -235,6 +235,16 @@ recon_amp, recon_phase, results = _reassemble_cdi_image_torch(
 )
 ```
 
+### Train→Inference Device Handoff (DEVICE-HANDOFF-001)
+
+When chaining Lightning training and custom inference in the same process:
+
+- Do not assume the post-fit module still resides on the accelerator used for training.
+- Before running any inference batches, explicitly resolve the target device (`cuda`/`mps`/`cpu`) and call `model.to(device)`.
+- Do not use `next(model.parameters()).device` as the sole source of truth for runtime placement.
+
+This guard prevents silent CPU fallback and large inference-time slowdowns.
+
 **Implementation Status (Phase D2.C, complete as of 2025-10-19):**
 - `_reassemble_cdi_image_torch` now performs Lightning inference and reconstructs full images
 - Supports `flip_x`, `flip_y`, and `transpose` coordinate transforms for data alignment

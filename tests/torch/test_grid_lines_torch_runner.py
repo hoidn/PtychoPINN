@@ -1040,6 +1040,52 @@ class TestForwardSignatureEnforcement:
             assert probe is not None
             assert input_scale_factor.shape[-3:] == (1, 1, 1)
 
+    def test_inference_explicitly_moves_model_to_device(self, synthetic_npz, tmp_path):
+        """Inference must call model.to(device) before running forward_predict."""
+        from scripts.studies.grid_lines_torch_runner import run_torch_inference
+        import torch
+
+        _, test_path = synthetic_npz
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=test_path,
+            output_dir=tmp_path,
+            architecture="fno",
+        )
+
+        class SpyModel(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.param = torch.nn.Parameter(torch.zeros(1, dtype=torch.float32))
+                self.to_calls = []
+
+            def eval(self):
+                return self
+
+            def to(self, device):
+                self.to_calls.append(str(device))
+                return super().to(device)
+
+            def forward_predict(self, x, positions, probe, input_scale_factor):
+                _ = (positions, probe, input_scale_factor)
+                return torch.zeros(
+                    x.shape[0],
+                    x.shape[2],
+                    x.shape[3],
+                    dtype=torch.complex64,
+                    device=x.device,
+                )
+
+        test_data = dict(np.load(test_path, allow_pickle=True))
+        model = SpyModel()
+        _ = run_torch_inference(model, test_data, cfg)
+
+        assert model.to_calls, "run_torch_inference must call model.to(device) explicitly"
+        assert any(
+            ("cpu" in call) or ("cuda" in call) or ("mps" in call)
+            for call in model.to_calls
+        )
+
 
 class TestOutputContractConversion:
     """Tests for output contract conversion (real/imag to complex)."""

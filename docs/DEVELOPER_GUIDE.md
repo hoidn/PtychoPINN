@@ -111,6 +111,14 @@ and test requirements.
 
 ---
 
+### 2.5. Anti-Pattern: Implicit Device Inheritance Across Train→Infer Boundaries
+
+Rule: do not assume model device placement survives `Trainer.fit(...)`.
+At every train→infer boundary, explicitly resolve the target inference device and call `model.to(device)` before the forward loop.
+Relying on implicit parameter-device inheritance can silently force CPU inference.
+
+---
+
 ## 3. The Data Pipeline: Contracts and Bookkeeping
 
 A data pipeline's file formats and loading logic constitute a public API. Its behavior must be explicit and robust.

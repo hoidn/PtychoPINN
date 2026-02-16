@@ -588,6 +588,27 @@ def run_torch_inference(
     if model is None:
         raise ValueError("Model is required for inference")
 
+    def _resolve_inference_device() -> torch.device:
+        # Prefer current non-CPU model placement when present. If the model ended
+        # up on CPU after trainer.fit(), explicitly re-select the best available
+        # accelerator for inference.
+        if hasattr(model, "parameters"):
+            try:
+                first_param = next(model.parameters())
+            except StopIteration:
+                first_param = None
+            if first_param is not None and first_param.device.type != "cpu":
+                return first_param.device
+
+        if torch.cuda.is_available():
+            return torch.device("cuda")
+
+        mps_backend = getattr(torch.backends, "mps", None)
+        if mps_backend is not None and mps_backend.is_available():
+            return torch.device("mps")
+
+        return torch.device("cpu")
+
     X_np = np.asarray(test_data['diffraction'])
     if X_np.ndim == 3:
         X_np = X_np[..., np.newaxis]
@@ -605,11 +626,14 @@ def run_torch_inference(
     coords_test = torch.from_numpy(coords_np).float()
     probe_test = torch.from_numpy(probe_np).to(torch.complex64)
 
+    device = _resolve_inference_device()
+    if hasattr(model, "to") and callable(model.to):
+        model = model.to(device)
     model.eval()
-    device = next(model.parameters()).device if hasattr(model, "parameters") else torch.device("cpu")
     target_model = model.module if isinstance(model, torch.nn.DataParallel) else model
     preds = []
     batch_size = max(1, cfg.infer_batch_size)
+    probe_test = probe_test.to(device)
 
     with torch.no_grad():
         for start in range(0, n_samples, batch_size):
@@ -617,7 +641,7 @@ def run_torch_inference(
             x_batch = X_test[start:end].to(device)
             coords_batch = coords_test[start:end].to(device)
             scale_batch = torch.ones((end - start, 1, 1, 1), device=device, dtype=torch.float32)
-            probe_batch = probe_test.to(device)
+            probe_batch = probe_test
             batch_pred = target_model.forward_predict(x_batch, coords_batch, probe_batch, scale_batch)
             preds.append(batch_pred.detach().cpu())
 

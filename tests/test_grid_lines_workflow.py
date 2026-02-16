@@ -19,6 +19,8 @@ from ptycho.workflows.grid_lines_workflow import (
     save_recon_artifact,
     save_comparison_png_dynamic,
     _should_share_colorbar,
+    _display_bounds,
+    _resolve_display_border_pixels,
 )
 from ptycho.config.config import ModelConfig, TrainingConfig
 from ptycho import params as p
@@ -658,6 +660,19 @@ class TestColorbarSharing:
     def test_share_when_single_subplot(self):
         arr1 = np.array([[0.0, 1.0]])
         assert _should_share_colorbar([arr1]) is True
+
+    def test_display_bounds_ignores_outer_band(self):
+        arr = np.ones((8, 8), dtype=np.float32)
+        arr[:2, :] = 10.0
+        arr[-2:, :] = 10.0
+        arr[:, :2] = 10.0
+        arr[:, -2:] = 10.0
+        bounds = _display_bounds(arr, border_pixels=2)
+        assert bounds == (1.0, 1.0)
+
+    def test_resolve_display_border_from_output_dir_token(self, tmp_path: Path):
+        out_dir = tmp_path / "grid_lines_external_fly001_n128_top_train_full_test_e5"
+        assert _resolve_display_border_pixels(out_dir) == 64
 
     def test_save_comparison_png_skips_missing(self, tmp_path: Path):
         """save_comparison_png_dynamic should skip missing labels."""
