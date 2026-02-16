@@ -11,6 +11,11 @@
   - `datasets/fly001_128/fly001_128_top_half_converted.npz`
   - `datasets/fly001_128/fly001_128_full_test_converted.npz`
   - `datasets/fly001_128/manifest.json`
+- Position reassembly strategy (external mode):
+  - Default is `auto` (`--torch-position-reassembly-backend auto`)
+  - For dense `N=128` runs, prefer explicit batched mode:
+    - `--torch-position-reassembly-backend batched`
+    - `--torch-position-reassembly-batch-size 32`
 
 CLI entry point (full command):
 

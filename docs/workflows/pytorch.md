@@ -85,6 +85,12 @@ Starting 2026-01-27, the `config.model.architecture` field routes through the ge
   - Reassembly in this mode uses full patch support (`M = N`) for external coordinate datasets.
   - Channel-first predictions (`B, C, H, W`) are normalized to channel-last before position reassembly.
   - Metrics evaluation normalizes 2D complex reconstructions to `(H, W, 1)` before calling evaluation helpers.
+  - Position reassembly strategy knobs:
+    - `--torch-position-reassembly-backend {auto,shift_sum,batched}` (default `auto`)
+    - `--torch-position-reassembly-batch-size <int>` (default `64`, used by `batched`)
+  - `auto` policy currently routes to batched reassembly for large jobs (`batch >= 1024` or `N >= 128`), otherwise shift-sum.
+  - If `auto` selects shift-sum and TensorFlow raises `ResourceExhaustedError`, the runner retries once with batched reassembly and logs a warning.
+  - Recommended for dense external `N=128` studies: set `--torch-position-reassembly-backend batched --torch-position-reassembly-batch-size 32` to minimize GPU OOM risk during metrics-time stitching.
 
 - `config.debug`: Controls progress bars and logging verbosity (default: `False`)
 - `config.output_dir`: Directory for checkpoints and artifacts (required for persistence)

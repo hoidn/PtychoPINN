@@ -268,6 +268,33 @@ def test_parse_args_external_raw_requires_train_and_test_data(tmp_path):
         )
 
 
+def test_parse_args_accepts_position_reassembly_strategy_flags(tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import parse_args
+
+    args = parse_args(
+        [
+            "--N",
+            "128",
+            "--gridsize",
+            "1",
+            "--output-dir",
+            str(tmp_path),
+            "--dataset-source",
+            "external_raw_npz",
+            "--train-data",
+            "train.npz",
+            "--test-data",
+            "test.npz",
+            "--torch-position-reassembly-backend",
+            "batched",
+            "--torch-position-reassembly-batch-size",
+            "32",
+        ]
+    )
+    assert args.torch_position_reassembly_backend == "batched"
+    assert args.torch_position_reassembly_batch_size == 32
+
+
 def test_external_raw_rejects_tf_and_ptychovit_models(tmp_path):
     from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
 
@@ -1132,6 +1159,63 @@ def test_external_raw_mode_sets_torch_reassembly_mode_position(monkeypatch, tmp_
         test_data=Path("datasets/fly64/fly001_64_train_converted.npz"),
     )
     assert captured["reassembly_mode"] == "position"
+
+
+def test_external_mode_passes_position_strategy_to_torch_runner(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    gt_path = tmp_path / "recons" / "gt" / "recon.npz"
+    gt_path.parent.mkdir(parents=True, exist_ok=True)
+    gt = (np.ones((64, 64)) + 1j * np.ones((64, 64))).astype(np.complex64)
+    np.savez(gt_path, YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+    train_npz = tmp_path / "datasets" / "N64" / "gs1" / "train.npz"
+    test_npz = tmp_path / "datasets" / "N64" / "gs1" / "test.npz"
+    for path in (train_npz, test_npz):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(path, diffraction=np.ones((2, 64, 64, 1), dtype=np.float32))
+
+    monkeypatch.setattr(
+        "scripts.studies.grid_study_dataset_builder.build_datasets",
+        lambda **kwargs: {
+            64: {
+                "train_npz": str(train_npz),
+                "test_npz": str(test_npz),
+                "gt_recon": str(gt_path),
+                "tag": "N64",
+            }
+        },
+    )
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals", lambda output_dir, order: {})
+    monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", lambda pred, gt, label: {"mse": 0.0})
+
+    captured = {}
+
+    def fake_torch_run(cfg):
+        captured["backend"] = cfg.position_reassembly_backend
+        captured["batch_size"] = cfg.position_reassembly_batch_size
+        recon_path = tmp_path / "recons" / "pinn_hybrid_resnet" / "recon.npz"
+        recon_path.parent.mkdir(parents=True, exist_ok=True)
+        pred = (np.ones((64, 64)) + 1j * np.ones((64, 64))).astype(np.complex64)
+        np.savez(recon_path, YY_pred=pred, amp=np.abs(pred), phase=np.angle(pred))
+        return {"recon_npz": str(recon_path), "metrics": {"mse": 0.1}}
+
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
+
+    run_grid_lines_compare(
+        N=64,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=("hybrid_resnet",),
+        models=("pinn_hybrid_resnet",),
+        probe_npz=Path("dummy_probe.npz"),
+        dataset_source="external_raw_npz",
+        train_data=Path("datasets/fly64/fly001_64_train_converted.npz"),
+        test_data=Path("datasets/fly64/fly001_64_train_converted.npz"),
+        torch_position_reassembly_backend="batched",
+        torch_position_reassembly_batch_size=32,
+    )
+    assert captured["backend"] == "batched"
+    assert captured["batch_size"] == 32
 
 
 def test_wrapper_accepts_plateau_scheduler(tmp_path):

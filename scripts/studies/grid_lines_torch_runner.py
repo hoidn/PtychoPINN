@@ -126,6 +126,21 @@ class TorchRunnerConfig:
     recon_log_stitch: bool = False
     recon_log_max_stitch_samples: Optional[int] = None
     reassembly_mode: str = "grid_lines"  # "grid_lines" | "position"
+    position_reassembly_backend: str = "auto"  # "auto" | "shift_sum" | "batched"
+    position_reassembly_batch_size: int = 64
+
+
+def _validate_position_reassembly_config(cfg: TorchRunnerConfig) -> None:
+    allowed = {"auto", "shift_sum", "batched"}
+    if cfg.position_reassembly_backend not in allowed:
+        raise ValueError(
+            f"Unsupported position_reassembly_backend={cfg.position_reassembly_backend!r}; "
+            f"expected one of {sorted(allowed)}."
+        )
+    if int(cfg.position_reassembly_batch_size) <= 0:
+        raise ValueError(
+            f"position_reassembly_batch_size must be > 0 (got {cfg.position_reassembly_batch_size})."
+        )
 
 
 def load_cached_dataset(npz_path: Path) -> Dict[str, np.ndarray]:
@@ -245,14 +260,11 @@ def _stitch_for_metrics(
     return stitch_predictions(pred_complex, float(norm_Y_I), part="complex")
 
 
-def _reassemble_with_coords_offsets(
+def _normalize_position_inputs(
     pred_complex: np.ndarray,
     test_data: Dict[str, np.ndarray],
-    M: int = 20,
-) -> np.ndarray:
-    """Reassemble predicted patches using coords_offsets (external dataset mode)."""
-    from ptycho import tf_helper as hh
-
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Normalize prediction and offset shapes for position reassembly backends."""
     coords_offsets = test_data.get("coords_offsets")
     if coords_offsets is None:
         raise ValueError("Position reassembly requires 'coords_offsets' in test data.")
@@ -277,20 +289,99 @@ def _reassemble_with_coords_offsets(
     else:
         raise ValueError(f"Unsupported prediction shape for position reassembly: {pred_np.shape}")
 
-    offsets = np.transpose(coords_np, (0, 1, 3, 2)).astype(np.float64)  # (B,1,1,2) when C1=1
-    if offsets.shape[0] != patches.shape[0]:
-        if patches.shape[0] % offsets.shape[0] != 0:
+    offsets_b12c = np.asarray(coords_np).astype(np.float64)  # (B,1,2,C)
+    offsets_b112 = np.transpose(offsets_b12c, (0, 1, 3, 2))  # (B,1,C,2) => (B,1,1,2) when C=1
+    if offsets_b112.shape[0] != patches.shape[0]:
+        if patches.shape[0] % offsets_b112.shape[0] != 0:
             raise ValueError(
-                f"Cannot align coords_offsets batch {offsets.shape[0]} with patches {patches.shape[0]}."
+                f"Cannot align coords_offsets batch {offsets_b112.shape[0]} with patches {patches.shape[0]}."
             )
-        repeats = patches.shape[0] // offsets.shape[0]
-        offsets = np.repeat(offsets, repeats, axis=0)
+        repeats = patches.shape[0] // offsets_b112.shape[0]
+        offsets_b112 = np.repeat(offsets_b112, repeats, axis=0)
+        offsets_b12c = np.repeat(offsets_b12c, repeats, axis=0)
 
-    from ptycho import params as p
-    p.set("N", int(patches.shape[1]))
-    stitched = hh.reassemble_position(patches, offsets, M=M)
-    stitched_np = np.asarray(stitched)
-    return np.squeeze(stitched_np).astype(np.complex64)
+    return patches.astype(np.complex64), offsets_b12c, offsets_b112
+
+
+def _reassemble_position_shift_sum(
+    patches: np.ndarray,
+    offsets_b112: np.ndarray,
+    M: int,
+) -> np.ndarray:
+    from ptycho import tf_helper as hh
+
+    stitched = hh.reassemble_position(patches, offsets_b112, M=M)
+    return np.squeeze(np.asarray(stitched)).astype(np.complex64)
+
+
+def _reassemble_position_batched(
+    patches: np.ndarray,
+    offsets_b12c: np.ndarray,
+    M: int,
+    batch_size: int,
+) -> np.ndarray:
+    from ptycho import tf_helper as hh
+
+    stitched = hh.reassemble_whole_object(
+        patches=patches,
+        offsets=offsets_b12c,
+        size=M,
+        norm=False,
+        batch_size=batch_size,
+    )
+    return np.squeeze(np.asarray(stitched)).astype(np.complex64)
+
+
+def _choose_position_backend(
+    pred_complex: np.ndarray,
+    test_data: Dict[str, np.ndarray],
+    configured: str,
+) -> str:
+    _ = test_data
+    if configured != "auto":
+        return configured
+
+    pred_np = np.asarray(pred_complex)
+    batch = int(pred_np.shape[0]) if pred_np.ndim >= 3 else 1
+    patch_n = int(pred_np.shape[-2]) if pred_np.ndim >= 2 else 0
+    if batch >= 1024 or patch_n >= 128:
+        return "batched"
+    return "shift_sum"
+
+
+def _reassemble_with_coords_offsets(
+    pred_complex: np.ndarray,
+    test_data: Dict[str, np.ndarray],
+    M: int = 20,
+    backend: str = "shift_sum",
+    batch_size: int = 64,
+) -> np.ndarray:
+    """Reassemble predicted patches using coords_offsets (external dataset mode)."""
+    patches, offsets_b12c, offsets_b112 = _normalize_position_inputs(pred_complex, test_data)
+    selected_backend = _choose_position_backend(pred_complex, test_data, configured=backend)
+    if selected_backend == "shift_sum":
+        try:
+            return _reassemble_position_shift_sum(patches, offsets_b112, M=M)
+        except Exception as exc:
+            import tensorflow as tf
+
+            if backend == "auto" and isinstance(exc, tf.errors.ResourceExhaustedError):
+                logger.warning("Shift-sum OOM; retrying with batched position reassembly")
+                return _reassemble_position_batched(
+                    patches,
+                    offsets_b12c,
+                    M=M,
+                    batch_size=batch_size,
+                )
+            raise
+    if selected_backend == "batched":
+        return _reassemble_position_batched(
+            patches,
+            offsets_b12c,
+            M=M,
+            batch_size=batch_size,
+        )
+    raise ValueError(f"Unsupported position reassembly backend: {selected_backend!r}")
 
 
 def _harmonize_prediction_shape(
@@ -645,6 +736,7 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
         Dict with metrics, artifact paths, and run metadata
     """
     logger.info(f"Starting Torch grid-lines runner: arch={cfg.architecture}")
+    _validate_position_reassembly_config(cfg)
 
     # Step 1: Load cached datasets
     logger.info(f"Loading train data from {cfg.train_npz}")
@@ -710,8 +802,13 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
     # Use complex predictions for metrics if available
     pred_for_metrics = predictions_complex if predictions_complex is not None else predictions
     if cfg.reassembly_mode == "position":
-        # External coordinate datasets should stitch full patch support (M=N).
-        pred_for_metrics = _reassemble_with_coords_offsets(pred_for_metrics, test_data, M=cfg.N)
+        pred_for_metrics = _reassemble_with_coords_offsets(
+            pred_for_metrics,
+            test_data,
+            M=cfg.N,
+            backend=cfg.position_reassembly_backend,
+            batch_size=cfg.position_reassembly_batch_size,
+        )
     elif pred_for_metrics.ndim >= 3:
         pred_h, pred_w = pred_for_metrics.shape[-3], pred_for_metrics.shape[-2]
         gt_h, gt_w = ground_truth.shape[-2], ground_truth.shape[-1]

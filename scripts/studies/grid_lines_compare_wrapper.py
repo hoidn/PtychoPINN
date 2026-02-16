@@ -220,6 +220,8 @@ def run_grid_lines_compare(
     torch_plateau_patience: int = 2,
     torch_plateau_min_lr: float = 5e-5,
     torch_plateau_threshold: float = 0.0,
+    torch_position_reassembly_backend: str = "auto",
+    torch_position_reassembly_batch_size: int = 64,
     dataset_source: str = "synthetic_lines",
     train_data: Optional[Path] = None,
     test_data: Optional[Path] = None,
@@ -450,6 +452,8 @@ def run_grid_lines_compare(
                     plateau_min_lr=torch_plateau_min_lr,
                     plateau_threshold=torch_plateau_threshold,
                     reassembly_mode="position" if external_mode else "grid_lines",
+                    position_reassembly_backend=torch_position_reassembly_backend,
+                    position_reassembly_batch_size=torch_position_reassembly_batch_size,
                 )
                 torch_result = torch_runner.run_grid_lines_torch(torch_cfg)
                 recon_path = torch_result.get("recon_npz")
@@ -653,6 +657,8 @@ def run_grid_lines_compare(
                 plateau_patience=torch_plateau_patience,
                 plateau_min_lr=torch_plateau_min_lr,
                 plateau_threshold=torch_plateau_threshold,
+                position_reassembly_backend=torch_position_reassembly_backend,
+                position_reassembly_batch_size=torch_position_reassembly_batch_size,
             )
             from scripts.studies import grid_lines_torch_runner as torch_runner
             torch_result = torch_runner.run_grid_lines_torch(torch_cfg)
@@ -824,6 +830,13 @@ def parse_args(argv=None):
     parser.add_argument("--torch-plateau-patience", type=int, default=2)
     parser.add_argument("--torch-plateau-min-lr", type=float, default=5e-5)
     parser.add_argument("--torch-plateau-threshold", type=float, default=0.0)
+    parser.add_argument(
+        "--torch-position-reassembly-backend",
+        type=str,
+        default="auto",
+        choices=["auto", "shift_sum", "batched"],
+    )
+    parser.add_argument("--torch-position-reassembly-batch-size", type=int, default=64)
     args = parser.parse_args(argv)
     args.architectures = _parse_architectures(args.architectures)
     args.models = _parse_models(args.models) if args.models else None
@@ -901,6 +914,8 @@ def main(argv=None) -> None:
         torch_plateau_patience=args.torch_plateau_patience,
         torch_plateau_min_lr=args.torch_plateau_min_lr,
         torch_plateau_threshold=args.torch_plateau_threshold,
+        torch_position_reassembly_backend=args.torch_position_reassembly_backend,
+        torch_position_reassembly_batch_size=args.torch_position_reassembly_batch_size,
         dataset_source=args.dataset_source,
         train_data=args.train_data,
         test_data=args.test_data,

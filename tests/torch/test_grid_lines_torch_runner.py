@@ -14,6 +14,7 @@ from scripts.studies.grid_lines_torch_runner import (
     compute_metrics,
     load_cached_dataset,
     _select_coords_relative,
+    _choose_position_backend,
     _reassemble_with_coords_offsets,
     setup_torch_configs,
     run_grid_lines_torch,
@@ -99,6 +100,38 @@ class TestTorchRunnerConfig:
             generator_output_mode="amp_phase_logits",
         )
         assert cfg.generator_output_mode == "amp_phase_logits"
+
+    def test_position_strategy_defaults_are_stable(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "output",
+            architecture="fno",
+        )
+        assert cfg.position_reassembly_backend == "auto"
+        assert cfg.position_reassembly_batch_size == 64
+
+    @pytest.mark.parametrize("backend", ["auto", "shift_sum", "batched"])
+    def test_position_strategy_accepts_supported_backends(self, tmp_path, backend):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "output",
+            architecture="fno",
+            position_reassembly_backend=backend,
+        )
+        assert cfg.position_reassembly_backend == backend
+
+    def test_position_strategy_rejects_unknown_backend(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "output",
+            architecture="fno",
+            position_reassembly_backend="invalid",
+        )
+        with pytest.raises(ValueError, match="position_reassembly_backend"):
+            run_grid_lines_torch(cfg)
 
 
 class TestLoadCachedDataset:
@@ -601,6 +634,100 @@ class TestRunGridLinesTorchScaffold:
         assert captured["obj_shape"] == (4, 64, 64, 1)
         assert captured["offsets_shape"] == (4, 1, 1, 2)
         assert captured["M"] == 64
+
+    def test_position_backend_shift_sum_calls_reassemble_position(self, monkeypatch):
+        called = {"shift": False}
+
+        def fake_reassemble_position(obj_tensor, global_offsets, M=20):
+            called["shift"] = True
+            assert int(M) == 64
+            assert np.asarray(obj_tensor).shape == (4, 64, 64, 1)
+            assert np.asarray(global_offsets).shape == (4, 1, 1, 2)
+            return np.ones((64, 64), dtype=np.complex64)
+
+        monkeypatch.setattr("ptycho.tf_helper.reassemble_position", fake_reassemble_position)
+
+        pred = np.ones((4, 64, 64, 1), dtype=np.complex64)
+        test_data = {"coords_offsets": np.zeros((4, 1, 2, 1), dtype=np.float32)}
+        out = _reassemble_with_coords_offsets(
+            pred,
+            test_data,
+            M=64,
+            backend="shift_sum",
+            batch_size=64,
+        )
+
+        assert called["shift"] is True
+        assert out.shape == (64, 64)
+
+    def test_position_backend_batched_calls_reassemble_whole_object(self, monkeypatch):
+        captured = {}
+
+        def fake_reassemble_whole_object(patches, offsets, size=226, norm=False, batch_size=None):
+            captured["patches_shape"] = tuple(np.asarray(patches).shape)
+            captured["offsets_shape"] = tuple(np.asarray(offsets).shape)
+            captured["size"] = int(size)
+            captured["batch_size"] = int(batch_size)
+            captured["norm"] = bool(norm)
+            return np.ones((1, size, size, 1), dtype=np.complex64)
+
+        monkeypatch.setattr("ptycho.tf_helper.reassemble_whole_object", fake_reassemble_whole_object)
+
+        pred = np.ones((4, 64, 64, 1), dtype=np.complex64)
+        test_data = {"coords_offsets": np.zeros((4, 1, 2, 1), dtype=np.float32)}
+        out = _reassemble_with_coords_offsets(
+            pred,
+            test_data,
+            M=64,
+            backend="batched",
+            batch_size=32,
+        )
+
+        assert captured["patches_shape"] == (4, 64, 64, 1)
+        assert captured["offsets_shape"] == (4, 1, 2, 1)
+        assert captured["size"] == 64
+        assert captured["batch_size"] == 32
+        assert captured["norm"] is False
+        assert out.shape == (64, 64)
+
+    def test_auto_backend_prefers_batched_for_large_position_jobs(self):
+        pred = np.ones((4096, 128, 128, 1), dtype=np.complex64)
+        test_data = {"coords_offsets": np.zeros((4096, 1, 2, 1), dtype=np.float32)}
+        backend = _choose_position_backend(pred, test_data, configured="auto")
+        assert backend == "batched"
+
+    def test_auto_backend_prefers_shift_sum_for_small_jobs(self):
+        pred = np.ones((64, 64, 64, 1), dtype=np.complex64)
+        test_data = {"coords_offsets": np.zeros((64, 1, 2, 1), dtype=np.float32)}
+        backend = _choose_position_backend(pred, test_data, configured="auto")
+        assert backend == "shift_sum"
+
+    def test_shift_sum_oom_falls_back_to_batched(self, monkeypatch):
+        import tensorflow as tf
+
+        def raise_resource_exhausted(*args, **kwargs):
+            _ = (args, kwargs)
+            raise tf.errors.ResourceExhaustedError(node_def=None, op=None, message="OOM")
+
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner._reassemble_position_shift_sum",
+            raise_resource_exhausted,
+        )
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner._reassemble_position_batched",
+            lambda patches, offsets_b12c, M, batch_size: np.ones((M, M), dtype=np.complex64),
+        )
+
+        pred = np.ones((4, 64, 64, 1), dtype=np.complex64)
+        test_data = {"coords_offsets": np.zeros((4, 1, 2, 1), dtype=np.float32)}
+        out = _reassemble_with_coords_offsets(
+            pred,
+            test_data,
+            M=64,
+            backend="auto",
+            batch_size=32,
+        )
+        assert out.shape == (64, 64)
 
     def test_grid_lines_mode_keeps_existing_stitching_path(self, synthetic_npz, tmp_path, monkeypatch):
         """grid_lines mode should still use the stitch helper path."""

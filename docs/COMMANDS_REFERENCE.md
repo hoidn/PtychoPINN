@@ -381,6 +381,12 @@ python scripts/studies/aggregate_and_plot_results.py study_results --output plot
 Dataset source capability matrix:
 - `synthetic_lines` (default): TF + Torch + PtychoViT
 - `external_raw_npz` (phase 1): Torch model IDs only (`pinn_fno`, `pinn_hybrid`, `pinn_stable_hybrid`, `pinn_fno_vanilla`, `pinn_hybrid_resnet`)
+  - Position reassembly controls:
+    - `--torch-position-reassembly-backend {auto,shift_sum,batched}` (default: `auto`)
+    - `--torch-position-reassembly-batch-size <int>` (default: `64`)
+  - Dense external `N=128` recommendation:
+    - `--torch-position-reassembly-backend batched`
+    - `--torch-position-reassembly-batch-size 32`
 
 ```bash
 # Run the grid-lines harness (TF cnn+baseline + Torch FNO/Hybrid)
@@ -417,6 +423,20 @@ python scripts/studies/grid_lines_compare_wrapper.py \
     --test-data datasets/fly64/fly001_64_train_converted.npz \
     --models pinn_hybrid_resnet \
     --nepochs 3 --batch-size 16 --seed 3
+
+# External raw NPZ mode with explicit batched position reassembly
+# (recommended for dense N=128 jobs to avoid TF reassembly OOM)
+python scripts/studies/grid_lines_compare_wrapper.py \
+    --N 128 \
+    --gridsize 1 \
+    --output-dir outputs/grid_lines_external_raw_fly001_n128 \
+    --dataset-source external_raw_npz \
+    --train-data datasets/fly001_128/fly001_128_top_half_converted.npz \
+    --test-data datasets/fly001_128/fly001_128_bottom_half_converted.npz \
+    --models pinn_hybrid_resnet \
+    --torch-position-reassembly-backend batched \
+    --torch-position-reassembly-batch-size 32 \
+    --nepochs 20 --batch-size 8 --seed 3
 
 # Reproducible fly001 N=128 disjoint external study prep
 python scripts/studies/prepare_fly001_128_external_split.py \
