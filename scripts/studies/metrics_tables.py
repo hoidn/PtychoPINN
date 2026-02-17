@@ -34,9 +34,27 @@ METRICS = (
     ("psnr", "PSNR"),
     ("ssim", "SSIM"),
     ("frc50", "FRC50"),
+    ("single_frc50_binomial", "1FRC50 Bin"),
+    ("single_frc1over7_binomial", "1FRC1/7 Bin"),
 )
 
 LOWER_BETTER = {"mae", "mse"}
+
+
+def _latex_escape(text: str) -> str:
+    escaped = (
+        text.replace("\\", r"\textbackslash{}")
+        .replace("&", r"\&")
+        .replace("%", r"\%")
+        .replace("$", r"\$")
+        .replace("#", r"\#")
+        .replace("_", r"\_")
+        .replace("{", r"\{")
+        .replace("}", r"\}")
+        .replace("~", r"\textasciitilde{}")
+        .replace("^", r"\textasciicircum{}")
+    )
+    return escaped
 
 
 def _to_float(value: object) -> float:
@@ -66,8 +84,8 @@ def _ordered_models(metrics: Mapping[str, dict]) -> List[str]:
 
 
 def _format_value(metric_key: str, value: float, bold: bool = False) -> str:
-    if metric_key == "frc50":
-        text = str(int(round(value)))
+    if metric_key in {"frc50", "single_frc50_binomial", "single_frc1over7_binomial"}:
+        text = f"{value:.2f}"
     else:
         text = f"{value:.6f}"
     if bold:
@@ -145,6 +163,7 @@ def _build_main_table(metrics: Mapping[str, dict], model_ns: Optional[Mapping[st
         best = best_by_n.get(n_value, {})
         for model_idx, model in enumerate(models):
             label = MODEL_LABELS.get(model, model)
+            label = _latex_escape(label)
             n_text = str(n_value) if (model_idx == 0 and n_value is not None) else ""
             if model_idx == 0 and n_value is None:
                 n_text = "-"
@@ -153,7 +172,7 @@ def _build_main_table(metrics: Mapping[str, dict], model_ns: Optional[Mapping[st
             for metric_key, _ in METRICS:
                 pair = _extract_pair(model_metrics, metric_key)
                 if pair is None:
-                    row.extend(["-", "-"])
+                    row.append("-")
                     continue
                 amp, phase = pair
                 best_pair = best.get(metric_key)
@@ -191,7 +210,7 @@ def _build_best_table(metrics: Mapping[str, dict], model_ns: Optional[Mapping[st
                 if pair is None:
                     continue
                 amp, phase = pair
-                model_label = MODEL_LABELS.get(model, model)
+                model_label = _latex_escape(MODEL_LABELS.get(model, model))
                 if best_amp is None:
                     best_amp = (amp, model_label)
                 else:

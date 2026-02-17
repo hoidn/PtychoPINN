@@ -136,7 +136,7 @@ def evaluate_selected_models(
     single_image_frc_rng_seed: Optional[int] = None,
 ) -> Dict[str, Dict[str, object]]:
     """Evaluate selected model reconstructions on canonical GT object grid."""
-    from ptycho.evaluation import eval_reconstruction
+    from ptycho.evaluation import eval_reconstruction, single_image_frc_metrics
 
     gt_ref = _load_recon_complex(Path(gt_path))
     target_hw = (int(gt_ref.shape[0]), int(gt_ref.shape[1]))
@@ -152,6 +152,16 @@ def evaluate_selected_models(
             single_image_frc_split_mode=single_image_frc_split_mode,
             single_image_frc_rng_seed=single_image_frc_rng_seed,
         )
+        if single_image_frc:
+            binomial_metrics = single_image_frc_metrics(
+                pred_ref[..., None],
+                split_mode="binomial",
+                rng_seed=single_image_frc_rng_seed,
+            )
+            if "single_frc50" in binomial_metrics:
+                metrics["single_frc50_binomial"] = tuple(binomial_metrics["single_frc50"])
+            if "single_frc1over7" in binomial_metrics:
+                metrics["single_frc1over7_binomial"] = tuple(binomial_metrics["single_frc1over7"])
         out[model_id] = {
             "reference_shape": [target_hw[0], target_hw[1]],
             "metrics": metrics,

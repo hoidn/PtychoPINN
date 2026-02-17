@@ -670,6 +670,60 @@ def test_evaluate_selected_models_enables_single_image_frc(monkeypatch, tmp_path
     assert captured["single_image_frc"] is True
 
 
+def test_evaluate_selected_models_adds_binomial_single_image_frc_metrics(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import evaluate_selected_models
+
+    gt_path = tmp_path / "recons" / "gt" / "recon.npz"
+    gt_path.parent.mkdir(parents=True, exist_ok=True)
+    gt = (np.ones((128, 128)) + 1j * np.ones((128, 128))).astype(np.complex64)
+    np.savez(gt_path, YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+
+    pred_path = tmp_path / "recons" / "pinn_hybrid" / "recon.npz"
+    pred_path.parent.mkdir(parents=True, exist_ok=True)
+    pred = (np.ones((128, 128)) + 1j * np.ones((128, 128))).astype(np.complex64)
+    np.savez(pred_path, YY_pred=pred, amp=np.abs(pred), phase=np.angle(pred))
+
+    def fake_eval(pred_obj, gt_obj, label="", single_image_frc=False, **kwargs):
+        _ = (pred_obj, gt_obj, label, single_image_frc, kwargs)
+        return {"mse": 0.0}
+
+    def fake_single_image_frc_metrics(
+        stitched_obj,
+        *,
+        split_mode="spatial",
+        rng_seed=None,
+        phase_align_method="plane",
+        support_amp_floor_ratio=0.05,
+        frc_sigma=0.0,
+        spatial_antialias_sigma=None,
+        spatial_calibration_json=None,
+        spatial_calibration_profile=None,
+    ):
+        _ = (
+            stitched_obj,
+            split_mode,
+            rng_seed,
+            phase_align_method,
+            support_amp_floor_ratio,
+            frc_sigma,
+            spatial_antialias_sigma,
+            spatial_calibration_json,
+            spatial_calibration_profile,
+        )
+        return {
+            "single_frc50": (12.5, 10.25),
+            "single_frc1over7": (24.0, 21.0),
+        }
+
+    monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", fake_eval)
+    monkeypatch.setattr("ptycho.evaluation.single_image_frc_metrics", fake_single_image_frc_metrics)
+
+    out = evaluate_selected_models({"pinn_hybrid": pred_path}, gt_path)
+    metrics = out["pinn_hybrid"]["metrics"]
+    assert metrics["single_frc50_binomial"] == (12.5, 10.25)
+    assert metrics["single_frc1over7_binomial"] == (24.0, 21.0)
+
+
 def test_wrapper_defaults_torch_loss_mode_mae(tmp_path):
     from scripts.studies.grid_lines_compare_wrapper import parse_args
 

@@ -53,6 +53,12 @@ def _collect_frc_series(split_mode: str) -> tuple[np.ndarray, np.ndarray]:
             phase_noise_sigma=0.03 * level,
             seed=1000 + idx,
         )
+        eval_kwargs = {}
+        if split_mode == "binomial":
+            # Keep sanity checks in a stable-SNR binomial regime independent of
+            # runtime defaults.
+            eval_kwargs["single_image_frc_binomial_mean_lambda"] = 100.0
+
         metrics = eval_reconstruction(
             pred[..., None],
             gt[..., None],
@@ -61,6 +67,7 @@ def _collect_frc_series(split_mode: str) -> tuple[np.ndarray, np.ndarray]:
             single_image_frc=True,
             single_image_frc_split_mode=split_mode,
             single_image_frc_rng_seed=123 + idx,
+            **eval_kwargs,
         )
         gt_frc50_amp.append(float(metrics["frc50"][0]))
         single_frc50_amp.append(float(metrics["single_frc50"][0]))
@@ -69,34 +76,66 @@ def _collect_frc_series(split_mode: str) -> tuple[np.ndarray, np.ndarray]:
 
 
 def test_single_image_frc_amp_tracks_distinct_monotonic_trends_by_split_mode():
-    gt_spatial, single_spatial = _collect_frc_series("spatial")
+    gt_spatial_dual, single_spatial_dual = _collect_frc_series("spatial_dual")
+    gt_spatial_legacy, single_spatial_legacy = _collect_frc_series("spatial_legacy")
     gt_binom, single_binom = _collect_frc_series("binomial")
 
-    assert _is_non_increasing(gt_spatial, tol=1.0)
+    assert _is_non_increasing(gt_spatial_dual, tol=1.0)
+    assert _is_non_increasing(gt_spatial_legacy, tol=1.0)
     assert _is_non_increasing(gt_binom, tol=1.0)
-    # For blur perturbations, spatial checkerboard split tends to increase.
-    assert _is_non_increasing(-single_spatial, tol=2.0)
+    # Spatial subsampling modes increase with blur on this sweep.
+    assert _is_non_increasing(-single_spatial_dual, tol=2.0)
+    # Legacy interpolated split is retained for reproducibility only.
+    assert _is_non_increasing(-single_spatial_legacy, tol=2.0)
     # Binomial split tracks GT direction under the same perturbation.
     assert _is_non_increasing(single_binom, tol=3.0)
 
 
 def test_single_image_frc_amp_rank_correlation_shows_mode_behavior_vs_gt():
-    gt_spatial, single_spatial = _collect_frc_series("spatial")
+    gt_spatial_dual, single_spatial_dual = _collect_frc_series("spatial_dual")
+    gt_spatial_legacy, single_spatial_legacy = _collect_frc_series("spatial_legacy")
     gt_binom, single_binom = _collect_frc_series("binomial")
 
-    rho_spatial, _ = spearmanr(gt_spatial, single_spatial)
+    rho_spatial_dual, _ = spearmanr(gt_spatial_dual, single_spatial_dual)
+    rho_spatial_legacy, _ = spearmanr(gt_spatial_legacy, single_spatial_legacy)
     rho_binom, _ = spearmanr(gt_binom, single_binom)
 
-    assert np.isfinite(rho_spatial)
+    assert np.isfinite(rho_spatial_dual)
+    assert np.isfinite(rho_spatial_legacy)
     assert np.isfinite(rho_binom)
-    assert float(rho_spatial) < -0.5
+    assert float(rho_spatial_dual) < -0.5
+    assert float(rho_spatial_legacy) < -0.5
     assert float(rho_binom) > 0.5
 
 
-def test_binomial_and_spatial_single_image_frc_have_consistent_ordering():
-    _, single_spatial = _collect_frc_series("spatial")
+def test_binomial_and_spatial_dual_single_image_frc_have_consistent_ordering():
+    _, single_spatial = _collect_frc_series("spatial_dual")
     _, single_binom = _collect_frc_series("binomial")
     rho_modes, _ = spearmanr(single_spatial, single_binom)
     assert np.isfinite(rho_modes)
-    # Modes respond in opposite directions on blur sweeps.
     assert float(rho_modes) < -0.5
+
+
+def test_binomial_single_image_frc1over7_high_blur_not_ceiling_saturated():
+    params.set("offset", 4)
+    seed_idx = 0
+    level_idx = 12
+    blur_sigma = 2.0
+    gt = _make_ground_truth(seed=1000 + seed_idx, size=96)
+    pred = _degrade_object(
+        gt,
+        blur_sigma=blur_sigma,
+        phase_noise_sigma=0.03 * blur_sigma,
+        seed=50000 + seed_idx * 100 + level_idx,
+    )
+    metrics = eval_reconstruction(
+        pred[..., None],
+        gt[..., None],
+        label="binomial_high_blur",
+        phase_align_method="plane",
+        single_image_frc=True,
+        single_image_frc_split_mode="binomial",
+        single_image_frc_rng_seed=70000 + seed_idx * 100 + level_idx,
+    )
+    curve_len = float(len(np.asarray(metrics["frc"][0], dtype=np.float64)))
+    assert float(metrics["single_frc1over7"][0]) < curve_len

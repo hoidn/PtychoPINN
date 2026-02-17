@@ -82,6 +82,7 @@ import matplotlib
 import tensorflow as tf
 from skimage.metrics import structural_similarity
 from pathlib import Path
+import sys
 
 from ptycho import params
 from ptycho import misc
@@ -433,11 +434,45 @@ def fit_and_remove_plane(phase_img, reference_phase=None):
     
     return phase_aligned
 
-def frc50(target, pred, frc_sigma = 0, debug_save_images=False, debug_dir=None, label=""):
+
+def _first_below_threshold_interpolated(curve, threshold):
+    """Return first threshold crossing with sub-bin linear interpolation."""
+    vals = np.asarray(curve, dtype=np.float64)
+    if vals.size == 0:
+        return np.nan
+    finite = np.isfinite(vals)
+    if not finite.any():
+        return np.nan
+
+    below = np.where(finite & (vals < float(threshold)))[0]
+    if below.size == 0:
+        return float(len(vals))
+
+    i = int(below[0])
+    if i == 0:
+        return 0.0
+
+    j = i - 1
+    y0 = float(vals[j])
+    y1 = float(vals[i])
+    if (not np.isfinite(y0)) or (not np.isfinite(y1)):
+        return float(i)
+
+    denom = y1 - y0
+    if np.isclose(denom, 0.0):
+        return float(i)
+
+    x = float(j) + (float(threshold) - y0) / denom
+    if not np.isfinite(x):
+        return float(i)
+    return float(np.clip(x, float(j), float(i)))
+
+
+def frc_cutoffs(target, pred, frc_sigma = 0, debug_save_images=False, debug_dir=None, label=""):
     if np.isnan(pred).all():
         raise ValueError
     if np.max(target) == np.min(target) == 0:
-        return None, np.nan
+        return None, np.nan, np.nan
     
     # Ensure images are square for FRC calculation
     target = np.array(target)
@@ -465,161 +500,43 @@ def frc50(target, pred, frc_sigma = 0, debug_save_images=False, debug_dir=None, 
     if frc_sigma > 0:
         shellcorr = gf(shellcorr, frc_sigma)
     
-    # Find where FRC drops below 0.5
-    below_half = np.where(shellcorr < .5)[0]
-    if len(below_half) > 0:
-        frc50_value = below_half[0]
-    else:
-        # If FRC never drops below 0.5, use the length (indicates excellent reconstruction)
-        frc50_value = len(shellcorr)
+    frc50_value = _first_below_threshold_interpolated(shellcorr, 0.5)
+    frc1over7_value = _first_below_threshold_interpolated(shellcorr, 1.0 / 7.0)
     
+    return shellcorr, frc50_value, frc1over7_value
+
+
+def frc50(target, pred, frc_sigma = 0, debug_save_images=False, debug_dir=None, label=""):
+    """Backward-compatible helper that returns only FRC@0.5 cutoff."""
+    shellcorr, frc50_value, _ = frc_cutoffs(
+        target,
+        pred,
+        frc_sigma=frc_sigma,
+        debug_save_images=debug_save_images,
+        debug_dir=debug_dir,
+        label=label,
+    )
     return shellcorr, frc50_value
 
 
-def _center_crop_even_square(arr: np.ndarray) -> np.ndarray:
-    """Center-crop to an even square canvas for checkerboard split FRC."""
-    img = np.asarray(arr)
-    if img.ndim != 2:
-        raise ValueError(f"Expected 2D array, got shape {img.shape}")
-    h, w = img.shape
-    side = min(h, w)
-    if side % 2 == 1:
-        side -= 1
-    if side < 2:
-        raise ValueError(f"Image too small for single-image FRC: {img.shape}")
-    h0 = (h - side) // 2
-    w0 = (w - side) // 2
-    return img[h0:h0 + side, w0:w0 + side]
+def _import_external_single_image_frc_api():
+    """Load single-image FRC API from the external sibling frc package."""
+    ext_root = Path(__file__).resolve().parents[2] / "frc"
+    if ext_root.exists():
+        ext_root_str = str(ext_root)
+        if ext_root_str not in sys.path:
+            sys.path.insert(0, ext_root_str)
+    try:
+        from frc.single_image_frc import single_image_frc_metrics as external_single_image_frc_metrics
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            "Missing external frc package. Expected sibling directory '../frc' "
+            "with module frc/single_image_frc.py."
+        ) from exc
+    return external_single_image_frc_metrics
 
 
-def _split_diagonal_interleaved(arr: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Split one image into two diagonal interleaved half-images."""
-    img = np.asarray(arr)
-    if img.ndim != 2:
-        raise ValueError(f"Expected 2D array, got shape {img.shape}")
-    if img.shape[0] != img.shape[1]:
-        raise ValueError(f"Expected square image, got shape {img.shape}")
-    if img.shape[0] % 2 != 0:
-        raise ValueError(f"Expected even side length, got shape {img.shape}")
-    half_a = 0.5 * (img[0::2, 0::2] + img[1::2, 1::2])
-    half_b = 0.5 * (img[0::2, 1::2] + img[1::2, 0::2])
-    return half_a, half_b
-
-
-def _split_binomial_thinned(
-    arr: np.ndarray,
-    *,
-    rng_seed: int | None = None,
-    count_scale: float = 4096.0,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Split an image into two half-images via deterministic binomial thinning."""
-    img = np.asarray(arr)
-    if img.ndim != 2:
-        raise ValueError(f"Expected 2D array, got shape {img.shape}")
-    if img.shape[0] != img.shape[1]:
-        raise ValueError(f"Expected square image, got shape {img.shape}")
-
-    if count_scale <= 0:
-        raise ValueError(f"count_scale must be > 0, got {count_scale}")
-
-    rng = np.random.default_rng(0 if rng_seed is None else int(rng_seed))
-    mag = np.abs(np.asarray(img, dtype=np.complex128))
-    intensity = np.nan_to_num(mag * mag, nan=0.0, posinf=0.0, neginf=0.0)
-    counts = np.rint(intensity * float(count_scale)).astype(np.int64)
-    counts = np.clip(counts, 0, None)
-
-    half_counts_a = rng.binomial(counts, 0.5)
-    half_counts_b = counts - half_counts_a
-    mag_a = np.sqrt(half_counts_a / float(count_scale))
-    mag_b = np.sqrt(half_counts_b / float(count_scale))
-
-    if np.iscomplexobj(img):
-        phase = np.angle(img)
-        half_a = (mag_a * np.exp(1j * phase)).astype(np.complex64)
-        half_b = (mag_b * np.exp(1j * phase)).astype(np.complex64)
-    else:
-        sign = np.sign(np.asarray(img, dtype=np.float64))
-        sign[sign == 0] = 1.0
-        half_a = (mag_a * sign).astype(np.float32)
-        half_b = (mag_b * sign).astype(np.float32)
-    return half_a, half_b
-
-
-def _first_below_threshold(curve: np.ndarray, threshold: float) -> float:
-    vals = np.asarray(curve, dtype=np.float64)
-    if vals.size == 0:
-        return np.nan
-    finite = np.isfinite(vals)
-    if not finite.any():
-        return np.nan
-    finite_vals = vals[finite]
-    idx = np.where(finite_vals < threshold)[0]
-    if len(idx) == 0:
-        return float(len(finite_vals))
-    return float(idx[0])
-
-
-def _phase_align(phase: np.ndarray, phase_align_method: str) -> np.ndarray:
-    phase_unwrapped = np.unwrap(np.unwrap(np.asarray(phase, dtype=np.float32), axis=0), axis=1)
-    if phase_align_method == 'plane':
-        return fit_and_remove_plane(phase_unwrapped)
-    if phase_align_method == 'mean':
-        return phase_unwrapped - np.mean(phase_unwrapped)
-    raise ValueError(f"Unknown phase_align_method: {phase_align_method}. Use 'plane' or 'mean'.")
-
-
-def _support_weighted_phase_phasor(
-    phase_aligned: np.ndarray,
-    amp: np.ndarray,
-    support_amp_floor_ratio: float,
-) -> np.ndarray:
-    amp_np = np.asarray(amp, dtype=np.float32)
-    phase_np = np.asarray(phase_aligned, dtype=np.float32)
-    if amp_np.shape != phase_np.shape:
-        raise ValueError(
-            f"Amplitude/phase shape mismatch for support phasor: {amp_np.shape} vs {phase_np.shape}"
-        )
-    max_amp = float(np.max(amp_np)) if amp_np.size else 0.0
-    if max_amp <= 0:
-        return np.zeros_like(amp_np, dtype=np.complex64)
-    floor = max_amp * float(support_amp_floor_ratio)
-    support = amp_np >= floor
-    phasor = np.zeros_like(amp_np, dtype=np.complex64)
-    if np.any(support):
-        phasor[support] = np.exp(1j * phase_np[support]).astype(np.complex64)
-    return phasor
-
-
-def _single_image_frc_curve(
-    image_2d: np.ndarray,
-    *,
-    frc_sigma: float = 0.0,
-    split_mode: str = "spatial",
-    rng_seed: int | None = None,
-) -> np.ndarray:
-    from ptycho.FRC import fourier_ring_corr as frc
-
-    canvas = _center_crop_even_square(np.asarray(image_2d))
-    if split_mode == "spatial":
-        half_a, half_b = _split_diagonal_interleaved(canvas)
-    elif split_mode == "binomial":
-        half_a, half_b = _split_binomial_thinned(canvas, rng_seed=rng_seed)
-    else:
-        raise ValueError(f"Unknown split_mode={split_mode!r}; expected 'spatial' or 'binomial'.")
-    curve = np.asarray(frc.FSC(half_a, half_b), dtype=np.float64)
-    if frc_sigma > 0:
-        curve = np.asarray(gf(curve, frc_sigma), dtype=np.float64)
-    return curve
-
-
-def _extract_prediction_hw(stitched_obj: np.ndarray) -> np.ndarray:
-    pred = np.asarray(stitched_obj)
-    if pred.ndim == 4:
-        pred = pred[0]
-    pred = np.squeeze(pred)
-    if pred.ndim != 2:
-        raise ValueError(f"single_image_frc_metrics expects a 2D prediction after squeeze, got {pred.shape}")
-    return pred
+_external_single_image_frc_metrics = _import_external_single_image_frc_api()
 
 
 def single_image_frc_metrics(
@@ -630,53 +547,42 @@ def single_image_frc_metrics(
     phase_align_method: str = "plane",
     support_amp_floor_ratio: float = 0.05,
     frc_sigma: float = 0.0,
+    spatial_antialias_sigma: float | None = None,
+    spatial_calibration_json: str | None = None,
+    spatial_calibration_profile: str | None = None,
+    binomial_mean_lambda: float = 10.0,
+    binomial_normalize_intensity: bool = True,
+    binomial_count_scale: float | None = None,
 ) -> dict[str, tuple[float, float]]:
-    """Compute no-GT single-image FRC cutoffs for amplitude and phase branches."""
-    pred_hw = _extract_prediction_hw(stitched_obj)
-    amp = trim(np.abs(pred_hw))
-    phi = trim(np.angle(pred_hw))
-    phi_aligned = _phase_align(phi, phase_align_method)
-
-    amp_seed = 0 if rng_seed is None else int(rng_seed)
-    phase_seed = amp_seed + 1
-
-    amp_curve = _single_image_frc_curve(
-        amp,
-        frc_sigma=frc_sigma,
+    """Compatibility wrapper delegating single-image FRC metrics to external package."""
+    offset = params.get("offset")
+    offset = 0 if offset is None else int(offset)
+    return _external_single_image_frc_metrics(
+        stitched_obj,
+        offset=offset,
         split_mode=split_mode,
-        rng_seed=amp_seed,
-    )
-    amp_cut_50 = _first_below_threshold(amp_curve, 0.5)
-    amp_cut_1o7 = _first_below_threshold(amp_curve, 1.0 / 7.0)
-
-    phase_phasor = _support_weighted_phase_phasor(
-        phi_aligned,
-        amp,
+        rng_seed=rng_seed,
+        phase_align_method=phase_align_method,
         support_amp_floor_ratio=support_amp_floor_ratio,
+        frc_sigma=frc_sigma,
+        spatial_antialias_sigma=spatial_antialias_sigma,
+        spatial_calibration_json=spatial_calibration_json,
+        spatial_calibration_profile=spatial_calibration_profile,
+        binomial_mean_lambda=binomial_mean_lambda,
+        binomial_normalize_intensity=binomial_normalize_intensity,
+        binomial_count_scale=binomial_count_scale,
     )
-    if np.count_nonzero(np.abs(phase_phasor) > 0) < 4:
-        phi_cut_50 = np.nan
-        phi_cut_1o7 = np.nan
-    else:
-        phi_curve = _single_image_frc_curve(
-            phase_phasor,
-            frc_sigma=frc_sigma,
-            split_mode=split_mode,
-            rng_seed=phase_seed,
-        )
-        phi_cut_50 = _first_below_threshold(phi_curve, 0.5)
-        phi_cut_1o7 = _first_below_threshold(phi_curve, 1.0 / 7.0)
-
-    return {
-        "single_frc50": (amp_cut_50, phi_cut_50),
-        "single_frc1over7": (amp_cut_1o7, phi_cut_1o7),
-    }
 
 
 
 def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
         label = '', phase_align_method='plane', frc_sigma=0, debug_save_images=False, ms_ssim_sigma=1.0,
-        single_image_frc=False, single_image_frc_split_mode="spatial", single_image_frc_rng_seed=None):
+        single_image_frc=False, single_image_frc_split_mode="spatial", single_image_frc_rng_seed=None,
+        single_image_frc_spatial_antialias_sigma=None, single_image_frc_spatial_calibration_json=None,
+        single_image_frc_spatial_calibration_profile=None,
+        single_image_frc_binomial_mean_lambda=10.0,
+        single_image_frc_binomial_normalize_intensity=True,
+        single_image_frc_binomial_count_scale=None):
     """
     Evaluate reconstruction quality against ground truth using multiple metrics.
     
@@ -700,6 +606,7 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
             - 'ssim': (amplitude_ssim, phase_ssim) - Structural Similarity Index
             - 'ms_ssim': (amplitude_ms_ssim, phase_ms_ssim) - Multi-Scale SSIM
             - 'frc50': (amplitude_frc50, phase_frc50) - FRC at 0.5 threshold
+            - 'frc1over7': (amplitude_frc1over7, phase_frc1over7) - FRC at 1/7 threshold
             - 'frc': (amplitude_frc_curve, phase_frc_curve) - Full FRC curves
     """
     # Handle shape consistency: convert 4D reconstruction to 3D before assertions
@@ -763,10 +670,14 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
     print(f"DEBUG eval_reconstruction [{label}]: phi_target stats: mean={np.mean(phi_target):.6f}, std={np.std(phi_target):.6f}, shape={phi_target.shape}")
     print(f"DEBUG eval_reconstruction [{label}]: phi_pred stats: mean={np.mean(phi_pred):.6f}, std={np.std(phi_pred):.6f}, shape={phi_pred.shape}")
     
-    frc_amp, frc50_amp = frc50(amp_target_np, amp_pred_normalized, frc_sigma=frc_sigma, 
-                               debug_save_images=debug_save_images, 
-                               debug_dir=debug_dir,
-                               label=f"{label}_amp" if label else "amp")
+    frc_amp, frc50_amp, frc1over7_amp = frc_cutoffs(
+        amp_target_np,
+        amp_pred_normalized,
+        frc_sigma=frc_sigma,
+        debug_save_images=debug_save_images,
+        debug_dir=debug_dir,
+        label=f"{label}_amp" if label else "amp",
+    )
 
     mae_phi = mae(phi_target, phi_pred, normalize=False) # PINN
     mse_phi = mse(phi_target, phi_pred, normalize=False) # PINN
@@ -800,10 +711,14 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
         _save_debug_image(amp_pred_normalized, f"{label}_amp_pred_for_ms-ssim" if label else "amp_pred_for_ms-ssim", debug_dir, vmin=amp_vmin, vmax=amp_vmax)
         _save_debug_image(amp_target_np, f"{label}_amp_target_for_ms-ssim" if label else "amp_target_for_ms-ssim", debug_dir, vmin=amp_vmin, vmax=amp_vmax)
     
-    frc_phi, frc50_phi = frc50(phi_target, phi_pred, frc_sigma=frc_sigma,
-                               debug_save_images=debug_save_images,
-                               debug_dir=debug_dir, 
-                               label=f"{label}_phi" if label else "phi")
+    frc_phi, frc50_phi, frc1over7_phi = frc_cutoffs(
+        phi_target,
+        phi_pred,
+        frc_sigma=frc_sigma,
+        debug_save_images=debug_save_images,
+        debug_dir=debug_dir,
+        label=f"{label}_phi" if label else "phi",
+    )
 
     out = {'mae': (mae_amp, mae_phi),
         'mse': (mse_amp, mse_phi),
@@ -811,6 +726,7 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
         'ssim': (ssim_amp, ssim_phi),
         'ms_ssim': (ms_ssim_amp, ms_ssim_phi),
         'frc50': (frc50_amp, frc50_phi),
+        'frc1over7': (frc1over7_amp, frc1over7_phi),
         'frc': (frc_amp, frc_phi)}
     if single_image_frc:
         out.update(
@@ -820,6 +736,12 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
                 rng_seed=single_image_frc_rng_seed,
                 phase_align_method=phase_align_method,
                 frc_sigma=frc_sigma,
+                spatial_antialias_sigma=single_image_frc_spatial_antialias_sigma,
+                spatial_calibration_json=single_image_frc_spatial_calibration_json,
+                spatial_calibration_profile=single_image_frc_spatial_calibration_profile,
+                binomial_mean_lambda=single_image_frc_binomial_mean_lambda,
+                binomial_normalize_intensity=single_image_frc_binomial_normalize_intensity,
+                binomial_count_scale=single_image_frc_binomial_count_scale,
             )
         )
     return out
@@ -839,9 +761,9 @@ def save_metrics(stitched_obj, YY_ground_truth,  label = ''):
     d = {**params.cfg, **metrics}
     with open(out_prefix + '/params.dill', 'wb') as f:
         dill.dump(d, f)
-    df = pd.DataFrame({k: d[k] for k in ['mae', 'mse', 'psnr', 'frc50']})
+    df = pd.DataFrame({k: d[k] for k in ['mae', 'mse', 'psnr', 'frc50', 'frc1over7']})
     df.to_csv(out_prefix + '/metrics.csv')
-    return {k: metrics[k] for k in ['mae', 'mse', 'psnr', 'frc50', 'frc']}
+    return {k: metrics[k] for k in ['mae', 'mse', 'psnr', 'frc50', 'frc1over7', 'frc']}
 
 
 # Unit Tests for Phase 1 Enhancements

@@ -536,12 +536,12 @@ git commit -m "chore(studies): add verification evidence for phase-inclusive sin
 
 ---
 
-### Task 9: Visual Validation (MPL PNGs) + `FRC_README.md`
+### Task 9: Visual Validation (MPL PNGs) + `README.md`
 
 **Files:**
 - Create: `scripts/studies/analyze_single_image_frc_alignment.py`
-- Create: `frc/FRC_README.md`
-- Create (generated): `frc/plots/*.png`
+- Create: `../frc/README.md`
+- Create (generated): `../frc/plots/*.png`
 
 **Goal:**
 Produce visual, seed-aggregated evidence that binomial single-image FRC behaves as intended and aligns with SSIM (and GT FRC), with explicit contrast against spatial mode.
@@ -553,7 +553,7 @@ Script contract:
   - `--n-seeds` (default: 20)
   - `--n-levels` (default: 13)
   - `--level-max` (default: 2.0 blur sigma)
-  - `--output-dir` (default: `frc`)
+  - `--output-dir` (default: `../frc`)
 - Compute per-seed/per-level metrics via `eval_reconstruction(..., single_image_frc=True)` for:
   - `split_mode=spatial`
   - `split_mode=binomial`
@@ -581,9 +581,9 @@ Required plots:
 5. `phase_stability_overview.png` (optional but recommended)
    - summarize weaker/noisier phase behavior to avoid over-claiming.
 
-**Step 3: Write `FRC_README.md`**
+**Step 3: Write `README.md`**
 
-`FRC_README.md` must include:
+`README.md` must include:
 - Exact commands used (copy/paste runnable).
 - Data generation/sweep settings (`n_seeds`, `n_levels`, blur schedule, RNG policy).
 - Embedded/linked PNGs with one-line interpretation per figure.
@@ -613,18 +613,18 @@ python scripts/studies/analyze_single_image_frc_alignment.py \
   --n-seeds 20 \
   --n-levels 13 \
   --level-max 2.0 \
-  --output-dir frc
+  --output-dir ../frc
 ```
 
 Verify files exist:
-- `frc/FRC_README.md`
-- `frc/plots/trend_single_frc50_amp_vs_blur.png`
-- `frc/plots/scatter_single_frc50_amp_vs_ssim_amp.png`
-- `frc/plots/rho_ci_bar_amp.png`
+- `../frc/README.md`
+- `../frc/plots/trend_single_frc50_amp_vs_blur.png`
+- `../frc/plots/scatter_single_frc50_amp_vs_ssim_amp.png`
+- `../frc/plots/rho_ci_bar_amp.png`
 
 Commit:
 ```bash
-git add scripts/studies/analyze_single_image_frc_alignment.py frc/FRC_README.md frc/plots
+git add scripts/studies/analyze_single_image_frc_alignment.py
 git commit -m "analysis(studies): add visual frc-vs-ssim alignment report with ci-backed binomial comparison"
 ```
 

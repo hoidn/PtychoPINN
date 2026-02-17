@@ -5,7 +5,7 @@ Generates:
 - raw_metrics.csv
 - summary.json
 - plots/*.png
-- FRC_README.md
+- README.md
 """
 
 from __future__ import annotations
@@ -103,8 +103,8 @@ def to_amp_phase_pair(values: tuple[float, float]) -> tuple[float, float]:
 
 def run_sweep(args: argparse.Namespace) -> List[Dict[str, float]]:
     params.set("offset", int(args.offset))
-    levels = np.linspace(0.0, float(args.level_max), int(args.n_levels), dtype=float)
-    modes = ("spatial", "binomial")
+    levels = np.linspace(float(args.level_min), float(args.level_max), int(args.n_levels), dtype=float)
+    modes = ("spatial_dual", "spatial_legacy", "binomial")
     rows: List[Dict[str, float]] = []
 
     for mode in modes:
@@ -136,6 +136,8 @@ def run_sweep(args: argparse.Namespace) -> List[Dict[str, float]]:
                 ssim_amp, ssim_phase = to_amp_phase_pair(m["ssim"])
                 msssim_amp, msssim_phase = to_amp_phase_pair(m["ms_ssim"])
                 frc50_amp, frc50_phase = to_amp_phase_pair(m["frc50"])
+                frc17_amp, frc17_phase = to_amp_phase_pair(m["frc1over7"])
+                gt_frc_len = float(len(np.asarray(m["frc"][0], dtype=np.float64)))
 
                 rows.append(
                     {
@@ -159,6 +161,9 @@ def run_sweep(args: argparse.Namespace) -> List[Dict[str, float]]:
                         "ms_ssim_phase": msssim_phase,
                         "frc50_amp": frc50_amp,
                         "frc50_phase": frc50_phase,
+                        "frc1over7_amp": frc17_amp,
+                        "frc1over7_phase": frc17_phase,
+                        "frc_amp_curve_len": gt_frc_len,
                     }
                 )
     return rows
@@ -180,7 +185,7 @@ def rows_for(rows: List[Dict[str, float]], *, mode: str, seed: int) -> List[Dict
 
 
 def summarize(rows: List[Dict[str, float]], *, n_seeds: int, n_levels: int) -> Dict[str, object]:
-    modes = ("spatial", "binomial")
+    modes = ("spatial_dual", "spatial_legacy", "binomial")
     amp_pairs = ("ssim_amp", "frc50_amp")
     phase_pairs = ("ssim_phase", "frc50_phase")
 
@@ -252,17 +257,17 @@ def _series_by_level(rows: List[Dict[str, float]], mode: str, key: str, n_levels
 
 
 def make_plots(rows: List[Dict[str, float]], summary: Dict[str, object], out_dir: Path, levels: np.ndarray) -> None:
+    _ = summary
     plot_dir = out_dir / "plots"
     plot_dir.mkdir(parents=True, exist_ok=True)
-    modes = ("spatial", "binomial")
-    colors = {"spatial": "#1f77b4", "binomial": "#d62728"}
+    mode = "binomial"
+    color = "#d62728"
 
     # 1) trend_single_frc50_amp_vs_blur.png
     plt.figure(figsize=(8, 5))
-    for mode in modes:
-        mean, std = _series_by_level(rows, mode, "single_frc50_amp", len(levels))
-        plt.plot(levels, mean, label=f"{mode} single_frc50_amp", color=colors[mode])
-        plt.fill_between(levels, mean - std, mean + std, color=colors[mode], alpha=0.2)
+    mean, std = _series_by_level(rows, mode, "single_frc50_amp", len(levels))
+    plt.plot(levels, mean, label=f"{mode} single_frc50_amp", color=color)
+    plt.fill_between(levels, mean - std, mean + std, color=color, alpha=0.2)
     plt.xlabel("Blur Sigma")
     plt.ylabel("single_frc50_amp")
     plt.title("Single-Image FRC50 (Amplitude) vs Blur")
@@ -272,34 +277,18 @@ def make_plots(rows: List[Dict[str, float]], summary: Dict[str, object], out_dir
     plt.savefig(plot_dir / "trend_single_frc50_amp_vs_blur.png", dpi=160)
     plt.close()
 
-    # 2) trend_ssim_amp_vs_blur.png
-    plt.figure(figsize=(8, 5))
-    for mode in modes:
-        mean, std = _series_by_level(rows, mode, "ssim_amp", len(levels))
-        plt.plot(levels, mean, label=f"{mode} ssim_amp", color=colors[mode])
-        plt.fill_between(levels, mean - std, mean + std, color=colors[mode], alpha=0.2)
-    plt.xlabel("Blur Sigma")
-    plt.ylabel("ssim_amp")
-    plt.title("SSIM (Amplitude) vs Blur")
-    plt.legend()
-    plt.grid(alpha=0.3)
-    plt.tight_layout()
-    plt.savefig(plot_dir / "trend_ssim_amp_vs_blur.png", dpi=160)
-    plt.close()
-
     # 3) scatter_single_frc50_amp_vs_ssim_amp.png
     plt.figure(figsize=(8, 5))
-    for mode in modes:
-        vals = [r for r in rows if r["mode"] == mode]
-        x = np.asarray([r["single_frc50_amp"] for r in vals], dtype=float)
-        y = np.asarray([r["ssim_amp"] for r in vals], dtype=float)
-        rho = safe_spearman(x, y)
-        plt.scatter(x, y, s=14, alpha=0.45, label=f"{mode} (rho={rho:+.3f})", color=colors[mode])
-        if np.unique(x).size >= 2:
-            coef = np.polyfit(x, y, deg=1)
-            xx = np.linspace(float(np.min(x)), float(np.max(x)), 100)
-            yy = coef[0] * xx + coef[1]
-            plt.plot(xx, yy, color=colors[mode], linewidth=2)
+    vals = [r for r in rows if r["mode"] == mode]
+    x = np.asarray([r["single_frc50_amp"] for r in vals], dtype=float)
+    y = np.asarray([r["ssim_amp"] for r in vals], dtype=float)
+    rho = safe_spearman(x, y)
+    plt.scatter(x, y, s=16, alpha=0.55, label=f"rho={rho:+.3f}", color=color)
+    if np.unique(x).size >= 2:
+        coef = np.polyfit(x, y, deg=1)
+        xx = np.linspace(float(np.min(x)), float(np.max(x)), 100)
+        yy = coef[0] * xx + coef[1]
+        plt.plot(xx, yy, color=color, linewidth=2)
     plt.xlabel("single_frc50_amp")
     plt.ylabel("ssim_amp")
     plt.title("Scatter: single_frc50_amp vs ssim_amp")
@@ -309,174 +298,177 @@ def make_plots(rows: List[Dict[str, float]], summary: Dict[str, object], out_dir
     plt.savefig(plot_dir / "scatter_single_frc50_amp_vs_ssim_amp.png", dpi=160)
     plt.close()
 
-    # 3b) scatter by degradation level (color) per mode
-    fig, axs = plt.subplots(1, 2, figsize=(11, 4.8), sharey=True)
+    # 3b) scatter by degradation level (color)
+    fig, ax = plt.subplots(1, 1, figsize=(8.5, 5.3))
     cmap = plt.cm.viridis
     norm = plt.Normalize(vmin=float(np.min(levels)), vmax=float(np.max(levels)))
-    for i, mode in enumerate(modes):
-        vals = [r for r in rows if r["mode"] == mode]
-        x = np.asarray([r["single_frc50_amp"] for r in vals], dtype=float)
-        y = np.asarray([r["ssim_amp"] for r in vals], dtype=float)
-        z = np.asarray([r["blur_sigma"] for r in vals], dtype=float)
-        sc = axs[i].scatter(x, y, c=z, cmap=cmap, norm=norm, s=18, alpha=0.7)
-        axs[i].set_title(f"{mode}: single_frc50_amp vs ssim_amp")
-        axs[i].set_xlabel("single_frc50_amp")
-        axs[i].grid(alpha=0.3)
-        rho = safe_spearman(x, y)
-        axs[i].text(
-            0.03,
-            0.05,
-            f"Spearman rho={rho:+.3f}",
-            transform=axs[i].transAxes,
-            fontsize=9,
-            bbox={"facecolor": "white", "alpha": 0.75, "edgecolor": "none"},
-        )
-    axs[0].set_ylabel("ssim_amp")
-    cbar = fig.colorbar(sc, ax=axs, shrink=0.92)
+    vals = [r for r in rows if r["mode"] == mode]
+    x = np.asarray([r["single_frc50_amp"] for r in vals], dtype=float)
+    y = np.asarray([r["ssim_amp"] for r in vals], dtype=float)
+    z = np.asarray([r["blur_sigma"] for r in vals], dtype=float)
+    sc = ax.scatter(x, y, c=z, cmap=cmap, norm=norm, s=22, alpha=0.7)
+    rho = safe_spearman(x, y)
+    ax.text(
+        0.03,
+        0.93,
+        f"Spearman rho={rho:+.3f}",
+        transform=ax.transAxes,
+        fontsize=9,
+        bbox={"facecolor": "white", "alpha": 0.75, "edgecolor": "none"},
+    )
+    ax.set_title("single_frc50_amp vs ssim_amp by degradation level")
+    ax.set_xlabel("single_frc50_amp")
+    ax.set_ylabel("ssim_amp")
+    ax.grid(alpha=0.3)
+    cbar = fig.colorbar(sc, ax=ax, shrink=0.92)
     cbar.set_label("Degradation level (blur sigma)")
-    fig.suptitle("Scatter by degradation level", y=1.02)
     fig.tight_layout()
     fig.savefig(plot_dir / "scatter_single_frc50_amp_vs_ssim_amp_by_level.png", dpi=160, bbox_inches="tight")
     plt.close(fig)
 
-    # 4) rho_ci_bar_amp.png
-    labels = ["ssim_amp", "frc50_amp"]
-    x = np.arange(len(labels))
-    width = 0.35
-    plt.figure(figsize=(8, 5))
-    for i, mode in enumerate(modes):
-        means = []
-        yerr_low = []
-        yerr_high = []
-        for label in labels:
-            stats = summary["modes"][mode]["amplitude"][label]
-            means.append(float(stats["mean"]))
-            yerr_low.append(float(stats["mean"]) - float(stats["ci95_lo"]))
-            yerr_high.append(float(stats["ci95_hi"]) - float(stats["mean"]))
-        offs = (i - 0.5) * width
-        plt.bar(x + offs, means, width=width, label=mode, color=colors[mode], alpha=0.85)
-        plt.errorbar(x + offs, means, yerr=[yerr_low, yerr_high], fmt="none", ecolor="black", capsize=4)
-    plt.axhline(0.0, color="black", linewidth=1)
-    plt.xticks(x, labels)
-    plt.ylabel("Spearman rho (mean over seeds)")
-    plt.title("Amplitude Correlation: single_frc50 vs SSIM / GT FRC50 (95% CI)")
-    plt.legend()
-    plt.grid(alpha=0.3, axis="y")
-    plt.tight_layout()
-    plt.savefig(plot_dir / "rho_ci_bar_amp.png", dpi=160)
-    plt.close()
-
-    # 5) phase_stability_overview.png
-    fig, axs = plt.subplots(1, 2, figsize=(11, 4.5))
-    for mode in modes:
-        mean, std = _series_by_level(rows, mode, "single_frc50_phase", len(levels))
-        axs[0].plot(levels, mean, label=f"{mode}", color=colors[mode])
-        axs[0].fill_between(levels, mean - std, mean + std, color=colors[mode], alpha=0.2)
-    axs[0].set_title("single_frc50_phase vs Blur")
-    axs[0].set_xlabel("Blur Sigma")
-    axs[0].set_ylabel("single_frc50_phase")
-    axs[0].grid(alpha=0.3)
-    axs[0].legend()
-
-    labels_phase = ["ssim_phase", "frc50_phase"]
-    xp = np.arange(len(labels_phase))
-    for i, mode in enumerate(modes):
-        means = []
-        err_lo = []
-        err_hi = []
-        for lab in labels_phase:
-            stats = summary["modes"][mode]["phase"][lab]
-            means.append(float(stats["mean"]))
-            err_lo.append(float(stats["mean"]) - float(stats["ci95_lo"]))
-            err_hi.append(float(stats["ci95_hi"]) - float(stats["mean"]))
-        offs = (i - 0.5) * width
-        axs[1].bar(xp + offs, means, width=width, color=colors[mode], alpha=0.85, label=mode)
-        axs[1].errorbar(xp + offs, means, yerr=[err_lo, err_hi], fmt="none", ecolor="black", capsize=4)
-    axs[1].axhline(0.0, color="black", linewidth=1)
-    axs[1].set_xticks(xp)
-    axs[1].set_xticklabels(labels_phase)
-    axs[1].set_title("Phase Correlation (95% CI)")
-    axs[1].set_ylabel("Spearman rho")
-    axs[1].grid(alpha=0.3, axis="y")
-    axs[1].legend()
-
-    plt.tight_layout()
-    plt.savefig(plot_dir / "phase_stability_overview.png", dpi=160)
+    # 4) single_frc1over7_amp vs GT frc1over7_amp by degradation level
+    fig, ax = plt.subplots(1, 1, figsize=(8.5, 5.3))
+    cmap = plt.cm.plasma
+    norm = plt.Normalize(vmin=float(np.min(levels)), vmax=float(np.max(levels)))
+    vals = [r for r in rows if r["mode"] == mode]
+    x_all = np.asarray([r["single_frc1over7_amp"] for r in vals], dtype=float)
+    y_all = np.asarray([r["frc1over7_amp"] for r in vals], dtype=float)
+    z_all = np.asarray([r["blur_sigma"] for r in vals], dtype=float)
+    gt_len = np.asarray([r["frc_amp_curve_len"] for r in vals], dtype=float)
+    # Exclude only GT-censored points for this plot.
+    keep = y_all < (gt_len - 1e-9)
+    if int(np.count_nonzero(keep)) >= 2:
+        x = x_all[keep]
+        y = y_all[keep]
+        z = z_all[keep]
+    else:
+        x = x_all
+        y = y_all
+        z = z_all
+    sc = ax.scatter(x, y, c=z, cmap=cmap, norm=norm, s=20, alpha=0.7)
+    rho = safe_spearman(x, y)
+    ax.text(
+        0.03,
+        0.93,
+        f"Spearman rho={rho:+.3f}",
+        transform=ax.transAxes,
+        fontsize=9,
+        bbox={"facecolor": "white", "alpha": 0.75, "edgecolor": "none"},
+    )
+    ax.set_title("single_frc1over7_amp vs GT frc1over7_amp by degradation level")
+    ax.set_xlabel("single_frc1over7_amp")
+    ax.set_ylabel("GT frc1over7_amp")
+    ax.grid(alpha=0.3)
+    cbar = fig.colorbar(sc, ax=ax, shrink=0.92)
+    cbar.set_label("Degradation level (blur sigma)")
+    fig.tight_layout()
+    fig.savefig(plot_dir / "scatter_single_frc1over7_amp_vs_gt_frc1over7_amp_by_level_gt_nosat.png", dpi=160, bbox_inches="tight")
     plt.close(fig)
 
-
-def _fmt_ci(stats: Dict[str, float]) -> str:
-    return f"{stats['mean']:+.3f} [{stats['ci95_lo']:+.3f}, {stats['ci95_hi']:+.3f}]"
+    # Remove stale files from previous report variants.
+    stale = [
+        "trend_ssim_amp_vs_blur.png",
+        "rho_ci_bar_amp.png",
+        "phase_stability_overview.png",
+        "scatter_single_frc50_amp_vs_gt_frc50_amp_by_level.png",
+        "scatter_single_frc1over7_amp_vs_gt_frc1over7_amp_by_level.png",
+    ]
+    for name in stale:
+        p = plot_dir / name
+        if p.exists():
+            p.unlink()
 
 
 def write_readme(args: argparse.Namespace, out_dir: Path, summary: Dict[str, object]) -> None:
-    plot_dir = out_dir / "plots"
-    spatial_amp_ssim = summary["modes"]["spatial"]["amplitude"]["ssim_amp"]
-    spatial_amp_frc = summary["modes"]["spatial"]["amplitude"]["frc50_amp"]
-    binom_amp_ssim = summary["modes"]["binomial"]["amplitude"]["ssim_amp"]
-    binom_amp_frc = summary["modes"]["binomial"]["amplitude"]["frc50_amp"]
+    _ = args, out_dir, summary
 
-    binom_ssim_lower = float(binom_amp_ssim["ci95_lo"])
-    acceptance_binomial = "PASS" if binom_ssim_lower > 0 else "FAIL"
-
-    readme = out_dir / "FRC_README.md"
-    cmd = (
-        "python scripts/studies/analyze_single_image_frc_alignment.py "
-        f"--n-seeds {args.n_seeds} --n-levels {args.n_levels} --level-max {args.level_max} "
-        f"--output-dir {args.output_dir}"
-    )
+    readme = out_dir / "README.md"
 
     lines = [
-        "# Single-Image FRC Visual Validation",
+        "# frc",
         "",
-        "## Command",
+        "Utilities for single-image Fourier Ring Correlation (FRC) split construction.",
+        "",
+        "## Installation",
         "```bash",
-        cmd,
+        "pip install -e .",
         "```",
         "",
-        "## Sweep Settings",
-        f"- `n_seeds`: {int(args.n_seeds)}",
-        f"- `n_levels`: {int(args.n_levels)}",
-        f"- `level_max`: {float(args.level_max)}",
-        f"- `phase_noise_scale`: {float(args.phase_noise_scale)}",
-        f"- `size`: {int(args.size)}",
-        f"- `offset`: {int(args.offset)}",
+        "## API",
+        "- `center_crop_even_square(arr)`: center-crop to an even square canvas.",
+        "- `split_diagonal_interleaved(arr)`: diagonal interleaved split into two half-images.",
+        "- `split_diagonal_strided_main(arr)`: strided (00 vs 11) spatial split.",
+        "- `split_diagonal_strided_anti(arr)`: strided (01 vs 10) spatial split.",
+        "- `split_binomial_thinned(arr, rng_seed=None, count_scale=4096.0)`: independent Poisson half-split.",
+        "- `single_image_frc_curve(image_2d, split_mode=..., spatial_antialias_sigma=...)`: supports `binomial`, `spatial_dual`, `spatial_legacy` plus calibrated aliases.",
+        "- `single_image_frc_metrics(..., spatial_calibration_json=..., spatial_calibration_profile=...)`: applies JSON coefficient calibration for spatial calibrated modes.",
+        "- `first_below_threshold(curve, threshold)`: first index where a curve falls below threshold.",
         "",
-        "## Key Correlation Summary (Amplitude)",
+        "Spatial modes apply anti-alias prefiltering by default (`spatial_antialias_sigma=0.8`).",
         "",
-        "| Mode | rho(single_frc50_amp, ssim_amp) | rho(single_frc50_amp, frc50_amp) |",
-        "|---|---:|---:|",
-        f"| spatial | {_fmt_ci(spatial_amp_ssim)} | {_fmt_ci(spatial_amp_frc)} |",
-        f"| binomial | {_fmt_ci(binom_amp_ssim)} | {_fmt_ci(binom_amp_frc)} |",
+        "## Example",
+        "```python",
+        "import numpy as np",
         "",
-        "## Acceptance Checks",
-        f"- Binomial vs SSIM CI lower bound > 0: **{acceptance_binomial}**",
-        "- Spatial mode behavior on blur sweeps is documented; anti-alignment is expected for checkerboard split under pure blur perturbation.",
-        "- Interpretation is relative-trend only; no absolute physical resolution claim is made.",
+        "from frc.single_image_frc import (",
+        "    center_crop_even_square,",
+        "    split_binomial_thinned,",
+        ")",
         "",
-        "## Plots",
+        "img = np.random.rand(96, 96).astype(np.float32)",
+        "img = center_crop_even_square(img)",
+        "",
+        "half_a, half_b = split_binomial_thinned(img, rng_seed=123, count_scale=4096.0)",
+        "```",
+        "",
+        "## Method (Math)",
+        "Let the complex object be",
+        "",
+        "`O(x) = A(x) * exp(i * phi(x))`.",
+        "",
+        "For single-image FRC on amplitude, define an intensity proxy",
+        "",
+        "`lambda(x) = count_scale * |O(x)|^2`.",
+        "",
+        "Then form two statistically independent half-images using Poisson splitting:",
+        "",
+        "`n1(x) ~ Poisson(lambda(x)/2),  n2(x) ~ Poisson(lambda(x)/2)`.",
+        "",
+        "`h1(x) = sqrt(n1(x)/count_scale) * exp(i * angle(O(x)))`,",
+        "`h2(x) = sqrt(n2(x)/count_scale) * exp(i * angle(O(x)))`.",
+        "",
+        "Compute FFTs `H1(k), H2(k)` and ring-average by radius `r`. The single-image FRC curve is the signed shell correlation",
+        "",
+        "`FRC(r) = Re(<H1(k) * conj(H2(k))>_r) / sqrt(<|H1(k)|^2>_r * <|H2(k)|^2>_r)`.",
+        "",
+        "Cutoff metrics are first-below-threshold crossings:",
+        "",
+        "`r_t = min { r : FRC(r) < t }`, with `t in {0.5, 1/7}`.",
+        "",
+        "If no crossing occurs, `r_t` is set to the curve length (right-censored at Nyquist).",
+        "",
+        "GT-based FRC uses the same cutoff rule but correlates prediction vs ground-truth images.",
+        "",
+        "## Plot Artifacts",
+        "The following plots are generated by the external alignment sweep and saved under `plots/`.",
         "",
         "### single_frc50_amp trend",
-        "![single_frc50_amp trend](plots/trend_single_frc50_amp_vs_blur.png)",
-        "",
-        "### ssim_amp trend",
-        "![ssim_amp trend](plots/trend_ssim_amp_vs_blur.png)",
+        "![single_frc50_amp trend](./plots/trend_single_frc50_amp_vs_blur.png)",
         "",
         "### Scatter (single_frc50_amp vs ssim_amp)",
-        "![scatter](plots/scatter_single_frc50_amp_vs_ssim_amp.png)",
+        "![scatter](./plots/scatter_single_frc50_amp_vs_ssim_amp.png)",
         "",
         "### Scatter by degradation level",
-        "![scatter by level](plots/scatter_single_frc50_amp_vs_ssim_amp_by_level.png)",
+        "![scatter by level](./plots/scatter_single_frc50_amp_vs_ssim_amp_by_level.png)",
         "",
-        "### rho + 95% CI bars",
-        "![rho ci amp](plots/rho_ci_bar_amp.png)",
+        "### single_frc1over7_amp vs GT frc1over7_amp (by degradation level)",
+        "This compares no-GT single-image FRC@1/7 (x-axis) against GT-based FRC@1/7 (y-axis).",
+        "GT-censored points (`GT FRC@1/7 == curve length`) are excluded in this plot only.",
+        "![scatter frc1over7](./plots/scatter_single_frc1over7_amp_vs_gt_frc1over7_amp_by_level_gt_nosat.png)",
         "",
-        "### Phase stability overview",
-        "![phase stability](plots/phase_stability_overview.png)",
-        "",
-        "## Artifacts",
-        f"- Raw metrics: `{(out_dir / 'raw_metrics.csv').as_posix()}`",
-        f"- Summary JSON: `{(out_dir / 'summary.json').as_posix()}`",
+        "## Data Artifacts",
+        "- `raw_metrics.csv`",
+        "- `summary.json`",
     ]
     readme.write_text("\n".join(lines) + "\n")
 
@@ -485,6 +477,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Analyze single-image FRC alignment and generate visual report.")
     parser.add_argument("--n-seeds", type=int, default=20)
     parser.add_argument("--n-levels", type=int, default=13)
+    parser.add_argument("--level-min", type=float, default=0.0)
     parser.add_argument("--level-max", type=float, default=2.0)
     parser.add_argument("--phase-noise-scale", type=float, default=0.03)
     parser.add_argument("--size", type=int, default=96)
@@ -492,7 +485,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("frc"),
+        default=Path("../frc"),
+    )
+    parser.add_argument(
+        "--write-readme",
+        action="store_true",
+        help="If set, overwrite output-dir README.md with generated report content.",
     )
     return parser.parse_args(argv)
 
@@ -506,9 +504,10 @@ def main(argv: list[str] | None = None) -> int:
     write_csv(rows, out_dir / "raw_metrics.csv")
     summary = summarize(rows, n_seeds=int(args.n_seeds), n_levels=int(args.n_levels))
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=2))
-    levels = np.linspace(0.0, float(args.level_max), int(args.n_levels), dtype=float)
+    levels = np.linspace(float(args.level_min), float(args.level_max), int(args.n_levels), dtype=float)
     make_plots(rows, summary, out_dir, levels)
-    write_readme(args, out_dir, summary)
+    if args.write_readme:
+        write_readme(args, out_dir, summary)
 
     print(json.dumps({"output_dir": str(out_dir), "rows": len(rows)}, indent=2))
     return 0
