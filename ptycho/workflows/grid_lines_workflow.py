@@ -722,6 +722,108 @@ def _display_bounds(array: np.ndarray, border_pixels: int = 0) -> Tuple[float, f
     return bounds
 
 
+def _resolve_probe_for_visuals(output_dir: Path) -> Optional[Dict[str, np.ndarray]]:
+    """Load probe amplitude/phase from a dataset NPZ for compare visualizations."""
+    def _candidate_paths_from_run_params(run_params_path: Path) -> list[Path]:
+        try:
+            payload = json.loads(run_params_path.read_text())
+        except Exception:
+            return []
+
+        resolved: list[Path] = []
+        for key in ("train_npz", "test_npz"):
+            raw_value = payload.get(key)
+            if not isinstance(raw_value, str) or not raw_value.strip():
+                continue
+            raw_path = Path(raw_value)
+            candidate = raw_path if raw_path.is_absolute() else (output_dir / raw_path)
+            if candidate.exists():
+                resolved.append(candidate)
+            elif raw_path.exists():
+                resolved.append(raw_path)
+        return resolved
+
+    candidates: list[Path] = []
+    dataset_root = output_dir / "datasets"
+    if dataset_root.exists():
+        candidates.extend(sorted(dataset_root.glob("N*/gs*/train.npz")))
+        candidates.extend(sorted(dataset_root.glob("N*/gs*/test.npz")))
+
+    for params_name in ("run_params.json", "runparams.json"):
+        params_path = output_dir / params_name
+        if params_path.exists():
+            candidates.extend(_candidate_paths_from_run_params(params_path))
+
+    if not candidates:
+        return None
+
+    seen = set()
+    for npz_path in candidates:
+        npz_key = str(npz_path)
+        if npz_key in seen:
+            continue
+        seen.add(npz_key)
+        try:
+            with np.load(npz_path) as data:
+                probe = None
+                for key in ("probeGuess", "probe", "probe_guess"):
+                    if key in data:
+                        probe = np.asarray(data[key])
+                        break
+                if probe is None:
+                    continue
+        except Exception:
+            continue
+
+        probe = np.squeeze(probe)
+        if probe.ndim > 2:
+            probe = probe[0]
+        if probe.ndim != 2:
+            continue
+        probe = np.asarray(probe, dtype=np.complex64)
+        return {
+            "amp": np.abs(probe),
+            "phase": np.angle(probe),
+        }
+    return None
+
+
+def _imshow_scaled_probe(
+    ax,
+    image: np.ndarray,
+    *,
+    cmap: str,
+    object_side: float,
+    vmin: Optional[float] = None,
+    vmax: Optional[float] = None,
+):
+    """Render probe image centered and scaled to object-side units."""
+    probe_h, probe_w = image.shape
+    x0 = (object_side - probe_w) / 2.0
+    y0 = (object_side - probe_h) / 2.0
+    x1 = x0 + probe_w
+    y1 = y0 + probe_h
+
+    kwargs: Dict[str, float] = {}
+    if vmin is not None:
+        kwargs["vmin"] = vmin
+    if vmax is not None:
+        kwargs["vmax"] = vmax
+
+    mappable = ax.imshow(
+        image,
+        cmap=cmap,
+        extent=(x0, x1, y0, y1),
+        origin="upper",
+        **kwargs,
+    )
+    ax.set_xlim(0.0, object_side)
+    ax.set_ylim(object_side, 0.0)
+    ax.set_aspect("equal")
+    ax.axis("off")
+    return mappable
+
+
 def _should_share_colorbar(
     arrays: Tuple[np.ndarray, ...] | list[np.ndarray],
     rtol: float = 1e-6,
@@ -774,19 +876,26 @@ def save_comparison_png_dynamic(
     recons: Dict[str, Dict[str, np.ndarray]],
     order: Tuple[str, ...],
     border_pixels: Optional[int] = None,
+    probe: Optional[Dict[str, np.ndarray]] = None,
 ) -> Path:
     """Save comparison plot with GT plus available model reconstructions."""
     import matplotlib.pyplot as plt
 
     labels = [label for label in order if label in recons]
-    ncols = 1 + len(labels)
+    include_probe = (
+        probe is not None
+        and isinstance(probe, dict)
+        and "amp" in probe
+        and "phase" in probe
+    )
+    ncols = 1 + len(labels) + (1 if include_probe else 0)
     fig, axes = plt.subplots(2, ncols, figsize=(5 * ncols, 8), squeeze=False)
     resolved_border = _resolve_display_border_pixels(output_dir, override=border_pixels)
 
     amp_arrays = [gt_amp]
     phase_arrays = [gt_phase]
-    amp_gt_bounds = _display_bounds(gt_amp, border_pixels=0)
-    phase_gt_bounds = _display_bounds(gt_phase, border_pixels=0)
+    amp_gt_bounds = _display_bounds(gt_amp, border_pixels=resolved_border)
+    phase_gt_bounds = _display_bounds(gt_phase, border_pixels=resolved_border)
 
     amp_gt_kwargs = {}
     if amp_gt_bounds is not None:
@@ -829,6 +938,41 @@ def save_comparison_png_dynamic(
         )
         axes[1, idx].set_title(f"{title} Phase")
         axes[1, idx].axis("off")
+
+    if include_probe:
+        probe_idx = ncols - 1
+        probe_amp = np.asarray(probe["amp"])
+        probe_phase = np.asarray(probe["phase"])
+        object_side = float(max(gt_amp.shape))
+
+        probe_amp_bounds = _display_bounds(probe_amp, border_pixels=0)
+        probe_phase_bounds = _display_bounds(probe_phase, border_pixels=0)
+
+        amp_mappables.append(
+            _imshow_scaled_probe(
+                axes[0, probe_idx],
+                probe_amp,
+                cmap="viridis",
+                object_side=object_side,
+                vmin=(probe_amp_bounds[0] if probe_amp_bounds is not None else None),
+                vmax=(probe_amp_bounds[1] if probe_amp_bounds is not None else None),
+            )
+        )
+        axes[0, probe_idx].set_title(f"Probe Amplitude ({probe_amp.shape[0]}x{probe_amp.shape[1]})")
+        amp_arrays.append(probe_amp)
+
+        phase_mappables.append(
+            _imshow_scaled_probe(
+                axes[1, probe_idx],
+                probe_phase,
+                cmap="twilight",
+                object_side=object_side,
+                vmin=(probe_phase_bounds[0] if probe_phase_bounds is not None else None),
+                vmax=(probe_phase_bounds[1] if probe_phase_bounds is not None else None),
+            )
+        )
+        axes[1, probe_idx].set_title(f"Probe Phase ({probe_phase.shape[0]}x{probe_phase.shape[1]})")
+        phase_arrays.append(probe_phase)
 
     _add_row_colorbars(fig, axes[0], amp_mappables, amp_arrays)
     _add_row_colorbars(fig, axes[1], phase_mappables, phase_arrays)
@@ -919,6 +1063,7 @@ def render_grid_lines_visuals(output_dir: Path, order: Tuple[str, ...]) -> Dict[
         {label: data for label, data in recons.items() if label != "gt"},
         order=tuple(label for label in order if label != "gt"),
         border_pixels=resolved_border,
+        probe=_resolve_probe_for_visuals(output_dir),
     )
     outputs["compare"] = str(compare)
     return outputs

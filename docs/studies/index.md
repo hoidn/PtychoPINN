@@ -7,6 +7,7 @@
 - Purpose: Run external-raw `fly001` study at `N=128` with top-half train and full-object test (no additional subsampling), comparing Torch `cnn` and `hybrid_resnet`.
 - Script: `scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_test_e40.sh`
 - Output directory: `outputs/grid_lines_external_fly001_n128_top_train_full_test_e40_seed3_cnn_hybrid_resnet`
+  - Rerun output: `outputs/grid_lines_external_fly001_n128_top_train_full_test_e40_seed3_cnn_hybrid_resnet_rerun_20260216_213242_pty`
 - Dataset inputs:
   - `datasets/fly001_128/fly001_128_top_half_converted.npz`
   - `datasets/fly001_128/fly001_128_full_test_converted.npz`

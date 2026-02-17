@@ -3,6 +3,7 @@
 Test strategy: plans/active/GRID-LINES-WORKFLOW-001/test_strategy.md
 """
 
+import json
 import numpy as np
 import pytest
 from pathlib import Path
@@ -21,6 +22,7 @@ from ptycho.workflows.grid_lines_workflow import (
     _should_share_colorbar,
     _display_bounds,
     _resolve_display_border_pixels,
+    _resolve_probe_for_visuals,
 )
 from ptycho.config.config import ModelConfig, TrainingConfig
 from ptycho import params as p
@@ -687,6 +689,80 @@ class TestColorbarSharing:
             order=("pinn", "baseline"),
         )
         assert out.exists()
+
+    def test_save_comparison_png_applies_border_to_gt_bounds(self, tmp_path: Path, monkeypatch):
+        gt_amp = np.ones((8, 8), dtype=np.float32)
+        gt_phase = np.zeros((8, 8), dtype=np.float32)
+        recons = {"pinn": {"amp": np.ones((8, 8), dtype=np.float32), "phase": np.zeros((8, 8), dtype=np.float32)}}
+        seen = []
+
+        def _fake_display_bounds(_arr, border_pixels=0):
+            seen.append(border_pixels)
+            return (0.0, 1.0)
+
+        monkeypatch.setattr("ptycho.workflows.grid_lines_workflow._display_bounds", _fake_display_bounds)
+
+        out = save_comparison_png_dynamic(
+            tmp_path / "grid_lines_external_fly001_n128_top_train_full_test_e5",
+            gt_amp,
+            gt_phase,
+            recons,
+            order=("pinn",),
+        )
+
+        assert out.exists()
+        assert seen == [64, 64, 64, 64]
+
+    def test_save_comparison_png_includes_probe_column(self, tmp_path: Path):
+        gt_amp = np.ones((8, 8), dtype=np.float32)
+        gt_phase = np.zeros((8, 8), dtype=np.float32)
+        recons = {"pinn": {"amp": np.ones((8, 8), dtype=np.float32), "phase": np.zeros((8, 8), dtype=np.float32)}}
+        probe = {
+            "amp": np.ones((4, 4), dtype=np.float32),
+            "phase": np.zeros((4, 4), dtype=np.float32),
+        }
+        out = save_comparison_png_dynamic(
+            tmp_path,
+            gt_amp,
+            gt_phase,
+            recons,
+            order=("pinn",),
+            probe=probe,
+        )
+        assert out.exists()
+
+    def test_resolve_probe_for_visuals_reads_probe_guess(self, tmp_path: Path):
+        dataset_dir = tmp_path / "datasets" / "N128" / "gs1"
+        dataset_dir.mkdir(parents=True)
+        probe = (np.ones((8, 8), dtype=np.float32) + 1j * np.zeros((8, 8), dtype=np.float32)).astype(np.complex64)
+        np.savez(dataset_dir / "train.npz", probeGuess=probe)
+        resolved = _resolve_probe_for_visuals(tmp_path)
+        assert resolved is not None
+        assert resolved["amp"].shape == (8, 8)
+        assert resolved["phase"].shape == (8, 8)
+
+    def test_resolve_probe_for_visuals_uses_run_params_dataset_paths(self, tmp_path: Path):
+        source_dataset_dir = tmp_path / "source" / "datasets" / "N128" / "gs1"
+        source_dataset_dir.mkdir(parents=True)
+        probe = (np.ones((8, 8), dtype=np.float32) + 1j * np.zeros((8, 8), dtype=np.float32)).astype(np.complex64)
+        np.savez(source_dataset_dir / "train.npz", probeGuess=probe)
+        np.savez(source_dataset_dir / "test.npz", probeGuess=probe)
+
+        rerun_output_dir = tmp_path / "rerun"
+        rerun_output_dir.mkdir(parents=True)
+        (rerun_output_dir / "run_params.json").write_text(
+            json.dumps(
+                {
+                    "train_npz": str(source_dataset_dir / "train.npz"),
+                    "test_npz": str(source_dataset_dir / "test.npz"),
+                }
+            )
+        )
+
+        resolved = _resolve_probe_for_visuals(rerun_output_dir)
+        assert resolved is not None
+        assert resolved["amp"].shape == (8, 8)
+        assert resolved["phase"].shape == (8, 8)
 
 
 class TestGridLinesCLI:
