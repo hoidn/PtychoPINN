@@ -432,7 +432,8 @@ class TestRunGridLinesTorchScaffold:
 
         called = {"ok": False}
 
-        def fake_eval(stitched_obj, ground_truth_obj, label=""):
+        def fake_eval(stitched_obj, ground_truth_obj, label="", **kwargs):
+            _ = kwargs
             if stitched_obj.ndim == 4:
                 stitched_obj = stitched_obj[0]
             assert stitched_obj.shape[0] == ground_truth_obj.shape[0]
@@ -477,7 +478,8 @@ class TestRunGridLinesTorchScaffold:
         """compute_metrics should normalize 2D complex arrays to (H,W,1)."""
         captured = {}
 
-        def fake_eval(pred, gt, label=""):
+        def fake_eval(pred, gt, label="", **kwargs):
+            _ = kwargs
             captured["pred_shape"] = tuple(np.asarray(pred).shape)
             captured["gt_shape"] = tuple(np.asarray(gt).shape)
             captured["label"] = label
@@ -493,6 +495,38 @@ class TestRunGridLinesTorchScaffold:
         assert captured["pred_shape"] == (64, 64, 1)
         assert captured["gt_shape"] == (64, 64, 1)
         assert captured["label"] == "pinn_hybrid_resnet"
+
+    def test_compute_metrics_passes_single_image_frc_flag(self, monkeypatch):
+        captured = {}
+
+        def fake_eval(
+            pred,
+            gt,
+            label="",
+            single_image_frc=False,
+            single_image_frc_split_mode="spatial",
+            single_image_frc_rng_seed=None,
+        ):
+            captured["pred_shape"] = tuple(np.asarray(pred).shape)
+            captured["gt_shape"] = tuple(np.asarray(gt).shape)
+            captured["label"] = label
+            captured["single_image_frc"] = single_image_frc
+            captured["single_image_frc_split_mode"] = single_image_frc_split_mode
+            captured["single_image_frc_rng_seed"] = single_image_frc_rng_seed
+            return {"mse": 0.0}
+
+        monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", fake_eval)
+
+        pred = np.ones((64, 64), dtype=np.complex64)
+        gt = np.ones((64, 64), dtype=np.complex64)
+        out = compute_metrics(pred, gt, label="pinn_hybrid_resnet", single_image_frc=True)
+
+        assert out["mse"] == 0.0
+        assert captured["pred_shape"] == (64, 64, 1)
+        assert captured["gt_shape"] == (64, 64, 1)
+        assert captured["single_image_frc"] is True
+        assert captured["single_image_frc_split_mode"] == "spatial"
+        assert captured["single_image_frc_rng_seed"] is None
 
     def test_position_reassembly_mode_uses_coords_offsets(self, synthetic_npz, tmp_path, monkeypatch):
         """Position mode should use coords_offsets-based reassembly."""
@@ -541,7 +575,7 @@ class TestRunGridLinesTorchScaffold:
         )
         monkeypatch.setattr(
             "scripts.studies.grid_lines_torch_runner.compute_metrics",
-            lambda predictions, ground_truth, label: {"mse": 0.0},
+            lambda predictions, ground_truth, label, **kwargs: {"mse": 0.0},
         )
 
         run_grid_lines_torch(cfg)
@@ -580,10 +614,11 @@ class TestRunGridLinesTorchScaffold:
             }
             return data, {"additional_parameters": {}}
 
-        def fake_compute_metrics(predictions, ground_truth, label):
+        def fake_compute_metrics(predictions, ground_truth, label, **kwargs):
             captured["pred_shape"] = tuple(np.asarray(predictions).shape)
             captured["gt_shape"] = tuple(np.asarray(ground_truth).shape)
             _ = label
+            _ = kwargs
             return {"mse": 0.0}
 
         monkeypatch.setattr("ptycho.tf_helper.reassemble_position", fake_reassemble)
@@ -763,7 +798,7 @@ class TestRunGridLinesTorchScaffold:
         )
         monkeypatch.setattr(
             "scripts.studies.grid_lines_torch_runner.compute_metrics",
-            lambda predictions, ground_truth, label: {"mse": 0.0},
+            lambda predictions, ground_truth, label, **kwargs: {"mse": 0.0},
         )
 
         run_grid_lines_torch(cfg)
@@ -1333,3 +1368,120 @@ def test_main_maps_torch_logger_none_to_disabled(tmp_path, monkeypatch):
 
     assert captured["cfg"] is not None
     assert captured["cfg"].logger_backend is None
+
+
+def test_main_defaults_single_image_frc_enabled(tmp_path, monkeypatch):
+    from scripts.studies import grid_lines_torch_runner as runner
+
+    captured = {"cfg": None}
+
+    def fake_run_grid_lines_torch(cfg):
+        captured["cfg"] = cfg
+        run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        return {"run_dir": str(run_dir), "metrics": {}}
+
+    monkeypatch.setattr(runner, "run_grid_lines_torch", fake_run_grid_lines_torch)
+
+    out_dir = tmp_path / "output"
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    train_npz.write_bytes(b"stub")
+    test_npz.write_bytes(b"stub")
+
+    runner.main(
+        [
+            "--train-npz",
+            str(train_npz),
+            "--test-npz",
+            str(test_npz),
+            "--output-dir",
+            str(out_dir),
+            "--architecture",
+            "fno",
+            "--epochs",
+            "1",
+        ]
+    )
+    assert captured["cfg"] is not None
+    assert captured["cfg"].single_image_frc is True
+
+
+def test_main_allows_disabling_single_image_frc(tmp_path, monkeypatch):
+    from scripts.studies import grid_lines_torch_runner as runner
+
+    captured = {"cfg": None}
+
+    def fake_run_grid_lines_torch(cfg):
+        captured["cfg"] = cfg
+        run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        return {"run_dir": str(run_dir), "metrics": {}}
+
+    monkeypatch.setattr(runner, "run_grid_lines_torch", fake_run_grid_lines_torch)
+
+    out_dir = tmp_path / "output"
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    train_npz.write_bytes(b"stub")
+    test_npz.write_bytes(b"stub")
+
+    runner.main(
+        [
+            "--train-npz",
+            str(train_npz),
+            "--test-npz",
+            str(test_npz),
+            "--output-dir",
+            str(out_dir),
+            "--architecture",
+            "fno",
+            "--epochs",
+            "1",
+            "--no-single-image-frc",
+        ]
+    )
+    assert captured["cfg"] is not None
+    assert captured["cfg"].single_image_frc is False
+
+
+def test_main_passes_single_image_frc_split_mode_and_seed(tmp_path, monkeypatch):
+    from scripts.studies import grid_lines_torch_runner as runner
+
+    captured = {"cfg": None}
+
+    def fake_run_grid_lines_torch(cfg):
+        captured["cfg"] = cfg
+        run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        return {"run_dir": str(run_dir), "metrics": {}}
+
+    monkeypatch.setattr(runner, "run_grid_lines_torch", fake_run_grid_lines_torch)
+
+    out_dir = tmp_path / "output"
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    train_npz.write_bytes(b"stub")
+    test_npz.write_bytes(b"stub")
+
+    runner.main(
+        [
+            "--train-npz",
+            str(train_npz),
+            "--test-npz",
+            str(test_npz),
+            "--output-dir",
+            str(out_dir),
+            "--architecture",
+            "fno",
+            "--epochs",
+            "1",
+            "--single-image-frc-split-mode",
+            "binomial",
+            "--single-image-frc-rng-seed",
+            "123",
+        ]
+    )
+    assert captured["cfg"] is not None
+    assert captured["cfg"].single_image_frc_split_mode == "binomial"
+    assert captured["cfg"].single_image_frc_rng_seed == 123

@@ -360,6 +360,48 @@ def test_run_grid_lines_workflow_tf_models_baseline_only(monkeypatch, tmp_path: 
     assert calls["baseline_infer"] == 1
 
 
+def test_run_grid_lines_workflow_enables_single_image_frc(monkeypatch, tmp_path: Path):
+    DummyModel = _stub_grid_lines_simulation(monkeypatch, tmp_path)
+
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.train_pinn_model",
+        lambda *args, **kwargs: (DummyModel(), {}),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.train_baseline_model",
+        lambda *args, **kwargs: (DummyModel(), {}),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.run_pinn_inference",
+        lambda *args, **kwargs: np.zeros((1, 1, 1, 1), dtype=np.complex64),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.run_baseline_inference",
+        lambda *args, **kwargs: np.zeros((1, 1, 1, 1), dtype=np.complex64),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals",
+        lambda output_dir, order: {},
+    )
+
+    captured = {"pinn": None}
+
+    def fake_eval(*args, **kwargs):
+        label = kwargs.get("label")
+        if label == "pinn":
+            captured["pinn"] = kwargs.get("single_image_frc")
+        return {"mse": 0.0}
+
+    monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", fake_eval)
+
+    probe_path = tmp_path / "probe.npz"
+    np.savez(probe_path, probeGuess=(np.ones((8, 8)) + 1j * np.ones((8, 8))).astype(np.complex64))
+    cfg = GridLinesConfig(N=8, gridsize=1, output_dir=tmp_path, probe_npz=probe_path)
+
+    _ = run_grid_lines_workflow(cfg, tf_models=("pinn",))
+    assert captured["pinn"] is True
+
+
 def test_run_grid_lines_workflow_default_runs_both_models(monkeypatch, tmp_path: Path):
     DummyModel = _stub_grid_lines_simulation(monkeypatch, tmp_path)
 

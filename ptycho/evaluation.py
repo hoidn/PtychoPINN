@@ -476,9 +476,207 @@ def frc50(target, pred, frc_sigma = 0, debug_save_images=False, debug_dir=None, 
     return shellcorr, frc50_value
 
 
+def _center_crop_even_square(arr: np.ndarray) -> np.ndarray:
+    """Center-crop to an even square canvas for checkerboard split FRC."""
+    img = np.asarray(arr)
+    if img.ndim != 2:
+        raise ValueError(f"Expected 2D array, got shape {img.shape}")
+    h, w = img.shape
+    side = min(h, w)
+    if side % 2 == 1:
+        side -= 1
+    if side < 2:
+        raise ValueError(f"Image too small for single-image FRC: {img.shape}")
+    h0 = (h - side) // 2
+    w0 = (w - side) // 2
+    return img[h0:h0 + side, w0:w0 + side]
+
+
+def _split_diagonal_interleaved(arr: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Split one image into two diagonal interleaved half-images."""
+    img = np.asarray(arr)
+    if img.ndim != 2:
+        raise ValueError(f"Expected 2D array, got shape {img.shape}")
+    if img.shape[0] != img.shape[1]:
+        raise ValueError(f"Expected square image, got shape {img.shape}")
+    if img.shape[0] % 2 != 0:
+        raise ValueError(f"Expected even side length, got shape {img.shape}")
+    half_a = 0.5 * (img[0::2, 0::2] + img[1::2, 1::2])
+    half_b = 0.5 * (img[0::2, 1::2] + img[1::2, 0::2])
+    return half_a, half_b
+
+
+def _split_binomial_thinned(
+    arr: np.ndarray,
+    *,
+    rng_seed: int | None = None,
+    count_scale: float = 4096.0,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Split an image into two half-images via deterministic binomial thinning."""
+    img = np.asarray(arr)
+    if img.ndim != 2:
+        raise ValueError(f"Expected 2D array, got shape {img.shape}")
+    if img.shape[0] != img.shape[1]:
+        raise ValueError(f"Expected square image, got shape {img.shape}")
+
+    if count_scale <= 0:
+        raise ValueError(f"count_scale must be > 0, got {count_scale}")
+
+    rng = np.random.default_rng(0 if rng_seed is None else int(rng_seed))
+    mag = np.abs(np.asarray(img, dtype=np.complex128))
+    intensity = np.nan_to_num(mag * mag, nan=0.0, posinf=0.0, neginf=0.0)
+    counts = np.rint(intensity * float(count_scale)).astype(np.int64)
+    counts = np.clip(counts, 0, None)
+
+    half_counts_a = rng.binomial(counts, 0.5)
+    half_counts_b = counts - half_counts_a
+    mag_a = np.sqrt(half_counts_a / float(count_scale))
+    mag_b = np.sqrt(half_counts_b / float(count_scale))
+
+    if np.iscomplexobj(img):
+        phase = np.angle(img)
+        half_a = (mag_a * np.exp(1j * phase)).astype(np.complex64)
+        half_b = (mag_b * np.exp(1j * phase)).astype(np.complex64)
+    else:
+        sign = np.sign(np.asarray(img, dtype=np.float64))
+        sign[sign == 0] = 1.0
+        half_a = (mag_a * sign).astype(np.float32)
+        half_b = (mag_b * sign).astype(np.float32)
+    return half_a, half_b
+
+
+def _first_below_threshold(curve: np.ndarray, threshold: float) -> float:
+    vals = np.asarray(curve, dtype=np.float64)
+    if vals.size == 0:
+        return np.nan
+    finite = np.isfinite(vals)
+    if not finite.any():
+        return np.nan
+    finite_vals = vals[finite]
+    idx = np.where(finite_vals < threshold)[0]
+    if len(idx) == 0:
+        return float(len(finite_vals))
+    return float(idx[0])
+
+
+def _phase_align(phase: np.ndarray, phase_align_method: str) -> np.ndarray:
+    phase_unwrapped = np.unwrap(np.unwrap(np.asarray(phase, dtype=np.float32), axis=0), axis=1)
+    if phase_align_method == 'plane':
+        return fit_and_remove_plane(phase_unwrapped)
+    if phase_align_method == 'mean':
+        return phase_unwrapped - np.mean(phase_unwrapped)
+    raise ValueError(f"Unknown phase_align_method: {phase_align_method}. Use 'plane' or 'mean'.")
+
+
+def _support_weighted_phase_phasor(
+    phase_aligned: np.ndarray,
+    amp: np.ndarray,
+    support_amp_floor_ratio: float,
+) -> np.ndarray:
+    amp_np = np.asarray(amp, dtype=np.float32)
+    phase_np = np.asarray(phase_aligned, dtype=np.float32)
+    if amp_np.shape != phase_np.shape:
+        raise ValueError(
+            f"Amplitude/phase shape mismatch for support phasor: {amp_np.shape} vs {phase_np.shape}"
+        )
+    max_amp = float(np.max(amp_np)) if amp_np.size else 0.0
+    if max_amp <= 0:
+        return np.zeros_like(amp_np, dtype=np.complex64)
+    floor = max_amp * float(support_amp_floor_ratio)
+    support = amp_np >= floor
+    phasor = np.zeros_like(amp_np, dtype=np.complex64)
+    if np.any(support):
+        phasor[support] = np.exp(1j * phase_np[support]).astype(np.complex64)
+    return phasor
+
+
+def _single_image_frc_curve(
+    image_2d: np.ndarray,
+    *,
+    frc_sigma: float = 0.0,
+    split_mode: str = "spatial",
+    rng_seed: int | None = None,
+) -> np.ndarray:
+    from ptycho.FRC import fourier_ring_corr as frc
+
+    canvas = _center_crop_even_square(np.asarray(image_2d))
+    if split_mode == "spatial":
+        half_a, half_b = _split_diagonal_interleaved(canvas)
+    elif split_mode == "binomial":
+        half_a, half_b = _split_binomial_thinned(canvas, rng_seed=rng_seed)
+    else:
+        raise ValueError(f"Unknown split_mode={split_mode!r}; expected 'spatial' or 'binomial'.")
+    curve = np.asarray(frc.FSC(half_a, half_b), dtype=np.float64)
+    if frc_sigma > 0:
+        curve = np.asarray(gf(curve, frc_sigma), dtype=np.float64)
+    return curve
+
+
+def _extract_prediction_hw(stitched_obj: np.ndarray) -> np.ndarray:
+    pred = np.asarray(stitched_obj)
+    if pred.ndim == 4:
+        pred = pred[0]
+    pred = np.squeeze(pred)
+    if pred.ndim != 2:
+        raise ValueError(f"single_image_frc_metrics expects a 2D prediction after squeeze, got {pred.shape}")
+    return pred
+
+
+def single_image_frc_metrics(
+    stitched_obj: np.ndarray,
+    *,
+    split_mode: str = "spatial",
+    rng_seed: int | None = None,
+    phase_align_method: str = "plane",
+    support_amp_floor_ratio: float = 0.05,
+    frc_sigma: float = 0.0,
+) -> dict[str, tuple[float, float]]:
+    """Compute no-GT single-image FRC cutoffs for amplitude and phase branches."""
+    pred_hw = _extract_prediction_hw(stitched_obj)
+    amp = trim(np.abs(pred_hw))
+    phi = trim(np.angle(pred_hw))
+    phi_aligned = _phase_align(phi, phase_align_method)
+
+    amp_seed = 0 if rng_seed is None else int(rng_seed)
+    phase_seed = amp_seed + 1
+
+    amp_curve = _single_image_frc_curve(
+        amp,
+        frc_sigma=frc_sigma,
+        split_mode=split_mode,
+        rng_seed=amp_seed,
+    )
+    amp_cut_50 = _first_below_threshold(amp_curve, 0.5)
+    amp_cut_1o7 = _first_below_threshold(amp_curve, 1.0 / 7.0)
+
+    phase_phasor = _support_weighted_phase_phasor(
+        phi_aligned,
+        amp,
+        support_amp_floor_ratio=support_amp_floor_ratio,
+    )
+    if np.count_nonzero(np.abs(phase_phasor) > 0) < 4:
+        phi_cut_50 = np.nan
+        phi_cut_1o7 = np.nan
+    else:
+        phi_curve = _single_image_frc_curve(
+            phase_phasor,
+            frc_sigma=frc_sigma,
+            split_mode=split_mode,
+            rng_seed=phase_seed,
+        )
+        phi_cut_50 = _first_below_threshold(phi_curve, 0.5)
+        phi_cut_1o7 = _first_below_threshold(phi_curve, 1.0 / 7.0)
+
+    return {
+        "single_frc50": (amp_cut_50, phi_cut_50),
+        "single_frc1over7": (amp_cut_1o7, phi_cut_1o7),
+    }
+
+
 
 def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
-        label = '', phase_align_method='plane', frc_sigma=0, debug_save_images=False, ms_ssim_sigma=1.0):
+        label = '', phase_align_method='plane', frc_sigma=0, debug_save_images=False, ms_ssim_sigma=1.0,
+        single_image_frc=False, single_image_frc_split_mode="spatial", single_image_frc_rng_seed=None):
     """
     Evaluate reconstruction quality against ground truth using multiple metrics.
     
@@ -607,13 +805,24 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
                                debug_dir=debug_dir, 
                                label=f"{label}_phi" if label else "phi")
 
-    return {'mae': (mae_amp, mae_phi),
+    out = {'mae': (mae_amp, mae_phi),
         'mse': (mse_amp, mse_phi),
         'psnr': (psnr_amp, psnr_phi),
         'ssim': (ssim_amp, ssim_phi),
         'ms_ssim': (ms_ssim_amp, ms_ssim_phi),
         'frc50': (frc50_amp, frc50_phi),
         'frc': (frc_amp, frc_phi)}
+    if single_image_frc:
+        out.update(
+            single_image_frc_metrics(
+                stitched_obj,
+                split_mode=single_image_frc_split_mode,
+                rng_seed=single_image_frc_rng_seed,
+                phase_align_method=phase_align_method,
+                frc_sigma=frc_sigma,
+            )
+        )
+    return out
 
 
 import pandas as pd

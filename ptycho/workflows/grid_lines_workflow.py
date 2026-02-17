@@ -1174,7 +1174,12 @@ def run_grid_lines_workflow(
             pinn_amp = stitch_predictions(pinn_pred, norm_Y_I, part="amp")
             pinn_phase = stitch_predictions(pinn_pred, norm_Y_I, part="phase")
             pinn_stitched = pinn_amp * np.exp(1j * pinn_phase)
-            metrics_payload["pinn"] = eval_reconstruction(pinn_stitched, YY_gt, label="pinn")
+            metrics_payload["pinn"] = eval_reconstruction(
+                pinn_stitched,
+                YY_gt,
+                label="pinn",
+                single_image_frc=True,
+            )
             recons["pinn"] = {
                 "amp": pinn_amp[0, :, :, 0],
                 "phase": pinn_phase[0, :, :, 0],
@@ -1187,7 +1192,10 @@ def run_grid_lines_workflow(
         base_phase = stitch_predictions(base_pred, norm_Y_I, part="phase")
         base_stitched = base_amp * np.exp(1j * base_phase)
         metrics_payload["baseline"] = eval_reconstruction(
-            base_stitched, YY_gt, label="baseline"
+            base_stitched,
+            YY_gt,
+            label="baseline",
+            single_image_frc=True,
         )
         recons["baseline"] = {
             "amp": base_amp[0, :, :, 0],

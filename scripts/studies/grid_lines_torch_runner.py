@@ -128,6 +128,9 @@ class TorchRunnerConfig:
     reassembly_mode: str = "grid_lines"  # "grid_lines" | "position"
     position_reassembly_backend: str = "auto"  # "auto" | "shift_sum" | "batched"
     position_reassembly_batch_size: int = 64
+    single_image_frc: bool = True
+    single_image_frc_split_mode: str = "spatial"  # "spatial" | "binomial"
+    single_image_frc_rng_seed: Optional[int] = None
 
 
 def _validate_position_reassembly_config(cfg: TorchRunnerConfig) -> None:
@@ -474,6 +477,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         learning_rate=cfg.learning_rate,
         deterministic=True,
         gradient_clip_val=cfg.gradient_clip_val,
+        enable_progress_bar=True,
         enable_checkpointing=cfg.enable_checkpointing,
         logger_backend=cfg.logger_backend,
         recon_log_every_n_epochs=cfg.recon_log_every_n_epochs,
@@ -649,6 +653,9 @@ def compute_metrics(
     predictions: np.ndarray,
     ground_truth: np.ndarray,
     label: str,
+    single_image_frc: bool = True,
+    single_image_frc_split_mode: str = "spatial",
+    single_image_frc_rng_seed: Optional[int] = None,
 ) -> Dict[str, float]:
     """Compute reconstruction metrics compatible with TF workflow.
 
@@ -656,6 +663,9 @@ def compute_metrics(
         predictions: Model predictions (complex)
         ground_truth: Ground truth (complex)
         label: Label for metrics (e.g., 'pinn_fno')
+        single_image_frc: Enable no-reference single-image FRC metrics.
+        single_image_frc_split_mode: Split backend ('spatial' or 'binomial').
+        single_image_frc_rng_seed: Optional deterministic RNG seed for binomial split.
 
     Returns:
         Metrics dict with MSE, SSIM, etc.
@@ -668,7 +678,14 @@ def compute_metrics(
         pred = pred[..., None]
     if gt.ndim == 2:
         gt = gt[..., None]
-    return eval_reconstruction(pred, gt, label=label)
+    return eval_reconstruction(
+        pred,
+        gt,
+        label=label,
+        single_image_frc=single_image_frc,
+        single_image_frc_split_mode=single_image_frc_split_mode,
+        single_image_frc_rng_seed=single_image_frc_rng_seed,
+    )
 
 
 def _collect_visual_order(output_dir: Path, architecture: str) -> Tuple[str, ...]:
@@ -846,7 +863,14 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
     if not np.iscomplexobj(recon_target):
         recon_target = recon_target.astype(np.complex64)
     recon_path = save_recon_artifact(cfg.output_dir, f"pinn_{cfg.architecture}", recon_target)
-    metrics = compute_metrics(pred_for_metrics, ground_truth, f"pinn_{cfg.architecture}")
+    metrics = compute_metrics(
+        pred_for_metrics,
+        ground_truth,
+        f"pinn_{cfg.architecture}",
+        single_image_frc=cfg.single_image_frc,
+        single_image_frc_split_mode=cfg.single_image_frc_split_mode,
+        single_image_frc_rng_seed=cfg.single_image_frc_rng_seed,
+    )
 
     # Step 5: Save artifacts
     run_dir = save_run_artifacts(cfg, results, metrics)
@@ -976,6 +1000,32 @@ def main(argv=None) -> None:
                         help="Log stitched full-resolution reconstructions")
     parser.add_argument("--recon-log-max-stitch-samples", type=int, default=None,
                         help="Cap on stitched samples (default: no limit)")
+    parser.add_argument(
+        "--single-image-frc",
+        dest="single_image_frc",
+        action="store_true",
+        default=True,
+        help="Enable single-image FRC metrics (default: enabled).",
+    )
+    parser.add_argument(
+        "--no-single-image-frc",
+        dest="single_image_frc",
+        action="store_false",
+        help="Disable single-image FRC metrics.",
+    )
+    parser.add_argument(
+        "--single-image-frc-split-mode",
+        type=str,
+        choices=["spatial", "binomial"],
+        default="spatial",
+        help="Split mode for single-image FRC (default: spatial).",
+    )
+    parser.add_argument(
+        "--single-image-frc-rng-seed",
+        type=int,
+        default=None,
+        help="Optional RNG seed for single-image FRC binomial mode.",
+    )
 
     args = parser.parse_args(argv)
 
@@ -1041,6 +1091,9 @@ def main(argv=None) -> None:
         recon_log_fixed_indices=args.recon_log_fixed_indices,
         recon_log_stitch=args.recon_log_stitch,
         recon_log_max_stitch_samples=args.recon_log_max_stitch_samples,
+        single_image_frc=args.single_image_frc,
+        single_image_frc_split_mode=args.single_image_frc_split_mode,
+        single_image_frc_rng_seed=args.single_image_frc_rng_seed,
     )
 
     result = run_grid_lines_torch(cfg)

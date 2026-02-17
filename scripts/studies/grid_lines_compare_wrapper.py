@@ -127,7 +127,14 @@ def _load_recon_complex(path: Path) -> np.ndarray:
         return np.squeeze(np.asarray(data["YY_pred"])).astype(np.complex64)
 
 
-def evaluate_selected_models(recon_paths: Dict[str, Path], gt_path: Path) -> Dict[str, Dict[str, object]]:
+def evaluate_selected_models(
+    recon_paths: Dict[str, Path],
+    gt_path: Path,
+    *,
+    single_image_frc: bool = True,
+    single_image_frc_split_mode: str = "spatial",
+    single_image_frc_rng_seed: Optional[int] = None,
+) -> Dict[str, Dict[str, object]]:
     """Evaluate selected model reconstructions on canonical GT object grid."""
     from ptycho.evaluation import eval_reconstruction
 
@@ -137,7 +144,14 @@ def evaluate_selected_models(recon_paths: Dict[str, Path], gt_path: Path) -> Dic
     for model_id, recon_path in recon_paths.items():
         pred = _load_recon_complex(Path(recon_path))
         pred_ref = resize_complex_to_shape(pred, target_hw)
-        metrics = eval_reconstruction(pred_ref[..., None], gt_ref[..., None], label=model_id)
+        metrics = eval_reconstruction(
+            pred_ref[..., None],
+            gt_ref[..., None],
+            label=model_id,
+            single_image_frc=single_image_frc,
+            single_image_frc_split_mode=single_image_frc_split_mode,
+            single_image_frc_rng_seed=single_image_frc_rng_seed,
+        )
         out[model_id] = {
             "reference_shape": [target_hw[0], target_hw[1]],
             "metrics": metrics,
@@ -220,6 +234,9 @@ def run_grid_lines_compare(
     torch_plateau_patience: int = 2,
     torch_plateau_min_lr: float = 5e-5,
     torch_plateau_threshold: float = 0.0,
+    torch_single_image_frc: bool = True,
+    torch_single_image_frc_split_mode: str = "spatial",
+    torch_single_image_frc_rng_seed: Optional[int] = None,
     torch_position_reassembly_backend: str = "auto",
     torch_position_reassembly_batch_size: int = 64,
     dataset_source: str = "synthetic_lines",
@@ -280,7 +297,13 @@ def run_grid_lines_compare(
             if (output_dir / "recons" / model_id / "recon.npz").exists()
         }
         if reuse_existing_recons and precomputed_gt.exists() and len(precomputed_recons) == len(selected_models):
-            metrics_by_model = evaluate_selected_models(precomputed_recons, precomputed_gt)
+            metrics_by_model = evaluate_selected_models(
+                precomputed_recons,
+                precomputed_gt,
+                single_image_frc=torch_single_image_frc,
+                single_image_frc_split_mode=torch_single_image_frc_split_mode,
+                single_image_frc_rng_seed=torch_single_image_frc_rng_seed,
+            )
             metrics_by_model_path = output_dir / "metrics_by_model.json"
             metrics_by_model_path.write_text(json.dumps(metrics_by_model, indent=2, default=_json_default))
             legacy_metrics = {
@@ -451,6 +474,9 @@ def run_grid_lines_compare(
                     plateau_patience=torch_plateau_patience,
                     plateau_min_lr=torch_plateau_min_lr,
                     plateau_threshold=torch_plateau_threshold,
+                    single_image_frc=torch_single_image_frc,
+                    single_image_frc_split_mode=torch_single_image_frc_split_mode,
+                    single_image_frc_rng_seed=torch_single_image_frc_rng_seed,
                     reassembly_mode="position" if external_mode else "grid_lines",
                     position_reassembly_backend=torch_position_reassembly_backend,
                     position_reassembly_batch_size=torch_position_reassembly_batch_size,
@@ -517,7 +543,13 @@ def run_grid_lines_compare(
 
             raise ValueError(f"Unsupported model '{model_id}'")
 
-        metrics_by_model = evaluate_selected_models(recon_paths, gt_path)
+        metrics_by_model = evaluate_selected_models(
+            recon_paths,
+            gt_path,
+            single_image_frc=torch_single_image_frc,
+            single_image_frc_split_mode=torch_single_image_frc_split_mode,
+            single_image_frc_rng_seed=torch_single_image_frc_rng_seed,
+        )
         metrics_by_model_path = output_dir / "metrics_by_model.json"
         metrics_by_model_path.write_text(json.dumps(metrics_by_model, indent=2, default=_json_default))
 
@@ -657,6 +689,9 @@ def run_grid_lines_compare(
                 plateau_patience=torch_plateau_patience,
                 plateau_min_lr=torch_plateau_min_lr,
                 plateau_threshold=torch_plateau_threshold,
+                single_image_frc=torch_single_image_frc,
+                single_image_frc_split_mode=torch_single_image_frc_split_mode,
+                single_image_frc_rng_seed=torch_single_image_frc_rng_seed,
                 position_reassembly_backend=torch_position_reassembly_backend,
                 position_reassembly_batch_size=torch_position_reassembly_batch_size,
             )
@@ -831,6 +866,27 @@ def parse_args(argv=None):
     parser.add_argument("--torch-plateau-min-lr", type=float, default=5e-5)
     parser.add_argument("--torch-plateau-threshold", type=float, default=0.0)
     parser.add_argument(
+        "--torch-single-image-frc",
+        dest="torch_single_image_frc",
+        action="store_true",
+        default=True,
+        help="Enable single-image FRC in Torch evaluation (default: enabled).",
+    )
+    parser.add_argument(
+        "--torch-no-single-image-frc",
+        dest="torch_single_image_frc",
+        action="store_false",
+        help="Disable single-image FRC in Torch evaluation.",
+    )
+    parser.add_argument(
+        "--torch-single-image-frc-split-mode",
+        type=str,
+        default="spatial",
+        choices=["spatial", "binomial"],
+        help="Split mode for single-image FRC.",
+    )
+    parser.add_argument("--torch-single-image-frc-rng-seed", type=int, default=None)
+    parser.add_argument(
         "--torch-position-reassembly-backend",
         type=str,
         default="auto",
@@ -914,6 +970,9 @@ def main(argv=None) -> None:
         torch_plateau_patience=args.torch_plateau_patience,
         torch_plateau_min_lr=args.torch_plateau_min_lr,
         torch_plateau_threshold=args.torch_plateau_threshold,
+        torch_single_image_frc=args.torch_single_image_frc,
+        torch_single_image_frc_split_mode=args.torch_single_image_frc_split_mode,
+        torch_single_image_frc_rng_seed=args.torch_single_image_frc_rng_seed,
         torch_position_reassembly_backend=args.torch_position_reassembly_backend,
         torch_position_reassembly_batch_size=args.torch_position_reassembly_batch_size,
         dataset_source=args.dataset_source,
