@@ -337,15 +337,11 @@ def _choose_position_backend(
     test_data: Dict[str, np.ndarray],
     configured: str,
 ) -> str:
-    _ = test_data
+    _ = (pred_complex, test_data)
     if configured != "auto":
         return configured
-
-    pred_np = np.asarray(pred_complex)
-    batch = int(pred_np.shape[0]) if pred_np.ndim >= 3 else 1
-    patch_n = int(pred_np.shape[-2]) if pred_np.ndim >= 2 else 0
-    if batch >= 1024 or patch_n >= 128:
-        return "batched"
+    # Keep auto on shift_sum for reconstruction parity; only fall back to batched
+    # in _reassemble_with_coords_offsets when shift_sum raises OOM.
     return "shift_sum"
 
 

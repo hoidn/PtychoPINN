@@ -690,17 +690,23 @@ class TestRunGridLinesTorchScaffold:
         assert captured["norm"] is False
         assert out.shape == (64, 64)
 
-    def test_auto_backend_prefers_batched_for_large_position_jobs(self):
+    def test_auto_backend_prefers_shift_sum_for_large_position_jobs(self):
         pred = np.ones((4096, 128, 128, 1), dtype=np.complex64)
         test_data = {"coords_offsets": np.zeros((4096, 1, 2, 1), dtype=np.float32)}
         backend = _choose_position_backend(pred, test_data, configured="auto")
-        assert backend == "batched"
+        assert backend == "shift_sum"
 
     def test_auto_backend_prefers_shift_sum_for_small_jobs(self):
         pred = np.ones((64, 64, 64, 1), dtype=np.complex64)
         test_data = {"coords_offsets": np.zeros((64, 1, 2, 1), dtype=np.float32)}
         backend = _choose_position_backend(pred, test_data, configured="auto")
         assert backend == "shift_sum"
+
+    def test_explicit_batched_backend_overrides_auto_preference(self):
+        pred = np.ones((64, 64, 64, 1), dtype=np.complex64)
+        test_data = {"coords_offsets": np.zeros((64, 1, 2, 1), dtype=np.float32)}
+        backend = _choose_position_backend(pred, test_data, configured="batched")
+        assert backend == "batched"
 
     def test_shift_sum_oom_falls_back_to_batched(self, monkeypatch):
         import tensorflow as tf
