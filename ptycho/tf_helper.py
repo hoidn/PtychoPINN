@@ -869,6 +869,16 @@ class Translation(tf.keras.layers.Layer):
 def flatten_offsets(channels: tf.Tensor) -> tf.Tensor:
     return _channel_to_flat(channels)[:, 0, :, 0]
 
+
+def _center_reassembly_offsets(offsets_flat: tf.Tensor) -> tf.Tensor:
+    """Center flattened position offsets to match shift-and-sum semantics."""
+    if offsets_flat.dtype in [tf.complex64, tf.complex128]:
+        offsets_flat = tf.math.real(offsets_flat)
+    offsets_f32 = tf.cast(offsets_flat, tf.float32)
+    center = tf.reduce_mean(offsets_f32, axis=0, keepdims=True)
+    return offsets_f32 - center
+
+
 #@debug
 def pad_reconstruction(channels: tf.Tensor) -> tf.Tensor:
     padded_size = get_padded_size()
@@ -890,6 +900,9 @@ def _reassemble_patches_position_real(imgs: tf.Tensor, offsets_xy: tf.Tensor, ag
     if padded_size is None:
         padded_size = get_padded_size()
     offsets_flat = flatten_offsets(offsets_xy)
+    # Keep parity with shift_and_sum(): external/global offsets must be recentered
+    # before translation or batched reassembly can diverge catastrophically.
+    offsets_flat = _center_reassembly_offsets(offsets_flat)
     imgs_flat = _channel_to_flat(imgs)
     imgs_flat_bigN = pad_patches(imgs_flat, padded_size)
     imgs_flat_bigN_translated = Translation(jitter_stddev=0.0, use_xla=should_use_xla())([imgs_flat_bigN, -offsets_flat])
@@ -931,6 +944,8 @@ def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_
         automatically falls back to the original non-batched approach for efficiency.
     """
     offsets_flat = flatten_offsets(offsets_xy)
+    # Match shift_and_sum() behavior for global-frame coords_offsets.
+    offsets_flat = _center_reassembly_offsets(offsets_flat)
     imgs_flat = _channel_to_flat(imgs)
 
     # Get the number of patches

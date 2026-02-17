@@ -218,3 +218,69 @@ def test_translate_xla_gridsize_broadcast_jit():
 
     assert result.shape == images_flat.shape, \
         f"Expected shape {images_flat.shape}, got {result.shape}"
+
+
+def test_reassemble_position_batched_recenters_offsets_before_translation(monkeypatch):
+    """Batched reassembly must center global offsets before translating patches."""
+    captured_offsets = []
+
+    class FakeTranslation:
+        def __init__(self, *args, **kwargs):
+            _ = (args, kwargs)
+
+        def __call__(self, inputs):
+            imgs, offsets = inputs
+            captured_offsets.append(np.asarray(offsets))
+            return imgs
+
+    monkeypatch.setattr(tf_helper, "Translation", FakeTranslation)
+
+    imgs = tf.ones((4, 64, 64, 1), dtype=tf.float32)
+    offsets = np.zeros((4, 1, 2, 1), dtype=np.float32)
+    offsets[:, 0, 0, 0] = np.array([100.0, 101.0, 99.0, 102.0], dtype=np.float32)
+    offsets[:, 0, 1, 0] = np.array([-50.0, -48.0, -52.0, -49.0], dtype=np.float32)
+
+    _ = tf_helper._reassemble_position_batched(
+        imgs,
+        offsets,
+        padded_size=128,
+        batch_size=64,
+        N=64,
+        gridsize=1,
+    )
+
+    assert captured_offsets, "Expected Translation to be called"
+    means = captured_offsets[-1].mean(axis=0)
+    assert np.allclose(means, np.zeros(2, dtype=np.float32), atol=1e-5), means
+
+
+def test_reassemble_position_nonbatched_recenters_offsets_before_translation(monkeypatch):
+    """Non-batched position reassembly must center global offsets before translation."""
+    captured_offsets = []
+
+    class FakeTranslation:
+        def __init__(self, *args, **kwargs):
+            _ = (args, kwargs)
+
+        def __call__(self, inputs):
+            imgs, offsets = inputs
+            captured_offsets.append(np.asarray(offsets))
+            return imgs
+
+    monkeypatch.setattr(tf_helper, "Translation", FakeTranslation)
+
+    imgs = tf.ones((4, 64, 64, 1), dtype=tf.float32)
+    offsets = np.zeros((4, 1, 2, 1), dtype=np.float32)
+    offsets[:, 0, 0, 0] = np.array([100.0, 101.0, 99.0, 102.0], dtype=np.float32)
+    offsets[:, 0, 1, 0] = np.array([-50.0, -48.0, -52.0, -49.0], dtype=np.float32)
+
+    _ = tf_helper._reassemble_patches_position_real(
+        imgs,
+        offsets,
+        agg=True,
+        padded_size=128,
+    )
+
+    assert captured_offsets, "Expected Translation to be called"
+    means = captured_offsets[-1].mean(axis=0)
+    assert np.allclose(means, np.zeros(2, dtype=np.float32), atol=1e-5), means
