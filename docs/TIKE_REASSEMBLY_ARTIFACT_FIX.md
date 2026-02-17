@@ -2,7 +2,7 @@
 
 **Created:** 2025-07-25  
 **Status:** Planned - To be implemented after Tike Integration Phase 2  
-**Related Initiative:** [Tike Comparison Integration](../plans/active/tike-comparison-integration/)
+**Related Initiative:** `plans/active/tike-comparison-integration/` (archived path reference)
 
 ## Overview
 

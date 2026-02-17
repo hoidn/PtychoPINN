@@ -755,5 +755,7 @@ If you encounter issues with tests:
 ## Related Documentation
 
 - [README.md](../README.md) - Project overview and quick start
-- [scripts/README.md](../scripts/README.md) - Information about training and inference scripts
+- [Training Script Guide](../scripts/training/README.md) - Training script usage and options
+- [Inference Script Guide](../scripts/inference/README.md) - Inference script usage and outputs
+- [Studies Script Guide](../scripts/studies/README.md) - Study orchestration and comparison workflows
 - [tests/README_PERSISTENCE_TESTS.md](../tests/README_PERSISTENCE_TESTS.md) - Specific documentation about persistence tests

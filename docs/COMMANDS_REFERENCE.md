@@ -1,6 +1,3 @@
-### `docs/COMMANDS_REFERENCE.md` 
-
-```markdown
 # PtychoPINN Commands Reference
 
 **Purpose:** A quick reference for essential PtychoPINN command-line workflows. This guide provides the "what"; for the "why," please consult the linked detailed guides.
@@ -9,7 +6,7 @@
 - [Data Preparation Golden Paths](#data-preparation-golden-paths)
 - [Training](#training) 
 - [Inference](#inference)
-- [Model Evaluation](#model-evaluation)
+- [Single-Model Inference](#single-model-inference)
 - [Model Comparison](#model-comparison)
 - [Studies](#studies)
 - [Best Practices & Key Guidelines](#best-practices--key-guidelines)
@@ -198,14 +195,14 @@ ptycho_train --train_data_file dataset.npz \
 # Basic inference (uses all test data)
 ptycho_inference --model_path trained_model/ --test_data test.npz --output_dir inference_out
 
-# With specific number of test groups
-ptycho_inference --model_path trained_model/ --test_data test.npz --n_groups 500 --output_dir inference_out
+# With specific number of test groups/images
+ptycho_inference --model_path trained_model/ --test_data test.npz --n_images 500 --output_dir inference_out
 
 # Independent sampling control (NEW)
-ptycho_inference --model_path trained_model/ --test_data test.npz --n_subsample 2000 --n_groups 500 --output_dir inference_out
+ptycho_inference --model_path trained_model/ --test_data test.npz --n_subsample 2000 --n_images 500 --output_dir inference_out
 
-# GridSize=2 inference (must match the gridsize used for training)
-ptycho_inference --model_path gs2_model/ --test_data test.npz --n_groups 125 --gridsize 2 --output_dir gs2_inference
+# Inference for a model trained with GridSize=2
+ptycho_inference --model_path gs2_model/ --test_data test.npz --n_images 125 --output_dir gs2_inference
 ```
 
 ---
@@ -243,43 +240,41 @@ python scripts/reconstruction/ptychi_reconstruct_tike.py
 
 ---
 
-## Model Evaluation
+## Single-Model Inference
 
 ```bash
-# Basic model evaluation (single model against ground truth)
-ptycho_evaluate --model-dir trained_model/ --test-data test.npz --output-dir eval_results
+# Basic single-model inference
+ptycho_inference --model_path trained_model/ --test_data test.npz --output_dir infer_results
 
-# Evaluation with sampling control (NEW)
-ptycho_evaluate --model-dir trained_model/ --test-data test.npz --n-test-subsample 2000 --n-test-groups 500 --output-dir eval_results
+# Inference with sampling control
+ptycho_inference --model_path trained_model/ --test_data test.npz \
+    --n_subsample 2000 --n_images 500 --output_dir infer_results
 
-# Custom visualization settings
-ptycho_evaluate --model-dir model/ --test-data test.npz --output-dir eval_vis \
-    --phase-align-method plane --save-individual-images --phase-colormap viridis
+# Include comparison plot when ground truth is available
+ptycho_inference --model_path model/ --test_data test.npz \
+    --output_dir infer_with_plot --comparison_plot
 
-# Skip registration for debugging
-ptycho_evaluate --model-dir model/ --test-data test.npz --output-dir eval_debug --skip-registration
-
-# Quiet mode for automation
-ptycho_evaluate --model-dir model/ --test-data test.npz --output-dir eval_auto --quiet
+# Select backend explicitly
+ptycho_inference --model_path model/ --test_data test.npz \
+    --output_dir infer_torch --backend pytorch
 ```
 
 ### 📊 Key Features
 
-- **Comprehensive Metrics**: Computes MAE, MSE, PSNR, SSIM, MS-SSIM, and FRC against ground truth
-- **Automatic Registration**: Aligns reconstructions with ground truth for fair comparison
-- **Visual Outputs**: Generates amplitude/phase plots, error maps, and comparison figures
-- **CSV Export**: Saves all metrics to `results.csv` for downstream analysis
-- **Independent Sampling**: Control test data subsampling with `--n-test-subsample` and `--n-test-groups`
+- **Reconstruction Outputs**: Generates amplitude/phase reconstructions and debug artifacts
+- **Optional GT Plotting**: `--comparison_plot` renders ground-truth comparisons when available
+- **Backend Selection**: Supports TensorFlow and PyTorch backends from the same entrypoint
+- **Independent Sampling**: Control test data subsampling with `--n_subsample` and `--n_images`
 
-### 📋 When to Use Model Evaluation vs Comparison
+### 📋 When to Use Inference vs Comparison
 
-- **Use `ptycho_evaluate`** when:
-  - Evaluating a single trained model against ground truth
-  - Computing detailed metrics for model analysis
-  - Creating publication-ready visualizations
-  - Debugging model performance issues
+- **Use `ptycho_inference`** when:
+  - Running a single trained model to produce reconstructions
+  - Doing backend-specific smoke checks
+  - Creating per-model visuals quickly
 
 - **Use `compare_models.py`** when:
+  - Computing quantitative cross-model metrics (MAE/SSIM/MS-SSIM/FRC)
   - Comparing multiple models head-to-head
   - Benchmarking PtychoPINN vs Baseline vs Tike
   - Running systematic model comparisons
@@ -380,11 +375,12 @@ python scripts/studies/aggregate_and_plot_results.py study_results --output plot
 
 Dataset source capability matrix:
 - `synthetic_lines` (default): TF + Torch + PtychoViT
-- `external_raw_npz` (phase 1): Torch model IDs only (`pinn_fno`, `pinn_hybrid`, `pinn_stable_hybrid`, `pinn_fno_vanilla`, `pinn_hybrid_resnet`)
+  - `external_raw_npz` (phase 1): Torch model IDs only (`pinn_fno`, `pinn_hybrid`, `pinn_stable_hybrid`, `pinn_fno_vanilla`, `pinn_hybrid_resnet`)
   - Position reassembly controls:
     - `--torch-position-reassembly-backend {auto,shift_sum,batched}` (default: `auto`)
     - `--torch-position-reassembly-batch-size <int>` (default: `64`)
-  - Dense external `N=128` recommendation:
+  - `auto` selects `shift_sum` by default and retries with `batched` on TensorFlow OOM
+  - `batched` is explicit opt-in:
     - `--torch-position-reassembly-backend batched`
     - `--torch-position-reassembly-batch-size 32`
 
@@ -424,8 +420,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
     --models pinn_hybrid_resnet \
     --nepochs 3 --batch-size 16 --seed 3
 
-# External raw NPZ mode with explicit batched position reassembly
-# (recommended for dense N=128 jobs to avoid TF reassembly OOM)
+# External raw NPZ mode with explicit batched position reassembly (opt-in override)
 python scripts/studies/grid_lines_compare_wrapper.py \
     --N 128 \
     --gridsize 1 \
@@ -595,5 +590,4 @@ tail -f output_dir/logs/debug.log
 nvidia-smi
 ```
 
-For detailed explanations, see the <doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref> and <doc-ref type="guide">docs/TOOL_SELECTION_GUIDE.md</doc-ref>.
-```
+For detailed explanations, see the <doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref> and <doc-ref type="guide">docs/WORKFLOW_GUIDE.md</doc-ref>.

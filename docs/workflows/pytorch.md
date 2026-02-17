@@ -88,9 +88,9 @@ Starting 2026-01-27, the `config.model.architecture` field routes through the ge
   - Position reassembly strategy knobs:
     - `--torch-position-reassembly-backend {auto,shift_sum,batched}` (default `auto`)
     - `--torch-position-reassembly-batch-size <int>` (default `64`, used by `batched`)
-  - `auto` policy currently routes to batched reassembly for large jobs (`batch >= 1024` or `N >= 128`), otherwise shift-sum.
-  - If `auto` selects shift-sum and TensorFlow raises `ResourceExhaustedError`, the runner retries once with batched reassembly and logs a warning.
-  - Recommended for dense external `N=128` studies: set `--torch-position-reassembly-backend batched --torch-position-reassembly-batch-size 32` to minimize GPU OOM risk during metrics-time stitching.
+  - `auto` policy currently selects `shift_sum` for parity/correctness.
+  - If `auto`/`shift_sum` raises TensorFlow `ResourceExhaustedError`, the runner retries once with batched reassembly and logs a warning.
+  - `batched` remains explicit opt-in via `--torch-position-reassembly-backend batched` (with `--torch-position-reassembly-batch-size`) when you need to force it.
 
 - `config.debug`: Controls progress bars and logging verbosity (default: `False`)
 - `config.output_dir`: Directory for checkpoints and artifacts (required for persistence)

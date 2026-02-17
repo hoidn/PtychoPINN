@@ -9,7 +9,7 @@ This index provides a comprehensive overview of all available documentation with
 **Keywords:** installation, overview, setup, quickstart  
 **Use this when:** First time setting up PtychoPINN or need basic installation instructions.
 
-### [Quick Reference: Parameters](QUICK_REFERENCE_PARAMS.md) ⚠️ CRITICAL
+### [Quick Reference: Parameters](debugging/QUICK_REFERENCE_PARAMS.md) ⚠️ CRITICAL
 **Description:** Essential cheatsheet for params.cfg initialization - covers the critical `update_legacy_dict()` call required before data operations and debugging shape mismatch errors.  
 **Keywords:** params.cfg, initialization, gridsize, shape-mismatch, troubleshooting  
 **Use this when:** Getting shape mismatch errors, debugging configuration issues, or need to understand params.cfg initialization pattern.
@@ -21,7 +21,7 @@ This index provides a comprehensive overview of all available documentation with
 
 ## 📋 Project Management
 
-### [PROJECT_STATUS](PROJECT_STATUS.md)
+### [PROJECT_STATUS](../PROJECT_STATUS.md)
 **Description:** Current development status tracker and active initiatives overview.  
 **Keywords:** project-status, tracking, initiatives  
 **Use this when:** Need to see current project status and active development work.
@@ -55,7 +55,7 @@ This index provides a comprehensive overview of all available documentation with
 **Keywords:** testing, TDD, integration, regression, CLI-testing  
 **Use this when:** Writing new tests, running the test suite, implementing TDD cycles, or ensuring backward compatibility.
 
-#### [Troubleshooting Guide](TROUBLESHOOTING.md)
+#### [Troubleshooting Guide](debugging/TROUBLESHOOTING.md)
 **Description:** Practical debugging guide for common issues including shape mismatch errors, configuration precedence problems, oversampling setup, and quick debugging commands with solutions.  
 **Keywords:** debugging, shape-mismatch, configuration, oversampling, quick-fixes  
 **Use this when:** Encountering shape mismatch errors (especially gridsize-related), debugging configuration issues, or need quick diagnostic commands.
@@ -67,7 +67,7 @@ This index provides a comprehensive overview of all available documentation with
 **Keywords:** configuration, parameters, dataclass, YAML, command-line  
 **Use this when:** Setting up training or inference runs, understanding parameter precedence, or creating reproducible experiment configurations.
 
-#### [Data Contracts](data_contracts.md) ⚠️ CRITICAL
+#### [Data Contracts](../specs/data_contracts.md) ⚠️ CRITICAL
 **Description:** Official format specifications for NPZ datasets including required keys, data types, shapes, and normalization requirements.  
 **Keywords:** NPZ-format, data-contracts, normalization, diffraction, amplitude  
 **Use this when:** Creating or validating datasets, troubleshooting data format errors, or understanding amplitude vs intensity requirements.
@@ -243,11 +243,11 @@ This index provides a comprehensive overview of all available documentation with
 ### By Task
 - **Starting a new feature**: [Developer Guide](DEVELOPER_GUIDE.md) → [Initiative Workflow](INITIATIVE_WORKFLOW_GUIDE.md)
 - **Running experiments**: [Workflow Guide](WORKFLOW_GUIDE.md) → [Commands Reference](COMMANDS_REFERENCE.md)
-- **Debugging issues**: [Troubleshooting](TROUBLESHOOTING.md) → [Quick Reference Params](QUICK_REFERENCE_PARAMS.md)
-- **Understanding data**: [Data Contracts](data_contracts.md) → [Data Normalization](DATA_NORMALIZATION_GUIDE.md)
-- **Fixing shape mismatches**: [Quick Reference Params](QUICK_REFERENCE_PARAMS.md) → [Troubleshooting](TROUBLESHOOTING.md)
+- **Debugging issues**: [Troubleshooting](debugging/TROUBLESHOOTING.md) → [Quick Reference Params](debugging/QUICK_REFERENCE_PARAMS.md)
+- **Understanding data**: [Data Contracts](../specs/data_contracts.md) → [Data Normalization](DATA_NORMALIZATION_GUIDE.md)
+- **Fixing shape mismatches**: [Quick Reference Params](debugging/QUICK_REFERENCE_PARAMS.md) → [Troubleshooting](debugging/TROUBLESHOOTING.md)
 - **Training models**: [Training README](../scripts/training/README.md) → [Configuration Guide](CONFIGURATION.md)
-- **Evaluating models**: [Evaluation README](../scripts/evaluation/README.md) → [Model Comparison](../scripts/studies/README.md)
+- **Evaluating models**: [Model Comparison Guide](MODEL_COMPARISON_GUIDE.md) → [Model Comparison](../scripts/studies/README.md)
 
 ### By User Type
 - **New Users**: [README](../README.md) → [Workflow Guide](WORKFLOW_GUIDE.md) → [Training](../scripts/training/README.md)
@@ -263,7 +263,7 @@ When adding new documentation:
 3. Add "Use this when..." guidance
 4. Use the `<doc-ref>` XML tagging system for cross-references
 5. Ensure bidirectional linking
-6. Add to [PROJECT_STATUS.md](PROJECT_STATUS.md) if it's an initiative document
+6. Add to [PROJECT_STATUS.md](../PROJECT_STATUS.md) if it's an initiative document
 
 ## 🔗 External Resources
 

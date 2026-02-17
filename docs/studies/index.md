@@ -13,7 +13,8 @@
   - `datasets/fly001_128/manifest.json`
 - Position reassembly strategy (external mode):
   - Default is `auto` (`--torch-position-reassembly-backend auto`)
-  - For dense `N=128` runs, prefer explicit batched mode:
+  - `auto` prefers `shift_sum` and falls back to `batched` on TF OOM.
+  - Use explicit batched mode only as an opt-in override:
     - `--torch-position-reassembly-backend batched`
     - `--torch-position-reassembly-batch-size 32`
 

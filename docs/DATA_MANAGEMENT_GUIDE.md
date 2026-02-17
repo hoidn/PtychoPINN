@@ -63,7 +63,7 @@ Each workflow creates its own output directory:
 
 **Format:** Compressed archives containing multiple NumPy arrays
 
-**Standard Keys** (see [data_contracts.md](data_contracts.md)):
+**Standard Keys** (see [Data Contracts](../specs/data_contracts.md)):
 - `diffraction`: `(n_images, H, W)` - Amplitude data
 - `objectGuess`: `(M, M)` - Complex object
 - `probeGuess`: `(H, W)` - Complex probe
@@ -242,7 +242,7 @@ def validate_dataset(filepath):
 
 ### Data Contract Compliance
 
-See [data_contracts.md](data_contracts.md) for:
+See [Data Contracts](../specs/data_contracts.md) for:
 - Required array shapes and dtypes
 - Normalization requirements
 - Coordinate system conventions
@@ -421,6 +421,6 @@ Before committing:
 
 ## Related Documentation
 
-- [Data Contracts](data_contracts.md) - Data format specifications
+- [Data Contracts](../specs/data_contracts.md) - Data format specifications
 - [Memory Guide](memory.md) - Memory optimization strategies
-- [Troubleshooting](TROUBLESHOOTING.md) - Common issues and solutions
+- [Troubleshooting](debugging/TROUBLESHOOTING.md) - Common issues and solutions

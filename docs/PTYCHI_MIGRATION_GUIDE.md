@@ -257,14 +257,14 @@ fi
 
 - [Pty-chi GitHub Repository](https://github.com/pty-chi/pty-chi)
 - [ePIE Algorithm Paper](https://doi.org/10.1016/j.ultramic.2009.05.012)
-- [PtychoPINN Documentation](docs/DEVELOPER_GUIDE.md)
+- [PtychoPINN Documentation](DEVELOPER_GUIDE.md)
 
 ## Support
 
 For issues or questions:
-- Check existing [pty-chi integration tests](test_ptychi_integration/)
-- Review [comparison logs](logs/) for detailed error messages
-- Consult the [configuration guide](docs/CONFIGURATION_GUIDE.md)
+- Check existing [pty-chi reconstruction tests](../tests/scripts/test_ptychi_reconstruct_tike.py)
+- Review [comparison logs](../logs/) for detailed error messages
+- Consult the [configuration guide](CONFIGURATION.md)
 
 ---
 

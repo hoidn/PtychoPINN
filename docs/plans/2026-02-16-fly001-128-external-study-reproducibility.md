@@ -340,7 +340,7 @@ Expected: FAIL.
 ```markdown
 # docs/index.md
 - Add Datasets entry:
-  - [FLY001 N=128 Dataset Guide](FLY001_128_DATASET_GUIDE.md)
+  - FLY001 N=128 Dataset Guide (`docs/FLY001_128_DATASET_GUIDE.md`)
 ```
 
 ```markdown

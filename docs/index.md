@@ -70,7 +70,7 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 
 ## Project Management
 
-### [PROJECT_STATUS](PROJECT_STATUS.md)
+### [PROJECT_STATUS](../PROJECT_STATUS.md)
 **Description:** Current development status tracker and active initiatives overview.  
 **Keywords:** project-status, tracking, initiatives  
 **Use this when:** Need to see current project status and active development work.
@@ -430,7 +430,7 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 - **Understanding data**: [Data Contracts](../specs/data_contracts.md) → [Data Normalization](DATA_NORMALIZATION_GUIDE.md)
 - **Fixing shape mismatches**: [Quick Reference Params](debugging/QUICK_REFERENCE_PARAMS.md) → [Troubleshooting](debugging/TROUBLESHOOTING.md)
 - **Training models**: [Training README](../scripts/training/README.md) → [Configuration Guide](CONFIGURATION.md)
-- **Evaluating models**: [Evaluation README](../scripts/evaluation/README.md) → [Model Comparison](../scripts/studies/README.md)
+- **Evaluating models**: [Model Comparison Guide](MODEL_COMPARISON_GUIDE.md) → [Studies Guide](../scripts/studies/README.md)
 
 ### By User Type
 - **New Users**: [README](../README.md) → [Workflow Guide](WORKFLOW_GUIDE.md) → [Training](../scripts/training/README.md)
@@ -446,7 +446,7 @@ When adding new documentation:
 3. Add "Use this when..." guidance
 4. Use the `<doc-ref>` XML tagging system for cross-references
 5. Ensure bidirectional linking
-6. Add to [PROJECT_STATUS.md](PROJECT_STATUS.md) if it's an initiative document
+6. Add to [PROJECT_STATUS.md](../PROJECT_STATUS.md) if it's an initiative document
 
 ## Bug Reports & Fixes
 
