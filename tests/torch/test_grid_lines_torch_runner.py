@@ -15,6 +15,9 @@ from scripts.studies.grid_lines_torch_runner import (
     load_cached_dataset,
     _select_coords_relative,
     _choose_position_backend,
+    _harmonize_prediction_shape,
+    _reassemble_position_batched,
+    _reassemble_position_shift_sum,
     _reassemble_with_coords_offsets,
     setup_torch_configs,
     run_grid_lines_torch,
@@ -695,18 +698,17 @@ class TestRunGridLinesTorchScaffold:
         assert called["shift"] is True
         assert out.shape == (64, 64)
 
-    def test_position_backend_batched_calls_reassemble_whole_object(self, monkeypatch):
+    def test_position_backend_batched_calls_chunked_reassemble_position(self, monkeypatch):
         captured = {}
 
-        def fake_reassemble_whole_object(patches, offsets, size=226, norm=False, batch_size=None):
-            captured["patches_shape"] = tuple(np.asarray(patches).shape)
-            captured["offsets_shape"] = tuple(np.asarray(offsets).shape)
-            captured["size"] = int(size)
-            captured["batch_size"] = int(batch_size)
-            captured["norm"] = bool(norm)
-            return np.ones((1, size, size, 1), dtype=np.complex64)
+        def fake_reassemble_position(obj_tensor, global_offsets, M=20, chunk_size=128):
+            captured["patches_shape"] = tuple(np.asarray(obj_tensor).shape)
+            captured["offsets_shape"] = tuple(np.asarray(global_offsets).shape)
+            captured["M"] = int(M)
+            captured["chunk_size"] = int(chunk_size)
+            return np.ones((M, M), dtype=np.complex64)
 
-        monkeypatch.setattr("ptycho.tf_helper.reassemble_whole_object", fake_reassemble_whole_object)
+        monkeypatch.setattr("ptycho.tf_helper.reassemble_position", fake_reassemble_position)
 
         pred = np.ones((4, 64, 64, 1), dtype=np.complex64)
         test_data = {"coords_offsets": np.zeros((4, 1, 2, 1), dtype=np.float32)}
@@ -719,11 +721,39 @@ class TestRunGridLinesTorchScaffold:
         )
 
         assert captured["patches_shape"] == (4, 64, 64, 1)
-        assert captured["offsets_shape"] == (4, 1, 2, 1)
-        assert captured["size"] == 64
-        assert captured["batch_size"] == 32
-        assert captured["norm"] is False
+        assert captured["offsets_shape"] == (4, 1, 1, 2)
+        assert captured["M"] == 64
+        assert captured["chunk_size"] == 32
         assert out.shape == (64, 64)
+
+    def test_position_backend_batched_matches_shift_sum_on_external_offsets(self):
+        """Batched position reassembly should match shift-sum for external offsets."""
+        from ptycho import params as p
+
+        # Keep legacy globals deterministic for helper internals.
+        p.set("N", 128)
+        p.set("gridsize", 1)
+        p.set("use_xla_translate", True)
+
+        rng = np.random.default_rng(0)
+        patches = (
+            rng.standard_normal((8, 128, 128, 1))
+            + 1j * rng.standard_normal((8, 128, 128, 1))
+        ).astype(np.complex64)
+        offsets_b12c = rng.uniform(-150, 150, size=(8, 1, 2, 1)).astype(np.float64)
+        offsets_b112 = np.transpose(offsets_b12c, (0, 1, 3, 2))
+
+        shift_sum = _reassemble_position_shift_sum(patches, offsets_b112, M=128)
+        batched = _reassemble_position_batched(
+            patches,
+            offsets_b12c,
+            M=128,
+            batch_size=16,
+        )
+
+        batched_aligned = _harmonize_prediction_shape(batched, shift_sum)
+        mae = float(np.mean(np.abs(np.asarray(shift_sum) - np.asarray(batched_aligned))))
+        assert mae < 1e-3
 
     def test_auto_backend_prefers_shift_sum_for_large_position_jobs(self):
         pred = np.ones((4096, 128, 128, 1), dtype=np.complex64)
@@ -743,7 +773,8 @@ class TestRunGridLinesTorchScaffold:
         backend = _choose_position_backend(pred, test_data, configured="batched")
         assert backend == "batched"
 
-    def test_shift_sum_oom_falls_back_to_batched(self, monkeypatch):
+    @pytest.mark.parametrize("backend", ["auto", "shift_sum"])
+    def test_shift_sum_oom_falls_back_to_batched(self, monkeypatch, backend):
         import tensorflow as tf
 
         def raise_resource_exhausted(*args, **kwargs):
@@ -765,7 +796,7 @@ class TestRunGridLinesTorchScaffold:
             pred,
             test_data,
             M=64,
-            backend="auto",
+            backend=backend,
             batch_size=32,
         )
         assert out.shape == (64, 64)

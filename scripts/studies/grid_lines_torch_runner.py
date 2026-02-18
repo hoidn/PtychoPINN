@@ -325,12 +325,14 @@ def _reassemble_position_batched(
 ) -> np.ndarray:
     from ptycho import tf_helper as hh
 
-    stitched = hh.reassemble_whole_object(
-        patches=patches,
-        offsets=offsets_b12c,
-        size=M,
-        norm=False,
-        batch_size=batch_size,
+    # Keep batched backend numerically aligned with shift_sum by using the same
+    # reassemble_position normalization path, but with smaller streaming chunks.
+    offsets_b112 = np.transpose(np.asarray(offsets_b12c), (0, 1, 3, 2)).astype(np.float64)
+    stitched = hh.reassemble_position(
+        patches,
+        offsets_b112,
+        M=M,
+        chunk_size=max(1, int(batch_size)),
     )
     return np.squeeze(np.asarray(stitched)).astype(np.complex64)
 
@@ -364,8 +366,11 @@ def _reassemble_with_coords_offsets(
         except Exception as exc:
             import tensorflow as tf
 
-            if backend == "auto" and isinstance(exc, tf.errors.ResourceExhaustedError):
-                logger.warning("Shift-sum OOM; retrying with batched position reassembly")
+            if backend in {"auto", "shift_sum"} and isinstance(exc, tf.errors.ResourceExhaustedError):
+                logger.warning(
+                    "Shift-sum OOM under backend=%s; retrying with batched position reassembly",
+                    backend,
+                )
                 return _reassemble_position_batched(
                     patches,
                     offsets_b12c,
