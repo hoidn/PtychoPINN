@@ -588,7 +588,7 @@ Completed tasks:
 
 ### OPT-10: Artifact Discovery Index
 
-**Problem**: Artifacts stored in `plans/active/<id>/reports/<timestamp>/` but no searchable index.
+**Problem**: Artifacts stored in `docs/plans/<id>/reports/<timestamp>/` but no searchable index.
 
 **Evidence**:
 - 80+ iterations = 80+ timestamped directories
@@ -599,7 +599,7 @@ Completed tasks:
 **Solution**: Structured artifact index with metadata
 
 ```yaml
-# plans/active/artifact_index.yaml
+# docs/plans/artifact_index.yaml
 TEST-PYTORCH-001:
   evidence_collection:
     - timestamp: 2025-10-17T184624Z
@@ -634,10 +634,10 @@ INTEGRATE-PYTORCH-001:
 ```python
 # scripts/tools/build_artifact_index.py
 def scan_artifacts():
-    """Scan plans/active/**/reports/ and build index."""
+    """Scan docs/plans/**/reports/ and build index."""
     index = {}
 
-    for initiative_dir in Path("plans/active").iterdir():
+    for initiative_dir in Path("docs/plans").iterdir():
         if not initiative_dir.is_dir():
             continue
 
@@ -757,7 +757,7 @@ fi
 
 # Check 3: Artifacts stored in proper location
 if ls tmp/*.log tmp/*.md 2>/dev/null | grep -qv "supervisorlog\|claudelog"; then
-    echo "⚠️  WARNING: Artifacts in tmp/ should be in plans/active/.../reports/"
+    echo "⚠️  WARNING: Artifacts in tmp/ should be in docs/plans/.../reports/"
 fi
 
 echo "✅ Post-iteration checks passed"
@@ -912,7 +912,7 @@ class TaskBundler:
 - `scripts/orchestration/task_classifier.py`
 - `scripts/orchestration/context_delta.py`
 - `scripts/tools/artifact_index.py`
-- `plans/active/artifact_index.yaml` (auto-generated)
+- `docs/plans/artifact_index.yaml` (auto-generated)
 
 **Success Metrics**:
 - 30% of tasks routed to simple execution

@@ -11,7 +11,7 @@ The API is built around a **one-way data flow**: parameters are defined in the m
 
 The central function that bridges these two systems is `ptycho.config.config.update_legacy_dict()`. Any external system, like `ptychodus`, **must** use this bridge to configure `ptychopinn` correctly.
 
-**⚠️ PyTorch Requirement:** As of Phase F (INTEGRATE-PYTORCH-001), PyTorch `>= 2.2` is a **mandatory runtime dependency** for the PyTorch backend (`ptycho_torch/`). The package specifies `torch>=2.2` in `setup.py` install_requires. The TensorFlow backend (`ptycho/`) continues to function independently, but callers integrating the PyTorch stack **must** ensure PyTorch is available; the system will raise an actionable `RuntimeError` if torch cannot be imported. This policy is documented in <doc-ref type="findings">docs/findings.md#policy-001</doc-ref> and reflects the governance decision archived at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T184624Z/governance_decision.md`. For installation guidance, see the PyTorch workflow guide at <doc-ref type="workflow">docs/workflows/pytorch.md</doc-ref>.
+**⚠️ PyTorch Requirement:** As of Phase F (INTEGRATE-PYTORCH-001), PyTorch `>= 2.2` is a **mandatory runtime dependency** for the PyTorch backend (`ptycho_torch/`). The package specifies `torch>=2.2` in `setup.py` install_requires. The TensorFlow backend (`ptycho/`) continues to function independently, but callers integrating the PyTorch stack **must** ensure PyTorch is available; the system will raise an actionable `RuntimeError` if torch cannot be imported. This policy is documented in <doc-ref type="findings">docs/findings.md#policy-001</doc-ref> and reflects the governance decision archived at `docs/plans/INTEGRATE-PYTORCH-001/reports/2025-10-17T184624Z/governance_decision.md`. For installation guidance, see the PyTorch workflow guide at <doc-ref type="workflow">docs/workflows/pytorch.md</doc-ref>.
 
 ### 2. Core Components
 
@@ -481,7 +481,7 @@ The following `PyTorchExecutionConfig` fields are not yet exposed via CLI but ar
 
 **Reference Implementation:** See `ptycho_torch/train.py:381-460` (training flags), `ptycho_torch/inference.py:420-520` (inference flags), `ptycho_torch/cli/shared.py` (CLI helpers: `resolve_accelerator`, `build_execution_config_from_args`, `validate_paths`), and `ptycho_torch/config_factory.py` for factory integration logic.
 
-**Validation Evidence:** Phase C4.D manual CLI smoke test with gridsize=2 confirmed all execution flags operate correctly. See `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/manual_cli_smoke_gs2.log`.
+**Validation Evidence:** Phase C4.D manual CLI smoke test with gridsize=2 confirmed all execution flags operate correctly. See `docs/plans/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/manual_cli_smoke_gs2.log`.
 
 **Note:** For programmatic access to execution-only parameters not yet exposed via CLI (advanced trainer knobs), instantiate `PyTorchExecutionConfig` directly and pass to factory functions. See §4.9 for complete field reference and validation rules.
 

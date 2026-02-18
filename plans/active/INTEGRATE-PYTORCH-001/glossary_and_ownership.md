@@ -4,7 +4,7 @@
 **Document Purpose:** Define project-specific terminology and map component ownership across implementation phases
 **Created:** 2025-10-16
 **Source Documents:**
-- `/home/ollie/Documents/PtychoPINN2/plans/active/INTEGRATE-PYTORCH-001/implementation.md`
+- `/home/ollie/Documents/PtychoPINN2/docs/plans/INTEGRATE-PYTORCH-001/implementation.md`
 - `/home/ollie/Documents/PtychoPINN2/docs/architecture.md`
 - `/home/ollie/Documents/PtychoPINN2/docs/DEVELOPER_GUIDE.md`
 - `/home/ollie/Documents/PtychoPINN2/specs/ptychodus_api_spec.md`
@@ -244,9 +244,9 @@ RawData.generate_grouped_data()
 
 **Source References:**
 - Parity map template: `plans/ptychodus_pytorch_integration_plan.md:37-49` (Phase 0 Artifact)
-- Phase A deliverable: `plans/active/INTEGRATE-PYTORCH-001/implementation.md:11-20`
+- Phase A deliverable: `docs/plans/INTEGRATE-PYTORCH-001/implementation.md:11-20`
 
-**Phase A Deliverable:** `plans/active/INTEGRATE-PYTORCH-001/reports/<timestamp>/parity_map.md`
+**Phase A Deliverable:** `docs/plans/INTEGRATE-PYTORCH-001/reports/<timestamp>/parity_map.md`
 
 **Related Terms:** gap analysis, component inventory, architectural assessment
 
@@ -484,7 +484,7 @@ def test_training_config_populates_legacy_dict():
 | **Primary Responsibility** | CONFIG |
 | **Affected Modules** | `tests/torch/test_config_parity.py` (new parity test) |
 | **Dependencies** | B3 complete (PyTorch bridge functional) || TensorFlow baseline (already working) |
-| **Source References** | - Config fields reference: `specs/ptychodus_api_spec.md:213-291`<br>- Parity validation: `plans/active/INTEGRATE-PYTORCH-001/implementation.md:34` |
+| **Source References** | - Config fields reference: `specs/ptychodus_api_spec.md:213-291`<br>- Parity validation: `docs/plans/INTEGRATE-PYTORCH-001/implementation.md:34` |
 | **Test Location** | `tests/torch/test_config_parity.py` |
 | **Deliverable** | `reports/<timestamp>/cfg_diff.txt` showing no differences |
 
@@ -1598,7 +1598,7 @@ Phase E (Integration)
 
 **Owner:** INTEGRATE-PYTORCH-001 Initiative Lead
 **Review Cycle:** Update after each phase completion
-**Version Control:** Track in `plans/active/INTEGRATE-PYTORCH-001/glossary_and_ownership.md`
+**Version Control:** Track in `docs/plans/INTEGRATE-PYTORCH-001/glossary_and_ownership.md`
 
 **Change Log:**
 - 2025-10-16: Initial creation (Phase A)
@@ -1606,7 +1606,7 @@ Phase E (Integration)
 - (Future): Add lessons learned and gotchas discovered during implementation
 
 **Related Documents:**
-- `plans/active/INTEGRATE-PYTORCH-001/implementation.md` - Source task breakdown
+- `docs/plans/INTEGRATE-PYTORCH-001/implementation.md` - Source task breakdown
 - `specs/ptychodus_api_spec.md` - API contract reference
 - `docs/DEVELOPER_GUIDE.md` - Development methodology
 - `plans/ptychodus_pytorch_integration_plan.md` - Original integration plan

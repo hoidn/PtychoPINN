@@ -31,7 +31,7 @@ Key constraints (per request):
 
 - Tests
   - `tests/io/test_ptychodus_product_io.py` (unit + smoke)
-  - Evidence captured under `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/<timestamp>/`
+  - Evidence captured under `docs/plans/EXPORT-PTYCHODUS-PRODUCT-001/reports/<timestamp>/`
 
 - Docs
   - Short snippet in `docs/DATA_MANAGEMENT_GUIDE.md` (export usage example)
@@ -110,7 +110,7 @@ Key constraints (per request):
   - Exclude fly64 datasets explicitly
 
 - Phase E — Evidence & Docs
-  - pytest logs → `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/<timestamp>/pytest.log`
+  - pytest logs → `docs/plans/EXPORT-PTYCHODUS-PRODUCT-001/reports/<timestamp>/pytest.log`
   - `summary.md` with pass/skip counts and artifact paths
   - Add a brief how-to to `docs/DATA_MANAGEMENT_GUIDE.md`
 
@@ -153,10 +153,10 @@ Key constraints (per request):
 <plan_update version="1.0">
   <trigger>Phase G dense rerun is blocked in dwell escalation, so we are pivoting to the next highest priority backlog item (Run1084 Ptychodus exporter) and need a concrete hand-off with evidence requirements.</trigger>
   <focus_id>EXPORT-PTYCHODUS-PRODUCT-001</focus_id>
-  <documents_read>docs/index.md, docs/findings.md, specs/data_contracts.md, docs/DATA_MANAGEMENT_GUIDE.md, docs/fix_plan.md, plans/active/EXPORT-PTYCHODUS-PRODUCT-001/implementation_plan.md, plans/active/EXPORT-PTYCHODUS-PRODUCT-001/test_strategy.md, ptycho/io/ptychodus_product_io.py, tests/io/test_ptychodus_product_io.py, scripts/tools/convert_to_ptychodus_product.py</documents_read>
-  <current_plan_path>plans/active/EXPORT-PTYCHODUS-PRODUCT-001/implementation_plan.md</current_plan_path>
+  <documents_read>docs/index.md, docs/findings.md, specs/data_contracts.md, docs/DATA_MANAGEMENT_GUIDE.md, docs/fix_plan.md, docs/plans/EXPORT-PTYCHODUS-PRODUCT-001/implementation_plan.md, docs/plans/EXPORT-PTYCHODUS-PRODUCT-001/test_strategy.md, ptycho/io/ptychodus_product_io.py, tests/io/test_ptychodus_product_io.py, scripts/tools/convert_to_ptychodus_product.py</documents_read>
+  <current_plan_path>docs/plans/EXPORT-PTYCHODUS-PRODUCT-001/implementation_plan.md</current_plan_path>
   <proposed_changes>activate a long-lived reports hub, define a Run1084 conversion Do Now with explicit pytest selector + CLI commands, add evidence publication requirements, and align outputs with specs/data_contracts.md.</proposed_changes>
-  <impacts>requires creating `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/`, capturing pytest and CLI logs, verifying the generated HDF5 via the Ptychodus reader, and drafting a DATA_MANAGEMENT_GUIDE usage snippet once the conversion succeeds.</impacts>
+  <impacts>requires creating `docs/plans/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/`, capturing pytest and CLI logs, verifying the generated HDF5 via the Ptychodus reader, and drafting a DATA_MANAGEMENT_GUIDE usage snippet once the conversion succeeds.</impacts>
   <ledger_updates>docs/fix_plan.md Active Focus switches to EXPORT-PTYCHODUS-PRODUCT-001 with planning status; Latest Attempt records this Do Now and hub path.</ledger_updates>
   <status>approved</status>
 </plan_update>
@@ -164,8 +164,8 @@ Key constraints (per request):
 <plan_update version="1.0">
   <trigger>Ralph delivered the Run1084 exporter evidence (pytest log + HDF5 verification + doc draft), so we now need to fold the approved snippet into the canonical Data Management Guide and capture the doc update in our ledger.</trigger>
   <focus_id>EXPORT-PTYCHODUS-PRODUCT-001</focus_id>
-  <documents_read>docs/index.md, docs/findings.md, specs/data_contracts.md, docs/DATA_MANAGEMENT_GUIDE.md, docs/fix_plan.md, plans/active/EXPORT-PTYCHODUS-PRODUCT-001/implementation_plan.md, plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/analysis/data_guide_snippet.md, plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/analysis/artifact_inventory.txt, input.md</documents_read>
-  <current_plan_path>plans/active/EXPORT-PTYCHODUS-PRODUCT-001/implementation_plan.md</current_plan_path>
+  <documents_read>docs/index.md, docs/findings.md, specs/data_contracts.md, docs/DATA_MANAGEMENT_GUIDE.md, docs/fix_plan.md, docs/plans/EXPORT-PTYCHODUS-PRODUCT-001/implementation_plan.md, docs/plans/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/analysis/data_guide_snippet.md, docs/plans/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap/analysis/artifact_inventory.txt, input.md</documents_read>
+  <current_plan_path>docs/plans/EXPORT-PTYCHODUS-PRODUCT-001/implementation_plan.md</current_plan_path>
   <proposed_changes>record exporter evidence completion, add a documentation-focused Do Now (merge snippet into docs/DATA_MANAGEMENT_GUIDE.md, cite the CLI workflow, remind about git-ignored outputs), and require updated hub summaries/inventory plus ledger references once docs land.</proposed_changes>
   <impacts>requires editing docs/DATA_MANAGEMENT_GUIDE.md (non-production), refreshing the hub summary + artifact inventory, and updating docs/fix_plan.md/input.md so future loops know documentation is pending review.</impacts>
   <ledger_updates>docs/fix_plan.md gains a 2025-11-13T101500Z attempt noting exporter evidence review and the new documentation task; Active Focus blurb + status flip to reflect “doc integration pending”.</ledger_updates>
@@ -176,7 +176,7 @@ Key constraints (per request):
 
 1. **Guard + hub setup**
    - Work from `/home/ollie/Documents/PtychoPINN`, export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`, and set  
-     `HUB="$PWD/plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap"`.
+     `HUB="$PWD/docs/plans/EXPORT-PTYCHODUS-PRODUCT-001/reports/2025-11-13T091500Z/hdf5_exporter_bootstrap"`.
    - Confirm the drafted snippet lives at `analysis/data_guide_snippet.md` and the exporter evidence (pytest log, CLI log, verify log, product summary) is checked into this hub.
 2. **Integrate the documentation snippet**
    - Add a new “Ptychodus Product Export” subsection to `docs/DATA_MANAGEMENT_GUIDE.md` (after the HDF5/NPZ sections) that:

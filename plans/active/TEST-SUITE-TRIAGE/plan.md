@@ -8,7 +8,7 @@
 ## Phase A — Establish Baseline Failure Ledger
 Goal: Capture the current pytest failure surface with reproducible artifacts.
 Prerqs: Verify environment sync (`git status` clean, conda env ready); acknowledge CLAUDE directives on data handling.
-Exit Criteria: `pytest tests/` run captured under `plans/active/TEST-SUITE-TRIAGE/reports/<timestamp>/pytest.log`; failures enumerated in `summary.md` with module::test identifiers and trace snippets.
+Exit Criteria: `pytest tests/` run captured under `docs/plans/TEST-SUITE-TRIAGE/reports/<timestamp>/pytest.log`; failures enumerated in `summary.md` with module::test identifiers and trace snippets.
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
@@ -39,7 +39,7 @@ Exit Criteria: docs/fix_plan.md updated with new items for each actionable failu
 | C3 | Prepare delegation packet | [ ] | Summarize next actionable step for Ralph (e.g., targeted pytest command) in `input.md`, ensuring artifacts path logged. |
 
 ## Reporting & Artifacts
-- Artifact root: `plans/active/TEST-SUITE-TRIAGE/reports/`
+- Artifact root: `docs/plans/TEST-SUITE-TRIAGE/reports/`
 - Each Phase A/B/C loop uses ISO timestamp subdirectories (e.g., `2025-10-16T000000Z`).
 - Always capture environment metadata (`python -m pip freeze > requirements_snapshot.txt`) when new failures appear.
 

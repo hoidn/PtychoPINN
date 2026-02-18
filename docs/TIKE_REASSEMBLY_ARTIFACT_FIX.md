@@ -2,7 +2,7 @@
 
 **Created:** 2025-07-25  
 **Status:** Planned - To be implemented after Tike Integration Phase 2  
-**Related Initiative:** `plans/active/tike-comparison-integration/` (archived path reference)
+**Related Initiative:** `docs/plans/tike-comparison-integration/` (archived path reference)
 
 ## Overview
 
@@ -241,7 +241,7 @@ If artifacts appear in other parts of the Tike processing pipeline:
 ## References
 
 - **Analysis Document**: `DEBUGGING_SESSION_TENSOR_SHAPE_MISMATCH_2025-07-22.md` (contains detailed technical analysis)
-- **Tike Integration Plan**: `plans/active/tike-comparison-integration/plan.md`
+- **Tike Integration Plan**: `docs/plans/tike-comparison-integration/plan.md`
 - **Model Comparison Guide**: `docs/MODEL_COMPARISON_GUIDE.md`
 - **Core TF Helper**: `ptycho/tf_helper.py` (functions: `shift_and_sum`, `translate`, `reassemble_position`)
 - **Tike Source Code**: `tike/src/tike/ptycho/object.py` (coordinate system analysis)

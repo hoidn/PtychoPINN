@@ -15,7 +15,7 @@
 Resolved decisions (no blocker questions required):
 
 1. **Hybrid training split policy:** default to `top` half for cameraman to mirror successful external `N=128 e40` study patterns; support `--half {top,bottom}` for explicit override.
-2. **Hybrid training resolution:** downsample cameraman `256->128` using existing physically-consistent tool semantics (crop diffraction, bin complex object/probe, scale coords).
+2. **Hybrid training resolution:** downsample cameraman `256->128` using study semantics (bin diffraction, center-crop complex object/probe, keep coords in the same pixel frame).
 3. **PtychoViT runs:** inference-only with checkpoint restore (`--mode inference --checkpoint <best_model.pth>`), run independently for scan807 and cameraman pairs.
 4. **Scan807/cameraman pair compliance:** enforce required probe/object pixel attrs by preflight patching into working copies (never mutate source files in place), then re-validate pair contract before any model stage.
 5. **Position reassembly safety:** pin external reassembly backend to `shift_sum` only (never `auto`/`batched`) due known batched correctness regression.
@@ -155,7 +155,7 @@ git commit -m "test(studies): add red tests for cameraman hybrid dataset prep"
 
 Implement CLI that:
 1. Converts cameraman pair -> canonical external NPZ (Task 2 adapter).
-2. Downsamples to `N=128` (crop/bin + coord scaling).
+2. Downsamples to `N=128` (diffraction binning + real-space center-crop; no coordinate rescaling).
 3. Produces train split using half-space mask (`top` default, `bottom` option).
 4. Writes full test NPZ (unsplit full object).
 5. Writes manifest JSON with source paths, split threshold, counts, SHA256.

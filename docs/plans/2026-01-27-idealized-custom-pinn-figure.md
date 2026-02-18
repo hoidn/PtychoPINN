@@ -129,7 +129,7 @@ cp /home/ollie/Documents/tmp/paper/figures/recon_idealized_custom_v1/out_scaling
 ### Task 4: Record outputs in the plan summary (manual)
 
 **Files:**
-- Update: `plans/active/<initiative>/summary.md` (if/when an initiative is created)
+- Update: `docs/plans/<initiative>/summary.md` (if/when an initiative is created)
 
 **Step 1: Add paths and a short note**
 
@@ -142,6 +142,6 @@ Scaled panels: out_scaling_v5/*
 **Step 2: Commit (if repo plan or summary updated)**
 
 ```bash
-git add plans/active/<initiative>/summary.md
+git add docs/plans/<initiative>/summary.md
 git commit -m "docs: record idealized/custom PINN figure outputs"
 ```

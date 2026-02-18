@@ -38,7 +38,7 @@ Three independent scores per iteration (0–100 scale):
 iter | summary | diff | semantic | aggregate | rationale | key_changes
 -----|---------|------|----------|-----------|-----------|-------------
 262  | 40      | 0    | 10       | 17        | Git sync only, no product work | git_bus.py autostash
-263  | 0       | 20   | 15       | 12        | Test artifact commits, no implementation | plans/ artifacts only
+263  | 0       | 20   | 15       | 12        | Test artifact commits, no implementation | docs/plans/ artifacts only
 264  | 55      | 20   | 20       | 32        | Planning hub creation, test evidence | hub 2025-11-12T010500Z created
 265  | 50      | 20   | 18       | 29        | Post-verify rescope planning | --post-verify-only directive
 266  | 0       | 20   | 25       | 15        | Test file added | tests/study/test_check_dense_highlights_match.py
@@ -101,8 +101,8 @@ Inflection points: i=285 (first real execution), i=289 (pytest GREEN + pipeline 
 **Effect:** Successfully launched 8-command orchestrated pipeline; Phase C dataset generation actively progressed (dose_1000 fully complete: 4.7GB canonical.npz + simulated_raw.npz + patched splits)
 **Impact:** First productive work after 23 iterations of planning; validated pytest guards GREEN before expensive CLI execution
 **Key changes:**
-- `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_post_verify_only.log:1` (1 passed in 0.88s)
-- `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_stdout.log:1` (Phase C initiated)
+- `docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_post_verify_only.log:1` (1 passed in 0.88s)
+- `docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/run_phase_g_dense_stdout.log:1` (Phase C initiated)
 
 **Rationale:** Workspace-safety enforcement (`pwd -P`) and pytest infrastructure validation finally unblocked execution; proper PYTHONPATH configuration in background shell enabled ptycho module discovery.
 
@@ -124,8 +124,8 @@ Inflection points: i=285 (first real execution), i=289 (pytest GREEN + pipeline 
 **Effect:** Pytest guard passed GREEN (1/1); dense pipeline launched in background with proper PYTHONPATH; Phase C regeneration underway
 **Impact:** Demonstrated full test-before-CLI discipline per TEST-CLI-001; resolved ModuleNotFoundError via explicit PYTHONPATH export; archived pytest logs under hub for regression evidence
 **Key changes:**
-- `plans/active/.../green/pytest_post_verify_only.log:7` (`test_run_phase_g_dense_post_verify_only_executes_chain` PASSED)
-- `plans/active/.../cli/run_phase_g_dense_stdout.log:45` (Phase C dose_1000 generation progressing)
+- `docs/plans/.../green/pytest_post_verify_only.log:7` (`test_run_phase_g_dense_post_verify_only_executes_chain` PASSED)
+- `docs/plans/.../cli/run_phase_g_dense_stdout.log:45` (Phase C dose_1000 generation progressing)
 - `studies/fly64_dose_overlap/generation.py:85` (downstream: n_images config set, unblocking legacy simulator)
 
 **Rationale:** First iteration to achieve both GREEN pytest evidence AND production CLI execution in a single loop; PYTHONPATH fix was environment-specific but documented (no permanent code change required per Environment Freeze).
@@ -146,7 +146,7 @@ Inflection points: i=285 (first real execution), i=289 (pytest GREEN + pipeline 
 - `docs/DEVELOPER_GUIDE.md:127` (PYTHON-ENV-001 policy definition with path:line anchors)
 - `studies/fly64_dose_overlap/generation.py:42` (`--dose`/`--doses` argparse arguments added)
 - `studies/fly64_dose_overlap/generation.py:115` (dose filtering logic in main loop)
-- `plans/active/.../bin/run_phase_g_dense.py:89` (pass `--dose 1000` to generator)
+- `docs/plans/.../bin/run_phase_g_dense.py:89` (pass `--dose 1000` to generator)
 
 **Rationale:** Dual commit (policy + feature) demonstrates high-leverage work; policy addresses root cause of environment failures; dose filtering directly supports focused testing workflow.
 
@@ -213,7 +213,7 @@ Most iterations (26/30) showed **only** `sync/state.json` changes (git bus synch
 **Format:** `Rule → path:line (iteration first implemented)`
 
 1. **PYTHON-ENV-001 (interpreter discipline)** → `docs/DEVELOPER_GUIDE.md:127` (i=292, commit 811f4264)
-   - Propagated to: `scripts/orchestration/git_bus.py:45`, `plans/active/.../bin/run_phase_g_dense.py:89`, `tests/study/test_phase_g_dense_orchestrator.py:23`
+   - Propagated to: `scripts/orchestration/git_bus.py:45`, `docs/plans/.../bin/run_phase_g_dense.py:89`, `tests/study/test_phase_g_dense_orchestrator.py:23`
 
 2. **Dwell enforcement (supervisor)** → `galph_memory.md` tracking (first enforced evidence: i=290+, commit 317c360a "unblock execution and stop planning loops")
    - Effect: i=285 shows first implementation evidence after 23 planning loops
@@ -229,11 +229,11 @@ Most iterations (26/30) showed **only** `sync/state.json` changes (git bus synch
 5. **DATA-001 (NPZ allow_pickle)** → `studies/fly64_dose_overlap/overlap.py:232` (i=287, commit 5cd130d3)
    - Root cause: Phase D blocker `ValueError: Object arrays cannot be loaded when allow_pickle=False`
 
-6. **TEST-CLI-001 (pytest before CLI)** → `plans/active/.../green/pytest_post_verify_only.log` (i=285, i=289)
+6. **TEST-CLI-001 (pytest before CLI)** → `docs/plans/.../green/pytest_post_verify_only.log` (i=285, i=289)
    - Rule: Validate test infrastructure GREEN before expensive CLI execution
    - Evidence: Selector `test_run_phase_g_dense_post_verify_only_executes_chain` passed 1/1
 
-7. **TYPE-PATH-001 (hub-relative paths)** → `plans/active/.../bin/run_phase_g_dense.py:234` (i=270, commit 7dcb2297)
+7. **TYPE-PATH-001 (hub-relative paths)** → `docs/plans/.../bin/run_phase_g_dense.py:234` (i=270, commit 7dcb2297)
    - Effect: CLI success banners reference hub-relative paths, not absolute
 
 8. **PREVIEW-PHASE-001 (phase-only metrics)** → `scripts/tools/analyze_dense_metrics.py:78` (pre-window, referenced i=264+)
@@ -403,11 +403,11 @@ The 87% planning saturation (i=262–284) suggests prompt rules were **not enfor
 - `studies/fly64_dose_overlap/generation.py:42` (dose filtering CLI)
 - `studies/fly64_dose_overlap/overlap.py:232` (allow_pickle fix)
 - `docs/DEVELOPER_GUIDE.md:127` (PYTHON-ENV-001 policy)
-- `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:1` (Phase G plan)
+- `docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:1` (Phase G plan)
 - `tests/study/test_phase_g_dense_orchestrator.py:23` (post_verify guard)
 
 **Artifact Hubs:**
-- `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/`
+- `docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/`
   - `green/pytest_post_verify_only.log` (i=285, i=289 evidence)
   - `cli/run_phase_g_dense_stdout.log` (Phase C→G execution log)
   - `analysis/` (pending: metrics_summary.json, ssim_grid_summary.md)

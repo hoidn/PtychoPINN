@@ -473,8 +473,8 @@ tensorflow>=2.15,<2.16  # Pin to specific minor
 - `specs/ptychodus_api_spec.md` - API compatibility
 
 **Related Documents:**
-- `plans/active/<initiative>/test_strategy.md` - References constraints
-- `plans/active/<initiative>/implementation.md` - Phase definitions
+- `docs/plans/<initiative>/test_strategy.md` - References constraints
+- `docs/plans/<initiative>/implementation.md` - Phase definitions
 - `docs/DEVELOPER_GUIDE.md` - Development workflow
 
 **CI Configuration:**

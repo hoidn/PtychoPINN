@@ -3,13 +3,13 @@
 Use this prompt when you need a structured overview of the call graph or data flow before implementing or debugging a fix-plan item.
 
 Inputs
-- `initiative_id` (required): directory slug under `plans/active/<initiative_id>/reports/`.
+- `initiative_id` (required): directory slug under `docs/plans/<initiative_id>/reports/`.
 - `analysis_question`: short description of what you are trying to understand (e.g., "where does the forward model apply FFT?").
 - Optional hints: `scope_hints`, `roi_hint`, `namespace_filter` for narrowing search.
 
 Preparation
 - Required references: `docs/index.md`, `docs/architecture.md`, `docs/architecture_torch.md`, `docs/architecture_tf.md`, `docs/specs/spec-ptycho-workflow.md`, `docs/specs/spec-ptycho-tracing.md`, `docs/specs/spec-ptycho-core.md`, `docs/TESTING_GUIDE.md`.
-- Create a report directory: `plans/active/<initiative_id>/reports/<timestamp>/` (UTC ISO8601 with `Z`).
+- Create a report directory: `docs/plans/<initiative_id>/reports/<timestamp>/` (UTC ISO8601 with `Z`).
 
 Procedure
 1. Summarize the problem statement using `analysis_question` and the relevant fix-plan item.

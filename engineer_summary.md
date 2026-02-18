@@ -34,8 +34,8 @@
 **DEPTH_CRASH = 4** (not 6 as hypothesized). The crash is stochastic and seed-dependent at depth 4, while depth 6 (with channel cap) is paradoxically more stable. This challenges the assumption that deeper models are less stable — the channel cap may provide implicit regularization.
 
 ## Files changed
-- `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/` (artifacts hub: README, logs, stats, summaries)
-- `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md` (Phase 9 status)
+- `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/` (artifacts hub: README, logs, stats, summaries)
+- `docs/plans/FNO-STABILITY-OVERHAUL-001/implementation.md` (Phase 9 status)
 - `docs/findings.md` (STABLE-CRASH-DEPTH-001)
 - `docs/strategy/mainstrategy.md` (§3 Crash Hunt results)
 - `docs/fix_plan.md` (attempts history + FSM)

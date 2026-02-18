@@ -62,7 +62,7 @@
 **Files:**
 - CLI: `scripts/studies/grid_lines_compare_wrapper.py`
 - Outputs: `outputs/grid_lines_stage_a/arm_stable_layerscale`
-- Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/`
+- Artifacts: `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/`
 
 **Step 1: Prep datasets**
 - Command: `rsync -a outputs/grid_lines_stage_a/arm_control/datasets/ outputs/grid_lines_stage_a/arm_stable_layerscale/datasets/`
@@ -82,7 +82,7 @@
     --nepochs 50 --torch-epochs 50 \
     --torch-grad-clip 0.0 --torch-grad-clip-algorithm norm \
     --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8 \
-    2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/stage_a_arm_stable_layerscale.log
+    2>&1 | tee docs/plans/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/stage_a_arm_stable_layerscale.log
   ```
 - Expected: Training completes without NaNs; log archived.
 
@@ -92,14 +92,14 @@
   ```bash
   python scripts/internal/stage_a_dump_stats.py \
     --run-dir outputs/grid_lines_stage_a/arm_stable_layerscale/runs/pinn_stable_hybrid \
-    --out-json plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/stage_a_arm_stable_layerscale_stats.json
+    --out-json docs/plans/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/stage_a_arm_stable_layerscale_stats.json
   ```
 
 **Step 4: Update metrics table**
-- Append new row to `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/stage_a_metrics.json` (or new file) and refresh `stage_a_summary.md` describing whether LayerScale improved val_loss / SSIM.
+- Append new row to `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/stage_a_metrics.json` (or new file) and refresh `stage_a_summary.md` describing whether LayerScale improved val_loss / SSIM.
 
 **Step 5: Commit**
-- `git add plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/*.json`
+- `git add docs/plans/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/*.json`
 - `git commit -m "chore: stage A stable arm rerun with layerscale"`
 
 ---
@@ -110,7 +110,7 @@
 - `docs/strategy/mainstrategy.md`
 - `docs/fix_plan.md`
 - `docs/findings.md`
-- `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md`
+- `docs/plans/FNO-STABILITY-OVERHAUL-001/implementation.md`
 
 **Step 1: Update implementation plan**
 - Add status notes under Phase 5 referencing the LayerScale change and rerun outcome.
@@ -125,7 +125,7 @@
 - If LayerScale unlocks progress (or fails), add/modify a Finding (e.g., update `STABLE-GAMMA-001` or introduce `STABLE-LS-001`) citing the new evidence path.
 
 **Step 5: Commit**
-- `git add docs/strategy/mainstrategy.md docs/fix_plan.md docs/findings.md plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md`
+- `git add docs/strategy/mainstrategy.md docs/fix_plan.md docs/findings.md docs/plans/FNO-STABILITY-OVERHAUL-001/implementation.md`
 - `git commit -m "docs: record layerscale stable_hybrid results"`
 
 ---

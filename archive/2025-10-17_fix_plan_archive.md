@@ -7,7 +7,7 @@ Archived entries trimmed from docs/fix_plan.md for length hygiene. Each section 
 
 - Spec/AT: `plans/ptychodus_pytorch_integration_plan.md`, commit bfc22e7, `specs/ptychodus_api_spec.md`
 - Attempts History (excerpt):
-  * [2025-10-17] Attempt #0 — Authored phased rebaseline plan `plans/active/INTEGRATE-PYTORCH-000/implementation.md`.
+  * [2025-10-17] Attempt #0 — Authored phased rebaseline plan `docs/plans/INTEGRATE-PYTORCH-000/implementation.md`.
   * [2025-10-17] Attempt #1 — Phase A module inventory & delta analysis (artifacts under `reports/2025-10-17T025000Z/`).
   * [2025-10-17] Attempt #2 — Phase B redline outline + summary (`reports/2025-10-17T025633Z/`).
   * [2025-10-17] Attempt #3 — Applied canonical plan updates; refreshed risk register.
@@ -19,9 +19,9 @@ Archived entries trimmed from docs/fix_plan.md for length hygiene. Each section 
 *(Status: pending — archived for space; reopen if investigation resumes)*
 
 - Depends on: [INTEGRATE-PYTORCH-001-DATALOADER]
-- Spec/AT: `specs/data_contracts.md` §1 (probe/object dimension), `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md`
+- Spec/AT: `specs/data_contracts.md` §1 (probe/object dimension), `docs/plans/INTEGRATE-PYTORCH-001/phase_e2_implementation.md`
 - Attempts History:
-  * [2025-10-17] Attempt #0 — Supervisor analysis captured in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T224500Z/parity_summary.md` (PyTorch run now fails on probe mismatch). No implementation yet.
+  * [2025-10-17] Attempt #0 — Supervisor analysis captured in `docs/plans/INTEGRATE-PYTORCH-001/reports/2025-10-17T224500Z/parity_summary.md` (PyTorch run now fails on probe mismatch). No implementation yet.
 - Exit Criteria (deferred): train/inference CLI derive probe shape consistent with dataset; targeted tests proving parity with TensorFlow probe dimensions; parity summary updated with green run.
 - Notes: Archived to reduce active ledger length; re-promote if work resumes.
 

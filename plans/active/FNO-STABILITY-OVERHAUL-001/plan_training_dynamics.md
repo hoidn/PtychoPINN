@@ -18,7 +18,7 @@
 - Modify: `ptycho_torch/config_bridge.py`
 - Modify: `scripts/studies/grid_lines_torch_runner.py`
 - Modify: `scripts/studies/grid_lines_compare_wrapper.py`
-- Modify: `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md` status block later (doc sync happens in Task 3)
+- Modify: `docs/plans/FNO-STABILITY-OVERHAUL-001/implementation.md` status block later (doc sync happens in Task 3)
 - Tests: `tests/torch/test_config_bridge.py`, `tests/torch/test_grid_lines_torch_runner.py`, `tests/test_grid_lines_compare_wrapper.py`
 
 **Step 1: Write the failing tests**
@@ -221,8 +221,8 @@ git commit -m "feat: add warmup+cosine LR scheduler"
 **Files / Paths:**
 - CLI: `scripts/studies/grid_lines_compare_wrapper.py`
 - Outputs: `outputs/grid_lines_stage_a/arm_stable_warmup`
-- Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/`
-- Docs: `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md`, `docs/strategy/mainstrategy.md`, `docs/fix_plan.md`, `docs/findings.md`, `plans/active/FNO-STABILITY-OVERHAUL-001/summary.md`
+- Artifacts: `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/`
+- Docs: `docs/plans/FNO-STABILITY-OVERHAUL-001/implementation.md`, `docs/strategy/mainstrategy.md`, `docs/fix_plan.md`, `docs/findings.md`, `docs/plans/FNO-STABILITY-OVERHAUL-001/summary.md`
 
 **Step 1: Prep datasets + README**
 - Copy Stage A control datasets to the new arm:
@@ -231,7 +231,7 @@ git commit -m "feat: add warmup+cosine LR scheduler"
         outputs/grid_lines_stage_a/arm_stable_warmup/datasets/
   rm -rf outputs/grid_lines_stage_a/arm_stable_warmup/runs
   ```
-- Create `plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/README.md` capturing shared seed, scheduler knobs, and CLI command.
+- Create `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/README.md` capturing shared seed, scheduler knobs, and CLI command.
 
 **Step 2: Run LayerScale + warmup arm**
 - Command (tee log):
@@ -249,7 +249,7 @@ git commit -m "feat: add warmup+cosine LR scheduler"
     --torch-lr-min-ratio 0.05 \
     --torch-grad-clip 0.0 --torch-grad-clip-algorithm norm \
     --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8 \
-    2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/stage_a_arm_stable_warmup.log
+    2>&1 | tee docs/plans/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/stage_a_arm_stable_warmup.log
   ```
 - Expected: Training completes without NaNs; validation loss remains near best value.
 
@@ -263,16 +263,16 @@ git commit -m "feat: add warmup+cosine LR scheduler"
   ```bash
   python scripts/internal/stage_a_dump_stats.py \
     --run-dir outputs/grid_lines_stage_a/arm_stable_warmup/runs/pinn_stable_hybrid \
-    --out-json plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/stage_a_arm_stable_warmup_stats.json
+    --out-json docs/plans/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/stage_a_arm_stable_warmup_stats.json
   ```
-- Append rows to `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/stage_a_metrics.json` (or create `stage_a_metrics_phase6.json`) capturing warmup + low-LR entries.
+- Append rows to `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/stage_a_metrics.json` (or create `stage_a_metrics_phase6.json`) capturing warmup + low-LR entries.
 
 **Step 5: Update docs + findings + plan**
-- Update `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md` Phase 6 status.
+- Update `docs/plans/FNO-STABILITY-OVERHAUL-001/implementation.md` Phase 6 status.
 - Update `docs/strategy/mainstrategy.md` Stage A table with new rows + note whether warmup solved collapse.
 - Add Attempts History entry + FSM state to `docs/fix_plan.md`.
 - Refresh `docs/findings.md`: close STABLE-LS-001 if resolved or note results; add new finding if needed.
-- Regenerate `plans/active/FNO-STABILITY-OVERHAUL-001/summary.md` Turn Summary.
+- Regenerate `docs/plans/FNO-STABILITY-OVERHAUL-001/summary.md` Turn Summary.
 - Tests: run mapped selectors used throughout this initiative:
   - `pytest tests/torch/test_fno_generators.py::TestStablePtychoBlock -v`
   - `pytest tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_runner_accepts_stable_hybrid -v`
@@ -281,10 +281,10 @@ git commit -m "feat: add warmup+cosine LR scheduler"
 
 **Step 6: Commit**
 ```bash
-git add plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp> \
-        plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md \
+git add docs/plans/FNO-STABILITY-OVERHAUL-001/reports/<timestamp> \
+        docs/plans/FNO-STABILITY-OVERHAUL-001/implementation.md \
         docs/strategy/mainstrategy.md docs/fix_plan.md docs/findings.md \
-        plans/active/FNO-STABILITY-OVERHAUL-001/summary.md
+        docs/plans/FNO-STABILITY-OVERHAUL-001/summary.md
 git commit -m "chore: Stage A warmup scheduler run + docs"
 ```
 

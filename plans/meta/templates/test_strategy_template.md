@@ -245,7 +245,7 @@ def test_with_stubs():
 **Every test run MUST produce:**
 
 ```
-plans/active/<initiative>/reports/<timestamp>/
+docs/plans/<initiative>/reports/<timestamp>/
 ├── pytest.log           # REQUIRED: Full pytest -vv output
 ├── summary.md           # REQUIRED: Test execution summary
 ├── coverage.xml         # Optional: Coverage report
@@ -510,8 +510,8 @@ jobs:
 - `specs/data_contracts.md` - Data format requirements
 
 **Related Plans:**
-- `plans/active/<initiative>/implementation.md` - References this strategy in Phase B
-- `plans/active/<initiative>/constraint_analysis.md` - Environment constraints
+- `docs/plans/<initiative>/implementation.md` - References this strategy in Phase B
+- `docs/plans/<initiative>/constraint_analysis.md` - Environment constraints
 
 **Templates:**
 - This document serves as template for future initiatives

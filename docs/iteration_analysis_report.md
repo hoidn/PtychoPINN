@@ -180,7 +180,7 @@ Primarily documentation, evidence gathering, or test harness adjustments:
 | Config Bridge (POLICY-001) | PyTorch config parity | 302 | `ptycho/config/config.py:*` |
 | Acceptance Floor (ACCEPTANCE-001) | Geometry-aware bounds | 301–302 | `studies/fly64_dose_overlap/overlap.py:334`, `ptycho/raw_data.py:227` |
 | Backend Selector CLI | PyTorch `--backend` flag | 306 | `scripts/training/train.py:*`, `scripts/inference/inference.py:*` |
-| Phase G Orchestrator | Dense pipeline runner | 292 | `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py:*` |
+| Phase G Orchestrator | Dense pipeline runner | 292 | `docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py:*` |
 | Ptychodus Product I/O (DATA-001) | HDF5 exporter | 305 | `ptycho/io/ptychodus_product_io.py:*` |
 
 ---

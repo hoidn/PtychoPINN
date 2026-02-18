@@ -176,6 +176,61 @@ Expected artifacts:
 - `tmp/ptychovit_initial_fresh/visuals/compare_amp_phase.png`
 - `tmp/ptychovit_initial_fresh/runs/pinn_ptychovit/manifest.json`
 
+## Stationary-Point Diagnostic (Input Optimization, Diagnostic Only)
+
+Use this stationary-point diagnostic when reconstruction quality is poor but the
+interop contract appears valid. The workflow performs constrained input optimization
+on one bridge-compatible diffraction input and reports objective/gradient trajectories.
+This is diagnostic only: it does not change bridge inference behavior or model weights.
+
+Command:
+
+```bash
+python scripts/studies/ptychovit_input_optimization_diagnostic.py \
+  --checkpoint tmp/ptychovit_initial_fresh_post_contract_fix/runs/pinn_ptychovit/best_model.pth \
+  --ptychovit-repo /home/ollie/Documents/ptycho-vit \
+  --test-dp tmp/ptychovit_initial_fresh_post_contract_fix/runs/pinn_ptychovit/bridge_work/data/test_dp.hdf5 \
+  --test-para tmp/ptychovit_initial_fresh_post_contract_fix/runs/pinn_ptychovit/bridge_work/data/test_para.hdf5 \
+  --output-dir tmp/ptychovit_stationary_diag \
+  --steps 200 --lr 1e-2 --stationary-threshold 1e-5 --input-max 100.0 \
+  --w-amp-var 1.0 --w-phase-var 1.0 --w-tv 0.1 --w-forward-consistency 1.0
+```
+
+Expected output:
+
+- `tmp/ptychovit_stationary_diag/diagnostic_report.json`
+- Required keys: `objective_history`, `grad_norm_history`, `stationary_step`,
+  `input_stats`, `normalization_context`, `config`
+
+Interpretation guide for normalization and scale assumptions:
+
+- Early clamp saturation (`input_stats.max` pinned at `input_max`) with low terminal
+  gradient often indicates the tested intensity window is too tight for the model's
+  expected normalization/scale regime.
+- Very large or non-finite gradient norms usually indicate violated preprocessing
+  assumptions (e.g., missing/wrong normalization dictionary or incompatible scale).
+- Flat objective with near-constant predicted amplitude/phase statistics despite
+  non-saturated inputs suggests representational collapse unrelated to stitching logic.
+- Compare runs across multiple `input_max` / weight settings to identify a stable
+  window where gradients remain finite and objective changes are non-trivial.
+
+## NERSC Scan807 + Cameraman Orchestration
+
+For the mixed NERSC study (PtychoViT restored inference + Hybrid ResNet cross-dataset comparison),
+use:
+
+- Runbook: `scripts/studies/runbooks/run_nersc_scan807_cameraman_study.py`
+- Orchestrator: `scripts/studies/nersc_orchestration.py`
+- Pair adapter: `scripts/studies/nersc_pair_adapter.py`
+
+The PtychoViT stage in this workflow runs inference-only with explicit checkpoint restore
+(`--mode inference --checkpoint ...`) for both `scan807` and `cameraman256` paired HDF5 inputs.
+
+For this orchestration's `256 -> 128` external-raw prep path, downsampling uses:
+- diffraction block binning,
+- center-cropping for `objectGuess`/`probeGuess`,
+- unchanged coordinate values in the same pixel frame (no `1/factor` coordinate rescale).
+
 ## Evaluation Policy
 
 - Native backends may use different diffraction patch sizes.

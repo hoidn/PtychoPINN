@@ -5,13 +5,13 @@
 - Phase Goal: Harden the PyTorch orchestration + persistence surface with torch-optional regression tests that mirror TensorFlow coverage and feed TEST-PYTORCH-001.
 - Dependencies: Phase D3 (save/load parity) ✅, CONFIG-001 finding (docs/findings.md:9), canonical plan `plans/ptychodus_pytorch_integration_plan.md` Phase 6, and TEST-PYTORCH-001 charter (`plans/pytorch_integration_test_plan.md`).
 - Linked Artifacts: D3 callchain evidence (`reports/2025-10-17T104700Z/phase_d3_callchain/`), persistence implementation summary (`reports/2025-10-17T110500Z/phase_d3b_summary.md`), loader summary (`reports/2025-10-17T113200Z/phase_d3c_summary.md`).
-- Storage Rule: Capture all Phase D4 deliverables under `plans/active/INTEGRATE-PYTORCH-001/reports/<ISO8601>/phase_d4_*` and cross-reference from docs/fix_plan.md.
+- Storage Rule: Capture all Phase D4 deliverables under `docs/plans/INTEGRATE-PYTORCH-001/reports/<ISO8601>/phase_d4_*` and cross-reference from docs/fix_plan.md.
 
 ## Summary of Expected Outputs
 1. Updated parity/workflow plans that align INTEGRATE-PYTORCH-001 with TEST-PYTORCH-001 responsibilities.
 2. Torch-optional pytest coverage for PyTorch persistence + orchestration end-to-end (author failing tests → make green).
 3. Regression harness documentation: selectors, environment overrides, artifact expectations, and fallback paths when torch unavailable.
-4. Coordinated ownership notes: when to spin TEST-PYTORCH-001 plan into `plans/active/TEST-PYTORCH-001` and how D4 tasks unblock it.
+4. Coordinated ownership notes: when to spin TEST-PYTORCH-001 plan into `docs/plans/TEST-PYTORCH-001` and how D4 tasks unblock it.
 
 ---
 

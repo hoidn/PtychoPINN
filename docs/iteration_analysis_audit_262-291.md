@@ -205,7 +205,7 @@ Peak: Iter 289 (score 44) — Pytest GREEN, dense pipeline launched
 
 **Code diffs:**
 - `git diff --name-status` for adjacent iteration pairs
-- Filtered to `scripts/`, `dbex/`, `src/`, `ptycho/`, `tests/` (excluding `plans/`, `logs/`)
+- Filtered to `scripts/`, `dbex/`, `src/`, `ptycho/`, `tests/` (excluding `docs/plans/`, `logs/`)
 
 ---
 

@@ -5,20 +5,20 @@
 - Action type: Review/Planning (verified engineer progress, updated plan + Do Now)
 - Mode: Implementation guidance
 - Git sync: skipped (dirty working tree noted earlier; no pulls)
-- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (FORWARD-SIG-001 / OUTPUT-COMPLEX-001), docs/strategy/mainstrategy.md, docs/workflows/pytorch.md, plans/active/FNO-STABILITY-OVERHAUL-001/{implementation.md,summary.md}, plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T020500Z/{summary.md,*.log}, tests/torch/test_fno_generators.py, scripts/studies/grid_lines_{torch_runner.py,compare_wrapper.py}
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (FORWARD-SIG-001 / OUTPUT-COMPLEX-001), docs/strategy/mainstrategy.md, docs/workflows/pytorch.md, docs/plans/FNO-STABILITY-OVERHAUL-001/{implementation.md,summary.md}, docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T020500Z/{summary.md,*.log}, tests/torch/test_fno_generators.py, scripts/studies/grid_lines_{torch_runner.py,compare_wrapper.py}
 
 **Phase 1 verification:**
-- Confirmed `gradient_clip_algorithm` now lives on TF TrainingConfig, config_bridge, and params.cfg; `tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_gradient_clip_algorithm_roundtrip` collected/passed (log archived under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T020500Z/test_config_bridge_grad_clip.log`).
+- Confirmed `gradient_clip_algorithm` now lives on TF TrainingConfig, config_bridge, and params.cfg; `tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_gradient_clip_algorithm_roundtrip` collected/passed (log archived under `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T020500Z/test_config_bridge_grad_clip.log`).
 - Verified compare wrapper flag + runner propagation via `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_passes_grad_clip_algorithm -v` and `pytest tests/torch/test_grid_lines_torch_runner.py -k gradient_clip_algorithm -v` (logs archived beside above).
 - Updated plan Task 1.1 + 1.4 statuses to COMPLETE, expanded Phase 2 tasks with explicit steps/tests per writing-plans skill.
 
 **Phase 2 handoff:**
-- Do Now: Implement StablePtychoBlock + StableHybrid generator + CLI wiring (plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md Tasks 2.1–2.3).
+- Do Now: Implement StablePtychoBlock + StableHybrid generator + CLI wiring (docs/plans/FNO-STABILITY-OVERHAUL-001/implementation.md Tasks 2.1–2.3).
 - Input.md next loop should map selectors: `pytest tests/torch/test_fno_generators.py -k stable -v`, `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_handles_stable_hybrid -v`, `pytest tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_runner_accepts_stable_hybrid -v` (or similar).
-- Artifacts path reserved: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T050000Z/`.
+- Artifacts path reserved: `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T050000Z/`.
 
 - <Action State>: [ready_for_implementation]
-- focus=FNO-STABILITY-OVERHAUL-001 state=ready_for_implementation dwell=0 artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T050000Z/ next_action=engineer implements Phase 2 Tasks 2.1–2.3 (see plan + mapped pytest selectors)
+- focus=FNO-STABILITY-OVERHAUL-001 state=ready_for_implementation dwell=0 artifacts=docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-28T050000Z/ next_action=engineer implements Phase 2 Tasks 2.1–2.3 (see plan + mapped pytest selectors)
 
 # 2026-01-28T00:00:00Z: GRID-LINES-WORKFLOW-001 — Review + implementation handoff (test fixture fix)
 
@@ -27,7 +27,7 @@
 - Action type: Review → Implementation handoff
 - Mode: Implementation
 - Git sync: `git pull --rebase` → failed (unstaged changes: sync/state.json, train_debug.log). Skipped.
-- Documents reviewed: docs/fix_plan.md, galph_memory.md, plans/active/GRID-LINES-WORKFLOW-001/plan.md, plans/active/GRID-LINES-WORKFLOW-001/summary.md, plans/active/GRID-LINES-WORKFLOW-001/test_strategy.md, docs/plans/2026-01-27-grid-lines-workflow.md, ptycho/workflows/grid_lines_workflow.py, scripts/studies/grid_lines_workflow.py, tests/test_grid_lines_workflow.py, tests/torch/test_grid_lines_torch_runner.py, docs/findings.md (CONFIG-001, STITCH-GRIDSIZE-001).
+- Documents reviewed: docs/fix_plan.md, galph_memory.md, docs/plans/GRID-LINES-WORKFLOW-001/plan.md, docs/plans/GRID-LINES-WORKFLOW-001/summary.md, docs/plans/GRID-LINES-WORKFLOW-001/test_strategy.md, docs/plans/2026-01-27-grid-lines-workflow.md, ptycho/workflows/grid_lines_workflow.py, scripts/studies/grid_lines_workflow.py, tests/test_grid_lines_workflow.py, tests/torch/test_grid_lines_torch_runner.py, docs/findings.md (CONFIG-001, STITCH-GRIDSIZE-001).
 
 **Initiative Status Assessment:**
 - All plan tasks (0-7) implemented; workflow module, CLI, torch runner, compare wrapper all complete
@@ -46,7 +46,7 @@
 
 - Next: Ralph fixes fixture, runs full regression
 - <Action State>: [ready_for_implementation]
-- focus=GRID-LINES-WORKFLOW-001 state=ready_for_implementation dwell=0 artifacts=plans/active/GRID-LINES-WORKFLOW-001/reports/2026-01-28T000000Z/ next_action=implement test fixture fix (2 failing tests)
+- focus=GRID-LINES-WORKFLOW-001 state=ready_for_implementation dwell=0 artifacts=docs/plans/GRID-LINES-WORKFLOW-001/reports/2026-01-28T000000Z/ next_action=implement test fixture fix (2 failing tests)
 
 ---
 
@@ -57,13 +57,13 @@
 - Action type: Review → Implementation handoff
 - Mode: Implementation
 - Git sync: `git pull --rebase` → Already up to date.
-- Documents reviewed: docs/fix_plan.md, galph_memory.md, plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T020000Z/*.log (Task 1 evidence), scripts/pytorch_api_demo.py (existing demo), scripts/inference/inference.py:323-507 (new helpers).
+- Documents reviewed: docs/fix_plan.md, galph_memory.md, docs/plans/PARALLEL-API-INFERENCE/reports/2026-01-09T020000Z/*.log (Task 1 evidence), scripts/pytorch_api_demo.py (existing demo), scripts/inference/inference.py:323-507 (new helpers).
 
 **Task 1 Verification (COMPLETE ✅):**
 - Ralph commit 781ec2f2: Extracted TF helper per design
 - Tests: 7/7 passed (`tests/scripts/test_tf_inference_helper.py`, 3.74s)
 - Integration: 1/1 passed (`tests/test_integration_workflow.py`, 35.93s)
-- Evidence: `plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T020000Z/` (pytest_tf_helper.log, pytest_integration.log)
+- Evidence: `docs/plans/PARALLEL-API-INFERENCE/reports/2026-01-09T020000Z/` (pytest_tf_helper.log, pytest_integration.log)
 
 **Task 2 Scope (Revised):**
 - `scripts/pytorch_api_demo.py` **already exists** (discovered during review)
@@ -80,7 +80,7 @@
 
 - Next: Ralph updates demo script TF path, adds smoke test
 - <Action State>: [ready_for_implementation]
-- focus=PARALLEL-API-INFERENCE state=ready_for_implementation dwell=2 ralph_last_commit=781ec2f2 artifacts=plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/ next_action=implement Task 2-3 (demo script update + smoke test)
+- focus=PARALLEL-API-INFERENCE state=ready_for_implementation dwell=2 ralph_last_commit=781ec2f2 artifacts=docs/plans/PARALLEL-API-INFERENCE/reports/2026-01-09T030000Z/ next_action=implement Task 2-3 (demo script update + smoke test)
 
 ---
 
@@ -91,7 +91,7 @@
 - Action type: Implementation handoff (TF helper extraction)
 - Mode: Implementation
 - Git sync: `git pull --rebase` → Already up to date.
-- Documents reviewed: docs/fix_plan.md, galph_memory.md (prior entry), docs/findings.md (CONFIG-001, ANTIPATTERN-001), plans/active/PARALLEL-API-INFERENCE/plan.md, plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T010000Z/extraction_design.md, scripts/inference/inference.py:321-428 (perform_inference), ptycho_torch/inference.py:426-632 (_run_inference_and_reconstruct).
+- Documents reviewed: docs/fix_plan.md, galph_memory.md (prior entry), docs/findings.md (CONFIG-001, ANTIPATTERN-001), docs/plans/PARALLEL-API-INFERENCE/plan.md, docs/plans/PARALLEL-API-INFERENCE/reports/2026-01-09T010000Z/extraction_design.md, scripts/inference/inference.py:321-428 (perform_inference), ptycho_torch/inference.py:426-632 (_run_inference_and_reconstruct).
 
 **Phase A Review:**
 - Extraction design complete: `reports/2026-01-09T010000Z/extraction_design.md`
@@ -114,7 +114,7 @@
 
 - Next: Ralph extracts TF helper, creates test, runs verification
 - <Action State>: [ready_for_implementation]
-- focus=PARALLEL-API-INFERENCE state=ready_for_implementation dwell=1 ralph_last_commit=c46e496a artifacts=plans/active/PARALLEL-API-INFERENCE/reports/2026-01-09T020000Z/ next_action=implement Task 1 (TF helper extraction + tests)
+- focus=PARALLEL-API-INFERENCE state=ready_for_implementation dwell=1 ralph_last_commit=c46e496a artifacts=docs/plans/PARALLEL-API-INFERENCE/reports/2026-01-09T020000Z/ next_action=implement Task 1 (TF helper extraction + tests)
 
 ---
 
@@ -125,7 +125,7 @@
 - Action type: Review/Housekeeping (milestone verification + focus selection)
 - Mode: Planning
 - Git sync: `git pull --rebase` → Already up to date.
-- Documents reviewed: docs/fix_plan.md, galph_memory.md, docs/findings.md (PINN-CHUNKED-001 RESOLVED), plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2026-01-08T210000Z/*.log, plans/active/PARALLEL-API-INFERENCE/plan.md
+- Documents reviewed: docs/fix_plan.md, galph_memory.md, docs/findings.md (PINN-CHUNKED-001 RESOLVED), docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md, docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2026-01-08T210000Z/*.log, docs/plans/PARALLEL-API-INFERENCE/plan.md
 
 **G-scaled Verification COMPLETE:**
 - Ralph commits c46e496a (integration test) + 5e1cf26f (evidence)
@@ -159,7 +159,7 @@ The initiative is in planning status with a clear scope:
 - Action type: Review → Implementation handoff (phase progression)
 - Mode: Implementation
 - Git sync: `git pull --rebase` → Already up to date.
-- Documents reviewed: docs/fix_plan.md, galph_memory.md (prior entry), docs/findings.md (PINN-CHUNKED-001 RESOLVED), pytest_lazy_loading.log (14 tests, 13 passed), pytest_model_factory.log (3/3 passed), plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md.
+- Documents reviewed: docs/fix_plan.md, galph_memory.md (prior entry), docs/findings.md (PINN-CHUNKED-001 RESOLVED), pytest_lazy_loading.log (14 tests, 13 passed), pytest_model_factory.log (3/3 passed), docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md.
 
 **Ralph's Work Verified:**
 - Commit db8f15bd: Added `test_container_numpy_slicing_for_chunked_inference`
@@ -186,7 +186,7 @@ The unit test proves the API supports chunked access. Now need to verify compare
 
 - Next: Ralph runs minimal chunked compare_models integration to verify OOM resolution
 - <Action State>: [ready_for_implementation]
-- focus=STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 state=ready_for_implementation dwell=1 ralph_last_commit=995fcc68 artifacts=plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2026-01-08T210000Z/ next_action=run minimal chunked compare_models integration test
+- focus=STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 state=ready_for_implementation dwell=1 ralph_last_commit=995fcc68 artifacts=docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2026-01-08T210000Z/ next_action=run minimal chunked compare_models integration test
 
 ---
 
@@ -197,7 +197,7 @@ The unit test proves the API supports chunked access. Now need to verify compare
 - Action type: Implementation handoff (chunking verification test)
 - Mode: Implementation
 - Git sync: `git pull --rebase` → Already up to date.
-- Documents reviewed: docs/fix_plan.md, galph_memory.md, docs/findings.md (PINN-CHUNKED-001 resolved), ptycho/loader.py (lazy container), plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md (prior state).
+- Documents reviewed: docs/fix_plan.md, galph_memory.md, docs/findings.md (PINN-CHUNKED-001 resolved), ptycho/loader.py (lazy container), docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/summary.md (prior state).
 
 **Prior Blocker Analysis:**
 - PINN-CHUNKED-001: ✅ RESOLVED via FEAT-LAZY-LOADING-001
@@ -219,7 +219,7 @@ Add test `test_container_numpy_slicing_for_chunked_inference` to verify:
 
 - Next: Ralph adds chunking test, runs all lazy loading tests, archives evidence
 - <Action State>: [ready_for_implementation]
-- focus=STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 state=ready_for_implementation dwell=0 ralph_last_commit=bd8d9480 artifacts=plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2026-01-08T200000Z/ next_action=implement G-scaled chunking verification test
+- focus=STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 state=ready_for_implementation dwell=0 ralph_last_commit=bd8d9480 artifacts=docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2026-01-08T200000Z/ next_action=implement G-scaled chunking verification test
 
 ---
 
@@ -230,7 +230,7 @@ Add test `test_container_numpy_slicing_for_chunked_inference` to verify:
 - Action type: Review/Housekeeping (verification of Phase C completion + focus selection)
 - Mode: Review
 - Git sync: `git pull --rebase` → Already up to date.
-- Documents reviewed: docs/fix_plan.md, galph_memory.md (prior entry), plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-08T030000Z/pytest_phase_c.log, pytest --collect-only output (13 tests in test_lazy_loading.py).
+- Documents reviewed: docs/fix_plan.md, galph_memory.md (prior entry), docs/plans/FEAT-LAZY-LOADING-001/reports/2026-01-08T030000Z/pytest_phase_c.log, pytest --collect-only output (13 tests in test_lazy_loading.py).
 
 **Phase C Verification (COMPLETE):**
 - Tests PASSED: 12/13 (1 OOM skip)
@@ -258,7 +258,7 @@ FEAT-LAZY-LOADING-001 is DONE. All phases complete:
 **Decision:** STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 was blocked primarily on PINN-CHUNKED-001 (OOM). With lazy loading complete, the G-scaled goal is now feasible. Marked FIX-TF-C1D-SCALED-RERUN-001 as blocked (stale).
 
 - <Action State>: [planning]
-- focus=FOCUS_SELECTION state=planning dwell=0 ralph_last_commit=bd8d9480 artifacts=plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-08T030000Z/ next_action=handoff G-scaled verification
+- focus=FOCUS_SELECTION state=planning dwell=0 ralph_last_commit=bd8d9480 artifacts=docs/plans/FEAT-LAZY-LOADING-001/reports/2026-01-08T030000Z/ next_action=handoff G-scaled verification
 
 ---
 
@@ -269,7 +269,7 @@ FEAT-LAZY-LOADING-001 is DONE. All phases complete:
 - Action type: Implementation handoff (Phase C tasks ready)
 - Mode: Implementation
 - Git sync: `git pull --rebase` → Already up to date.
-- Documents reviewed: docs/fix_plan.md, galph_memory.md (prior entry), plans/active/FEAT-LAZY-LOADING-001/implementation.md, tests/test_lazy_loading.py (Phase B tests verified), ptycho/loader.py:97-321 (lazy container + as_tf_dataset), ptycho/model.py:611-660 (training loop to update), docs/findings.md (PINN-CHUNKED-001 marked resolved).
+- Documents reviewed: docs/fix_plan.md, galph_memory.md (prior entry), docs/plans/FEAT-LAZY-LOADING-001/implementation.md, tests/test_lazy_loading.py (Phase B tests verified), ptycho/loader.py:97-321 (lazy container + as_tf_dataset), ptycho/model.py:611-660 (training loop to update), docs/findings.md (PINN-CHUNKED-001 marked resolved).
 
 **Phase B Verification:**
 - Tests PASSED: 8/8 (1 OOM test skipped by default)
@@ -293,7 +293,7 @@ FEAT-LAZY-LOADING-001 is DONE. All phases complete:
 
 - Next: Ralph implements streaming support in `train()`, adds integration test, runs all tests
 - <Action State>: [ready_for_implementation]
-- focus=FEAT-LAZY-LOADING-001 state=ready_for_implementation dwell=0 ralph_last_commit=37985157 artifacts=plans/active/FEAT-LAZY-LOADING-001/reports/2026-01-08T030000Z/ next_action=implement Phase C (streaming training + integration tests)
+- focus=FEAT-LAZY-LOADING-001 state=ready_for_implementation dwell=0 ralph_last_commit=37985157 artifacts=docs/plans/FEAT-LAZY-LOADING-001/reports/2026-01-08T030000Z/ next_action=implement Phase C (streaming training + integration tests)
 
 ---
 # 2026-01-29T08:30:00Z: FNO-STABILITY-OVERHAUL-001 — Stage A audit (control ✅, stable collapsed, AGC pending)
@@ -303,7 +303,7 @@ FEAT-LAZY-LOADING-001 is DONE. All phases complete:
 - Action type: Debug/Review (audited existing runs, diagnosed stable_hybrid failure)
 - Mode: Evidence + implementation guidance
 - Git sync: skipped (dirty tree from Stage A artifacts)
-- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (FORWARD-SIG-001, OUTPUT-COMPLEX-001), docs/strategy/mainstrategy.md, plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md, plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/{summary.md,stage_a_arm_control.log}, outputs/grid_lines_stage_a/arm_{control,stable}/runs/*
+- Documents reviewed: docs/index.md, docs/fix_plan.md, docs/findings.md (FORWARD-SIG-001, OUTPUT-COMPLEX-001), docs/strategy/mainstrategy.md, docs/plans/FNO-STABILITY-OVERHAUL-001/implementation.md, docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/{summary.md,stage_a_arm_control.log}, outputs/grid_lines_stage_a/arm_{control,stable}/runs/*
 
 **Findings:**
 - Control arm (hybrid + norm clip 1.0) converged: best val_loss 1.38e-2, phase SSIM 0.9974, recon variance healthy (`amp std ≈ 0.036`).
@@ -312,9 +312,9 @@ FEAT-LAZY-LOADING-001 is DONE. All phases complete:
 - `implementation.md` §3.5 still referenced non-existent `val_loss` fields inside metrics files; updated instructions to pull best val_loss from `runs/.../history.json` instead.
 
 **Next Do Now (for engineer):**
-1. Instrument the existing stable_hybrid checkpoint (`outputs/grid_lines_stage_a/arm_stable/runs/pinn_stable_hybrid/model.pt`) to confirm whether `StablePtychoBlock.norm.weight` stayed near zero and capture CLI stdout/stderr to `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/stage_a_arm_stable.log`.
+1. Instrument the existing stable_hybrid checkpoint (`outputs/grid_lines_stage_a/arm_stable/runs/pinn_stable_hybrid/model.pt`) to confirm whether `StablePtychoBlock.norm.weight` stayed near zero and capture CLI stdout/stderr to `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/stage_a_arm_stable.log`.
 2. Run the AGC arm per plan Task 3.4 (`--torch-grad-clip 0.01 --torch-grad-clip-algorithm agc`), archiving logs + `runs/pinn_hybrid` artifacts under the arm_agc directory.
 3. Execute the updated §3.5 aggregation snippet (reads history.json for val_loss) to emit `stage_a_metrics.json` and write `stage_a_summary.md` comparing all three arms + Stage B recommendation, then refresh `docs/fix_plan.md`/plan status.
 
 - <Action State>: [planning]
-- focus=FNO-STABILITY-OVERHAUL-001 state=planning dwell=1 artifacts=plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/ next_action=engineer gathers stable diagnostics, runs AGC arm, and completes Stage A summary
+- focus=FNO-STABILITY-OVERHAUL-001 state=planning dwell=1 artifacts=docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/ next_action=engineer gathers stable diagnostics, runs AGC arm, and completes Stage A summary

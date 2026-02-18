@@ -7,7 +7,7 @@
 - Status: in_progress
 - Priority: High
 - Working Plan: this file
-- Reports Hub (primary): `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/`
+- Reports Hub (primary): `docs/plans/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity/`
 
 ## Context Priming (read before edits)
 > Required reading before touching this initiative.
@@ -31,7 +31,7 @@ PyTorch forward inference currently produces impulse-like patches with extremely
 ## Deliverables
 1. Updated PyTorch instrumentation and CLI plumbing (`ptycho_torch/model.py`, `ptycho_torch/inference.py`, training/inference scripts) that produce normalized patch grids and variance logs on demand.
 2. Config/bridge fixes (object_big defaults, intensity_scale persistence/override) plus associated pytest coverage stored under the Reports Hub.
-3. TF vs Torch comparison artifacts (scripts/notebooks, MAE/SSIM plots) archived under `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/...`.
+3. TF vs Torch comparison artifacts (scripts/notebooks, MAE/SSIM plots) archived under `docs/plans/FIX-PYTORCH-FORWARD-PARITY-001/reports/...`.
 4. Regression tests + doc/test-registry updates describing the instrumentation workflow and new selectors.
 
 ## Phases Overview
@@ -65,7 +65,7 @@ PyTorch forward inference currently produces impulse-like patches with extremely
 0. Capture context before clobbering: `head -n 5 "$HUB"/green/pytest_patch_stats_rerun_v2.log`, `head -n 5 "$HUB"/cli/train_patch_stats_rerun_v2.log`, and `head -n 5 "$HUB"/cli/inference_patch_stats_rerun_v2.log` all still print `2025-11-14 ...`, so archive those snippets in the Turn Summary when reporting the overwrite.
 1. Guard env vars so selectors cite `docs/TESTING_GUIDE.md` (KB: POLICY-001 / CONFIG-001 / ANTIPATTERN-001):  
    `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`  
-   `export HUB=$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity`  
+   `export HUB=$PWD/docs/plans/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity`  
    `export OUT=outputs/torch_forward_parity_baseline`
 2. Re-run the instrumentation selector to prove the TrainingPayload-threaded flags still work:  
    `pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv | tee \"$HUB\"/green/pytest_patch_stats_rerun.log`
@@ -92,7 +92,7 @@ PyTorch forward inference currently produces impulse-like patches with extremely
      --log-patch-stats --patch-stats-limit 2 \
      |& tee \"$HUB\"/cli/inference_patch_stats_rerun.log
    ```
-5. Copy `torch_patch_stats*.json`, `torch_patch_grid*.png`, and the refreshed `forward_parity_debug/` bundle from `\"$OUT\"/analysis/` into `$HUB/analysis/`, then update `$HUB/analysis/artifact_inventory.txt`, `$HUB/summary.md`, and `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md` so Phase A evidence clearly post-dates dc5415ba.
+5. Copy `torch_patch_stats*.json`, `torch_patch_grid*.png`, and the refreshed `forward_parity_debug/` bundle from `\"$OUT\"/analysis/` into `$HUB/analysis/`, then update `$HUB/analysis/artifact_inventory.txt`, `$HUB/summary.md`, and `docs/plans/FIX-PYTORCH-FORWARD-PARITY-001/summary.md` so Phase A evidence clearly post-dates dc5415ba.
 6. If CUDA/memory blocks any command, capture the minimal error signature and create `$HUB/red/blocked_<timestamp>.md` referencing POLICY-001 / CONFIG-001 before handing the focus back.
 - 2025-11-17 audit: `$HUB/cli/train_patch_stats_rerun.log`, `$HUB/cli/inference_patch_stats_rerun.log`, and `analysis/artifact_inventory.txt` are still stamped 2025-11-14, so commit 876eeb12’s patch-stat outputs only exist under `outputs/torch_forward_parity_baseline/`; rerun steps 1–6 and overwrite the hub before starting Phase B (KB: POLICY-001 / CONFIG-001 / ANTIPATTERN-001).
 - 2025-11-14T1323Z audit: Re-read `$HUB/analysis/artifact_inventory.txt` and the first lines of `$HUB/cli/train_patch_stats_rerun.log`/`.../inference_patch_stats_rerun.log` (timestamps still `2025-11-14 04:49:57` and `04:50:41`), confirming no new hub artifacts landed after the TrainingPayload follow-up commit `876eeb12`. Repeat steps 1–6 before touching Phase B, and label the refreshed logs `*_rerun_v2.log` plus `_v2` suffixes for the JSON/PNG artifacts so the summary can show the overwrite clearly. Update `$HUB/summary.md` with the new filenames and drop a red blocker if CUDA/memory interrupts the rerun.
@@ -124,7 +124,7 @@ PyTorch forward inference currently produces impulse-like patches with extremely
 
 ### Action Plan — B3 (Scaling Validation)
 1. **Pre-flight + hub prep.**
-   - Export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`, set `HUB="$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"`, `OUT="$PWD/outputs/torch_forward_parity_baseline"`, and `SCALING="$HUB/scaling_alignment/phase_b3"`.
+   - Export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`, set `HUB="$PWD/docs/plans/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"`, `OUT="$PWD/outputs/torch_forward_parity_baseline"`, and `SCALING="$HUB/scaling_alignment/phase_b3"`.
    - Create `"$SCALING/cli"`, `"$SCALING/analysis"`, and `"$SCALING/green"` so new evidence is isolated from the Phase A/B runs. Confirm `$OUT` contains the latest bundle from commit `9a09ece2`.
 2. **Pytest guard (torch inference reassembly).**
    - Run `pytest tests/torch/test_inference_reassembly_parity.py -vv | tee "$SCALING/green/pytest_inference_reassembly.log"`.
@@ -175,7 +175,7 @@ PyTorch forward inference currently produces impulse-like patches with extremely
    - `export TF_XLA_FLAGS="--tf_xla_auto_jit=0"` (disables the XLA pass that triggered the dynamic_padder RET_CHECK on 2025-11-14; note the value inside each CLI log header so we can prove the mitigation was applied).
    - `export USE_XLA_TRANSLATE=0` (forces `ptycho/tf_helper.should_use_xla()` to bypass `translate_xla()` per `ptycho/tf_helper.py:158-175`, which is the only knob that actually disables the `projective_warp_xla_jit` code path).
    - Before kicking off any CLI commands, emit a one-line capture of both env vars by running `printf 'TF_XLA_FLAGS=%s\nUSE_XLA_TRANSLATE=%s\n' "$TF_XLA_FLAGS" "$USE_XLA_TRANSLATE"` and teeing it into the matching CLI log so the mitigation is self-evident inside the artifact.
-   - `HUB="$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"`
+   - `HUB="$PWD/docs/plans/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"`
    - `OUT_TORCH="$PWD/outputs/torch_forward_parity_baseline"`
    - `OUT_TF="$PWD/outputs/tf_forward_parity_baseline"`
    - `TF_BASE="$HUB/tf_baseline/phase_c1"`
@@ -295,7 +295,7 @@ PyTorch forward inference currently produces impulse-like patches with extremely
    - Goal: quantify how the GS1 fallback differs from the Phase B3 (gridsize 2) baseline so reviewers can see exactly what evidence exists even though TF remains blocked.
    - Command (runs entirely on existing artifacts):
      ```bash
-     HUB="$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"
+     HUB="$PWD/docs/plans/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"
      python - <<'PY'
      import json, os, pathlib
      hub = pathlib.Path(os.environ["HUB"])
@@ -323,7 +323,7 @@ PyTorch forward inference currently produces impulse-like patches with extremely
      - TF blocker files at `$HUB/tf_baseline/phase_c1_gs1/red/blocked_*`
    - Call out explicitly that TF integration + stitching still fail even at GS1, referencing the blocker filenames and error strings.
 3. **Update the initiative summary + hub summary.**
-   - Prepend the Turn Summary block in `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md` and `$HUB/summary.md` with:
+   - Prepend the Turn Summary block in `docs/plans/FIX-PYTORCH-FORWARD-PARITY-001/summary.md` and `$HUB/summary.md` with:
      - Dataset note (GS1 fallback uses the same fly001 reconstructed dataset for both PyTorch commands).
      - Stats-delta path + sha1.
      - TF blocker references and next decision (PyTorch-only parity unless TF translation gets fixed).
@@ -339,7 +339,7 @@ TensorFlow training previously crashed with `values[0].shape=[4] != values[2].sh
    export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
    export TF_XLA_FLAGS="--tf_xla_auto_jit=0"
    export USE_XLA_TRANSLATE=0
-   export HUB="$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"
+   export HUB="$PWD/docs/plans/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"
    export TF_BASE="$HUB/tf_baseline/phase_c1_scaled"
    mkdir -p "$TF_BASE"/{cli,analysis,green,red}
    python scripts/training/train.py \
@@ -372,11 +372,11 @@ TensorFlow training previously crashed with `values[0].shape=[4] != values[2].sh
    - If the guard still fails, create `$TF_BASE/red/blocked_<timestamp>_tf_translation_guard.md` with the new stack trace and stop (no partial edits).
 
 5. **Follow-on comparisons.**
-   - Once TF emits a debug bundle, rerun `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/bin/phase_c2_compare_stats.py` against the scaled TF stats so Phase C2 can report PyTorch vs TF deltas (label the run as scaled in the summary).
+   - Once TF emits a debug bundle, rerun `docs/plans/FIX-PYTORCH-FORWARD-PARITY-001/bin/phase_c2_compare_stats.py` against the scaled TF stats so Phase C2 can report PyTorch vs TF deltas (label the run as scaled in the summary).
 
 ### Action Plan — C2 (PyTorch-only comparison & guard rails)
 1. **Promote reusable comparison tooling (scriptization Tier 2).**
-   - Create `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/bin/phase_c2_compare_stats.py` with the header template from CLAUDE.md §scriptization.
+   - Create `docs/plans/FIX-PYTORCH-FORWARD-PARITY-001/bin/phase_c2_compare_stats.py` with the header template from CLAUDE.md §scriptization.
    - Inputs:
      - `--baseline-stats` → default `$HUB/scaling_alignment/phase_b3/analysis/forward_parity_debug_scaling/stats.json`
      - `--candidate-stats` → default `$HUB/scaling_alignment/phase_c1_gs1/analysis/forward_parity_debug_gs1/stats.json`
@@ -390,8 +390,8 @@ TensorFlow training previously crashed with `values[0].shape=[4] != values[2].sh
 
 2. **Execute the comparison script for the GS1 fallback.**
    ```bash
-   export HUB="$PWD/plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"
-   python plans/active/FIX-PYTORCH-FORWARD-PARITY-001/bin/phase_c2_compare_stats.py \
+   export HUB="$PWD/docs/plans/FIX-PYTORCH-FORWARD-PARITY-001/reports/2025-11-13T000000Z/forward_parity"
+   python docs/plans/FIX-PYTORCH-FORWARD-PARITY-001/bin/phase_c2_compare_stats.py \
      --baseline-stats "$HUB/scaling_alignment/phase_b3/analysis/forward_parity_debug_scaling/stats.json" \
      --candidate-stats "$HUB/scaling_alignment/phase_c1_gs1/analysis/forward_parity_debug_gs1/stats.json" \
      --label-baseline "Phase B3 (gridsize=2)" \
@@ -407,7 +407,7 @@ TensorFlow training previously crashed with `values[0].shape=[4] != values[2].sh
      - The new metrics + sha1 file(s).
      - Source stats JSON paths + their sha1s (already captured during Phase B3/C1).
      - The CLI log for the comparison script.
-   - Prepend both `$HUB/summary.md` and `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md` with:
+   - Prepend both `$HUB/summary.md` and `docs/plans/FIX-PYTORCH-FORWARD-PARITY-001/summary.md` with:
      - Headline sentence summarizing the metrics (e.g., “Patch variance collapsed from 8.97e9 (Phase B3) to 0.0 (GS1).”)
      - Reference to TF blocker files to remind reviewers why the comparison is PyTorch-only.
      - Statement that MAE/SSIM cannot be computed until TF baseline unblocks; note this as a dependency for C3 regression guards.
@@ -446,7 +446,7 @@ _Status recap_: C3a/C3b (training guard) landed in commit `392a44ea` — keep th
 - [x] C1c: Consolidate GS1 fallback evidence (stats delta artifact, inventory/summary update, TF blocker cross-links).
 - [x] C1d.1: Implement the non-XLA translation shape guard + regression tests (commit `801780b6`, `tests/tf_helper/test_translation_shape_guard.py` GREEN).
 - [ ] C1d.2: Rerun the scaled TF baseline with XLA disabled, emit `forward_parity_debug_tf`, and update hub inventory/summary or log the new blocker.
-- [x] C2: Build a comparison script/notebook that ingests Torch/TF dumps, reports variance ratios and stitched MAE/SSIM, and summarize findings in `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/summary.md`.
+- [x] C2: Build a comparison script/notebook that ingests Torch/TF dumps, reports variance ratios and stitched MAE/SSIM, and summarize findings in `docs/plans/FIX-PYTORCH-FORWARD-PARITY-001/summary.md`.
 - [x] C3a: Harden `TestPatchStatsCLI::test_patch_stats_dump` by seeding its fixture and asserting `patch_amplitude.var_zero_mean > 1e-6` plus non-zero canvas means in the generated `torch_patch_stats.json`.
 - [x] C3b: Capture the updated selector via `pytest tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump -vv | tee "$HUB"/green/pytest_patch_variance_guard.log`, updating hub inventories/summaries or filing a blocker if the guard fails.
 - [x] C3c: Extend the selector so it also runs the inference CLI, parses `analysis/torch_patch_stats_inference.json`, and enforces the same variance/global-mean thresholds (citing Phase C2 metrics + spec references).
@@ -464,7 +464,7 @@ _Status recap_: C3a/C3b (training guard) landed in commit `392a44ea` — keep th
 - Reminder: Do not edit `ptycho/model.py`, `ptycho/diffsim.py`, or `ptycho/tf_helper.py` within this focus without explicit supervisor approval.
 
 ## Artifacts Index
-- Reports root: `plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/`
+- Reports root: `docs/plans/FIX-PYTORCH-FORWARD-PARITY-001/reports/`
 - Torch baseline run: `2025-11-13T000000Z/forward_parity/torch_baseline/`
 - TF baseline run: `2025-11-13T000000Z/forward_parity/tf_baseline/`
 

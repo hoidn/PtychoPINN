@@ -33,7 +33,7 @@ These logs show the ValueError crash when using from_simulation with gridsize>1.
 ## Documentation References
 
 ### 4. Planning documents
-- plans/active/simulation-workflow-unification/* - Multiple references in initiative documents
+- docs/plans/simulation-workflow-unification/* - Multiple references in initiative documents
 - docs/PROJECT_STATUS.md - Mentions the from_simulation issue
 
 ## Summary

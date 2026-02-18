@@ -197,7 +197,7 @@ git commit -m "test: add ReduceLROnPlateau CLI scheduler roundtrip"
 
 **Files / Paths:**
 - Runs: `outputs/grid_lines_stage_a/arm_control` and `outputs/grid_lines_stage_a/arm_plateau`
-- Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/`
+- Artifacts: `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/`
 
 **Step 1: Prepare datasets**
 
@@ -218,7 +218,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
   --nepochs 20 --torch-epochs 20 \
   --torch-scheduler Default \
   --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8 \
-  2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/stage_a_arm_control_default.log
+  2>&1 | tee docs/plans/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/stage_a_arm_control_default.log
 ```
 
 **Step 3: Plateau run**
@@ -233,18 +233,18 @@ python scripts/studies/grid_lines_compare_wrapper.py \
   --nepochs 20 --torch-epochs 20 \
   --torch-scheduler ReduceLROnPlateau \
   --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8 \
-  2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/stage_a_arm_control_plateau.log
+  2>&1 | tee docs/plans/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/stage_a_arm_control_plateau.log
 ```
 
 **Step 4: Summarize**
 - Compare loss curves and note whether spikes are reduced/delayed.
-- Update `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md` and `docs/strategy/mainstrategy.md` with the outcome.
+- Update `docs/plans/FNO-STABILITY-OVERHAUL-001/implementation.md` and `docs/strategy/mainstrategy.md` with the outcome.
 
 **Step 5: Commit**
 
 ```bash
-git add plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/*.log \
-  plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md docs/strategy/mainstrategy.md
+git add docs/plans/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/*.log \
+  docs/plans/FNO-STABILITY-OVERHAUL-001/implementation.md docs/strategy/mainstrategy.md
 git commit -m "report: plateau scheduler A/B run"
 ```
 

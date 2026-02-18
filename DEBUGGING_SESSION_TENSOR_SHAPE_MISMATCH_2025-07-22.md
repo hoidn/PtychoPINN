@@ -512,7 +512,7 @@ Compare results using each of the 4 channels individually in gs2→gs1 conversio
 
 ## 📖 **References and Context**
 
-- **Probe Generalization Study Plan:** `plans/active/probe-generalization-study/plan.md`
+- **Probe Generalization Study Plan:** `docs/plans/probe-generalization-study/plan.md`
 - **Debug Report:** `probe_generalization_study_debug_report.md`  
 - **Comparison Script:** `scripts/compare_models.py:586`
 - **Debug Command:** `.claude/commands/debug-gemini-v3.md`

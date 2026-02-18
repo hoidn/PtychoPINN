@@ -127,7 +127,7 @@ The following configuration parameters are **NOT exposed as CLI flags** but coul
 
 ## References
 
-- **Phase E2.C2 Implementation**: `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md §E2.C2`
+- **Phase E2.C2 Implementation**: `docs/plans/INTEGRATE-PYTORCH-001/phase_e2_implementation.md §E2.C2`
 - **Test Contract**: `tests/torch/test_integration_workflow_torch.py`
 - **Data Contract Specification**: `specs/data_contracts.md`
 - **PyTorch API Spec**: `specs/ptychodus_api_spec.md §4.8`

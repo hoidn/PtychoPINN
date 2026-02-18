@@ -4,7 +4,7 @@
 - Initiative: INTEGRATE-PYTORCH-001 (PyTorch backend integration)
 - Phase Goal: Notify downstream owners about the torch-required baseline, capture required follow-up actions, and define ongoing verification cadence before closing Phase F.
 - Dependencies: Phase F4.1 documentation updates and Phase F4.2 spec/finding synchronization must be complete. Reference artifacts: `phase_f4_doc_sync.md` (F4 tasks), `phase_f_torch_mandatory.md` F4 row, governance decision (`reports/2025-10-17T184624Z/governance_decision.md`).
-- Artifact Storage: Save handoff evidence under `plans/active/INTEGRATE-PYTORCH-001/reports/<ISO8601>/` alongside existing F4 reports. Primary deliverable is `handoff_notes.md`; supplement with matrices or command logs as needed (e.g., `owner_matrix.md`, `verification_commands.md`).
+- Artifact Storage: Save handoff evidence under `docs/plans/INTEGRATE-PYTORCH-001/reports/<ISO8601>/` alongside existing F4 reports. Primary deliverable is `handoff_notes.md`; supplement with matrices or command logs as needed (e.g., `owner_matrix.md`, `verification_commands.md`).
 
 ---
 

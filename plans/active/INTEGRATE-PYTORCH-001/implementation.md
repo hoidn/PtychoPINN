@@ -4,9 +4,9 @@
 - Initiative: INTEGRATE-PYTORCH-001
 - Phase Goal: Ship a PyTorch backend that satisfies the reconstructor contract in `specs/ptychodus_api_spec.md` and can be selected transparently from Ptychodus.
 - Dependencies: specs/ptychodus_api_spec.md (contract for lifecycle + persistence); docs/workflows/pytorch.md (current backend behaviour); docs/architecture.md (module map for touchpoints); docs/DEVELOPER_GUIDE.md §1-3 (two-system guidance + params bridge); plans/pytorch_integration_test_plan.md (parallel guardrail effort).
-- Artifact storage: capture evidence, callgraphs, and validation logs under `plans/active/INTEGRATE-PYTORCH-001/reports/` using ISO timestamps (e.g., `.../2025-10-17T013000Z/{summary.md,pytest.log}`). Link each run from docs/fix_plan.md Attempts History.
+- Artifact storage: capture evidence, callgraphs, and validation logs under `docs/plans/INTEGRATE-PYTORCH-001/reports/` using ISO timestamps (e.g., `.../2025-10-17T013000Z/{summary.md,pytest.log}`). Link each run from docs/fix_plan.md Attempts History.
 
-**CRITICAL UPDATE [2025-10-17]:** INTEGRATE-PYTORCH-000 Phase C.C2 stakeholder brief is now available. Review `plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T031500Z/stakeholder_brief.md` for:
+**CRITICAL UPDATE [2025-10-17]:** INTEGRATE-PYTORCH-000 Phase C.C2 stakeholder brief is now available. Review `docs/plans/INTEGRATE-PYTORCH-000/reports/2025-10-17T031500Z/stakeholder_brief.md` for:
 - 5 major architectural deltas from canonical plan updates
 - Configuration bridge (Delta 1) confirmed as #1 blocker — field schema mismatches documented
 - Immediate action items for Phase B (this plan) with specific task breakdowns
@@ -18,13 +18,13 @@
 ### Phase A — Refresh Parity Baseline
 Goal: Reconstruct a complete, current map of TensorFlow ↔ PyTorch responsibilities before touching code.
 Prereqs: None; execute at loop start.
-Exit Criteria: Consolidated parity document saved under `plans/active/INTEGRATE-PYTORCH-001/reports/<timestamp>/parity_map.md`, reviewed against spec sections noted below.
+Exit Criteria: Consolidated parity document saved under `docs/plans/INTEGRATE-PYTORCH-001/reports/<timestamp>/parity_map.md`, reviewed against spec sections noted below.
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
 | A1 | Inventory current TensorFlow workflow touchpoints used by Ptychodus | [x] | Completed 2025-10-17 — see `reports/2025-10-17T020000Z/parity_map.md` for catalogued touchpoints. |
 | A2 | Audit PyTorch equivalents and gaps | [x] | Completed 2025-10-17 — gaps recorded in parity_map.md and summarized in `reports/2025-10-17T020000Z/summary.md`. |
-| A3 | Define initiative glossary + owner map | [x] | Completed 2025-10-17 — glossary captured in `plans/active/INTEGRATE-PYTORCH-001/glossary_and_ownership.md`. |
+| A3 | Define initiative glossary + owner map | [x] | Completed 2025-10-17 — glossary captured in `docs/plans/INTEGRATE-PYTORCH-001/glossary_and_ownership.md`. |
 
 ---
 
@@ -39,7 +39,7 @@ Exit Criteria: PyTorch training/inference paths ingest `TrainingConfig`/`Inferen
 - Missing fields: `gaussian_smoothing_sigma`, `probe_scale`, `pad_object`
 - No KEY_MAPPINGS translation layer for legacy dot-separated keys
 
-**Open Question Q1:** Decide whether to refactor PyTorch config to shared dataclasses (recommended) or maintain dual schemas with translation (see `plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T031500Z/open_questions.md` Q1).
+**Open Question Q1:** Decide whether to refactor PyTorch config to shared dataclasses (recommended) or maintain dual schemas with translation (see `docs/plans/INTEGRATE-PYTORCH-000/reports/2025-10-17T031500Z/open_questions.md` Q1).
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
@@ -55,7 +55,7 @@ Exit Criteria: PyTorch training/inference paths ingest `TrainingConfig`/`Inferen
 Goal: Provide PyTorch-ready `RawDataTorch` and `PtychoDataContainerTorch` that satisfy grouping and tensor layout contracts.
 Prereqs: Phase B completed; dataclasses drive configuration.
 Exit Criteria: PyTorch data pipeline outputs match spec shapes/dtypes and pass targeted loader tests.
-Detailed checklist: `plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md`.
+Detailed checklist: `docs/plans/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md`.
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |

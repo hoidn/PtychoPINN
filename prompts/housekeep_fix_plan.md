@@ -14,10 +14,10 @@ Target: `docs/fix_plan.md` should be **< 70,000 characters** (per `wc -c`).
 - Preserve **all initiatives** (IDs and basic metadata) that are still relevant:
   - `Status: pending`, `in_progress`, or `blocked` *must* remain in `docs/fix_plan.md`.
   - `Status: done` or `archived` may be compacted in the live ledger, but never silently dropped.
-- Preserve **full historical detail** in `docs/fix_plan_archive.md` and the `plans/active/<id>/reports/` trees; the live ledger may point to those instead of inlining everything.
+- Preserve **full historical detail** in `docs/fix_plan_archive.md` and the `docs/plans/<id>/reports/` trees; the live ledger may point to those instead of inlining everything.
 - Keep the **Execution Roadmap** tiers up to date (Tier 1/2/3 entries).
 - Ensure **every initiative** in the live ledger has:
-  - a corresponding `plans/active/<ID>/implementation.md` file, and
+  - a corresponding `docs/plans/<ID>/implementation.md` file, and
   - at least one referenced reports directory (even if only via a generic pointer).
 
 ---
@@ -57,7 +57,7 @@ Work against a temp file first so it’s easy to measure and review before overw
        - `Priority:`
        - `Owner/Date:`
        - `Exit Criteria:` (full list; do not truncate these).
-       - `Working Plan: plans/active/<ID>/implementation.md`
+       - `Working Plan: docs/plans/<ID>/implementation.md`
      - **Trim Attempts History**:
        - If `Status` is `pending`, `in_progress`, or `blocked`:
          - Keep only a *small* subset of Attempts History inline:
@@ -65,10 +65,10 @@ Work against a temp file first so it’s easy to measure and review before overw
            - Last bullet (most recent attempt).
            - Optionally one “pivotal” attempt if clearly marked (e.g. a major decision).
          - Insert a summary line, e.g.:
-           > `... (see docs/fix_plan_archive.md and plans/active/<ID>/reports/ for full history and metrics).`
+           > `... (see docs/fix_plan_archive.md and docs/plans/<ID>/reports/ for full history and metrics).`
        - If `Status` is `done` or `archived`:
          - It’s enough to keep a **single** bullet summarizing completion and pointing to the archive:
-           > `* See docs/fix_plan_archive.md (snapshot YYYY‑MM‑DD) and plans/active/<ID>/reports/ for full Attempts History.`
+           > `* See docs/fix_plan_archive.md (snapshot YYYY‑MM‑DD) and docs/plans/<ID>/reports/ for full Attempts History.`
          - Do *not* inline multi‑page Attempts History for completed work.
 
 3. Use this rule of thumb:
@@ -92,16 +92,16 @@ For every initiative still present in `docs/fix_plan_temp.md`:
 
 - Confirm its plan file exists:
   ```bash
-  ls plans/active/<ID>/implementation.md
+  ls docs/plans/<ID>/implementation.md
   ```
   - If missing, create a minimal stub:
     ```bash
-    mkdir -p plans/active/<ID>
-    printf '# Implementation Plan: <ID>\n\nStatus: pending (stub created to satisfy docs/fix_plan.md reference).\n' > plans/active/<ID>/implementation.md
+    mkdir -p docs/plans/<ID>
+    printf '# Implementation Plan: <ID>\n\nStatus: pending (stub created to satisfy docs/fix_plan.md reference).\n' > docs/plans/<ID>/implementation.md
     ```
 - Ensure references to reports are either:
-  - explicit paths (e.g., `plans/active/<ID>/reports/2025-11-22T123456Z/`), or
-  - generic pointers (“see reports under `plans/active/<ID>/reports/`”).
+  - explicit paths (e.g., `docs/plans/<ID>/reports/2025-11-22T123456Z/`), or
+  - generic pointers (“see reports under `docs/plans/<ID>/reports/`”).
 
 ### 5. Promote the temp ledger and commit
 
@@ -126,4 +126,4 @@ For every initiative still present in `docs/fix_plan_temp.md`:
 - **Never drop active work:** if an initiative is still `pending`, `in_progress`, or `blocked`, its ID, dependencies, exit criteria, and working plan must remain in the live ledger.
 - **Archive is the source of truth for history:** it’s always safe to replace long inline Attempts History with a pointer *after* you’ve appended a snapshot to `docs/fix_plan_archive.md`.
 - **Keep tiers coherent:** every initiative listed in a Tier block should have a matching `### [ID]` section under `## Active / Pending Initiatives`.
-- **Be explicit about where history lives:** for any trimmed Attempts History, add a line pointing to both `docs/fix_plan_archive.md` and the initiative’s `plans/active/<ID>/reports/` directories. This prevents future ambiguity about where to find full context.
+- **Be explicit about where history lives:** for any trimmed Attempts History, add a line pointing to both `docs/fix_plan_archive.md` and the initiative’s `docs/plans/<ID>/reports/` directories. This prevents future ambiguity about where to find full context.

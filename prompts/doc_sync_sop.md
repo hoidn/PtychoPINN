@@ -14,7 +14,7 @@ Scope & Assumptions
 - Debugging flows produce C↔Py traces and an end‑to‑end parity harness under `scripts/`.
 
 Inputs
-- `docs/**` shards, `scripts/**`, `tests/**`, `plans/**`, `specs/**`, `datasets/**`, `examples/**`.
+- `docs/**` shards, `scripts/**`, `tests/**`, `docs/plans/**`, `specs/**`, `datasets/**`, `examples/**`.
 - Acceptance tests and thresholds from specs/testing strategy.
 
 Process (single pass; repeat if needed)
@@ -22,7 +22,7 @@ Process (single pass; repeat if needed)
 - List doc shards and anchors:
   - `rg -n "^#|^## |Last Updated|Verified Against" docs`
 - Inventory cross‑references to code/assets:
-  - `rg -n "scripts/|tests/|plans/|specs/|datasets/|examples/" docs`
+  - `rg -n "scripts/|tests/|docs/plans/|specs/|datasets/|examples/" docs`
 - Locate the AT→tests mapping (“Parallel Validation Matrix”):
   - Open `docs/TESTING_GUIDE.md` (and, if needed, `docs/development/TEST_SUITE_INDEX.md`) and verify the section is present.
 
@@ -61,14 +61,14 @@ Process (single pass; repeat if needed)
 6) Verification (fast, scriptable)
 - Re‑scan for broken links/placeholders.
   - `rg -n "\[DATE\]|\[VERSION\]" docs`
-  - `rg -n "scripts/|tests/|plans/|specs/|datasets/|examples/" docs | awk '{print $2}' | while read p; do [ -e "$p" ] || echo MISSING "$p"; done`
+  - `rg -n "scripts/|tests/|docs/plans/|specs/|datasets/|examples/" docs | awk '{print $2}' | while read p; do [ -e "$p" ] || echo MISSING "$p"; done`
 - Grep for dataset and artifact consistency (e.g., fly64 datasets, nphotons studies):
   - `rg -n "fly64|nphotons|generalization" docs tests`
 - Ensure SOPs cite acceptance thresholds and give canonical repro commands.
 
 7) CI Integration (prevent drift)
 - Document and implement two light‑weight gates:
-  - Visual regression gate: run the integration workflow test (e.g., `python -m unittest tests.test_integration_workflow`) or an equivalent scripted workflow, fail if generated reconstructions diverge beyond documented thresholds, and save key artifacts under `plans/active/<initiative>/reports/`.
+  - Visual regression gate: run the integration workflow test (e.g., `python -m unittest tests.test_integration_workflow`) or an equivalent scripted workflow, fail if generated reconstructions diverge beyond documented thresholds, and save key artifacts under `docs/plans/<initiative>/reports/`.
   - Metric/trace gate: execute the authoritative parity or evaluation selector documented in `docs/TESTING_GUIDE.md` (or the relevant report script) and fail on the first metrics/trace deviation; capture logs under the same reports directory.
 
 Deliverables
@@ -85,7 +85,7 @@ Success Criteria
 
 Reusable Checklists
 - Cross‑Ref Health
-  - [ ] Every `docs/**` path to `scripts/**`, `tests/**`, `plans/**`, `specs/**`, `datasets/**` exists.
+  - [ ] Every `docs/**` path to `scripts/**`, `tests/**`, `docs/plans/**`, `specs/**`, `datasets/**` exists.
   - [ ] No `[DATE]` or `[VERSION]` placeholders remain.
 - Debug SOP Quality
   - [ ] SOP cites ATs and Parallel Validation Matrix.

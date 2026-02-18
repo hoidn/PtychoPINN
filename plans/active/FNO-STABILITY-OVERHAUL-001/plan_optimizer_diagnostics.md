@@ -88,7 +88,7 @@ Same commands as Step 2; archive logs under the initiative report hub.
 **Files / Paths:**
 - Worktree: `.worktrees/fno2-phase8-optimizers`
 - Outputs: `outputs/grid_lines_stage_a/arm_stable_sgd`, `outputs/grid_lines_stage_a/arm_stable_adamw`
-- Artifacts hub: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T050000Z/`
+- Artifacts hub: `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T050000Z/`
 
 **Step 1: Prep workspace**
 - `mkdir -p` the two arm directories and rsync Stage A control datasets into each.
@@ -109,7 +109,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
   --torch-scheduler WarmupCosine --torch-lr-warmup-epochs 5 --torch-lr-min-ratio 0.05 \
   --torch-grad-clip 0.0 --torch-grad-clip-algorithm norm \
   --torch-infer-batch-size 8 --torch-log-grad-norm --torch-grad-norm-log-freq 1 \
-  2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T050000Z/stage_a_arm_stable_sgd.log
+  2>&1 | tee docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T050000Z/stage_a_arm_stable_sgd.log
 ```
 - After completion, copy `history.json`, `metrics.json`, `model.pt`, and grad norm CSV to the hub; run `scripts/internal/stage_a_dump_stats.py` to produce `stage_a_arm_stable_sgd_stats.json`.
 
@@ -117,7 +117,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
 ```bash
 python scripts/debug_fno_activations.py \
   --input outputs/grid_lines_stage_a/arm_control/datasets/N64/gs1/train/train.npz \
-  --output plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T050000Z \
+  --output docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T050000Z \
   --architecture stable_hybrid \
   --checkpoint outputs/grid_lines_stage_a/arm_stable_sgd/runs/pinn_stable_hybrid/model.pt \
   --batch-size 1 --max-samples 1 --device cpu \
@@ -135,7 +135,7 @@ Archive all CLI logs + pytest outputs in the new hub.
 
 **Step 6: Update summaries**
 - Append SGD/AdamW entries to `stage_a_metrics.json` (new file `stage_a_metrics_phase8.json`).
-- Write `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T050000Z/stage_a_optimizer_summary.md` comparing Adam vs SGD vs previous Phase 7 metrics, calling out whether either run avoided collapse (target: amp_ssim ≥ 0.80).
+- Write `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T050000Z/stage_a_optimizer_summary.md` comparing Adam vs SGD vs previous Phase 7 metrics, calling out whether either run avoided collapse (target: amp_ssim ≥ 0.80).
 
 **Step 7: Commit checkpoint** (`exp: stable_hybrid optimizer sweep phase8`).
 
@@ -147,8 +147,8 @@ Archive all CLI logs + pytest outputs in the new hub.
 - `docs/strategy/mainstrategy.md`
 - `docs/findings.md` (update STABLE-LS-001 or add new finding if optimizer succeeds)
 - `docs/fix_plan.md` (Attempts History + FSM entry)
-- `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md` (Phase 8 section)
-- `plans/active/FNO-STABILITY-OVERHAUL-001/summary.md` (new turn summary)
+- `docs/plans/FNO-STABILITY-OVERHAUL-001/implementation.md` (Phase 8 section)
+- `docs/plans/FNO-STABILITY-OVERHAUL-001/summary.md` (new turn summary)
 - `input.md` (next iteration)
 
 **Steps:**

@@ -4,7 +4,7 @@
 
 ---
 
-## What Goes Here vs plans/active/
+## What Goes Here vs docs/plans/
 
 ### ✅ Plans/Meta (This Directory)
 **Process improvement and methodology:**
@@ -82,7 +82,7 @@
 1. `test_strategy_template.md` - Test infrastructure design
 2. `constraint_analysis_template.md` - Phase 0 environment analysis
 
-**Usage:** Copy template to `plans/active/<initiative>/` when starting new work
+**Usage:** Copy template to `docs/plans/<initiative>/` when starting new work
 
 ---
 
@@ -98,7 +98,7 @@
 
 ### For New Initiative Templates
 1. Start with templates in `templates/`
-2. Copy to `plans/active/<initiative>/`
+2. Copy to `docs/plans/<initiative>/`
 3. Fill in specific details
 4. Reference back to template if issues arise
 
@@ -121,7 +121,7 @@
 - Quality gate definitions
 - Agent coordination improvements
 
-**WHAT we're building?** → `plans/active/`
+**WHAT we're building?** → `docs/plans/`
 - Feature implementations
 - Bug fixes
 - Refactorings

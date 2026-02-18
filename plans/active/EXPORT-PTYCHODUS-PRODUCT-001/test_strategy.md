@@ -86,7 +86,7 @@ HDF5 reader. No large datasets or GPU required.
 **UNACCEPTABLE:** Skipping due to optional dependency misdesign; framework incompatibility.
 
 ### Artifact Requirements
-- [x] pytest execution log at `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/<timestamp>/pytest.log`
+- [x] pytest execution log at `docs/plans/EXPORT-PTYCHODUS-PRODUCT-001/reports/<timestamp>/pytest.log`
 - [x] Test summary `summary.md` with pass/skip counts
 - [x] Proof that assertions executed (log capture)
 
@@ -122,7 +122,7 @@ Use small synthetic arrays; no external API calls; no heavy mocking needed.
 
 ### Phase C: Validation
 1. Run full test subset: `pytest tests/io/test_ptychodus_product_io.py -vv`
-2. Save logs to `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/reports/<timestamp>/pytest.log`
+2. Save logs to `docs/plans/EXPORT-PTYCHODUS-PRODUCT-001/reports/<timestamp>/pytest.log`
 3. Record summary.md
 
 ---

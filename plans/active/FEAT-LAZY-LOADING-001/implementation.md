@@ -4,8 +4,8 @@
 - **Status:** done
 - **Owner:** Ralph
 - **Priority:** High
-- **Working Plan:** `plans/active/FEAT-LAZY-LOADING-001/implementation.md`
-- **Reports Hub:** `plans/active/FEAT-LAZY-LOADING-001/reports/`
+- **Working Plan:** `docs/plans/FEAT-LAZY-LOADING-001/implementation.md`
+- **Reports Hub:** `docs/plans/FEAT-LAZY-LOADING-001/reports/`
 
 ## Context Priming
 - `docs/specs/spec-ptycho-workflow.md` (Normative): See "Resource Constraints" section.

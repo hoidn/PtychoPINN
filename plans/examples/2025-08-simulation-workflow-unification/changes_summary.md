@@ -43,7 +43,7 @@
    - Updated current active initiative section
 
 ### Initiative Documentation
-8. **plans/active/simulation-workflow-unification/**
+8. **docs/plans/simulation-workflow-unification/**
    - All phase checklists completed
    - Review documents created
    - Implementation summary added

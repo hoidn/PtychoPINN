@@ -3,7 +3,7 @@
 Plan: `docs/plans/2026-01-29-reduce-lr-plateau.md`
 
 References:
-- `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md` (Phase 10 status + reporting hooks)
+- `docs/plans/FNO-STABILITY-OVERHAUL-001/implementation.md` (Phase 10 status + reporting hooks)
 - `docs/strategy/mainstrategy.md` (§High-Priority Next Actions — scheduler experiments)
 - `docs/findings.md` (STABLE-LS-001 context for documenting outcomes)
 - `docs/TESTING_GUIDE.md`
@@ -14,5 +14,5 @@ Summary: Execute Task 5 of the ReduceLROnPlateau plan — extend the Stage A
 **Focus:** FNO-STABILITY-OVERHAUL-001 — Phase 10 ReduceLROnPlateau multi-seed comparison
 **Branch:** fno2-phase8-optimizers
 **Mapped tests:** `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_accepts_plateau_scheduler -v`, `pytest tests/torch/test_model_training.py::test_configure_optimizers_supports_plateau -v`, `pytest tests/scripts/test_training_backend_selector.py::test_torch_scheduler_plateau_roundtrip -v`
-**Artifacts:** `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T220000Z/`
+**Artifacts:** `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T220000Z/`
 **Next Up (optional):** Kick off Phase 9 Crash Hunt depth sweep once plateau verdict is documented.

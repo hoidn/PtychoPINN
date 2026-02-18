@@ -106,7 +106,7 @@ and recorded as workflow artifacts, not as automated tests.
 
 ### Artifact Requirements
 - [ ] pytest execution log stored under `.artifacts/` (no timestamped report dirs)
-- [ ] Test summary in `plans/active/GRID-LINES-WORKFLOW-001/summary.md`
+- [ ] Test summary in `docs/plans/GRID-LINES-WORKFLOW-001/summary.md`
 - [ ] Explicit justification for each SKIPPED test in summary (if any)
 - [ ] Proof assertions actually executed (check log output)
 

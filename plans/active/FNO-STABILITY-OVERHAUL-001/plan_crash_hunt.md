@@ -14,12 +14,12 @@
 
 **Files / Paths:**
 - Outputs: `outputs/grid_lines_crash_hunt/depth{4,6,8}_seed{A,B,C}`
-- Artifacts hub: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/`
+- Artifacts hub: `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/`
 
 **Step 0:** Create the artifacts hub + README skeleton so every log has a home before runs begin.
 ```bash
-mkdir -p plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z
-cat <<'EOF' > plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/README.md
+mkdir -p docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z
+cat <<'EOF' > docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/README.md
 Crash Hunt datasets: Stage A control cache (seed=20260128, N=64, gridsize=1, nimgs=1, nphotons=1e9, --set-phi required).
 Depths: 4/6/8; Seeds: 20260128/20260129/20260130; Torch epochs=30; clip=1.0 norm.
 Each run logs to depth<depth>_seed<seed>.log and stats to *_stats.json.
@@ -52,7 +52,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
   --torch-grad-clip 1.0 --torch-grad-clip-algorithm norm \
   --torch-loss-mode mae --torch-infer-batch-size 8 \
   --torch-log-grad-norm --torch-grad-norm-log-freq 1 \
-  2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/depth${DEPTH}_seed${SEED}.log
+  2>&1 | tee docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/depth${DEPTH}_seed${SEED}.log
 ```
 - Depth 8 runs may still OOM; note blockers in README if so.
 
@@ -60,13 +60,13 @@ python scripts/studies/grid_lines_compare_wrapper.py \
 ```bash
 python scripts/internal/stage_a_dump_stats.py \
   --run-dir outputs/grid_lines_crash_hunt/depth${DEPTH}_seed${SEED}/runs/pinn_hybrid \
-  --out-json plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/depth${DEPTH}_seed${SEED}_stats.json
+  --out-json docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/depth${DEPTH}_seed${SEED}_stats.json
 ```
 Then build a single summary table (best/final val_loss, amp_ssim, crashed flag) using the heuristic `crashed = (amp_ssim < 0.5) or (final_val_loss > 0.15) or (log shows NaN/OOM)`:
 ```bash
 python - <<'PY'
 import json, pathlib, re
-hub = pathlib.Path('plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z')
+hub = pathlib.Path('docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z')
 rows = []
 pattern = re.compile(r'depth(\d+)_seed(\d+)_stats.json')
 for stats_file in hub.glob('depth*_stats.json'):
@@ -121,7 +121,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
   --torch-scheduler WarmupCosine --torch-lr-warmup-epochs 5 --torch-lr-min-ratio 0.05 \
   --torch-learning-rate 5e-4 \
   --torch-infer-batch-size 8 \
-  2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/shootout_stable_seed${SEED}.log
+  2>&1 | tee docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/shootout_stable_seed${SEED}.log
 ```
 - Control and optimizer arms follow the same template with their respective clipping/optimizer flags.
 
@@ -129,7 +129,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
 
 ### Task 3: Aggregation, Findings, and Plan Sync
 
-1. Update `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md` Phase 9 status with Crash Hunt + Shootout outcomes, referencing this plan.
+1. Update `docs/plans/FNO-STABILITY-OVERHAUL-001/implementation.md` Phase 9 status with Crash Hunt + Shootout outcomes, referencing this plan.
 2. Extend `docs/strategy/mainstrategy.md §3` with actual P_crash numbers and next hypotheses.
 3. Add/refresh findings (e.g., new `STABLE-CRASH-DEPTH-001` capturing the crash depth evidence).
 4. Update `docs/fix_plan.md` attempts history + FSM entry with the new artifacts hub path.

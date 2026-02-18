@@ -119,7 +119,7 @@
 - "Tests don't work in CI" without fixing root cause
 
 ### Artifact Requirements
-- [ ] pytest execution log at `plans/active/<initiative>/reports/<timestamp>/pytest.log`
+- [ ] pytest execution log at `docs/plans/<initiative>/reports/<timestamp>/pytest.log`
 - [ ] Test summary in `summary.md` with counts: X passed, Y skipped, Z failed
 - [ ] Explicit justification for each SKIPPED test in summary
 - [ ] Proof assertions actually executed (check log output)
@@ -172,7 +172,7 @@ def test_with_mock(mock_dep):
 1. Run full test suite: `pytest tests/`
 2. Verify no regressions
 3. Check coverage: `pytest --cov=module tests/`
-4. Save logs to `plans/active/<initiative>/reports/<timestamp>/`
+4. Save logs to `docs/plans/<initiative>/reports/<timestamp>/`
 
 ---
 

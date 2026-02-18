@@ -1,6 +1,6 @@
 # Implementation Plan Template (Phased)
 
-> Copy this file to `plans/active/<initiative-id>/implementation.md` and customize.
+> Copy this file to `docs/plans/<initiative-id>/implementation.md` and customize.
 
 ## Initiative
 - ID: <initiative-id>
@@ -22,7 +22,7 @@
 1. <criterion 1>
 2. <criterion 2>
 3. <criterion 3>
-4. Test registry synchronized: `docs/TESTING_GUIDE.md` §2 and `docs/development/TEST_SUITE_INDEX.md` reflect any new/changed tests; `pytest --collect-only` logs for documented selectors are saved under `plans/active/<initiative-id>/reports/<timestamp>/`. Do not close the initiative if any selector marked "Active" collects 0 tests.
+4. Test registry synchronized: `docs/TESTING_GUIDE.md` §2 and `docs/development/TEST_SUITE_INDEX.md` reflect any new/changed tests; `pytest --collect-only` logs for documented selectors are saved under `docs/plans/<initiative-id>/reports/<timestamp>/`. Do not close the initiative if any selector marked "Active" collects 0 tests.
 
 ## Compliance Matrix (Mandatory)
 > List the specific Spec constraints, Fix-Plan ledger rows, and Findings/Policies this initiative must honor. Missing a relevant entry is a plan defect per ARRP.
@@ -88,6 +88,6 @@
 - <risk 3>
 
 ## Artifacts Index
-- Reports root: `plans/active/<initiative-id>/reports/`
+- Reports root: `docs/plans/<initiative-id>/reports/`
 - Latest run: `<YYYY-MM-DDTHHMMSSZ>/`
 

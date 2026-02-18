@@ -19,7 +19,7 @@ These directives should be added to `/home/ollie/Documents/PtychoPINN/CLAUDE.md`
 <directive level="critical" purpose="Design test infrastructure before implementation">
   Before Phase B (implementation) of any initiative involving tests, you **MUST**
   complete a test infrastructure design review documented in
-  `plans/active/<initiative>/test_strategy.md`.
+  `docs/plans/<initiative>/test_strategy.md`.
 
   Required coverage:
   - Framework selection and compatibility (pytest vs unittest, parametrization)
@@ -28,7 +28,7 @@ These directives should be added to `/home/ollie/Documents/PtychoPINN/CLAUDE.md`
   - Execution proof requirements (PASSED vs SKIPPED criteria)
   - Mock/stub strategy for unavailable dependencies
 
-  Use the template at `plans/templates/test_strategy_template.md`.
+  Use the template at `docs/plans/templates/test_strategy_template.md`.
 
   Reference this design in Phase B planning and validate before writing first test.
 </directive>
@@ -50,8 +50,8 @@ These directives should be added to `/home/ollie/Documents/PtychoPINN/CLAUDE.md`
 <directive level="critical" purpose="Analyze constraints before planning">
   Every initiative **MUST** begin with Phase 0: Constraint Analysis documenting
   environment, integration, and testing constraints in
-  `plans/active/<initiative>/implementation.md` or separate
-  `plans/active/<initiative>/constraint_analysis.md`.
+  `docs/plans/<initiative>/implementation.md` or separate
+  `docs/plans/<initiative>/constraint_analysis.md`.
 
   Required analysis:
   - Environment constraints (Python version, framework availability, hardware)
@@ -59,7 +59,7 @@ These directives should be added to `/home/ollie/Documents/PtychoPINN/CLAUDE.md`
   - Integration constraints (upstream/downstream APIs, data formats)
   - Testing constraints (CI capabilities, data size limits, mock requirements)
 
-  Use the template at `plans/templates/constraint_analysis_template.md`.
+  Use the template at `docs/plans/templates/constraint_analysis_template.md`.
 
   No implementation may begin until constraints are documented and mitigations planned.
 </directive>
@@ -83,7 +83,7 @@ These directives should be added to `/home/ollie/Documents/PtychoPINN/CLAUDE.md`
   (not SKIPPED) with execution proof in artifacts.
 
   Required evidence:
-  - pytest execution log at `plans/active/<initiative>/reports/<timestamp>/pytest.log`
+  - pytest execution log at `docs/plans/<initiative>/reports/<timestamp>/pytest.log`
   - Test summary in `summary.md` with pass/fail/skip counts
   - Explicit justification for any SKIPPED tests (hardware, long-running, etc.)
   - Proof tests executed assertions (not just imports)
@@ -194,8 +194,8 @@ to address proactively.
 4. **Test Harness Compatibility** - Enhanced with patterns and torch-optional
 
 ### Templates Created (2 total)
-- `plans/templates/test_strategy_template.md`
-- `plans/templates/constraint_analysis_template.md`
+- `docs/plans/templates/test_strategy_template.md`
+- `docs/plans/templates/constraint_analysis_template.md`
 
 ---
 
@@ -327,8 +327,8 @@ Run similar meta-analysis after next major initiative:
 - `plans/PROCESS_OPTIMIZATIONS.md` - Detailed optimization proposals
 
 **Templates:**
-- `plans/templates/test_strategy_template.md` - Test infrastructure design
-- `plans/templates/constraint_analysis_template.md` - Environment constraints
+- `docs/plans/templates/test_strategy_template.md` - Test infrastructure design
+- `docs/plans/templates/constraint_analysis_template.md` - Environment constraints
 
 **Related Docs:**
 - `docs/DEVELOPER_GUIDE.md` - Development workflow

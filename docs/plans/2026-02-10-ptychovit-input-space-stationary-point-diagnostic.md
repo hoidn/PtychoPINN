@@ -268,3 +268,51 @@ git commit -m "chore: record stationary-point normalization diagnostic evidence"
 - No changes to PtychoViT training/inference production behavior.
 - No automatic use of optimized inputs in reconstruction pipelines.
 - No upstream `ptycho-vit` repository edits.
+
+## Execution Evidence (2026-02-10)
+
+### RED/GREEN Test Summary
+
+- Task 0 RED:
+  - `pytest tests/test_ptychovit_input_optimization_diagnostic.py -k "project_input or stationary_criterion or objective_components" -v`
+  - Result: 3 failed (`ModuleNotFoundError` for missing diagnostic module/functions)
+- Task 0 GREEN:
+  - same selector after implementing primitives
+  - Result: 3 passed
+- Task 1 RED:
+  - `pytest tests/test_ptychovit_input_optimization_diagnostic.py -k "json_report or invalid_bounds" -v`
+  - Result: 2 failed (missing `main` / `run_diagnostic`)
+- Task 1 GREEN:
+  - same selector after CLI/report implementation
+  - Result: 2 passed
+- Task 2 integration smoke:
+  - `pytest tests/test_ptychovit_input_optimization_diagnostic.py -k bridge_artifacts_and_stops -v`
+  - Result: 1 passed
+- Consolidated diagnostic tests:
+  - `pytest tests/test_ptychovit_input_optimization_diagnostic.py -v`
+  - Result: 6 passed
+- Task 3 docs RED:
+  - `pytest tests/test_docs_ptychovit_workflow.py -k stationary_point_diagnostic_runbook -v`
+  - Result: 1 failed (missing runbook text)
+- Task 3 docs GREEN:
+  - same selector after docs update
+  - Result: 1 passed
+
+### Diagnostic Run Output
+
+- Command:
+  - `python scripts/studies/ptychovit_input_optimization_diagnostic.py --checkpoint tmp/ptychovit_initial_fresh_stitched/runs/pinn_ptychovit/best_model.pth --ptychovit-repo /home/ollie/Documents/ptycho-vit --test-dp tmp/ptychovit_initial_fresh_stitched/runs/pinn_ptychovit/bridge_work/data/test_dp.hdf5 --test-para tmp/ptychovit_initial_fresh_stitched/runs/pinn_ptychovit/bridge_work/data/test_para.hdf5 --output-dir tmp/ptychovit_stationary_diag --steps 200 --lr 1e-2 --stationary-threshold 1e-5 --input-max 100.0`
+- Exit code:
+  - `0`
+- Report:
+  - `tmp/ptychovit_stationary_diag/diagnostic_report.json`
+- Extracted indicators:
+  - `stationary_step = 200`
+  - `grad_norm_final = 87.33763122558594`
+  - `input_stats_final = {'min': 0.0, 'max': 52.8104362487793, 'mean': 4.2628889083862305, 'std': 8.724929809570312}`
+  - `normalization_context.normalization = 112.35311126708984`
+  - `normalization_context.scale = 10000.0`
+
+### Artifact Pointer
+
+- `.artifacts/ptychovit_stationary_input_diag/README.md` records command, report path, and interpretation notes.

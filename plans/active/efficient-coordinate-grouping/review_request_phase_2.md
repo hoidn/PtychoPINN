@@ -5,7 +5,7 @@
 
 ## Instructions for Reviewer
 1.  Analyze the planning documents and the code changes (`git diff`) below.
-2.  Create a new file named `review_phase_2.md` in this same directory (`plans/active/efficient-coordinate-grouping/`).
+2.  Create a new file named `review_phase_2.md` in this same directory (`docs/plans/efficient-coordinate-grouping/`).
 3.  In your review file, you **MUST** provide a clear verdict on a single line: `VERDICT: ACCEPT` or `VERDICT: REJECT`.
 4.  If rejecting, you **MUST** provide a list of specific, actionable fixes under a "Required Fixes" heading.
 

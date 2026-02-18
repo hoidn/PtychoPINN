@@ -21,7 +21,7 @@ Ground Rules
 - Keep changes small: address a focused subset of high‑confidence findings (e.g., undefined names, obvious import errors, dead or unreachable code with zero behavior impact). Avoid API‑breaking refactors.
 - Tests: run targeted pytest first; run the full test suite at most once at the end if code changed. For docs‑only loops, use `pytest --collect-only -q`.
 - Protected Assets Rule: Do not modify or remove any file referenced in `docs/index.md`.
-- Version control hygiene: never commit runtime artifacts (logs, reports); store under `plans/active/<initiative>/reports/<timestamp>/` locally.
+- Version control hygiene: never commit runtime artifacts (logs, reports); store under `docs/plans/<initiative>/reports/<timestamp>/` locally.
 - Subagents: many for search/summarization; at most 1 for running tests/build.
 
 Instructions
@@ -34,7 +34,7 @@ Instructions
 
 <step 1>
 - Reproduce: run static analysis and capture artifacts.
-  - Primary: `pyrefly check src` (or the configured command) and save stdout/stderr to `plans/active/<initiative>/reports/<timestamp>/pyrefly.log`.
+  - Primary: `pyrefly check src` (or the configured command) and save stdout/stderr to `docs/plans/<initiative>/reports/<timestamp>/pyrefly.log`.
   - If pyrefly is unavailable but repo linters exist, you MAY run configured linters (e.g., `ruff`, `flake8`, `mypy`) for context only; do not add new tools.
 - Parse findings; group by severity (high → low) and type (undefined name, import error, unreachable, dead code, style‑only).
 </step 1>
@@ -57,7 +57,7 @@ Instructions
 
 <step 5>
 - Finalize:
-  - Update `docs/fix_plan.md` Attempts History: include a short summary of findings fixed, the exact command(s) run, and artifact paths under `plans/active/<initiative>/reports/<timestamp>/`.
+  - Update `docs/fix_plan.md` Attempts History: include a short summary of findings fixed, the exact command(s) run, and artifact paths under `docs/plans/<initiative>/reports/<timestamp>/`.
   - Commit: `git add -A && git commit -m "static-analysis: pyrefly fixes (suite: pass)"` (or `docs-only` when no code changed). Then `git push` (resolve conflicts if needed).
 </step 5>
 

@@ -52,9 +52,9 @@ Test infrastructure treated as implementation detail, not architectural decision
 ### Solution
 **Add mandatory Test Infrastructure Design review before Phase B (implementation).**
 
-**Location:** `plans/active/<initiative>/test_strategy.md`
+**Location:** `docs/plans/<initiative>/test_strategy.md`
 
-**Template:** See `plans/templates/test_strategy_template.md`
+**Template:** See `docs/plans/templates/test_strategy_template.md`
 
 **Required Content:**
 1. Framework Selection & Compatibility
@@ -70,7 +70,7 @@ Test infrastructure treated as implementation detail, not architectural decision
 <directive level="critical" purpose="Design test infrastructure before implementation">
   Before Phase B (implementation) of any initiative involving tests, you **MUST**
   complete a test infrastructure design review documented in
-  `plans/active/<initiative>/test_strategy.md`.
+  `docs/plans/<initiative>/test_strategy.md`.
 
   Required coverage:
   - Framework selection and compatibility (pytest vs unittest, parametrization)
@@ -84,7 +84,7 @@ Test infrastructure treated as implementation detail, not architectural decision
 ```
 
 #### 2. Create Template
-Place template at: `plans/templates/test_strategy_template.md`
+Place template at: `docs/plans/templates/test_strategy_template.md`
 
 #### 3. Update Workflow
 - Supervisor must check for test_strategy.md before approving Phase B start
@@ -135,7 +135,7 @@ A task is NOT complete if:
 
 Required evidence from ralph:
 - ✅ Pytest output showing PASSED (not SKIPPED)
-- ✅ Test execution log at `plans/active/<initiative>/reports/<timestamp>/pytest.log`
+- ✅ Test execution log at `docs/plans/<initiative>/reports/<timestamp>/pytest.log`
 - ✅ Explicit justification for any SKIPPED tests in summary.md
 - ✅ Proof tests actually ran their assertions (not just imports)
 
@@ -158,7 +158,7 @@ Add required artifacts section:
 Mapped tests: pytest <path>::<test> -vv
 └─> MUST show PASSED or justified XFAIL (not SKIPPED)
 
-Reports directory: plans/active/<initiative>/reports/<timestamp>/
+Reports directory: docs/plans/<initiative>/reports/<timestamp>/
 ├─ pytest.log         # REQUIRED: Full pytest output
 ├─ summary.md         # REQUIRED: Test execution summary
 └─ [additional artifacts]
@@ -202,8 +202,8 @@ Environment constraints analyzed during implementation, not planning.
 ### Solution
 **Add Phase 0: Constraint Analysis to initiative template.**
 
-**Location:** Section in `plans/active/<initiative>/implementation.md`
-**Template:** See `plans/templates/constraint_analysis_template.md`
+**Location:** Section in `docs/plans/<initiative>/implementation.md`
+**Template:** See `docs/plans/templates/constraint_analysis_template.md`
 
 ### Implementation
 
@@ -236,7 +236,7 @@ Add Phase 0 to standard structure:
 - [ ] Long-running test handling
 
 **Deliverable:** constraints.md or inline documentation above
-**Artifacts:** `plans/active/<initiative>/reports/<timestamp>/constraint_analysis.md`
+**Artifacts:** `docs/plans/<initiative>/reports/<timestamp>/constraint_analysis.md`
 
 ## Phase A: [Next phase...]
 ```
@@ -340,7 +340,7 @@ When supervisor planning:
 ### Week 1: Critical Infrastructure (OPT-1, OPT-2)
 **Goal:** Prevent test framework issues in future initiatives
 
-- [ ] Create `plans/templates/test_strategy_template.md`
+- [ ] Create `docs/plans/templates/test_strategy_template.md`
 - [ ] Add test infrastructure directive to `CLAUDE.md`
 - [ ] Update `prompts/supervisor.md` with quality gate
 - [ ] Document in `docs/DEVELOPER_GUIDE.md`
@@ -359,7 +359,7 @@ When supervisor planning:
 ### Week 2: Constraint Analysis (OPT-3)
 **Goal:** Front-load environment constraint discovery
 
-- [ ] Create `plans/templates/constraint_analysis_template.md`
+- [ ] Create `docs/plans/templates/constraint_analysis_template.md`
 - [ ] Update initiative template with Phase 0
 - [ ] Add constraint checklist to supervisor workflow
 - [ ] Document CI environment baseline
@@ -489,8 +489,8 @@ Efficiency: 75%
 - `CLAUDE.md` - For critical directives
 
 **Templates Created:**
-- `plans/templates/test_strategy_template.md` (OPT-1)
-- `plans/templates/constraint_analysis_template.md` (OPT-3)
+- `docs/plans/templates/test_strategy_template.md` (OPT-1)
+- `docs/plans/templates/constraint_analysis_template.md` (OPT-3)
 
 ---
 

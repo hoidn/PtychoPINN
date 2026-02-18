@@ -53,7 +53,7 @@ Instructions
 
 Process Hints
 - Use `rg "FAILED" -n` on the pytest log to locate module names quickly.
-- Store raw pytest output under `plans/active/<initiative>/reports/<timestamp>/pytest.log` (ISO timestamp) and reference the path in plan entries.
+- Store raw pytest output under `docs/plans/<initiative>/reports/<timestamp>/pytest.log` (ISO timestamp) and reference the path in plan entries.
 
 Output Checklist
 - Command run and counts (pass/fail/skip)

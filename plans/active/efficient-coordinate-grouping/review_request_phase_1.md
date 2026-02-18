@@ -5,7 +5,7 @@
 
 ## Instructions for Reviewer
 1.  Analyze the planning documents and the code changes (`git diff`) below.
-2.  Create a new file named `review_phase_1.md` in this same directory (`plans/active/efficient-coordinate-grouping//`).
+2.  Create a new file named `review_phase_1.md` in this same directory (`docs/plans/efficient-coordinate-grouping//`).
 3.  In your review file, you **MUST** provide a clear verdict on a single line: `VERDICT: ACCEPT` or `VERDICT: REJECT`.
 4.  If rejecting, you **MUST** provide a list of specific, actionable fixes under a "Required Fixes" heading.
 
@@ -220,7 +220,7 @@ Based on initial review, the following enhancements are recommended:
 | ID | Task Description | State | How/Why & API Guidance |
 |----|------------------|-------|------------------------|
 | 3.A | Final Code Review | [ ] | **Why:** To ensure code quality. <br> **How:** Review all changes for clarity, style, and correctness. Ensure all legacy code has been successfully removed. |
-| 3.B | Create Validation Report | [ ] | **Why:** To document the initiative success. <br> **How:** Create `plans/active/efficient-coordinate-grouping/validation_report.md` with:<br>1. Performance benchmarks<br>2. Memory usage improvements<br>3. Test results<br>4. Code reduction metrics |
+| 3.B | Create Validation Report | [ ] | **Why:** To document the initiative success. <br> **How:** Create `docs/plans/efficient-coordinate-grouping/validation_report.md` with:<br>1. Performance benchmarks<br>2. Memory usage improvements<br>3. Test results<br>4. Code reduction metrics |
 | 3.C | Update Project Status | [ ] | **Why:** To mark initiative complete. <br> **How:** Update `PROJECT_STATUS.md` to mark this initiative as completed and document the improvements achieved. |
 | 3.D | Commit and Merge | [ ] | **Why:** To finalize the initiative. <br> **How:** Create PR with clear description of changes and improvements. Merge the feature branch into the main development branch. |
 

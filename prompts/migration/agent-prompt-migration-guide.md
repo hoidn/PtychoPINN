@@ -11,14 +11,14 @@ This template guides migrating and maintaining agent prompts under `prompts/` so
 - Applies to any repository that contains:
   - `docs/` with an index file (`docs/index.md`) or equivalent index.
   - `prompts/` containing one or more prompt files (e.g., `prompts/supervisor.md`, `prompts/main.md`, `prompts/debug.md`).
-  - Optionally `tests/` and `plans/` (structures may vary).
+  - Optionally `tests/` and `docs/plans/` (structures may vary).
 - Legacy projects often include a ledger at `docs/fix_plan.md`; new projects may need to initialize it (instructions below).
 - If present, `CLAUDE.md` defines agent workflow rules (with `AGENTS.md` symlinked to it) and must be respected.
 
 ## Outcomes
 - Prompts reference the correct, living documents discovered in this project.
 - A lightweight mapping of “authoritative sources” is captured so it can be refreshed later.
-- Artifact routing is consistent: `plans/active/<initiative-id>/reports/<YYYY-MM-DDTHHMMSSZ>/`.
+- Artifact routing is consistent: `docs/plans/<initiative-id>/reports/<YYYY-MM-DDTHHMMSSZ>/`.
 - A fix‑plan ledger exists at `docs/fix_plan.md` and records loop attempts and artifact paths.
 - Agent workflow doc (`CLAUDE.md`, exposed via the `AGENTS.md` symlink) is present and linked from the doc index.
 
@@ -131,7 +131,7 @@ Commands:
 ```
 rg -n "spec|contract|api|architecture|testing|TESTING_GUIDE|TEST_SUITE_INDEX|findings|fix_plan|reports" prompts || true
 rg -n "arch\.md|scripts/validation|golden_suite|nanoBragg|legacy|old_path" prompts || true
-rg -n "plans/active|reports|artifacts|\boutputs\b" prompts || true
+rg -n "docs/plans/|reports|artifacts|\boutputs\b" prompts || true
 ```
 
 Record per file:
@@ -189,7 +189,7 @@ Use the model and target inventories to decide how to materialize each document 
 - Findings (`docs/findings.md`): Ab initio
   - New ledger of decisions, gaps, and policies for the target project.
 - Fix Plan (`docs/fix_plan.md`): Ab initio (seeded)
-  - Create and seed from `plans/` materials, open issues, and TODO scans; treat as master ledger.
+  - Create and seed from `docs/plans/` materials, open issues, and TODO scans; treat as master ledger.
 
 Document each decision (copy/derive/ab initio) in your migration artifact summary.
 
@@ -206,7 +206,7 @@ Bulleted dependencies (typical)
 - Testing Guide depends on: actual test layout, fixtures, markers, CI constraints.
 - Test Suite Index depends on: test files and authoritative selectors.
 - Architecture docs depend on: code structure, ADRs (if any), and spec constraints.
-- Fix Plan depends on: project goals, plans/, issues/TODOs, artifact policy.
+- Fix Plan depends on: project goals, docs/plans/, issues/TODOs, artifact policy.
 - Findings depends on: migration discoveries, policy decisions, and gaps.
 
 Optional Mermaid outline
@@ -229,7 +229,7 @@ Practical rule of thumb (order): Index → AgentDocs → Artifact/Ledger policy 
 ## Artifact Routing Policy
 
 - Standard destination for loop artifacts:
-  - `plans/active/<initiative-id>/reports/<YYYY-MM-DDTHHMMSSZ>/`
+  - `docs/plans/<initiative-id>/reports/<YYYY-MM-DDTHHMMSSZ>/`
 - Prompt requirements:
   - Every loop that produces logs, traces, test outputs, or summaries writes into the above directory.
   - The directory path is recorded in the ledger entry for that loop (`docs/fix_plan.md`).
@@ -248,9 +248,9 @@ If `docs/fix_plan.md` exists (legacy):
 
 If missing (new project):
 - Create `docs/fix_plan.md` as the master task ledger.
-- Seed from material under `plans/`, open issues, and TODOs in docs/prompts:
+- Seed from material under `docs/plans/`, open issues, and TODOs in docs/prompts:
 ```
-rg -n "^## TODO|\bTODO\b|Fix plan|initiative" docs prompts plans || true
+rg -n "^## TODO|\bTODO\b|Fix plan|initiative" docs prompts docs/plans || true
 ```
 - Summarize actionable items into a numbered or slugged checklist.
 - Include per‑item: Dependencies, Exit Criteria, Attempts History, and Artifact Path fields.
@@ -275,7 +275,7 @@ Minimal CLAUDE.md (root) outline
   - Consult findings first for known issues/patterns.
   - Treat specs as normative; propose architecture doc updates when conflicts arise.
   - TDD for features/bug fixes; targeted tests first; run full suite at most once after code changes.
-  - Artifact policy: `plans/active/<initiative-id>/reports/<YYYY-MM-DDTHHMMSSZ>/`.
+  - Artifact policy: `docs/plans/<initiative-id>/reports/<YYYY-MM-DDTHHMMSSZ>/`.
   - Ledger policy: Update `docs/fix_plan.md` each loop with attempt notes and artifact paths.
 - Environment/safety:
   - Prefer editable installs for local dev; avoid `sys.path` hacks.
@@ -297,7 +297,7 @@ Bootstrap procedure
 - Link both in the doc map:
   - Add an “Agent Workflow” entry to `docs/index.md` pointing to `CLAUDE.md`, noting that `AGENTS.md` is a symlink, and describing how scoped overrides behave.
 - Update prompts so supervisor/engineer required‑reading includes these under “Agent Workflow Docs”.
-- Ensure the ledger exists and is referenced: if missing, create `docs/fix_plan.md` and seed from `plans/` and TODO scans.
+- Ensure the ledger exists and is referenced: if missing, create `docs/fix_plan.md` and seed from `docs/plans/` and TODO scans.
 
 Verification checklist
 - Files exist and the symlink resolves:
@@ -362,7 +362,7 @@ done < migration/path_map.txt
 
 Prompt reference audit
 ```
-rg -n "docs/|specs/|tests/|plans/active|reports|CLAUDE\.md|AGENTS\.md" prompts || true
+rg -n "docs/|specs/|tests/|docs/plans/|reports|CLAUDE\.md|AGENTS\.md" prompts || true
 ```
 
 Index link insertion (idempotent example)
@@ -376,13 +376,13 @@ Inventory export (very lightweight)
 {
   echo "# Model inventory"; cd "$MODEL_ROOT" && rg --files | sort | head -n 99999
   echo "# Target inventory"; cd "$TARGET_ROOT" && rg --files | sort | head -n 99999
-} > plans/active/<initiative-id>/reports/<timestamp>/inventories.txt
+} > docs/plans/<initiative-id>/reports/<timestamp>/inventories.txt
 ```
 
 ## Migration Workflow (Step‑by‑Step)
 
 0) Profile the model and target
-   - Produce inventories for both repos; store under `plans/active/<initiative>/reports/<timestamp>/`.
+   - Produce inventories for both repos; store under `docs/plans/<initiative>/reports/<timestamp>/`.
    - Decide category strategies (copy/adapt vs derive vs ab initio) and sketch the dependency graph.
 
 0.5) Prepare copy/adapt workspace (optional)
@@ -420,7 +420,7 @@ done
 
 3) Initialize agent workflow and ledger (target)
    - Create/adapt `CLAUDE.md`, symlink the root `AGENTS.md` to it, and add “Agent Workflow” to `docs/index.md`.
-   - Create/refresh `docs/fix_plan.md`; seed from `plans/` and TODO scans.
+   - Create/refresh `docs/fix_plan.md`; seed from `docs/plans/` and TODO scans.
 
 4) Update prompts (target)
    - Replace required‑reading with discovered sources; normalize artifact routing and ledger references; update example commands per `<TEST_GUIDE>/<TEST_INDEX>` and workflow docs.
@@ -430,7 +430,7 @@ done
 
 6) Commit hygiene
    - Commit prompt updates, source map, ledger initialization/refresh, and doc index updates.
-   - Use clear messages (e.g., `chore(prompts): align to discovered specs/arch/tests; artifacts -> plans/active/<initiative>/reports`).
+   - Use clear messages (e.g., `chore(prompts): align to discovered specs/arch/tests; artifacts -> docs/plans/<initiative>/reports`).
 
 7) Document lessons learned
    - Add non‑obvious findings or doc gaps to `docs/findings.md`; propose index updates where structure changed.
@@ -442,7 +442,7 @@ done
 - If `docs/index.md` is missing, treat the repo `README.md` as the index and scan `docs/` recursively.
 - If specs are absent, treat architecture + developer guide as provisional sources and document the gap in findings.
 - If `tests/` don’t exist, set expectations in prompts for how to add smoke/unit tests, referencing `<TEST_GUIDE>` once created.
-- If `docs/fix_plan.md` is absent, create it, state its role as the master ledger, and seed from `plans/` and TODO scans.
+- If `docs/fix_plan.md` is absent, create it, state its role as the master ledger, and seed from `docs/plans/` and TODO scans.
 
 ---
 
@@ -473,7 +473,7 @@ Required‑reading alignment
 - [ ] Agent workflow docs included (`<AGENT_WORKFLOW_DOCS>`) 
 
 Artifact routing
-- [ ] `plans/active/<initiative-id>/reports/<YYYY-MM-DDTHHMMSSZ>/` used consistently
+- [ ] `docs/plans/<initiative-id>/reports/<YYYY-MM-DDTHHMMSSZ>/` used consistently
 - [ ] Artifact directory recorded in `docs/fix_plan.md`
 
 No stale tokens

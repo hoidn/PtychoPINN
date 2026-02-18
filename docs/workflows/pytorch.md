@@ -251,7 +251,20 @@ This guard prevents silent CPU fallback and large inference-time slowdowns.
 - Uses TensorFlow `tf_helper.reassemble_position` for MVP parity (native PyTorch reassembly planned)
 - Includes dtype safeguards (float32 enforcement per specs/data_contracts.md §1)
 - Channel-order conversion: detects channel-first layout, permutes to channel-last, reduces to single channel
-- Artifacts/evidence: `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/`
+- Artifacts/evidence: `docs/plans/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/`
+
+### Hybrid Checkpoint Reuse (Cross-Dataset)
+
+For NERSC orchestration runs that train one `hybrid_resnet` model and then reuse
+the same checkpoint across multiple test NPZ datasets, use:
+
+- Helper: `scripts/studies/hybrid_checkpoint_inference.py`
+- Entry function: `run_cross_dataset_hybrid_inference(...)`
+
+This helper loads `model.pt` once, runs inference for each provided dataset, and
+writes per-dataset recon artifacts under:
+
+- `<output_dir>/<dataset_name>/recons/pinn_hybrid_resnet/recon.npz`
 
 ## 8. Experiment Tracking and Logging
 
@@ -266,7 +279,7 @@ This guard prevents silent CPU fallback and large inference-time slowdowns.
 
 **Legacy API Note:**
 The deprecated `ptycho_torch/api/` modules (e.g., `example_train.py`) include MLflow autologging,
-but are not part of the modern workflow stack. See <doc-ref type="plan">plans/active/ADR-003-BACKEND-API/implementation.md</doc-ref>
+but are not part of the modern workflow stack. See <doc-ref type="plan">docs/plans/ADR-003-BACKEND-API/implementation.md</doc-ref>
 for migration guidance away from the legacy API.
 
 ## 9. Differences from TensorFlow Workflows
@@ -391,7 +404,7 @@ CUDA_VISIBLE_DEVICES="0" pytest tests/torch/test_integration_workflow_torch.py::
 
 **Environment:** Legacy evidence captured on Python 3.11.13, PyTorch 2.8.0+cu128, Lightning 2.5.5, Ryzen 9 5950X (32 CPUs), 128GB RAM. **New requirement:** future regression evidence must cite the CUDA GPU model/driver (e.g., NVIDIA A100 40GB, CUDA 12.4) in addition to host specs.
 
-**Performance Profile:** See `plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md` for full telemetry.
+**Performance Profile:** See `docs/plans/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md` for full telemetry.
 
 ### Determinism Guarantees
 
@@ -422,7 +435,7 @@ The regression validates:
 - **Markers:** Consider `@pytest.mark.integration` + `@pytest.mark.slow` for selective execution
 - **GPU Enforcement:** Set `CUDA_VISIBLE_DEVICES="0"` (or an explicit GPU selection) in CI to guarantee CUDA execution. If a CPU fallback run is required, label it clearly in the report and rerun on GPU as soon as resources are available.
 
-**Reference:** See `plans/active/TEST-PYTORCH-001/implementation.md` for phased test development history and `plans/active/TEST-PYTORCH-001/reports/2025-10-19T233500Z/phase_b_fixture/summary.md` for Phase B3 fixture integration details.
+**Reference:** See `docs/plans/TEST-PYTORCH-001/implementation.md` for phased test development history and `docs/plans/TEST-PYTORCH-001/reports/2025-10-19T233500Z/phase_b_fixture/summary.md` for Phase B3 fixture integration details.
 
 ## 12. CLI Execution Configuration Flags
 
@@ -493,11 +506,11 @@ CUDA_VISIBLE_DEVICES="0" python -m ptycho_torch.train \
   --quiet
 ```
 
-**Dose/Overlap Study Fast Path (2025-11-12):** For initiative `STUDY-SYNTH-FLY64-DOSE-OVERLAP-001`, the training CLI must now produce real bundles before any further manifest/test tweaks. Reuse the shared artifact hub `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T110500Z/phase_e_training_bundle_real_runs_exec/` and invoke either `plans/active/.../bin/run_phase_e_job.py --dose 1000 --view dense --gridsize 2` or the explicit CLI command above (TensorFlow backend optional) to capture:
+**Dose/Overlap Study Fast Path (2025-11-12):** For initiative `STUDY-SYNTH-FLY64-DOSE-OVERLAP-001`, the training CLI must now produce real bundles before any further manifest/test tweaks. Reuse the shared artifact hub `docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T110500Z/phase_e_training_bundle_real_runs_exec/` and invoke either `docs/plans/.../bin/run_phase_e_job.py --dose 1000 --view dense --gridsize 2` or the explicit CLI command above (TensorFlow backend optional) to capture:
 - `cli/` stdout with `bundle_path` + `bundle_sha256`
 - `data/` copy of the emitted `wts.h5.zip`
 - Updated manifest showing the real artifact paths
-- Loss guardrail: After copying the manifest into the hub, run `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/check_training_loss.py --reference plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/reference/training_manifest.json --candidate <current_manifest> --dose <value> --view <value> --gridsize <value>` and archive the log beside the manifest. Update the reference manifest whenever a newer, visually verified run becomes the baseline.
+- Loss guardrail: After copying the manifest into the hub, run `docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/check_training_loss.py --reference docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/reference/training_manifest.json --candidate <current_manifest> --dose <value> --view <value> --gridsize <value>` and archive the log beside the manifest. Update the reference manifest whenever a newer, visually verified run becomes the baseline.
 Only after those outputs land (bundles + passing loss check) may you iterate on additional CLI/test polish or advance the comparison harness. This guardrail prevents repeated plan-only loops and keeps the SSIM/ms-SSIM study focused on shipping metrics.
 
 **Helper-Based Configuration Flow (Phase D.B3, 2025-10-20):**
@@ -510,7 +523,7 @@ These helpers enforce CONFIG-001 compliance by calling factory functions that po
 
 **PyTorch Execution Configuration:** For the complete catalog of execution configuration fields (22 total, including programmatic-only parameters like scheduler and logger backend), see <doc-ref type="spec">specs/ptychodus_api_spec.md</doc-ref> §4.9 "PyTorch Execution Configuration Contract". The spec documents validation rules, priority levels, and CONFIG-001 isolation guarantees.
 
-**Evidence:** Phase C4.D validation confirmed gridsize=2 training with execution config flags completes successfully. See `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/manual_cli_smoke_gs2.log` for full smoke test output.
+**Evidence:** Phase C4.D validation confirmed gridsize=2 training with execution config flags completes successfully. See `docs/plans/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/manual_cli_smoke_gs2.log` for full smoke test output.
 
 ### Inference Execution Flags
 
@@ -713,7 +726,7 @@ implementations without losing architectural context or workflow clarity.
 - <doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref> — Core architectural principles
 - <doc-ref type="spec">specs/ptychodus_api_spec.md</doc-ref> — API contracts and reconstructor lifecycle
 - <doc-ref type="contract">specs/data_contracts.md</doc-ref> — NPZ data format requirements
-- <doc-ref type="plan">plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md</doc-ref> — Current implementation status
+- <doc-ref type="plan">docs/plans/INTEGRATE-PYTORCH-001/phase_d2_completion.md</doc-ref> — Current implementation status
 - **Loss/metric parity**: Training logs two amplitude metrics:
   - `amp_inv_mae_epoch`: amplitude MAE in the measurement domain (legacy visibility metric)
   - `amp_mae_tf_scale_epoch`: new metric computed in the same normalized domain used by TensorFlow (`pred_scaled` vs `target_scaled`). This ensures the Poisson-vs-MAE loss curves can be compared directly to TF’s amplitude MAE.

@@ -85,7 +85,7 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** ai-assisted-development, phase-based-workflow, planning, project-management, test-driven  
 **Use this when:** Starting any new development initiative or structuring complex work into manageable phases.
 
-### [Implementation Plan Template](../plans/templates/implementation_plan.md)
+### [Implementation Plan Template](plans/templates/implementation_plan.md)
 **Description:** Repo-specific phased plan template with initiative header, exit criteria, per‑phase checklists, Do Now block, artifacts index, and plan‑update protocol reminder.  
 **Keywords:** template, plan, phased, checklist, exit-criteria  
 **Use this when:** Creating or reshaping an initiative plan to match project conventions.

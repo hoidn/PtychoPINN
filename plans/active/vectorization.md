@@ -13,7 +13,7 @@
   - `../nanoBragg/src/nanobrag_torch/models/crystal.py` — current implementation (partial vectorization, still per-ray loops in helpers).
   - `../nanoBragg/src/nanobrag_torch/utils/physics.py` — `polin1/polin2/polin3` kernels that remain loop-bound.
   - `../nanoBragg/tests` runner guidance (pytest-based) — authoritative tests to protect acceptance behaviour.
-- Artifact Convention: Allocate reports under `plans/active/VECTOR-TRICUBIC/reports/<ISO8601>/` with `summary.md`, `pytest.log`, `perf.json`, and any plots.
+- Artifact Convention: Allocate reports under `docs/plans/VECTOR-TRICUBIC/reports/<ISO8601>/` with `summary.md`, `pytest.log`, `perf.json`, and any plots.
 
 ## Phase A — Baseline Characterization
 Goal: Establish correctness + performance baselines for tricubic interpolation & detector absorption prior to changes.
@@ -70,7 +70,7 @@ Exit Criteria: Documented perf gains (CPU + CUDA), optional refactors (cleanup),
 - Cross-repo coordination: Track commits across both repositories; update `galph_memory.md` with cross-project links each loop.
 
 ## Reporting Expectations
-- Each supervisor/engineer loop MUST record artifacts in `plans/active/VECTOR-TRICUBIC/reports/<timestamp>/`.
+- Each supervisor/engineer loop MUST record artifacts in `docs/plans/VECTOR-TRICUBIC/reports/<timestamp>/`.
 - `summary.md` should include: baseline metrics, vectorization diffs, decision log, follow-up steps.
 - Attach microbenchmark JSON/CSV, pytest logs, and any flamegraphs (if used).
 

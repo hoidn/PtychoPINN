@@ -40,13 +40,13 @@
 ## Task 0: Test Strategy (Required Before Tests)
 
 **Files:**
-- Create: `plans/active/GRID-LINES-WORKFLOW-001/test_strategy.md`
-- Reference: `plans/templates/test_strategy_template.md`
+- Create: `docs/plans/GRID-LINES-WORKFLOW-001/test_strategy.md`
+- Reference: `docs/plans/templates/test_strategy_template.md`
 
 **Step 1: Copy the test strategy template**
 
 ```bash
-cp plans/templates/test_strategy_template.md plans/active/GRID-LINES-WORKFLOW-001/test_strategy.md
+cp docs/plans/templates/test_strategy_template.md docs/plans/GRID-LINES-WORKFLOW-001/test_strategy.md
 ```
 
 **Step 2: Fill the template with this initiative’s details**
@@ -54,11 +54,11 @@ cp plans/templates/test_strategy_template.md plans/active/GRID-LINES-WORKFLOW-00
 - Framework: pytest
 - Unit tests only (no integration tests; avoid heavy simulation in CI)
 - Mock strategy: none required; use tiny synthetic arrays and temp dirs
-- **Artifact storage:** store pytest logs under `.artifacts/` and link from `plans/active/GRID-LINES-WORKFLOW-001/summary.md` (per artifact hygiene; do not create timestamped report dirs).
+- **Artifact storage:** store pytest logs under `.artifacts/` and link from `docs/plans/GRID-LINES-WORKFLOW-001/summary.md` (per artifact hygiene; do not create timestamped report dirs).
 
 **Step 3: Record the test strategy link in `docs/fix_plan.md`**
 
-Add to GRID-LINES-WORKFLOW-001 entry: `Test Strategy: plans/active/GRID-LINES-WORKFLOW-001/test_strategy.md`
+Add to GRID-LINES-WORKFLOW-001 entry: `Test Strategy: docs/plans/GRID-LINES-WORKFLOW-001/test_strategy.md`
 
 ---
 
@@ -772,7 +772,7 @@ python scripts/studies/grid_lines_workflow.py --N 128 --gridsize 2 --output-dir 
 
 - Unit tests only (probe scaling, dataset path, stitching helper).
 - Run: `pytest tests/test_grid_lines_workflow.py -v`
-- **Record logs under `.artifacts/`** and link from `plans/active/GRID-LINES-WORKFLOW-001/summary.md` and `docs/fix_plan.md` (per artifact hygiene; no timestamped report dirs).
+- **Record logs under `.artifacts/`** and link from `docs/plans/GRID-LINES-WORKFLOW-001/summary.md` and `docs/fix_plan.md` (per artifact hygiene; no timestamped report dirs).
 
 ---
 

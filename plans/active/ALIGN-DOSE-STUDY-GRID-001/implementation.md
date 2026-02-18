@@ -145,11 +145,11 @@ Add entry to `docs/fix_plan.md`:
 - Depends on: STUDY-SYNTH-DOSE-COMPARISON-001
 - Priority: Low (Reproducibility)
 - Status: <status>
-- Working Plan: `plans/active/ALIGN-DOSE-STUDY-GRID-001/implementation.md`
+- Working Plan: `docs/plans/ALIGN-DOSE-STUDY-GRID-001/implementation.md`
 ```
 
 ### C2: Update parent initiative
-Add note to `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/implementation.md` under Open Questions:
+Add note to `docs/plans/STUDY-SYNTH-DOSE-COMPARISON-001/implementation.md` under Open Questions:
 - Grid mode available via `--grid-mode` flag for notebook-compatible data generation
 
 ### C3: Update script docstring
@@ -158,4 +158,4 @@ Add `--grid-mode` usage to `scripts/studies/dose_response_study.py` module docst
 ---
 
 ## Artifacts
-- `plans/active/ALIGN-DOSE-STUDY-GRID-001/reports/` — validation outputs
+- `docs/plans/ALIGN-DOSE-STUDY-GRID-001/reports/` — validation outputs

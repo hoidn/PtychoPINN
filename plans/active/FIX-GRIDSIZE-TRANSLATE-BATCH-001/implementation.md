@@ -9,7 +9,7 @@
 - **Unblocks:** STUDY-SYNTH-DOSE-COMPARISON-001
 - **Priority:** Critical
 - **Working Plan:** this file
-- **Reports Hub:** `plans/active/FIX-GRIDSIZE-TRANSLATE-BATCH-001/reports/`
+- **Reports Hub:** `docs/plans/FIX-GRIDSIZE-TRANSLATE-BATCH-001/reports/`
 
 ## Problem Statement
 
@@ -232,7 +232,7 @@ Translation(...)([imgs_flat_padded, -offsets_flat])
 
 ## Artifacts Index
 
-- Reports root: `plans/active/FIX-GRIDSIZE-TRANSLATE-BATCH-001/reports/`
+- Reports root: `docs/plans/FIX-GRIDSIZE-TRANSLATE-BATCH-001/reports/`
 - Expected artifacts:
   - `shape_trace.log` — Debug output showing tensor shapes
   - `pytest_translation_gridsize.log` — Regression test results

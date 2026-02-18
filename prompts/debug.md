@@ -6,7 +6,7 @@ Purpose
 
 Pre-flight
 1. `timeout 30 git pull --rebase` (abort + `git pull --no-rebase` on timeout; resolve conflicts, resume with `timeout 30 git rebase --continue --no-edit`).
-2. Read `input.md`, the focused `docs/fix_plan.md` item, and prior artifacts under `plans/active/<initiative-id>/reports/`.
+2. Read `input.md`, the focused `docs/fix_plan.md` item, and prior artifacts under `docs/plans/<initiative-id>/reports/`.
 3. Confirm the ledger item is `in_progress` and already lists reproduction commands.
 
 Required references

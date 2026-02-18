@@ -3,8 +3,8 @@
 ## Context
 - Initiative: INTEGRATE-PYTORCH-000
 - Phase Goal: Refresh the planning corpus (integration plan, parity notes, fix plan ledger) so it accurately reflects the rebased `ptycho_torch/` tree landing in commit bfc22e7.
-- Dependencies: specs/ptychodus_api_spec.md (contract to reconcile), plans/ptychodus_pytorch_integration_plan.md (legacy plan needing overhaul), plans/active/INTEGRATE-PYTORCH-001/implementation.md (downstream execution plan), docs/workflows/pytorch.md (workflow reference), docs/findings.md (guardrails).
-- Artifact storage: create evidence folders beneath `plans/active/INTEGRATE-PYTORCH-000/reports/<ISO8601Z>/` for inventories, notes, and diffs. Reference each artifact from docs/fix_plan.md Attempts History.
+- Dependencies: specs/ptychodus_api_spec.md (contract to reconcile), plans/ptychodus_pytorch_integration_plan.md (legacy plan needing overhaul), docs/plans/INTEGRATE-PYTORCH-001/implementation.md (downstream execution plan), docs/workflows/pytorch.md (workflow reference), docs/findings.md (guardrails).
+- Artifact storage: create evidence folders beneath `docs/plans/INTEGRATE-PYTORCH-000/reports/<ISO8601Z>/` for inventories, notes, and diffs. Reference each artifact from docs/fix_plan.md Attempts History.
 
 ---
 
@@ -42,7 +42,7 @@ Exit Criteria: docs/fix_plan.md updated with latest attempts, pointer to refresh
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
 | C1 | Update fix plan entry & attempts history | [x] | Note completion of Phase B with artifact paths; keep status accurate. |
-| C2 | Notify INTEGRATE-PYTORCH-001 plan owners | [x] | Draft stakeholder brief in `reports/<timestamp>/stakeholder_brief.md` summarizing canonical plan deltas, then update `plans/active/INTEGRATE-PYTORCH-001/implementation.md` or galph_memory with key calls to action. Completed 2025-10-17: authored `reports/2025-10-17T031500Z/stakeholder_brief.md` and updated INTEGRATE-PYTORCH-001 Phase B guidance with Delta 1 specifics. |
+| C2 | Notify INTEGRATE-PYTORCH-001 plan owners | [x] | Draft stakeholder brief in `reports/<timestamp>/stakeholder_brief.md` summarizing canonical plan deltas, then update `docs/plans/INTEGRATE-PYTORCH-001/implementation.md` or galph_memory with key calls to action. Completed 2025-10-17: authored `reports/2025-10-17T031500Z/stakeholder_brief.md` and updated INTEGRATE-PYTORCH-001 Phase B guidance with Delta 1 specifics. |
 | C3 | Confirm input.md alignment | [x] | Ensure supervisor directives for subsequent loops reference the refreshed plan before moving focus back to execution tasks. |
 
 ---
@@ -54,8 +54,8 @@ Exit Criteria: docs/fix_plan.md updated with latest attempts, pointer to refresh
 
 ### Verification & Artifacts
 - Preferred commands documented in `reports/<ts>/module_inventory.md`.
-- All reports saved under `plans/active/INTEGRATE-PYTORCH-000/reports/` with ISO timestamps (e.g., `.../2025-10-17T030000Z/{module_inventory.md,delta_log.md}`).
-- Latest redline artifacts: `plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025633Z/{plan_redline.md,summary.md}`.
+- All reports saved under `docs/plans/INTEGRATE-PYTORCH-000/reports/` with ISO timestamps (e.g., `.../2025-10-17T030000Z/{module_inventory.md,delta_log.md}`).
+- Latest redline artifacts: `docs/plans/INTEGRATE-PYTORCH-000/reports/2025-10-17T025633Z/{plan_redline.md,summary.md}`.
 - Treat notebooks as informational; if referenced, include path + purpose but avoid copying large content.
 
 ### Completion Definition

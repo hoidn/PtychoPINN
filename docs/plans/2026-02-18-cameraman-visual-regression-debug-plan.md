@@ -21,6 +21,7 @@
 | H5 | Image #1 and Image #2 came from different runs with different artifacts and are not directly comparable | **Supported** | Image sizes/layout differ (3000x1200 with probe panel vs 2250x1200 without), matching different output dirs | Identify exact source dirs for both images and pin artifact lineage in a table |
 | H6 | PtychoViT regression is from checkpoint swap, not reassembly | **Supported** | Smoke run uses `/datasets/run145/best_model.pth`; full run uses `tmp/ptychovit_initial_fresh_stitched/...`; recon hashes differ | Replay full run with smoke checkpoint only; compare ptychovit recon directly |
 | H7 | Hybrid regression is from checkpoint/data-prep change (downsample policy flip + retrain), not plotting | **Supported** | Smoke/full hybrid model checkpoints differ (different SHA), recons differ strongly (`amp_mae~1.23`) | Isolate factors: run full inference with smoke hybrid checkpoint on full cached NPZs |
+| H9 | Image #1 -> Image #2 regression is confounded by crop/bin semantic flip (real-space crop + diffraction bin) rather than reassembly/stitching behavior | **Open / high-priority** | Policy changed between runs (`7df62bbf`) and full run was retrained on different prepared data; this can alter both ptychovit inputs and hybrid training distribution | Hold reassembly backend fixed and run a semantics ablation: rebuild cameraman/scan807 cached NPZs with pre-flip vs post-flip prep, then replay identical checkpoints on each and compare recon deltas |
 | H8 | Visual regression is mostly plotting-scale/style drift | **Open** | Probe panel and colormap range differ across runs; numeric metrics do not always align with visual severity | Render both runs with a fixed color-scale plotting script and compare |
 
 ---
@@ -179,6 +180,45 @@ Expected:
 
 **Step 3: Draft fix implementation plan**
 - Only after root cause is confirmed.
+
+---
+
+### Task 8: Last-Resort Commit Isolation (`git bisect`)
+
+**Trigger condition:**
+- Run this task only if Tasks 1-7 do not isolate a single root cause (or produce conflicting attributions).
+
+**Files:**
+- Create: `tmp/debug/bisect_oracle_2026-02-18.sh`
+- Create: `tmp/debug/bisect_report_2026-02-18.md`
+
+**Step 1: Define a deterministic bisect oracle**
+- Use fixed inputs/checkpoints/seed and one binary pass/fail metric (for example, parity/metric threshold from the decision gate).
+- Oracle script exit codes:
+  - `0` = good commit
+  - `1` = bad commit
+  - `125` = skip (commit cannot be evaluated in this environment)
+
+**Step 2: Run bisect in a bounded commit window**
+- Use the known-good vs known-bad run lineage from Task 1 provenance.
+
+Run:
+```bash
+git bisect start <known-bad-sha> <known-good-sha>
+git bisect run bash tmp/debug/bisect_oracle_2026-02-18.sh
+git bisect reset
+```
+
+**Step 3: Record bisect outcome**
+- Write `tmp/debug/bisect_report_2026-02-18.md` with:
+  - known-good SHA
+  - known-bad SHA
+  - first bad SHA (or inconclusive result)
+  - oracle command used
+  - key metric deltas supporting the verdict
+
+Expected:
+- A concrete first-bad commit (or explicit proof that commit-level isolation is inconclusive due to non-determinism/environment drift).
 
 ---
 

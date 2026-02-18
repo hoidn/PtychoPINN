@@ -4,7 +4,7 @@
 - Initiative: INTEGRATE-PYTORCH-001 (PyTorch backend integration)
 - Phase Goal: Retire torch-optional execution pathways and require PyTorch availability across config, adapters, workflows, and persistence so Ptychodus can rely on a single backend implementation path.
 - Dependencies: CLAUDE.md directive (torch-optional parity) must be revised; verify CI/build environments include PyTorch extras; coordinate with TEST-PYTORCH-001 initiative for downstream coverage changes.
-- Artifact Storage: Capture Phase F artifacts under `plans/active/INTEGRATE-PYTORCH-001/reports/<ISO8601>/` (F1 assets: `2025-10-17T184624Z/`; F2 use `2025-10-17T192500Z/`).
+- Artifact Storage: Capture Phase F artifacts under `docs/plans/INTEGRATE-PYTORCH-001/reports/<ISO8601>/` (F1 assets: `2025-10-17T184624Z/`; F2 use `2025-10-17T192500Z/`).
 
 ---
 

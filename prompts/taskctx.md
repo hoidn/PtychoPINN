@@ -23,7 +23,7 @@ You are Context Pack Builder. Your goal is to convert a natural-language task in
      - prompts/supervisor.md, prompts/main.md
      - docs/index.md, docs/fix_plan.md, docs/findings.md
      - input.md, galph_memory.md
-     - plans/active/**/*.md
+     - docs/plans/**/*.md
 
   3) Discover task-relevant files via search (use ripgrep patterns; avoid binaries):
      - Search code and docs for TASK keywords:
@@ -43,7 +43,7 @@ You are Context Pack Builder. Your goal is to convert a natural-language task in
 
   5) Build exclude globs (conservative defaults):
      - "**/*.ipynb,build/**,node_modules/**,dist/**,*.lock,**/review_request*.md"
-     - "plans/archive/**,plans/examples/**,tmp/**,logs/**,__pycache__/**,.git/**,.venv/**,env/**"
+     - "docs/plans/archive/**,docs/plans/examples/**,tmp/**,logs/**,__pycache__/**,.git/**,.venv/**,env/**"
      - "**/*.{png,jpg,jpeg,gif,svg,mp4,mp3,zip,tar,tar.gz,cbf,mtz,npy,npz,pkl,pickle,h5,hdf5}"
      - Append EXTRA_EXCLUDE if provided.
 
@@ -71,7 +71,7 @@ You are Context Pack Builder. Your goal is to convert a natural-language task in
   - Prefer specific files over broad globs; only expand to a directory when multiple adjacent files are clearly relevant.
   - Keep binary/data files out of the pack (use excludes above).
   - If TASK concerns “agent orchestration/observability”, prioritize:
-    • AGENTS.md, CLAUDE.md, prompts/*.md, docs/index.md, docs/fix_plan.md, docs/findings.md, input.md, galph_memory.md, plans/active/**/*.md
+    • AGENTS.md, CLAUDE.md, prompts/*.md, docs/index.md, docs/fix_plan.md, docs/findings.md, input.md, galph_memory.md, docs/plans/**/*.md
     • Any scripts under scripts/orchestration/** or similar.
   - If TASK mentions tests or a module, include the nearest tests/**/*.py and the module folder.
 

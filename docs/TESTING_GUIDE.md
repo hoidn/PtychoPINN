@@ -147,7 +147,7 @@ python -m studies.fly64_dose_overlap.training \
   --dry-run
 ```
 
-The dry-run mode creates artifact directory structure, writes manifest and skip summary, but skips actual training. Phase E5 evidence captured at: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/`
+The dry-run mode creates artifact directory structure, writes manifest and skip summary, but skips actual training. Phase E5 evidence captured at: `docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/`
 - **Execution time:** Typically < 5 seconds per test (lightweight synthetic data)
 - **Dependencies:** NumPy, study design configuration, no external datasets required
 
@@ -210,7 +210,7 @@ python -m studies.fly64_dose_overlap.reconstruction \
   --dry-run
 ```
 
-The dry-run mode enumerates jobs, writes manifest and skip summary, but skips subprocess execution. Phase F dense/test evidence captured at: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T230000Z/phase_f_ptychi_baseline_f2_dense_test_run/`
+The dry-run mode enumerates jobs, writes manifest and skip summary, but skips subprocess execution. Phase F dense/test evidence captured at: `docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T230000Z/phase_f_ptychi_baseline_f2_dense_test_run/`
 
 - **Execution time:** Typically < 10 seconds per test (subprocess mocking); real LSQML runs take 100+ epochs (varies by dataset)
 - **Dependencies:** NumPy, Phase C/D datasets, `scripts/reconstruction/ptychi_reconstruct_tike.py`
@@ -307,9 +307,9 @@ Tests validate two behaviors: successful reporting with all models present (veri
 ```bash
 # Generate report from metrics_summary.json with highlights
 python scripts/study/report_dense_metrics.py \
-  --metrics plans/active/.../reports/<timestamp>/phase_g_dense_execution/analysis/metrics_summary.json \
-  --output plans/active/.../reports/<timestamp>/phase_g_dense_execution/analysis/aggregate_report.md \
-  --highlights plans/active/.../reports/<timestamp>/phase_g_dense_execution/analysis/aggregate_highlights.txt
+  --metrics docs/plans/.../reports/<timestamp>/phase_g_dense_execution/analysis/metrics_summary.json \
+  --output docs/plans/.../reports/<timestamp>/phase_g_dense_execution/analysis/aggregate_report.md \
+  --highlights docs/plans/.../reports/<timestamp>/phase_g_dense_execution/analysis/aggregate_highlights.txt
 ```
 
 **Phase G Dense Metrics Analysis Script:**
@@ -331,9 +331,9 @@ Tests validate two behaviors: success digest (exit 0, success banner present, no
 ```bash
 # Generate digest from Phase G outputs
 python scripts/study/analyze_dense_metrics.py \
-  --metrics plans/active/.../reports/<timestamp>/analysis/metrics_summary.json \
-  --highlights plans/active/.../reports/<timestamp>/analysis/aggregate_highlights.txt \
-  --output plans/active/.../reports/<timestamp>/analysis/metrics_digest.md
+  --metrics docs/plans/.../reports/<timestamp>/analysis/metrics_summary.json \
+  --highlights docs/plans/.../reports/<timestamp>/analysis/aggregate_highlights.txt \
+  --output docs/plans/.../reports/<timestamp>/analysis/metrics_digest.md
 ```
 
 **Phase G Delta Metrics Persistence:**
@@ -400,7 +400,7 @@ The orchestrator automatically persists computed MS-SSIM/MAE deltas to two compl
 # Dry-run mode (prints planned commands without execution)
 export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
 python scripts/study/run_dense_pipeline.py \
-  --output-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/dense_execution \
+  --output-root docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/dense_execution \
   --dose 1000 \
   --view dense \
   --splits train test \
@@ -409,7 +409,7 @@ python scripts/study/run_dense_pipeline.py \
 # Real execution mode (remove --collect-only, add --clobber to archive stale outputs)
 export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
 python scripts/study/run_dense_pipeline.py \
-  --output-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/dense_execution \
+  --output-root docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/dense_execution \
   --dose 1000 \
   --view dense \
   --splits train test \
@@ -417,7 +417,7 @@ python scripts/study/run_dense_pipeline.py \
 
 # Real execution (Phase C→G pipeline with metrics summary)
 python scripts/study/run_dense_pipeline.py \
-  --output-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/dense_execution \
+  --output-root docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/dense_execution \
   --dose 1000 \
   --view dense \
   --splits train test
@@ -431,7 +431,7 @@ Use the dedicated CLI to generate Phase D overlap metrics per spec (no spacing/p
 python -m studies.fly64_dose_overlap.overlap \
   --phase-c-root data/phase_c/dose_1000 \
   --output-root tmp/phase_d_overlap/dose_1000 \
-  --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/phase_d_overlap_metrics \
+  --artifact-root docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/phase_d_overlap_metrics \
   --gridsize 2 \
   --s-img 0.8 \
   --n-groups 512 \

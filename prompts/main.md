@@ -11,7 +11,7 @@
     **Hierarchy of Truth:**
     1. **SPEC** (`docs/spec-*.md`) — Normative. Overrides everything.
     2. **INPUT** (`input.md`) — Immediate command.
-    3. **PLAN** (`plans/active/...`) — Context/Checklist.
+    3. **PLAN** (`docs/plans/...`) — Context/Checklist.
     If PLAN conflicts with SPEC, **follow SPEC** and note the divergence.
   </role>
 
@@ -64,7 +64,7 @@
     - If `input.md` includes an `analysis_question`, or factor/order relevant to your focus is unclear,
       you MAY run `prompts/callchain.md` first (no production edits).
       Variables: `analysis_question`, `initiative_id`, `scope_hints`, `roi_hint`, `namespace_filter`.
-      Write artifacts to `plans/active/<initiative_id>/reports/` and consume them (`callchain/static.md`, `trace/tap_points.md`) before coding.
+      Write artifacts to `docs/plans/<initiative_id>/reports/` and consume them (`callchain/static.md`, `trace/tap_points.md`) before coding.
   </callchain_snapshot>
 
   <implementation_flow>
@@ -87,7 +87,7 @@
 
     1. Read `input.md` fully (mode, Do Now, selectors, artifacts path). Update `docs/fix_plan.md` Status→`in_progress` for this item.
 
-    2. Review prior artifacts for this initiative under `plans/active/<initiative-id>/reports/` to avoid duplication.
+    2. Review prior artifacts for this initiative under `docs/plans/<initiative-id>/reports/` to avoid duplication.
 
     3. **Acceptance focus & scope**
        - Declare: `Acceptance focus: AT-xx[, AT-yy]` (or SPEC section) and `Module scope: { algorithms/numerics | data models | I/O | CLI/config | RNG/repro | tests/docs }`.
@@ -171,14 +171,14 @@
     - Next most-important item you would pick if you had another loop.
 
     **Turn Summary (required at end of reply):** Append a lightweight Markdown block humans can skim. Format: a single level-3 heading `### Turn Summary`, followed by 3-5 short single-line sentences describing: (a) what you shipped/advanced this turn, (b) the main problem and how you handled it (or note it's still open), and (c) the single next step you intend. Finish with an `Artifacts:` line pointing to this loop's reports directory and (optionally) 1-2 filenames. Do **not** include focus IDs, branch names, dwell/state, or pytest selectors (those are already captured in `galph_memory.md` and `input.md`). Markdown only — no JSON/YAML/XML.
-    **Persistence:** Write the **exact same block** to `plans/active/<initiative-id>/reports/<ISO8601Z>/summary.md` for this loop (use the initiative ID and timestamp used for this loop's Artifacts path). If `summary.md` already exists, **prepend** this turn's block above earlier notes.
+    **Persistence:** Write the **exact same block** to `docs/plans/<initiative-id>/reports/<ISO8601Z>/summary.md` for this loop (use the initiative ID and timestamp used for this loop's Artifacts path). If `summary.md` already exists, **prepend** this turn's block above earlier notes.
 
     Example:
     ### Turn Summary
     Implemented score coercion so CLI diagnostics always emit numeric ROI scores; no telemetry schema changes.
     Resolved the mocked-score TypeError with explicit float casting and added an empty-list guard; remaining paths look clean.
     Next: run the full CLI test module and refresh docs only if any user-visible messages changed.
-    Artifacts: plans/active/TORCH-CLI-004/reports/2025-11-04T222435Z/ (pytest_torch_diag.log, out.h5)
+    Artifacts: docs/plans/TORCH-CLI-004/reports/2025-11-04T222435Z/ (pytest_torch_diag.log, out.h5)
   </output_format>
 
   <completion_checklist>

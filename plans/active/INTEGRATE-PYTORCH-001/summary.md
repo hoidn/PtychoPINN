@@ -16,43 +16,43 @@ Added POLICY-001 GPU-default logging to training and inference CLIs when users p
 Both CLIs now log GPU-first defaults (CUDA if available, else CPU) with guidance to pass --torch-accelerator cpu for CPU-only runs.
 Created regression tests in test_training_backend_selector.py and test_inference_backend_selector.py that verify log emission and content.
 Next: document remaining pre-existing test failures (15 failures in test_workflows_components.py related to execution_config mocking).
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_backend_selector_cli.log (2 PASSED)
+Artifacts: docs/plans/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_backend_selector_cli.log (2 PASSED)
 
 ### Turn Summary
 Validated commit 83ae55af plus `green/pytest_execution_config_defaults.log` so backend_selector now has GPU/CPU auto-instantiation tests recorded in `analysis/artifact_inventory.txt`.
 Updated the parity plan + fix plan with a new Do Now that adds POLICY-001 logging in `scripts/training/train.py`/`scripts/inference/inference.py` and CLI-level regression tests proving we pass `torch_execution_config=None` when users omit `--torch-*`.
 Next: implement the CLI logging + pytest additions, rerun the backend-selector selectors, and capture fresh training/inference CLI logs showing the GPU-default message before refreshing summaries.
-Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/analysis/artifact_inventory.txt
+Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, docs/plans/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/analysis/artifact_inventory.txt
 
 ### Turn Summary
 Backend selector now auto-instantiates PyTorchExecutionConfig when torch_execution_config=None, inheriting GPU-first defaults from POLICY-001.
 Added dispatcher-level tests: test_backend_selector_inherits_gpu_first_defaults (verifies accelerator='cuda' on mocked GPU hosts) and test_backend_selector_cpu_fallback_with_warning (verifies accelerator='cpu' + warning on mocked CPU-only hosts).
 All 7 tests PASSED (1 skipped on CUDA host), confirming Ptychodus callers now get GPU baseline without explicit config.
-Artifacts: commit 83ae55af, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_execution_config_defaults.log
+Artifacts: commit 83ae55af, docs/plans/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_execution_config_defaults.log
 
 ### Turn Summary
 Extended execution_config integration tests with hardware-aware verification: added test_workflow_auto_instantiates_with_hardware_detection (verifies auto='cuda'/'cpu' based on torch.cuda.is_available) and test_backend_selector_warns_on_cpu_only_hosts (verifies POLICY-001 warning on CPU-only hosts, skips on CUDA).
 Updated test_execution_config_defaults_applied to expect GPU-first defaults dynamically instead of hardcoded 'cpu'.
 All new tests PASSED; pre-existing workflow test failures remain (stub module issues unrelated to changes).
-Artifacts: commit 4e7c343d, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_execution_config_defaults_final.log
+Artifacts: commit 4e7c343d, docs/plans/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_execution_config_defaults_final.log
 
 ### Turn Summary
 Confirmed commit 3efa2dc3 landed GPU-first `PyTorchExecutionConfig` defaults plus GREEN `green/pytest_execution_config_defaults.log`, and captured the evidence in `analysis/artifact_inventory.txt`.
 Updated `plans/ptychodus_pytorch_integration_plan.md`, docs/fix_plan.md, input.md, and the hub instructions so the next increment adds dispatcher-level regression tests proving backend_selector inherits the GPU baseline and emits POLICY-001 warnings on CPU-only hosts.
 Next: implement the backend-selector GPU/CPU tests in `tests/torch/test_execution_config_defaults.py`, rerun `pytest tests/torch/test_execution_config_defaults.py -vv`, and refresh hub summaries/inventory with the new log (blockers → `$HUB/red/`).
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/{green/pytest_execution_config_defaults.log,analysis/artifact_inventory.txt}, docs/fix_plan.md, plans/ptychodus_pytorch_integration_plan.md
+Artifacts: docs/plans/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/{green/pytest_execution_config_defaults.log,analysis/artifact_inventory.txt}, docs/fix_plan.md, plans/ptychodus_pytorch_integration_plan.md
 
 ### Turn Summary
 Implemented GPU-first defaults for PyTorchExecutionConfig: changed accelerator default from 'cpu' to 'auto', added __post_init__ resolution logic (auto→cuda when available, auto→cpu with POLICY-001 warning on CPU-only), and logged resolved values in components.py call sites.
 Added regression tests with monkeypatched torch.cuda.is_available; 2 PASSED in 0.83s confirming auto-resolution behavior.
 Next: update fix_plan.md to mark Do Now complete, then consider full PyTorch test suite verification.
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/ (green/pytest_execution_config_defaults.log, analysis/artifact_inventory.txt), commit 3efa2dc3
+Artifacts: docs/plans/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/ (green/pytest_execution_config_defaults.log, analysis/artifact_inventory.txt), commit 3efa2dc3
 
 ### Turn Summary
 Verified commit 420e2f14 plus green logs in `green/pytest_cuda_default_exec_config.log` and `cli/pytorch_cli_smoke_training/{train_cuda_default.log,inference_cuda_default.log}` so the CUDA-default Do Now is complete.
 Documented the remaining gap: `PyTorchExecutionConfig` still defaults to CPU when backend_selector callers omit `torch_execution_config`, so PyTorch silently runs off-policy; updated the plan/fix plan/input to target GPU-first dataclass defaults with regression tests.
 Next: implement the PyTorchExecutionConfig auto→cuda fallback logic, update backend selector call sites, add the new pytest module, and capture `pytest_execution_config_defaults.log` + warning snippets in the hub.
-Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/analysis/artifact_inventory.txt
+Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, docs/plans/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/analysis/artifact_inventory.txt
 
 ### Turn Summary
 Switched canonical CLI defaults to CUDA baseline (commit 7db5df4b): argparse defaults now use 'cuda', and resolve_accelerator auto-detects CUDA with CPU fallback + POLICY-001 warning.
@@ -64,7 +64,7 @@ Artifacts: commit 7db5df4b, green/pytest_cuda_default_exec_config.log, cli/pytor
 Recorded DEVICE-MISMATCH-001 completion (commit 85478a67) and validated CUDA inference evidence, then reviewed `docs/workflows/pytorch.md` (§12) + `cli/pytorch_cli_smoke_training/train_clean.log` to confirm the CLIs still default to CPU when `--torch-accelerator` is omitted.
 Updated the initiative plan, fix plan, and hub instructions so the next increment forces CUDA-by-default via argparse defaults + `resolve_accelerator` auto-detection, with refreshed backend-selector/CLI-shared tests and a new pytest log.
 Next: implement the CUDA default change, run the targeted selectors, rerun the training/inference CLIs without explicit accelerator flags to capture GPU logs, and update the hub summaries/artifact inventory.
-Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/{analysis/artifact_inventory.txt,cli/pytorch_cli_smoke_training/train_clean.log}
+Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, docs/plans/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/{analysis/artifact_inventory.txt,cli/pytorch_cli_smoke_training/train_clean.log}
 
 ### Turn Summary
 Fixed DEVICE-MISMATCH-001 by moving bundle-loaded models to execution device in both CLI and helper layers.
@@ -76,13 +76,13 @@ Artifacts: commit 85478a67, green/pytest_pytorch_inference_device.log, cli/pytor
 Documented DEVICE-MISMATCH-001 and pivoted the INTEGRATE-PYTORCH-PARITY-001 plan/fix-plan onto the CUDA device-placement fix.
 Backfilled docs/findings, plan_update, and Do Now so Ralph implements `model.to(device)`, adds regression tests, and reruns the CUDA CLI smoke with the refreshed evidence expectations.
 Next: Ralph updates `scripts/inference/inference.py` + `ptycho_torch/inference.py` for device placement, adds the pytest guard, runs the CUDA CLI command, and refreshes the hub inventory/logs.
-Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/analysis/artifact_inventory.txt
+Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, docs/plans/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/analysis/artifact_inventory.txt
 
 ### Turn Summary
 Validated config defaults backfill (commit dd0a5b0e): all spec-mandated fields now flow through PyTorch dataclasses without ad-hoc overrides, proven by 47 PASSED parity tests.
 Reran PyTorch inference CLI against the trained bundle; succeeded on CPU accelerator with amplitude/phase PNGs generated, but CUDA path blocked by device mismatch (model weights on CPU vs inputs on GPU).
 Next: either fix model.to(device) in load_torch_bundle or _run_inference_and_reconstruct, then retest CUDA inference before closing Phase R.
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/ (green/pytest_config_bridge.log, cli/pytorch_cli_smoke_training/{inference_cpu.log,inference_outputs/*.png}, red/blocked_*_device_mismatch.md, analysis/artifact_inventory.txt)
+Artifacts: docs/plans/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/ (green/pytest_config_bridge.log, cli/pytorch_cli_smoke_training/{inference_cpu.log,inference_outputs/*.png}, red/blocked_*_device_mismatch.md, analysis/artifact_inventory.txt)
 
 ## Phase R Config Defaults Backfill — Summary
 
@@ -151,19 +151,19 @@ Phase R objectives:
 Captured the supervised-loss fix plus the new manual-optimization (`accumulate_grad_batches`) and unlabeled-data blockers, then rewrote the plan/fix-plan/input.md so the next loop adds guardrails and reruns the PyTorch CLI smoke in PINN mode.
 Filed findings EXEC-ACCUM-001 / DATA-SUP-001, updated the Do Now with the gradient-accumulation guard, supervised data-contract detection, targeted pytest selector, and refreshed CLI commands/log expectations.
 Next: implement the guard in `_train_with_lightning`, add the regression test, fail fast when supervised data lacks labels, rerun the selector, and redo the CLI smoke / hub summaries.
-Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md (2025-11-13T185800Z Do Now), plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/{analysis/artifact_inventory.txt,red/blocked_*.md}
+Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md (2025-11-13T185800Z Do Now), docs/plans/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/{analysis/artifact_inventory.txt,red/blocked_*.md}
 
 ### Turn Summary
 Fixed supervised model_type→MAE loss mapping to prevent loss_name AttributeError in PyTorch Lightning module; added regression test coverage and confirmed fix with GREEN pytest evidence (3 PASSED).
 Supervised CLI smoke revealed two downstream blockers: manual optimization incompatibility with accumulate_grad_batches flag, and supervised mode requiring ground-truth labels (label_amp/label_phase) absent from experimental fly001 dataset.
 Next: either switch smoke test to unsupervised PINN mode for execution-config validation, or defer supervised CLI smoke until labeled synthetic data is available, then refresh hub documentation.
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/ (green/pytest_backend_selector_cli.log ✅, red/blocked_*.md, analysis/artifact_inventory.txt)
+Artifacts: docs/plans/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/ (green/pytest_backend_selector_cli.log ✅, red/blocked_*.md, analysis/artifact_inventory.txt)
 
 ### Turn Summary
 Documented that the training CLI execution-config flags (commit 04a016ad) are in place but the PyTorch training smoke fails with `AttributeError: 'PtychoPINN_Lightning' object has no attribute 'loss_name'`, and logged the blocker plus artifact inventory updates in the active hub.
 Rewrote plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, and input.md so the next Do Now maps supervised configs to a supported PyTorch loss, adds regression tests, and reruns the filtered pytest selector + CLI smoke before refreshing hub evidence.
 Next: implement the supervised-loss mapping + tests, rerun `pytest tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_pytorch_execution_config_flags tests/scripts/test_inference_backend_selector.py::TestInferenceCliBackendDispatch::test_pytorch_execution_config_flags -vv`, then redo the PyTorch training/inference CLI smoke and update the hub summaries/inventory.
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/red/blocked_20251113T183500Z_loss_name.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/analysis/artifact_inventory.txt
+Artifacts: docs/plans/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/red/blocked_20251113T183500Z_loss_name.md, docs/plans/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/analysis/artifact_inventory.txt
 
 ### Turn Summary
 Exposed PyTorch execution config flags (--torch-accelerator, --torch-num-workers, --torch-learning-rate, --torch-scheduler, --torch-logger, etc.) in scripts/training/train.py, wired them through backend_selector→run_cdi_example_torch with torch_execution_config parameter.
@@ -175,7 +175,7 @@ Artifacts: commit 04a016ad, green/pytest_backend_selector_cli.log, cli/pytorch_c
 Confirmed commit b218696a delivered the inference CLI execution-config flags plus GREEN pytest + CLI smoke evidence (scripts/inference/inference.py, tests/scripts/test_inference_backend_selector.py, hub `green/pytest_backend_selector_cli.log`).
 Pivoted plans/ptychodus_pytorch_integration_plan.md and docs/fix_plan.md to a new Do Now that surfaces the same execution-config knobs on scripts/training/train.py, adds backend-selector tests, and reruns the PyTorch CLI smoke with training flags; refreshed input.md so Ralph can execute it.
 Next: implement the training CLI execution-config flags, add the new pytest case, rerun the selectors + CLI smoke, and update the hub summaries/inventory.
-Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, input.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_backend_selector_cli.log
+Artifacts: plans/ptychodus_pytorch_integration_plan.md, docs/fix_plan.md, input.md, docs/plans/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/green/pytest_backend_selector_cli.log
 
 ### Turn Summary
 Exposed PyTorch execution config flags (--torch-accelerator, --torch-num-workers, --torch-inference-batch-size) in scripts/inference/inference.py and wired them through build_execution_config_from_args for validated configuration.
@@ -187,7 +187,7 @@ Artifacts: green/pytest_backend_selector_cli.log, cli/pytorch_cli_smoke/{train.l
 Verified commit 12fa29dd delivered the PyTorch inference branch plus green pytest/CLI smoke evidence and documented the results in the active hub.
 Updated plans/ptychodus_pytorch_integration_plan.md and docs/fix_plan.md with a new Do Now that exposes `--torch-*` execution flags in scripts/inference/inference.py via `build_execution_config_from_args`, plus refreshed pytest/CLI expectations.
 Rewrote input.md so Ralph adds the new flags, extends backend-selector tests, reruns the PyTorch CLI smoke with explicit execution-config knobs, and updates the hub inventory/summaries (blockers → `$HUB/red/`).
-Artifacts: docs/fix_plan.md, plans/ptychodus_pytorch_integration_plan.md, input.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/analysis/artifact_inventory.txt
+Artifacts: docs/fix_plan.md, plans/ptychodus_pytorch_integration_plan.md, input.md, docs/plans/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/analysis/artifact_inventory.txt
 
 ### Turn Summary
 Implemented PyTorch inference execution branch in scripts/inference/inference.py so backend='pytorch' now calls ptycho_torch.inference._run_inference_and_reconstruct instead of TensorFlow's perform_inference().
@@ -205,7 +205,7 @@ Artifacts: docs/fix_plan.md, plans/ptychodus_pytorch_integration_plan.md, input.
 Documented that backend-selector wiring (commit a53f897b + green backend-dispatch logs) is complete, marked the Phase R checklist done in the plan, and added the inference backend flag + PyTorch CLI smoke checklist.
 Updated docs/fix_plan.md and input.md so Ralph now implements the new `--backend` inference option, reruns the backend selectors, and executes the minimal-dataset training/inference commands under `$HUB/cli/pytorch_cli_smoke`.
 Next: implement the CLI flag/tests, run the PyTorch smoke commands, and publish the new pytest/CLI logs plus artifact inventory updates.
-Artifacts: docs/fix_plan.md, input.md, plans/ptychodus_pytorch_integration_plan.md, plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/
+Artifacts: docs/fix_plan.md, input.md, plans/ptychodus_pytorch_integration_plan.md, docs/plans/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/
 
 ### Turn Summary
 Wired training and inference CLIs through backend_selector so --backend pytorch becomes reachable from canonical entry points (scripts/training/train.py, scripts/inference/inference.py).
@@ -217,10 +217,10 @@ Artifacts: commit a53f897b, green/pytest_training_backend_dispatch.log, green/py
 Verified the Phase R quick wins (config bridge invocation, persistence shim, and parity pytest) via the hub inventory + GREEN log and documented the completion inside the plan.
 Rewrote docs/fix_plan.md and the plan/input brief so Ralph now targets wiring `scripts/training/train.py` / `scripts/inference/inference.py` through the backend selector while guarding TensorFlow-only persistence paths.
 Next: implement the CLI routing plus new backend-dispatch tests, run the targeted pytest node, and refresh the hub artifact inventory + summaries.
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/
+Artifacts: docs/plans/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/
 
 ### Turn Summary
 Reactivated the PyTorch parity initiative with a Phase R checklist (config bridge wiring, spec default backfill, persistence shim, regression guard) and recorded the new reports hub so evidence lands under a single path.
 Resteered docs/fix_plan.md, plans/ptychodus_pytorch_integration_plan.md, input.md, and galph_memory.md so Ralph’s next loop targets update_legacy_dict wiring plus the config-bridge pytest gate while logging to the new hub.
-Next: Ralph implements the Phase R Do Now (bridge wiring + persistence shim + pytest selector) and records artifacts under plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/.
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/
+Next: Ralph implements the Phase R Do Now (bridge wiring + persistence shim + pytest selector) and records artifacts under docs/plans/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/.
+Artifacts: docs/plans/INTEGRATE-PYTORCH-001/reports/2025-11-13T150000Z/parity_reactivation/

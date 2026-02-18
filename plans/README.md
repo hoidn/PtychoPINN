@@ -70,7 +70,7 @@ plans/
 - "Template for test strategy documents"
 
 ### Active (Feature Implementation)
-**Location:** `plans/active/`
+**Location:** `docs/plans/`
 
 **Purpose:** What we're building right now
 - Feature implementations
@@ -106,13 +106,13 @@ plans/
 2. **For new features:**
    ```bash
    # Create initiative directory
-   mkdir -p plans/active/<INITIATIVE-NAME>
+   mkdir -p docs/plans/<INITIATIVE-NAME>
 
    # Copy templates
    cp plans/meta/templates/test_strategy_template.md \
-      plans/active/<INITIATIVE-NAME>/test_strategy.md
+      docs/plans/<INITIATIVE-NAME>/test_strategy.md
    cp plans/meta/templates/constraint_analysis_template.md \
-      plans/active/<INITIATIVE-NAME>/constraint_analysis.md
+      docs/plans/<INITIATIVE-NAME>/constraint_analysis.md
 
    # Create implementation plan
    # (use examples in active/ as reference)

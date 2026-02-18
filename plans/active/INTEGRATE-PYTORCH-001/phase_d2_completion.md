@@ -4,13 +4,13 @@
 - Initiative: INTEGRATE-PYTORCH-001 — PyTorch backend integration
 - Phase Goal: Finish the Phase D2 orchestration work by replacing the remaining Lightning and stitching stubs so `run_cdi_example_torch` can train, stitch, and persist models end-to-end.
 - Dependencies:
-  - `plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md` (D2 scaffold history + design decisions)
-  - `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md` (integration test expectations)
-  - `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T231500Z/parity_summary.md` (latest failure analysis)
-  - `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T230724Z/callchain/summary.md` (FORMAT-001 finding that now keeps dataloader green)
+  - `docs/plans/INTEGRATE-PYTORCH-001/phase_d_workflow.md` (D2 scaffold history + design decisions)
+  - `docs/plans/INTEGRATE-PYTORCH-001/phase_e2_implementation.md` (integration test expectations)
+  - `docs/plans/INTEGRATE-PYTORCH-001/reports/2025-10-17T231500Z/parity_summary.md` (latest failure analysis)
+  - `docs/plans/INTEGRATE-PYTORCH-001/reports/2025-10-17T230724Z/callchain/summary.md` (FORMAT-001 finding that now keeps dataloader green)
   - Specs: `specs/ptychodus_api_spec.md` §4.5–§4.6 (reconstructor lifecycle contract)
   - Workflow guide: `docs/workflows/pytorch.md` §§5–7 (Lightning + MLflow knobs)
-- Artifact discipline: Store new evidence under `plans/active/INTEGRATE-PYTORCH-001/reports/<ISO8601>/phase_d2_completion/`. Include `summary.md`, targeted pytest logs, and any Lightning debug traces. Reference artifacts from docs/fix_plan.md attempts.
+- Artifact discipline: Store new evidence under `docs/plans/INTEGRATE-PYTORCH-001/reports/<ISO8601>/phase_d2_completion/`. Include `summary.md`, targeted pytest logs, and any Lightning debug traces. Reference artifacts from docs/fix_plan.md attempts.
 
 ---
 
@@ -73,7 +73,7 @@ Exit Criteria: Integration test passes through training + stitching, parity summ
 ---
 
 ## Reporting Discipline
-- All logs reside under `plans/active/INTEGRATE-PYTORCH-001/reports/<ISO8601>/phase_d2_completion/`.
+- All logs reside under `docs/plans/INTEGRATE-PYTORCH-001/reports/<ISO8601>/phase_d2_completion/`.
 - Each loop updates docs/fix_plan.md Attempts with timestamped artifact list and checklist IDs touched.
 - Maintain pytest selectors consistent with `docs/development/TEST_SUITE_INDEX.md` guidance; note skips if environment lacks GPU.
 - Honour TDD: author red tests before implementation in Phases B and C; keep logs showing red → green transition.

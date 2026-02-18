@@ -91,7 +91,7 @@ If any existing test in `tests/test_model*.py` fails after Phase B changes, reve
 
 - [x] **A2:** Create `tests/test_model_factory.py` with `test_multi_n_model_creation` asserting that models with N=128 and N=64 can be created and run forward passes in the same process without XLA shape conflicts.
   - Test PASSED (1 passed, 8.41s)
-  - Artifacts: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T005113Z/pytest_model_factory.log`
+  - Artifacts: `docs/plans/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T005113Z/pytest_model_factory.log`
 
 ### Implementation Notes
 
@@ -189,7 +189,7 @@ The XLA re-enablement spike test verified the hypothesis that lazy loading fixes
   - `Compiled cluster using XLA!` — XLA compilation occurred
   - Forward pass N=128 succeeded, output shapes correct
   - Forward pass N=64 succeeded, output shapes correct (previously this would crash!)
-- **Artifacts:** `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T050000Z/`
+- **Artifacts:** `docs/plans/REFACTOR-MODEL-SINGLETON-001/reports/2026-01-07T050000Z/`
   - `pytest_phase_c_spike.log`
   - `pytest_phase_c_spike_verbose.log`
 
@@ -285,7 +285,7 @@ The following changes were applied but require verification/integration:
 
 ## Artifacts Index
 
-- Reports root: `plans/active/REFACTOR-MODEL-SINGLETON-001/reports/`
+- Reports root: `docs/plans/REFACTOR-MODEL-SINGLETON-001/reports/`
 - Session log: `2026-01-06T.../`
 
 ## References

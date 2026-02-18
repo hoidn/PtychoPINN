@@ -9,7 +9,7 @@ As of Phase EB3 (ADR-003-BACKEND-API), the PyTorch training CLI (`ptycho_torch/t
 For full context on logger configuration and policy decisions, see:
 - **Policy**: `docs/findings.md#CONFIG-LOGGER-001`
 - **Spec**: `specs/ptychodus_api_spec.md` §4.9 (PyTorchExecutionConfig.logger_backend field)
-- **Smoke Evidence**: `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/smoke/2025-10-24T050500Z/`
+- **Smoke Evidence**: `docs/plans/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/smoke/2025-10-24T050500Z/`
 
 ## CSV Logger Artifact Handling
 
@@ -74,7 +74,7 @@ The `metrics.csv` file uses standard Lightning CSV format:
 - **Parsing**: Compatible with pandas (`pd.read_csv()`), NumPy, Excel, plotting libraries
 
 For a concrete example, see the smoke test evidence at:
-`plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/smoke/2025-10-24T050500Z/metrics.csv`
+`docs/plans/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/smoke/2025-10-24T050500Z/metrics.csv`
 
 ## Suppressing Logs in CI (Smoke Tests)
 
@@ -218,8 +218,8 @@ python -m ptycho_torch.train \
 - **Logger backend field spec**: `specs/ptychodus_api_spec.md` §4.9 (PyTorchExecutionConfig.logger_backend)
 - **CLI flag documentation**: `docs/workflows/pytorch.md` §12 (Training Execution Flags, `--logger` row)
 - **Policy decision**: `docs/findings.md#CONFIG-LOGGER-001` (CSV default, allowed backends, deprecation policy)
-- **Smoke test evidence**: `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/smoke/2025-10-24T050500Z/summary.md`
-- **Implementation plan**: `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/plan.md` (Phase EB3)
+- **Smoke test evidence**: `docs/plans/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/smoke/2025-10-24T050500Z/summary.md`
+- **Implementation plan**: `docs/plans/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/plan.md` (Phase EB3)
 
 ---
 

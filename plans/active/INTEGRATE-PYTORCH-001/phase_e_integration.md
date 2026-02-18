@@ -5,7 +5,7 @@
 - Phase Goal: Enable Ptychodus to select and execute the PyTorch backend with parity safeguards that match the TensorFlow reconstructor contract defined in `specs/ptychodus_api_spec.md` §4.
 - Dependencies: Phase D handoff (`reports/2025-10-17T121930Z/phase_d4c_summary.md`), canonical initiative plan (`plans/ptychodus_pytorch_integration_plan.md` Phase 6–8), PyTorch workflow guide (`docs/workflows/pytorch.md`), TEST-PYTORCH-001 test strategy (`plans/pytorch_integration_test_plan.md`), CONFIG-001 finding (docs/findings.md ID CONFIG-001).
 - Environment Constraint: Headless CI/agent environment — GUI launch/validation is out of scope; all parity checks must rely on CLI workflows and logged artifacts.
-- Artifact Storage: Capture all Phase E deliverables under `plans/active/INTEGRATE-PYTORCH-001/reports/<ISO8601>/phase_e_*` with descriptive filenames (e.g., `phase_e_callchain.md`, `phase_e_selector_map.md`, `phase_e_parity_summary.md`). Reference each artifact in docs/fix_plan.md.
+- Artifact Storage: Capture all Phase E deliverables under `docs/plans/INTEGRATE-PYTORCH-001/reports/<ISO8601>/phase_e_*` with descriptive filenames (e.g., `phase_e_callchain.md`, `phase_e_selector_map.md`, `phase_e_parity_summary.md`). Reference each artifact in docs/fix_plan.md.
 
 ---
 
@@ -16,9 +16,9 @@ Exit Criteria: Documented callchain diff, TDD red tests in the Ptychodus repo co
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| E1.A | Map current Ptychodus reconstructor callchain | [x] | ✅ Completed 2025-10-17. Callchain analysis captured at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T173826Z/phase_e_callchain/{static.md,summary.md,pytorch_workflow_comparison.md}`. Documents TensorFlow vs PyTorch workflow parity with CONFIG-001 gates mapped. |
-| E1.B | Author backend-selection failing tests | [x] | ✅ Completed 2025-10-17. Created `tests/torch/test_backend_selection.py` with 6 red tests (all XFAIL). Red logs at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T173826Z/phase_e_red_backend_selection.log`. Tests document expected backend selection behavior per spec §4.1-4.6. |
-| E1.C | Draft implementation blueprint | [x] | ✅ Completed 2025-10-17. See `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T180500Z/phase_e_backend_design.md` for dispatcher design, task breakdown (E1.C1–E1.C4), and TDD guidance. |
+| E1.A | Map current Ptychodus reconstructor callchain | [x] | ✅ Completed 2025-10-17. Callchain analysis captured at `docs/plans/INTEGRATE-PYTORCH-001/reports/2025-10-17T173826Z/phase_e_callchain/{static.md,summary.md,pytorch_workflow_comparison.md}`. Documents TensorFlow vs PyTorch workflow parity with CONFIG-001 gates mapped. |
+| E1.B | Author backend-selection failing tests | [x] | ✅ Completed 2025-10-17. Created `tests/torch/test_backend_selection.py` with 6 red tests (all XFAIL). Red logs at `docs/plans/INTEGRATE-PYTORCH-001/reports/2025-10-17T173826Z/phase_e_red_backend_selection.log`. Tests document expected backend selection behavior per spec §4.1-4.6. |
+| E1.C | Draft implementation blueprint | [x] | ✅ Completed 2025-10-17. See `docs/plans/INTEGRATE-PYTORCH-001/reports/2025-10-17T180500Z/phase_e_backend_design.md` for dispatcher design, task breakdown (E1.C1–E1.C4), and TDD guidance. |
 
 ---
 
@@ -47,7 +47,7 @@ Exit Criteria: Torch-optional failing tests documenting the integration gap, gre
 Goal: Ensure documentation, specs, and downstream initiatives reflect the new backend, and hand off to TEST-PYTORCH-001/production teams.
 Prereqs: E1–E2 tasks completed with successful regression runs.
 Exit Criteria: Updated documentation and spec excerpts, ledger entries recorded, and follow-up actions queued for TEST-PYTORCH-001.
-Planning Reference: `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T205832Z/phase_e3_docs_plan.md` outlines the phased checklist for this work.
+Planning Reference: `docs/plans/INTEGRATE-PYTORCH-001/reports/2025-10-19T205832Z/phase_e3_docs_plan.md` outlines the phased checklist for this work.
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
@@ -67,5 +67,5 @@ Goal: Capture final exit narrative and prepare fix_plan closure recommendation f
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| CO1 | Author Phase E closure summary with exit checklist validation | [x] | ✅ 2025-10-19 Attempt #46: Authored `closure_summary.md` under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T225500Z/phase_e_closeout/` (11 sections, 650 lines) enumerating E1–E3 evidence, runtime guardrails (35.92s baseline, ≤90s CI budget, 60s warning threshold), monitoring handoff (12 escalation triggers), and governance closure checklist. References Attempts #32-45 across Phase E1/E2/E3 execution. |
+| CO1 | Author Phase E closure summary with exit checklist validation | [x] | ✅ 2025-10-19 Attempt #46: Authored `closure_summary.md` under `docs/plans/INTEGRATE-PYTORCH-001/reports/2025-10-19T225500Z/phase_e_closeout/` (11 sections, 650 lines) enumerating E1–E3 evidence, runtime guardrails (35.92s baseline, ≤90s CI budget, 60s warning threshold), monitoring handoff (12 escalation triggers), and governance closure checklist. References Attempts #32-45 across Phase E1/E2/E3 execution. |
 | CO2 | Append fix_plan closure recommendation | [x] | ✅ 2025-10-19 Attempt #46: Added docs/fix_plan Attempt #46 summarizing closure readiness with closure_summary.md reference. Noted [INTEGRATE-PYTORCH-001-DATALOADER] complete (Attempts #0-1), [ADR-003-BACKEND-API] pending (separate governance initiative), TEST-PYTORCH-001 Phase D3 handoff complete. **RECOMMENDATION:** Close INTEGRATE-PYTORCH-001 with governance sign-off. |

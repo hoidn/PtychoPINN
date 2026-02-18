@@ -35,6 +35,6 @@ Refactor `scripts/compare_models.py` into a thin CLI over a modular Python API, 
    - Note impacts for study scripts/wrappers; optionally add guidance for API adoption.
 
 ### Artifacts
-- `plans/active/COMPARE-MODELS-REFACTOR-001/summary.md` (this file).
+- `docs/plans/COMPARE-MODELS-REFACTOR-001/summary.md` (this file).
 - Updated spec/docs (see phases 7).
 - Tests demonstrating API behavior.

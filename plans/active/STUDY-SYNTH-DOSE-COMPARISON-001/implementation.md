@@ -9,7 +9,7 @@
 - **Unblocked By:** REFACTOR-MODEL-SINGLETON-001 complete (2026-01-07) — lazy loading fixes multi-N shape mismatch
 - **Priority:** High (Scientific Validation)
 - **Working Plan:** this file
-- **Reports Hub:** `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/`
+- **Reports Hub:** `docs/plans/STUDY-SYNTH-DOSE-COMPARISON-001/reports/`
 
 ## Goals
 1. Compare PtychoPINN reconstruction quality under High Dose (1e9 photons) vs. Low Dose (1e4 photons) conditions using identical scan trajectories.
@@ -239,7 +239,7 @@
     - Diffraction: Log scale with consistent vmin/vmax across doses to show noise difference.
 
 - [ ] C2: **Execution & Archive:** Run the full study.
-    - Save `dose_comparison.png` to `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/`.
+    - Save `dose_comparison.png` to `docs/plans/STUDY-SYNTH-DOSE-COMPARISON-001/reports/`.
     - Commit the script to repository.
     - **Artifact:** Final 6-panel figure.
 
@@ -254,7 +254,7 @@
 
 - [ ] C5: **Test Registry Check:** Run `pytest --collect-only -q tests/` and archive output.
     - Verify no test regressions from new script.
-    - Save to `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/pytest_collect.log`.
+    - Save to `docs/plans/STUDY-SYNTH-DOSE-COMPARISON-001/reports/pytest_collect.log`.
 
 ### Notes & Risks
 - **Risk:** Color scaling differences obscure true reconstruction quality comparison.
@@ -264,7 +264,7 @@
 
 ### Rollback
 - Revert: `git checkout HEAD -- scripts/studies/dose_response_study.py`
-- Cleanup: `rm -rf tmp/dose_study/ plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/*.png`
+- Cleanup: `rm -rf tmp/dose_study/ docs/plans/STUDY-SYNTH-DOSE-COMPARISON-001/reports/*.png`
 
 ---
 
@@ -274,7 +274,7 @@
 - [ ] **Convergence analysis:** Should training curves be included in the deliverables to show loss convergence behavior?
 
 ## Artifacts Index
-- Reports root: `plans/active/STUDY-SYNTH-DOSE-COMPARISON-001/reports/`
+- Reports root: `docs/plans/STUDY-SYNTH-DOSE-COMPARISON-001/reports/`
 - Expected artifacts:
     - `dose_comparison.png` — Final 6-panel figure
     - `pytest_collect.log` — Test registry verification

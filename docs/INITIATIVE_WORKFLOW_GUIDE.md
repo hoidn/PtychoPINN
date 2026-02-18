@@ -26,7 +26,7 @@ This is an AI-assisted development workflow that uses structured planning docume
 ### First Time Setup
 ```bash
 # Create the required directories
-mkdir -p plans/active plans/archive plans/templates
+mkdir -p docs/plans docs/plans/archive docs/plans/templates
 
 # Create the master status tracker
 touch PROJECT_STATUS.md
@@ -36,13 +36,11 @@ touch PROJECT_STATUS.md
 ```
 your-project/
 ├── PROJECT_STATUS.md          # Master tracker (create this first)
-└── plans/
-    ├── active/               # Current work
-    └── archive/              # Completed work
+└── docs/plans/               # Plan source of truth
 ```
 
 ### Artifact Storage Standard
-Keep evidence lean. For each initiative, maintain a single `plans/active/<initiative-id>/summary.md` and prepend a Turn Summary per loop. Store bulky artifacts outside the repo (or under a git‑ignored `.artifacts/` folder) and link to them from the plan/ledger. Do not create timestamped report directories.
+Keep evidence lean. For each initiative, maintain a single `docs/plans/<initiative-id>/summary.md` and prepend a Turn Summary per loop. Store bulky artifacts outside the repo (or under a git‑ignored `.artifacts/` folder) and link to them from the plan/ledger. Use timestamped evidence directories only under `docs/plans/<initiative-id>/reports/<YYYY-MM-DDTHHMMSSZ>/`; avoid ad-hoc timestamped directory trees elsewhere.
 
 ### Dwell Enforcement Policy (Process)
 This workflow participates in the supervisor/engineer loop defined in `prompts/supervisor.md` and `prompts/main.md`. Dwell (consecutive planning/doc loops for the same focus) is enforced via a three‑tier policy:
@@ -54,7 +52,7 @@ This workflow participates in the supervisor/engineer loop defined in `prompts/s
 Supervisor records `ralph_last_commit=<sha8|none>` in `galph_memory.md` and checks git log each loop to detect execution. See `CLAUDE.md` §2.10 and `docs/templates/blocker_report_template.md`.
 
 ### Plan Maintenance
-Each initiative (or focus) owns a single evolving plan file such as `plans/active/<initiative-id>/implementation.md` or a dedicated focus document. Update that file in place—add new sections, checklists, or notes as work progresses—instead of generating a brand-new `plan/plan.md` every loop. Create a new plan file only when the scope fundamentally changes (for example, splitting off a new focus or initiative). Cross-reference the active plan path from `docs/fix_plan.md` so every loop knows which document to edit.
+Each initiative (or focus) owns a single evolving plan file such as `docs/plans/<initiative-id>/implementation.md` or a dedicated focus document. Update that file in place—add new sections, checklists, or notes as work progresses—instead of generating a brand-new `plan/plan.md` every loop. Create a new plan file only when the scope fundamentally changes (for example, splitting off a new focus or initiative). Cross-reference the active plan path from `docs/fix_plan.md` so every loop knows which document to edit.
 
 When you update `docs/fix_plan.md`, keep the ledger concise:
 - Treat each “Return Condition” as a short specification of required outcomes (artifacts present, metrics populated, verification state), not as a full shell script. Link to the initiative’s Working Plan and/or hub plan/CLI files for exact commands and flags.
@@ -71,7 +69,7 @@ Workflow:
   - Hard constraints (for example, modules that must not be edited without explicit scope).
 - Run `prompts/plan_generation.md` with `$TASK_DESCRIPTION` as input.
 - The prompt will:
-  - Create `plans/active/<initiative-id>/implementation.md` from the template, customized for this focus.
+  - Create `docs/plans/<initiative-id>/implementation.md` from the template, customized for this focus.
   - Add a corresponding `## [<initiative-id>]` entry to `docs/fix_plan.md` pointing at the new Working Plan and, optionally, a `summary.md`/reports hub.
 - After this step, treat the generated plan and ledger entry as authoritative for the initiative. Subsequent supervisor loops should:
   - Update the Working Plan in place.
@@ -91,7 +89,7 @@ For very small, one-loop blockers (single selector, single file, single change),
 ## Completed Initiatives
 | Initiative | Duration | Outcome | Archived |
 |------------|----------|---------|----------|
-| [Previous] | 5 days | Success | plans/archive/2024-03/previous/ |
+| [Previous] | 5 days | Success | docs/plans/archive/2024-03/previous/ |
 
 ## Blocked/Paused
 | Initiative | Reason | Next Steps |
@@ -117,10 +115,10 @@ Tell your AI assistant (adapt to your tool):
 "Create an R&D plan following the initiative system for adding user authentication"
 
 **For GitHub Copilot Chat:**
-"Generate a phased implementation plan for user authentication using the plans/active structure"
+"Generate a phased implementation plan for user authentication using the docs/plans structure"
 
 **Universal Prompt:**
-"I want to plan a new development initiative. Create a structured plan document at plans/active/[feature-name]/plan.md with problem statement, success criteria, and deliverables. Then break it into implementation phases."
+"I want to plan a new development initiative. Create a structured plan document at docs/plans/[feature-name]/plan.md with problem statement, success criteria, and deliverables. Then break it into implementation phases."
 
 ---
 
@@ -141,7 +139,7 @@ AI will ask clarifying questions:
 - "What are the core capabilities needed?"
 
 AI creates:
-- `plans/active/frc-metric/plan.md`
+- `docs/plans/frc-metric/plan.md`
 - Updates `PROJECT_STATUS.md`
 
 ### Step 2: Generate Implementation Plan
@@ -152,7 +150,7 @@ AI creates:
 ```
 
 AI reads the R&D plan and creates:
-- `plans/active/frc-metric/implementation.md`
+- `docs/plans/frc-metric/implementation.md`
 - Typically 2-4 phases + final phase
 
 ### Step 3: Start Phase 1
@@ -163,13 +161,13 @@ AI reads the R&D plan and creates:
 ```
 
 AI creates:
-- `plans/active/frc-metric/phase_1_checklist.md`
+- `docs/plans/frc-metric/phase_1_checklist.md`
 - 10-20 specific tasks with file paths
 
 ### Step 4: Work Through Phase 1
 ```bash
 # You manually:
-1. Open phase_1_checklist.md
+1. Open `docs/plans/frc-metric/phase_1_checklist.md`
 2. Complete tasks in order
 3. Mark each task [x] as done
 4. Test as you go
@@ -193,7 +191,7 @@ Repeat steps 4-5 for each phase until the initiative is complete.
 
 ### Step 7: Initiative Complete!
 When the final phase is done, AI will:
-- Archive to `plans/archive/2024-03-frc-metric/`
+- Archive to `docs/plans/archive/2024-03-frc-metric/`
 - Update PROJECT_STATUS.md
 - Ask for your next objective
 
@@ -205,9 +203,9 @@ These commands are prompts for your AI assistant. Copy them exactly or adapt to 
 
 | Command | Purpose | Creates | AI Instructions |
 |---------|---------|---------|-----------------|
-| `/customplan` or "Create an R&D plan for [topic]" | Start new initiative | `plans/active/<n>/plan.md` | AI analyzes project and creates structured plan |
-| `/implementation` or "Create implementation plan" | Create phase breakdown | `plans/active/<n>/implementation.md` | AI reads plan.md and creates phases |
-| `/phase-checklist N` or "Generate phase N checklist" | Generate task list | `plans/active/<n>/phase_N_checklist.md` | AI creates 10-20 specific tasks |
+| `/customplan` or "Create an R&D plan for [topic]" | Start new initiative | `docs/plans/<n>/plan.md` | AI analyzes project and creates structured plan |
+| `/implementation` or "Create implementation plan" | Create phase breakdown | `docs/plans/<n>/implementation.md` | AI reads plan.md and creates phases |
+| `/phase-checklist N` or "Generate phase N checklist" | Generate task list | `docs/plans/<n>/phase_N_checklist.md` | AI creates 10-20 specific tasks |
 | `/complete-phase` or "Complete current phase" | Finish current phase | Next checklist or archives | AI verifies completion and prepares next |
 
 ---
@@ -410,7 +408,7 @@ Phase 1: Analysis & Prep → Phase 2: Migration → Phase 3: Cleanup → Final: 
 ### Urgent Hotfix Needed
 ```bash
 # 1. Pause current initiative
-echo "PAUSED: $(date)" >> current_phase_checklist.md
+echo "PAUSED: $(date)" >> docs/plans/<initiative>/current_phase_checklist.md
 git stash
 
 # 2. Create hotfix
@@ -424,14 +422,14 @@ git stash pop
 ```
 
 ### Initiative Needs Major Pivot
-1. Document lessons learned in current plan.md
-2. Archive current work to plans/paused/
+1. Document lessons learned in current `docs/plans/<initiative>/plan.md`
+2. Archive current work to `docs/plans/paused/`
 3. Create new plan with updated approach
 4. Reference old plan in new documentation
 
 ### Initiative Cancelled
-1. Document why in plan.md
-2. Archive to plans/cancelled/
+1. Document why in `docs/plans/<initiative>/plan.md`
+2. Archive to `docs/plans/cancelled/`
 3. Update PROJECT_STATUS.md with outcome
 4. Extract any reusable work
 
@@ -447,7 +445,7 @@ git stash pop
 
 ### "Can't find implementation plan"
 - Check PROJECT_STATUS.md for correct path
-- Verify file exists in plans/active/
+- Verify file exists in `docs/plans/`
 - May need to regenerate
 
 ### "Too many phases"
@@ -458,7 +456,7 @@ git stash pop
 ### "Phase too large"
 - Break into smaller phases
 - Each phase: 1 day of work ideal
-- Can manually edit implementation.md
+- Can manually edit `docs/plans/<initiative>/implementation.md`
 
 ---
 
@@ -496,7 +494,7 @@ git push origin main
 /phase-checklist 1
 
 # Tuesday: Work through phase 1
-vim plans/active/feature/phase_1_checklist.md
+vim docs/plans/feature/phase_1_checklist.md
 # ... do work, mark tasks complete ...
 /complete-phase
 
@@ -522,10 +520,10 @@ vim plans/active/feature/phase_1_checklist.md
 cat PROJECT_STATUS.md
 
 # See current phase details
-cat plans/active/*/implementation.md | grep "Current Phase"
+cat docs/plans/*/implementation.md | grep "Current Phase"
 
 # Count completed tasks
-grep -c "\[x\]" plans/active/*/phase_*_checklist.md
+grep -c "\[x\]" docs/plans/*/phase_*_checklist.md
 ```
 
 ### Visual Progress

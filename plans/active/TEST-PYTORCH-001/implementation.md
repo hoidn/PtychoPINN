@@ -3,8 +3,8 @@
 <plan_update version="1.0">
   <trigger>Baseline must shift from CPU-only determinism to CUDA GPU execution per new backend policy.</trigger>
   <focus_id>TEST-PYTORCH-001</focus_id>
-  <documents_read>docs/index.md, docs/workflows/pytorch.md, plans/pytorch_integration_test_plan.md, plans/active/TEST-PYTORCH-001/implementation.md</documents_read>
-  <current_plan_path>plans/active/TEST-PYTORCH-001/implementation.md</current_plan_path>
+  <documents_read>docs/index.md, docs/workflows/pytorch.md, plans/pytorch_integration_test_plan.md, docs/plans/TEST-PYTORCH-001/implementation.md</documents_read>
+  <current_plan_path>docs/plans/TEST-PYTORCH-001/implementation.md</current_plan_path>
   <proposed_changes>Rewrite context/goals to describe GPU-default regression, update Phase A/B/D guidance, and replace CPU-only selectors with CUDA-pinned commands.</proposed_changes>
   <impacts>Requires CI and local developers to have access to at least one CUDA device; CPU evidence becomes fallback-only and must be labeled as such.</impacts>
   <ledger_updates>Log this GPU-baseline edit in docs/fix_plan.md under the TEST-PYTORCH-001 focus when recording the next attempt.</ledger_updates>
@@ -16,11 +16,11 @@
 - Phase Goal: Deliver a GPU-default regression (CUDA device pinned via `CUDA_VISIBLE_DEVICES`) that exercises the PyTorch train→save→load→infer pipeline end-to-end and codifies evidence capture/log hygiene so CI guards the backend. Legacy CPU runs remain documented as fallback evidence only.
 - Dependencies:
   - `plans/pytorch_integration_test_plan.md` (original charter and scope notes)
-  - `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md` (CLI contract, Lightning wiring, MLflow controls)
+  - `docs/plans/INTEGRATE-PYTORCH-001/phase_e2_implementation.md` (CLI contract, Lightning wiring, MLflow controls)
   - `specs/ptychodus_api_spec.md` §4.5–§4.6 (reconstructor lifecycle contract shared with Ptychodus)
   - `docs/workflows/pytorch.md` §§5–8 (operational workflow, dtype safeguards, artifact expectations)
   - Findings: POLICY-001 (PyTorch required), FORMAT-001 (NPZ transpose guard)
-- Artifact Discipline: Store all new evidence under `plans/active/TEST-PYTORCH-001/reports/<ISO8601>/`. Each loop should at minimum add `summary.md`, targeted pytest logs, and fixture notes. Reference artifact paths in `docs/fix_plan.md` Attempts history.
+- Artifact Discipline: Store all new evidence under `docs/plans/TEST-PYTORCH-001/reports/<ISO8601>/`. Each loop should at minimum add `summary.md`, targeted pytest logs, and fixture notes. Reference artifact paths in `docs/fix_plan.md` Attempts history.
 
 ---
 
@@ -32,7 +32,7 @@ Exit Criteria: Baseline summary documenting available fixtures, current test sta
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
 | A1 | Inventory existing coverage and blockers | [x] | Re-read `tests/torch/test_integration_workflow_torch.py` and charter to identify gaps (e.g., unittest style, heavy dataset). Document findings in `reports/<TS>/baseline/inventory.md`. **COMPLETE 2025-10-19:** Comprehensive inventory at `reports/2025-10-19T115303Z/baseline/inventory.md` catalogues unittest style, GREEN baseline status, zero blockers. |
-| A2 | Validate fixture + CLI readiness | [x] | Dry-run `pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv` with `TEE_LOG=plans/active/TEST-PYTORCH-001/reports/<TS>/baseline/pytest_integration_current.log`. Note runtime, return code, and missing artifacts. **COMPLETE 2025-10-19:** Baseline PASSED in 32.54s (27% of 120s budget), full log captured at `reports/2025-10-19T115303Z/baseline/pytest_integration_current.log`. |
+| A2 | Validate fixture + CLI readiness | [x] | Dry-run `pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv` with `TEE_LOG=docs/plans/TEST-PYTORCH-001/reports/<TS>/baseline/pytest_integration_current.log`. Note runtime, return code, and missing artifacts. **COMPLETE 2025-10-19:** Baseline PASSED in 32.54s (27% of 120s budget), full log captured at `reports/2025-10-19T115303Z/baseline/pytest_integration_current.log`. |
 | A3 | Capture prerequisites checklist | [x] | Summarize required environment knobs (now `CUDA_VISIBLE_DEVICES="0"` + driver versions, `--disable_mlflow`) and confirm dataset path size/time budget in `reports/<TS>/baseline/summary.md`. **COMPLETE 2025-10-19:** Prerequisites + runtime analysis at `reports/2025-10-19T115303Z/baseline/summary.md`. PyTorch 2.8.0+cu128, dataset 35 MB, CPU-only execution confirmed (legacy). **Update:** Next refresh must restate these prerequisites for a CUDA host and capture GPU model/driver metadata. |
 
 ---
@@ -57,7 +57,7 @@ Exit Criteria: New pytest-based test(s) passing locally with targeted selector, 
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| C1 | Author RED pytest test | [x] | Follow `plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md` (Phase C1) to convert `tests/torch/test_integration_workflow_torch.py` to pytest style with `_run_pytorch_workflow` stub. Capture failure log at `reports/<TS>/phase_c_modernization/pytest_modernization_red.log`. **COMPLETE 2025-10-19:** Pytest conversion done with NotImplementedError stub. RED log captured at `reports/2025-10-19T120415Z/phase_c_modernization/pytest_modernization_red.log` (0.83s runtime, NotImplementedError as expected). Legacy unittest wrapped with `@pytest.mark.skip`. |
+| C1 | Author RED pytest test | [x] | Follow `docs/plans/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md` (Phase C1) to convert `tests/torch/test_integration_workflow_torch.py` to pytest style with `_run_pytorch_workflow` stub. Capture failure log at `reports/<TS>/phase_c_modernization/pytest_modernization_red.log`. **COMPLETE 2025-10-19:** Pytest conversion done with NotImplementedError stub. RED log captured at `reports/2025-10-19T120415Z/phase_c_modernization/pytest_modernization_red.log` (0.83s runtime, NotImplementedError as expected). Legacy unittest wrapped with `@pytest.mark.skip`. |
 | C2 | Implement orchestration glue | [x] | ✅ 2025-10-19 — Helper implemented at `tests/torch/test_integration_workflow_torch.py:65-161` with subprocess train/infer commands. Targeted test PASSED in 35.86s. GREEN log captured at `reports/2025-10-19T122449Z/phase_c_modernization/pytest_modernization_green.log`. Full regression: 236 passed, 17 skipped, 1 xfailed, ZERO new failures. Artifacts + summary at `reports/2025-10-19T122449Z/phase_c_modernization/`. |
 | C3 | Validate artifact set + metrics | [x] | ✅ 2025-10-19 — Artifact audit complete at `reports/2025-10-19T130900Z/phase_c_modernization/artifact_audit.md` (checkpoint format, reconstruction outputs, runtime validation). Rerun log captured at `pytest_modernization_rerun.log` (1 PASSED in 35.98s). Documentation updates: test comment (line 188), implementation.md C2 row, C2 summary.md. fix_plan.md Attempt #7 logged. Summary at `reports/2025-10-19T130900Z/phase_c_modernization/summary.md`. |
 
@@ -68,7 +68,7 @@ Goal: Lock in regression within CI, document runtime/perf, and update ledgers.
 Prereqs: Phase C GREEN run complete with artifacts.
 Exit Criteria: CI-ready guidance, parity metrics, ledger updates, and follow-on risks captured.
 
-Planning reference: `plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/plan.md`
+Planning reference: `docs/plans/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/plan.md`
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
@@ -79,14 +79,14 @@ Planning reference: `plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/ph
 ---
 
 ## Artifact Map Template
-- `plans/active/TEST-PYTORCH-001/reports/<ISO>/baseline/` — Phase A inventory + logs
-- `plans/active/TEST-PYTORCH-001/reports/<ISO>/fixture/` — Fixture notes, config profiles
-- `plans/active/TEST-PYTORCH-001/reports/<ISO>/phase_c_modernization/` — Pytest migration plan, RED/GREEN logs, artifact audits
-- `plans/active/TEST-PYTORCH-001/reports/<ISO>/summary.md` — Loop-level summary & decisions
+- `docs/plans/TEST-PYTORCH-001/reports/<ISO>/baseline/` — Phase A inventory + logs
+- `docs/plans/TEST-PYTORCH-001/reports/<ISO>/fixture/` — Fixture notes, config profiles
+- `docs/plans/TEST-PYTORCH-001/reports/<ISO>/phase_c_modernization/` — Pytest migration plan, RED/GREEN logs, artifact audits
+- `docs/plans/TEST-PYTORCH-001/reports/<ISO>/summary.md` — Loop-level summary & decisions
 
 ## References
 - `plans/pytorch_integration_test_plan.md`
 - `docs/TESTING_GUIDE.md`
 - `docs/workflows/pytorch.md`
 - `specs/ptychodus_api_spec.md` §4.5–§4.6
-- `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md`
+- `docs/plans/INTEGRATE-PYTORCH-001/phase_e2_implementation.md`

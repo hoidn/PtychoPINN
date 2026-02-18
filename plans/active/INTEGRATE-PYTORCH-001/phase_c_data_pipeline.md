@@ -3,7 +3,7 @@
 ## Context
 - Initiative: INTEGRATE-PYTORCH-001
 - Phase Goal: Deliver a torch-optional data pipeline that consumes canonical NPZ datasets, reuses the legacy grouping semantics, and presents model-ready tensors equivalent to the TensorFlow `PtychoDataContainer` contract.
-- Dependencies: specs/data_contracts.md (NPZ schema); specs/ptychodus_api_spec.md (§4 data ingestion, §5.2 training config fields); docs/architecture.md (§3 data loading pipeline); docs/DEVELOPER_GUIDE.md (§3 data pipeline, §10 params lifecycle); plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T020000Z/parity_map.md (Gap #2 details); plans/pytorch_integration_test_plan.md (fixture + runtime constraints).
+- Dependencies: specs/data_contracts.md (NPZ schema); specs/ptychodus_api_spec.md (§4 data ingestion, §5.2 training config fields); docs/architecture.md (§3 data loading pipeline); docs/DEVELOPER_GUIDE.md (§3 data pipeline, §10 params lifecycle); docs/plans/INTEGRATE-PYTORCH-001/reports/2025-10-17T020000Z/parity_map.md (Gap #2 details); plans/pytorch_integration_test_plan.md (fixture + runtime constraints).
 - Coordination: TEST-PYTORCH-001 for shared fixtures; INTEGRATE-PYTORCH-000 stakeholder brief (Delta 2 data pipeline) for governance cues.
 
 ---
@@ -15,9 +15,9 @@ Exit Criteria: Artifact pair `data_contract.md` + `torch_gap_matrix.md` under a 
 
 | ID | Task Description | State | How/Why & Guidance (including API / document / artifact / source file references) |
 | --- | --- | --- | --- |
-| C.A1 | Summarize TensorFlow data pipeline contract | [x] | ✅ 2025-10-17 — See `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/data_contract.md` for canonical keys, shapes, dtypes, normalization, and cache naming derived from specs/data_contracts.md §1, specs/ptychodus_api_spec.md §4, and docs/architecture.md §3. |
-| C.A2 | Inventory PyTorch dataset outputs and gaps | [x] | ✅ 2025-10-17 — Findings captured in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/torch_gap_matrix.md`, enumerating current `ptycho_torch/dset_loader_pt_mmap.py` tensors, cache behaviour, and divergences from the TensorFlow contract. |
-| C.A3 | Decide minimum fixture & ROI for tests | [x] | ✅ 2025-10-17 — ROI defined in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/data_contract.md` §7 using the `datasets/fly/fly001_transposed.npz` subset, with preprocessing notes and TEST-PYTORCH-001 coordination items. |
+| C.A1 | Summarize TensorFlow data pipeline contract | [x] | ✅ 2025-10-17 — See `docs/plans/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/data_contract.md` for canonical keys, shapes, dtypes, normalization, and cache naming derived from specs/data_contracts.md §1, specs/ptychodus_api_spec.md §4, and docs/architecture.md §3. |
+| C.A2 | Inventory PyTorch dataset outputs and gaps | [x] | ✅ 2025-10-17 — Findings captured in `docs/plans/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/torch_gap_matrix.md`, enumerating current `ptycho_torch/dset_loader_pt_mmap.py` tensors, cache behaviour, and divergences from the TensorFlow contract. |
+| C.A3 | Decide minimum fixture & ROI for tests | [x] | ✅ 2025-10-17 — ROI defined in `docs/plans/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/data_contract.md` §7 using the `datasets/fly/fly001_transposed.npz` subset, with preprocessing notes and TEST-PYTORCH-001 coordination items. |
 
 ---
 
@@ -28,7 +28,7 @@ Exit Criteria: New pytest module(s) under `tests/torch/` with targeted selectors
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| C.B1 | Blueprint test module structure | [x] | ✅ 2025-10-17 — Torch-optional harness blueprint documented in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/test_blueprint.md`, covering fixtures, skip guards, and ROI guidance. |
+| C.B1 | Blueprint test module structure | [x] | ✅ 2025-10-17 — Torch-optional harness blueprint documented in `docs/plans/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/test_blueprint.md`, covering fixtures, skip guards, and ROI guidance. |
 | C.B2 | Author failing RawData parity test | [x] | Completed 2025-10-17 — see `reports/2025-10-17T071836Z/pytest_raw_data_red.log` capturing red-phase failure for `test_raw_data_torch_matches_tensorflow`. |
 | C.B3 | Author failing data-container test | [x] | Completed 2025-10-17 — see `reports/2025-10-17T071836Z/pytest_data_container_red.log` documenting failing coverage for `test_data_container_shapes_and_dtypes` + Y dtype check. |
 

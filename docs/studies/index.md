@@ -2,6 +2,31 @@
 
 ## Grid-Lines Studies
 
+### `nersc-scan807-cameraman-ptychovit-hybrid-orchestration`
+
+- Purpose: Run checkpoint-restored `pinn_ptychovit` inference on `scan807` and `cameraman256`, train `pinn_hybrid_resnet` on cameraman top/bottom-half (`N=128`, 40 epochs), run checkpoint-reuse hybrid inference across both full datasets, and aggregate per-dataset metrics/visuals.
+- Script: `scripts/studies/runbooks/run_nersc_scan807_cameraman_study.py`
+- N=128 prep semantics: diffraction is block-binned; `objectGuess`/`probeGuess` are center-cropped; coordinates remain in the same pixel frame.
+- Core helpers:
+  - `scripts/studies/nersc_pair_adapter.py`
+  - `scripts/studies/prepare_nersc_hybrid_dataset.py`
+  - `scripts/studies/nersc_orchestration.py`
+  - `scripts/studies/hybrid_checkpoint_inference.py`
+
+CLI entry point (full command):
+
+```bash
+python scripts/studies/runbooks/run_nersc_scan807_cameraman_study.py \
+  --scan807-dp /home/ollie/Downloads/nersc/testdata/scan807_dp.hdf5 \
+  --scan807-para /home/ollie/Downloads/nersc/testdata/scan807_para.hdf5 \
+  --cameraman-dp /home/ollie/Downloads/nersc/data/cameraman256_dp.hdf5 \
+  --cameraman-para /home/ollie/Downloads/nersc/data/cameraman256_para.hdf5 \
+  --ptychovit-checkpoint <path/to/best_model.pth> \
+  --half top \
+  --output-dir outputs/nersc_scan807_cameraman_study \
+  --seed 3
+```
+
 ### `grid-lines-external-fly001-n128-top-train-full-test-e40`
 
 - Purpose: Run external-raw `fly001` study at `N=128` with top-half train and full-object test (no additional subsampling), comparing Torch `cnn` and `hybrid_resnet`.

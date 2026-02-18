@@ -7,7 +7,7 @@
 - Status: pending
 - Priority: High
 - Working Plan: this file
-- Reports Hub (primary): `plans/active/FIX-PYTEST-SUITE-REALIGN-001/reports/2025-11-14T000000Z/test_cleanup/`
+- Reports Hub (primary): `docs/plans/FIX-PYTEST-SUITE-REALIGN-001/reports/2025-11-14T000000Z/test_cleanup/`
 
 ## Context Priming (read before edits)
 - [ ] docs/index.md — Canonical map of specs, workflows, and policies; use it to ensure we do not miss required references when touching CLI/workflow code.
@@ -16,7 +16,7 @@
 - [ ] docs/findings.md — Capture CONFIG-001, POLICY-001, DEVICE-MISMATCH-001, EXEC-ACCUM-001; these findings govern CLI config bridging, PyTorch requirements, and Lightning trainer behavior.
 - [ ] docs/architecture.md & docs/architecture_torch.md — High-level data/workflow diagrams covering CLI configuration flow, PyTorch workflows, and legacy params bridge.
 - [ ] docs/specs/spec-ptycho-workflow.md & docs/specs/ptychodus_api_spec.md — Contract for workflow orchestration, CLI interfaces, and reconstructor lifecycle that the PyTorch tests assert against.
-- [ ] plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py — Current Phase G orchestrator whose behavior the failing Phase G tests target.
+- [ ] docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py — Current Phase G orchestrator whose behavior the failing Phase G tests target.
 - [ ] prompts/main.md & prompts/supervisor.md — Loop execution format and dwell/test evidence policies that apply when implementing this plan.
 
 ## Problem Statement
@@ -98,7 +98,7 @@ Pytest currently fails across multiple suites because the training CLI rejects m
 - Maintain POLICY-001: do not skip PyTorch requirements silently; tests should surface actionable skip/xfail reasons when torch/lightning are absent.
 
 ## Artifacts Index
-- Reports root: `plans/active/FIX-PYTEST-SUITE-REALIGN-001/reports/`
+- Reports root: `docs/plans/FIX-PYTEST-SUITE-REALIGN-001/reports/`
 - Latest run: `2025-11-14T000000Z/test_cleanup/`
 
 ## Open Questions & Follow-ups

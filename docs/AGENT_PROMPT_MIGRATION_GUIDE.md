@@ -5,7 +5,7 @@ This guide captures the workflow we followed when modernising the prompts under 
 ## Why This Matters
 - Prompts are the control plane for the supervisor/engineer loop; stale paths break autonomy and can trap loops in dead ends.
 - Documentation is the authoritative source of truth. Every reference inside a prompt must point at living files so agents discover the right context before acting.
-- Plan artefacts are now stored under `plans/active/<initiative>/reports/…`; prompts must steer outputs there for traceability.
+- Plan artefacts are now stored under `docs/plans/<initiative>/reports/…`; prompts must steer outputs there for traceability.
 
 ## Prerequisites
 1. Read `docs/index.md` to understand the up‑to‑date documentation map.
@@ -17,7 +17,7 @@ This guide captures the workflow we followed when modernising the prompts under 
    - `docs/DEVELOPER_GUIDE.md`
    - `docs/TESTING_GUIDE.md`
    - `docs/development/TEST_SUITE_INDEX.md`
-4. Confirm the artefact storage policy in `CLAUDE.md` (plans/active reports convention).
+4. Confirm the artefact storage policy in `CLAUDE.md` (docs/plans reports convention).
 
 ## Migration Workflow
 
@@ -30,10 +30,10 @@ This guide captures the workflow we followed when modernising the prompts under 
 - Replace legacy spec references with the two authoritative specs listed above.
 - Swap `arch.md` for `docs/architecture.md`, and fold in `docs/DEVELOPER_GUIDE.md` where architectural intent lives.
 - Route testing lookups through `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`.
-- For PyTorch parity/config content, rely on `docs/workflows/pytorch.md` and plans under `plans/ptychodus_pytorch_integration_plan.md`.
+- For PyTorch parity/config content, rely on `docs/workflows/pytorch.md` and plans under `docs/plans/ptychodus_pytorch_integration_plan.md`.
 
 ### 3. Update Artefact Destinations
-- Ensure every prompt that writes evidence points at `plans/active/<initiative>/reports/<timestamp>/…`.
+- Ensure every prompt that writes evidence points at `docs/plans/<initiative>/reports/<timestamp>/…`.
 - When prompts instruct supervisors/engineers to read artefacts, reference the same reports directory.
 - Remove hard-coded filenames (e.g., `reports/debug/...`, `golden_suite_generator/nanoBragg`) in favour of doc-driven lookups.
 
@@ -51,7 +51,7 @@ This guide captures the workflow we followed when modernising the prompts under 
 - [ ] All spec references point to `specs/ptychodus_api_spec.md` / `specs/data_contracts.md`.
 - [ ] Architecture references use `docs/architecture.md` (with `docs/DEVELOPER_GUIDE.md` when needed).
 - [ ] Testing commands come from `docs/TESTING_GUIDE.md` or `docs/development/TEST_SUITE_INDEX.md`.
-- [ ] Artefact destinations use `plans/active/<initiative>/reports/<timestamp>/…`.
+- [ ] Artefact destinations use `docs/plans/<initiative>/reports/<timestamp>/…`.
 - [ ] Examples reflect current workflows (integration, PyTorch parity, plan artefacts).
 - [ ] Legacy tool paths (`scripts/validation/`, `golden_suite_generator/`) removed or documented with modern alternatives.
 
@@ -60,4 +60,3 @@ This guide captures the workflow we followed when modernising the prompts under 
 - Keep migrations incremental. Touch related prompts together so Commit history stays coherent.
 - Record lessons learned (e.g., new artefact policies) in `docs/findings.md` so future edits have context.
 - When in doubt, lean on `docs/index.md` as the single source of truth for where a topic now lives.
-

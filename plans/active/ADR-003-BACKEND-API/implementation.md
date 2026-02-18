@@ -3,8 +3,8 @@
 <plan_update version="1.0">
   <trigger>GPU execution is now the default policy for PyTorch backend work; plan narratives referencing CPU-only safety need to be updated.</trigger>
   <focus_id>ADR-003-BACKEND-API</focus_id>
-  <documents_read>docs/index.md, docs/workflows/pytorch.md, plans/active/ADR-003-BACKEND-API/implementation.md</documents_read>
-  <current_plan_path>plans/active/ADR-003-BACKEND-API/implementation.md</current_plan_path>
+  <documents_read>docs/index.md, docs/workflows/pytorch.md, docs/plans/ADR-003-BACKEND-API/implementation.md</documents_read>
+  <current_plan_path>docs/plans/ADR-003-BACKEND-API/implementation.md</current_plan_path>
   <proposed_changes>Update command references to pin CUDA devices and annotate sections that previously called out CPU-safe defaults with guidance to migrate toward GPU-first execution.</proposed_changes>
   <impacts>Factories and workflows must ultimately adopt CUDA defaults; interim plan text flags the requirement so future phases prioritize the change.</impacts>
   <ledger_updates>Reference this plan update in docs/fix_plan.md when logging the next ADR-003 attempt.</ledger_updates>
@@ -14,7 +14,7 @@
 ## Context
 - Initiative: ADR-003-BACKEND-API (Standardize PyTorch backend API)
 - Phase Goal: Implement the ADR-003 two-layer architecture while preserving parity with TensorFlow workflows and CLI behaviour.
-- Dependencies: `specs/ptychodus_api_spec.md` §4 (reconstructor contract), `docs/workflows/pytorch.md`, config bridge docs (`plans/active/INTEGRATE-PYTORCH-001/reports/*`), existing CLI scripts (`ptycho_torch/train.py`, `ptycho_torch/inference.py`).
+- Dependencies: `specs/ptychodus_api_spec.md` §4 (reconstructor contract), `docs/workflows/pytorch.md`, config bridge docs (`docs/plans/INTEGRATE-PYTORCH-001/reports/*`), existing CLI scripts (`ptycho_torch/train.py`, `ptycho_torch/inference.py`).
 
 ### Phase A — Architecture Carve-Out
 Goal: Confirm current implementation surfaces, inventory execution knobs, and align plan with existing initiatives (INTEGRATE-PYTORCH-001).
@@ -73,6 +73,6 @@ Exit Criteria: `api/` surface deprecated, ADR status set to Accepted, ledger upd
 | E3 | Deprecation & closure | [x] | ✅ Phase E.C complete (Attempts #72, #TBD-closeout). E.C1: API deprecation warning landed (`reports/2025-10-24T070500Z/phase_e_governance/api_deprecation/2025-10-24T070500Z/`, tests GREEN). E.C2/E.C3: Governance ledger sync + archival decisions documented (`reports/2025-11-04T093500Z/phase_e_governance_closeout/docs/summary.md`). |
 
 ## Reporting Discipline
-- All artefacts stored under `plans/active/ADR-003-BACKEND-API/reports/<ISO8601>/` with descriptive filenames.
+- All artefacts stored under `docs/plans/ADR-003-BACKEND-API/reports/<ISO8601>/` with descriptive filenames.
 - Tests follow native pytest style; full-suite runs coordinated with existing integration plans.
 - Reference this plan from docs/fix_plan.md entry `[ADR-003-BACKEND-API]`.

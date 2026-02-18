@@ -6,12 +6,12 @@ Date: 2025-11-12
 
 ## Context
 
-The workflow used timestamped “Reports Hubs” under `plans/active/<initiative>/reports/<ISO8601Z>/` to store per‑loop artifacts. This introduced friction (bulky commits, special git rules), duplicated sources of truth (hub summaries vs. fix_plan ledger), and allowed dwell resets on non‑code evidence.
+The workflow used timestamped “Reports Hubs” under `docs/plans/<initiative>/reports/<ISO8601Z>/` to store per‑loop artifacts. This introduced friction (bulky commits, special git rules), duplicated sources of truth (hub summaries vs. fix_plan ledger), and allowed dwell resets on non‑code evidence.
 
 ## Decision
 
 - Deprecate report hubs. Do not create new `reports/<timestamp>/` directories.
-- For each initiative, keep a single `plans/active/<initiative>/summary.md` and prepend a short Turn Summary per loop.
+- For each initiative, keep a single `docs/plans/<initiative>/summary.md` and prepend a short Turn Summary per loop.
 - Store bulky artifacts outside the repo or under a git‑ignored `.artifacts/` folder; link from the plan/ledger.
 - Dwell resets only after implementation evidence (production/test code commits), never on “analysis uploads”.
 - Remove “evidence‑only” git exceptions; always perform normal pull/rebase hygiene.
@@ -30,5 +30,5 @@ The workflow used timestamped “Reports Hubs” under `plans/active/<initiative
 ## Follow‑ups
 
 - Scrub remaining hub mentions in docs as they surface.
-- Optional: add a CI check that rejects new `plans/**/reports/**` additions and large binaries in docs/plans.
+- Optional: add a CI check that rejects new `docs/plans/**/reports/**` additions and large binaries in docs/plans.
 

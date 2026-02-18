@@ -94,7 +94,7 @@ The prior fixes (Zero-Gamma stable_hybrid and aggressive AGC 0.01) failed in pra
 
 **Shootout recommendation:** Run at depth 4 (confirmed crash depth) with ≥5 seeds per arm. Consider also running depth 6 as a stress test. Note that stable_hybrid (LayerScale) collapses at ALL depths (STABLE-LS-001 — architectural incompatibility), so the Shootout would only compare control hybrid variants (clip vs AGC vs no-clip).
 
-Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/crash_hunt_summary.{json,md}`.
+Artifacts: `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/crash_hunt_summary.{json,md}`.
 
 ---
 

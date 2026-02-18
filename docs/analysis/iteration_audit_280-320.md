@@ -243,7 +243,7 @@ scripts/orchestration/supervisor.py (enforcement)
 ### Intervention 3: Commit 0e859c10 (Nov 12, 2:58 PM, ~Iter 306)
 
 **Changes**:
-1. **Deprecate timestamped hubs**: Switch to `plans/active/<initiative>/summary.md`
+1. **Deprecate timestamped hubs**: Switch to `docs/plans/<initiative>/summary.md`
 2. **External artifacts**: Use `.artifacts/` or external storage + links
 3. **Adjusted git hygiene**: Simpler evidence-only detection
 4. **ADR-0007**: Architectural decision record for hub removal
@@ -276,7 +276,7 @@ scripts/orchestration/supervisor.py (enforcement)
 | **Stall-autonomy** | 317c360a (iter 290) | main.md | Task decomposition | Iter 290+ | Behavioral (summaries) |
 | **Three-tier gates (2/4/6)** | 3bf5a593 (iter 293) | supervisor.md | Escalation tiers | Iter 293+ | Enforcement in summaries |
 | **ralph_last_commit** | 3bf5a593 (iter 293) | supervisor.md, CLAUDE.md | SHA tracking | Iter 293+ | galph_memory.md field |
-| **Per-initiative summary.md** | 0e859c10 (iter 306) | CLAUDE.md, supervisor.md | File structure | Iter 306+ | plans/active/<init>/summary.md |
+| **Per-initiative summary.md** | 0e859c10 (iter 306) | CLAUDE.md, supervisor.md | File structure | Iter 306+ | docs/plans/<init>/summary.md |
 | **External .artifacts** | 0e859c10 (iter 306) | CLAUDE.md, .gitignore | Storage policy | Iter 306+ | .gitignore entry |
 
 ---

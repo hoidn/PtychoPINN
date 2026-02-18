@@ -15,7 +15,7 @@
 
 ## 4. Execution Proof
 - For any test-related task, collect:
-  - pytest log at `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/pytest.log`
+  - pytest log at `docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/pytest.log`
   - results summary at `.../summary.md` with pass/fail counts and any skips justified
   - evidence CSVs from compare_models (MS-SSIM etc.)
 - Acceptable SKIP reasons: pty-chi unavailable; GPU-specific long tests; long benchmarks.
@@ -42,7 +42,7 @@ Validates:
 - MS-SSIM config: sigma=1.0, emphasize_phase=True
 
 **Execution proof:**
-- `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T021500Z/green/pytest_green.log`
+- `docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T021500Z/green/pytest_green.log`
 - All tests PASSED; no SKIPs
 
 ### Phase B — Dataset Contract Validation (COMPLETE)
@@ -188,7 +188,7 @@ Validates:
 python -m studies.fly64_dose_overlap.training \
   --phase-c-root tmp/phase_c_training_evidence \
   --phase-d-root tmp/phase_d_training_evidence \
-  --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/real_run \
+  --artifact-root docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/real_run \
   --dose 1000 \
   --dry-run
 ```
@@ -202,12 +202,12 @@ python -m studies.fly64_dose_overlap.training \
 **Documentation Registry Updates (Attempt #26):**
 - `docs/TESTING_GUIDE.md:110-142` — Added Phase E5 skip summary narrative, updated selector snippets, and documented deterministic CLI dry-run command with artifact path.
 - `docs/development/TEST_SUITE_INDEX.md:60` — Updated `test_dose_overlap_training.py` row with Phase E5 coverage (skip summary file, schema, manifest consistency) and evidence pointer.
-- `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:138-184` — Expanded Phase E section from placeholder to full deliverables summary (E1-E5.5) with artifact hubs, test coverage, and CLI command.
+- `docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:138-184` — Expanded Phase E section from placeholder to full deliverables summary (E1-E5.5) with artifact hubs, test coverage, and CLI command.
 - This file (test_strategy.md) — Replaced "Future Phases (Pending)" with Phase E5 COMPLETE section documenting selectors, coverage, execution proof, and findings alignment.
 
 #### Phase E — Training Loss Guardrail (2025-11-12)
-- Maintain a blessed manifest at `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/reference/training_manifest.json`. Populate it by copying the manifest from the first dense gs2 or baseline gs1 run that passes visual inspection; refresh it whenever a newer run becomes the quality baseline.
-- Every real run must execute `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/check_training_loss.py --reference plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/reference/training_manifest.json --candidate <current_manifest> --dose <value> --view <value> --gridsize <value> [--tolerance 0.25]`.
+- Maintain a blessed manifest at `docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/reference/training_manifest.json`. Populate it by copying the manifest from the first dense gs2 or baseline gs1 run that passes visual inspection; refresh it whenever a newer run becomes the quality baseline.
+- Every real run must execute `docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/check_training_loss.py --reference docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/reference/training_manifest.json --candidate <current_manifest> --dose <value> --view <value> --gridsize <value> [--tolerance 0.25]`.
 - Archive the checker stdout/stderr under the same reports hub (e.g., `analysis/check_training_loss.log`) and cite it in summary.md. Treat any non-zero exit, missing `final_loss`, non-finite value, or tolerance breach as a BLOCKED state for the loop.
 - How-To Map requirement: list the checker invocation as a mapped “selector” alongside pytest commands so Galph/Ralph can reference the artifact path and tolerance used.
 
@@ -259,7 +259,7 @@ python -m studies.fly64_dose_overlap.training \
 - `python -m studies.fly64_dose_overlap.comparison --phase-c-root <phase C datasets> --phase-e-root <phase E checkpoints> --phase-f-root <Phase F manifests> --artifact-root .../cli --dose 1000 --view dense --split train --dry-run` — manifest + summary written; execution deferred. Log: `.../cli/phase_g_cli_dry_run.log`.
 
 - **Absolute MS-SSIM sanity check (new):** After a real comparison run, execute  
-  `python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/report_phase_g_dense_metrics.py --metrics <hub>/analysis/metrics_summary.json --ms-ssim-threshold 0.80 --output <hub>/analysis/aggregate_report.md --highlights <hub>/analysis/metrics_delta_highlights.txt`.  
+  `python docs/plans/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/report_phase_g_dense_metrics.py --metrics <hub>/analysis/metrics_summary.json --ms-ssim-threshold 0.80 --output <hub>/analysis/aggregate_report.md --highlights <hub>/analysis/metrics_delta_highlights.txt`.  
   Archive the stdout/Markdown artifact and ensure the **MS-SSIM Sanity Check** table shows `OK` for every model; any `LOW (...)` status blocks the attempt until the reconstruction is re-run or the threshold rationale is documented. The downstream `analyze_dense_metrics.py` invocation inherits the same threshold and should be cited in How-To Maps alongside its log.
 
 **Coverage status:** G1 (job builder + CLI scaffolding) satisfied. G0.1 inventory complete — see `reports/2025-11-05T162500Z/phase_g_inventory/analysis/inventory.md` for the authoritative dataset/checkpoint/manifests map and sparse acceptance stats. G0.2 test-strategy refresh landed with active selectors, collect-proof evidence, and CLI dry-run references.

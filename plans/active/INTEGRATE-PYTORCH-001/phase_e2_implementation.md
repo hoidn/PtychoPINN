@@ -3,8 +3,8 @@
 ## Context
 - Initiative: INTEGRATE-PYTORCH-001
 - Phase Goal: Close Phase E2 by wiring the PyTorch train/infer workflow so the new integration tests pass, then capture TensorFlow ↔ PyTorch parity evidence.
-- Dependencies: `plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md` (§E2), backend selection blueprint (`reports/2025-10-17T180500Z/phase_e_backend_design.md`), red-phase evidence (`reports/2025-10-17T213500Z/{phase_e_fixture_sync.md,red_phase.md,phase_e_red_integration.log}`), config bridge adapters (`ptycho_torch/config_bridge.py`), CLI contract in `specs/ptychodus_api_spec.md` §4.5, workflow guidance in `docs/workflows/pytorch.md`.
-- Artifact Discipline: Store new execution artifacts under ISO directories (e.g., `plans/active/INTEGRATE-PYTORCH-001/reports/<ISO8601>/phase_e2_green.md`, `.../phase_e_tf_baseline.log`). Reference each artifact from docs/fix_plan.md Attempts history.
+- Dependencies: `docs/plans/INTEGRATE-PYTORCH-001/phase_e_integration.md` (§E2), backend selection blueprint (`reports/2025-10-17T180500Z/phase_e_backend_design.md`), red-phase evidence (`reports/2025-10-17T213500Z/{phase_e_fixture_sync.md,red_phase.md,phase_e_red_integration.log}`), config bridge adapters (`ptycho_torch/config_bridge.py`), CLI contract in `specs/ptychodus_api_spec.md` §4.5, workflow guidance in `docs/workflows/pytorch.md`.
+- Artifact Discipline: Store new execution artifacts under ISO directories (e.g., `docs/plans/INTEGRATE-PYTORCH-001/reports/<ISO8601>/phase_e2_green.md`, `.../phase_e_tf_baseline.log`). Reference each artifact from docs/fix_plan.md Attempts history.
 
 ---
 
@@ -41,4 +41,4 @@ Exit Criteria: TensorFlow and PyTorch integration logs archived, summary documen
 - [ ] PyTorch dependency guidance synchronized with POLICY-001 messaging.
 - [x] Each D-phase task records command, output paths, and conclusions in the summary artifact.
 - [x] docs/fix_plan.md Attempts history updated in same loop as execution.
-- [x] `plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md` cross-references this plan for E2.C/E2.D guidance.
+- [x] `docs/plans/INTEGRATE-PYTORCH-001/phase_e_integration.md` cross-references this plan for E2.C/E2.D guidance.

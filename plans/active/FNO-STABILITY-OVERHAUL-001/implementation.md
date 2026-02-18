@@ -114,16 +114,16 @@ if self.gradient_clip_val is not None and self.gradient_clip_val > 0:
 
 ## Phase 3: Validation (Stage A Shootout)
 
-Stage A validates the architectural fix (`stable_hybrid`) against the optimization fix (Hybrid + AGC) using the grid-lines harness described in `docs/strategy/mainstrategy.md §2.Stage A`. All three arms must share the exact cached dataset and probe so that loss/SSIM comparisons are meaningful. Use the compare wrapper to run the TF workflow + Torch runner in lockstep, and archive every CLI log under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/` per `docs/TESTING_GUIDE.md`.
+Stage A validates the architectural fix (`stable_hybrid`) against the optimization fix (Hybrid + AGC) using the grid-lines harness described in `docs/strategy/mainstrategy.md §2.Stage A`. All three arms must share the exact cached dataset and probe so that loss/SSIM comparisons are meaningful. Use the compare wrapper to run the TF workflow + Torch runner in lockstep, and archive every CLI log under `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/` per `docs/TESTING_GUIDE.md`.
 
 ### Task 3.1: Prepare shared dataset + run directories
 
-**Files / Paths:** `scripts/studies/grid_lines_compare_wrapper.py`; output root `outputs/grid_lines_stage_a/`; artifacts hub `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/`.
+**Files / Paths:** `scripts/studies/grid_lines_compare_wrapper.py`; output root `outputs/grid_lines_stage_a/`; artifacts hub `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/`.
 
 1. Create the root folders:
    ```bash
    mkdir -p outputs/grid_lines_stage_a/{arm_control,arm_stable,arm_agc}
-   mkdir -p plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z
+   mkdir -p docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z
    ```
 2. The first arm (`arm_control`) generates the canonical dataset under `arm_control/datasets/N64/gs1/`. After it finishes, copy that `datasets` tree to the other arms **before** running them so all NPZs/metadata match:
    ```bash
@@ -227,7 +227,7 @@ Artifacts: log to `stage_a_arm_agc.log` and archive the `runs/pinn_hybrid` metri
            'phase_ssim': ssim[1] if isinstance(ssim, (list, tuple)) else None,
        })
    rows.sort(key=lambda r: (r['best_val_loss'] is None, r['best_val_loss']))
-   out = pathlib.Path('plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/stage_a_metrics.json')
+   out = pathlib.Path('docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/stage_a_metrics.json')
    out.write_text(json.dumps(rows, indent=2))
    PY
    ```
@@ -254,10 +254,10 @@ Stage B validates whether the Stage A winner (control arm: `hybrid` + norm clip 
 **Paths:**
 - Output root: `outputs/grid_lines_stage_b/deep_control`
 - Shared datasets: copy from `outputs/grid_lines_stage_a/arm_control/datasets/`
-- Artifacts hub: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/`
+- Artifacts hub: `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/`
 
 **Steps:**
-1. Ensure the artifacts hub exists: `mkdir -p plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z`.
+1. Ensure the artifacts hub exists: `mkdir -p docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z`.
 2. Create the Stage B output tree and wipe any stale runs:
    ```bash
    mkdir -p outputs/grid_lines_stage_b/deep_control
@@ -285,7 +285,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
   --torch-grad-clip 1.0 --torch-grad-clip-algorithm norm \
   --torch-loss-mode mae --torch-infer-batch-size 8 \
   --torch-log-grad-norm --torch-grad-norm-log-freq 1 \
-  2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/stage_b_deep_control.log
+  2>&1 | tee docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/stage_b_deep_control.log
 ```
 
 **Notes:**
@@ -295,13 +295,13 @@ python scripts/studies/grid_lines_compare_wrapper.py \
   ```bash
   python scripts/internal/stage_a_dump_stats.py \
     --run-dir outputs/grid_lines_stage_b/deep_control/runs/pinn_hybrid \
-    --out-json plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/stage_b_deep_control_stats.json
+    --out-json docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/stage_b_deep_control_stats.json
   ```
 
 ### Task 4.3: Summarize Stage B metrics + decide next move
 
 1. Extend the existing metrics snippet to produce `stage_b_metrics.json` under the new artifacts hub (same format as Stage A, but single-row). Include `best_val_loss`, amp/phase SSIM, amp MAE, and gradient norm extrema.
-2. Author `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/stage_b_summary.md` with:
+2. Author `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/stage_b_summary.md` with:
    - Table comparing Stage A control vs Stage B deep control (val_loss, SSIMs, MAEs, grad norm max/median).
    - Narrative on whether instability emerged at depth; cite `docs/strategy/mainstrategy.md §Stage B` for the success criteria.
    - Decision tree: if the deep run fails, outline remediation (e.g., rerun with AGC or stable_hybrid); if it survives, explicitly state the hypothesis revision and propose next experiments (e.g., higher epochs or multi-seed sweep).
@@ -316,7 +316,7 @@ Re-run the Phase 3 regression selectors to prove the CLI plumbing and runner fla
 - `pytest tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_runner_accepts_stable_hybrid -v`
 - `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_passes_grad_clip_algorithm -v`
 
-Archive the pytest logs plus Stage B CLI log, stats JSON, and metrics JSON under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/` per `docs/TESTING_GUIDE.md`.
+Archive the pytest logs plus Stage B CLI log, stats JSON, and metrics JSON under `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T180000Z/` per `docs/TESTING_GUIDE.md`.
 
 ### Task 4.5: Cap Hybrid channel growth + rerun Stage B
 
@@ -332,7 +332,7 @@ Archive the pytest logs plus Stage B CLI log, stats JSON, and metrics JSON under
    - `tests/test_grid_lines_compare_wrapper.py` — add selector ensuring the CLI flag forwards through to the runner call.
 
 **Stage B rerun:**
-5. After the cap is wired, re-run Task 4.2 with `--fno-blocks 8 --torch-max-hidden-channels 512 --torch-log-grad-norm`. Archive `stage_b_deep_control_max512.log`, new stats JSON, metrics JSON, and run artifacts under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T210000Z/`.
+5. After the cap is wired, re-run Task 4.2 with `--fno-blocks 8 --torch-max-hidden-channels 512 --torch-log-grad-norm`. Archive `stage_b_deep_control_max512.log`, new stats JSON, metrics JSON, and run artifacts under `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T210000Z/`.
 6. Update `stage_b_summary.md` comparing Stage A vs the capped Stage B run. Note whether gradients stay bounded and whether loss/SSIM degrade relative to Stage A. If the run still OOMs, fall back to `fno_blocks=6` with the cap and record the gap.
 7. Refresh `docs/strategy/mainstrategy.md` §Stage B, `docs/fix_plan.md` attempts history, and `docs/findings.md` if new behavior (e.g., capped-depth stability) requires a durable lesson.
 
@@ -375,7 +375,7 @@ Stage A proved `stable_hybrid` collapses because InstanceNorm gamma/beta stay ~0
 **Files / Paths:**
 - CLI: `scripts/studies/grid_lines_compare_wrapper.py`
 - Outputs: `outputs/grid_lines_stage_a/arm_stable_layerscale`
-- Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/`
+- Artifacts: `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/`
 
 **Steps:**
 1. Copy the Stage A control datasets so the new arm matches control/AGC data: `rsync -a outputs/grid_lines_stage_a/arm_control/datasets/ outputs/grid_lines_stage_a/arm_stable_layerscale/datasets/`.
@@ -393,7 +393,7 @@ Stage A proved `stable_hybrid` collapses because InstanceNorm gamma/beta stay ~0
      --nepochs 20 --torch-epochs 20 \
      --torch-grad-clip 0.0 --torch-grad-clip-algorithm norm \
      --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8 \
-     2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/stage_a_arm_stable_layerscale.log
+     2>&1 | tee docs/plans/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/stage_a_arm_stable_layerscale.log
    ```
 4. Copy `runs/pinn_stable_hybrid/{history.json,metrics.json,model.pt}` and the top-level `metrics.json` into the same artifacts hub.
 5. Extend `stage_a_metrics.json` (or write `stage_a_metrics_layerscale.json`) with a new row for this arm and summarize the outcome in `stage_a_summary.md`, calling out whether LayerScale fixed the constant-output collapse.
@@ -416,10 +416,10 @@ LayerScale freed the norm weights but the Stage A arm still collapses after epoc
 
 ### Task 6.3: Stage A rerun + docs
 - Rerun the Stage A stable arm with `--torch-scheduler WarmupCosine --torch-learning-rate 5e-4 --torch-lr-warmup-epochs 5 --torch-lr-min-ratio 0.05` (and optionally a constant low-LR baseline) by reusing the cached datasets.
-- Archive logs/history/stats under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/`, update `stage_a_metrics.json`, summarize in `stage_a_summary.md`, and sync `docs/strategy`, `docs/fix_plan`, and `docs/findings` with the outcome (close or update STABLE-LS-001 depending on results).
+- Archive logs/history/stats under `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/<timestamp>/`, update `stage_a_metrics.json`, summarize in `stage_a_summary.md`, and sync `docs/strategy`, `docs/fix_plan`, and `docs/findings` with the outcome (close or update STABLE-LS-001 depending on results).
 - Mapped regression selectors: `pytest tests/torch/test_fno_generators.py::TestStablePtychoBlock -v`, `pytest tests/test_grid_lines_compare_wrapper.py::test_wrapper_handles_stable_hybrid -v`, `pytest tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_runner_accepts_stable_hybrid -v`.
 
-Detailed task steps live in `docs/plans/2026-01-29-stable-hybrid-training-dynamics.md` (mirrored to `plans/active/FNO-STABILITY-OVERHAUL-001/plan_training_dynamics.md`).
+Detailed task steps live in `docs/plans/2026-01-29-stable-hybrid-training-dynamics.md` (mirrored to `docs/plans/FNO-STABILITY-OVERHAUL-001/plan_training_dynamics.md`).
 
 **Status 2026-01-28:** Phase 6 COMPLETE.
 - Tasks 6.1–6.2: Scheduler knobs surfaced across configs/CLI, `build_warmup_cosine_scheduler()` wired into Lightning, unit tests pass.
@@ -431,12 +431,12 @@ Detailed task steps live in `docs/plans/2026-01-29-stable-hybrid-training-dynami
 
 Phase 6 proved scheduler plumbing works but the warmup+cosine attempt still collapsed as soon as LR peaked. Phase 7 targets the remaining STABLE-LS-001 hypotheses — lowering peak LR and/or adding clipping near the warmup exit — without touching datasets, epochs, or any other knobs so metrics stay comparable.
 
-**Plan reference:** `docs/plans/2026-01-29-stable-hybrid-lr-gradient-study.md` (mirrored under `plans/active/FNO-STABILITY-OVERHAUL-001/plan_lr_sweep.md`).
+**Plan reference:** `docs/plans/2026-01-29-stable-hybrid-lr-gradient-study.md` (mirrored under `docs/plans/FNO-STABILITY-OVERHAUL-001/plan_lr_sweep.md`).
 
 ### Task 7.1: Prep shared workspace
 - rsync the Stage A control datasets into three dedicated arm directories (`arm_stable_lowlr`, `arm_stable_warmup_lowlr`, `arm_stable_warmup_clip`).
 - Clear stale `runs/` folders so new metrics/models cannot mix with prior attempts.
-- Create the reports hub `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/` with a README describing shared seeds/params.
+- Create the reports hub `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/` with a README describing shared seeds/params.
 
 ### Task 7.2: Constant low-LR baseline
 - Run `grid_lines_compare_wrapper.py` with `--torch-learning-rate 2.5e-4`, scheduler disabled, and grad norm logging enabled.
@@ -452,7 +452,7 @@ Phase 6 proved scheduler plumbing works but the warmup+cosine attempt still coll
 
 ### Task 7.5: Aggregate + doc sync
 - Extend `stage_a_metrics*.json` with the three new arms and summarize the comparison in `stage_a_summary.md` + `docs/strategy/mainstrategy.md`.
-- Update `docs/fix_plan.md` (Attempts History + FSM), `docs/findings.md` (STABLE-LS-001 evidence), and `plans/active/FNO-STABILITY-OVERHAUL-001/summary.md` with a new turn entry.
+- Update `docs/fix_plan.md` (Attempts History + FSM), `docs/findings.md` (STABLE-LS-001 evidence), and `docs/plans/FNO-STABILITY-OVERHAUL-001/summary.md` with a new turn entry.
 - Required regression selectors (unchanged from Phase 5/6):
   - `pytest tests/torch/test_fno_generators.py::TestStablePtychoBlock::test_layerscale_grad_flow -v`
   - `pytest tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_runner_accepts_stable_hybrid -v`
@@ -469,7 +469,7 @@ Phase 6 proved scheduler plumbing works but the warmup+cosine attempt still coll
 
 Phase 7 eliminated LR and gradient clipping as levers, leaving optimizer sensitivity and architectural incompatibility as the remaining hypotheses in STABLE-LS-001. Phase 8 adds optimizer selection plumbing plus checkpoint-aware activation tooling, then reruns Stage A with SGD and AdamW to see whether either optimizer avoids the collapse (target amp_ssim ≥0.80). Whether the runs succeed or fail, we will immediately capture activation reports from each checkpoint to quantify branch imbalance right before collapse.
 
-**Plan reference:** `docs/plans/2026-01-30-stable-hybrid-optimizer-diagnostics.md` (mirrored to `plans/active/FNO-STABILITY-OVERHAUL-001/plan_optimizer_diagnostics.md`).
+**Plan reference:** `docs/plans/2026-01-30-stable-hybrid-optimizer-diagnostics.md` (mirrored to `docs/plans/FNO-STABILITY-OVERHAUL-001/plan_optimizer_diagnostics.md`).
 
 ### Phase 8 Tasks
 1. **Optimizer selection plumbing (Task 1).** Add `optimizer`, `momentum`, `weight_decay`, and Adam betas to TF/Torch `TrainingConfig`, thread them through `config_bridge`, `config_factory`, and both Stage A CLIs. Update `PtychoPINN_Lightning.configure_optimizers()` to instantiate Adam/AdamW/SGD per config, and extend docs/tests accordingly (`tests/torch/test_model_training.py`, runner/wrapper selectors).
@@ -543,7 +543,7 @@ Phase 7 eliminated LR and gradient clipping as levers, leaving optimizer sensiti
 
 ## Phase 9: Crash Hunt + Shootout (Stochastic Stability)
 
-With LayerScale, optimizer, and depth prerequisites in place, Phase 9 executes the Crash Hunt and Shootout protocols from `docs/strategy/mainstrategy.md §3`. Every run **must** pass `--set-phi` and obey the `max_hidden_channels` cap (512) so both phase metrics and VRAM constraints follow the pivot rules. Detailed steps live in `docs/plans/2026-01-30-stable-hybrid-crash-hunt.md` (mirrored to `plans/active/FNO-STABILITY-OVERHAUL-001/plan_crash_hunt.md`).
+With LayerScale, optimizer, and depth prerequisites in place, Phase 9 executes the Crash Hunt and Shootout protocols from `docs/strategy/mainstrategy.md §3`. Every run **must** pass `--set-phi` and obey the `max_hidden_channels` cap (512) so both phase metrics and VRAM constraints follow the pivot rules. Detailed steps live in `docs/plans/2026-01-30-stable-hybrid-crash-hunt.md` (mirrored to `docs/plans/FNO-STABILITY-OVERHAUL-001/plan_crash_hunt.md`).
 
 ### Task 9.1: Crash Hunt depth sweep (control hybrid)
 - Reuse the Stage A dataset by rsync-ing into `outputs/grid_lines_crash_hunt/depth{4,6,8}_seed{A,B,C}`; seeds 20260128/20260129/20260130.
@@ -557,7 +557,7 @@ With LayerScale, optimizer, and depth prerequisites in place, Phase 9 executes t
 
 ### Task 9.3: Aggregation + doc sync
 - Update this implementation plan, `docs/strategy/mainstrategy.md`, `docs/findings.md` (new finding if crash depth confirmed), and `docs/fix_plan.md` with Crash Hunt + Shootout evidence.
-- Archive logs/stats under `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/` and refresh `input.md` with the Shootout focus.
+- Archive logs/stats under `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-02-01T000000Z/` and refresh `input.md` with the Shootout focus.
 
 **Exit Criteria:**
 - Crash Hunt table identifies crash depth with P_crash statistics.

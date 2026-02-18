@@ -55,7 +55,7 @@ Phase 3 focuses on validating the new implementation through comprehensive testi
   - Check code style and clarity
   
 - [ ] **3.B Create Validation Report**
-  - File: `plans/active/efficient-coordinate-grouping/validation_report.md`
+  - File: `docs/plans/efficient-coordinate-grouping/validation_report.md`
   - Performance benchmarks
   - Memory improvements
   - Test results
@@ -75,7 +75,7 @@ Phase 3 focuses on validating the new implementation through comprehensive testi
 - `scripts/benchmark_grouping.py`
 - `tests/test_coordinate_grouping.py`
 - `docs/migration/coordinate_grouping.md`
-- `plans/active/efficient-coordinate-grouping/validation_report.md`
+- `docs/plans/efficient-coordinate-grouping/validation_report.md`
 
 ### Modified Files
 - `ptycho/raw_data.py` (docstring updates only)

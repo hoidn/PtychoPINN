@@ -36,7 +36,7 @@ What should happen next (manual intervention, scope reduction, dependency focus,
 Specific condition that would unblock this focus (e.g., "Once FIX-GIT-LOCK-001 is complete and `git status` is clean, retry the Do Now").
 
 ## Links
-- Hub: <plans/active/.../reports/.../>
-- Plan: <plans/active/.../implementation.md>
+- Hub: <docs/plans/.../reports/.../>
+- Plan: <docs/plans/.../implementation.md>
 - Fix Plan Attempt ID: <docs/fix_plan.md#L...>
 

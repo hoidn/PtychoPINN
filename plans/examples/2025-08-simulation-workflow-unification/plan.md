@@ -98,6 +98,6 @@ A new integration test suite (`tests/simulation/test_simulate_and_save.py`) will
 
 ## 📁 **File Organization**
 
-**Initiative Path:** `plans/examples/2025-08-simulation-workflow-unification/`
+**Initiative Path:** `docs/plans/examples/2025-08-simulation-workflow-unification/`
 
 **Next Step:** Run `/implementation` to generate the phased implementation plan.

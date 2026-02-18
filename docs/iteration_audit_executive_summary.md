@@ -79,8 +79,8 @@ Score
 |------------|---------------|-----------|--------|
 | PYTHON-ENV-001 | `docs/DEVELOPER_GUIDE.md:127` | i=292 | Eliminated ModuleNotFoundError |
 | DATA-001 (allow_pickle) | `studies/fly64_dose_overlap/overlap.py:232` | i=287 | Unblocked Phase D |
-| TEST-CLI-001 (pytest before CLI) | `plans/.../green/pytest_post_verify_only.log` | i=285, i=289 | Validated test infra before expensive runs |
-| TYPE-PATH-001 (hub-relative paths) | `plans/.../bin/run_phase_g_dense.py:234` | i=270 | Fixed success banner path refs |
+| TEST-CLI-001 (pytest before CLI) | `docs/plans/.../green/pytest_post_verify_only.log` | i=285, i=289 | Validated test infra before expensive runs |
+| TYPE-PATH-001 (hub-relative paths) | `docs/plans/.../bin/run_phase_g_dense.py:234` | i=270 | Fixed success banner path refs |
 | Dwell enforcement | `galph_memory.md` tracking | i=290+ | Ended 23-loop planning saturation |
 
 ---

@@ -4,7 +4,7 @@
 - Initiative: INTEGRATE-PYTORCH-001 (PyTorch backend integration with Ptychodus)
 - Phase Goal: Deliver PyTorch orchestration and persistence surfaces that satisfy the reconstructor lifecycle defined in `specs/ptychodus_api_spec.md` §4.
 - Dependencies: Phase B config bridge (complete), Phase C data pipeline (complete), canonical strategy in `plans/ptychodus_pytorch_integration_plan.md` Phase 4–6, and TEST-PYTORCH-001 fixture roadmap.
-- Artifact Storage: Capture design notes, decision logs, and validation evidence under `plans/active/INTEGRATE-PYTORCH-001/reports/<timestamp>/phase_d_*`. Reference each artifact from docs/fix_plan.md Attempts History.
+- Artifact Storage: Capture design notes, decision logs, and validation evidence under `docs/plans/INTEGRATE-PYTORCH-001/reports/<timestamp>/phase_d_*`. Reference each artifact from docs/fix_plan.md Attempts History.
 
 ---
 
@@ -52,7 +52,7 @@ Goal: Deliver torch-optional regression coverage for PyTorch orchestration + per
 Prereqs: D2 + D3 functional.
 Exit Criteria: Tasks in `phase_d4_regression.md` (D4.A1–D4.C3) completed with artifacts stored per naming guidance and linked from docs/fix_plan.md.
 
-**Reference Plan:** `plans/active/INTEGRATE-PYTORCH-001/phase_d4_regression.md` (phased checklist + artifact map).
+**Reference Plan:** `docs/plans/INTEGRATE-PYTORCH-001/phase_d4_regression.md` (phased checklist + artifact map).
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |

@@ -14,8 +14,8 @@
 
 **Files:**
 - Modify: `outputs/grid_lines_stage_a/` (arm directories only)
-- Create: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/README.md`
-- Reference: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/stage_a_metrics.json`
+- Create: `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/README.md`
+- Reference: `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-29T010000Z/stage_a_metrics.json`
 
 **Step 1:** Copy the canonical Stage A dataset from the control arm so each new sweep reuses identical NPZs.
 ```bash
@@ -36,8 +36,8 @@ rm -rf outputs/grid_lines_stage_a/arm_stable_warmup_clip/runs
 
 **Step 3:** Create the reports hub + README.
 ```bash
-mkdir -p plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z
-cat > plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/README.md <<'MARK'
+mkdir -p docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z
+cat > docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/README.md <<'MARK'
 Stage A LR + gradient guard sweep (stable_hybrid) — all runs reuse Stage A datasets and **must include `--set-phi`** so phase metrics stay meaningful.
 - dataset: outputs/grid_lines_stage_a/arm_control/datasets (rsync copy per Task 1)
 - seed: 20260128
@@ -50,7 +50,7 @@ MARK
 
 **Files:**
 - Output: `outputs/grid_lines_stage_a/arm_stable_lowlr/`
-- Artifacts: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_arm_stable_lowlr.*`
+- Artifacts: `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_arm_stable_lowlr.*`
 
 **Step 1:** Run the compare wrapper with LR halved and scheduler disabled.
 ```bash
@@ -68,24 +68,24 @@ python scripts/studies/grid_lines_compare_wrapper.py \
   --torch-grad-clip 0.0 --torch-grad-clip-algorithm norm \
   --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8 \
   --torch-log-grad-norm --torch-grad-norm-log-freq 1 \
-  2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_arm_stable_lowlr.log
+  2>&1 | tee docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_arm_stable_lowlr.log
 ```
 
 **Step 2:** Archive run outputs.
 ```bash
 cp outputs/grid_lines_stage_a/arm_stable_lowlr/runs/pinn_stable_hybrid/history.json \
-   plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_arm_stable_lowlr_history.json
+   docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_arm_stable_lowlr_history.json
 cp outputs/grid_lines_stage_a/arm_stable_lowlr/runs/pinn_stable_hybrid/metrics.json \
-   plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_arm_stable_lowlr_metrics.json
+   docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_arm_stable_lowlr_metrics.json
 cp outputs/grid_lines_stage_a/arm_stable_lowlr/runs/pinn_stable_hybrid/model.pt \
-   plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_arm_stable_lowlr_model.pt
+   docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_arm_stable_lowlr_model.pt
 ```
 
 **Step 3:** Capture stats.
 ```bash
 python scripts/internal/stage_a_dump_stats.py \
   --run-dir outputs/grid_lines_stage_a/arm_stable_lowlr/runs/pinn_stable_hybrid \
-  --out-json plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_arm_stable_lowlr_stats.json
+  --out-json docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_arm_stable_lowlr_stats.json
 ```
 
 ### Task 3: WarmupCosine with reduced peak LR
@@ -110,7 +110,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
   --torch-grad-clip 0.0 --torch-grad-clip-algorithm norm \
   --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8 \
   --torch-log-grad-norm --torch-grad-norm-log-freq 1 \
-  2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_arm_stable_warmup_lowlr.log
+  2>&1 | tee docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_arm_stable_warmup_lowlr.log
 ```
 
 **Step 2:** Copy `history.json`, `metrics.json`, and `model.pt` into the reports hub (same pattern as Task 2).
@@ -139,7 +139,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
   --torch-grad-clip 0.5 --torch-grad-clip-algorithm norm \
   --torch-loss-mode mae --fno-blocks 4 --torch-infer-batch-size 8 \
   --torch-log-grad-norm --torch-grad-norm-log-freq 1 \
-  2>&1 | tee plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_arm_stable_warmup_clip.log
+  2>&1 | tee docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_arm_stable_warmup_clip.log
 ```
 
 **Step 2:** Archive `history.json`, `metrics.json`, `model.pt`, and run the stats helper to `stage_a_arm_stable_warmup_clip_stats.json`.
@@ -147,13 +147,13 @@ python scripts/studies/grid_lines_compare_wrapper.py \
 ### Task 5: Aggregate metrics + doc sync
 
 **Files:**
-- Modify: `plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md`
+- Modify: `docs/plans/FNO-STABILITY-OVERHAUL-001/implementation.md`
 - Modify: `docs/strategy/mainstrategy.md`
 - Modify: `docs/fix_plan.md`
 - Modify: `docs/findings.md` (if new evidence)
-- Modify: `plans/active/FNO-STABILITY-OVERHAUL-001/summary.md`
-- Modify: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/summary.md`
-- Optional: `plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_metrics_phase7.json`
+- Modify: `docs/plans/FNO-STABILITY-OVERHAUL-001/summary.md`
+- Modify: `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/summary.md`
+- Optional: `docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_metrics_phase7.json`
 
 **Step 1:** Append the new arms to `stage_a_metrics.json` (or write a new `stage_a_metrics_phase7.json`). Example helper:
 ```bash
@@ -167,9 +167,9 @@ arms = [
 rows = []
 for name, run_dir in arms:
     run = pathlib.Path(run_dir)
-    stats = json.loads((pathlib.Path("plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z") / f"stage_a_arm_{name}_stats.json").read_text())
+    stats = json.loads((pathlib.Path("docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z") / f"stage_a_arm_{name}_stats.json").read_text())
     rows.append({"arm": name, **stats})
-out = pathlib.Path("plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_metrics_phase7.json")
+out = pathlib.Path("docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z/stage_a_metrics_phase7.json")
 out.write_text(json.dumps(rows, indent=2))
 PY
 ```
@@ -192,9 +192,9 @@ Archive the `pytest` logs alongside the run logs under the new reports hub.
 **Step 4:** Commit docs + artifacts (if repo policy allows committing logs, otherwise leave logs under `.artifacts/`). Include selector outcomes in the commit message.
 ```bash
 git add docs/strategy/mainstrategy.md docs/fix_plan.md docs/findings.md \
-        plans/active/FNO-STABILITY-OVERHAUL-001/implementation.md \
-        plans/active/FNO-STABILITY-OVERHAUL-001/summary.md \
-        plans/active/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z
+        docs/plans/FNO-STABILITY-OVERHAUL-001/implementation.md \
+        docs/plans/FNO-STABILITY-OVERHAUL-001/summary.md \
+        docs/plans/FNO-STABILITY-OVERHAUL-001/reports/2026-01-30T010000Z
 git commit -m "FNO-STABILITY-OVERHAUL-001: Stage A LR sweep - tests: StableBlock/Runner/Wrapper"
 ```
 

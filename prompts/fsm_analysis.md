@@ -26,7 +26,7 @@
   - `focus=<id/slug>`
   - `state=<gathering_evidence|planning|ready_for_implementation>`
   - `dwell=<integer>` (consecutive turns in this state for this focus)
-  - `artifacts=<plans/active/<initiative>/reports/<timestamp>/>`
+  - `artifacts=<docs/plans/<initiative>/reports/<timestamp>/>`
   - `next_action=<one line or 'switch_focus'>`
 
 ## Minimal Diagram (optional)

@@ -18,7 +18,7 @@ Run ~/.codex/superpowers/.codex/superpowers-codex bootstrap
     write input.md once per turn.
 
     the engineer agent runs `prompts/main2.md` once per supervisor→engineer iteration, guided by `docs/fix_plan.md` and your `input.md`.
-     Author or refresh working plans under `plans/`, cross-referenced from `docs/fix_plan.md` so engineer can locate them. 
+     Author or refresh working plans under `docs/plans/`, cross-referenced from `docs/fix_plan.md` so engineer can locate them. 
     </agent_context>
 
   <primary_references>
@@ -93,11 +93,11 @@ Run ~/.codex/superpowers/.codex/superpowers-codex bootstrap
         • First emit: `<analysis_question>`, `<initiative_id>`, `<scope_hints>`, `<roi_hint>`, `<namespace_filter>`, `<time_budget_minutes>`.
         • Then follow `prompts/callchain.md` (question‑driven).
         • Expected outputs:
-          - `plans/active/<initiative_id>/reports/callchain/static.md`
-          - `plans/active/<initiative_id>/reports/callgraph/dynamic.txt` (optional)
-          - `plans/active/<initiative_id>/reports/trace/tap_points.md`
-          - `plans/active/<initiative_id>/reports/summary.md`
-          - `plans/active/<initiative_id>/reports/env/trace_env.json`
+          - `docs/plans/<initiative_id>/reports/callchain/static.md`
+          - `docs/plans/<initiative_id>/reports/callgraph/dynamic.txt` (optional)
+          - `docs/plans/<initiative_id>/reports/trace/tap_points.md`
+          - `docs/plans/<initiative_id>/reports/summary.md`
+          - `docs/plans/<initiative_id>/reports/env/trace_env.json`
         • Guardrails: module/device/dtype neutrality; small ROI; respect Protected Assets; stable key names in traces.
 
     </evidence_collection>
@@ -129,7 +129,7 @@ Run ~/.codex/superpowers/.codex/superpowers-codex bootstrap
     - <strong>Focus</strong>: `<plan item ID> — <title>` from `docs/fix_plan.md`.
     - <strong>Branch</strong>: Expected working branch.
     - <strong>Mapped tests</strong>: Specific pytest selectors (from `docs/TESTING_GUIDE.md` / `docs/development/TEST_SUITE_INDEX.md`) or `none — evidence-only`.
-    - <strong>Artifacts</strong>: `plans/active/<initiative-id>/reports/<YYYY-MM-DDTHHMMSSZ>/{...}`.
+    - <strong>Artifacts</strong>: `docs/plans/<initiative-id>/reports/<YYYY-MM-DDTHHMMSSZ>/{...}`.
     - <strong>Next Up (optional)</strong>: 1–2 candidates Ralph may choose if he finishes early.
 
     - <strong>Mapped Tests Guardrail</strong>: At least one mapped selector must collect (>0) in `--collect-only`. If none exist, include instruction to "author minimal targeted test".
@@ -140,7 +140,7 @@ Run ~/.codex/superpowers/.codex/superpowers-codex bootstrap
 
   <semantics_audit>
     **Drift Detection:**
-    1. Did we change `$SPECS`? -> You MUST audit `plans/` and `tests/` for invalidation.
+    1. Did we change `$SPECS`? -> You MUST audit `docs/plans/` and `tests/` for invalidation.
     2. Did we (i.e., engineer in the previous turn) change Implementation? -> You MUST verify it matches the *current* `$SPECS`.
     3. If Spec and Implementation diverge, either fix the spec right now or create a specific Fix Plan Item (e.g., `ALIGN-001`) to fix the implementation.
   </semantics_audit>
@@ -175,14 +175,14 @@ Run ~/.codex/superpowers/.codex/superpowers-codex bootstrap
         • `git push`. If rejected, `timeout 30 git pull --rebase`, resolve conflicts (log decisions), then push again.
 
     - <strong>Turn Summary (required):</strong> At the very end of your supervisor reply, append a lightweight Markdown block humans can skim. Format: a single level‑3 heading <code>### Turn Summary</code>, then 3–5 short single‑line sentences covering: (a) what you shipped/advanced, (b) the main problem and how you handled it (or note it's still open), and (c) the single next step. End with an <code>Artifacts:</code> line pointing to this loop's reports directory and (optionally) 1–2 filenames. Do <em>not</em> include focus IDs, branch names, dwell/state, or pytest selectors (those live in <code>input.md</code>).
-    - <strong>Persistence:</strong> Write the <em>exact same block</em> to <code>plans/active/&lt;initiative-id&gt;/reports/&lt;ISO8601Z&gt;/summary.md</code> for this loop (use the initiative ID and timestamp already chosen for this loop's Artifacts path). If <code>summary.md</code> already exists, <em>prepend</em> this turn's block above earlier notes. Markdown only — no JSON/YAML/XML.
+    - <strong>Persistence:</strong> Write the <em>exact same block</em> to <code>docs/plans/&lt;initiative-id&gt;/reports/&lt;ISO8601Z&gt;/summary.md</code> for this loop (use the initiative ID and timestamp already chosen for this loop's Artifacts path). If <code>summary.md</code> already exists, <em>prepend</em> this turn's block above earlier notes. Markdown only — no JSON/YAML/XML.
 
     Example:
     ### Turn Summary
     Implemented score coercion so CLI diagnostics always emit numeric ROI scores; no telemetry schema changes.
     Resolved the mocked‑score TypeError with explicit float casting and added an empty‑list guard; remaining paths look clean.
     Next: run the full CLI test module and refresh docs only if any user‑visible messages changed.
-    Artifacts: plans/active/TORCH-CLI-004/reports/2025-11-04T222435Z/ (pytest_torch_diag.log, out.h5)
+    Artifacts: docs/plans/TORCH-CLI-004/reports/2025-11-04T222435Z/ (pytest_torch_diag.log, out.h5)
   </end_of_loop_hygiene>
 
   <instructions>
@@ -260,6 +260,6 @@ Run ~/.codex/superpowers/.codex/superpowers-codex bootstrap
     on the third, either transition to `ready_for_implementation` with a production code task or switch focus and record the block.
     End‑of‑turn logging (required): append in `fix_plan.md`
     `Supervisor state: ``focus=<id/slug>` `state=<gathering_evidence|planning|ready_for_implementation>` `dwell=<n>`
-    `artifacts=<plans/active/<initiative>/reports/<timestamp>/>` `next_action=<one‑liner or 'switch_focus'>`
+    `artifacts=<docs/plans/<initiative>/reports/<timestamp>/>` `next_action=<one‑liner or 'switch_focus'>`
     Reference: `prompts/fsm_analysis.md`.
   </fsm>

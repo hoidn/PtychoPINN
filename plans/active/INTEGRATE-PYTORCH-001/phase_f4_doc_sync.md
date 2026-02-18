@@ -3,8 +3,8 @@
 ## Context
 - Initiative: INTEGRATE-PYTORCH-001 (PyTorch backend integration)
 - Phase Goal: Publish authoritative guidance for the torch-required policy, align normative specs, and coordinate downstream initiatives so the new baseline is unambiguous.
-- Dependencies: Phase F1–F3 exit criteria complete (governance approval, migration implementation, regression green). Review `plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md` and `plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T184624Z/{governance_decision.md,guidance_updates.md}` before modifying docs or specs.
-- Artifact Storage: Capture Phase F4 evidence under `plans/active/INTEGRATE-PYTORCH-001/reports/<ISO8601>/` (see checklist guidance for filenames). Cross-reference each artifact from docs/fix_plan.md.
+- Dependencies: Phase F1–F3 exit criteria complete (governance approval, migration implementation, regression green). Review `docs/plans/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md` and `docs/plans/INTEGRATE-PYTORCH-000/reports/2025-10-17T184624Z/{governance_decision.md,guidance_updates.md}` before modifying docs or specs.
+- Artifact Storage: Capture Phase F4 evidence under `docs/plans/INTEGRATE-PYTORCH-001/reports/<ISO8601>/` (see checklist guidance for filenames). Cross-reference each artifact from docs/fix_plan.md.
 
 ---
 
@@ -32,7 +32,7 @@ Exit Criteria: `specs/ptychodus_api_spec.md` explicitly lists PyTorch as require
 | F4.2.B | Add knowledge-base entry | [x] | ✅ 2025-10-17 — Added POLICY-001 row to `docs/findings.md` (line 8) capturing torch-required transition with governance link. Documented in `spec_sync.md`. |
 | F4.2.C | Verify cross-references | [x] | ✅ 2025-10-17 — Updated CLAUDE.md directive (line 58) to reference POLICY-001 via doc-ref tag. Verification checklist recorded in `spec_sync.md`. |
 
-**Prep Note:** See `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T204818Z/spec_sync_brief.md` for supervisor guidance before editing.
+**Prep Note:** See `docs/plans/INTEGRATE-PYTORCH-001/reports/2025-10-17T204818Z/spec_sync_brief.md` for supervisor guidance before editing.
 
 ---
 
