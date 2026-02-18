@@ -51,8 +51,8 @@ def test_cross_dataset_inference_loads_single_model_pt_and_runs_two_test_npzs(
         load_calls["count"] += 1
         return object()
 
-    def fake_run_single_dataset(model, config, dataset_name, test_npz, recon_npz):
-        _ = (model, config, test_npz)
+    def fake_run_single_dataset(model, config, dataset_name, test_npz, recon_npz, allow_oom_fallback):
+        _ = (model, config, test_npz, allow_oom_fallback)
         infer_calls.append(dataset_name)
         recon_npz.parent.mkdir(parents=True, exist_ok=True)
         np.savez(recon_npz, YY_pred=np.ones((16, 16), dtype=np.complex64))
@@ -106,8 +106,8 @@ def test_cross_dataset_inference_writes_recon_npz_for_each_dataset(monkeypatch, 
         lambda config, checkpoint_path: object(),
     )
 
-    def fake_run_single_dataset(model, config, dataset_name, test_npz, recon_npz):
-        _ = (model, config, dataset_name, test_npz)
+    def fake_run_single_dataset(model, config, dataset_name, test_npz, recon_npz, allow_oom_fallback):
+        _ = (model, config, dataset_name, test_npz, allow_oom_fallback)
         recon_npz.parent.mkdir(parents=True, exist_ok=True)
         np.savez(recon_npz, YY_pred=np.ones((16, 16), dtype=np.complex64))
         return recon_npz
@@ -153,8 +153,8 @@ def test_cross_dataset_inference_allows_auto_backend(monkeypatch, tmp_path):
         lambda config, checkpoint_path: object(),
     )
 
-    def fake_run_single_dataset(model, config, dataset_name, test_npz, recon_npz):
-        _ = (model, config, dataset_name, test_npz)
+    def fake_run_single_dataset(model, config, dataset_name, test_npz, recon_npz, allow_oom_fallback):
+        _ = (model, config, dataset_name, test_npz, allow_oom_fallback)
         recon_npz.parent.mkdir(parents=True, exist_ok=True)
         np.savez(recon_npz, YY_pred=np.ones((16, 16), dtype=np.complex64))
         return recon_npz
@@ -173,6 +173,64 @@ def test_cross_dataset_inference_allows_auto_backend(monkeypatch, tmp_path):
     assert Path(result["scan807"]["recon_npz"]).exists()
     manifest = json.loads((tmp_path / "outputs" / "hybrid_cross_dataset_manifest.json").read_text())
     assert manifest["position_reassembly_backend"] == "auto"
+    assert manifest["allow_oom_fallback"] is True
+
+
+def test_cross_dataset_inference_propagates_allow_oom_fallback(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_torch_runner import TorchRunnerConfig
+    from scripts.studies.hybrid_checkpoint_inference import run_cross_dataset_hybrid_inference
+
+    model_pt = tmp_path / "model.pt"
+    model_pt.write_bytes(b"weights")
+    scan_npz = tmp_path / "scan807_test.npz"
+    _write_min_npz(scan_npz)
+
+    cfg = TorchRunnerConfig(
+        train_npz=scan_npz,
+        test_npz=scan_npz,
+        output_dir=tmp_path / "run",
+        architecture="hybrid_resnet",
+        N=128,
+        gridsize=1,
+        reassembly_mode="position",
+        position_reassembly_backend="shift_sum",
+    )
+
+    monkeypatch.setattr(
+        "scripts.studies.hybrid_checkpoint_inference._load_model_from_checkpoint",
+        lambda config, checkpoint_path: object(),
+    )
+
+    calls: list[bool] = []
+
+    def fake_run_single_dataset(
+        model,
+        config,
+        dataset_name,
+        test_npz,
+        recon_npz,
+        allow_oom_fallback,
+    ):
+        _ = (model, config, dataset_name, test_npz)
+        calls.append(bool(allow_oom_fallback))
+        recon_npz.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(recon_npz, YY_pred=np.ones((16, 16), dtype=np.complex64))
+        return recon_npz
+
+    monkeypatch.setattr(
+        "scripts.studies.hybrid_checkpoint_inference._run_single_dataset_inference",
+        fake_run_single_dataset,
+    )
+
+    _ = run_cross_dataset_hybrid_inference(
+        model_pt=model_pt,
+        dataset_npzs={"scan807": scan_npz},
+        output_dir=tmp_path / "outputs",
+        base_cfg=cfg,
+        allow_oom_fallback=False,
+    )
+
+    assert calls == [False]
 
 
 def test_cross_dataset_inference_rejects_unknown_backend(tmp_path):

@@ -801,6 +801,38 @@ class TestRunGridLinesTorchScaffold:
         )
         assert out.shape == (64, 64)
 
+    def test_shift_sum_oom_raises_when_fallback_disabled(self, monkeypatch):
+        import tensorflow as tf
+
+        def raise_resource_exhausted(*args, **kwargs):
+            _ = (args, kwargs)
+            raise tf.errors.ResourceExhaustedError(node_def=None, op=None, message="OOM")
+
+        def fail_if_batched_called(*args, **kwargs):
+            _ = (args, kwargs)
+            raise AssertionError("batched fallback should not be called when disabled")
+
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner._reassemble_position_shift_sum",
+            raise_resource_exhausted,
+        )
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner._reassemble_position_batched",
+            fail_if_batched_called,
+        )
+
+        pred = np.ones((4, 64, 64, 1), dtype=np.complex64)
+        test_data = {"coords_offsets": np.zeros((4, 1, 2, 1), dtype=np.float32)}
+        with pytest.raises(tf.errors.ResourceExhaustedError):
+            _reassemble_with_coords_offsets(
+                pred,
+                test_data,
+                M=64,
+                backend="shift_sum",
+                batch_size=32,
+                allow_oom_fallback=False,
+            )
+
     def test_grid_lines_mode_keeps_existing_stitching_path(self, synthetic_npz, tmp_path, monkeypatch):
         """grid_lines mode should still use the stitch helper path."""
         train_path, test_path = synthetic_npz

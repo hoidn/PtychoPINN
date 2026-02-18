@@ -356,6 +356,7 @@ def _reassemble_with_coords_offsets(
     M: int = 20,
     backend: str = "shift_sum",
     batch_size: int = 64,
+    allow_oom_fallback: bool = True,
 ) -> np.ndarray:
     """Reassemble predicted patches using coords_offsets (external dataset mode)."""
     patches, offsets_b12c, offsets_b112 = _normalize_position_inputs(pred_complex, test_data)
@@ -366,7 +367,11 @@ def _reassemble_with_coords_offsets(
         except Exception as exc:
             import tensorflow as tf
 
-            if backend in {"auto", "shift_sum"} and isinstance(exc, tf.errors.ResourceExhaustedError):
+            if (
+                allow_oom_fallback
+                and backend in {"auto", "shift_sum"}
+                and isinstance(exc, tf.errors.ResourceExhaustedError)
+            ):
                 logger.warning(
                     "Shift-sum OOM under backend=%s; retrying with batched position reassembly",
                     backend,

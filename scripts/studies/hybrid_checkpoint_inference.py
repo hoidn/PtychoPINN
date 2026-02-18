@@ -91,6 +91,7 @@ def _run_single_dataset_inference(
     dataset_name: str,
     test_npz: Path,
     recon_npz: Path,
+    allow_oom_fallback: bool = True,
 ) -> Path:
     _ = dataset_name
     test_data, test_metadata = load_cached_dataset_with_metadata(Path(test_npz))
@@ -105,6 +106,7 @@ def _run_single_dataset_inference(
             M=config.N,
             backend=config.position_reassembly_backend,
             batch_size=config.position_reassembly_batch_size,
+            allow_oom_fallback=allow_oom_fallback,
         )
     elif pred_for_metrics.ndim >= 3:
         pred_h, pred_w = pred_for_metrics.shape[-3], pred_for_metrics.shape[-2]
@@ -131,6 +133,7 @@ def run_cross_dataset_hybrid_inference(
     dataset_npzs: Dict[str, Path],
     output_dir: Path,
     base_cfg: TorchRunnerConfig,
+    allow_oom_fallback: bool = True,
 ) -> Dict[str, Dict[str, str]]:
     """Reuse one trained checkpoint to run hybrid_resnet inference on multiple datasets."""
     model_pt = Path(model_pt)
@@ -160,6 +163,7 @@ def run_cross_dataset_hybrid_inference(
             dataset_name=dataset_name,
             test_npz=Path(test_npz),
             recon_npz=recon_npz,
+            allow_oom_fallback=allow_oom_fallback,
         )
         results[dataset_name] = {
             "recon_npz": str(recon_path),
@@ -173,6 +177,7 @@ def run_cross_dataset_hybrid_inference(
                 "model_pt": str(model_pt),
                 "architecture": base_cfg.architecture,
                 "position_reassembly_backend": base_cfg.position_reassembly_backend,
+                "allow_oom_fallback": bool(allow_oom_fallback),
                 "datasets": {name: payload["test_npz"] for name, payload in results.items()},
             },
             indent=2,

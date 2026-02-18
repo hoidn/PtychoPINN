@@ -161,6 +161,7 @@ def test_full_orchestration_uses_cached_test_npz_for_cross_dataset_inference(
 
     def fake_cross(**kwargs):
         captured["dataset_npzs"] = kwargs["dataset_npzs"]
+        captured["allow_oom_fallback"] = kwargs.get("allow_oom_fallback")
         out = {}
         for name in kwargs["dataset_npzs"]:
             recon = Path(kwargs["output_dir"]) / name / "recons" / "pinn_hybrid_resnet" / "recon.npz"
@@ -205,6 +206,7 @@ def test_full_orchestration_uses_cached_test_npz_for_cross_dataset_inference(
 
     assert str(captured["dataset_npzs"]["scan807"]).endswith("/datasets/N128/gs1/test.npz")
     assert str(captured["dataset_npzs"]["cameraman256"]).endswith("/datasets/N128/gs1/test.npz")
+    assert captured["allow_oom_fallback"] is False
 
 
 def test_full_orchestration_manifest_serializes_numpy_scalars(monkeypatch, tmp_path):
