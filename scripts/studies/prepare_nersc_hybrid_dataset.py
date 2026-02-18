@@ -15,6 +15,8 @@ import numpy as np
 from scripts.studies.nersc_pair_adapter import materialize_pair_working_copy, pair_to_external_npz
 from scripts.studies.invocation_logging import write_invocation_artifacts
 
+DOWNSAMPLE_POLICY_CHOICES = ("bin-crop", "crop-bin")
+
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -56,10 +58,34 @@ def _bin_real_stack(stack: np.ndarray, factor: int) -> np.ndarray:
     x0 = (w - bin_w) // 2
     arr = arr[:, y0 : y0 + bin_h, x0 : x0 + bin_w]
     reshaped = arr.reshape(n_scans, bin_h // factor, factor, bin_w // factor, factor)
-    return reshaped.mean(axis=(2, 4)).astype(np.float32)
+    # Diffraction is amplitude; detector binning should aggregate in intensity space.
+    summed_intensity = np.square(reshaped).sum(axis=(2, 4), dtype=np.float64)
+    return np.sqrt(summed_intensity).astype(np.float32)
 
 
-def _downsample_external_payload(data: dict[str, np.ndarray], *, target_n: int) -> dict[str, np.ndarray]:
+def _bin_complex_2d(array_2d: np.ndarray, factor: int) -> np.ndarray:
+    arr = np.asarray(array_2d, dtype=np.complex64)
+    if arr.ndim != 2:
+        raise ValueError(f"Expected rank-2 complex array, got {arr.shape}")
+    if factor <= 0:
+        raise ValueError("factor must be positive")
+    if factor == 1:
+        return arr.astype(np.complex64)
+    h, w = arr.shape
+    bin_h = (h // factor) * factor
+    bin_w = (w // factor) * factor
+    if bin_h <= 0 or bin_w <= 0:
+        raise ValueError(
+            f"Real-space shape {arr.shape} is too small for binning factor {factor}."
+        )
+    arr = _crop_center_2d(arr, bin_h, bin_w)
+    reshaped = arr.reshape(bin_h // factor, factor, bin_w // factor, factor)
+    return reshaped.mean(axis=(1, 3)).astype(np.complex64)
+
+
+def _downsample_external_payload(
+    data: dict[str, np.ndarray], *, target_n: int, downsample_policy: str = "bin-crop"
+) -> dict[str, np.ndarray]:
     if "diff3d" in data and "diffraction" not in data:
         data = {("diffraction" if key == "diff3d" else key): value for key, value in data.items()}
 
@@ -73,26 +99,42 @@ def _downsample_external_payload(data: dict[str, np.ndarray], *, target_n: int) 
     if src_n % target_n != 0:
         raise ValueError(f"Cannot downsample diffraction from N={src_n} to N={target_n}")
     factor = src_n // target_n
+    if downsample_policy not in DOWNSAMPLE_POLICY_CHOICES:
+        raise ValueError(
+            f"Unsupported downsample_policy='{downsample_policy}', "
+            f"expected one of {DOWNSAMPLE_POLICY_CHOICES}."
+        )
 
     downsampled: dict[str, np.ndarray] = dict(data)
-    downsampled["diffraction"] = _bin_real_stack(diffraction, factor)
 
     object_guess = np.asarray(data["objectGuess"])
     probe_guess = np.asarray(data["probeGuess"])
-    downsampled["objectGuess"] = _crop_center_2d(
-        object_guess,
-        object_guess.shape[0] // factor,
-        object_guess.shape[1] // factor,
-    ).astype(np.complex64)
-    downsampled["probeGuess"] = _crop_center_2d(
-        probe_guess,
-        probe_guess.shape[0] // factor,
-        probe_guess.shape[1] // factor,
-    ).astype(np.complex64)
+
+    if downsample_policy == "bin-crop":
+        downsampled["diffraction"] = _bin_real_stack(diffraction, factor)
+        downsampled["objectGuess"] = _crop_center_2d(
+            object_guess,
+            object_guess.shape[0] // factor,
+            object_guess.shape[1] // factor,
+        ).astype(np.complex64)
+        downsampled["probeGuess"] = _crop_center_2d(
+            probe_guess,
+            probe_guess.shape[0] // factor,
+            probe_guess.shape[1] // factor,
+        ).astype(np.complex64)
+    else:
+        downsampled["diffraction"] = np.stack(
+            [_crop_center_2d(frame, target_n, target_n) for frame in diffraction], axis=0
+        ).astype(np.float32)
+        downsampled["objectGuess"] = _bin_complex_2d(object_guess, factor)
+        downsampled["probeGuess"] = _bin_complex_2d(probe_guess, factor)
 
     for key in ("xcoords", "ycoords", "xcoords_start", "ycoords_start"):
         if key in downsampled:
-            downsampled[key] = np.asarray(downsampled[key], dtype=np.float64)
+            coords = np.asarray(downsampled[key], dtype=np.float64)
+            if downsample_policy == "crop-bin" and factor != 1:
+                coords = coords / float(factor)
+            downsampled[key] = coords
 
     if "scan_index" not in downsampled:
         downsampled["scan_index"] = np.arange(n_scans, dtype=np.int64)
@@ -118,6 +160,7 @@ def prepare_hybrid_dataset(
     output_dir: Path,
     half: str = "top",
     target_n: int = 128,
+    downsample_policy: str = "bin-crop",
 ) -> dict[str, Any]:
     """Prepare top/bottom-half train split and full-object test split for hybrid training."""
     if half not in {"top", "bottom"}:
@@ -139,7 +182,11 @@ def prepare_hybrid_dataset(
 
     with np.load(canonical_npz, allow_pickle=True) as loaded:
         converted = {key: loaded[key] for key in loaded.files}
-    downsampled = _downsample_external_payload(converted, target_n=target_n)
+    downsampled = _downsample_external_payload(
+        converted,
+        target_n=target_n,
+        downsample_policy=downsample_policy,
+    )
 
     ycoords = np.asarray(downsampled["ycoords"], dtype=np.float64)
     split_threshold = float((np.min(ycoords) + np.max(ycoords)) / 2.0)
@@ -170,6 +217,7 @@ def prepare_hybrid_dataset(
         "train_npz": str(train_npz),
         "test_npz": str(test_npz),
         "target_n": int(target_n),
+        "downsample_policy": downsample_policy,
         "half": half,
         "split_threshold": split_threshold,
         "n_total": int(ycoords.shape[0]),
@@ -186,6 +234,7 @@ def prepare_hybrid_dataset(
         "manifest_json": str(manifest_json),
         "split_threshold": split_threshold,
         "half": half,
+        "downsample_policy": downsample_policy,
     }
 
 
@@ -209,6 +258,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Half-space used for the training split (default: top).",
     )
     parser.add_argument("--target-n", type=int, default=128, help="Target diffraction N (default: 128).")
+    parser.add_argument(
+        "--downsample-policy",
+        type=str,
+        choices=list(DOWNSAMPLE_POLICY_CHOICES),
+        default="bin-crop",
+        help=(
+            "Downsample policy: 'bin-crop' bins diffraction and crops real-space; "
+            "'crop-bin' crops diffraction and bins real-space."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -226,6 +285,7 @@ def main(argv: list[str] | None = None) -> None:
         output_dir=args.output_dir,
         half=args.half,
         target_n=args.target_n,
+        downsample_policy=args.downsample_policy,
     )
     print(f"Prepared manifest: {result['manifest_json']}")
 

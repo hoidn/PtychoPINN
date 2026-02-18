@@ -145,9 +145,8 @@ def test_downsample_external_payload_bins_diffraction_blocks():
     }
 
     out = _downsample_external_payload(payload, target_n=3)
-    expected = np.array(
-        [[[4.5, 6.5, 8.5], [16.5, 18.5, 20.5], [28.5, 30.5, 32.5]]],
-        dtype=np.float32,
+    expected = np.sqrt((diffraction.reshape(1, 3, 2, 3, 2) ** 2).sum(axis=(2, 4))).astype(
+        np.float32
     )
     assert np.allclose(out["diffraction"], expected)
 
@@ -190,6 +189,50 @@ def test_downsample_external_payload_preserves_coords_under_real_space_crop():
     assert np.array_equal(out["ycoords"], ycoords)
     assert np.array_equal(out["xcoords_start"], xcoords)
     assert np.array_equal(out["ycoords_start"], ycoords)
+
+
+def test_downsample_external_payload_crop_bin_crops_diffraction_and_bins_real_space():
+    from scripts.studies.prepare_nersc_hybrid_dataset import _downsample_external_payload
+
+    diffraction = np.arange(1, 37, dtype=np.float32).reshape(1, 6, 6)
+    object_guess = np.arange(1, 145, dtype=np.float32).reshape(12, 12).astype(np.complex64)
+    probe_guess = np.arange(1, 145, dtype=np.float32).reshape(12, 12).astype(np.complex64)
+    payload = {
+        "diffraction": diffraction,
+        "objectGuess": object_guess,
+        "probeGuess": probe_guess,
+        "xcoords": np.array([2.0], dtype=np.float64),
+        "ycoords": np.array([4.0], dtype=np.float64),
+        "xcoords_start": np.array([2.0], dtype=np.float64),
+        "ycoords_start": np.array([4.0], dtype=np.float64),
+    }
+
+    out = _downsample_external_payload(payload, target_n=3, downsample_policy="crop-bin")
+    assert np.array_equal(out["diffraction"], diffraction[:, 1:4, 1:4])
+    expected_object = object_guess.reshape(6, 2, 6, 2).mean(axis=(1, 3)).astype(np.complex64)
+    expected_probe = probe_guess.reshape(6, 2, 6, 2).mean(axis=(1, 3)).astype(np.complex64)
+    assert np.allclose(out["objectGuess"], expected_object)
+    assert np.allclose(out["probeGuess"], expected_probe)
+
+
+def test_downsample_external_payload_crop_bin_scales_coords_by_factor():
+    from scripts.studies.prepare_nersc_hybrid_dataset import _downsample_external_payload
+
+    payload = {
+        "diffraction": np.ones((1, 6, 6), dtype=np.float32),
+        "objectGuess": np.ones((12, 12), dtype=np.complex64),
+        "probeGuess": np.ones((12, 12), dtype=np.complex64),
+        "xcoords": np.array([2.0], dtype=np.float64),
+        "ycoords": np.array([4.0], dtype=np.float64),
+        "xcoords_start": np.array([6.0], dtype=np.float64),
+        "ycoords_start": np.array([8.0], dtype=np.float64),
+    }
+
+    out = _downsample_external_payload(payload, target_n=3, downsample_policy="crop-bin")
+    assert np.array_equal(out["xcoords"], np.array([1.0], dtype=np.float64))
+    assert np.array_equal(out["ycoords"], np.array([2.0], dtype=np.float64))
+    assert np.array_equal(out["xcoords_start"], np.array([3.0], dtype=np.float64))
+    assert np.array_equal(out["ycoords_start"], np.array([4.0], dtype=np.float64))
 
 
 def test_prepare_cli_writes_invocation_artifacts(tmp_path, monkeypatch):

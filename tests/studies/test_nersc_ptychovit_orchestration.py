@@ -354,12 +354,108 @@ def test_convert_pair_to_downsampled_external_npz_applies_flipped_policy(monkeyp
     )
 
     with np.load(out_npz, allow_pickle=True) as converted:
-        expected_diff = np.array(
-            [[[4.5, 6.5, 8.5], [16.5, 18.5, 20.5], [28.5, 30.5, 32.5]]],
-            dtype=np.float32,
+        expected_diff = np.sqrt((diffraction.reshape(1, 3, 2, 3, 2) ** 2).sum(axis=(2, 4))).astype(
+            np.float32
         )
         assert np.allclose(converted["diffraction"], expected_diff)
         assert np.array_equal(converted["objectGuess"], object_guess[3:8, 3:8])
         assert np.array_equal(converted["probeGuess"], probe_guess[1:4, 1:4])
         assert np.array_equal(converted["xcoords"], np.array([0.0], dtype=np.float64))
         assert np.array_equal(converted["ycoords"], np.array([2.0], dtype=np.float64))
+
+
+def test_full_orchestration_threads_downsample_policy_to_prep_and_scan_convert(monkeypatch, tmp_path):
+    from scripts.studies import nersc_orchestration as orch
+
+    checkpoint = tmp_path / "best_model.pth"
+    checkpoint.write_bytes(b"ckpt")
+    scan_dp = tmp_path / "scan807_dp.hdf5"
+    scan_para = tmp_path / "scan807_para.hdf5"
+    cam_dp = tmp_path / "cameraman_dp.hdf5"
+    cam_para = tmp_path / "cameraman_para.hdf5"
+    _touch_pair(scan_dp, scan_para)
+    _touch_pair(cam_dp, cam_para)
+
+    captured = {"prepare_policy": None, "scan_policy": None}
+
+    monkeypatch.setattr(orch, "materialize_pair_working_copy", lambda dp, para, out_dir: (dp, para))
+    monkeypatch.setattr(
+        orch,
+        "run_ptychovit_inference_stage",
+        lambda **kwargs: {
+            "scan807": {"recon_npz": str(tmp_path / "scan_recon.npz")},
+            "cameraman256": {"recon_npz": str(tmp_path / "cam_recon.npz")},
+        },
+    )
+
+    def fake_prepare(**kwargs):
+        captured["prepare_policy"] = kwargs.get("downsample_policy")
+        train = tmp_path / "train_raw.npz"
+        test = tmp_path / "test_raw.npz"
+        down = tmp_path / "down_raw.npz"
+        for path in (train, test, down):
+            path.write_bytes(b"npz")
+        return {"train_npz": str(train), "test_npz": str(test), "downsampled_npz": str(down)}
+
+    def fake_convert(**kwargs):
+        captured["scan_policy"] = kwargs.get("downsample_policy")
+        out = tmp_path / "scan_test_raw.npz"
+        out.write_bytes(b"npz")
+        return out
+
+    monkeypatch.setattr(orch, "prepare_hybrid_dataset", fake_prepare)
+    monkeypatch.setattr(orch, "_convert_pair_to_downsampled_external_npz", fake_convert)
+    monkeypatch.setattr(
+        orch,
+        "build_datasets",
+        lambda **kwargs: {
+            128: {
+                "train_npz": str(tmp_path / "cached_train.npz"),
+                "test_npz": str(tmp_path / "cached_test.npz"),
+                "gt_recon": str(tmp_path / "gt.npz"),
+            }
+        },
+    )
+    monkeypatch.setattr(
+        orch,
+        "run_grid_lines_torch",
+        lambda cfg: {"run_dir": str((Path(cfg.output_dir) / "runs" / "pinn_hybrid_resnet").resolve())},
+    )
+    monkeypatch.setattr(
+        orch,
+        "run_cross_dataset_hybrid_inference",
+        lambda **kwargs: {
+            "scan807": {"recon_npz": str(tmp_path / "scan_hybrid_recon.npz")},
+            "cameraman256": {"recon_npz": str(tmp_path / "cam_hybrid_recon.npz")},
+        },
+    )
+    monkeypatch.setattr(
+        orch,
+        "_build_cached_external_bundle",
+        lambda **kwargs: {"test_npz": str(tmp_path / "cached_test.npz")},
+    )
+    monkeypatch.setattr(
+        orch,
+        "_write_gt_recon_from_external_npz",
+        lambda dataset_output_dir, external_npz: tmp_path / "gt_recon.npz",
+    )
+    monkeypatch.setattr(orch, "aggregate_metrics_visuals_stage", lambda **kwargs: {"ok": True})
+
+    run_dir = tmp_path / "out" / "hybrid_training" / "runs" / "pinn_hybrid_resnet"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "model.pt").write_bytes(b"weights")
+
+    orch.run_nersc_scan807_cameraman_study(
+        scan807_dp=scan_dp,
+        scan807_para=scan_para,
+        cameraman_dp=cam_dp,
+        cameraman_para=cam_para,
+        ptychovit_checkpoint=checkpoint,
+        output_dir=tmp_path / "out",
+        half="top",
+        seed=3,
+        ptychovit_repo=tmp_path / "repo",
+        downsample_policy="crop-bin",
+    )
+    assert captured["prepare_policy"] == "crop-bin"
+    assert captured["scan_policy"] == "crop-bin"

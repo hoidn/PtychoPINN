@@ -21,6 +21,7 @@ from scripts.studies.grid_study_dataset_builder import build_datasets
 from scripts.studies.hybrid_checkpoint_inference import run_cross_dataset_hybrid_inference
 from scripts.studies.nersc_pair_adapter import materialize_pair_working_copy, pair_to_external_npz
 from scripts.studies.prepare_nersc_hybrid_dataset import (
+    DOWNSAMPLE_POLICY_CHOICES,
     _downsample_external_payload,
     prepare_hybrid_dataset,
 )
@@ -104,12 +105,17 @@ def _convert_pair_to_downsampled_external_npz(
     out_npz: Path,
     work_dir: Path,
     target_n: int = 128,
+    downsample_policy: str = "bin-crop",
 ) -> Path:
     work_dp, work_para = materialize_pair_working_copy(dp_h5, para_h5, work_dir)
     canonical = pair_to_external_npz(work_dp, work_para, out_npz.with_name(f"{out_npz.stem}_canonical.npz"))
     with np.load(canonical, allow_pickle=True) as loaded:
         payload = {key: loaded[key] for key in loaded.files}
-    downsampled = _downsample_external_payload(payload, target_n=target_n)
+    downsampled = _downsample_external_payload(
+        payload,
+        target_n=target_n,
+        downsample_policy=downsample_policy,
+    )
     out_npz.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(out_npz, **downsampled)
     return out_npz
@@ -196,8 +202,15 @@ def run_nersc_scan807_cameraman_study(
     half: str = "top",
     seed: int = 3,
     ptychovit_repo: Path = Path("/home/ollie/Documents/ptycho-vit"),
+    downsample_policy: str = "bin-crop",
 ) -> Dict[str, Any]:
     """Execute the full scan807 + cameraman orchestration with staged artifacts."""
+    if downsample_policy not in DOWNSAMPLE_POLICY_CHOICES:
+        raise ValueError(
+            f"Unsupported downsample_policy='{downsample_policy}', "
+            f"expected one of {DOWNSAMPLE_POLICY_CHOICES}."
+        )
+
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -223,6 +236,7 @@ def run_nersc_scan807_cameraman_study(
         output_dir=output_dir / "cameraman256" / "hybrid_dataset",
         half=half,
         target_n=128,
+        downsample_policy=downsample_policy,
     )
     scan807_test_npz = _convert_pair_to_downsampled_external_npz(
         dp_h5=working_pairs["scan807"][0],
@@ -230,6 +244,7 @@ def run_nersc_scan807_cameraman_study(
         out_npz=output_dir / "scan807" / "hybrid_dataset" / "scan807_n128_full_test.npz",
         work_dir=output_dir / "scan807" / "hybrid_dataset" / "working_pair",
         target_n=128,
+        downsample_policy=downsample_policy,
     )
 
     training_cfg = GridLinesConfig(
@@ -333,6 +348,7 @@ def run_nersc_scan807_cameraman_study(
     manifest = {
         "output_dir": str(output_dir),
         "half": half,
+        "downsample_policy": downsample_policy,
         "seed": int(seed),
         "working_pairs": {k: [str(v[0]), str(v[1])] for k, v in working_pairs.items()},
         "ptychovit_outputs": ptychovit_outputs,
