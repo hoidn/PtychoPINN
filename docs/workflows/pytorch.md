@@ -266,6 +266,15 @@ writes per-dataset recon artifacts under:
 
 - `<output_dir>/<dataset_name>/recons/pinn_hybrid_resnet/recon.npz`
 
+When this PyTorch stage is part of the mixed NERSC study runbook
+(`scripts/studies/runbooks/run_nersc_scan807_cameraman_study.py`), the paired
+PtychoViT arm is pinned to one canonical checkpoint:
+
+- `datasets/run145/best_model.pth`
+
+Do not substitute temporary `tmp/ptychovit_initial_*` checkpoints in that
+workflow; doing so breaks comparability across NERSC study runs.
+
 ## 8. Experiment Tracking and Logging
 
 **Current Status (Phase D2 complete as of 2025-10-19):**

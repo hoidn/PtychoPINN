@@ -57,6 +57,21 @@ Each workflow creates its own output directory:
 └── reconstructed_*.png    # Visualization outputs
 ```
 
+### Pinned Study Artifacts (Reproducibility Policy)
+
+For the NERSC `scan807 + cameraman256` orchestration workflow, the PtychoViT
+checkpoint is pinned and must not be changed between runs:
+
+- Canonical checkpoint: `datasets/run145/best_model.pth`
+
+Guidelines:
+- Always pass `--ptychovit-checkpoint datasets/run145/best_model.pth` when running
+  `scripts/studies/runbooks/run_nersc_scan807_cameraman_study.py`.
+- Do not use ad-hoc temporary checkpoints (for example
+  `tmp/ptychovit_initial_*`) for this study workflow.
+- If the canonical checkpoint is missing, restore it first; do not silently
+  switch to a different checkpoint.
+
 ## Data File Types
 
 ### NPZ Files (NumPy Archives)

@@ -2,205 +2,236 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Determine why cameraman recon visuals regressed from the semi-reasonable heatmaps (Image #1) to the checkerboard/flat outputs (Image #2), and isolate the exact causal code/data/config change(s).
+**Goal:** Isolate the exact commit-level and runtime-path cause of the cameraman visual regression (Image #1 -> Image #2) using historical study outputs plus git versioning.
 
-**Architecture:** Treat this as a provenance + contract debugging problem. First lock down which runs produced Image #1 vs Image #2 and enumerate all differences (code commits, checkpoints, inputs, preprocessing, plotting). Then test one hypothesis at a time with minimal, reproducible diagnostics that either eliminate or confirm a cause.
+**Architecture:** Use a git-first, last-24h commit-window strategy. Treat historical outputs as oracle artifacts, then run deterministic inference-only replays and targeted ablations (backend, downsample semantics, harmonization) to identify one causal track. Keep provenance minimal and practical.
 
-**Tech Stack:** Python 3.11, NumPy, PyTorch/TensorFlow runtime, existing study scripts (`scripts/studies/*`), pytest, git history.
+**Tech Stack:** Python 3.11, NumPy, PyTorch/TensorFlow runtime, existing study scripts (`scripts/studies/*`), pytest, git (`log`, `show`, `bisect`).
+
+## Original Symptoms (User-Reported Contract)
+
+The plan must preserve these concrete symptoms as the regression contract:
+
+1. Cameraman `pinn_hybrid_resnet` phase appears checkerboard/periodic with repeated-looking local structure (suggesting patch-level placement or model-collapse artifact).
+2. Cameraman `pinn_hybrid_resnet` reconstruction quality is visibly worse than the prior "good-ish" output, not just different color scaling.
+3. Cameraman `pinn_ptychovit` appears overly flat/saturated in failing outputs (loss of object detail).
+4. User hypothesis explicitly included possible batched-path placement bug (e.g., corner/crop-centering/coordinate-offset mishandling), so this must be tested directly rather than inferred from aggregate metrics alone.
+
+**Primary visual references:**
+- Image #1 style run: `outputs/nersc_scan807_cameraman_study_smoke/cameraman256/visuals/compare_amp_phase.png`
+- Image #2 style run: `outputs/nersc_scan807_cameraman_study_downsample_flip_full_20260217_171730/cameraman256/visuals/compare_amp_phase.png`
+- Original-good comparison run (historical anchor): `outputs/grid_lines_external_fly001_n128_top_train_full_test_e40_seed3_cnn_hybrid_resnet_rerun_20260216_213242_pty/`
 
 ---
 
-## Current Hypothesis Ledger (as-of now)
+## Current Hypothesis Ledger (git-window focused)
 
 | ID | Hypothesis | Status | Evidence so far | Next elimination/confirmation test |
 |---|---|---|---|---|
-| H1 | Batched reassembly regression causes Image #2 artifacts | **Refuted (for scan807)** | `outputs/scan807_parity_postfix_20260217_215744/summary.json` shows `parity_pass=true`, `amp_mae~1.4e-8`, `complex_allclose=true` | Re-run same parity test on cameraman to fully close H1 for both datasets |
-| H2 | Inference batching feeds wrong/repeated diffraction patches | **Weakly refuted** | Permutation test on cameraman inference produced very small diffs (`mean abs diff ~1e-4`, not catastrophic mismatch) | Add strict batch-routing diagnostic: compare outputs for hand-picked index set with 1-image batches vs large batches |
-| H3 | Input diffraction patches are accidentally duplicated/collapsed | **Partially refuted / still open** | No exact duplicates found; but cameraman diffraction cosine similarity is very high (~0.997), so patches are distinct but highly similar | Compare raw HDF5 diffraction diversity vs cached NPZ diversity to detect preprocessing collapse |
-| H4 | Coordinates/reassembly frame contract is wrong | **Open** | Reassembling cached `Y_I/Y_phi` against GT gave large error, but this test may be invalid if those tensors are not object patches in this external path | Validate exact semantic contract of `Y_I/Y_phi` in external mode; if valid, this strongly implicates data prep/coords |
-| H5 | Image #1 and Image #2 came from different runs with different artifacts and are not directly comparable | **Supported** | Image sizes/layout differ (3000x1200 with probe panel vs 2250x1200 without), matching different output dirs | Identify exact source dirs for both images and pin artifact lineage in a table |
-| H6 | PtychoViT regression is from checkpoint swap, not reassembly | **Supported** | Smoke run uses `/datasets/run145/best_model.pth`; full run uses `tmp/ptychovit_initial_fresh_stitched/...`; recon hashes differ | Replay full run with smoke checkpoint only; compare ptychovit recon directly |
-| H7 | Hybrid regression is from checkpoint/data-prep change (downsample policy flip + retrain), not plotting | **Supported** | Smoke/full hybrid model checkpoints differ (different SHA), recons differ strongly (`amp_mae~1.23`) | Isolate factors: run full inference with smoke hybrid checkpoint on full cached NPZs |
-| H9 | Image #1 -> Image #2 regression is confounded by crop/bin semantic flip (real-space crop + diffraction bin) rather than reassembly/stitching behavior | **Open / high-priority** | Policy changed between runs (`7df62bbf`) and full run was retrained on different prepared data; this can alter both ptychovit inputs and hybrid training distribution | Hold reassembly backend fixed and run a semantics ablation: rebuild cameraman/scan807 cached NPZs with pre-flip vs post-flip prep, then replay identical checkpoints on each and compare recon deltas |
-| H8 | Visual regression is mostly plotting-scale/style drift | **Open** | Probe panel and colormap range differ across runs; numeric metrics do not always align with visual severity | Render both runs with a fixed color-scale plotting script and compare |
+| H1 | Hybrid regression is reassembly-backend divergence (`auto` vs `shift_sum` vs `batched`), specifically corner/crop-centering/offset handling error in batched placement | Open / high-priority | `6ccc6e2b` changed position reassembly behavior and fallback handling; user-observed repeated/checkerboard phase is consistent with misplacement class | Run fixed-checkpoint backend matrix **plus per-patch placement parity** (same patches/coords, backend-only swap) |
+| H2 | Regression is data-prep semantic change from `7df62bbf` (diffraction binning + object/probe crop) | Open / high-priority | Full run retrained on changed prep policy; this can affect both model arms | Rebuild prep payloads pre/post semantic flip and replay same checkpoints |
+| H3 | Shared post-processing path (harmonize/resize) is degrading both models after inference | Open | Both models go through shared harmonization/evaluation path | Compare raw `recon.npz` vs harmonized render/metrics path from same files |
+| H4 | NERSC coordinate-frame conversion introduced drift in adapter path | Open | New adapter path converts meter-space positions to pixel offsets | Run coordinate sanity diagnostics and OOB/occupancy checks for identical scans |
+| H5 | PtychoViT bridge is taking fallback stitching path silently | Open | Bridge has broad exception fallback to simpler stitcher | Add stitch-path logging + run contract gate on historical runs |
+| H6 | PtychoViT change is checkpoint-only (`run145` vs `ptychovit_initial_fresh_stitched`) | Supported but not isolated | Historical runs use different checkpoints and produce different hashes | Hold data fixed and swap checkpoint only |
+| H7 | Hybrid change is partially runtime nondeterminism (same checkpoint, different output hash) | Open | Historical postfix run differs from full run hybrid recon despite similar setup | Force deterministic settings and replay identical checkpoint + NPZ |
+| H8 | Visual severity is mostly plotting-scale/layout drift | Open / lower-priority | Image #1 vs #2 layout differs | Re-render with fixed ranges only after H1-H7 checks |
 
 ---
 
-### Task 1: Lock Image Provenance (No ambiguity)
+### Task 1: Freeze Oracle Outputs + Commit Window
 
 **Files:**
-- Create: `tmp/debug/image_provenance_2026-02-18.md`
+- Create: `tmp/debug/oracle_runs_2026-02-18.md`
+- Create: `tmp/debug/oracle_hashes_2026-02-18.json`
 
-**Step 1: Record candidate source run for Image #1 and Image #2**
+**Step 1: Capture oracle run artifacts (no broad provenance sweep)**
 
 Run:
 ```bash
 python - <<'PY'
+import hashlib, json
 from pathlib import Path
-from PIL import Image
-runs=[
- 'outputs/nersc_scan807_cameraman_study_smoke',
- 'outputs/nersc_scan807_cameraman_study_downsample_flip_full_20260217_171730',
- 'outputs/nersc_scan807_cameraman_study_downsample_flip_full_20260217_171730_postfix_20260217_214635',
-]
-for r in runs:
-    p=Path(r)/'cameraman256/visuals/compare_amp_phase.png'
-    if p.exists():
-        print(r, Image.open(p).size, p.stat().st_mtime)
+
+runs = {
+  "smoke": "outputs/nersc_scan807_cameraman_study_smoke",
+  "full": "outputs/nersc_scan807_cameraman_study_downsample_flip_full_20260217_171730",
+  "postfix": "outputs/nersc_scan807_cameraman_study_downsample_flip_full_20260217_171730_postfix_20260217_214635",
+  "historical_good_anchor": "outputs/grid_lines_external_fly001_n128_top_train_full_test_e40_seed3_cnn_hybrid_resnet_rerun_20260216_213242_pty",
+}
+targets = {}
+for name, root in runs.items():
+    r = Path(root)
+    items = [
+        r / "cameraman256/recons/pinn_ptychovit/recon.npz",
+        r / "cameraman256/recons/pinn_hybrid_resnet/recon.npz",
+        r / "cameraman256/metrics_by_model.json",
+        r / "cameraman256/visuals/compare_amp_phase.png",
+    ]
+    targets[name] = {}
+    for p in items:
+        if p.exists():
+            h = hashlib.sha256(p.read_bytes()).hexdigest()
+            targets[name][str(p)] = h
+Path("tmp/debug").mkdir(parents=True, exist_ok=True)
+Path("tmp/debug/oracle_hashes_2026-02-18.json").write_text(json.dumps(targets, indent=2))
+print("wrote tmp/debug/oracle_hashes_2026-02-18.json")
 PY
 ```
-Expected: unique layout signature identifies which run matches each image.
+Expected: One JSON with stable hashes for oracle files.
 
-**Step 2: Capture invocation + checkpoint lineage for identified runs**
-
-Run:
-```bash
-cat <run>/invocation.sh
-cat <run>/cameraman256/runs/pinn_ptychovit/invocation.sh
-sha256sum <run>/hybrid_training/runs/pinn_hybrid_resnet/model.pt
-```
-Expected: explicit table of changed checkpoints/inputs.
-
----
-
-### Task 2: Close H1 For Cameraman (reassembly parity)
-
-**Files:**
-- Runtime artifacts: `outputs/cameraman_parity_postfix_<timestamp>/`
-
-**Step 1: Execute parity replay on cameraman**
+**Step 2: Bound commit search to last 24h high-risk changes**
 
 Run:
 ```bash
-PYTHONPATH=. /home/ollie/miniconda3/envs/ptycho311/bin/python \
-  scripts/studies/position_reassembly_checkpoint_replay.py \
-  --model-pt outputs/nersc_scan807_cameraman_study_downsample_flip_full_20260217_171730/hybrid_training/runs/pinn_hybrid_resnet/model.pt \
-  --train-npz outputs/nersc_scan807_cameraman_study_downsample_flip_full_20260217_171730/hybrid_training/datasets/N128/gs1/train.npz \
-  --test-npz outputs/nersc_scan807_cameraman_study_downsample_flip_full_20260217_171730/cameraman256/hybrid_cached/datasets/N128/gs1/test.npz \
-  --output-dir outputs/cameraman_parity_postfix_<timestamp> \
-  --dataset-name cameraman256 --architecture hybrid_resnet --n 128 --gridsize 1 \
-  --batch-size 8 --learning-rate 2e-4 --infer-batch-size 128 --position-reassembly-batch-size 8 --seed 3
+git log --since='2026-02-17 00:00' --until='2026-02-18 23:59' --date=iso --oneline \
+  -- scripts/studies/prepare_nersc_hybrid_dataset.py \
+     scripts/studies/grid_lines_torch_runner.py \
+     ptycho/tf_helper.py \
+     scripts/studies/grid_lines_compare_wrapper.py \
+     ptycho/workflows/grid_lines_workflow.py
 ```
-Expected: `summary.json` with pass/fail and concrete diff metrics.
-
-**Step 2: Decide H1 state**
-- If parity passes with tiny error: H1 closed as not-causal.
-- If parity fails: open reassembly bug track with failing artifact.
+Expected: Suspect list includes `7df62bbf`, `6ccc6e2b`, `3528933d`, `0a6693c7`.
 
 ---
 
-### Task 3: Validate Inference Routing (H2)
+### Task 2: Shared-Path Control (Raw Recon vs Harmonized Path)
 
 **Files:**
-- Create: `tmp/debug/check_inference_routing.py`
-- Create: `tmp/debug/inference_routing_2026-02-18.json`
+- Create: `tmp/debug/check_shared_postprocess_path.py`
+- Create: `tmp/debug/shared_path_control_2026-02-18.md`
 
-**Step 1: 1-image vs batched deterministic routing check**
+**Step 1: Compare raw recon arrays before any harmonization**
 
-Implement a diagnostic script that:
-1. Picks 64 deterministic indices from cameraman cached NPZ.
-2. Runs `run_torch_inference` once with `infer_batch_size=1` and once with `infer_batch_size=128` on exactly those samples.
-3. Reports per-sample complex MAE and max diff.
+Implement script to:
+1. Load `YY_pred` from oracle `recon.npz` files.
+2. Report shape, amp mean/std/q99, phase mean/std.
+3. Compute pairwise MAE (smoke vs full, full vs postfix) for each model.
 
 Expected:
-- Very small per-sample errors (`<1e-4`) indicates routing is correct.
-- Large/sample-shifted errors indicate misindexing.
+- If raw arrays already collapse, issue is pre-harmonization.
+- If raw arrays look reasonable but final visuals degrade, shared postprocess path is suspect.
 
 ---
 
-### Task 4: Compare Raw HDF5 vs Cached NPZ Diversity (H3)
+### Task 3: Hybrid Reassembly Backend Matrix (H1/H7)
 
 **Files:**
-- Create: `tmp/debug/compare_raw_vs_cached_diversity.py`
-- Create: `tmp/debug/raw_vs_cached_diversity_2026-02-18.md`
+- Create: `tmp/debug/run_hybrid_backend_matrix.py`
+- Create: `tmp/debug/hybrid_backend_matrix_2026-02-18.json`
 
-**Step 1: Quantify diffraction diversity pre/post prep**
+**Step 1: Deterministic fixed-checkpoint replay across backends**
 
-Compute for raw HDF5 and cached NPZ:
-- per-patch mean/std distributions
-- pairwise cosine similarity distribution (random subset)
-- effective rank / PCA variance concentration
+Run matrix for one fixed hybrid checkpoint and one fixed cached test NPZ:
+- `position_reassembly_backend=shift_sum`
+- `position_reassembly_backend=batched`
+- `position_reassembly_backend=auto`
+
+For each run capture:
+- output recon hash
+- amplitude/phase summary stats
+- metrics vs fixed GT recon
+
+**Step 2: Patch-placement parity subtest (directly targets user hypothesis)**
+- On a fixed subset of predicted patches and fixed `coords_offsets`, run backend-only reassembly swap:
+  - `shift_sum` reference
+  - `batched` candidate
+- Compare:
+  - per-pixel complex delta map
+  - per-patch contribution centroid/footprint parity
+  - top-k worst scan indices for placement mismatch
 
 Expected:
-- If cached NPZ diversity collapses sharply vs raw, preprocessing pipeline is suspect.
-- If both are similarly homogeneous, model collapse may be expected from data regime.
+- Near-zero placement deltas refute corner/crop-centering offset bug class.
+- Structured deltas (especially edge/corner-biased) support placement bug class.
+
+Expected:
+- Large backend-dependent deltas confirm H1.
+- Identical deltas across backends refute H1 and prioritize data/checkpoint tracks.
 
 ---
 
-### Task 5: Isolate Checkpoint/Data-Prep Deltas (H6, H7)
+### Task 4: Downsample Semantic Flip Ablation (H2/H4)
 
 **Files:**
-- Runtime artifacts under new output dirs:
-  - `outputs/nersc_ablate_ptychovit_ckpt_<timestamp>/`
-  - `outputs/nersc_ablate_hybrid_ckpt_<timestamp>/`
+- Create: `tmp/debug/ablate_downsample_semantics.py`
+- Create: `tmp/debug/downsample_semantics_ablation_2026-02-18.md`
 
-**Step 1: PtychoViT checkpoint ablation**
-- Hold dataset fixed (full run working pair)
-- Swap only checkpoint (`run145` vs `ptychovit_initial_fresh_stitched`)
-- Compare recon metrics and visuals
+**Step 1: Rebuild prep outputs with alternate semantics**
 
-**Step 2: Hybrid checkpoint ablation**
-- Hold test dataset fixed (full run cached NPZ)
-- Swap only hybrid checkpoint (`smoke model.pt` vs `full model.pt`)
-- Compare reconstructed objects
+From the same paired HDF5 inputs:
+1. Produce payload A (current policy: diffraction binning + object/probe center crop).
+2. Produce payload B (legacy-like comparison policy).
+3. Keep coords handling explicit and log frame assumptions.
+
+**Step 2: Replay identical checkpoints on A vs B**
+- PtychoViT checkpoint fixed.
+- Hybrid checkpoint fixed.
 
 Expected:
-- Clean attribution of how much regression is from checkpoint choice alone.
+- Major A/B shift with fixed checkpoints confirms data-prep semantics as causal.
 
 ---
 
-### Task 6: Plotting-Only Control (H8)
+### Task 5: PtychoViT Stitch-Path + Contract Gate (H5/H6)
 
 **Files:**
-- Create: `tmp/debug/render_fixed_scale_compare.py`
-- Output: `tmp/debug/fixed_scale_compare_<timestamp>.png`
+- Create: `tmp/debug/check_ptychovit_stitch_and_contract.py`
+- Create: `tmp/debug/ptychovit_contract_gate_2026-02-18.json`
 
-**Step 1: Re-render both run recons with fixed vmin/vmax**
-- Use identical amplitude and phase ranges across runs/models.
-- Include a side-by-side panel to remove autoscaling confounds.
+**Step 1: Run contract checks on oracle run artifacts**
+
+Validate:
+1. paired HDF5 key/shape requirements
+2. position-vector scan-count parity
+3. runtime normalization config keys present and valid
+4. stitch path used (upstream placement vs fallback)
 
 Expected:
-- If apparent regression shrinks under fixed scaling, plotting contributes significantly.
-- If not, underlying recon differences are real.
+- Any fallback stitch usage or contract violation elevates H5.
 
 ---
 
-### Task 7: Decision Gate and Next Fix Plan
+### Task 6: Commit Replay Matrix (Inference-Only)
+
+**Files:**
+- Create: `tmp/debug/replay_commit_matrix_2026-02-18.md`
+- Runtime outputs: `outputs/nersc_commit_replay_<shortsha>_<timestamp>/`
+
+**Step 1: Replay same inference inputs across suspect commits**
+
+Suspect commits:
+- `0a6693c7`
+- `3528933d`
+- `7df62bbf`
+- `6ccc6e2b`
+
+For each commit:
+1. Run inference-only replay on fixed artifacts.
+2. Record recon hash + compact metric set (`mae`, `ssim`, `ms_ssim`) for both models.
+
+Expected:
+- One or two commits show first major regression jump.
+
+---
+
+### Task 7: Decision Gate + Bounded `git bisect`
 
 **Files:**
 - Create: `tmp/debug/regression_decision_gate_2026-02-18.md`
-
-**Step 1: Summarize which hypotheses were eliminated/confirmed**
-- Mark each H1-H8 as Confirmed/Refuted/Inconclusive with evidence path.
-
-**Step 2: Choose one root-cause track only**
-- `track-A`: data prep/contract mismatch
-- `track-B`: checkpoint/model collapse
-- `track-C`: visualization artifact only
-
-**Step 3: Draft fix implementation plan**
-- Only after root cause is confirmed.
-
----
-
-### Task 8: Last-Resort Commit Isolation (`git bisect`)
-
-**Trigger condition:**
-- Run this task only if Tasks 1-7 do not isolate a single root cause (or produce conflicting attributions).
-
-**Files:**
 - Create: `tmp/debug/bisect_oracle_2026-02-18.sh`
 - Create: `tmp/debug/bisect_report_2026-02-18.md`
 
-**Step 1: Define a deterministic bisect oracle**
-- Use fixed inputs/checkpoints/seed and one binary pass/fail metric (for example, parity/metric threshold from the decision gate).
-- Oracle script exit codes:
-  - `0` = good commit
-  - `1` = bad commit
-  - `125` = skip (commit cannot be evaluated in this environment)
+**Step 1: Decision gate from H1-H8**
+- Mark each hypothesis Confirmed/Refuted/Inconclusive.
+- Assign root-cause ranking (primary + optional secondary contributors):
+  - `track-A`: reassembly/runtime backend behavior
+  - `track-B`: data-prep/coordinate semantic change
+  - `track-C`: checkpoint-only/model-quality shift
+  - `track-D`: shared postprocessing/visualization path
+- If multiple tracks contribute, explicitly quantify each contribution using fixed-input ablation metrics.
 
-**Step 2: Run bisect in a bounded commit window**
-- Use the known-good vs known-bad run lineage from Task 1 provenance.
+**Step 2: Bisect only if decision gate is inconclusive**
 
 Run:
 ```bash
@@ -208,27 +239,27 @@ git bisect start <known-bad-sha> <known-good-sha>
 git bisect run bash tmp/debug/bisect_oracle_2026-02-18.sh
 git bisect reset
 ```
-
-**Step 3: Record bisect outcome**
-- Write `tmp/debug/bisect_report_2026-02-18.md` with:
-  - known-good SHA
-  - known-bad SHA
-  - first bad SHA (or inconclusive result)
-  - oracle command used
-  - key metric deltas supporting the verdict
+Oracle contract:
+- `0` = good
+- `1` = bad
+- `125` = skip
 
 Expected:
-- A concrete first-bad commit (or explicit proof that commit-level isolation is inconclusive due to non-determinism/environment drift).
+- First bad commit or explicit nondeterminism proof in bounded window.
 
 ---
 
 ## Guardrails
-- Do not apply fixes until one hypothesis is confirmed with artifact evidence.
-- Use dedicated output dirs per test to avoid artifact contamination.
-- Keep all debugging scripts/results in `tmp/debug/`.
+- Prioritize historical outputs and git code history over broad provenance paperwork.
+- No fixes until one hypothesis is confirmed with reproducible evidence.
+- Use fixed checkpoints and fixed NPZ/HDF5 inputs for all replay tests.
+- Keep debug scripts and summaries in `tmp/debug/`.
 
 ## Verification Checklist
-- `summary.json` exists for both scan807 and cameraman parity checks.
-- Provenance table links each image to a specific run dir and invocation.
-- At least one ablation isolates checkpoint effect for ptychovit and hybrid independently.
-- Final decision gate file clearly picks one root-cause track.
+- Oracle hash bundle exists for smoke/full/postfix runs.
+- Oracle hash bundle includes historical good-anchor run (when artifact exists).
+- Backend matrix compares `shift_sum`/`batched`/`auto` under fixed checkpoint+NPZ.
+- Backend matrix includes direct patch-placement parity subtest for corner/crop-centering offset hypothesis.
+- Downsample semantics ablation compares A/B with identical checkpoints.
+- Decision gate classifies H1-H8 and ranks primary/secondary root-cause tracks.
+- Bisect report exists if and only if decision gate is inconclusive.

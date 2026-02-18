@@ -220,7 +220,7 @@ python scripts/studies/runbooks/run_nersc_scan807_cameraman_study.py \
   --scan807-para /home/ollie/Downloads/nersc/testdata/scan807_para.hdf5 \
   --cameraman-dp /home/ollie/Downloads/nersc/testdata/cameraman256_dp.hdf5 \
   --cameraman-para /home/ollie/Downloads/nersc/testdata/cameraman256_para.hdf5 \
-  --ptychovit-checkpoint <path/to/best_model.pth> \
+  --ptychovit-checkpoint datasets/run145/best_model.pth \
   --half top \
   --output-dir outputs/nersc_scan807_cameraman_study_downsample_flip_smoke \
   --seed 3

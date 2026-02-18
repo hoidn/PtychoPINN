@@ -223,6 +223,14 @@ use:
 - Orchestrator: `scripts/studies/nersc_orchestration.py`
 - Pair adapter: `scripts/studies/nersc_pair_adapter.py`
 
+Checkpoint policy (mandatory for this orchestration):
+
+- Always pass `--ptychovit-checkpoint datasets/run145/best_model.pth`.
+- Treat `datasets/run145/best_model.pth` as the single canonical checkpoint for the
+  NERSC scan807+cameraman orchestration workflow.
+- Do not substitute temporary checkpoints such as `tmp/ptychovit_initial_*` in this
+  workflow, or results are not considered comparable/reproducible.
+
 The PtychoViT stage in this workflow runs inference-only with explicit checkpoint restore
 (`--mode inference --checkpoint ...`) for both `scan807` and `cameraman256` paired HDF5 inputs.
 
