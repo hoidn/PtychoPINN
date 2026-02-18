@@ -137,6 +137,7 @@
         • **Dependency Analysis:** Required for refactors; list modules and risks.
         • **Artifacts:** Explicit path to the report directory.
         • **Abort/Escalation Trigger:** Document concrete conditions (e.g., repeated identical failures, telemetry unchanged) under which the plan must be marked blocked and escalated to a new implementation initiative.
+      - **Debug Template Exception (narrow):** For debug/evidence-only investigations, the supervisor may use `docs/plans/templates/debug_task_plan.md`. If work includes production implementation/refactor/behavior change, require `docs/plans/templates/implementation_plan.md`.
       - **Drift Handling:** If `$SPECS` change, do not rewrite old/done plans. Create a **new** fix-plan item (e.g., `PHYSICS-LOSS-001`) with a fresh plan that aligns with the new spec.
       - Every plan change ships with a same-loop `docs/fix_plan.md` update and a `galph_memory.md` note referencing the attempt/timestamp.
     </planning>

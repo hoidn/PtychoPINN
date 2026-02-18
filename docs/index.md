@@ -90,6 +90,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** template, plan, phased, checklist, exit-criteria  
 **Use this when:** Creating or reshaping an initiative plan to match project conventions.
 
+### [Debug Task Plan Template (Optional)](plans/templates/debug_task_plan.md)
+**Description:** Optional task-first template for debugging/evidence initiatives with hypothesis ledger, deterministic diagnostics, and decision-gate sections.  
+**Keywords:** template, debug, hypothesis, investigation, decision-gate  
+**Use this when:** Running scoped debugging investigations that should not replace the canonical implementation-plan schema.
+
 ### [Agent Git Setup (Runbook)](../prompts/git_setup_agent.md)
 **Description:** Step-by-step, idempotent setup for Git in supervisor/loop/orchestrator environments. Covers global config defaults, submodule hygiene for .claude/claude, .gitignore hardening for logs/outputs/data, safe pull wrappers, and recovery playbooks.  
 **Keywords:** git, automation, supervisor, loop, submodules, rebase, setup  

@@ -54,6 +54,11 @@ Supervisor records `ralph_last_commit=<sha8|none>` in `galph_memory.md` and chec
 ### Plan Maintenance
 Each initiative (or focus) owns a single evolving plan file such as `docs/plans/<initiative-id>/implementation.md` or a dedicated focus document. Update that file in place—add new sections, checklists, or notes as work progresses—instead of generating a brand-new `plan/plan.md` every loop. Create a new plan file only when the scope fundamentally changes (for example, splitting off a new focus or initiative). Cross-reference the active plan path from `docs/fix_plan.md` so every loop knows which document to edit.
 
+### Template Selection Rule
+- **Default (required):** use `docs/plans/templates/implementation_plan.md` for feature/refactor/behavior-change initiatives.
+- **Optional (debug/evidence only):** use `docs/plans/templates/debug_task_plan.md` for scoped investigations and hypothesis testing.
+- If a debug initiative expands into production implementation, create or link a canonical implementation plan before continuing.
+
 When you update `docs/fix_plan.md`, keep the ledger concise:
 - Treat each “Return Condition” as a short specification of required outcomes (artifacts present, metrics populated, verification state), not as a full shell script. Link to the initiative’s Working Plan and/or hub plan/CLI files for exact commands and flags.
 - Avoid copying prior Briefs verbatim into the ledger; instead, summarize the current spec and use the plan/hub to carry detailed CLI recipes.
@@ -280,6 +285,31 @@ pytest tests/test_frc.py -v
 
 ## Notes
 [Add any decisions or problems encountered]
+```
+
+### Optional debug_task_plan.md Structure (Debug/Evidence Only)
+```markdown
+# Debug Task Plan: [Name]
+
+## Debug Goal
+- [Regression/bug to isolate]
+
+## Hypothesis Ledger
+| ID | Hypothesis | Status | Evidence | Next Test |
+|---|---|---|---|---|
+| H1 | [...] | Open | path/to/artifact | run deterministic check |
+
+## Task 1: [Diagnostic]
+**Files:**
+- Create/Modify: `tmp/debug/<script>.py`
+
+**Step 1: Run diagnostic**
+- Run: `python tmp/debug/<script>.py`
+- Expected: reproducible pass/fail signal
+
+## Decision Gate
+- Mark hypotheses Confirmed/Refuted/Inconclusive.
+- Pick root-cause track or mark blocked with return condition.
 ```
 
 ---
