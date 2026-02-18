@@ -324,14 +324,25 @@ def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=F
     # Handle flexible diffraction key and shape
     diff_key = 'diff3d' if 'diff3d' in data else 'diffraction'
     diff_data = data[diff_key]
-    
-    # Only transpose if the data is in (H, W, N) format, not if it's already (N, H, W)
-    if diff_data.shape[0] < diff_data.shape[2]:
-        # Data is in (H, W, N) format, transpose to (N, H, W)
+
+    if diff_data.ndim == 4 and diff_data.shape[-1] == 1:
+        diff_data = np.squeeze(diff_data, axis=-1)
+    if diff_data.ndim != 3:
+        raise ValueError(
+            f"Expected diffraction data to have rank 3 or rank 4 with singleton channel, got {diff_data.shape}"
+        )
+
+    dataset_size = int(xcoords.shape[0])
+    # Prefer coordinate-length matching over shape heuristics:
+    # canonical format is (N_scans, H, W); legacy format is (H, W, N_scans).
+    if diff_data.shape[0] == dataset_size:
+        diff3d = diff_data
+    elif diff_data.shape[-1] == dataset_size:
         diff3d = np.transpose(diff_data, [2, 0, 1])
     else:
-        # Data is already in (N, H, W) format
-        diff3d = diff_data
+        raise ValueError(
+            f"Unable to align diffraction shape {diff_data.shape} with xcoords length {dataset_size}."
+        )
     
     probeGuess = data['probeGuess']
     objectGuess = data.get('objectGuess', None)
