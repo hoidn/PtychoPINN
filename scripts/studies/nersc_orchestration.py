@@ -89,11 +89,20 @@ def run_ptychovit_inference_stage(
             )
         if not recon_npz.exists():
             raise RuntimeError(f"PtychoViT recon missing for {dataset_name}: {recon_npz}")
+        invocation_json = run_dir / "invocation.json"
+        invocation_sh = run_dir / "invocation.sh"
+        if not invocation_json.exists() or not invocation_sh.exists():
+            raise RuntimeError(
+                f"PtychoViT child invocation artifacts missing for {dataset_name}: "
+                f"{invocation_json}, {invocation_sh}"
+            )
         outputs[dataset_name] = {
             "run_dir": str(run_dir),
             "recon_npz": str(recon_npz),
             "stdout_log": str(run_dir / "stdout.log"),
             "stderr_log": str(run_dir / "stderr.log"),
+            "invocation_json": str(invocation_json),
+            "invocation_sh": str(invocation_sh),
         }
     return outputs
 
@@ -203,12 +212,18 @@ def run_nersc_scan807_cameraman_study(
     seed: int = 3,
     ptychovit_repo: Path = Path("/home/ollie/Documents/ptycho-vit"),
     downsample_policy: str = "bin-crop",
+    position_reassembly_backend: str = "shift_sum",
 ) -> Dict[str, Any]:
     """Execute the full scan807 + cameraman orchestration with staged artifacts."""
     if downsample_policy not in DOWNSAMPLE_POLICY_CHOICES:
         raise ValueError(
             f"Unsupported downsample_policy='{downsample_policy}', "
             f"expected one of {DOWNSAMPLE_POLICY_CHOICES}."
+        )
+    if position_reassembly_backend != "shift_sum":
+        raise ValueError(
+            "NERSC orchestration requires position_reassembly_backend='shift_sum' "
+            "to avoid unsafe auto/batched fallback paths."
         )
 
     output_dir = Path(output_dir)
@@ -295,7 +310,7 @@ def run_nersc_scan807_cameraman_study(
         plateau_min_lr=5e-5,
         plateau_threshold=0.0,
         reassembly_mode="position",
-        position_reassembly_backend="shift_sum",
+        position_reassembly_backend=position_reassembly_backend,
     )
     train_result = run_grid_lines_torch(common_cfg)
     model_pt = Path(train_result["run_dir"]) / "model.pt"
@@ -349,6 +364,7 @@ def run_nersc_scan807_cameraman_study(
         "output_dir": str(output_dir),
         "half": half,
         "downsample_policy": downsample_policy,
+        "position_reassembly_backend": position_reassembly_backend,
         "seed": int(seed),
         "working_pairs": {k: [str(v[0]), str(v[1])] for k, v in working_pairs.items()},
         "ptychovit_outputs": ptychovit_outputs,

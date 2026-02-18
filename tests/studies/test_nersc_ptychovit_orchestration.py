@@ -33,8 +33,12 @@ def test_ptychovit_inference_stage_invokes_bridge_entrypoint_with_checkpoint(
     def fake_run(cmd, check, capture_output, text):
         calls.append([str(x) for x in cmd])
         recon_path = Path(cmd[cmd.index("--recon-npz") + 1])
+        run_dir = Path(cmd[cmd.index("--output-dir") + 1])
         recon_path.parent.mkdir(parents=True, exist_ok=True)
         recon_path.write_bytes(b"npz")
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "invocation.json").write_text("{}")
+        (run_dir / "invocation.sh").write_text("python dummy.py\n")
         return subprocess.CompletedProcess(cmd, returncode=0, stdout="ok", stderr="")
 
     monkeypatch.setattr("subprocess.run", fake_run)
@@ -75,8 +79,12 @@ def test_ptychovit_stage_writes_recon_artifact_paths_for_scan807_and_cameraman(
 
     def fake_run(cmd, check, capture_output, text):
         recon_path = Path(cmd[cmd.index("--recon-npz") + 1])
+        run_dir = Path(cmd[cmd.index("--output-dir") + 1])
         recon_path.parent.mkdir(parents=True, exist_ok=True)
         recon_path.write_bytes(b"npz")
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "invocation.json").write_text("{}")
+        (run_dir / "invocation.sh").write_text("python dummy.py\n")
         return subprocess.CompletedProcess(cmd, returncode=0, stdout="ok", stderr="")
 
     monkeypatch.setattr("subprocess.run", fake_run)
@@ -95,6 +103,36 @@ def test_ptychovit_stage_writes_recon_artifact_paths_for_scan807_and_cameraman(
     assert "cameraman256" in result
     assert Path(result["scan807"]["recon_npz"]).exists()
     assert Path(result["cameraman256"]["recon_npz"]).exists()
+
+
+def test_ptychovit_stage_requires_child_invocation_artifacts(monkeypatch, tmp_path):
+    import pytest
+    from scripts.studies.nersc_orchestration import run_ptychovit_inference_stage
+
+    checkpoint = tmp_path / "best_model.pth"
+    checkpoint.write_bytes(b"ckpt")
+    repo = tmp_path / "ptychovit_repo"
+    repo.mkdir()
+
+    scan_dp = tmp_path / "scan807_dp.hdf5"
+    scan_para = tmp_path / "scan807_para.hdf5"
+    _touch_pair(scan_dp, scan_para)
+
+    def fake_run(cmd, check, capture_output, text):
+        recon_path = Path(cmd[cmd.index("--recon-npz") + 1])
+        recon_path.parent.mkdir(parents=True, exist_ok=True)
+        recon_path.write_bytes(b"npz")
+        return subprocess.CompletedProcess(cmd, returncode=0, stdout="ok", stderr="")
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    with pytest.raises(RuntimeError, match="invocation artifacts"):
+        run_ptychovit_inference_stage(
+            dataset_pairs={"scan807": (scan_dp, scan_para)},
+            ptychovit_repo=repo,
+            checkpoint=checkpoint,
+            output_dir=tmp_path / "outputs",
+        )
 
 
 def test_full_orchestration_uses_cached_test_npz_for_cross_dataset_inference(
@@ -459,3 +497,86 @@ def test_full_orchestration_threads_downsample_policy_to_prep_and_scan_convert(m
     )
     assert captured["prepare_policy"] == "crop-bin"
     assert captured["scan_policy"] == "crop-bin"
+
+
+def test_full_orchestration_rejects_non_shift_sum_backend(tmp_path):
+    import pytest
+    from scripts.studies import nersc_orchestration as orch
+
+    checkpoint = tmp_path / "best_model.pth"
+    checkpoint.write_bytes(b"ckpt")
+    scan_dp = tmp_path / "scan807_dp.hdf5"
+    scan_para = tmp_path / "scan807_para.hdf5"
+    cam_dp = tmp_path / "cameraman_dp.hdf5"
+    cam_para = tmp_path / "cameraman_para.hdf5"
+    _touch_pair(scan_dp, scan_para)
+    _touch_pair(cam_dp, cam_para)
+
+    with pytest.raises(ValueError, match="shift_sum"):
+        orch.run_nersc_scan807_cameraman_study(
+            scan807_dp=scan_dp,
+            scan807_para=scan_para,
+            cameraman_dp=cam_dp,
+            cameraman_para=cam_para,
+            ptychovit_checkpoint=checkpoint,
+            output_dir=tmp_path / "out",
+            position_reassembly_backend="auto",
+        )
+
+
+def test_runbook_cli_restricts_position_reassembly_backend():
+    import pytest
+    from scripts.studies.runbooks.run_nersc_scan807_cameraman_study import parse_args
+
+    common = [
+        "--scan807-dp",
+        "scan_dp.hdf5",
+        "--scan807-para",
+        "scan_para.hdf5",
+        "--cameraman-dp",
+        "cam_dp.hdf5",
+        "--cameraman-para",
+        "cam_para.hdf5",
+        "--ptychovit-checkpoint",
+        "datasets/run145/best_model.pth",
+        "--output-dir",
+        "outputs/test",
+    ]
+    parsed = parse_args(common + ["--position-reassembly-backend", "shift_sum"])
+    assert parsed.position_reassembly_backend == "shift_sum"
+
+    with pytest.raises(SystemExit):
+        parse_args(common + ["--position-reassembly-backend", "auto"])
+
+
+def test_runbook_main_writes_parent_invocation_artifacts(monkeypatch, tmp_path):
+    from scripts.studies.runbooks import run_nersc_scan807_cameraman_study as runbook
+
+    calls = {}
+
+    def fake_run(**kwargs):
+        calls.update(kwargs)
+        return {"ok": True}
+
+    monkeypatch.setattr(runbook, "run_nersc_scan807_cameraman_study", fake_run)
+    output_dir = tmp_path / "outputs"
+    argv = [
+        "--scan807-dp",
+        str(tmp_path / "scan_dp.hdf5"),
+        "--scan807-para",
+        str(tmp_path / "scan_para.hdf5"),
+        "--cameraman-dp",
+        str(tmp_path / "cam_dp.hdf5"),
+        "--cameraman-para",
+        str(tmp_path / "cam_para.hdf5"),
+        "--ptychovit-checkpoint",
+        str(tmp_path / "best_model.pth"),
+        "--position-reassembly-backend",
+        "shift_sum",
+        "--output-dir",
+        str(output_dir),
+    ]
+    runbook.main(argv)
+    assert (output_dir / "invocation.json").exists()
+    assert (output_dir / "invocation.sh").exists()
+    assert calls["position_reassembly_backend"] == "shift_sum"

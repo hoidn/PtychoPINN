@@ -7,6 +7,7 @@
 - Purpose: Run checkpoint-restored `pinn_ptychovit` inference on `scan807` and `cameraman256`, train `pinn_hybrid_resnet` on cameraman top/bottom-half (`N=128`, 40 epochs), run checkpoint-reuse hybrid inference across both full datasets, and aggregate per-dataset metrics/visuals.
 - Script: `scripts/studies/runbooks/run_nersc_scan807_cameraman_study.py`
 - Canonical PtychoViT checkpoint for this study: `datasets/run145/best_model.pth` (required; do not substitute ad-hoc `tmp/ptychovit_initial_*` checkpoints).
+- Position reassembly backend for external hybrid inference is pinned to `shift_sum` (`--position-reassembly-backend shift_sum` only).
 - N=128 prep semantics are configurable via `--downsample-policy`:
   - `bin-crop` (default): diffraction is block-binned; `objectGuess`/`probeGuess` are center-cropped; coordinates remain in the same pixel frame.
   - `crop-bin`: diffraction is center-cropped; `objectGuess`/`probeGuess` are block-binned; coordinates are scaled by `1/factor`.
@@ -27,6 +28,7 @@ python scripts/studies/runbooks/run_nersc_scan807_cameraman_study.py \
   --ptychovit-checkpoint datasets/run145/best_model.pth \
   --half top \
   --downsample-policy bin-crop \
+  --position-reassembly-backend shift_sum \
   --output-dir outputs/nersc_scan807_cameraman_study \
   --seed 3
 ```

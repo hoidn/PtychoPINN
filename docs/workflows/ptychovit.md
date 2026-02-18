@@ -234,10 +234,15 @@ Checkpoint policy (mandatory for this orchestration):
 The PtychoViT stage in this workflow runs inference-only with explicit checkpoint restore
 (`--mode inference --checkpoint ...`) for both `scan807` and `cameraman256` paired HDF5 inputs.
 
-For this orchestration's `256 -> 128` external-raw prep path, downsampling uses:
-- diffraction block binning,
-- center-cropping for `objectGuess`/`probeGuess`,
-- unchanged coordinate values in the same pixel frame (no `1/factor` coordinate rescale).
+For this orchestration's `256 -> 128` external-raw prep path, downsampling is controlled by
+`--downsample-policy`:
+- `bin-crop` (default): diffraction block binning, center-crop for `objectGuess`/`probeGuess`,
+  coordinates unchanged in the same pixel frame.
+- `crop-bin`: diffraction center-crop, block-bin for `objectGuess`/`probeGuess`, coordinates scaled
+  by `1/factor`.
+
+For hybrid external inference in this orchestration, `--position-reassembly-backend` is restricted to
+`shift_sum` only.
 
 ## Evaluation Policy
 

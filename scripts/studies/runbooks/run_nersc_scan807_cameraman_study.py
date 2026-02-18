@@ -46,6 +46,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "'crop-bin' crops diffraction and bins real-space."
         ),
     )
+    parser.add_argument(
+        "--position-reassembly-backend",
+        type=str,
+        choices=["shift_sum"],
+        default="shift_sum",
+        help="Pinned external position reassembly backend for this study (must be shift_sum).",
+    )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--seed", type=int, default=3)
     return parser.parse_args(argv)
@@ -70,6 +77,7 @@ def main(argv: list[str] | None = None) -> None:
         output_dir=args.output_dir,
         half=args.half,
         downsample_policy=args.downsample_policy,
+        position_reassembly_backend=args.position_reassembly_backend,
         seed=args.seed,
         ptychovit_repo=args.ptychovit_repo,
     )
