@@ -92,6 +92,7 @@ def _run_single_dataset_inference(
     test_npz: Path,
     recon_npz: Path,
     allow_oom_fallback: bool = True,
+    runtime_contract_out: Dict[str, object] | None = None,
 ) -> Path:
     _ = dataset_name
     test_data, test_metadata = load_cached_dataset_with_metadata(Path(test_npz))
@@ -107,6 +108,7 @@ def _run_single_dataset_inference(
             backend=config.position_reassembly_backend,
             batch_size=config.position_reassembly_batch_size,
             allow_oom_fallback=allow_oom_fallback,
+            runtime_contract_out=runtime_contract_out,
         )
     elif pred_for_metrics.ndim >= 3:
         pred_h, pred_w = pred_for_metrics.shape[-3], pred_for_metrics.shape[-2]
@@ -153,10 +155,12 @@ def run_cross_dataset_hybrid_inference(
 
     model = _load_model_from_checkpoint(base_cfg, model_pt)
     results: Dict[str, Dict[str, str]] = {}
+    runtime_contract_by_dataset: Dict[str, Dict[str, object]] = {}
     for dataset_name, test_npz in dataset_npzs.items():
         dataset_out = output_dir / dataset_name
         cfg = replace(base_cfg, output_dir=dataset_out, test_npz=Path(test_npz))
         recon_npz = dataset_out / "recons" / "pinn_hybrid_resnet" / "recon.npz"
+        runtime_contract: Dict[str, object] = {}
         recon_path = _run_single_dataset_inference(
             model=model,
             config=cfg,
@@ -164,11 +168,25 @@ def run_cross_dataset_hybrid_inference(
             test_npz=Path(test_npz),
             recon_npz=recon_npz,
             allow_oom_fallback=allow_oom_fallback,
+            runtime_contract_out=runtime_contract,
         )
         results[dataset_name] = {
             "recon_npz": str(recon_path),
             "test_npz": str(test_npz),
         }
+        runtime_contract_by_dataset[dataset_name] = runtime_contract
+
+    resolved_values = {
+        str(v.get("resolved_reassembly_backend"))
+        for v in runtime_contract_by_dataset.values()
+        if "resolved_reassembly_backend" in v
+    }
+    resolved_backend = (
+        next(iter(resolved_values))
+        if len(resolved_values) == 1
+        else ("__mixed__" if resolved_values else "__unknown__")
+    )
+    fallback_used = any(bool(v.get("fallback_used", False)) for v in runtime_contract_by_dataset.values())
 
     manifest_path = output_dir / "hybrid_cross_dataset_manifest.json"
     manifest_path.write_text(
@@ -177,7 +195,11 @@ def run_cross_dataset_hybrid_inference(
                 "model_pt": str(model_pt),
                 "architecture": base_cfg.architecture,
                 "position_reassembly_backend": base_cfg.position_reassembly_backend,
+                "requested_reassembly_backend": base_cfg.position_reassembly_backend,
+                "resolved_reassembly_backend": resolved_backend,
                 "allow_oom_fallback": bool(allow_oom_fallback),
+                "fallback_used": bool(fallback_used),
+                "runtime_contract_by_dataset": runtime_contract_by_dataset,
                 "datasets": {name: payload["test_npz"] for name, payload in results.items()},
             },
             indent=2,

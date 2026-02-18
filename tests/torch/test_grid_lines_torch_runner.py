@@ -792,14 +792,19 @@ class TestRunGridLinesTorchScaffold:
 
         pred = np.ones((4, 64, 64, 1), dtype=np.complex64)
         test_data = {"coords_offsets": np.zeros((4, 1, 2, 1), dtype=np.float32)}
+        runtime_contract = {}
         out = _reassemble_with_coords_offsets(
             pred,
             test_data,
             M=64,
             backend=backend,
             batch_size=32,
+            runtime_contract_out=runtime_contract,
         )
         assert out.shape == (64, 64)
+        assert runtime_contract["requested_reassembly_backend"] == backend
+        assert runtime_contract["resolved_reassembly_backend"] == "batched"
+        assert runtime_contract["fallback_used"] is True
 
     def test_shift_sum_oom_raises_when_fallback_disabled(self, monkeypatch):
         import tensorflow as tf
@@ -823,6 +828,7 @@ class TestRunGridLinesTorchScaffold:
 
         pred = np.ones((4, 64, 64, 1), dtype=np.complex64)
         test_data = {"coords_offsets": np.zeros((4, 1, 2, 1), dtype=np.float32)}
+        runtime_contract = {}
         with pytest.raises(tf.errors.ResourceExhaustedError):
             _reassemble_with_coords_offsets(
                 pred,
@@ -831,7 +837,10 @@ class TestRunGridLinesTorchScaffold:
                 backend="shift_sum",
                 batch_size=32,
                 allow_oom_fallback=False,
+                runtime_contract_out=runtime_contract,
             )
+        assert runtime_contract["fallback_used"] is False
+        assert runtime_contract["resolved_reassembly_backend"] == "shift_sum"
 
     def test_grid_lines_mode_keeps_existing_stitching_path(self, synthetic_npz, tmp_path, monkeypatch):
         """grid_lines mode should still use the stitch helper path."""

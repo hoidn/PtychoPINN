@@ -357,10 +357,20 @@ def _reassemble_with_coords_offsets(
     backend: str = "shift_sum",
     batch_size: int = 64,
     allow_oom_fallback: bool = True,
+    runtime_contract_out: Dict[str, object] | None = None,
 ) -> np.ndarray:
     """Reassemble predicted patches using coords_offsets (external dataset mode)."""
     patches, offsets_b12c, offsets_b112 = _normalize_position_inputs(pred_complex, test_data)
     selected_backend = _choose_position_backend(pred_complex, test_data, configured=backend)
+    if runtime_contract_out is not None:
+        runtime_contract_out.update(
+            {
+                "requested_reassembly_backend": str(backend),
+                "resolved_reassembly_backend": str(selected_backend),
+                "allow_oom_fallback": bool(allow_oom_fallback),
+                "fallback_used": False,
+            }
+        )
     if selected_backend == "shift_sum":
         try:
             return _reassemble_position_shift_sum(patches, offsets_b112, M=M)
@@ -372,6 +382,9 @@ def _reassemble_with_coords_offsets(
                 and backend in {"auto", "shift_sum"}
                 and isinstance(exc, tf.errors.ResourceExhaustedError)
             ):
+                if runtime_contract_out is not None:
+                    runtime_contract_out["resolved_reassembly_backend"] = "batched"
+                    runtime_contract_out["fallback_used"] = True
                 logger.warning(
                     "Shift-sum OOM under backend=%s; retrying with batched position reassembly",
                     backend,
