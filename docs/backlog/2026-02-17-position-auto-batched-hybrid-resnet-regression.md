@@ -1,16 +1,16 @@
 # Backlog: `position_reassembly_backend=batched` Corrupts External N=128 Reconstructions
 
 **Created:** 2026-02-17  
-**Status:** Open (partially mitigated)  
+**Status:** Open (verification ongoing)  
 **Priority:** High  
 **Related:** `scripts/studies/grid_lines_torch_runner.py`, `tests/torch/test_grid_lines_torch_runner.py`, `docs/plans/2026-02-17-hybrid-resnet-trash-recon-debug.md`  
 **Impacts:** External grid-lines Torch studies using `reassembly_mode=position` with `N=128` (notably `pinn_hybrid_resnet`)
 
 ## Summary
 
-A deterministic reconstruction regression exists in the `batched` position-reassembly path for external `N=128` data. `batched` produces trash-looking outputs (large quadrant artifact + striped/checker phase), while `shift_sum` produces plausible reconstructions from the same checkpoint and predictions.
+Historical evidence showed a deterministic reconstruction regression in the `batched` position-reassembly path for external `N=128` data.
 
-The immediate routing issue (`auto` selecting `batched`) has been mitigated by making `auto` prefer `shift_sum`, but the underlying `batched` correctness bug remains.
+Current code now recenters offsets in both shift-sum and batched code paths, and orchestration-level hard rejection of non-`shift_sum` backends has been removed from the cross-dataset hybrid helper. Full checkpoint-replay parity evidence is still required before this backlog item can be closed.
 
 ## Evidence
 
@@ -28,14 +28,14 @@ The immediate routing issue (`auto` selecting `batched`) has been mitigated by m
 
 ## Root Cause
 
-There are two distinct issues:
+Historically there were two distinct issues:
 
 1. **Routing regression (mitigated):** `_choose_position_backend()` previously selected `batched` for large jobs (`batch >= 1024` or `patch_n >= 128`), sending most external `N=128` runs through the broken path.
-2. **Batched-path correctness bug (still open):** `reassemble_whole_object`/`_reassemble_position_batched` does not match `shift_sum` behavior for external/global-frame `coords_offsets`.
+2. **Batched-path correctness mismatch (historical):** `reassemble_whole_object`/`_reassemble_position_batched` previously diverged from `shift_sum` behavior for external/global-frame `coords_offsets`.
    - `shift_sum` explicitly recenters offsets by subtracting center-of-mass before translation.
-   - `batched` translates with raw offsets and diverges under this data contract.
+   - batched path now applies the same centering step; checkpoint-replay parity is still pending verification.
 
-This mismatch is what creates the corner/stripe failure pattern when `batched` is used.
+This historical mismatch is what created the corner/stripe failure pattern when `batched` was used.
 
 The heuristic was introduced in commit:
 
@@ -64,9 +64,33 @@ Regenerated visuals/recons for affected outputs after mitigation:
 - `outputs/grid_lines_external_fly001_n128_top_train_full_test_e20_seed3_cnn_hybrid_resnet_rerun_20260216_165013_pty`
 - Report: `tmp/debug/hybrid_resnet_trash_recon/regeneration_report.json`
 
-## Required Fix Work (Open)
+## Required Verification Work (Open)
 
-1. Fix `batched` offset handling to match `shift_sum` semantics for external offsets (center/reframe offsets consistently before translation).
-2. Add parity regression test(s) that fail when `batched` diverges from `shift_sum` on fixed external-style offsets.
-3. Validate both quality and scale parity (`amp_mean`, `amp_q99`, `amp_max`) on a checkpoint replay fixture.
-4. Only after parity passes, reconsider recommending explicit `batched` in docs.
+1. Add parity regression test(s) that fail when `batched` diverges from `shift_sum` on fixed external-style offsets.
+2. Validate both quality and scale parity (`amp_mean`, `amp_q99`, `amp_max`) on a checkpoint replay fixture.
+3. Close this backlog only after replay parity evidence is archived.
+
+## 2026-02-18 Update
+
+- `scripts/studies/hybrid_checkpoint_inference.py` now accepts `position_reassembly_backend` in `{auto, shift_sum, batched}` (instead of forcing `shift_sum`).
+- `tests/torch/test_hybrid_checkpoint_cross_dataset_inference.py` updated to:
+  - allow `auto` backend in cross-dataset inference helper
+  - validate rejection of unknown backend values
+  - record selected backend in helper manifest
+- Added checkpoint-replay parity evidence tool:
+  - `scripts/studies/position_reassembly_checkpoint_replay.py`
+  - `tests/studies/test_position_reassembly_checkpoint_replay.py`
+  - summary contract: `<output_dir>/summary.json` with amplitude/phase error metrics and pass/fail flag
+
+Replay command template:
+
+```bash
+python scripts/studies/position_reassembly_checkpoint_replay.py \
+  --model-pt <path/to/model.pt> \
+  --train-npz <path/to/train.npz> \
+  --test-npz <path/to/test.npz> \
+  --output-dir <path/to/parity_replay> \
+  --dataset-name replay \
+  --n 128 --gridsize 1 \
+  --atol 1e-4 --rtol 1e-3
+```
