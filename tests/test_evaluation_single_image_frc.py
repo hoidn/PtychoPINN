@@ -1,5 +1,7 @@
 import numpy as np
 import json
+import inspect
+from pathlib import Path
 
 from ptycho import params
 
@@ -242,6 +244,14 @@ def test_external_frc_package_exposes_full_single_image_metrics_api():
     assert "single_frc1over7" in out
     assert len(out["single_frc50"]) == 2
     assert len(out["single_frc1over7"]) == 2
+
+
+def test_single_image_frc_import_resolves_to_in_repo_module():
+    from frc.single_image_frc import single_image_frc_metrics as external_single_image_frc_metrics
+
+    repo_root = Path(__file__).resolve().parents[1]
+    module_path = Path(inspect.getsourcefile(external_single_image_frc_metrics)).resolve()
+    assert module_path == (repo_root / "frc" / "single_image_frc.py").resolve()
 
 
 def test_eval_reconstruction_default_does_not_break_legacy_keys():

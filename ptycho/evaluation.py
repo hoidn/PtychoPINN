@@ -82,7 +82,7 @@ import matplotlib
 import tensorflow as tf
 from skimage.metrics import structural_similarity
 from pathlib import Path
-import sys
+from frc.single_image_frc import single_image_frc_metrics as _single_image_frc_metrics_impl
 
 from ptycho import params
 from ptycho import misc
@@ -519,26 +519,6 @@ def frc50(target, pred, frc_sigma = 0, debug_save_images=False, debug_dir=None, 
     return shellcorr, frc50_value
 
 
-def _import_external_single_image_frc_api():
-    """Load single-image FRC API from the external sibling frc package."""
-    ext_root = Path(__file__).resolve().parents[2] / "frc"
-    if ext_root.exists():
-        ext_root_str = str(ext_root)
-        if ext_root_str not in sys.path:
-            sys.path.insert(0, ext_root_str)
-    try:
-        from frc.single_image_frc import single_image_frc_metrics as external_single_image_frc_metrics
-    except ModuleNotFoundError as exc:
-        raise ModuleNotFoundError(
-            "Missing external frc package. Expected sibling directory '../frc' "
-            "with module frc/single_image_frc.py."
-        ) from exc
-    return external_single_image_frc_metrics
-
-
-_external_single_image_frc_metrics = _import_external_single_image_frc_api()
-
-
 def single_image_frc_metrics(
     stitched_obj: np.ndarray,
     *,
@@ -554,10 +534,10 @@ def single_image_frc_metrics(
     binomial_normalize_intensity: bool = True,
     binomial_count_scale: float | None = None,
 ) -> dict[str, tuple[float, float]]:
-    """Compatibility wrapper delegating single-image FRC metrics to external package."""
+    """Compatibility wrapper delegating single-image FRC metrics to in-repo frc helpers."""
     offset = params.get("offset")
     offset = 0 if offset is None else int(offset)
-    return _external_single_image_frc_metrics(
+    return _single_image_frc_metrics_impl(
         stitched_obj,
         offset=offset,
         split_mode=split_mode,
