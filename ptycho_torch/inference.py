@@ -572,6 +572,33 @@ Examples:
         default=None,
         help='Maximum number of batches to log for patch stats (default: no limit)'
     )
+    parser.add_argument(
+        '--probe-mask',
+        dest='probe_mask',
+        action='store_true',
+        default=True,
+        help='Enable Torch probe masking during inference normalization/forward pass (default: enabled).'
+    )
+    parser.add_argument(
+        '--no-probe-mask',
+        dest='probe_mask',
+        action='store_false',
+        help='Disable Torch probe masking during inference.'
+    )
+    parser.add_argument(
+        '--probe-mask-sigma',
+        type=float,
+        default=1.0,
+        dest='probe_mask_sigma',
+        help='Gaussian sigma (pixels) for soft probe-mask edge smoothing (default: 1.0).'
+    )
+    parser.add_argument(
+        '--probe-mask-diameter',
+        type=float,
+        default=None,
+        dest='probe_mask_diameter',
+        help='Probe-mask disk diameter in pixels (default: N/2).'
+    )
 
     # Execution config flags (Phase C4.C5 - ADR-003)
     parser.add_argument(
@@ -657,6 +684,9 @@ Examples:
     # Build overrides dict for factory
     overrides = {
         'n_groups': args.n_images,  # Map CLI arg to config field
+        'probe_mask': args.probe_mask,
+        'probe_mask_sigma': args.probe_mask_sigma,
+        'probe_mask_diameter': args.probe_mask_diameter,
         'log_patch_stats': args.log_patch_stats,
         'patch_stats_limit': args.patch_stats_limit,
     }

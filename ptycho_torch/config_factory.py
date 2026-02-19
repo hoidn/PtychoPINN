@@ -474,6 +474,10 @@ def create_inference_payload(
         n_filters_scale=overrides.get('n_filters_scale', 2),  # PyTorch default
         object_big=overrides.get('object_big', True),
         probe_big=overrides.get('probe_big', False),
+        probe_mask=overrides.get('probe_mask', True),
+        probe_mask_tensor=overrides.get('probe_mask_tensor'),
+        probe_mask_sigma=overrides.get('probe_mask_sigma', 1.0),
+        probe_mask_diameter=overrides.get('probe_mask_diameter'),
         C_forward=C,  # Match data config channel count
         C_model=C,    # Match data config channel count
         pad_object=overrides.get('pad_object', True),  # Spec default

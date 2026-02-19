@@ -25,6 +25,7 @@ import unittest
 from pathlib import Path
 import pytest
 import sys
+import torch
 
 # Add project root to path for imports
 project_root = Path(__file__).resolve().parents[2]
@@ -404,16 +405,22 @@ class TestConfigBridgeParity:
     # Test Case 3.5: probe_mask Translation (Phase B.B5.B2)
     # ============================================================================
 
-    @pytest.mark.parametrize('pytorch_value,expected_tf_value,description', [
-        pytest.param(None, False, 'default-None→False', id='probe_mask-default'),
-        # Note: Cannot test Tensor→True case without torch runtime, but logic is implemented
+    @pytest.mark.parametrize('pytorch_value,pytorch_tensor,expected_tf_value,description', [
+        pytest.param(True, None, True, 'default-True→True', id='probe_mask-default-enabled'),
+        pytest.param(False, None, False, 'bool-False→False', id='probe_mask-disabled'),
+        pytest.param(None, None, False, 'None→False', id='probe_mask-none'),
+        pytest.param(False, torch.ones((4, 4)), True, 'tensor-overrides-toggle', id='probe_mask-tensor'),
     ])
-    def test_model_config_probe_mask_translation(self, params_cfg_snapshot, pytorch_value, expected_tf_value, description):
+    def test_model_config_probe_mask_translation(
+        self,
+        params_cfg_snapshot,
+        pytorch_value,
+        pytorch_tensor,
+        expected_tf_value,
+        description,
+    ):
         """
-        Test probe_mask translation from Optional[Tensor] to bool.
-
-        Without torch: None → False (default behavior)
-        With torch: None → False, Tensor → True
+        Test probe_mask translation from Torch bool/tensor settings to TF bool.
 
         Spec coverage: §5.1:8 (probe_mask)
         Phase: B.B5.B2 parity extension
@@ -422,8 +429,7 @@ class TestConfigBridgeParity:
         from ptycho_torch import config_bridge
 
         pt_data = DataConfig()
-        # Create ModelConfig with probe_mask=None (PyTorch default)
-        pt_model = ModelConfig(probe_mask=pytorch_value)
+        pt_model = ModelConfig(probe_mask=pytorch_value, probe_mask_tensor=pytorch_tensor)
 
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
 
@@ -443,7 +449,7 @@ class TestConfigBridgeParity:
         from ptycho_torch import config_bridge
 
         pt_data = DataConfig()
-        pt_model = ModelConfig(probe_mask=None)  # PyTorch default
+        pt_model = ModelConfig(probe_mask=False)
 
         # Override to True
         tf_model = config_bridge.to_model_config(
@@ -452,7 +458,7 @@ class TestConfigBridgeParity:
         )
 
         assert tf_model.probe_mask is True, \
-            "probe_mask override should force True even when PyTorch has None"
+            "probe_mask override should force True even when PyTorch toggle is False"
 
     # ============================================================================
     # Test Case 4: Default Divergence Detection

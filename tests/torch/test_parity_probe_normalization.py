@@ -20,7 +20,14 @@ def test_probe_normalization_parity():
 
         tf_probe.set_probe_guess(None, probe_guess)
         tf_norm = params.get("probe").numpy()
-        torch_norm, _ = normalize_probe_like_tf(probe_guess, probe_scale=4.0)
+        hard_mask = np.abs(tf_probe.get_probe_mask(probe_guess.shape[0]).numpy()[..., 0]).astype(np.float32)
+        torch_norm, _ = normalize_probe_like_tf(
+            probe_guess,
+            probe_scale=4.0,
+            probe_mask=True,
+            probe_mask_tensor=hard_mask,
+            probe_mask_sigma=0.0,
+        )
     finally:
         params.set("N", old_n)
         params.set("probe_scale", old_probe_scale)

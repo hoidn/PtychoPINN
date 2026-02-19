@@ -673,6 +673,10 @@ class PtychoDataset(Dataset):
                     probe_data, scaling_factor = hh.normalize_probe_like_tf(
                         probe_data,
                         probe_scale=self.data_config.probe_scale,
+                        probe_mask=getattr(self.model_config, "probe_mask", True),
+                        probe_mask_tensor=getattr(self.model_config, "probe_mask_tensor", None),
+                        probe_mask_sigma=getattr(self.model_config, "probe_mask_sigma", 1.0),
+                        probe_mask_diameter=getattr(self.model_config, "probe_mask_diameter", None),
                     )
                     self.data_dict['probe_scaling'][i] = float(scaling_factor)
                 else:

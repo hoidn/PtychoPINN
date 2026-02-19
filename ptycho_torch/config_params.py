@@ -72,7 +72,13 @@ class ModelConfig:
     n_filters_scale: int = 2 # Shrinking factor for channels in network layers
     amp_activation: str = 'silu' # Activation function for amplitude part
     batch_norm: bool = False # Whether to use batch normalization
-    probe_mask: Optional[TensorType] = None # Optional probe mask tensor
+    # Probe mask controls (Torch default: enabled soft disk mask).
+    # - bool toggle: True -> auto soft mask, False -> disabled
+    # - tensor value: explicit custom mask (legacy-compatible path)
+    probe_mask: Optional[Union[bool, TensorType]] = True
+    probe_mask_tensor: Optional[TensorType] = None
+    probe_mask_sigma: float = 1.0
+    probe_mask_diameter: Optional[float] = None
 
     #Module-specific
     edge_pad: int = 10 #For padding the decoder_last reconstruction

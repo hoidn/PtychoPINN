@@ -572,7 +572,38 @@ class ProbeIllumination(nn.Module):
         self.model_config = model_config
         self.data_config = data_config
         self.N = self.data_config.N
-        self.mask = self.model_config.probe_mask # Get mask from config
+        self.probe_mask = getattr(self.model_config, "probe_mask", True)
+        self.probe_mask_tensor = getattr(self.model_config, "probe_mask_tensor", None)
+        self.probe_mask_sigma = float(getattr(self.model_config, "probe_mask_sigma", 1.0))
+        self.probe_mask_diameter = getattr(self.model_config, "probe_mask_diameter", None)
+        self.register_buffer("_cached_probe_mask", torch.empty(0), persistent=False)
+        self._cached_mask_key = None
+
+    def _resolve_probe_mask(self, x: torch.Tensor) -> torch.Tensor:
+        from ptycho_torch.probe_mask import resolve_probe_mask_torch
+
+        explicit_mask = self.probe_mask_tensor
+        if explicit_mask is None and self.probe_mask is not None and not isinstance(self.probe_mask, bool):
+            explicit_mask = self.probe_mask
+
+        cacheable = explicit_mask is None
+        cache_key = (x.device.type, str(x.dtype))
+        if cacheable and self._cached_mask_key == cache_key and self._cached_probe_mask.numel() == self.N * self.N:
+            return self._cached_probe_mask
+
+        mask = resolve_probe_mask_torch(
+            self.N,
+            probe_mask=self.probe_mask,
+            probe_mask_tensor=explicit_mask,
+            probe_mask_sigma=self.probe_mask_sigma,
+            probe_mask_diameter=self.probe_mask_diameter,
+            dtype=x.real.dtype if x.is_complex() else x.dtype,
+            device=x.device,
+        )
+        if cacheable:
+            self._cached_probe_mask = mask
+            self._cached_mask_key = cache_key
+        return mask
 
     def forward(self, x, probe):
 
@@ -582,13 +613,7 @@ class ProbeIllumination(nn.Module):
         # print('probe shape', probe.shape)
         # print('xreshaped shape', x_reshaped.shape)
 
-        #Check if probe mask exists
-        #If not, probe mask is just a ones matrix
-        #If mask exists, save mask is class attribute
-        if self.mask is None: # Check if mask is None
-            probe_mask = torch.ones((self.N, self.N)).to(x.device)
-        else:
-            probe_mask = self.mask.to(x.device) # Use the mask from config
+        probe_mask = self._resolve_probe_mask(x)
         
         #(N, C, P, H, W)
         illuminated = x_reshaped * probe * probe_mask.view(1,1,1,self.N, self.N)

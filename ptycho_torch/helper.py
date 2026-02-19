@@ -677,11 +677,20 @@ def normalize_probe(X):
     return X, scaling_factor
 
 
-def normalize_probe_like_tf(probe_guess: np.ndarray, probe_scale: float) -> Tuple[np.ndarray, float]:
+def normalize_probe_like_tf(
+    probe_guess: np.ndarray,
+    probe_scale: float,
+    probe_mask: Optional[Union[bool, torch.Tensor, np.ndarray]] = True,
+    probe_mask_tensor: Optional[Union[torch.Tensor, np.ndarray]] = None,
+    probe_mask_sigma: float = 1.0,
+    probe_mask_diameter: Optional[float] = None,
+) -> Tuple[np.ndarray, float]:
     """
-    Normalize probe using the same mask + mean-abs scaling as TF set_probe.
+    Normalize probe using Torch probe-mask semantics + mean-abs scaling.
+
+    Default behavior applies a centered soft disk mask (diameter N/2, sigma=1 px).
     """
-    from ptycho import probe as tf_probe
+    from ptycho_torch.probe_mask import resolve_probe_mask_np
 
     if probe_scale <= 0:
         raise ValueError(f"probe_scale must be positive, got {probe_scale}")
@@ -698,8 +707,14 @@ def normalize_probe_like_tf(probe_guess: np.ndarray, probe_scale: float) -> Tupl
     else:
         raise ValueError("probe_guess must have shape (N, N) or (N, N, 1)")
 
-    mask = tf_probe.get_probe_mask(probe_2d.shape[0]).numpy()
-    tamped = mask * probe_for_norm
+    mask = resolve_probe_mask_np(
+        probe_2d.shape[0],
+        probe_mask=probe_mask,
+        probe_mask_tensor=probe_mask_tensor,
+        probe_mask_sigma=probe_mask_sigma,
+        probe_mask_diameter=probe_mask_diameter,
+    )
+    tamped = mask[..., None] * probe_for_norm
     norm = float(probe_scale * np.mean(np.abs(tamped)))
     if norm <= 0:
         raise ValueError("probe normalization norm must be positive")

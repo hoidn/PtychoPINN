@@ -76,6 +76,11 @@ overrides = {
     "fno_cnn_blocks": 2,
     "fno_input_transform": "none",
     "generator_output_mode": "real_imag",
+    # Torch probe-mask controls (default behavior if omitted):
+    # probe_mask=True, probe_mask_sigma=1.0, probe_mask_diameter=None (=> N/2)
+    "probe_mask": True,
+    "probe_mask_sigma": 1.0,
+    "probe_mask_diameter": None,
 }
 
 payload = create_training_payload(

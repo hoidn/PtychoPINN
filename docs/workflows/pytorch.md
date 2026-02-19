@@ -97,6 +97,10 @@ Starting 2026-01-27, the `config.model.architecture` field routes through the ge
 - `config.subsample_seed`: RNG seed for reproducible sampling (default: deterministic behavior enabled)
 - `config.sequential_sampling`: Use deterministic sequential grouping instead of random (default: `False`)
 - `config.torch_loss_mode`: Selects the active loss head (`'poisson'` for physics-weighted Poisson NLL or `'mae'` for amplitude-only MAE). Exposed via the CLI flag `--torch-loss-mode {poisson,mae}`.
+- `config.model.probe_mask`: Torch probe masking toggle (default: `True`). When enabled and no explicit tensor is provided, Torch applies a centered soft disk mask with diameter `N/2` and Gaussian-smoothed edge (`sigma=1 px`).
+- `config.model.probe_mask_tensor`: Optional explicit `(N, N)` mask tensor override (enables masking even if `probe_mask=False`).
+- `config.model.probe_mask_sigma` / `config.model.probe_mask_diameter`: Soft-mask shape controls (defaults: `1.0`, `None` => `N/2`).
+- CLI exposure: `--probe-mask/--no-probe-mask`, `--probe-mask-sigma`, `--probe-mask-diameter` in both `python -m ptycho_torch.train` and `python -m ptycho_torch.inference`.
 
 ### Config Mappings (subset)
 

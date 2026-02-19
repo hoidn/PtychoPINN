@@ -139,12 +139,19 @@ def to_model_config(
         )
     amp_activation = activation_mapping[model.amp_activation]
 
-    # Translate probe_mask from Optional[Tensor] to bool
-    # None → False (no masking), non-None tensor → True (masking enabled)
-    # Can be overridden explicitly via overrides dict
-    probe_mask_value = False  # Default when None
-    if model.probe_mask is not None:
-        # If probe_mask is a tensor, enable masking
+    # Translate probe_mask union type to TensorFlow bool.
+    # Torch semantics:
+    # - bool -> passthrough
+    # - tensor / explicit probe_mask_tensor -> enabled
+    # - None -> disabled
+    probe_mask_value = False
+    probe_mask_toggle = getattr(model, 'probe_mask', None)
+    probe_mask_tensor = getattr(model, 'probe_mask_tensor', None)
+    if probe_mask_tensor is not None:
+        probe_mask_value = True
+    elif isinstance(probe_mask_toggle, bool):
+        probe_mask_value = probe_mask_toggle
+    elif probe_mask_toggle is not None:
         probe_mask_value = True
 
     # Note: probe_scale validation removed after TDD cycle showed it breaks too many existing tests.
@@ -176,7 +183,7 @@ def to_model_config(
         'probe_big': model.probe_big,
 
         # Translated values
-        'probe_mask': probe_mask_value,  # PyTorch Optional[Tensor] → TensorFlow bool
+        'probe_mask': probe_mask_value,  # PyTorch bool/tensor union → TensorFlow bool
 
         # Spec-mandated fields (now available from PyTorch dataclass defaults)
         'pad_object': model.pad_object,  # From PyTorch ModelConfig (default=True)
