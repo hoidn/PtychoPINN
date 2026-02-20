@@ -4,7 +4,7 @@
 ---
 
 ## 0. Rules / suggestions 
-- use the tmux skill when launching long-running commands
+- use the tmux skill when launching long-running commands. When using tmux, activate the ptycho311 conda env or point pythonpath to its executable
 
 ## 1. ⚙️ Identity & Workflow Guardrails
 
