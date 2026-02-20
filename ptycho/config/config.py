@@ -142,6 +142,7 @@ class TrainingConfig:
     sequential_sampling: bool = False  # Use sequential sampling instead of random
     backend: Literal['tensorflow', 'pytorch'] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility
     torch_loss_mode: Literal['poisson', 'mae'] = 'poisson'  # Backend-specific loss mode selector
+    torch_mae_pred_l2_match_target: bool = False  # Optional Torch MAE prediction scaling mode
     gradient_clip_val: Optional[float] = None  # Gradient clipping threshold (None = disabled)
     gradient_clip_algorithm: Literal['norm', 'value', 'agc'] = 'norm'  # Gradient clipping algorithm: norm, value, or agc
     optimizer: Literal['adam', 'adamw', 'sgd'] = 'adam'  # Optimizer algorithm

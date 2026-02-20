@@ -213,6 +213,7 @@ class TestConfigBridgeParity:
 
     @pytest.mark.parametrize('field_name,pytorch_value,expected_tf_value', [
         pytest.param('batch_size', 32, 32, id='batch_size-direct'),
+        pytest.param('torch_mae_pred_l2_match_target', True, True, id='torch_mae_pred_l2_match_target-direct'),
     ])
     def test_training_config_direct_fields(self, params_cfg_snapshot, field_name, pytorch_value, expected_tf_value):
         """

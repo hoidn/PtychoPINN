@@ -733,6 +733,7 @@ def test_wrapper_defaults_torch_loss_mode_mae(tmp_path):
         "--output-dir", str(tmp_path),
     ])
     assert getattr(args, "torch_loss_mode", None) == "mae"
+    assert getattr(args, "torch_mae_pred_l2_match_target", None) is False
 
 
 def test_wrapper_passes_torch_loss_mode_to_runner(monkeypatch, tmp_path):
@@ -756,6 +757,30 @@ def test_wrapper_passes_torch_loss_mode_to_runner(monkeypatch, tmp_path):
     )
 
     assert captured["torch_loss_mode"] == "mae"
+
+
+def test_wrapper_passes_torch_mae_pred_l2_match_target_to_runner(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    captured = {}
+
+    def fake_torch_run(cfg):
+        captured["torch_mae_pred_l2_match_target"] = getattr(cfg, "torch_mae_pred_l2_match_target", None)
+        return {"metrics": {"mse": 0.3}}
+
+    _mock_dataset_builder(monkeypatch)
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
+
+    run_grid_lines_compare(
+        N=64,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=("fno",),
+        probe_npz=Path("dummy_probe.npz"),
+        torch_mae_pred_l2_match_target=True,
+    )
+
+    assert captured["torch_mae_pred_l2_match_target"] is True
 
 
 def test_wrapper_passes_single_image_frc_controls_to_torch_runner(monkeypatch, tmp_path):

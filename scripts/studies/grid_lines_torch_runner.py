@@ -96,6 +96,7 @@ class TorchRunnerConfig:
     gridsize: int = 1
     probe_source: Optional[str] = None
     torch_loss_mode: str = "mae"
+    torch_mae_pred_l2_match_target: bool = False
     fno_modes: int = 12
     fno_width: int = 32
     fno_blocks: int = 4
@@ -477,6 +478,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         batch_size=cfg.batch_size,
         backend='pytorch',
         torch_loss_mode=cfg.torch_loss_mode,
+        torch_mae_pred_l2_match_target=cfg.torch_mae_pred_l2_match_target,
     )
     training_config.log_grad_norm = cfg.log_grad_norm
     training_config.grad_norm_log_freq = cfg.grad_norm_log_freq
@@ -966,6 +968,19 @@ def main(argv=None) -> None:
     parser.add_argument("--torch-loss-mode", type=str, default="mae",
                         choices=["poisson", "mae"],
                         help="Training loss mode ('poisson' or 'mae')")
+    parser.add_argument(
+        "--torch-mae-pred-l2-match-target",
+        dest="torch_mae_pred_l2_match_target",
+        action="store_true",
+        default=False,
+        help="Enable MAE mode where each prediction sample is scaled to match target L2 energy.",
+    )
+    parser.add_argument(
+        "--no-torch-mae-pred-l2-match-target",
+        dest="torch_mae_pred_l2_match_target",
+        action="store_false",
+        help="Disable prediction-to-target L2 matching in MAE mode.",
+    )
     parser.add_argument("--torch-resnet-width", type=int, default=None,
                         help="Hybrid ResNet bottleneck width (must be divisible by 4)")
     parser.add_argument("--fno-modes", type=int, default=12,
@@ -1089,6 +1104,7 @@ def main(argv=None) -> None:
         gridsize=args.gridsize,
         probe_source=args.probe_source,
         torch_loss_mode=args.torch_loss_mode,
+        torch_mae_pred_l2_match_target=args.torch_mae_pred_l2_match_target,
         fno_modes=args.fno_modes,
         fno_width=args.fno_width,
         fno_blocks=args.fno_blocks,

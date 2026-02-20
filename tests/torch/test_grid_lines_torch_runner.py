@@ -940,6 +940,18 @@ class TestChannelGridsizeAlignment:
         training_config, _ = setup_torch_configs(cfg)
         assert training_config.torch_loss_mode == "mae"
 
+    def test_runner_sets_torch_mae_pred_l2_match_target(self, tmp_path):
+        """Test that setup_torch_configs propagates torch_mae_pred_l2_match_target."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid",
+            torch_mae_pred_l2_match_target=True,
+        )
+        training_config, _ = setup_torch_configs(cfg)
+        assert training_config.torch_mae_pred_l2_match_target is True
+
     def test_runner_accepts_stable_hybrid(self, tmp_path):
         """Test that setup_torch_configs accepts 'stable_hybrid' architecture.
 

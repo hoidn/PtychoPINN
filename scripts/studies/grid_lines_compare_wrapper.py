@@ -223,6 +223,7 @@ def run_grid_lines_compare(
     torch_gradient_clip_algorithm: str = "norm",
     torch_output_mode: str = "real_imag",
     torch_loss_mode: str = "mae",
+    torch_mae_pred_l2_match_target: bool = False,
     torch_log_grad_norm: bool = False,
     torch_grad_norm_log_freq: int = 1,
     fno_modes: int = 12,
@@ -463,6 +464,7 @@ def run_grid_lines_compare(
                     N=n_for_model,
                     gridsize=gridsize,
                     torch_loss_mode=torch_loss_mode,
+                    torch_mae_pred_l2_match_target=torch_mae_pred_l2_match_target,
                     fno_modes=fno_modes,
                     fno_width=fno_width,
                     fno_blocks=fno_blocks,
@@ -678,6 +680,7 @@ def run_grid_lines_compare(
                 N=N,
                 gridsize=gridsize,
                 torch_loss_mode=torch_loss_mode,
+                torch_mae_pred_l2_match_target=torch_mae_pred_l2_match_target,
                 fno_modes=fno_modes,
                 fno_width=fno_width,
                 fno_blocks=fno_blocks,
@@ -845,6 +848,19 @@ def parse_args(argv=None):
         help="Torch generator output mode.",
     )
     parser.add_argument("--torch-loss-mode", type=str, default="mae", choices=["poisson", "mae"])
+    parser.add_argument(
+        "--torch-mae-pred-l2-match-target",
+        dest="torch_mae_pred_l2_match_target",
+        action="store_true",
+        default=False,
+        help="Enable prediction L2 matching to target in Torch MAE mode.",
+    )
+    parser.add_argument(
+        "--torch-no-mae-pred-l2-match-target",
+        dest="torch_mae_pred_l2_match_target",
+        action="store_false",
+        help="Disable prediction L2 matching to target in Torch MAE mode.",
+    )
     parser.add_argument("--torch-log-grad-norm", action="store_true")
     parser.add_argument("--torch-grad-norm-log-freq", type=int, default=1)
     parser.add_argument("--fno-modes", type=int, default=12)
@@ -959,6 +975,7 @@ def main(argv=None) -> None:
         torch_gradient_clip_algorithm=args.torch_grad_clip_algorithm,
         torch_output_mode=args.torch_output_mode,
         torch_loss_mode=args.torch_loss_mode,
+        torch_mae_pred_l2_match_target=args.torch_mae_pred_l2_match_target,
         torch_log_grad_norm=args.torch_log_grad_norm,
         torch_grad_norm_log_freq=args.torch_grad_norm_log_freq,
         fno_modes=args.fno_modes,

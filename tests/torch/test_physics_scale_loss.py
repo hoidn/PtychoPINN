@@ -1,9 +1,11 @@
 import torch
+import pytest
 from ptycho_torch.model import PtychoPINN_Lightning
 from ptycho_torch.config_params import ModelConfig, DataConfig, TrainingConfig, InferenceConfig
 
 
-def test_poisson_loss_uses_physics_scale():
+@pytest.mark.parametrize("torch_mae_pred_l2_match_target", [False, True])
+def test_poisson_loss_uses_physics_scale(torch_mae_pred_l2_match_target):
     model_cfg = ModelConfig(
         C_model=1,
         C_forward=1,
@@ -12,7 +14,11 @@ def test_poisson_loss_uses_physics_scale():
         loss_function="Poisson",
     )
     data_cfg = DataConfig(N=64, C=1, grid_size=(1, 1))
-    train_cfg = TrainingConfig(device="cpu", torch_loss_mode="poisson")
+    train_cfg = TrainingConfig(
+        device="cpu",
+        torch_loss_mode="poisson",
+        torch_mae_pred_l2_match_target=torch_mae_pred_l2_match_target,
+    )
     infer_cfg = InferenceConfig()
 
     model = PtychoPINN_Lightning(model_cfg, data_cfg, train_cfg, infer_cfg)

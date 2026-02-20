@@ -166,6 +166,8 @@ class TrainingConfig:
 
     # Backend-specific loss selection
     torch_loss_mode: Literal['poisson', 'mae'] = 'poisson'
+    # Optional MAE path: scale each prediction sample so ||pred||_2 matches ||target||_2.
+    torch_mae_pred_l2_match_target: bool = False
 
     #MLFlow config
     experiment_name: str = "Synthetic_Runs"

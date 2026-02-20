@@ -267,6 +267,7 @@ def to_training_config(
         'subsample_seed': data.subsample_seed,  # From DataConfig
         'output_dir': Path(training.output_dir) if training.output_dir else Path('training_outputs'),
         'torch_loss_mode': getattr(training, 'torch_loss_mode', 'poisson'),
+        'torch_mae_pred_l2_match_target': getattr(training, 'torch_mae_pred_l2_match_target', False),
         'gradient_clip_algorithm': getattr(training, 'gradient_clip_algorithm', 'norm'),
         'optimizer': getattr(training, 'optimizer', 'adam'),
         'momentum': getattr(training, 'momentum', 0.9),

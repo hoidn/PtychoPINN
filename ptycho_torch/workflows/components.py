@@ -825,6 +825,7 @@ def _train_with_lightning(
         'batch_size': getattr(config, 'batch_size', 16),
         'subsample_seed': getattr(config, 'subsample_seed', None),
         'torch_loss_mode': getattr(config, 'torch_loss_mode', 'poisson'),
+        'torch_mae_pred_l2_match_target': getattr(config, 'torch_mae_pred_l2_match_target', False),
         'log_grad_norm': getattr(config, 'log_grad_norm', False),
         'grad_norm_log_freq': getattr(config, 'grad_norm_log_freq', 1),
     }

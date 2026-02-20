@@ -1185,6 +1185,10 @@ class PtychoPINN_Lightning(L.LightningModule):
             raise ValueError(
                 f"Invalid torch_loss_mode='{self.torch_loss_mode}'. Expected 'poisson' or 'mae'."
             )
+        self.torch_mae_pred_l2_match_target = bool(
+            getattr(self.training_config, "torch_mae_pred_l2_match_target", False)
+        )
+        self._last_mae_alpha_stats = None
 
         #Scaling module specifically for multi-scaling
         self.scaler = IntensityScalerModule(model_config)
@@ -1300,6 +1304,19 @@ class PtychoPINN_Lightning(L.LightningModule):
             scale_tensor = scale_tensor.view(-1, 1, 1, 1)
         return scale_tensor
 
+    def _match_prediction_l2_to_target(self, pred_amp: torch.Tensor, target_amp: torch.Tensor, eps: float = 1e-8):
+        """Scale each prediction sample so L2 energy matches the corresponding target sample."""
+        if pred_amp.ndim != target_amp.ndim:
+            raise ValueError(
+                f"pred/target ndim mismatch for L2 matching: {pred_amp.ndim} vs {target_amp.ndim}"
+            )
+        reduce_dims = tuple(range(1, pred_amp.ndim))
+        pred_energy = torch.sum(pred_amp * pred_amp, dim=reduce_dims, keepdim=True)
+        target_energy = torch.sum(target_amp * target_amp, dim=reduce_dims, keepdim=True)
+        alpha = torch.sqrt(target_energy / (pred_energy + eps))
+        pred_matched = pred_amp * alpha
+        return pred_matched, alpha
+
     def compute_loss(self, batch):
         """
         Enhanced loss computation supporting multi-stage training
@@ -1323,6 +1340,7 @@ class PtychoPINN_Lightning(L.LightningModule):
 
         #Calc loss
         total_loss = 0.0
+        self._last_mae_alpha_stats = None
 
         # Perform forward pass up and scale
         pred, amp, phase = self(x, positions, probe,
@@ -1337,6 +1355,17 @@ class PtychoPINN_Lightning(L.LightningModule):
         if self.model_config.mode == 'Unsupervised':
             pred_physics = pred * physics_scale
             obs_physics = x * physics_scale
+            if self.torch_loss_mode == 'mae' and self.torch_mae_pred_l2_match_target:
+                pred_physics, alpha = self._match_prediction_l2_to_target(pred_physics, obs_physics)
+                alpha_flat = alpha.detach().reshape(alpha.shape[0], -1)
+                self._last_mae_alpha_stats = {
+                    "mean": alpha_flat.mean(),
+                    "std": alpha_flat.std(unbiased=False),
+                    "min": alpha_flat.min(),
+                    "max": alpha_flat.max(),
+                }
+            else:
+                self._last_mae_alpha_stats = None
             total_loss += self.Loss(pred_physics, obs_physics).mean()
             total_loss /= intensity_norm_factor
 
@@ -1404,6 +1433,11 @@ class PtychoPINN_Lightning(L.LightningModule):
 
         #Logging
         self.log(self.loss_name, loss, on_epoch = True, prog_bar=True, logger=True, sync_dist=True)
+        if self._last_mae_alpha_stats is not None:
+            self.log("mae_pred_l2_alpha_mean_train", self._last_mae_alpha_stats["mean"], on_epoch=True, logger=True, sync_dist=True)
+            self.log("mae_pred_l2_alpha_std_train", self._last_mae_alpha_stats["std"], on_epoch=True, logger=True, sync_dist=True)
+            self.log("mae_pred_l2_alpha_min_train", self._last_mae_alpha_stats["min"], on_epoch=True, logger=True, sync_dist=True)
+            self.log("mae_pred_l2_alpha_max_train", self._last_mae_alpha_stats["max"], on_epoch=True, logger=True, sync_dist=True)
         
         return loss
     
@@ -1416,6 +1450,11 @@ class PtychoPINN_Lightning(L.LightningModule):
         
         # Log validation loss
         self.log(self.val_loss_name, val_loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        if self._last_mae_alpha_stats is not None:
+            self.log("mae_pred_l2_alpha_mean_val", self._last_mae_alpha_stats["mean"], on_epoch=True, logger=True, sync_dist=True)
+            self.log("mae_pred_l2_alpha_std_val", self._last_mae_alpha_stats["std"], on_epoch=True, logger=True, sync_dist=True)
+            self.log("mae_pred_l2_alpha_min_val", self._last_mae_alpha_stats["min"], on_epoch=True, logger=True, sync_dist=True)
+            self.log("mae_pred_l2_alpha_max_val", self._last_mae_alpha_stats["max"], on_epoch=True, logger=True, sync_dist=True)
 
         return val_loss
 
