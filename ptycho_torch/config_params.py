@@ -75,7 +75,7 @@ class ModelConfig:
     # Probe mask controls (Torch default: enabled soft disk mask).
     # - bool toggle: True -> auto soft mask, False -> disabled
     # - tensor value: explicit custom mask (legacy-compatible path)
-    probe_mask: Optional[Union[bool, TensorType]] = True
+    probe_mask: Optional[Union[bool, TensorType]] = False
     probe_mask_tensor: Optional[TensorType] = None
     probe_mask_sigma: float = 1.0
     probe_mask_diameter: Optional[float] = None

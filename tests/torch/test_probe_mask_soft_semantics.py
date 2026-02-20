@@ -14,9 +14,9 @@ def _hard_disk_mask(n: int, diameter: float) -> np.ndarray:
     return (np.sqrt(xx * xx + yy * yy) < radius).astype(np.float32)
 
 
-def test_model_config_probe_mask_defaults_enabled():
+def test_model_config_probe_mask_defaults_disabled():
     cfg = ModelConfig()
-    assert cfg.probe_mask is True
+    assert cfg.probe_mask is False
     assert cfg.probe_mask_sigma == pytest.approx(1.0)
 
 

@@ -680,7 +680,7 @@ def normalize_probe(X):
 def normalize_probe_like_tf(
     probe_guess: np.ndarray,
     probe_scale: float,
-    probe_mask: Optional[Union[bool, torch.Tensor, np.ndarray]] = True,
+    probe_mask: Optional[Union[bool, torch.Tensor, np.ndarray]] = False,
     probe_mask_tensor: Optional[Union[torch.Tensor, np.ndarray]] = None,
     probe_mask_sigma: float = 1.0,
     probe_mask_diameter: Optional[float] = None,
@@ -688,7 +688,7 @@ def normalize_probe_like_tf(
     """
     Normalize probe using Torch probe-mask semantics + mean-abs scaling.
 
-    Default behavior applies a centered soft disk mask (diameter N/2, sigma=1 px).
+    Default behavior applies a centered smooth disk mask (diameter N/2, sigma=1 px).
     """
     from ptycho_torch.probe_mask import resolve_probe_mask_np
 

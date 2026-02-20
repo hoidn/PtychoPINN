@@ -578,8 +578,8 @@ Examples:
         '--probe-mask',
         dest='probe_mask',
         action='store_true',
-        default=True,
-        help='Enable Torch probe masking (default: enabled).'
+        default=False,
+        help='Enable Torch probe masking (default: disabled).'
     )
     parser.add_argument(
         '--no-probe-mask',
@@ -592,7 +592,7 @@ Examples:
         type=float,
         default=1.0,
         dest='probe_mask_sigma',
-        help='Gaussian sigma (pixels) for soft probe-mask edge smoothing (default: 1.0).'
+        help='Gaussian sigma (pixels) for probe-mask edge smoothing (default: 1.0 smooth edge).'
     )
     parser.add_argument(
         '--probe-mask-diameter',

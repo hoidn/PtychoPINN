@@ -572,7 +572,7 @@ class ProbeIllumination(nn.Module):
         self.model_config = model_config
         self.data_config = data_config
         self.N = self.data_config.N
-        self.probe_mask = getattr(self.model_config, "probe_mask", True)
+        self.probe_mask = getattr(self.model_config, "probe_mask", False)
         self.probe_mask_tensor = getattr(self.model_config, "probe_mask_tensor", None)
         self.probe_mask_sigma = float(getattr(self.model_config, "probe_mask_sigma", 1.0))
         self.probe_mask_diameter = getattr(self.model_config, "probe_mask_diameter", None)

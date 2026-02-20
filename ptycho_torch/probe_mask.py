@@ -1,9 +1,9 @@
 """Probe mask helpers for Torch workflows.
 
 This module defines the default Torch probe-mask semantics:
-- `probe_mask=True` enables a centered soft disk mask
+- `probe_mask=True` enables a centered disk mask
 - default disk diameter is N/2 pixels (radius N/4)
-- disk edge is smoothed by Gaussian blur with sigma=1 px
+- default edge smoothing is enabled (sigma=1 px, smooth edge)
 """
 
 from __future__ import annotations
@@ -116,7 +116,7 @@ def _coerce_mask_tensor(
 def resolve_probe_mask_torch(
     n: int,
     *,
-    probe_mask: Optional[Union[bool, MaskLike]] = True,
+    probe_mask: Optional[Union[bool, MaskLike]] = False,
     probe_mask_tensor: Optional[MaskLike] = None,
     probe_mask_sigma: float = 1.0,
     probe_mask_diameter: Optional[float] = None,
@@ -146,7 +146,7 @@ def resolve_probe_mask_torch(
 def resolve_probe_mask_np(
     n: int,
     *,
-    probe_mask: Optional[Union[bool, MaskLike]] = True,
+    probe_mask: Optional[Union[bool, MaskLike]] = False,
     probe_mask_tensor: Optional[MaskLike] = None,
     probe_mask_sigma: float = 1.0,
     probe_mask_diameter: Optional[float] = None,
