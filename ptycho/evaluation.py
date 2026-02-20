@@ -82,7 +82,7 @@ import matplotlib
 import tensorflow as tf
 from skimage.metrics import structural_similarity
 from pathlib import Path
-from frc.single_image_frc import single_image_frc_metrics as _single_image_frc_metrics_impl
+from ptycho.single_image_frc import single_image_frc_metrics as _single_image_frc_metrics_impl
 
 from ptycho import params
 from ptycho import misc
@@ -338,6 +338,7 @@ def mse(target, pred, normalize = True):
         scale = 1
     print('mean scale adjustment:', scale)
     return np.mean((target - scale * pred)**2)
+
 
 def psnr(target, pred, normalize = True, shift = False):
     """

@@ -1,6 +1,8 @@
 import numpy as np
 import json
 import inspect
+import subprocess
+import sys
 from pathlib import Path
 
 from ptycho import params
@@ -251,7 +253,24 @@ def test_single_image_frc_import_resolves_to_in_repo_module():
 
     repo_root = Path(__file__).resolve().parents[1]
     module_path = Path(inspect.getsourcefile(external_single_image_frc_metrics)).resolve()
-    assert module_path == (repo_root / "frc" / "single_image_frc.py").resolve()
+    assert module_path == (repo_root / "ptycho" / "single_image_frc.py").resolve()
+
+
+def test_evaluation_import_does_not_require_top_level_frc_package(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    probe = tmp_path / "probe_eval_import.py"
+    probe.write_text(
+        "from ptycho.evaluation import single_image_frc_metrics\n"
+        "print(single_image_frc_metrics.__name__)\n",
+        encoding="utf-8",
+    )
+    proc = subprocess.run(
+        [sys.executable, str(probe)],
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stderr
 
 
 def test_eval_reconstruction_default_does_not_break_legacy_keys():
