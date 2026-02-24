@@ -87,11 +87,13 @@ Expected: required paths (for example `ptycho/FRC`) exist; existing initialized 
 
 Run:
 ```bash
-tmux has-session -t skip_sweep 2>/dev/null || \
-  tmux new-session -d -s skip_sweep "bash -lc 'source ~/miniconda3/etc/profile.d/conda.sh && conda activate ptycho311 && python -V; exec bash'"
+# Use a dedicated plan session and reset pane command each run for deterministic env bootstrap.
+tmux has-session -t skip_sweep 2>/dev/null || tmux new-session -d -s skip_sweep
+tmux respawn-pane -k -t skip_sweep:0 "bash -lc 'source ~/miniconda3/etc/profile.d/conda.sh && conda activate ptycho311 && python -V; exec bash'"
+sleep 1
 tmux capture-pane -pt skip_sweep:0
 ```
-Expected: pane output shows `python -V` from the `ptycho311` session PATH interpreter (works whether session already exists or is newly created).
+Expected: pane output shows `python -V` from the `ptycho311` session PATH interpreter for both fresh and reused `skip_sweep` sessions.
 All subsequent commands in this plan should still use plain `python ...` (no interpreter wrappers).
 
 **Step 4: Initialize timestamped report directory for test evidence**
@@ -399,6 +401,11 @@ Add tests for:
 - N=256 top-train/bottom-test file selection behavior
 - top-K selection from `N=128` summary for `N=256` promotion
 - dataset-profile expansion and per-profile summary aggregation
+- custom profile path validation for `custom_npz_pair_n128`/`custom_npz_pair_n256` (required args + actionable error paths)
+- seed-robust promotion helper behavior:
+  - boundary candidate set computation (`top-K + next 2`, capped by eligible rows),
+  - median-rank aggregation across seeds `{3,11,17}`,
+  - promotion decisions sourced from robustness ranking (not raw seed-3 rank).
 
 Example:
 ```python
@@ -481,6 +488,10 @@ Required behavior:
   - `--cameraman-para` (required when `N=256` is selected with `cameraman256_halfsplit_v1`)
   - `--fly001-external-train-npz` (required when `fly001_external_n128_top_bottom_v1` is selected)
   - `--fly001-external-test-npz` (required when `fly001_external_n128_top_bottom_v1` is selected)
+  - `--custom-train-npz-n128` (required when `custom_npz_pair_n128` is selected)
+  - `--custom-test-npz-n128` (required when `custom_npz_pair_n128` is selected)
+  - `--custom-train-npz-n256` (required when `custom_npz_pair_n256` is selected)
+  - `--custom-test-npz-n256` (required when `custom_npz_pair_n256` is selected)
   - `--epochs-n128`, `--epochs-n256`
   - `--top-k-n256` (default 6)
   - `--promotion-source-summary` (required for stages `B-E` and other promotion-based `N=256` runs)
@@ -498,6 +509,7 @@ Required behavior:
   - wrapper/runner parity rule: any Torch sweep knob shared by both leaf CLIs must be accepted and passed through with aligned defaults, covered by wrapper+runner tests.
   - N=256 sweeps in this initiative are runner-led; wrapper parity assertions apply within the wrapper-supported `N` domain.
   - explicit caller-provided dataset paths override profile defaults.
+  - custom profile ids (`custom_npz_pair_n128`, `custom_npz_pair_n256`) must resolve from explicit custom path args; no implicit defaults.
   - fail fast with an actionable error when `cameraman256_halfsplit_v1` is selected for an active `N=256` run and either `--cameraman-dp` or `--cameraman-para` is missing.
 - Study-index conformance contract:
   - runbook metadata/outputs must align with the conventions extracted in Task 5A,
@@ -520,6 +532,7 @@ Required behavior:
   - build boundary candidate set from source summary: `top-K + next 2` after guardrails (or all eligible candidates if fewer than `K+2`),
   - rerun boundary candidates with seeds `11` and `17` at the same source `N`,
   - recompute candidate ranking using median rank across seeds `{3,11,17}` and use that robustness-validated ranking for promotion.
+  - persist a robustness artifact (for example `promotion_seed_robustness.csv`) containing per-seed ranks and `median_rank` used for promotion.
 - `N=256`: resolve dataset profile(s), then run promoted top-K configs for each profile.
   - Default profile `cameraman256_halfsplit_v1`:
     - requires `--cameraman-dp` and `--cameraman-para`
@@ -536,6 +549,7 @@ Required behavior:
 - Promotion-state API contract (`summary.csv`):
   - treat prior-stage summary as a versioned API; include `summary_schema_version` in each summary row and manifest.
   - validate promotion-source summaries strictly before use (version + required columns + non-empty candidate set), failing fast with actionable errors.
+  - for promotion-enabled `N=256` runs, require robustness-ranking fields in source summary/artifacts (seed set `{3,11,17}` and median-rank promotion columns); reject raw single-seed summaries.
 - Persist invocation artifacts + per-run stdout/stderr logs + `sweep_manifest.json` + `summary.csv` + `summary.md`.
 - Persist visual-evidence collation artifacts under:
   - `<output-root>/comparison_bundle/shared_pngs/`
@@ -911,7 +925,14 @@ Add explicit invocation-provenance assertions in
   - persisted summary rows and manifest always include `probe_mask_enabled` and `torch_mae_pred_l2_match_target`.
 - wrapper/runner parity:
   - new sweep knobs shared across both leaf CLIs are validated to parse and pass through on both wrapper and runner code paths.
+  - MAE normalization toggle naming parity is enforced:
+    - canonical shared flags: `--torch-mae-pred-l2-match-target` and `--no-torch-mae-pred-l2-match-target`,
+    - wrapper keeps backward-compatible alias `--torch-no-mae-pred-l2-match-target` mapped to the same destination.
   - runner-only knobs and N=256 execution paths are validated in runner/runbook tests.
+- seed-robust promotion tests are explicit:
+  - verify boundary candidate construction (`top-K + next 2`) against fixture summaries,
+  - verify median-rank aggregation across seeds `{3,11,17}`,
+  - verify promoted set is selected from robustness ranking, not raw seed-3 ranking.
 
 Run:
 ```bash
