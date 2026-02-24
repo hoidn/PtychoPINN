@@ -181,8 +181,9 @@ skip_connections: bool = False
 
 self.skip_connections = bool(skip_connections)
 if self.skip_connections:
-    self.skip_proj_n2 = nn.Conv2d(skip_n2_channels, target_width // 2, kernel_size=1)
-    self.skip_proj_n = nn.Conv2d(skip_n_channels, target_width // 4, kernel_size=1)
+    # Use lazy 1x1 projections so channel counts come from actual tapped tensors.
+    self.skip_proj_n2 = nn.LazyConv2d(target_width // 2, kernel_size=1)
+    self.skip_proj_n = nn.LazyConv2d(target_width // 4, kernel_size=1)
 ```
 
 Forward path (minimal):
@@ -790,6 +791,29 @@ Expected: shared visual-comparison PNGs are present with descriptive filenames.
 **Step 4: Finalist seed-robustness check (must-run before stage promotion)**
 
 From `summary.csv`, pick top-3 `N=256` finalists and rerun each finalist config with seeds `11` and `17` (same epochs and confounder settings) using single-value `--modes/--skip-values/--widths` commands.
+Use diagnostic-safe `N=256` invocation flags so reruns do not depend on promotion loading:
+- `--ns 256`
+- `--allow-n256-direct-diagnostic`
+- `--top-k-n256 0`
+
+Template (replace placeholders from finalist row values):
+```bash
+python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
+  --modes <mode> \
+  --skip-values <off_or_on> \
+  --widths <width> \
+  --ns 256 \
+  --allow-n256-direct-diagnostic \
+  --top-k-n256 0 \
+  --dataset-profiles-n256 cameraman256_halfsplit_v1 \
+  --epochs-n256 40 \
+  --cameraman-dp /home/ollie/Downloads/nersc/data/cameraman256_dp.hdf5 \
+  --cameraman-para /home/ollie/Downloads/nersc/data/cameraman256_para.hdf5 \
+  --output-root outputs/hybrid_resnet_mode_skip_sweep_seed_robustness_<date>/<finalist_id>_seed<seed> \
+  --seed <11_or_17> \
+  --no-probe-mask \
+  --no-torch-mae-pred-l2-match-target
+```
 Expected:
 - ranking is stable (no major order inversion among finalists),
 - no catastrophic regressions in amplitude MAE/MSE or phase SSIM guardrail.
@@ -1065,13 +1089,23 @@ hybrid_resnet_blocks: int = 6
 ```
 Sweep `4,6,8` using best capacity setting from Step 1.
 
-**Step 3: Run bounded stage budgets**
+**Step 3: Add/execute Task-13 tests (required by test-evidence contract)**
+
+Run:
+```bash
+pytest tests/torch/test_fno_generators.py -k "hybrid_resnet_blocks or max_hidden_channels or resnet_width" -v
+pytest tests/torch/test_grid_lines_torch_runner.py -k "hybrid_resnet_blocks or max_hidden_channels or resnet_width or torch_only" -v
+```
+Expected: PASS.
+Also capture matching `--collect-only` and execution logs under `${REPORT_DIR}`.
+
+**Step 4: Run bounded stage budgets**
 
 Budget rule:
 - N=128: max 18 runs per sub-stage
 - N=256: top 4 only
 
-**Step 4: Documentation sync for Stage-D knobs**
+**Step 5: Documentation sync for Stage-D knobs**
 
 - `docs/CONFIGURATION.md`: document `hybrid_resnet_blocks` (new) and any capacity-option constraints used in this stage.
 - `docs/workflows/pytorch.md` and `ptycho_torch/generators/README.md`: add usage guidance and constraints with explicit Torch-only scope.
@@ -1079,7 +1113,7 @@ Budget rule:
 - regenerate `docs/development/TEST_SUITE_INDEX.md` via:
   - `python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md`
 
-**Step 5: Commit**
+**Step 6: Commit**
 
 ```bash
 python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md
