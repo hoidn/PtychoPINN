@@ -38,8 +38,12 @@ Out of scope:
 3. Backward compatibility:
 - Existing scripts/tests without new flags must run unchanged.
 
+3b. Bridge scope guard:
+- Torch-only sweep knobs must not expand `params.cfg` surface unless a cross-backend requirement is explicitly documented and approved.
+
 4. Explicit confounder control during sweeps:
 - `probe_mask` and MAE normalization toggles are fixed per sweep stage and recorded in manifest.
+- confounder fields are mandatory persisted keys in manifest + summary rows (`probe_mask_enabled`, `torch_mae_pred_l2_match_target`).
 
 5. Dataset profile explicitness:
 - Every run must resolve a named dataset profile.
@@ -64,6 +68,10 @@ Out of scope:
   - `2` means `N -> N/2 -> N/4`.
 - `hybrid_downsample_op: {"stride_conv","avgpool_conv","blurpool_conv"} = "stride_conv"`
   - Selects operator family used at each downsample step.
+
+Topology contract:
+- Skip fusion point selection must be derived from encoder/decoder stage metadata (resolution/stage mapping), not hard-coded to a fixed number of downsample steps.
+- `hybrid_downsample_steps=2` must preserve current behavior as the compatibility baseline.
 
 ## 4.3 Capacity/Depth Controls
 
@@ -171,6 +179,11 @@ Tie-breakers:
 1. lower parameter count,
 2. lower inference time.
 
+Promotion source API:
+- `summary.csv` is a versioned stage-state API.
+- Every summary row includes `summary_schema_version`.
+- Promotion loader must validate version + required columns + non-empty candidates before scheduling runs.
+
 Stop conditions:
 - two consecutive stages with <1% relative improvement on primary metric, or
 - all new-stage candidates regress on both amplitude MAE and MSE at `N=256`.
@@ -194,16 +207,18 @@ Each stage writes:
   - promotion decisions.
 
 Retention/cleanup policy (normative):
-- Default mode is prune-after-run.
+- Default mode is prune-after-run with retention tiers.
 - Cleanup executes after per-run metrics/manifest row persistence.
 - Cleanup scope is restricted to the run output subtree (never external input paths).
+- Retain one full-artifact anchor run per `(stage_id, N, dataset_profile)` tuple (`retention_tier=full_anchor`) for forensic/debug use.
+- Prune-heavy policy applies to subsequent successful runs in the same tuple (`retention_tier=pruned`).
 - Prune heavy intermediates by default (large dataset/recon NPZs, checkpoints, transient caches/log blobs).
 - Preserve reproducibility-critical artifacts:
   - `invocation.json`, `invocation.sh`
   - per-run metrics payload required for ranking/promotion
   - stage `sweep_manifest.json`, `summary.csv`, `summary.md`
   - curated comparison PNG evidence.
-- Emit `cleanup_report.json` for each run with deleted paths and reclaimed bytes.
+- Emit `cleanup_report.json` for each run with deleted paths, reclaimed bytes, and `retention_tier`.
 
 ## 8. Validation and Test Expectations
 
