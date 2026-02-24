@@ -30,3 +30,14 @@ Add a pure PyTorch API (`PtychoModel`) that loads raw NPZ files, performs groupi
 - Implement the plan tasks with TDD and targeted pytest selectors.
 - Add optional parity tests once the pure path is stable.
 
+## 2026-02-24 Follow-up: Control-Plane Debt Alignment
+
+This backlog item remains the long-term path for reducing dependency on TensorFlow dataclasses and `params.cfg` in Torch workflows.
+
+### Additional Acceptance Criteria
+1. Pure Torch API can express Torch-only architecture knobs without requiring shared dataclass additions.
+2. Pure Torch path does not depend on `update_legacy_dict` for training/inference execution.
+3. Parity-sensitive wrappers/runbooks can choose pure-Torch execution mode where cross-backend bridge churn is undesirable.
+
+### Cross-Reference
+- Ownership decision backlog: `docs/backlog/2026-02-24-torch-only-knob-ownership.md`

@@ -29,3 +29,15 @@ Execute the plan in `docs/plans/2026-02-06-global-state-refactor-synthesis.md` a
 
 ## Related Artifacts
 - Plan: `docs/plans/2026-02-06-global-state-refactor-synthesis.md`
+
+## 2026-02-24 Follow-up: Bridge-Surface Reduction
+
+This item now also tracks prevention of additional `params.cfg` growth while refining wrapper/runner config flow.
+
+### Additional Acceptance Criteria
+1. Shared config builder enforces one source of truth for wrapper and runner knobs (including new hybrid search knobs).
+2. Legacy bridge writes are explicit and auditable (single call path plus tests around emitted keys).
+3. New Torch-only knobs do not silently leak into legacy state without a documented policy decision.
+
+### Cross-Reference
+- Control-plane decision item: `docs/backlog/2026-02-24-torch-only-knob-ownership.md`

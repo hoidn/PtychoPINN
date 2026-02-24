@@ -27,3 +27,14 @@ The PyTorch path currently handles `object_big` in an ad hoc way (runner-level o
 - Integration log (post-override): `.artifacts/object_big_relative_offsets/pytest_grid_lines_hybrid_resnet_object_big_false_default.log`
 - Plan notes: `docs/plans/2026-02-05-bisect-recent-hybrid-resnet.md`
 
+## 2026-02-24 Follow-up: Generalize Beyond `object_big`
+
+`object_big` is a concrete example of a broader control-plane problem: workflow behavior drifting because knob ownership is unclear between shared configs, Torch configs, and legacy bridge state.
+
+### Additional Acceptance Criteria
+1. Apply the same ownership rule to other Torch-heavy architecture knobs (skip/downsample/depth/style controls).
+2. Require wrapper/runner parity tests so a knob cannot work in one entrypoint and silently drop in another.
+3. Add explicit documentation for which knobs are workflow-scoped overrides vs canonical config fields.
+
+### Cross-Reference
+- Ownership decision backlog: `docs/backlog/2026-02-24-torch-only-knob-ownership.md`
