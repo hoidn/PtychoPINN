@@ -18,6 +18,7 @@
 - [ ] Task 3: RED Tests for Config/CLI Plumbing of Skip Toggle
 - [ ] Task 4: GREEN Config + CLI + Generator Wrapper Plumbing
 - [ ] Task 5: RED Tests for Mode-Skip Sweep Runbook
+- [ ] Task 5A: Study-Index Conformance Gate (Pre-Implementation)
 - [ ] Task 6: GREEN Sweep Runbook Implementation (N=128 + N=256)
 - [ ] Task 7: Documentation for New Toggle + Sweep Workflow
 - [ ] Task 8: Verification and Smoke Runs
@@ -269,6 +270,11 @@ def test_runner_passes_hybrid_skip_connections(self, tmp_path):
     training_config, execution_config = setup_torch_configs(cfg)
     assert getattr(execution_config, "hybrid_skip_connections", False) is True
     assert not hasattr(training_config.model, "hybrid_skip_connections")
+
+def test_workflow_forwards_hybrid_skip_connections_to_factory(monkeypatch, tmp_path):
+    # _train_with_lightning should pass hybrid_skip_connections from execution config
+    # into create_training_payload(..., overrides=...) so generator behavior can change.
+    ...
 ```
 
 Add in compare-wrapper tests:
@@ -284,6 +290,7 @@ def test_compare_wrapper_passes_torch_hybrid_skip_connections(monkeypatch, tmp_p
 Run:
 ```bash
 pytest tests/torch/test_grid_lines_torch_runner.py::TestSetupTorchConfigs::test_runner_passes_hybrid_skip_connections -v
+pytest tests/torch/test_grid_lines_torch_runner.py -k "workflow and hybrid_skip_connections and factory" -v
 pytest tests/test_grid_lines_compare_wrapper.py -k "hybrid_skip_connections" -v
 ```
 Expected: FAIL (missing Torch-only runner/execution/CLI plumbing).
@@ -351,8 +358,16 @@ Compare-wrapper pass-through:
 ```python
 parser.add_argument("--torch-hybrid-skip-connections", dest="torch_hybrid_skip_connections", action="store_true", default=False)
 parser.add_argument("--torch-no-hybrid-skip-connections", dest="torch_hybrid_skip_connections", action="store_false")
+parser.add_argument("--torch-mae-pred-l2-match-target", dest="torch_mae_pred_l2_match_target", action="store_true", default=False)
+parser.add_argument("--no-torch-mae-pred-l2-match-target", dest="torch_mae_pred_l2_match_target", action="store_false")
+# Backward-compatible alias
+parser.add_argument("--torch-no-mae-pred-l2-match-target", dest="torch_mae_pred_l2_match_target", action="store_false")
 ...
-TorchRunnerConfig(..., hybrid_skip_connections=torch_hybrid_skip_connections)
+TorchRunnerConfig(
+    ...,
+    hybrid_skip_connections=torch_hybrid_skip_connections,
+    torch_mae_pred_l2_match_target=torch_mae_pred_l2_match_target,
+)
 ```
 
 Generator wrapper:
@@ -364,7 +379,9 @@ skip_connections=hybrid_skip_connections,
 
 Torch-only enforcement checks:
 - Add regression coverage proving the runner path sets `execution_config.hybrid_skip_connections` and the canonical `training_config.model` contract remains unchanged for this knob.
+- Add workflow-level regression coverage proving `_train_with_lightning` forwards `hybrid_skip_connections` into `create_training_payload(..., overrides=...)`.
 - Add regression coverage proving wrapper parse+pass-through sets `TorchRunnerConfig.hybrid_skip_connections` for Torch model IDs.
+- Add wrapper-CLI regression coverage proving both `--no-torch-mae-pred-l2-match-target` and `--torch-no-mae-pred-l2-match-target` map to the same destination.
 
 **Step 3: Run tests to verify pass**
 
@@ -372,7 +389,9 @@ Run:
 ```bash
 pytest tests/torch/test_grid_lines_torch_runner.py::TestSetupTorchConfigs::test_runner_passes_hybrid_skip_connections -v
 pytest tests/torch/test_grid_lines_torch_runner.py::TestSetupTorchConfigs::test_runner_accepts_hybrid_resnet -v
+pytest tests/torch/test_grid_lines_torch_runner.py -k "workflow and hybrid_skip_connections and factory" -v
 pytest tests/test_grid_lines_compare_wrapper.py -k "hybrid_skip_connections" -v
+pytest tests/test_grid_lines_compare_wrapper.py -k "mae_pred_l2_match_target and alias" -v
 ```
 Expected: PASS.
 
@@ -488,14 +507,18 @@ Required behavior:
   - `--cameraman-para` (required when `N=256` is selected with `cameraman256_halfsplit_v1`)
   - `--fly001-external-train-npz` (required when `fly001_external_n128_top_bottom_v1` is selected)
   - `--fly001-external-test-npz` (required when `fly001_external_n128_top_bottom_v1` is selected)
-  - `--custom-train-npz-n128` (required when `custom_npz_pair_n128` is selected)
-  - `--custom-test-npz-n128` (required when `custom_npz_pair_n128` is selected)
-  - `--custom-train-npz-n256` (required when `custom_npz_pair_n256` is selected)
-  - `--custom-test-npz-n256` (required when `custom_npz_pair_n256` is selected)
+  - `--custom-n128-train-npz` (required when `custom_npz_pair_n128` is selected)
+  - `--custom-n128-test-npz` (required when `custom_npz_pair_n128` is selected)
+  - `--custom-n256-train-npz` (required when `custom_npz_pair_n256` is selected)
+  - `--custom-n256-test-npz` (required when `custom_npz_pair_n256` is selected)
+  - `--stage-id` (default: `A`; allowed: `A|B|C|D|E`)
   - `--epochs-n128`, `--epochs-n256`
   - `--top-k-n256` (default 6)
-  - `--promotion-source-summary` (required for stages `B-E` and other promotion-based `N=256` runs)
+  - `--promotion-source-summary` (required for stage-id `B-E` and other promotion-based `N=256` runs)
   - `--allow-n256-direct-diagnostic` (default off; explicit exception mode, see stage progression contract)
+  - `--aggregate-seed-rerank-root` (optional; enables robustness-summary collation mode)
+  - `--source-summary` (required with `--aggregate-seed-rerank-root`)
+  - `--emit-robust-promotion-summary` (required with `--aggregate-seed-rerank-root`)
   - `--seed`
   - `--output-root`
   - `--prune-heavy-artifacts/--no-prune-heavy-artifacts` (default: prune on)
@@ -506,10 +529,15 @@ Required behavior:
   - leaf CLIs remain path-first and unchanged:
     - `grid_lines_compare_wrapper.py`: `--dataset-source` plus `--train-data/--test-data` where required.
     - `grid_lines_torch_runner.py`: `--train-npz/--test-npz`.
+  - runbook execution path is runner-only for all stages/N values in this initiative; wrapper is parity-test coverage only.
   - wrapper/runner parity rule: any Torch sweep knob shared by both leaf CLIs must be accepted and passed through with aligned defaults, covered by wrapper+runner tests.
   - N=256 sweeps in this initiative are runner-led; wrapper parity assertions apply within the wrapper-supported `N` domain.
+  - wrapper parity for MAE normalization must accept both `--no-torch-mae-pred-l2-match-target` (canonical) and `--torch-no-mae-pred-l2-match-target` (legacy alias), mapping to the same destination.
   - explicit caller-provided dataset paths override profile defaults.
   - custom profile ids (`custom_npz_pair_n128`, `custom_npz_pair_n256`) must resolve from explicit custom path args; no implicit defaults.
+  - custom profile path mapping:
+    - `custom_npz_pair_n128` -> `--custom-n128-train-npz` + `--custom-n128-test-npz`
+    - `custom_npz_pair_n256` -> `--custom-n256-train-npz` + `--custom-n256-test-npz`
   - fail fast with an actionable error when `cameraman256_halfsplit_v1` is selected for an active `N=256` run and either `--cameraman-dp` or `--cameraman-para` is missing.
 - Study-index conformance contract:
   - runbook metadata/outputs must align with the conventions extracted in Task 5A,
@@ -541,7 +569,7 @@ Required behavior:
   - Additional N=256 profiles:
     - `custom_npz_pair_n256` (caller-supplied `train.npz` / `test.npz`)
 - Stage progression contract:
-  - Stage `A` seeds the first promoted set directly from its own `N=128` results.
+  - `--stage-id A` seeds the first promoted set directly from its own `N=128` results.
   - Stages `B-E` MUST load their baseline/promoted config set from a prior-stage `N=128` summary via `--promotion-source-summary`.
   - Promotion to `N=256` MUST use a robustness-validated promotion summary (median-rank across seeds `{3,11,17}` over the boundary candidate set), not a raw single-seed ranking summary.
   - For stages `B-E`, `--ns 256`-only runs are invalid without `--promotion-source-summary`.
@@ -550,6 +578,7 @@ Required behavior:
   - treat prior-stage summary as a versioned API; include `summary_schema_version` in each summary row and manifest.
   - validate promotion-source summaries strictly before use (version + required columns + non-empty candidate set), failing fast with actionable errors.
   - for promotion-enabled `N=256` runs, require robustness-ranking fields in source summary/artifacts (seed set `{3,11,17}` and median-rank promotion columns); reject raw single-seed summaries.
+  - in seed-rerank aggregation mode (`--aggregate-seed-rerank-root`), require `--source-summary` and `--emit-robust-promotion-summary`, then emit a consolidated robustness summary with per-seed + median-rank fields.
 - Persist invocation artifacts + per-run stdout/stderr logs + `sweep_manifest.json` + `summary.csv` + `summary.md`.
 - Persist visual-evidence collation artifacts under:
   - `<output-root>/comparison_bundle/shared_pngs/`
@@ -698,10 +727,10 @@ Run:
 ```bash
 python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --ns 256 \
-  --promotion-source-summary outputs/hybrid_resnet_mode_skip_sweep_smoke_n128/summary.csv \
+  --allow-n256-direct-diagnostic \
   --dataset-profiles-n256 cameraman256_halfsplit_v1 \
   --epochs-n256 5 \
-  --top-k-n256 2 \
+  --top-k-n256 0 \
   --cameraman-dp /home/ollie/Downloads/nersc/data/cameraman256_dp.hdf5 \
   --cameraman-para /home/ollie/Downloads/nersc/data/cameraman256_para.hdf5 \
   --output-root outputs/hybrid_resnet_mode_skip_sweep_smoke_n256 \
@@ -709,7 +738,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --no-probe-mask \
   --no-torch-mae-pred-l2-match-target
 ```
-Expected: per-run metrics + aggregate summary artifacts created.
+Expected: diagnostic-only N=256 smoke artifacts created (non-promotion path; no robustness summary dependency).
 
 **Step 4: Final commit (if needed)**
 
@@ -787,6 +816,16 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --seed <11_or_17> \
   --no-probe-mask \
   --no-torch-mae-pred-l2-match-target
+```
+
+After all rerank jobs finish, run an explicit aggregation pass to materialize the consolidated robustness summary:
+```bash
+python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
+  --stage-id A \
+  --aggregate-seed-rerank-root outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/seed_rerank \
+  --source-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/summary.csv \
+  --top-k-n256 6 \
+  --emit-robust-promotion-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/summary_seed_robust.csv
 ```
 Expected:
 - promotion summary `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/summary_seed_robust.csv` exists,
@@ -885,13 +924,21 @@ Add optional arguments (defaults preserve Stage A behavior):
 - `--cameraman-para` (required when `N=256` is selected with `cameraman256_halfsplit_v1`)
 - `--fly001-external-train-npz`
 - `--fly001-external-test-npz`
+- `--custom-n128-train-npz`
+- `--custom-n128-test-npz`
+- `--custom-n256-train-npz`
+- `--custom-n256-test-npz`
+- `--stage-id` (default: `A`; allowed: `A|B|C|D|E`)
 - `--promotion-source-summary` (default: empty; required for stages `B-E`, and always required when stage `B-E` runs with `--ns 256` only)
 - `--allow-n256-direct-diagnostic` (default off; only valid with `--ns 256 --top-k-n256 0`)
+- `--aggregate-seed-rerank-root` (optional; enables robustness-summary collation mode)
+- `--source-summary` (required with `--aggregate-seed-rerank-root`)
+- `--emit-robust-promotion-summary` (required with `--aggregate-seed-rerank-root`)
 
 Execution-path note:
 - do not widen wrapper `--N` in this initiative; keep wrapper at `N in {64,128}` and route all `N=256` sweeps through `grid_lines_torch_runner.py` pathing.
 
-Add `--stage-id` metadata label (`A|B|C|D|E`) to manifest/summary.
+Ensure `--stage-id` is persisted to manifest/summary (`A|B|C|D|E`).
 Persist dataset provenance in manifest:
 - profile ids
 - resolved input paths and which path-based args were emitted (`--train-data/--test-data` vs `--train-npz/--test-npz`)
@@ -905,7 +952,13 @@ Implement guardrails:
 - For stages B-E, non-active structural axes are inherited from `--promotion-source-summary`; multi-value lists on non-active axes are rejected.
 - For stages B-E, reject `--ns 256`-only invocations when `--promotion-source-summary` is missing.
 - Reject `cameraman256_halfsplit_v1` profile usage for active `N=256` runs unless both `--cameraman-dp` and `--cameraman-para` are provided.
+- Reject `custom_npz_pair_n128` unless both `--custom-n128-train-npz` and `--custom-n128-test-npz` are provided for active `N=128` runs.
+- Reject `custom_npz_pair_n256` unless both `--custom-n256-train-npz` and `--custom-n256-test-npz` are provided for active `N=256` runs.
 - Reject `--allow-n256-direct-diagnostic` unless `--ns 256` and `--top-k-n256 0`.
+- In seed-rerank aggregation mode (`--aggregate-seed-rerank-root`):
+  - require `--source-summary` and `--emit-robust-promotion-summary`,
+  - fail if any required seed rows are missing for boundary candidates,
+  - emit consolidated robustness summary with per-seed ranks + median-rank promotion order.
 - raise actionable error if multiple structural axes contain >1 value in one stage
 
 **Step 3: Add/adjust tests**
@@ -921,6 +974,9 @@ Add explicit invocation-provenance assertions in
 - promotion-source validation is strict:
   - missing/unknown `summary_schema_version` fails with actionable error.
   - required summary columns missing fails before any stage execution.
+- seed-rerank collation validation is explicit:
+  - boundary candidate coverage for seeds `{3,11,17}` is complete,
+  - `summary_seed_robust.csv` is emitted with median-rank ordering and consumed by promotion-enabled `N=256` commands.
 - confounder provenance is enforced:
   - persisted summary rows and manifest always include `probe_mask_enabled` and `torch_mae_pred_l2_match_target`.
 - wrapper/runner parity:
@@ -1013,6 +1069,7 @@ No commit (execution-only stage).
 - Modify: `ptycho_torch/generators/hybrid_resnet.py`
 - Modify: `ptycho/config/config.py` (PyTorchExecutionConfig only; no canonical `ModelConfig` edits)
 - Modify: `ptycho_torch/config_params.py`
+- Modify: `ptycho_torch/workflows/components.py`
 - Modify: `scripts/studies/grid_lines_torch_runner.py`
 - Modify: `tests/torch/test_fno_generators.py`
 - Modify: `tests/torch/test_grid_lines_torch_runner.py`
@@ -1039,6 +1096,7 @@ Scope guard for this stage:
 - add Stage-C knobs to Torch execution/model paths only.
 - in `ptycho/config/config.py`, touch `PyTorchExecutionConfig` only.
 - do not add new canonical `ModelConfig` keys, config-bridge mappings, or `params.cfg` emissions for these knobs in this initiative.
+- add explicit forwarding in `ptycho_torch/workflows/components.py` so these execution-only knobs reach `create_training_payload(..., overrides=...)`.
 
 Add model field:
 ```python
@@ -1061,12 +1119,14 @@ Cover:
 - invalid `hybrid_downsample_op` rejected
 - output shape invariance for each `hybrid_downsample_op`
 - branch-distinctness: `stride_conv`, `avgpool_conv`, and `blurpool_conv` must exercise distinct operator code paths (for example module-type assertions plus non-identical forward outputs under fixed seed/input).
+- workflow forwarding: `_train_with_lightning` must pass `hybrid_downsample_steps` and `hybrid_downsample_op` into factory overrides.
 
 Run:
 ```bash
 pytest tests/torch/test_fno_generators.py -k "hybrid_downsample_steps" -v
 pytest tests/torch/test_fno_generators.py -k "hybrid_downsample_op" -v
 pytest tests/torch/test_grid_lines_torch_runner.py -k "downsample_steps or downsample_op or torch_only" -v
+pytest tests/torch/test_grid_lines_torch_runner.py -k "workflow and downsample and factory" -v
 ```
 Expected: PASS.
 
@@ -1095,7 +1155,7 @@ Stage budget:
 
 ```bash
 python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md
-git add ptycho_torch/generators/hybrid_resnet.py ptycho/config/config.py ptycho_torch/config_params.py scripts/studies/grid_lines_torch_runner.py tests/torch/test_fno_generators.py tests/torch/test_grid_lines_torch_runner.py docs/CONFIGURATION.md docs/workflows/pytorch.md ptycho_torch/generators/README.md docs/development/TEST_SUITE_INDEX.md
+git add ptycho_torch/generators/hybrid_resnet.py ptycho/config/config.py ptycho_torch/config_params.py ptycho_torch/workflows/components.py scripts/studies/grid_lines_torch_runner.py tests/torch/test_fno_generators.py tests/torch/test_grid_lines_torch_runner.py docs/CONFIGURATION.md docs/workflows/pytorch.md ptycho_torch/generators/README.md docs/development/TEST_SUITE_INDEX.md
 git commit -m "feat+docs(torch): add hybrid_resnet downsample controls with torch-only scope"
 ```
 
@@ -1107,6 +1167,7 @@ git commit -m "feat+docs(torch): add hybrid_resnet downsample controls with torc
 - Modify: `ptycho_torch/generators/hybrid_resnet.py`
 - Modify: `ptycho/config/config.py` (PyTorchExecutionConfig only; no canonical `ModelConfig` edits)
 - Modify: `ptycho_torch/config_params.py`
+- Modify: `ptycho_torch/workflows/components.py`
 - Modify: `scripts/studies/grid_lines_torch_runner.py`
 - Modify: `tests/torch/test_fno_generators.py`
 - Modify: `tests/torch/test_grid_lines_torch_runner.py`
@@ -1121,6 +1182,7 @@ Scope guard for this stage:
 - keep new Stage-D knob plumbing Torch-only in execution/model paths.
 - in `ptycho/config/config.py`, touch `PyTorchExecutionConfig` only.
 - do not add new config-bridge/spec mappings for newly introduced Stage-D knobs in this initiative.
+- add explicit forwarding in `ptycho_torch/workflows/components.py` for Stage-D execution-only knobs.
 
 Evaluate one capacity knob at a time:
 - `max_hidden_channels` values: `none,256,512`, or
@@ -1142,6 +1204,7 @@ Run:
 ```bash
 pytest tests/torch/test_fno_generators.py -k "hybrid_resnet_blocks or max_hidden_channels or resnet_width" -v
 pytest tests/torch/test_grid_lines_torch_runner.py -k "hybrid_resnet_blocks or max_hidden_channels or resnet_width or torch_only" -v
+pytest tests/torch/test_grid_lines_torch_runner.py -k "workflow and (hybrid_resnet_blocks or max_hidden_channels or resnet_width) and factory" -v
 ```
 Expected: PASS.
 Also capture matching `--collect-only` and execution logs under `${REPORT_DIR}`.
@@ -1165,7 +1228,7 @@ Budget rule:
 
 ```bash
 python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md
-git add ptycho_torch/generators/hybrid_resnet.py ptycho/config/config.py ptycho_torch/config_params.py scripts/studies/grid_lines_torch_runner.py tests/torch/test_fno_generators.py tests/torch/test_grid_lines_torch_runner.py docs/CONFIGURATION.md docs/workflows/pytorch.md ptycho_torch/generators/README.md docs/development/TEST_SUITE_INDEX.md
+git add ptycho_torch/generators/hybrid_resnet.py ptycho/config/config.py ptycho_torch/config_params.py ptycho_torch/workflows/components.py scripts/studies/grid_lines_torch_runner.py tests/torch/test_fno_generators.py tests/torch/test_grid_lines_torch_runner.py docs/CONFIGURATION.md docs/workflows/pytorch.md ptycho_torch/generators/README.md docs/development/TEST_SUITE_INDEX.md
 git commit -m "feat+docs(torch): add hybrid_resnet capacity/depth controls with torch-only scope"
 ```
 
@@ -1177,6 +1240,7 @@ git commit -m "feat+docs(torch): add hybrid_resnet capacity/depth controls with 
 - Modify: `ptycho_torch/generators/hybrid_resnet.py`
 - Modify: `ptycho/config/config.py` (PyTorchExecutionConfig only; no canonical `ModelConfig` edits)
 - Modify: `ptycho_torch/config_params.py`
+- Modify: `ptycho_torch/workflows/components.py`
 - Modify: `scripts/studies/grid_lines_torch_runner.py`
 - Modify: `tests/torch/test_fno_generators.py`
 - Modify: `tests/torch/test_grid_lines_torch_runner.py`
@@ -1191,6 +1255,7 @@ Scope guard for this stage:
 - keep new Stage-E knob plumbing Torch-only in execution/model paths.
 - in `ptycho/config/config.py`, touch `PyTorchExecutionConfig` only.
 - do not add new config-bridge/spec mappings for newly introduced Stage-E knobs in this initiative.
+- add explicit forwarding in `ptycho_torch/workflows/components.py` for `hybrid_skip_style`.
 
 Add model field:
 ```python
@@ -1209,11 +1274,13 @@ Cover:
 - invalid style rejected
 - propagation through runner Torch execution/model paths with explicit no-bridge assertions
 - branch-distinctness: `add`, `concat`, and `gated_add` each execute distinct fusion logic and produce non-identical outputs for a fixed seed/input.
+- workflow forwarding: `_train_with_lightning` must pass `hybrid_skip_style` into factory overrides.
 
 Run:
 ```bash
 pytest tests/torch/test_fno_generators.py -k "skip_style" -v
 pytest tests/torch/test_grid_lines_torch_runner.py -k "skip_style or torch_only" -v
+pytest tests/torch/test_grid_lines_torch_runner.py -k "workflow and skip_style and factory" -v
 ```
 
 **Step 3: Execute Stage E**
@@ -1238,7 +1305,7 @@ Constraint:
 
 ```bash
 python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md
-git add ptycho_torch/generators/hybrid_resnet.py ptycho/config/config.py ptycho_torch/config_params.py scripts/studies/grid_lines_torch_runner.py tests/torch/test_fno_generators.py tests/torch/test_grid_lines_torch_runner.py docs/CONFIGURATION.md docs/workflows/pytorch.md ptycho_torch/generators/README.md docs/development/TEST_SUITE_INDEX.md
+git add ptycho_torch/generators/hybrid_resnet.py ptycho/config/config.py ptycho_torch/config_params.py ptycho_torch/workflows/components.py scripts/studies/grid_lines_torch_runner.py tests/torch/test_fno_generators.py tests/torch/test_grid_lines_torch_runner.py docs/CONFIGURATION.md docs/workflows/pytorch.md ptycho_torch/generators/README.md docs/development/TEST_SUITE_INDEX.md
 git commit -m "feat+docs(torch): add hybrid_resnet skip-style variants with torch-only scope"
 ```
 
@@ -1264,9 +1331,12 @@ Use explicit gates:
 
 **Step 2: Define hard stop conditions**
 
-Stop expansion if:
-- two consecutive stages show <1% relative gain on primary metric, or
-- all candidate configs at new stage regress on both amplitude MAE and MSE at `N=256`.
+Use a **pause-and-diagnose** gate (not immediate abandonment):
+- Trigger a pause when either condition is met:
+  - two consecutive stages show `<1%` median relative gain on the primary metric **and** the seed-rerank confidence interval overlaps zero (seeds `{3,11,17}`),
+  - all new-stage candidates regress on both amplitude MAE and MSE at `N=256` **and** the same directional regression is present in the `N=128` robustness summary.
+- Before final stop on an axis, run one bounded rescue mini-sweep on that same axis (for example targeted high-mode/width slice) and re-evaluate gates.
+- If the rescue mini-sweep still fails gates, pause further expansion on that axis and carry at least one hedge candidate into the next stage for low-budget monitoring.
 
 **Step 3: Commit**
 
