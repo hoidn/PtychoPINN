@@ -87,10 +87,11 @@ Expected: required paths (for example `ptycho/FRC`) exist; existing initialized 
 
 Run:
 ```bash
-tmux new-session -d -s skip_sweep "bash -lc 'source ~/miniconda3/etc/profile.d/conda.sh && conda activate ptycho311 && python -V; exec bash'"
+tmux has-session -t skip_sweep 2>/dev/null || \
+  tmux new-session -d -s skip_sweep "bash -lc 'source ~/miniconda3/etc/profile.d/conda.sh && conda activate ptycho311 && python -V; exec bash'"
 tmux capture-pane -pt skip_sweep:0
 ```
-Expected: pane output shows `python -V` from the `ptycho311` session PATH interpreter.
+Expected: pane output shows `python -V` from the `ptycho311` session PATH interpreter (works whether session already exists or is newly created).
 All subsequent commands in this plan should still use plain `python ...` (no interpreter wrappers).
 
 **Step 4: Initialize timestamped report directory for test evidence**
@@ -644,7 +645,7 @@ Expected: PASS; abort study execution immediately if CUDA is unavailable.
 
 Run in tmux pane:
 ```bash
-pytest tests/torch/test_fno_generators.py -k hybrid_resnet -v
+pytest tests/torch/test_fno_generators.py::TestHybridResnetGenerator -v
 pytest tests/torch/test_grid_lines_torch_runner.py -k "hybrid_resnet or hybrid_skip_connections" -v
 pytest tests/studies/test_hybrid_resnet_mode_skip_sweep.py -v
 pytest -m integration -v
@@ -967,7 +968,7 @@ No commit (execution-only stage).
 
 **Files:**
 - Modify: `ptycho_torch/generators/hybrid_resnet.py`
-- Modify: `ptycho/config/config.py`
+- Modify: `ptycho/config/config.py` (PyTorchExecutionConfig only; no canonical `ModelConfig` edits)
 - Modify: `ptycho_torch/config_params.py`
 - Modify: `scripts/studies/grid_lines_torch_runner.py`
 - Modify: `tests/torch/test_fno_generators.py`
@@ -993,6 +994,7 @@ Add focused tests before Stage C sweep execution:
 
 Scope guard for this stage:
 - add Stage-C knobs to Torch execution/model paths only.
+- in `ptycho/config/config.py`, touch `PyTorchExecutionConfig` only.
 - do not add new canonical `ModelConfig` keys, config-bridge mappings, or `params.cfg` emissions for these knobs in this initiative.
 
 Add model field:
@@ -1059,7 +1061,7 @@ git commit -m "feat+docs(torch): add hybrid_resnet downsample controls with torc
 
 **Files:**
 - Modify: `ptycho_torch/generators/hybrid_resnet.py`
-- Modify: `ptycho/config/config.py`
+- Modify: `ptycho/config/config.py` (PyTorchExecutionConfig only; no canonical `ModelConfig` edits)
 - Modify: `ptycho_torch/config_params.py`
 - Modify: `scripts/studies/grid_lines_torch_runner.py`
 - Modify: `tests/torch/test_fno_generators.py`
@@ -1073,6 +1075,7 @@ git commit -m "feat+docs(torch): add hybrid_resnet downsample controls with torc
 
 Scope guard for this stage:
 - keep new Stage-D knob plumbing Torch-only in execution/model paths.
+- in `ptycho/config/config.py`, touch `PyTorchExecutionConfig` only.
 - do not add new config-bridge/spec mappings for newly introduced Stage-D knobs in this initiative.
 
 Evaluate one capacity knob at a time:
@@ -1127,7 +1130,7 @@ git commit -m "feat+docs(torch): add hybrid_resnet capacity/depth controls with 
 
 **Files:**
 - Modify: `ptycho_torch/generators/hybrid_resnet.py`
-- Modify: `ptycho/config/config.py`
+- Modify: `ptycho/config/config.py` (PyTorchExecutionConfig only; no canonical `ModelConfig` edits)
 - Modify: `ptycho_torch/config_params.py`
 - Modify: `scripts/studies/grid_lines_torch_runner.py`
 - Modify: `tests/torch/test_fno_generators.py`
@@ -1141,6 +1144,7 @@ git commit -m "feat+docs(torch): add hybrid_resnet capacity/depth controls with 
 
 Scope guard for this stage:
 - keep new Stage-E knob plumbing Torch-only in execution/model paths.
+- in `ptycho/config/config.py`, touch `PyTorchExecutionConfig` only.
 - do not add new config-bridge/spec mappings for newly introduced Stage-E knobs in this initiative.
 
 Add model field:
