@@ -166,6 +166,8 @@ Add optional arguments (defaults preserve Stage A behavior):
 - `--fno-blocks-values` (default: `4`)
 - `--downsample-schedule-values` (default: `2`)  # number of encoder downsample steps
 - `--downsample-op-values` (default: `stride_conv`)  # `stride_conv|avgpool_conv|blurpool_conv`
+- `--encoder-conv-hidden-values` (default: `none`)  # maps to `hybrid_encoder_conv_hidden_channels`
+- `--encoder-spectral-hidden-values` (default: `none`)  # maps to `hybrid_encoder_spectral_hidden_channels`
 - `--max-hidden-values` (default: `none`)  # maps to `max_hidden_channels`
 - `--resnet-width-values` (default: `none`)
 - `--resnet-blocks-values` (default: `6`)
@@ -202,6 +204,7 @@ Implement guardrails:
 - exactly one structural axis may vary per stage B-E
 - Stage A varies only `{modes, widths, skip on/off}`
 - For stages B-E, non-active structural axes are inherited from `--promotion-source-summary`; multi-value lists on non-active axes are rejected.
+- For Stage D branch-capacity work, treat `encoder_conv_hidden`, `encoder_spectral_hidden`, `max_hidden/resnet_width`, and `resnet_blocks` as separate serial sub-stages; only one may carry multiple values in one invocation.
 - For stages B-E, reject `--ns 256`-only invocations when `--promotion-source-summary` is missing.
 - Reject `cameraman256_halfsplit_v1` profile usage for active `N=256` runs unless both `--cameraman-dp` and `--cameraman-para` are provided.
 - Reject `custom_npz_pair_n128` unless both `--custom-n128-train-npz` and `--custom-n128-test-npz` are provided for active `N=128` runs.
@@ -233,6 +236,7 @@ Add explicit invocation-provenance assertions in
   - persisted summary rows and manifest always include `probe_mask_enabled` and `torch_mae_pred_l2_match_target`.
 - wrapper/runner parity:
   - new sweep knobs shared across both leaf CLIs are validated to parse and pass through on both wrapper and runner code paths.
+  - branch-capacity knobs (`--encoder-conv-hidden-values`, `--encoder-spectral-hidden-values`) are validated on runner path and manifest/summary persistence.
   - MAE normalization toggle naming parity is enforced:
     - canonical shared flags: `--torch-mae-pred-l2-match-target` and `--no-torch-mae-pred-l2-match-target`,
     - wrapper keeps backward-compatible alias `--torch-no-mae-pred-l2-match-target` mapped to the same destination.
@@ -314,4 +318,3 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
 No commit (execution-only stage).
 
 ---
-

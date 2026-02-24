@@ -42,7 +42,7 @@ Out of scope:
 - Torch-only sweep knobs must not expand `params.cfg` surface unless a cross-backend requirement is explicitly documented and approved.
 - `hybrid_skip_connections` is explicitly Torch-only and must not be added to canonical `ModelConfig` or config-bridge mappings.
 - `hybrid_skip_connections` must flow through Torch runner/execution path only and remain outside `update_legacy_dict(...)` / `params.cfg` contracts.
-- Stage C-E knobs introduced by this initiative (`hybrid_downsample_steps`, `hybrid_downsample_op`, `hybrid_resnet_blocks`, `hybrid_skip_style`) are Torch-only by default; no bridge/spec expansion in this plan.
+- Stage C-E knobs introduced by this initiative (`hybrid_downsample_steps`, `hybrid_downsample_op`, `hybrid_encoder_conv_hidden_channels`, `hybrid_encoder_spectral_hidden_channels`, `hybrid_resnet_blocks`, `hybrid_skip_style`) are Torch-only by default; no bridge/spec expansion in this plan.
 
 4. Explicit confounder control during sweeps:
 - `probe_mask` and MAE normalization toggles are fixed per sweep stage and recorded in manifest.
@@ -84,10 +84,22 @@ Topology contract:
 - `fno_modes` (existing)
 - `fno_width` (existing)
 - `fno_blocks` (existing)
+- `hybrid_encoder_conv_hidden_channels` (new, default `none`)
+  - Internal channel width for encoder local-convolution branch inside each hybrid block.
+  - `none` preserves current behavior (branch width equals stage channel width).
+- `hybrid_encoder_spectral_hidden_channels` (new, default `none`)
+  - Internal channel width for encoder spectral branch inside each hybrid block.
+  - `none` preserves current behavior (branch width equals stage channel width).
 - `max_hidden_channels` (existing)
 - `resnet_width` (existing, divisible-by-4 guard)
 - `hybrid_resnet_blocks` (new, default `6`)
   - Scope: Torch-only runner/execution/model knob in this initiative.
+
+Encoder-branch decoupling contract:
+- additive fusion remains shape-safe at fixed stage width (`x + GELU(spectral + conv)`),
+- spectral and conv branches may use independent internal widths,
+- each branch must project back to stage width before additive merge,
+- generator output shape/dtype contracts remain unchanged.
 
 ## 4.4 Dataset Profile Controls
 
@@ -155,13 +167,19 @@ Sub-stage C2:
 - lock best C1 schedule, vary `hybrid_downsample_op`.
 - apply the Section-6 boundary seed-robustness rule on each promotion source summary before any `N=256` run.
 
-## 5.4 Stage D (Axes 3 + 4)
+## 5.4 Stage D (Axes 3 + 4 + 4b)
 
 Sub-stage D1:
-- capacity axis (`max_hidden_channels` or `resnet_width`)
+- encoder conv-branch capacity axis (`hybrid_encoder_conv_hidden_channels`) with spectral branch width fixed to default.
 
 Sub-stage D2:
-- lock best D1, vary `hybrid_resnet_blocks`.
+- lock best D1, vary encoder spectral-branch capacity axis (`hybrid_encoder_spectral_hidden_channels`).
+
+Sub-stage D3:
+- lock best D2, vary global capacity axis (`max_hidden_channels` or `resnet_width`).
+
+Sub-stage D4:
+- lock best D3, vary `hybrid_resnet_blocks`.
 - apply the Section-6 boundary seed-robustness rule on each promotion source summary before any `N=256` run.
 
 ## 5.5 Stage E (Axis 5)
@@ -205,9 +223,12 @@ Promotion source API:
 - Every summary row includes `summary_schema_version`.
 - Promotion loader must validate version + required columns + non-empty candidates before scheduling runs.
 
-Stop conditions:
-- two consecutive stages with <1% relative improvement on primary metric, or
-- all new-stage candidates regress on both amplitude MAE and MSE at `N=256`.
+Pause-and-diagnose conditions (not immediate abandonment):
+- Trigger a pause when either condition is met:
+  - two consecutive stages show `<1%` median relative improvement on the primary metric **and** the seed-rerank confidence interval overlaps zero across seeds `{3,11,17}`,
+  - all new-stage candidates regress on both amplitude MAE and MSE at `N=256` **and** the same directional regression appears in the `N=128` robustness summary.
+- Before final stop on an axis, run one bounded rescue mini-sweep on that axis and re-evaluate promotion gates.
+- If rescue still fails, pause expansion on that axis and carry at least one hedge candidate into the next stage for low-budget monitoring.
 
 ## 7. Run Artifact Contract
 
@@ -248,6 +269,7 @@ For each new knob:
 - propagation tests along the intended path:
   - Torch-only knobs (including `hybrid_skip_connections`): runner/execution/workflow propagation tests plus explicit no-bridge assertions.
   - cross-backend knobs (when explicitly approved): config-bridge propagation tests.
+- branch-decoupling tests for `hybrid_encoder_conv_hidden_channels` and `hybrid_encoder_spectral_hidden_channels` (independent branch-width effects with additive shape invariance),
 - generator forward-shape tests,
 - invalid-value rejection tests.
 
