@@ -193,6 +193,18 @@ Each stage writes:
   - inference time,
   - promotion decisions.
 
+Retention/cleanup policy (normative):
+- Default mode is prune-after-run.
+- Cleanup executes after per-run metrics/manifest row persistence.
+- Cleanup scope is restricted to the run output subtree (never external input paths).
+- Prune heavy intermediates by default (large dataset/recon NPZs, checkpoints, transient caches/log blobs).
+- Preserve reproducibility-critical artifacts:
+  - `invocation.json`, `invocation.sh`
+  - per-run metrics payload required for ranking/promotion
+  - stage `sweep_manifest.json`, `summary.csv`, `summary.md`
+  - curated comparison PNG evidence.
+- Emit `cleanup_report.json` for each run with deleted paths and reclaimed bytes.
+
 ## 8. Validation and Test Expectations
 
 For each new knob:
