@@ -310,6 +310,37 @@ No commit (RED only).
 
 ---
 
+### Task 5A: Study-Index Conformance Gate (Pre-Implementation)
+
+**Files:**
+- Modify: none
+
+**Step 1: Pre-read study-index conventions**
+
+Read:
+- `docs/studies/index.md`
+
+Extract and record the conventions this runbook must follow:
+- study key naming style (slug in header),
+- script path placement under `scripts/studies/runbooks/`,
+- command block style and required args,
+- output/artifact contract language (manifest/summary/invocation artifacts),
+- smoke/full run guidance style when applicable.
+
+**Step 2: Define a conformance checklist for this initiative**
+
+Before Task 6 coding, write a short checklist in this plan (or task notes) that the implementation must satisfy:
+- unique study key for this sweep (`hybrid-resnet-mode-skip-sweep`),
+- canonical script path and output root conventions,
+- invocation artifact expectations (`invocation.json`, `invocation.sh`),
+- explicit mention of collation/visual artifact locations.
+
+**Step 3: Commit**
+
+No commit (planning/conformance gate only).
+
+---
+
 ### Task 6: GREEN Sweep Runbook Implementation (N=128 + N=256)
 
 **Files:**
@@ -342,6 +373,10 @@ Required behavior:
     - `grid_lines_compare_wrapper.py`: `--dataset-source` plus `--train-data/--test-data` where required.
     - `grid_lines_torch_runner.py`: `--train-npz/--test-npz`.
   - explicit caller-provided dataset paths override profile defaults.
+- Study-index conformance contract:
+  - runbook metadata/outputs must align with the conventions extracted in Task 5A,
+  - manifest should include a stable study key (`hybrid-resnet-mode-skip-sweep`) and script path,
+  - output layout and invocation artifacts must match study-index expectations.
 - `N=128`: resolve dataset profile(s), then run each combo against each profile.
   - Default profile `integration_grid_lines_n128_v1` MUST use the exact integration-fixture generation recipe:
     - `N=128`, `gridsize=1`
@@ -413,7 +448,9 @@ git commit -m "feat(studies): add hybrid_resnet mode-skip sweep runbook"
 
 - `docs/CONFIGURATION.md`: add `hybrid_skip_connections` row (default `False`, PyTorch/hybrid_resnet only).
 - `ptycho_torch/generators/README.md`: document skip toggle and interaction with `fno_modes`.
-- `docs/studies/index.md`: add command recipe for new sweep runbook.
+- `docs/studies/index.md`: add the new study entry under a unique key:
+  - `hybrid-resnet-mode-skip-sweep`
+  - include purpose, runbook script path, canonical smoke/full command blocks, and artifact contract.
 - `docs/workflows/pytorch.md`: document `--hybrid-skip-connections/--no-hybrid-skip-connections` and expected behavior (`default False` parity).
 
 **Step 2: Update normative config-bridge spec**
@@ -435,6 +472,7 @@ git commit -m "feat(studies): add hybrid_resnet mode-skip sweep runbook"
 Run:
 ```bash
 rg -n "hybrid_skip_connections|run_hybrid_resnet_mode_skip_sweep|spec-ptycho-config-bridge" docs ptycho_torch/generators/README.md
+rg -n "hybrid-resnet-mode-skip-sweep|scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py" docs/studies/index.md
 ```
 Expected: references present across config guide, spec bridge, workflow guide, generators README, studies index, and test-suite index.
 
@@ -948,6 +986,7 @@ Use explicit gates:
 - must beat previous stage baseline on amplitude `MAE` and `MSE`
 - no catastrophic phase regression (phase SSIM drop > 0.03 vs stage baseline)
 - runtime/params within budget envelope recorded in summary
+- stage-promotion governance: Stage A is not complete until `docs/studies/index.md` contains the verified `hybrid-resnet-mode-skip-sweep` entry (Task 7 checks pass).
 
 **Step 2: Define hard stop conditions**
 
