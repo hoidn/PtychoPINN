@@ -2,11 +2,13 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Add optional encoder-decoder skip connections to `hybrid_resnet`, then add a reproducible mode×skip×width benchmark workflow for `N=128` and `N=256`.
+**Goal:** Add optional encoder-decoder skip connections to `hybrid_resnet`, add a reproducible mode×skip×width benchmark workflow for `N=128` and `N=256`, and define a staged structural-search extension for depth/downsampling/capacity/skip-design axes.
 
-**Architecture:** Keep default behavior unchanged (`skip_connections=False`) to preserve current baselines/integration expectations. Implement additive skip fusion with lightweight `1x1` projection layers at decoder resolutions (`N/2`, `N`). Expose one boolean knob end-to-end (`hybrid_skip_connections`) through config + CLI, then run a deterministic sweep over `fno_modes × hybrid_skip_connections × fno_width` with fixed probe-mask/loss-normalization controls. Execute the search in two stages: full grid on `N=128`, then top-K promotion to `N=256`.
+**Architecture:** Keep default behavior unchanged (`skip_connections=False`) to preserve current baselines/integration expectations. Implement additive skip fusion with lightweight `1x1` projection layers at decoder resolutions (`N/2`, `N`). Expose one boolean knob end-to-end (`hybrid_skip_connections`) through config + CLI, then run a deterministic sweep over `fno_modes × hybrid_skip_connections × fno_width` with fixed probe-mask/loss-normalization controls. Execute Stage A in two steps (full grid on `N=128`, then top-K promotion to `N=256`), then add structural axes one stage at a time (B→E) with bounded per-stage run budgets.
 
 **Tech Stack:** PyTorch/Lightning (`ptycho_torch`), existing grid-lines + NERSC study scripts, `pytest`, runbook-style orchestration, JSON/CSV/Markdown artifacts.
+
+**Companion Design:** `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-design.md` (normative knob semantics, stage gates, ranking/promotion policy, and artifact contract).
 
 ---
 
@@ -295,6 +297,9 @@ No commit (RED only).
 
 **Step 1: Implement runbook with deterministic matrix + artifacts**
 
+Use design constraints from:
+- `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-design.md` (Sections 5-7)
+
 Required behavior:
 - Parse:
   - `--modes 12,16,24`
@@ -461,3 +466,292 @@ Expected: report contains full-grid `N=128` section and promoted top-K `N=256` s
 **Step 3: Commit**
 
 No commit (execution-only handoff).
+
+---
+
+### Task 10: Add Structural-Axis Hooks to Sweep Runbook (No Cartesian Explosion)
+
+**Files:**
+- Modify: `scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py`
+- Modify: `tests/studies/test_hybrid_resnet_mode_skip_sweep.py`
+- Modify: `docs/studies/index.md`
+
+**Step 1: Add CLI hooks for staged axes with safe defaults**
+
+Follow knob semantics in:
+- `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-design.md` (Section 4)
+
+Add optional arguments (defaults preserve Stage A behavior):
+- `--fno-blocks-values` (default: `4`)
+- `--downsample-schedule-values` (default: `2`)  # number of encoder downsample steps
+- `--max-hidden-values` (default: `none`)  # maps to `max_hidden_channels`
+- `--resnet-width-values` (default: `none`)
+- `--resnet-blocks-values` (default: `6`)
+- `--skip-style-values` (default: `add`)  # `add|concat|gated_add`
+
+Add `--stage-id` metadata label (`A|B|C|D|E`) to manifest/summary.
+
+**Step 2: Add matrix builder constraints**
+
+Implement guardrails:
+- exactly one structural axis may vary per stage B-E
+- Stage A varies only `{modes, widths, skip on/off}`
+- raise actionable error if multiple structural axes contain >1 value in one stage
+
+**Step 3: Add/adjust tests**
+
+Run:
+```bash
+pytest tests/studies/test_hybrid_resnet_mode_skip_sweep.py -k "matrix or guardrail or stage_id" -v
+```
+Expected: PASS.
+
+**Step 4: Commit**
+
+```bash
+git add scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py tests/studies/test_hybrid_resnet_mode_skip_sweep.py docs/studies/index.md
+git commit -m "feat(studies): add staged structural-axis hooks to hybrid_resnet sweep runbook"
+```
+
+---
+
+### Task 11: Stage B Search (Axis 1: `fno_blocks`)
+
+**Files:**
+- Modify: none (execution + artifacts)
+
+**Step 1: Run Stage B at N=128 on promoted Stage A configs**
+
+Run:
+```bash
+python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
+  --stage-id B \
+  --modes 12,16,24 \
+  --skip-values off,on \
+  --widths 32,48,64 \
+  --fno-blocks-values 4,5,6 \
+  --ns 128 \
+  --epochs-n128 20 \
+  --top-k-n256 0 \
+  --output-root outputs/hybrid_resnet_stageB_fno_blocks_n128_20260221 \
+  --seed 3 \
+  --no-probe-mask \
+  --no-torch-mae-pred-l2-match-target
+```
+Expected: `summary.md` includes `stage_id=B` and `fno_blocks` column.
+
+**Step 2: Promote top-K and run N=256**
+
+Run:
+```bash
+python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
+  --stage-id B \
+  --modes 12,16,24 \
+  --skip-values off,on \
+  --widths 32,48,64 \
+  --fno-blocks-values 4,5,6 \
+  --ns 256 \
+  --epochs-n256 40 \
+  --top-k-n256 6 \
+  --cameraman-dp /home/ollie/Downloads/nersc/data/cameraman256_dp.hdf5 \
+  --cameraman-para /home/ollie/Downloads/nersc/data/cameraman256_para.hdf5 \
+  --output-root outputs/hybrid_resnet_stageB_fno_blocks_n256_20260221 \
+  --seed 3 \
+  --no-probe-mask \
+  --no-torch-mae-pred-l2-match-target
+```
+
+**Step 3: Commit**
+
+No commit (execution-only stage).
+
+---
+
+### Task 12: Stage C Search (Axis 2: Downsampling Schedule / Bottleneck Resolution + Downsampling Operator)
+
+**Files:**
+- Modify: `ptycho_torch/generators/hybrid_resnet.py`
+- Modify: `ptycho/config/config.py`
+- Modify: `ptycho_torch/config_params.py`
+- Modify: `ptycho_torch/config_bridge.py`
+- Modify: `scripts/studies/grid_lines_torch_runner.py`
+- Modify: `tests/torch/test_fno_generators.py`
+- Modify: `tests/torch/test_grid_lines_torch_runner.py`
+- Modify: `tests/torch/test_config_bridge.py`
+
+**Step 1: Add `hybrid_downsample_steps` config/CLI plumbing**
+
+Add model field:
+```python
+hybrid_downsample_steps: int = 2
+```
+Generator uses it to choose `1` (`N->N/2`) vs `2` (`N->N/4`) downsample steps.
+
+Also add:
+```python
+hybrid_downsample_op: Literal["stride_conv", "avgpool_conv", "blurpool_conv"] = "stride_conv"
+```
+Generator uses this to select operator family for each downsample stage.
+
+**Step 2: Add RED/GREEN tests**
+
+Cover:
+- valid range `[1,2]` for current implementation
+- output shape invariance
+- runner/config bridge propagation
+- invalid `hybrid_downsample_op` rejected
+- output shape invariance for each `hybrid_downsample_op`
+
+Run:
+```bash
+pytest tests/torch/test_fno_generators.py -k "hybrid_downsample_steps" -v
+pytest tests/torch/test_fno_generators.py -k "hybrid_downsample_op" -v
+pytest tests/torch/test_grid_lines_torch_runner.py -k "downsample_steps or downsample_op" -v
+pytest tests/torch/test_config_bridge.py -k "hybrid_downsample_steps or hybrid_downsample_op" -v
+```
+Expected: PASS.
+
+**Step 3: Execute Stage C runs**
+
+Sub-stage C1 (schedule): use `--downsample-schedule-values 1,2` while fixing all other structural axes to best Stage B config.
+
+Sub-stage C2 (operator): lock best schedule from C1, then run:
+- `--downsample-op-values stride_conv,avgpool_conv,blurpool_conv`
+
+Stage budget:
+- N=128: max 12 runs for C1 + max 12 runs for C2
+- N=256: top 4 from C2 only
+
+**Step 4: Commit**
+
+```bash
+git add ptycho_torch/generators/hybrid_resnet.py ptycho/config/config.py ptycho_torch/config_params.py ptycho_torch/config_bridge.py scripts/studies/grid_lines_torch_runner.py tests/torch/test_fno_generators.py tests/torch/test_grid_lines_torch_runner.py tests/torch/test_config_bridge.py
+git commit -m "feat(torch): add hybrid_resnet downsample-step schedule control"
+```
+
+---
+
+### Task 13: Stage D Search (Axes 3 + 4: Capacity and Decoder Depth)
+
+**Files:**
+- Modify: `ptycho_torch/generators/hybrid_resnet.py`
+- Modify: `ptycho/config/config.py`
+- Modify: `ptycho_torch/config_params.py`
+- Modify: `ptycho_torch/config_bridge.py`
+- Modify: `scripts/studies/grid_lines_torch_runner.py`
+- Modify: `tests/torch/test_fno_generators.py`
+- Modify: `tests/torch/test_grid_lines_torch_runner.py`
+- Modify: `tests/torch/test_config_bridge.py`
+
+**Step 1: Axis 3 (capacity) sub-stage**
+
+Evaluate one capacity knob at a time:
+- `max_hidden_channels` values: `none,256,512`, or
+- `resnet_width` values: `none,192,256` (only if divisibility constraints pass).
+
+Keep `resnet_blocks` fixed for this sub-stage.
+
+**Step 2: Axis 4 (decoder depth) sub-stage**
+
+Add/plumb:
+```python
+hybrid_resnet_blocks: int = 6
+```
+Sweep `4,6,8` using best capacity setting from Step 1.
+
+**Step 3: Run bounded stage budgets**
+
+Budget rule:
+- N=128: max 18 runs per sub-stage
+- N=256: top 4 only
+
+**Step 4: Commit**
+
+```bash
+git add ptycho_torch/generators/hybrid_resnet.py ptycho/config/config.py ptycho_torch/config_params.py ptycho_torch/config_bridge.py scripts/studies/grid_lines_torch_runner.py tests/torch/test_fno_generators.py tests/torch/test_grid_lines_torch_runner.py tests/torch/test_config_bridge.py
+git commit -m "feat(torch): add hybrid_resnet capacity and decoder-depth controls"
+```
+
+---
+
+### Task 14: Stage E Search (Axis 5: Skip-Connection Design)
+
+**Files:**
+- Modify: `ptycho_torch/generators/hybrid_resnet.py`
+- Modify: `ptycho/config/config.py`
+- Modify: `ptycho_torch/config_params.py`
+- Modify: `ptycho_torch/config_bridge.py`
+- Modify: `scripts/studies/grid_lines_torch_runner.py`
+- Modify: `tests/torch/test_fno_generators.py`
+- Modify: `tests/torch/test_grid_lines_torch_runner.py`
+- Modify: `tests/torch/test_config_bridge.py`
+
+**Step 1: Add `hybrid_skip_style` enum**
+
+Add model field:
+```python
+hybrid_skip_style: Literal["add", "concat", "gated_add"] = "add"
+```
+
+Implementation guidance:
+- `add`: current behavior
+- `concat`: concat then `1x1` projection
+- `gated_add`: learnable scalar/channel gate initialized near zero
+
+**Step 2: Add RED/GREEN tests**
+
+Cover:
+- shape contract unchanged for each style
+- invalid style rejected
+- propagation through runner/config bridge
+
+Run:
+```bash
+pytest tests/torch/test_fno_generators.py -k "skip_style" -v
+pytest tests/torch/test_grid_lines_torch_runner.py -k "skip_style" -v
+pytest tests/torch/test_config_bridge.py -k "skip_style" -v
+```
+
+**Step 3: Execute Stage E**
+
+Run skip styles on best config from Stage D, budget:
+- N=128: all 3 styles
+- N=256: top 2 styles only
+
+**Step 4: Commit**
+
+```bash
+git add ptycho_torch/generators/hybrid_resnet.py ptycho/config/config.py ptycho_torch/config_params.py ptycho_torch/config_bridge.py scripts/studies/grid_lines_torch_runner.py tests/torch/test_fno_generators.py tests/torch/test_grid_lines_torch_runner.py tests/torch/test_config_bridge.py
+git commit -m "feat(torch): add hybrid_resnet skip-style variants for staged search"
+```
+
+---
+
+### Task 15: Stage Governance and Stop/Go Criteria
+
+**Files:**
+- Modify: `docs/studies/index.md`
+- Modify: `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search.md`
+
+**Step 1: Define promotion criteria between stages**
+
+Use the canonical policy in:
+- `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-design.md` (Section 6)
+
+Use explicit gates:
+- must beat previous stage baseline on amplitude `MAE` and `MSE`
+- no catastrophic phase regression (phase SSIM drop > 0.03 vs stage baseline)
+- runtime/params within budget envelope recorded in summary
+
+**Step 2: Define hard stop conditions**
+
+Stop expansion if:
+- two consecutive stages show <1% relative gain on primary metric, or
+- all candidate configs at new stage regress on both amplitude MAE and MSE at `N=256`.
+
+**Step 3: Commit**
+
+```bash
+git add docs/studies/index.md docs/plans/2026-02-21-hybrid-resnet-skip-mode-search.md
+git commit -m "docs(studies): add staged structural-search governance for hybrid_resnet sweep"
+```
