@@ -40,6 +40,7 @@ Out of scope:
 
 3b. Bridge scope guard:
 - Torch-only sweep knobs must not expand `params.cfg` surface unless a cross-backend requirement is explicitly documented and approved.
+- If a Torch-only knob is temporarily represented in canonical config for bridge compatibility, `update_legacy_dict(...)` must still avoid emitting it to `params.cfg` and tests must enforce that.
 
 4. Explicit confounder control during sweeps:
 - `probe_mask` and MAE normalization toggles are fixed per sweep stage and recorded in manifest.
@@ -107,6 +108,7 @@ Profile semantics:
 - `custom_npz_pair_n128`:
   - caller-provided `train.npz` and `test.npz`.
 - `cameraman256_halfsplit_v1`:
+  - requires caller-provided `cameraman_dp` and `cameraman_para` HDF5 paths
   - train from `prepare_hybrid_dataset(..., half=\"top\")`
   - test from `prepare_hybrid_dataset(..., half=\"bottom\")` using returned `train_npz`.
 - `custom_npz_pair_n256`:

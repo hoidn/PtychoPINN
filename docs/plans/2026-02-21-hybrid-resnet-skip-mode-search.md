@@ -51,6 +51,11 @@
   - `<selector_slug>_run.log`
 - Do not mark a selector complete if its collect-only log shows `collected 0 items`.
 - Regenerate `docs/development/TEST_SUITE_INDEX.md` via `python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md` whenever tests are added/renamed/removed.
+- Command-block convention:
+  - `pytest ...` lines shown in tasks are execution commands.
+  - For each such line, run the implied collect pair first:
+    - `pytest <same selector> --collect-only -v | tee "${REPORT_DIR}/<selector_slug>_collect.log"`
+    - `pytest <same selector> -v | tee "${REPORT_DIR}/<selector_slug>_run.log"`
 
 ---
 
@@ -68,7 +73,16 @@ git status --short
 ```
 Expected: working directory is repo root; you understand unrelated dirty files and will not revert them.
 
-**Step 2: Start tmux shell and bootstrap the runtime env once**
+**Step 2: Initialize required submodules for valid test execution**
+
+Run:
+```bash
+git submodule update --init --recursive
+test -e ptycho/FRC || { echo "Missing ptycho/FRC submodule content"; exit 1; }
+```
+Expected: submodules are initialized and required paths (for example `ptycho/FRC`) exist.
+
+**Step 3: Start tmux shell and bootstrap the runtime env once**
 
 Run:
 ```bash
@@ -78,7 +92,7 @@ tmux capture-pane -pt skip_sweep:0
 Expected: pane output shows `python -V` from the `ptycho311` session PATH interpreter.
 All subsequent commands in this plan should still use plain `python ...` (no interpreter wrappers).
 
-**Step 3: Initialize timestamped report directory for test evidence**
+**Step 4: Initialize timestamped report directory for test evidence**
 
 Run:
 ```bash
@@ -89,7 +103,7 @@ echo "${REPORT_DIR}"
 ```
 Expected: printed path is used for all `*_collect.log` and `*_run.log` artifacts in this session.
 
-**Step 4: Commit**
+**Step 5: Commit**
 
 No commit.
 
@@ -270,7 +284,7 @@ No commit (RED only).
 ### Task 4: GREEN Config + CLI + Generator Wrapper Plumbing
 
 **Files:**
-- Modify: `ptycho/config/config.py`
+- Modify (if bridge compatibility requires canonical field): `ptycho/config/config.py`
 - Modify: `ptycho_torch/config_params.py`
 - Modify: `ptycho_torch/config_bridge.py`
 - Modify: `scripts/studies/grid_lines_torch_runner.py`
@@ -280,9 +294,9 @@ No commit (RED only).
 - Test: `tests/torch/test_config_bridge.py`
 - Test: `tests/test_grid_lines_compare_wrapper.py`
 
-**Step 1: Add field to canonical + torch config dataclasses**
+**Step 1: Add field to Torch config dataclass; canonical bridge field only with explicit params scope**
 
-Add to both model configs:
+Add to Torch model config (and canonical config only if bridge compatibility requires it):
 ```python
 hybrid_skip_connections: bool = False
 ```
@@ -290,6 +304,7 @@ hybrid_skip_connections: bool = False
 Scope guard:
 - Treat sweep knobs as Torch-side controls unless a cross-backend need is explicitly justified.
 - Do not add new `params.cfg` keys for Torch-only knobs without an explicit spec update and plan note.
+- If canonical `ModelConfig` needs the field for bridge compatibility, implementation MUST prevent `hybrid_skip_connections` from being emitted to `params.cfg` by default.
 
 **Step 2: Thread field through bridge + runner setup + CLI**
 
@@ -326,6 +341,10 @@ hybrid_skip_connections = getattr(model_config, "hybrid_skip_connections", False
 skip_connections=hybrid_skip_connections,
 ```
 
+Legacy-bridge audit requirement:
+- Add/extend regression coverage proving `update_legacy_dict(...)` does not persist a `hybrid_skip_connections` key into `params.cfg` for standard Torch workflow configs.
+- If this cannot be satisfied with existing bridge rules, document and approve an explicit exception before landing.
+
 **Step 3: Run tests to verify pass**
 
 Run:
@@ -333,6 +352,7 @@ Run:
 pytest tests/torch/test_grid_lines_torch_runner.py::TestSetupTorchConfigs::test_runner_passes_hybrid_skip_connections -v
 pytest tests/torch/test_grid_lines_torch_runner.py::TestSetupTorchConfigs::test_runner_accepts_hybrid_resnet -v
 pytest tests/torch/test_config_bridge.py -k hybrid_skip_connections -v
+pytest tests/torch/test_config_bridge.py -k "hybrid_skip_connections and params_cfg" -v
 pytest tests/test_grid_lines_compare_wrapper.py -k "hybrid_skip_connections" -v
 ```
 Expected: PASS.
@@ -439,6 +459,8 @@ Required behavior:
   - `--ns 128,256`
   - `--dataset-profiles-n128` (default: `integration_grid_lines_n128_v1`)
   - `--dataset-profiles-n256` (default: `cameraman256_halfsplit_v1`)
+  - `--cameraman-dp` (required when `N=256` is selected with `cameraman256_halfsplit_v1`)
+  - `--cameraman-para` (required when `N=256` is selected with `cameraman256_halfsplit_v1`)
   - `--fly001-external-train-npz` (required when `fly001_external_n128_top_bottom_v1` is selected)
   - `--fly001-external-test-npz` (required when `fly001_external_n128_top_bottom_v1` is selected)
   - `--epochs-n128`, `--epochs-n256`
@@ -475,6 +497,7 @@ Required behavior:
   (lexicographic amplitude ranking with phase-SSIM guardrail), then select top-K for `N=256`.
 - `N=256`: resolve dataset profile(s), then run promoted top-K configs for each profile.
   - Default profile `cameraman256_halfsplit_v1`:
+    - requires `--cameraman-dp` and `--cameraman-para`
     - call `prepare_hybrid_dataset(..., half="top")` for train NPZ
     - call `prepare_hybrid_dataset(..., half="bottom")` and use `train_npz` as bottom-half test NPZ
   - Additional N=256 profiles:
@@ -784,6 +807,7 @@ Add optional arguments (defaults preserve Stage A behavior):
 - `--skip-style-values` (default: `add`)  # `add|concat|gated_add`
 - `--dataset-profiles-n128` (default: `integration_grid_lines_n128_v1`)
 - `--dataset-profiles-n256` (default: `cameraman256_halfsplit_v1`)
+- `--cameraman-dp` / `--cameraman-para` (retain/validate existing requirement for `N=256` cameraman profile runs)
 - `--fly001-external-train-npz`
 - `--fly001-external-test-npz`
 - `--promotion-source-summary` (default: empty; required for stages `B-E`, and always required when stage `B-E` runs with `--ns 256` only)
