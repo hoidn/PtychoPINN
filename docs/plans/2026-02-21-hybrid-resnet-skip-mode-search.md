@@ -10,6 +10,37 @@
 
 **Companion Design:** `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-design.md` (normative knob semantics, stage gates, ranking/promotion policy, and artifact contract).
 
+## Progress Checklist
+
+- [ ] Task 0: Preflight Environment (No Code)
+- [ ] Task 1: RED Test for HybridResnet Skip Forward Contract
+- [ ] Task 2: GREEN HybridResnet Skip Implementation
+- [ ] Task 3: RED Tests for Config/CLI Plumbing of Skip Toggle
+- [ ] Task 4: GREEN Config + CLI + Generator Wrapper Plumbing
+- [ ] Task 5: RED Tests for Mode-Skip Sweep Runbook
+- [ ] Task 6: GREEN Sweep Runbook Implementation (N=128 + N=256)
+- [ ] Task 7: Documentation for New Toggle + Sweep Workflow
+- [ ] Task 8: Verification and Smoke Runs
+- [ ] Task 9: Final Full Sweep Command (Hand-off)
+- [ ] Task 10: Add Structural-Axis Hooks to Sweep Runbook (No Cartesian Explosion)
+- [ ] Task 11: Stage B Search (Axis 1: `fno_blocks`)
+- [ ] Task 12: Stage C Search (Axis 2: Downsampling Schedule / Bottleneck Resolution + Downsampling Operator)
+- [ ] Task 13: Stage D Search (Axes 3 + 4: Capacity and Decoder Depth)
+- [ ] Task 14: Stage E Search (Axis 5: Skip-Connection Design)
+- [ ] Task 15: Stage Governance and Stop/Go Criteria
+
+## Session Log
+
+| Date (UTC) | Task IDs | Status | Evidence Paths | Commit(s) |
+| --- | --- | --- | --- | --- |
+| 2026-02-24 | Plan hygiene + contracts | Completed | `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search.md`, `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-design.md` | `9c477c4e`, `cf2dee67` |
+
+## Do Next (Update Every Session)
+
+- Mark completed tasks in the checklist and append one row to Session Log before ending the session.
+- Keep `Evidence Paths` concrete (artifacts, test logs, or output summaries), not prose-only.
+- Replace this block with the next 1-3 concrete actions for the following session.
+
 ---
 
 ### Task 0: Preflight Environment (No Code)
