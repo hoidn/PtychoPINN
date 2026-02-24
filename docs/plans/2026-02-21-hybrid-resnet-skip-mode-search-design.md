@@ -40,7 +40,9 @@ Out of scope:
 
 3b. Bridge scope guard:
 - Torch-only sweep knobs must not expand `params.cfg` surface unless a cross-backend requirement is explicitly documented and approved.
-- If a Torch-only knob is temporarily represented in canonical config for bridge compatibility, `update_legacy_dict(...)` must still avoid emitting it to `params.cfg` and tests must enforce that.
+- `hybrid_skip_connections` is explicitly Torch-only and must not be added to canonical `ModelConfig` or config-bridge mappings.
+- `hybrid_skip_connections` must flow through Torch runner/execution path only and remain outside `update_legacy_dict(...)` / `params.cfg` contracts.
+- Stage C-E knobs introduced by this initiative (`hybrid_downsample_steps`, `hybrid_downsample_op`, `hybrid_resnet_blocks`, `hybrid_skip_style`) are Torch-only by default; no bridge/spec expansion in this plan.
 
 4. Explicit confounder control during sweeps:
 - `probe_mask` and MAE normalization toggles are fixed per sweep stage and recorded in manifest.
@@ -57,10 +59,12 @@ Out of scope:
 
 - `hybrid_skip_connections: bool = False`
   - Enables encoder-to-decoder lateral fusion.
+  - Scope: Torch-only runner/execution knob (not a TensorFlow/canonical config-bridge field).
 - `hybrid_skip_style: {"add","concat","gated_add"} = "add"`
   - `add`: projected additive skip.
   - `concat`: channel concat followed by projection.
   - `gated_add`: additive skip with learnable gate initialized near identity-safe value.
+  - Scope: Torch-only runner/execution/model knob in this initiative.
 
 ## 4.2 Downsampling Controls
 
@@ -69,6 +73,7 @@ Out of scope:
   - `2` means `N -> N/2 -> N/4`.
 - `hybrid_downsample_op: {"stride_conv","avgpool_conv","blurpool_conv"} = "stride_conv"`
   - Selects operator family used at each downsample step.
+  - Scope: Torch-only runner/execution/model knob in this initiative.
 
 Topology contract:
 - Skip fusion point selection must be derived from encoder/decoder stage metadata (resolution/stage mapping), not hard-coded to a fixed number of downsample steps.
@@ -82,6 +87,7 @@ Topology contract:
 - `max_hidden_channels` (existing)
 - `resnet_width` (existing, divisible-by-4 guard)
 - `hybrid_resnet_blocks` (new, default `6`)
+  - Scope: Torch-only runner/execution/model knob in this initiative.
 
 ## 4.4 Dataset Profile Controls
 
@@ -226,7 +232,9 @@ Retention/cleanup policy (normative):
 
 For each new knob:
 - parser/CLI tests,
-- config bridge propagation tests,
+- propagation tests along the intended path:
+  - Torch-only knobs (including `hybrid_skip_connections`): runner/execution/workflow propagation tests plus explicit no-bridge assertions.
+  - cross-backend knobs (when explicitly approved): config-bridge propagation tests.
 - generator forward-shape tests,
 - invalid-value rejection tests.
 

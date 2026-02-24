@@ -4,7 +4,7 @@
 
 **Goal:** Add optional encoder-decoder skip connections to `hybrid_resnet`, add a reproducible mode×skip×width benchmark workflow for `N=128` and `N=256`, and define a staged structural-search extension for depth/downsampling/capacity/skip-design axes.
 
-**Architecture:** Keep default behavior unchanged (`skip_connections=False`) to preserve current baselines/integration expectations. Implement additive skip fusion with lightweight `1x1` projection layers at decoder resolutions (`N/2`, `N`). Expose one boolean knob end-to-end (`hybrid_skip_connections`) through config + CLI, then run a deterministic sweep over `fno_modes × hybrid_skip_connections × fno_width` with fixed probe-mask/loss-normalization controls. Make dataset choice explicit via named dataset profiles so the same sweep can run on multiple failure-mode regimes. Execute Stage A in two steps (full grid on `N=128`, then top-K promotion to `N=256`), then add structural axes one stage at a time (B→E) with bounded per-stage run budgets.
+**Architecture:** Keep default behavior unchanged (`skip_connections=False`) to preserve current baselines/integration expectations. Implement additive skip fusion with lightweight `1x1` projection layers at decoder resolutions (`N/2`, `N`). Expose one boolean knob end-to-end (`hybrid_skip_connections`) through Torch-only runner/execution config + CLI (do not bridge this knob into TensorFlow/canonical model contracts), then run a deterministic sweep over `fno_modes × hybrid_skip_connections × fno_width` with fixed probe-mask/loss-normalization controls. Make dataset choice explicit via named dataset profiles so the same sweep can run on multiple failure-mode regimes. Execute Stage A in two steps (full grid on `N=128`, then top-K promotion to `N=256`), then add structural axes one stage at a time (B→E) with bounded per-stage run budgets. Governance decision for this initiative: new Stage C-E knobs stay Torch-only (runner/execution/model paths) unless a follow-up plan explicitly approves cross-backend bridge expansion.
 
 **Tech Stack:** PyTorch/Lightning (`ptycho_torch`), existing grid-lines + NERSC study scripts, `pytest`, runbook-style orchestration, JSON/CSV/Markdown artifacts.
 
@@ -50,7 +50,7 @@
   - `<selector_slug>_collect.log`
   - `<selector_slug>_run.log`
 - Do not mark a selector complete if its collect-only log shows `collected 0 items`.
-- Regenerate `docs/development/TEST_SUITE_INDEX.md` via `python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md` whenever tests are added/renamed/removed.
+- Regenerate `docs/development/TEST_SUITE_INDEX.md` via `python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md` before every commit that adds/renames/removes tests.
 - Command-block convention:
   - `pytest ...` lines shown in tasks are execution commands.
   - For each such line, run the implied collect pair first:
@@ -73,14 +73,15 @@ git status --short
 ```
 Expected: working directory is repo root; you understand unrelated dirty files and will not revert them.
 
-**Step 2: Initialize required submodules for valid test execution**
+**Step 2: Initialize submodules only when needed (new worktree/clone or missing content)**
 
 Run:
 ```bash
-git submodule update --init --recursive
+# Run this block only in a new worktree/clone or when required submodule paths are missing.
+test -e ptycho/FRC || git submodule update --init --recursive
 test -e ptycho/FRC || { echo "Missing ptycho/FRC submodule content"; exit 1; }
 ```
-Expected: submodules are initialized and required paths (for example `ptycho/FRC`) exist.
+Expected: required paths (for example `ptycho/FRC`) exist; existing initialized worktrees can skip submodule initialization.
 
 **Step 3: Start tmux shell and bootstrap the runtime env once**
 
@@ -132,6 +133,22 @@ def test_output_shape_real_imag_with_skip_connections(self):
     x = torch.randn(2, 4, 32, 32)
     out = model(x)
     assert out.shape == (2, 32, 32, 4, 2)
+
+def test_skip_connections_true_changes_output(self):
+    torch.manual_seed(11)
+    model_off = HybridResnetGeneratorModule(
+        in_channels=1, out_channels=2, hidden_channels=16, n_blocks=3, modes=4, C=4,
+        skip_connections=False,
+    )
+    torch.manual_seed(11)
+    model_on = HybridResnetGeneratorModule(
+        in_channels=1, out_channels=2, hidden_channels=16, n_blocks=3, modes=4, C=4,
+        skip_connections=True,
+    )
+    x = torch.randn(2, 4, 32, 32)
+    y_off = model_off(x)
+    y_on = model_on(x)
+    assert not torch.allclose(y_off, y_on, atol=1e-6, rtol=1e-6)
 ```
 
 **Step 2: Run test to verify it fails**
@@ -139,6 +156,7 @@ def test_output_shape_real_imag_with_skip_connections(self):
 Run:
 ```bash
 pytest tests/torch/test_fno_generators.py::TestHybridResnetGenerator::test_output_shape_real_imag_with_skip_connections -v
+pytest tests/torch/test_fno_generators.py::TestHybridResnetGenerator::test_skip_connections_true_changes_output -v
 ```
 Expected: FAIL with unexpected kwarg `skip_connections`.
 
@@ -192,6 +210,7 @@ Run:
 pytest tests/torch/test_fno_generators.py::TestHybridResnetGenerator::test_output_shape_real_imag_with_skip_connections -v
 pytest tests/torch/test_fno_generators.py::TestHybridResnetGenerator::test_output_shape_real_imag -v
 pytest tests/torch/test_fno_generators.py::TestHybridResnetGenerator::test_skip_connections_default_false_parity -v
+pytest tests/torch/test_fno_generators.py::TestHybridResnetGenerator::test_skip_connections_true_changes_output -v
 ```
 Expected: PASS.
 
@@ -216,7 +235,8 @@ def test_skip_connections_default_false_parity(self):
 **Step 3: Commit**
 
 ```bash
-git add ptycho_torch/generators/hybrid_resnet.py tests/torch/test_fno_generators.py
+python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md
+git add ptycho_torch/generators/hybrid_resnet.py tests/torch/test_fno_generators.py docs/development/TEST_SUITE_INDEX.md
 git commit -m "feat(torch): add optional skip connections to hybrid_resnet generator"
 ```
 
@@ -226,10 +246,8 @@ git commit -m "feat(torch): add optional skip connections to hybrid_resnet gener
 
 **Files:**
 - Modify: `tests/torch/test_grid_lines_torch_runner.py`
-- Modify: `tests/torch/test_config_bridge.py`
 - Modify: `tests/test_grid_lines_compare_wrapper.py`
 - Test: `tests/torch/test_grid_lines_torch_runner.py`
-- Test: `tests/torch/test_config_bridge.py`
 - Test: `tests/test_grid_lines_compare_wrapper.py`
 
 **Step 1: Write failing tests**
@@ -244,17 +262,9 @@ def test_runner_passes_hybrid_skip_connections(self, tmp_path):
         architecture="hybrid_resnet",
         hybrid_skip_connections=True,
     )
-    training_config, _ = setup_torch_configs(cfg)
-    assert training_config.model.hybrid_skip_connections is True
-```
-
-Add in config bridge tests:
-```python
-def test_model_config_passes_hybrid_skip_connections(params_cfg_snapshot):
-    from ptycho_torch.config_params import DataConfig, ModelConfig
-    from ptycho_torch import config_bridge
-    tf_model = config_bridge.to_model_config(DataConfig(), ModelConfig(hybrid_skip_connections=True))
-    assert tf_model.hybrid_skip_connections is True
+    training_config, execution_config = setup_torch_configs(cfg)
+    assert getattr(execution_config, "hybrid_skip_connections", False) is True
+    assert not hasattr(training_config.model, "hybrid_skip_connections")
 ```
 
 Add in compare-wrapper tests:
@@ -270,10 +280,9 @@ def test_compare_wrapper_passes_torch_hybrid_skip_connections(monkeypatch, tmp_p
 Run:
 ```bash
 pytest tests/torch/test_grid_lines_torch_runner.py::TestSetupTorchConfigs::test_runner_passes_hybrid_skip_connections -v
-pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_passes_hybrid_skip_connections -v
 pytest tests/test_grid_lines_compare_wrapper.py -k "hybrid_skip_connections" -v
 ```
-Expected: FAIL (missing field in configs/bridge).
+Expected: FAIL (missing Torch-only runner/execution/CLI plumbing).
 
 **Step 3: Commit**
 
@@ -284,46 +293,54 @@ No commit (RED only).
 ### Task 4: GREEN Config + CLI + Generator Wrapper Plumbing
 
 **Files:**
-- Modify (if bridge compatibility requires canonical field): `ptycho/config/config.py`
+- Modify: `ptycho/config/config.py` (PyTorchExecutionConfig only)
 - Modify: `ptycho_torch/config_params.py`
-- Modify: `ptycho_torch/config_bridge.py`
+- Modify: `ptycho_torch/workflows/components.py`
 - Modify: `scripts/studies/grid_lines_torch_runner.py`
 - Modify: `scripts/studies/grid_lines_compare_wrapper.py`
 - Modify: `ptycho_torch/generators/hybrid_resnet.py`
 - Test: `tests/torch/test_grid_lines_torch_runner.py`
-- Test: `tests/torch/test_config_bridge.py`
 - Test: `tests/test_grid_lines_compare_wrapper.py`
 
-**Step 1: Add field to Torch config dataclass; canonical bridge field only with explicit params scope**
+**Step 1: Add field to Torch-only configs (no canonical ModelConfig / no config-bridge mapping)**
 
-Add to Torch model config (and canonical config only if bridge compatibility requires it):
+Add to Torch model + execution configs:
 ```python
+# ptycho_torch/config_params.py
+hybrid_skip_connections: bool = False
+
+# ptycho/config/config.py -> PyTorchExecutionConfig
 hybrid_skip_connections: bool = False
 ```
 
 Scope guard:
-- Treat sweep knobs as Torch-side controls unless a cross-backend need is explicitly justified.
-- Do not add new `params.cfg` keys for Torch-only knobs without an explicit spec update and plan note.
-- If canonical `ModelConfig` needs the field for bridge compatibility, implementation MUST prevent `hybrid_skip_connections` from being emitted to `params.cfg` by default.
+- Keep this knob Torch-only: do not add it to canonical `ModelConfig`, and do not add config-bridge/spec mappings for TensorFlow.
+- Do not emit this knob into `params.cfg`; it must travel only through Torch execution/model payloads.
 
-**Step 2: Thread field through bridge + runner setup + CLI**
-
-Bridge:
-```python
-'hybrid_skip_connections': getattr(model, 'hybrid_skip_connections', False),
-```
+**Step 2: Thread field through runner setup + Torch execution overrides + CLI**
 
 Runner dataclass + setup:
 ```python
 hybrid_skip_connections: bool = False
 ...
-model_config = ModelConfig(..., hybrid_skip_connections=cfg.hybrid_skip_connections)
+execution_config = PyTorchExecutionConfig(
+    ...,
+    hybrid_skip_connections=cfg.hybrid_skip_connections,
+)
 ```
 
 Runner CLI:
 ```python
 parser.add_argument("--hybrid-skip-connections", dest="hybrid_skip_connections", action="store_true", default=False)
 parser.add_argument("--no-hybrid-skip-connections", dest="hybrid_skip_connections", action="store_false")
+```
+
+Torch workflow propagation:
+```python
+# ptycho_torch/workflows/components.py
+factory_overrides["hybrid_skip_connections"] = getattr(
+    execution_config, "hybrid_skip_connections", False
+)
 ```
 
 Compare-wrapper pass-through:
@@ -341,9 +358,9 @@ hybrid_skip_connections = getattr(model_config, "hybrid_skip_connections", False
 skip_connections=hybrid_skip_connections,
 ```
 
-Legacy-bridge audit requirement:
-- Add/extend regression coverage proving `update_legacy_dict(...)` does not persist a `hybrid_skip_connections` key into `params.cfg` for standard Torch workflow configs.
-- If this cannot be satisfied with existing bridge rules, document and approve an explicit exception before landing.
+Torch-only enforcement checks:
+- Add regression coverage proving the runner path sets `execution_config.hybrid_skip_connections` and the canonical `training_config.model` contract remains unchanged for this knob.
+- Add regression coverage proving wrapper parse+pass-through sets `TorchRunnerConfig.hybrid_skip_connections` for Torch model IDs.
 
 **Step 3: Run tests to verify pass**
 
@@ -351,8 +368,6 @@ Run:
 ```bash
 pytest tests/torch/test_grid_lines_torch_runner.py::TestSetupTorchConfigs::test_runner_passes_hybrid_skip_connections -v
 pytest tests/torch/test_grid_lines_torch_runner.py::TestSetupTorchConfigs::test_runner_accepts_hybrid_resnet -v
-pytest tests/torch/test_config_bridge.py -k hybrid_skip_connections -v
-pytest tests/torch/test_config_bridge.py -k "hybrid_skip_connections and params_cfg" -v
 pytest tests/test_grid_lines_compare_wrapper.py -k "hybrid_skip_connections" -v
 ```
 Expected: PASS.
@@ -360,7 +375,8 @@ Expected: PASS.
 **Step 4: Commit**
 
 ```bash
-git add ptycho/config/config.py ptycho_torch/config_params.py ptycho_torch/config_bridge.py scripts/studies/grid_lines_torch_runner.py scripts/studies/grid_lines_compare_wrapper.py ptycho_torch/generators/hybrid_resnet.py tests/torch/test_grid_lines_torch_runner.py tests/torch/test_config_bridge.py tests/test_grid_lines_compare_wrapper.py
+python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md
+git add ptycho/config/config.py ptycho_torch/config_params.py ptycho_torch/workflows/components.py scripts/studies/grid_lines_torch_runner.py scripts/studies/grid_lines_compare_wrapper.py ptycho_torch/generators/hybrid_resnet.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py docs/development/TEST_SUITE_INDEX.md
 git commit -m "feat(torch): plumb hybrid_skip_connections through configs and CLI"
 ```
 
@@ -471,14 +487,16 @@ Required behavior:
   - `--output-root`
   - `--prune-heavy-artifacts/--no-prune-heavy-artifacts` (default: prune on)
   - `--probe-mask/--no-probe-mask` (default off)
-  - `--torch-mae-pred-l2-match-target/--no-...` (default off)
+  - `--torch-mae-pred-l2-match-target/--no-torch-mae-pred-l2-match-target` (default off)
 - Dataset profile resolution contract:
   - profile ids are orchestration-level aliases only (runbook/sweep layer).
   - leaf CLIs remain path-first and unchanged:
     - `grid_lines_compare_wrapper.py`: `--dataset-source` plus `--train-data/--test-data` where required.
     - `grid_lines_torch_runner.py`: `--train-npz/--test-npz`.
-  - wrapper/runner parity rule: any Torch sweep knob used by the runbook must be accepted and passed through by both leaf CLIs with aligned defaults, covered by wrapper+runner tests.
+  - wrapper/runner parity rule: any Torch sweep knob shared by both leaf CLIs must be accepted and passed through with aligned defaults, covered by wrapper+runner tests.
+  - N=256 sweeps in this initiative are runner-led; wrapper parity assertions apply within the wrapper-supported `N` domain.
   - explicit caller-provided dataset paths override profile defaults.
+  - fail fast with an actionable error when `cameraman256_halfsplit_v1` is selected for an active `N=256` run and either `--cameraman-dp` or `--cameraman-para` is missing.
 - Study-index conformance contract:
   - runbook metadata/outputs must align with the conventions extracted in Task 5A,
   - manifest should include a stable study key (`hybrid-resnet-mode-skip-sweep`) and script path,
@@ -545,7 +563,8 @@ Also capture matching `--collect-only` and execution logs under `${REPORT_DIR}` 
 **Step 3: Commit**
 
 ```bash
-git add scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py tests/studies/test_hybrid_resnet_mode_skip_sweep.py
+python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md
+git add scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py tests/studies/test_hybrid_resnet_mode_skip_sweep.py docs/development/TEST_SUITE_INDEX.md
 git commit -m "feat(studies): add hybrid_resnet mode-skip sweep runbook"
 ```
 
@@ -555,7 +574,6 @@ git commit -m "feat(studies): add hybrid_resnet mode-skip sweep runbook"
 
 **Files:**
 - Modify: `docs/CONFIGURATION.md`
-- Modify: `docs/specs/spec-ptycho-config-bridge.md`
 - Modify: `docs/workflows/pytorch.md`
 - Modify: `ptycho_torch/generators/README.md`
 - Modify: `docs/studies/index.md`
@@ -563,19 +581,17 @@ git commit -m "feat(studies): add hybrid_resnet mode-skip sweep runbook"
 
 **Step 1: Add docs entries**
 
-- `docs/CONFIGURATION.md`: add `hybrid_skip_connections` row (default `False`, PyTorch/hybrid_resnet only).
+- `docs/CONFIGURATION.md`: add `hybrid_skip_connections` under `PyTorchExecutionConfig` (default `False`, Torch-only execution knob).
 - `ptycho_torch/generators/README.md`: document skip toggle and interaction with `fno_modes`.
 - `docs/studies/index.md`: add the new study entry under a unique key:
   - `hybrid-resnet-mode-skip-sweep`
   - include purpose, runbook script path, canonical smoke/full command blocks, and artifact contract.
-- `docs/workflows/pytorch.md`: document `--hybrid-skip-connections/--no-hybrid-skip-connections` and expected behavior (`default False` parity).
+- `docs/workflows/pytorch.md`: document `--hybrid-skip-connections/--no-hybrid-skip-connections`, expected behavior (`default False` parity), and explicit Torch-only scope (not bridged into TensorFlow config/spec contracts).
 
-**Step 2: Update normative config-bridge spec**
+**Step 2: Confirm Torch-only scope in docs**
 
-- `docs/specs/spec-ptycho-config-bridge.md`:
-  - add mapping entry for `hybrid_skip_connections` PyTorch->TensorFlow model config translation,
-  - note default and pass-through semantics,
-  - add/refresh reference to the conformance selector in `tests/torch/test_config_bridge.py`.
+- No `docs/specs/spec-ptycho-config-bridge.md` changes for `hybrid_skip_connections`.
+- Ensure wording in workflow/config docs states this knob is consumed only by Torch runner/workflow paths.
 
 **Step 3: Regenerate test-index documentation**
 
@@ -591,17 +607,17 @@ Expected: regenerated index includes selectors for `tests/torch/test_fno_generat
 
 Run:
 ```bash
-rg -n "hybrid_skip_connections|run_hybrid_resnet_mode_skip_sweep|spec-ptycho-config-bridge" docs ptycho_torch/generators/README.md
+rg -n "hybrid_skip_connections|run_hybrid_resnet_mode_skip_sweep|Torch-only|torch-only" docs ptycho_torch/generators/README.md
 rg -n "hybrid-resnet-mode-skip-sweep|scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py" docs/studies/index.md
 ```
-Expected: references present across config guide, spec bridge, workflow guide, generators README, studies index, and test-suite index.
+Expected: references present across config guide, workflow guide, generators README, studies index, and test-suite index.
 
 **Step 5: Commit**
 
 ```bash
 python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md
-git add docs/CONFIGURATION.md docs/specs/spec-ptycho-config-bridge.md docs/workflows/pytorch.md ptycho_torch/generators/README.md docs/studies/index.md docs/development/TEST_SUITE_INDEX.md
-git commit -m "docs: sync stage-a hybrid_resnet skip API across config/spec/workflow/studies"
+git add docs/CONFIGURATION.md docs/workflows/pytorch.md ptycho_torch/generators/README.md docs/studies/index.md docs/development/TEST_SUITE_INDEX.md
+git commit -m "docs: sync stage-a hybrid_resnet skip API across torch config/workflow/studies"
 ```
 
 ---
@@ -664,8 +680,8 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --dataset-profiles-n256 cameraman256_halfsplit_v1 \
   --epochs-n256 5 \
   --top-k-n256 2 \
-  --cameraman-dp /home/ollie/Downloads/nersc/testdata/cameraman256_dp.hdf5 \
-  --cameraman-para /home/ollie/Downloads/nersc/testdata/cameraman256_para.hdf5 \
+  --cameraman-dp /home/ollie/Downloads/nersc/data/cameraman256_dp.hdf5 \
+  --cameraman-para /home/ollie/Downloads/nersc/data/cameraman256_para.hdf5 \
   --output-root outputs/hybrid_resnet_mode_skip_sweep_smoke_n256 \
   --seed 3 \
   --no-probe-mask \
@@ -677,20 +693,22 @@ Expected: per-run metrics + aggregate summary artifacts created.
 
 ```bash
 git status --short
+python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md
 git add \
   ptycho_torch/generators/hybrid_resnet.py \
   ptycho/config/config.py \
   ptycho_torch/config_params.py \
-  ptycho_torch/config_bridge.py \
+  ptycho_torch/workflows/components.py \
   scripts/studies/grid_lines_torch_runner.py \
   scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   tests/torch/test_fno_generators.py \
   tests/torch/test_grid_lines_torch_runner.py \
-  tests/torch/test_config_bridge.py \
   tests/studies/test_hybrid_resnet_mode_skip_sweep.py \
   docs/CONFIGURATION.md \
+  docs/workflows/pytorch.md \
   ptycho_torch/generators/README.md \
   docs/studies/index.md \
+  docs/development/TEST_SUITE_INDEX.md \
   docs/plans/2026-02-21-hybrid-resnet-skip-mode-search.md \
   docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-design.md
 git status --short
@@ -807,11 +825,15 @@ Add optional arguments (defaults preserve Stage A behavior):
 - `--skip-style-values` (default: `add`)  # `add|concat|gated_add`
 - `--dataset-profiles-n128` (default: `integration_grid_lines_n128_v1`)
 - `--dataset-profiles-n256` (default: `cameraman256_halfsplit_v1`)
-- `--cameraman-dp` / `--cameraman-para` (retain/validate existing requirement for `N=256` cameraman profile runs)
+- `--cameraman-dp` (required when `N=256` is selected with `cameraman256_halfsplit_v1`)
+- `--cameraman-para` (required when `N=256` is selected with `cameraman256_halfsplit_v1`)
 - `--fly001-external-train-npz`
 - `--fly001-external-test-npz`
 - `--promotion-source-summary` (default: empty; required for stages `B-E`, and always required when stage `B-E` runs with `--ns 256` only)
 - `--allow-n256-direct-diagnostic` (default off; only valid with `--ns 256 --top-k-n256 0`)
+
+Execution-path note:
+- do not widen wrapper `--N` in this initiative; keep wrapper at `N in {64,128}` and route all `N=256` sweeps through `grid_lines_torch_runner.py` pathing.
 
 Add `--stage-id` metadata label (`A|B|C|D|E`) to manifest/summary.
 Persist dataset provenance in manifest:
@@ -826,6 +848,7 @@ Implement guardrails:
 - Stage A varies only `{modes, widths, skip on/off}`
 - For stages B-E, non-active structural axes are inherited from `--promotion-source-summary`; multi-value lists on non-active axes are rejected.
 - For stages B-E, reject `--ns 256`-only invocations when `--promotion-source-summary` is missing.
+- Reject `cameraman256_halfsplit_v1` profile usage for active `N=256` runs unless both `--cameraman-dp` and `--cameraman-para` are provided.
 - Reject `--allow-n256-direct-diagnostic` unless `--ns 256` and `--top-k-n256 0`.
 - raise actionable error if multiple structural axes contain >1 value in one stage
 
@@ -845,7 +868,8 @@ Add explicit invocation-provenance assertions in
 - confounder provenance is enforced:
   - persisted summary rows and manifest always include `probe_mask_enabled` and `torch_mae_pred_l2_match_target`.
 - wrapper/runner parity:
-  - new sweep knobs are validated to parse and pass through on both wrapper and runner code paths.
+  - new sweep knobs shared across both leaf CLIs are validated to parse and pass through on both wrapper and runner code paths.
+  - runner-only knobs and N=256 execution paths are validated in runner/runbook tests.
 
 Run:
 ```bash
@@ -856,7 +880,8 @@ Expected: PASS.
 **Step 4: Commit**
 
 ```bash
-git add scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py tests/studies/test_hybrid_resnet_mode_skip_sweep.py docs/studies/index.md
+python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md
+git add scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py tests/studies/test_hybrid_resnet_mode_skip_sweep.py docs/studies/index.md docs/development/TEST_SUITE_INDEX.md
 git commit -m "feat(studies): add staged structural-axis hooks to hybrid_resnet sweep runbook"
 ```
 
@@ -920,13 +945,10 @@ No commit (execution-only stage).
 - Modify: `ptycho_torch/generators/hybrid_resnet.py`
 - Modify: `ptycho/config/config.py`
 - Modify: `ptycho_torch/config_params.py`
-- Modify: `ptycho_torch/config_bridge.py`
 - Modify: `scripts/studies/grid_lines_torch_runner.py`
 - Modify: `tests/torch/test_fno_generators.py`
 - Modify: `tests/torch/test_grid_lines_torch_runner.py`
-- Modify: `tests/torch/test_config_bridge.py`
 - Modify: `docs/CONFIGURATION.md`
-- Modify: `docs/specs/spec-ptycho-config-bridge.md`
 - Modify: `docs/workflows/pytorch.md`
 - Modify: `ptycho_torch/generators/README.md`
 - Regenerate output: `docs/development/TEST_SUITE_INDEX.md` via `scripts/tools/generate_test_index.py`
@@ -945,6 +967,10 @@ Add focused tests before Stage C sweep execution:
 
 **Step 1: Add `hybrid_downsample_steps` config/CLI plumbing**
 
+Scope guard for this stage:
+- add Stage-C knobs to Torch execution/model paths only.
+- do not add new canonical `ModelConfig` keys, config-bridge mappings, or `params.cfg` emissions for these knobs in this initiative.
+
 Add model field:
 ```python
 hybrid_downsample_steps: int = 2
@@ -962,16 +988,16 @@ Generator uses this to select operator family for each downsample stage.
 Cover:
 - valid range `[1,2]` for current implementation
 - output shape invariance
-- runner/config bridge propagation
+- runner Torch execution/model propagation
 - invalid `hybrid_downsample_op` rejected
 - output shape invariance for each `hybrid_downsample_op`
+- branch-distinctness: `stride_conv`, `avgpool_conv`, and `blurpool_conv` must exercise distinct operator code paths (for example module-type assertions plus non-identical forward outputs under fixed seed/input).
 
 Run:
 ```bash
 pytest tests/torch/test_fno_generators.py -k "hybrid_downsample_steps" -v
 pytest tests/torch/test_fno_generators.py -k "hybrid_downsample_op" -v
-pytest tests/torch/test_grid_lines_torch_runner.py -k "downsample_steps or downsample_op" -v
-pytest tests/torch/test_config_bridge.py -k "hybrid_downsample_steps or hybrid_downsample_op" -v
+pytest tests/torch/test_grid_lines_torch_runner.py -k "downsample_steps or downsample_op or torch_only" -v
 ```
 Expected: PASS.
 
@@ -989,9 +1015,9 @@ Stage budget:
 **Step 4: Documentation sync for Stage-C knobs**
 
 - `docs/CONFIGURATION.md`: add `hybrid_downsample_steps` and `hybrid_downsample_op` rows (defaults, valid values, constraints).
-- `docs/specs/spec-ptycho-config-bridge.md`: add normative mapping entries for both fields.
-- `docs/workflows/pytorch.md`: add CLI examples and guardrail notes for `--downsample-schedule-values` / `--downsample-op-values`.
+- `docs/workflows/pytorch.md`: add CLI examples and guardrail notes for `--downsample-schedule-values` / `--downsample-op-values`, including explicit Torch-only scope.
 - `ptycho_torch/generators/README.md`: describe downsampling semantics and operator differences.
+- no `docs/specs/spec-ptycho-config-bridge.md` changes for Stage-C knobs.
 - regenerate `docs/development/TEST_SUITE_INDEX.md` via:
   - `python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md`
 
@@ -999,8 +1025,8 @@ Stage budget:
 
 ```bash
 python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md
-git add ptycho_torch/generators/hybrid_resnet.py ptycho/config/config.py ptycho_torch/config_params.py ptycho_torch/config_bridge.py scripts/studies/grid_lines_torch_runner.py tests/torch/test_fno_generators.py tests/torch/test_grid_lines_torch_runner.py tests/torch/test_config_bridge.py docs/CONFIGURATION.md docs/specs/spec-ptycho-config-bridge.md docs/workflows/pytorch.md ptycho_torch/generators/README.md docs/development/TEST_SUITE_INDEX.md
-git commit -m "feat+docs(torch): add hybrid_resnet downsample controls and docs/spec sync"
+git add ptycho_torch/generators/hybrid_resnet.py ptycho/config/config.py ptycho_torch/config_params.py scripts/studies/grid_lines_torch_runner.py tests/torch/test_fno_generators.py tests/torch/test_grid_lines_torch_runner.py docs/CONFIGURATION.md docs/workflows/pytorch.md ptycho_torch/generators/README.md docs/development/TEST_SUITE_INDEX.md
+git commit -m "feat+docs(torch): add hybrid_resnet downsample controls with torch-only scope"
 ```
 
 ---
@@ -1011,18 +1037,19 @@ git commit -m "feat+docs(torch): add hybrid_resnet downsample controls and docs/
 - Modify: `ptycho_torch/generators/hybrid_resnet.py`
 - Modify: `ptycho/config/config.py`
 - Modify: `ptycho_torch/config_params.py`
-- Modify: `ptycho_torch/config_bridge.py`
 - Modify: `scripts/studies/grid_lines_torch_runner.py`
 - Modify: `tests/torch/test_fno_generators.py`
 - Modify: `tests/torch/test_grid_lines_torch_runner.py`
-- Modify: `tests/torch/test_config_bridge.py`
 - Modify: `docs/CONFIGURATION.md`
-- Modify: `docs/specs/spec-ptycho-config-bridge.md`
 - Modify: `docs/workflows/pytorch.md`
 - Modify: `ptycho_torch/generators/README.md`
 - Regenerate output: `docs/development/TEST_SUITE_INDEX.md` via `scripts/tools/generate_test_index.py`
 
 **Step 1: Axis 3 (capacity) sub-stage**
+
+Scope guard for this stage:
+- keep new Stage-D knob plumbing Torch-only in execution/model paths.
+- do not add new config-bridge/spec mappings for newly introduced Stage-D knobs in this initiative.
 
 Evaluate one capacity knob at a time:
 - `max_hidden_channels` values: `none,256,512`, or
@@ -1047,8 +1074,8 @@ Budget rule:
 **Step 4: Documentation sync for Stage-D knobs**
 
 - `docs/CONFIGURATION.md`: document `hybrid_resnet_blocks` (new) and any capacity-option constraints used in this stage.
-- `docs/specs/spec-ptycho-config-bridge.md`: add mapping entry for `hybrid_resnet_blocks`; confirm `max_hidden_channels`/`resnet_width` mappings remain accurate.
-- `docs/workflows/pytorch.md` and `ptycho_torch/generators/README.md`: add usage guidance and constraints.
+- `docs/workflows/pytorch.md` and `ptycho_torch/generators/README.md`: add usage guidance and constraints with explicit Torch-only scope.
+- no `docs/specs/spec-ptycho-config-bridge.md` changes for Stage-D knobs in this initiative.
 - regenerate `docs/development/TEST_SUITE_INDEX.md` via:
   - `python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md`
 
@@ -1056,8 +1083,8 @@ Budget rule:
 
 ```bash
 python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md
-git add ptycho_torch/generators/hybrid_resnet.py ptycho/config/config.py ptycho_torch/config_params.py ptycho_torch/config_bridge.py scripts/studies/grid_lines_torch_runner.py tests/torch/test_fno_generators.py tests/torch/test_grid_lines_torch_runner.py tests/torch/test_config_bridge.py docs/CONFIGURATION.md docs/specs/spec-ptycho-config-bridge.md docs/workflows/pytorch.md ptycho_torch/generators/README.md docs/development/TEST_SUITE_INDEX.md
-git commit -m "feat+docs(torch): add hybrid_resnet capacity/depth controls and docs/spec sync"
+git add ptycho_torch/generators/hybrid_resnet.py ptycho/config/config.py ptycho_torch/config_params.py scripts/studies/grid_lines_torch_runner.py tests/torch/test_fno_generators.py tests/torch/test_grid_lines_torch_runner.py docs/CONFIGURATION.md docs/workflows/pytorch.md ptycho_torch/generators/README.md docs/development/TEST_SUITE_INDEX.md
+git commit -m "feat+docs(torch): add hybrid_resnet capacity/depth controls with torch-only scope"
 ```
 
 ---
@@ -1068,18 +1095,19 @@ git commit -m "feat+docs(torch): add hybrid_resnet capacity/depth controls and d
 - Modify: `ptycho_torch/generators/hybrid_resnet.py`
 - Modify: `ptycho/config/config.py`
 - Modify: `ptycho_torch/config_params.py`
-- Modify: `ptycho_torch/config_bridge.py`
 - Modify: `scripts/studies/grid_lines_torch_runner.py`
 - Modify: `tests/torch/test_fno_generators.py`
 - Modify: `tests/torch/test_grid_lines_torch_runner.py`
-- Modify: `tests/torch/test_config_bridge.py`
 - Modify: `docs/CONFIGURATION.md`
-- Modify: `docs/specs/spec-ptycho-config-bridge.md`
 - Modify: `docs/workflows/pytorch.md`
 - Modify: `ptycho_torch/generators/README.md`
 - Regenerate output: `docs/development/TEST_SUITE_INDEX.md` via `scripts/tools/generate_test_index.py`
 
 **Step 1: Add `hybrid_skip_style` enum**
+
+Scope guard for this stage:
+- keep new Stage-E knob plumbing Torch-only in execution/model paths.
+- do not add new config-bridge/spec mappings for newly introduced Stage-E knobs in this initiative.
 
 Add model field:
 ```python
@@ -1096,13 +1124,13 @@ Implementation guidance:
 Cover:
 - shape contract unchanged for each style
 - invalid style rejected
-- propagation through runner/config bridge
+- propagation through runner Torch execution/model paths with explicit no-bridge assertions
+- branch-distinctness: `add`, `concat`, and `gated_add` each execute distinct fusion logic and produce non-identical outputs for a fixed seed/input.
 
 Run:
 ```bash
 pytest tests/torch/test_fno_generators.py -k "skip_style" -v
-pytest tests/torch/test_grid_lines_torch_runner.py -k "skip_style" -v
-pytest tests/torch/test_config_bridge.py -k "skip_style" -v
+pytest tests/torch/test_grid_lines_torch_runner.py -k "skip_style or torch_only" -v
 ```
 
 **Step 3: Execute Stage E**
@@ -1117,8 +1145,8 @@ Constraint:
 **Step 4: Documentation sync for Stage-E knob**
 
 - `docs/CONFIGURATION.md`: add `hybrid_skip_style` row with allowed enum values and default.
-- `docs/specs/spec-ptycho-config-bridge.md`: add mapping entry for `hybrid_skip_style`.
-- `docs/workflows/pytorch.md` and `ptycho_torch/generators/README.md`: document behavior/constraints of `add|concat|gated_add`.
+- `docs/workflows/pytorch.md` and `ptycho_torch/generators/README.md`: document behavior/constraints of `add|concat|gated_add` with explicit Torch-only scope.
+- no `docs/specs/spec-ptycho-config-bridge.md` changes for Stage-E knobs in this initiative.
 - regenerate `docs/development/TEST_SUITE_INDEX.md` via:
   - `python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md`
 
@@ -1126,8 +1154,8 @@ Constraint:
 
 ```bash
 python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md
-git add ptycho_torch/generators/hybrid_resnet.py ptycho/config/config.py ptycho_torch/config_params.py ptycho_torch/config_bridge.py scripts/studies/grid_lines_torch_runner.py tests/torch/test_fno_generators.py tests/torch/test_grid_lines_torch_runner.py tests/torch/test_config_bridge.py docs/CONFIGURATION.md docs/specs/spec-ptycho-config-bridge.md docs/workflows/pytorch.md ptycho_torch/generators/README.md docs/development/TEST_SUITE_INDEX.md
-git commit -m "feat+docs(torch): add hybrid_resnet skip-style variants and docs/spec sync"
+git add ptycho_torch/generators/hybrid_resnet.py ptycho/config/config.py ptycho_torch/config_params.py scripts/studies/grid_lines_torch_runner.py tests/torch/test_fno_generators.py tests/torch/test_grid_lines_torch_runner.py docs/CONFIGURATION.md docs/workflows/pytorch.md ptycho_torch/generators/README.md docs/development/TEST_SUITE_INDEX.md
+git commit -m "feat+docs(torch): add hybrid_resnet skip-style variants with torch-only scope"
 ```
 
 ---
