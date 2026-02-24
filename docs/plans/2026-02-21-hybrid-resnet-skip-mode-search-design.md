@@ -133,6 +133,7 @@ Policy:
 - full grid on `N=128`,
 - promote top-K to `N=256`.
 - run on one or more `dataset_profiles_n128` and aggregate rankings across profiles.
+- keep broad exploration single-seed (`seed=3` default), then apply the Section-6 boundary seed-robustness rule before promotion.
 
 ## 5.2 Stage B (Axis 1)
 
@@ -143,6 +144,7 @@ Policy:
 - vary `fno_blocks` with Stage-A-best settings fixed,
 - `N=128` full stage budget, top-K to `N=256`.
 - evaluate with selected dataset profile sets for N=128/N=256.
+- apply the Section-6 boundary seed-robustness rule on the `N=128` source summary before promotion to `N=256`.
 
 ## 5.3 Stage C (Axis 2)
 
@@ -151,6 +153,7 @@ Sub-stage C1:
 
 Sub-stage C2:
 - lock best C1 schedule, vary `hybrid_downsample_op`.
+- apply the Section-6 boundary seed-robustness rule on each promotion source summary before any `N=256` run.
 
 ## 5.4 Stage D (Axes 3 + 4)
 
@@ -159,6 +162,7 @@ Sub-stage D1:
 
 Sub-stage D2:
 - lock best D1, vary `hybrid_resnet_blocks`.
+- apply the Section-6 boundary seed-robustness rule on each promotion source summary before any `N=256` run.
 
 ## 5.5 Stage E (Axis 5)
 
@@ -167,6 +171,7 @@ Axis:
 
 Policy:
 - evaluate skip style variants on best Stage-D configuration.
+- apply the Section-6 boundary seed-robustness rule on the Stage-D source summary before promotion.
 
 ## 6. Ranking and Promotion Policy
 
@@ -179,6 +184,14 @@ Multi-profile aggregation:
 - compute per-profile ranks first,
 - compute macro rank as median of per-profile ranks,
 - tie-break by mean primary score across profiles.
+
+Seed policy:
+- Broad sweeps remain single-seed (default `seed=3`) for throughput.
+- Before every promotion event (for example `N=128 -> N=256`), run a boundary rerank with seeds `11` and `17`.
+- Boundary candidate set is `top-K + next 2` from the current promotion source ranking after guardrails.
+- If fewer than `K+2` eligible candidates exist, rerun all eligible candidates.
+- Promotion uses median candidate rank across seeds `{3,11,17}`.
+- Seed-tie break uses mean primary score across seeds; if still tied, keep standard tie-breakers (params, then inference time).
 
 Guardrail:
 - reject candidates with phase SSIM drop > 0.03 relative to stage baseline.

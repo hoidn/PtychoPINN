@@ -4,7 +4,7 @@
 
 **Goal:** Add optional encoder-decoder skip connections to `hybrid_resnet`, add a reproducible mode×skip×width benchmark workflow for `N=128` and `N=256`, and define a staged structural-search extension for depth/downsampling/capacity/skip-design axes.
 
-**Architecture:** Keep default behavior unchanged (`skip_connections=False`) to preserve current baselines/integration expectations. Implement additive skip fusion with lightweight `1x1` projection layers at decoder resolutions (`N/2`, `N`). Expose one boolean knob end-to-end (`hybrid_skip_connections`) through Torch-only runner/execution config + CLI (do not bridge this knob into TensorFlow/canonical model contracts), then run a deterministic sweep over `fno_modes × hybrid_skip_connections × fno_width` with fixed probe-mask/loss-normalization controls. Make dataset choice explicit via named dataset profiles so the same sweep can run on multiple failure-mode regimes. Execute Stage A in two steps (full grid on `N=128`, then top-K promotion to `N=256`), then add structural axes one stage at a time (B→E) with bounded per-stage run budgets. Governance decision for this initiative: new Stage C-E knobs stay Torch-only (runner/execution/model paths) unless a follow-up plan explicitly approves cross-backend bridge expansion.
+**Architecture:** Keep default behavior unchanged (`skip_connections=False`) to preserve current baselines/integration expectations. Implement additive skip fusion with lightweight `1x1` projection layers at decoder resolutions (`N/2`, `N`). Expose one boolean knob end-to-end (`hybrid_skip_connections`) through Torch-only runner/execution config + CLI (do not bridge this knob into TensorFlow/canonical model contracts), then run a deterministic sweep over `fno_modes × hybrid_skip_connections × fno_width` with fixed probe-mask/loss-normalization controls. Make dataset choice explicit via named dataset profiles so the same sweep can run on multiple failure-mode regimes. Execute Stage A in two steps (full grid on `N=128`, then top-K promotion to `N=256`), then add structural axes one stage at a time (B→E) with bounded per-stage run budgets. Promotion governance: keep broad sweeps single-seed (`seed=3` default), then run boundary seed reranks (`top-K + next 2`, seeds `11` and `17`) before every promotion, and promote by median rank across seeds. Governance decision for this initiative: new Stage C-E knobs stay Torch-only (runner/execution/model paths) unless a follow-up plan explicitly approves cross-backend bridge expansion.
 
 **Tech Stack:** PyTorch/Lightning (`ptycho_torch`), existing grid-lines + NERSC study scripts, `pytest`, runbook-style orchestration, JSON/CSV/Markdown artifacts.
 
@@ -515,6 +515,11 @@ Required behavior:
     - `custom_npz_pair_n128` (caller-supplied `train.npz` / `test.npz`)
 - Rank `N=128` runs using the Section-6 policy from the companion design
   (lexicographic amplitude ranking with phase-SSIM guardrail), then select top-K for `N=256`.
+- Promotion seed-robustness rule (mandatory before each `N=128 -> N=256` promotion event):
+  - keep broad sweep single-seed (`seed=3` default),
+  - build boundary candidate set from source summary: `top-K + next 2` after guardrails (or all eligible candidates if fewer than `K+2`),
+  - rerun boundary candidates with seeds `11` and `17` at the same source `N`,
+  - recompute candidate ranking using median rank across seeds `{3,11,17}` and use that robustness-validated ranking for promotion.
 - `N=256`: resolve dataset profile(s), then run promoted top-K configs for each profile.
   - Default profile `cameraman256_halfsplit_v1`:
     - requires `--cameraman-dp` and `--cameraman-para`
@@ -525,6 +530,7 @@ Required behavior:
 - Stage progression contract:
   - Stage `A` seeds the first promoted set directly from its own `N=128` results.
   - Stages `B-E` MUST load their baseline/promoted config set from a prior-stage `N=128` summary via `--promotion-source-summary`.
+  - Promotion to `N=256` MUST use a robustness-validated promotion summary (median-rank across seeds `{3,11,17}` over the boundary candidate set), not a raw single-seed ranking summary.
   - For stages `B-E`, `--ns 256`-only runs are invalid without `--promotion-source-summary`.
   - Exception: a direct `N=256` diagnostic run is allowed only when `--allow-n256-direct-diagnostic` is set and `--top-k-n256 0`; these runs are excluded from promotion/ranking state.
 - Promotion-state API contract (`summary.csv`):
@@ -724,30 +730,74 @@ git commit -m "test+feat+docs: hybrid_resnet skip connections and mode-skip swee
 **Files:**
 - Modify: none
 
-**Step 1: Record full production command in plan handoff**
+**Step 1: Run full Stage-A grid at N=128 (single-seed exploration)**
 
 ```bash
 python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --modes 12,16,24,32,48 \
   --skip-values off,on \
   --widths 32,48,64 \
-  --ns 128,256 \
+  --ns 128 \
   --dataset-profiles-n128 integration_grid_lines_n128_v1,fly001_external_n128_top_bottom_v1 \
   --fly001-external-train-npz <path/to/fly001_n128_train_top_half.npz> \
   --fly001-external-test-npz <path/to/fly001_n128_test_bottom_half.npz> \
-  --dataset-profiles-n256 cameraman256_halfsplit_v1 \
   --epochs-n128 20 \
-  --epochs-n256 40 \
   --top-k-n256 6 \
-  --cameraman-dp /home/ollie/Downloads/nersc/data/cameraman256_dp.hdf5 \
-  --cameraman-para /home/ollie/Downloads/nersc/data/cameraman256_para.hdf5 \
-  --output-root outputs/hybrid_resnet_mode_skip_sweep_full_20260221 \
+  --output-root outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221 \
   --seed 3 \
   --no-probe-mask \
   --no-torch-mae-pred-l2-match-target
 ```
 
-**Step 2: Add targeted N=256 high-mode probe (diagnostic)**
+**Step 2: Boundary seed-rerank before promotion (mandatory)**
+
+From `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/summary.csv`, build the boundary candidate set:
+- `top-K + next 2` (for this command, `K=6`, so rerank top 8),
+- if fewer than 8 eligible candidates remain after guardrails, rerank all eligible candidates.
+
+Rerun each boundary candidate at `N=128` with seeds `11` and `17` (same confounder settings, single-value `--modes/--skip-values/--widths` per candidate).
+
+Template:
+```bash
+python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
+  --modes <mode> \
+  --skip-values <off_or_on> \
+  --widths <width> \
+  --ns 128 \
+  --dataset-profiles-n128 integration_grid_lines_n128_v1,fly001_external_n128_top_bottom_v1 \
+  --fly001-external-train-npz <path/to/fly001_n128_train_top_half.npz> \
+  --fly001-external-test-npz <path/to/fly001_n128_test_bottom_half.npz> \
+  --epochs-n128 20 \
+  --top-k-n256 0 \
+  --output-root outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/seed_rerank/<candidate_id>_seed<seed> \
+  --seed <11_or_17> \
+  --no-probe-mask \
+  --no-torch-mae-pred-l2-match-target
+```
+Expected:
+- promotion summary `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/summary_seed_robust.csv` exists,
+- ranking in that summary uses median rank across seeds `{3,11,17}`.
+
+**Step 3: Promote robust top-K and run N=256**
+
+Run:
+```bash
+python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
+  --ns 256 \
+  --promotion-source-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/summary_seed_robust.csv \
+  --dataset-profiles-n256 cameraman256_halfsplit_v1 \
+  --epochs-n256 40 \
+  --top-k-n256 6 \
+  --cameraman-dp /home/ollie/Downloads/nersc/data/cameraman256_dp.hdf5 \
+  --cameraman-para /home/ollie/Downloads/nersc/data/cameraman256_para.hdf5 \
+  --output-root outputs/hybrid_resnet_mode_skip_sweep_full_n256_20260221 \
+  --seed 3 \
+  --no-probe-mask \
+  --no-torch-mae-pred-l2-match-target
+```
+Expected: promoted `N=256` run set is driven by `summary_seed_robust.csv` (not raw single-seed summary).
+
+**Step 4: Add targeted N=256 high-mode probe (diagnostic)**
 
 Run:
 ```bash
@@ -769,60 +819,27 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
 ```
 Expected: explicit N=256-only high-frequency sensitivity evidence (diagnostic-only; not used for stage promotion state).
 
-**Step 3: Confirm artifacts**
+**Step 5: Confirm artifacts**
 
 Run:
 ```bash
-find outputs/hybrid_resnet_mode_skip_sweep_full_20260221 -maxdepth 2 -type f | rg "sweep_manifest.json|summary.csv|summary.md"
+find outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221 -maxdepth 3 -type f | rg "summary.csv|summary.md|summary_seed_robust.csv"
 ```
-Expected: all aggregate files present.
+Expected: Stage-A `N=128` summary and robustness summary are present.
 
 Run:
 ```bash
-cat outputs/hybrid_resnet_mode_skip_sweep_full_20260221/summary.md | rg "N=128|N=256|top-k"
+find outputs/hybrid_resnet_mode_skip_sweep_full_n256_20260221 -maxdepth 2 -type f | rg "sweep_manifest.json|summary.csv|summary.md"
 ```
-Expected: report contains full-grid `N=128` section and promoted top-K `N=256` section.
+Expected: promoted `N=256` aggregate artifacts are present.
 
 Run:
 ```bash
-find outputs/hybrid_resnet_mode_skip_sweep_full_20260221/comparison_bundle/shared_pngs -maxdepth 1 -type f | head
+cat outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/summary_seed_robust.csv | head
 ```
-Expected: shared visual-comparison PNGs are present with descriptive filenames.
+Expected: robust summary header/rows include seeded promotion ranking fields.
 
-**Step 4: Finalist seed-robustness check (must-run before stage promotion)**
-
-From `summary.csv`, pick top-3 `N=256` finalists and rerun each finalist config with seeds `11` and `17` (same epochs and confounder settings) using single-value `--modes/--skip-values/--widths` commands.
-Use diagnostic-safe `N=256` invocation flags so reruns do not depend on promotion loading:
-- `--ns 256`
-- `--allow-n256-direct-diagnostic`
-- `--top-k-n256 0`
-
-Template (replace placeholders from finalist row values):
-```bash
-python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
-  --modes <mode> \
-  --skip-values <off_or_on> \
-  --widths <width> \
-  --ns 256 \
-  --allow-n256-direct-diagnostic \
-  --top-k-n256 0 \
-  --dataset-profiles-n256 cameraman256_halfsplit_v1 \
-  --epochs-n256 40 \
-  --cameraman-dp /home/ollie/Downloads/nersc/data/cameraman256_dp.hdf5 \
-  --cameraman-para /home/ollie/Downloads/nersc/data/cameraman256_para.hdf5 \
-  --output-root outputs/hybrid_resnet_mode_skip_sweep_seed_robustness_<date>/<finalist_id>_seed<seed> \
-  --seed <11_or_17> \
-  --no-probe-mask \
-  --no-torch-mae-pred-l2-match-target
-```
-Expected:
-- ranking is stable (no major order inversion among finalists),
-- no catastrophic regressions in amplitude MAE/MSE or phase SSIM guardrail.
-
-Archive these reruns under:
-- `outputs/hybrid_resnet_mode_skip_sweep_seed_robustness_<date>/`
-
-**Step 5: Commit**
+**Step 6: Commit**
 
 No commit (execution-only handoff).
 
@@ -923,7 +940,7 @@ Run:
 ```bash
 python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --stage-id B \
-  --promotion-source-summary outputs/hybrid_resnet_mode_skip_sweep_full_20260221/summary.csv \
+  --promotion-source-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/summary_seed_robust.csv \
   --fno-blocks-values 4,5,6 \
   --ns 128 \
   --dataset-profiles-n128 integration_grid_lines_n128_v1,fly001_external_n128_top_bottom_v1 \
@@ -941,11 +958,16 @@ Non-axis knobs (`modes`, `skip`, `width`) come from `--promotion-source-summary`
 
 **Step 2: Promote top-K and run N=256**
 
+Before this step, run the boundary seed-rerank policy on `outputs/hybrid_resnet_stageB_fno_blocks_n128_20260221/summary.csv`:
+- rerank `top-K + next 2` at `N=128` with seeds `11` and `17`,
+- produce `outputs/hybrid_resnet_stageB_fno_blocks_n128_20260221/promotion/summary_seed_robust.csv`,
+- use that robustness summary as promotion source.
+
 Run:
 ```bash
 python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --stage-id B \
-  --promotion-source-summary outputs/hybrid_resnet_stageB_fno_blocks_n128_20260221/summary.csv \
+  --promotion-source-summary outputs/hybrid_resnet_stageB_fno_blocks_n128_20260221/promotion/summary_seed_robust.csv \
   --ns 256 \
   --dataset-profiles-n256 cameraman256_halfsplit_v1 \
   --epochs-n256 40 \
@@ -1037,6 +1059,7 @@ Sub-stage C2 (operator): lock best schedule from C1 (from `--promotion-source-su
 Stage budget:
 - N=128: max 12 runs for C1 + max 12 runs for C2
 - N=256: top 4 from C2 only
+- Before selecting top-4 for `N=256`, apply the boundary seed-rerank policy on the C2 `N=128` source summary (`top-K + next 2`, seeds `11` and `17`) and promote from the resulting robustness summary.
 
 **Step 4: Documentation sync for Stage-C knobs**
 
@@ -1107,6 +1130,7 @@ Also capture matching `--collect-only` and execution logs under `${REPORT_DIR}`.
 Budget rule:
 - N=128: max 18 runs per sub-stage
 - N=256: top 4 only
+- Before selecting top-4 for `N=256`, apply the boundary seed-rerank policy on the D2 `N=128` source summary (`top-K + next 2`, seeds `11` and `17`) and promote from the resulting robustness summary.
 
 **Step 5: Documentation sync for Stage-D knobs**
 
@@ -1176,6 +1200,7 @@ pytest tests/torch/test_grid_lines_torch_runner.py -k "skip_style or torch_only"
 Run skip styles on best config from Stage D, budget:
 - N=128: all 3 styles
 - N=256: top 2 styles only
+- Before selecting top-2 for `N=256`, apply the boundary seed-rerank policy on the Stage-E `N=128` source summary (`top-K + next 2`, seeds `11` and `17`) and promote from the resulting robustness summary.
 
 Constraint:
 - Stage E must reuse the topology-driven fusion-point mechanism introduced in Task 12 Step 0; do not introduce new hard-coded skip tap indices.
@@ -1213,6 +1238,7 @@ Use explicit gates:
 - must beat previous stage baseline on amplitude `MAE` and `MSE`
 - no catastrophic phase regression (phase SSIM drop > 0.03 vs stage baseline)
 - runtime/params within budget envelope recorded in summary
+- promotion source must be robustness-validated (`top-K + next 2` reranked with seeds `{3,11,17}` and promoted by median rank across seeds)
 - stage-promotion governance: Stage A is not complete until `docs/studies/index.md` contains the verified `hybrid-resnet-mode-skip-sweep` entry (Task 7 checks pass).
 
 **Step 2: Define hard stop conditions**
