@@ -17,6 +17,7 @@ This document constrains implementation choices so the sweep remains reproducibl
 In scope:
 - new model knobs and their semantics,
 - architectural invariants and compatibility requirements,
+- dataset-profile parameterization and provenance requirements,
 - staged search strategy (A through E),
 - ranking and promotion policy,
 - run artifact contract.
@@ -39,6 +40,11 @@ Out of scope:
 
 4. Explicit confounder control during sweeps:
 - `probe_mask` and MAE normalization toggles are fixed per sweep stage and recorded in manifest.
+
+5. Dataset profile explicitness:
+- Every run must resolve a named dataset profile.
+- No implicit “integration-style” dataset generation is allowed without a profile id and frozen recipe.
+- Profile ids are orchestration-layer aliases, not replacements for path-based leaf CLI contracts.
 
 ## 4. New Knobs and Semantics
 
@@ -68,6 +74,36 @@ Out of scope:
 - `resnet_width` (existing, divisible-by-4 guard)
 - `hybrid_resnet_blocks` (new, default `6`)
 
+## 4.4 Dataset Profile Controls
+
+- `dataset_profiles_n128` (list of profile ids; default: `integration_grid_lines_n128_v1`)
+- `dataset_profiles_n256` (list of profile ids; default: `cameraman256_halfsplit_v1`)
+
+Resolution rules:
+- The sweep/runbook resolves each profile into concrete dataset inputs.
+- Leaf execution remains path-first:
+  - wrapper path: `--dataset-source` and `--train-data/--test-data` when required.
+  - torch-runner path: `--train-npz/--test-npz`.
+- Explicit caller-supplied paths override profile defaults.
+
+Profile semantics:
+- `integration_grid_lines_n128_v1`:
+  - generated from fixed recipe:
+    - `N=128`, `gridsize=1`
+    - `probe_npz=datasets/Run1084_recon3_postPC_shrunk_3.npz`
+    - `nimgs_train=2`, `nimgs_test=1`, `nphotons=1e9`
+    - `probe_source=custom`, `probe_smoothing_sigma=0.5`, `probe_scale_mode=pad_extrapolate`, `set_phi=True`
+  - deterministic dataset seed is required and recorded.
+- `fly001_external_n128_top_bottom_v1`:
+  - external NPZ split profile for N=128 (train/test paths supplied by caller).
+- `custom_npz_pair_n128`:
+  - caller-provided `train.npz` and `test.npz`.
+- `cameraman256_halfsplit_v1`:
+  - train from `prepare_hybrid_dataset(..., half=\"top\")`
+  - test from `prepare_hybrid_dataset(..., half=\"bottom\")` using returned `train_npz`.
+- `custom_npz_pair_n256`:
+  - caller-provided `train.npz` and `test.npz`.
+
 ## 5. Staged Search Strategy
 
 One structural axis (or tightly coupled pair) changes per stage. No full Cartesian over all axes.
@@ -80,6 +116,7 @@ Axes:
 Policy:
 - full grid on `N=128`,
 - promote top-K to `N=256`.
+- run on one or more `dataset_profiles_n128` and aggregate rankings across profiles.
 
 ## 5.2 Stage B (Axis 1)
 
@@ -89,6 +126,7 @@ Axis:
 Policy:
 - vary `fno_blocks` with Stage-A-best settings fixed,
 - `N=128` full stage budget, top-K to `N=256`.
+- evaluate with selected dataset profile sets for N=128/N=256.
 
 ## 5.3 Stage C (Axis 2)
 
@@ -121,6 +159,11 @@ Primary ranking (lexicographic):
 2. lower amplitude MSE,
 3. higher amplitude SSIM.
 
+Multi-profile aggregation:
+- compute per-profile ranks first,
+- compute macro rank as median of per-profile ranks,
+- tie-break by mean primary score across profiles.
+
 Guardrail:
 - reject candidates with phase SSIM drop > 0.03 relative to stage baseline.
 
@@ -137,8 +180,13 @@ Stop conditions:
 Each stage writes:
 - per-run invocation and stdout/stderr logs,
 - stage manifest with fixed confounder settings and knob values,
+- dataset profile ids and resolved input provenance:
+  - train/test file paths,
+  - emitted leaf CLI dataset args (`--train-data/--test-data` or `--train-npz/--test-npz`),
+  - hashes (NPZ and/or source HDF5 where applicable),
 - `summary.csv` and `summary.md` including:
   - stage id,
+  - dataset profile id,
   - all active knobs,
   - key metrics (amp/phase MAE, MSE, SSIM),
   - model params,
@@ -168,4 +216,3 @@ Mitigation: fix probe-mask and MAE-normalization toggles per stage.
 
 Risk: shape/runtime regressions when changing downsampling/skip styles.  
 Mitigation: enforce output-contract tests before any stage run.
-

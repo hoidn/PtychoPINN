@@ -4,7 +4,7 @@
 
 **Goal:** Add optional encoder-decoder skip connections to `hybrid_resnet`, add a reproducible mode×skip×width benchmark workflow for `N=128` and `N=256`, and define a staged structural-search extension for depth/downsampling/capacity/skip-design axes.
 
-**Architecture:** Keep default behavior unchanged (`skip_connections=False`) to preserve current baselines/integration expectations. Implement additive skip fusion with lightweight `1x1` projection layers at decoder resolutions (`N/2`, `N`). Expose one boolean knob end-to-end (`hybrid_skip_connections`) through config + CLI, then run a deterministic sweep over `fno_modes × hybrid_skip_connections × fno_width` with fixed probe-mask/loss-normalization controls. Execute Stage A in two steps (full grid on `N=128`, then top-K promotion to `N=256`), then add structural axes one stage at a time (B→E) with bounded per-stage run budgets.
+**Architecture:** Keep default behavior unchanged (`skip_connections=False`) to preserve current baselines/integration expectations. Implement additive skip fusion with lightweight `1x1` projection layers at decoder resolutions (`N/2`, `N`). Expose one boolean knob end-to-end (`hybrid_skip_connections`) through config + CLI, then run a deterministic sweep over `fno_modes × hybrid_skip_connections × fno_width` with fixed probe-mask/loss-normalization controls. Make dataset choice explicit via named dataset profiles so the same sweep can run on multiple failure-mode regimes. Execute Stage A in two steps (full grid on `N=128`, then top-K promotion to `N=256`), then add structural axes one stage at a time (B→E) with bounded per-stage run budgets.
 
 **Tech Stack:** PyTorch/Lightning (`ptycho_torch`), existing grid-lines + NERSC study scripts, `pytest`, runbook-style orchestration, JSON/CSV/Markdown artifacts.
 
@@ -26,14 +26,15 @@ git status --short
 ```
 Expected: working directory is repo root; you understand unrelated dirty files and will not revert them.
 
-**Step 2: Start tmux + ptycho311 shell for long commands**
+**Step 2: Start tmux shell and bootstrap the runtime env once**
 
 Run:
 ```bash
-tmux new-session -d -s skip_sweep "source ~/miniconda3/etc/profile.d/conda.sh && conda activate ptycho311 && bash"
+tmux new-session -d -s skip_sweep "bash -lc 'source ~/miniconda3/etc/profile.d/conda.sh && conda activate ptycho311 && python -V; exec bash'"
 tmux capture-pane -pt skip_sweep:0
 ```
-Expected: pane output includes activated `ptycho311` prompt.
+Expected: pane output shows `python -V` from the `ptycho311` session PATH interpreter.
+All subsequent commands in this plan should still use plain `python ...` (no interpreter wrappers).
 
 **Step 3: Commit**
 
@@ -123,8 +124,27 @@ Run:
 ```bash
 pytest tests/torch/test_fno_generators.py::TestHybridResnetGenerator::test_output_shape_real_imag_with_skip_connections -v
 pytest tests/torch/test_fno_generators.py::TestHybridResnetGenerator::test_output_shape_real_imag -v
+pytest tests/torch/test_fno_generators.py::TestHybridResnetGenerator::test_skip_connections_default_false_parity -v
 ```
 Expected: PASS.
+
+Add parity regression assertion for default behavior:
+```python
+def test_skip_connections_default_false_parity(self):
+    torch.manual_seed(7)
+    model_default = HybridResnetGeneratorModule(
+        in_channels=1, out_channels=2, hidden_channels=16, n_blocks=3, modes=4, C=4
+    )
+    torch.manual_seed(7)
+    model_explicit = HybridResnetGeneratorModule(
+        in_channels=1, out_channels=2, hidden_channels=16, n_blocks=3, modes=4, C=4,
+        skip_connections=False,
+    )
+    x = torch.randn(2, 4, 32, 32)
+    y_default = model_default(x)
+    y_explicit = model_explicit(x)
+    assert torch.allclose(y_default, y_explicit, atol=1e-6, rtol=1e-6)
+```
 
 **Step 3: Commit**
 
@@ -173,7 +193,7 @@ def test_model_config_passes_hybrid_skip_connections(params_cfg_snapshot):
 Run:
 ```bash
 pytest tests/torch/test_grid_lines_torch_runner.py::TestSetupTorchConfigs::test_runner_passes_hybrid_skip_connections -v
-pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields -v
+pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_passes_hybrid_skip_connections -v
 ```
 Expected: FAIL (missing field in configs/bridge).
 
@@ -261,6 +281,7 @@ Add tests for:
 - summary row extraction from `metrics.json`
 - N=256 top-train/bottom-test file selection behavior
 - top-K selection from `N=128` summary for `N=256` promotion
+- dataset-profile expansion and per-profile summary aggregation
 
 Example:
 ```python
@@ -302,20 +323,53 @@ Use design constraints from:
 
 Required behavior:
 - Parse:
-  - `--modes 12,16,24`
+  - `--modes 12,16,24` (must also support higher-frequency probes such as `32,48` at `N=256`)
   - `--skip-values off,on`
   - `--widths 32,48,64`
   - `--ns 128,256`
+  - `--dataset-profiles-n128` (default: `integration_grid_lines_n128_v1`)
+  - `--dataset-profiles-n256` (default: `cameraman256_halfsplit_v1`)
   - `--epochs-n128`, `--epochs-n256`
   - `--top-k-n256` (default 6)
   - `--seed`
   - `--output-root`
   - `--probe-mask/--no-probe-mask` (default off)
   - `--torch-mae-pred-l2-match-target/--no-...` (default off)
-- `N=128`: generate integration-style dataset once, then run `grid_lines_torch_runner.py` for each combo in full grid.
-- Rank `N=128` runs by primary score (phase-aware composite documented in script) and select top-K for `N=256`.
-- `N=256`: call `prepare_hybrid_dataset(..., half="top")` for train NPZ and `prepare_hybrid_dataset(..., half="bottom")` and use its `train_npz` as bottom-half test NPZ, but only for promoted top-K configs.
+- Dataset profile resolution contract:
+  - profile ids are orchestration-level aliases only (runbook/sweep layer).
+  - leaf CLIs remain path-first and unchanged:
+    - `grid_lines_compare_wrapper.py`: `--dataset-source` plus `--train-data/--test-data` where required.
+    - `grid_lines_torch_runner.py`: `--train-npz/--test-npz`.
+  - explicit caller-provided dataset paths override profile defaults.
+- `N=128`: resolve dataset profile(s), then run each combo against each profile.
+  - Default profile `integration_grid_lines_n128_v1` MUST use the exact integration-fixture generation recipe:
+    - `N=128`, `gridsize=1`
+    - `probe_npz=datasets/Run1084_recon3_postPC_shrunk_3.npz`
+    - `nimgs_train=2`, `nimgs_test=1`, `nphotons=1e9`
+    - `probe_source=custom`, `probe_smoothing_sigma=0.5`, `probe_scale_mode=pad_extrapolate`, `set_phi=True`
+    - deterministic dataset seed (recorded in manifest; default `3`)
+  - Additional N=128 profiles:
+    - `fly001_external_n128_top_bottom_v1` (external NPZ split; caller supplies paths)
+    - `custom_npz_pair_n128` (caller-supplied `train.npz` / `test.npz`)
+- Rank `N=128` runs using the Section-6 policy from the companion design
+  (lexicographic amplitude ranking with phase-SSIM guardrail), then select top-K for `N=256`.
+- `N=256`: resolve dataset profile(s), then run promoted top-K configs for each profile.
+  - Default profile `cameraman256_halfsplit_v1`:
+    - call `prepare_hybrid_dataset(..., half="top")` for train NPZ
+    - call `prepare_hybrid_dataset(..., half="bottom")` and use `train_npz` as bottom-half test NPZ
+  - Additional N=256 profiles:
+    - `custom_npz_pair_n256` (caller-supplied `train.npz` / `test.npz`)
+- Stage progression contract:
+  - Stage `A` seeds the first promoted set directly from its own `N=128` results.
+  - Stages `B-E` MUST load their baseline/promoted config set from a prior-stage `N=128` summary via `--promotion-source-summary`.
+  - For stages `B-E`, `--ns 256`-only runs are invalid without `--promotion-source-summary`.
 - Persist invocation artifacts + per-run stdout/stderr logs + `sweep_manifest.json` + `summary.csv` + `summary.md`.
+- Persist visual-evidence collation artifacts under:
+  - `<output-root>/comparison_bundle/shared_pngs/`
+  - descriptive filenames containing at least `{stage_id, N, dataset_profile, run_id}`.
+- Include per-profile and aggregate ranking views:
+  - per-profile metrics/ranks
+  - macro aggregate rank across profiles (median rank; tie-break by mean primary score).
 
 **Step 2: Run tests to verify pass**
 
@@ -364,10 +418,22 @@ git commit -m "docs: add hybrid_resnet skip toggle and mode-skip sweep workflow"
 
 ---
 
-### Task 8: Verification and Smoke Runs (tmux + ptycho311)
+### Task 8: Verification and Smoke Runs
 
 **Files:**
 - Modify: none
+
+**Step 0: GPU fail-fast preflight**
+
+Run in tmux pane:
+```bash
+python - <<'PY'
+import torch
+assert torch.cuda.is_available(), "CUDA GPU is required for this study plan"
+print("CUDA available:", torch.cuda.get_device_name(0))
+PY
+```
+Expected: PASS; abort study execution immediately if CUDA is unavailable.
 
 **Step 1: Run targeted regression tests**
 
@@ -376,8 +442,10 @@ Run in tmux pane:
 pytest tests/torch/test_fno_generators.py -k hybrid_resnet -v
 pytest tests/torch/test_grid_lines_torch_runner.py -k "hybrid_resnet or hybrid_skip_connections" -v
 pytest tests/studies/test_hybrid_resnet_mode_skip_sweep.py -v
+pytest -m integration -v
 ```
 Expected: PASS.
+Archive the integration-marker stdout/stderr log under the active plan artifact location.
 
 **Step 2: Execute small sweep smoke**
 
@@ -388,6 +456,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --skip-values off,on \
   --widths 32,48 \
   --ns 128 \
+  --dataset-profiles-n128 integration_grid_lines_n128_v1 \
   --epochs-n128 5 \
   --output-root outputs/hybrid_resnet_mode_skip_sweep_smoke_n128 \
   --seed 3 \
@@ -401,10 +470,9 @@ Expected: `sweep_manifest.json`, `summary.csv`, `summary.md` exist.
 Run:
 ```bash
 python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
-  --modes 12 \
-  --skip-values off,on \
-  --widths 32,48 \
   --ns 256 \
+  --promotion-source-summary outputs/hybrid_resnet_mode_skip_sweep_smoke_n128/summary.csv \
+  --dataset-profiles-n256 cameraman256_halfsplit_v1 \
   --epochs-n256 5 \
   --top-k-n256 2 \
   --cameraman-dp /home/ollie/Downloads/nersc/testdata/cameraman256_dp.hdf5 \
@@ -419,7 +487,24 @@ Expected: per-run metrics + aggregate summary artifacts created.
 **Step 4: Final commit (if needed)**
 
 ```bash
-git add -A
+git status --short
+git add \
+  ptycho_torch/generators/hybrid_resnet.py \
+  ptycho/config/config.py \
+  ptycho_torch/config_params.py \
+  ptycho_torch/config_bridge.py \
+  scripts/studies/grid_lines_torch_runner.py \
+  scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
+  tests/torch/test_fno_generators.py \
+  tests/torch/test_grid_lines_torch_runner.py \
+  tests/torch/test_config_bridge.py \
+  tests/studies/test_hybrid_resnet_mode_skip_sweep.py \
+  docs/CONFIGURATION.md \
+  ptycho_torch/generators/README.md \
+  docs/studies/index.md \
+  docs/plans/2026-02-21-hybrid-resnet-skip-mode-search.md \
+  docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-design.md
+git status --short
 git commit -m "test+feat+docs: hybrid_resnet skip connections and mode-skip sweep workflow"
 ```
 
@@ -434,10 +519,12 @@ git commit -m "test+feat+docs: hybrid_resnet skip connections and mode-skip swee
 
 ```bash
 python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
-  --modes 12,16,24 \
+  --modes 12,16,24,32,48 \
   --skip-values off,on \
   --widths 32,48,64 \
   --ns 128,256 \
+  --dataset-profiles-n128 integration_grid_lines_n128_v1,fly001_external_n128_top_bottom_v1 \
+  --dataset-profiles-n256 cameraman256_halfsplit_v1 \
   --epochs-n128 20 \
   --epochs-n256 40 \
   --top-k-n256 6 \
@@ -449,7 +536,28 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --no-torch-mae-pred-l2-match-target
 ```
 
-**Step 2: Confirm artifacts**
+**Step 2: Add targeted N=256 high-mode probe (diagnostic)**
+
+Run:
+```bash
+python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
+  --modes 32,48 \
+  --skip-values off,on \
+  --widths 48 \
+  --ns 256 \
+  --dataset-profiles-n256 cameraman256_halfsplit_v1 \
+  --epochs-n256 20 \
+  --top-k-n256 0 \
+  --cameraman-dp /home/ollie/Downloads/nersc/data/cameraman256_dp.hdf5 \
+  --cameraman-para /home/ollie/Downloads/nersc/data/cameraman256_para.hdf5 \
+  --output-root outputs/hybrid_resnet_mode_skip_sweep_n256_highmode_probe_20260221 \
+  --seed 3 \
+  --no-probe-mask \
+  --no-torch-mae-pred-l2-match-target
+```
+Expected: explicit N=256-only high-frequency sensitivity evidence.
+
+**Step 3: Confirm artifacts**
 
 Run:
 ```bash
@@ -463,7 +571,23 @@ cat outputs/hybrid_resnet_mode_skip_sweep_full_20260221/summary.md | rg "N=128|N
 ```
 Expected: report contains full-grid `N=128` section and promoted top-K `N=256` section.
 
-**Step 3: Commit**
+Run:
+```bash
+find outputs/hybrid_resnet_mode_skip_sweep_full_20260221/comparison_bundle/shared_pngs -maxdepth 1 -type f | head
+```
+Expected: shared visual-comparison PNGs are present with descriptive filenames.
+
+**Step 4: Finalist seed-robustness check (must-run before stage promotion)**
+
+From `summary.csv`, pick top-3 `N=256` finalists and rerun each finalist config with seeds `11` and `17` (same epochs and confounder settings) using single-value `--modes/--skip-values/--widths` commands.
+Expected:
+- ranking is stable (no major order inversion among finalists),
+- no catastrophic regressions in amplitude MAE/MSE or phase SSIM guardrail.
+
+Archive these reruns under:
+- `outputs/hybrid_resnet_mode_skip_sweep_seed_robustness_<date>/`
+
+**Step 5: Commit**
 
 No commit (execution-only handoff).
 
@@ -484,25 +608,40 @@ Follow knob semantics in:
 Add optional arguments (defaults preserve Stage A behavior):
 - `--fno-blocks-values` (default: `4`)
 - `--downsample-schedule-values` (default: `2`)  # number of encoder downsample steps
+- `--downsample-op-values` (default: `stride_conv`)  # `stride_conv|avgpool_conv|blurpool_conv`
 - `--max-hidden-values` (default: `none`)  # maps to `max_hidden_channels`
 - `--resnet-width-values` (default: `none`)
 - `--resnet-blocks-values` (default: `6`)
 - `--skip-style-values` (default: `add`)  # `add|concat|gated_add`
+- `--dataset-profiles-n128` (default: `integration_grid_lines_n128_v1`)
+- `--dataset-profiles-n256` (default: `cameraman256_halfsplit_v1`)
+- `--promotion-source-summary` (default: empty; required for stages `B-E`, and always required when stage `B-E` runs with `--ns 256` only)
 
 Add `--stage-id` metadata label (`A|B|C|D|E`) to manifest/summary.
+Persist dataset provenance in manifest:
+- profile ids
+- resolved input paths and which path-based args were emitted (`--train-data/--test-data` vs `--train-npz/--test-npz`)
+- SHA256 for train/test NPZ (or source HDF5 pair where applicable)
 
 **Step 2: Add matrix builder constraints**
 
 Implement guardrails:
 - exactly one structural axis may vary per stage B-E
 - Stage A varies only `{modes, widths, skip on/off}`
+- For stages B-E, non-active structural axes are inherited from `--promotion-source-summary`; multi-value lists on non-active axes are rejected.
+- For stages B-E, reject `--ns 256`-only invocations when `--promotion-source-summary` is missing.
 - raise actionable error if multiple structural axes contain >1 value in one stage
 
 **Step 3: Add/adjust tests**
 
+Add explicit invocation-provenance assertions in
+`tests/studies/test_hybrid_resnet_mode_skip_sweep.py`:
+- `invocation.json` is created at the run root with expected script path/argv/parsed args.
+- `invocation.sh` is created at the run root and contains a reconstructible command.
+
 Run:
 ```bash
-pytest tests/studies/test_hybrid_resnet_mode_skip_sweep.py -k "matrix or guardrail or stage_id" -v
+pytest tests/studies/test_hybrid_resnet_mode_skip_sweep.py -k "invocation or matrix or guardrail or stage_id" -v
 ```
 Expected: PASS.
 
@@ -526,11 +665,10 @@ Run:
 ```bash
 python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --stage-id B \
-  --modes 12,16,24 \
-  --skip-values off,on \
-  --widths 32,48,64 \
+  --promotion-source-summary outputs/hybrid_resnet_mode_skip_sweep_full_20260221/summary.csv \
   --fno-blocks-values 4,5,6 \
   --ns 128 \
+  --dataset-profiles-n128 integration_grid_lines_n128_v1,fly001_external_n128_top_bottom_v1 \
   --epochs-n128 20 \
   --top-k-n256 0 \
   --output-root outputs/hybrid_resnet_stageB_fno_blocks_n128_20260221 \
@@ -539,6 +677,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --no-torch-mae-pred-l2-match-target
 ```
 Expected: `summary.md` includes `stage_id=B` and `fno_blocks` column.
+Non-axis knobs (`modes`, `skip`, `width`) come from `--promotion-source-summary`; do not re-sweep them in Stage B.
 
 **Step 2: Promote top-K and run N=256**
 
@@ -546,11 +685,9 @@ Run:
 ```bash
 python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --stage-id B \
-  --modes 12,16,24 \
-  --skip-values off,on \
-  --widths 32,48,64 \
-  --fno-blocks-values 4,5,6 \
+  --promotion-source-summary outputs/hybrid_resnet_stageB_fno_blocks_n128_20260221/summary.csv \
   --ns 256 \
+  --dataset-profiles-n256 cameraman256_halfsplit_v1 \
   --epochs-n256 40 \
   --top-k-n256 6 \
   --cameraman-dp /home/ollie/Downloads/nersc/data/cameraman256_dp.hdf5 \
@@ -613,9 +750,9 @@ Expected: PASS.
 
 **Step 3: Execute Stage C runs**
 
-Sub-stage C1 (schedule): use `--downsample-schedule-values 1,2` while fixing all other structural axes to best Stage B config.
+Sub-stage C1 (schedule): use `--downsample-schedule-values 1,2` while fixing all other structural axes to promoted Stage B configs loaded via `--promotion-source-summary <stageB_n128_summary.csv>`.
 
-Sub-stage C2 (operator): lock best schedule from C1, then run:
+Sub-stage C2 (operator): lock best schedule from C1 (from `--promotion-source-summary <stageC1_n128_summary.csv>`), then run:
 - `--downsample-op-values stride_conv,avgpool_conv,blurpool_conv`
 
 Stage budget:
