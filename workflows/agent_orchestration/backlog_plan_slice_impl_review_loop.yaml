@@ -164,7 +164,7 @@ steps:
   - name: ExecutePlan
     provider: codex
     input_file: prompts/workflows/backlog_plan_loop/execute_plan.md
-    timeout_sec: 1800
+    timeout_sec: 43200
     expected_outputs:
       - name: execution_log_path
         path: state/execution_log_path.txt
