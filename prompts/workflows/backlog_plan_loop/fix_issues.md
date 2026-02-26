@@ -1,21 +1,20 @@
-You are the fix pass after a failed full-plan review.
+Re-run the selected backlog item's full plan after a `REVISE` decision.
 
-Read these inputs first:
-- state/plan_path.txt and referenced plan
-- state/misalignment_report_path.txt and referenced review report
-- state/check_log_path.txt and referenced check log
+Use the `Consumed Artifacts` section as the authoritative input list, and read those files before acting.
 
-Required actions:
-1. Fix all issues identified in the latest review report.
-2. Keep changes focused on reaching full plan completion.
-3. Write a fix summary to `artifacts/fixes/latest-fix-log.md` including:
-   - each issue fixed
-   - file-level changes
-   - any remaining blockers
-4. Write exactly this relative path to `state/fix_log_path.txt`:
-   artifacts/fixes/latest-fix-log.md
+Do:
+1. Execute the full plan again, incorporating required fixes from the code review report.
+2. Keep changes focused on plan completion.
+3. Do not fabricate or backfill run results.
+4. Write `artifacts/work/latest-execution-log.md` with:
+   - files changed
+   - what is complete
+   - what is incomplete
+   - blockers
+5. Write exactly this path to `state/execution_log_path.txt`:
+   artifacts/work/latest-execution-log.md
 
 Constraints:
 - No unrelated refactors.
-- No queue movement; workflow handles backlog transitions.
-- Do not write absolute paths.
+- No queue movement.
+- No absolute paths.

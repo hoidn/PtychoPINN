@@ -1,4 +1,4 @@
-version: "1.1.1"
+version: "1.2"
 name: "backlog-plan-impl-review-loop-v2"
 context:
   max_review_cycles: "3"
@@ -150,6 +150,9 @@ steps:
         type: relpath
         under: state
         must_exist_target: true
+    publishes:
+      - artifact: plan
+        from: plan_path
 
   - name: CaptureGitBaseline
     command:
@@ -176,12 +179,22 @@ steps:
     provider: codex
     input_file: prompts/workflows/backlog_plan_loop/execute_plan.md
     timeout_sec: 43200
+    consumes:
+      - artifact: plan
+        producers: ["SelectBacklogItem"]
+        policy: latest_successful
+        freshness: any
+    inject_consumes: true
+    consumes_injection_position: prepend
     expected_outputs:
       - name: execution_log_path
         path: state/execution_log_path.txt
         type: relpath
         under: artifacts/work
         must_exist_target: true
+    publishes:
+      - artifact: execution_log
+        from: execution_log_path
 
   - name: RunTargetedChecks
     command:
@@ -247,6 +260,17 @@ steps:
     provider: codex
     input_file: prompts/workflows/backlog_plan_loop/review_impl_vs_plan.md
     timeout_sec: 900
+    consumes:
+      - artifact: plan
+        producers: ["SelectBacklogItem"]
+        policy: latest_successful
+        freshness: any
+      - artifact: execution_log
+        producers: ["ExecutePlan", "FixIssues"]
+        policy: latest_successful
+        freshness: any
+    inject_consumes: true
+    consumes_injection_position: prepend
     expected_outputs:
       - name: review_decision
         path: state/review_decision.txt
@@ -255,11 +279,14 @@ steps:
       - name: issue_count
         path: state/issue_count.txt
         type: integer
-      - name: misalignment_report_path
-        path: state/misalignment_report_path.txt
+      - name: code_review_path
+        path: state/code_review_path.txt
         type: relpath
         under: artifacts/review
         must_exist_target: true
+    publishes:
+      - artifact: code_review
+        from: code_review_path
 
   - name: ReviewGate
     command:
@@ -276,12 +303,30 @@ steps:
     provider: codex
     input_file: prompts/workflows/backlog_plan_loop/fix_issues.md
     timeout_sec: 43200
+    consumes:
+      - artifact: plan
+        producers: ["SelectBacklogItem"]
+        policy: latest_successful
+        freshness: any
+      - artifact: execution_log
+        producers: ["ExecutePlan", "FixIssues"]
+        policy: latest_successful
+        freshness: any
+      - artifact: code_review
+        producers: ["ReviewImplVsPlan"]
+        policy: latest_successful
+        freshness: any
+    inject_consumes: true
+    consumes_injection_position: prepend
     expected_outputs:
       - name: execution_log_path
         path: state/execution_log_path.txt
         type: relpath
         under: artifacts/work
         must_exist_target: true
+    publishes:
+      - artifact: execution_log
+        from: execution_log_path
     on:
       success:
         goto: IncrementReviewCycle
@@ -352,3 +397,20 @@ steps:
     on:
       success:
         goto: CountActiveBacklogItems
+
+artifacts:
+  plan:
+    pointer: state/plan_path.txt
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  execution_log:
+    pointer: state/execution_log_path.txt
+    type: relpath
+    under: artifacts/work
+    must_exist_target: true
+  code_review:
+    pointer: state/code_review_path.txt
+    type: relpath
+    under: artifacts/review
+    must_exist_target: true

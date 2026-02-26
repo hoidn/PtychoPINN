@@ -1,22 +1,20 @@
-You are executing the selected backlog item's full implementation plan end-to-end.
+Implement the selected backlog item's full plan.
 
-Read these inputs first:
-- state/backlog_item_path.txt and referenced backlog item
-- state/plan_path.txt and referenced plan
+Use the `Consumed Artifacts` section as the authoritative input list, and read those files before acting.
+Also read `state/backlog_item_path.txt` and the referenced backlog item for scope context.
 
-Required actions:
-1. Implement the full plan (not a single slice).
-2. Keep changes focused on the plan scope and backlog objective.
-3. Do not mark the backlog item done; workflow handles queue transitions.
-4. Write an execution log to `artifacts/work/latest-execution-log.md` including:
-   - major files changed
-   - what was fully implemented
-   - what remains incomplete, if anything
-   - notable risks/assumptions
-5. Write exactly this relative path to `state/execution_log_path.txt`:
+Do:
+1. Execute the plan end-to-end.
+2. Keep changes focused on the plan/backlog scope.
+3. Do not fabricate or backfill run results.
+4. Write `artifacts/work/latest-execution-log.md` with:
+   - files changed
+   - what is complete
+   - what is incomplete
+   - blockers
+5. Write exactly this path to `state/execution_log_path.txt`:
    artifacts/work/latest-execution-log.md
 
 Constraints:
-- Do not write absolute paths.
-- Do not perform unrelated refactors.
-- Keep implementation and docs aligned with the plan contract.
+- No unrelated refactors.
+- No absolute paths.

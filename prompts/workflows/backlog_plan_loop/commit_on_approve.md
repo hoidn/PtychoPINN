@@ -30,4 +30,3 @@ Staging guidance:
 Constraints:
 - If no meaningful commit can be made, exit non-zero with a short reason.
 - Do not write absolute paths.
-
