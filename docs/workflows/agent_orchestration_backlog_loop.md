@@ -8,7 +8,7 @@ This runbook explains how to kick off and monitor the long-running backlog-drive
 Execution model:
 - one workflow run processes backlog items repeatedly
 - for each backlog item, the full plan is executed in one unit
-- each approved item is moved `docs/backlog/active -> docs/backlog/done`
+- each approved item is moved `docs/backlog/active -> docs/backlog/done` and then committed
 - run exits only when `docs/backlog/active` has no remaining `.md` items (or on failure)
 
 ## 1) Preconditions
@@ -79,12 +79,14 @@ tmux attach -t ptychopinn-backlog-loop
 
 For each selected backlog item, it runs:
 1. Select item + resolve `plan_path` + load `check_commands`
-2. Execute the full plan (provider: codex)
-3. Run targeted checks
-4. Review implementation vs plan (`APPROVE` or `REVISE`)
-5. If `REVISE`, run fix pass (provider: codex) and loop (bounded by `context.max_review_cycles`)
-6. On success, move backlog item `active -> done`
-7. Recount active queue and continue until no active items remain
+2. Capture a git baseline for this cycle
+3. Execute the full plan (provider: codex)
+4. Run targeted checks
+5. Review implementation vs plan (`APPROVE` or `REVISE`)
+6. If `REVISE`, run fix pass (provider: codex) and loop (bounded by `context.max_review_cycles`)
+7. On success, move backlog item `active -> done`
+8. Run a post-approval commit step (provider: codex)
+9. Recount active queue and continue until no active items remain
 
 ## 5) Monitoring
 
@@ -96,12 +98,14 @@ Run artifacts are under `.orchestrate/runs/<run_id>/`.
   - `ExecutePlan.prompt.txt`
   - `ReviewImplVsPlan.prompt.txt`
   - `FixIssues.prompt.txt` (when that step runs)
+  - `CommitOnApprove.prompt.txt` (when approval path runs)
 
 Workflow state/output files in repo root:
 - `state/review_decision.txt`
 - `state/issue_count.txt`
 - `state/misalignment_report_path.txt`
 - `state/failed_count.txt`
+- `state/commit_sha.txt`
 
 ## 6) Resume After Interruption
 
@@ -112,6 +116,21 @@ cd ~/Documents/tmp/PtychoPINN
 export PYTHONPATH=~/Documents/agent-orchestration
 python -m orchestrator.cli.main resume <run_id> --debug
 ```
+
+Quick way to resume the latest run:
+
+```bash
+cd ~/Documents/tmp/PtychoPINN
+export PYTHONPATH=~/Documents/agent-orchestration
+run_id=$(ls -1dt .orchestrate/runs/* | head -n1 | xargs -n1 basename)
+python -m orchestrator.cli.main resume "$run_id" --debug \
+  2>&1 | tee -a logs/backlog-loop-resume-${run_id}.log
+```
+
+Resume options:
+- `--debug`: keep prompt/state debug artifacts and backups.
+- `--repair`: attempt recovery from `state.json.step_*.bak` if state is corrupted.
+- `--force-restart`: ignore existing state and start a new run from current queue state.
 
 ## 7) Safety Notes
 

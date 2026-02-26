@@ -151,6 +151,17 @@ steps:
         under: state
         must_exist_target: true
 
+  - name: CaptureGitBaseline
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p state
+        git rev-parse HEAD > state/pre_run_head.txt
+        git status --porcelain=v1 > state/pre_run_status.txt
+        git diff --name-only > state/pre_run_tracked_diff.txt
+        git diff --cached --name-only > state/pre_run_index_diff.txt
+
   - name: InitializeReviewCycle
     command:
       - bash
@@ -323,6 +334,20 @@ steps:
         path: state/done_backlog_item_path.txt
         type: relpath
         under: docs/backlog/done
+        must_exist_target: true
+    on:
+      success:
+        goto: CommitOnApprove
+
+  - name: CommitOnApprove
+    provider: codex
+    input_file: prompts/workflows/backlog_plan_loop/commit_on_approve.md
+    timeout_sec: 1800
+    expected_outputs:
+      - name: commit_sha_path
+        path: state/commit_sha_path.txt
+        type: relpath
+        under: state
         must_exist_target: true
     on:
       success:
