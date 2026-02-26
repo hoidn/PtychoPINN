@@ -275,12 +275,12 @@ steps:
   - name: FixIssues
     provider: codex
     input_file: prompts/workflows/backlog_plan_loop/fix_issues.md
-    timeout_sec: 900
+    timeout_sec: 43200
     expected_outputs:
-      - name: fix_log_path
-        path: state/fix_log_path.txt
+      - name: execution_log_path
+        path: state/execution_log_path.txt
         type: relpath
-        under: artifacts/fixes
+        under: artifacts/work
         must_exist_target: true
     on:
       success:
