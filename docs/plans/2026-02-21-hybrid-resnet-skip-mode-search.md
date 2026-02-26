@@ -38,3 +38,23 @@
 - Execute Tasks 0-8 using the implementation-core split plan.
 - After each session, update the relevant split plan checklist and append one row here with evidence paths.
 - Keep stage ranking/promotion behavior aligned to the companion design doc.
+
+## Stage Promotion Governance (Task 15)
+
+Promotion gates between stages:
+- Apply feasible-Pareto ordering on objectives `amp_mae`, `amp_mse`, and `train_wall_time_sec`.
+- Enforce feasibility filters before promotion:
+  - `phase_ssim_drop_vs_baseline <= max_phase_ssim_drop` (default `0.03`)
+  - train/runtime and parameter budgets captured in summary rows (`train_wall_time_sec`, `model_params`)
+  - inference SLA: `inference_time_s <= 60` at `N=128`, `<= 240` at `N=256`
+- Require robustness validation for promotion sources:
+  - boundary set = `top-K + next 2`
+  - rerank seeds = `{3,11,17}`
+  - promote by median Pareto rank across seeds
+- Baseline MAE/MSE regressions are treated as stop/go diagnostics, not per-candidate pre-Pareto hard filters.
+- Stage A completion requires a verified `hybrid-resnet-mode-skip-sweep` entry in `docs/studies/index.md`.
+
+Hard stop conditions (pause-and-diagnose):
+- Trigger pause when two consecutive stages show `<1%` median relative gain and rerank confidence intervals overlap zero.
+- Trigger pause when all new-stage candidates regress on both amplitude MAE and MSE at `N=256` and the same direction appears in `N=128` robustness summaries.
+- Before final axis stop, run one bounded rescue mini-sweep for the same axis; if still failing, pause further expansion on that axis and carry at least one hedge candidate into the next stage with low-budget monitoring.

@@ -2,6 +2,66 @@
 
 ## Grid-Lines Studies
 
+### `hybrid-resnet-mode-skip-sweep`
+
+- Purpose: Run staged `hybrid_resnet` search loops over `mode x skip x width` (Stage A) and later structural axes (Stages B-E) with strict stage/substage guardrails, promotion-source validation, seed-rerank aggregation, and retention-tier cleanup.
+- Script: `scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py`
+- Stage IDs: `A|B|C|D|E` with `substage_id=none` for `A/B/E`, `C1|C2` for stage `C`, and `D1|D2|D3|D4` for stage `D`.
+- Seed-rerank aggregation mode:
+  - inputs: `--aggregate-seed-rerank-root` + `--source-summary`
+  - outputs: `--emit-robust-promotion-summary` and `--emit-stage-anchor-summary`
+  - coverage gate: boundary candidates (`top-K + next 2`) must include seeds `{3,11,17}`.
+- Output/artifact contract:
+  - run root: `invocation.json`, `invocation.sh`, `sweep_manifest.json`, `summary.csv`, `summary.md`
+  - per-run: `runs/<run_id>/metrics.json` and `runs/<run_id>/cleanup_report.json`
+  - summary rows persist confounder controls (`probe_mask_enabled`, `torch_mae_pred_l2_match_target`) and stage identity (`stage_id`, `substage_id`).
+- Promotion governance gates:
+  - rank feasible candidates using Pareto objectives `amp_mae`, `amp_mse`, `train_wall_time_sec`.
+  - enforce feasibility before promotion: `phase_ssim_drop_vs_baseline <= max_phase_ssim_drop` (default `0.03`), train-time and model-parameter limits, and inference SLA (`<=60s` at `N=128`, `<=240s` at `N=256`).
+  - require robustness validation before every promotion event: boundary candidate set (`top-K + next 2`) reranked across seeds `{3,11,17}` and promoted by median Pareto rank.
+  - Stage A is not complete until this `hybrid-resnet-mode-skip-sweep` index entry is present and verified.
+- Stop/go diagnostics:
+  - pause-and-diagnose when two consecutive stages deliver `<1%` median relative gain and the rerank confidence interval overlaps zero.
+  - pause-and-diagnose when all new-stage candidates regress on both amplitude MAE and MSE at `N=256` and the same direction appears in `N=128` robustness summaries.
+  - before halting an axis, run one bounded rescue mini-sweep; if still failing, pause expansion on that axis and carry at least one hedge candidate forward under low budget.
+
+Runbook CLI (Stage A full N=128 example):
+
+```bash
+python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
+  --modes 12,16,24,32,48 \
+  --skip-values off,on \
+  --widths 32,48,64 \
+  --ns 128 \
+  --dataset-profiles-n128 integration_grid_lines_n128_v1,fly001_external_n128_top_bottom_v1 \
+  --fly001-external-train-npz <path/to/fly001_n128_train_top_half.npz> \
+  --fly001-external-test-npz <path/to/fly001_n128_test_bottom_half.npz> \
+  --epochs-n128 20 \
+  --top-k-n256 6 \
+  --promotion-objectives amp_mae,amp_mse,train_wall_time_sec \
+  --max-train-seconds-n128 2700 \
+  --max-inference-seconds-n128 60 \
+  --max-phase-ssim-drop 0.03 \
+  --max-model-params 300000000 \
+  --output-root outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221 \
+  --seed 3 \
+  --no-probe-mask \
+  --no-torch-mae-pred-l2-match-target
+```
+
+Runbook CLI (seed-rerank aggregation example):
+
+```bash
+python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
+  --stage-id A \
+  --aggregate-seed-rerank-root outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/seed_rerank \
+  --source-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/summary.csv \
+  --promotion-objectives amp_mae,amp_mse,train_wall_time_sec \
+  --top-k-n256 6 \
+  --emit-stage-anchor-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/stage_anchor_summary.csv \
+  --emit-robust-promotion-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/summary_seed_robust.csv
+```
+
 ### `nersc-scan807-cameraman-ptychovit-hybrid-orchestration`
 
 - Purpose: Run checkpoint-restored `pinn_ptychovit` inference on `scan807` and `cameraman256`, train `pinn_hybrid_resnet` on cameraman top/bottom-half (`N=128`, 40 epochs), run checkpoint-reuse hybrid inference across both full datasets, and aggregate per-dataset metrics/visuals.
