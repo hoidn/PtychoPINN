@@ -27,6 +27,27 @@ providers:
       model: "claude-opus-4-1"
 
 steps:
+  - name: CountActiveBacklogItems
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p state docs/backlog/active
+        find docs/backlog/active -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ' > state/active_backlog_count.txt
+    expected_outputs:
+      - name: active_backlog_count
+        path: state/active_backlog_count.txt
+        type: integer
+
+  - name: ActiveBacklogGate
+    command:
+      - bash
+      - -lc
+      - 'test "$(cat state/active_backlog_count.txt)" -gt 0'
+    on:
+      failure:
+        goto: _end
+
   - name: SelectBacklogItem
     command:
       - bash
@@ -319,3 +340,6 @@ steps:
         type: relpath
         under: docs/backlog/done
         must_exist_target: true
+    on:
+      success:
+        goto: CountActiveBacklogItems

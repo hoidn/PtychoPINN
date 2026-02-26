@@ -89,10 +89,10 @@ Expected: PASS.
 
 **Step 3: Execute Stage C runs**
 
-Sub-stage C1 (schedule): use `--downsample-schedule-values 1,2` while fixing all other structural axes to promoted Stage B configs loaded via `--promotion-source-summary <stageB_n128_summary.csv>`.
+Sub-stage C1 (schedule): use `--downsample-schedule-values 1,2` while fixing all other structural axes to one promoted Stage-B anchor config loaded via `--promotion-source-summary <stageB_anchor_n128_summary.csv>`.
 Record provenance with `--stage-id C --substage-id C1`.
 
-Sub-stage C2 (operator): lock best schedule from C1 (from `--promotion-source-summary <stageC1_n128_summary.csv>`), then run:
+Sub-stage C2 (operator): lock best schedule from C1 (from `--promotion-source-summary <stageC1_anchor_n128_summary.csv>`), then run:
 - `--downsample-op-values stride_conv,avgpool_conv,blurpool_conv`
 Record provenance with `--stage-id C --substage-id C2`.
 
@@ -166,7 +166,7 @@ Run sub-stage D2 (spectral branch):
 
 Evaluate one global capacity knob at a time on best D2 settings:
 - `max_hidden_channels` values: `none,256,512`, or
-- `resnet_width` values: `none,192,256` (only if divisibility constraints pass).
+- `resnet_width` values: `none,192,256` (only if divisibility constraints pass; reject values not divisible by 4).
 
 Keep `resnet_blocks` fixed for this sub-stage.
 Record provenance with `--stage-id D --substage-id D3`.
@@ -187,6 +187,8 @@ Run:
 pytest tests/torch/test_fno_generators.py -k "hybrid_encoder_conv_hidden_channels or hybrid_encoder_spectral_hidden_channels or hybrid_resnet_blocks or max_hidden_channels or resnet_width" -v
 pytest tests/torch/test_grid_lines_torch_runner.py -k "hybrid_encoder_conv_hidden_channels or hybrid_encoder_spectral_hidden_channels or hybrid_resnet_blocks or max_hidden_channels or resnet_width or torch_only" -v
 pytest tests/torch/test_grid_lines_torch_runner.py -k "workflow and (hybrid_encoder_conv_hidden_channels or hybrid_encoder_spectral_hidden_channels or hybrid_resnet_blocks or max_hidden_channels or resnet_width) and factory" -v
+pytest tests/torch/test_fno_generators.py -k "invalid and (hybrid_encoder_conv_hidden_channels or hybrid_encoder_spectral_hidden_channels or resnet_width)" -v
+pytest tests/torch/test_grid_lines_torch_runner.py -k "invalid and (hybrid_encoder_conv_hidden_channels or hybrid_encoder_spectral_hidden_channels or resnet_width)" -v
 ```
 Expected: PASS.
 Also capture matching `--collect-only` and execution logs under `${REPORT_DIR}`.
@@ -194,6 +196,7 @@ Also capture matching `--collect-only` and execution logs under `${REPORT_DIR}`.
 Coverage expectations for new branch-capacity knobs:
 - independent branch effects under fixed seed/input (conv vs spectral width changes produce distinct outputs),
 - additive shape invariance and default parity when both knobs are `None`,
+- explicit invalid-value rejection coverage (`<=0` for branch-width knobs, non-divisible `resnet_width`),
 - workflow forwarding into `create_training_payload(..., overrides=...)`.
 
 **Step 5: Run bounded stage budgets**

@@ -103,10 +103,12 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --promotion-objectives amp_mae,amp_mse,train_wall_time_sec \
   --max-phase-ssim-drop 0.03 \
   --top-k-n256 6 \
+  --emit-stage-anchor-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/stage_anchor_summary.csv \
   --emit-robust-promotion-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/summary_seed_robust.csv
 ```
 Expected:
 - promotion summary `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/summary_seed_robust.csv` exists,
+- stage anchor summary `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/stage_anchor_summary.csv` exists and contains exactly one anchor row,
 - ranking in that summary uses median Pareto rank across seeds `{3,11,17}` on feasible candidates.
 
 **Step 3: Promote robust top-K and run N=256**
@@ -224,6 +226,7 @@ Add optional arguments (defaults preserve Stage A behavior):
 - `--allow-n256-direct-diagnostic` (default off; only valid with `--ns 256 --top-k-n256 0`)
 - `--aggregate-seed-rerank-root` (optional; enables robustness-summary collation mode)
 - `--source-summary` (required with `--aggregate-seed-rerank-root`)
+- `--emit-stage-anchor-summary` (required with `--aggregate-seed-rerank-root`; writes one-row anchor summary for downstream `N=128` stages)
 - `--emit-robust-promotion-summary` (required with `--aggregate-seed-rerank-root`)
 - `--promotion-objectives` (default: `amp_mae,amp_mse,train_wall_time_sec`)
 - `--max-train-seconds-n128` (default: `2700`)
@@ -252,9 +255,11 @@ Implement guardrails:
 - exactly one structural axis may vary per stage B-E
 - Stage A varies only `{modes, widths, skip on/off}`
 - For stages B-E, non-active structural axes are inherited from `--promotion-source-summary`; multi-value lists on non-active axes are rejected.
+- For stages B-E `N=128` sweeps, `--promotion-source-summary` must resolve exactly one anchor row (single row total or one `is_stage_anchor=true` row); reject multi-anchor fan-out.
 - For Stage D branch-capacity work, treat `encoder_conv_hidden`, `encoder_spectral_hidden`, `max_hidden/resnet_width`, and `resnet_blocks` as separate serial sub-stages; only one may carry multiple values in one invocation.
 - Reject invalid `stage_id/substage_id` combinations (including missing sub-stage id for `C`/`D` runs).
 - For stages B-E, reject `--ns 256`-only invocations when `--promotion-source-summary` is missing.
+- Reject `resnet_width` sweep values that are not `none` and not divisible by 4 (or non-positive).
 - Reject promotion candidates with `phase_ssim_drop_vs_baseline > max_phase_ssim_drop`.
 - Reject promotion candidates that violate feasibility caps (`max_model_params`, `max_train_seconds_*`, `max_inference_seconds_*`).
 - Reject `cameraman256_halfsplit_v1` profile usage for active `N=256` runs unless both `--cameraman-dp` and `--cameraman-para` are provided.
@@ -262,7 +267,7 @@ Implement guardrails:
 - Reject `custom_npz_pair_n256` unless both `--custom-n256-train-npz` and `--custom-n256-test-npz` are provided for active `N=256` runs.
 - Reject `--allow-n256-direct-diagnostic` unless `--ns 256` and `--top-k-n256 0`.
 - In seed-rerank aggregation mode (`--aggregate-seed-rerank-root`):
-  - require `--source-summary` and `--emit-robust-promotion-summary`,
+  - require `--source-summary`, `--emit-robust-promotion-summary`, and `--emit-stage-anchor-summary`,
   - fail if any required seed rows are missing for boundary candidates,
   - emit consolidated robustness summary with per-seed Pareto ranks + median Pareto-rank promotion order.
 - raise actionable error if multiple structural axes contain >1 value in one stage
@@ -285,7 +290,10 @@ Add explicit invocation-provenance assertions in
   - promotion ordering is derived from feasible Pareto ranks, not single scalar quality-only sort.
 - seed-rerank collation validation is explicit:
   - boundary candidate coverage for seeds `{3,11,17}` is complete,
-  - `summary_seed_robust.csv` is emitted with median Pareto-rank ordering and consumed by promotion-enabled `N=256` commands.
+  - `summary_seed_robust.csv` is emitted with median Pareto-rank ordering and consumed by promotion-enabled `N=256` commands,
+  - `stage_anchor_summary.csv` is emitted and contains exactly one anchor row for downstream `N=128` stages.
+- numeric guardrail validation is explicit:
+  - invalid `resnet_width` values fail fast at CLI parsing/validation with actionable errors.
 - confounder provenance is enforced:
   - persisted summary rows and manifest always include `probe_mask_enabled` and `torch_mae_pred_l2_match_target`.
 - wrapper/runner parity:
@@ -321,13 +329,20 @@ git commit -m "feat(studies): add staged structural-axis hooks to hybrid_resnet 
 **Files:**
 - Modify: none (execution + artifacts)
 
-**Step 1: Run Stage B at N=128 on promoted Stage A configs**
+**Step 0: Resolve single Stage-A anchor summary for Stage-B N=128**
+
+Use the one-row anchor artifact emitted in Task 9 Step 2:
+- `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/stage_anchor_summary.csv`
+
+Do not pass full top-K robustness summary as the Stage-B `N=128` source.
+
+**Step 1: Run Stage B at N=128 on promoted Stage-A anchor config**
 
 Run:
 ```bash
 python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --stage-id B \
-  --promotion-source-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/summary_seed_robust.csv \
+  --promotion-source-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/stage_anchor_summary.csv \
   --fno-blocks-values 4,5,6 \
   --ns 128 \
   --dataset-profiles-n128 integration_grid_lines_n128_v1,fly001_external_n128_top_bottom_v1 \

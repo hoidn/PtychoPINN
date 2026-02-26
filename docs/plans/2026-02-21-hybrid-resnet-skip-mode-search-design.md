@@ -136,6 +136,12 @@ Profile semantics:
 
 One structural axis (or tightly coupled pair) changes per stage. No full Cartesian over all axes.
 
+Stage-isolation contract:
+- For stages `B-E` at `N=128`, each stage/sub-stage sweep must inherit exactly one upstream anchor configuration from the prior stage (`is_stage_anchor=true` or a single-row source summary).
+- Non-active knobs are copied from that single anchor row and must remain scalar for the stage run matrix.
+- Top-K candidate sets from prior stages are used for `N=256` confirmation/rerank, not for `N=128` stage fan-out.
+- Multi-anchor fan-out is allowed only in explicitly labeled diagnostic runs that do not drive canonical stage promotion state.
+
 Stage identifier contract:
 - `stage_id` values are `A|B|C|D|E`.
 - `substage_id` values are:
@@ -153,6 +159,7 @@ Axes:
 Policy:
 - full grid on `N=128`,
 - promote top-K feasible Pareto-ranked candidates to `N=256`.
+- emit a single Stage-A anchor summary row for downstream Stage-B `N=128` sweeps.
 - run on one or more `dataset_profiles_n128` and aggregate rankings across profiles.
 - keep broad exploration single-seed (`seed=3` default), then apply the Section-6 boundary seed-robustness rule before promotion.
 
@@ -162,7 +169,7 @@ Axis:
 - `fno_blocks`
 
 Policy:
-- vary `fno_blocks` with Stage-A-best settings fixed,
+- vary `fno_blocks` with one Stage-A anchor configuration fixed,
 - `N=128` full stage budget, top-K feasible Pareto-ranked candidates to `N=256`.
 - evaluate with selected dataset profile sets for N=128/N=256.
 - apply the Section-6 boundary seed-robustness rule on the `N=128` source summary before promotion to `N=256`.
@@ -171,6 +178,7 @@ Policy:
 
 Sub-stage C1:
 - `hybrid_downsample_steps`
+- vary this axis with one Stage-B anchor configuration fixed.
 
 Sub-stage C2:
 - lock best C1 schedule, vary `hybrid_downsample_op`.
@@ -180,6 +188,7 @@ Sub-stage C2:
 
 Sub-stage D1:
 - encoder conv-branch capacity axis (`hybrid_encoder_conv_hidden_channels`) with spectral branch width fixed to default.
+- source configuration comes from one upstream anchor row.
 
 Sub-stage D2:
 - lock best D1, vary encoder spectral-branch capacity axis (`hybrid_encoder_spectral_hidden_channels`).
@@ -199,6 +208,7 @@ Axis:
 Policy:
 - evaluate skip style variants on best Stage-D configuration.
 - apply the Section-6 boundary seed-robustness rule on the Stage-D source summary before promotion.
+- Stage-E `N=128` sweep inherits one Stage-D anchor configuration.
 
 ## 6. Ranking and Promotion Policy
 
@@ -243,6 +253,10 @@ Promotion source API:
 - `summary.csv` is a versioned stage-state API.
 - Every summary row includes `summary_schema_version`.
 - Promotion loader must validate version + required columns + non-empty feasible candidate set before scheduling runs.
+- For stages `B-E` `N=128` sweeps, promotion-source loader must resolve exactly one anchor row before matrix expansion.
+- Seed-rerank collation must emit both:
+  - full robustness summary (for top-K `N=256` promotion),
+  - single-row anchor summary (for downstream `N=128` stage isolation).
 
 Pause-and-diagnose conditions (not immediate abandonment):
 - Trigger a pause when either condition is met:
@@ -272,7 +286,9 @@ Each stage writes:
   - inference time,
   - feasibility columns (`is_feasible`, violated constraints),
   - Pareto columns (`pareto_rank_profile`, `pareto_rank_macro`, seed-robust Pareto rank fields),
+  - stage-isolation fields (`is_stage_anchor`, `anchor_source_summary`),
   - promotion decisions.
+- `promotion/stage_anchor_summary.csv` containing exactly one canonical anchor row for downstream `N=128` stage/sub-stage sweeps.
 
 Retention/cleanup policy (normative):
 - Default mode is prune-after-run with retention tiers.
