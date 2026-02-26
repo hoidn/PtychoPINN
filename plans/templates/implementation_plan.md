@@ -35,33 +35,24 @@
 - **Key Clauses:** [list of specific requirements this plan satisfies]
 
 ## Architecture / Interfaces (optional)
-- **Key Data Types / Protocols:**  
-  e.g., `User`, `OrderService`, `PaymentGateway` in a web app, or `Model`, `Trainer`, `MetricSink` in an ML pipeline. You can sketch these in a tiny IDL-style block if helpful (e.g., `types: User { id: UUID; email: string }`).
-- **Boundary Definitions:**  
-  Briefly describe the main seams between components (layers, services, processes, or subsystems), e.g., `[Client] -> [API] -> [Service] -> [DB]`.
-- **Sequence Sketch (Happy Path):**  
-  Short textual outline of the primary request/response or job execution path, e.g., `Client -> API: POST /orders -> Service -> DB -> Client`.
-- **Data-Flow Notes:**  
-  Note what data moves where (shape, format, rate) and across which boundaries (in‑process, network, devices, storage), e.g., `[Raw events] -> [Validate] -> [Transform] -> [Warehouse]`.
-
-> One-shot example (replace with your own):
-> - types: `User { id: UUID; email: string }`, `Order { id: UUID; user_id: UUID; total_cents: int }`
-> - boundaries: `[Browser] -> [HTTP API] -> [OrderService] -> [Postgres]`
-> - sequence: `Browser -> API: POST /orders -> OrderService -> DB -> API -> Browser`
-> - data-flow: JSON request (~2 KB) → row in `orders` table → JSON response with `order_id`, or for a training step: batch tensor `[B, C, H, W]` on GPU → forward pass → loss scalar → gradient tensors → optimizer step
+- **Key Data Types / Protocols:**
+  e.g., `User`, `OrderService`, `PaymentGateway` in a web app, or `Model`, `Trainer`, `MetricSink` in an ML pipeline.
+- **Boundary Definitions:**
+  Briefly describe the main seams between components.
+- **Sequence Sketch (Happy Path):**
+  Short textual outline of the primary request/response or job execution path.
+- **Data-Flow Notes:**
+  Note what data moves where and across which boundaries.
 
 ## Context Priming (read before edits)
 - Primary docs/specs to re-read: <list explicit files + sections>
 - Required findings/case law: <docs/findings.md IDs + summary>
 - Related telemetry/attempts: <links to relevant artifacts or plan history>
-- Data dependencies to verify: <summarize the external inputs (datasets, configs, HKL/sigma assets, etc.) this initiative relies on; reference `docs/data_dependency_manifest.md` entries and note any additions needed>
+- Data dependencies to verify: <summarize external inputs and required assets>
 
 ## Workflow Compatibility Contract (Required for Orchestrated Execution)
 
-Use this contract when the plan is executed via workflow loops that perform:
-- implementation vs plan review,
-- targeted check execution on each review cycle,
-- deterministic progress tracking.
+Use this contract when a backlog workflow executes the entire plan in one unit.
 
 ### Backlog Link Contract
 - The paired backlog item in `docs/backlog/active/` must include:
@@ -69,66 +60,31 @@ Use this contract when the plan is executed via workflow loops that perform:
   - `priority` (integer; lower means earlier)
   - `check_commands` (targeted commands; avoid full-suite defaults unless required)
 
-### Task Slice Contract
-- Every executable unit must be written as `### Task <ID>: <Title>`.
-- `<ID>` must be stable and sortable (for example `A1`, `A2`, `B1`, `C3`).
-- Each task must include all fields below exactly once:
-  - `**Status:** pending | in_progress | blocked | done`
-  - `**Files:**` with explicit paths
-  - `**Implementation Steps:**` numbered list
-  - `**Check Commands:**` fenced `bash` block with targeted commands
-  - `**Expected Evidence:**` artifact paths/logs proving completion
+### Full-Plan Execution Contract
+- Execution unit is the full plan document (not per-task slices).
+- The plan must define all required verification and completion conditions explicitly.
+
+### Required Sections For Automation
+- `## Verification Commands`:
+  - provide exact command list in a fenced `bash` block.
+- `## Completion Criteria`:
+  - objective pass/fail bullets for plan completion.
+- `## Required Evidence`:
+  - artifact/log paths that prove completion.
 
 ### Progress Rules
-- A task is complete only when:
-  - implementation steps are finished,
-  - check commands pass,
-  - expected evidence is produced.
-- Keep completed tasks in-place and update only `**Status:**` for auditability.
+- A backlog item is done only when:
+  - full plan implementation is complete,
+  - verification commands pass,
+  - required evidence is produced,
+  - review decision is `APPROVE`.
 
 ## Phase A — <name>
-### Task Slices
-
-### Task A0: Nucleus / Test-first Gate
-**Status:** pending
-**Files:**
-- Create/Modify: <path>
-**Implementation Steps:**
-1. <minimal probe to validate assumptions>
-**Check Commands:**
-```bash
-<targeted command>
-```
-**Expected Evidence:**
-- <artifact/log path>
-
-### Task A1: <title>
-**Status:** pending
-**Files:**
-- Create/Modify: <path>
-**Implementation Steps:**
-1. <step>
-2. <step>
-**Check Commands:**
-```bash
-<targeted command 1>
-<targeted command 2>
-```
-**Expected Evidence:**
-- <artifact/log path>
-
-### Task A2: <title>
-**Status:** pending
-**Files:**
-- Create/Modify: <path>
-**Implementation Steps:**
-1. <step>
-**Check Commands:**
-```bash
-<targeted command>
-```
-**Expected Evidence:**
-- <artifact/log path>
+### Checklist
+- [ ] A0: **Nucleus / Test-first gate:** <minimal probe or selector to validate assumptions before implementation>
+- [ ] A1: <task> (owner, expected artifacts)
+- [ ] A2: <task>
+- [ ] A3: <task>
 
 ### Dependency Analysis (Required for Refactors)
 - **Touched Modules:** [list]
@@ -139,68 +95,35 @@ Use this contract when the plan is executed via workflow loops that perform:
 - <risk 1>
 
 ## Phase B — <name>
-### Task Slices
-
-### Task B1: <title>
-**Status:** pending
-**Files:**
-- Create/Modify: <path>
-**Implementation Steps:**
-1. <step>
-**Check Commands:**
-```bash
-<targeted command>
-```
-**Expected Evidence:**
-- <artifact/log path>
-
-### Task B2: <title>
-**Status:** pending
-**Files:**
-- Create/Modify: <path>
-**Implementation Steps:**
-1. <step>
-**Check Commands:**
-```bash
-<targeted command>
-```
-**Expected Evidence:**
-- <artifact/log path>
+### Checklist
+- [ ] B1: <task>
+- [ ] B2: <task>
 
 ### Notes & Risks
 - <risk 2>
 
 ## Phase C — <name>
-### Task Slices
-
-### Task C1: <title>
-**Status:** pending
-**Files:**
-- Create/Modify: <path>
-**Implementation Steps:**
-1. <step>
-**Check Commands:**
-```bash
-<targeted command>
-```
-**Expected Evidence:**
-- <artifact/log path>
-
-### Task C2: <title>
-**Status:** pending
-**Files:**
-- Create/Modify: <path>
-**Implementation Steps:**
-1. <step>
-**Check Commands:**
-```bash
-<targeted command>
-```
-**Expected Evidence:**
-- <artifact/log path>
+### Checklist
+- [ ] C1: <task>
+- [ ] C2: <task>
 
 ### Notes & Risks
 - <risk 3>
+
+## Verification Commands
+```bash
+# Add targeted commands required to validate full-plan completion.
+# Avoid unnecessary full-suite commands unless the plan requires them.
+```
+
+## Completion Criteria
+- [ ] <objective criterion 1>
+- [ ] <objective criterion 2>
+- [ ] <objective criterion 3>
+
+## Required Evidence
+- <artifact/log path 1>
+- <artifact/log path 2>
 
 ## Artifacts Index
 - Reports root: `docs/plans/<initiative-id>/reports/`

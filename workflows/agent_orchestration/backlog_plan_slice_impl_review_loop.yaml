@@ -1,5 +1,5 @@
 version: "1.1.1"
-name: "backlog-plan-slice-impl-review-loop-v1"
+name: "backlog-plan-impl-review-loop-v2"
 context:
   max_review_cycles: "3"
 providers:
@@ -19,12 +19,6 @@ providers:
     defaults:
       model: "gpt-5.3-codex"
       reasoning_effort: "high"
-
-  claude:
-    command: ["claude", "-p", "${PROMPT}", "--dangerously-skip-permissions", "--model", "${model}"]
-    input_mode: argv
-    defaults:
-      model: "claude-opus-4-1"
 
 steps:
   - name: CountActiveBacklogItems
@@ -166,21 +160,10 @@ steps:
         path: state/review_cycle.txt
         type: integer
 
-  - name: DraftPlanSlice
+  - name: ExecutePlan
     provider: codex
-    input_file: prompts/workflows/backlog_plan_loop/draft_plan_slice.md
-    timeout_sec: 240
-    expected_outputs:
-      - name: slice_brief_path
-        path: state/slice_brief_path.txt
-        type: relpath
-        under: artifacts/work
-        must_exist_target: true
-
-  - name: ExecutePlanSlice
-    provider: claude
-    input_file: prompts/workflows/backlog_plan_loop/execute_plan_slice.md
-    timeout_sec: 420
+    input_file: prompts/workflows/backlog_plan_loop/execute_plan.md
+    timeout_sec: 1800
     expected_outputs:
       - name: execution_log_path
         path: state/execution_log_path.txt
@@ -251,7 +234,7 @@ steps:
   - name: ReviewImplVsPlan
     provider: codex
     input_file: prompts/workflows/backlog_plan_loop/review_impl_vs_plan.md
-    timeout_sec: 420
+    timeout_sec: 900
     expected_outputs:
       - name: review_decision
         path: state/review_decision.txt
@@ -278,9 +261,9 @@ steps:
         goto: FixIssues
 
   - name: FixIssues
-    provider: claude
+    provider: codex
     input_file: prompts/workflows/backlog_plan_loop/fix_issues.md
-    timeout_sec: 420
+    timeout_sec: 900
     expected_outputs:
       - name: fix_log_path
         path: state/fix_log_path.txt
