@@ -282,6 +282,15 @@ class PyTorchExecutionConfig:
     recon_log_stitch: bool = False  # Log stitched full-resolution reconstructions (opt-in)
     recon_log_max_stitch_samples: Optional[int] = None  # Cap stitched samples (None = no limit)
 
+    # Torch-only hybrid_resnet structural-search knobs (not bridged to canonical ModelConfig)
+    hybrid_skip_connections: bool = False
+    hybrid_downsample_steps: int = 2
+    hybrid_downsample_op: Literal['stride_conv', 'avgpool_conv', 'blurpool_conv'] = 'stride_conv'
+    hybrid_encoder_conv_hidden_channels: Optional[int] = None
+    hybrid_encoder_spectral_hidden_channels: Optional[int] = None
+    hybrid_resnet_blocks: int = 6
+    hybrid_skip_style: Literal['add', 'concat', 'gated_add'] = 'add'
+
     # Inference-specific knobs
     inference_batch_size: Optional[int] = None  # Override batch_size for inference (None = use training batch_size)
     middle_trim: int = 0  # Inference trimming parameter (not yet implemented)
@@ -390,6 +399,49 @@ class PyTorchExecutionConfig:
             raise ValueError(
                 f"Invalid checkpoint_mode: '{self.checkpoint_mode}'. "
                 f"Expected one of {sorted(valid_checkpoint_modes)}."
+            )
+
+        if self.hybrid_downsample_steps not in {1, 2}:
+            raise ValueError(
+                "hybrid_downsample_steps must be in [1, 2] "
+                f"(got {self.hybrid_downsample_steps})."
+            )
+
+        valid_downsample_ops = {'stride_conv', 'avgpool_conv', 'blurpool_conv'}
+        if self.hybrid_downsample_op not in valid_downsample_ops:
+            raise ValueError(
+                f"Invalid hybrid_downsample_op '{self.hybrid_downsample_op}'. "
+                f"Expected one of {sorted(valid_downsample_ops)}."
+            )
+
+        if (
+            self.hybrid_encoder_conv_hidden_channels is not None
+            and self.hybrid_encoder_conv_hidden_channels <= 0
+        ):
+            raise ValueError(
+                "hybrid_encoder_conv_hidden_channels must be positive when set, "
+                f"got {self.hybrid_encoder_conv_hidden_channels}."
+            )
+
+        if (
+            self.hybrid_encoder_spectral_hidden_channels is not None
+            and self.hybrid_encoder_spectral_hidden_channels <= 0
+        ):
+            raise ValueError(
+                "hybrid_encoder_spectral_hidden_channels must be positive when set, "
+                f"got {self.hybrid_encoder_spectral_hidden_channels}."
+            )
+
+        if self.hybrid_resnet_blocks <= 0:
+            raise ValueError(
+                f"hybrid_resnet_blocks must be positive, got {self.hybrid_resnet_blocks}."
+            )
+
+        valid_skip_styles = {'add', 'concat', 'gated_add'}
+        if self.hybrid_skip_style not in valid_skip_styles:
+            raise ValueError(
+                f"Invalid hybrid_skip_style '{self.hybrid_skip_style}'. "
+                f"Expected one of {sorted(valid_skip_styles)}."
             )
 
 

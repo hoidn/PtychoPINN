@@ -59,6 +59,13 @@ class ModelConfig:
     fno_input_transform: Literal['none', 'sqrt', 'log1p', 'instancenorm'] = 'none'
     max_hidden_channels: Optional[int] = None
     resnet_width: Optional[int] = None
+    hybrid_skip_connections: bool = False
+    hybrid_downsample_steps: int = 2
+    hybrid_downsample_op: Literal['stride_conv', 'avgpool_conv', 'blurpool_conv'] = 'stride_conv'
+    hybrid_encoder_conv_hidden_channels: Optional[int] = None
+    hybrid_encoder_spectral_hidden_channels: Optional[int] = None
+    hybrid_resnet_blocks: int = 6
+    hybrid_skip_style: Literal['add', 'concat', 'gated_add'] = 'add'
     generator_output_mode: Literal['real_imag', 'amp_phase_logits', 'amp_phase'] = 'real_imag'
 
     #Intensity Parameters

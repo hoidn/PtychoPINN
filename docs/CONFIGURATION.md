@@ -63,6 +63,20 @@ These parameters define the structure and physics of the neural network.
 | `probe_scale` | `float` | `4.0` | A normalization factor for the probe's amplitude. |
 | `gaussian_smoothing_sigma` | `float` | `0.0` | Standard deviation for the Gaussian filter applied to the probe. 0.0 means no smoothing. |
 
+### PyTorch Execution Parameters (PyTorchExecutionConfig)
+
+These parameters are Torch-only execution/model knobs used by the PyTorch runner/workflow path. They are not bridged into canonical `ModelConfig` fields.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `hybrid_skip_connections` | `bool` | `False` | Enables hybrid_resnet encoder-decoder skip fusion. |
+| `hybrid_downsample_steps` | `int` | `2` | Downsample schedule depth for hybrid_resnet (`1` => `N->N/2`, `2` => `N->N/4`). |
+| `hybrid_downsample_op` | `Literal['stride_conv','avgpool_conv','blurpool_conv']` | `'stride_conv'` | Downsample operator family for each encoder step. |
+| `hybrid_encoder_conv_hidden_channels` | `Optional[int]` | `None` | Optional internal width for hybrid_resnet encoder local-conv branch (`None` preserves stage width). |
+| `hybrid_encoder_spectral_hidden_channels` | `Optional[int]` | `None` | Optional internal width for hybrid_resnet encoder spectral branch (`None` preserves stage width). |
+| `hybrid_resnet_blocks` | `int` | `6` | Hybrid ResNet bottleneck depth. Must be positive. |
+| `hybrid_skip_style` | `Literal['add','concat','gated_add']` | `'add'` | Skip-fusion style for hybrid_resnet when skip connections are enabled. |
+
 ### Training Parameters (TrainingConfig)
 
 These parameters control the training loop, data handling, and loss functions.

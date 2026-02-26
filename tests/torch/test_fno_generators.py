@@ -221,6 +221,327 @@ class TestHybridResnetGenerator:
         assert phase.min().item() >= -math.pi - 1e-3
         assert phase.max().item() <= math.pi + 1e-3
 
+    @pytest.mark.parametrize("hybrid_downsample_steps", [1, 2])
+    def test_hybrid_downsample_steps_skip_connections_forward(self, hybrid_downsample_steps):
+        """Skip-enabled forward pass should work for both supported downsample schedules."""
+        model = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            skip_connections=True,
+            hybrid_downsample_steps=hybrid_downsample_steps,
+        )
+        x = torch.randn(2, 4, 32, 32)
+        out = model(x)
+        assert out.shape == (2, 32, 32, 4, 2)
+
+    def test_hybrid_downsample_steps_metadata_drives_skip_fusion_points(self):
+        """Fusion-point plan should derive from stage metadata, not fixed tap indices."""
+        model_one = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            skip_connections=True,
+            hybrid_downsample_steps=1,
+        )
+        model_two = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            skip_connections=True,
+            hybrid_downsample_steps=2,
+        )
+        assert [item["resolution_divisor"] for item in model_one.skip_fusion_plan] == [1]
+        assert [item["resolution_divisor"] for item in model_two.skip_fusion_plan] == [2, 1]
+
+    def test_invalid_hybrid_downsample_steps_raises(self):
+        with pytest.raises(ValueError, match="hybrid_downsample_steps"):
+            HybridResnetGeneratorModule(
+                in_channels=1,
+                out_channels=2,
+                hidden_channels=16,
+                n_blocks=3,
+                modes=4,
+                C=4,
+                hybrid_downsample_steps=3,
+            )
+
+    @pytest.mark.parametrize("hybrid_downsample_op", ["stride_conv", "avgpool_conv", "blurpool_conv"])
+    def test_hybrid_downsample_op_shape_invariance(self, hybrid_downsample_op):
+        model = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            hybrid_downsample_steps=2,
+            hybrid_downsample_op=hybrid_downsample_op,
+        )
+        x = torch.randn(2, 4, 32, 32)
+        out = model(x)
+        assert out.shape == (2, 32, 32, 4, 2)
+
+    def test_invalid_hybrid_downsample_op_raises(self):
+        with pytest.raises(ValueError, match="hybrid_downsample_op"):
+            HybridResnetGeneratorModule(
+                in_channels=1,
+                out_channels=2,
+                hidden_channels=16,
+                n_blocks=3,
+                modes=4,
+                C=4,
+                hybrid_downsample_op="bad_op",
+            )
+
+    def test_hybrid_downsample_op_branches_are_distinct(self):
+        x = torch.randn(2, 4, 32, 32)
+
+        torch.manual_seed(19)
+        stride_model = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            hybrid_downsample_op="stride_conv",
+        )
+        torch.manual_seed(19)
+        avg_model = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            hybrid_downsample_op="avgpool_conv",
+        )
+        torch.manual_seed(19)
+        blur_model = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            hybrid_downsample_op="blurpool_conv",
+        )
+
+        assert stride_model.downsample_layers[0].__class__ is not avg_model.downsample_layers[0].__class__
+        assert stride_model.downsample_layers[0].__class__ is not blur_model.downsample_layers[0].__class__
+        assert avg_model.downsample_layers[0].__class__ is not blur_model.downsample_layers[0].__class__
+
+        y_stride = stride_model(x)
+        y_avg = avg_model(x)
+        y_blur = blur_model(x)
+        assert not torch.allclose(y_stride, y_avg, atol=1e-6, rtol=1e-6)
+        assert not torch.allclose(y_stride, y_blur, atol=1e-6, rtol=1e-6)
+        assert not torch.allclose(y_avg, y_blur, atol=1e-6, rtol=1e-6)
+
+    def test_hybrid_encoder_conv_hidden_channels_default_none_parity(self):
+        torch.manual_seed(7)
+        model_default = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+        )
+        torch.manual_seed(7)
+        model_explicit = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            hybrid_encoder_conv_hidden_channels=None,
+            hybrid_encoder_spectral_hidden_channels=None,
+        )
+        x = torch.randn(2, 4, 32, 32)
+        assert torch.allclose(model_default(x), model_explicit(x), atol=1e-6, rtol=1e-6)
+
+    def test_hybrid_encoder_conv_hidden_channels_changes_output(self):
+        torch.manual_seed(17)
+        model_default = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+        )
+        torch.manual_seed(17)
+        model_custom = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            hybrid_encoder_conv_hidden_channels=48,
+        )
+        x = torch.randn(2, 4, 32, 32)
+        assert not torch.allclose(model_default(x), model_custom(x), atol=1e-6, rtol=1e-6)
+
+    def test_hybrid_encoder_spectral_hidden_channels_changes_output(self):
+        torch.manual_seed(23)
+        model_default = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+        )
+        torch.manual_seed(23)
+        model_custom = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            hybrid_encoder_spectral_hidden_channels=48,
+        )
+        x = torch.randn(2, 4, 32, 32)
+        assert not torch.allclose(model_default(x), model_custom(x), atol=1e-6, rtol=1e-6)
+
+    def test_invalid_hybrid_encoder_conv_hidden_channels_raises(self):
+        with pytest.raises(ValueError, match="hybrid_encoder_conv_hidden_channels"):
+            HybridResnetGeneratorModule(
+                in_channels=1,
+                out_channels=2,
+                hidden_channels=16,
+                n_blocks=3,
+                modes=4,
+                C=4,
+                hybrid_encoder_conv_hidden_channels=0,
+            )
+
+    def test_invalid_hybrid_encoder_spectral_hidden_channels_raises(self):
+        with pytest.raises(ValueError, match="hybrid_encoder_spectral_hidden_channels"):
+            HybridResnetGeneratorModule(
+                in_channels=1,
+                out_channels=2,
+                hidden_channels=16,
+                n_blocks=3,
+                modes=4,
+                C=4,
+                hybrid_encoder_spectral_hidden_channels=-1,
+            )
+
+    def test_invalid_resnet_width_raises(self):
+        with pytest.raises(ValueError, match="resnet_width"):
+            HybridResnetGeneratorModule(
+                in_channels=1,
+                out_channels=2,
+                hidden_channels=16,
+                n_blocks=3,
+                modes=4,
+                C=4,
+                resnet_width=255,
+            )
+
+    @pytest.mark.parametrize("hybrid_resnet_blocks", [4, 6, 8])
+    def test_hybrid_resnet_blocks_shape_invariance(self, hybrid_resnet_blocks):
+        model = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            resnet_blocks=hybrid_resnet_blocks,
+        )
+        x = torch.randn(2, 4, 32, 32)
+        out = model(x)
+        assert out.shape == (2, 32, 32, 4, 2)
+
+    @pytest.mark.parametrize("hybrid_skip_style", ["add", "concat", "gated_add"])
+    def test_skip_style_shape_contract(self, hybrid_skip_style):
+        model = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            skip_connections=True,
+            hybrid_skip_style=hybrid_skip_style,
+        )
+        x = torch.randn(2, 4, 32, 32)
+        out = model(x)
+        assert out.shape == (2, 32, 32, 4, 2)
+
+    def test_invalid_skip_style_raises(self):
+        with pytest.raises(ValueError, match="hybrid_skip_style"):
+            HybridResnetGeneratorModule(
+                in_channels=1,
+                out_channels=2,
+                hidden_channels=16,
+                n_blocks=3,
+                modes=4,
+                C=4,
+                skip_connections=True,
+                hybrid_skip_style="bad_style",
+            )
+
+    def test_skip_style_branches_are_distinct(self):
+        x = torch.randn(2, 4, 32, 32)
+
+        torch.manual_seed(31)
+        add_model = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            skip_connections=True,
+            hybrid_skip_style="add",
+        )
+        torch.manual_seed(31)
+        concat_model = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            skip_connections=True,
+            hybrid_skip_style="concat",
+        )
+        torch.manual_seed(31)
+        gated_model = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            skip_connections=True,
+            hybrid_skip_style="gated_add",
+        )
+
+        y_add = add_model(x)
+        y_concat = concat_model(x)
+        y_gated = gated_model(x)
+        assert not torch.allclose(y_add, y_concat, atol=1e-6, rtol=1e-6)
+        assert not torch.allclose(y_add, y_gated, atol=1e-6, rtol=1e-6)
+        assert not torch.allclose(y_concat, y_gated, atol=1e-6, rtol=1e-6)
+
 
 class TestGeneratorRegistry:
     """Tests for generator registry with FNO/Hybrid generators."""

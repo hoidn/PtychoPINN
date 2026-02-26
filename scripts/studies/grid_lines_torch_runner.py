@@ -107,6 +107,13 @@ class TorchRunnerConfig:
     fno_input_transform: str = "none"
     max_hidden_channels: Optional[int] = None
     resnet_width: Optional[int] = None
+    hybrid_skip_connections: bool = False
+    hybrid_downsample_steps: int = 2
+    hybrid_downsample_op: str = "stride_conv"
+    hybrid_encoder_conv_hidden_channels: Optional[int] = None
+    hybrid_encoder_spectral_hidden_channels: Optional[int] = None
+    hybrid_resnet_blocks: int = 6
+    hybrid_skip_style: str = "add"
     optimizer: str = 'adam'  # 'adam', 'adamw', or 'sgd'
     weight_decay: float = 0.0
     momentum: float = 0.9
@@ -446,6 +453,43 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
                 "hybrid_resnet requires --fno-blocks >= 3 to downsample to N/4 "
                 f"(got {cfg.fno_blocks})."
             )
+        if cfg.hybrid_downsample_steps not in {1, 2}:
+            raise ValueError(
+                "hybrid_downsample_steps must be in [1, 2] "
+                f"(got {cfg.hybrid_downsample_steps})."
+            )
+        valid_downsample_ops = {"stride_conv", "avgpool_conv", "blurpool_conv"}
+        if cfg.hybrid_downsample_op not in valid_downsample_ops:
+            raise ValueError(
+                f"hybrid_downsample_op must be one of {sorted(valid_downsample_ops)} "
+                f"(got {cfg.hybrid_downsample_op!r})."
+            )
+        if (
+            cfg.hybrid_encoder_conv_hidden_channels is not None
+            and cfg.hybrid_encoder_conv_hidden_channels <= 0
+        ):
+            raise ValueError(
+                "hybrid_encoder_conv_hidden_channels must be positive when set "
+                f"(got {cfg.hybrid_encoder_conv_hidden_channels})."
+            )
+        if (
+            cfg.hybrid_encoder_spectral_hidden_channels is not None
+            and cfg.hybrid_encoder_spectral_hidden_channels <= 0
+        ):
+            raise ValueError(
+                "hybrid_encoder_spectral_hidden_channels must be positive when set "
+                f"(got {cfg.hybrid_encoder_spectral_hidden_channels})."
+            )
+        if cfg.hybrid_resnet_blocks <= 0:
+            raise ValueError(
+                f"hybrid_resnet_blocks must be positive (got {cfg.hybrid_resnet_blocks})."
+            )
+        valid_skip_styles = {"add", "concat", "gated_add"}
+        if cfg.hybrid_skip_style not in valid_skip_styles:
+            raise ValueError(
+                f"hybrid_skip_style must be one of {sorted(valid_skip_styles)} "
+                f"(got {cfg.hybrid_skip_style!r})."
+            )
         if cfg.resnet_width is not None:
             if cfg.resnet_width <= 0:
                 raise ValueError(
@@ -511,6 +555,13 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         enable_progress_bar=True,
         enable_checkpointing=cfg.enable_checkpointing,
         logger_backend=cfg.logger_backend,
+        hybrid_skip_connections=cfg.hybrid_skip_connections,
+        hybrid_downsample_steps=cfg.hybrid_downsample_steps,
+        hybrid_downsample_op=cfg.hybrid_downsample_op,
+        hybrid_encoder_conv_hidden_channels=cfg.hybrid_encoder_conv_hidden_channels,
+        hybrid_encoder_spectral_hidden_channels=cfg.hybrid_encoder_spectral_hidden_channels,
+        hybrid_resnet_blocks=cfg.hybrid_resnet_blocks,
+        hybrid_skip_style=cfg.hybrid_skip_style,
         recon_log_every_n_epochs=cfg.recon_log_every_n_epochs,
         recon_log_num_patches=cfg.recon_log_num_patches,
         recon_log_fixed_indices=cfg.recon_log_fixed_indices,
@@ -1012,6 +1063,57 @@ def main(argv=None) -> None:
         default=None,
         help="Optional probe-mask diameter in normalized units.",
     )
+    parser.add_argument(
+        "--hybrid-skip-connections",
+        dest="hybrid_skip_connections",
+        action="store_true",
+        default=False,
+        help="Enable hybrid_resnet encoder-decoder skip fusion.",
+    )
+    parser.add_argument(
+        "--no-hybrid-skip-connections",
+        dest="hybrid_skip_connections",
+        action="store_false",
+        help="Disable hybrid_resnet encoder-decoder skip fusion.",
+    )
+    parser.add_argument(
+        "--hybrid-downsample-steps",
+        type=int,
+        default=2,
+        help="Hybrid ResNet downsample schedule depth (1 or 2).",
+    )
+    parser.add_argument(
+        "--hybrid-downsample-op",
+        type=str,
+        default="stride_conv",
+        choices=["stride_conv", "avgpool_conv", "blurpool_conv"],
+        help="Hybrid ResNet downsample operator family.",
+    )
+    parser.add_argument(
+        "--hybrid-encoder-conv-hidden",
+        type=int,
+        default=None,
+        help="Optional internal width for hybrid_resnet encoder local-conv branch.",
+    )
+    parser.add_argument(
+        "--hybrid-encoder-spectral-hidden",
+        type=int,
+        default=None,
+        help="Optional internal width for hybrid_resnet encoder spectral branch.",
+    )
+    parser.add_argument(
+        "--hybrid-resnet-blocks",
+        type=int,
+        default=6,
+        help="Hybrid ResNet bottleneck block count.",
+    )
+    parser.add_argument(
+        "--hybrid-skip-style",
+        type=str,
+        default="add",
+        choices=["add", "concat", "gated_add"],
+        help="Hybrid skip-fusion style for hybrid_resnet.",
+    )
     parser.add_argument("--torch-resnet-width", type=int, default=None,
                         help="Hybrid ResNet bottleneck width (must be divisible by 4)")
     parser.add_argument("--fno-modes", type=int, default=12,
@@ -1139,6 +1241,13 @@ def main(argv=None) -> None:
         probe_mask=args.probe_mask,
         probe_mask_sigma=args.probe_mask_sigma,
         probe_mask_diameter=args.probe_mask_diameter,
+        hybrid_skip_connections=args.hybrid_skip_connections,
+        hybrid_downsample_steps=args.hybrid_downsample_steps,
+        hybrid_downsample_op=args.hybrid_downsample_op,
+        hybrid_encoder_conv_hidden_channels=args.hybrid_encoder_conv_hidden,
+        hybrid_encoder_spectral_hidden_channels=args.hybrid_encoder_spectral_hidden,
+        hybrid_resnet_blocks=args.hybrid_resnet_blocks,
+        hybrid_skip_style=args.hybrid_skip_style,
         fno_modes=args.fno_modes,
         fno_width=args.fno_width,
         fno_blocks=args.fno_blocks,

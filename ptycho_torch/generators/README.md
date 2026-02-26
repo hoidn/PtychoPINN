@@ -59,8 +59,31 @@ The Hybrid ResNet architecture (`architecture='hybrid_resnet'`) replaces the Hyb
 2. ResNet‑6 bottleneck at constant N/4 resolution
 3. CycleGAN upsamplers (ConvTranspose2d kernel=3, stride=2, padding=1, output_padding=1)
 
-**Optional parameter:**
+**Optional parameters:**
 - `resnet_width`: Fixed bottleneck width for `hybrid_resnet` (must be divisible by 4).
+- `hybrid_skip_connections`: Enables encoder-decoder fusion taps derived from stage metadata.
+- `hybrid_skip_style`: Skip fusion style (`add`, `concat`, `gated_add`).
+- `hybrid_downsample_steps`: Downsample schedule depth (`1` or `2`).
+- `hybrid_downsample_op`: Downsample operator family (`stride_conv`, `avgpool_conv`, `blurpool_conv`).
+- `hybrid_encoder_conv_hidden_channels`: Optional internal width for the local-conv branch.
+- `hybrid_encoder_spectral_hidden_channels`: Optional internal width for the spectral branch.
+- `hybrid_resnet_blocks`: ResNet bottleneck depth.
+
+Downsample operator behavior:
+- `stride_conv`: learned stride-2 convolution.
+- `avgpool_conv`: average pooling followed by 1x1 projection.
+- `blurpool_conv`: low-pass blurpool downsample followed by 1x1 projection.
+
+Skip-style behavior (when `hybrid_skip_connections=True`):
+- `add`: project skip path to decoder width, then additive fusion.
+- `concat`: concatenate decoder and skip channels, then 1x1 projection.
+- `gated_add`: additive fusion with learnable scalar gate `g`, initialized to `0.0` for identity-safe startup.
+
+Capacity/depth constraints:
+- `hybrid_encoder_conv_hidden_channels` and `hybrid_encoder_spectral_hidden_channels` are optional (`None` keeps stage width) and must be positive when set.
+- `hybrid_resnet_blocks` must be positive.
+
+All knobs above are Torch-only model/runtime controls for the PyTorch stack.
 
 ## Integration Contract
 

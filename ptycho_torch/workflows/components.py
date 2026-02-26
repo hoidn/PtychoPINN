@@ -850,6 +850,19 @@ def _train_with_lightning(
     generator_output_mode = getattr(config.model, 'generator_output_mode', None)
     if generator_output_mode is not None:
         factory_overrides['generator_output_mode'] = generator_output_mode
+    if execution_config is not None:
+        for field_name in (
+            'hybrid_skip_connections',
+            'hybrid_downsample_steps',
+            'hybrid_downsample_op',
+            'hybrid_encoder_conv_hidden_channels',
+            'hybrid_encoder_spectral_hidden_channels',
+            'hybrid_resnet_blocks',
+            'hybrid_skip_style',
+        ):
+            field_val = getattr(execution_config, field_name, None)
+            if field_val is not None:
+                factory_overrides[field_name] = field_val
 
     # Create payload with factory-derived PyTorch configs
     payload = create_training_payload(

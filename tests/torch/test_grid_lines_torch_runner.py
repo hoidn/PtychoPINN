@@ -1077,6 +1077,144 @@ class TestChannelGridsizeAlignment:
         assert training_config.adam_beta1 == 0.9
         assert training_config.adam_beta2 == 0.999
 
+    def test_runner_torch_only_downsample_steps_stays_out_of_model_config(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_downsample_steps=1,
+        )
+        training_config, execution_config = setup_torch_configs(cfg)
+        assert execution_config.hybrid_downsample_steps == 1
+        assert not hasattr(training_config.model, "hybrid_downsample_steps")
+
+    def test_runner_torch_only_downsample_op_stays_out_of_model_config(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_downsample_op="avgpool_conv",
+        )
+        training_config, execution_config = setup_torch_configs(cfg)
+        assert execution_config.hybrid_downsample_op == "avgpool_conv"
+        assert not hasattr(training_config.model, "hybrid_downsample_op")
+
+    def test_runner_rejects_invalid_hybrid_downsample_steps(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_downsample_steps=0,
+        )
+        with pytest.raises(ValueError, match="hybrid_downsample_steps"):
+            setup_torch_configs(cfg)
+
+    def test_runner_rejects_invalid_hybrid_downsample_op(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_downsample_op="bad_op",
+        )
+        with pytest.raises(ValueError, match="hybrid_downsample_op"):
+            setup_torch_configs(cfg)
+
+    def test_runner_torch_only_hybrid_encoder_conv_hidden_channels(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_encoder_conv_hidden_channels=48,
+        )
+        training_config, execution_config = setup_torch_configs(cfg)
+        assert execution_config.hybrid_encoder_conv_hidden_channels == 48
+        assert not hasattr(training_config.model, "hybrid_encoder_conv_hidden_channels")
+
+    def test_runner_torch_only_hybrid_encoder_spectral_hidden_channels(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_encoder_spectral_hidden_channels=48,
+        )
+        training_config, execution_config = setup_torch_configs(cfg)
+        assert execution_config.hybrid_encoder_spectral_hidden_channels == 48
+        assert not hasattr(training_config.model, "hybrid_encoder_spectral_hidden_channels")
+
+    def test_runner_torch_only_hybrid_resnet_blocks(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_resnet_blocks=8,
+        )
+        training_config, execution_config = setup_torch_configs(cfg)
+        assert execution_config.hybrid_resnet_blocks == 8
+        assert not hasattr(training_config.model, "hybrid_resnet_blocks")
+
+    def test_runner_rejects_invalid_hybrid_encoder_conv_hidden_channels(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_encoder_conv_hidden_channels=0,
+        )
+        with pytest.raises(ValueError, match="hybrid_encoder_conv_hidden_channels"):
+            setup_torch_configs(cfg)
+
+    def test_runner_rejects_invalid_hybrid_encoder_spectral_hidden_channels(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_encoder_spectral_hidden_channels=-1,
+        )
+        with pytest.raises(ValueError, match="hybrid_encoder_spectral_hidden_channels"):
+            setup_torch_configs(cfg)
+
+    def test_runner_rejects_invalid_hybrid_resnet_blocks(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_resnet_blocks=0,
+        )
+        with pytest.raises(ValueError, match="hybrid_resnet_blocks"):
+            setup_torch_configs(cfg)
+
+    def test_runner_torch_only_skip_style_stays_out_of_model_config(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_skip_style="concat",
+        )
+        training_config, execution_config = setup_torch_configs(cfg)
+        assert execution_config.hybrid_skip_style == "concat"
+        assert not hasattr(training_config.model, "hybrid_skip_style")
+
+    def test_runner_rejects_invalid_skip_style(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_skip_style="bad_style",
+        )
+        with pytest.raises(ValueError, match="hybrid_skip_style"):
+            setup_torch_configs(cfg)
+
     def test_runner_channels_derived_from_gridsize(self, synthetic_npz, tmp_path):
         """Test that channel count C = gridsize^2 is derived correctly.
 
@@ -1136,6 +1274,105 @@ class TestArchitecturePropagation:
         with pytest.raises(RuntimeError, match="stop"):
             components._train_with_lightning(train_container=object(), test_container=None, config=cfg)
         assert called["arch"] == "hybrid"
+
+    def test_workflow_forwards_downsample_steps_and_downsample_op_to_factory(self, monkeypatch, tmp_path):
+        from pathlib import Path
+        from ptycho_torch.workflows import components
+        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+
+        cfg = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=1, architecture="hybrid_resnet"),
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            output_dir=tmp_path,
+            backend="pytorch",
+            n_groups=4,
+        )
+        exec_cfg = PyTorchExecutionConfig(
+            hybrid_downsample_steps=1,
+            hybrid_downsample_op="avgpool_conv",
+        )
+        captured = {}
+
+        def spy_create_payload(*args, **kwargs):
+            captured["overrides"] = kwargs["overrides"]
+            raise RuntimeError("stop")
+
+        monkeypatch.setattr("ptycho_torch.config_factory.create_training_payload", spy_create_payload)
+        with pytest.raises(RuntimeError, match="stop"):
+            components._train_with_lightning(
+                train_container=object(),
+                test_container=None,
+                config=cfg,
+                execution_config=exec_cfg,
+            )
+        assert captured["overrides"]["hybrid_downsample_steps"] == 1
+        assert captured["overrides"]["hybrid_downsample_op"] == "avgpool_conv"
+
+    def test_workflow_forwards_hybrid_encoder_conv_hidden_channels_and_hybrid_encoder_spectral_hidden_channels_and_hybrid_resnet_blocks_and_factory(
+        self, monkeypatch, tmp_path
+    ):
+        from pathlib import Path
+        from ptycho_torch.workflows import components
+        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+
+        cfg = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=1, architecture="hybrid_resnet"),
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            output_dir=tmp_path,
+            backend="pytorch",
+            n_groups=4,
+        )
+        exec_cfg = PyTorchExecutionConfig(
+            hybrid_encoder_conv_hidden_channels=48,
+            hybrid_encoder_spectral_hidden_channels=64,
+            hybrid_resnet_blocks=8,
+        )
+        captured = {}
+
+        def spy_create_payload(*args, **kwargs):
+            captured["overrides"] = kwargs["overrides"]
+            raise RuntimeError("stop")
+
+        monkeypatch.setattr("ptycho_torch.config_factory.create_training_payload", spy_create_payload)
+        with pytest.raises(RuntimeError, match="stop"):
+            components._train_with_lightning(
+                train_container=object(),
+                test_container=None,
+                config=cfg,
+                execution_config=exec_cfg,
+            )
+        assert captured["overrides"]["hybrid_encoder_conv_hidden_channels"] == 48
+        assert captured["overrides"]["hybrid_encoder_spectral_hidden_channels"] == 64
+        assert captured["overrides"]["hybrid_resnet_blocks"] == 8
+
+    def test_workflow_forwards_skip_style_to_factory(self, monkeypatch, tmp_path):
+        from pathlib import Path
+        from ptycho_torch.workflows import components
+        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+
+        cfg = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=1, architecture="hybrid_resnet"),
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            output_dir=tmp_path,
+            backend="pytorch",
+            n_groups=4,
+        )
+        exec_cfg = PyTorchExecutionConfig(hybrid_skip_style="gated_add")
+        captured = {}
+
+        def spy_create_payload(*args, **kwargs):
+            captured["overrides"] = kwargs["overrides"]
+            raise RuntimeError("stop")
+
+        monkeypatch.setattr("ptycho_torch.config_factory.create_training_payload", spy_create_payload)
+        with pytest.raises(RuntimeError, match="stop"):
+            components._train_with_lightning(
+                train_container=object(),
+                test_container=None,
+                config=cfg,
+                execution_config=exec_cfg,
+            )
+        assert captured["overrides"]["hybrid_skip_style"] == "gated_add"
 
 
 class TestForwardSignatureEnforcement:

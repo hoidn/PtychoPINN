@@ -67,6 +67,8 @@ update_legacy_dict(params.cfg, config)
 - `config.model.architecture`: Generator architecture for PINN models (`'cnn'`, `'fno'`, `'hybrid'`, `'stable_hybrid'`, `'fno_vanilla'`, `'hybrid_resnet'`). Default: `'cnn'`. All architectures train via Lightning with the full physics pipeline. The `'stable_hybrid'` variant uses InstanceNorm-stabilized residual blocks (Norm-Last, zero-init gamma/beta) for improved training stability in deep FNO stacks; see `docs/strategy/mainstrategy.md §1.A`. The `'fno_vanilla'` baseline runs a constant‑resolution FNO stack, while `'hybrid_resnet'` uses an FNO encoder with a CycleGAN ResNet‑6 decoder. See `ptycho_torch/generators/README.md` for adding new architectures.
 - `config.model.resnet_width`: Optional fixed bottleneck width for `hybrid_resnet`. When set, must be divisible by 4 so the CycleGAN upsamplers produce integer channel sizes.
 - `config.model.fno_input_transform`: Optional input dynamic-range transform for FNO/Hybrid (`'none'`, `'sqrt'`, `'log1p'`, `'instancenorm'`). Default: `'none'`.
+- Torch-only execution knobs for `hybrid_resnet` (set through the Torch runner / `PyTorchExecutionConfig`): `hybrid_downsample_steps`, `hybrid_downsample_op`, `hybrid_encoder_conv_hidden_channels`, `hybrid_encoder_spectral_hidden_channels`, `hybrid_resnet_blocks`, `hybrid_skip_style`, and `hybrid_skip_connections`.
+- Torch-only guardrail: these knobs intentionally stay out of canonical `ModelConfig`/config-bridge mappings in this initiative.
 
 **Architecture Selection via Generator Registry:**
 Starting 2026-01-27, the `config.model.architecture` field routes through the generator registry (`ptycho_torch/generators/registry.py`). This means:
@@ -101,6 +103,43 @@ Starting 2026-01-27, the `config.model.architecture` field routes through the ge
 - `config.model.probe_mask_tensor`: Optional explicit `(N, N)` mask tensor override (enables masking even if `probe_mask=False`).
 - `config.model.probe_mask_sigma` / `config.model.probe_mask_diameter`: Probe-mask shape controls (defaults: `1.0` smooth edge, `None` => `N/2`).
 - CLI exposure: `--probe-mask/--no-probe-mask`, `--probe-mask-sigma`, `--probe-mask-diameter` in both `python -m ptycho_torch.train` and `python -m ptycho_torch.inference`.
+- Grid-lines Torch runner CLI exposure for structural search:
+  - `--hybrid-downsample-steps {1,2}`
+  - `--hybrid-downsample-op {stride_conv,avgpool_conv,blurpool_conv}`
+  - `--hybrid-encoder-conv-hidden <int>`
+  - `--hybrid-encoder-spectral-hidden <int>`
+  - `--hybrid-resnet-blocks <int>`
+  - `--hybrid-skip-style {add,concat,gated_add}`
+  - `--hybrid-skip-connections/--no-hybrid-skip-connections`
+
+Stage-C/E structural search runbook examples (Torch-only scope):
+- Use `scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py` to sweep structural axes.
+- C1 (downsample schedule) example:
+  ```bash
+  python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
+    --stage-id C --substage-id C1 \
+    --promotion-source-summary <stage_b_anchor.csv> \
+    --downsample-schedule-values 1,2 \
+    --downsample-op-values stride_conv \
+    --output-root outputs/hybrid_stage_c1_n128
+  ```
+- C2 (downsample operator) example:
+  ```bash
+  python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
+    --stage-id C --substage-id C2 \
+    --promotion-source-summary <stage_c1_anchor.csv> \
+    --downsample-op-values stride_conv,avgpool_conv,blurpool_conv \
+    --output-root outputs/hybrid_stage_c2_n128
+  ```
+- E (skip style) example:
+  ```bash
+  python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
+    --stage-id E --substage-id none \
+    --promotion-source-summary <stage_d_anchor.csv> \
+    --skip-style-values add,concat,gated_add \
+    --output-root outputs/hybrid_stage_e_n128
+  ```
+- Guardrail: these structural knobs stay Torch-only in this initiative; do not add canonical `ModelConfig`/config-bridge fields for them.
 
 ### Config Mappings (subset)
 
