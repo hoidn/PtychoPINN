@@ -244,7 +244,7 @@ def test_full_orchestration_uses_cached_test_npz_for_cross_dataset_inference(
 
     assert str(captured["dataset_npzs"]["scan807"]).endswith("/datasets/N128/gs1/test.npz")
     assert str(captured["dataset_npzs"]["cameraman256"]).endswith("/datasets/N128/gs1/test.npz")
-    assert captured["allow_oom_fallback"] is False
+    assert captured["allow_oom_fallback"] is True
 
 
 def test_full_orchestration_manifest_serializes_numpy_scalars(monkeypatch, tmp_path):
@@ -499,6 +499,122 @@ def test_full_orchestration_threads_downsample_policy_to_prep_and_scan_convert(m
     assert captured["scan_policy"] == "crop-bin"
 
 
+def test_full_orchestration_threads_probe_and_mae_controls_to_torch_runner(monkeypatch, tmp_path):
+    from scripts.studies import nersc_orchestration as orch
+
+    checkpoint = tmp_path / "best_model.pth"
+    checkpoint.write_bytes(b"ckpt")
+    scan_dp = tmp_path / "scan807_dp.hdf5"
+    scan_para = tmp_path / "scan807_para.hdf5"
+    cam_dp = tmp_path / "cameraman_dp.hdf5"
+    cam_para = tmp_path / "cameraman_para.hdf5"
+    _touch_pair(scan_dp, scan_para)
+    _touch_pair(cam_dp, cam_para)
+
+    captured = {}
+
+    monkeypatch.setattr(orch, "materialize_pair_working_copy", lambda dp, para, out_dir: (dp, para))
+    monkeypatch.setattr(
+        orch,
+        "run_ptychovit_inference_stage",
+        lambda **kwargs: {
+            "scan807": {"recon_npz": str(tmp_path / "scan_recon.npz")},
+            "cameraman256": {"recon_npz": str(tmp_path / "cam_recon.npz")},
+        },
+    )
+    monkeypatch.setattr(
+        orch,
+        "prepare_hybrid_dataset",
+        lambda **kwargs: {
+            "train_npz": str(tmp_path / "train_raw.npz"),
+            "test_npz": str(tmp_path / "test_raw.npz"),
+            "downsampled_npz": str(tmp_path / "down_raw.npz"),
+        },
+    )
+    monkeypatch.setattr(
+        orch,
+        "_convert_pair_to_downsampled_external_npz",
+        lambda **kwargs: tmp_path / "scan_test_raw.npz",
+    )
+    monkeypatch.setattr(
+        orch,
+        "build_datasets",
+        lambda **kwargs: {
+            128: {
+                "train_npz": str(tmp_path / "cached_train.npz"),
+                "test_npz": str(tmp_path / "cached_test.npz"),
+                "gt_recon": str(tmp_path / "gt.npz"),
+            }
+        },
+    )
+
+    def fake_run_grid(cfg):
+        captured["probe_mask"] = cfg.probe_mask
+        captured["probe_mask_sigma"] = cfg.probe_mask_sigma
+        captured["probe_mask_diameter"] = cfg.probe_mask_diameter
+        captured["torch_mae_pred_l2_match_target"] = cfg.torch_mae_pred_l2_match_target
+        run_dir = Path(cfg.output_dir) / "runs" / "pinn_hybrid_resnet"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "model.pt").write_bytes(b"weights")
+        return {"run_dir": str(run_dir)}
+
+    monkeypatch.setattr(orch, "run_grid_lines_torch", fake_run_grid)
+    monkeypatch.setattr(
+        orch,
+        "run_cross_dataset_hybrid_inference",
+        lambda **kwargs: {
+            "scan807": {"recon_npz": str(tmp_path / "scan_hybrid_recon.npz")},
+            "cameraman256": {"recon_npz": str(tmp_path / "cam_hybrid_recon.npz")},
+        },
+    )
+    monkeypatch.setattr(
+        orch,
+        "_build_cached_external_bundle",
+        lambda **kwargs: {"test_npz": str(tmp_path / "cached_test.npz")},
+    )
+    monkeypatch.setattr(
+        orch,
+        "_write_gt_recon_from_external_npz",
+        lambda dataset_output_dir, external_npz: tmp_path / "gt_recon.npz",
+    )
+    monkeypatch.setattr(orch, "aggregate_metrics_visuals_stage", lambda **kwargs: {"ok": True})
+
+    run_dir = tmp_path / "out" / "hybrid_training" / "runs" / "pinn_hybrid_resnet"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "model.pt").write_bytes(b"weights")
+    (tmp_path / "train_raw.npz").write_bytes(b"npz")
+    (tmp_path / "test_raw.npz").write_bytes(b"npz")
+    (tmp_path / "down_raw.npz").write_bytes(b"npz")
+    (tmp_path / "scan_test_raw.npz").write_bytes(b"npz")
+    (tmp_path / "cached_train.npz").write_bytes(b"npz")
+    (tmp_path / "cached_test.npz").write_bytes(b"npz")
+
+    manifest = orch.run_nersc_scan807_cameraman_study(
+        scan807_dp=scan_dp,
+        scan807_para=scan_para,
+        cameraman_dp=cam_dp,
+        cameraman_para=cam_para,
+        ptychovit_checkpoint=checkpoint,
+        output_dir=tmp_path / "out",
+        half="top",
+        seed=3,
+        ptychovit_repo=tmp_path / "repo",
+        probe_mask=True,
+        probe_mask_sigma=0.0,
+        probe_mask_diameter=0.75,
+        torch_mae_pred_l2_match_target=True,
+    )
+
+    assert captured["probe_mask"] is True
+    assert captured["probe_mask_sigma"] == 0.0
+    assert captured["probe_mask_diameter"] == 0.75
+    assert captured["torch_mae_pred_l2_match_target"] is True
+    assert manifest["probe_mask"] is True
+    assert manifest["probe_mask_sigma"] == 0.0
+    assert manifest["probe_mask_diameter"] == 0.75
+    assert manifest["torch_mae_pred_l2_match_target"] is True
+
+
 def test_full_orchestration_rejects_non_shift_sum_backend(tmp_path):
     import pytest
     from scripts.studies import nersc_orchestration as orch
@@ -580,3 +696,254 @@ def test_runbook_main_writes_parent_invocation_artifacts(monkeypatch, tmp_path):
     assert (output_dir / "invocation.json").exists()
     assert (output_dir / "invocation.sh").exists()
     assert calls["position_reassembly_backend"] == "shift_sum"
+    assert calls["target_n"] == 128
+    assert calls["epochs"] == 40
+    assert calls["probe_mask"] is False
+    assert calls["probe_mask_sigma"] == 1.0
+    assert calls["probe_mask_diameter"] is None
+    assert calls["torch_mae_pred_l2_match_target"] is False
+
+
+def test_runbook_main_threads_probe_and_mae_flags(monkeypatch, tmp_path):
+    from scripts.studies.runbooks import run_nersc_scan807_cameraman_study as runbook
+
+    calls = {}
+
+    def fake_run(**kwargs):
+        calls.update(kwargs)
+        return {"ok": True}
+
+    monkeypatch.setattr(runbook, "run_nersc_scan807_cameraman_study", fake_run)
+    output_dir = tmp_path / "outputs"
+    argv = [
+        "--scan807-dp",
+        str(tmp_path / "scan_dp.hdf5"),
+        "--scan807-para",
+        str(tmp_path / "scan_para.hdf5"),
+        "--cameraman-dp",
+        str(tmp_path / "cam_dp.hdf5"),
+        "--cameraman-para",
+        str(tmp_path / "cam_para.hdf5"),
+        "--ptychovit-checkpoint",
+        str(tmp_path / "best_model.pth"),
+        "--probe-mask",
+        "--probe-mask-sigma",
+        "0.0",
+        "--probe-mask-diameter",
+        "0.8",
+        "--torch-mae-pred-l2-match-target",
+        "--output-dir",
+        str(output_dir),
+    ]
+    runbook.main(argv)
+
+    assert calls["probe_mask"] is True
+    assert calls["probe_mask_sigma"] == 0.0
+    assert calls["probe_mask_diameter"] == 0.8
+    assert calls["torch_mae_pred_l2_match_target"] is True
+
+
+def test_full_orchestration_threads_target_n_256_through_training_and_cached_bundles(
+    monkeypatch, tmp_path
+):
+    from scripts.studies import nersc_orchestration as orch
+
+    checkpoint = tmp_path / "best_model.pth"
+    checkpoint.write_bytes(b"ckpt")
+    scan_dp = tmp_path / "scan807_dp.hdf5"
+    scan_para = tmp_path / "scan807_para.hdf5"
+    cam_dp = tmp_path / "cameraman_dp.hdf5"
+    cam_para = tmp_path / "cameraman_para.hdf5"
+    _touch_pair(scan_dp, scan_para)
+    _touch_pair(cam_dp, cam_para)
+
+    captured = {
+        "prep_target_n": None,
+        "scan_target_n": None,
+        "required_ns": None,
+        "build_cfg_n": None,
+        "build_cfg_epochs": None,
+        "train_cfg_n": None,
+        "train_cfg_epochs": None,
+        "cache_target_ns": [],
+        "model_ns": [],
+    }
+
+    monkeypatch.setattr(orch, "materialize_pair_working_copy", lambda dp, para, out_dir: (dp, para))
+    monkeypatch.setattr(
+        orch,
+        "run_ptychovit_inference_stage",
+        lambda **kwargs: {
+            "scan807": {"recon_npz": str(tmp_path / "scan_recon.npz")},
+            "cameraman256": {"recon_npz": str(tmp_path / "cam_recon.npz")},
+        },
+    )
+
+    def fake_prepare(**kwargs):
+        captured["prep_target_n"] = kwargs.get("target_n")
+        out_dir = Path(kwargs["output_dir"])
+        out_dir.mkdir(parents=True, exist_ok=True)
+        train = out_dir / "train_raw.npz"
+        test = out_dir / "test_raw.npz"
+        down = out_dir / "down_raw.npz"
+        for path in (train, test, down):
+            path.write_bytes(b"npz")
+        return {"train_npz": str(train), "test_npz": str(test), "downsampled_npz": str(down)}
+
+    def fake_convert(**kwargs):
+        captured["scan_target_n"] = kwargs.get("target_n")
+        out = Path(kwargs["out_npz"])
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"npz")
+        return out
+
+    def fake_build_datasets(**kwargs):
+        captured["required_ns"] = kwargs["required_ns"]
+        captured["build_cfg_n"] = kwargs["cfg"].N
+        captured["build_cfg_epochs"] = kwargs["cfg"].nepochs
+        base = Path(kwargs["cfg"].output_dir) / "datasets" / "N256" / "gs1"
+        base.mkdir(parents=True, exist_ok=True)
+        train = base / "train.npz"
+        test = base / "test.npz"
+        train.write_bytes(b"npz")
+        test.write_bytes(b"npz")
+        return {256: {"train_npz": str(train), "test_npz": str(test), "gt_recon": str(base / "gt.npz")}}
+
+    def fake_run_grid(cfg):
+        captured["train_cfg_n"] = cfg.N
+        captured["train_cfg_epochs"] = cfg.epochs
+        run_dir = Path(cfg.output_dir) / "runs" / "pinn_hybrid_resnet"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "model.pt").write_bytes(b"weights")
+        return {"run_dir": str(run_dir)}
+
+    def fake_cached_bundle(**kwargs):
+        captured["cache_target_ns"].append(kwargs["target_n"])
+        dataset_dir = Path(kwargs["output_dir"]) / "datasets" / "N256" / "gs1"
+        dataset_dir.mkdir(parents=True, exist_ok=True)
+        test_npz = dataset_dir / "test.npz"
+        test_npz.write_bytes(b"npz")
+        return {"test_npz": str(test_npz)}
+
+    def fake_cross(**kwargs):
+        out = {}
+        for name in kwargs["dataset_npzs"]:
+            recon = Path(kwargs["output_dir"]) / name / "recons" / "pinn_hybrid_resnet" / "recon.npz"
+            recon.parent.mkdir(parents=True, exist_ok=True)
+            recon.write_bytes(b"npz")
+            out[name] = {"recon_npz": str(recon)}
+        return out
+
+    def fake_aggregate(**kwargs):
+        captured["model_ns"].append(kwargs.get("model_ns"))
+        return {"ok": True}
+
+    monkeypatch.setattr(orch, "prepare_hybrid_dataset", fake_prepare)
+    monkeypatch.setattr(orch, "_convert_pair_to_downsampled_external_npz", fake_convert)
+    monkeypatch.setattr(orch, "build_datasets", fake_build_datasets)
+    monkeypatch.setattr(orch, "run_grid_lines_torch", fake_run_grid)
+    monkeypatch.setattr(orch, "_build_cached_external_bundle", fake_cached_bundle)
+    monkeypatch.setattr(orch, "run_cross_dataset_hybrid_inference", fake_cross)
+    monkeypatch.setattr(
+        orch,
+        "_write_gt_recon_from_external_npz",
+        lambda dataset_output_dir, external_npz: tmp_path / f"{Path(dataset_output_dir).name}_gt.npz",
+    )
+    monkeypatch.setattr(orch, "aggregate_metrics_visuals_stage", fake_aggregate)
+
+    manifest = orch.run_nersc_scan807_cameraman_study(
+        scan807_dp=scan_dp,
+        scan807_para=scan_para,
+        cameraman_dp=cam_dp,
+        cameraman_para=cam_para,
+        ptychovit_checkpoint=checkpoint,
+        output_dir=tmp_path / "out",
+        half="top",
+        seed=3,
+        ptychovit_repo=tmp_path / "repo",
+        target_n=256,
+        epochs=5,
+    )
+
+    assert captured["prep_target_n"] == 256
+    assert captured["scan_target_n"] == 256
+    assert captured["required_ns"] == [256]
+    assert captured["build_cfg_n"] == 256
+    assert captured["build_cfg_epochs"] == 5
+    assert captured["train_cfg_n"] == 256
+    assert captured["train_cfg_epochs"] == 5
+    assert captured["cache_target_ns"] == [256, 256]
+    assert captured["model_ns"] == [
+        {"pinn_ptychovit": 256, "pinn_hybrid_resnet": 256},
+        {"pinn_ptychovit": 256, "pinn_hybrid_resnet": 256},
+    ]
+    assert manifest["target_n"] == 256
+    assert manifest["epochs"] == 5
+
+
+def test_n256_runbook_forces_target_n_256_and_shift_sum(monkeypatch, tmp_path):
+    from scripts.studies.runbooks import run_nersc_scan807_cameraman_study_n256 as runbook
+
+    calls = {}
+
+    def fake_run(**kwargs):
+        calls.update(kwargs)
+        return {"ok": True}
+
+    monkeypatch.setattr(runbook, "run_nersc_scan807_cameraman_study", fake_run)
+
+    argv = [
+        "--scan807-dp",
+        str(tmp_path / "scan_dp.hdf5"),
+        "--scan807-para",
+        str(tmp_path / "scan_para.hdf5"),
+        "--cameraman-dp",
+        str(tmp_path / "cam_dp.hdf5"),
+        "--cameraman-para",
+        str(tmp_path / "cam_para.hdf5"),
+        "--ptychovit-checkpoint",
+        str(tmp_path / "best_model.pth"),
+        "--epochs",
+        "5",
+        "--output-dir",
+        str(tmp_path / "out_n256"),
+    ]
+    runbook.main(argv)
+
+    assert calls["target_n"] == 256
+    assert calls["position_reassembly_backend"] == "shift_sum"
+    assert calls["downsample_policy"] == "bin-crop"
+    assert calls["epochs"] == 5
+
+
+def test_n256_runbook_writes_parent_invocation_artifacts(monkeypatch, tmp_path):
+    from scripts.studies.runbooks import run_nersc_scan807_cameraman_study_n256 as runbook
+
+    calls = {}
+
+    def fake_run(**kwargs):
+        calls.update(kwargs)
+        return {"ok": True}
+
+    monkeypatch.setattr(runbook, "run_nersc_scan807_cameraman_study", fake_run)
+    output_dir = tmp_path / "outputs"
+    argv = [
+        "--scan807-dp",
+        str(tmp_path / "scan_dp.hdf5"),
+        "--scan807-para",
+        str(tmp_path / "scan_para.hdf5"),
+        "--cameraman-dp",
+        str(tmp_path / "cam_dp.hdf5"),
+        "--cameraman-para",
+        str(tmp_path / "cam_para.hdf5"),
+        "--ptychovit-checkpoint",
+        str(tmp_path / "best_model.pth"),
+        "--output-dir",
+        str(output_dir),
+    ]
+    runbook.main(argv)
+
+    assert (output_dir / "invocation.json").exists()
+    assert (output_dir / "invocation.sh").exists()
+    assert calls["target_n"] == 256
+    assert calls["epochs"] == 40

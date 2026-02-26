@@ -18,6 +18,8 @@ import torch
 import yaml
 from torch.utils.data import DataLoader
 
+from scripts.studies.invocation_logging import write_invocation_artifacts
+
 
 def _parse_bool(value: str | bool) -> bool:
     if isinstance(value, bool):
@@ -405,6 +407,12 @@ def parse_args(argv=None):
 def main(argv=None) -> int:
     args = parse_args(argv)
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    write_invocation_artifacts(
+        output_dir=args.output_dir,
+        script_path="scripts/studies/ptychovit_bridge_entrypoint.py",
+        argv=(argv if argv is not None else sys.argv[1:]),
+        parsed_args=vars(args),
+    )
 
     if not args.ptychovit_repo.exists():
         raise FileNotFoundError(f"ptychovit repo not found: {args.ptychovit_repo}")

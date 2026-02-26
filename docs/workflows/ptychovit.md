@@ -220,6 +220,7 @@ For the mixed NERSC study (PtychoViT restored inference + Hybrid ResNet cross-da
 use:
 
 - Runbook: `scripts/studies/runbooks/run_nersc_scan807_cameraman_study.py`
+- Companion runbook (`N=256` no-downsample): `scripts/studies/runbooks/run_nersc_scan807_cameraman_study_n256.py`
 - Orchestrator: `scripts/studies/nersc_orchestration.py`
 - Pair adapter: `scripts/studies/nersc_pair_adapter.py`
 
@@ -243,6 +244,10 @@ For this orchestration's `256 -> 128` external-raw prep path, downsampling is co
 
 For hybrid external inference in this orchestration, `--position-reassembly-backend` is restricted to
 `shift_sum` only.
+
+The `N=256` companion runbook fixes `target_n=256` and therefore uses the explicit no-downsample path
+in `prepare_nersc_hybrid_dataset.py` (arrays/coords are preserved at native resolution).
+Use the same command for smoke/full and change only `--epochs` (5 for smoke, 40 for full).
 
 ## Evaluation Policy
 

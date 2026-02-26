@@ -542,6 +542,37 @@ Invocation artifacts emitted by `grid_lines_torch_runner.py`:
 - `OUTPUT_DIR/runs/pinn_<architecture>/invocation.json`
 - `OUTPUT_DIR/runs/pinn_<architecture>/invocation.sh`
 
+### Hybrid ResNet Schematic Generator (TikZ + DOT)
+
+Generate architecture schematics for `hybrid_resnet` directly from module execution with
+shape capture. This writes source artifacts that are easy to diff and regenerate.
+
+```bash
+python scripts/studies/render_hybrid_resnet_schematics.py \
+    --output-dir .artifacts/hybrid_resnet_schematics/latest \
+    --N 128 \
+    --gridsize 2 \
+    --fno-width 32 \
+    --fno-blocks 4 \
+    --fno-modes 12
+```
+
+Expected artifacts:
+- `.artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_manifest.json`
+- `.artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_high_level.tex`
+- `.artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_module_flow.dot`
+
+Optional rendering (if tools are installed):
+
+```bash
+pdflatex -interaction=nonstopmode \
+    -output-directory .artifacts/hybrid_resnet_schematics/latest \
+    .artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_high_level.tex
+
+dot -Tsvg .artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_module_flow.dot \
+    -o .artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_module_flow.svg
+```
+
 ### Grid-Lines TensorFlow Workflow CLI
 
 ```bash

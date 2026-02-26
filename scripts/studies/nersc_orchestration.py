@@ -145,9 +145,10 @@ def _build_cached_external_bundle(
     train_external_npz: Path,
     test_external_npz: Path,
     seed: int,
+    target_n: int = 128,
 ) -> Dict[str, str]:
     cfg = GridLinesConfig(
-        N=128,
+        N=int(target_n),
         gridsize=1,
         output_dir=Path(output_dir),
         probe_npz=Path("datasets/Run1084_recon3_postPC_shrunk_3.npz"),
@@ -162,7 +163,7 @@ def _build_cached_external_bundle(
     bundles = build_datasets(
         dataset_source="external_raw_npz",
         cfg=cfg,
-        required_ns=[128],
+        required_ns=[int(target_n)],
         train_data=Path(train_external_npz),
         test_data=Path(test_external_npz),
         n_groups=None,
@@ -170,7 +171,7 @@ def _build_cached_external_bundle(
         neighbor_count=7,
         subsample_seed=seed,
     )
-    return bundles[128]
+    return bundles[int(target_n)]
 
 
 def aggregate_metrics_visuals_stage(
@@ -213,6 +214,12 @@ def run_nersc_scan807_cameraman_study(
     ptychovit_repo: Path = Path("/home/ollie/Documents/ptycho-vit"),
     downsample_policy: str = "bin-crop",
     position_reassembly_backend: str = "shift_sum",
+    target_n: int = 128,
+    epochs: int = 40,
+    probe_mask: bool = False,
+    probe_mask_sigma: float = 1.0,
+    probe_mask_diameter: float | None = None,
+    torch_mae_pred_l2_match_target: bool = False,
 ) -> Dict[str, Any]:
     """Execute the full scan807 + cameraman orchestration with staged artifacts."""
     if downsample_policy not in DOWNSAMPLE_POLICY_CHOICES:
@@ -225,6 +232,12 @@ def run_nersc_scan807_cameraman_study(
             "NERSC orchestration requires position_reassembly_backend='shift_sum' "
             "to avoid unsafe auto/batched fallback paths."
         )
+    if int(target_n) <= 0:
+        raise ValueError(f"target_n must be positive, got {target_n}")
+    if int(epochs) <= 0:
+        raise ValueError(f"epochs must be positive, got {epochs}")
+    if float(probe_mask_sigma) < 0.0:
+        raise ValueError(f"probe_mask_sigma must be >= 0, got {probe_mask_sigma}")
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -250,27 +263,27 @@ def run_nersc_scan807_cameraman_study(
         para_h5=working_pairs["cameraman256"][1],
         output_dir=output_dir / "cameraman256" / "hybrid_dataset",
         half=half,
-        target_n=128,
+        target_n=int(target_n),
         downsample_policy=downsample_policy,
     )
     scan807_test_npz = _convert_pair_to_downsampled_external_npz(
         dp_h5=working_pairs["scan807"][0],
         para_h5=working_pairs["scan807"][1],
-        out_npz=output_dir / "scan807" / "hybrid_dataset" / "scan807_n128_full_test.npz",
+        out_npz=output_dir / "scan807" / "hybrid_dataset" / f"scan807_n{int(target_n)}_full_test.npz",
         work_dir=output_dir / "scan807" / "hybrid_dataset" / "working_pair",
-        target_n=128,
+        target_n=int(target_n),
         downsample_policy=downsample_policy,
     )
 
     training_cfg = GridLinesConfig(
-        N=128,
+        N=int(target_n),
         gridsize=1,
         output_dir=output_dir / "hybrid_training",
         probe_npz=Path("datasets/Run1084_recon3_postPC_shrunk_3.npz"),
         nimgs_train=1,
         nimgs_test=1,
         nphotons=1e9,
-        nepochs=40,
+        nepochs=int(epochs),
         batch_size=8,
         probe_source="custom",
         probe_scale_mode="pad_extrapolate",
@@ -278,7 +291,7 @@ def run_nersc_scan807_cameraman_study(
     bundles = build_datasets(
         dataset_source="external_raw_npz",
         cfg=training_cfg,
-        required_ns=[128],
+        required_ns=[int(target_n)],
         train_data=Path(cameraman_prep["train_npz"]),
         test_data=Path(cameraman_prep["test_npz"]),
         n_groups=None,
@@ -286,8 +299,8 @@ def run_nersc_scan807_cameraman_study(
         neighbor_count=7,
         subsample_seed=seed,
     )
-    train_npz = Path(bundles[128]["train_npz"])
-    test_npz = Path(bundles[128]["test_npz"])
+    train_npz = Path(bundles[int(target_n)]["train_npz"])
+    test_npz = Path(bundles[int(target_n)]["test_npz"])
 
     common_cfg = TorchRunnerConfig(
         train_npz=train_npz,
@@ -295,15 +308,19 @@ def run_nersc_scan807_cameraman_study(
         output_dir=output_dir / "hybrid_training",
         architecture="hybrid_resnet",
         seed=seed,
-        epochs=40,
+        epochs=int(epochs),
         batch_size=8,
         learning_rate=2e-4,
         infer_batch_size=128,
         generator_output_mode="real_imag",
-        N=128,
+        N=int(target_n),
         gridsize=1,
         probe_source="custom",
         torch_loss_mode="mae",
+        torch_mae_pred_l2_match_target=bool(torch_mae_pred_l2_match_target),
+        probe_mask=bool(probe_mask),
+        probe_mask_sigma=float(probe_mask_sigma),
+        probe_mask_diameter=probe_mask_diameter,
         scheduler="ReduceLROnPlateau",
         plateau_factor=0.5,
         plateau_patience=2,
@@ -322,12 +339,14 @@ def run_nersc_scan807_cameraman_study(
         train_external_npz=scan807_test_npz,
         test_external_npz=scan807_test_npz,
         seed=seed,
+        target_n=int(target_n),
     )
     cameraman_cached_bundle = _build_cached_external_bundle(
         output_dir=output_dir / "cameraman256" / "hybrid_cached",
         train_external_npz=Path(cameraman_prep["train_npz"]),
         test_external_npz=Path(cameraman_prep["test_npz"]),
         seed=seed,
+        target_n=int(target_n),
     )
 
     hybrid_results = run_cross_dataset_hybrid_inference(
@@ -338,7 +357,7 @@ def run_nersc_scan807_cameraman_study(
         },
         output_dir=output_dir,
         base_cfg=replace(common_cfg, epochs=1),
-        allow_oom_fallback=False,
+        allow_oom_fallback=True,
     )
 
     gt_paths = {
@@ -357,14 +376,20 @@ def run_nersc_scan807_cameraman_study(
                 "pinn_hybrid_resnet": Path(hybrid_results[dataset_name]["recon_npz"]),
             },
             gt_recon_path=gt_paths[dataset_name],
-            model_ns={"pinn_ptychovit": 256, "pinn_hybrid_resnet": 128},
+            model_ns={"pinn_ptychovit": 256, "pinn_hybrid_resnet": int(target_n)},
         )
 
     manifest = {
         "output_dir": str(output_dir),
         "half": half,
+        "target_n": int(target_n),
+        "epochs": int(epochs),
         "downsample_policy": downsample_policy,
         "position_reassembly_backend": position_reassembly_backend,
+        "probe_mask": bool(probe_mask),
+        "probe_mask_sigma": float(probe_mask_sigma),
+        "probe_mask_diameter": probe_mask_diameter,
+        "torch_mae_pred_l2_match_target": bool(torch_mae_pred_l2_match_target),
         "seed": int(seed),
         "working_pairs": {k: [str(v[0]), str(v[1])] for k, v in working_pairs.items()},
         "ptychovit_outputs": ptychovit_outputs,

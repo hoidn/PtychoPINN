@@ -33,6 +33,74 @@ python scripts/studies/runbooks/run_nersc_scan807_cameraman_study.py \
   --seed 3
 ```
 
+### `nersc-scan807-cameraman-ptychovit-hybrid-orchestration-n256-no-downsample`
+
+- Purpose: Companion to the `N=128` orchestration that keeps both model arms on `N=256` end-to-end (no 256->128 conversion), while preserving the same staged workflow and strict `shift_sum` reassembly policy.
+- Script: `scripts/studies/runbooks/run_nersc_scan807_cameraman_study_n256.py`
+- Smoke/full rule: use the same command, changing only `--epochs`:
+  - smoke: `--epochs 5`
+  - full: `--epochs 40`
+- Core helpers:
+  - `scripts/studies/prepare_nersc_hybrid_dataset.py` (explicit no-downsample path when `target_n == source_n`)
+  - `scripts/studies/nersc_orchestration.py` (`target_n` + `epochs` threaded through training/inference)
+
+CLI entry point (smoke example):
+
+```bash
+python scripts/studies/runbooks/run_nersc_scan807_cameraman_study_n256.py \
+  --scan807-dp /home/ollie/Downloads/nersc/testdata/scan807_dp.hdf5 \
+  --scan807-para /home/ollie/Downloads/nersc/testdata/scan807_para.hdf5 \
+  --cameraman-dp /home/ollie/Downloads/nersc/data/cameraman256_dp.hdf5 \
+  --cameraman-para /home/ollie/Downloads/nersc/data/cameraman256_para.hdf5 \
+  --ptychovit-checkpoint datasets/run145/best_model.pth \
+  --half top \
+  --epochs 5 \
+  --output-dir outputs/nersc_scan807_cameraman_study_n256_no_downsample_smoke \
+  --seed 3
+```
+
+### `nersc-scan807-cameraman-n128-factorial-probe-mask-mae-downsample`
+
+- Purpose: Run a sequential `N=128` factorial sweep over:
+  - probe mask mode: `off`, `on_soft`, `on_hard`
+  - Torch MAE prediction-L2 matching: `off`, `on`
+  - downsample policy: `bin-crop`, `crop-bin`
+- Script: `scripts/studies/runbooks/run_nersc_scan807_cameraman_study_n128_factorial.py`
+- Matrix size: `3 * 2 * 2 = 12` runs per sweep.
+- Epoch policy: fixed for the whole sweep (`--epochs 20` or `--epochs 40`), not a matrix axis.
+- Output contract:
+  - `factorial_manifest.json` at study root
+  - per-run outputs under `runs/<run_id>/`
+
+Runbook CLI (full example):
+
+```bash
+python scripts/studies/runbooks/run_nersc_scan807_cameraman_study_n128_factorial.py \
+  --scan807-dp /home/ollie/Downloads/nersc/testdata/scan807_dp.hdf5 \
+  --scan807-para /home/ollie/Downloads/nersc/testdata/scan807_para.hdf5 \
+  --cameraman-dp /home/ollie/Downloads/nersc/data/cameraman256_dp.hdf5 \
+  --cameraman-para /home/ollie/Downloads/nersc/data/cameraman256_para.hdf5 \
+  --ptychovit-checkpoint datasets/run145/best_model.pth \
+  --half top \
+  --epochs 40 \
+  --soft-mask-sigma 1.0 \
+  --output-root outputs/nersc_scan807_cameraman_study_n128_factorial_$(date +%Y%m%d_%H%M%S) \
+  --seed 3
+```
+
+Collation script:
+
+```bash
+python scripts/studies/collate_nersc_n128_factorial_results.py \
+  --factorial-root outputs/<factorial_run_dir> \
+  --shared-dir outputs/<factorial_run_dir>/comparison_bundle
+```
+
+Collation outputs:
+- `comparison_bundle/metrics_summary.csv`
+- `comparison_bundle/metrics_summary.md`
+- `comparison_bundle/shared_pngs/{run_id}__dataset-{dataset}__compare_amp_phase.png`
+
 ### `grid-lines-external-fly001-n128-top-train-full-test-e40`
 
 - Purpose: Run external-raw `fly001` study at `N=128` with top-half train and full-object test (no additional subsampling), comparing Torch `cnn` and `hybrid_resnet`.

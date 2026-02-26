@@ -111,6 +111,65 @@ def test_prepare_hybrid_dataset_records_manifest_and_counts(tmp_path):
     assert manifest["n_test"] == 4
     assert "source_dp_sha256" in manifest
     assert "source_para_sha256" in manifest
+    assert manifest["source_n"] == 256
+    assert manifest["target_n"] == 128
+    assert manifest["downsample_applied"] is True
+
+
+def test_downsample_external_payload_target_equals_source_keeps_arrays_unchanged():
+    from scripts.studies.prepare_nersc_hybrid_dataset import _downsample_external_payload
+
+    diffraction = np.arange(1, 17, dtype=np.float32).reshape(1, 4, 4)
+    object_guess = (np.arange(1, 17, dtype=np.float32).reshape(4, 4) * (1.0 + 0.5j)).astype(np.complex64)
+    probe_guess = (np.arange(1, 17, dtype=np.float32).reshape(4, 4) * (0.1 + 0.2j)).astype(np.complex64)
+    xcoords = np.array([2.0], dtype=np.float64)
+    ycoords = np.array([4.0], dtype=np.float64)
+    payload = {
+        "diffraction": diffraction,
+        "objectGuess": object_guess,
+        "probeGuess": probe_guess,
+        "xcoords": xcoords,
+        "ycoords": ycoords,
+        "xcoords_start": xcoords.copy(),
+        "ycoords_start": ycoords.copy(),
+    }
+
+    out = _downsample_external_payload(payload, target_n=4)
+    assert np.array_equal(out["diffraction"], diffraction)
+    assert np.array_equal(out["objectGuess"], object_guess)
+    assert np.array_equal(out["probeGuess"], probe_guess)
+    assert np.array_equal(out["xcoords"], xcoords)
+    assert np.array_equal(out["ycoords"], ycoords)
+    assert np.array_equal(out["xcoords_start"], xcoords)
+    assert np.array_equal(out["ycoords_start"], ycoords)
+
+
+def test_prepare_hybrid_dataset_n256_records_no_downsample_in_manifest(tmp_path):
+    from scripts.studies.prepare_nersc_hybrid_dataset import prepare_hybrid_dataset
+
+    dp_h5 = tmp_path / "cameraman_dp.hdf5"
+    para_h5 = tmp_path / "cameraman_para.hdf5"
+    _write_cameraman_pair(dp_h5, para_h5)
+
+    result = prepare_hybrid_dataset(
+        dp_h5=dp_h5,
+        para_h5=para_h5,
+        output_dir=tmp_path / "prepared_n256",
+        half="top",
+        target_n=256,
+    )
+
+    manifest = json.loads(Path(result["manifest_json"]).read_text())
+    assert manifest["source_n"] == 256
+    assert manifest["target_n"] == 256
+    assert manifest["downsample_applied"] is False
+
+    with np.load(result["canonical_npz"], allow_pickle=True) as canonical, np.load(
+        result["downsampled_npz"], allow_pickle=True
+    ) as down:
+        assert np.array_equal(down["diffraction"], canonical["diff3d"])
+        assert np.array_equal(down["objectGuess"], canonical["objectGuess"])
+        assert np.array_equal(down["probeGuess"], canonical["probeGuess"])
 
 
 def test_downsample_external_payload_handles_odd_object_shape_by_center_crop():

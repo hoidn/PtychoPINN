@@ -97,6 +97,9 @@ class TorchRunnerConfig:
     probe_source: Optional[str] = None
     torch_loss_mode: str = "mae"
     torch_mae_pred_l2_match_target: bool = False
+    probe_mask: bool = False
+    probe_mask_sigma: float = 1.0
+    probe_mask_diameter: Optional[float] = None
     fno_modes: int = 12
     fno_width: int = 32
     fno_blocks: int = 4
@@ -468,6 +471,9 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         generator_output_mode=cfg.generator_output_mode,
         object_big=False,
         probe_big=False,
+        probe_mask=cfg.probe_mask,
+        probe_mask_sigma=cfg.probe_mask_sigma,
+        probe_mask_diameter=cfg.probe_mask_diameter,
     )
 
     training_config = TrainingConfig(
@@ -981,6 +987,31 @@ def main(argv=None) -> None:
         action="store_false",
         help="Disable prediction-to-target L2 matching in MAE mode.",
     )
+    parser.add_argument(
+        "--probe-mask",
+        dest="probe_mask",
+        action="store_true",
+        default=False,
+        help="Enable probe mask during forward-model illumination.",
+    )
+    parser.add_argument(
+        "--no-probe-mask",
+        dest="probe_mask",
+        action="store_false",
+        help="Disable probe mask during forward-model illumination.",
+    )
+    parser.add_argument(
+        "--probe-mask-sigma",
+        type=float,
+        default=1.0,
+        help="Gaussian edge sigma for probe mask smoothing (0.0 gives hard edge).",
+    )
+    parser.add_argument(
+        "--probe-mask-diameter",
+        type=float,
+        default=None,
+        help="Optional probe-mask diameter in normalized units.",
+    )
     parser.add_argument("--torch-resnet-width", type=int, default=None,
                         help="Hybrid ResNet bottleneck width (must be divisible by 4)")
     parser.add_argument("--fno-modes", type=int, default=12,
@@ -1105,6 +1136,9 @@ def main(argv=None) -> None:
         probe_source=args.probe_source,
         torch_loss_mode=args.torch_loss_mode,
         torch_mae_pred_l2_match_target=args.torch_mae_pred_l2_match_target,
+        probe_mask=args.probe_mask,
+        probe_mask_sigma=args.probe_mask_sigma,
+        probe_mask_diameter=args.probe_mask_diameter,
         fno_modes=args.fno_modes,
         fno_width=args.fno_width,
         fno_blocks=args.fno_blocks,

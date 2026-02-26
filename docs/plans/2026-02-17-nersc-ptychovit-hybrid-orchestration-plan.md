@@ -4,6 +4,8 @@
 
 **Goal:** Build a reproducible study orchestration that runs checkpoint-restored PtychoViT inference on `scan807` and `cameraman256`, trains `hybrid_resnet` on half of cameraman at `N=128` for 40 epochs, runs cross-dataset hybrid inference on full `scan807` and full `cameraman256`, then produces comparison metrics and visuals for both datasets.
 
+**Companion:** For the same study without resolution downsampling (`N=256` end-to-end), see `docs/plans/2026-02-18-nersc-ptychovit-hybrid-orchestration-n256-no-downsample-plan.md`.
+
 **Architecture:** Add a thin orchestration layer under `scripts/studies/` that reuses existing conversion/runner/evaluation paths wherever possible. Adapt NERSC paired HDF5 datasets into canonical NPZ inputs for external-raw Torch studies, run PtychoViT via the existing bridge entrypoint in inference mode, run Hybrid ResNet training/inference via existing Torch runner/model-loading paths, and aggregate metrics/visuals via existing grid-lines comparison helpers. Keep model execution paths unchanged; add new abstractions only when they improve maintainability or remove duplication.
 
 **Tech Stack:** Python 3.11, NumPy, h5py, argparse, subprocess, PyTorch/Lightning runtime, existing `scripts/studies/*` wrappers, pytest

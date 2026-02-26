@@ -29,10 +29,8 @@ dependencies = [
     "tensorflow-datasets",
     "tensorflow-hub",
     "tensorflow-metadata",
-    "tensorflow-probability",  # This version works with TF 2.15
-    #"tensorflow-probability<0.23.0",  # This version works with TF 2.15
-    #"torchmetrics",
-    #"torchvision",
+    "tensorflow-probability",
+    "torch",
     "tqdm",
     "ujson",
 ]

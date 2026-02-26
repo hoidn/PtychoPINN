@@ -36,6 +36,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--ptychovit-repo", type=Path, default=Path("/home/ollie/Documents/ptycho-vit"))
     parser.add_argument("--half", type=str, choices=["top", "bottom"], default="top")
     parser.add_argument(
+        "--target-n",
+        type=int,
+        default=128,
+        help="Target diffraction/object patch size for hybrid study path (default: 128).",
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=40,
+        help="Hybrid training epochs for this runbook (default: 40).",
+    )
+    parser.add_argument(
         "--downsample-policy",
         type=str,
         choices=list(DOWNSAMPLE_POLICY_CHOICES),
@@ -52,6 +64,44 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         choices=["shift_sum"],
         default="shift_sum",
         help="Pinned external position reassembly backend for this study (must be shift_sum).",
+    )
+    parser.add_argument(
+        "--probe-mask",
+        dest="probe_mask",
+        action="store_true",
+        default=False,
+        help="Enable probe mask in hybrid_resnet Torch path.",
+    )
+    parser.add_argument(
+        "--no-probe-mask",
+        dest="probe_mask",
+        action="store_false",
+        help="Disable probe mask in hybrid_resnet Torch path.",
+    )
+    parser.add_argument(
+        "--probe-mask-sigma",
+        type=float,
+        default=1.0,
+        help="Probe mask edge smoothing sigma (0.0 for hard edge).",
+    )
+    parser.add_argument(
+        "--probe-mask-diameter",
+        type=float,
+        default=None,
+        help="Optional probe mask diameter override.",
+    )
+    parser.add_argument(
+        "--torch-mae-pred-l2-match-target",
+        dest="torch_mae_pred_l2_match_target",
+        action="store_true",
+        default=False,
+        help="Enable per-sample prediction-L2 matching to target in Torch MAE mode.",
+    )
+    parser.add_argument(
+        "--no-torch-mae-pred-l2-match-target",
+        dest="torch_mae_pred_l2_match_target",
+        action="store_false",
+        help="Disable prediction-L2 matching to target in Torch MAE mode.",
     )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--seed", type=int, default=3)
@@ -76,8 +126,14 @@ def main(argv: list[str] | None = None) -> None:
         ptychovit_checkpoint=args.ptychovit_checkpoint,
         output_dir=args.output_dir,
         half=args.half,
+        target_n=args.target_n,
+        epochs=args.epochs,
         downsample_policy=args.downsample_policy,
         position_reassembly_backend=args.position_reassembly_backend,
+        probe_mask=args.probe_mask,
+        probe_mask_sigma=args.probe_mask_sigma,
+        probe_mask_diameter=args.probe_mask_diameter,
+        torch_mae_pred_l2_match_target=args.torch_mae_pred_l2_match_target,
         seed=args.seed,
         ptychovit_repo=args.ptychovit_repo,
     )

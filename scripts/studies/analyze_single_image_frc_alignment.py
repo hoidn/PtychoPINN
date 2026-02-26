@@ -410,7 +410,7 @@ def write_readme(args: argparse.Namespace, out_dir: Path, summary: Dict[str, obj
         "```python",
         "import numpy as np",
         "",
-        "from frc.single_image_frc import (",
+        "from ptycho.single_image_frc import (",
         "    center_crop_even_square,",
         "    split_binomial_thinned,",
         ")",

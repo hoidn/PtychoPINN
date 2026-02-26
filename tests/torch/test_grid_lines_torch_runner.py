@@ -952,6 +952,22 @@ class TestChannelGridsizeAlignment:
         training_config, _ = setup_torch_configs(cfg)
         assert training_config.torch_mae_pred_l2_match_target is True
 
+    def test_runner_sets_probe_mask_controls(self, tmp_path):
+        """Test that setup_torch_configs propagates probe mask controls."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid",
+            probe_mask=True,
+            probe_mask_sigma=0.0,
+            probe_mask_diameter=0.75,
+        )
+        training_config, _ = setup_torch_configs(cfg)
+        assert training_config.model.probe_mask is True
+        assert training_config.model.probe_mask_sigma == 0.0
+        assert training_config.model.probe_mask_diameter == 0.75
+
     def test_runner_accepts_stable_hybrid(self, tmp_path):
         """Test that setup_torch_configs accepts 'stable_hybrid' architecture.
 

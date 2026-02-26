@@ -161,6 +161,22 @@ python scripts/studies/grid_lines_torch_runner.py \
 - `--grad-clip`: Gradient clip max norm (<=0 disables clipping).
 - `--probe-source {custom,ideal_disk}`: Optional expected probe source (warns if metadata differs).
 
+### `runbooks/run_nersc_scan807_cameraman_study.py` and `runbooks/run_nersc_scan807_cameraman_study_n256.py`
+NERSC orchestration runbooks for paired-HDF5 scan807+cameraman studies that combine:
+- checkpoint-restored `pinn_ptychovit` inference,
+- cameraman half-train/full-test `pinn_hybrid_resnet` training,
+- cross-dataset hybrid checkpoint-reuse inference,
+- per-dataset metrics/visual aggregation.
+
+`N=128` runbook (`run_nersc_scan807_cameraman_study.py`):
+- default `--target-n 128`, `--epochs 40`
+- downsample policy configurable by `--downsample-policy`
+
+`N=256` companion runbook (`run_nersc_scan807_cameraman_study_n256.py`):
+- fixed `target_n=256` with no cross-N conversion
+- expose `--epochs` only (use smoke/full parity: same command, `--epochs 5` vs `--epochs 40`)
+- external hybrid reassembly remains pinned to `shift_sum`
+
 ### `aggregate_and_plot_results.py`
 Analysis script that processes results from multiple training runs and generates visualization plots.
 

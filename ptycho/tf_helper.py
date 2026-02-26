@@ -1191,7 +1191,7 @@ def shift_and_sum(
     obj_tensor: np.ndarray,
     global_offsets: np.ndarray,
     M: int = 10,
-    chunk_size: int = 128,
+    chunk_size: int = 32,
 ) -> tf.Tensor:
     """
     New batched implementation of shift-and-sum for efficient patch reassembly.
@@ -1336,7 +1336,7 @@ def reassemble_position(
     obj_tensor: np.ndarray,
     global_offsets: np.ndarray,
     M: int = 10,
-    chunk_size: int = 128,
+    chunk_size: int = 32,
 ) -> tf.Tensor:
     """
     Reassemble patches using position-based shift-and-sum with normalization.

@@ -111,6 +111,8 @@ class ModelConfig:
     object_big: bool = True
     probe_big: bool = True  # Changed default
     probe_mask: bool = False  # Changed default
+    probe_mask_sigma: float = 1.0
+    probe_mask_diameter: Optional[float] = None
     pad_object: bool = True
     probe_scale: float = 4.
     gaussian_smoothing_sigma: float = 0.0

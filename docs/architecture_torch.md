@@ -164,6 +164,19 @@ model = generator.build_model(pt_configs)
 
 **Torch Runner:** `scripts/studies/grid_lines_torch_runner.py` provides CLI for training FNO/hybrid models (including `stable_hybrid`, `fno_vanilla`, and `hybrid_resnet`) on cached datasets from the grid-lines workflow.
 
+**Hybrid ResNet Schematics (TikZ/DOT):** Use `scripts/studies/render_hybrid_resnet_schematics.py` to generate a shape-backed architecture manifest and source schematics:
+
+```bash
+python scripts/studies/render_hybrid_resnet_schematics.py \
+  --output-dir .artifacts/hybrid_resnet_schematics/latest \
+  --N 128 --gridsize 2 --fno-width 32 --fno-blocks 4 --fno-modes 12
+```
+
+Outputs:
+- `.artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_manifest.json`
+- `.artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_high_level.tex` (LaTeX/TikZ, ResNet-style)
+- `.artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_module_flow.dot` (Graphviz DOT)
+
 **Forward Signature Contract (FORWARD-SIG-001):**
 FNO and Hybrid architectures use a **single-input forward signature**:
 ```python

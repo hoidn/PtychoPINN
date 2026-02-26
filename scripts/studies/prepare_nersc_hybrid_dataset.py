@@ -110,6 +110,18 @@ def _downsample_external_payload(
     object_guess = np.asarray(data["objectGuess"])
     probe_guess = np.asarray(data["probeGuess"])
 
+    if factor == 1:
+        # Explicit no-op path for same-resolution studies (e.g., N=256 companion runs).
+        downsampled["diffraction"] = diffraction.astype(np.float32)
+        downsampled["objectGuess"] = object_guess.astype(np.complex64)
+        downsampled["probeGuess"] = probe_guess.astype(np.complex64)
+        for key in ("xcoords", "ycoords", "xcoords_start", "ycoords_start"):
+            if key in downsampled:
+                downsampled[key] = np.asarray(downsampled[key], dtype=np.float64)
+        if "scan_index" not in downsampled:
+            downsampled["scan_index"] = np.arange(n_scans, dtype=np.int64)
+        return downsampled
+
     if downsample_policy == "bin-crop":
         downsampled["diffraction"] = _bin_real_stack(diffraction, factor)
         downsampled["objectGuess"] = _crop_center_2d(
@@ -182,6 +194,8 @@ def prepare_hybrid_dataset(
 
     with np.load(canonical_npz, allow_pickle=True) as loaded:
         converted = {key: loaded[key] for key in loaded.files}
+    source_key = "diffraction" if "diffraction" in converted else "diff3d"
+    source_n = int(np.asarray(converted[source_key]).shape[1])
     downsampled = _downsample_external_payload(
         converted,
         target_n=target_n,
@@ -216,7 +230,9 @@ def prepare_hybrid_dataset(
         "downsampled_npz": str(downsampled_npz),
         "train_npz": str(train_npz),
         "test_npz": str(test_npz),
+        "source_n": int(source_n),
         "target_n": int(target_n),
+        "downsample_applied": bool(source_n != int(target_n)),
         "downsample_policy": downsample_policy,
         "half": half,
         "split_threshold": split_threshold,
