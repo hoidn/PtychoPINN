@@ -20,6 +20,12 @@
 - `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-structural-search.md`
   - Owns Tasks 12-15 (Stages C-E structural-axis work and governance).
 
+## Global Epoch Contract
+
+- All stage execution runs (`A` through `E`) MUST use at least `10` training epochs per run (`--epochs-n128 >= 10`, `--epochs-n256 >= 10`) unless an approved exception is recorded in the execution log with rationale.
+- Any stage outputs produced with fewer than `10` epochs are non-canonical for promotion/governance decisions.
+- If a downstream stage consumed non-canonical (<10 epoch) upstream outputs, rerun from the earliest violating stage and regenerate all dependent downstream artifacts.
+
 ## Progress Checklist
 
 - [ ] Task 0-8 complete in `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-implementation-core.md`

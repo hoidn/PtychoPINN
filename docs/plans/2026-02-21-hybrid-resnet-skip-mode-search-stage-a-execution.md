@@ -26,6 +26,8 @@ Execution order for this split document is:
 - Hub document: `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search.md`.
 - Task-ordering precondition: do not execute Task 9 commands until runbook implementation work is complete (Tasks 0-8 from `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-implementation-core.md` plus Task 10 in this document, or equivalent merged implementation already present in the working tree).
 - Cleanup posture: follow the design-doc retention/cleanup contract as operationally critical guidance, even if orchestration enforcement is soft.
+- Epoch floor: all Stage-A/Stage-B runs MUST use at least `10` epochs (`--epochs-n128 >= 10`, `--epochs-n256 >= 10`) unless an approved exception is recorded in the execution log.
+- Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources; rerun from earliest violating stage if such outputs were consumed.
 
 ### Strong-Advisory Cleanup Contract (Stage A)
 

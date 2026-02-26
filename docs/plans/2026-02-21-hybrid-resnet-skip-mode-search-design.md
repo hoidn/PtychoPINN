@@ -151,6 +151,11 @@ Stage identifier contract:
 - Manifests and summaries must persist both `stage_id` and `substage_id`.
 - Retention and promotion provenance must be keyed at sub-stage granularity where applicable.
 
+Epoch-floor contract:
+- All stage runs (`A-E`) MUST use at least `10` training epochs per run (`--epochs-n128 >= 10`, `--epochs-n256 >= 10`) unless an approved exception is recorded in the execution log with rationale.
+- Outputs generated below this floor are non-canonical and MUST NOT be used as promotion sources.
+- If non-canonical outputs were consumed downstream, rerun from the earliest violating stage and regenerate downstream promotion artifacts.
+
 ## 5.1 Stage A (Baseline Search)
 
 Axes:

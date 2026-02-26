@@ -21,6 +21,9 @@ This split document owns Tasks 12-15 (structural-axis implementation/search stag
 - Hub document: `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search.md`.
 - Cleanup posture: treat the design-doc retention/cleanup contract as operationally critical guidance across Stages C-E, even when enforcement remains soft.
 - Between consecutive Stage C/D/E run invocations, delete repo-root `memoized_data/` before launching the next run command (`rm -rf memoized_data/`).
+- Global epoch floor: all stage runs (`A-E`) MUST use at least `10` training epochs per run (`--epochs-n128 >= 10`, `--epochs-n256 >= 10`) unless an approved exception is recorded in the execution log with rationale.
+- Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources.
+- If any downstream Stage C/D/E artifact consumed non-canonical upstream outputs, rerun from the earliest violating stage and regenerate downstream artifacts.
 
 ### Strong-Advisory Cleanup Contract (Stages C-E)
 
@@ -109,6 +112,7 @@ Record provenance with `--stage-id C --substage-id C2`.
 Stage budget:
 - N=128: max 12 runs for C1 + max 12 runs for C2
 - N=256: top 4 feasible Pareto-ranked candidates from C2 only
+- Epoch floor: all Stage-C runs MUST use `--epochs-n128 >= 10` and `--epochs-n256 >= 10`.
 - Before selecting top-4 for `N=256`, apply the boundary seed-rerank policy on the C2 `N=128` source summary (`top-K + next 2`, seeds `11` and `17`) and promote from the resulting robustness summary.
 - Between consecutive Stage C invocations (including seed-rerank reruns and promotion runs), run `rm -rf memoized_data/`.
 - After each Stage C invocation, perform heavy-pruning verification and log any retained heavy paths with explicit justification.
@@ -216,6 +220,7 @@ Coverage expectations for new branch-capacity knobs:
 Budget rule:
 - N=128: max 18 runs per sub-stage (D1-D4) and max `12` GPU-hours per sub-stage.
 - N=256: top 4 feasible Pareto-ranked candidates only and max `16` GPU-hours per sub-stage.
+- Epoch floor: all Stage-D runs MUST use `--epochs-n128 >= 10` and `--epochs-n256 >= 10`.
 - Before selecting top-4 for `N=256`, apply the boundary seed-rerank policy on the D4 `N=128` source summary (`top-K + next 2`, seeds `11` and `17`) and promote from the resulting robustness summary.
 - Between consecutive Stage D invocations (including seed-rerank reruns and promotion runs), run `rm -rf memoized_data/`.
 - After each Stage D invocation, perform heavy-pruning verification and log any retained heavy paths with explicit justification.
@@ -292,6 +297,7 @@ pytest tests/torch/test_grid_lines_torch_runner.py -k "workflow and skip_style a
 Run skip styles on best config from Stage D, budget:
 - N=128: all 3 styles
 - N=256: top 2 feasible Pareto-ranked styles only
+- Epoch floor: all Stage-E runs MUST use `--epochs-n128 >= 10` and `--epochs-n256 >= 10`.
 - Before selecting top-2 for `N=256`, apply the boundary seed-rerank policy on the Stage-E `N=128` source summary (`top-K + next 2`, seeds `11` and `17`) and promote from the resulting robustness summary.
 - Between consecutive Stage E invocations (including seed-rerank reruns and promotion runs), run `rm -rf memoized_data/`.
 - After each Stage E invocation, perform heavy-pruning verification and log any retained heavy paths with explicit justification.
