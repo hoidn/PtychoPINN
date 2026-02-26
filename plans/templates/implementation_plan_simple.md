@@ -56,79 +56,12 @@
 - Related telemetry/attempts: <links to relevant artifacts or plan history>
 - Data dependencies to verify: <summarize the external inputs (datasets, configs, HKL/sigma assets, etc.) this initiative relies on; reference `docs/data_dependency_manifest.md` entries and note any additions needed>
 
-## Workflow Compatibility Contract (Required for Orchestrated Execution)
-
-Use this contract when the plan is executed via workflow loops that perform:
-- implementation vs plan review,
-- targeted check execution on each review cycle,
-- deterministic progress tracking.
-
-### Backlog Link Contract
-- The paired backlog item in `docs/backlog/active/` must include:
-  - `plan_path` pointing to this plan file
-  - `priority` (integer; lower means earlier)
-  - `check_commands` (targeted commands; avoid full-suite defaults unless required)
-
-### Task Slice Contract
-- Every executable unit must be written as `### Task <ID>: <Title>`.
-- `<ID>` must be stable and sortable (for example `A1`, `A2`, `B1`, `C3`).
-- Each task must include all fields below exactly once:
-  - `**Status:** pending | in_progress | blocked | done`
-  - `**Files:**` with explicit paths
-  - `**Implementation Steps:**` numbered list
-  - `**Check Commands:**` fenced `bash` block with targeted commands
-  - `**Expected Evidence:**` artifact paths/logs proving completion
-
-### Progress Rules
-- A task is complete only when:
-  - implementation steps are finished,
-  - check commands pass,
-  - expected evidence is produced.
-- Keep completed tasks in-place and update only `**Status:**` for auditability.
-
 ## Phase A — <name>
-### Task Slices
-
-### Task A0: Nucleus / Test-first Gate
-**Status:** pending
-**Files:**
-- Create/Modify: <path>
-**Implementation Steps:**
-1. <minimal probe to validate assumptions>
-**Check Commands:**
-```bash
-<targeted command>
-```
-**Expected Evidence:**
-- <artifact/log path>
-
-### Task A1: <title>
-**Status:** pending
-**Files:**
-- Create/Modify: <path>
-**Implementation Steps:**
-1. <step>
-2. <step>
-**Check Commands:**
-```bash
-<targeted command 1>
-<targeted command 2>
-```
-**Expected Evidence:**
-- <artifact/log path>
-
-### Task A2: <title>
-**Status:** pending
-**Files:**
-- Create/Modify: <path>
-**Implementation Steps:**
-1. <step>
-**Check Commands:**
-```bash
-<targeted command>
-```
-**Expected Evidence:**
-- <artifact/log path>
+### Checklist
+- [ ] A0: **Nucleus / Test-first gate:** <minimal probe or selector to validate assumptions before implementation>
+- [ ] A1: <task> (owner, expected artifacts)
+- [ ] A2: <task>
+- [ ] A3: <task>
 
 ### Dependency Analysis (Required for Refactors)
 - **Touched Modules:** [list]
@@ -139,65 +72,17 @@ Use this contract when the plan is executed via workflow loops that perform:
 - <risk 1>
 
 ## Phase B — <name>
-### Task Slices
-
-### Task B1: <title>
-**Status:** pending
-**Files:**
-- Create/Modify: <path>
-**Implementation Steps:**
-1. <step>
-**Check Commands:**
-```bash
-<targeted command>
-```
-**Expected Evidence:**
-- <artifact/log path>
-
-### Task B2: <title>
-**Status:** pending
-**Files:**
-- Create/Modify: <path>
-**Implementation Steps:**
-1. <step>
-**Check Commands:**
-```bash
-<targeted command>
-```
-**Expected Evidence:**
-- <artifact/log path>
+### Checklist
+- [ ] B1: <task>
+- [ ] B2: <task>
 
 ### Notes & Risks
 - <risk 2>
 
 ## Phase C — <name>
-### Task Slices
-
-### Task C1: <title>
-**Status:** pending
-**Files:**
-- Create/Modify: <path>
-**Implementation Steps:**
-1. <step>
-**Check Commands:**
-```bash
-<targeted command>
-```
-**Expected Evidence:**
-- <artifact/log path>
-
-### Task C2: <title>
-**Status:** pending
-**Files:**
-- Create/Modify: <path>
-**Implementation Steps:**
-1. <step>
-**Check Commands:**
-```bash
-<targeted command>
-```
-**Expected Evidence:**
-- <artifact/log path>
+### Checklist
+- [ ] C1: <task>
+- [ ] C2: <task>
 
 ### Notes & Risks
 - <risk 3>
@@ -205,3 +90,4 @@ Use this contract when the plan is executed via workflow loops that perform:
 ## Artifacts Index
 - Reports root: `docs/plans/<initiative-id>/reports/`
 - Latest run: `<YYYY-MM-DDTHHMMSSZ>/`
+

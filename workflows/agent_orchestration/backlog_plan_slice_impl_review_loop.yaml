@@ -1,0 +1,321 @@
+version: "1.1.1"
+name: "backlog-plan-slice-impl-review-loop-v1"
+context:
+  max_review_cycles: "3"
+providers:
+  codex:
+    command:
+      [
+        "codex",
+        "exec",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "--skip-git-repo-check",
+        "--model",
+        "${model}",
+        "--config",
+        "reasoning_effort=${reasoning_effort}",
+      ]
+    input_mode: stdin
+    defaults:
+      model: "gpt-5.3-codex"
+      reasoning_effort: "high"
+
+  claude:
+    command: ["claude", "-p", "${PROMPT}", "--dangerously-skip-permissions", "--model", "${model}"]
+    input_mode: argv
+    defaults:
+      model: "claude-opus-4-1"
+
+steps:
+  - name: SelectBacklogItem
+    command:
+      - bash
+      - -lc
+      - |
+        python - <<'PY'
+        import json
+        from pathlib import Path
+
+        ACTIVE_DIR = Path("docs/backlog/active")
+        STATE_DIR = Path("state")
+
+        if not ACTIVE_DIR.exists():
+            raise SystemExit("Missing docs/backlog/active")
+
+        items = sorted(ACTIVE_DIR.glob("*.md"))
+        if not items:
+            raise SystemExit("No active backlog items found in docs/backlog/active")
+
+        def parse_frontmatter(path: Path):
+            text = path.read_text(encoding="utf-8")
+            if not text.startswith("---\n"):
+                raise SystemExit(f"Backlog item missing YAML frontmatter: {path}")
+
+            end = text.find("\n---\n", 4)
+            if end == -1:
+                raise SystemExit(f"Backlog item has unterminated YAML frontmatter: {path}")
+
+            fm = text[4:end]
+            data = {}
+            current_list_key = None
+
+            for line in fm.splitlines():
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#"):
+                    continue
+
+                if line.startswith("  - ") or line.startswith("- "):
+                    if current_list_key is None:
+                        raise SystemExit(f"Invalid list entry in frontmatter ({path}): {line}")
+                    value = line.split("-", 1)[1].strip().strip('"\'')
+                    data[current_list_key].append(value)
+                    continue
+
+                if ":" not in line:
+                    raise SystemExit(f"Invalid frontmatter line ({path}): {line}")
+
+                key, value = line.split(":", 1)
+                key = key.strip()
+                value = value.strip()
+
+                if value == "":
+                    data[key] = []
+                    current_list_key = key
+                else:
+                    data[key] = value.strip('"\'')
+                    current_list_key = None
+
+            if "plan_path" not in data:
+                raise SystemExit(f"Frontmatter missing required key plan_path: {path}")
+            if "priority" not in data:
+                raise SystemExit(f"Frontmatter missing required key priority: {path}")
+            if "check_commands" not in data or not isinstance(data["check_commands"], list) or not data["check_commands"]:
+                raise SystemExit(f"Frontmatter missing non-empty list check_commands: {path}")
+
+            try:
+                priority = int(str(data["priority"]).strip())
+            except ValueError:
+                raise SystemExit(f"priority must be integer in {path}: {data['priority']}")
+
+            return {
+                "path": path,
+                "priority": priority,
+                "plan_path": str(data["plan_path"]).strip(),
+                "check_commands": [str(c).strip() for c in data["check_commands"] if str(c).strip()],
+            }
+
+        parsed = [parse_frontmatter(item) for item in items]
+        parsed.sort(key=lambda row: (row["priority"], row["path"].name))
+        selected = parsed[0]
+
+        plan_target = Path(selected["plan_path"])
+        if not plan_target.exists():
+            raise SystemExit(f"plan_path target does not exist: {selected['plan_path']}")
+
+        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        (STATE_DIR / "backlog_item_path.txt").write_text(str(selected["path"].as_posix()) + "\n", encoding="utf-8")
+        (STATE_DIR / "plan_path.txt").write_text(selected["plan_path"] + "\n", encoding="utf-8")
+        (STATE_DIR / "check_commands.json").write_text(json.dumps(selected["check_commands"], indent=2) + "\n", encoding="utf-8")
+        (STATE_DIR / "check_commands_path.txt").write_text("state/check_commands.json\n", encoding="utf-8")
+        PY
+    expected_outputs:
+      - name: backlog_item_path
+        path: state/backlog_item_path.txt
+        type: relpath
+        under: docs/backlog/active
+        must_exist_target: true
+      - name: plan_path
+        path: state/plan_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: check_commands_path
+        path: state/check_commands_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true
+
+  - name: InitializeReviewCycle
+    command:
+      - bash
+      - -lc
+      - "mkdir -p state && printf '0\n' > state/review_cycle.txt"
+    expected_outputs:
+      - name: review_cycle
+        path: state/review_cycle.txt
+        type: integer
+
+  - name: DraftPlanSlice
+    provider: codex
+    input_file: prompts/workflows/backlog_plan_loop/draft_plan_slice.md
+    timeout_sec: 240
+    expected_outputs:
+      - name: slice_brief_path
+        path: state/slice_brief_path.txt
+        type: relpath
+        under: artifacts/work
+        must_exist_target: true
+
+  - name: ExecutePlanSlice
+    provider: claude
+    input_file: prompts/workflows/backlog_plan_loop/execute_plan_slice.md
+    timeout_sec: 420
+    expected_outputs:
+      - name: execution_log_path
+        path: state/execution_log_path.txt
+        type: relpath
+        under: artifacts/work
+        must_exist_target: true
+
+  - name: RunTargetedChecks
+    command:
+      - bash
+      - -lc
+      - |
+        python - <<'PY'
+        import json
+        import subprocess
+        from pathlib import Path
+
+        state_dir = Path("state")
+        checks_file = state_dir / "check_commands.json"
+        checks = json.loads(checks_file.read_text(encoding="utf-8"))
+        if not isinstance(checks, list) or not checks:
+            raise SystemExit("state/check_commands.json must contain a non-empty JSON list")
+
+        logs_dir = Path("artifacts/checks")
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        log_path = logs_dir / "latest-checks.log"
+
+        failures = 0
+        lines = []
+        for idx, cmd in enumerate(checks, start=1):
+            lines.append(f"$ [{idx}/{len(checks)}] {cmd}\n")
+            proc = subprocess.run(
+                ["bash", "-lc", cmd],
+                capture_output=True,
+                text=True,
+            )
+            lines.append(f"exit_code={proc.returncode}\n")
+            if proc.stdout:
+                lines.append("[stdout]\n")
+                lines.append(proc.stdout)
+                if not proc.stdout.endswith("\n"):
+                    lines.append("\n")
+            if proc.stderr:
+                lines.append("[stderr]\n")
+                lines.append(proc.stderr)
+                if not proc.stderr.endswith("\n"):
+                    lines.append("\n")
+            lines.append("\n")
+            if proc.returncode != 0:
+                failures += 1
+
+        log_path.write_text("".join(lines), encoding="utf-8")
+
+        state_dir.mkdir(parents=True, exist_ok=True)
+        (state_dir / "failed_count.txt").write_text(f"{failures}\n", encoding="utf-8")
+        (state_dir / "check_log_path.txt").write_text("artifacts/checks/latest-checks.log\n", encoding="utf-8")
+        PY
+    expected_outputs:
+      - name: failed_count
+        path: state/failed_count.txt
+        type: integer
+      - name: check_log_path
+        path: state/check_log_path.txt
+        type: relpath
+        under: artifacts/checks
+        must_exist_target: true
+
+  - name: ReviewImplVsPlan
+    provider: codex
+    input_file: prompts/workflows/backlog_plan_loop/review_impl_vs_plan.md
+    timeout_sec: 420
+    expected_outputs:
+      - name: review_decision
+        path: state/review_decision.txt
+        type: enum
+        allowed: ["APPROVE", "REVISE"]
+      - name: issue_count
+        path: state/issue_count.txt
+        type: integer
+      - name: misalignment_report_path
+        path: state/misalignment_report_path.txt
+        type: relpath
+        under: artifacts/review
+        must_exist_target: true
+
+  - name: ReviewGate
+    command:
+      - bash
+      - -lc
+      - 'test "$(cat state/review_decision.txt)" = "APPROVE" && test "$(cat state/failed_count.txt)" -eq 0'
+    on:
+      success:
+        goto: MarkBacklogDone
+      failure:
+        goto: FixIssues
+
+  - name: FixIssues
+    provider: claude
+    input_file: prompts/workflows/backlog_plan_loop/fix_issues.md
+    timeout_sec: 420
+    expected_outputs:
+      - name: fix_log_path
+        path: state/fix_log_path.txt
+        type: relpath
+        under: artifacts/fixes
+        must_exist_target: true
+    on:
+      success:
+        goto: IncrementReviewCycle
+
+  - name: IncrementReviewCycle
+    command:
+      - bash
+      - -lc
+      - 'c=$(cat state/review_cycle.txt); printf "%s\n" "$((c+1))" > state/review_cycle.txt'
+    expected_outputs:
+      - name: review_cycle
+        path: state/review_cycle.txt
+        type: integer
+
+  - name: ReviewCycleGate
+    command:
+      - bash
+      - -lc
+      - 'test "$(cat state/review_cycle.txt)" -lt "${context.max_review_cycles}"'
+    on:
+      success:
+        goto: RunTargetedChecks
+      failure:
+        goto: MaxCyclesExceeded
+
+  - name: MaxCyclesExceeded
+    command:
+      - bash
+      - -lc
+      - 'echo "Reached max review cycles without approval" >&2; exit 1'
+
+  - name: MarkBacklogDone
+    command:
+      - bash
+      - -lc
+      - |
+        src="$(cat state/backlog_item_path.txt)"
+        mkdir -p docs/backlog/done state
+        dst="docs/backlog/done/$(basename "$src")"
+
+        if [ -e "$dst" ]; then
+          echo "Refusing to overwrite existing backlog item: $dst" >&2
+          exit 1
+        fi
+
+        mv "$src" "$dst"
+        printf '%s\n' "$dst" > state/done_backlog_item_path.txt
+    expected_outputs:
+      - name: done_backlog_item_path
+        path: state/done_backlog_item_path.txt
+        type: relpath
+        under: docs/backlog/done
+        must_exist_target: true
