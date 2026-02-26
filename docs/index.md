@@ -95,6 +95,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** template, debug, hypothesis, investigation, decision-gate  
 **Use this when:** Running scoped debugging investigations that should not replace the canonical implementation-plan schema.
 
+### [Workflow Backlog Item Template](backlog/templates/backlog_item_workflow.md)
+**Description:** Template for backlog queue items consumed by the agent-orchestration backlog loop, including required frontmatter (`priority`, `plan_path`, `check_commands`) and directory-placement queue rules (`active/paused/done`).  
+**Keywords:** template, backlog, workflow, queue, orchestrator  
+**Use this when:** Creating or updating `docs/backlog/active/` items for automated plan-slice execution.
+
 ### [Agent Git Setup (Runbook)](../prompts/git_setup_agent.md)
 **Description:** Step-by-step, idempotent setup for Git in supervisor/loop/orchestrator environments. Covers global config defaults, submodule hygiene for .claude/claude, .gitignore hardening for logs/outputs/data, safe pull wrappers, and recovery playbooks.  
 **Keywords:** git, automation, supervisor, loop, submodules, rebase, setup  
@@ -104,6 +109,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Description:** Reusable practices to keep automation-friendly repositories clean and conflict-free: submodule policy (ignore=dirty for tooling), ignore lists, safe pull patterns, CI guidance, and verification checklist.  
 **Keywords:** git-hygiene, submodules, ignore, CI, rerere, autosquash  
 **Use this when:** Maintaining multiple repos that run the same supervisor/loop and you want consistent, low-friction Git behavior.
+
+### [Agent-Orchestration Backlog Loop Runbook](workflows/agent_orchestration_backlog_loop.md)
+**Description:** Maintainer runbook for launching and monitoring the backlog-driven plan-slice workflow via `agent-orchestration`, including tmux kickoff, backlog frontmatter contract, review/fix loop behavior, and resume commands.  
+**Keywords:** orchestrator, workflow, backlog, tmux, review-loop, codex, claude  
+**Use this when:** Kicking off long-running backlog execution in PtychoPINN using `workflows/agent_orchestration/backlog_plan_slice_impl_review_loop.yaml`.
 
 ## Architecture & Development
 
