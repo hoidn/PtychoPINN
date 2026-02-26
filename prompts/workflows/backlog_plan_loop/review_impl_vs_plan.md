@@ -1,4 +1,4 @@
-Read the implementation plan of the currently in-progress backlog item and verify the correctness and completion state of the implementation with respect to the plan.
+Read the implementation plan of the currently in-progress backlog item and verify the correctness and completion state of the implementation with respect to the plan. Use the superpowers:code-reviewer skill. 
 
 Use the `Consumed Artifacts` section as the authoritative input list, and read those files before writing your decision.
 Also read `state/failed_count.txt`, and if `state/check_log_path.txt` exists, read the referenced check log.
