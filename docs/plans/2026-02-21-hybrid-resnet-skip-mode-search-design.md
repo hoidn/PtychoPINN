@@ -303,6 +303,12 @@ Retention/cleanup policy (normative):
   - stage `sweep_manifest.json`, `summary.csv`, `summary.md`
   - curated comparison PNG evidence.
 - Emit `cleanup_report.json` for each run with deleted paths, reclaimed bytes, and `retention_tier`.
+- Operational severity (strong advisory): treat heavy-artifact retention as a serious plan misalignment even when workflow-level enforcement is soft.
+- Runs MUST aggressively prune heavyweight training byproducts after metrics are captured.
+- Runs MUST NOT retain checkpoints, per-epoch logs, or large transient intermediates in pruned tiers unless explicitly justified.
+- Any retention exception MUST be explicit, justified, and time-bounded in the execution log.
+- Reviewers SHOULD return `REVISE` when avoidable heavy artifacts remain without explicit approved exception.
+- Disk pressure or growth trends SHOULD be treated as blocking operational risk and called out in review artifacts.
 
 ## 8. Validation and Test Expectations
 

@@ -25,6 +25,15 @@ Execution order for this split document is:
 - Follow the Test Evidence Contract in `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-implementation-core.md` when running any `pytest` selectors.
 - Hub document: `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search.md`.
 - Task-ordering precondition: do not execute Task 9 commands until runbook implementation work is complete (Tasks 0-8 from `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-implementation-core.md` plus Task 10 in this document, or equivalent merged implementation already present in the working tree).
+- Cleanup posture: follow the design-doc retention/cleanup contract as operationally critical guidance, even if orchestration enforcement is soft.
+
+### Strong-Advisory Cleanup Contract (Stage A)
+
+- After each Stage-A command, implementation SHOULD aggressively prune heavyweight byproducts as soon as required summary artifacts are persisted.
+- Pruned runs SHOULD NOT retain avoidable heavyweight directories/files (for example checkpoints, per-epoch logs, transient caches, large intermediate recon artifacts).
+- If heavy retention is temporarily required, execution logs MUST explicitly state why, how long it will remain, and what follow-up cleanup is expected.
+- Review outcomes SHOULD default to `REVISE` when avoidable heavy retention is observed without explicit approved exception.
+- Disk growth and near-capacity conditions SHOULD be treated as blocking operational risk in execution/review narratives.
 
 ### Task 9: Final Full Sweep Command (Post-Implementation Hand-off)
 
@@ -182,6 +191,17 @@ cat outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/summary_s
 ```
 Expected: robust summary header/rows include seeded promotion ranking fields.
 
+**Step 5A: Strong-advisory heavy-pruning verification**
+
+Run:
+```bash
+du -sh outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221 outputs/hybrid_resnet_mode_skip_sweep_full_n256_20260221 outputs/hybrid_resnet_mode_skip_sweep_n256_highmode_probe_20260221
+find outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221 outputs/hybrid_resnet_mode_skip_sweep_full_n256_20260221 outputs/hybrid_resnet_mode_skip_sweep_n256_highmode_probe_20260221 -type d \( -name checkpoints -o -name lightning_logs -o -name mlruns \)
+```
+Expected:
+- retained artifacts are limited to reproducibility-critical outputs and explicit anchor exceptions,
+- any remaining heavy directories are explicitly justified in execution logs with a cleanup follow-up.
+
 **Step 6: Commit**
 
 No commit (execution-only handoff).
@@ -258,6 +278,7 @@ Implement guardrails:
 - For stages B-E `N=128` sweeps, `--promotion-source-summary` must resolve exactly one anchor row (single row total or one `is_stage_anchor=true` row); reject multi-anchor fan-out.
 - For Stage D branch-capacity work, treat `encoder_conv_hidden`, `encoder_spectral_hidden`, `max_hidden/resnet_width`, and `resnet_blocks` as separate serial sub-stages; only one may carry multiple values in one invocation.
 - Reject invalid `stage_id/substage_id` combinations (including missing sub-stage id for `C`/`D` runs).
+- Pruning implementation MUST target real heavyweight artifacts produced by training/runtime paths, not placeholder files only.
 - For stages B-E, reject `--ns 256`-only invocations when `--promotion-source-summary` is missing.
 - Reject `resnet_width` sweep values that are not `none` and not divisible by 4 (or non-positive).
 - Reject promotion candidates with `phase_ssim_drop_vs_baseline > max_phase_ssim_drop`.
