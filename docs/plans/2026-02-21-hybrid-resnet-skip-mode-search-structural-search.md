@@ -4,7 +4,7 @@
 
 **Goal:** Add optional encoder-decoder skip connections to `hybrid_resnet`, add a reproducible mode×skip×width benchmark workflow for `N=128` and `N=256`, and define a staged structural-search extension for depth/downsampling/capacity/skip-design axes.
 
-**Architecture:** Keep default behavior unchanged (`skip_connections=False`) to preserve current baselines/integration expectations. Implement additive skip fusion with lightweight `1x1` projection layers at decoder resolutions (`N/2`, `N`). Expose one boolean knob end-to-end (`hybrid_skip_connections`) through Torch-only runner/execution config + CLI (do not bridge this knob into TensorFlow/canonical model contracts), then run a deterministic sweep over `fno_modes × hybrid_skip_connections × fno_width` with fixed probe-mask/loss-normalization controls. Make dataset choice explicit via named dataset profiles so the same sweep can run on multiple failure-mode regimes. Execute Stage A in two steps (full grid on `N=128`, then top-K promotion to `N=256`), then add structural axes one stage at a time (B→E) with bounded per-stage run budgets. Promotion governance: keep broad sweeps single-seed (`seed=3` default), then run boundary seed reranks (`top-K + next 2`, seeds `11` and `17`) before every promotion, and promote by median rank across seeds. Governance decision for this initiative: new Stage C-E knobs stay Torch-only (runner/execution/model paths) unless a follow-up plan explicitly approves cross-backend bridge expansion.
+**Architecture:** Keep default behavior unchanged (`skip_connections=False`) to preserve current baselines/integration expectations. Implement additive skip fusion with lightweight `1x1` projection layers at decoder resolutions (`N/2`, `N`). Expose one boolean knob end-to-end (`hybrid_skip_connections`) through Torch-only runner/execution config + CLI (do not bridge this knob into TensorFlow/canonical model contracts), then run a deterministic sweep over `fno_modes × hybrid_skip_connections × fno_width` with fixed probe-mask/loss-normalization controls. Make dataset choice explicit via named dataset profiles so the same sweep can run on multiple failure-mode regimes. Execute Stage A in two steps (full grid on `N=128`, then feasible Pareto-ranked top-K promotion to `N=256`), then add structural axes one stage at a time (B→E) with bounded per-stage run budgets. Promotion governance: keep broad sweeps single-seed (`seed=3` default), then run boundary seed reranks (`top-K + next 2`, seeds `11` and `17`) before every promotion, and promote by median Pareto rank across seeds. Governance decision for this initiative: new Stage C-E knobs stay Torch-only (runner/execution/model paths) unless a follow-up plan explicitly approves cross-backend bridge expansion.
 
 **Tech Stack:** PyTorch/Lightning (`ptycho_torch`), existing grid-lines + NERSC study scripts, `pytest`, runbook-style orchestration, JSON/CSV/Markdown artifacts.
 
@@ -90,13 +90,15 @@ Expected: PASS.
 **Step 3: Execute Stage C runs**
 
 Sub-stage C1 (schedule): use `--downsample-schedule-values 1,2` while fixing all other structural axes to promoted Stage B configs loaded via `--promotion-source-summary <stageB_n128_summary.csv>`.
+Record provenance with `--stage-id C --substage-id C1`.
 
 Sub-stage C2 (operator): lock best schedule from C1 (from `--promotion-source-summary <stageC1_n128_summary.csv>`), then run:
 - `--downsample-op-values stride_conv,avgpool_conv,blurpool_conv`
+Record provenance with `--stage-id C --substage-id C2`.
 
 Stage budget:
 - N=128: max 12 runs for C1 + max 12 runs for C2
-- N=256: top 4 from C2 only
+- N=256: top 4 feasible Pareto-ranked candidates from C2 only
 - Before selecting top-4 for `N=256`, apply the boundary seed-rerank policy on the C2 `N=128` source summary (`top-K + next 2`, seeds `11` and `17`) and promote from the resulting robustness summary.
 
 **Step 4: Documentation sync for Stage-C knobs**
@@ -154,9 +156,11 @@ Semantics:
 
 Run sub-stage D1 (conv branch):
 - sweep `--encoder-conv-hidden-values none,48,64` with `--encoder-spectral-hidden-values none`.
+- record provenance with `--stage-id D --substage-id D1`.
 
 Run sub-stage D2 (spectral branch):
 - lock best D1 setting, then sweep `--encoder-spectral-hidden-values none,48,64`.
+- record provenance with `--stage-id D --substage-id D2`.
 
 **Step 2: Axis 4 sub-stage (global capacity)**
 
@@ -165,6 +169,7 @@ Evaluate one global capacity knob at a time on best D2 settings:
 - `resnet_width` values: `none,192,256` (only if divisibility constraints pass).
 
 Keep `resnet_blocks` fixed for this sub-stage.
+Record provenance with `--stage-id D --substage-id D3`.
 
 **Step 3: Axis 4b sub-stage (decoder depth)**
 
@@ -173,6 +178,7 @@ Add/plumb:
 hybrid_resnet_blocks: int = 6
 ```
 Sweep `4,6,8` using best capacity setting from Step 2.
+Record provenance with `--stage-id D --substage-id D4`.
 
 **Step 4: Add/execute Task-13 tests (required by test-evidence contract)**
 
@@ -193,8 +199,8 @@ Coverage expectations for new branch-capacity knobs:
 **Step 5: Run bounded stage budgets**
 
 Budget rule:
-- N=128: max 18 runs per sub-stage (D1-D4)
-- N=256: top 4 only
+- N=128: max 18 runs per sub-stage (D1-D4) and max `12` GPU-hours per sub-stage.
+- N=256: top 4 feasible Pareto-ranked candidates only and max `16` GPU-hours per sub-stage.
 - Before selecting top-4 for `N=256`, apply the boundary seed-rerank policy on the D4 `N=128` source summary (`top-K + next 2`, seeds `11` and `17`) and promote from the resulting robustness summary.
 
 **Step 6: Documentation sync for Stage-D knobs**
@@ -246,7 +252,7 @@ hybrid_skip_style: Literal["add", "concat", "gated_add"] = "add"
 Implementation guidance:
 - `add`: current behavior
 - `concat`: concat then `1x1` projection
-- `gated_add`: learnable scalar/channel gate initialized near zero
+- `gated_add`: `y = decoder + g * skip_proj` with learnable gate `g` initialized to `0.0` (identity-safe start)
 
 **Step 2: Add RED/GREEN tests**
 
@@ -268,7 +274,7 @@ pytest tests/torch/test_grid_lines_torch_runner.py -k "workflow and skip_style a
 
 Run skip styles on best config from Stage D, budget:
 - N=128: all 3 styles
-- N=256: top 2 styles only
+- N=256: top 2 feasible Pareto-ranked styles only
 - Before selecting top-2 for `N=256`, apply the boundary seed-rerank policy on the Stage-E `N=128` source summary (`top-K + next 2`, seeds `11` and `17`) and promote from the resulting robustness summary.
 
 Constraint:
@@ -304,10 +310,12 @@ Use the canonical policy in:
 - `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-design.md` (Section 6)
 
 Use explicit gates:
-- must beat previous stage baseline on amplitude `MAE` and `MSE`
-- no catastrophic phase regression (phase SSIM drop > 0.03 vs stage baseline)
-- runtime/params within budget envelope recorded in summary
-- promotion source must be robustness-validated (`top-K + next 2` reranked with seeds `{3,11,17}` and promoted by median rank across seeds)
+- promotion ordering must follow the canonical feasible-Pareto policy (Section 6 in the design doc): objectives are `amp_mae`, `amp_mse`, and `train_wall_time_sec` after feasibility filters.
+- no catastrophic phase regression (`phase_ssim_drop_vs_baseline <= max_phase_ssim_drop`, default `0.03`)
+- train-time/params within budget envelope recorded in summary (`train_wall_time_sec`, `model_params`)
+- inference SLA satisfied for promoted candidates (`inference_time_s <= 60` at `N=128`, `<= 240` at `N=256`)
+- promotion source must be robustness-validated (`top-K + next 2` reranked with seeds `{3,11,17}` and promoted by median Pareto rank across seeds)
+- baseline MAE/MSE regressions are handled as stop/go diagnostics (Step 2), not a per-candidate hard pre-filter before Pareto ranking.
 - stage-promotion governance: Stage A is not complete until `docs/studies/index.md` contains the verified `hybrid-resnet-mode-skip-sweep` entry (Task 7 checks pass).
 
 **Step 2: Define hard stop conditions**

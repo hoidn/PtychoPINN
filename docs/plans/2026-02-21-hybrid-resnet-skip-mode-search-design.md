@@ -63,7 +63,7 @@ Out of scope:
 - `hybrid_skip_style: {"add","concat","gated_add"} = "add"`
   - `add`: projected additive skip.
   - `concat`: channel concat followed by projection.
-  - `gated_add`: additive skip with learnable gate initialized near identity-safe value.
+  - `gated_add`: additive skip with learnable gate `g` in `y = decoder + g * skip_proj`, initialized to `0.0` (identity-safe because the skip path starts neutral).
   - Scope: Torch-only runner/execution/model knob in this initiative.
 
 ## 4.2 Downsampling Controls
@@ -136,6 +136,15 @@ Profile semantics:
 
 One structural axis (or tightly coupled pair) changes per stage. No full Cartesian over all axes.
 
+Stage identifier contract:
+- `stage_id` values are `A|B|C|D|E`.
+- `substage_id` values are:
+  - `none` for stages `A`, `B`, `E`,
+  - `C1|C2` for stage `C`,
+  - `D1|D2|D3|D4` for stage `D`.
+- Manifests and summaries must persist both `stage_id` and `substage_id`.
+- Retention and promotion provenance must be keyed at sub-stage granularity where applicable.
+
 ## 5.1 Stage A (Baseline Search)
 
 Axes:
@@ -143,7 +152,7 @@ Axes:
 
 Policy:
 - full grid on `N=128`,
-- promote top-K to `N=256`.
+- promote top-K feasible Pareto-ranked candidates to `N=256`.
 - run on one or more `dataset_profiles_n128` and aggregate rankings across profiles.
 - keep broad exploration single-seed (`seed=3` default), then apply the Section-6 boundary seed-robustness rule before promotion.
 
@@ -154,7 +163,7 @@ Axis:
 
 Policy:
 - vary `fno_blocks` with Stage-A-best settings fixed,
-- `N=128` full stage budget, top-K to `N=256`.
+- `N=128` full stage budget, top-K feasible Pareto-ranked candidates to `N=256`.
 - evaluate with selected dataset profile sets for N=128/N=256.
 - apply the Section-6 boundary seed-robustness rule on the `N=128` source summary before promotion to `N=256`.
 
@@ -193,35 +202,47 @@ Policy:
 
 ## 6. Ranking and Promotion Policy
 
-Primary ranking (lexicographic):
-1. lower amplitude MAE,
-2. lower amplitude MSE,
-3. higher amplitude SSIM.
+Promotion feasibility filters (hard-required before ranking):
+- phase guardrail: reject candidates with `phase_ssim_drop_vs_baseline > max_phase_ssim_drop`.
+- `max_phase_ssim_drop` defaults to `0.03` and is configurable via `--max-phase-ssim-drop`.
+- phase baseline is resolved from stage baseline provenance (promotion source summary for downstream stages; Stage-A baseline for stage A) and persisted in summary fields.
+- parameter cap: `model_params <= 300_000_000`.
+- train-time cap:
+  - `N=128`: `train_wall_time_sec <= 2700`.
+  - `N=256`: `train_wall_time_sec <= 9000`.
+- inference SLA (constraint, not objective):
+  - `N=128`: `inference_time_s <= 60`.
+  - `N=256`: `inference_time_s <= 240`.
+
+Primary promotion objective (Pareto):
+- use non-dominated sorting on minimization objectives:
+  - amplitude MAE,
+  - amplitude MSE,
+  - `train_wall_time_sec`.
+- `inference_time_s` is enforced via feasibility filter above, not optimized directly.
 
 Multi-profile aggregation:
-- compute per-profile ranks first,
-- compute macro rank as median of per-profile ranks,
-- tie-break by mean primary score across profiles.
+- compute per-profile Pareto ranks first (`pareto_rank_profile`, lower is better),
+- compute macro rank as median Pareto rank across profiles,
+- tie-break by mean amplitude MAE across profiles, then lower params.
 
 Seed policy:
 - Broad sweeps remain single-seed (default `seed=3`) for throughput.
 - Before every promotion event (for example `N=128 -> N=256`), run a boundary rerank with seeds `11` and `17`.
-- Boundary candidate set is `top-K + next 2` from the current promotion source ranking after guardrails.
+- Boundary candidate set is `top-K + next 2` from the feasible Pareto-ranked source summary.
 - If fewer than `K+2` eligible candidates exist, rerun all eligible candidates.
-- Promotion uses median candidate rank across seeds `{3,11,17}`.
-- Seed-tie break uses mean primary score across seeds; if still tied, keep standard tie-breakers (params, then inference time).
-
-Guardrail:
-- reject candidates with phase SSIM drop > 0.03 relative to stage baseline.
+- Promotion uses median candidate Pareto rank across seeds `{3,11,17}`.
+- Seed-tie break uses mean amplitude MAE across seeds; if still tied, keep standard tie-breakers (params, then lower inference time within SLA).
 
 Tie-breakers:
-1. lower parameter count,
-2. lower inference time.
+1. lower amplitude MAE,
+2. lower parameter count,
+3. lower inference time (within SLA).
 
 Promotion source API:
 - `summary.csv` is a versioned stage-state API.
 - Every summary row includes `summary_schema_version`.
-- Promotion loader must validate version + required columns + non-empty candidates before scheduling runs.
+- Promotion loader must validate version + required columns + non-empty feasible candidate set before scheduling runs.
 
 Pause-and-diagnose conditions (not immediate abandonment):
 - Trigger a pause when either condition is met:
@@ -241,18 +262,23 @@ Each stage writes:
   - hashes (NPZ and/or source HDF5 where applicable),
 - `summary.csv` and `summary.md` including:
   - stage id,
+  - substage id,
   - dataset profile id,
   - all active knobs,
   - key metrics (amp/phase MAE, MSE, SSIM),
+  - phase guardrail fields (`phase_ssim_drop_vs_baseline`, `max_phase_ssim_drop`, `phase_guardrail_pass`),
   - model params,
+  - `train_wall_time_sec`,
   - inference time,
+  - feasibility columns (`is_feasible`, violated constraints),
+  - Pareto columns (`pareto_rank_profile`, `pareto_rank_macro`, seed-robust Pareto rank fields),
   - promotion decisions.
 
 Retention/cleanup policy (normative):
 - Default mode is prune-after-run with retention tiers.
 - Cleanup executes after per-run metrics/manifest row persistence.
 - Cleanup scope is restricted to the run output subtree (never external input paths).
-- Retain one full-artifact anchor run per `(stage_id, N, dataset_profile)` tuple (`retention_tier=full_anchor`) for forensic/debug use.
+- Retain one full-artifact anchor run per `(stage_id, substage_id, N, dataset_profile)` tuple (`retention_tier=full_anchor`) for forensic/debug use.
 - Prune-heavy policy applies to subsequent successful runs in the same tuple (`retention_tier=pruned`).
 - Prune heavy intermediates by default (large dataset/recon NPZs, checkpoints, transient caches/log blobs).
 - Preserve reproducibility-critical artifacts:
@@ -276,7 +302,10 @@ For each new knob:
 For staged runner:
 - matrix cardinality tests,
 - guardrail tests (disallow multi-structural-axis explosion),
-- top-K promotion determinism tests.
+- stage/sub-stage identity tests (including retention-key granularity),
+- phase-guardrail threshold propagation/enforcement tests,
+- feasibility filtering tests (train-time caps, inference SLA, params cap),
+- Pareto front construction and promotion determinism tests.
 
 ## 9. Risks and Mitigations
 
