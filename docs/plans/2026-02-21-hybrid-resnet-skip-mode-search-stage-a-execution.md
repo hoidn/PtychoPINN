@@ -31,6 +31,7 @@ Execution order for this split document is:
 
 - After each Stage-A command, implementation SHOULD aggressively prune heavyweight byproducts as soon as required summary artifacts are persisted.
 - Pruned runs SHOULD NOT retain avoidable heavyweight directories/files (for example checkpoints, per-epoch logs, transient caches, large intermediate recon artifacts).
+- Between every consecutive run invocation in Tasks 9 and 11, delete repo-root `memoized_data/` before launching the next run command (`rm -rf memoized_data/`).
 - If heavy retention is temporarily required, execution logs MUST explicitly state why, how long it will remain, and what follow-up cleanup is expected.
 - Review outcomes SHOULD default to `REVISE` when avoidable heavy retention is observed without explicit approved exception.
 - Disk growth and near-capacity conditions SHOULD be treated as blocking operational risk in execution/review narratives.
@@ -47,6 +48,11 @@ Run:
 python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py --help | rg "promotion-objectives|max-train-seconds-n128|max-train-seconds-n256|max-inference-seconds-n128|max-inference-seconds-n256|max-phase-ssim-drop|max-model-params|substage-id"
 ```
 Expected: all required flags are present before any Task 9 run command executes.
+
+Before each Task 9 run command block (Step 1, each rerank command in Step 2, Step 2 aggregation, Step 3, and Step 4), run:
+```bash
+rm -rf memoized_data/
+```
 
 **Step 1: Run full Stage-A grid at N=128 (single-seed exploration)**
 
@@ -358,6 +364,11 @@ Use the one-row anchor artifact emitted in Task 9 Step 2:
 Do not pass full top-K robustness summary as the Stage-B `N=128` source.
 
 **Step 1: Run Stage B at N=128 on promoted Stage-A anchor config**
+
+Before each Task 11 run command block (Step 1 and Step 2), run:
+```bash
+rm -rf memoized_data/
+```
 
 Run:
 ```bash

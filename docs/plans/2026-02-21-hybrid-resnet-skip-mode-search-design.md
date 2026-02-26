@@ -294,6 +294,8 @@ Retention/cleanup policy (normative):
 - Default mode is prune-after-run with retention tiers.
 - Cleanup executes after per-run metrics/manifest row persistence.
 - Cleanup scope is restricted to the run output subtree (never external input paths).
+- Between consecutive run invocations, delete repo-root `memoized_data/` before launching the next run to prevent cross-run cache contamination.
+- Canonical command: `rm -rf memoized_data/` (safe no-op when absent).
 - Retain one full-artifact anchor run per `(stage_id, substage_id, N, dataset_profile)` tuple (`retention_tier=full_anchor`) for forensic/debug use.
 - Prune-heavy policy applies to subsequent successful runs in the same tuple (`retention_tier=pruned`).
 - Prune heavy intermediates by default (large dataset/recon NPZs, checkpoints, transient caches/log blobs).
