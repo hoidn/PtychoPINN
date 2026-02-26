@@ -133,6 +133,7 @@ steps:
         (STATE_DIR / "check_commands.json").write_text(json.dumps(selected["check_commands"], indent=2) + "\n", encoding="utf-8")
         (STATE_DIR / "check_commands_path.txt").write_text("state/check_commands.json\n", encoding="utf-8")
         PY
+    persist_artifacts_in_state: false
     expected_outputs:
       - name: backlog_item_path
         path: state/backlog_item_path.txt
