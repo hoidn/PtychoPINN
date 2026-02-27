@@ -4,19 +4,20 @@ Read the implementation plan of the currently in-progress backlog item and verif
 
 After finishing the above code-focued review, do a second review pass from the perspective of which data, study runs, artifacts, and / or non-code edits should have been created by the plan's complete execution. Check exhaustively: the existence of *some* expected outputs does not guarantee that the plan was successfully and fully executed. 
 
+If either of the reviews exposed bugs (beyond simple, straightforwardly recoverable plan misalignment, 
+clarify the root cause of the bus(s). Use the systematic debugging superpower if appropriate. 
+
 
 After finishing your review of the implementation, write:
 1. `artifacts/review/latest-review.md` with:
    - alignment verdict
    - findings
-   - required fixes
+   - root cause(s), if applicable
+   - required fixes of the plan misalignments and root causes, if applicable
    - final decision
 2. `state/review_decision.txt`:
    - `APPROVE` only if plan is implemented and no blocking issues remain
    - otherwise `REVISE`
-3. `state/issue_count.txt` as the number of blocking issues.
-4. `state/code_review_path.txt` with:
-   artifacts/review/latest-review.md
 
 Constraints:
 - Focus on correctness and plan alignment.

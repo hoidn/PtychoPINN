@@ -7,25 +7,20 @@ Also read `state/backlog_item_path.txt` and the referenced backlog item for scop
 Implement the selected backlog item's full plan using the executing-plans superpower / skill
 </task>
 
-  <completion criteria>
-  `COMPLETE` only if every in-scope plan step is either:
-  - `COMPLETED`, or
-  - `BLOCKED` with concrete blocker details and evidence of attempted execution.
-  Otherwise mark `INCOMPLETE`.
-  </completion criteria>
+<output format>
+After execution:
+1. Write `artifacts/work/latest-execution-session-log.md` containing:
+   - plan path used
+   - commands executed and outcomes
+   - files changed
+   - what was completed
+   - blockers or follow-ups
+2. Write exactly this path to `state/execution_session_log_path.txt`:
+   artifacts/work/latest-execution-session-log.md
+</output format>
 
-  <output format>
-  After execution:
-  1. Write `artifacts/work/latest-execution-log.md` containing:
-     - overall status: `COMPLETE | INCOMPLETE | BLOCKED`
-     - plan path used
-     - step-by-step results (`COMPLETED | BLOCKED | NOT_RUN`) with evidence
-     - files changed
-     - verification commands and outcomes
-     - incomplete items
-     - blockers
-  2. Write exactly this path to `state/execution_log_path.txt`:
-     artifacts/work/latest-execution-log.md
-  </output format>
-
-
+<constraints>
+- Keep changes focused on plan/backlog scope.
+- Do not fabricate or backfill run results.
+- No unrelated refactors.
+</constraints>
