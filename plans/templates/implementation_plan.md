@@ -9,19 +9,26 @@
 - Owner: <name> (optional)
 - Spec/Source: <primary spec or doc path> (optional)
 
-## Goals
-- <goal 1>
-- <goal 2>
+## Compliance Matrix (Mandatory)
+> List the specific Spec constraints, Fix-Plan ledger rows, and Findings/Policies this initiative must honor.
+- [ ] **Spec Constraint:** <e.g., `spec-db-core.md §5.2 — Variance model definition`>
+- [ ] **Fix-Plan Link:** <e.g., `docs/fix_plan.md — Row [PHYSICS-LOSS-001]`>
+- [ ] **Finding/Policy ID:** <e.g., `CONFIG-001`, `POLICY-001 (PyTorch Optional)`>
 
-## Scope
-- In scope:
-  - <what this plan will do>
-- Out of scope:
-  - <what this plan will not do>
+## Spec Alignment
+- **Normative Spec:** <path to spec file>
+- **Key Clauses:** <specific requirements this plan must satisfy>
 
-## Risks / Assumptions
-- <risk or assumption 1>
-- <risk or assumption 2>
+## Architecture / Interfaces (optional)
+- Components/boundaries touched: <2-4 bullets>
+- Primary data flow: <request/job/data path summary>
+- External interfaces/contracts impacted: <APIs, files, schemas, CLI flags>
+
+## Context Priming (read before edits)
+- Primary docs/specs to re-read: <list files + sections>
+- Required findings/case law: <`docs/findings.md` IDs + summary>
+- Related telemetry/attempts: <links to relevant artifacts or plan history>
+- Data dependencies to verify: <external inputs and manifest references>
 
 ## Phases
 
@@ -38,6 +45,12 @@
 - [ ] C1: <task>
 - [ ] C2: <task>
 
+## Dependency Analysis (Refactors only)
+> Include this section only if the work changes module boundaries, import graph, or state ownership.
+- Touched modules: <list>
+- Circular import risks: <analysis>
+- State migration: <how state moves from old to new>
+
 ## Workflow Compatibility Contract
 
 When this plan is executed by a backlog workflow:
@@ -47,10 +60,9 @@ When this plan is executed by a backlog workflow:
   - `priority` integer
   - targeted `check_commands`
 - Execution unit is the full plan (not ad-hoc partial slices).
-- Completion requires all three:
+- Completion requires both:
   - verification commands pass
   - completion criteria are satisfied
-  - required evidence is present
 
 ## Verification Commands
 ```bash
@@ -62,10 +74,6 @@ When this plan is executed by a backlog workflow:
 - [ ] <objective criterion 1>
 - [ ] <objective criterion 2>
 - [ ] <objective criterion 3>
-
-## Required Evidence
-- <artifact/log path 1>
-- <artifact/log path 2>
 
 ## Artifacts Index
 - Reports root: `docs/plans/<initiative-id>/reports/`
