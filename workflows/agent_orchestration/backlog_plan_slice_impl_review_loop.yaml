@@ -133,7 +133,6 @@ steps:
         (STATE_DIR / "check_commands.json").write_text(json.dumps(selected["check_commands"], indent=2) + "\n", encoding="utf-8")
         (STATE_DIR / "check_commands_path.txt").write_text("state/check_commands.json\n", encoding="utf-8")
         PY
-    persist_artifacts_in_state: false
     expected_outputs:
       - name: backlog_item_path
         path: state/backlog_item_path.txt
@@ -187,14 +186,14 @@ steps:
     inject_consumes: true
     consumes_injection_position: prepend
     expected_outputs:
-      - name: execution_log_path
-        path: state/execution_log_path.txt
+      - name: execution_session_log_path
+        path: state/execution_session_log_path.txt
         type: relpath
         under: artifacts/work
         must_exist_target: true
     publishes:
-      - artifact: execution_log
-        from: execution_log_path
+      - artifact: execution_session_log
+        from: execution_session_log_path
 
   - name: RunTargetedChecks
     command:
@@ -240,80 +239,37 @@ steps:
             if proc.returncode != 0:
                 failures += 1
 
+        lines.append(f"failed_count={failures}\n")
         log_path.write_text("".join(lines), encoding="utf-8")
 
         state_dir.mkdir(parents=True, exist_ok=True)
-        (state_dir / "failed_count.txt").write_text(f"{failures}\n", encoding="utf-8")
         (state_dir / "check_log_path.txt").write_text("artifacts/checks/latest-checks.log\n", encoding="utf-8")
         PY
     expected_outputs:
-      - name: failed_count
-        path: state/failed_count.txt
-        type: integer
       - name: check_log_path
         path: state/check_log_path.txt
         type: relpath
         under: artifacts/checks
         must_exist_target: true
-
-  - name: ReviewImplVsPlan
-    provider: codex
-    input_file: prompts/workflows/backlog_plan_loop/review_impl_vs_plan.md
-    timeout_sec: 900
-    consumes:
-      - artifact: plan
-        producers: ["SelectBacklogItem"]
-        policy: latest_successful
-        freshness: any
-      - artifact: execution_log
-        producers: ["ExecutePlan", "FixIssues"]
-        policy: latest_successful
-        freshness: any
-    inject_consumes: true
-    consumes_injection_position: prepend
-    expected_outputs:
-      - name: review_decision
-        path: state/review_decision.txt
-        type: enum
-        allowed: ["APPROVE", "REVISE"]
-      - name: issue_count
-        path: state/issue_count.txt
-        type: integer
-      - name: code_review_path
-        path: state/code_review_path.txt
-        type: relpath
-        under: artifacts/review
-        must_exist_target: true
     publishes:
-      - artifact: code_review
-        from: code_review_path
+      - artifact: check_log
+        from: check_log_path
 
-  - name: ReviewGate
-    command:
-      - bash
-      - -lc
-      - 'test "$(cat state/review_decision.txt)" = "APPROVE" && test "$(cat state/failed_count.txt)" -eq 0'
-    on:
-      success:
-        goto: MarkBacklogDone
-      failure:
-        goto: FixIssues
-
-  - name: FixIssues
+  - name: AssessExecutionCompletion
     provider: codex
-    input_file: prompts/workflows/backlog_plan_loop/fix_issues.md
-    timeout_sec: 43200
+    input_file: prompts/workflows/backlog_plan_loop/assess_execution_completion.md
+    timeout_sec: 1200
     consumes:
       - artifact: plan
         producers: ["SelectBacklogItem"]
         policy: latest_successful
         freshness: any
-      - artifact: execution_log
+      - artifact: execution_session_log
         producers: ["ExecutePlan", "FixIssues"]
         policy: latest_successful
         freshness: any
-      - artifact: code_review
-        producers: ["ReviewImplVsPlan"]
+      - artifact: check_log
+        producers: ["RunTargetedChecks"]
         policy: latest_successful
         freshness: any
     inject_consumes: true
@@ -327,6 +283,75 @@ steps:
     publishes:
       - artifact: execution_log
         from: execution_log_path
+
+  - name: ReviewImplVsPlan
+    provider: codex
+    input_file: prompts/workflows/backlog_plan_loop/review_impl_vs_plan.md
+    timeout_sec: 900
+    consumes:
+      - artifact: plan
+        producers: ["SelectBacklogItem"]
+        policy: latest_successful
+        freshness: any
+      - artifact: execution_log
+        producers: ["AssessExecutionCompletion"]
+        policy: latest_successful
+        freshness: any
+    inject_consumes: true
+    consumes_injection_position: prepend
+    expected_outputs:
+      - name: review_decision
+        path: state/review_decision.txt
+        type: enum
+        allowed: ["APPROVE", "REVISE"]
+      - name: code_review_path
+        path: state/code_review_path.txt
+        type: relpath
+        under: artifacts/review
+        must_exist_target: true
+    publishes:
+      - artifact: code_review
+        from: code_review_path
+
+  - name: ReviewGate
+    command:
+      - bash
+      - -lc
+      - 'test "$(cat state/review_decision.txt)" = "APPROVE"'
+    on:
+      success:
+        goto: MarkBacklogDone
+      failure:
+        goto: ReviewCycleGate
+
+  - name: FixIssues
+    provider: codex
+    input_file: prompts/workflows/backlog_plan_loop/fix_issues.md
+    timeout_sec: 43200
+    consumes:
+      - artifact: plan
+        producers: ["SelectBacklogItem"]
+        policy: latest_successful
+        freshness: any
+      - artifact: execution_log
+        producers: ["AssessExecutionCompletion"]
+        policy: latest_successful
+        freshness: any
+      - artifact: code_review
+        producers: ["ReviewImplVsPlan"]
+        policy: latest_successful
+        freshness: any
+    inject_consumes: true
+    consumes_injection_position: prepend
+    expected_outputs:
+      - name: execution_session_log_path
+        path: state/execution_session_log_path.txt
+        type: relpath
+        under: artifacts/work
+        must_exist_target: true
+    publishes:
+      - artifact: execution_session_log
+        from: execution_session_log_path
     on:
       success:
         goto: IncrementReviewCycle
@@ -340,6 +365,9 @@ steps:
       - name: review_cycle
         path: state/review_cycle.txt
         type: integer
+    on:
+      success:
+        goto: RunTargetedChecks
 
   - name: ReviewCycleGate
     command:
@@ -348,7 +376,7 @@ steps:
       - 'test "$(cat state/review_cycle.txt)" -lt "${context.max_review_cycles}"'
     on:
       success:
-        goto: RunTargetedChecks
+        goto: FixIssues
       failure:
         goto: MaxCyclesExceeded
 
@@ -404,10 +432,20 @@ artifacts:
     type: relpath
     under: docs/plans
     must_exist_target: true
+  execution_session_log:
+    pointer: state/execution_session_log_path.txt
+    type: relpath
+    under: artifacts/work
+    must_exist_target: true
   execution_log:
     pointer: state/execution_log_path.txt
     type: relpath
     under: artifacts/work
+    must_exist_target: true
+  check_log:
+    pointer: state/check_log_path.txt
+    type: relpath
+    under: artifacts/checks
     must_exist_target: true
   code_review:
     pointer: state/code_review_path.txt
