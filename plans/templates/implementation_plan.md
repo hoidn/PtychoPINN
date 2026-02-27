@@ -1,119 +1,61 @@
-# Implementation Plan Template (Phased)
+# Implementation Plan Template (Lean)
 
 > Copy this file to `docs/plans/<initiative-id>/implementation.md` and customize.
 
 ## Initiative
 - ID: <initiative-id>
 - Title: <short title>
-- Owner: <name>
-- Spec Owner: <normative spec filename>  <!-- e.g., docs/spec-db-core.md -->
 - Status: pending | in_progress | blocked | done | archived
+- Owner: <name> (optional)
+- Spec/Source: <primary spec or doc path> (optional)
 
 ## Goals
 - <goal 1>
 - <goal 2>
 
-## Phases Overview
-- Phase A — <name>: <one-line objective>
-- Phase B — <name>: <one-line objective>
-- Phase C — <name>: <one-line objective>
+## Scope
+- In scope:
+  - <what this plan will do>
+- Out of scope:
+  - <what this plan will not do>
 
-## Exit Criteria
-1. <criterion 1>
-2. <criterion 2>
-3. <criterion 3>
-4. Test registry synchronized: `docs/TESTING_GUIDE.md` §2 and `docs/development/TEST_SUITE_INDEX.md` reflect any new/changed tests; `pytest --collect-only` logs for documented selectors are saved under `docs/plans/<initiative-id>/reports/<timestamp>/`. Do not close the initiative if any selector marked "Active" collects 0 tests.
+## Risks / Assumptions
+- <risk or assumption 1>
+- <risk or assumption 2>
 
-## Compliance Matrix (Mandatory)
-> List the specific Spec constraints, Fix-Plan ledger rows, and Findings/Policies this initiative must honor. Missing a relevant entry is a plan defect per ARRP.
-- [ ] **Spec Constraint:** <e.g., `spec-db-core.md §5.2 — Variance model definition`>
-- [ ] **Fix-Plan Link:** <e.g., `docs/fix_plan.md — Row [PHYSICS-LOSS-001]`>
-- [ ] **Finding/Policy ID:** <e.g., `CONFIG-001`, `POLICY-001 (PyTorch Optional)`>
+## Phases
 
-## Spec Alignment
-- **Normative Spec:** [path to spec file]
-- **Key Clauses:** [list of specific requirements this plan satisfies]
-
-## Architecture / Interfaces (optional)
-- **Key Data Types / Protocols:**
-  e.g., `User`, `OrderService`, `PaymentGateway` in a web app, or `Model`, `Trainer`, `MetricSink` in an ML pipeline.
-- **Boundary Definitions:**
-  Briefly describe the main seams between components.
-- **Sequence Sketch (Happy Path):**
-  Short textual outline of the primary request/response or job execution path.
-- **Data-Flow Notes:**
-  Note what data moves where and across which boundaries.
-
-## Context Priming (read before edits)
-- Primary docs/specs to re-read: <list explicit files + sections>
-- Required findings/case law: <docs/findings.md IDs + summary>
-- Related telemetry/attempts: <links to relevant artifacts or plan history>
-- Data dependencies to verify: <summarize external inputs and required assets>
-
-## Workflow Compatibility Contract (Required for Orchestrated Execution)
-
-Use this contract when a backlog workflow executes the entire plan in one unit.
-
-### Backlog Link Contract
-- The paired backlog item in `docs/backlog/active/` must include:
-  - `plan_path` pointing to this plan file
-  - `priority` (integer; lower means earlier)
-  - `check_commands` (targeted commands; avoid full-suite defaults unless required)
-
-### Full-Plan Execution Contract
-- Execution unit is the full plan document (not per-task slices).
-- The plan must define all required verification and completion conditions explicitly.
-
-### Required Sections For Automation
-- `## Verification Commands`:
-  - provide exact command list in a fenced `bash` block.
-- `## Completion Criteria`:
-  - objective pass/fail bullets for plan completion.
-- `## Required Evidence`:
-  - artifact/log paths that prove completion.
-
-### Progress Rules
-- A backlog item is done only when:
-  - full plan implementation is complete,
-  - verification commands pass,
-  - required evidence is produced,
-  - review decision is `APPROVE`.
-
-## Phase A — <name>
-### Checklist
-- [ ] A0: **Nucleus / Test-first gate:** <minimal probe or selector to validate assumptions before implementation>
-- [ ] A1: <task> (owner, expected artifacts)
+### Phase A — <name>
+- [ ] A0: Nucleus / test-first gate
+- [ ] A1: <task>
 - [ ] A2: <task>
-- [ ] A3: <task>
 
-### Dependency Analysis (Required for Refactors)
-- **Touched Modules:** [list]
-- **Circular Import Risks:** [analysis]
-- **State Migration:** [how state moves from old to new]
-
-### Notes & Risks
-- <risk 1>
-
-## Phase B — <name>
-### Checklist
+### Phase B — <name>
 - [ ] B1: <task>
 - [ ] B2: <task>
 
-### Notes & Risks
-- <risk 2>
-
-## Phase C — <name>
-### Checklist
+### Phase C — <name> (optional)
 - [ ] C1: <task>
 - [ ] C2: <task>
 
-### Notes & Risks
-- <risk 3>
+## Workflow Compatibility Contract
+
+When this plan is executed by a backlog workflow:
+
+- Backlog item must include:
+  - `plan_path` pointing to this plan
+  - `priority` integer
+  - targeted `check_commands`
+- Execution unit is the full plan (not ad-hoc partial slices).
+- Completion requires all three:
+  - verification commands pass
+  - completion criteria are satisfied
+  - required evidence is present
 
 ## Verification Commands
 ```bash
-# Add targeted commands required to validate full-plan completion.
-# Avoid unnecessary full-suite commands unless the plan requires them.
+# Add the exact commands required to validate completion.
+# Keep this targeted; avoid full-suite commands unless required.
 ```
 
 ## Completion Criteria
