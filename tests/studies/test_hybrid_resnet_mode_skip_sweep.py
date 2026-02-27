@@ -353,6 +353,92 @@ def test_invocation_and_cleanup_artifacts_are_written(tmp_path, monkeypatch):
     assert any("checkpoints" in path for path in pruned_report["deleted_paths"])
 
 
+def test_stage_c_run_sweep_emits_default_stage_anchor_summary(tmp_path, monkeypatch):
+    source_summary = tmp_path / "source.csv"
+    _write_source_summary(
+        source_summary,
+        [
+            {
+                "summary_schema_version": "v1",
+                "run_id": "stage_b_anchor",
+                "stage_id": "B",
+                "substage_id": "none",
+                "modes": "12",
+                "skip": "off",
+                "width": "32",
+                "amp_mae": 0.08,
+                "amp_mse": 0.01,
+                "phase_ssim_drop_vs_baseline": 0.0,
+                "train_wall_time_sec": 100,
+                "inference_time_s": 1.0,
+                "model_params": 1000,
+                "pareto_rank_macro": 1,
+                "is_feasible": True,
+                "is_stage_anchor": True,
+            }
+        ],
+    )
+
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    train_npz.touch()
+    test_npz.touch()
+
+    def _fake_runner(*, args, candidate, run_dir, train_npz, test_npz):
+        _ = (args, run_dir, train_npz, test_npz)
+        amp_mae = 0.07 if int(candidate["downsample_schedule"]) == 2 else 0.08
+        return {
+            "amp_mae": amp_mae,
+            "amp_mse": 0.01,
+            "phase_ssim": 0.9,
+            "phase_ssim_drop_vs_baseline": 0.0,
+            "model_params": 1234,
+            "train_wall_time_sec": 12.0,
+            "inference_time_s": 1.0,
+        }
+
+    monkeypatch.setattr(sweep, "_run_candidate_with_runner", _fake_runner)
+
+    output_root = tmp_path / "stage_c1"
+    rc = sweep.main(
+        [
+            "--stage-id",
+            "C",
+            "--substage-id",
+            "C1",
+            "--ns",
+            "128",
+            "--promotion-source-summary",
+            str(source_summary),
+            "--dataset-profiles-n128",
+            "custom_npz_pair_n128",
+            "--custom-n128-train-npz",
+            str(train_npz),
+            "--custom-n128-test-npz",
+            str(test_npz),
+            "--downsample-schedule-values",
+            "1,2",
+            "--top-k-n256",
+            "0",
+            "--output-root",
+            str(output_root),
+        ]
+    )
+
+    assert rc == 0
+    anchor_summary = output_root / "promotion" / "stage_anchor_summary.csv"
+    assert anchor_summary.exists()
+
+    summary_rows = list(csv.DictReader((output_root / "summary.csv").open()))
+    summary_anchor_rows = [row for row in summary_rows if row["is_stage_anchor"].lower() == "true"]
+    assert len(summary_anchor_rows) == 1
+
+    anchor_rows = list(csv.DictReader(anchor_summary.open()))
+    assert len(anchor_rows) == 1
+    assert anchor_rows[0]["is_stage_anchor"].lower() == "true"
+    assert anchor_rows[0]["run_id"] == summary_anchor_rows[0]["run_id"]
+
+
 def test_manifest_hashes_include_generated_profile_npz(tmp_path, monkeypatch):
     def _fake_resolve_profile_npz_inputs(args, profile, cache):
         cached = cache.get(profile)

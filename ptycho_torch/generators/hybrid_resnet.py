@@ -231,13 +231,18 @@ class HybridResnetGeneratorModule(nn.Module):
         )
         out_ch = decoder_widths[-1]
 
+        self.encoder_tap_plan, metadata_skip_plan = self._derive_skip_topology_from_stage_metadata(
+            self.stage_metadata,
+            downsample_steps=self.hybrid_downsample_steps,
+        )
+
         self.skip_fusion_plan: list[dict[str, int | str]] = []
         self.skip_fusion_projections = nn.ModuleDict()
         self.skip_fusion_gates = nn.ParameterDict()
         if self.skip_connections:
-            for idx in range(self.hybrid_downsample_steps):
-                resolution_divisor = 2 ** (self.hybrid_downsample_steps - idx - 1)
-                key = f"d{resolution_divisor}"
+            for idx, plan in enumerate(metadata_skip_plan):
+                resolution_divisor = int(plan["resolution_divisor"])
+                key = str(plan["key"])
                 decoder_channels = decoder_widths[idx + 1]
                 self.skip_fusion_plan.append(
                     {
@@ -270,6 +275,33 @@ class HybridResnetGeneratorModule(nn.Module):
             return BlurPoolConvDownsample(in_channels, out_channels)
         raise ValueError(f"Unsupported downsample op: {downsample_op!r}")
 
+    @staticmethod
+    def _derive_skip_topology_from_stage_metadata(
+        stage_metadata: list[dict[str, int]],
+        *,
+        downsample_steps: int,
+    ) -> tuple[list[dict[str, int | str]], list[dict[str, int | str]]]:
+        if downsample_steps < 0:
+            raise ValueError(f"downsample_steps must be non-negative, got {downsample_steps}.")
+        if len(stage_metadata) < downsample_steps + 1:
+            raise ValueError(
+                "stage_metadata must include one entry per downsample stage plus bottleneck "
+                f"(len={len(stage_metadata)}, downsample_steps={downsample_steps})."
+            )
+
+        tap_stages = stage_metadata[:downsample_steps]
+        encoder_tap_plan: list[dict[str, int | str]] = []
+        for stage in tap_stages:
+            divisor = int(stage["resolution_divisor"])
+            encoder_tap_plan.append(
+                {
+                    "key": f"d{divisor}",
+                    "resolution_divisor": divisor,
+                }
+            )
+        skip_fusion_plan = list(reversed(encoder_tap_plan))
+        return encoder_tap_plan, skip_fusion_plan
+
     def _apply_skip_fusion(
         self,
         decoder_x: torch.Tensor,
@@ -290,12 +322,12 @@ class HybridResnetGeneratorModule(nn.Module):
         B, C, H, W = x.shape
         x = self.lifter(x)
 
-        encoder_taps: dict[int, torch.Tensor] = {}
+        encoder_taps: dict[str, torch.Tensor] = {}
         for i, block in enumerate(self.encoder_blocks):
             x = block(x)
             if i < len(self.downsample_layers):
-                resolution_divisor = 2 ** i
-                encoder_taps[resolution_divisor] = x
+                tap = self.encoder_tap_plan[i]
+                encoder_taps[str(tap["key"])] = x
                 x = self.downsample_layers[i](x)
 
         x = self.adapter(x)
@@ -305,9 +337,8 @@ class HybridResnetGeneratorModule(nn.Module):
             x = upsample(x)
             if self.skip_connections and idx < len(self.skip_fusion_plan):
                 plan = self.skip_fusion_plan[idx]
-                divisor = int(plan["resolution_divisor"])
                 key = str(plan["key"])
-                skip_tensor = encoder_taps.get(divisor)
+                skip_tensor = encoder_taps.get(key)
                 if skip_tensor is not None:
                     x = self._apply_skip_fusion(x, skip_tensor, key)
 

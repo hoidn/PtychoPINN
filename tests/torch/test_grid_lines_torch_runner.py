@@ -1009,6 +1009,18 @@ class TestChannelGridsizeAlignment:
         training_config, _ = setup_torch_configs(cfg)
         assert training_config.torch_mae_pred_l2_match_target is True
 
+    def test_runner_sets_training_output_dir_from_cfg(self, tmp_path):
+        """TrainingConfig.output_dir should follow the runner output_dir."""
+        output_dir = tmp_path / "stage_c_run"
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=output_dir,
+            architecture="hybrid_resnet",
+        )
+        training_config, _ = setup_torch_configs(cfg)
+        assert training_config.output_dir == output_dir
+
     def test_runner_sets_probe_mask_controls(self, tmp_path):
         """Test that setup_torch_configs propagates probe mask controls."""
         cfg = TorchRunnerConfig(

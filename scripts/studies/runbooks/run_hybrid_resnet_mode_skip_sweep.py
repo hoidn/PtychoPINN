@@ -1928,6 +1928,21 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
             row_copy = {key: row.get(key, "") for key in summary_fieldnames}
             writer.writerow(row_copy)
 
+    anchor_summary_path: Path | None = args.emit_stage_anchor_summary
+    if anchor_summary_path is None:
+        anchor_summary_path = args.output_root / "promotion" / "stage_anchor_summary.csv"
+    anchor_rows = [row for row in rows if _bool_from_value(row.get("is_stage_anchor", False))]
+    if len(anchor_rows) != 1:
+        raise PromotionSourceError(
+            "Sweep execution requires exactly one stage anchor row before emitting "
+            f"{anchor_summary_path} (found {len(anchor_rows)})."
+        )
+    anchor_summary_path.parent.mkdir(parents=True, exist_ok=True)
+    with anchor_summary_path.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=summary_fieldnames)
+        writer.writeheader()
+        writer.writerow({key: anchor_rows[0].get(key, "") for key in summary_fieldnames})
+
     feasible_count = sum(1 for row in rows if _bool_from_value(row["is_feasible"]))
     with (args.output_root / "summary.md").open("w") as f:
         f.write("# Hybrid ResNet Mode/Skip Sweep Summary\n\n")

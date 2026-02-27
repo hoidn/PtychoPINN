@@ -554,6 +554,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         model=model_config,
         train_data_file=cfg.train_npz,
         test_data_file=cfg.test_npz,
+        output_dir=cfg.output_dir,
         nepochs=cfg.epochs,
         batch_size=cfg.batch_size,
         backend='pytorch',

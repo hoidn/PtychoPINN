@@ -260,8 +260,28 @@ class TestHybridResnetGenerator:
             skip_connections=True,
             hybrid_downsample_steps=2,
         )
-        assert [item["resolution_divisor"] for item in model_one.skip_fusion_plan] == [1]
-        assert [item["resolution_divisor"] for item in model_two.skip_fusion_plan] == [2, 1]
+        taps_one = [item["resolution_divisor"] for item in model_one.encoder_tap_plan]
+        taps_two = [item["resolution_divisor"] for item in model_two.encoder_tap_plan]
+
+        assert taps_one == [item["resolution_divisor"] for item in model_one.stage_metadata[:-1]]
+        assert taps_two == [item["resolution_divisor"] for item in model_two.stage_metadata[:-1]]
+        assert [item["resolution_divisor"] for item in model_one.skip_fusion_plan] == list(reversed(taps_one))
+        assert [item["resolution_divisor"] for item in model_two.skip_fusion_plan] == list(reversed(taps_two))
+
+    def test_skip_topology_derivation_uses_stage_metadata_values(self):
+        tap_plan, skip_plan = HybridResnetGeneratorModule._derive_skip_topology_from_stage_metadata(
+            [
+                {"resolution_divisor": 1, "channels": 16},
+                {"resolution_divisor": 3, "channels": 32},
+                {"resolution_divisor": 7, "channels": 64},
+            ],
+            downsample_steps=2,
+        )
+
+        assert [item["resolution_divisor"] for item in tap_plan] == [1, 3]
+        assert [item["key"] for item in tap_plan] == ["d1", "d3"]
+        assert [item["resolution_divisor"] for item in skip_plan] == [3, 1]
+        assert [item["key"] for item in skip_plan] == ["d3", "d1"]
 
     def test_invalid_hybrid_downsample_steps_raises(self):
         with pytest.raises(ValueError, match="hybrid_downsample_steps"):
