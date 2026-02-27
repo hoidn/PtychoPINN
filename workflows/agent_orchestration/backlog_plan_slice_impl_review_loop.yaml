@@ -1,7 +1,7 @@
 version: "1.2"
 name: "backlog-plan-impl-review-loop-v2"
 context:
-  max_review_cycles: "3"
+  max_review_cycles: "6"
 providers:
   codex:
     command:
