@@ -1,14 +1,14 @@
 ---
-priority: 30
+priority: 60
 plan_path: docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-structural-search.md
 check_commands:
   - test -f docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-structural-search.md
-  - rg -q "### Task 12: Stage C Search" docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-structural-search.md
+  - rg -q "### Task 14: Stage E Search" docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-structural-search.md
 ---
 
-# Backlog Item: Hybrid ResNet Skip/Mode Search Structural Search
+# Backlog Item: Hybrid ResNet Skip/Mode Search Stage E Execution
 
-Implement and maintain the structural search contract in:
+Implement and maintain the Stage-E execution contract in:
 `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-structural-search.md`
 
 Execution mode:
