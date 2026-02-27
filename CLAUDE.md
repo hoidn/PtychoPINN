@@ -6,6 +6,14 @@
 ## 0. Rules / suggestions 
 - use the tmux skill when launching long-running commands. When using tmux, activate the ptycho311 conda env or point pythonpath to its executable
 
+### Long-Run Sync Guardrail
+- For long-running commands, track and wait on the exact launched PID (`cmd ... & pid=$!; wait "$pid"`).
+- Do not use broad `pgrep -f` polling loops as the primary completion check.
+- Do not launch a duplicate run if another process is already writing to the same `--output-root`.
+- Consider a run complete only when:
+  1. the tracked PID exits with code `0`, and
+  2. required output artifacts for that step exist and are freshly written.
+
 ## 1. ⚙️ Identity & Workflow Guardrails
 
 - **Plans & artifacts:** Keep evidence lean. Store plans under `docs/plans/` (default single-file plan: `docs/plans/YYYY-MM-DD-<initiative>.md`). If an initiative needs a folder, use `docs/plans/<initiative>/summary.md` for loop summaries. Store bulky artifacts outside the repo (or under a git‑ignored `.artifacts/` folder) and link to them from the plan/ledger.
