@@ -64,6 +64,9 @@ export PYTHONPATH=~/Documents/agent-orchestration
 python -m orchestrator.cli.main run \
   workflows/agent_orchestration/backlog_plan_slice_impl_review_loop.yaml \
   --debug \
+  --step-summaries \
+  --summary-mode async \
+  --summary-provider claude_sonnet_summary \
   2>&1 | tee logs/backlog-loop-$(date -u +%Y%m%dT%H%M%SZ).log
 ```
 
@@ -82,11 +85,12 @@ For each selected backlog item, it runs:
 2. Capture a git baseline for this cycle
 3. Execute the full plan (provider: codex)
 4. Run targeted checks
-5. Review implementation vs plan (`APPROVE` or `REVISE`)
-6. If `REVISE`, run fix pass (provider: codex) and loop (bounded by `context.max_review_cycles`)
-7. On success, move backlog item `active -> done`
-8. Run a post-approval commit step (provider: codex)
-9. Recount active queue and continue until no active items remain
+5. Assess completion from session/check artifacts and write `state/execution_log_path.txt`
+6. Review implementation vs plan (`APPROVE` or `REVISE`)
+7. If `REVISE`, run an idempotent full-plan re-execution pass (provider: codex), then repeat checks + assessment + review loop (bounded by `context.max_review_cycles`)
+8. On success, move backlog item `active -> done`
+9. Run a post-approval commit step (provider: codex)
+10. Recount active queue and continue until no active items remain
 
 ## 5) Monitoring
 
@@ -94,6 +98,7 @@ Run artifacts are under `.orchestrate/runs/<run_id>/`.
 
 - State ledger: `.orchestrate/runs/<run_id>/state.json`
 - Step logs: `.orchestrate/runs/<run_id>/logs/`
+- Step summaries (when enabled): `.orchestrate/runs/<run_id>/summaries/`
 - Prompt audit logs (because `--debug`):
   - `ExecutePlan.prompt.txt`
   - `ReviewImplVsPlan.prompt.txt`
@@ -101,10 +106,9 @@ Run artifacts are under `.orchestrate/runs/<run_id>/`.
   - `CommitOnApprove.prompt.txt` (when approval path runs)
 
 Workflow state/output files in repo root:
+- `state/execution_log_path.txt`
 - `state/review_decision.txt`
-- `state/issue_count.txt`
 - `state/misalignment_report_path.txt`
-- `state/failed_count.txt`
 - `state/commit_sha.txt`
 
 ## 6) Resume After Interruption
@@ -114,7 +118,8 @@ If interrupted, resume with the run ID:
 ```bash
 cd ~/Documents/tmp/PtychoPINN
 export PYTHONPATH=~/Documents/agent-orchestration
-python -m orchestrator.cli.main resume <run_id> --debug
+python -m orchestrator.cli.main resume <run_id> --debug \
+  --step-summaries --summary-mode async --summary-provider claude_sonnet_summary
 ```
 
 Quick way to resume the latest run:
@@ -124,6 +129,7 @@ cd ~/Documents/tmp/PtychoPINN
 export PYTHONPATH=~/Documents/agent-orchestration
 run_id=$(ls -1dt .orchestrate/runs/* | head -n1 | xargs -n1 basename)
 python -m orchestrator.cli.main resume "$run_id" --debug \
+  --step-summaries --summary-mode async --summary-provider claude_sonnet_summary \
   2>&1 | tee -a logs/backlog-loop-resume-${run_id}.log
 ```
 
