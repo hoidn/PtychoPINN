@@ -30,6 +30,7 @@ from scripts.studies.invocation_logging import write_invocation_artifacts
 
 
 SUMMARY_SCHEMA_VERSION = "hybrid_resnet_mode_skip_sweep.v1"
+ALLOWED_SUMMARY_SCHEMA_VERSIONS = {SUMMARY_SCHEMA_VERSION, "v1"}
 STUDY_KEY = "hybrid-resnet-mode-skip-sweep"
 SEED_SET = (3, 11, 17)
 
@@ -337,13 +338,48 @@ def validate_matrix_constraints(args: argparse.Namespace) -> None:
         "resnet_blocks": len(args.resnet_blocks_values),
         "skip_style": len(args.skip_style_values),
     }
+    structural_axis_values = {
+        "fno_blocks": list(args.fno_blocks_values),
+        "downsample_schedule": list(args.downsample_schedule_values),
+        "downsample_op": list(args.downsample_op_values),
+        "encoder_conv_hidden": list(args.encoder_conv_hidden_values),
+        "encoder_spectral_hidden": list(args.encoder_spectral_hidden_values),
+        "max_hidden": list(args.max_hidden_values),
+        "resnet_width": list(args.resnet_width_values),
+        "resnet_blocks": list(args.resnet_blocks_values),
+        "skip_style": list(args.skip_style_values),
+    }
 
     if args.stage_id == "A":
-        forbidden = [name for name, size in structural_axis_lengths.items() if size > 1]
-        if forbidden:
+        stage_a_defaults = {
+            "fno_blocks": "4",
+            "downsample_schedule": "2",
+            "downsample_op": "stride_conv",
+            "encoder_conv_hidden": "none",
+            "encoder_spectral_hidden": "none",
+            "max_hidden": "none",
+            "resnet_width": "none",
+            "resnet_blocks": "6",
+            "skip_style": "add",
+        }
+        violations: list[str] = []
+        for axis_name, values in structural_axis_values.items():
+            if len(values) != 1:
+                violations.append(f"{axis_name}={values}")
+                continue
+            observed = str(values[0]).strip().lower()
+            expected = stage_a_defaults[axis_name]
+            if observed != expected:
+                violations.append(f"{axis_name}={values[0]}")
+
+        if violations:
             raise MatrixExpansionError(
                 "Stage A can only vary {modes, skip-values, widths}; "
-                f"structural axes with >1 values are not allowed: {forbidden}"
+                "all structural axes must remain at defaults "
+                "(fno_blocks=4, downsample_schedule=2, downsample_op=stride_conv, "
+                "encoder_conv_hidden=none, encoder_spectral_hidden=none, max_hidden=none, "
+                "resnet_width=none, resnet_blocks=6, skip_style=add); "
+                f"got: {violations}"
             )
     else:
         if len(args.modes) > 1 or len(args.skip_values) > 1 or len(args.widths) > 1:
@@ -550,9 +586,16 @@ def _require_schema_version(path: Path, fieldnames: Sequence[str], rows: Sequenc
             f"{path} is missing required column 'summary_schema_version'"
         )
     for row in rows:
-        if str(row.get("summary_schema_version", "")).strip() == "":
+        version = str(row.get("summary_schema_version", "")).strip()
+        if version == "":
             raise PromotionSourceError(
                 f"{path} contains rows with empty summary_schema_version"
+            )
+        if version not in ALLOWED_SUMMARY_SCHEMA_VERSIONS:
+            allowed = ", ".join(sorted(ALLOWED_SUMMARY_SCHEMA_VERSIONS))
+            raise PromotionSourceError(
+                f"{path} has unsupported summary_schema_version '{version}'. "
+                f"Expected one of: {allowed}"
             )
 
 
@@ -764,6 +807,70 @@ def _dedupe_rows_by_config(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, 
     return deduped
 
 
+def _is_stage_a_control_anchor_row(row: Mapping[str, Any]) -> bool:
+    try:
+        return (
+            _safe_int(row.get("modes"), "modes", default=12) == 12
+            and str(row.get("skip", "off")).strip().lower() == "off"
+            and _safe_int(row.get("width"), "width", default=32) == 32
+            and _safe_int(row.get("fno_blocks"), "fno_blocks", default=4) == 4
+            and _safe_int(row.get("downsample_schedule"), "downsample_schedule", default=2) == 2
+            and _resolve_axis_value(row.get("downsample_op"), "stride_conv") == "stride_conv"
+            and _resolve_axis_value(row.get("encoder_conv_hidden"), "none") == "none"
+            and _resolve_axis_value(row.get("encoder_spectral_hidden"), "none") == "none"
+            and _resolve_axis_value(row.get("max_hidden"), "none") == "none"
+            and _resolve_axis_value(row.get("resnet_width"), "none") == "none"
+            and _safe_int(row.get("resnet_blocks"), "resnet_blocks", default=6) == 6
+            and _resolve_axis_value(row.get("skip_style"), "add") == "add"
+        )
+    except PromotionSourceError:
+        return False
+
+
+def _build_anchor_row_from_source(
+    source_row: Mapping[str, Any],
+    *,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    return {
+        "summary_schema_version": SUMMARY_SCHEMA_VERSION,
+        "run_id": str(source_row.get("run_id", "stage_a_control_anchor")),
+        "stage_id": str(source_row.get("stage_id", args.stage_id) or args.stage_id),
+        "substage_id": str(source_row.get("substage_id", args.substage_id) or args.substage_id),
+        "modes": _safe_int(source_row.get("modes"), "modes", default=12),
+        "skip": str(source_row.get("skip", "off")).strip().lower(),
+        "width": _safe_int(source_row.get("width"), "width", default=32),
+        "fno_blocks": _safe_int(source_row.get("fno_blocks"), "fno_blocks", default=4),
+        "downsample_schedule": _safe_int(source_row.get("downsample_schedule"), "downsample_schedule", default=2),
+        "downsample_op": _resolve_axis_value(source_row.get("downsample_op"), "stride_conv"),
+        "encoder_conv_hidden": _resolve_axis_value(source_row.get("encoder_conv_hidden"), "none"),
+        "encoder_spectral_hidden": _resolve_axis_value(source_row.get("encoder_spectral_hidden"), "none"),
+        "max_hidden": _resolve_axis_value(source_row.get("max_hidden"), "none"),
+        "resnet_width": _resolve_axis_value(source_row.get("resnet_width"), "none"),
+        "resnet_blocks": _safe_int(source_row.get("resnet_blocks"), "resnet_blocks", default=6),
+        "skip_style": _resolve_axis_value(source_row.get("skip_style"), "add"),
+        "amp_mae": _safe_float(source_row.get("amp_mae"), "amp_mae"),
+        "amp_mse": _safe_float(source_row.get("amp_mse"), "amp_mse"),
+        "train_wall_time_sec": _safe_float(source_row.get("train_wall_time_sec"), "train_wall_time_sec"),
+        "inference_time_s": _safe_float(source_row.get("inference_time_s"), "inference_time_s"),
+        "model_params": int(_safe_float(source_row.get("model_params"), "model_params")),
+        "phase_ssim_drop_vs_baseline": _safe_float(
+            source_row.get("phase_ssim_drop_vs_baseline"),
+            "phase_ssim_drop_vs_baseline",
+            default=0.0,
+        ),
+        "pareto_rank_seed3": "",
+        "pareto_rank_seed11": "",
+        "pareto_rank_seed17": "",
+        "pareto_rank_median": "",
+        "pareto_rank_macro": _safe_float(source_row.get("pareto_rank_macro"), "pareto_rank_macro", default=9999.0),
+        "is_feasible": _bool_from_value(source_row.get("is_feasible", True)),
+        "violated_constraints": str(source_row.get("violated_constraints", "")),
+        "is_stage_anchor": True,
+        "anchor_source_summary": str(args.source_summary),
+    }
+
+
 def _collect_seed_rows(root: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for summary_path in sorted(root.rglob("summary.csv")):
@@ -966,7 +1073,42 @@ def run_seed_rerank_aggregation(args: argparse.Namespace) -> None:
         writer.writeheader()
         writer.writerows(robust_rows)
 
-    anchor_row = dict(robust_rows[0])
+    if args.stage_id == "A":
+        control_matches = [dict(row) for row in source_rows if _is_stage_a_control_anchor_row(row)]
+        if not control_matches:
+            raise PromotionSourceError(
+                "Stage A seed rerank aggregation requires a true-default control anchor "
+                "(modes=12, skip=off, width=32, fno_blocks=4, downsample_schedule=2, "
+                "downsample_op=stride_conv, encoder_conv_hidden=none, "
+                "encoder_spectral_hidden=none, max_hidden=none, resnet_width=none, "
+                "resnet_blocks=6, skip_style=add) in --source-summary"
+            )
+        unique_control_configs = _dedupe_rows_by_config(control_matches)
+        if len(unique_control_configs) != 1:
+            raise PromotionSourceError(
+                "Stage A source summary contains multiple distinct control-anchor tuples; "
+                "expected exactly one true-default tuple"
+            )
+        control_matches.sort(
+            key=lambda row: (
+                _safe_float(row.get("amp_mae"), "amp_mae", default=1e12),
+                str(row.get("run_id", "")),
+            )
+        )
+        anchor_row = _build_anchor_row_from_source(control_matches[0], args=args)
+        for robust_row in robust_rows:
+            if _candidate_config_key(robust_row) == _candidate_config_key(anchor_row):
+                for key in (
+                    "pareto_rank_seed3",
+                    "pareto_rank_seed11",
+                    "pareto_rank_seed17",
+                    "pareto_rank_median",
+                    "pareto_rank_macro",
+                ):
+                    anchor_row[key] = robust_row.get(key, anchor_row.get(key, ""))
+                break
+    else:
+        anchor_row = dict(robust_rows[0])
     anchor_row["is_stage_anchor"] = True
     args.emit_stage_anchor_summary.parent.mkdir(parents=True, exist_ok=True)
     with args.emit_stage_anchor_summary.open("w", newline="") as f:
@@ -1200,17 +1342,46 @@ def _resolve_profile_npz_inputs(
         return cache[profile]
 
     if profile == "cameraman256_halfsplit_v1":
+        from ptycho.workflows.grid_lines_workflow import GridLinesConfig
+        from scripts.studies.grid_study_dataset_builder import build_datasets
         from scripts.studies.prepare_nersc_hybrid_dataset import prepare_hybrid_dataset
 
+        profile_dir = args.output_root / "datasets" / profile
         prepared = prepare_hybrid_dataset(
             dp_h5=Path(args.cameraman_dp),
             para_h5=Path(args.cameraman_para),
-            output_dir=args.output_root / "datasets" / profile,
+            output_dir=profile_dir,
             half="top",
             target_n=int(args.ns),
             downsample_policy="bin-crop",
         )
-        cache[profile] = (Path(prepared["train_npz"]), Path(prepared["test_npz"]))
+
+        cfg = GridLinesConfig(
+            N=int(args.ns),
+            gridsize=1,
+            output_dir=profile_dir / "canonical_cache",
+            probe_npz=Path("datasets/Run1084_recon3_postPC_shrunk_3.npz"),
+            nimgs_train=2,
+            nimgs_test=2,
+            nphotons=1e9,
+            nepochs=1,
+            batch_size=8,
+            probe_source="custom",
+            probe_scale_mode="pad_extrapolate",
+            set_phi=True,
+        )
+        bundles = build_datasets(
+            dataset_source="external_raw_npz",
+            cfg=cfg,
+            required_ns=[int(args.ns)],
+            train_data=Path(prepared["train_npz"]),
+            test_data=Path(prepared["test_npz"]),
+            n_groups=512,
+            neighbor_count=7,
+            subsample_seed=int(args.seed),
+        )
+        bundle = bundles[int(args.ns)]
+        cache[profile] = (Path(bundle["train_npz"]), Path(bundle["test_npz"]))
         return cache[profile]
 
     if profile == "custom_npz_pair_n256":
@@ -1308,6 +1479,43 @@ def _run_candidate_with_runner(
         str(int(candidate["fno_blocks"])),
     ]
 
+    if _bool_from_value(candidate.get("skip", "off")):
+        cmd.append("--hybrid-skip-connections")
+    else:
+        cmd.append("--no-hybrid-skip-connections")
+    cmd.extend(
+        [
+            "--hybrid-downsample-steps",
+            str(_safe_int(candidate.get("downsample_schedule"), "downsample_schedule", default=2)),
+            "--hybrid-downsample-op",
+            _resolve_axis_value(candidate.get("downsample_op"), "stride_conv"),
+        ]
+    )
+    encoder_conv_hidden_raw = _resolve_axis_value(candidate.get("encoder_conv_hidden"), "none")
+    if encoder_conv_hidden_raw.lower() != "none":
+        cmd.extend(
+            [
+                "--hybrid-encoder-conv-hidden",
+                str(_safe_int(encoder_conv_hidden_raw, "encoder_conv_hidden")),
+            ]
+        )
+    encoder_spectral_hidden_raw = _resolve_axis_value(candidate.get("encoder_spectral_hidden"), "none")
+    if encoder_spectral_hidden_raw.lower() != "none":
+        cmd.extend(
+            [
+                "--hybrid-encoder-spectral-hidden",
+                str(_safe_int(encoder_spectral_hidden_raw, "encoder_spectral_hidden")),
+            ]
+        )
+    cmd.extend(
+        [
+            "--hybrid-resnet-blocks",
+            str(_safe_int(candidate.get("resnet_blocks"), "resnet_blocks", default=6)),
+            "--hybrid-skip-style",
+            _resolve_axis_value(candidate.get("skip_style"), "add"),
+        ]
+    )
+
     resnet_width_raw = str(candidate.get("resnet_width", "none")).strip().lower()
     if resnet_width_raw != "none":
         cmd.extend(
@@ -1391,6 +1599,85 @@ def _write_cleanup_report(
     (run_dir / "cleanup_report.json").write_text(json.dumps(payload, indent=2) + "\n")
 
 
+def _path_size_bytes(path: Path) -> int:
+    if not path.exists():
+        return 0
+    if path.is_file():
+        return int(path.stat().st_size)
+    total = 0
+    for child in path.rglob("*"):
+        if child.is_file():
+            total += int(child.stat().st_size)
+    return int(total)
+
+
+def _prune_heavy_runtime_artifacts(run_dir: Path) -> tuple[list[str], int]:
+    runtime_root = run_dir / "runs" / "pinn_hybrid_resnet"
+    if not runtime_root.exists():
+        return [], 0
+
+    heavy_dirs = (
+        "checkpoints",
+        "lightning_logs",
+        "mlruns",
+        "tb_logs",
+        "tensorboard",
+        "profiler",
+        "cache",
+    )
+    heavy_file_patterns = (
+        "*.ckpt",
+        "*.pt",
+        "*.pth",
+        "*.onnx",
+        "*.npy",
+        "*.npz",
+        "*.h5",
+        "*.hdf5",
+        "events.out.tfevents*",
+    )
+
+    dir_targets: list[Path] = []
+    for dir_name in heavy_dirs:
+        candidate = runtime_root / dir_name
+        if candidate.exists() and candidate.is_dir():
+            dir_targets.append(candidate)
+    dir_target_set = {path.resolve() for path in dir_targets}
+
+    file_targets: list[Path] = []
+    for pattern in heavy_file_patterns:
+        for candidate in runtime_root.rglob(pattern):
+            if not candidate.is_file():
+                continue
+            candidate_resolved = candidate.resolve()
+            if any(parent in dir_target_set for parent in candidate_resolved.parents):
+                continue
+            file_targets.append(candidate)
+
+    targets = sorted(
+        {*dir_targets, *file_targets},
+        key=lambda path: (len(path.parts), str(path)),
+        reverse=True,
+    )
+
+    deleted_paths: list[str] = []
+    bytes_reclaimed = 0
+    for target in targets:
+        if not target.exists():
+            continue
+        bytes_reclaimed += _path_size_bytes(target)
+        if target.is_dir():
+            shutil.rmtree(target)
+        else:
+            target.unlink()
+        try:
+            deleted_paths.append(str(target.relative_to(run_dir)))
+        except ValueError:
+            deleted_paths.append(str(target))
+
+    return deleted_paths, int(bytes_reclaimed)
+
+
 def _candidate_tuple_key(args: argparse.Namespace, row: Mapping[str, Any]) -> tuple[str, str, int, str]:
     return (
         str(args.stage_id),
@@ -1413,9 +1700,6 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
         argv=argv_payload,
         parsed_args=vars(args),
     )
-
-    manifest = build_sweep_manifest(args)
-    (args.output_root / "sweep_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
     source_rows: list[dict[str, Any]] = []
     anchor_row: dict[str, Any] | None = None
@@ -1449,6 +1733,11 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
     rows: list[dict[str, Any]] = []
     seen_retention_keys: set[tuple[str, str, int, str]] = set()
     dataset_cache: dict[str, tuple[Path, Path]] = {}
+    for profile in sorted({str(candidate["dataset_profile"]) for candidate in candidates}):
+        _resolve_profile_npz_inputs(args, profile, dataset_cache)
+
+    manifest = build_sweep_manifest(args)
+    (args.output_root / "sweep_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
     for index, candidate in enumerate(candidates):
         run_id = str(candidate["run_key"])
@@ -1484,9 +1773,6 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
         }
         (run_dir / "metrics.json").write_text(json.dumps(metrics_payload, indent=2) + "\n")
 
-        heavy_path = run_dir / "heavy_artifact.bin"
-        heavy_path.write_bytes(b"0" * 2048)
-
         tuple_key = _candidate_tuple_key(args, candidate)
         if tuple_key not in seen_retention_keys:
             retention_tier = "full_anchor"
@@ -1495,12 +1781,9 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
             reclaimed = 0
         else:
             retention_tier = "pruned"
-            deleted = []
-            reclaimed = 0
-            if args.prune_heavy_artifacts and heavy_path.exists():
-                reclaimed = heavy_path.stat().st_size
-                heavy_path.unlink()
-                deleted.append(str(heavy_path))
+            deleted, reclaimed = [], 0
+            if args.prune_heavy_artifacts:
+                deleted, reclaimed = _prune_heavy_runtime_artifacts(run_dir)
 
         _write_cleanup_report(
             run_dir,
@@ -1650,10 +1933,22 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
         f.write("# Hybrid ResNet Mode/Skip Sweep Summary\n\n")
         f.write(f"- Stage: {args.stage_id}\n")
         f.write(f"- Substage: {args.substage_id}\n")
+        f.write(f"- stage_id: {args.stage_id}\n")
+        f.write(f"- substage_id: {args.substage_id}\n")
         f.write(f"- Resolution: N={args.ns}\n")
         f.write(f"- Candidates: {len(rows)}\n")
         f.write(f"- Feasible: {feasible_count}\n")
         f.write(f"- Summary Schema: {SUMMARY_SCHEMA_VERSION}\n")
+        f.write(f"- summary_schema_version: {SUMMARY_SCHEMA_VERSION}\n")
+
+        f.write("\n## Candidates\n\n")
+        f.write("| run_id | dataset_profile | modes | skip | width | fno_blocks | amp_mae | is_feasible |\n")
+        f.write("| --- | --- | --- | --- | --- | --- | --- | --- |\n")
+        for row in rows:
+            f.write(
+                f"| {row['run_id']} | {row['dataset_profile']} | {row['modes']} | {row['skip']} | "
+                f"{row['width']} | {row['fno_blocks']} | {float(row['amp_mae']):.6f} | {row['is_feasible']} |\n"
+            )
 
     return 0
 

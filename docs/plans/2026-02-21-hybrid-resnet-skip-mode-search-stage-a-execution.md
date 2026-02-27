@@ -28,6 +28,11 @@ Execution order for this split document is:
 - Cleanup posture: follow the design-doc retention/cleanup contract as operationally critical guidance, even if orchestration enforcement is soft.
 - Epoch floor: all Stage-A/Stage-B runs MUST use at least `10` epochs (`--epochs-n128 >= 10`, `--epochs-n256 >= 10`) unless an approved exception is recorded in the execution log.
 - Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources; rerun from earliest violating stage if such outputs were consumed.
+- Apples-to-apples baseline rule: any "better than baseline/default/anchor" claim in this plan MUST compare runs with the same dataset profile, epoch budget, and seed policy.
+- Stage-A specific baseline rule:
+  - For `integration_grid_lines_n128_v1` and `fly001_external_n128_top_bottom_v1`, use the true-default row (`modes=12`, `skip=off`, `width=32`) from the same Stage-A `N=128` sweep output as the baseline comparator.
+  - Stage-A promotion/governance claims MUST use the same seed policy as candidate ranking (`seed=3` for exploration, `{3,11,17}` median-rank context for robustness/promotion).
+- Baseline documentation rule: Stage-A execution artifacts MUST include a compact baseline table with baseline run id(s), candidate run id(s), and metrics (`amp_mae`, `amp_mse`, `phase_ssim`, `train_wall_time_sec`, `inference_time_s`) plus an explicit `apples_to_apples=true|false` flag per comparison row.
 
 ### Strong-Advisory Cleanup Contract (Stage A)
 
@@ -126,6 +131,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
 Expected:
 - promotion summary `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/summary_seed_robust.csv` exists,
 - stage anchor summary `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/stage_anchor_summary.csv` exists and contains exactly one anchor row,
+- that Stage-A anchor row matches true `hybrid_resnet` defaults (`modes=12`, `skip=off`, `width=32`, `fno_blocks=4`, `downsample_schedule=2`, `downsample_op=stride_conv`, `encoder_conv_hidden=none`, `encoder_spectral_hidden=none`, `max_hidden=none`, `resnet_width=none`, `resnet_blocks=6`, `skip_style=add`),
 - ranking in that summary uses median Pareto rank across seeds `{3,11,17}` on feasible candidates.
 
 **Step 3: Promote robust top-K and run N=256**
@@ -199,6 +205,33 @@ cat outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/summary_s
 ```
 Expected: robust summary header/rows include seeded promotion ranking fields.
 
+**Step 5B: Produce and persist apples-to-apples baseline evidence**
+
+Create:
+- `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/apples_to_apples_baseline.csv`
+- `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/apples_to_apples_baseline.md`
+
+Required columns:
+- `dataset_profile`
+- `baseline_run_id`
+- `candidate_run_id`
+- `baseline_amp_mae`
+- `candidate_amp_mae`
+- `baseline_amp_mse`
+- `candidate_amp_mse`
+- `baseline_phase_ssim`
+- `candidate_phase_ssim`
+- `baseline_train_wall_time_sec`
+- `candidate_train_wall_time_sec`
+- `baseline_inference_time_s`
+- `candidate_inference_time_s`
+- `seed_policy`
+- `apples_to_apples`
+- `notes`
+
+Gate:
+- Promotion/governance conclusions are invalid unless every cited "better than baseline" comparison appears in this table with `apples_to_apples=true`.
+
 **Step 5A: Strong-advisory heavy-pruning verification**
 
 Run:
@@ -254,7 +287,7 @@ Add optional arguments (defaults preserve Stage A behavior):
 - `--allow-n256-direct-diagnostic` (default off; only valid with `--ns 256 --top-k-n256 0`)
 - `--aggregate-seed-rerank-root` (optional; enables robustness-summary collation mode)
 - `--source-summary` (required with `--aggregate-seed-rerank-root`)
-- `--emit-stage-anchor-summary` (required with `--aggregate-seed-rerank-root`; writes one-row anchor summary for downstream `N=128` stages)
+- `--emit-stage-anchor-summary` (required with `--aggregate-seed-rerank-root`; writes the one-row Stage-A control anchor summary for downstream `N=128` stages)
 - `--emit-robust-promotion-summary` (required with `--aggregate-seed-rerank-root`)
 - `--promotion-objectives` (default: `amp_mae,amp_mse,train_wall_time_sec`)
 - `--max-train-seconds-n128` (default: `2700`)
@@ -320,7 +353,7 @@ Add explicit invocation-provenance assertions in
 - seed-rerank collation validation is explicit:
   - boundary candidate coverage for seeds `{3,11,17}` is complete,
   - `summary_seed_robust.csv` is emitted with median Pareto-rank ordering and consumed by promotion-enabled `N=256` commands,
-  - `stage_anchor_summary.csv` is emitted and contains exactly one anchor row for downstream `N=128` stages.
+  - `stage_anchor_summary.csv` is emitted and contains exactly one control-anchor row for downstream `N=128` stages with true-default tuple values (including `skip=off`).
 - numeric guardrail validation is explicit:
   - invalid `resnet_width` values fail fast at CLI parsing/validation with actionable errors.
 - confounder provenance is enforced:
@@ -358,14 +391,14 @@ git commit -m "feat(studies): add staged structural-axis hooks to hybrid_resnet 
 **Files:**
 - Modify: none (execution + artifacts)
 
-**Step 0: Resolve single Stage-A anchor summary for Stage-B N=128**
+**Step 0: Resolve single Stage-A control-anchor summary for Stage-B N=128**
 
-Use the one-row anchor artifact emitted in Task 9 Step 2:
+Use the one-row control-anchor artifact emitted in Task 9 Step 2:
 - `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/stage_anchor_summary.csv`
 
 Do not pass full top-K robustness summary as the Stage-B `N=128` source.
 
-**Step 1: Run Stage B at N=128 on promoted Stage-A anchor config**
+**Step 1: Run Stage B at N=128 on Stage-A control anchor config**
 
 Before each Task 11 run command block (Step 1 and Step 2), run:
 ```bash
@@ -395,7 +428,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --no-torch-mae-pred-l2-match-target
 ```
 Expected: `summary.md` includes `stage_id=B`, `substage_id=none`, and `fno_blocks` column.
-Non-axis knobs (`modes`, `skip`, `width`) come from `--promotion-source-summary`; do not re-sweep them in Stage B.
+Non-axis knobs (`modes`, `skip`, `width`) come from `--promotion-source-summary`; canonical Stage-B runs must therefore inherit `skip=off` from the Stage-A control anchor.
 
 **Step 2: Promote feasible Pareto-ranked top-K and run N=256**
 

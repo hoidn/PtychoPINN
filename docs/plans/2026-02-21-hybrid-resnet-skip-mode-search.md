@@ -26,6 +26,26 @@
 - Any stage outputs produced with fewer than `10` epochs are non-canonical for promotion/governance decisions.
 - If a downstream stage consumed non-canonical (<10 epoch) upstream outputs, rerun from the earliest violating stage and regenerate all dependent downstream artifacts.
 
+## Apples-to-Apples Baseline Contract
+
+- Any claim that a candidate is "better than baseline/default/anchor" MUST use an apples-to-apples comparator:
+  - same dataset profile and exact data sources (same NPZ/HDF5 paths and split),
+  - same epoch budget,
+  - same stage scope and objective set,
+  - same seed policy (single-seed comparisons use seed `3`; promotion comparisons use seeds `{3,11,17}` and median-rank governance).
+- Cross-stage or cross-epoch comparisons (for example Stage C `10` epochs vs Stage A `1` epoch) are non-canonical and MUST NOT be used for promotion/governance claims.
+- Each stage execution package MUST include a baseline evidence artifact (CSV/Markdown table) that records baseline run id(s) and metrics (`amp_mae`, `amp_mse`, `phase_ssim`, `train_wall_time_sec`, `inference_time_s`) and explicitly marks whether each comparison is apples-to-apples.
+
+## Canonical Anchor Contract
+
+- Canonical structural search starts from true `hybrid_resnet` defaults at Stage B `N=128` (the Stage-A control anchor), not from the Stage-A promoted winner.
+- Required Stage-A control anchor tuple:
+  - `modes=12`, `skip=off`, `width=32`, `fno_blocks=4`
+  - `downsample_schedule=2`, `downsample_op=stride_conv`
+  - `encoder_conv_hidden=none`, `encoder_spectral_hidden=none`
+  - `max_hidden=none`, `resnet_width=none`, `resnet_blocks=6`, `skip_style=add`
+- Stage-A promoted winners remain valid for Stage-A `N=256` promotion/rerank and optional diagnostics.
+
 ## Progress Checklist
 
 - [ ] Task 0-8 complete in `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-implementation-core.md`

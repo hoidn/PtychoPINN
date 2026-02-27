@@ -531,6 +531,63 @@ class TestRunGridLinesTorchScaffold:
         assert captured["single_image_frc_split_mode"] == "spatial"
         assert captured["single_image_frc_rng_seed"] is None
 
+    def test_compute_metrics_normalizes_channel_first_real_imag_ground_truth(self, monkeypatch):
+        captured = {}
+
+        def fake_eval(pred, gt, label="", **kwargs):
+            _ = kwargs
+            captured["pred_shape"] = tuple(np.asarray(pred).shape)
+            captured["gt_shape"] = tuple(np.asarray(gt).shape)
+            captured["gt_dtype"] = np.asarray(gt).dtype
+            captured["label"] = label
+            return {"mse": 0.0}
+
+        monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", fake_eval)
+
+        pred = np.ones((48, 50), dtype=np.complex64)
+        gt = np.stack(
+            [
+                np.ones((48, 50), dtype=np.float32),
+                np.zeros((48, 50), dtype=np.float32),
+            ],
+            axis=0,
+        )
+        out = compute_metrics(pred, gt, label="pinn_hybrid_resnet")
+
+        assert out["mse"] == 0.0
+        assert captured["pred_shape"] == (48, 50, 1)
+        assert captured["gt_shape"] == (48, 50, 1)
+        assert captured["label"] == "pinn_hybrid_resnet"
+
+    def test_compute_metrics_normalizes_channel_first_complex_ground_truth(self, monkeypatch):
+        captured = {}
+
+        def fake_eval(pred, gt, label="", **kwargs):
+            _ = kwargs
+            captured["pred_shape"] = tuple(np.asarray(pred).shape)
+            captured["gt_shape"] = tuple(np.asarray(gt).shape)
+            captured["gt_dtype"] = np.asarray(gt).dtype
+            captured["label"] = label
+            return {"mse": 0.0}
+
+        monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", fake_eval)
+
+        pred = np.ones((32, 34), dtype=np.complex64)
+        gt = np.stack(
+            [
+                np.ones((32, 34), dtype=np.complex64),
+                np.full((32, 34), 2.0 + 0.0j, dtype=np.complex64),
+            ],
+            axis=0,
+        )
+        out = compute_metrics(pred, gt, label="pinn_hybrid_resnet")
+
+        assert out["mse"] == 0.0
+        assert captured["pred_shape"] == (32, 34, 1)
+        assert captured["gt_shape"] == (32, 34, 1)
+        assert captured["gt_dtype"] == np.complex64
+        assert captured["label"] == "pinn_hybrid_resnet"
+
     def test_position_reassembly_mode_uses_coords_offsets(self, synthetic_npz, tmp_path, monkeypatch):
         """Position mode should use coords_offsets-based reassembly."""
         train_path, test_path = synthetic_npz

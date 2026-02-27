@@ -24,6 +24,11 @@ This split document owns Tasks 12-15 (structural-axis implementation/search stag
 - Global epoch floor: all stage runs (`A-E`) MUST use at least `10` training epochs per run (`--epochs-n128 >= 10`, `--epochs-n256 >= 10`) unless an approved exception is recorded in the execution log with rationale.
 - Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources.
 - If any downstream Stage C/D/E artifact consumed non-canonical upstream outputs, rerun from the earliest violating stage and regenerate downstream artifacts.
+- Apples-to-apples baseline rule: any claim that a Stage C/D/E candidate is better than baseline/default/anchor MUST compare against a baseline measured on the same dataset profile, same data sources, same epoch budget, and same seed policy.
+- Structural-stage baseline requirement:
+  - Before each Stage C/D/E comparison cycle, measure true-default `hybrid_resnet` baseline (`modes=12`, `skip=off`, `width=32`, `fno_blocks=4`, `downsample_schedule=2`, `downsample_op=stride_conv`, `encoder_conv_hidden=none`, `encoder_spectral_hidden=none`, `max_hidden=none`, `resnet_width=none`, `resnet_blocks=6`, `skip_style=add`) on the same dataset profile and epoch budget used for that cycle.
+  - For promotion decisions, baseline context must use the same robustness seed policy as candidates (`{3,11,17}` with median-rank context).
+- Baseline documentation rule: each stage package MUST include an apples-to-apples baseline table (CSV/Markdown) containing baseline run id(s), candidate run id(s), and comparison metrics (`amp_mae`, `amp_mse`, `phase_ssim`, `train_wall_time_sec`, `inference_time_s`) with explicit `apples_to_apples=true|false` marking.
 
 ### Strong-Advisory Cleanup Contract (Stages C-E)
 
@@ -102,7 +107,11 @@ Expected: PASS.
 
 **Step 3: Execute Stage C runs**
 
-Sub-stage C1 (schedule): use `--downsample-schedule-values 1,2` while fixing all other structural axes to one promoted Stage-B anchor config loaded via `--promotion-source-summary <stageB_anchor_n128_summary.csv>`.
+Pre-step baseline requirement (mandatory before C1/C2 interpretation):
+- Run true-default baseline on the same `custom_npz_pair_n128` dataset pair and same epoch budget as Stage C (`--epochs-n128 10`), and persist baseline outputs under a dedicated path.
+- Do not accept any "better than baseline" interpretation in Stage C until this baseline run is complete and documented.
+
+Sub-stage C1 (schedule): use `--downsample-schedule-values 1,2` while fixing all other structural axes to one Stage-B anchor config loaded via `--promotion-source-summary <stageB_anchor_n128_summary.csv>`.
 Record provenance with `--stage-id C --substage-id C1`.
 
 Sub-stage C2 (operator): lock best schedule from C1 (from `--promotion-source-summary <stageC1_anchor_n128_summary.csv>`), then run:
@@ -116,6 +125,10 @@ Stage budget:
 - Before selecting top-4 for `N=256`, apply the boundary seed-rerank policy on the C2 `N=128` source summary (`top-K + next 2`, seeds `11` and `17`) and promote from the resulting robustness summary.
 - Between consecutive Stage C invocations (including seed-rerank reruns and promotion runs), run `rm -rf memoized_data/`.
 - After each Stage C invocation, perform heavy-pruning verification and log any retained heavy paths with explicit justification.
+- Persist Stage C baseline-comparison artifacts:
+  - `outputs/<stage_c_root>/promotion/apples_to_apples_baseline.csv`
+  - `outputs/<stage_c_root>/promotion/apples_to_apples_baseline.md`
+  - Gate: only rows marked `apples_to_apples=true` may be used in promotion/governance narrative.
 
 **Step 4: Documentation sync for Stage-C knobs**
 
@@ -224,6 +237,10 @@ Budget rule:
 - Before selecting top-4 for `N=256`, apply the boundary seed-rerank policy on the D4 `N=128` source summary (`top-K + next 2`, seeds `11` and `17`) and promote from the resulting robustness summary.
 - Between consecutive Stage D invocations (including seed-rerank reruns and promotion runs), run `rm -rf memoized_data/`.
 - After each Stage D invocation, perform heavy-pruning verification and log any retained heavy paths with explicit justification.
+- Persist Stage D apples-to-apples baseline artifacts:
+  - `outputs/<stage_d_root>/promotion/apples_to_apples_baseline.csv`
+  - `outputs/<stage_d_root>/promotion/apples_to_apples_baseline.md`
+  - Include baseline run details for the exact epoch budget and dataset profile used by D-stage comparisons.
 
 **Step 6: Documentation sync for Stage-D knobs**
 
@@ -301,6 +318,10 @@ Run skip styles on best config from Stage D, budget:
 - Before selecting top-2 for `N=256`, apply the boundary seed-rerank policy on the Stage-E `N=128` source summary (`top-K + next 2`, seeds `11` and `17`) and promote from the resulting robustness summary.
 - Between consecutive Stage E invocations (including seed-rerank reruns and promotion runs), run `rm -rf memoized_data/`.
 - After each Stage E invocation, perform heavy-pruning verification and log any retained heavy paths with explicit justification.
+- Persist Stage E apples-to-apples baseline artifacts:
+  - `outputs/<stage_e_root>/promotion/apples_to_apples_baseline.csv`
+  - `outputs/<stage_e_root>/promotion/apples_to_apples_baseline.md`
+  - Gate: only comparisons recorded as `apples_to_apples=true` are valid evidence for style promotion conclusions.
 
 Constraint:
 - Stage E must reuse the topology-driven fusion-point mechanism introduced in Task 12 Step 0; do not introduce new hard-coded skip tap indices.

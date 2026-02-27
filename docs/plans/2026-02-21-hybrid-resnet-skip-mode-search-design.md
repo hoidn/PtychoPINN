@@ -141,6 +141,8 @@ Stage-isolation contract:
 - Non-active knobs are copied from that single anchor row and must remain scalar for the stage run matrix.
 - Top-K candidate sets from prior stages are used for `N=256` confirmation/rerank, not for `N=128` stage fan-out.
 - Multi-anchor fan-out is allowed only in explicitly labeled diagnostic runs that do not drive canonical stage promotion state.
+- Canonical initialization rule: Stage-B `N=128` MUST start from a Stage-A control anchor row that matches true `hybrid_resnet` defaults (`modes=12`, `skip=off`, `width=32`, `fno_blocks=4`, `downsample_schedule=2`, `downsample_op=stride_conv`, `encoder_conv_hidden=none`, `encoder_spectral_hidden=none`, `max_hidden=none`, `resnet_width=none`, `resnet_blocks=6`, `skip_style=add`).
+- Stage-A promoted winners remain valid for Stage-A `N=256` promotion/rerank and optional diagnostics, but they are not the canonical Stage-B `N=128` anchor source.
 
 Stage identifier contract:
 - `stage_id` values are `A|B|C|D|E`.
@@ -164,7 +166,7 @@ Axes:
 Policy:
 - full grid on `N=128`,
 - promote top-K feasible Pareto-ranked candidates to `N=256`.
-- emit a single Stage-A anchor summary row for downstream Stage-B `N=128` sweeps.
+- emit a single Stage-A control-anchor summary row for downstream Stage-B `N=128` sweeps; this row MUST match the true-default tuple above.
 - run on one or more `dataset_profiles_n128` and aggregate rankings across profiles.
 - keep broad exploration single-seed (`seed=3` default), then apply the Section-6 boundary seed-robustness rule before promotion.
 
@@ -174,7 +176,7 @@ Axis:
 - `fno_blocks`
 
 Policy:
-- vary `fno_blocks` with one Stage-A anchor configuration fixed,
+- vary `fno_blocks` with the Stage-A control-anchor configuration fixed,
 - `N=128` full stage budget, top-K feasible Pareto-ranked candidates to `N=256`.
 - evaluate with selected dataset profile sets for N=128/N=256.
 - apply the Section-6 boundary seed-robustness rule on the `N=128` source summary before promotion to `N=256`.

@@ -432,6 +432,36 @@ def _harmonize_prediction_shape(
     return pred
 
 
+def _normalize_eval_image_array(arr: np.ndarray) -> np.ndarray:
+    """Canonicalize eval arrays to complex 2D when they encode channels."""
+    image = np.squeeze(np.asarray(arr))
+    if image.ndim != 3:
+        return image
+
+    # Handle channel-first encodings shaped (C, H, W).
+    if image.shape[0] in {1, 2} and image.shape[1] > 8 and image.shape[2] > 8:
+        if image.shape[0] == 1:
+            return image[0]
+        if np.isrealobj(image):
+            return image[0] + 1j * image[1]
+        return image[0]
+
+    # Handle channel-last encodings shaped (H, W, C).
+    if image.shape[-1] in {1, 2} and image.shape[0] > 8 and image.shape[1] > 8:
+        if image.shape[-1] == 1:
+            return image[..., 0]
+        if np.isrealobj(image):
+            return image[..., 0] + 1j * image[..., 1]
+        return image[..., 0]
+
+    # Fallback for singleton channel dimensions.
+    if image.shape[0] == 1:
+        return image[0]
+    if image.shape[-1] == 1:
+        return image[..., 0]
+    return image
+
+
 def setup_torch_configs(cfg: TorchRunnerConfig):
     """Set up PyTorch configuration objects from runner config.
 
@@ -754,8 +784,14 @@ def compute_metrics(
     """
     from ptycho.evaluation import eval_reconstruction
 
-    pred = np.asarray(predictions)
-    gt = np.asarray(ground_truth)
+    pred = _normalize_eval_image_array(np.asarray(predictions))
+    gt = _normalize_eval_image_array(np.asarray(ground_truth))
+
+    if pred.ndim == 2 and gt.ndim == 2 and pred.shape != gt.shape:
+        from ptycho.image.harmonize import resize_complex_to_shape
+
+        pred = resize_complex_to_shape(pred, (int(gt.shape[0]), int(gt.shape[1])))
+
     if pred.ndim == 2:
         pred = pred[..., None]
     if gt.ndim == 2:
