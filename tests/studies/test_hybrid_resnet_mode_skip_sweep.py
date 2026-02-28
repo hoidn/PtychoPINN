@@ -267,6 +267,10 @@ def test_invocation_and_cleanup_artifacts_are_written(tmp_path, monkeypatch):
 
     def _fake_runner(*, args, candidate, run_dir, train_npz, test_npz):
         _ = (args, candidate, train_npz, test_npz)
+        (run_dir / "checkpoints").mkdir(parents=True, exist_ok=True)
+        (run_dir / "lightning_logs" / "version_0").mkdir(parents=True, exist_ok=True)
+        (run_dir / "checkpoints" / "epoch=0-step=1.ckpt").write_bytes(b"r" * 128)
+        (run_dir / "lightning_logs" / "version_0" / "events.out.tfevents").write_bytes(b"s" * 96)
         runtime_root = run_dir / "runs" / "pinn_hybrid_resnet"
         (runtime_root / "checkpoints").mkdir(parents=True, exist_ok=True)
         (runtime_root / "lightning_logs" / "version_0").mkdir(parents=True, exist_ok=True)
@@ -338,9 +342,15 @@ def test_invocation_and_cleanup_artifacts_are_written(tmp_path, monkeypatch):
         assert payload["retention_tier"] in {"full_anchor", "pruned"}
 
     full_anchor_dir = output_root / "runs" / summary_rows[0]["run_id"] / "runs" / "pinn_hybrid_resnet"
+    full_anchor_root = output_root / "runs" / summary_rows[0]["run_id"]
     pruned_dir = output_root / "runs" / summary_rows[1]["run_id"] / "runs" / "pinn_hybrid_resnet"
+    pruned_root = output_root / "runs" / summary_rows[1]["run_id"]
+    assert (full_anchor_root / "checkpoints").exists()
+    assert (full_anchor_root / "lightning_logs").exists()
     assert (full_anchor_dir / "model.pt").exists()
     assert (full_anchor_dir / "checkpoints").exists()
+    assert (pruned_root / "checkpoints").exists() is False
+    assert (pruned_root / "lightning_logs").exists() is False
     assert (pruned_dir / "model.pt").exists() is False
     assert (pruned_dir / "checkpoints").exists() is False
     assert (pruned_dir / "lightning_logs").exists() is False
@@ -350,6 +360,10 @@ def test_invocation_and_cleanup_artifacts_are_written(tmp_path, monkeypatch):
     )
     assert pruned_report["bytes_reclaimed"] > 0
     assert any(path.endswith("model.pt") for path in pruned_report["deleted_paths"])
+    assert any(
+        path == "checkpoints" or path.startswith("checkpoints/")
+        for path in pruned_report["deleted_paths"]
+    )
     assert any("checkpoints" in path for path in pruned_report["deleted_paths"])
 
 
@@ -385,7 +399,17 @@ def test_stage_c_run_sweep_emits_default_stage_anchor_summary(tmp_path, monkeypa
     test_npz.touch()
 
     def _fake_runner(*, args, candidate, run_dir, train_npz, test_npz):
-        _ = (args, run_dir, train_npz, test_npz)
+        _ = (args, train_npz, test_npz)
+        (run_dir / "checkpoints").mkdir(parents=True, exist_ok=True)
+        (run_dir / "lightning_logs" / "version_0").mkdir(parents=True, exist_ok=True)
+        (run_dir / "checkpoints" / "epoch=0-step=1.ckpt").write_bytes(b"r" * 128)
+        (run_dir / "lightning_logs" / "version_0" / "events.out.tfevents").write_bytes(b"s" * 96)
+        runtime_root = run_dir / "runs" / "pinn_hybrid_resnet"
+        (runtime_root / "checkpoints").mkdir(parents=True, exist_ok=True)
+        (runtime_root / "lightning_logs" / "version_0").mkdir(parents=True, exist_ok=True)
+        (runtime_root / "checkpoints" / "epoch=0-step=1.ckpt").write_bytes(b"c" * 128)
+        (runtime_root / "lightning_logs" / "version_0" / "events.out.tfevents").write_bytes(b"l" * 96)
+        (runtime_root / "model.pt").write_bytes(b"m" * 64)
         amp_mae = 0.07 if int(candidate["downsample_schedule"]) == 2 else 0.08
         return {
             "amp_mae": amp_mae,
@@ -432,6 +456,21 @@ def test_stage_c_run_sweep_emits_default_stage_anchor_summary(tmp_path, monkeypa
     summary_rows = list(csv.DictReader((output_root / "summary.csv").open()))
     summary_anchor_rows = [row for row in summary_rows if row["is_stage_anchor"].lower() == "true"]
     assert len(summary_anchor_rows) == 1
+    assert summary_anchor_rows[0]["retention_tier"] == "full_anchor"
+
+    non_anchor_rows = [row for row in summary_rows if row["is_stage_anchor"].lower() != "true"]
+    assert non_anchor_rows
+    for row in non_anchor_rows:
+        assert row["retention_tier"] == "pruned"
+        run_dir = output_root / "runs" / row["run_id"]
+        runtime_root = run_dir / "runs" / "pinn_hybrid_resnet"
+        assert (run_dir / "checkpoints").exists() is False
+        assert (run_dir / "lightning_logs").exists() is False
+        assert (runtime_root / "model.pt").exists() is False
+        cleanup_payload = json.loads((run_dir / "cleanup_report.json").read_text())
+        assert cleanup_payload["retention_tier"] == "pruned"
+        assert cleanup_payload["bytes_reclaimed"] > 0
+        assert any(path.endswith("model.pt") for path in cleanup_payload["deleted_paths"])
 
     anchor_rows = list(csv.DictReader(anchor_summary.open()))
     assert len(anchor_rows) == 1

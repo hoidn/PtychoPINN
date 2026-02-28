@@ -1613,7 +1613,10 @@ def _path_size_bytes(path: Path) -> int:
 
 def _prune_heavy_runtime_artifacts(run_dir: Path) -> tuple[list[str], int]:
     runtime_root = run_dir / "runs" / "pinn_hybrid_resnet"
-    if not runtime_root.exists():
+    prune_roots = [run_dir]
+    if runtime_root.exists() and runtime_root.is_dir():
+        prune_roots.append(runtime_root)
+    if not any(root.exists() for root in prune_roots):
         return [], 0
 
     heavy_dirs = (
@@ -1637,25 +1640,27 @@ def _prune_heavy_runtime_artifacts(run_dir: Path) -> tuple[list[str], int]:
         "events.out.tfevents*",
     )
 
-    dir_targets: list[Path] = []
-    for dir_name in heavy_dirs:
-        candidate = runtime_root / dir_name
-        if candidate.exists() and candidate.is_dir():
-            dir_targets.append(candidate)
-    dir_target_set = {path.resolve() for path in dir_targets}
+    dir_target_map: dict[Path, Path] = {}
+    for root in prune_roots:
+        for dir_name in heavy_dirs:
+            candidate = root / dir_name
+            if candidate.exists() and candidate.is_dir():
+                dir_target_map[candidate.resolve()] = candidate
+    dir_target_set = set(dir_target_map.keys())
 
-    file_targets: list[Path] = []
-    for pattern in heavy_file_patterns:
-        for candidate in runtime_root.rglob(pattern):
-            if not candidate.is_file():
-                continue
-            candidate_resolved = candidate.resolve()
-            if any(parent in dir_target_set for parent in candidate_resolved.parents):
-                continue
-            file_targets.append(candidate)
+    file_target_map: dict[Path, Path] = {}
+    for root in prune_roots:
+        for pattern in heavy_file_patterns:
+            for candidate in root.rglob(pattern):
+                if not candidate.is_file():
+                    continue
+                candidate_resolved = candidate.resolve()
+                if any(parent in dir_target_set for parent in candidate_resolved.parents):
+                    continue
+                file_target_map[candidate_resolved] = candidate
 
     targets = sorted(
-        {*dir_targets, *file_targets},
+        {*dir_target_map.values(), *file_target_map.values()},
         key=lambda path: (len(path.parts), str(path)),
         reverse=True,
     )
@@ -1678,13 +1683,40 @@ def _prune_heavy_runtime_artifacts(run_dir: Path) -> tuple[list[str], int]:
     return deleted_paths, int(bytes_reclaimed)
 
 
-def _candidate_tuple_key(args: argparse.Namespace, row: Mapping[str, Any]) -> tuple[str, str, int, str]:
-    return (
-        str(args.stage_id),
-        str(args.substage_id),
-        int(args.ns),
-        str(row["dataset_profile"]),
-    )
+def _reconcile_retention_tiers(
+    rows: list[dict[str, Any]],
+    *,
+    output_root: Path,
+    prune_heavy_artifacts: bool,
+) -> None:
+    anchor_run_ids = {str(row["run_id"]) for row in rows if _bool_from_value(row.get("is_stage_anchor", False))}
+    if len(anchor_run_ids) != 1:
+        raise PromotionSourceError(
+            "Sweep execution requires exactly one stage anchor row before retention reconciliation "
+            f"(found {len(anchor_run_ids)})."
+        )
+    anchor_run_id = next(iter(anchor_run_ids))
+
+    for row in rows:
+        run_id = str(row["run_id"])
+        run_dir = output_root / "runs" / run_id
+        if run_id == anchor_run_id:
+            retention_tier = "full_anchor"
+            deleted_paths: list[str] = []
+            bytes_reclaimed = 0
+        else:
+            retention_tier = "pruned"
+            deleted_paths, bytes_reclaimed = [], 0
+            if prune_heavy_artifacts:
+                deleted_paths, bytes_reclaimed = _prune_heavy_runtime_artifacts(run_dir)
+
+        row["retention_tier"] = retention_tier
+        _write_cleanup_report(
+            run_dir,
+            retention_tier=retention_tier,
+            deleted_paths=deleted_paths,
+            bytes_reclaimed=bytes_reclaimed,
+        )
 
 
 def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
@@ -1731,7 +1763,6 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
         raise MatrixExpansionError("Sweep matrix expansion produced zero candidates")
 
     rows: list[dict[str, Any]] = []
-    seen_retention_keys: set[tuple[str, str, int, str]] = set()
     dataset_cache: dict[str, tuple[Path, Path]] = {}
     for profile in sorted({str(candidate["dataset_profile"]) for candidate in candidates}):
         _resolve_profile_npz_inputs(args, profile, dataset_cache)
@@ -1773,25 +1804,6 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
         }
         (run_dir / "metrics.json").write_text(json.dumps(metrics_payload, indent=2) + "\n")
 
-        tuple_key = _candidate_tuple_key(args, candidate)
-        if tuple_key not in seen_retention_keys:
-            retention_tier = "full_anchor"
-            seen_retention_keys.add(tuple_key)
-            deleted: list[str] = []
-            reclaimed = 0
-        else:
-            retention_tier = "pruned"
-            deleted, reclaimed = [], 0
-            if args.prune_heavy_artifacts:
-                deleted, reclaimed = _prune_heavy_runtime_artifacts(run_dir)
-
-        _write_cleanup_report(
-            run_dir,
-            retention_tier=retention_tier,
-            deleted_paths=deleted,
-            bytes_reclaimed=reclaimed,
-        )
-
         row = {
             "summary_schema_version": SUMMARY_SCHEMA_VERSION,
             "run_id": run_id,
@@ -1832,7 +1844,7 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
             "promote_to_n256": False,
             "is_stage_anchor": False,
             "anchor_source_summary": str(args.promotion_source_summary or ""),
-            "retention_tier": retention_tier,
+            "retention_tier": "pending_anchor_resolution",
             "run_index": index,
         }
         rows.append(row)
@@ -1875,6 +1887,12 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
         if args.ns == 128 and args.top_k_n256 > 0:
             for row in feasible_rows[: args.top_k_n256]:
                 row["promote_to_n256"] = True
+
+    _reconcile_retention_tiers(
+        rows,
+        output_root=args.output_root,
+        prune_heavy_artifacts=bool(args.prune_heavy_artifacts),
+    )
 
     summary_fieldnames = [
         "summary_schema_version",
