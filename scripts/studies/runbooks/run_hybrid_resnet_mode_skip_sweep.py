@@ -33,6 +33,7 @@ SUMMARY_SCHEMA_VERSION = "hybrid_resnet_mode_skip_sweep.v1"
 ALLOWED_SUMMARY_SCHEMA_VERSIONS = {SUMMARY_SCHEMA_VERSION, "v1"}
 STUDY_KEY = "hybrid-resnet-mode-skip-sweep"
 SEED_SET = (3, 11, 17)
+MIN_STAGE_EPOCHS = 10
 
 
 class StageValidationError(ValueError):
@@ -238,6 +239,15 @@ def validate_stage_configuration(args: argparse.Namespace) -> None:
         raise StageValidationError(
             f"Stage {args.stage_id} requires substage_id to be 'none', got '{args.substage_id}'"
         )
+
+    # Structural-stage governance requires epoch floor compliance for every run invocation.
+    if not args.aggregate_seed_rerank_root:
+        active_epochs = int(args.epochs_n256 if args.ns == 256 else args.epochs_n128)
+        if active_epochs < MIN_STAGE_EPOCHS:
+            raise StageValidationError(
+                f"Stage {args.stage_id}/{args.substage_id} requires epoch budget >= {MIN_STAGE_EPOCHS} "
+                f"for N={args.ns}; got {active_epochs}"
+            )
 
     if args.allow_n256_direct_diagnostic and (args.ns != 256 or args.top_k_n256 != 0):
         raise StageValidationError("--allow-n256-direct-diagnostic requires --ns 256 --top-k-n256 0")

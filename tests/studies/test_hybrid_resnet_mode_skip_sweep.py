@@ -72,6 +72,51 @@ def test_stage_id_guardrail_rejects_missing_stage_c_substage(tmp_path, capsys):
     assert "Stage C requires substage_id" in capsys.readouterr().err
 
 
+def test_stage_epoch_floor_guardrail_rejects_below_floor_budget(tmp_path, capsys):
+    source_summary = tmp_path / "source.csv"
+    _write_source_summary(
+        source_summary,
+        [
+            {
+                "summary_schema_version": "v1",
+                "run_id": "anchor",
+                "stage_id": "C",
+                "substage_id": "C2",
+                "modes": "12",
+                "skip": "off",
+                "width": "32",
+                "amp_mae": 0.08,
+                "amp_mse": 0.01,
+                "phase_ssim_drop_vs_baseline": 0.0,
+                "train_wall_time_sec": 100,
+                "inference_time_s": 1.0,
+                "model_params": 1000,
+                "pareto_rank_macro": 1,
+                "is_feasible": True,
+                "is_stage_anchor": True,
+            }
+        ],
+    )
+
+    rc = sweep.main([
+        "--stage-id",
+        "D",
+        "--substage-id",
+        "D1",
+        "--ns",
+        "128",
+        "--promotion-source-summary",
+        str(source_summary),
+        "--epochs-n128",
+        "9",
+        "--output-root",
+        str(tmp_path / "out"),
+    ])
+
+    assert rc == 1
+    assert "epoch budget >= 10" in capsys.readouterr().err
+
+
 def test_matrix_guardrail_rejects_non_active_axis_multivalue_stage_b(tmp_path, capsys):
     source_summary = tmp_path / "source.csv"
     _write_source_summary(
