@@ -37,6 +37,7 @@ class DataConfig:
     normalize: Literal['Group', 'Batch'] = 'Batch' # Whether to normalize the data
     probe_scale: float = 1.0
     probe_normalize: bool = True
+    probe_ramp_removal: bool = False
     data_scaling: Literal['Parseval','Max'] = 'Parseval'
     phase_subtraction: bool = True #Only useful for supervised training dataset
 
@@ -67,6 +68,7 @@ class ModelConfig:
     edge_pad: int = 10 #For padding the decoder_last reconstruction
     decoder_last_c_outer_fraction: float = 0.125 #Amount of channels going to higher frequency components in decoder_last
     decoder_last_amp_channels: int = 1
+    use_shared_decoder: bool = False  # Use single shared decoder instead of dual amp/phase branches
 
     #Attention
     eca_encoder: bool = False
@@ -93,8 +95,7 @@ class ModelConfig:
     phase_loss: Literal['Total_Variation', "Mean_Deviation", None] = None
     amp_loss_coeff: float = 1.0
     phase_loss_coeff: float = 1.0
-    
-    
+    probe_reference_coeff: float = 0.0           # Probe reference loss coefficient (0.0 = disabled)
 
 @dataclass
 class TrainingConfig:
@@ -118,10 +119,13 @@ class TrainingConfig:
     batch_size: int = 16
     epochs_fine_tune: int = 0 #Default 0 fine-tune means no fine-tuning
     fine_tune_gamma: float = 0.1 #Scales base LR for fine-tuning
-    scheduler: Literal['Default', 'Exponential', 'MultiStage', 'Adaptive'] = 'Default'
+    scheduler: Literal['Default', 'Exponential', 'MultiStage', 'Adaptive', 'Cosine'] = 'Default'
     num_workers: int = 4 #Dataloader workers
     accum_steps: int = 1 #Batch size accumulation, manually implemented for DDP
     gradient_clip_val: Union[float,None] = None #Gradient clip value
+    #Cosine specific
+    warmup_epochs: int = 5
+    min_lr_ratio: float = 0.1
     # batch_size: int = 32
 
     # Meta learning: Schedulers etc.
@@ -141,13 +145,43 @@ class TrainingConfig:
     notes: str = ""
     model_name: str = "PtychoPINNv2"
 
+    #Beta configs... fine tuning on experiments
+    # Fine-tuning configuration
+    enable_staged_finetuning: bool = False  # Master switch for synthetic→experimental transfer
+
+    # Stage durations (epochs)
+    finetune_stage1_epochs: int = 7   # Decoder-only
+    finetune_stage2_epochs: int = 7   # Partial encoder + decoder
+    finetune_stage3_epochs: int = 5   # Full network (optional)
+
+    # Learning rate multipliers (relative to base_lr)
+    # Stage 1: Decoder-only
+    finetune_stage1_lr_decoder: float = 0.1
+
+    # Stage 2: Partial encoder + decoder with discriminative LR
+    finetune_stage2_lr_encoder_top: float = 0.01
+    finetune_stage2_lr_decoder: float = 0.05
+    finetune_stage2_lr_phase_head: float = 0.1
+
+    # Stage 3: Full network with very conservative LR
+    finetune_stage3_lr_encoder_bottom: float = 0.005
+    finetune_stage3_lr_encoder_top: float = 0.01
+    finetune_stage3_lr_decoder: float = 0.02
+    finetune_stage3_lr_phase_head: float = 0.05
+
+    # Stage control
+    finetune_skip_stage3: bool = True  # Most cases won't need Stage 3
+    finetune_early_stop_patience: int = 3  # Per-stage early stopping
+
+    # Validation split for fine-tuning (small experimental dataset)
+    finetune_val_split: float = 0.05  # 5% validation split
+
     #Lightning specific configs
     output_dir: str = "lightning_outputs"
 
     # Spec-mandated lifecycle fields (align with TensorFlow backend)
     train_data_file: Optional[str] = None # Path to training NPZ dataset
     test_data_file: Optional[str] = None # Path to test NPZ dataset
-    output_dir: str = "training_outputs" # Output directory for checkpoints/logs
     n_groups: Optional[int] = None # Number of grouped samples
 
 @dataclass
@@ -158,6 +192,7 @@ class InferenceConfig:
     experiment_number: int = 0  #Experiment number for inference
     pad_eval: bool = True #Pads the evaluation edges, enforced during training for Nyquist frequency. Can turn off for eval
     window: int = 20 #Window padding around reconstruction due to edge errors
+    patch_weighting: Literal['uniform', 'probe'] = 'probe'
 
 @dataclass
 class DatagenConfig:
@@ -168,7 +203,8 @@ class DatagenConfig:
     image_size: Tuple[int, int] = (250,250)
     probe_paths: List[str] = field(default_factory=list) # List of all probe files used
     beamstop_diameter: int = 4 # For simulating beamstop in forward model
-
+    reim_mode: Literal['gaussian', 'histogram', 'constrained_phase', 'uniform'] = 'histogram'
+    histogram_threshold: float = 0.05
 
 
 

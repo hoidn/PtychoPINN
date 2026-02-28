@@ -145,6 +145,90 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
         return _flat_to_channel(imgs_flat_bigN_translated, channels=C) 
 
 
+def reassemble_patches_position_real_probe(inputs: torch.Tensor,
+                                      offsets_xy: torch.Tensor,
+                                      data_config: DataConfig,
+                                      model_config: ModelConfig,
+                                      probe: Optional[torch.Tensor] = None,
+                                      use_probe_weights: bool = True,
+                                      agg: bool = True,
+                                      padded_size: Optional[int] = None,
+                                      **kwargs: Any) -> torch.Tensor:
+    '''
+    Probe-weighted variant of reassemble_patches_position_real.
+    Weights patch contributions by |Probe|^2 instead of binary central mask.
+
+    Inputs
+    ------
+    inputs: [B, C, N, N] (Complex object patches)
+    offsets_xy: [B, C, 1, 2]
+    probe: [B, C, P, N, N]
+    use_probe_weights: If True, weights by |Probe|^2. If False, uses binary central mask.
+    '''
+
+    assert inputs.dtype == torch.complex64, 'Input must be complex'
+
+    B, C_in, N, _ = inputs.shape
+    C = model_config.C_forward
+
+    if padded_size is None:
+        padded_size = get_padded_size(data_config, model_config)
+    M = padded_size
+
+    # --- 1. Prepare Flat Inputs and Offsets ---
+    imgs_flat = inputs.flatten(start_dim=0, end_dim=1)
+    offsets_flat = offsets_xy.flatten(start_dim=0, end_dim=1)
+
+    # --- 2. Prepare Weights (Probe or Binary) ---
+    if use_probe_weights:
+        if probe is None:
+            raise ValueError("Probe must be provided if use_probe_weights is True")
+        # Weight = |Probe|^2 (Squeeze the P dimension)
+        weights_flat = torch.abs(probe.squeeze(2)).flatten(0, 1)**2
+    else:
+        # Original binary prototype logic
+        with torch.no_grad():
+            prototype_mask_N = torch.zeros(N, N, device=inputs.device, dtype=torch.float32)
+            center_slice = slice(N // 4, N // 4 + N // 2)
+            prototype_mask_N[center_slice, center_slice] = 1.0
+            weights_flat = prototype_mask_N.expand(B * C, N, N)
+
+    # --- 3. Pad Images and Weights ---
+    pad_dim = (M - N) // 2
+    imgs_flat_bigN = F.pad(imgs_flat, (pad_dim, pad_dim, pad_dim, pad_dim), "constant", 0.)
+    weights_flat_bigN = F.pad(weights_flat, (pad_dim, pad_dim, pad_dim, pad_dim), "constant", 0.)
+
+    # --- 4. Translate ---
+    imgs_flat_translated = Translation(imgs_flat_bigN, offsets_flat, 0.).squeeze(1)
+    weights_flat_translated = Translation(weights_flat_bigN, offsets_flat, 0.).squeeze(1)
+
+    # --- 5. Handle Aggregation ---
+    if agg:
+        # Apply weighting: Numerator = Sum(Object * Weight)
+        # Reshape to (B, C, M, M) and sum over C
+        weighted_imgs_summed = (imgs_flat_translated * weights_flat_translated).reshape(B, C, M, M).sum(dim=1)
+
+        # Denominator = Sum(Weight)
+        weights_summed = weights_flat_translated.reshape(B, C, M, M).sum(dim=1)
+
+        # --- 5b. Normalize ---
+        # Threshold for the mask: if using probe, use relative threshold; if binary, use 0.5
+        threshold = (weights_summed.max() * 1e-6) if use_probe_weights else 1e-6
+        boolean_mask = weights_summed > threshold
+
+        # Clamp ensures values are at least epsilon where division occurs
+        norm_factor = torch.clamp(weights_summed, min=1e-12)
+
+        # Apply normalization: (Sum O*W) / (Sum W)
+        imgs_merged = (weighted_imgs_summed * boolean_mask) / norm_factor
+
+        return imgs_merged, boolean_mask, M
+
+    else:
+        print('no aggregation in patch reassembly')
+        return _flat_to_channel(imgs_flat_translated, channels=C)
+
+
 def norm_mask(inputs):
     '''
     Creates normalization mask for patch reassembly. Simply returns a mask of ones which has reduced dimensionality
@@ -601,6 +685,40 @@ def normalize_probe(X):
 
     return X, scaling_factor
 
+
+
+def standardize_probe(probe):
+    """
+    Fits a plane (c0 + c1x + c2y + c3xy) to the probe phase
+    and removes it. Implements phase ramp removal.
+    """
+    from scipy.optimize import minimize
+
+    ny, nx = probe.shape
+    y, x = np.meshgrid(np.arange(ny) - ny//2, np.arange(nx) - nx//2, indexing='ij')
+
+    amp = np.abs(probe)
+    phase = np.angle(probe)
+
+    # Objective function: minimize difference between probe and
+    # a purely amplitude probe + the estimated phase ramp
+    def objective(c):
+        # c = [c0, c1, c2, c3]
+        estimated_phase = c[0] + c[1]*x + c[2]*y + c[3]*x*y
+        # We minimize the distance in complex space weighted by amplitude
+        error = probe - amp * np.exp(1j * estimated_phase)
+        return np.sum(np.abs(error)**2)
+
+    # Initial guess
+    res = minimize(objective, x0=np.zeros(4))
+    c = res.x
+
+    # Remove the fitted phase
+    corrected_phase = phase - (c[0] + c[1]*x + c[2]*y + c[3]*x*y)
+
+    print(f"Phase correction constants: {c[0], c[1], c[2], c[3]}")
+
+    return amp * np.exp(1j * corrected_phase)
 
 
 def get_rms_scaling_factor(X: torch.Tensor,
