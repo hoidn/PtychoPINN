@@ -306,6 +306,132 @@ def test_guardrail_rejects_invalid_resnet_width_value(tmp_path, capsys):
     assert "resnet_width must be positive and divisible by 4" in capsys.readouterr().err
 
 
+def test_stage_e_candidates_force_skip_on_even_if_anchor_is_off(tmp_path):
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    train_npz.touch()
+    test_npz.touch()
+
+    args = sweep.parse_args(
+        [
+            "--stage-id",
+            "E",
+            "--substage-id",
+            "none",
+            "--ns",
+            "128",
+            "--dataset-profiles-n128",
+            "custom_npz_pair_n128",
+            "--custom-n128-train-npz",
+            str(train_npz),
+            "--custom-n128-test-npz",
+            str(test_npz),
+            "--skip-style-values",
+            "add,concat,gated_add",
+            "--output-root",
+            str(tmp_path / "stage_e"),
+        ]
+    )
+
+    anchor_row = {
+        "modes": 12,
+        "skip": "off",
+        "width": 32,
+        "fno_blocks": 4,
+        "downsample_schedule": 2,
+        "downsample_op": "stride_conv",
+        "encoder_conv_hidden": "none",
+        "encoder_spectral_hidden": "none",
+        "max_hidden": "none",
+        "resnet_width": "none",
+        "resnet_blocks": 6,
+        "skip_style": "add",
+    }
+
+    candidates = sweep._build_stage_b_to_e_candidates(args, anchor_row=anchor_row, promoted_rows=[])
+    assert len(candidates) == 3
+    assert {candidate["skip_style"] for candidate in candidates} == {"add", "concat", "gated_add"}
+    assert all(candidate["skip"] == "on" for candidate in candidates)
+
+
+def test_stage_e_guardrail_fails_fast_when_candidates_resolve_skip_off(tmp_path, capsys, monkeypatch):
+    source_summary = tmp_path / "source.csv"
+    _write_source_summary(
+        source_summary,
+        [
+            {
+                "summary_schema_version": "v1",
+                "run_id": "stage_d_anchor",
+                "stage_id": "D",
+                "substage_id": "D4",
+                "modes": "12",
+                "skip": "off",
+                "width": "32",
+                "amp_mae": 0.08,
+                "amp_mse": 0.01,
+                "phase_ssim_drop_vs_baseline": 0.0,
+                "train_wall_time_sec": 100,
+                "inference_time_s": 1.0,
+                "model_params": 1000,
+                "pareto_rank_macro": 1,
+                "is_feasible": True,
+                "is_stage_anchor": True,
+            }
+        ],
+    )
+
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    train_npz.touch()
+    test_npz.touch()
+
+    def _bad_candidates(args, *, anchor_row, promoted_rows):
+        _ = (args, anchor_row, promoted_rows)
+        return [
+            {
+                "run_key": "bad_stage_e_candidate",
+                "modes": 12,
+                "skip": "off",
+                "width": 32,
+                "fno_blocks": 4,
+                "downsample_schedule": 2,
+                "downsample_op": "stride_conv",
+                "encoder_conv_hidden": "none",
+                "encoder_spectral_hidden": "none",
+                "max_hidden": "none",
+                "resnet_width": "none",
+                "resnet_blocks": 6,
+                "skip_style": "add",
+                "dataset_profile": "custom_npz_pair_n128",
+            }
+        ]
+
+    monkeypatch.setattr(sweep, "_build_candidates", _bad_candidates)
+
+    rc = sweep.main(
+        [
+            "--stage-id",
+            "E",
+            "--substage-id",
+            "none",
+            "--ns",
+            "128",
+            "--promotion-source-summary",
+            str(source_summary),
+            "--dataset-profiles-n128",
+            "custom_npz_pair_n128",
+            "--custom-n128-train-npz",
+            str(train_npz),
+            "--custom-n128-test-npz",
+            str(test_npz),
+            "--output-root",
+            str(tmp_path / "stage_e"),
+        ]
+    )
+    assert rc == 1
+    assert "Stage E requires skip=on for all candidates" in capsys.readouterr().err
+
+
 def test_invocation_and_cleanup_artifacts_are_written(tmp_path, monkeypatch):
     train_npz = tmp_path / "train.npz"
     test_npz = tmp_path / "test.npz"

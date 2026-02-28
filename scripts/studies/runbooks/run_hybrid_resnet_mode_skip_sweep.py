@@ -1217,7 +1217,9 @@ def _build_stage_b_to_e_candidates(
             raise PromotionSourceError("Stage B-E N=128 sweeps require a single promotion anchor row")
         base = {
             "modes": _safe_int(anchor_row.get("modes"), "modes"),
-            "skip": str(anchor_row.get("skip", "off")).lower(),
+            "skip": "on"
+            if args.stage_id == "E"
+            else str(anchor_row.get("skip", "off")).lower(),
             "width": _safe_int(anchor_row.get("width"), "width"),
             "fno_blocks": _safe_int(anchor_row.get("fno_blocks"), "fno_blocks", default=4),
             "downsample_schedule": _safe_int(
@@ -1261,7 +1263,7 @@ def _build_stage_b_to_e_candidates(
             row = {
                 "run_key": f"{source['run_id']}_n256_profile-{profile}",
                 "modes": _safe_int(source.get("modes"), "modes"),
-                "skip": str(source.get("skip", "off")).lower(),
+                "skip": "on" if args.stage_id == "E" else str(source.get("skip", "off")).lower(),
                 "width": _safe_int(source.get("width"), "width"),
                 "fno_blocks": _safe_int(source.get("fno_blocks"), "fno_blocks", default=4),
                 "downsample_schedule": _safe_int(
@@ -1296,6 +1298,26 @@ def _build_candidates(
             return _build_stage_b_to_e_candidates(args, anchor_row=None, promoted_rows=promoted_rows)
         return _build_stage_a_candidates(args)
     return _build_stage_b_to_e_candidates(args, anchor_row=anchor_row, promoted_rows=promoted_rows)
+
+
+def _enforce_stage_e_skip_enabled(
+    args: argparse.Namespace,
+    candidates: Sequence[Mapping[str, Any]],
+) -> None:
+    if args.stage_id != "E":
+        return
+    invalid = [
+        str(candidate.get("run_key", "<unknown>"))
+        for candidate in candidates
+        if str(candidate.get("skip", "off")).strip().lower() != "on"
+    ]
+    if invalid:
+        preview = ", ".join(invalid[:3])
+        suffix = "..." if len(invalid) > 3 else ""
+        raise StageValidationError(
+            "Stage E requires skip=on for all candidates; "
+            f"found skip!=on for: {preview}{suffix}"
+        )
 
 
 def _resolve_profile_npz_inputs(
@@ -1771,6 +1793,7 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
     candidates = _build_candidates(args, anchor_row=anchor_row, promoted_rows=promoted_rows)
     if not candidates:
         raise MatrixExpansionError("Sweep matrix expansion produced zero candidates")
+    _enforce_stage_e_skip_enabled(args, candidates)
 
     rows: list[dict[str, Any]] = []
     dataset_cache: dict[str, tuple[Path, Path]] = {}
