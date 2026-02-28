@@ -660,7 +660,279 @@ class AdaptiveLRScheduler(_LRScheduler):
             else:  # Stage 3
                 # Stage 3: Minimum LR for fine-tuning
                 lr = base_lr * self.min_stage_2_lr_factor
-            
+
             lrs.append(lr)
-        
+
         return lrs
+
+
+class PtychoDataModuleLightning(L.LightningDataModule):
+    """
+    Simplified version matching the working MLflow implementation.
+    Lightning handles all DDP synchronization automatically.
+    """
+    def __init__(self, ptycho_dir: str, model_config: ModelConfig, data_config: DataConfig,
+                 training_config: TrainingConfig, initial_remake_map: bool = True,
+                 val_split: float = 0.1, val_seed: int = 42):
+        super().__init__()
+        self.ptycho_dir = ptycho_dir
+        self.model_config = model_config
+        self.data_config = data_config
+        self.training_config = training_config
+        self.initial_remake_map = initial_remake_map
+        self.val_split = val_split
+        self.val_seed = val_seed
+        self._is_setup_done = False
+
+    def prepare_data(self):
+        """Called only on rank 0 to create memory map."""
+        if self._is_setup_done:
+            return
+        if self.initial_remake_map:
+            print("[Rank 0] Creating memory map...")
+            _ = PtychoDataset(
+                ptycho_dir=self.ptycho_dir,
+                model_config=self.model_config,
+                data_config=self.data_config,
+                remake_map=True
+            )
+            print("[Rank 0] Memory map created.")
+
+    def setup(self, stage: str = None):
+        """Called on all ranks after prepare_data barrier."""
+        if self._is_setup_done:
+            print(f"[Rank {self.trainer.global_rank}] Skipping redundant data setup.")
+            return
+
+        if stage == "fit" or stage is None:
+            if not hasattr(self, 'train_dataset'):
+                print(f"[Rank {dist.get_rank() if dist.is_initialized() else 0}] Loading dataset...")
+                full_dataset = PtychoDataset(
+                    ptycho_dir=self.ptycho_dir,
+                    model_config=self.model_config,
+                    data_config=self.data_config,
+                    remake_map=False
+                )
+                dataset_size = len(full_dataset)
+                val_size = int(self.val_split * dataset_size)
+                train_size = dataset_size - val_size
+                generator = torch.Generator().manual_seed(self.val_seed)
+                self.train_dataset, self.val_dataset = torch.utils.data.random_split(
+                    full_dataset, [train_size, val_size], generator=generator
+                )
+        self._is_setup_done = True
+
+    def train_dataloader(self):
+        return TensorDictDataLoader(
+            self.train_dataset,
+            batch_size=self.training_config.batch_size,
+            shuffle=True,
+            num_workers=self.training_config.num_workers,
+            collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
+            pin_memory=True,
+            persistent_workers=True,
+            prefetch_factor=4,
+        )
+
+    def val_dataloader(self):
+        return TensorDictDataLoader(
+            self.val_dataset,
+            batch_size=self.training_config.batch_size,
+            shuffle=False,
+            num_workers=self.training_config.num_workers,
+            collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
+            pin_memory=True,
+            persistent_workers=True,
+            prefetch_factor=4,
+            drop_last=False
+        )
+
+
+class StagedFineTuner_Lightning:
+    """
+    Handles multi-stage fine-tuning for cross-domain transfer (synthetic -> experimental).
+    Only activates when training_config.enable_staged_finetuning = True.
+
+    Three-stage approach:
+    - Stage 1: Freeze encoder, train decoder only (adapt object space)
+    - Stage 2: Unfreeze top encoder, use discriminative LR (adapt high-level features)
+    - Stage 3: Unfreeze all, very conservative LR (optional final refinement)
+    """
+
+    def __init__(self, model, train_module, training_config: TrainingConfig,
+                 data_config: DataConfig, model_config: ModelConfig,
+                 inference_config: InferenceConfig, datagen_config: DatagenConfig,
+                 output_dir: str):
+        from pathlib import Path
+        self.model = model
+        self.train_module = train_module
+        self.training_config = training_config
+        self.data_config = data_config
+        self.model_config = model_config
+        self.inference_config = inference_config
+        self.datagen_config = datagen_config
+        self.output_dir = Path(output_dir)
+        self.current_stage = 0
+        self.stage_checkpoints = {}
+
+        from ptycho_torch.lightning_utils import (
+            ConfigLogger, MetadataLogger, create_experiment_loggers, print_run_summary
+        )
+        self.ConfigLogger = ConfigLogger
+        self.MetadataLogger = MetadataLogger
+        self.create_experiment_loggers = create_experiment_loggers
+        self.print_run_summary = print_run_summary
+
+    def fine_tune(self):
+        """Execute all fine-tuning stages."""
+        print(f"\n{'='*60}")
+        print(f"Starting Staged Fine-tuning for Cross-Domain Transfer")
+        print(f"{'='*60}\n")
+        self._run_stage_1()
+        self._run_stage_2()
+        if not self.training_config.finetune_skip_stage3:
+            self._run_stage_3()
+        else:
+            print("\n[INFO] Skipping Stage 3 (full network fine-tuning)")
+        print(f"\n{'='*60}\nStaged Fine-tuning Complete\n{'='*60}\n")
+        if is_effectively_global_rank_zero():
+            print("\nCheckpoints saved:")
+            for stage, path in self.stage_checkpoints.items():
+                print(f"  {stage}: {path}")
+        return self.stage_checkpoints
+
+    def _run_stage_1(self):
+        """Stage 1: Freeze encoder, train decoder only."""
+        self.current_stage = 1
+        print(f"\n[STAGE 1] Decoder-Only Fine-tuning")
+        print(f"Duration: {self.training_config.finetune_stage1_epochs} epochs")
+        self.model.model.freeze_encoder()
+        self.model.model.print_trainable_status()
+        optimizer = self._create_stage1_optimizer()
+        self.model.configure_optimizers = lambda: optimizer
+        trainer = self._create_stage_trainer(
+            max_epochs=self.training_config.finetune_stage1_epochs,
+            stage_name="stage1", stage_description="Decoder-only fine-tuning"
+        )
+        trainer.fit(self.model, datamodule=self.train_module)
+        if is_effectively_global_rank_zero():
+            self.stage_checkpoints['stage1'] = trainer.checkpoint_callback.best_model_path
+
+    def _run_stage_2(self):
+        """Stage 2: Unfreeze top encoder, use discriminative LR."""
+        self.current_stage = 2
+        print(f"\n[STAGE 2] Partial Encoder + Decoder Fine-tuning")
+        print(f"Duration: {self.training_config.finetune_stage2_epochs} epochs")
+        self.model.model.freeze_encoder_bottom()
+        self.model.model.unfreeze_encoder_top()
+        optimizer = self._create_stage2_optimizer()
+        self.model.configure_optimizers = lambda: optimizer
+        trainer = self._create_stage_trainer(
+            max_epochs=self.training_config.finetune_stage2_epochs,
+            stage_name="stage2", stage_description="Partial encoder fine-tuning"
+        )
+        trainer.fit(self.model, datamodule=self.train_module)
+        if is_effectively_global_rank_zero():
+            self.stage_checkpoints['stage2'] = trainer.checkpoint_callback.best_model_path
+
+    def _run_stage_3(self):
+        """Stage 3: Unfreeze all, very conservative LR."""
+        self.current_stage = 3
+        print(f"\n[STAGE 3] Full Network Fine-tuning")
+        print(f"Duration: {self.training_config.finetune_stage3_epochs} epochs")
+        self.model.model.unfreeze_all()
+        optimizer = self._create_stage3_optimizer()
+        self.model.configure_optimizers = lambda: optimizer
+        trainer = self._create_stage_trainer(
+            max_epochs=self.training_config.finetune_stage3_epochs,
+            stage_name="stage3", stage_description="Full network fine-tuning"
+        )
+        trainer.fit(self.model, datamodule=self.train_module)
+        if is_effectively_global_rank_zero():
+            self.stage_checkpoints['stage3'] = trainer.checkpoint_callback.best_model_path
+
+    def _create_stage1_optimizer(self):
+        """Optimizer for Stage 1: Decoder only."""
+        base_lr = self.model.lr
+        decoder_params = list(self.model.model.get_decoder_params())
+        phase_head_params = list(self.model.model.get_phase_head_params())
+        amp_head_params = list(self.model.model.get_amp_head_params())
+        all_params = decoder_params + phase_head_params + amp_head_params
+        trainable = [p for p in all_params if p.requires_grad]
+        return torch.optim.Adam(trainable, lr=base_lr * self.training_config.finetune_stage1_lr_decoder)
+
+    def _create_stage2_optimizer(self):
+        """Optimizer for Stage 2: Discriminative LR."""
+        base_lr = self.model.lr
+        cfg = self.training_config
+        param_groups = []
+        enc_top = [p for p in self.model.model.get_encoder_top_params() if p.requires_grad]
+        if enc_top:
+            param_groups.append({'params': enc_top, 'lr': base_lr * cfg.finetune_stage2_lr_encoder_top})
+        decoder = [p for p in self.model.model.get_decoder_params() if p.requires_grad]
+        if decoder:
+            param_groups.append({'params': decoder, 'lr': base_lr * cfg.finetune_stage2_lr_decoder})
+        phase_head = [p for p in self.model.model.get_phase_head_params() if p.requires_grad]
+        if phase_head:
+            param_groups.append({'params': phase_head, 'lr': base_lr * cfg.finetune_stage2_lr_phase_head})
+        amp_head = [p for p in self.model.model.get_amp_head_params() if p.requires_grad]
+        if amp_head:
+            param_groups.append({'params': amp_head, 'lr': base_lr * cfg.finetune_stage2_lr_decoder})
+        return torch.optim.Adam(param_groups)
+
+    def _create_stage3_optimizer(self):
+        """Optimizer for Stage 3: Full network with very conservative LR."""
+        base_lr = self.model.lr
+        cfg = self.training_config
+        param_groups = []
+        enc_bot = [p for p in self.model.model.get_encoder_bottom_params() if p.requires_grad]
+        if enc_bot:
+            param_groups.append({'params': enc_bot, 'lr': base_lr * cfg.finetune_stage3_lr_encoder_bottom})
+        enc_top = [p for p in self.model.model.get_encoder_top_params() if p.requires_grad]
+        if enc_top:
+            param_groups.append({'params': enc_top, 'lr': base_lr * cfg.finetune_stage3_lr_encoder_top})
+        decoder = [p for p in self.model.model.get_decoder_params() if p.requires_grad]
+        if decoder:
+            param_groups.append({'params': decoder, 'lr': base_lr * cfg.finetune_stage3_lr_decoder})
+        phase_head = [p for p in self.model.model.get_phase_head_params() if p.requires_grad]
+        if phase_head:
+            param_groups.append({'params': phase_head, 'lr': base_lr * cfg.finetune_stage3_lr_phase_head})
+        amp_head = [p for p in self.model.model.get_amp_head_params() if p.requires_grad]
+        if amp_head:
+            param_groups.append({'params': amp_head, 'lr': base_lr * cfg.finetune_stage3_lr_decoder})
+        return torch.optim.Adam(param_groups)
+
+    def _create_stage_trainer(self, max_epochs, stage_name, stage_description):
+        """Create Lightning trainer for a specific stage."""
+        stage_dir = self.output_dir / f"finetune_{stage_name}"
+        stage_dir.mkdir(parents=True, exist_ok=True)
+        tb_logger, csv_logger = self.create_experiment_loggers(
+            experiment_name=f"{self.training_config.experiment_name}_finetune",
+            run_name=f"{stage_name}_{stage_description.replace(' ', '_')}",
+            output_dir=str(stage_dir)
+        )
+        checkpoint_dir = self.output_dir / "checkpoints"
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        checkpoint_callback = ModelCheckpoint(
+            dirpath=str(checkpoint_dir),
+            monitor=self.model.val_loss_name, mode='min', save_top_k=1,
+            filename=f'best-{stage_name}-checkpoint', save_last=True, verbose=True,
+            save_on_train_epoch_end=False,
+        )
+        early_stop_callback = EarlyStopping(
+            monitor=self.model.val_loss_name,
+            patience=self.training_config.finetune_early_stop_patience,
+            mode='min', verbose=True, strict=True
+        )
+        trainer = L.Trainer(
+            max_epochs=max_epochs,
+            devices=self.training_config.n_devices,
+            accelerator='gpu',
+            strategy=get_training_strategy(self.training_config.n_devices),
+            callbacks=[checkpoint_callback, early_stop_callback],
+            enable_checkpointing=True,
+            logger=[tb_logger, csv_logger],
+            check_val_every_n_epoch=1,
+            enable_progress_bar=True,
+        )
+        return trainer

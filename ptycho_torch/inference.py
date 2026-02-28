@@ -50,6 +50,13 @@ import numpy as np
 # MLflow is only needed for legacy inference path
 # Imported conditionally in load_and_predict() to avoid blocking new CLI path
 
+# Weighted reconstruction (optional, from beta_modules)
+try:
+    from ptycho_torch.beta_modules.reassembly import reconstruct_image_barycentric_weighted
+    _HAS_WEIGHTED_REASSEMBLY = True
+except ImportError:
+    _HAS_WEIGHTED_REASSEMBLY = False
+
 def load_all_configs(config_path, file_index):
     """
     Helper functions that loads all relevant configs specifically for inference
@@ -185,66 +192,124 @@ def load_and_predict(run_id,
     return result
 
 
-def plot_amp_and_phase(obj_amp, obj_phase, gt_amp, gt_phase, save_dir = None, filename = None):
+def plot_amp_and_phase(obj_amp, obj_phase, gt_amp, gt_phase, save_dir = None, filename = None,
+                       obj_amp_name='Object Amplitude', obj_phase_name='Object Phase',
+                       gt_amp_name='Ground Truth Amplitude', gt_phase_name='Ground Truth Phase'):
     """
     Plot amplitude and phase comparison with ground truth.
-
-    Creates a 2x2 grid showing reconstructed amplitude, reconstructed phase,
-    ground truth amplitude, and ground truth phase.
+    Supports configurable axis labels for Re/Im plotting mode.
 
     Args:
-        obj_amp: Reconstructed amplitude array
-        obj_phase: Reconstructed phase array
-        gt_amp: Ground truth amplitude array
-        gt_phase: Ground truth phase array
+        obj_amp: Reconstructed amplitude (or real) array
+        obj_phase: Reconstructed phase (or imaginary) array
+        gt_amp: Ground truth amplitude (or real) array
+        gt_phase: Ground truth phase (or imaginary) array
         save_dir: Optional directory to save plot
         filename: Optional filename for saved plot
+        obj_amp_name: Title for top-left panel
+        obj_phase_name: Title for top-right panel
+        gt_amp_name: Title for bottom-left panel
+        gt_phase_name: Title for bottom-right panel
     """
     fig, axs = plt.subplots(2,2, figsize=(5,5))
 
     #Object amp
     obj_plot = axs[0,0].imshow(obj_amp, cmap = 'gray')
     plt.colorbar(obj_plot, ax = axs[0,0])
-    axs[0,0].set_title('Object Amplitude')
+    axs[0,0].set_title(obj_amp_name)
     axs[0,0].axis('off')
 
     #Object Phase
-    phase_plot = axs[0,1].imshow(obj_phase, cmap = 'gray')#, vmin=-1, vmax=1)
+    phase_plot = axs[0,1].imshow(obj_phase, cmap = 'gray')
     plt.colorbar(phase_plot, ax = axs[0,1])
-    axs[0,1].set_title('Object Phase')
+    axs[0,1].set_title(obj_phase_name)
     axs[0,1].axis('off')
 
-    #Ground turth amp
+    #Ground truth amp
     gtamp_plot = axs[1,0].imshow(gt_amp, cmap = 'gray')
     plt.colorbar(gtamp_plot, ax = axs[1,0])
-    axs[1,0].set_title('Ground Truth Amplitude')
+    axs[1,0].set_title(gt_amp_name)
     axs[1,0].axis('off')
 
     #ground truth phase
     gtphase_plot = axs[1,1].imshow(gt_phase, cmap = 'gray')
     plt.colorbar(gtphase_plot, ax = axs[1,1])
-    axs[1,1].set_title('Ground Truth Phase')
+    axs[1,1].set_title(gt_phase_name)
     axs[1,1].axis('off')
 
     # Save the plot if save_dir is provided
     if save_dir is not None:
-        # Create directory if it doesn't exist
         os.makedirs(save_dir, exist_ok=True)
-
-        # Generate filename if not provided
         if filename is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"amp_phase_comparison_{timestamp}.svg"
-
-        # Ensure filename has an extension
         if not filename.endswith(('.png', '.jpg', '.pdf', '.svg')):
             filename += '.svg'
-
         save_path = os.path.join(save_dir, filename)
         plt.savefig(save_path, dpi=900, bbox_inches='tight')
         print(f"Plot saved to: {save_path}")
 
         plt.show()
+
+
+def plot_reim_histogram(result_complex, gt_complex, save_dir=None, filename=None,
+                        bins=256, smoothing_sigma=2.0, hist_range=(-1.2, 1.2)):
+    """
+    Plot 2D density histograms of the raw Re/Im distribution.
+    No unit-magnitude normalization is applied - radial distance from the
+    origin encodes amplitude, angle encodes phase. Log scaling (log1p)
+    is used so low-density material features are visible alongside the
+    dominant vacuum peak.
+    """
+    from scipy.ndimage import gaussian_filter
+
+    fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+
+    for ax, data, title in zip(axs,
+                                [result_complex, gt_complex],
+                                ['Reconstruction', 'Ground Truth']):
+        if hasattr(data, 'numpy'):
+            data = data.detach().cpu().numpy()
+        re = np.real(data).flatten()
+        im = np.imag(data).flatten()
+        max_re = np.percentile(np.abs(re), 98)
+        max_im = np.percentile(np.abs(im), 98)
+        norm = np.sqrt(max_re**2 + max_im**2)
+        re = re / norm
+        im = im / norm
+
+        hist, re_edges, im_edges = np.histogram2d(
+            re, im, bins=bins,
+            range=[list(hist_range), list(hist_range)]
+        )
+        hist = gaussian_filter(hist, sigma=smoothing_sigma)
+        hist = hist / (np.sum(hist) + 1e-12)
+        hist = np.log1p(hist * 1e3)
+
+        extent = [re_edges[0], re_edges[-1], im_edges[0], im_edges[-1]]
+        im_plot = ax.imshow(hist.T, origin='lower', extent=extent,
+                            aspect='equal', cmap='inferno')
+        plt.colorbar(im_plot, ax=ax, shrink=0.8)
+
+        theta = np.linspace(0, 2 * np.pi, 200)
+        ax.plot(np.cos(theta), np.sin(theta), 'w--', linewidth=1.0, alpha=0.7)
+
+        ax.set_xlabel('Real')
+        ax.set_ylabel('Imaginary')
+        ax.set_title(title)
+
+    plt.tight_layout()
+
+    if save_dir is not None:
+        os.makedirs(save_dir, exist_ok=True)
+        if filename is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"reim_histogram_{timestamp}.svg"
+        if not filename.endswith(('.png', '.jpg', '.pdf', '.svg')):
+            filename += '.svg'
+        save_path = os.path.join(save_dir, filename)
+        plt.savefig(save_path, dpi=900, bbox_inches='tight')
+        print(f"Histogram plot saved to: {save_path}")
 
 
 def save_individual_reconstructions(obj_amp, obj_phase, output_dir):

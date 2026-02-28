@@ -335,14 +335,8 @@ def main(ptycho_dir,
             print(f'[Rank {trainer.global_rank}] Done training.')
             run_ids['training'] = None  # No run_id when MLflow disabled
 
-    #Fine-tune if applicable (encoder frozen default)
-    if training_config.epochs_fine_tune > 0:
-        #Fine-tuning
-        fine_tuner = ModelFineTuner(model, data_module, training_config)
-        fine_tuning_run_id = fine_tuner.fine_tune(experiment_name = training_config.experiment_name)
-        
-        if is_effectively_global_rank_zero():
-            run_ids['fine-tune'] = fine_tuning_run_id
+    # Fine-tuning removed from initial training runs.
+    # Use StagedFineTuner_Lightning for cross-domain transfer instead.
     
     # if is_effectively_global_rank_zero():
     #     print(f"Training run_id: {run_ids['training']}")
@@ -475,7 +469,7 @@ def main_lightning(
     
     # Minimal Trainer - exactly like working tests
     trainer = L.Trainer(
-        max_epochs=training_config.epochs,
+        max_epochs=5,#training_config.epochs,
         devices=training_config.n_devices,
         accelerator='gpu',
         strategy=DDPStrategy(
@@ -495,17 +489,8 @@ def main_lightning(
 
     print("Finished training run...")
 
-    # --- 2. Fine-Tuning Stage ---
-    if training_config.epochs_fine_tune > 0:
-        print("Beginning fine tuning...")
-        # Note: In DDP, all ranks reach this point after trainer.fit finishes.
-        fine_tuner = ModelFineTuner_Lightning(
-            model=model, 
-            train_module=data_module, 
-            training_config=training_config,
-            run_dir=run_dir
-        )
-        fine_tuner.fine_tune()
+    # Fine-tuning removed from initial training runs.
+    # Use StagedFineTuner_Lightning for cross-domain transfer instead.
 
     print("Finished everything!")
     
@@ -889,5 +874,36 @@ Examples:
 
 
 #Define main function
+# if __name__ == '__main__':
+#     cli_main()
+
 if __name__ == '__main__':
-    cli_main()
+    #Parsing
+    parser = argparse.ArgumentParser(description = "Run training for ptycho_torch")
+    #Arguments
+    parser.add_argument('--ptycho_dir', type = str, help = 'Path to ptycho directory')
+    parser.add_argument('--config', type = str, default=None, help = 'Path to JSON configuration file (mandatory)')
+    parser.add_argument('--output_dir', type = str, default = None, help = 'Path to output directory, only valid for lightning-only')
+    
+    #Parse
+    args = parser.parse_args()
+
+    #Assign to vars
+    ptycho_dir = args.ptycho_dir
+    config_path = args.config
+    output_dir = args.output_dir
+
+    print(f"Ptycho directory: {ptycho_dir}")
+    print(f"Configuration file: {config_path}")
+    print(f"Current working directory: {os.getcwd()}")
+
+    try:
+        main_lightning(ptycho_dir,
+                       config_path,
+                       False,
+                       output_dir = output_dir)
+
+    except Exception as e:
+        print(f"Training failed: {str(e)}")
+        sys.exit(1)
+

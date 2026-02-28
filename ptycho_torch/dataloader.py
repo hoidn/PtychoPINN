@@ -751,6 +751,192 @@ class PtychoDataset(Dataset):
         return 
 
 
+    @classmethod
+    def from_np(cls,
+                diff_patterns: np.ndarray,
+                probe: np.ndarray,
+                positions: np.ndarray,
+                model_config: 'ModelConfig',
+                data_config: 'DataConfig',
+                scaling_constant: float = None) -> 'PtychoDataset':
+        """
+        Create a PtychoDataset directly from in-memory numpy arrays, bypassing NPZ file I/O.
+        Intended for inference workflows where data arrives as numpy arrays.
+
+        Parameters
+        ----------
+        diff_patterns : np.ndarray, shape (N, H, W), float.
+        probe : np.ndarray, shape (H, W), complex.
+        positions : np.ndarray, shape (N, 2), [ypix, xpix] per row.
+        model_config : ModelConfig
+        data_config : DataConfig
+        scaling_constant : float, optional override for RMS normalization constant.
+
+        Returns
+        -------
+        PtychoDataset ready-to-use with in-memory TensorDict.
+        """
+        import warnings
+
+        if diff_patterns.ndim != 3:
+            raise ValueError(f"diff_patterns must be 3D (N, H, W), got shape {diff_patterns.shape}")
+        if probe.ndim != 2:
+            raise ValueError(f"probe must be 2D (H, W), got shape {probe.shape}")
+        if positions.ndim != 2 or positions.shape[1] != 2:
+            raise ValueError(f"positions must be (N, 2), got shape {positions.shape}")
+
+        N_total, H, W = diff_patterns.shape
+        if positions.shape[0] != N_total:
+            raise ValueError(f"positions length {positions.shape[0]} != diff_patterns length {N_total}")
+        if probe.shape != (H, W):
+            raise ValueError(f"probe shape {probe.shape} != pattern shape ({H}, {W})")
+        if data_config.N != H or data_config.N != W:
+            warnings.warn(f"data_config.N={data_config.N} does not match pattern size ({H}, {W})")
+
+        # Create instance, set attributes
+        dataset = cls.__new__(cls)
+        dataset.model_config = model_config
+        dataset.data_config = data_config
+        dataset.is_ddp_active = False
+        dataset.current_rank = 0
+        dataset.ptycho_dir = None
+        dataset.file_list = [None]
+        dataset.n_files = 1
+        dataset.data_dict = {}
+        dataset.im_shape = (H, W)
+
+        # Extract coordinates and apply bounds filtering
+        xcoords_full = positions[:, 1].astype(np.float32)
+        ycoords_full = positions[:, 0].astype(np.float32)
+
+        xmin, xmax = xcoords_full.min(), xcoords_full.max()
+        ymin, ymax = ycoords_full.min(), ycoords_full.max()
+        x_range = (xmax - xmin) if xmax > xmin else 1.0
+        y_range = (ymax - ymin) if ymax > ymin else 1.0
+
+        x_lower = xmin + data_config.x_bounds[0] * x_range
+        x_upper = xmin + data_config.x_bounds[1] * x_range
+        y_lower = ymin + data_config.y_bounds[0] * y_range
+        y_upper = ymin + data_config.y_bounds[1] * y_range
+
+        if xmax <= xmin:
+            x_upper = x_lower
+        if ymax <= ymin:
+            y_upper = y_lower
+
+        mask = ((xcoords_full >= x_lower) & (xcoords_full <= x_upper) &
+                (ycoords_full >= y_lower) & (ycoords_full <= y_upper))
+        valid_indices = np.where(mask)[0]
+
+        if len(valid_indices) == 0:
+            raise ValueError("No positions remain after bounds filtering. Check x_bounds/y_bounds.")
+
+        xcoords = xcoords_full[valid_indices]
+        ycoords = ycoords_full[valid_indices]
+
+        dataset.data_dict['com'] = torch.from_numpy(
+            np.array([xcoords.mean(), ycoords.mean()]))
+
+        # Coordinate grouping
+        if model_config.object_big:
+            n_channels = data_config.C
+
+            if data_config.neighbor_function == 'Nearest':
+                neighbor_function = get_neighbor_indices
+            elif data_config.neighbor_function == 'Min_dist':
+                neighbor_function = get_neighbors_indices_within_bounds
+            else:
+                neighbor_function = '4_quadrant'
+
+            nn_indices, coords_nn = group_coords(
+                xcoords_full, ycoords_full,
+                xcoords, ycoords,
+                neighbor_function,
+                valid_indices,
+                data_config, C=data_config.C)
+            nn_indices = nn_indices.astype(np.int64)
+
+            coords_com, coords_relative = get_relative_coords(coords_nn)
+
+            regular_global_coords = torch.from_numpy(
+                np.stack([xcoords_full, ycoords_full], axis=1)).to(torch.float32)
+            coords_global = regular_global_coords[nn_indices].unsqueeze(2)
+
+            N_groups = len(nn_indices)
+        else:
+            n_channels = 1
+            nn_indices = valid_indices
+            N_groups = len(valid_indices)
+
+            coords_global = torch.from_numpy(
+                np.stack([xcoords, ycoords], axis=1)[:, None, None, :]).to(torch.float32)
+            coords_com = np.zeros((N_groups, 1, 1, 2), dtype=np.float32)
+            coords_relative = np.zeros((N_groups, n_channels, 1, 2), dtype=np.float32)
+
+        dataset.length = N_groups
+        dataset.cum_length = [0, N_groups]
+        dataset.valid_indices_per_file = [valid_indices]
+
+        # Process probe
+        probe_data = probe.copy()
+        if getattr(data_config, 'probe_ramp_removal', False):
+            probe_data = hh.standardize_probe(probe_data)
+
+        if data_config.probe_normalize:
+            probe_data, probe_sf = hh.normalize_probe(probe_data)
+            probe_sf = float(probe_sf)
+        else:
+            probe_sf = 1.0
+
+        if probe_data.ndim == 2:
+            probe_data = np.expand_dims(probe_data, axis=0)
+
+        dataset.data_dict['probes'] = torch.from_numpy(probe_data).to(torch.complex64).unsqueeze(0)
+        dataset.data_dict['probe_scaling'] = torch.tensor([probe_sf], dtype=torch.float32)
+        dataset.data_dict['objectGuess'] = []
+
+        # Compute normalization
+        diff_tensor = torch.from_numpy(diff_patterns).to(torch.float32)
+
+        if scaling_constant is not None:
+            norm_rms_factor = torch.tensor(scaling_constant, dtype=torch.float32).view(1, 1, 1, 1)
+        else:
+            norm_rms_factor = hh.get_rms_scaling_factor(diff_tensor, data_config)
+
+        norm_physics_factor = hh.get_physics_scaling_factor(diff_tensor, data_config)
+        dataset.data_dict['scaling_constant'] = norm_rms_factor.view(1)
+
+        # Build in-memory TensorDict
+        if model_config.object_big:
+            images = diff_tensor[nn_indices]
+        else:
+            images = diff_tensor[nn_indices][:, None]
+
+        if model_config.object_big:
+            nn_indices_tensor = torch.from_numpy(nn_indices)
+        else:
+            nn_indices_tensor = torch.arange(N_groups, dtype=torch.int64)[:, None]
+
+        td = TensorDict({
+            "images": images,
+            "coords_global": coords_global,
+            "coords_center": torch.from_numpy(coords_com).to(torch.float32),
+            "coords_relative": torch.from_numpy(coords_relative).to(torch.float32),
+            "coords_start_center": torch.zeros(N_groups, 1, 1, 2, dtype=torch.float32),
+            "coords_start_relative": torch.zeros(N_groups, n_channels, 1, 2, dtype=torch.float32),
+            "nn_indices": nn_indices_tensor,
+            "experiment_id": torch.zeros(N_groups, dtype=torch.int32),
+            "rms_scaling_constant": norm_rms_factor.expand(N_groups, 1, 1, 1).clone(),
+            "physics_scaling_constant": norm_physics_factor.expand(N_groups, 1, 1, 1).clone(),
+        }, batch_size=N_groups)
+
+        dataset.mmap_ptycho = td
+
+        print(f"[PtychoDataset.from_np] Created in-memory dataset with {N_groups} groups, "
+              f"{n_channels} channels, image shape {(H, W)}")
+
+        return dataset
+
     def __len__(self):
         return self.length
 
