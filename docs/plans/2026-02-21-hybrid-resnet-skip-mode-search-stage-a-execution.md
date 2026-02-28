@@ -32,7 +32,7 @@ Execution order for this split document is:
 - Stage-A specific baseline rule:
   - For `integration_grid_lines_n128_v1` and `fly001_external_n128_top_bottom_v1`, use the true-default row (`modes=12`, `skip=off`, `width=32`) from the same Stage-A `N=128` sweep output as the baseline comparator.
   - Stage-A promotion/governance claims MUST use the same seed policy as candidate ranking (`seed=3` for exploration, `{3,11,17}` median-rank context for robustness/promotion).
-- Baseline documentation rule: Stage-A execution artifacts MUST include a compact baseline table with baseline run id(s), candidate run id(s), and metrics (`amp_mae`, `amp_mse`, `phase_ssim`, `train_wall_time_sec`, `inference_time_s`) plus an explicit `apples_to_apples=true|false` flag per comparison row.
+- Baseline documentation rule: Stage-A execution artifacts MUST include a compact baseline table with baseline run id(s), candidate run id(s), and metrics (`amp_ssim`, `amp_mae`, `amp_mse`, `phase_ssim`, `train_wall_time_sec`, `inference_time_s`) plus an explicit `apples_to_apples=true|false` flag per comparison row.
 
 ### Strong-Advisory Cleanup Contract (Stage A)
 
@@ -74,7 +74,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --fly001-external-test-npz <path/to/fly001_n128_test_bottom_half.npz> \
   --epochs-n128 20 \
   --top-k-n256 6 \
-  --promotion-objectives amp_mae,amp_mse,train_wall_time_sec \
+  --promotion-objectives amp_ssim,train_wall_time_sec \
   --max-train-seconds-n128 2700 \
   --max-inference-seconds-n128 60 \
   --max-phase-ssim-drop 0.03 \
@@ -105,7 +105,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --fly001-external-test-npz <path/to/fly001_n128_test_bottom_half.npz> \
   --epochs-n128 20 \
   --top-k-n256 0 \
-  --promotion-objectives amp_mae,amp_mse,train_wall_time_sec \
+  --promotion-objectives amp_ssim,train_wall_time_sec \
   --max-train-seconds-n128 2700 \
   --max-inference-seconds-n128 60 \
   --max-phase-ssim-drop 0.03 \
@@ -122,7 +122,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --stage-id A \
   --aggregate-seed-rerank-root outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/seed_rerank \
   --source-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/summary.csv \
-  --promotion-objectives amp_mae,amp_mse,train_wall_time_sec \
+  --promotion-objectives amp_ssim,train_wall_time_sec \
   --max-phase-ssim-drop 0.03 \
   --top-k-n256 6 \
   --emit-stage-anchor-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/stage_anchor_summary.csv \
@@ -144,7 +144,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --dataset-profiles-n256 cameraman256_halfsplit_v1 \
   --epochs-n256 40 \
   --top-k-n256 6 \
-  --promotion-objectives amp_mae,amp_mse,train_wall_time_sec \
+  --promotion-objectives amp_ssim,train_wall_time_sec \
   --max-train-seconds-n256 9000 \
   --max-inference-seconds-n256 240 \
   --max-phase-ssim-drop 0.03 \
@@ -171,7 +171,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --dataset-profiles-n256 cameraman256_halfsplit_v1 \
   --epochs-n256 20 \
   --top-k-n256 0 \
-  --promotion-objectives amp_mae,amp_mse,train_wall_time_sec \
+  --promotion-objectives amp_ssim,train_wall_time_sec \
   --max-train-seconds-n256 9000 \
   --max-inference-seconds-n256 240 \
   --max-phase-ssim-drop 0.03 \
@@ -215,6 +215,8 @@ Required columns:
 - `dataset_profile`
 - `baseline_run_id`
 - `candidate_run_id`
+- `baseline_amp_ssim`
+- `candidate_amp_ssim`
 - `baseline_amp_mae`
 - `candidate_amp_mae`
 - `baseline_amp_mse`
@@ -289,7 +291,7 @@ Add optional arguments (defaults preserve Stage A behavior):
 - `--source-summary` (required with `--aggregate-seed-rerank-root`)
 - `--emit-stage-anchor-summary` (required with `--aggregate-seed-rerank-root`; writes the one-row Stage-A control anchor summary for downstream `N=128` stages)
 - `--emit-robust-promotion-summary` (required with `--aggregate-seed-rerank-root`)
-- `--promotion-objectives` (default: `amp_mae,amp_mse,train_wall_time_sec`)
+- `--promotion-objectives` (default: `amp_ssim,train_wall_time_sec`)
 - `--max-train-seconds-n128` (default: `2700`)
 - `--max-train-seconds-n256` (default: `9000`)
 - `--max-inference-seconds-n128` (default: `60`)
@@ -421,7 +423,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --fly001-external-test-npz <path/to/fly001_n128_test_bottom_half.npz> \
   --epochs-n128 20 \
   --top-k-n256 0 \
-  --promotion-objectives amp_mae,amp_mse,train_wall_time_sec \
+  --promotion-objectives amp_ssim,train_wall_time_sec \
   --max-train-seconds-n128 2700 \
   --max-inference-seconds-n128 60 \
   --max-phase-ssim-drop 0.03 \
@@ -450,7 +452,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --dataset-profiles-n256 cameraman256_halfsplit_v1 \
   --epochs-n256 40 \
   --top-k-n256 6 \
-  --promotion-objectives amp_mae,amp_mse,train_wall_time_sec \
+  --promotion-objectives amp_ssim,train_wall_time_sec \
   --max-train-seconds-n256 9000 \
   --max-inference-seconds-n256 240 \
   --max-phase-ssim-drop 0.03 \

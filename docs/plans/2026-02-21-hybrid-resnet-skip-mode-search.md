@@ -34,7 +34,7 @@
   - same stage scope and objective set,
   - same seed policy (single-seed comparisons use seed `3`; promotion comparisons use seeds `{3,11,17}` and median-rank governance).
 - Cross-stage or cross-epoch comparisons (for example Stage C `10` epochs vs Stage A `1` epoch) are non-canonical and MUST NOT be used for promotion/governance claims.
-- Each stage execution package MUST include a baseline evidence artifact (CSV/Markdown table) that records baseline run id(s) and metrics (`amp_mae`, `amp_mse`, `phase_ssim`, `train_wall_time_sec`, `inference_time_s`) and explicitly marks whether each comparison is apples-to-apples.
+- Each stage execution package MUST include a baseline evidence artifact (CSV/Markdown table) that records baseline run id(s) and metrics (`amp_ssim`, `amp_mae`, `amp_mse`, `phase_ssim`, `train_wall_time_sec`, `inference_time_s`) and explicitly marks whether each comparison is apples-to-apples.
 
 ## Canonical Anchor Contract
 
@@ -68,7 +68,7 @@
 ## Stage Promotion Governance (Task 15)
 
 Promotion gates between stages:
-- Apply feasible-Pareto ordering on objectives `amp_mae`, `amp_mse`, and `train_wall_time_sec`.
+- Apply feasible-Pareto ordering with `amp_ssim` as the primary promotion metric and `train_wall_time_sec` as the efficiency objective.
 - Enforce feasibility filters before promotion:
   - `phase_ssim_drop_vs_baseline <= max_phase_ssim_drop` (default `0.03`)
   - train/runtime and parameter budgets captured in summary rows (`train_wall_time_sec`, `model_params`)
@@ -77,10 +77,10 @@ Promotion gates between stages:
   - boundary set = `top-K + next 2`
   - rerank seeds = `{3,11,17}`
   - promote by median Pareto rank across seeds
-- Baseline MAE/MSE regressions are treated as stop/go diagnostics, not per-candidate pre-Pareto hard filters.
+- Baseline MAE/MSE regressions are treated as diagnostics; promotion ordering is driven by amplitude SSIM.
 - Stage A completion requires a verified `hybrid-resnet-mode-skip-sweep` entry in `docs/studies/index.md`.
 
 Hard stop conditions (pause-and-diagnose):
 - Trigger pause when two consecutive stages show `<1%` median relative gain and rerank confidence intervals overlap zero.
-- Trigger pause when all new-stage candidates regress on both amplitude MAE and MSE at `N=256` and the same direction appears in `N=128` robustness summaries.
+- Trigger pause when all new-stage candidates regress on amplitude SSIM at `N=256` and the same direction appears in `N=128` robustness summaries.
 - Before final axis stop, run one bounded rescue mini-sweep for the same axis; if still failing, pause further expansion on that axis and carry at least one hedge candidate into the next stage with low-budget monitoring.

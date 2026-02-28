@@ -239,16 +239,19 @@ Promotion feasibility filters (hard-required before ranking):
   - `N=256`: `inference_time_s <= 240`.
 
 Primary promotion objective (Pareto):
-- use non-dominated sorting on minimization objectives:
-  - amplitude MAE,
-  - amplitude MSE,
-  - `train_wall_time_sec`.
+- use non-dominated sorting with directional objectives:
+  - maximize amplitude SSIM (`amp_ssim`),
+  - minimize `train_wall_time_sec`.
+- implementation may realize this as direct maximize support for `amp_ssim` or as
+  minimization of `amp_ssim_loss = 1 - amp_ssim`, but emitted summaries must include
+  `amp_ssim` explicitly.
 - `inference_time_s` is enforced via feasibility filter above, not optimized directly.
+- amplitude MAE/MSE remain required diagnostics in summaries and baseline-comparison artifacts.
 
 Multi-profile aggregation:
 - compute per-profile Pareto ranks first (`pareto_rank_profile`, lower is better),
 - compute macro rank as median Pareto rank across profiles,
-- tie-break by mean amplitude MAE across profiles, then lower params.
+- tie-break by higher mean amplitude SSIM across profiles, then lower params.
 
 Seed policy:
 - Broad sweeps remain single-seed (default `seed=3`) for throughput.
@@ -256,10 +259,10 @@ Seed policy:
 - Boundary candidate set is `top-K + next 2` from the feasible Pareto-ranked source summary.
 - If fewer than `K+2` eligible candidates exist, rerun all eligible candidates.
 - Promotion uses median candidate Pareto rank across seeds `{3,11,17}`.
-- Seed-tie break uses mean amplitude MAE across seeds; if still tied, keep standard tie-breakers (params, then lower inference time within SLA).
+- Seed-tie break uses higher mean amplitude SSIM across seeds; if still tied, keep standard tie-breakers (params, then lower inference time within SLA).
 
 Tie-breakers:
-1. lower amplitude MAE,
+1. higher amplitude SSIM,
 2. lower parameter count,
 3. lower inference time (within SLA).
 
@@ -275,7 +278,7 @@ Promotion source API:
 Pause-and-diagnose conditions (not immediate abandonment):
 - Trigger a pause when either condition is met:
   - two consecutive stages show `<1%` median relative improvement on the primary metric **and** the seed-rerank confidence interval overlaps zero across seeds `{3,11,17}`,
-  - all new-stage candidates regress on both amplitude MAE and MSE at `N=256` **and** the same directional regression appears in the `N=128` robustness summary.
+  - all new-stage candidates regress on amplitude SSIM at `N=256` **and** the same directional regression appears in the `N=128` robustness summary.
 - Before final stop on an axis, run one bounded rescue mini-sweep on that axis and re-evaluate promotion gates.
 - If rescue still fails, pause expansion on that axis and carry at least one hedge candidate into the next stage for low-budget monitoring.
 
@@ -293,7 +296,7 @@ Each stage writes:
   - substage id,
   - dataset profile id,
   - all active knobs,
-  - key metrics (amp/phase MAE, MSE, SSIM),
+  - key metrics (amp/phase MAE, MSE, SSIM) including explicit `amp_ssim`,
   - phase guardrail fields (`phase_ssim_drop_vs_baseline`, `max_phase_ssim_drop`, `phase_guardrail_pass`),
   - model params,
   - `train_wall_time_sec`,

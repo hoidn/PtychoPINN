@@ -181,7 +181,7 @@ steps:
       - |
         mkdir -p state artifacts/work/runs/${run.id}
         cycle="$(cat state/review_cycle.txt)"
-        target="artifacts/work/runs/${run.id}/c${cycle}-execute-session.md"
+        target="artifacts/work/runs/${run.id}/c$cycle-execute-session.md"
         rm -f "$target"
         printf '%s\n' "$target" > state/execution_session_log_path.txt
     expected_outputs:
@@ -218,7 +218,7 @@ steps:
       - |
         mkdir -p state artifacts/checks/runs/${run.id}
         cycle="$(cat state/review_cycle.txt)"
-        target="artifacts/checks/runs/${run.id}/c${cycle}-checks.log"
+        target="artifacts/checks/runs/${run.id}/c$cycle-checks.log"
         rm -f "$target"
         printf '%s\n' "$target" > state/check_log_path.txt
     expected_outputs:
@@ -295,7 +295,7 @@ steps:
       - |
         mkdir -p state artifacts/review/runs/${run.id}
         cycle="$(cat state/review_cycle.txt)"
-        target="artifacts/review/runs/${run.id}/c${cycle}-review.md"
+        target="artifacts/review/runs/${run.id}/c$cycle-review.md"
         rm -f "$target"
         printf '%s\n' "$target" > state/code_review_path.txt
     expected_outputs:
@@ -355,7 +355,7 @@ steps:
       - |
         mkdir -p state artifacts/work/runs/${run.id}
         cycle="$(cat state/review_cycle.txt)"
-        target="artifacts/work/runs/${run.id}/c${cycle}-fix-session.md"
+        target="artifacts/work/runs/${run.id}/c$cycle-fix-session.md"
         rm -f "$target"
         printf '%s\n' "$target" > state/execution_session_log_path.txt
     expected_outputs:

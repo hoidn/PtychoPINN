@@ -4,7 +4,7 @@
 
 **Goal:** Add optional encoder-decoder skip connections to `hybrid_resnet`, add a reproducible mode×skip×width benchmark workflow for `N=128` and `N=256`, and define a staged structural-search extension for depth/downsampling/capacity/skip-design axes.
 
-**Architecture:** Keep default behavior unchanged (`skip_connections=False`) to preserve current baselines/integration expectations. Implement additive skip fusion with lightweight `1x1` projection layers at decoder resolutions (`N/2`, `N`). Expose one boolean knob end-to-end (`hybrid_skip_connections`) through Torch-only runner/execution config + CLI (do not bridge this knob into TensorFlow/canonical model contracts), then run a deterministic sweep over `fno_modes × hybrid_skip_connections × fno_width` with fixed probe-mask/loss-normalization controls. Make dataset choice explicit via named dataset profiles so the same sweep can run on multiple failure-mode regimes. Execute Stage A in two steps (full grid on `N=128`, then feasible Pareto-ranked top-K promotion to `N=256`), then add structural axes one stage at a time (B→E) with bounded per-stage run budgets. Promotion governance: keep broad sweeps single-seed (`seed=3` default), then run boundary seed reranks (`top-K + next 2`, seeds `11` and `17`) before every promotion, and promote by median Pareto rank across seeds. Governance decision for this initiative: new Stage C-E knobs stay Torch-only (runner/execution/model paths) unless a follow-up plan explicitly approves cross-backend bridge expansion.
+**Architecture:** Keep default behavior unchanged (`skip_connections=False`) to preserve current baselines/integration expectations. Implement additive skip fusion with lightweight `1x1` projection layers at decoder resolutions (`N/2`, `N`). Expose one boolean knob end-to-end (`hybrid_skip_connections`) through Torch-only runner/execution config + CLI (do not bridge this knob into TensorFlow/canonical model contracts), then run a deterministic sweep over `fno_modes × hybrid_skip_connections × fno_width` with fixed probe-mask/loss-normalization controls. Make dataset choice explicit via named dataset profiles so the same sweep can run on multiple failure-mode regimes. Execute Stage A in two steps (full grid on `N=128`, then feasible Pareto-ranked top-K promotion to `N=256`), then add structural axes one stage at a time (B→E) with bounded per-stage run budgets. Promotion governance: keep broad sweeps single-seed (`seed=3` default), then run boundary seed reranks (`top-K + next 2`, seeds `11` and `17`) before every promotion, and promote by median Pareto rank across seeds using amplitude SSIM as the primary evaluation metric. Governance decision for this initiative: new Stage C-E knobs stay Torch-only (runner/execution/model paths) unless a follow-up plan explicitly approves cross-backend bridge expansion.
 
 **Tech Stack:** PyTorch/Lightning (`ptycho_torch`), existing grid-lines + NERSC study scripts, `pytest`, runbook-style orchestration, JSON/CSV/Markdown artifacts.
 
@@ -28,7 +28,7 @@ This split document owns Tasks 12-15 (structural-axis implementation/search stag
 - Structural-stage baseline requirement:
   - Before each Stage C/D/E comparison cycle, measure true-default `hybrid_resnet` baseline (`modes=12`, `skip=off`, `width=32`, `fno_blocks=4`, `downsample_schedule=2`, `downsample_op=stride_conv`, `encoder_conv_hidden=none`, `encoder_spectral_hidden=none`, `encoder_conv_hidden_scale=1.0`, `encoder_spectral_hidden_scale=1.0`, `max_hidden=none`, `resnet_width=none`, `resnet_blocks=6`, `skip_style=add`) on the same dataset profile and epoch budget used for that cycle.
   - For promotion decisions, baseline context must use the same robustness seed policy as candidates (`{3,11,17}` with median-rank context).
-- Baseline documentation rule: each stage package MUST include an apples-to-apples baseline table (CSV/Markdown) containing baseline run id(s), candidate run id(s), and comparison metrics (`amp_mae`, `amp_mse`, `phase_ssim`, `train_wall_time_sec`, `inference_time_s`) with explicit `apples_to_apples=true|false` marking.
+- Baseline documentation rule: each stage package MUST include an apples-to-apples baseline table (CSV/Markdown) containing baseline run id(s), candidate run id(s), and comparison metrics (`amp_ssim`, `amp_mae`, `amp_mse`, `phase_ssim`, `train_wall_time_sec`, `inference_time_s`) with explicit `apples_to_apples=true|false` marking.
 
 ### Strong-Advisory Cleanup Contract (Stages C-E)
 
@@ -359,12 +359,12 @@ Use the canonical policy in:
 - `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-design.md` (Section 6)
 
 Use explicit gates:
-- promotion ordering must follow the canonical feasible-Pareto policy (Section 6 in the design doc): objectives are `amp_mae`, `amp_mse`, and `train_wall_time_sec` after feasibility filters.
+- promotion ordering must follow the canonical feasible-Pareto policy (Section 6 in the design doc): `amp_ssim` is primary and `train_wall_time_sec` is the efficiency objective after feasibility filters.
 - no catastrophic phase regression (`phase_ssim_drop_vs_baseline <= max_phase_ssim_drop`, default `0.03`)
 - train-time/params within budget envelope recorded in summary (`train_wall_time_sec`, `model_params`)
 - inference SLA satisfied for promoted candidates (`inference_time_s <= 60` at `N=128`, `<= 240` at `N=256`)
 - promotion source must be robustness-validated (`top-K + next 2` reranked with seeds `{3,11,17}` and promoted by median Pareto rank across seeds)
-- baseline MAE/MSE regressions are handled as stop/go diagnostics (Step 2), not a per-candidate hard pre-filter before Pareto ranking.
+- baseline MAE/MSE regressions are handled as diagnostics (Step 2); promotion ordering is driven by amplitude SSIM.
 - stage-promotion governance: Stage A is not complete until `docs/studies/index.md` contains the verified `hybrid-resnet-mode-skip-sweep` entry (Task 7 checks pass).
 
 **Step 2: Define hard stop conditions**
@@ -372,7 +372,7 @@ Use explicit gates:
 Use a **pause-and-diagnose** gate (not immediate abandonment):
 - Trigger a pause when either condition is met:
   - two consecutive stages show `<1%` median relative gain on the primary metric **and** the seed-rerank confidence interval overlaps zero (seeds `{3,11,17}`),
-  - all new-stage candidates regress on both amplitude MAE and MSE at `N=256` **and** the same directional regression is present in the `N=128` robustness summary.
+  - all new-stage candidates regress on amplitude SSIM at `N=256` **and** the same directional regression is present in the `N=128` robustness summary.
 - Before final stop on an axis, run one bounded rescue mini-sweep on that same axis (for example targeted high-mode/width slice) and re-evaluate gates.
 - If the rescue mini-sweep still fails gates, pause further expansion on that axis and carry at least one hedge candidate into the next stage for low-budget monitoring.
 

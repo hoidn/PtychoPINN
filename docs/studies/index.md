@@ -16,13 +16,13 @@
   - per-run: `runs/<run_id>/metrics.json` and `runs/<run_id>/cleanup_report.json`
   - summary rows persist confounder controls (`probe_mask_enabled`, `torch_mae_pred_l2_match_target`) and stage identity (`stage_id`, `substage_id`).
 - Promotion governance gates:
-  - rank feasible candidates using Pareto objectives `amp_mae`, `amp_mse`, `train_wall_time_sec`.
+  - rank feasible candidates with amplitude SSIM as the primary objective and `train_wall_time_sec` as the efficiency objective.
   - enforce feasibility before promotion: `phase_ssim_drop_vs_baseline <= max_phase_ssim_drop` (default `0.03`), train-time and model-parameter limits, and inference SLA (`<=60s` at `N=128`, `<=240s` at `N=256`).
   - require robustness validation before every promotion event: boundary candidate set (`top-K + next 2`) reranked across seeds `{3,11,17}` and promoted by median Pareto rank.
   - Stage A is not complete until this `hybrid-resnet-mode-skip-sweep` index entry is present and verified.
 - Stop/go diagnostics:
   - pause-and-diagnose when two consecutive stages deliver `<1%` median relative gain and the rerank confidence interval overlaps zero.
-  - pause-and-diagnose when all new-stage candidates regress on both amplitude MAE and MSE at `N=256` and the same direction appears in `N=128` robustness summaries.
+  - pause-and-diagnose when all new-stage candidates regress on amplitude SSIM at `N=256` and the same direction appears in `N=128` robustness summaries.
   - before halting an axis, run one bounded rescue mini-sweep; if still failing, pause expansion on that axis and carry at least one hedge candidate forward under low budget.
 
 Runbook CLI (Stage A full N=128 example):
@@ -38,7 +38,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --fly001-external-test-npz <path/to/fly001_n128_test_bottom_half.npz> \
   --epochs-n128 20 \
   --top-k-n256 6 \
-  --promotion-objectives amp_mae,amp_mse,train_wall_time_sec \
+  --promotion-objectives amp_ssim,train_wall_time_sec \
   --max-train-seconds-n128 2700 \
   --max-inference-seconds-n128 60 \
   --max-phase-ssim-drop 0.03 \
@@ -56,7 +56,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --stage-id A \
   --aggregate-seed-rerank-root outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/seed_rerank \
   --source-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/summary.csv \
-  --promotion-objectives amp_mae,amp_mse,train_wall_time_sec \
+  --promotion-objectives amp_ssim,train_wall_time_sec \
   --top-k-n256 6 \
   --emit-stage-anchor-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/stage_anchor_summary.csv \
   --emit-robust-promotion-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/summary_seed_robust.csv

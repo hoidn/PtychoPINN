@@ -531,7 +531,7 @@ Required behavior:
     - `fly001_external_n128_top_bottom_v1` (external NPZ split; requires `--fly001-external-train-npz` and `--fly001-external-test-npz`)
     - `custom_npz_pair_n128` (caller-supplied `train.npz` / `test.npz`)
 - Rank `N=128` runs using the Section-6 policy from the companion design
-  (lexicographic amplitude ranking with phase-SSIM guardrail), then select top-K for `N=256`.
+  (`amp_ssim`-driven promotion ranking with phase-SSIM guardrail and runtime feasibility), then select top-K for `N=256`.
 - Promotion seed-robustness rule (mandatory before each `N=128 -> N=256` promotion event):
   - keep broad sweep single-seed (`seed=3` default),
   - build boundary candidate set from source summary: `top-K + next 2` after guardrails (or all eligible candidates if fewer than `K+2`),
@@ -744,4 +744,3 @@ git commit -m "test+feat+docs: hybrid_resnet skip connections and mode-skip swee
 ```
 
 ---
-
