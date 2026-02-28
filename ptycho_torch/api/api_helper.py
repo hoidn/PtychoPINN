@@ -6,6 +6,7 @@ from ptycho_torch.config_params import TrainingConfig, DatagenConfig, DataConfig
 from ptycho_torch.train_utils import get_training_strategy
 import mlflow
 import torch
+import json
 import os
 
 def config_from_json(json_path):

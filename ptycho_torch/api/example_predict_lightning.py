@@ -4,6 +4,7 @@ sys.path.append(os.path.abspath('/local/PtychoPINN'))
 from ptycho_torch.api.base_api import ConfigManager, PtychoDataLoader, PtychoModel, Trainer, InferenceEngine, DataloaderFormats
 from ptycho_torch.api.base_api import Orchestration
 from ptycho_torch.model import PtychoPINN_Lightning
+from ptycho_torch.beta_modules.model_unet import PtychoPINN_Lightning as UNetPtychoPINN
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
@@ -118,6 +119,8 @@ result_amp = np.abs(result_im)
 result_phase = np.angle(result_im)
 gt_amp = np.abs(tensordict_dataloader.dataset.data_dict['objectGuess']).squeeze()
 gt_phase = np.angle(tensordict_dataloader.dataset.data_dict['objectGuess']).squeeze()
+
+print(f"tensor test: {result_amp[50:70,50:70]}")
 
 plot_amp_and_phase(result_amp[w:-w,w:-w], result_phase[w:-w,w:-w],
                     gt_amp[w:-w,w:-w], gt_phase[w:-w,w:-w],

@@ -38,6 +38,7 @@ sys.path.append(os.path.abspath('/local/PtychoPINN'))
 from ptycho_torch.api.base_api import ConfigManager, PtychoDataLoader, PtychoModel, Trainer, InferenceEngine, DataloaderFormats
 from ptycho_torch.api.base_api import Orchestration
 from ptycho_torch.model import PtychoPINN_Lightning
+from ptycho_torch.beta_modules.model_unet import PtychoPINN_Lightning as UNetPtychoPINN
 from ptycho_torch.train_utils import is_effectively_global_rank_zero
 
 #Following the notebook, we'll be loading a configuration from another mlflow run and doing a short training run to show the api off
