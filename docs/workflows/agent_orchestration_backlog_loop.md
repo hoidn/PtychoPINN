@@ -83,14 +83,21 @@ tmux attach -t ptychopinn-backlog-loop
 For each selected backlog item, it runs:
 1. Select item + resolve `plan_path` + load `check_commands`
 2. Capture a git baseline for this cycle
-3. Execute the full plan (provider: codex)
-4. Run targeted checks
-5. Assess completion from session/check artifacts and write `state/execution_log_path.txt`
-6. Review implementation vs plan (`APPROVE` or `REVISE`)
-7. If `REVISE`, run an idempotent full-plan re-execution pass (provider: codex), then repeat checks + assessment + review loop (bounded by `context.max_review_cycles`)
-8. On success, move backlog item `active -> done`
-9. Run a post-approval commit step (provider: codex)
-10. Recount active queue and continue until no active items remain
+3. Initialize review cycle counter
+4. Prepare cycle-scoped execute-session output path
+5. Execute the full plan (provider: codex)
+6. Prepare cycle-scoped checks-log output path
+7. Run targeted checks
+8. Prepare cycle-scoped review-report output path
+9. Review implementation vs plan (`APPROVE` or `REVISE`)
+10. If `REVISE`:
+    - gate on max cycles
+    - prepare cycle-scoped fix-session output path
+    - run full-plan fix pass (provider: codex)
+    - increment cycle and loop back through checks + review
+11. On success, move backlog item `active -> done`
+12. Run a post-approval commit step (provider: codex)
+13. Recount active queue and continue until no active items remain
 
 ## 5) Monitoring
 
@@ -106,10 +113,17 @@ Run artifacts are under `.orchestrate/runs/<run_id>/`.
   - `CommitOnApprove.prompt.txt` (when approval path runs)
 
 Workflow state/output files in repo root:
-- `state/execution_log_path.txt`
+- `state/execution_session_log_path.txt` (pointer for current execute/fix session log target)
+- `state/check_log_path.txt` (pointer for current checks log target)
+- `state/code_review_path.txt` (pointer for current review report target)
 - `state/review_decision.txt`
-- `state/misalignment_report_path.txt`
-- `state/commit_sha.txt`
+- `state/review_cycle.txt`
+- `state/commit_sha_path.txt`
+
+Cycle-scoped human artifacts are written under:
+- `artifacts/work/runs/<run_id>/c*-{execute,fix}-session.md`
+- `artifacts/checks/runs/<run_id>/c*-checks.log`
+- `artifacts/review/runs/<run_id>/c*-review.md`
 
 ## 6) Resume After Interruption
 

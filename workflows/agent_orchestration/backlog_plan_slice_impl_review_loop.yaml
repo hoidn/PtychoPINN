@@ -174,6 +174,22 @@ steps:
         path: state/review_cycle.txt
         type: integer
 
+  - name: PrepareExecuteSessionLogPath
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p state artifacts/work/runs/${run.id}
+        cycle="$(cat state/review_cycle.txt)"
+        target="artifacts/work/runs/${run.id}/c${cycle}-execute-session.md"
+        rm -f "$target"
+        printf '%s\n' "$target" > state/execution_session_log_path.txt
+    expected_outputs:
+      - name: execution_session_log_path
+        path: state/execution_session_log_path.txt
+        type: relpath
+        under: artifacts/work
+
   - name: ExecutePlan
     provider: codex
     input_file: prompts/workflows/backlog_plan_loop/execute_plan.md
@@ -195,6 +211,22 @@ steps:
       - artifact: execution_session_log
         from: execution_session_log_path
 
+  - name: PrepareCheckLogPath
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p state artifacts/checks/runs/${run.id}
+        cycle="$(cat state/review_cycle.txt)"
+        target="artifacts/checks/runs/${run.id}/c${cycle}-checks.log"
+        rm -f "$target"
+        printf '%s\n' "$target" > state/check_log_path.txt
+    expected_outputs:
+      - name: check_log_path
+        path: state/check_log_path.txt
+        type: relpath
+        under: artifacts/checks
+
   - name: RunTargetedChecks
     command:
       - bash
@@ -211,9 +243,13 @@ steps:
         if not isinstance(checks, list) or not checks:
             raise SystemExit("state/check_commands.json must contain a non-empty JSON list")
 
-        logs_dir = Path("artifacts/checks")
-        logs_dir.mkdir(parents=True, exist_ok=True)
-        log_path = logs_dir / "latest-checks.log"
+        check_log_rel = (state_dir / "check_log_path.txt").read_text(encoding="utf-8").strip()
+        if not check_log_rel:
+            raise SystemExit("state/check_log_path.txt is empty")
+        log_path = Path(check_log_rel)
+        if log_path.is_absolute() or ".." in log_path.parts:
+            raise SystemExit(f"Refusing unsafe check log path: {check_log_rel}")
+        log_path.parent.mkdir(parents=True, exist_ok=True)
 
         failures = 0
         lines = []
@@ -241,9 +277,6 @@ steps:
 
         lines.append(f"failed_count={failures}\n")
         log_path.write_text("".join(lines), encoding="utf-8")
-
-        state_dir.mkdir(parents=True, exist_ok=True)
-        (state_dir / "check_log_path.txt").write_text("artifacts/checks/latest-checks.log\n", encoding="utf-8")
         PY
     expected_outputs:
       - name: check_log_path
@@ -255,34 +288,21 @@ steps:
       - artifact: check_log
         from: check_log_path
 
-  - name: AssessExecutionCompletion
-    provider: codex
-    input_file: prompts/workflows/backlog_plan_loop/assess_execution_completion.md
-    timeout_sec: 1200
-    consumes:
-      - artifact: plan
-        producers: ["SelectBacklogItem"]
-        policy: latest_successful
-        freshness: any
-      - artifact: execution_session_log
-        producers: ["ExecutePlan", "FixIssues"]
-        policy: latest_successful
-        freshness: any
-      - artifact: check_log
-        producers: ["RunTargetedChecks"]
-        policy: latest_successful
-        freshness: any
-    inject_consumes: true
-    consumes_injection_position: prepend
+  - name: PrepareCodeReviewPath
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p state artifacts/review/runs/${run.id}
+        cycle="$(cat state/review_cycle.txt)"
+        target="artifacts/review/runs/${run.id}/c${cycle}-review.md"
+        rm -f "$target"
+        printf '%s\n' "$target" > state/code_review_path.txt
     expected_outputs:
-      - name: execution_log_path
-        path: state/execution_log_path.txt
+      - name: code_review_path
+        path: state/code_review_path.txt
         type: relpath
-        under: artifacts/work
-        must_exist_target: true
-    publishes:
-      - artifact: execution_log
-        from: execution_log_path
+        under: artifacts/review
 
   - name: ReviewImplVsPlan
     provider: codex
@@ -293,10 +313,14 @@ steps:
         producers: ["SelectBacklogItem"]
         policy: latest_successful
         freshness: any
-      - artifact: execution_log
-        producers: ["AssessExecutionCompletion"]
+      - artifact: execution_session_log
+        producers: ["ExecutePlan", "FixIssues"]
         policy: latest_successful
-        freshness: any
+        freshness: since_last_consume
+      - artifact: check_log
+        producers: ["RunTargetedChecks"]
+        policy: latest_successful
+        freshness: since_last_consume
     inject_consumes: true
     consumes_injection_position: prepend
     expected_outputs:
@@ -324,6 +348,22 @@ steps:
       failure:
         goto: ReviewCycleGate
 
+  - name: PrepareFixSessionLogPath
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p state artifacts/work/runs/${run.id}
+        cycle="$(cat state/review_cycle.txt)"
+        target="artifacts/work/runs/${run.id}/c${cycle}-fix-session.md"
+        rm -f "$target"
+        printf '%s\n' "$target" > state/execution_session_log_path.txt
+    expected_outputs:
+      - name: execution_session_log_path
+        path: state/execution_session_log_path.txt
+        type: relpath
+        under: artifacts/work
+
   - name: FixIssues
     provider: codex
     input_file: prompts/workflows/backlog_plan_loop/fix_issues.md
@@ -333,14 +373,18 @@ steps:
         producers: ["SelectBacklogItem"]
         policy: latest_successful
         freshness: any
-      - artifact: execution_log
-        producers: ["AssessExecutionCompletion"]
+      - artifact: execution_session_log
+        producers: ["ExecutePlan", "FixIssues"]
+        policy: latest_successful
+        freshness: any
+      - artifact: check_log
+        producers: ["RunTargetedChecks"]
         policy: latest_successful
         freshness: any
       - artifact: code_review
         producers: ["ReviewImplVsPlan"]
         policy: latest_successful
-        freshness: any
+        freshness: since_last_consume
     inject_consumes: true
     consumes_injection_position: prepend
     expected_outputs:
@@ -367,7 +411,7 @@ steps:
         type: integer
     on:
       success:
-        goto: RunTargetedChecks
+        goto: PrepareCheckLogPath
 
   - name: ReviewCycleGate
     command:
@@ -376,7 +420,7 @@ steps:
       - 'test "$(cat state/review_cycle.txt)" -lt "${context.max_review_cycles}"'
     on:
       success:
-        goto: FixIssues
+        goto: PrepareFixSessionLogPath
       failure:
         goto: MaxCyclesExceeded
 
@@ -434,11 +478,6 @@ artifacts:
     must_exist_target: true
   execution_session_log:
     pointer: state/execution_session_log_path.txt
-    type: relpath
-    under: artifacts/work
-    must_exist_target: true
-  execution_log:
-    pointer: state/execution_log_path.txt
     type: relpath
     under: artifacts/work
     must_exist_target: true
