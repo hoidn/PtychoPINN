@@ -19,6 +19,7 @@ from perlin_noise import PerlinNoise
 from scipy.spatial.transform import Rotation # For 3D rotations
 import random
 import cv2
+from sklearn.mixture import GaussianMixture
 
 
 # Function to handle safe normalization per image in a batch
@@ -104,7 +105,7 @@ def create_white_noise_object(img_shape, obj_arg):
     
     # Apply small amount of blur for smoother transitions
     if blur:
-        blur_sigma = np.random.uniform(1.0, 3.0)
+        blur_sigma = np.random.uniform(2.0, 3.0)
         base_noise = gaussian_filter(base_noise, sigma=blur_sigma)
     
     # Renormalize after blur
@@ -123,10 +124,99 @@ def create_white_noise_object(img_shape, obj_arg):
     
     return obj
 
+
+def create_white_noise_clustered_reim(img_shape, obj_arg):
+    """
+    Generate a complex object by quantizing blurred white noise to GMM clusters.
+
+    Two independent blurred noise fields are generated in [-1.2, 1.2], then
+    snapped to the nearest cluster centers from a GMM fit. This produces
+    organic spatial boundaries between discrete material types.
+
+    Parameters
+    ----------
+    img_shape : tuple (H, W)
+        Output image dimensions.
+    obj_arg : dict
+        Required (one of):
+        - 'reference_objects': list of complex arrays to fit GMM from.
+        - 'gmm_params': dict from fit_gmm_from_objects() (skip fitting).
+
+        Optional:
+        - 'n_clusters': int or 'auto' (default 'auto')
+        - 'blur': float, base noise field blur sigma (default 3.0)
+        - 'quantization_mode': 'hard' or 'soft' (default 'hard')
+        - 'softmax_temperature': float (default 0.1)
+        - 'amp_std_scale': float, radial variance scale (default 1.0)
+        - 'phase_std_scale': float, tangential variance scale (default 1.0)
+        - 'rotation_range': tuple (default (0, 2*pi))
+        - 'center_jitter_std': float (default 0.05)
+        - 'weight_dirichlet_conc': float (default 5.0)
+        - 'final_blur': float, light blur after quantization (default 0.3)
+        - 'texture_scale': float, spatial correlation length for perturbation
+          in pixels (default 0.0 = pixel-level IID)
+
+    Returns
+    -------
+    np.ndarray : complex64 object of shape img_shape
+    """
+    rng = np.random.default_rng()
+
+    # --- Get or fit GMM parameters ---
+    gmm_params = obj_arg.get('gmm_params', None)
+    if gmm_params is None:
+        ref_objects = obj_arg.get('reference_objects', None)
+        if ref_objects is None:
+            raise ValueError("Either 'reference_objects' or 'gmm_params' must be provided")
+        n_clusters = obj_arg.get('n_clusters', 6) #Used to be 'auto'
+        gmm_params = fit_gmm_from_objects(ref_objects, n_clusters=n_clusters)
+
+    means = gmm_params['means']
+
+    # --- Generate blurred noise fields ---
+    blur_sigma = obj_arg.get('blur', 2.0)
+    re_noise = np.random.uniform(-1.2, 1.2, size=img_shape).astype(np.float32)
+    im_noise = np.random.uniform(-1.2, 1.2, size=img_shape).astype(np.float32)
+
+    if blur_sigma > 0:
+        re_noise = gaussian_filter(re_noise, sigma=blur_sigma)
+        im_noise = gaussian_filter(im_noise, sigma=blur_sigma)
+        # Rescale back to [-1.2, 1.2] after blur shrinks the range
+        re_noise = _normalize_np(re_noise) * 2.4 - 1.2
+        im_noise = _normalize_np(im_noise) * 2.4 - 1.2
+
+    # --- Quantize to cluster centers ---
+    q_mode = obj_arg.get('quantization_mode', 'hard')
+    temperature = obj_arg.get('softmax_temperature', 0.1)
+
+    real_q, imag_q = quantize_reim_to_clusters(
+        re_noise, im_noise,
+        cluster_re=means[:, 0], cluster_im=means[:, 1],
+        mode=q_mode, temperature=temperature,
+        cluster_covariances=gmm_params['covariances'],
+        cluster_weights=gmm_params['weights'],
+        amp_std_scale=obj_arg.get('amp_std_scale', 1.0),
+        phase_std_scale=obj_arg.get('phase_std_scale', 1.3), #2.0 TP2
+        texture_scale=obj_arg.get('texture_scale', 2.5),
+    )
+
+    # --- Optional light final blur for smoother transitions ---
+    final_blur = obj_arg.get('final_blur', 0.1)
+    if final_blur > 0:
+        real_q = cv2.GaussianBlur(real_q, (0, 0), final_blur)
+        imag_q = cv2.GaussianBlur(imag_q, (0, 0), final_blur)
+
+    real_q = np.clip(real_q, -1.2, 1.2)
+    imag_q = np.clip(imag_q, -1.2, 1.2)
+
+    obj = (real_q + 1j * imag_q).astype(np.complex64)
+    return obj
+
+
 def create_simplex_noise_object(img_shape):
     """
     Generates a complex object from simplex noise with material parameters.
-    
+
     Args:
         img_shape (tuple): Shape (H, W) for the output object
         
@@ -999,7 +1089,7 @@ def generate_3d_polyhedra_and_project(
     #     device_str=device_to_use
     # )
 
-def create_dead_leaves(img_shape, obj_arg):
+def create_dead_leaves(img_shape, obj_arg, histogram = None):
     """
     Wrapper for dead leaves function. Only takes square shapes.
 
@@ -1217,6 +1307,2075 @@ def dead_leaves_ptycho(res, r_sigma_param, max_iters,
 
     return amplitude_2d, phase_2d_scaled, beta_map, delta_map # Return beta/delta maps for inspection
 
+## BEta features
+import numpy as np
+import cv2
+from typing import Tuple, Optional, Union, List
+
+def create_density_centered_histogram(
+    objects: Union[np.ndarray, List[np.ndarray]], 
+    bins: int = 256, 
+    smoothing_sigma: float = 4.0,
+    amp_range: Tuple[float, float] = (0.0, 1.0),
+    phase_range: Tuple[float, float] = (-np.pi, np.pi)
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Aggregates amplitude/phase statistics from a single tensor or a list of 
+    mismatched objects, identifies the vacuum mode, and returns a centered, 
+    smoothed material prior.
+    """
+    # --- 1. Aggregate Statistics ---
+    # Handle list of arrays (mismatched sizes) or single B,H,W array
+    if isinstance(objects, list):
+        all_amps = np.concatenate([np.abs(obj).flatten() for obj in objects])
+        all_phases = np.concatenate([np.angle(obj).flatten() for obj in objects])
+    else:
+        all_amps = np.abs(objects).flatten()
+        all_phases = np.angle(objects).flatten()
+    
+    # --- 2. Initial high-res histogram for peak finding ---
+    hist_raw, a_edges, p_edges = np.histogram2d(
+        all_amps, all_phases, bins=bins, range=[amp_range, phase_range]
+    )
+    
+    # Smooth to identify the "center of mass" of the most common material (vacuum)
+    hist_smoothed = gaussian_filter(hist_raw, sigma=smoothing_sigma)
+    
+    # --- 3. Identify Vacuum Mode ---
+    peak_idx = np.unravel_index(np.argmax(hist_smoothed), hist_smoothed.shape)
+    
+    # Map index to physical values
+    amp_vac = (a_edges[peak_idx[0]] + a_edges[peak_idx[0]+1]) / 2
+    phase_vac = (p_edges[peak_idx[1]] + p_edges[peak_idx[1]+1]) / 2
+    
+    print(f"Detected Vacuum Mode: Amplitude={amp_vac:.4f}, Phase={phase_vac:.4f} rad")
+
+    # --- 4. Re-center Data ---
+    # Amplitude scaling is kept as identity per your current snippet logic
+    centered_amps = all_amps 
+    centered_phases = all_phases - phase_vac
+    
+    # Wrap phases back to [-pi, pi] to maintain circular continuity
+    centered_phases = (centered_phases + np.pi) % (2 * np.pi) - np.pi
+    
+    # --- 5. Final Material Prior Construction ---
+    # Build the final histogram within the generator's expected bounds
+    final_hist, x_edges, y_edges = np.histogram2d(
+        centered_amps, centered_phases, 
+        bins=bins, 
+        range=[[0.0, 1.0], [-np.pi, np.pi]]
+    )
+
+    # Normalize to create a valid PDF for the rng.choice sampler
+    final_hist = final_hist / (np.sum(final_hist) + 1e-12)
+
+    # Final smoothing pass to thicken the material manifold (linear space)
+    final_hist = gaussian_filter(final_hist, sigma=2.0)
+    
+    print("Created density histogram. ")
+    return final_hist, x_edges, y_edges
+
+
+# =====================================================================
+# Re-Im Space Synthetic Object Generation
+# =====================================================================
+
+def compute_reim_statistics(
+    objects: Union[np.ndarray, List[np.ndarray]]
+) -> dict:
+    """
+    Compute Real-Imaginary space statistics from complex-valued objects.
+
+    Parameters
+    ----------
+    objects : complex array or list of complex arrays
+        Single object or list of objects (may have mismatched sizes).
+
+    Returns
+    -------
+    dict with keys:
+        re_mean, im_mean, re_std, im_std, re_min, re_max, im_min, im_max,
+        correlation, covariance (2x2), energy_ratio (E_re / E_im)
+    """
+    if isinstance(objects, list):
+        all_re = np.concatenate([np.real(obj).flatten() for obj in objects])
+        all_im = np.concatenate([np.imag(obj).flatten() for obj in objects])
+    else:
+        all_re = np.real(objects).flatten()
+        all_im = np.imag(objects).flatten()
+
+    re_mean = float(np.mean(all_re))
+    im_mean = float(np.mean(all_im))
+    re_std = float(np.std(all_re))
+    im_std = float(np.std(all_im))
+
+    # Pearson correlation
+    if re_std > 1e-12 and im_std > 1e-12:
+        correlation = float(np.corrcoef(all_re, all_im)[0, 1])
+    else:
+        correlation = 0.0
+
+    # 2x2 covariance matrix
+    covariance = np.cov(all_re, all_im)
+
+    # Energy ratio
+    e_re = float(np.mean(all_re ** 2))
+    e_im = float(np.mean(all_im ** 2))
+    energy_ratio = e_re / max(e_im, 1e-12)
+
+    return {
+        're_mean': re_mean, 'im_mean': im_mean,
+        're_std': re_std, 'im_std': im_std,
+        're_min': float(np.min(all_re)), 're_max': float(np.max(all_re)),
+        'im_min': float(np.min(all_im)), 'im_max': float(np.max(all_im)),
+        'correlation': correlation,
+        'covariance': covariance,
+        'energy_ratio': energy_ratio,
+    }
+
+
+def create_density_histogram_reim(
+    objects: Union[np.ndarray, List[np.ndarray]],
+    bins: int = 256,
+    smoothing_sigma: float = 4.0,
+    re_range: Tuple[float, float] = (-1.4, 1.4),
+    im_range: Tuple[float, float] = (-1.4, 1.4),
+    origin_threshold: float = 0.05,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Tuple[float, float]]:
+    """
+    Build a 2D histogram PDF in (Real, Imag) space from complex objects.
+
+    Mirror of create_density_centered_histogram() but in Re-Im coordinates.
+    Range [-1.2, 1.2] matches the decoder output 1.2 * tanh(x).
+
+    Parameters
+    ----------
+    objects : complex array or list of complex arrays
+    bins : int
+        Number of histogram bins per axis.
+    smoothing_sigma : float
+        Gaussian smoothing sigma for peak finding.
+    re_range, im_range : tuple
+        Histogram axis ranges.
+    origin_threshold : float
+        Bins with |Re| < threshold AND |Im| < threshold are zeroed out
+        to exclude unscanned regions (default: 0.05).
+
+    Returns
+    -------
+    hist_pdf : np.ndarray
+        Normalized 2D histogram (bins x bins).
+    re_edges : np.ndarray
+        Bin edges for real axis.
+    im_edges : np.ndarray
+        Bin edges for imaginary axis.
+    vacuum_reim : tuple (float, float)
+        (re, im) coordinates of the vacuum mode (histogram peak).
+    """
+    if isinstance(objects, list):
+        all_re = np.concatenate([np.real(obj).flatten() for obj in objects])
+        all_im = np.concatenate([np.imag(obj).flatten() for obj in objects])
+    else:
+        all_re = np.real(objects).flatten()
+        all_im = np.imag(objects).flatten()
+
+    # Build 2D histogram
+    hist_raw, re_edges, im_edges = np.histogram2d(
+        all_re, all_im, bins=bins, range=[list(re_range), list(im_range)]
+    )
+
+    # Mask out near-origin bins (unscanned/unilluminated regions)
+    if origin_threshold > 0:
+        re_centers = (re_edges[:-1] + re_edges[1:]) / 2
+        im_centers = (im_edges[:-1] + im_edges[1:]) / 2
+        re_grid, im_grid = np.meshgrid(re_centers, im_centers, indexing='ij')
+        origin_mask = np.sqrt(re_grid**2 + im_grid**2) < origin_threshold
+        hist_raw[origin_mask] = 0.0
+
+    # Smooth for peak finding
+    hist_smoothed = gaussian_filter(hist_raw, sigma=smoothing_sigma)
+
+    # Find vacuum mode (peak)
+    peak_idx = np.unravel_index(np.argmax(hist_smoothed), hist_smoothed.shape)
+    vacuum_re = (re_edges[peak_idx[0]] + re_edges[peak_idx[0] + 1]) / 2
+    vacuum_im = (im_edges[peak_idx[1]] + im_edges[peak_idx[1] + 1]) / 2
+
+    print(f"Re-Im histogram vacuum mode: Re={vacuum_re:.4f}, Im={vacuum_im:.4f}")
+
+    # Normalize to PDF
+    hist_pdf = hist_raw / (np.sum(hist_raw) + 1e-12)
+
+    # Final smoothing to thicken the material manifold
+    hist_pdf = gaussian_filter(hist_pdf, sigma=2.0)
+    hist_pdf = hist_pdf / (np.sum(hist_pdf) + 1e-12)
+
+    return hist_pdf, re_edges, im_edges
+
+
+def fit_gmm_from_objects(
+    objects: Union[np.ndarray, List[np.ndarray]],
+    n_clusters: Union[int, str] = 10, #used to be auto
+    max_clusters: int = 8,
+    subsample: int = 80000,
+) -> dict:
+    """
+    Fit a Gaussian Mixture Model to the (Re, Im) point cloud of complex objects.
+
+    Parameters
+    ----------
+    objects : complex array or list of complex arrays
+        Experimental objects to extract the Re-Im distribution from.
+    n_clusters : int or 'auto'
+        Number of GMM components. If 'auto', sweeps K=2..max_clusters
+        and selects by lowest BIC.
+    max_clusters : int
+        Upper bound for BIC sweep when n_clusters='auto'.
+    subsample : int
+        Maximum number of points to fit (random subsample for speed).
+
+    Returns
+    -------
+    dict with keys:
+        means : np.ndarray (K, 2)
+        covariances : np.ndarray (K, 2, 2)
+        weights : np.ndarray (K,)
+        vacuum_reim : np.ndarray (2,)  — cluster closest to (1, 0)
+        n_clusters : int
+    """
+    # Flatten to (Re, Im) point cloud
+    if isinstance(objects, list):
+        all_re = np.concatenate([np.real(obj).flatten() for obj in objects])
+        all_im = np.concatenate([np.imag(obj).flatten() for obj in objects])
+    else:
+        all_re = np.real(objects).flatten()
+        all_im = np.imag(objects).flatten()
+
+    points = np.column_stack([all_re, all_im]).astype(np.float64)
+
+    origin_mask = np.sqrt(all_re**2 + all_im **2) < 0.4
+    points = points[~origin_mask,:]
+
+
+    # Subsample for speed
+    if len(points) > subsample:
+        idx = np.random.default_rng().choice(len(points), size=subsample, replace=False)
+        points = points[idx]
+
+    print(f"n_clusters is: {n_clusters}")
+
+    # Fit GMM
+    if n_clusters == 'auto':
+        best_bic, best_gmm = np.inf, None
+        for k in range(2, max_clusters + 1):
+            gmm = GaussianMixture(n_components=k, covariance_type='full',
+                                  n_init=3, random_state=42)
+            gmm.fit(points)
+            bic = gmm.bic(points)
+            if bic < best_bic:
+                best_bic, best_gmm = bic, gmm
+        gmm = best_gmm
+        print(f"GMM auto-selected K={gmm.n_components} (BIC={best_bic:.1f})")
+    else:
+        gmm = GaussianMixture(n_components=int(n_clusters), covariance_type='full',
+                              n_init=3, random_state=42)
+        gmm.fit(points)
+
+    means = gmm.means_.astype(np.float64)          # (K, 2)
+    covariances = gmm.covariances_.astype(np.float64)  # (K, 2, 2)
+    weights = gmm.weights_.astype(np.float64)       # (K,)
+
+    # Detect vacuum mode: cluster closest to (1, 0)
+    dists_to_vacuum = np.linalg.norm(means - np.array([1.0, 0.0]), axis=1)
+    vacuum_idx = np.argmin(dists_to_vacuum)
+    vacuum_reim = means[vacuum_idx].copy()
+
+    print(f"GMM fit: K={len(weights)}, "
+          f"centers={(means[:, 0].round(3).tolist(), means[:, 1].round(3).tolist())}, "
+          f"weights={weights.round(3).tolist()}, "
+          f"vacuum=({vacuum_reim[0]:.3f}, {vacuum_reim[1]:.3f})")
+
+    return {
+        'means': means,
+        'covariances': covariances,
+        'weights': weights,
+        'vacuum_reim': vacuum_reim,
+        'n_clusters': len(weights),
+    }
+
+
+def _perturb_gmm_config(
+    gmm_params: dict,
+    rng: np.random.Generator,
+    rotation_range: Tuple[float, float] = (0.0, 2 * np.pi),
+    center_jitter_std: float = 0.05,
+    weight_dirichlet_conc: float = 5.0,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Perturb fitted GMM parameters for per-object variety.
+
+    Parameters
+    ----------
+    gmm_params : dict
+        Output of fit_gmm_from_objects().
+    rng : np.random.Generator
+    rotation_range : tuple (lo, hi)
+        Global rotation angle sampled uniformly from this range.
+    center_jitter_std : float
+        Per-center Gaussian jitter standard deviation.
+    weight_dirichlet_conc : float
+        Dirichlet concentration parameter (higher = closer to fitted weights).
+
+    Returns
+    -------
+    means : np.ndarray (K, 2)
+    covs : np.ndarray (K, 2, 2)
+    weights : np.ndarray (K,)
+    vacuum_reim : np.ndarray (2,)
+    """
+    means = gmm_params['means'].copy()
+    covs = gmm_params['covariances'].copy()
+    weights = gmm_params['weights'].copy()
+    K = len(weights)
+
+    # --- Global rotation around centroid ---
+    alpha = rng.uniform(rotation_range[0], rotation_range[1])
+    c, s = np.cos(alpha), np.sin(alpha)
+    R = np.array([[c, -s], [s, c]])
+
+    centroid = np.average(means, axis=0, weights=weights)
+    means_centered = means - centroid
+    means = (R @ means_centered.T).T + centroid
+
+    # Rotate covariance matrices: Sigma' = R Sigma R^T
+    for k in range(K):
+        covs[k] = R @ covs[k] @ R.T
+
+    # --- Per-center jitter ---
+    means += rng.normal(0.0, center_jitter_std, size=means.shape)
+
+    # --- Weight resampling via Dirichlet ---
+    alpha_dir = weight_dirichlet_conc * weights + 1e-6  # avoid zeros
+    weights = rng.dirichlet(alpha_dir)
+
+    # Recompute vacuum as the cluster closest to (1, 0) after perturbation
+    dists = np.linalg.norm(means - np.array([1.0, 0.0]), axis=1)
+    vacuum_reim = means[np.argmin(dists)].copy()
+
+    return means, covs, weights, vacuum_reim
+
+
+def quantize_reim_to_clusters(
+    real_map: np.ndarray,
+    imag_map: np.ndarray,
+    cluster_re: np.ndarray,
+    cluster_im: np.ndarray,
+    mode: str = 'hard',
+    temperature: float = 0.1,
+    perturbation_std: float = 0.0,
+    cluster_covariances: np.ndarray = None,
+    cluster_weights: np.ndarray = None,
+    amp_std_scale: float = 1.0,
+    phase_std_scale: float = 1.0,
+    texture_scale: float = 0.0,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Snap (Re, Im) fields to the nearest cluster centers.
+
+    Parameters
+    ----------
+    real_map, imag_map : np.ndarray (H, W)
+        Continuous-valued Re and Im fields.
+    cluster_re, cluster_im : np.ndarray (K,)
+        Cluster center coordinates.
+    mode : str
+        'hard' — assign to nearest center.
+        'soft' — softmax-weighted blend with temperature.
+    temperature : float
+        Softmax temperature for 'soft' mode (lower = sharper).
+    perturbation_std : float
+        Post-quantization isotropic Gaussian noise std.
+        Used as fallback when cluster_covariances is None.
+    cluster_covariances : np.ndarray (K, 2, 2), optional
+        Per-cluster covariance matrices from GMM fit. When provided,
+        perturbation is sampled in polar (amplitude, phase) space as
+        independent Gaussians, then mapped to (Re, Im) via the exact
+        polar → Cartesian transform. The radial and tangential
+        projections of the covariance set the amplitude and phase
+        standard deviations respectively.
+    cluster_weights : np.ndarray (K,), optional
+        GMM mixing weights (should sum to 1). When provided, adds
+        log(w_k) bias to the Euclidean assignment score, shifting
+        Voronoi boundaries so that higher-weighted clusters capture
+        proportionally more area. When None, pure Euclidean (Voronoi)
+        assignment is used.
+    amp_std_scale : float
+        Scale factor for the amplitude (radial) standard deviation.
+    phase_std_scale : float
+        Scale factor for the phase (tangential) standard deviation.
+        The tangential Cartesian variance is divided by the cluster
+        amplitude to convert to angular (radian) units.
+    texture_scale : float
+        Spatial correlation length for perturbation in pixels.
+        When > 0, delta_A and delta_phi are generated as spatially
+        smooth 2D random fields (Gaussian-blurred white noise) before
+        the polar-to-Cartesian transform, producing coherent texture
+        islands of ~texture_scale pixels. When 0 (default), per-pixel
+        IID sampling is used (original behavior).
+
+    Returns
+    -------
+    real_q, imag_q : np.ndarray (H, W)
+    """
+    H, W = real_map.shape
+    K = len(cluster_re)
+
+    # Differences: (H, W, K)
+    re_diff = real_map[:, :, None] - cluster_re[None, None, :]  # (H, W, K)
+    im_diff = imag_map[:, :, None] - cluster_im[None, None, :]
+    dists_sq = re_diff ** 2 + im_diff ** 2  # (H, W, K)
+
+    # Assignment scores (higher = better).
+    # Use Euclidean distance as the base metric. The full GMM log-posterior
+    # (Mahalanobis + log-det) is NOT suitable here: the input is uniform
+    # noise spanning [-1.2, 1.2]^2, so the quadratic Mahalanobis term
+    # (scaling as 1/sigma^2) overwhelms log-det and log-weight corrections,
+    # causing the loosest cluster to capture nearly all pixels.
+    # Instead, Euclidean distance preserves Voronoi geometry and log(w_k)
+    # shifts the decision boundaries to approximate target area fractions.
+    scores = -dists_sq
+    if cluster_weights is not None:
+        safe_weights = np.clip(cluster_weights, 1e-30, None)
+        scores = scores + np.log(safe_weights)[None, None, :]
+
+    if mode == 'hard':
+        nearest = np.argmax(scores, axis=2)  # (H, W)
+        real_q = cluster_re[nearest]
+        imag_q = cluster_im[nearest]
+    elif mode == 'soft':
+        # Softmax over scores: w_k = exp(score_k / tau) / sum(...)
+        logits = scores / (temperature + 1e-12)
+        logits -= logits.max(axis=2, keepdims=True)  # numerical stability
+        exp_logits = np.exp(logits)
+        w = exp_logits / (exp_logits.sum(axis=2, keepdims=True) + 1e-12)
+        real_q = np.sum(w * cluster_re[None, None, :], axis=2)
+        imag_q = np.sum(w * cluster_im[None, None, :], axis=2)
+    else:
+        raise ValueError(f"Unknown quantization mode '{mode}'. Use 'hard' or 'soft'.")
+
+    # Post-quantization perturbation
+    if cluster_covariances is not None:
+        # Polar-space perturbation: sample independent Gaussians in
+        # (amplitude, phase) space, then apply exact polar → Cartesian
+        # transform.  Equivalent to the previous Cartesian anisotropic
+        # method in the linear regime, but geometrically exact (phase
+        # perturbations trace arcs, not tangent lines).
+        rng = np.random.default_rng()
+        nearest = np.argmax(scores, axis=2)  # (H, W)
+        nearest_flat = nearest.ravel()
+
+        eps = 1e-8
+        for k in range(K):
+            A_k = np.sqrt(cluster_re[k] ** 2 + cluster_im[k] ** 2)
+            mask_k = (nearest_flat == k)
+            n_pixels = mask_k.sum()
+            if n_pixels == 0:
+                continue
+
+            if A_k < eps:
+                # Degenerate at origin — isotropic from covariance trace
+                iso_var = 0.5 * np.trace(cluster_covariances[k])
+                noise_re = rng.normal(0, np.sqrt(iso_var), size=n_pixels)
+                noise_im = rng.normal(0, np.sqrt(iso_var), size=n_pixels)
+            else:
+                phi_k = np.arctan2(cluster_im[k], cluster_re[k])
+                r_hat = np.array([np.cos(phi_k), np.sin(phi_k)])
+                t_hat = np.array([-np.sin(phi_k), np.cos(phi_k)])
+
+                Sigma_k = cluster_covariances[k]
+                # Amplitude std in amplitude units
+                sigma_A = np.sqrt(r_hat @ Sigma_k @ r_hat) * amp_std_scale
+                # Phase std in radians (tangential Cartesian variance / A_k)
+                sigma_phi = np.sqrt(t_hat @ Sigma_k @ t_hat) / A_k * phase_std_scale
+
+                if texture_scale > 0:
+                    # Spatially coherent perturbation: blur in polar space
+                    # before the nonlinear polar→Cartesian transform.
+                    raw_A = rng.standard_normal((H, W)).astype(np.float32)
+                    raw_phi = rng.standard_normal((H, W)).astype(np.float32)
+                    smooth_A = gaussian_filter(raw_A, sigma=texture_scale)
+                    smooth_phi = gaussian_filter(raw_phi, sigma=texture_scale)
+                    # Normalize to unit variance, then scale
+                    std_A = smooth_A.std()
+                    std_phi = smooth_phi.std()
+                    if std_A > 0:
+                        smooth_A *= sigma_A / std_A
+                    if std_phi > 0:
+                        smooth_phi *= sigma_phi / std_phi
+                    delta_A = smooth_A.ravel()[mask_k]
+                    delta_phi = smooth_phi.ravel()[mask_k]
+                else:
+                    # Per-pixel IID sampling (original behavior)
+                    delta_A = rng.normal(0, sigma_A, size=n_pixels)
+                    delta_phi = rng.normal(0, sigma_phi, size=n_pixels)
+
+                # Exact polar → Cartesian transform
+                A_new = A_k + delta_A
+                phi_new = phi_k + delta_phi
+                noise_re = A_new * np.cos(phi_new) - cluster_re[k]
+                noise_im = A_new * np.sin(phi_new) - cluster_im[k]
+
+            real_q.ravel()[mask_k] += noise_re
+            imag_q.ravel()[mask_k] += noise_im
+
+    elif perturbation_std > 0:
+        # Isotropic fallback
+        real_q += np.random.default_rng().normal(0, perturbation_std, (H, W))
+        imag_q += np.random.default_rng().normal(0, perturbation_std, (H, W))
+
+    return real_q.astype(np.float32), imag_q.astype(np.float32)
+
+
+def _draw_random_leaf(
+    rng: np.random.Generator,
+    shapes: list,
+    height: int,
+    width: int,
+    dim_min_px: float,
+    dim_max_px: float,
+    beta: float,
+    coef: float,
+) -> Tuple[np.ndarray, float]:
+    """
+    Draw a single random leaf shape and return its anti-aliased coverage mask.
+
+    Shared helper extracted from generate_dead_leaves_correlated() to avoid
+    code duplication across dead leaves variants.
+
+    Parameters
+    ----------
+    rng : np.random.Generator
+    shapes : list of str
+        Shape types to choose from (e.g. ['circle', 'oriented_square', 'rectangle', 'triangle']).
+    height, width : int
+        Canvas dimensions.
+    dim_min_px, dim_max_px : float
+        Min/max dimension for power-law sampling.
+    beta, coef : float
+        Pre-computed power-law parameters:
+        beta = 1.0 - dimension_power_law_exponent
+        coef = (dim_max_px / dim_min_px)^beta - 1.0
+
+    Returns
+    -------
+    coverage : np.ndarray (height, width), float32 in [0, 1]
+        Anti-aliased coverage mask.
+    max_extent : float
+        Maximum extent of the shape from center (for coverage tracking).
+    """
+    def sample_dim():
+        return dim_min_px * np.power(1.0 + rng.uniform() * coef, 1.0 / beta)
+
+    shape = rng.choice(shapes)
+
+    if shape == 'circle':
+        radius_px = sample_dim()
+        max_extent = radius_px
+    elif shape == 'oriented_square':
+        side = sample_dim()
+        max_extent = side * np.sqrt(2) / 2
+    elif shape == 'rectangle':
+        rect_w, rect_h = sample_dim(), sample_dim()
+        max_extent = np.sqrt(rect_w ** 2 + rect_h ** 2) / 2
+    else:  # triangle
+        radius_px = sample_dim()
+        max_extent = radius_px
+
+    center_x = rng.uniform(-max_extent, width + max_extent)
+    center_y = rng.uniform(-max_extent, height + max_extent)
+
+    temp_mask = np.zeros((height, width), dtype=np.uint8)
+
+    if shape == 'circle':
+        cv2.circle(temp_mask, (int(center_x), int(center_y)),
+                   int(radius_px), 255, -1, cv2.LINE_AA)
+    else:
+        if shape == 'oriented_square':
+            pts = np.array([[-side / 2, -side / 2], [side / 2, -side / 2],
+                            [side / 2, side / 2], [-side / 2, side / 2]])
+        elif shape == 'rectangle':
+            pts = np.array([[rect_w / 2, rect_h / 2], [rect_w / 2, -rect_h / 2],
+                            [-rect_w / 2, -rect_h / 2], [-rect_w / 2, rect_h / 2]])
+        else:  # triangle
+            angles = sorted(rng.uniform(0, 2 * np.pi, 3))
+            pts = np.array([[radius_px * np.cos(a), radius_px * np.sin(a)]
+                            for a in angles])
+
+        if shape in ['oriented_square', 'rectangle']:
+            theta = rng.uniform(0, 2 * np.pi)
+            c, s = np.cos(theta), np.sin(theta)
+            R = np.array([[c, -s], [s, c]])
+            pts = (R @ pts.T).T
+
+        pts_abs = (np.array([center_x, center_y]) + pts).astype(np.int32)
+        cv2.fillPoly(temp_mask, [pts_abs], 255, cv2.LINE_AA)
+
+    coverage = temp_mask.astype(np.float32) / 255.0
+    return coverage, max_extent
+
+
+# --- Method 1: Bivariate Gaussian Dead Leaves in Re-Im Space ---
+
+def generate_dead_leaves_reim(
+    height: int,
+    width: int,
+    dim_min_px: float = 2.0,
+    dim_max_px: float = 30.0,
+    dimension_power_law_exponent: float = 2.0,
+    re_mean: float = 0.5,
+    im_mean: float = 0.0,
+    re_std: float = 0.15,
+    im_std: float = 0.20,
+    correlation: float = 0.0,
+    vacuum_re: float = 0.8,
+    vacuum_im: float = 0.0,
+    max_iterations: int = 100000,
+    coverage_threshold: float = 0.99,
+    blur_sigma: float = 0.5,
+    seed: Optional[int] = None,
+) -> Tuple[np.ndarray, np.ndarray, int]:
+    """
+    Bivariate Gaussian dead leaves in Re-Im space.
+
+    Canvas is initialized to (vacuum_re, vacuum_im) instead of (amp=1, phase=0).
+    Each leaf samples (leaf_re, leaf_im) from a bivariate Gaussian with the
+    specified mean, standard deviations, and correlation.
+
+    Parameters
+    ----------
+    height, width : int
+        Canvas dimensions.
+    dim_min_px, dim_max_px : float
+        Min/max shape dimension for power-law sampling.
+    dimension_power_law_exponent : float
+        Power-law exponent (higher = more small shapes).
+    re_mean, im_mean : float
+        Mean of bivariate Gaussian for leaf (Re, Im) values.
+    re_std, im_std : float
+        Standard deviations of the bivariate Gaussian.
+    correlation : float
+        Pearson correlation between Re and Im components, in [-1, 1].
+    vacuum_re, vacuum_im : float
+        Canvas initialization values (vacuum/substrate).
+    max_iterations : int
+        Maximum number of leaves.
+    coverage_threshold : float
+        Stop when this fraction of pixels are covered.
+    blur_sigma : float
+        Post-processing Gaussian blur sigma.
+    seed : int or None
+        Random seed.
+
+    Returns
+    -------
+    real_map : np.ndarray (height, width)
+    imag_map : np.ndarray (height, width)
+    num_leaves : int
+    """
+    rng = np.random.default_rng(seed)
+
+    # Initialize canvas to vacuum
+    real_map = np.full((height, width), vacuum_re, dtype=np.float32)
+    imag_map = np.full((height, width), vacuum_im, dtype=np.float32)
+    cumulative_coverage = np.zeros((height, width), dtype=np.float32)
+
+    # Build 2x2 covariance matrix from stds and correlation
+    cov_matrix = np.array([
+        [re_std ** 2, correlation * re_std * im_std],
+        [correlation * re_std * im_std, im_std ** 2]
+    ])
+
+    # Power-law parameters
+    beta = 1.0 - dimension_power_law_exponent
+    coef = np.power(dim_max_px / dim_min_px, beta) - 1.0
+    shapes = ['circle', 'oriented_square', 'rectangle', 'triangle']
+
+    num_leaves = 0
+    for iteration in range(max_iterations):
+        # Draw leaf shape
+        coverage, _ = _draw_random_leaf(
+            rng, shapes, height, width, dim_min_px, dim_max_px, beta, coef
+        )
+
+        # Sample (re, im) from bivariate Gaussian
+        leaf_re, leaf_im = rng.multivariate_normal(
+            [re_mean, im_mean], cov_matrix
+        )
+
+        # Alpha blend on both channels
+        real_map = real_map * (1.0 - coverage) + leaf_re * coverage
+        imag_map = imag_map * (1.0 - coverage) + leaf_im * coverage
+
+        # Coverage tracking
+        cumulative_coverage = np.maximum(cumulative_coverage, coverage)
+        num_leaves += 1
+
+        if num_leaves % 500 == 0:
+            cov_frac = np.count_nonzero(
+                cumulative_coverage >= coverage_threshold
+            ) / cumulative_coverage.size
+            if cov_frac >= coverage_threshold:
+                break
+
+    # Post-processing: blur and clip to decoder output range [-1.2, 1.2]
+    if blur_sigma > 0:
+        real_map = cv2.GaussianBlur(real_map, (0, 0), blur_sigma)
+        imag_map = cv2.GaussianBlur(imag_map, (0, 0), blur_sigma)
+
+    real_map = np.clip(real_map, -1.2, 1.2)
+    imag_map = np.clip(imag_map, -1.2, 1.2)
+
+    return real_map, imag_map, num_leaves
+
+
+# --- Method 2: Histogram-Based Re-Im Dead Leaves ---
+
+def generate_dead_leaves_reim_histogram(
+    height: int,
+    width: int,
+    dim_min_px: float = 2.0,
+    dim_max_px: float = 30.0,
+    dimension_power_law_exponent: float = 2.0,
+    material_hist: np.ndarray = None,
+    re_range: Tuple[float, float] = (-1.2, 1.2),
+    im_range: Tuple[float, float] = (-1.2, 1.2),
+    vacuum_re: float = 0.8,
+    vacuum_im: float = 0.0,
+    max_iterations: int = 100000,
+    coverage_threshold: float = 0.99,
+    blur_sigma: float = 0.5,
+    seed: Optional[int] = None,
+) -> Tuple[np.ndarray, np.ndarray, int]:
+    """
+    Histogram-based dead leaves in Re-Im space.
+
+    Uses an empirical 2D histogram from create_density_histogram_reim() to
+    sample leaf (Re, Im) values. Structurally identical to
+    generate_dead_leaves_correlated() but operates in (Re, Im) instead of
+    (Amp, Phase).
+
+    Parameters
+    ----------
+    height, width : int
+        Canvas dimensions.
+    dim_min_px, dim_max_px : float
+        Min/max shape dimension for power-law sampling.
+    dimension_power_law_exponent : float
+        Power-law exponent.
+    material_hist : np.ndarray
+        2D histogram PDF in (Re, Im) space from create_density_histogram_reim().
+    re_range, im_range : tuple
+        Histogram axis ranges (must match those used to build material_hist).
+    vacuum_re, vacuum_im : float
+        Canvas initialization values.
+    max_iterations : int
+        Maximum number of leaves.
+    coverage_threshold : float
+        Stop when this fraction of pixels are covered.
+    blur_sigma : float
+        Post-processing Gaussian blur sigma.
+    seed : int or None
+        Random seed.
+
+    Returns
+    -------
+    real_map : np.ndarray (height, width)
+    imag_map : np.ndarray (height, width)
+    num_leaves : int
+    """
+    if material_hist is None:
+        raise ValueError("material_hist is required for histogram-based generation")
+
+    rng = np.random.default_rng(seed)
+
+    # Initialize canvas to vacuum
+    real_map = np.full((height, width), vacuum_re, dtype=np.float32)
+    imag_map = np.full((height, width), vacuum_im, dtype=np.float32)
+    cumulative_coverage = np.zeros((height, width), dtype=np.float32)
+
+    # Prepare histogram sampler
+    hist_flat = material_hist.flatten()
+    hist_indices = np.arange(hist_flat.size)
+    re_bins = np.linspace(re_range[0], re_range[1], material_hist.shape[0])
+    im_bins = np.linspace(im_range[0], im_range[1], material_hist.shape[1])
+
+    # Power-law parameters
+    beta = 1.0 - dimension_power_law_exponent
+    coef = np.power(dim_max_px / dim_min_px, beta) - 1.0
+    shapes = ['circle', 'oriented_square', 'rectangle', 'triangle']
+
+    num_leaves = 0
+    for iteration in range(max_iterations):
+        # Draw leaf shape
+        coverage, _ = _draw_random_leaf(
+            rng, shapes, height, width, dim_min_px, dim_max_px, beta, coef
+        )
+
+        # Sample (re, im) from histogram
+        idx = rng.choice(hist_indices, p=hist_flat)
+        re_idx, im_idx = np.unravel_index(idx, material_hist.shape)
+        leaf_re = re_bins[re_idx]
+        leaf_im = im_bins[im_idx]
+
+        # Alpha blend
+        real_map = real_map * (1.0 - coverage) + leaf_re * coverage
+        imag_map = imag_map * (1.0 - coverage) + leaf_im * coverage
+
+        # Coverage tracking
+        cumulative_coverage = np.maximum(cumulative_coverage, coverage)
+        num_leaves += 1
+
+        if num_leaves % 500 == 0:
+            cov_frac = np.count_nonzero(
+                cumulative_coverage >= coverage_threshold
+            ) / cumulative_coverage.size
+            if cov_frac >= coverage_threshold:
+                break
+
+    # Post-processing
+    if blur_sigma > 0:
+        real_map = cv2.GaussianBlur(real_map, (0, 0), blur_sigma)
+        imag_map = cv2.GaussianBlur(imag_map, (0, 0), blur_sigma)
+
+    real_map = np.clip(real_map, -1.2, 1.2)
+    imag_map = np.clip(imag_map, -1.2, 1.2)
+
+    return real_map, imag_map, num_leaves
+
+
+# --- Method 2b: GMM-Based Dead Leaves in Re-Im Space ---
+
+def generate_dead_leaves_reim_gmm(
+    height: int,
+    width: int,
+    means: np.ndarray,
+    covariances: np.ndarray,
+    weights: np.ndarray,
+    vacuum_reim: np.ndarray,
+    dim_min_px: float = 2.0,
+    dim_max_px: float = 20.0,
+    dimension_power_law_exponent: float = 2.0,
+    max_iterations: int = 100000,
+    coverage_threshold: float = 0.99,
+    blur_sigma: float = 0.5,
+    seed: Optional[int] = None,
+) -> Tuple[np.ndarray, np.ndarray, int]:
+    """
+    GMM-based dead leaves in Re-Im space.
+
+    Each leaf samples a cluster index k ~ Categorical(weights), then draws
+    (leaf_re, leaf_im) from the k-th component's bivariate Gaussian.
+    This produces discrete material clusters in the Re-Im plane.
+
+    Parameters
+    ----------
+    height, width : int
+        Canvas dimensions.
+    means : np.ndarray (K, 2)
+        GMM cluster centers in (Re, Im).
+    covariances : np.ndarray (K, 2, 2)
+        Per-cluster covariance matrices.
+    weights : np.ndarray (K,)
+        Cluster mixing weights (must sum to 1).
+    vacuum_reim : np.ndarray (2,)
+        Canvas initialization (Re, Im) for vacuum/substrate.
+    dim_min_px, dim_max_px : float
+        Min/max shape dimension for power-law sampling.
+    dimension_power_law_exponent : float
+        Power-law exponent (higher = more small shapes).
+    max_iterations : int
+        Maximum number of leaves.
+    coverage_threshold : float
+        Stop when this fraction of pixels are covered.
+    blur_sigma : float
+        Post-processing Gaussian blur sigma.
+    seed : int or None
+        Random seed.
+
+    Returns
+    -------
+    real_map : np.ndarray (height, width)
+    imag_map : np.ndarray (height, width)
+    num_leaves : int
+    """
+    rng = np.random.default_rng(seed)
+
+    # Initialize canvas to vacuum
+    real_map = np.full((height, width), vacuum_reim[0], dtype=np.float32)
+    imag_map = np.full((height, width), vacuum_reim[1], dtype=np.float32)
+    cumulative_coverage = np.zeros((height, width), dtype=np.float32)
+
+    K = len(weights)
+    # Normalize weights to ensure valid probability vector
+    w = weights / (weights.sum() + 1e-12)
+
+    # Power-law parameters
+    beta = 1.0 - dimension_power_law_exponent
+    coef = np.power(dim_max_px / dim_min_px, beta) - 1.0
+    shapes = ['circle', 'oriented_square', 'rectangle', 'triangle']
+
+    num_leaves = 0
+    for iteration in range(max_iterations):
+        # Draw leaf shape
+        coverage, _ = _draw_random_leaf(
+            rng, shapes, height, width, dim_min_px, dim_max_px, beta, coef
+        )
+
+        # Sample cluster, then draw (re, im) from that cluster's Gaussian
+        k = rng.choice(K, p=w)
+        leaf_re, leaf_im = rng.multivariate_normal(means[k], covariances[k])
+
+        # Alpha blend on both channels
+        real_map = real_map * (1.0 - coverage) + leaf_re * coverage
+        imag_map = imag_map * (1.0 - coverage) + leaf_im * coverage
+
+        # Coverage tracking
+        cumulative_coverage = np.maximum(cumulative_coverage, coverage)
+        num_leaves += 1
+
+        if num_leaves % 500 == 0:
+            cov_frac = np.count_nonzero(
+                cumulative_coverage >= coverage_threshold
+            ) / cumulative_coverage.size
+            if cov_frac >= coverage_threshold:
+                break
+
+    # Post-processing: blur and clip to decoder output range [-1.2, 1.2]
+    if blur_sigma > 0:
+        real_map = cv2.GaussianBlur(real_map, (0, 0), blur_sigma)
+        imag_map = cv2.GaussianBlur(imag_map, (0, 0), blur_sigma)
+
+    real_map = np.clip(real_map, -1.2, 1.2)
+    imag_map = np.clip(imag_map, -1.2, 1.2)
+
+    return real_map, imag_map, num_leaves
+
+
+# --- Method 3: Correlated Perlin Noise in Re-Im Space ---
+
+def generate_perlin_object_reim(
+    batch_size: int,
+    N: int,
+    M: int,
+    re_mean: float = 0.5,
+    im_mean: float = 0.0,
+    re_std: float = 0.15,
+    im_std: float = 0.20,
+    correlation: float = 0.0,
+    scale_range: Tuple[float, float] = (20.0, 100.0),
+    octaves_range: Tuple[int, int] = (4, 8),
+    persistence_range: Tuple[float, float] = (0.4, 0.6),
+    lacunarity_range: Tuple[float, float] = (1.8, 2.2),
+    device: torch.device = torch.device('cpu'),
+    seed_offset: int = 0,
+) -> torch.Tensor:
+    """
+    Generate batch of complex objects using correlated Perlin noise in Re-Im space.
+
+    Two independent Perlin noise fields f1, f2 are generated, then correlated:
+        g1 = f1
+        g2 = rho * f1 + sqrt(1 - rho^2) * f2
+
+    The fields are scaled/shifted to target Re-Im statistics:
+        re = re_mean + re_std * normalize(g1)
+        im = im_mean + im_std * normalize(g2)
+
+    Parameters
+    ----------
+    batch_size : int
+        Number of objects.
+    N, M : int
+        Height and width.
+    re_mean, im_mean : float
+        Target mean values.
+    re_std, im_std : float
+        Target standard deviations.
+    correlation : float
+        Target Pearson correlation between Re and Im, in [-1, 1].
+    scale_range : tuple
+        Range for Perlin noise scale parameter.
+    octaves_range : tuple
+        Range for number of noise octaves.
+    persistence_range : tuple
+        Range for amplitude falloff per octave.
+    lacunarity_range : tuple
+        Range for frequency increase per octave.
+    device : torch.device
+        Target device for output.
+    seed_offset : int
+        Offset for reproducibility.
+
+    Returns
+    -------
+    torch.Tensor : complex tensor of shape (batch_size, N, M)
+    """
+    import noise as pnoise_module
+
+    all_re_maps = []
+    all_im_maps = []
+
+    rho = np.clip(correlation, -0.999, 0.999)
+    sqrt_factor = np.sqrt(1.0 - rho ** 2)
+
+    print(f"Starting Re-Im Perlin generation for {batch_size} items on CPU...")
+    start_time = time.time()
+
+    for b in range(batch_size):
+        scale = np.random.uniform(*scale_range)
+        octave = np.random.randint(octaves_range[0], octaves_range[1] + 1)
+        persistence = np.random.uniform(*persistence_range)
+        lacunarity = np.random.uniform(*lacunarity_range)
+        base_seed_1 = b + seed_offset
+        base_seed_2 = b + seed_offset + 10000  # different seed for second field
+
+        # Generate two independent Perlin fields
+        f1 = np.zeros((N, M), dtype=np.float32)
+        f2 = np.zeros((N, M), dtype=np.float32)
+        for i in range(N):
+            for j in range(M):
+                f1[i, j] = pnoise_module.pnoise2(
+                    i / scale, j / scale, octaves=octave,
+                    persistence=persistence, lacunarity=lacunarity,
+                    base=base_seed_1
+                )
+                f2[i, j] = pnoise_module.pnoise2(
+                    i / scale, j / scale, octaves=octave,
+                    persistence=persistence, lacunarity=lacunarity,
+                    base=base_seed_2
+                )
+
+        # Create correlated pair
+        g1 = f1
+        g2 = rho * f1 + sqrt_factor * f2
+
+        # Normalize each to [0, 1] then scale/shift
+        g1_norm = _normalize_np(g1)
+        g2_norm = _normalize_np(g2)
+
+        # Map to target statistics: center at 0.5 then shift
+        re_map = re_mean + re_std * (g1_norm - 0.5) / 0.2887  # 0.2887 ≈ std of U[0,1]
+        im_map = im_mean + im_std * (g2_norm - 0.5) / 0.2887
+
+        # Clip to decoder range
+        re_map = np.clip(re_map, -1.2, 1.2)
+        im_map = np.clip(im_map, -1.2, 1.2)
+
+        all_re_maps.append(re_map)
+        all_im_maps.append(im_map)
+
+        if (b + 1) % max(1, batch_size // 10) == 0:
+            print(f"  Generated {b + 1}/{batch_size}...")
+
+    print(f"Re-Im Perlin generation finished in {time.time() - start_time:.3f}s.")
+
+    re_batch = torch.from_numpy(np.stack(all_re_maps, axis=0)).to(device)
+    im_batch = torch.from_numpy(np.stack(all_im_maps, axis=0)).to(device)
+
+    return re_batch + 1j * im_batch
+
+
+def create_perlin_reim(
+    img_shape: Tuple[int, int],
+    obj_arg: dict,
+    stats: dict
+) -> np.ndarray:
+    """
+    Wrapper for Perlin Re-Im object generation, matching the create_dead_leaves
+    interface so it can be used as a partial in simulate_synthetic_objects.
+
+    Reads statistics from obj_arg (e.g. from compute_reim_statistics()) and
+    falls back to randomized defaults within experimental ranges if keys are
+    missing.
+
+    Parameters
+    ----------
+    img_shape : tuple (H, W)
+        Image dimensions.
+    obj_arg : dict
+        Generation arguments. Optional keys:
+        - 're_mean' or 're_mean_range': float or tuple (default range (-0.6, 0.8))
+        - 'im_mean' or 'im_mean_range': float or tuple (default range (-0.6, 0.5))
+        - 're_std' or 're_std_range': float or tuple (default range (0.03, 0.25))
+        - 'im_std' or 'im_std_range': float or tuple (default range (0.04, 0.35))
+        - 'correlation' or 'correlation_range': float or tuple (default range (-0.93, 0.84))
+        - 'scale_range': tuple (default (20.0, 100.0))
+        - 'octaves_range': tuple (default (4, 8))
+        - 'persistence_range': tuple (default (0.4, 0.6))
+        - 'lacunarity_range': tuple (default (1.8, 2.2))
+
+        If a scalar is provided (e.g. 're_mean': 0.5), that exact value is used.
+        If a range is provided (e.g. 're_mean_range': (-0.6, 0.8)), a random
+        value is drawn uniformly from that range per call.
+
+    stats: dict
+        object stats from analysis function
+
+    Returns
+    -------
+    np.ndarray : complex64 object of shape img_shape
+    """
+    height, width = img_shape
+
+    # Resolve Re-Im statistics: scalar overrides range
+    def _resolve(key_scalar, key_range, default_range):
+        if key_scalar in obj_arg:
+            return obj_arg[key_scalar]
+        rng = obj_arg.get(key_range, default_range)
+        return np.random.uniform(*rng)
+
+    re_mean = stats.get('re_mean', np.random.uniform(0.6, 1.05))
+    im_mean = stats.get('im_mean', np.random.uniform(0, 1.00))
+    re_std = stats.get('re_std', np.random.uniform(0.03, 0.1))
+    im_std = stats.get('im_std', np.random.uniform(0.03, 0.1))
+    correlation = stats.get('correlation', np.random.uniform(-0.93, 0.84))
+
+    # Perlin spatial parameters
+    scale_range = obj_arg.get('scale_range', (20.0, 100.0))
+    octaves_range = obj_arg.get('octaves_range', (4, 8))
+    persistence_range = obj_arg.get('persistence_range', (0.4, 0.6))
+    lacunarity_range = obj_arg.get('lacunarity_range', (1.8, 2.2))
+
+    batch = generate_perlin_object_reim(
+        batch_size=1, N=height, M=width,
+        re_mean=re_mean,
+        im_mean=im_mean,
+        re_std=re_std,
+        im_std=im_std,
+        correlation=correlation,
+        scale_range=scale_range,
+        octaves_range=octaves_range,
+        persistence_range=persistence_range,
+        lacunarity_range=lacunarity_range,
+    )
+
+    return batch[0].numpy()
+
+
+# --- Method 4: Constrained-Phase Dead Leaves ---
+
+def generate_dead_leaves_constrained_phase(
+    height: int,
+    width: int,
+    dim_min_px: float = 2.0,
+    dim_max_px: float = 30.0,
+    dimension_power_law_exponent: float = 2.0,
+    amplitude_min: float = 0.6,
+    amplitude_max: float = 1.2,
+    phase_center: Optional[float] = None,
+    phase_width: float = 0.8,
+    max_iterations: int = 100000,
+    coverage_threshold: float = 0.99,
+    blur_sigma: float = 0.5,
+    seed: Optional[int] = None,
+) -> Tuple[np.ndarray, np.ndarray, int]:
+    """
+    Dead leaves with constrained phase range.
+
+    Identical to generate_dead_leaves_uniform() but phase is restricted to
+    [phase_center - phase_width/2, phase_center + phase_width/2] instead of
+    the full [-pi, pi] range. This produces objects with concentrated phase
+    distributions similar to experimental data.
+
+    Parameters
+    ----------
+    height, width : int
+        Canvas dimensions.
+    dim_min_px, dim_max_px : float
+        Min/max shape dimension for power-law sampling.
+    dimension_power_law_exponent : float
+        Power-law exponent.
+    amplitude_min, amplitude_max : float
+        Amplitude range.
+    phase_center : float or None
+        Center of the phase range. If None, randomized from [-pi, pi].
+    phase_width : float
+        Total width of the phase range in radians (default 0.8).
+    max_iterations : int
+        Maximum number of leaves.
+    coverage_threshold : float
+        Stop when this fraction of pixels are covered.
+    blur_sigma : float
+        Post-processing Gaussian blur sigma.
+    seed : int or None
+        Random seed.
+
+    Returns
+    -------
+    amplitude_map : np.ndarray (height, width)
+    phase_map : np.ndarray (height, width)
+    num_leaves : int
+    """
+    rng = np.random.default_rng(seed)
+
+    if phase_center is None:
+        phase_center = rng.uniform(-np.pi, np.pi)
+
+    phase_min = phase_center - phase_width / 2
+    phase_max = phase_center + phase_width / 2
+
+    # Initialize canvas
+    amplitude_map = np.zeros((height, width), dtype=np.float32)
+    phase_map = np.zeros((height, width), dtype=np.float32)
+    cumulative_coverage = np.zeros((height, width), dtype=np.float32)
+
+    # Power-law parameters
+    beta = 1.0 - dimension_power_law_exponent
+    coef = np.power(dim_max_px / dim_min_px, beta) - 1.0
+    shapes = ['circle', 'oriented_square', 'rectangle', 'triangle']
+
+    num_leaves = 0
+    for iteration in range(max_iterations):
+        # Draw leaf shape
+        coverage, _ = _draw_random_leaf(
+            rng, shapes, height, width, dim_min_px, dim_max_px, beta, coef
+        )
+
+        # Sample amplitude (uniform in intensity space)
+        amp_sq = rng.uniform(amplitude_min ** 2, amplitude_max ** 2)
+        leaf_amp = np.sqrt(amp_sq)
+
+        # Sample phase from constrained range
+        leaf_phase = rng.uniform(phase_min, phase_max)
+
+        # Alpha blend
+        amplitude_map = amplitude_map * (1.0 - coverage) + leaf_amp * coverage
+        phase_map = phase_map * (1.0 - coverage) + leaf_phase * coverage
+
+        # Coverage tracking
+        cumulative_coverage = np.maximum(cumulative_coverage, coverage)
+        num_leaves += 1
+
+        if num_leaves % 500 == 0:
+            cov_frac = np.count_nonzero(
+                cumulative_coverage >= coverage_threshold
+            ) / cumulative_coverage.size
+            if cov_frac >= coverage_threshold:
+                break
+
+    # Post-processing
+    if blur_sigma > 0:
+        amplitude_map = cv2.GaussianBlur(amplitude_map, (0, 0), blur_sigma)
+        phase_map = cv2.GaussianBlur(phase_map, (0, 0), blur_sigma)
+
+    return amplitude_map, phase_map, num_leaves
+
+
+# --- Wrapper: create_dead_leaves_v3 ---
+
+def create_dead_leaves_v3(
+    img_shape: Tuple[int, int],
+    obj_arg: dict,
+    histogram: Optional[np.ndarray] = None,
+) -> np.ndarray:
+    """
+    Top-level dispatcher for Re-Im space dead leaves generation.
+
+    Analogous to create_dead_leaves_v2() but produces objects with realistic
+    Re-Im distributions matching experimental data.
+
+    Parameters
+    ----------
+    img_shape : tuple (H, W)
+        Image dimensions.
+    obj_arg : dict
+        Generation arguments. Required key:
+        - 'mode': str, one of 'gaussian', 'histogram', 'constrained_phase'
+
+        Optional keys (inherited from existing dead leaves):
+        - 'r_min': float (default 2)
+        - 'r_max': float (default 30)
+        - 'power_exponent': float (default 2)
+
+        Mode-specific optional keys:
+        - For 'gaussian': re_mean, im_mean, re_std, im_std, correlation,
+          vacuum_re, vacuum_im (if not provided, randomized within
+          experimental ranges)
+        - For 'histogram': re_range, im_range, vacuum_reim
+        - For 'constrained_phase': phase_center, phase_width,
+          amplitude_min, amplitude_max
+    histogram : np.ndarray or None
+        Required for 'histogram' mode. 2D histogram from
+        create_density_histogram_reim().
+
+    Returns
+    -------
+    np.ndarray : complex64 object of shape img_shape
+    """
+    mode = obj_arg.get('mode', 'gaussian')
+    height, width = img_shape[0], img_shape[1]
+    min_r = obj_arg.get('r_min', 1)
+    max_r = obj_arg.get('r_max', 20)
+    power = obj_arg.get('power_exponent', 2)
+
+    if mode == 'gaussian':
+        # Randomize bivariate Gaussian params within experimental ranges
+        # unless explicitly provided
+        re_mean = obj_arg.get('re_mean', np.random.uniform(-0.6, 0.8))
+        im_mean = obj_arg.get('im_mean', np.random.uniform(-0.6, 0.5))
+        re_std = obj_arg.get('re_std', np.random.uniform(0.03, 0.25))
+        im_std = obj_arg.get('im_std', np.random.uniform(0.04, 0.35))
+        corr = obj_arg.get('correlation', np.random.uniform(-0.93, 0.84))
+        vac_re = obj_arg.get('vacuum_re', np.random.uniform(0.6, 1.0))
+        vac_im = obj_arg.get('vacuum_im', np.random.uniform(-0.2, 0.2))
+
+        real_map, imag_map, n_leaves = generate_dead_leaves_reim(
+            height=height, width=width,
+            dim_min_px=min_r, dim_max_px=max_r,
+            dimension_power_law_exponent=power,
+            re_mean=re_mean, im_mean=im_mean,
+            re_std=re_std, im_std=im_std,
+            correlation=corr,
+            vacuum_re=vac_re, vacuum_im=vac_im,
+        )
+        obj = (real_map + 1j * imag_map).astype(np.complex64)
+
+    elif mode == 'histogram':
+        if histogram is None:
+            raise ValueError("histogram required for 'histogram' mode")
+
+        re_range = obj_arg.get('re_range', (-1.2, 1.2))
+        im_range = obj_arg.get('im_range', (-1.2, 1.2))
+        vacuum_reim = obj_arg.get('vacuum_reim', (0.8, 0.0))
+
+        real_map, imag_map, n_leaves = generate_dead_leaves_reim_histogram(
+            height=height, width=width,
+            dim_min_px=min_r, dim_max_px=max_r,
+            dimension_power_law_exponent=power,
+            material_hist=histogram,
+            re_range=re_range, im_range=im_range,
+            vacuum_re=vacuum_reim[0], vacuum_im=vacuum_reim[1],
+        )
+        obj = (real_map + 1j * imag_map).astype(np.complex64)
+
+    elif mode == 'constrained_phase':
+        phase_center = obj_arg.get('phase_center', None)
+        phase_width = obj_arg.get('phase_width', 0.8)
+        amp_min = obj_arg.get('amplitude_min', 0.6)
+        amp_max = obj_arg.get('amplitude_max', 1.2)
+
+        amp_map, phase_map, n_leaves = generate_dead_leaves_constrained_phase(
+            height=height, width=width,
+            dim_min_px=min_r, dim_max_px=max_r,
+            dimension_power_law_exponent=power,
+            amplitude_min=amp_min, amplitude_max=amp_max,
+            phase_center=phase_center, phase_width=phase_width,
+        )
+        obj = (amp_map * np.exp(1j * phase_map)).astype(np.complex64)
+
+    elif mode == 'uniform':
+        re_min = obj_arg.get('re_min', -1.0)
+        re_max = obj_arg.get('re_max', 1.0)
+        im_min = obj_arg.get('im_min', -1.0)
+        im_max = obj_arg.get('im_max', 1.0)
+        vac_re = obj_arg.get('vacuum_re', np.random.uniform(0.6, 1.0))
+        vac_im = obj_arg.get('vacuum_im', np.random.uniform(-0.2, 0.2))
+
+        real_map, imag_map, n_leaves = generate_dead_leaves_uniform_reim(
+            height=height, width=width,
+            dim_min_px=min_r, dim_max_px=max_r,
+            dimension_power_law_exponent=power,
+            re_min=re_min, re_max=re_max,
+            im_min=im_min, im_max=im_max,
+            vacuum_re=vac_re, vacuum_im=vac_im,
+        )
+        obj = (real_map + 1j * imag_map).astype(np.complex64)
+
+    else:
+        raise ValueError(f"Unknown mode '{mode}'. Use 'gaussian', 'histogram', 'constrained_phase', or 'uniform'.")
+
+    print(f"create_dead_leaves_v3 (mode={mode}): generated {img_shape} object")
+    return obj
+
+
+def create_dead_leaves_reim_gmm(
+    img_shape: Tuple[int, int],
+    obj_arg: dict,
+) -> np.ndarray:
+    """
+    Top-level dispatcher for GMM-based dead leaves generation in Re-Im space.
+
+    Fits a GMM to experimental objects (or accepts pre-fitted parameters),
+    perturbs cluster parameters for variety, then generates a dead leaves
+    object sampling from the GMM components.
+
+    Parameters
+    ----------
+    img_shape : tuple (H, W)
+        Image dimensions.
+    obj_arg : dict
+        Required (one of):
+        - 'reference_objects': list of complex arrays to fit GMM from.
+        - 'gmm_params': dict from fit_gmm_from_objects() (skip fitting).
+
+        Optional:
+        - 'n_clusters': int or 'auto' (default 'auto')
+        - 'rotation_range': tuple (default (0, 2*pi))
+        - 'center_jitter_std': float (default 0.05)
+        - 'weight_dirichlet_conc': float (default 5.0)
+        - 'r_min': float (default 2)
+        - 'r_max': float (default 30)
+        - 'power_exponent': float (default 2)
+        - 'max_iterations': int (default 100000)
+        - 'coverage_threshold': float (default 0.99)
+        - 'blur_sigma': float (default 0.5)
+
+    Returns
+    -------
+    np.ndarray : complex64 object of shape img_shape
+    """
+    rng = np.random.default_rng()
+    height, width = img_shape
+
+    # --- Get or fit GMM parameters ---
+    gmm_params = obj_arg.get('gmm_params', None)
+    if gmm_params is None:
+        ref_objects = obj_arg.get('reference_objects', None)
+        if ref_objects is None:
+            raise ValueError("Either 'reference_objects' or 'gmm_params' must be provided")
+        n_clusters = obj_arg.get('n_clusters', 'auto')
+        gmm_params = fit_gmm_from_objects(ref_objects, n_clusters=n_clusters)
+
+    # --- Perturb GMM for per-object variety ---
+    rotation_range = obj_arg.get('rotation_range', (0.0, 2 * np.pi))
+    center_jitter_std = obj_arg.get('center_jitter_std', 0.05)
+    weight_dirichlet_conc = obj_arg.get('weight_dirichlet_conc', 5.0)
+
+    means, covs, weights, vacuum_reim = _perturb_gmm_config(
+        gmm_params, rng,
+        rotation_range=rotation_range,
+        center_jitter_std=center_jitter_std,
+        weight_dirichlet_conc=weight_dirichlet_conc,
+    )
+
+    # --- Generate dead leaves ---
+    min_r = obj_arg.get('r_min', 1)
+    max_r = obj_arg.get('r_max', 20)
+    power = obj_arg.get('power_exponent', 2)
+    max_iter = obj_arg.get('max_iterations', 100000)
+    cov_thresh = obj_arg.get('coverage_threshold', 0.99)
+    blur = obj_arg.get('blur_sigma', 0.5)
+
+    real_map, imag_map, n_leaves = generate_dead_leaves_reim_gmm(
+        height=height, width=width,
+        means=means, covariances=covs, weights=weights,
+        vacuum_reim=vacuum_reim,
+        dim_min_px=min_r, dim_max_px=max_r,
+        dimension_power_law_exponent=power,
+        max_iterations=max_iter,
+        coverage_threshold=cov_thresh,
+        blur_sigma=blur,
+    )
+
+    obj = (real_map + 1j * imag_map).astype(np.complex64)
+    print(f"create_dead_leaves_reim_gmm: generated {img_shape} object, "
+          f"K={len(weights)}, {n_leaves} leaves")
+    return obj
+
+
+def generate_dead_leaves_uniform(
+    height: int,
+    width: int,
+    dim_min_px: float,
+    dim_max_px: float,
+    dimension_power_law_exponent: float,
+    amplitude_min: float,
+    amplitude_max: float,
+    phase_min_rad: float,
+    phase_max_rad: float,
+    max_iterations: int = 100000,
+    coverage_threshold: float = 0.99,
+    seed: Optional[int] = None,
+) -> Tuple[np.ndarray, np.ndarray, int]:
+    """
+    Generate a synthetic object using the dead leaves model with multiple shape types.
+    
+    Uses independent power-law sampling for each shape dimension to ensure consistent
+    spatial frequency content across all shape types. Implements anti-aliasing using
+    OpenCV's LINE_AA for smooth edges.
+    
+    Parameters
+    ----------
+    height : int
+        Image height in pixels
+    width : int
+        Image width in pixels
+    dim_min_px : float
+        Minimum dimension (radius, side, width, height) in pixels
+    dim_max_px : float
+        Maximum dimension (radius, side, width, height) in pixels
+    dimension_power_law_exponent : float
+        Power-law exponent for dimension distribution. 
+        Higher values favor smaller dimensions.
+        Distribution: p(d) ∝ d^(-exponent)
+    amplitude_min : float
+        Minimum amplitude value
+    amplitude_max : float
+        Maximum amplitude value
+    phase_min_rad : float
+        Minimum phase value in radians
+    phase_max_rad : float
+        Maximum phase value in radians
+    max_iterations : int, optional
+        Maximum number of leaves to place (default: 100000)
+    coverage_threshold : float, optional
+        Stop when this fraction of pixels are covered (default: 0.99)
+    seed : int or None, optional
+        Random seed for reproducibility (default: None)
+    
+    Returns
+    -------
+    amplitude : np.ndarray
+        Amplitude map of shape (height, width)
+    phase : np.ndarray
+        Phase map in radians of shape (height, width)
+    num_leaves : int
+        Number of leaves placed before stopping
+        
+    Notes
+    -----
+    - Each shape dimension is sampled independently from the same power-law distribution
+    - Circle: radius sampled once
+    - Square: side length sampled once
+    - Rectangle: width and height sampled independently
+    - Triangle: circumradius sampled once
+    - All shapes have equal selection probability
+    - Amplitude is sampled uniformly in intensity space: A = sqrt(U(A_min², A_max²))
+    - Phase is sampled uniformly: φ = U(φ_min, φ_max)
+    - Uses alpha blending with anti-aliased coverage masks for smooth edges
+    """
+    
+    # Validate inputs
+    if dim_min_px >= dim_max_px:
+        raise ValueError('dim_min_px must be less than dim_max_px')
+    if amplitude_min >= amplitude_max:
+        raise ValueError('amplitude_min must be less than amplitude_max')
+    if phase_min_rad >= phase_max_rad:
+        raise ValueError('phase_min_rad must be less than phase_max_rad')
+    if not 0 < coverage_threshold <= 1.0:
+        raise ValueError('coverage_threshold must be in (0, 1]')
+    
+    # Initialize RNG
+    rng = np.random.default_rng(seed)
+    
+    # Initialize amplitude and phase maps
+    amplitude_map = np.zeros((height, width), dtype=np.float32)
+    phase_map = np.zeros((height, width), dtype=np.float32)
+    
+    # Track coverage
+    cumulative_coverage = np.zeros((height, width), dtype=np.float32)
+    
+    # Pre-compute power-law sampling parameters
+    beta = 1.0 - dimension_power_law_exponent
+    coef = np.power(dim_max_px / dim_min_px, beta) - 1.0
+    
+    def sample_dimension():
+        """Sample a single dimension from power-law distribution."""
+        u = rng.uniform()
+        return dim_min_px * np.power(1.0 + u * coef, 1.0 / beta)
+    
+    # Shape selection (equal probabilities)
+    shapes = ['circle', 'oriented_square', 'rectangle', 'triangle']
+    
+    # Main loop: place leaves until coverage threshold is met
+    num_leaves = 0
+    
+    for iteration in range(max_iterations):
+        # 1. Select shape type (equal probabilities)
+        shape = rng.choice(shapes)
+        
+        # 2. Sample dimensions independently based on shape type
+        if shape == 'circle':
+            radius_px = sample_dimension()
+            max_extent = radius_px
+            
+        elif shape == 'oriented_square':
+            side = sample_dimension()
+            # Maximum extent from center to corner
+            max_extent = side * np.sqrt(2) / 2
+            
+        elif shape == 'rectangle':
+            rect_width = sample_dimension()
+            rect_height = sample_dimension()
+            # Maximum extent from center to corner
+            max_extent = np.sqrt(rect_width**2 + rect_height**2) / 2
+            
+        else:  # triangle
+            radius_px = sample_dimension()
+            max_extent = radius_px
+        
+        # 3. Sample position (can extend beyond image bounds)
+        center_x = rng.uniform(-max_extent, width + max_extent)
+        center_y = rng.uniform(-max_extent, height + max_extent)
+        
+        # 4. Sample amplitude (uniform in intensity space)
+        amplitude_squared = rng.uniform(amplitude_min ** 2, amplitude_max ** 2)
+        leaf_amplitude = np.sqrt(amplitude_squared)
+        
+        # 5. Sample phase (uniform)
+        leaf_phase = rng.uniform(phase_min_rad, phase_max_rad)
+        
+        # 6. Create anti-aliased mask for the shape
+        temp_mask = np.zeros((height, width), dtype=np.uint8)
+        
+        if shape == 'circle':
+            cv2.circle(
+                temp_mask,
+                (int(center_x), int(center_y)),
+                radius=int(radius_px),
+                color=255,
+                thickness=-1,
+                lineType=cv2.LINE_AA
+            )
+            
+        else:
+            # Generate polygon vertices
+            if shape == 'oriented_square':
+                corners_rel = np.array([
+                    [-side / 2, -side / 2],
+                    [+side / 2, -side / 2],
+                    [+side / 2, +side / 2],
+                    [-side / 2, +side / 2]
+                ])
+                # Random rotation
+                theta = rng.uniform(0, 2 * np.pi)
+                c, s = np.cos(theta), np.sin(theta)
+                R_mat = np.array([[c, -s], [s, c]])
+                corners_rel = (R_mat @ corners_rel.T).T
+                
+            elif shape == 'rectangle':
+                corners_rel = np.array([
+                    [+rect_width / 2, +rect_height / 2],
+                    [+rect_width / 2, -rect_height / 2],
+                    [-rect_width / 2, -rect_height / 2],
+                    [-rect_width / 2, +rect_height / 2]
+                ])
+                # Random rotation
+                theta = rng.uniform(0, 2 * np.pi)
+                c, s = np.cos(theta), np.sin(theta)
+                R_mat = np.array([[c, -s], [s, c]])
+                corners_rel = (R_mat @ corners_rel.T).T
+                
+            elif shape == 'triangle':
+                num_verts = 3
+                angles = sorted(rng.uniform(0, 2 * np.pi, num_verts))
+                corners_rel = np.array([
+                    [radius_px * np.cos(ang), radius_px * np.sin(ang)]
+                    for ang in angles
+                ])
+            
+            # Convert to absolute coordinates
+            corners_abs = (np.array([center_x, center_y]) + corners_rel).astype(np.int32)
+            
+            # Draw filled polygon with anti-aliasing
+            cv2.fillPoly(
+                temp_mask,
+                [corners_abs],
+                color=255,
+                lineType=cv2.LINE_AA
+            )
+        
+        # 7. Convert mask to float coverage [0, 1]
+        coverage = temp_mask.astype(np.float32) / 255.0
+        
+        # 8. Alpha blend: new_value = old * (1 - coverage) + new * coverage
+        amplitude_map = amplitude_map * (1.0 - coverage) + leaf_amplitude * coverage
+        phase_map = phase_map * (1.0 - coverage) + leaf_phase * coverage
+        
+        # 9. Update cumulative coverage
+        cumulative_coverage = np.maximum(cumulative_coverage, coverage)
+        
+        num_leaves += 1
+        
+        # 10. Check stopping criterion
+        num_covered_pixels = np.count_nonzero(cumulative_coverage >= coverage_threshold)
+        coverage_fraction = num_covered_pixels / cumulative_coverage.size
+        
+        # Log progress periodically
+        if num_leaves % 100 == 0 or coverage_fraction >= coverage_threshold:
+            print(f'Leaves: {num_leaves}, Coverage: {coverage_fraction * 100:.2f}%')
+        
+        if coverage_fraction >= coverage_threshold:
+            print(f'Reached {coverage_threshold * 100}% coverage at {num_leaves} leaves')
+            break
+    
+    if num_leaves >= max_iterations:
+        print(f'Warning: Reached max iterations ({max_iterations}) with {coverage_fraction * 100:.2f}% coverage')
+    
+    return amplitude_map, phase_map, num_leaves
+
+
+def generate_dead_leaves_uniform_reim(
+    height: int,
+    width: int,
+    dim_min_px: float,
+    dim_max_px: float,
+    dimension_power_law_exponent: float,
+    re_min: float = -1.0,
+    re_max: float = 1.0,
+    im_min: float = -1.0,
+    im_max: float = 1.0,
+    vacuum_re: float = 1.0,
+    vacuum_im: float = 0.0,
+    max_iterations: int = 100000,
+    coverage_threshold: float = 0.99,
+    seed: Optional[int] = None,
+) -> Tuple[np.ndarray, np.ndarray, int]:
+    """
+    Generate a synthetic object using the dead leaves model in real/imaginary space.
+
+    Each leaf's real and imaginary values are sampled independently and uniformly,
+    ensuring the full complex disc is supported (no amplitude/phase correlation).
+
+    Parameters
+    ----------
+    height : int
+        Image height in pixels
+    width : int
+        Image width in pixels
+    dim_min_px : float
+        Minimum dimension (radius, side, width, height) in pixels
+    dim_max_px : float
+        Maximum dimension in pixels
+    dimension_power_law_exponent : float
+        Power-law exponent for dimension distribution.
+        Higher values favor smaller dimensions.
+        Distribution: p(d) ~ d^(-exponent)
+    re_min : float
+        Minimum real part value (default -1.0)
+    re_max : float
+        Maximum real part value (default 1.0)
+    im_min : float
+        Minimum imaginary part value (default -1.0)
+    im_max : float
+        Maximum imaginary part value (default 1.0)
+    vacuum_re : float
+        Real part of the vacuum (background) value (default 1.0)
+    vacuum_im : float
+        Imaginary part of the vacuum (background) value (default 0.0)
+    max_iterations : int, optional
+        Maximum number of leaves to place (default: 100000)
+    coverage_threshold : float, optional
+        Stop when this fraction of pixels are covered (default: 0.99)
+    seed : int or None, optional
+        Random seed for reproducibility (default: None)
+
+    Returns
+    -------
+    real_map : np.ndarray
+        Real part map of shape (height, width)
+    imag_map : np.ndarray
+        Imaginary part map of shape (height, width)
+    num_leaves : int
+        Number of leaves placed before stopping
+
+    Notes
+    -----
+    - Real and imaginary parts are sampled independently from U[re_min, re_max]
+      and U[im_min, im_max] respectively, so the joint distribution is uniform
+      over the rectangle and the full complex disc is supported.
+    - Shape geometry and power-law dimension sampling are identical to
+      generate_dead_leaves_uniform.
+    """
+
+    # Validate inputs
+    if dim_min_px >= dim_max_px:
+        raise ValueError('dim_min_px must be less than dim_max_px')
+    if re_min >= re_max:
+        raise ValueError('re_min must be less than re_max')
+    if im_min >= im_max:
+        raise ValueError('im_min must be less than im_max')
+    if not 0 < coverage_threshold <= 1.0:
+        raise ValueError('coverage_threshold must be in (0, 1]')
+
+    # Initialize RNG
+    rng = np.random.default_rng(seed)
+
+    # Initialize real and imaginary maps to vacuum
+    real_map = np.full((height, width), vacuum_re, dtype=np.float32)
+    imag_map = np.full((height, width), vacuum_im, dtype=np.float32)
+
+    # Track coverage
+    cumulative_coverage = np.zeros((height, width), dtype=np.float32)
+
+    # Pre-compute power-law sampling parameters
+    beta = 1.0 - dimension_power_law_exponent
+    coef = np.power(dim_max_px / dim_min_px, beta) - 1.0
+
+    def sample_dimension():
+        """Sample a single dimension from power-law distribution."""
+        u = rng.uniform()
+        return dim_min_px * np.power(1.0 + u * coef, 1.0 / beta)
+
+    # Shape selection (equal probabilities)
+    shapes = ['circle', 'oriented_square', 'rectangle', 'triangle']
+
+    # Main loop: place leaves until coverage threshold is met
+    num_leaves = 0
+
+    for iteration in range(max_iterations):
+        # 1. Select shape type
+        shape = rng.choice(shapes)
+
+        # 2. Sample dimensions independently based on shape type
+        if shape == 'circle':
+            radius_px = sample_dimension()
+            max_extent = radius_px
+
+        elif shape == 'oriented_square':
+            side = sample_dimension()
+            max_extent = side * np.sqrt(2) / 2
+
+        elif shape == 'rectangle':
+            rect_width = sample_dimension()
+            rect_height = sample_dimension()
+            max_extent = np.sqrt(rect_width**2 + rect_height**2) / 2
+
+        else:  # triangle
+            radius_px = sample_dimension()
+            max_extent = radius_px
+
+        # 3. Sample position (can extend beyond image bounds)
+        center_x = rng.uniform(-max_extent, width + max_extent)
+        center_y = rng.uniform(-max_extent, height + max_extent)
+
+        # 4. Sample real and imaginary parts independently (uniform)
+        leaf_re = rng.uniform(re_min, re_max)
+        leaf_im = rng.uniform(im_min, im_max)
+
+        # 5. Create anti-aliased mask for the shape
+        temp_mask = np.zeros((height, width), dtype=np.uint8)
+
+        if shape == 'circle':
+            cv2.circle(
+                temp_mask,
+                (int(center_x), int(center_y)),
+                radius=int(radius_px),
+                color=255,
+                thickness=-1,
+                lineType=cv2.LINE_AA
+            )
+
+        else:
+            # Generate polygon vertices
+            if shape == 'oriented_square':
+                corners_rel = np.array([
+                    [-side / 2, -side / 2],
+                    [+side / 2, -side / 2],
+                    [+side / 2, +side / 2],
+                    [-side / 2, +side / 2]
+                ])
+                theta = rng.uniform(0, 2 * np.pi)
+                c, s = np.cos(theta), np.sin(theta)
+                R_mat = np.array([[c, -s], [s, c]])
+                corners_rel = (R_mat @ corners_rel.T).T
+
+            elif shape == 'rectangle':
+                corners_rel = np.array([
+                    [+rect_width / 2, +rect_height / 2],
+                    [+rect_width / 2, -rect_height / 2],
+                    [-rect_width / 2, -rect_height / 2],
+                    [-rect_width / 2, +rect_height / 2]
+                ])
+                theta = rng.uniform(0, 2 * np.pi)
+                c, s = np.cos(theta), np.sin(theta)
+                R_mat = np.array([[c, -s], [s, c]])
+                corners_rel = (R_mat @ corners_rel.T).T
+
+            elif shape == 'triangle':
+                num_verts = 3
+                angles = sorted(rng.uniform(0, 2 * np.pi, num_verts))
+                corners_rel = np.array([
+                    [radius_px * np.cos(ang), radius_px * np.sin(ang)]
+                    for ang in angles
+                ])
+
+            # Convert to absolute coordinates
+            corners_abs = (np.array([center_x, center_y]) + corners_rel).astype(np.int32)
+
+            # Draw filled polygon with anti-aliasing
+            cv2.fillPoly(
+                temp_mask,
+                [corners_abs],
+                color=255,
+                lineType=cv2.LINE_AA
+            )
+
+        # 6. Convert mask to float coverage [0, 1]
+        coverage = temp_mask.astype(np.float32) / 255.0
+
+        # 7. Alpha blend: new_value = old * (1 - coverage) + new * coverage
+        real_map = real_map * (1.0 - coverage) + leaf_re * coverage
+        imag_map = imag_map * (1.0 - coverage) + leaf_im * coverage
+
+        # 8. Update cumulative coverage
+        cumulative_coverage = np.maximum(cumulative_coverage, coverage)
+
+        num_leaves += 1
+
+        # 9. Check stopping criterion
+        num_covered_pixels = np.count_nonzero(cumulative_coverage >= coverage_threshold)
+        coverage_fraction = num_covered_pixels / cumulative_coverage.size
+
+        # Log progress periodically
+        if num_leaves % 100 == 0 or coverage_fraction >= coverage_threshold:
+            print(f'Leaves: {num_leaves}, Coverage: {coverage_fraction * 100:.2f}%')
+
+        if coverage_fraction >= coverage_threshold:
+            print(f'Reached {coverage_threshold * 100}% coverage at {num_leaves} leaves')
+            break
+
+    if num_leaves >= max_iterations:
+        print(f'Warning: Reached max iterations ({max_iterations}) with {coverage_fraction * 100:.2f}% coverage')
+
+    return real_map, imag_map, num_leaves
+
+
+## New experimental stuff (02/10/2026)
+
+import cv2
+from scipy.spatial import Voronoi
+from typing import Tuple, Optional, List
+
+def create_dead_leaves_regions(img_shape, obj_arg, histogram):
+    """
+    Wrapper for modified dead leaves function from Steve
+
+    Args:
+        img_shape (int, int): Image dimensions in (h,w)
+        obj_arg (Dict): Passable dictionary with object generation arguments
+    """
+
+    print("Generating dead leaves...")
+    
+    HEIGHT, WIDTH = img_shape[0], img_shape[1]
+    MIN_R = obj_arg.get('r_min', 3.0) #Minimum radius to sample
+    MAX_R = obj_arg.get('r_max', 30.0)
+    N_REGIONS = obj_arg.get('n_regions', 5)
+    POWER = obj_arg.get('power_exponent', 1.5)
+    FLAT_FRACTION = obj_arg.get('flat_fraction', 0.4)
+    N_LEAVES = obj_arg.get('n_leaves', 400)
+
+    amp_2d, phase_2d = generate_hierarchical_constrained_object(
+                            height = HEIGHT,
+                            width = WIDTH,
+                            material_hist = histogram,
+                            n_regions = N_REGIONS,
+                            dim_min_px = MIN_R,
+                            dim_max_px = MAX_R,
+                            dimension_power_law_exponent=POWER,
+                            leaves_per_region = N_LEAVES,
+                            bulk_persistence_fraction=FLAT_FRACTION
+                            )
+    
+    obj = amp_2d * np.exp(1j * phase_2d)
+
+    return obj
+
+def generate_hierarchical_constrained_object(
+    height: int,
+    width: int,
+    material_hist: np.ndarray,
+    n_regions: int = 8,
+    dim_min_px: float = 5.0,
+    dim_max_px: float = 64.0,
+    dimension_power_law_exponent: float = 1.5,
+    amp_range: Tuple[float, float] = (0.0, 1.0),
+    phase_range: Tuple[float, float] = (-np.pi, np.pi),
+    leaves_per_region: int = 50,
+    bulk_persistence_fraction: float = 0.3, # 30% of continent is "Permanent Bulk"
+    blur_sigma: float = 0.5,
+    seed: Optional[int] = None,
+) -> Tuple[np.ndarray, np.ndarray]:
+    
+    rng = np.random.default_rng(seed)
+    
+    # --- 1. Sampling Helpers ---
+    beta = 1.0 - dimension_power_law_exponent
+    coef = np.power(dim_max_px / dim_min_px, beta) - 1.0
+    def sample_dim(): return dim_min_px * np.power(1.0 + rng.uniform() * coef, 1.0 / beta)
+
+    amp_bins = np.linspace(amp_range[0], amp_range[1], material_hist.shape[0])
+    phase_bins = np.linspace(phase_range[0], phase_range[1], material_hist.shape[1])
+    hist_flat = material_hist.flatten()
+    hist_indices = np.arange(hist_flat.size)
+
+    def sample_material():
+        idx = rng.choice(hist_indices, p=hist_flat)
+        a_idx, p_idx = np.unravel_index(idx, material_hist.shape)
+        return amp_bins[a_idx], phase_bins[p_idx]
+
+    # --- 2. VORONOI CONTINENTS ---
+    points = np.column_stack([rng.uniform(0, width, n_regions), rng.uniform(0, height, n_regions)])
+    y_c, x_c = np.indices((height, width))
+    pixel_coords = np.stack([x_c.ravel(), y_c.ravel()], axis=1)
+    dists = np.linalg.norm(pixel_coords[:, None, :] - points[None, :, :], axis=2)
+    region_labels = np.argmin(dists, axis=1).reshape((height, width))
+
+    amplitude_map = np.ones((height, width), dtype=np.float32)
+    phase_map = np.zeros((height, width), dtype=np.float32)
+
+    # --- 3. REGION PROCESSING WITH PERSISTENCE ---
+    shapes = ['circle', 'square', 'rectangle']
+    
+    for r_id in range(n_regions):
+        region_indices = (region_labels == r_id)
+        region_mask = region_indices.astype(np.float32)
+        
+        # A. Set Bulk Material Baseline
+        bulk_amp, bulk_phi = sample_material()
+        amplitude_map[region_indices] = bulk_amp
+        phase_map[region_indices] = bulk_phi
+
+        # B. CREATE PERSISTENCE MASK (The "Bulk Anchors")
+        # Generate random noise and threshold it to pick 'forbidden' pixels
+        # Using a low-pass filter on noise creates "Clumps" of persistence
+        noise = rng.uniform(0, 1, (height, width)).astype(np.float32)
+        noise = cv2.GaussianBlur(noise, (7, 7), 0) # Create structural clumps
+        persistence_mask = (noise < bulk_persistence_fraction).astype(np.float32)
+        
+        # Allowance mask: Where leaves are ALLOWED to go
+        # (Inside region AND NOT in persistence zone)
+        leaf_allowance_mask = region_mask * (1.0 - persistence_mask)
+
+        # C. ADD LEAVES
+        for _ in range(leaves_per_region):
+            shape = rng.choice(shapes)
+            leaf_amp, leaf_phi = sample_material()
+            cx, cy = rng.uniform(0, width), rng.uniform(0, height)
+            
+            temp_mask = np.zeros((height, width), dtype=np.uint8)
+            if shape == 'circle':
+                cv2.circle(temp_mask, (int(cx), int(cy)), int(sample_dim()/2), 255, -1, cv2.LINE_AA)
+            elif shape == 'square':
+                side = sample_dim()
+                rect = ((cx, cy), (side, side), rng.uniform(0, 360))
+                cv2.fillPoly(temp_mask, [cv2.boxPoints(rect).astype(np.int32)], 255, cv2.LINE_AA)
+            elif shape == 'rectangle':
+                # Independent dimensions
+                rect = ((cx, cy), (sample_dim(), sample_dim()), rng.uniform(0, 360))
+                cv2.fillPoly(temp_mask, [cv2.boxPoints(rect).astype(np.int32)], 255, cv2.LINE_AA)
+
+            # APPLY CONSTRAINTS
+            # Leaf only exists where (Shape Mask) AND (Allowance Mask)
+            leaf_alpha = (temp_mask.astype(np.float32) / 255.0) * leaf_allowance_mask
+            
+            amplitude_map = amplitude_map * (1.0 - leaf_alpha) + leaf_amp * leaf_alpha
+            phase_map = phase_map * (1.0 - leaf_alpha) + leaf_phi * leaf_alpha
+
+    if blur_sigma > 0:
+        amplitude_map = cv2.GaussianBlur(amplitude_map, (0, 0), blur_sigma)
+        phase_map = cv2.GaussianBlur(phase_map, (0, 0), blur_sigma)
+
+    return amplitude_map, phase_map
 
 # --- Example of how to call it for testing ---
 # if __name__ == "__main__":
