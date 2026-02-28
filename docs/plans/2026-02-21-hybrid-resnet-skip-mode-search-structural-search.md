@@ -26,7 +26,7 @@ This split document owns Tasks 12-15 (structural-axis implementation/search stag
 - If any downstream Stage C/D/E artifact consumed non-canonical upstream outputs, rerun from the earliest violating stage and regenerate downstream artifacts.
 - Apples-to-apples baseline rule: any claim that a Stage C/D/E candidate is better than baseline/default/anchor MUST compare against a baseline measured on the same dataset profile, same data sources, same epoch budget, and same seed policy.
 - Structural-stage baseline requirement:
-  - Before each Stage C/D/E comparison cycle, measure true-default `hybrid_resnet` baseline (`modes=12`, `skip=off`, `width=32`, `fno_blocks=4`, `downsample_schedule=2`, `downsample_op=stride_conv`, `encoder_conv_hidden=none`, `encoder_spectral_hidden=none`, `max_hidden=none`, `resnet_width=none`, `resnet_blocks=6`, `skip_style=add`) on the same dataset profile and epoch budget used for that cycle.
+  - Before each Stage C/D/E comparison cycle, measure true-default `hybrid_resnet` baseline (`modes=12`, `skip=off`, `width=32`, `fno_blocks=4`, `downsample_schedule=2`, `downsample_op=stride_conv`, `encoder_conv_hidden=none`, `encoder_spectral_hidden=none`, `encoder_conv_hidden_scale=1.0`, `encoder_spectral_hidden_scale=1.0`, `max_hidden=none`, `resnet_width=none`, `resnet_blocks=6`, `skip_style=add`) on the same dataset profile and epoch budget used for that cycle.
   - For promotion decisions, baseline context must use the same robustness seed policy as candidates (`{3,11,17}` with median-rank context).
 - Baseline documentation rule: each stage package MUST include an apples-to-apples baseline table (CSV/Markdown) containing baseline run id(s), candidate run id(s), and comparison metrics (`amp_mae`, `amp_mse`, `phase_ssim`, `train_wall_time_sec`, `inference_time_s`) with explicit `apples_to_apples=true|false` marking.
 
@@ -174,21 +174,23 @@ Scope guard for this stage:
 
 Add/plumb:
 ```python
-hybrid_encoder_conv_hidden_channels: Optional[int] = None
-hybrid_encoder_spectral_hidden_channels: Optional[int] = None
+hybrid_encoder_conv_hidden_scale: float = 1.0
+hybrid_encoder_spectral_hidden_scale: float = 1.0
 ```
 
 Semantics:
-- `None` preserves current behavior (branch width equals stage width).
-- Positive integer values set internal branch widths while keeping additive shape contracts by projecting each branch back to stage width before merge.
-- Reject invalid values (`<=0`) with actionable errors.
+- `1.0` preserves current behavior (branch width equals stage width).
+- Positive finite scale values resolve internal branch widths per block while keeping additive shape contracts by projecting each branch back to stage width before merge.
+- Resolution rule (required for determinism): `resolved_width = max(1, round(stage_channels * scale))`.
+- Persist both configured scale values and resolved branch widths in manifest/summary rows for auditability.
+- Reject invalid scale values (`<=0` or non-finite) with actionable errors.
 
 Run sub-stage D1 (conv branch):
-- sweep `--encoder-conv-hidden-values none,48,64` with `--encoder-spectral-hidden-values none`.
+- sweep `--encoder-conv-hidden-scale-values 0.5,1,2` with `--encoder-spectral-hidden-scale-values 1`.
 - record provenance with `--stage-id D --substage-id D1`.
 
 Run sub-stage D2 (spectral branch):
-- lock best D1 setting, then sweep `--encoder-spectral-hidden-values none,48,64`.
+- lock best D1 setting, then sweep `--encoder-spectral-hidden-scale-values 0.5,1,2`.
 - record provenance with `--stage-id D --substage-id D2`.
 
 **Step 2: Axis 4 sub-stage (global capacity)**
@@ -213,19 +215,20 @@ Record provenance with `--stage-id D --substage-id D4`.
 
 Run:
 ```bash
-pytest tests/torch/test_fno_generators.py -k "hybrid_encoder_conv_hidden_channels or hybrid_encoder_spectral_hidden_channels or hybrid_resnet_blocks or max_hidden_channels or resnet_width" -v
-pytest tests/torch/test_grid_lines_torch_runner.py -k "hybrid_encoder_conv_hidden_channels or hybrid_encoder_spectral_hidden_channels or hybrid_resnet_blocks or max_hidden_channels or resnet_width or torch_only" -v
-pytest tests/torch/test_grid_lines_torch_runner.py -k "workflow and (hybrid_encoder_conv_hidden_channels or hybrid_encoder_spectral_hidden_channels or hybrid_resnet_blocks or max_hidden_channels or resnet_width) and factory" -v
-pytest tests/torch/test_fno_generators.py -k "invalid and (hybrid_encoder_conv_hidden_channels or hybrid_encoder_spectral_hidden_channels or resnet_width)" -v
-pytest tests/torch/test_grid_lines_torch_runner.py -k "invalid and (hybrid_encoder_conv_hidden_channels or hybrid_encoder_spectral_hidden_channels or resnet_width)" -v
+pytest tests/torch/test_fno_generators.py -k "hybrid_encoder_conv_hidden_scale or hybrid_encoder_spectral_hidden_scale or hybrid_resnet_blocks or max_hidden_channels or resnet_width" -v
+pytest tests/torch/test_grid_lines_torch_runner.py -k "hybrid_encoder_conv_hidden_scale or hybrid_encoder_spectral_hidden_scale or hybrid_resnet_blocks or max_hidden_channels or resnet_width or torch_only" -v
+pytest tests/torch/test_grid_lines_torch_runner.py -k "workflow and (hybrid_encoder_conv_hidden_scale or hybrid_encoder_spectral_hidden_scale or hybrid_resnet_blocks or max_hidden_channels or resnet_width) and factory" -v
+pytest tests/torch/test_fno_generators.py -k "invalid and (hybrid_encoder_conv_hidden_scale or hybrid_encoder_spectral_hidden_scale or resnet_width)" -v
+pytest tests/torch/test_grid_lines_torch_runner.py -k "invalid and (hybrid_encoder_conv_hidden_scale or hybrid_encoder_spectral_hidden_scale or resnet_width)" -v
 ```
 Expected: PASS.
 Also capture matching `--collect-only` and execution logs under `${REPORT_DIR}`.
 
 Coverage expectations for new branch-capacity knobs:
-- independent branch effects under fixed seed/input (conv vs spectral width changes produce distinct outputs),
-- additive shape invariance and default parity when both knobs are `None`,
-- explicit invalid-value rejection coverage (`<=0` for branch-width knobs, non-divisible `resnet_width`),
+- independent branch effects under fixed seed/input (conv vs spectral scale changes produce distinct outputs),
+- additive shape invariance and default parity when both scales are `1.0`,
+- explicit invalid-value rejection coverage (`<=0` or non-finite for branch-scale knobs, non-divisible `resnet_width`),
+- explicit scale-to-resolved-width mapping coverage (`0.5,1,2` over representative stage widths),
 - workflow forwarding into `create_training_payload(..., overrides=...)`.
 
 **Step 5: Run bounded stage budgets**
@@ -244,7 +247,7 @@ Budget rule:
 
 **Step 6: Documentation sync for Stage-D knobs**
 
-- `docs/CONFIGURATION.md`: document `hybrid_encoder_conv_hidden_channels`, `hybrid_encoder_spectral_hidden_channels`, `hybrid_resnet_blocks`, and any capacity-option constraints used in this stage.
+- `docs/CONFIGURATION.md`: document `hybrid_encoder_conv_hidden_scale`, `hybrid_encoder_spectral_hidden_scale`, `hybrid_resnet_blocks`, and any capacity-option constraints used in this stage.
 - `docs/workflows/pytorch.md` and `ptycho_torch/generators/README.md`: add usage guidance and constraints with explicit Torch-only scope.
 - no `docs/specs/spec-ptycho-config-bridge.md` changes for Stage-D knobs in this initiative.
 - regenerate `docs/development/TEST_SUITE_INDEX.md` via:

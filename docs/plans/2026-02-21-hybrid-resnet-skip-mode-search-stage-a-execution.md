@@ -265,8 +265,8 @@ Add optional arguments (defaults preserve Stage A behavior):
 - `--fno-blocks-values` (default: `4`)
 - `--downsample-schedule-values` (default: `2`)  # number of encoder downsample steps
 - `--downsample-op-values` (default: `stride_conv`)  # `stride_conv|avgpool_conv|blurpool_conv`
-- `--encoder-conv-hidden-values` (default: `none`)  # maps to `hybrid_encoder_conv_hidden_channels`
-- `--encoder-spectral-hidden-values` (default: `none`)  # maps to `hybrid_encoder_spectral_hidden_channels`
+- `--encoder-conv-hidden-scale-values` (default: `1`)  # maps to `hybrid_encoder_conv_hidden_scale`
+- `--encoder-spectral-hidden-scale-values` (default: `1`)  # maps to `hybrid_encoder_spectral_hidden_scale`
 - `--max-hidden-values` (default: `none`)  # maps to `max_hidden_channels`
 - `--resnet-width-values` (default: `none`)
 - `--resnet-blocks-values` (default: `6`)
@@ -297,6 +297,9 @@ Add optional arguments (defaults preserve Stage A behavior):
 - `--max-phase-ssim-drop` (default: `0.03`)
 - `--max-model-params` (default: `300000000`)
 
+Compatibility note:
+- keep `--encoder-conv-hidden-values` / `--encoder-spectral-hidden-values` as diagnostic-only aliases if needed for backward compatibility, but canonical Stage-D runs in this plan MUST use scale-valued axes.
+
 Execution-path note:
 - do not widen wrapper `--N` in this initiative; keep wrapper at `N in {64,128}` and route all `N=256` sweeps through `grid_lines_torch_runner.py` pathing.
 
@@ -317,11 +320,12 @@ Implement guardrails:
 - Stage A varies only `{modes, widths, skip on/off}`
 - For stages B-E, non-active structural axes are inherited from `--promotion-source-summary`; multi-value lists on non-active axes are rejected.
 - For stages B-E `N=128` sweeps, `--promotion-source-summary` must resolve exactly one anchor row (single row total or one `is_stage_anchor=true` row); reject multi-anchor fan-out.
-- For Stage D branch-capacity work, treat `encoder_conv_hidden`, `encoder_spectral_hidden`, `max_hidden/resnet_width`, and `resnet_blocks` as separate serial sub-stages; only one may carry multiple values in one invocation.
+- For Stage D branch-capacity work, treat `encoder_conv_hidden_scale`, `encoder_spectral_hidden_scale`, `max_hidden/resnet_width`, and `resnet_blocks` as separate serial sub-stages; only one may carry multiple values in one invocation.
 - Reject invalid `stage_id/substage_id` combinations (including missing sub-stage id for `C`/`D` runs).
 - Pruning implementation MUST target real heavyweight artifacts produced by training/runtime paths, not placeholder files only.
 - For stages B-E, reject `--ns 256`-only invocations when `--promotion-source-summary` is missing.
 - Reject `resnet_width` sweep values that are not `none` and not divisible by 4 (or non-positive).
+- Reject encoder branch-scale sweep values that are non-finite or `<=0`.
 - Reject promotion candidates with `phase_ssim_drop_vs_baseline > max_phase_ssim_drop`.
 - Reject promotion candidates that violate feasibility caps (`max_model_params`, `max_train_seconds_*`, `max_inference_seconds_*`).
 - Reject `cameraman256_halfsplit_v1` profile usage for active `N=256` runs unless both `--cameraman-dp` and `--cameraman-para` are provided.
@@ -360,7 +364,7 @@ Add explicit invocation-provenance assertions in
   - persisted summary rows and manifest always include `probe_mask_enabled` and `torch_mae_pred_l2_match_target`.
 - wrapper/runner parity:
   - new sweep knobs shared across both leaf CLIs are validated to parse and pass through on both wrapper and runner code paths.
-  - branch-capacity knobs (`--encoder-conv-hidden-values`, `--encoder-spectral-hidden-values`) are validated on runner path and manifest/summary persistence.
+  - branch-capacity knobs (`--encoder-conv-hidden-scale-values`, `--encoder-spectral-hidden-scale-values`) are validated on runner path and manifest/summary persistence, including deterministic scale-to-resolved-width mapping metadata.
   - MAE normalization toggle naming parity is enforced:
     - canonical shared flags: `--torch-mae-pred-l2-match-target` and `--no-torch-mae-pred-l2-match-target`,
     - wrapper keeps backward-compatible alias `--torch-no-mae-pred-l2-match-target` mapped to the same destination.
@@ -410,7 +414,7 @@ Run:
 python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --stage-id B \
   --promotion-source-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/stage_anchor_summary.csv \
-  --fno-blocks-values 4,5,6 \
+  --fno-blocks-values 3,4 \
   --ns 128 \
   --dataset-profiles-n128 integration_grid_lines_n128_v1,fly001_external_n128_top_bottom_v1 \
   --fly001-external-train-npz <path/to/fly001_n128_train_top_half.npz> \

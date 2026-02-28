@@ -42,7 +42,7 @@ Out of scope:
 - Torch-only sweep knobs must not expand `params.cfg` surface unless a cross-backend requirement is explicitly documented and approved.
 - `hybrid_skip_connections` is explicitly Torch-only and must not be added to canonical `ModelConfig` or config-bridge mappings.
 - `hybrid_skip_connections` must flow through Torch runner/execution path only and remain outside `update_legacy_dict(...)` / `params.cfg` contracts.
-- Stage C-E knobs introduced by this initiative (`hybrid_downsample_steps`, `hybrid_downsample_op`, `hybrid_encoder_conv_hidden_channels`, `hybrid_encoder_spectral_hidden_channels`, `hybrid_resnet_blocks`, `hybrid_skip_style`) are Torch-only by default; no bridge/spec expansion in this plan.
+- Stage C-E knobs introduced by this initiative (`hybrid_downsample_steps`, `hybrid_downsample_op`, `hybrid_encoder_conv_hidden_scale`, `hybrid_encoder_spectral_hidden_scale`, `hybrid_resnet_blocks`, `hybrid_skip_style`) are Torch-only by default; no bridge/spec expansion in this plan.
 
 4. Explicit confounder control during sweeps:
 - `probe_mask` and MAE normalization toggles are fixed per sweep stage and recorded in manifest.
@@ -84,12 +84,16 @@ Topology contract:
 - `fno_modes` (existing)
 - `fno_width` (existing)
 - `fno_blocks` (existing)
-- `hybrid_encoder_conv_hidden_channels` (new, default `none`)
-  - Internal channel width for encoder local-convolution branch inside each hybrid block.
-  - `none` preserves current behavior (branch width equals stage channel width).
-- `hybrid_encoder_spectral_hidden_channels` (new, default `none`)
-  - Internal channel width for encoder spectral branch inside each hybrid block.
-  - `none` preserves current behavior (branch width equals stage channel width).
+- `hybrid_encoder_conv_hidden_scale` (new, default `1.0`)
+  - Multiplicative scale for encoder local-convolution branch internal width.
+  - Effective per-block width is resolved from stage width using deterministic mapping:
+    `resolved_width = max(1, round(stage_channels * scale))`.
+  - `1.0` preserves current behavior.
+- `hybrid_encoder_spectral_hidden_scale` (new, default `1.0`)
+  - Multiplicative scale for encoder spectral branch internal width.
+  - Effective per-block width is resolved from stage width using deterministic mapping:
+    `resolved_width = max(1, round(stage_channels * scale))`.
+  - `1.0` preserves current behavior.
 - `max_hidden_channels` (existing)
 - `resnet_width` (existing, divisible-by-4 guard)
 - `hybrid_resnet_blocks` (new, default `6`)
@@ -99,6 +103,7 @@ Encoder-branch decoupling contract:
 - additive fusion remains shape-safe at fixed stage width (`x + GELU(spectral + conv)`),
 - spectral and conv branches may use independent internal widths,
 - each branch must project back to stage width before additive merge,
+- run artifacts MUST persist both configured scale values and resolved per-block widths for provenance/auditability,
 - generator output shape/dtype contracts remain unchanged.
 
 ## 4.4 Dataset Profile Controls
@@ -194,11 +199,13 @@ Sub-stage C2:
 ## 5.4 Stage D (Axes 3 + 4 + 4b)
 
 Sub-stage D1:
-- encoder conv-branch capacity axis (`hybrid_encoder_conv_hidden_channels`) with spectral branch width fixed to default.
+- encoder conv-branch capacity axis (`hybrid_encoder_conv_hidden_scale`) with spectral branch scale fixed to default (`1.0`).
+- canonical sweep values for this initiative: `0.5,1,2`.
 - source configuration comes from one upstream anchor row.
 
 Sub-stage D2:
-- lock best D1, vary encoder spectral-branch capacity axis (`hybrid_encoder_spectral_hidden_channels`).
+- lock best D1, vary encoder spectral-branch capacity axis (`hybrid_encoder_spectral_hidden_scale`).
+- canonical sweep values for this initiative: `0.5,1,2`.
 
 Sub-stage D3:
 - lock best D2, vary global capacity axis (`max_hidden_channels` or `resnet_width`).
@@ -326,7 +333,7 @@ For each new knob:
 - propagation tests along the intended path:
   - Torch-only knobs (including `hybrid_skip_connections`): runner/execution/workflow propagation tests plus explicit no-bridge assertions.
   - cross-backend knobs (when explicitly approved): config-bridge propagation tests.
-- branch-decoupling tests for `hybrid_encoder_conv_hidden_channels` and `hybrid_encoder_spectral_hidden_channels` (independent branch-width effects with additive shape invariance),
+- branch-decoupling tests for `hybrid_encoder_conv_hidden_scale` and `hybrid_encoder_spectral_hidden_scale` (independent branch-width effects with additive shape invariance),
 - generator forward-shape tests,
 - invalid-value rejection tests.
 
