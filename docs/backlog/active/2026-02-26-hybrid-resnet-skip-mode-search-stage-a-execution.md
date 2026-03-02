@@ -1,15 +1,15 @@
 ---
 priority: 20
-plan_path: docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-a-execution.md
+plan_path: docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-a-execution-only.md
 check_commands:
-  - test -f docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-a-execution.md
-  - rg -q "### Task 9: Final Full Sweep Command" docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-a-execution.md
+  - test -f docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-a-execution-only.md
+  - rg -q "### Task 9: Final Full Sweep Command" docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-a-execution-only.md
 ---
 
 # Backlog Item: Hybrid ResNet Skip/Mode Search Stage A Execution
 
 Implement and maintain the Stage-A execution contract in:
-`docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-a-execution.md`
+`docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-a-execution-only.md`
 
 Scope:
 - Stage-A execution and artifact requirements only.

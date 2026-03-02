@@ -1,15 +1,15 @@
 ---
 priority: 30
-plan_path: docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-a-execution.md
+plan_path: docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-b-execution.md
 check_commands:
-  - test -f docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-a-execution.md
-  - rg -q "### Task 11: Stage B Search" docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-a-execution.md
+  - test -f docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-b-execution.md
+  - rg -q "### Task 11: Stage B Search" docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-b-execution.md
 ---
 
 # Backlog Item: Hybrid ResNet Skip/Mode Search Stage B Execution
 
 Implement and maintain the Stage-B execution contract in:
-`docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-a-execution.md`
+`docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-b-execution.md`
 
 Scope:
 - Stage-B execution and artifact requirements only.
