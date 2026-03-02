@@ -25,7 +25,7 @@ Constraints:
   This policy applies to any required long-running process in the selected plan.
 
   1. Blocking semantics:
-     - Do not report success when only launch succeeded.
+     - Do not mark the step complete when only launch succeeded.
      - A long-running process is complete only after an explicit terminal state is observed.
   2. Tracking requirements:
      - Record PID, start time (UTC), status transitions, and final exit code.
