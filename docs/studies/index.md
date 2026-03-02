@@ -7,6 +7,10 @@
 - Purpose: Run staged `hybrid_resnet` search loops over `mode x skip x width` (Stage A) and later structural axes (Stages B-E) with strict stage/substage guardrails, promotion-source validation, seed-rerank aggregation, and retention-tier cleanup.
 - Script: `scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py`
 - Stage IDs: `A|B|C|D|E` with `substage_id=none` for `A/B/E`, `C1|C2` for stage `C`, and `D1|D2|D3|D4` for stage `D`.
+- Stage-D branch-capacity axes:
+  - canonical scale knobs: `--encoder-conv-hidden-scale-values` and `--encoder-spectral-hidden-scale-values`
+  - legacy aliases: `--encoder-conv-hidden-values` / `--encoder-spectral-hidden-values` (diagnostic compatibility only)
+  - summary/manifest provenance includes configured scales plus deterministic resolved-width metadata (`encoder_*_resolved_*` fields).
 - Seed-rerank aggregation mode:
   - inputs: `--aggregate-seed-rerank-root` + `--source-summary`
   - outputs: `--emit-robust-promotion-summary` and `--emit-stage-anchor-summary`

@@ -12,6 +12,7 @@ import csv
 import hashlib
 import itertools
 import json
+import math
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -34,6 +35,20 @@ ALLOWED_SUMMARY_SCHEMA_VERSIONS = {SUMMARY_SCHEMA_VERSION, "v1"}
 STUDY_KEY = "hybrid-resnet-mode-skip-sweep"
 SEED_SET = (3, 11, 17)
 MIN_STAGE_EPOCHS = 10
+DEFAULT_PROMOTION_OBJECTIVES = ("amp_ssim", "train_wall_time_sec")
+REQUIRED_PROMOTION_OBJECTIVES_BY_STAGE = {
+    stage_id: DEFAULT_PROMOTION_OBJECTIVES for stage_id in ("A", "B", "C", "D", "E")
+}
+OBJECTIVE_DIRECTIONS = {
+    "amp_ssim": "max",
+    "phase_ssim": "max",
+    "amp_mae": "min",
+    "amp_mse": "min",
+    "train_wall_time_sec": "min",
+    "inference_time_s": "min",
+    "model_params": "min",
+    "phase_ssim_drop_vs_baseline": "min",
+}
 
 
 class StageValidationError(ValueError):
@@ -59,6 +74,10 @@ def _parse_csv(raw: str) -> list[str]:
 def _parse_optional_numeric_csv(raw: str) -> list[str]:
     values = _parse_csv(raw)
     return values if values else ["none"]
+
+
+def _parse_float_csv(raw: str) -> list[float]:
+    return [float(part.strip()) for part in raw.split(",") if part.strip()]
 
 
 def _bool_from_value(value: Any) -> bool:
@@ -92,6 +111,29 @@ def _safe_int(value: Any, key: str, *, default: int | None = None) -> int:
         raise PromotionSourceError(f"Invalid integer value for '{key}': {value!r}") from exc
 
 
+def _is_default_scale_list(values: Sequence[float]) -> bool:
+    return len(values) == 1 and math.isclose(float(values[0]), 1.0, rel_tol=0.0, abs_tol=1e-12)
+
+
+def _uses_legacy_conv_hidden_axis(args: argparse.Namespace) -> bool:
+    values = [str(value).strip().lower() for value in args.encoder_conv_hidden_values]
+    return _is_default_scale_list(args.encoder_conv_hidden_scale_values) and (
+        len(values) > 1 or (len(values) == 1 and values[0] != "none")
+    )
+
+
+def _uses_legacy_spectral_hidden_axis(args: argparse.Namespace) -> bool:
+    values = [str(value).strip().lower() for value in args.encoder_spectral_hidden_values]
+    return _is_default_scale_list(args.encoder_spectral_hidden_scale_values) and (
+        len(values) > 1 or (len(values) == 1 and values[0] != "none")
+    )
+
+
+def _has_non_default_legacy_hidden_values(values: Sequence[Any]) -> bool:
+    normalized = [str(value).strip().lower() for value in values]
+    return len(normalized) > 1 or (len(normalized) == 1 and normalized[0] != "none")
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse command line arguments for the sweep runbook."""
     parser = argparse.ArgumentParser(
@@ -108,14 +150,32 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--downsample-schedule-values", type=_parse_int_csv, default=[2])
     parser.add_argument("--downsample-op-values", type=_parse_csv, default=["stride_conv"])
     parser.add_argument(
+        "--encoder-conv-hidden-scale-values",
+        type=_parse_float_csv,
+        default=[1.0],
+    )
+    parser.add_argument(
+        "--encoder-spectral-hidden-scale-values",
+        type=_parse_float_csv,
+        default=[1.0],
+    )
+    parser.add_argument(
         "--encoder-conv-hidden-values",
         type=_parse_optional_numeric_csv,
         default=["none"],
+        help=(
+            "Diagnostic legacy alias for explicit branch hidden width values. "
+            "Canonical staged runs should use --encoder-conv-hidden-scale-values."
+        ),
     )
     parser.add_argument(
         "--encoder-spectral-hidden-values",
         type=_parse_optional_numeric_csv,
         default=["none"],
+        help=(
+            "Diagnostic legacy alias for explicit branch hidden width values. "
+            "Canonical staged runs should use --encoder-spectral-hidden-scale-values."
+        ),
     )
     parser.add_argument("--max-hidden-values", type=_parse_optional_numeric_csv, default=["none"])
     parser.add_argument("--resnet-width-values", type=_parse_optional_numeric_csv, default=["none"])
@@ -167,7 +227,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--promotion-objectives",
         type=_parse_csv,
-        default=["amp_mae", "amp_mse", "train_wall_time_sec"],
+        default=list(DEFAULT_PROMOTION_OBJECTIVES),
     )
     parser.add_argument("--top-k-n256", type=int, default=6)
     parser.add_argument("--max-train-seconds-n128", type=int, default=2700)
@@ -217,6 +277,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=Path,
         help="Output root for sweep artifacts (required outside aggregation mode)",
     )
+    parser.add_argument(
+        "--reuse-existing-run-metrics",
+        action="store_true",
+        help=(
+            "Reuse per-run metrics from runs/<run_id>/metrics.json when present "
+            "instead of re-running the runner for that candidate."
+        ),
+    )
 
     return parser.parse_args(argv)
 
@@ -225,8 +293,24 @@ def _active_profiles(args: argparse.Namespace) -> list[str]:
     return list(args.dataset_profiles_n256 if args.ns == 256 else args.dataset_profiles_n128)
 
 
+def _validate_required_objective_tuple(args: argparse.Namespace) -> None:
+    required = REQUIRED_PROMOTION_OBJECTIVES_BY_STAGE.get(str(args.stage_id))
+    if required is None:
+        return
+    observed = tuple(str(value).strip() for value in args.promotion_objectives if str(value).strip())
+    if observed != required:
+        required_text = ",".join(required)
+        observed_text = ",".join(observed)
+        raise StageValidationError(
+            f"Stage {args.stage_id} requires --promotion-objectives {required_text}; "
+            f"got {observed_text}"
+        )
+
+
 def validate_stage_configuration(args: argparse.Namespace) -> None:
     """Validate stage/substage/profile constraints."""
+    _validate_required_objective_tuple(args)
+
     if args.stage_id == "C" and args.substage_id not in {"C1", "C2"}:
         raise StageValidationError(
             f"Stage C requires substage_id to be C1 or C2, got '{args.substage_id}'"
@@ -307,6 +391,43 @@ def validate_stage_configuration(args: argparse.Namespace) -> None:
     if not skip_styles.issubset(allowed_skip_styles):
         raise StageValidationError("--skip-style-values must use: add|concat|gated_add")
 
+    for scale in list(args.encoder_conv_hidden_scale_values) + list(args.encoder_spectral_hidden_scale_values):
+        if not math.isfinite(float(scale)) or float(scale) <= 0.0:
+            raise StageValidationError(
+                "Encoder branch scale values must be finite and > 0 "
+                f"(got {scale!r})"
+            )
+
+    for hidden_raw in list(args.encoder_conv_hidden_values) + list(args.encoder_spectral_hidden_values):
+        text = str(hidden_raw).strip().lower()
+        if text == "none":
+            continue
+        try:
+            hidden = int(float(text))
+        except ValueError as exc:
+            raise StageValidationError(
+                f"Legacy encoder hidden value must be an integer or 'none' (got {hidden_raw!r})"
+            ) from exc
+        if hidden <= 0:
+            raise StageValidationError(
+                f"Legacy encoder hidden value must be > 0 when set (got {hidden_raw!r})"
+            )
+
+    if _has_non_default_legacy_hidden_values(args.encoder_conv_hidden_values) and not _is_default_scale_list(
+        args.encoder_conv_hidden_scale_values
+    ):
+        raise StageValidationError(
+            "Cannot combine legacy --encoder-conv-hidden-values sweeps with non-default "
+            "--encoder-conv-hidden-scale-values. Use one axis at a time."
+        )
+    if _has_non_default_legacy_hidden_values(args.encoder_spectral_hidden_values) and not _is_default_scale_list(
+        args.encoder_spectral_hidden_scale_values
+    ):
+        raise StageValidationError(
+            "Cannot combine legacy --encoder-spectral-hidden-values sweeps with non-default "
+            "--encoder-spectral-hidden-scale-values. Use one axis at a time."
+        )
+
     profiles = _active_profiles(args)
     if args.ns == 256:
         if "cameraman256_halfsplit_v1" in profiles and (not args.cameraman_dp or not args.cameraman_para):
@@ -337,12 +458,17 @@ def validate_stage_configuration(args: argparse.Namespace) -> None:
 
 def validate_matrix_constraints(args: argparse.Namespace) -> None:
     """Validate stage-specific matrix-expansion rules."""
+    legacy_conv_axis = _uses_legacy_conv_hidden_axis(args)
+    legacy_spectral_axis = _uses_legacy_spectral_hidden_axis(args)
+
     structural_axis_lengths = {
         "fno_blocks": len(args.fno_blocks_values),
         "downsample_schedule": len(args.downsample_schedule_values),
         "downsample_op": len(args.downsample_op_values),
-        "encoder_conv_hidden": len(args.encoder_conv_hidden_values),
-        "encoder_spectral_hidden": len(args.encoder_spectral_hidden_values),
+        "encoder_conv_hidden_scale": len(args.encoder_conv_hidden_scale_values),
+        "encoder_spectral_hidden_scale": len(args.encoder_spectral_hidden_scale_values),
+        "encoder_conv_hidden_legacy": len(args.encoder_conv_hidden_values),
+        "encoder_spectral_hidden_legacy": len(args.encoder_spectral_hidden_values),
         "max_hidden": len(args.max_hidden_values),
         "resnet_width": len(args.resnet_width_values),
         "resnet_blocks": len(args.resnet_blocks_values),
@@ -352,8 +478,10 @@ def validate_matrix_constraints(args: argparse.Namespace) -> None:
         "fno_blocks": list(args.fno_blocks_values),
         "downsample_schedule": list(args.downsample_schedule_values),
         "downsample_op": list(args.downsample_op_values),
-        "encoder_conv_hidden": list(args.encoder_conv_hidden_values),
-        "encoder_spectral_hidden": list(args.encoder_spectral_hidden_values),
+        "encoder_conv_hidden_scale": list(args.encoder_conv_hidden_scale_values),
+        "encoder_spectral_hidden_scale": list(args.encoder_spectral_hidden_scale_values),
+        "encoder_conv_hidden_legacy": list(args.encoder_conv_hidden_values),
+        "encoder_spectral_hidden_legacy": list(args.encoder_spectral_hidden_values),
         "max_hidden": list(args.max_hidden_values),
         "resnet_width": list(args.resnet_width_values),
         "resnet_blocks": list(args.resnet_blocks_values),
@@ -365,8 +493,10 @@ def validate_matrix_constraints(args: argparse.Namespace) -> None:
             "fno_blocks": "4",
             "downsample_schedule": "2",
             "downsample_op": "stride_conv",
-            "encoder_conv_hidden": "none",
-            "encoder_spectral_hidden": "none",
+            "encoder_conv_hidden_scale": "1.0",
+            "encoder_spectral_hidden_scale": "1.0",
+            "encoder_conv_hidden_legacy": "none",
+            "encoder_spectral_hidden_legacy": "none",
             "max_hidden": "none",
             "resnet_width": "none",
             "resnet_blocks": "6",
@@ -377,8 +507,12 @@ def validate_matrix_constraints(args: argparse.Namespace) -> None:
             if len(values) != 1:
                 violations.append(f"{axis_name}={values}")
                 continue
-            observed = str(values[0]).strip().lower()
             expected = stage_a_defaults[axis_name]
+            if axis_name in {"encoder_conv_hidden_scale", "encoder_spectral_hidden_scale"}:
+                if not math.isclose(float(values[0]), float(expected), rel_tol=0.0, abs_tol=1e-12):
+                    violations.append(f"{axis_name}={values[0]}")
+                continue
+            observed = str(values[0]).strip().lower()
             if observed != expected:
                 violations.append(f"{axis_name}={values[0]}")
 
@@ -387,8 +521,9 @@ def validate_matrix_constraints(args: argparse.Namespace) -> None:
                 "Stage A can only vary {modes, skip-values, widths}; "
                 "all structural axes must remain at defaults "
                 "(fno_blocks=4, downsample_schedule=2, downsample_op=stride_conv, "
-                "encoder_conv_hidden=none, encoder_spectral_hidden=none, max_hidden=none, "
-                "resnet_width=none, resnet_blocks=6, skip_style=add); "
+                "encoder_conv_hidden_scale=1, encoder_spectral_hidden_scale=1, "
+                "legacy encoder hidden values=none, max_hidden=none, resnet_width=none, "
+                "resnet_blocks=6, skip_style=add); "
                 f"got: {violations}"
             )
     else:
@@ -405,9 +540,13 @@ def validate_matrix_constraints(args: argparse.Namespace) -> None:
             active_axes = {"downsample_schedule"} if args.substage_id == "C1" else {"downsample_op"}
         elif args.stage_id == "D":
             if args.substage_id == "D1":
-                active_axes = {"encoder_conv_hidden"}
+                active_axes = {"encoder_conv_hidden_legacy"} if legacy_conv_axis else {
+                    "encoder_conv_hidden_scale"
+                }
             elif args.substage_id == "D2":
-                active_axes = {"encoder_spectral_hidden"}
+                active_axes = {"encoder_spectral_hidden_legacy"} if legacy_spectral_axis else {
+                    "encoder_spectral_hidden_scale"
+                }
             elif args.substage_id == "D3":
                 active_axes = {"max_hidden", "resnet_width"}
             else:
@@ -527,6 +666,7 @@ def build_sweep_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "seed": int(args.seed),
         "probe_mask_enabled": bool(args.probe_mask),
         "torch_mae_pred_l2_match_target": bool(args.torch_mae_pred_l2_match_target),
+        "reuse_existing_run_metrics": bool(args.reuse_existing_run_metrics),
         "dataset_profiles": {
             "n128": list(args.dataset_profiles_n128),
             "n256": list(args.dataset_profiles_n256),
@@ -540,6 +680,8 @@ def build_sweep_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "fno_blocks": list(args.fno_blocks_values),
             "downsample_schedule": list(args.downsample_schedule_values),
             "downsample_op": list(args.downsample_op_values),
+            "encoder_conv_hidden_scale": list(args.encoder_conv_hidden_scale_values),
+            "encoder_spectral_hidden_scale": list(args.encoder_spectral_hidden_scale_values),
             "encoder_conv_hidden": list(args.encoder_conv_hidden_values),
             "encoder_spectral_hidden": list(args.encoder_spectral_hidden_values),
             "max_hidden": list(args.max_hidden_values),
@@ -657,6 +799,7 @@ def _load_promotion_rows(
         "modes",
         "skip",
         "width",
+        "amp_ssim",
         "amp_mae",
         "amp_mse",
         "train_wall_time_sec",
@@ -675,8 +818,10 @@ def _load_promotion_rows(
         parsed_row["modes"] = _safe_int(row.get("modes"), "modes")
         parsed_row["skip"] = str(row.get("skip", "off")).strip().lower()
         parsed_row["width"] = _safe_int(row.get("width"), "width")
+        parsed_row["amp_ssim"] = _safe_float(row.get("amp_ssim"), "amp_ssim")
         parsed_row["amp_mae"] = _safe_float(row.get("amp_mae"), "amp_mae")
         parsed_row["amp_mse"] = _safe_float(row.get("amp_mse"), "amp_mse")
+        parsed_row["phase_ssim"] = _safe_float(row.get("phase_ssim"), "phase_ssim", default=0.0)
         parsed_row["train_wall_time_sec"] = _safe_float(row.get("train_wall_time_sec"), "train_wall_time_sec")
         parsed_row["inference_time_s"] = _safe_float(row.get("inference_time_s"), "inference_time_s")
         parsed_row["model_params"] = _safe_float(row.get("model_params"), "model_params")
@@ -694,6 +839,16 @@ def _load_promotion_rows(
             row.get("downsample_schedule"), "downsample_schedule", default=2
         )
         parsed_row["downsample_op"] = str(row.get("downsample_op", "stride_conv"))
+        parsed_row["encoder_conv_hidden_scale"] = _safe_positive_scale(
+            row.get("encoder_conv_hidden_scale", 1.0),
+            "encoder_conv_hidden_scale",
+            default=1.0,
+        )
+        parsed_row["encoder_spectral_hidden_scale"] = _safe_positive_scale(
+            row.get("encoder_spectral_hidden_scale", 1.0),
+            "encoder_spectral_hidden_scale",
+            default=1.0,
+        )
         parsed_row["encoder_conv_hidden"] = str(row.get("encoder_conv_hidden", "none"))
         parsed_row["encoder_spectral_hidden"] = str(row.get("encoder_spectral_hidden", "none"))
         parsed_row["max_hidden"] = str(row.get("max_hidden", "none"))
@@ -715,7 +870,7 @@ def _load_promotion_rows(
         feasible, violations = _row_feasibility(parsed_row, args, args.ns)
         parsed_row["is_feasible"] = _bool_from_value(row.get("is_feasible", feasible)) and feasible
         parsed_row["violated_constraints"] = ";".join(violations)
-        parsed.append(parsed_row)
+        parsed.append(_enrich_candidate_with_branch_metadata(parsed_row))
 
     return parsed
 
@@ -738,7 +893,11 @@ def _resolve_single_anchor(path: Path, rows: Sequence[Mapping[str, Any]]) -> dic
 def _objective_tuple(row: Mapping[str, Any], objectives: Sequence[str]) -> tuple[float, ...]:
     values: list[float] = []
     for objective in objectives:
-        values.append(_safe_float(row.get(objective), objective))
+        value = _safe_float(row.get(objective), objective)
+        direction = OBJECTIVE_DIRECTIONS.get(objective, "min")
+        if direction == "max":
+            value = -value
+        values.append(value)
     return tuple(values)
 
 
@@ -776,14 +935,16 @@ def pareto_ranks(rows: Sequence[Mapping[str, Any]], objectives: Sequence[str]) -
     return ranks
 
 
-def _candidate_sort_key(row: Mapping[str, Any]) -> tuple[float, float, float, str]:
+def _candidate_sort_key(row: Mapping[str, Any]) -> tuple[float, float, float, float, str]:
     rank_value = row.get("pareto_rank_median")
     if rank_value in (None, ""):
         rank_value = row.get("pareto_rank_macro", 9999.0)
+    amp_ssim_tiebreak = row.get("amp_ssim_mean_seed", row.get("amp_ssim"))
     return (
         _safe_float(rank_value, "pareto_rank"),
-        _safe_float(row.get("amp_mae"), "amp_mae"),
+        -_safe_float(amp_ssim_tiebreak, "amp_ssim", default=-1.0),
         _safe_float(row.get("model_params"), "model_params"),
+        _safe_float(row.get("inference_time_s"), "inference_time_s", default=1e12),
         str(row.get("run_id", "")),
     )
 
@@ -796,6 +957,15 @@ def _candidate_config_key(row: Mapping[str, Any]) -> tuple[Any, ...]:
         _safe_int(row.get("fno_blocks"), "fno_blocks", default=4),
         _safe_int(row.get("downsample_schedule"), "downsample_schedule", default=2),
         _resolve_axis_value(row.get("downsample_op"), "stride_conv"),
+        round(_safe_float(row.get("encoder_conv_hidden_scale"), "encoder_conv_hidden_scale", default=1.0), 8),
+        round(
+            _safe_float(
+                row.get("encoder_spectral_hidden_scale"),
+                "encoder_spectral_hidden_scale",
+                default=1.0,
+            ),
+            8,
+        ),
         _resolve_axis_value(row.get("encoder_conv_hidden"), "none"),
         _resolve_axis_value(row.get("encoder_spectral_hidden"), "none"),
         _resolve_axis_value(row.get("max_hidden"), "none"),
@@ -826,6 +996,22 @@ def _is_stage_a_control_anchor_row(row: Mapping[str, Any]) -> bool:
             and _safe_int(row.get("fno_blocks"), "fno_blocks", default=4) == 4
             and _safe_int(row.get("downsample_schedule"), "downsample_schedule", default=2) == 2
             and _resolve_axis_value(row.get("downsample_op"), "stride_conv") == "stride_conv"
+            and math.isclose(
+                _safe_float(row.get("encoder_conv_hidden_scale"), "encoder_conv_hidden_scale", default=1.0),
+                1.0,
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            )
+            and math.isclose(
+                _safe_float(
+                    row.get("encoder_spectral_hidden_scale"),
+                    "encoder_spectral_hidden_scale",
+                    default=1.0,
+                ),
+                1.0,
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            )
             and _resolve_axis_value(row.get("encoder_conv_hidden"), "none") == "none"
             and _resolve_axis_value(row.get("encoder_spectral_hidden"), "none") == "none"
             and _resolve_axis_value(row.get("max_hidden"), "none") == "none"
@@ -842,7 +1028,7 @@ def _build_anchor_row_from_source(
     *,
     args: argparse.Namespace,
 ) -> dict[str, Any]:
-    return {
+    anchor = {
         "summary_schema_version": SUMMARY_SCHEMA_VERSION,
         "run_id": str(source_row.get("run_id", "stage_a_control_anchor")),
         "stage_id": str(source_row.get("stage_id", args.stage_id) or args.stage_id),
@@ -853,14 +1039,43 @@ def _build_anchor_row_from_source(
         "fno_blocks": _safe_int(source_row.get("fno_blocks"), "fno_blocks", default=4),
         "downsample_schedule": _safe_int(source_row.get("downsample_schedule"), "downsample_schedule", default=2),
         "downsample_op": _resolve_axis_value(source_row.get("downsample_op"), "stride_conv"),
+        "encoder_conv_hidden_scale": _safe_positive_scale(
+            source_row.get("encoder_conv_hidden_scale", 1.0),
+            "encoder_conv_hidden_scale",
+            default=1.0,
+        ),
+        "encoder_spectral_hidden_scale": _safe_positive_scale(
+            source_row.get("encoder_spectral_hidden_scale", 1.0),
+            "encoder_spectral_hidden_scale",
+            default=1.0,
+        ),
         "encoder_conv_hidden": _resolve_axis_value(source_row.get("encoder_conv_hidden"), "none"),
         "encoder_spectral_hidden": _resolve_axis_value(source_row.get("encoder_spectral_hidden"), "none"),
+        "encoder_stage_channels": _resolve_axis_value(source_row.get("encoder_stage_channels"), ""),
+        "encoder_conv_hidden_resolved_width": _resolve_axis_value(
+            source_row.get("encoder_conv_hidden_resolved_width"),
+            "none",
+        ),
+        "encoder_conv_hidden_resolved_per_block": _resolve_axis_value(
+            source_row.get("encoder_conv_hidden_resolved_per_block"),
+            "",
+        ),
+        "encoder_spectral_hidden_resolved_width": _resolve_axis_value(
+            source_row.get("encoder_spectral_hidden_resolved_width"),
+            "none",
+        ),
+        "encoder_spectral_hidden_resolved_per_block": _resolve_axis_value(
+            source_row.get("encoder_spectral_hidden_resolved_per_block"),
+            "",
+        ),
         "max_hidden": _resolve_axis_value(source_row.get("max_hidden"), "none"),
         "resnet_width": _resolve_axis_value(source_row.get("resnet_width"), "none"),
         "resnet_blocks": _safe_int(source_row.get("resnet_blocks"), "resnet_blocks", default=6),
         "skip_style": _resolve_axis_value(source_row.get("skip_style"), "add"),
+        "amp_ssim": _safe_float(source_row.get("amp_ssim"), "amp_ssim"),
         "amp_mae": _safe_float(source_row.get("amp_mae"), "amp_mae"),
         "amp_mse": _safe_float(source_row.get("amp_mse"), "amp_mse"),
+        "phase_ssim": _safe_float(source_row.get("phase_ssim"), "phase_ssim", default=0.0),
         "train_wall_time_sec": _safe_float(source_row.get("train_wall_time_sec"), "train_wall_time_sec"),
         "inference_time_s": _safe_float(source_row.get("inference_time_s"), "inference_time_s"),
         "model_params": int(_safe_float(source_row.get("model_params"), "model_params")),
@@ -879,6 +1094,7 @@ def _build_anchor_row_from_source(
         "is_stage_anchor": True,
         "anchor_source_summary": str(args.source_summary),
     }
+    return _enrich_candidate_with_branch_metadata(anchor)
 
 
 def _collect_seed_rows(root: Path) -> list[dict[str, Any]]:
@@ -891,8 +1107,10 @@ def _collect_seed_rows(root: Path) -> list[dict[str, Any]]:
             fieldnames,
             [
                 "run_id",
+                "amp_ssim",
                 "amp_mae",
                 "amp_mse",
+                "phase_ssim",
                 "train_wall_time_sec",
                 "inference_time_s",
                 "model_params",
@@ -914,8 +1132,10 @@ def _collect_seed_rows(root: Path) -> list[dict[str, Any]]:
             row["modes"] = _safe_int(raw_row.get("modes"), "modes", default=12)
             row["skip"] = str(raw_row.get("skip", "off")).lower()
             row["width"] = _safe_int(raw_row.get("width"), "width", default=32)
+            row["amp_ssim"] = _safe_float(raw_row.get("amp_ssim"), "amp_ssim")
             row["amp_mae"] = _safe_float(raw_row.get("amp_mae"), "amp_mae")
             row["amp_mse"] = _safe_float(raw_row.get("amp_mse"), "amp_mse")
+            row["phase_ssim"] = _safe_float(raw_row.get("phase_ssim"), "phase_ssim")
             row["train_wall_time_sec"] = _safe_float(raw_row.get("train_wall_time_sec"), "train_wall_time_sec")
             row["inference_time_s"] = _safe_float(raw_row.get("inference_time_s"), "inference_time_s")
             row["model_params"] = _safe_float(raw_row.get("model_params"), "model_params")
@@ -961,8 +1181,10 @@ def run_seed_rerank_aggregation(args: argparse.Namespace) -> None:
                 "modes": int(source_row["modes"]),
                 "skip": str(source_row["skip"]),
                 "width": int(source_row["width"]),
+                "amp_ssim": float(source_row["amp_ssim"]),
                 "amp_mae": float(source_row["amp_mae"]),
                 "amp_mse": float(source_row["amp_mse"]),
+                "phase_ssim": float(source_row.get("phase_ssim", 0.0)),
                 "train_wall_time_sec": float(source_row["train_wall_time_sec"]),
                 "inference_time_s": float(source_row["inference_time_s"]),
                 "model_params": float(source_row["model_params"]),
@@ -999,9 +1221,10 @@ def run_seed_rerank_aggregation(args: argparse.Namespace) -> None:
         per_seed = rows_by_candidate[run_id]
         ranks = [seed_ranks[seed][run_id] for seed in SEED_SET]
         median_rank = sorted(ranks)[1]
+        mean_amp_ssim = sum(float(per_seed[seed]["amp_ssim"]) for seed in SEED_SET) / float(len(SEED_SET))
 
         seed3_row = per_seed[3]
-        robust_rows.append(
+        robust_row = _enrich_candidate_with_branch_metadata(
             {
                 "summary_schema_version": SUMMARY_SCHEMA_VERSION,
                 "run_id": run_id,
@@ -1015,14 +1238,27 @@ def run_seed_rerank_aggregation(args: argparse.Namespace) -> None:
                     source_row.get("downsample_schedule"), "downsample_schedule", default=2
                 ),
                 "downsample_op": str(source_row.get("downsample_op", "stride_conv")),
+                "encoder_conv_hidden_scale": _safe_positive_scale(
+                    source_row.get("encoder_conv_hidden_scale", 1.0),
+                    "encoder_conv_hidden_scale",
+                    default=1.0,
+                ),
+                "encoder_spectral_hidden_scale": _safe_positive_scale(
+                    source_row.get("encoder_spectral_hidden_scale", 1.0),
+                    "encoder_spectral_hidden_scale",
+                    default=1.0,
+                ),
                 "encoder_conv_hidden": str(source_row.get("encoder_conv_hidden", "none")),
                 "encoder_spectral_hidden": str(source_row.get("encoder_spectral_hidden", "none")),
                 "max_hidden": str(source_row.get("max_hidden", "none")),
                 "resnet_width": str(source_row.get("resnet_width", "none")),
                 "resnet_blocks": _safe_int(source_row.get("resnet_blocks"), "resnet_blocks", default=6),
                 "skip_style": str(source_row.get("skip_style", "add")),
+                "amp_ssim": float(seed3_row["amp_ssim"]),
+                "amp_ssim_mean_seed": float(mean_amp_ssim),
                 "amp_mae": float(seed3_row["amp_mae"]),
                 "amp_mse": float(seed3_row["amp_mse"]),
+                "phase_ssim": float(seed3_row["phase_ssim"]),
                 "train_wall_time_sec": float(seed3_row["train_wall_time_sec"]),
                 "inference_time_s": float(seed3_row["inference_time_s"]),
                 "model_params": int(float(seed3_row["model_params"])),
@@ -1038,6 +1274,7 @@ def run_seed_rerank_aggregation(args: argparse.Namespace) -> None:
                 "anchor_source_summary": str(args.source_summary),
             }
         )
+        robust_rows.append(robust_row)
 
     robust_rows.sort(key=_candidate_sort_key)
 
@@ -1056,14 +1293,24 @@ def run_seed_rerank_aggregation(args: argparse.Namespace) -> None:
         "fno_blocks",
         "downsample_schedule",
         "downsample_op",
+        "encoder_conv_hidden_scale",
+        "encoder_spectral_hidden_scale",
         "encoder_conv_hidden",
         "encoder_spectral_hidden",
+        "encoder_stage_channels",
+        "encoder_conv_hidden_resolved_width",
+        "encoder_conv_hidden_resolved_per_block",
+        "encoder_spectral_hidden_resolved_width",
+        "encoder_spectral_hidden_resolved_per_block",
         "max_hidden",
         "resnet_width",
         "resnet_blocks",
         "skip_style",
+        "amp_ssim",
+        "amp_ssim_mean_seed",
         "amp_mae",
         "amp_mse",
+        "phase_ssim",
         "train_wall_time_sec",
         "inference_time_s",
         "model_params",
@@ -1089,7 +1336,8 @@ def run_seed_rerank_aggregation(args: argparse.Namespace) -> None:
             raise PromotionSourceError(
                 "Stage A seed rerank aggregation requires a true-default control anchor "
                 "(modes=12, skip=off, width=32, fno_blocks=4, downsample_schedule=2, "
-                "downsample_op=stride_conv, encoder_conv_hidden=none, "
+                "downsample_op=stride_conv, encoder_conv_hidden_scale=1, "
+                "encoder_spectral_hidden_scale=1, encoder_conv_hidden=none, "
                 "encoder_spectral_hidden=none, max_hidden=none, resnet_width=none, "
                 "resnet_blocks=6, skip_style=add) in --source-summary"
             )
@@ -1101,7 +1349,7 @@ def run_seed_rerank_aggregation(args: argparse.Namespace) -> None:
             )
         control_matches.sort(
             key=lambda row: (
-                _safe_float(row.get("amp_mae"), "amp_mae", default=1e12),
+                -_safe_float(row.get("amp_ssim"), "amp_ssim", default=-1.0),
                 str(row.get("run_id", "")),
             )
         )
@@ -1138,25 +1386,146 @@ def _select_scalar(value_list: Sequence[Any]) -> Any:
     return value_list[0] if value_list else None
 
 
+def _safe_positive_scale(raw: Any, key: str, *, default: float = 1.0) -> float:
+    value = _safe_float(raw, key, default=default)
+    if not math.isfinite(value) or value <= 0.0:
+        raise StageValidationError(f"{key} must be finite and > 0 (got {raw!r})")
+    return float(value)
+
+
+def _optional_positive_int_or_none(raw: Any, key: str) -> int | None:
+    text = str(raw).strip().lower()
+    if text in {"", "none"}:
+        return None
+    value = _safe_int(text, key)
+    if value <= 0:
+        raise StageValidationError(f"{key} must be > 0 when set (got {raw!r})")
+    return value
+
+
+def _derive_encoder_stage_channels(
+    *,
+    width: int,
+    fno_blocks: int,
+    downsample_schedule: int,
+    max_hidden_raw: Any,
+) -> list[int]:
+    max_hidden = _optional_positive_int_or_none(max_hidden_raw, "max_hidden")
+    channels: list[int] = []
+    current = int(width)
+    for block_idx in range(int(fno_blocks)):
+        channels.append(current)
+        if block_idx < int(downsample_schedule):
+            next_channels = current * 2
+            if max_hidden is not None:
+                next_channels = min(next_channels, max_hidden)
+            current = next_channels
+    return channels
+
+
+def _resolve_branch_hidden_metadata(
+    *,
+    stage_channels: Sequence[int],
+    scale: float,
+    explicit_hidden_raw: Any,
+    key_prefix: str,
+) -> dict[str, Any]:
+    explicit_hidden = _optional_positive_int_or_none(explicit_hidden_raw, key_prefix)
+    if explicit_hidden is not None:
+        per_block = [int(explicit_hidden)] * len(stage_channels)
+        runner_hidden = str(explicit_hidden)
+    else:
+        per_block = [max(1, int(round(int(channel) * float(scale)))) for channel in stage_channels]
+        if math.isclose(scale, 1.0, rel_tol=0.0, abs_tol=1e-12):
+            runner_hidden = "none"
+        else:
+            runner_hidden = str(per_block[0])
+
+    return {
+        f"{key_prefix}_resolved_width": runner_hidden,
+        f"{key_prefix}_resolved_per_block": "|".join(str(value) for value in per_block),
+        f"{key_prefix}_runner_hidden": runner_hidden,
+    }
+
+
+def _format_scale_token(value: Any) -> str:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    return f"{numeric:.6g}".replace(".", "p").replace("-", "m")
+
+
+def _enrich_candidate_with_branch_metadata(candidate: Mapping[str, Any]) -> dict[str, Any]:
+    row = dict(candidate)
+    stage_channels = _derive_encoder_stage_channels(
+        width=_safe_int(row.get("width"), "width", default=32),
+        fno_blocks=_safe_int(row.get("fno_blocks"), "fno_blocks", default=4),
+        downsample_schedule=_safe_int(row.get("downsample_schedule"), "downsample_schedule", default=2),
+        max_hidden_raw=row.get("max_hidden", "none"),
+    )
+
+    conv_scale = _safe_positive_scale(
+        row.get("encoder_conv_hidden_scale", 1.0),
+        "encoder_conv_hidden_scale",
+        default=1.0,
+    )
+    spectral_scale = _safe_positive_scale(
+        row.get("encoder_spectral_hidden_scale", 1.0),
+        "encoder_spectral_hidden_scale",
+        default=1.0,
+    )
+    row["encoder_conv_hidden_scale"] = float(conv_scale)
+    row["encoder_spectral_hidden_scale"] = float(spectral_scale)
+    row["encoder_stage_channels"] = "|".join(str(value) for value in stage_channels)
+
+    conv_meta = _resolve_branch_hidden_metadata(
+        stage_channels=stage_channels,
+        scale=conv_scale,
+        explicit_hidden_raw=row.get("encoder_conv_hidden", "none"),
+        key_prefix="encoder_conv_hidden",
+    )
+    spectral_meta = _resolve_branch_hidden_metadata(
+        stage_channels=stage_channels,
+        scale=spectral_scale,
+        explicit_hidden_raw=row.get("encoder_spectral_hidden", "none"),
+        key_prefix="encoder_spectral_hidden",
+    )
+
+    row["encoder_conv_hidden"] = str(conv_meta["encoder_conv_hidden_runner_hidden"])
+    row["encoder_spectral_hidden"] = str(spectral_meta["encoder_spectral_hidden_runner_hidden"])
+    row["encoder_conv_hidden_resolved_width"] = str(conv_meta["encoder_conv_hidden_resolved_width"])
+    row["encoder_spectral_hidden_resolved_width"] = str(
+        spectral_meta["encoder_spectral_hidden_resolved_width"]
+    )
+    row["encoder_conv_hidden_resolved_per_block"] = str(
+        conv_meta["encoder_conv_hidden_resolved_per_block"]
+    )
+    row["encoder_spectral_hidden_resolved_per_block"] = str(
+        spectral_meta["encoder_spectral_hidden_resolved_per_block"]
+    )
+    return row
+
+
 def _build_stage_a_candidates(args: argparse.Namespace) -> list[dict[str, Any]]:
     profiles = _active_profiles(args)
     candidates: list[dict[str, Any]] = []
     for mode, skip, width, profile in itertools.product(args.modes, args.skip_values, args.widths, profiles):
         skip_flag = str(skip).lower()
-        run_key = f"stage{args.stage_id}_n{args.ns}_profile-{profile}_m{mode}_s{skip_flag}_w{width}"
-        candidates.append(
+        candidate = _enrich_candidate_with_branch_metadata(
             {
-                "run_key": run_key,
                 "modes": int(mode),
                 "skip": skip_flag,
                 "width": int(width),
                 "fno_blocks": int(_select_scalar(args.fno_blocks_values) or 4),
                 "downsample_schedule": int(_select_scalar(args.downsample_schedule_values) or 2),
                 "downsample_op": str(_select_scalar(args.downsample_op_values) or "stride_conv"),
-                "encoder_conv_hidden": str(_select_scalar(args.encoder_conv_hidden_values) or "none"),
-                "encoder_spectral_hidden": str(
-                    _select_scalar(args.encoder_spectral_hidden_values) or "none"
+                "encoder_conv_hidden_scale": float(_select_scalar(args.encoder_conv_hidden_scale_values) or 1.0),
+                "encoder_spectral_hidden_scale": float(
+                    _select_scalar(args.encoder_spectral_hidden_scale_values) or 1.0
                 ),
+                "encoder_conv_hidden": str(_select_scalar(args.encoder_conv_hidden_values) or "none"),
+                "encoder_spectral_hidden": str(_select_scalar(args.encoder_spectral_hidden_values) or "none"),
                 "max_hidden": str(_select_scalar(args.max_hidden_values) or "none"),
                 "resnet_width": str(_select_scalar(args.resnet_width_values) or "none"),
                 "resnet_blocks": int(_select_scalar(args.resnet_blocks_values) or 6),
@@ -1164,6 +1533,13 @@ def _build_stage_a_candidates(args: argparse.Namespace) -> list[dict[str, Any]]:
                 "dataset_profile": profile,
             }
         )
+        candidate["run_key"] = (
+            f"stage{args.stage_id}_n{args.ns}_profile-{profile}_m{mode}_s{skip_flag}_w{width}_"
+            f"ecs{_format_scale_token(candidate['encoder_conv_hidden_scale'])}_"
+            f"ess{_format_scale_token(candidate['encoder_spectral_hidden_scale'])}_"
+            f"ec{candidate['encoder_conv_hidden']}_es{candidate['encoder_spectral_hidden']}"
+        )
+        candidates.append(candidate)
     return candidates
 
 
@@ -1175,9 +1551,16 @@ def _active_axis_values(args: argparse.Namespace) -> list[dict[str, Any]]:
     if args.stage_id == "C" and args.substage_id == "C2":
         return [{"downsample_op": str(v)} for v in args.downsample_op_values]
     if args.stage_id == "D" and args.substage_id == "D1":
-        return [{"encoder_conv_hidden": str(v)} for v in args.encoder_conv_hidden_values]
+        if _uses_legacy_conv_hidden_axis(args):
+            return [{"encoder_conv_hidden": str(v)} for v in args.encoder_conv_hidden_values]
+        return [{"encoder_conv_hidden_scale": float(v)} for v in args.encoder_conv_hidden_scale_values]
     if args.stage_id == "D" and args.substage_id == "D2":
-        return [{"encoder_spectral_hidden": str(v)} for v in args.encoder_spectral_hidden_values]
+        if _uses_legacy_spectral_hidden_axis(args):
+            return [{"encoder_spectral_hidden": str(v)} for v in args.encoder_spectral_hidden_values]
+        return [
+            {"encoder_spectral_hidden_scale": float(v)}
+            for v in args.encoder_spectral_hidden_scale_values
+        ]
     if args.stage_id == "D" and args.substage_id == "D3":
         values: list[dict[str, Any]] = []
         max_hidden_multi = len(args.max_hidden_values) > 1
@@ -1226,6 +1609,16 @@ def _build_stage_b_to_e_candidates(
                 anchor_row.get("downsample_schedule"), "downsample_schedule", default=2
             ),
             "downsample_op": _resolve_axis_value(anchor_row.get("downsample_op"), "stride_conv"),
+            "encoder_conv_hidden_scale": _safe_positive_scale(
+                anchor_row.get("encoder_conv_hidden_scale", 1.0),
+                "encoder_conv_hidden_scale",
+                default=1.0,
+            ),
+            "encoder_spectral_hidden_scale": _safe_positive_scale(
+                anchor_row.get("encoder_spectral_hidden_scale", 1.0),
+                "encoder_spectral_hidden_scale",
+                default=1.0,
+            ),
             "encoder_conv_hidden": _resolve_axis_value(anchor_row.get("encoder_conv_hidden"), "none"),
             "encoder_spectral_hidden": _resolve_axis_value(
                 anchor_row.get("encoder_spectral_hidden"), "none"
@@ -1240,10 +1633,13 @@ def _build_stage_b_to_e_candidates(
             row = dict(base)
             row.update(axis_values)
             row["dataset_profile"] = profile
+            row = _enrich_candidate_with_branch_metadata(row)
             row["run_key"] = (
                 f"stage{args.stage_id}{args.substage_id}_n{args.ns}_profile-{profile}_"
                 f"m{row['modes']}_s{row['skip']}_w{row['width']}_"
                 f"fb{row['fno_blocks']}_ds{row['downsample_schedule']}_{row['downsample_op']}_"
+                f"ecs{_format_scale_token(row['encoder_conv_hidden_scale'])}_"
+                f"ess{_format_scale_token(row['encoder_spectral_hidden_scale'])}_"
                 f"ec{row['encoder_conv_hidden']}_es{row['encoder_spectral_hidden']}_"
                 f"mh{row['max_hidden']}_rw{row['resnet_width']}_rb{row['resnet_blocks']}_"
                 f"ss{row['skip_style']}"
@@ -1270,6 +1666,16 @@ def _build_stage_b_to_e_candidates(
                     source.get("downsample_schedule"), "downsample_schedule", default=2
                 ),
                 "downsample_op": _resolve_axis_value(source.get("downsample_op"), "stride_conv"),
+                "encoder_conv_hidden_scale": _safe_positive_scale(
+                    source.get("encoder_conv_hidden_scale", 1.0),
+                    "encoder_conv_hidden_scale",
+                    default=1.0,
+                ),
+                "encoder_spectral_hidden_scale": _safe_positive_scale(
+                    source.get("encoder_spectral_hidden_scale", 1.0),
+                    "encoder_spectral_hidden_scale",
+                    default=1.0,
+                ),
                 "encoder_conv_hidden": _resolve_axis_value(source.get("encoder_conv_hidden"), "none"),
                 "encoder_spectral_hidden": _resolve_axis_value(
                     source.get("encoder_spectral_hidden"), "none"
@@ -1280,7 +1686,7 @@ def _build_stage_b_to_e_candidates(
                 "skip_style": _resolve_axis_value(source.get("skip_style"), "add"),
                 "dataset_profile": profile,
             }
-            candidates.append(row)
+            candidates.append(_enrich_candidate_with_branch_metadata(row))
     return candidates
 
 
@@ -1589,6 +1995,7 @@ def _run_candidate_with_runner(
             f"Expected runner metrics file missing for {candidate['run_key']}: {run_metrics_path}"
         )
     run_metrics = json.loads(run_metrics_path.read_text())
+    amp_ssim = _extract_metric_component(run_metrics.get("ssim"), index=0, key="ssim")
     amp_mae = _extract_metric_component(run_metrics.get("mae"), index=0, key="mae")
     amp_mse = _extract_metric_component(run_metrics.get("mse"), index=0, key="mse")
     phase_ssim = _extract_metric_component(run_metrics.get("ssim"), index=1, key="ssim")
@@ -1606,6 +2013,7 @@ def _run_candidate_with_runner(
     phase_drop = 0.0
 
     return {
+        "amp_ssim": float(amp_ssim),
         "amp_mae": float(amp_mae),
         "amp_mse": float(amp_mse),
         "phase_ssim": float(phase_ssim),
@@ -1614,6 +2022,43 @@ def _run_candidate_with_runner(
         "train_wall_time_sec": float(elapsed),
         "inference_time_s": float(inference_time),
     }
+
+
+def _load_existing_run_metrics(run_dir: Path) -> dict[str, float] | None:
+    metrics_path = run_dir / "metrics.json"
+    if not metrics_path.exists():
+        return None
+    try:
+        payload = json.loads(metrics_path.read_text())
+    except json.JSONDecodeError:
+        return None
+
+    required = (
+        "amp_ssim",
+        "amp_mae",
+        "amp_mse",
+        "phase_ssim",
+        "phase_ssim_drop_vs_baseline",
+        "model_params",
+        "train_wall_time_sec",
+        "inference_time_s",
+    )
+    if any(key not in payload for key in required):
+        return None
+
+    try:
+        return {
+            "amp_ssim": float(payload["amp_ssim"]),
+            "amp_mae": float(payload["amp_mae"]),
+            "amp_mse": float(payload["amp_mse"]),
+            "phase_ssim": float(payload["phase_ssim"]),
+            "phase_ssim_drop_vs_baseline": float(payload["phase_ssim_drop_vs_baseline"]),
+            "model_params": int(float(payload["model_params"])),
+            "train_wall_time_sec": float(payload["train_wall_time_sec"]),
+            "inference_time_s": float(payload["inference_time_s"]),
+        }
+    except (TypeError, ValueError):
+        return None
 
 
 def _write_cleanup_report(
@@ -1721,18 +2166,39 @@ def _reconcile_retention_tiers(
     output_root: Path,
     prune_heavy_artifacts: bool,
 ) -> None:
-    anchor_run_ids = {str(row["run_id"]) for row in rows if _bool_from_value(row.get("is_stage_anchor", False))}
-    if len(anchor_run_ids) != 1:
-        raise PromotionSourceError(
-            "Sweep execution requires exactly one stage anchor row before retention reconciliation "
-            f"(found {len(anchor_run_ids)})."
+    tuple_anchor_run_ids: set[str] = set()
+    grouped_rows: dict[tuple[str, str, int, str], list[dict[str, Any]]] = {}
+    for row in rows:
+        key = (
+            str(row.get("stage_id", "")),
+            str(row.get("substage_id", "")),
+            int(_safe_int(row.get("N"), "N", default=0)),
+            str(row.get("dataset_profile", "")),
         )
-    anchor_run_id = next(iter(anchor_run_ids))
+        grouped_rows.setdefault(key, []).append(row)
+
+    for group_rows in grouped_rows.values():
+        if not group_rows:
+            continue
+        stage_anchor_rows = [row for row in group_rows if _bool_from_value(row.get("is_stage_anchor", False))]
+        if stage_anchor_rows:
+            selected = sorted(stage_anchor_rows, key=lambda payload: int(payload.get("run_index", 0)))[0]
+            tuple_anchor_run_ids.add(str(selected["run_id"]))
+            continue
+
+        feasible_rows = [row for row in group_rows if _bool_from_value(row.get("is_feasible", False))]
+        if feasible_rows:
+            selected = sorted(feasible_rows, key=_candidate_sort_key)[0]
+            tuple_anchor_run_ids.add(str(selected["run_id"]))
+            continue
+
+        selected = sorted(group_rows, key=lambda payload: int(payload.get("run_index", 0)))[0]
+        tuple_anchor_run_ids.add(str(selected["run_id"]))
 
     for row in rows:
         run_id = str(row["run_id"])
         run_dir = output_root / "runs" / run_id
-        if run_id == anchor_run_id:
+        if run_id in tuple_anchor_run_ids:
             retention_tier = "full_anchor"
             deleted_paths: list[str] = []
             bytes_reclaimed = 0
@@ -1748,6 +2214,61 @@ def _reconcile_retention_tiers(
             retention_tier=retention_tier,
             deleted_paths=deleted_paths,
             bytes_reclaimed=bytes_reclaimed,
+        )
+
+
+def _prune_orphan_run_dirs(
+    output_root: Path,
+    *,
+    expected_run_ids: set[str],
+) -> None:
+    runs_root = output_root / "runs"
+    if not runs_root.exists() or not runs_root.is_dir():
+        return
+
+    orphan_dirs: list[Path] = []
+    for child in sorted(runs_root.iterdir()):
+        if not child.is_dir():
+            continue
+        if child.name in expected_run_ids:
+            continue
+        orphan_dirs.append(child)
+
+    if not orphan_dirs:
+        return
+
+    bytes_reclaimed = 0
+    orphan_ids: list[str] = []
+    for orphan_dir in orphan_dirs:
+        bytes_reclaimed += _path_size_bytes(orphan_dir)
+        shutil.rmtree(orphan_dir)
+        orphan_ids.append(orphan_dir.name)
+
+    payload = {
+        "orphan_count": len(orphan_ids),
+        "orphan_run_ids": orphan_ids,
+        "bytes_reclaimed": int(bytes_reclaimed),
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+    }
+    (output_root / "orphan_run_cleanup.json").write_text(json.dumps(payload, indent=2) + "\n")
+
+
+def _validate_manifest_objective_contract(manifest: Mapping[str, Any]) -> None:
+    stage_id = str(manifest.get("stage_id", "")).strip()
+    required = REQUIRED_PROMOTION_OBJECTIVES_BY_STAGE.get(stage_id)
+    if required is None:
+        return
+    observed = tuple(
+        str(value).strip()
+        for value in manifest.get("promotion", {}).get("objectives", [])
+        if str(value).strip()
+    )
+    if observed != required:
+        required_text = ",".join(required)
+        observed_text = ",".join(observed)
+        raise StageValidationError(
+            f"Manifest promotion objectives mismatch for stage {stage_id}: "
+            f"expected {required_text}, got {observed_text}"
         )
 
 
@@ -1794,6 +2315,10 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
     if not candidates:
         raise MatrixExpansionError("Sweep matrix expansion produced zero candidates")
     _enforce_stage_e_skip_enabled(args, candidates)
+    _prune_orphan_run_dirs(
+        args.output_root,
+        expected_run_ids={str(candidate["run_key"]) for candidate in candidates},
+    )
 
     rows: list[dict[str, Any]] = []
     dataset_cache: dict[str, tuple[Path, Path]] = {}
@@ -1801,6 +2326,7 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
         _resolve_profile_npz_inputs(args, profile, dataset_cache)
 
     manifest = build_sweep_manifest(args)
+    _validate_manifest_objective_contract(manifest)
     (args.output_root / "sweep_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
     for index, candidate in enumerate(candidates):
@@ -1813,13 +2339,17 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
             str(candidate["dataset_profile"]),
             dataset_cache,
         )
-        metrics = _run_candidate_with_runner(
-            args=args,
-            candidate=candidate,
-            run_dir=run_dir,
-            train_npz=train_npz,
-            test_npz=test_npz,
-        )
+        metrics = None
+        if args.reuse_existing_run_metrics:
+            metrics = _load_existing_run_metrics(run_dir)
+        if metrics is None:
+            metrics = _run_candidate_with_runner(
+                args=args,
+                candidate=candidate,
+                run_dir=run_dir,
+                train_npz=train_npz,
+                test_npz=test_npz,
+            )
         feasible, violations = _row_feasibility(metrics, args, args.ns)
 
         # Create per-run payload.
@@ -1829,6 +2359,19 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
             "stage_id": args.stage_id,
             "substage_id": args.substage_id,
             "dataset_profile": candidate["dataset_profile"],
+            "encoder_conv_hidden_scale": float(candidate["encoder_conv_hidden_scale"]),
+            "encoder_spectral_hidden_scale": float(candidate["encoder_spectral_hidden_scale"]),
+            "encoder_stage_channels": str(candidate["encoder_stage_channels"]),
+            "encoder_conv_hidden_resolved_width": str(candidate["encoder_conv_hidden_resolved_width"]),
+            "encoder_conv_hidden_resolved_per_block": str(
+                candidate["encoder_conv_hidden_resolved_per_block"]
+            ),
+            "encoder_spectral_hidden_resolved_width": str(
+                candidate["encoder_spectral_hidden_resolved_width"]
+            ),
+            "encoder_spectral_hidden_resolved_per_block": str(
+                candidate["encoder_spectral_hidden_resolved_per_block"]
+            ),
             **metrics,
             "is_feasible": feasible,
             "violated_constraints": violations,
@@ -1850,14 +2393,29 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
             "fno_blocks": int(candidate["fno_blocks"]),
             "downsample_schedule": int(candidate["downsample_schedule"]),
             "downsample_op": str(candidate["downsample_op"]),
+            "encoder_conv_hidden_scale": float(candidate["encoder_conv_hidden_scale"]),
+            "encoder_spectral_hidden_scale": float(candidate["encoder_spectral_hidden_scale"]),
             "encoder_conv_hidden": str(candidate["encoder_conv_hidden"]),
             "encoder_spectral_hidden": str(candidate["encoder_spectral_hidden"]),
+            "encoder_stage_channels": str(candidate["encoder_stage_channels"]),
+            "encoder_conv_hidden_resolved_width": str(candidate["encoder_conv_hidden_resolved_width"]),
+            "encoder_conv_hidden_resolved_per_block": str(
+                candidate["encoder_conv_hidden_resolved_per_block"]
+            ),
+            "encoder_spectral_hidden_resolved_width": str(
+                candidate["encoder_spectral_hidden_resolved_width"]
+            ),
+            "encoder_spectral_hidden_resolved_per_block": str(
+                candidate["encoder_spectral_hidden_resolved_per_block"]
+            ),
             "max_hidden": str(candidate["max_hidden"]),
             "resnet_width": str(candidate["resnet_width"]),
             "resnet_blocks": int(candidate["resnet_blocks"]),
             "skip_style": str(candidate["skip_style"]),
+            "amp_ssim": float(metrics["amp_ssim"]),
             "amp_mae": float(metrics["amp_mae"]),
             "amp_mse": float(metrics["amp_mse"]),
+            "phase_ssim": float(metrics["phase_ssim"]),
             "phase_ssim_drop_vs_baseline": float(metrics["phase_ssim_drop_vs_baseline"]),
             "max_phase_ssim_drop": float(args.max_phase_ssim_drop),
             "phase_guardrail_pass": bool(metrics["phase_ssim_drop_vs_baseline"] <= args.max_phase_ssim_drop),
@@ -1893,17 +2451,28 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
     # Macro rank (median profile rank per candidate key).
     by_candidate: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
-        candidate_key = f"{row['modes']}|{row['skip']}|{row['width']}|{row['fno_blocks']}|{row['downsample_schedule']}|{row['downsample_op']}|{row['encoder_conv_hidden']}|{row['encoder_spectral_hidden']}|{row['max_hidden']}|{row['resnet_width']}|{row['resnet_blocks']}|{row['skip_style']}"
+        candidate_key = (
+            f"{row['modes']}|{row['skip']}|{row['width']}|{row['fno_blocks']}|"
+            f"{row['downsample_schedule']}|{row['downsample_op']}|"
+            f"{row['encoder_conv_hidden_scale']}|{row['encoder_spectral_hidden_scale']}|"
+            f"{row['encoder_conv_hidden']}|{row['encoder_spectral_hidden']}|"
+            f"{row['max_hidden']}|{row['resnet_width']}|{row['resnet_blocks']}|{row['skip_style']}"
+        )
         by_candidate.setdefault(candidate_key, []).append(row)
 
     macro_items: list[tuple[str, float, float]] = []
+    mean_params_by_candidate: dict[str, float] = {}
     for key, candidate_rows in by_candidate.items():
         profile_ranks = sorted(int(r["pareto_rank_profile"]) for r in candidate_rows)
         median_rank = profile_ranks[len(profile_ranks) // 2]
-        mean_amp = sum(float(r["amp_mae"]) for r in candidate_rows) / len(candidate_rows)
-        macro_items.append((key, float(median_rank), float(mean_amp)))
+        mean_amp_ssim = sum(float(r["amp_ssim"]) for r in candidate_rows) / len(candidate_rows)
+        mean_params = sum(float(r["model_params"]) for r in candidate_rows) / len(candidate_rows)
+        mean_params_by_candidate[key] = float(mean_params)
+        macro_items.append((key, float(median_rank), float(mean_amp_ssim)))
 
-    macro_items.sort(key=lambda item: (item[1], item[2], item[0]))
+    macro_items.sort(
+        key=lambda item: (item[1], -item[2], mean_params_by_candidate[item[0]], item[0])
+    )
     macro_rank_map = {key: idx + 1 for idx, (key, _, _) in enumerate(macro_items)}
 
     for key, candidate_rows in by_candidate.items():
@@ -1912,7 +2481,7 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
             row["pareto_rank_macro"] = int(rank)
 
     feasible_rows = [row for row in rows if _bool_from_value(row["is_feasible"])]
-    feasible_rows.sort(key=lambda row: (float(row["pareto_rank_macro"]), float(row["amp_mae"]), row["run_id"]))
+    feasible_rows.sort(key=_candidate_sort_key)
 
     # Promotion and stage-anchor flags.
     if feasible_rows:
@@ -1940,14 +2509,23 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
         "fno_blocks",
         "downsample_schedule",
         "downsample_op",
+        "encoder_conv_hidden_scale",
+        "encoder_spectral_hidden_scale",
         "encoder_conv_hidden",
         "encoder_spectral_hidden",
+        "encoder_stage_channels",
+        "encoder_conv_hidden_resolved_width",
+        "encoder_conv_hidden_resolved_per_block",
+        "encoder_spectral_hidden_resolved_width",
+        "encoder_spectral_hidden_resolved_per_block",
         "max_hidden",
         "resnet_width",
         "resnet_blocks",
         "skip_style",
+        "amp_ssim",
         "amp_mae",
         "amp_mse",
+        "phase_ssim",
         "phase_ssim_drop_vs_baseline",
         "max_phase_ssim_drop",
         "phase_guardrail_pass",
@@ -2008,12 +2586,13 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
         f.write(f"- summary_schema_version: {SUMMARY_SCHEMA_VERSION}\n")
 
         f.write("\n## Candidates\n\n")
-        f.write("| run_id | dataset_profile | modes | skip | width | fno_blocks | amp_mae | is_feasible |\n")
-        f.write("| --- | --- | --- | --- | --- | --- | --- | --- |\n")
+        f.write("| run_id | dataset_profile | modes | skip | width | fno_blocks | amp_ssim | amp_mae | is_feasible |\n")
+        f.write("| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n")
         for row in rows:
             f.write(
                 f"| {row['run_id']} | {row['dataset_profile']} | {row['modes']} | {row['skip']} | "
-                f"{row['width']} | {row['fno_blocks']} | {float(row['amp_mae']):.6f} | {row['is_feasible']} |\n"
+                f"{row['width']} | {row['fno_blocks']} | {float(row['amp_ssim']):.6f} | "
+                f"{float(row['amp_mae']):.6f} | {row['is_feasible']} |\n"
             )
 
     return 0

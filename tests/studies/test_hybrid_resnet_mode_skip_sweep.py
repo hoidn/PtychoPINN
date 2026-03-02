@@ -26,6 +26,9 @@ def _write_source_summary(path: Path, rows: list[dict[str, object]]) -> None:
         "modes",
         "skip",
         "width",
+        "encoder_conv_hidden_scale",
+        "encoder_spectral_hidden_scale",
+        "amp_ssim",
         "amp_mae",
         "amp_mse",
         "phase_ssim_drop_vs_baseline",
@@ -36,7 +39,17 @@ def _write_source_summary(path: Path, rows: list[dict[str, object]]) -> None:
         "is_feasible",
         "is_stage_anchor",
     ]
-    _write_csv(path, fieldnames, rows)
+    normalized_rows: list[dict[str, object]] = []
+    for row in rows:
+        row_copy = dict(row)
+        if row_copy.get("amp_ssim") in (None, ""):
+            amp_mae = row_copy.get("amp_mae")
+            if amp_mae in (None, ""):
+                row_copy["amp_ssim"] = 0.9
+            else:
+                row_copy["amp_ssim"] = max(0.0, min(1.0, 1.0 - float(amp_mae)))
+        normalized_rows.append(row_copy)
+    _write_csv(path, fieldnames, normalized_rows)
 
 
 def _write_seed_summary(path: Path, rows: list[dict[str, object]]) -> None:
@@ -47,15 +60,29 @@ def _write_seed_summary(path: Path, rows: list[dict[str, object]]) -> None:
         "modes",
         "skip",
         "width",
+        "amp_ssim",
         "amp_mae",
         "amp_mse",
+        "phase_ssim",
         "train_wall_time_sec",
         "inference_time_s",
         "model_params",
         "phase_ssim_drop_vs_baseline",
         "is_feasible",
     ]
-    _write_csv(path, fieldnames, rows)
+    normalized_rows: list[dict[str, object]] = []
+    for row in rows:
+        row_copy = dict(row)
+        if row_copy.get("amp_ssim") in (None, ""):
+            amp_mae = row_copy.get("amp_mae")
+            if amp_mae in (None, ""):
+                row_copy["amp_ssim"] = 0.9
+            else:
+                row_copy["amp_ssim"] = max(0.0, min(1.0, 1.0 - float(amp_mae)))
+        if row_copy.get("phase_ssim") in (None, ""):
+            row_copy["phase_ssim"] = float(row_copy.get("amp_ssim", 0.9))
+        normalized_rows.append(row_copy)
+    _write_csv(path, fieldnames, normalized_rows)
 
 
 def test_stage_id_guardrail_rejects_missing_stage_c_substage(tmp_path, capsys):
@@ -178,6 +205,24 @@ def test_stage_a_guardrail_rejects_non_default_scalar_structural_axis(tmp_path, 
     stderr = capsys.readouterr().err
     assert "Stage A can only vary {modes, skip-values, widths}" in stderr
     assert "fno_blocks=5" in stderr
+
+
+def test_guardrail_rejects_non_plan_objective_tuple(tmp_path, capsys):
+    rc = sweep.main(
+        [
+            "--stage-id",
+            "A",
+            "--ns",
+            "128",
+            "--promotion-objectives",
+            "amp_mae,train_wall_time_sec",
+            "--output-root",
+            str(tmp_path / "out"),
+        ]
+    )
+
+    assert rc == 1
+    assert "requires --promotion-objectives amp_ssim,train_wall_time_sec" in capsys.readouterr().err
 
 
 def test_guardrail_rejects_missing_summary_schema_version(tmp_path, capsys):
@@ -305,6 +350,153 @@ def test_guardrail_rejects_invalid_resnet_width_value(tmp_path, capsys):
     assert rc == 1
     assert "resnet_width must be positive and divisible by 4" in capsys.readouterr().err
 
+
+def test_stage_id_parse_defaults_include_branch_scale_axes():
+    args = sweep.parse_args(["--stage-id", "A", "--output-root", "tmp/out"])
+    assert args.encoder_conv_hidden_scale_values == [1.0]
+    assert args.encoder_spectral_hidden_scale_values == [1.0]
+
+
+def test_guardrail_rejects_mixed_scale_and_legacy_hidden_axes(tmp_path, capsys):
+    source_summary = tmp_path / "source.csv"
+    _write_source_summary(
+        source_summary,
+        [
+            {
+                "summary_schema_version": "v1",
+                "run_id": "anchor",
+                "stage_id": "C",
+                "substage_id": "C2",
+                "modes": "12",
+                "skip": "off",
+                "width": "32",
+                "amp_mae": 0.08,
+                "amp_mse": 0.01,
+                "phase_ssim_drop_vs_baseline": 0.0,
+                "train_wall_time_sec": 100,
+                "inference_time_s": 1.0,
+                "model_params": 1000,
+                "pareto_rank_macro": 1,
+                "is_feasible": True,
+                "is_stage_anchor": True,
+            }
+        ],
+    )
+
+    rc = sweep.main(
+        [
+            "--stage-id",
+            "D",
+            "--substage-id",
+            "D1",
+            "--ns",
+            "128",
+            "--promotion-source-summary",
+            str(source_summary),
+            "--encoder-conv-hidden-scale-values",
+            "0.5,1,2",
+            "--encoder-conv-hidden-values",
+            "32",
+            "--output-root",
+            str(tmp_path / "out"),
+        ]
+    )
+
+    assert rc == 1
+    assert "Cannot combine legacy --encoder-conv-hidden-values sweeps" in capsys.readouterr().err
+
+
+def test_stage_id_d1_scale_sweep_persists_resolved_width_metadata_and_runner_values(
+    tmp_path, monkeypatch
+):
+    source_summary = tmp_path / "source.csv"
+    _write_source_summary(
+        source_summary,
+        [
+            {
+                "summary_schema_version": "v1",
+                "run_id": "anchor",
+                "stage_id": "C",
+                "substage_id": "C2",
+                "modes": "12",
+                "skip": "off",
+                "width": "32",
+                "amp_mae": 0.08,
+                "amp_mse": 0.01,
+                "phase_ssim_drop_vs_baseline": 0.0,
+                "train_wall_time_sec": 100,
+                "inference_time_s": 1.0,
+                "model_params": 1000,
+                "pareto_rank_macro": 1,
+                "is_feasible": True,
+                "is_stage_anchor": True,
+            }
+        ],
+    )
+
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    train_npz.touch()
+    test_npz.touch()
+
+    observed_candidates: list[dict[str, object]] = []
+
+    def _fake_runner(*, args, candidate, run_dir, train_npz, test_npz):
+        _ = (args, run_dir, train_npz, test_npz)
+        observed_candidates.append(dict(candidate))
+        return {
+            "amp_ssim": 0.92,
+            "amp_mae": 0.08,
+            "amp_mse": 0.01,
+            "phase_ssim": 0.9,
+            "phase_ssim_drop_vs_baseline": 0.0,
+            "model_params": 1234,
+            "train_wall_time_sec": 12.0,
+            "inference_time_s": 1.0,
+        }
+
+    monkeypatch.setattr(sweep, "_run_candidate_with_runner", _fake_runner)
+
+    output_root = tmp_path / "stage_d1_scale"
+    rc = sweep.main(
+        [
+            "--stage-id",
+            "D",
+            "--substage-id",
+            "D1",
+            "--ns",
+            "128",
+            "--promotion-source-summary",
+            str(source_summary),
+            "--dataset-profiles-n128",
+            "custom_npz_pair_n128",
+            "--custom-n128-train-npz",
+            str(train_npz),
+            "--custom-n128-test-npz",
+            str(test_npz),
+            "--encoder-conv-hidden-scale-values",
+            "0.5,1,2",
+            "--top-k-n256",
+            "0",
+            "--output-root",
+            str(output_root),
+        ]
+    )
+    assert rc == 0
+    assert len(observed_candidates) == 3
+
+    by_scale = {float(candidate["encoder_conv_hidden_scale"]): candidate for candidate in observed_candidates}
+    assert by_scale[0.5]["encoder_conv_hidden"] == "16"
+    assert by_scale[1.0]["encoder_conv_hidden"] == "none"
+    assert by_scale[2.0]["encoder_conv_hidden"] == "64"
+    assert by_scale[2.0]["encoder_conv_hidden_resolved_per_block"] == "64|128|256|256"
+    assert by_scale[1.0]["encoder_stage_channels"] == "32|64|128|128"
+
+    summary_rows = list(csv.DictReader((output_root / "summary.csv").open()))
+    assert "encoder_conv_hidden_scale" in summary_rows[0]
+    assert "encoder_conv_hidden_resolved_width" in summary_rows[0]
+    assert "encoder_conv_hidden_resolved_per_block" in summary_rows[0]
+    assert "encoder_stage_channels" in summary_rows[0]
 
 def test_stage_e_candidates_force_skip_on_even_if_anchor_is_off(tmp_path):
     train_npz = tmp_path / "train.npz"
@@ -448,7 +640,9 @@ def test_invocation_and_cleanup_artifacts_are_written(tmp_path, monkeypatch):
         (runtime_root / "checkpoints" / "epoch=0-step=1.ckpt").write_bytes(b"c" * 128)
         (runtime_root / "lightning_logs" / "version_0" / "events.out.tfevents").write_bytes(b"l" * 96)
         (runtime_root / "model.pt").write_bytes(b"m" * 64)
+        amp_ssim = 0.92 if candidate["skip"] == "off" else 0.91
         return {
+            "amp_ssim": amp_ssim,
             "amp_mae": 0.08 if candidate["skip"] == "off" else 0.09,
             "amp_mse": 0.01,
             "phase_ssim": 0.9,
@@ -491,6 +685,8 @@ def test_invocation_and_cleanup_artifacts_are_written(tmp_path, monkeypatch):
     summary_rows = list(csv.DictReader((output_root / "summary.csv").open()))
     assert len(summary_rows) == 2
     assert "train_wall_time_sec" in summary_rows[0]
+    assert "phase_ssim" in summary_rows[0]
+    assert summary_rows[0]["phase_ssim"] != ""
     assert "phase_ssim_drop_vs_baseline" in summary_rows[0]
     assert "is_feasible" in summary_rows[0]
     assert "pareto_rank_macro" in summary_rows[0]
@@ -538,6 +734,221 @@ def test_invocation_and_cleanup_artifacts_are_written(tmp_path, monkeypatch):
     assert any("checkpoints" in path for path in pruned_report["deleted_paths"])
 
 
+def test_sweep_prunes_orphan_run_dirs_not_in_current_summary(tmp_path, monkeypatch):
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    train_npz.touch()
+    test_npz.touch()
+
+    def _fake_runner(*, args, candidate, run_dir, train_npz, test_npz):
+        _ = (args, candidate, train_npz, test_npz)
+        runtime_root = run_dir / "runs" / "pinn_hybrid_resnet"
+        runtime_root.mkdir(parents=True, exist_ok=True)
+        (runtime_root / "model.pt").write_bytes(b"m" * 16)
+        return {
+            "amp_ssim": 0.92,
+            "amp_mae": 0.08,
+            "amp_mse": 0.01,
+            "phase_ssim": 0.90,
+            "phase_ssim_drop_vs_baseline": 0.0,
+            "model_params": 1234,
+            "train_wall_time_sec": 12.0,
+            "inference_time_s": 1.0,
+        }
+
+    monkeypatch.setattr(sweep, "_run_candidate_with_runner", _fake_runner)
+
+    output_root = tmp_path / "stage_a"
+    orphan_dir = output_root / "runs" / "legacy_orphan_run"
+    orphan_dir.mkdir(parents=True, exist_ok=True)
+    (orphan_dir / "stale.bin").write_bytes(b"x" * 128)
+
+    rc = sweep.main(
+        [
+            "--stage-id",
+            "A",
+            "--ns",
+            "128",
+            "--dataset-profiles-n128",
+            "custom_npz_pair_n128",
+            "--custom-n128-train-npz",
+            str(train_npz),
+            "--custom-n128-test-npz",
+            str(test_npz),
+            "--modes",
+            "12",
+            "--skip-values",
+            "off",
+            "--widths",
+            "32",
+            "--output-root",
+            str(output_root),
+        ]
+    )
+    assert rc == 0
+    assert orphan_dir.exists() is False
+
+    cleanup_payload = json.loads((output_root / "orphan_run_cleanup.json").read_text())
+    assert cleanup_payload["orphan_count"] == 1
+    assert cleanup_payload["orphan_run_ids"] == ["legacy_orphan_run"]
+    assert cleanup_payload["bytes_reclaimed"] >= 128
+
+
+def test_stage_a_multi_profile_retention_keeps_full_anchor_per_profile(tmp_path, monkeypatch):
+    custom_train = tmp_path / "custom_train.npz"
+    custom_test = tmp_path / "custom_test.npz"
+    fly_train = tmp_path / "fly_train.npz"
+    fly_test = tmp_path / "fly_test.npz"
+    custom_train.touch()
+    custom_test.touch()
+    fly_train.touch()
+    fly_test.touch()
+
+    def _fake_runner(*, args, candidate, run_dir, train_npz, test_npz):
+        _ = (args, train_npz, test_npz)
+        (run_dir / "checkpoints").mkdir(parents=True, exist_ok=True)
+        (run_dir / "checkpoints" / "epoch=0-step=1.ckpt").write_bytes(b"z" * 32)
+        runtime_root = run_dir / "runs" / "pinn_hybrid_resnet"
+        runtime_root.mkdir(parents=True, exist_ok=True)
+        (runtime_root / "model.pt").write_bytes(b"m" * 32)
+        mode = int(candidate["modes"])
+        amp_ssim = 0.95 if mode == 12 else 0.90
+        amp_mae = 0.05 if mode == 12 else 0.10
+        return {
+            "amp_ssim": amp_ssim,
+            "amp_mae": amp_mae,
+            "amp_mse": 0.01,
+            "phase_ssim": 0.90,
+            "phase_ssim_drop_vs_baseline": 0.0,
+            "model_params": 1111,
+            "train_wall_time_sec": 10.0 + float(mode),
+            "inference_time_s": 1.0,
+        }
+
+    monkeypatch.setattr(sweep, "_run_candidate_with_runner", _fake_runner)
+
+    output_root = tmp_path / "stage_a_multi_profile"
+    rc = sweep.main(
+        [
+            "--stage-id",
+            "A",
+            "--ns",
+            "128",
+            "--dataset-profiles-n128",
+            "custom_npz_pair_n128,fly001_external_n128_top_bottom_v1",
+            "--custom-n128-train-npz",
+            str(custom_train),
+            "--custom-n128-test-npz",
+            str(custom_test),
+            "--fly001-external-train-npz",
+            str(fly_train),
+            "--fly001-external-test-npz",
+            str(fly_test),
+            "--modes",
+            "12,16",
+            "--skip-values",
+            "off",
+            "--widths",
+            "32",
+            "--output-root",
+            str(output_root),
+        ]
+    )
+    assert rc == 0
+
+    rows = list(csv.DictReader((output_root / "summary.csv").open()))
+    assert len(rows) == 4
+    anchors = [row for row in rows if row["retention_tier"] == "full_anchor"]
+    assert len(anchors) == 2
+    assert {row["dataset_profile"] for row in anchors} == {
+        "custom_npz_pair_n128",
+        "fly001_external_n128_top_bottom_v1",
+    }
+    assert {row["modes"] for row in anchors} == {"12"}
+
+    pruned_rows = [row for row in rows if row["retention_tier"] == "pruned"]
+    assert len(pruned_rows) == 2
+    for row in pruned_rows:
+        run_dir = output_root / "runs" / row["run_id"]
+        runtime_root = run_dir / "runs" / "pinn_hybrid_resnet"
+        assert (run_dir / "checkpoints").exists() is False
+        assert (runtime_root / "model.pt").exists() is False
+
+
+def test_reuse_existing_run_metrics_skips_runner_execution(tmp_path, monkeypatch):
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    train_npz.touch()
+    test_npz.touch()
+
+    output_root = tmp_path / "stage_a_reuse"
+    run_id = "stageA_n128_profile-custom_npz_pair_n128_m12_soff_w32_ecs1_ess1_ecnone_esnone"
+    run_dir = output_root / "runs" / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "metrics.json").write_text(
+        json.dumps(
+            {
+                "summary_schema_version": "hybrid_resnet_mode_skip_sweep.v1",
+                "run_id": run_id,
+                "stage_id": "A",
+                "substage_id": "none",
+                "dataset_profile": "custom_npz_pair_n128",
+                "amp_ssim": 0.987,
+                "amp_mae": 0.011,
+                "amp_mse": 0.0009,
+                "phase_ssim": 0.973,
+                "phase_ssim_drop_vs_baseline": 0.0,
+                "model_params": 1111,
+                "train_wall_time_sec": 12.5,
+                "inference_time_s": 0.8,
+                "is_feasible": True,
+                "violated_constraints": [],
+                "probe_mask_enabled": False,
+                "torch_mae_pred_l2_match_target": False,
+            }
+        )
+        + "\n"
+    )
+
+    def _boom_runner(**kwargs):
+        _ = kwargs
+        raise AssertionError("runner should not execute when reuse-existing-run-metrics is enabled")
+
+    monkeypatch.setattr(sweep, "_run_candidate_with_runner", _boom_runner)
+
+    rc = sweep.main(
+        [
+            "--stage-id",
+            "A",
+            "--ns",
+            "128",
+            "--dataset-profiles-n128",
+            "custom_npz_pair_n128",
+            "--custom-n128-train-npz",
+            str(train_npz),
+            "--custom-n128-test-npz",
+            str(test_npz),
+            "--modes",
+            "12",
+            "--skip-values",
+            "off",
+            "--widths",
+            "32",
+            "--reuse-existing-run-metrics",
+            "--output-root",
+            str(output_root),
+        ]
+    )
+
+    assert rc == 0
+    rows = list(csv.DictReader((output_root / "summary.csv").open()))
+    assert len(rows) == 1
+    assert abs(float(rows[0]["amp_ssim"]) - 0.987) < 1e-9
+    assert abs(float(rows[0]["amp_mae"]) - 0.011) < 1e-9
+    assert abs(float(rows[0]["amp_mse"]) - 0.0009) < 1e-9
+    assert rows[0]["run_id"] == run_id
+
+
 def test_stage_c_run_sweep_emits_default_stage_anchor_summary(tmp_path, monkeypatch):
     source_summary = tmp_path / "source.csv"
     _write_source_summary(
@@ -583,6 +994,7 @@ def test_stage_c_run_sweep_emits_default_stage_anchor_summary(tmp_path, monkeypa
         (runtime_root / "model.pt").write_bytes(b"m" * 64)
         amp_mae = 0.07 if int(candidate["downsample_schedule"]) == 2 else 0.08
         return {
+            "amp_ssim": 0.93 if int(candidate["downsample_schedule"]) == 2 else 0.91,
             "amp_mae": amp_mae,
             "amp_mse": 0.01,
             "phase_ssim": 0.9,
@@ -666,6 +1078,7 @@ def test_manifest_hashes_include_generated_profile_npz(tmp_path, monkeypatch):
     def _fake_runner(*, args, candidate, run_dir, train_npz, test_npz):
         _ = (args, candidate, run_dir, train_npz, test_npz)
         return {
+            "amp_ssim": 0.92,
             "amp_mae": 0.08,
             "amp_mse": 0.01,
             "phase_ssim": 0.9,
@@ -737,6 +1150,7 @@ def test_summary_markdown_includes_stage_metadata_and_fno_blocks_column(tmp_path
     def _fake_runner(*, args, candidate, run_dir, train_npz, test_npz):
         _ = (args, candidate, run_dir, train_npz, test_npz)
         return {
+            "amp_ssim": 0.92,
             "amp_mae": 0.08,
             "amp_mse": 0.01,
             "phase_ssim": 0.9,
@@ -1081,6 +1495,8 @@ def test_guardrail_seed_rerank_writes_median_pareto_summary_and_anchor(tmp_path)
     assert anchor_rows[0]["fno_blocks"] == "4"
     assert anchor_rows[0]["downsample_schedule"] == "2"
     assert anchor_rows[0]["downsample_op"] == "stride_conv"
+    assert anchor_rows[0]["encoder_conv_hidden_scale"] == "1.0"
+    assert anchor_rows[0]["encoder_spectral_hidden_scale"] == "1.0"
     assert anchor_rows[0]["encoder_conv_hidden"] == "none"
     assert anchor_rows[0]["encoder_spectral_hidden"] == "none"
     assert anchor_rows[0]["max_hidden"] == "none"
@@ -1201,6 +1617,7 @@ def test_n256_promotion_deduplicates_rows_by_config(tmp_path, monkeypatch):
         "resnet_width",
         "resnet_blocks",
         "skip_style",
+        "amp_ssim",
         "amp_mae",
         "amp_mse",
         "train_wall_time_sec",
@@ -1236,6 +1653,7 @@ def test_n256_promotion_deduplicates_rows_by_config(tmp_path, monkeypatch):
                 "resnet_width": "none",
                 "resnet_blocks": 6,
                 "skip_style": "add",
+                "amp_ssim": 0.92,
                 "amp_mae": 0.08,
                 "amp_mse": 0.01,
                 "train_wall_time_sec": 100,
@@ -1267,6 +1685,7 @@ def test_n256_promotion_deduplicates_rows_by_config(tmp_path, monkeypatch):
                 "resnet_width": "none",
                 "resnet_blocks": 6,
                 "skip_style": "add",
+                "amp_ssim": 0.919,
                 "amp_mae": 0.081,
                 "amp_mse": 0.011,
                 "train_wall_time_sec": 101,
@@ -1298,6 +1717,7 @@ def test_n256_promotion_deduplicates_rows_by_config(tmp_path, monkeypatch):
                 "resnet_width": "none",
                 "resnet_blocks": 6,
                 "skip_style": "add",
+                "amp_ssim": 0.918,
                 "amp_mae": 0.082,
                 "amp_mse": 0.012,
                 "train_wall_time_sec": 102,
@@ -1318,6 +1738,7 @@ def test_n256_promotion_deduplicates_rows_by_config(tmp_path, monkeypatch):
     def _fake_runner(*, args, candidate, run_dir, train_npz, test_npz):
         _ = (args, run_dir, train_npz, test_npz)
         return {
+            "amp_ssim": 0.90 - (0.001 * int(candidate["modes"])),
             "amp_mae": 0.09 + (0.001 * int(candidate["modes"])),
             "amp_mse": 0.01,
             "phase_ssim": 0.9,
