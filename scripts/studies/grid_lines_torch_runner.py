@@ -35,6 +35,7 @@ See also:
 import argparse
 import json
 import logging
+import math
 import random
 import sys
 from dataclasses import dataclass
@@ -110,6 +111,9 @@ class TorchRunnerConfig:
     hybrid_skip_connections: bool = False
     hybrid_downsample_steps: int = 2
     hybrid_downsample_op: str = "stride_conv"
+    hybrid_encoder_conv_hidden_scale: float = 1.0
+    hybrid_encoder_spectral_hidden_scale: float = 1.0
+    # Legacy absolute-width aliases retained for compatibility with older runbooks.
     hybrid_encoder_conv_hidden_channels: Optional[int] = None
     hybrid_encoder_spectral_hidden_channels: Optional[int] = None
     hybrid_resnet_blocks: int = 6
@@ -495,6 +499,22 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
                 f"(got {cfg.hybrid_downsample_op!r})."
             )
         if (
+            not math.isfinite(float(cfg.hybrid_encoder_conv_hidden_scale))
+            or float(cfg.hybrid_encoder_conv_hidden_scale) <= 0.0
+        ):
+            raise ValueError(
+                "hybrid_encoder_conv_hidden_scale must be finite and > 0 "
+                f"(got {cfg.hybrid_encoder_conv_hidden_scale})."
+            )
+        if (
+            not math.isfinite(float(cfg.hybrid_encoder_spectral_hidden_scale))
+            or float(cfg.hybrid_encoder_spectral_hidden_scale) <= 0.0
+        ):
+            raise ValueError(
+                "hybrid_encoder_spectral_hidden_scale must be finite and > 0 "
+                f"(got {cfg.hybrid_encoder_spectral_hidden_scale})."
+            )
+        if (
             cfg.hybrid_encoder_conv_hidden_channels is not None
             and cfg.hybrid_encoder_conv_hidden_channels <= 0
         ):
@@ -589,6 +609,8 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         hybrid_skip_connections=cfg.hybrid_skip_connections,
         hybrid_downsample_steps=cfg.hybrid_downsample_steps,
         hybrid_downsample_op=cfg.hybrid_downsample_op,
+        hybrid_encoder_conv_hidden_scale=cfg.hybrid_encoder_conv_hidden_scale,
+        hybrid_encoder_spectral_hidden_scale=cfg.hybrid_encoder_spectral_hidden_scale,
         hybrid_encoder_conv_hidden_channels=cfg.hybrid_encoder_conv_hidden_channels,
         hybrid_encoder_spectral_hidden_channels=cfg.hybrid_encoder_spectral_hidden_channels,
         hybrid_resnet_blocks=cfg.hybrid_resnet_blocks,
@@ -1127,16 +1149,48 @@ def main(argv=None) -> None:
         help="Hybrid ResNet downsample operator family.",
     )
     parser.add_argument(
+        "--hybrid-encoder-conv-hidden-scale",
+        type=float,
+        default=1.0,
+        help=(
+            "Scale factor for hybrid_resnet encoder local-conv branch width; "
+            "resolved per block as round(stage_channels * scale)."
+        ),
+    )
+    parser.add_argument(
+        "--hybrid-encoder-spectral-hidden-scale",
+        type=float,
+        default=1.0,
+        help=(
+            "Scale factor for hybrid_resnet encoder spectral branch width; "
+            "resolved per block as round(stage_channels * scale)."
+        ),
+    )
+    parser.add_argument(
         "--hybrid-encoder-conv-hidden",
         type=int,
         default=None,
-        help="Optional internal width for hybrid_resnet encoder local-conv branch.",
+        help="Legacy absolute width for hybrid_resnet encoder local-conv branch.",
     )
     parser.add_argument(
         "--hybrid-encoder-spectral-hidden",
         type=int,
         default=None,
-        help="Optional internal width for hybrid_resnet encoder spectral branch.",
+        help="Legacy absolute width for hybrid_resnet encoder spectral branch.",
+    )
+    parser.add_argument(
+        "--hybrid-encoder-conv-hidden-channels",
+        dest="hybrid_encoder_conv_hidden",
+        type=int,
+        default=None,
+        help="Alias for --hybrid-encoder-conv-hidden.",
+    )
+    parser.add_argument(
+        "--hybrid-encoder-spectral-hidden-channels",
+        dest="hybrid_encoder_spectral_hidden",
+        type=int,
+        default=None,
+        help="Alias for --hybrid-encoder-spectral-hidden.",
     )
     parser.add_argument(
         "--hybrid-resnet-blocks",
@@ -1281,6 +1335,8 @@ def main(argv=None) -> None:
         hybrid_skip_connections=args.hybrid_skip_connections,
         hybrid_downsample_steps=args.hybrid_downsample_steps,
         hybrid_downsample_op=args.hybrid_downsample_op,
+        hybrid_encoder_conv_hidden_scale=args.hybrid_encoder_conv_hidden_scale,
+        hybrid_encoder_spectral_hidden_scale=args.hybrid_encoder_spectral_hidden_scale,
         hybrid_encoder_conv_hidden_channels=args.hybrid_encoder_conv_hidden,
         hybrid_encoder_spectral_hidden_channels=args.hybrid_encoder_spectral_hidden,
         hybrid_resnet_blocks=args.hybrid_resnet_blocks,

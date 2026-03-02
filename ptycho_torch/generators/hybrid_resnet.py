@@ -122,6 +122,8 @@ class HybridResnetGeneratorModule(nn.Module):
         skip_connections: bool = False,
         hybrid_downsample_steps: int = 2,
         hybrid_downsample_op: Literal["stride_conv", "avgpool_conv", "blurpool_conv"] = "stride_conv",
+        hybrid_encoder_conv_hidden_scale: float = 1.0,
+        hybrid_encoder_spectral_hidden_scale: float = 1.0,
         hybrid_encoder_conv_hidden_channels: Optional[int] = None,
         hybrid_encoder_spectral_hidden_channels: Optional[int] = None,
         hybrid_skip_style: Literal["add", "concat", "gated_add"] = "add",
@@ -140,6 +142,22 @@ class HybridResnetGeneratorModule(nn.Module):
         if hybrid_skip_style not in {"add", "concat", "gated_add"}:
             raise ValueError(
                 f"hybrid_skip_style must be one of add|concat|gated_add (got {hybrid_skip_style!r})."
+            )
+        if (
+            not math.isfinite(float(hybrid_encoder_conv_hidden_scale))
+            or float(hybrid_encoder_conv_hidden_scale) <= 0.0
+        ):
+            raise ValueError(
+                "hybrid_encoder_conv_hidden_scale must be finite and > 0 "
+                f"(got {hybrid_encoder_conv_hidden_scale})."
+            )
+        if (
+            not math.isfinite(float(hybrid_encoder_spectral_hidden_scale))
+            or float(hybrid_encoder_spectral_hidden_scale) <= 0.0
+        ):
+            raise ValueError(
+                "hybrid_encoder_spectral_hidden_scale must be finite and > 0 "
+                f"(got {hybrid_encoder_spectral_hidden_scale})."
             )
         if hybrid_encoder_conv_hidden_channels is not None and hybrid_encoder_conv_hidden_channels <= 0:
             raise ValueError(
@@ -167,6 +185,8 @@ class HybridResnetGeneratorModule(nn.Module):
         self.skip_connections = bool(skip_connections)
         self.hybrid_skip_style = hybrid_skip_style
         self.hybrid_downsample_steps = int(hybrid_downsample_steps)
+        self.hybrid_encoder_conv_hidden_scale = float(hybrid_encoder_conv_hidden_scale)
+        self.hybrid_encoder_spectral_hidden_scale = float(hybrid_encoder_spectral_hidden_scale)
 
         self.lifter = SpatialLifter(
             in_channels * C,
@@ -179,14 +199,32 @@ class HybridResnetGeneratorModule(nn.Module):
         self.downsample_layers = nn.ModuleList()
         self.downsample = self.downsample_layers  # compatibility alias
         ch = hidden_channels
+        self.encoder_stage_channels: list[int] = []
+        self.encoder_conv_hidden_resolved_per_block: list[int] = []
+        self.encoder_spectral_hidden_resolved_per_block: list[int] = []
         self.stage_metadata: list[dict[str, int]] = [{"resolution_divisor": 1, "channels": ch}]
         for i in range(n_blocks):
+            self.encoder_stage_channels.append(ch)
+            conv_hidden_channels = hybrid_encoder_conv_hidden_channels
+            if conv_hidden_channels is None:
+                conv_hidden_channels = self._resolve_hidden_width(
+                    ch,
+                    self.hybrid_encoder_conv_hidden_scale,
+                )
+            spectral_hidden_channels = hybrid_encoder_spectral_hidden_channels
+            if spectral_hidden_channels is None:
+                spectral_hidden_channels = self._resolve_hidden_width(
+                    ch,
+                    self.hybrid_encoder_spectral_hidden_scale,
+                )
+            self.encoder_conv_hidden_resolved_per_block.append(int(conv_hidden_channels))
+            self.encoder_spectral_hidden_resolved_per_block.append(int(spectral_hidden_channels))
             self.encoder_blocks.append(
                 HybridResnetEncoderBlock(
                     ch,
                     modes=modes,
-                    conv_hidden_channels=hybrid_encoder_conv_hidden_channels,
-                    spectral_hidden_channels=hybrid_encoder_spectral_hidden_channels,
+                    conv_hidden_channels=int(conv_hidden_channels),
+                    spectral_hidden_channels=int(spectral_hidden_channels),
                 )
             )
             if i < self.hybrid_downsample_steps:
@@ -274,6 +312,10 @@ class HybridResnetGeneratorModule(nn.Module):
         if downsample_op == "blurpool_conv":
             return BlurPoolConvDownsample(in_channels, out_channels)
         raise ValueError(f"Unsupported downsample op: {downsample_op!r}")
+
+    @staticmethod
+    def _resolve_hidden_width(stage_channels: int, scale: float) -> int:
+        return max(1, int(round(int(stage_channels) * float(scale))))
 
     @staticmethod
     def _derive_skip_topology_from_stage_metadata(
@@ -393,6 +435,16 @@ class HybridResnetGenerator:
             skip_connections=getattr(model_config, "hybrid_skip_connections", False),
             hybrid_downsample_steps=getattr(model_config, "hybrid_downsample_steps", 2),
             hybrid_downsample_op=getattr(model_config, "hybrid_downsample_op", "stride_conv"),
+            hybrid_encoder_conv_hidden_scale=getattr(
+                model_config,
+                "hybrid_encoder_conv_hidden_scale",
+                1.0,
+            ),
+            hybrid_encoder_spectral_hidden_scale=getattr(
+                model_config,
+                "hybrid_encoder_spectral_hidden_scale",
+                1.0,
+            ),
             hybrid_encoder_conv_hidden_channels=getattr(
                 model_config,
                 "hybrid_encoder_conv_hidden_channels",

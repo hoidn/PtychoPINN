@@ -62,6 +62,9 @@ class ModelConfig:
     hybrid_skip_connections: bool = False
     hybrid_downsample_steps: int = 2
     hybrid_downsample_op: Literal['stride_conv', 'avgpool_conv', 'blurpool_conv'] = 'stride_conv'
+    hybrid_encoder_conv_hidden_scale: float = 1.0
+    hybrid_encoder_spectral_hidden_scale: float = 1.0
+    # Legacy absolute-width aliases retained for backwards compatibility.
     hybrid_encoder_conv_hidden_channels: Optional[int] = None
     hybrid_encoder_spectral_hidden_channels: Optional[int] = None
     hybrid_resnet_blocks: int = 6

@@ -72,8 +72,8 @@ These parameters are Torch-only execution/model knobs used by the PyTorch runner
 | `hybrid_skip_connections` | `bool` | `False` | Enables hybrid_resnet encoder-decoder skip fusion. |
 | `hybrid_downsample_steps` | `int` | `2` | Downsample schedule depth for hybrid_resnet (`1` => `N->N/2`, `2` => `N->N/4`). |
 | `hybrid_downsample_op` | `Literal['stride_conv','avgpool_conv','blurpool_conv']` | `'stride_conv'` | Downsample operator family for each encoder step. |
-| `hybrid_encoder_conv_hidden_channels` | `Optional[int]` | `None` | Optional internal width for hybrid_resnet encoder local-conv branch (`None` preserves stage width). |
-| `hybrid_encoder_spectral_hidden_channels` | `Optional[int]` | `None` | Optional internal width for hybrid_resnet encoder spectral branch (`None` preserves stage width). |
+| `hybrid_encoder_conv_hidden_scale` | `float` | `1.0` | Scale factor for hybrid_resnet encoder local-conv branch width. Per-block resolution: `max(1, round(stage_channels * scale))`. |
+| `hybrid_encoder_spectral_hidden_scale` | `float` | `1.0` | Scale factor for hybrid_resnet encoder spectral branch width. Per-block resolution: `max(1, round(stage_channels * scale))`. |
 | `hybrid_resnet_blocks` | `int` | `6` | Hybrid ResNet bottleneck depth. Must be positive. |
 | `hybrid_skip_style` | `Literal['add','concat','gated_add']` | `'add'` | Skip-fusion style for hybrid_resnet when skip connections are enabled. |
 

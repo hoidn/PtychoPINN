@@ -855,6 +855,8 @@ def _train_with_lightning(
             'hybrid_skip_connections',
             'hybrid_downsample_steps',
             'hybrid_downsample_op',
+            'hybrid_encoder_conv_hidden_scale',
+            'hybrid_encoder_spectral_hidden_scale',
             'hybrid_encoder_conv_hidden_channels',
             'hybrid_encoder_spectral_hidden_channels',
             'hybrid_resnet_blocks',

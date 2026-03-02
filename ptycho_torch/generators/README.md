@@ -65,8 +65,8 @@ The Hybrid ResNet architecture (`architecture='hybrid_resnet'`) replaces the Hyb
 - `hybrid_skip_style`: Skip fusion style (`add`, `concat`, `gated_add`).
 - `hybrid_downsample_steps`: Downsample schedule depth (`1` or `2`).
 - `hybrid_downsample_op`: Downsample operator family (`stride_conv`, `avgpool_conv`, `blurpool_conv`).
-- `hybrid_encoder_conv_hidden_channels`: Optional internal width for the local-conv branch.
-- `hybrid_encoder_spectral_hidden_channels`: Optional internal width for the spectral branch.
+- `hybrid_encoder_conv_hidden_scale`: Local-conv branch scale factor (`>0`), resolved per block as `max(1, round(stage_channels * scale))`.
+- `hybrid_encoder_spectral_hidden_scale`: Spectral branch scale factor (`>0`), resolved per block as `max(1, round(stage_channels * scale))`.
 - `hybrid_resnet_blocks`: ResNet bottleneck depth.
 
 Downsample operator behavior:
@@ -80,7 +80,7 @@ Skip-style behavior (when `hybrid_skip_connections=True`):
 - `gated_add`: additive fusion with learnable scalar gate `g`, initialized to `0.0` for identity-safe startup.
 
 Capacity/depth constraints:
-- `hybrid_encoder_conv_hidden_channels` and `hybrid_encoder_spectral_hidden_channels` are optional (`None` keeps stage width) and must be positive when set.
+- `hybrid_encoder_conv_hidden_scale` and `hybrid_encoder_spectral_hidden_scale` must be finite and `>0`.
 - `hybrid_resnet_blocks` must be positive.
 
 All knobs above are Torch-only model/runtime controls for the PyTorch stack.

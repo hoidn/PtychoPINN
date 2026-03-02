@@ -66,6 +66,7 @@ State Dependencies:
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Literal
+import math
 import yaml
 import warnings
 
@@ -286,6 +287,9 @@ class PyTorchExecutionConfig:
     hybrid_skip_connections: bool = False
     hybrid_downsample_steps: int = 2
     hybrid_downsample_op: Literal['stride_conv', 'avgpool_conv', 'blurpool_conv'] = 'stride_conv'
+    hybrid_encoder_conv_hidden_scale: float = 1.0
+    hybrid_encoder_spectral_hidden_scale: float = 1.0
+    # Legacy absolute-width aliases retained for backwards compatibility.
     hybrid_encoder_conv_hidden_channels: Optional[int] = None
     hybrid_encoder_spectral_hidden_channels: Optional[int] = None
     hybrid_resnet_blocks: int = 6
@@ -412,6 +416,24 @@ class PyTorchExecutionConfig:
             raise ValueError(
                 f"Invalid hybrid_downsample_op '{self.hybrid_downsample_op}'. "
                 f"Expected one of {sorted(valid_downsample_ops)}."
+            )
+
+        if (
+            not math.isfinite(float(self.hybrid_encoder_conv_hidden_scale))
+            or float(self.hybrid_encoder_conv_hidden_scale) <= 0.0
+        ):
+            raise ValueError(
+                "hybrid_encoder_conv_hidden_scale must be finite and > 0, "
+                f"got {self.hybrid_encoder_conv_hidden_scale}."
+            )
+
+        if (
+            not math.isfinite(float(self.hybrid_encoder_spectral_hidden_scale))
+            or float(self.hybrid_encoder_spectral_hidden_scale) <= 0.0
+        ):
+            raise ValueError(
+                "hybrid_encoder_spectral_hidden_scale must be finite and > 0, "
+                f"got {self.hybrid_encoder_spectral_hidden_scale}."
             )
 
         if (

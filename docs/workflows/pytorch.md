@@ -67,7 +67,7 @@ update_legacy_dict(params.cfg, config)
 - `config.model.architecture`: Generator architecture for PINN models (`'cnn'`, `'fno'`, `'hybrid'`, `'stable_hybrid'`, `'fno_vanilla'`, `'hybrid_resnet'`). Default: `'cnn'`. All architectures train via Lightning with the full physics pipeline. The `'stable_hybrid'` variant uses InstanceNorm-stabilized residual blocks (Norm-Last, zero-init gamma/beta) for improved training stability in deep FNO stacks; see `docs/strategy/mainstrategy.md §1.A`. The `'fno_vanilla'` baseline runs a constant‑resolution FNO stack, while `'hybrid_resnet'` uses an FNO encoder with a CycleGAN ResNet‑6 decoder. See `ptycho_torch/generators/README.md` for adding new architectures.
 - `config.model.resnet_width`: Optional fixed bottleneck width for `hybrid_resnet`. When set, must be divisible by 4 so the CycleGAN upsamplers produce integer channel sizes.
 - `config.model.fno_input_transform`: Optional input dynamic-range transform for FNO/Hybrid (`'none'`, `'sqrt'`, `'log1p'`, `'instancenorm'`). Default: `'none'`.
-- Torch-only execution knobs for `hybrid_resnet` (set through the Torch runner / `PyTorchExecutionConfig`): `hybrid_downsample_steps`, `hybrid_downsample_op`, `hybrid_encoder_conv_hidden_channels`, `hybrid_encoder_spectral_hidden_channels`, `hybrid_resnet_blocks`, `hybrid_skip_style`, and `hybrid_skip_connections`.
+- Torch-only execution knobs for `hybrid_resnet` (set through the Torch runner / `PyTorchExecutionConfig`): `hybrid_downsample_steps`, `hybrid_downsample_op`, `hybrid_encoder_conv_hidden_scale`, `hybrid_encoder_spectral_hidden_scale`, `hybrid_resnet_blocks`, `hybrid_skip_style`, and `hybrid_skip_connections`.
 - Torch-only guardrail: these knobs intentionally stay out of canonical `ModelConfig`/config-bridge mappings in this initiative.
 
 **Architecture Selection via Generator Registry:**
@@ -106,8 +106,8 @@ Starting 2026-01-27, the `config.model.architecture` field routes through the ge
 - Grid-lines Torch runner CLI exposure for structural search:
   - `--hybrid-downsample-steps {1,2}`
   - `--hybrid-downsample-op {stride_conv,avgpool_conv,blurpool_conv}`
-  - `--hybrid-encoder-conv-hidden <int>`
-  - `--hybrid-encoder-spectral-hidden <int>`
+  - `--hybrid-encoder-conv-hidden-scale <float>`
+  - `--hybrid-encoder-spectral-hidden-scale <float>`
   - `--hybrid-resnet-blocks <int>`
   - `--hybrid-skip-style {add,concat,gated_add}`
   - `--hybrid-skip-connections/--no-hybrid-skip-connections`

@@ -1,6 +1,7 @@
 # tests/torch/test_grid_lines_torch_runner.py
 """Smoke tests for the Torch grid-lines runner."""
 import json
+import math
 import pytest
 import numpy as np
 from pathlib import Path
@@ -1192,29 +1193,29 @@ class TestChannelGridsizeAlignment:
         with pytest.raises(ValueError, match="hybrid_downsample_op"):
             setup_torch_configs(cfg)
 
-    def test_runner_torch_only_hybrid_encoder_conv_hidden_channels(self, tmp_path):
+    def test_runner_torch_only_hybrid_encoder_conv_hidden_scale(self, tmp_path):
         cfg = TorchRunnerConfig(
             train_npz=tmp_path / "train.npz",
             test_npz=tmp_path / "test.npz",
             output_dir=tmp_path / "out",
             architecture="hybrid_resnet",
-            hybrid_encoder_conv_hidden_channels=48,
+            hybrid_encoder_conv_hidden_scale=0.5,
         )
         training_config, execution_config = setup_torch_configs(cfg)
-        assert execution_config.hybrid_encoder_conv_hidden_channels == 48
-        assert not hasattr(training_config.model, "hybrid_encoder_conv_hidden_channels")
+        assert execution_config.hybrid_encoder_conv_hidden_scale == 0.5
+        assert not hasattr(training_config.model, "hybrid_encoder_conv_hidden_scale")
 
-    def test_runner_torch_only_hybrid_encoder_spectral_hidden_channels(self, tmp_path):
+    def test_runner_torch_only_hybrid_encoder_spectral_hidden_scale(self, tmp_path):
         cfg = TorchRunnerConfig(
             train_npz=tmp_path / "train.npz",
             test_npz=tmp_path / "test.npz",
             output_dir=tmp_path / "out",
             architecture="hybrid_resnet",
-            hybrid_encoder_spectral_hidden_channels=48,
+            hybrid_encoder_spectral_hidden_scale=2.0,
         )
         training_config, execution_config = setup_torch_configs(cfg)
-        assert execution_config.hybrid_encoder_spectral_hidden_channels == 48
-        assert not hasattr(training_config.model, "hybrid_encoder_spectral_hidden_channels")
+        assert execution_config.hybrid_encoder_spectral_hidden_scale == 2.0
+        assert not hasattr(training_config.model, "hybrid_encoder_spectral_hidden_scale")
 
     def test_runner_torch_only_hybrid_resnet_blocks(self, tmp_path):
         cfg = TorchRunnerConfig(
@@ -1228,26 +1229,28 @@ class TestChannelGridsizeAlignment:
         assert execution_config.hybrid_resnet_blocks == 8
         assert not hasattr(training_config.model, "hybrid_resnet_blocks")
 
-    def test_runner_rejects_invalid_hybrid_encoder_conv_hidden_channels(self, tmp_path):
+    @pytest.mark.parametrize("bad_scale", [0.0, -1.0, math.inf, math.nan])
+    def test_runner_rejects_invalid_hybrid_encoder_conv_hidden_scale(self, tmp_path, bad_scale):
         cfg = TorchRunnerConfig(
             train_npz=tmp_path / "train.npz",
             test_npz=tmp_path / "test.npz",
             output_dir=tmp_path / "out",
             architecture="hybrid_resnet",
-            hybrid_encoder_conv_hidden_channels=0,
+            hybrid_encoder_conv_hidden_scale=bad_scale,
         )
-        with pytest.raises(ValueError, match="hybrid_encoder_conv_hidden_channels"):
+        with pytest.raises(ValueError, match="hybrid_encoder_conv_hidden_scale"):
             setup_torch_configs(cfg)
 
-    def test_runner_rejects_invalid_hybrid_encoder_spectral_hidden_channels(self, tmp_path):
+    @pytest.mark.parametrize("bad_scale", [0.0, -1.0, math.inf, math.nan])
+    def test_runner_rejects_invalid_hybrid_encoder_spectral_hidden_scale(self, tmp_path, bad_scale):
         cfg = TorchRunnerConfig(
             train_npz=tmp_path / "train.npz",
             test_npz=tmp_path / "test.npz",
             output_dir=tmp_path / "out",
             architecture="hybrid_resnet",
-            hybrid_encoder_spectral_hidden_channels=-1,
+            hybrid_encoder_spectral_hidden_scale=bad_scale,
         )
-        with pytest.raises(ValueError, match="hybrid_encoder_spectral_hidden_channels"):
+        with pytest.raises(ValueError, match="hybrid_encoder_spectral_hidden_scale"):
             setup_torch_configs(cfg)
 
     def test_runner_rejects_invalid_hybrid_resnet_blocks(self, tmp_path):
@@ -1377,7 +1380,7 @@ class TestArchitecturePropagation:
         assert captured["overrides"]["hybrid_downsample_steps"] == 1
         assert captured["overrides"]["hybrid_downsample_op"] == "avgpool_conv"
 
-    def test_workflow_forwards_hybrid_encoder_conv_hidden_channels_and_hybrid_encoder_spectral_hidden_channels_and_hybrid_resnet_blocks_and_factory(
+    def test_workflow_forwards_hybrid_encoder_conv_hidden_scale_and_hybrid_encoder_spectral_hidden_scale_and_hybrid_resnet_blocks_and_factory(
         self, monkeypatch, tmp_path
     ):
         from pathlib import Path
@@ -1392,8 +1395,8 @@ class TestArchitecturePropagation:
             n_groups=4,
         )
         exec_cfg = PyTorchExecutionConfig(
-            hybrid_encoder_conv_hidden_channels=48,
-            hybrid_encoder_spectral_hidden_channels=64,
+            hybrid_encoder_conv_hidden_scale=0.5,
+            hybrid_encoder_spectral_hidden_scale=2.0,
             hybrid_resnet_blocks=8,
         )
         captured = {}
@@ -1410,8 +1413,8 @@ class TestArchitecturePropagation:
                 config=cfg,
                 execution_config=exec_cfg,
             )
-        assert captured["overrides"]["hybrid_encoder_conv_hidden_channels"] == 48
-        assert captured["overrides"]["hybrid_encoder_spectral_hidden_channels"] == 64
+        assert captured["overrides"]["hybrid_encoder_conv_hidden_scale"] == 0.5
+        assert captured["overrides"]["hybrid_encoder_spectral_hidden_scale"] == 2.0
         assert captured["overrides"]["hybrid_resnet_blocks"] == 8
 
     def test_workflow_forwards_skip_style_to_factory(self, monkeypatch, tmp_path):
