@@ -131,9 +131,60 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
 ```
 Expected:
 - promotion summary `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/summary_seed_robust.csv` exists,
-- stage anchor summary `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/stage_anchor_summary.csv` exists and contains exactly one anchor row,
-- that Stage-A anchor row matches true `hybrid_resnet` defaults (`modes=12`, `skip=off`, `width=32`, `fno_blocks=4`, `downsample_schedule=2`, `downsample_op=stride_conv`, `encoder_conv_hidden=none`, `encoder_spectral_hidden=none`, `max_hidden=none`, `resnet_width=none`, `resnet_blocks=6`, `skip_style=add`),
+- stage anchor summary `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/stage_anchor_summary.csv` exists and contains exactly one true-default control row (`modes=12`, `skip=off`, `width=32`, `fno_blocks=4`, `downsample_schedule=2`, `downsample_op=stride_conv`, `encoder_conv_hidden=none`, `encoder_spectral_hidden=none`, `max_hidden=none`, `resnet_width=none`, `resnet_blocks=6`, `skip_style=add`) for baseline-comparison lane,
+- champion anchor summary `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/champion_anchor_summary.csv` is materialized as a single-row selection from `summary_seed_robust.csv`,
+- champion-anchor selection tie-break is deterministic: higher `amp_ssim`, then lower `train_wall_time_sec`, then lower `model_params`,
 - ranking in that summary uses median Pareto rank across seeds `{3,11,17}` on feasible candidates.
+
+Deterministic one-row champion-anchor materialization (required before Stage B `N=128`):
+```bash
+python - <<'PY'
+import csv
+from pathlib import Path
+
+src = Path("outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/summary_seed_robust.csv")
+dst = Path("outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/champion_anchor_summary.csv")
+
+with src.open(newline="") as f:
+    rows = list(csv.DictReader(f))
+if not rows:
+    raise SystemExit("empty robust summary")
+
+def _is_feasible(row):
+    value = row.get("is_feasible")
+    if value in (None, ""):
+        return True
+    return str(value).strip().lower() in {"1", "true", "yes", "y"}
+
+feasible = [row for row in rows if _is_feasible(row)]
+if feasible:
+    rows = feasible
+
+def _as_float(value, default):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
+
+def _params(row):
+    return _as_float(row.get("model_params", row.get("params")), 1e18)
+
+rows.sort(
+    key=lambda row: (
+        -_as_float(row.get("amp_ssim"), -1e18),
+        _as_float(row.get("train_wall_time_sec"), 1e18),
+        _params(row),
+    )
+)
+
+with dst.open("w", newline="") as f:
+    writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+    writer.writeheader()
+    writer.writerow(rows[0])
+
+print(dst)
+PY
+```
 
 **Step 3: Promote robust top-K and run N=256**
 
@@ -319,7 +370,7 @@ Add optional arguments (defaults preserve Stage A behavior):
 - `--allow-n256-direct-diagnostic` (default off; only valid with `--ns 256 --top-k-n256 0`)
 - `--aggregate-seed-rerank-root` (optional; enables robustness-summary collation mode)
 - `--source-summary` (required with `--aggregate-seed-rerank-root`)
-- `--emit-stage-anchor-summary` (required with `--aggregate-seed-rerank-root`; writes the one-row Stage-A control anchor summary for downstream `N=128` stages)
+- `--emit-stage-anchor-summary` (required with `--aggregate-seed-rerank-root`; writes the one-row Stage-A true-default control summary for baseline lane; canonical downstream progression must use champion anchor summary derived from `summary_seed_robust.csv`)
 - `--emit-robust-promotion-summary` (required with `--aggregate-seed-rerank-root`)
 - `--promotion-objectives` (default: `amp_ssim,train_wall_time_sec`)
 - `--max-train-seconds-n128` (default: `2700`)
@@ -390,7 +441,8 @@ Add explicit invocation-provenance assertions in
 - seed-rerank collation validation is explicit:
   - boundary candidate coverage for seeds `{3,11,17}` is complete,
   - `summary_seed_robust.csv` is emitted with median Pareto-rank ordering and consumed by promotion-enabled `N=256` commands,
-  - `stage_anchor_summary.csv` is emitted and contains exactly one control-anchor row for downstream `N=128` stages with true-default tuple values (including `skip=off`).
+  - `stage_anchor_summary.csv` is emitted as default-control evidence and contains exactly one true-default tuple row (including `skip=off`),
+  - `champion_anchor_summary.csv` is emitted as the single-row canonical downstream stage anchor selected from robust summary with deterministic tie-break (`amp_ssim`, then `train_wall_time_sec`, then `model_params`).
 - numeric guardrail validation is explicit:
   - invalid `resnet_width` values fail fast at CLI parsing/validation with actionable errors.
 - confounder provenance is enforced:

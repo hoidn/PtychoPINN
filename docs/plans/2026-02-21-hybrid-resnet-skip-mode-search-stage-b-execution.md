@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Execute Stage B (`fno_blocks` structural axis) using the Stage-A control anchor and the same promotion/robustness policy used throughout this initiative.
+**Goal:** Execute Stage B (`fno_blocks` structural axis) using the Stage-A robust champion anchor and the same promotion/robustness policy used throughout this initiative.
 
 **Tech Stack:** PyTorch/Lightning (`ptycho_torch`), existing grid-lines + NERSC study scripts, runbook-style orchestration, JSON/CSV/Markdown artifacts.
 
@@ -16,7 +16,7 @@ This split document owns Task 11 only (Stage-B execution commands and artifacts)
 
 - Use promotion and robustness rules from `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-design.md` Section 6.
 - Hub document: `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search.md`.
-- Stage ordering precondition: run Task 11 only after Stage-A control-anchor outputs exist.
+- Stage ordering precondition: run Task 11 only after Stage-A robust outputs exist (`promotion/summary_seed_robust.csv`) and a single-row Stage-A champion anchor summary has been materialized.
 - Epoch floor: all Stage-B runs MUST use at least `10` epochs (`--epochs-n128 >= 10`, `--epochs-n256 >= 10`) unless an approved exception is recorded.
 - Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources.
 - Between consecutive Stage-B run invocations, delete repo-root `memoized_data/` before launching the next command (`rm -rf memoized_data/`).
@@ -30,14 +30,15 @@ This split document owns Task 11 only (Stage-B execution commands and artifacts)
 **Files:**
 - Modify: none (execution + artifacts)
 
-**Step 0: Resolve single Stage-A control-anchor summary for Stage-B N=128**
+**Step 0: Resolve single Stage-A champion-anchor summary for Stage-B N=128**
 
-Use the one-row control-anchor artifact emitted in Task 9 Step 2:
-- `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/stage_anchor_summary.csv`
+Use the one-row champion-anchor artifact selected from Stage-A robust summary:
+- `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/champion_anchor_summary.csv`
 
-Do not pass full top-K robustness summary as the Stage-B `N=128` source.
+Selection rule for this one-row file: rank-1 robust feasible candidate from `summary_seed_robust.csv`, breaking ties deterministically by (1) higher `amp_ssim`, (2) lower `train_wall_time_sec`, (3) lower `model_params`.
+Keep the true-default Stage-A control anchor only in baseline artifacts (`promotion/default_baselines.csv|.md` and/or control-anchor diagnostics), not as Stage-B canonical source.
 
-**Step 1: Run Stage B at N=128 on Stage-A control anchor config**
+**Step 1: Run Stage B at N=128 on Stage-A champion anchor config**
 
 Before each Task 11 run command block (Step 1 and Step 2), run:
 ```bash
@@ -48,7 +49,7 @@ Run:
 ```bash
 python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --stage-id B \
-  --promotion-source-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/stage_anchor_summary.csv \
+  --promotion-source-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/champion_anchor_summary.csv \
   --fno-blocks-values 3,4 \
   --ns 128 \
   --dataset-profiles-n128 integration_grid_lines_n128_v1,fly001_external_n128_top_bottom_v1 \
@@ -67,7 +68,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --no-torch-mae-pred-l2-match-target
 ```
 Expected: `summary.md` includes `stage_id=B`, `substage_id=none`, and `fno_blocks` column.
-Non-axis knobs (`modes`, `skip`, `width`) come from `--promotion-source-summary`; canonical Stage-B runs must therefore inherit `skip=off` from the Stage-A control anchor.
+Non-axis knobs (`modes`, `skip`, `width`) come from `--promotion-source-summary`, so canonical Stage-B runs inherit the Stage-A champion context.
 
 **Step 2: Promote feasible Pareto-ranked top-K and run N=256**
 

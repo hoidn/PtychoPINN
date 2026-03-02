@@ -22,6 +22,8 @@ This split document owns Task 14 only (Stage-E implementation/search and artifac
 - Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources.
 - Per-profile baseline discoverability rule: Stage-E artifacts MUST include `promotion/default_baselines.csv` and `promotion/default_baselines.md` with exactly one true-default baseline row per active `(N, dataset_profile)` combination.
 - N=256 dual-profile rule: canonical `N=256` evaluation/promotion runs MUST include both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
+- Canonical Stage-E `N=128` progression source MUST be the single-row Stage-D4 champion anchor selected from Stage-D4 `promotion/summary_seed_robust.csv` and passed via `--promotion-source-summary`.
+- Default-control runs stay in the baseline-comparison lane and MUST NOT be used as Stage-E transition anchors.
 
 ---
 
@@ -76,7 +78,7 @@ pytest tests/torch/test_grid_lines_torch_runner.py -k "workflow and skip_style a
 
 **Step 3: Execute Stage E**
 
-Run skip styles on best config from Stage D, budget:
+Run skip styles on Stage-D champion config (`--promotion-source-summary <stageD4_champion_anchor_n128_summary.csv>`), budget:
 - N=128: all 3 styles
 - N=256: top 2 feasible Pareto-ranked styles only
 - N=256 promotion evidence must be aggregated across both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256` profile results.

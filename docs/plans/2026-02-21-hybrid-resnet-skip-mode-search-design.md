@@ -148,8 +148,8 @@ Stage-isolation contract:
 - Non-active knobs are copied from that single anchor row and must remain scalar for the stage run matrix.
 - Top-K candidate sets from prior stages are used for `N=256` confirmation/rerank, not for `N=128` stage fan-out.
 - Multi-anchor fan-out is allowed only in explicitly labeled diagnostic runs that do not drive canonical stage promotion state.
-- Canonical initialization rule: Stage-B `N=128` MUST start from a Stage-A control anchor row that matches true `hybrid_resnet` defaults (`modes=12`, `skip=off`, `width=32`, `fno_blocks=4`, `downsample_schedule=2`, `downsample_op=stride_conv`, `encoder_conv_hidden=none`, `encoder_spectral_hidden=none`, `max_hidden=none`, `resnet_width=none`, `resnet_blocks=6`, `skip_style=add`).
-- Stage-A promoted winners remain valid for Stage-A `N=256` promotion/rerank and optional diagnostics, but they are not the canonical Stage-B `N=128` anchor source.
+- Canonical initialization rule: each stage `N=128` run starts from the previous stage's robust feasible champion (single-row champion anchor selected from `promotion/summary_seed_robust.csv` using deterministic tie-breakers defined in Section 6).
+- Default-control (true-default tuple) runs are required as a separate comparison lane and must not be used as canonical transition anchors.
 
 N=256 cross-profile contract:
 - Canonical `N=256` evaluation/promotion runs (Stage-A promotion and Stage-B through Stage-E `N=256` confirmation/rerank) MUST evaluate candidates on both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
@@ -177,7 +177,8 @@ Axes:
 Policy:
 - full grid on `N=128`,
 - promote top-K feasible Pareto-ranked candidates to `N=256`.
-- emit a single Stage-A control-anchor summary row for downstream Stage-B `N=128` sweeps; this row MUST match the true-default tuple above.
+- emit default-control baseline evidence for the true-default tuple and retain it in `promotion/default_baselines.csv|.md`.
+- emit a single-row Stage-A champion anchor summary selected from Stage-A `promotion/summary_seed_robust.csv` for downstream Stage-B `N=128` canonical progression.
 - run on one or more `dataset_profiles_n128` and aggregate rankings across profiles.
 - keep broad exploration single-seed (`seed=3` default), then apply the Section-6 boundary seed-robustness rule before promotion.
 
@@ -187,7 +188,7 @@ Axis:
 - `fno_blocks`
 
 Policy:
-- vary `fno_blocks` with the Stage-A control-anchor configuration fixed,
+- vary `fno_blocks` with the Stage-A champion-anchor configuration fixed,
 - `N=128` full stage budget, top-K feasible Pareto-ranked candidates to `N=256`.
 - evaluate with selected dataset profile sets for N=128/N=256.
 - apply the Section-6 boundary seed-robustness rule on the `N=128` source summary before promotion to `N=256`.
@@ -196,7 +197,7 @@ Policy:
 
 Sub-stage C1:
 - `hybrid_downsample_steps`
-- vary this axis with one Stage-B anchor configuration fixed.
+- vary this axis with one Stage-B champion-anchor configuration fixed.
 
 Sub-stage C2:
 - lock best C1 schedule, vary `hybrid_downsample_op`.
@@ -257,7 +258,7 @@ Primary promotion objective (Pareto):
 Multi-profile aggregation:
 - compute per-profile Pareto ranks first (`pareto_rank_profile`, lower is better),
 - compute macro rank as median Pareto rank across profiles,
-- tie-break by higher mean amplitude SSIM across profiles, then lower params.
+- rank-1 tie-break by higher mean amplitude SSIM across profiles, then lower mean `train_wall_time_sec`, then lower `model_params`.
 
 Seed policy:
 - Broad sweeps remain single-seed (default `seed=3`) for throughput.
@@ -265,12 +266,13 @@ Seed policy:
 - Boundary candidate set is `top-K + next 2` from the feasible Pareto-ranked source summary.
 - If fewer than `K+2` eligible candidates exist, rerun all eligible candidates.
 - Promotion uses median candidate Pareto rank across seeds `{3,11,17}`.
-- Seed-tie break uses higher mean amplitude SSIM across seeds; if still tied, keep standard tie-breakers (params, then lower inference time within SLA).
+- Seed-tie break uses higher mean amplitude SSIM across seeds, then lower mean `train_wall_time_sec`, then lower `model_params`.
 
 Tie-breakers:
 1. higher amplitude SSIM,
-2. lower parameter count,
-3. lower inference time (within SLA).
+2. lower train wall time,
+3. lower parameter count,
+4. lower inference time (within SLA).
 
 Promotion source API:
 - `summary.csv` is a versioned stage-state API.
@@ -279,7 +281,7 @@ Promotion source API:
 - For stages `B-E` `N=128` sweeps, promotion-source loader must resolve exactly one anchor row before matrix expansion.
 - Seed-rerank collation must emit both:
   - full robustness summary (for top-K `N=256` promotion),
-  - single-row anchor summary (for downstream `N=128` stage isolation).
+  - single-row champion anchor summary (for downstream `N=128` stage isolation).
 
 Pause-and-diagnose conditions (not immediate abandonment):
 - Trigger a pause when either condition is met:
@@ -311,7 +313,8 @@ Each stage writes:
   - Pareto columns (`pareto_rank_profile`, `pareto_rank_macro`, seed-robust Pareto rank fields),
   - stage-isolation fields (`is_stage_anchor`, `anchor_source_summary`),
   - promotion decisions.
-- `promotion/stage_anchor_summary.csv` containing exactly one canonical anchor row for downstream `N=128` stage/sub-stage sweeps.
+- `promotion/champion_anchor_summary.csv` containing exactly one robust champion row for canonical downstream `N=128` stage/sub-stage progression.
+- `promotion/stage_anchor_summary.csv` (or equivalent default-control anchor artifact) containing exactly one true-default control row for baseline-comparison lane only.
 - `promotion/default_baselines.csv` and `promotion/default_baselines.md` with one true-default baseline row per active `(N, dataset_profile)` combination used by that stage package.
   - required discoverability fields per row:
     - `N`, `dataset_profile`, `baseline_run_id`, `stage_id`, `substage_id`, `seed_policy`, `epochs`,

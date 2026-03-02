@@ -113,10 +113,10 @@ Pre-step baseline requirement (mandatory before C1/C2 interpretation):
 - Run true-default baseline on the same `custom_npz_pair_n128` dataset pair and same epoch budget as Stage C (`--epochs-n128 10`), and persist baseline outputs under a dedicated path.
 - Do not accept any "better than baseline" interpretation in Stage C until this baseline run is complete and documented.
 
-Sub-stage C1 (schedule): use `--downsample-schedule-values 1,2` while fixing all other structural axes to one Stage-B anchor config loaded via `--promotion-source-summary <stageB_anchor_n128_summary.csv>`.
+Sub-stage C1 (schedule): use `--downsample-schedule-values 1,2` while fixing all other structural axes to one Stage-B champion anchor config loaded via `--promotion-source-summary <stageB_champion_anchor_n128_summary.csv>`.
 Record provenance with `--stage-id C --substage-id C1`.
 
-Sub-stage C2 (operator): lock best schedule from C1 (from `--promotion-source-summary <stageC1_anchor_n128_summary.csv>`), then run:
+Sub-stage C2 (operator): lock best schedule from C1 (from `--promotion-source-summary <stageC1_champion_anchor_n128_summary.csv>`), then run:
 - `--downsample-op-values stride_conv,avgpool_conv,blurpool_conv`
 Record provenance with `--stage-id C --substage-id C2`.
 

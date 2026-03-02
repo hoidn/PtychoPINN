@@ -547,7 +547,8 @@ Required behavior:
     - `custom_npz_pair_n256` (caller-supplied `train.npz` / `test.npz`)
 - Stage progression contract:
   - `--stage-id A` seeds the first promoted set directly from its own `N=128` results.
-  - Stages `B-E` MUST load their baseline/promoted config set from a prior-stage `N=128` summary via `--promotion-source-summary`.
+  - Stages `B-E` MUST load canonical transition config from a prior-stage single-row champion anchor summary (derived from prior-stage `promotion/summary_seed_robust.csv`) via `--promotion-source-summary`.
+  - True-default control baselines must be retained as a separate comparison lane and must not be used as canonical transition anchors.
   - Promotion to `N=256` MUST use a robustness-validated promotion summary (median-rank across seeds `{3,11,17}` over the boundary candidate set), not a raw single-seed ranking summary.
   - For stages `B-E`, `--ns 256`-only runs are invalid without `--promotion-source-summary`.
   - Exception: a direct `N=256` diagnostic run is allowed only when `--allow-n256-direct-diagnostic` is set and `--top-k-n256 0`; these runs are excluded from promotion/ranking state.
@@ -577,7 +578,7 @@ Required behavior:
   - fail run finalization if either field is missing from persisted row/manifest payload.
 - Include per-profile and aggregate ranking views:
   - per-profile metrics/ranks
-  - macro aggregate rank across profiles (median rank; tie-break by mean primary score).
+  - macro aggregate rank across profiles (median rank; deterministic tie-break by higher `amp_ssim`, then lower `train_wall_time_sec`, then lower `model_params`).
 
 **Step 2: Run tests to verify pass**
 

@@ -22,6 +22,8 @@ This split document owns Task 13 only (Stage-D implementation/search and artifac
 - Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources.
 - Per-profile baseline discoverability rule: Stage-D artifacts MUST include `promotion/default_baselines.csv` and `promotion/default_baselines.md` with exactly one true-default baseline row per active `(N, dataset_profile)` combination.
 - N=256 dual-profile rule: canonical `N=256` evaluation/promotion runs MUST include both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
+- Canonical Stage-D `N=128` progression source MUST be the single-row Stage-C2 champion anchor selected from Stage-C2 `promotion/summary_seed_robust.csv` and passed via `--promotion-source-summary`.
+- Default-control runs stay in the baseline-comparison lane and MUST NOT be used as Stage-D transition anchors.
 
 ---
 
@@ -61,7 +63,7 @@ Semantics:
 - Persist both configured scale values and resolved branch widths in manifest/summary rows for auditability.
 - Reject invalid scale values (`<=0` or non-finite) with actionable errors.
 
-Run sub-stage D1 (conv branch):
+Run sub-stage D1 (conv branch) on the Stage-C2 champion anchor source (`--promotion-source-summary <stageC2_champion_anchor_n128_summary.csv>`):
 - sweep `--encoder-conv-hidden-scale-values 0.5,1,2` with `--encoder-spectral-hidden-scale-values 1`.
 - record provenance with `--stage-id D --substage-id D1`.
 
@@ -71,7 +73,7 @@ Run sub-stage D2 (spectral branch):
 
 **Step 2: Axis 4 sub-stage (global capacity)**
 
-Evaluate one global capacity knob at a time on best D2 settings:
+Evaluate one global capacity knob at a time on best D2 champion settings:
 - `max_hidden_channels` values: `none,256,512`, or
 - `resnet_width` values: `none,192,256` (only if divisibility constraints pass; reject values not divisible by 4).
 

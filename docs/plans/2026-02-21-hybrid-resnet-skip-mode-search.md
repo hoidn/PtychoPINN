@@ -44,13 +44,14 @@
 
 ## Canonical Anchor Contract
 
-- Canonical structural search starts from true `hybrid_resnet` defaults at Stage B `N=128` (the Stage-A control anchor), not from the Stage-A promoted winner.
-- Required Stage-A control anchor tuple:
+- Canonical stage progression anchor is always the previous stage's robust feasible champion (single-row champion anchor selected from that stage's `promotion/summary_seed_robust.csv`).
+- Stage-B `N=128` canonical source is therefore the Stage-A robust champion anchor, not the Stage-A default-control anchor.
+- Required true-default control tuple (separate default-control comparison lane, not transition anchor):
   - `modes=12`, `skip=off`, `width=32`, `fno_blocks=4`
   - `downsample_schedule=2`, `downsample_op=stride_conv`
   - `encoder_conv_hidden=none`, `encoder_spectral_hidden=none`
   - `max_hidden=none`, `resnet_width=none`, `resnet_blocks=6`, `skip_style=add`
-- Stage-A promoted winners remain valid for Stage-A `N=256` promotion/rerank and optional diagnostics.
+- Default-control outputs remain mandatory baseline evidence and must be retained in `promotion/default_baselines.csv|.md`.
 
 ## Progress Checklist
 
@@ -83,6 +84,10 @@ Promotion gates between stages:
   - boundary set = `top-K + next 2`
   - rerank seeds = `{3,11,17}`
   - promote by median Pareto rank across seeds
+- Deterministic rank-1 tie-break order is:
+  - higher `amp_ssim`,
+  - lower `train_wall_time_sec`,
+  - lower `model_params`.
 - Baseline MAE/MSE regressions are treated as diagnostics; promotion ordering is driven by amplitude SSIM.
 - Stage A completion requires a verified `hybrid-resnet-mode-skip-sweep` entry in `docs/studies/index.md`.
 
