@@ -29,6 +29,8 @@ This split document owns Tasks 12-15 (structural-axis implementation/search stag
   - Before each Stage C/D/E comparison cycle, measure true-default `hybrid_resnet` baseline (`modes=12`, `skip=off`, `width=32`, `fno_blocks=4`, `downsample_schedule=2`, `downsample_op=stride_conv`, `encoder_conv_hidden=none`, `encoder_spectral_hidden=none`, `encoder_conv_hidden_scale=1.0`, `encoder_spectral_hidden_scale=1.0`, `max_hidden=none`, `resnet_width=none`, `resnet_blocks=6`, `skip_style=add`) on the same dataset profile and epoch budget used for that cycle.
   - For promotion decisions, baseline context must use the same robustness seed policy as candidates (`{3,11,17}` with median-rank context).
 - Baseline documentation rule: each stage package MUST include an apples-to-apples baseline table (CSV/Markdown) containing baseline run id(s), candidate run id(s), and comparison metrics (`amp_ssim`, `amp_mae`, `amp_mse`, `phase_ssim`, `train_wall_time_sec`, `inference_time_s`) with explicit `apples_to_apples=true|false` marking.
+- Per-profile baseline discoverability rule: each Stage C/D/E package MUST include `promotion/default_baselines.csv` and `promotion/default_baselines.md` with exactly one true-default baseline row per active `(N, dataset_profile)` combination.
+- N=256 dual-profile rule: canonical `N=256` evaluation/promotion runs in Stages C/D/E MUST include both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
 
 ### Strong-Advisory Cleanup Contract (Stages C-E)
 

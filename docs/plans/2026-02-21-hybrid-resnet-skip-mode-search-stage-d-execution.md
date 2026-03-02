@@ -20,6 +20,8 @@ This split document owns Task 13 only (Stage-D implementation/search and artifac
 - Between consecutive Stage-D run invocations, delete repo-root `memoized_data/` before launching the next run command (`rm -rf memoized_data/`).
 - Global epoch floor: all Stage-D runs MUST use at least `10` training epochs per run (`--epochs-n128 >= 10`, `--epochs-n256 >= 10`) unless an approved exception is recorded.
 - Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources.
+- Per-profile baseline discoverability rule: Stage-D artifacts MUST include `promotion/default_baselines.csv` and `promotion/default_baselines.md` with exactly one true-default baseline row per active `(N, dataset_profile)` combination.
+- N=256 dual-profile rule: canonical `N=256` evaluation/promotion runs MUST include both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
 
 ---
 
@@ -110,6 +112,7 @@ Coverage expectations for new branch-capacity knobs:
 Budget rule:
 - N=128: max 18 runs per sub-stage (D1-D4) and max `12` GPU-hours per sub-stage.
 - N=256: top 4 feasible Pareto-ranked candidates only and max `16` GPU-hours per sub-stage.
+- N=256 promotion evidence must be aggregated across both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256` profile results.
 - Epoch floor: all Stage-D runs MUST use `--epochs-n128 >= 10` and `--epochs-n256 >= 10`.
 - Before selecting top-4 for `N=256`, apply the boundary seed-rerank policy on the D4 `N=128` source summary (`top-K + next 2`, seeds `11` and `17`) and promote from the resulting robustness summary.
 - Between consecutive Stage D invocations (including seed-rerank reruns and promotion runs), run `rm -rf memoized_data/`.
@@ -117,7 +120,10 @@ Budget rule:
 - Persist Stage D apples-to-apples baseline artifacts:
   - `outputs/<stage_d_root>/promotion/apples_to_apples_baseline.csv`
   - `outputs/<stage_d_root>/promotion/apples_to_apples_baseline.md`
+  - `outputs/<stage_d_root>/promotion/default_baselines.csv`
+  - `outputs/<stage_d_root>/promotion/default_baselines.md`
   - Include baseline run details for the exact epoch budget and dataset profile used by D-stage comparisons.
+  - Gate: `default_baselines.*` must contain exactly one true-default baseline row per active `(N, dataset_profile)` combination.
 
 **Step 6: Documentation sync for Stage-D knobs**
 
@@ -134,4 +140,3 @@ python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.
 git add ptycho_torch/generators/hybrid_resnet.py ptycho/config/config.py ptycho_torch/config_params.py ptycho_torch/workflows/components.py scripts/studies/grid_lines_torch_runner.py tests/torch/test_fno_generators.py tests/torch/test_grid_lines_torch_runner.py docs/CONFIGURATION.md docs/workflows/pytorch.md ptycho_torch/generators/README.md docs/development/TEST_SUITE_INDEX.md
 git commit -m "feat+docs(torch): add hybrid_resnet branch-capacity and depth controls with torch-only scope"
 ```
-

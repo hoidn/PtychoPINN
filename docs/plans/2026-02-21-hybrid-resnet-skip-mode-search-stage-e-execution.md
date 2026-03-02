@@ -20,6 +20,8 @@ This split document owns Task 14 only (Stage-E implementation/search and artifac
 - Between consecutive Stage-E run invocations, delete repo-root `memoized_data/` before launching the next run command (`rm -rf memoized_data/`).
 - Global epoch floor: all Stage-E runs MUST use at least `10` training epochs per run (`--epochs-n128 >= 10`, `--epochs-n256 >= 10`) unless an approved exception is recorded.
 - Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources.
+- Per-profile baseline discoverability rule: Stage-E artifacts MUST include `promotion/default_baselines.csv` and `promotion/default_baselines.md` with exactly one true-default baseline row per active `(N, dataset_profile)` combination.
+- N=256 dual-profile rule: canonical `N=256` evaluation/promotion runs MUST include both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
 
 ---
 
@@ -77,6 +79,7 @@ pytest tests/torch/test_grid_lines_torch_runner.py -k "workflow and skip_style a
 Run skip styles on best config from Stage D, budget:
 - N=128: all 3 styles
 - N=256: top 2 feasible Pareto-ranked styles only
+- N=256 promotion evidence must be aggregated across both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256` profile results.
 - Epoch floor: all Stage-E runs MUST use `--epochs-n128 >= 10` and `--epochs-n256 >= 10`.
 - Before selecting top-2 for `N=256`, apply the boundary seed-rerank policy on the Stage-E `N=128` source summary (`top-K + next 2`, seeds `11` and `17`) and promote from the resulting robustness summary.
 - Between consecutive Stage E invocations (including seed-rerank reruns and promotion runs), run `rm -rf memoized_data/`.
@@ -84,7 +87,10 @@ Run skip styles on best config from Stage D, budget:
 - Persist Stage E apples-to-apples baseline artifacts:
   - `outputs/<stage_e_root>/promotion/apples_to_apples_baseline.csv`
   - `outputs/<stage_e_root>/promotion/apples_to_apples_baseline.md`
+  - `outputs/<stage_e_root>/promotion/default_baselines.csv`
+  - `outputs/<stage_e_root>/promotion/default_baselines.md`
   - Gate: only comparisons recorded as `apples_to_apples=true` are valid evidence for style promotion conclusions.
+  - Gate: `default_baselines.*` must contain exactly one true-default baseline row per active `(N, dataset_profile)` combination.
 
 Constraint:
 - Stage E must reuse the topology-driven fusion-point mechanism introduced in Task 12 Step 0; do not introduce new hard-coded skip tap indices.
@@ -106,4 +112,3 @@ git commit -m "feat+docs(torch): add hybrid_resnet skip-style variants with torc
 ```
 
 ---
-

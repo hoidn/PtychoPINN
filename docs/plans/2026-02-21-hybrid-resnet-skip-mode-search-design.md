@@ -110,6 +110,8 @@ Encoder-branch decoupling contract:
 
 - `dataset_profiles_n128` (list of profile ids; default: `integration_grid_lines_n128_v1`)
 - `dataset_profiles_n256` (list of profile ids; default: `cameraman256_halfsplit_v1`)
+- Canonical `N=256` evaluation/promotion profile set for this initiative MUST include both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256` (with lines/structured NPZ inputs supplied by caller for `custom_npz_pair_n256`).
+- Backward-compatible parser defaults may remain single-profile, but canonical plan executions MUST pass both `N=256` profiles explicitly.
 
 Resolution rules:
 - The sweep/runbook resolves each profile into concrete dataset inputs.
@@ -148,6 +150,10 @@ Stage-isolation contract:
 - Multi-anchor fan-out is allowed only in explicitly labeled diagnostic runs that do not drive canonical stage promotion state.
 - Canonical initialization rule: Stage-B `N=128` MUST start from a Stage-A control anchor row that matches true `hybrid_resnet` defaults (`modes=12`, `skip=off`, `width=32`, `fno_blocks=4`, `downsample_schedule=2`, `downsample_op=stride_conv`, `encoder_conv_hidden=none`, `encoder_spectral_hidden=none`, `max_hidden=none`, `resnet_width=none`, `resnet_blocks=6`, `skip_style=add`).
 - Stage-A promoted winners remain valid for Stage-A `N=256` promotion/rerank and optional diagnostics, but they are not the canonical Stage-B `N=128` anchor source.
+
+N=256 cross-profile contract:
+- Canonical `N=256` evaluation/promotion runs (Stage-A promotion and Stage-B through Stage-E `N=256` confirmation/rerank) MUST evaluate candidates on both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
+- Single-profile `N=256` runs are diagnostic-only and MUST NOT be used as canonical promotion evidence.
 
 Stage identifier contract:
 - `stage_id` values are `A|B|C|D|E`.
@@ -306,6 +312,11 @@ Each stage writes:
   - stage-isolation fields (`is_stage_anchor`, `anchor_source_summary`),
   - promotion decisions.
 - `promotion/stage_anchor_summary.csv` containing exactly one canonical anchor row for downstream `N=128` stage/sub-stage sweeps.
+- `promotion/default_baselines.csv` and `promotion/default_baselines.md` with one true-default baseline row per active `(N, dataset_profile)` combination used by that stage package.
+  - required discoverability fields per row:
+    - `N`, `dataset_profile`, `baseline_run_id`, `stage_id`, `substage_id`, `seed_policy`, `epochs`,
+    - full default-model tuple (`modes=12`, `skip=off`, `width=32`, `fno_blocks=4`, `downsample_schedule=2`, `downsample_op=stride_conv`, `encoder_conv_hidden=none`, `encoder_spectral_hidden=none`, `encoder_conv_hidden_scale=1.0`, `encoder_spectral_hidden_scale=1.0`, `max_hidden=none`, `resnet_width=none`, `resnet_blocks=6`, `skip_style=add`),
+    - baseline metrics (`amp_ssim`, `amp_mae`, `amp_mse`, `phase_ssim`, `train_wall_time_sec`, `inference_time_s`).
 
 Retention/cleanup policy (normative):
 - Default mode is prune-after-run with retention tiers.

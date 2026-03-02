@@ -35,6 +35,12 @@
   - same seed policy (single-seed comparisons use seed `3`; promotion comparisons use seeds `{3,11,17}` and median-rank governance).
 - Cross-stage or cross-epoch comparisons (for example Stage C `10` epochs vs Stage A `1` epoch) are non-canonical and MUST NOT be used for promotion/governance claims.
 - Each stage execution package MUST include a baseline evidence artifact (CSV/Markdown table) that records baseline run id(s) and metrics (`amp_ssim`, `amp_mae`, `amp_mse`, `phase_ssim`, `train_wall_time_sec`, `inference_time_s`) and explicitly marks whether each comparison is apples-to-apples.
+- Each stage execution package MUST also include `promotion/default_baselines.csv` and `promotion/default_baselines.md` with exactly one true-default baseline row per active `(N, dataset_profile)` combination, including the full default-model parameter tuple and baseline run id for discoverability.
+
+## N=256 Dual-Profile Contract
+
+- Canonical `N=256` evaluation and promotion MUST run on both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256` (lines/structured NPZ pair supplied by caller).
+- `N=256` results produced on only one of these profiles are diagnostic-only and MUST NOT be used as canonical promotion evidence.
 
 ## Canonical Anchor Contract
 

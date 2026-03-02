@@ -33,6 +33,8 @@ Execution order for this split document is:
   - For `integration_grid_lines_n128_v1` and `fly001_external_n128_top_bottom_v1`, use the true-default row (`modes=12`, `skip=off`, `width=32`) from the same Stage-A `N=128` sweep output as the baseline comparator.
   - Stage-A promotion/governance claims MUST use the same seed policy as candidate ranking (`seed=3` for exploration, `{3,11,17}` median-rank context for robustness/promotion).
 - Baseline documentation rule: Stage-A execution artifacts MUST include a compact baseline table with baseline run id(s), candidate run id(s), and metrics (`amp_ssim`, `amp_mae`, `amp_mse`, `phase_ssim`, `train_wall_time_sec`, `inference_time_s`) plus an explicit `apples_to_apples=true|false` flag per comparison row.
+- Per-profile baseline discoverability rule: Stage-A/Stage-B execution artifacts MUST include `promotion/default_baselines.csv` and `promotion/default_baselines.md` with exactly one true-default baseline row per active `(N, dataset_profile)` combination, including the full default-model tuple and `baseline_run_id`.
+- N=256 dual-profile rule: canonical `N=256` evaluation/promotion commands in this plan MUST include both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`; single-profile `N=256` commands are diagnostic-only.
 
 ### Strong-Advisory Cleanup Contract (Stage A)
 
@@ -141,7 +143,7 @@ Run:
 python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --ns 256 \
   --promotion-source-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/summary_seed_robust.csv \
-  --dataset-profiles-n256 cameraman256_halfsplit_v1 \
+  --dataset-profiles-n256 cameraman256_halfsplit_v1,custom_npz_pair_n256 \
   --epochs-n256 40 \
   --top-k-n256 6 \
   --promotion-objectives amp_ssim,train_wall_time_sec \
@@ -151,12 +153,14 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --max-model-params 300000000 \
   --cameraman-dp /home/ollie/Downloads/nersc/data/cameraman256_dp.hdf5 \
   --cameraman-para /home/ollie/Downloads/nersc/data/cameraman256_para.hdf5 \
+  --custom-n256-train-npz <path/to/lines_n256_train.npz> \
+  --custom-n256-test-npz <path/to/lines_n256_test.npz> \
   --output-root outputs/hybrid_resnet_mode_skip_sweep_full_n256_20260221 \
   --seed 3 \
   --no-probe-mask \
   --no-torch-mae-pred-l2-match-target
 ```
-Expected: promoted `N=256` run set is driven by feasible Pareto-ranked `summary_seed_robust.csv` (not raw single-seed summary).
+Expected: promoted `N=256` run set is driven by feasible Pareto-ranked `summary_seed_robust.csv` (not raw single-seed summary) and evaluates each promoted candidate on both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
 
 **Step 4: Add targeted N=256 high-mode probe (diagnostic)**
 
@@ -168,7 +172,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --widths 48 \
   --ns 256 \
   --allow-n256-direct-diagnostic \
-  --dataset-profiles-n256 cameraman256_halfsplit_v1 \
+  --dataset-profiles-n256 cameraman256_halfsplit_v1,custom_npz_pair_n256 \
   --epochs-n256 20 \
   --top-k-n256 0 \
   --promotion-objectives amp_ssim,train_wall_time_sec \
@@ -178,6 +182,8 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --max-model-params 300000000 \
   --cameraman-dp /home/ollie/Downloads/nersc/data/cameraman256_dp.hdf5 \
   --cameraman-para /home/ollie/Downloads/nersc/data/cameraman256_para.hdf5 \
+  --custom-n256-train-npz <path/to/lines_n256_train.npz> \
+  --custom-n256-test-npz <path/to/lines_n256_test.npz> \
   --output-root outputs/hybrid_resnet_mode_skip_sweep_n256_highmode_probe_20260221 \
   --seed 3 \
   --no-probe-mask \
@@ -234,6 +240,30 @@ Required columns:
 Gate:
 - Promotion/governance conclusions are invalid unless every cited "better than baseline" comparison appears in this table with `apples_to_apples=true`.
 
+**Step 5C: Persist default baseline registry (required)**
+
+Create:
+- `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/default_baselines.csv`
+- `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/default_baselines.md`
+- `outputs/hybrid_resnet_mode_skip_sweep_full_n256_20260221/promotion/default_baselines.csv`
+- `outputs/hybrid_resnet_mode_skip_sweep_full_n256_20260221/promotion/default_baselines.md`
+
+Required rows:
+- exactly one true-default baseline row for each active `(N, dataset_profile)` combination in this plan:
+  - `N=128`: `integration_grid_lines_n128_v1`, `fly001_external_n128_top_bottom_v1`
+  - `N=256`: `cameraman256_halfsplit_v1`, `custom_npz_pair_n256`
+
+Required columns:
+- `N`, `dataset_profile`, `baseline_run_id`, `stage_id`, `substage_id`, `seed_policy`, `epochs`
+- default tuple fields:
+  - `modes`, `skip`, `width`, `fno_blocks`, `downsample_schedule`, `downsample_op`
+  - `encoder_conv_hidden`, `encoder_spectral_hidden`, `encoder_conv_hidden_scale`, `encoder_spectral_hidden_scale`
+  - `max_hidden`, `resnet_width`, `resnet_blocks`, `skip_style`
+- baseline metrics: `amp_ssim`, `amp_mae`, `amp_mse`, `phase_ssim`, `train_wall_time_sec`, `inference_time_s`
+
+Gate:
+- Promotion/governance conclusions are invalid unless all active `(N, dataset_profile)` combinations have exactly one discoverable true-default baseline row.
+
 **Step 5A: Strong-advisory heavy-pruning verification**
 
 Run:
@@ -275,6 +305,7 @@ Add optional arguments (defaults preserve Stage A behavior):
 - `--skip-style-values` (default: `add`)  # `add|concat|gated_add`
 - `--dataset-profiles-n128` (default: `integration_grid_lines_n128_v1`)
 - `--dataset-profiles-n256` (default: `cameraman256_halfsplit_v1`)
+- canonical plan note: for `N=256` promotion/evaluation commands, pass `cameraman256_halfsplit_v1,custom_npz_pair_n256` explicitly.
 - `--cameraman-dp` (required when `N=256` is selected with `cameraman256_halfsplit_v1`)
 - `--cameraman-para` (required when `N=256` is selected with `cameraman256_halfsplit_v1`)
 - `--fly001-external-train-npz`
@@ -333,6 +364,7 @@ Implement guardrails:
 - Reject `cameraman256_halfsplit_v1` profile usage for active `N=256` runs unless both `--cameraman-dp` and `--cameraman-para` are provided.
 - Reject `custom_npz_pair_n128` unless both `--custom-n128-train-npz` and `--custom-n128-test-npz` are provided for active `N=128` runs.
 - Reject `custom_npz_pair_n256` unless both `--custom-n256-train-npz` and `--custom-n256-test-npz` are provided for active `N=256` runs.
+- For canonical non-diagnostic `N=256` invocations, require both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256` in `--dataset-profiles-n256`.
 - Reject `--allow-n256-direct-diagnostic` unless `--ns 256` and `--top-k-n256 0`.
 - In seed-rerank aggregation mode (`--aggregate-seed-rerank-root`):
   - require `--source-summary`, `--emit-robust-promotion-summary`, and `--emit-stage-anchor-summary`,
@@ -449,7 +481,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --stage-id B \
   --promotion-source-summary outputs/hybrid_resnet_stageB_fno_blocks_n128_20260221/promotion/summary_seed_robust.csv \
   --ns 256 \
-  --dataset-profiles-n256 cameraman256_halfsplit_v1 \
+  --dataset-profiles-n256 cameraman256_halfsplit_v1,custom_npz_pair_n256 \
   --epochs-n256 40 \
   --top-k-n256 6 \
   --promotion-objectives amp_ssim,train_wall_time_sec \
@@ -459,6 +491,8 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --max-model-params 300000000 \
   --cameraman-dp /home/ollie/Downloads/nersc/data/cameraman256_dp.hdf5 \
   --cameraman-para /home/ollie/Downloads/nersc/data/cameraman256_para.hdf5 \
+  --custom-n256-train-npz <path/to/lines_n256_train.npz> \
+  --custom-n256-test-npz <path/to/lines_n256_test.npz> \
   --output-root outputs/hybrid_resnet_stageB_fno_blocks_n256_20260221 \
   --seed 3 \
   --no-probe-mask \

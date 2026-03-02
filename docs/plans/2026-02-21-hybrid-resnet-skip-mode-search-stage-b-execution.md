@@ -20,6 +20,8 @@ This split document owns Task 11 only (Stage-B execution commands and artifacts)
 - Epoch floor: all Stage-B runs MUST use at least `10` epochs (`--epochs-n128 >= 10`, `--epochs-n256 >= 10`) unless an approved exception is recorded.
 - Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources.
 - Between consecutive Stage-B run invocations, delete repo-root `memoized_data/` before launching the next command (`rm -rf memoized_data/`).
+- Per-profile baseline discoverability rule: Stage-B artifacts MUST include `promotion/default_baselines.csv` and `promotion/default_baselines.md` with exactly one true-default baseline row per active `(N, dataset_profile)` combination.
+- N=256 dual-profile rule: canonical `N=256` evaluation/promotion runs MUST include both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
 
 ---
 
@@ -73,6 +75,7 @@ Before this step, run the boundary seed-rerank policy on `outputs/hybrid_resnet_
 - rerank `top-K + next 2` at `N=128` with seeds `11` and `17`,
 - produce `outputs/hybrid_resnet_stageB_fno_blocks_n128_20260221/promotion/summary_seed_robust.csv`,
 - use that robustness summary as promotion source.
+- ensure `outputs/hybrid_resnet_stageB_fno_blocks_n128_20260221/promotion/default_baselines.csv` exists before promotion and contains exactly one true-default baseline row per active `N=128` profile.
 
 Run:
 ```bash
@@ -80,7 +83,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --stage-id B \
   --promotion-source-summary outputs/hybrid_resnet_stageB_fno_blocks_n128_20260221/promotion/summary_seed_robust.csv \
   --ns 256 \
-  --dataset-profiles-n256 cameraman256_halfsplit_v1 \
+  --dataset-profiles-n256 cameraman256_halfsplit_v1,custom_npz_pair_n256 \
   --epochs-n256 40 \
   --top-k-n256 6 \
   --promotion-objectives amp_ssim,train_wall_time_sec \
@@ -90,11 +93,15 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --max-model-params 300000000 \
   --cameraman-dp /home/ollie/Downloads/nersc/data/cameraman256_dp.hdf5 \
   --cameraman-para /home/ollie/Downloads/nersc/data/cameraman256_para.hdf5 \
+  --custom-n256-train-npz <path/to/lines_n256_train.npz> \
+  --custom-n256-test-npz <path/to/lines_n256_test.npz> \
   --output-root outputs/hybrid_resnet_stageB_fno_blocks_n256_20260221 \
   --seed 3 \
   --no-probe-mask \
   --no-torch-mae-pred-l2-match-target
 ```
+
+After this run completes, emit `outputs/hybrid_resnet_stageB_fno_blocks_n256_20260221/promotion/default_baselines.csv` and `.md` with exactly one true-default baseline row per active `N=256` profile.
 
 **Step 3: Commit**
 
