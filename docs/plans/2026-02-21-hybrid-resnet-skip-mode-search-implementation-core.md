@@ -482,8 +482,8 @@ Required behavior:
   - `--dataset-profiles-n256` (default: `cameraman256_halfsplit_v1`)
   - `--cameraman-dp` (required when `N=256` is selected with `cameraman256_halfsplit_v1`)
   - `--cameraman-para` (required when `N=256` is selected with `cameraman256_halfsplit_v1`)
-  - `--fly001-external-train-npz` (required when `fly001_external_n128_top_bottom_v1` is selected)
-  - `--fly001-external-test-npz` (required when `fly001_external_n128_top_bottom_v1` is selected)
+  - `--fly001-external-train-npz` (required when `fly001_external_n128_top_bottom_v1` is selected; diagnostic-only profile)
+  - `--fly001-external-test-npz` (required when `fly001_external_n128_top_bottom_v1` is selected; diagnostic-only profile)
   - `--custom-n128-train-npz` (required when `custom_npz_pair_n128` is selected)
   - `--custom-n128-test-npz` (required when `custom_npz_pair_n128` is selected)
   - `--custom-n256-train-npz` (required when `custom_npz_pair_n256` is selected)
@@ -528,7 +528,7 @@ Required behavior:
     - `probe_source=custom`, `probe_smoothing_sigma=0.5`, `probe_scale_mode=pad_extrapolate`, `set_phi=True`
     - deterministic dataset seed (recorded in manifest; default `3`)
   - Additional N=128 profiles:
-    - `fly001_external_n128_top_bottom_v1` (external NPZ split; requires `--fly001-external-train-npz` and `--fly001-external-test-npz`)
+    - `fly001_external_n128_top_bottom_v1` (external NPZ split; requires `--fly001-external-train-npz` and `--fly001-external-test-npz`; diagnostic-only and excluded from canonical promotion/evaluation evidence)
     - `custom_npz_pair_n128` (caller-supplied `train.npz` / `test.npz`)
 - Rank `N=128` runs using the Section-6 policy from the companion design
   (`amp_ssim`-driven promotion ranking with phase-SSIM guardrail and runtime feasibility), then select top-K for `N=256`.

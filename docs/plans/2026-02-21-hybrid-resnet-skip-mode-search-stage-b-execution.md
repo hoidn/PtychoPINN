@@ -52,9 +52,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --promotion-source-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/champion_anchor_summary.csv \
   --fno-blocks-values 3,4 \
   --ns 128 \
-  --dataset-profiles-n128 integration_grid_lines_n128_v1,fly001_external_n128_top_bottom_v1 \
-  --fly001-external-train-npz <path/to/fly001_n128_train_top_half.npz> \
-  --fly001-external-test-npz <path/to/fly001_n128_test_bottom_half.npz> \
+  --dataset-profiles-n128 integration_grid_lines_n128_v1 \
   --epochs-n128 20 \
   --top-k-n256 0 \
   --promotion-objectives amp_ssim,train_wall_time_sec \

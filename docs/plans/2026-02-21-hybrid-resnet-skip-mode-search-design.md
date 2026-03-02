@@ -130,6 +130,7 @@ Profile semantics:
   - deterministic dataset seed is required and recorded.
 - `fly001_external_n128_top_bottom_v1`:
   - external NPZ split profile for N=128 (train/test paths supplied by caller).
+  - diagnostic-only for this initiative; MUST NOT be used as canonical evaluation/promotion evidence.
 - `custom_npz_pair_n128`:
   - caller-provided `train.npz` and `test.npz`.
 - `cameraman256_halfsplit_v1`:
@@ -155,6 +156,10 @@ N=256 cross-profile contract:
 - Canonical `N=256` evaluation/promotion runs (Stage-A promotion and Stage-B through Stage-E `N=256` confirmation/rerank) MUST evaluate candidates on both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
 - Single-profile `N=256` runs are diagnostic-only and MUST NOT be used as canonical promotion evidence.
 
+N=128 fly001 exclusion contract:
+- `fly001_external_n128_top_bottom_v1` MUST NOT be used for canonical evaluation/promotion decisions in Stage A/B.
+- Canonical promotion evidence at `N=128` must come from non-`fly001` profiles only; `fly001_external_n128_top_bottom_v1` may be used only in explicitly labeled diagnostics.
+
 Stage identifier contract:
 - `stage_id` values are `A|B|C|D|E`.
 - `substage_id` values are:
@@ -179,7 +184,7 @@ Policy:
 - promote top-K feasible Pareto-ranked candidates to `N=256`.
 - emit default-control baseline evidence for the true-default tuple and retain it in `promotion/default_baselines.csv|.md`.
 - emit a single-row Stage-A champion anchor summary selected from Stage-A `promotion/summary_seed_robust.csv` for downstream Stage-B `N=128` canonical progression.
-- run on one or more `dataset_profiles_n128` and aggregate rankings across profiles.
+- canonical promotion/evaluation at `N=128` excludes `fly001_external_n128_top_bottom_v1`; optional fly001 runs are diagnostic-only.
 - keep broad exploration single-seed (`seed=3` default), then apply the Section-6 boundary seed-robustness rule before promotion.
 
 ## 5.2 Stage B (Axis 1)

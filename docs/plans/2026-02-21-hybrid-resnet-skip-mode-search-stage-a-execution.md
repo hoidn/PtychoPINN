@@ -30,7 +30,7 @@ Execution order for this split document is:
 - Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources; rerun from earliest violating stage if such outputs were consumed.
 - Apples-to-apples baseline rule: any "better than baseline/default/anchor" claim in this plan MUST compare runs with the same dataset profile, epoch budget, and seed policy.
 - Stage-A specific baseline rule:
-  - For `integration_grid_lines_n128_v1` and `fly001_external_n128_top_bottom_v1`, use the true-default row (`modes=12`, `skip=off`, `width=32`) from the same Stage-A `N=128` sweep output as the baseline comparator.
+  - For canonical Stage-A evaluation/promotion at `N=128`, use the true-default row (`modes=12`, `skip=off`, `width=32`) from `integration_grid_lines_n128_v1` as the baseline comparator.
   - Stage-A promotion/governance claims MUST use the same seed policy as candidate ranking (`seed=3` for exploration, `{3,11,17}` median-rank context for robustness/promotion).
 - Baseline documentation rule: Stage-A execution artifacts MUST include a compact baseline table with baseline run id(s), candidate run id(s), and metrics (`amp_ssim`, `amp_mae`, `amp_mse`, `phase_ssim`, `train_wall_time_sec`, `inference_time_s`) plus an explicit `apples_to_apples=true|false` flag per comparison row.
 - Per-profile baseline discoverability rule: Stage-A/Stage-B execution artifacts MUST include `promotion/default_baselines.csv` and `promotion/default_baselines.md` with exactly one true-default baseline row per active `(N, dataset_profile)` combination, including the full default-model tuple and `baseline_run_id`.
@@ -71,9 +71,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --skip-values off,on \
   --widths 32,48,64 \
   --ns 128 \
-  --dataset-profiles-n128 integration_grid_lines_n128_v1,fly001_external_n128_top_bottom_v1 \
-  --fly001-external-train-npz <path/to/fly001_n128_train_top_half.npz> \
-  --fly001-external-test-npz <path/to/fly001_n128_test_bottom_half.npz> \
+  --dataset-profiles-n128 integration_grid_lines_n128_v1 \
   --epochs-n128 20 \
   --top-k-n256 6 \
   --promotion-objectives amp_ssim,train_wall_time_sec \
@@ -102,9 +100,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --skip-values <off_or_on> \
   --widths <width> \
   --ns 128 \
-  --dataset-profiles-n128 integration_grid_lines_n128_v1,fly001_external_n128_top_bottom_v1 \
-  --fly001-external-train-npz <path/to/fly001_n128_train_top_half.npz> \
-  --fly001-external-test-npz <path/to/fly001_n128_test_bottom_half.npz> \
+  --dataset-profiles-n128 integration_grid_lines_n128_v1 \
   --epochs-n128 20 \
   --top-k-n256 0 \
   --promotion-objectives amp_ssim,train_wall_time_sec \
@@ -301,7 +297,7 @@ Create:
 
 Required rows:
 - exactly one true-default baseline row for each active `(N, dataset_profile)` combination in this plan:
-  - `N=128`: `integration_grid_lines_n128_v1`, `fly001_external_n128_top_bottom_v1`
+  - `N=128`: `integration_grid_lines_n128_v1`
   - `N=256`: `cameraman256_halfsplit_v1`, `custom_npz_pair_n256`
 
 Required columns:
@@ -361,6 +357,7 @@ Add optional arguments (defaults preserve Stage A behavior):
 - `--cameraman-para` (required when `N=256` is selected with `cameraman256_halfsplit_v1`)
 - `--fly001-external-train-npz`
 - `--fly001-external-test-npz`
+- diagnostic-only note: `fly001_external_n128_top_bottom_v1` and its path args are for non-canonical diagnostics and MUST NOT be used for promotion/evaluation evidence.
 - `--custom-n128-train-npz`
 - `--custom-n128-test-npz`
 - `--custom-n256-train-npz`
@@ -503,9 +500,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --promotion-source-summary outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221/promotion/champion_anchor_summary.csv \
   --fno-blocks-values 3,4 \
   --ns 128 \
-  --dataset-profiles-n128 integration_grid_lines_n128_v1,fly001_external_n128_top_bottom_v1 \
-  --fly001-external-train-npz <path/to/fly001_n128_train_top_half.npz> \
-  --fly001-external-test-npz <path/to/fly001_n128_test_bottom_half.npz> \
+  --dataset-profiles-n128 integration_grid_lines_n128_v1 \
   --epochs-n128 20 \
   --top-k-n256 0 \
   --promotion-objectives amp_ssim,train_wall_time_sec \
