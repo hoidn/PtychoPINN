@@ -24,15 +24,25 @@ Constraints:
 <long-running-work-policy>
   This policy applies to any required long-running process in the selected plan.
 
-  1. Treat required long-running work as blocking.
-  2. If required long-running process is not running, launch it and wait for completion.
-  3. If it is already running, poll it every 30s until completion or timeout. For very long-running processes, use a backoff schedule.
-  4. Record PID, start time, current status, and final exit code 
-  5. Do not stop polling while any required long-running process is still running.
-  6. After process exit, verify required completion evidence from the plan:
-     - required END/RC markers (if used),
+  1. Blocking semantics:
+     - Do not report success when only launch succeeded.
+     - A long-running process is complete only after an explicit terminal state is observed.
+  2. Tracking requirements:
+     - Record PID, start time (UTC), status transitions, and final exit code.
+     - Persist this evidence in a machine-readable status artifact (not only terminal output).
+  3. Polling requirements:
+     - Poll status evidence at ~30s cadence (or bounded backoff for very long runs) until terminal state or timeout.
+     - Do not rely on pane/capture text as the sole completion signal.
+  4. Completion gate (all required):
+     - required process(es) exited,
+     - final exit code is 0,
+     - required completion marker(s) exist,
      - required output artifacts exist and are fresh for this run,
      - required verification checks pass.
+  5. Failure handling:
+     - If any completion gate fails or evidence is missing, do not claim completion.
+     - Mark the step as failed using the status/decision mechanism defined by this step's output contract.
+     - State the exact failed gate and include the evidence path.
 
   Default timeout: 12 hours unless the plan defines a different limit.
 </long-running-work-policy>
