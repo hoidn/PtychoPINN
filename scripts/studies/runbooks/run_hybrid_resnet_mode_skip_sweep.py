@@ -1428,23 +1428,24 @@ def _resolve_branch_hidden_metadata(
     stage_channels: Sequence[int],
     scale: float,
     explicit_hidden_raw: Any,
-    key_prefix: str,
+    key_name: str,
 ) -> dict[str, Any]:
-    explicit_hidden = _optional_positive_int_or_none(explicit_hidden_raw, key_prefix)
+    explicit_hidden = _optional_positive_int_or_none(explicit_hidden_raw, key_name)
     if explicit_hidden is not None:
         per_block = [int(explicit_hidden)] * len(stage_channels)
-        runner_hidden = str(explicit_hidden)
+        explicit_hidden_value = str(explicit_hidden)
     else:
         per_block = [max(1, int(round(int(channel) * float(scale)))) for channel in stage_channels]
-        if math.isclose(scale, 1.0, rel_tol=0.0, abs_tol=1e-12):
-            runner_hidden = "none"
-        else:
-            runner_hidden = str(per_block[0])
+        explicit_hidden_value = "none"
+
+    resolved_width = "none"
+    if per_block:
+        resolved_width = str(per_block[0])
 
     return {
-        f"{key_prefix}_resolved_width": runner_hidden,
-        f"{key_prefix}_resolved_per_block": "|".join(str(value) for value in per_block),
-        f"{key_prefix}_runner_hidden": runner_hidden,
+        "explicit_hidden": explicit_hidden_value,
+        "resolved_width": resolved_width,
+        "resolved_per_block": "|".join(str(value) for value in per_block),
     }
 
 
@@ -1478,32 +1479,28 @@ def _enrich_candidate_with_branch_metadata(candidate: Mapping[str, Any]) -> dict
     row["encoder_conv_hidden_scale"] = float(conv_scale)
     row["encoder_spectral_hidden_scale"] = float(spectral_scale)
     row["encoder_stage_channels"] = "|".join(str(value) for value in stage_channels)
+    row["encoder_conv_hidden"] = _resolve_axis_value(row.get("encoder_conv_hidden"), "none")
+    row["encoder_spectral_hidden"] = _resolve_axis_value(row.get("encoder_spectral_hidden"), "none")
 
     conv_meta = _resolve_branch_hidden_metadata(
         stage_channels=stage_channels,
         scale=conv_scale,
-        explicit_hidden_raw=row.get("encoder_conv_hidden", "none"),
-        key_prefix="encoder_conv_hidden",
+        explicit_hidden_raw=row["encoder_conv_hidden"],
+        key_name="encoder_conv_hidden",
     )
     spectral_meta = _resolve_branch_hidden_metadata(
         stage_channels=stage_channels,
         scale=spectral_scale,
-        explicit_hidden_raw=row.get("encoder_spectral_hidden", "none"),
-        key_prefix="encoder_spectral_hidden",
+        explicit_hidden_raw=row["encoder_spectral_hidden"],
+        key_name="encoder_spectral_hidden",
     )
 
-    row["encoder_conv_hidden"] = str(conv_meta["encoder_conv_hidden_runner_hidden"])
-    row["encoder_spectral_hidden"] = str(spectral_meta["encoder_spectral_hidden_runner_hidden"])
-    row["encoder_conv_hidden_resolved_width"] = str(conv_meta["encoder_conv_hidden_resolved_width"])
-    row["encoder_spectral_hidden_resolved_width"] = str(
-        spectral_meta["encoder_spectral_hidden_resolved_width"]
-    )
-    row["encoder_conv_hidden_resolved_per_block"] = str(
-        conv_meta["encoder_conv_hidden_resolved_per_block"]
-    )
-    row["encoder_spectral_hidden_resolved_per_block"] = str(
-        spectral_meta["encoder_spectral_hidden_resolved_per_block"]
-    )
+    row["encoder_conv_hidden"] = str(conv_meta["explicit_hidden"])
+    row["encoder_spectral_hidden"] = str(spectral_meta["explicit_hidden"])
+    row["encoder_conv_hidden_resolved_width"] = str(conv_meta["resolved_width"])
+    row["encoder_spectral_hidden_resolved_width"] = str(spectral_meta["resolved_width"])
+    row["encoder_conv_hidden_resolved_per_block"] = str(conv_meta["resolved_per_block"])
+    row["encoder_spectral_hidden_resolved_per_block"] = str(spectral_meta["resolved_per_block"])
     return row
 
 
@@ -1927,6 +1924,22 @@ def _run_candidate_with_runner(
             str(_safe_int(candidate.get("downsample_schedule"), "downsample_schedule", default=2)),
             "--hybrid-downsample-op",
             _resolve_axis_value(candidate.get("downsample_op"), "stride_conv"),
+            "--hybrid-encoder-conv-hidden-scale",
+            str(
+                _safe_positive_scale(
+                    candidate.get("encoder_conv_hidden_scale", 1.0),
+                    "encoder_conv_hidden_scale",
+                    default=1.0,
+                )
+            ),
+            "--hybrid-encoder-spectral-hidden-scale",
+            str(
+                _safe_positive_scale(
+                    candidate.get("encoder_spectral_hidden_scale", 1.0),
+                    "encoder_spectral_hidden_scale",
+                    default=1.0,
+                )
+            ),
         ]
     )
     encoder_conv_hidden_raw = _resolve_axis_value(candidate.get("encoder_conv_hidden"), "none")

@@ -225,6 +225,28 @@ def test_guardrail_rejects_non_plan_objective_tuple(tmp_path, capsys):
     assert "requires --promotion-objectives amp_ssim,train_wall_time_sec" in capsys.readouterr().err
 
 
+def test_stage_d_guardrail_rejects_legacy_objective_tuple(tmp_path, capsys):
+    rc = sweep.main(
+        [
+            "--stage-id",
+            "D",
+            "--substage-id",
+            "D1",
+            "--ns",
+            "128",
+            "--promotion-source-summary",
+            str(tmp_path / "source.csv"),
+            "--promotion-objectives",
+            "amp_mae,amp_mse,train_wall_time_sec",
+            "--output-root",
+            str(tmp_path / "out"),
+        ]
+    )
+
+    assert rc == 1
+    assert "requires --promotion-objectives amp_ssim,train_wall_time_sec" in capsys.readouterr().err
+
+
 def test_guardrail_rejects_missing_summary_schema_version(tmp_path, capsys):
     source_summary = tmp_path / "source_missing_schema.csv"
     _write_csv(
@@ -486,9 +508,12 @@ def test_stage_id_d1_scale_sweep_persists_resolved_width_metadata_and_runner_val
     assert len(observed_candidates) == 3
 
     by_scale = {float(candidate["encoder_conv_hidden_scale"]): candidate for candidate in observed_candidates}
-    assert by_scale[0.5]["encoder_conv_hidden"] == "16"
+    assert by_scale[0.5]["encoder_conv_hidden"] == "none"
     assert by_scale[1.0]["encoder_conv_hidden"] == "none"
-    assert by_scale[2.0]["encoder_conv_hidden"] == "64"
+    assert by_scale[2.0]["encoder_conv_hidden"] == "none"
+    assert by_scale[0.5]["encoder_conv_hidden_resolved_width"] == "16"
+    assert by_scale[1.0]["encoder_conv_hidden_resolved_width"] == "32"
+    assert by_scale[2.0]["encoder_conv_hidden_resolved_width"] == "64"
     assert by_scale[2.0]["encoder_conv_hidden_resolved_per_block"] == "64|128|256|256"
     assert by_scale[1.0]["encoder_stage_channels"] == "32|64|128|128"
 
@@ -1930,6 +1955,8 @@ def test_run_candidate_with_runner_forwards_structural_knobs(tmp_path, monkeypat
         "skip": "on",
         "downsample_schedule": 1,
         "downsample_op": "avgpool_conv",
+        "encoder_conv_hidden_scale": 0.75,
+        "encoder_spectral_hidden_scale": 1.5,
         "encoder_conv_hidden": "48",
         "encoder_spectral_hidden": "64",
         "resnet_width": "256",
@@ -1963,6 +1990,10 @@ def test_run_candidate_with_runner_forwards_structural_knobs(tmp_path, monkeypat
     assert cmd[cmd.index("--hybrid-downsample-steps") + 1] == "1"
     assert "--hybrid-downsample-op" in cmd
     assert cmd[cmd.index("--hybrid-downsample-op") + 1] == "avgpool_conv"
+    assert "--hybrid-encoder-conv-hidden-scale" in cmd
+    assert cmd[cmd.index("--hybrid-encoder-conv-hidden-scale") + 1] == "0.75"
+    assert "--hybrid-encoder-spectral-hidden-scale" in cmd
+    assert cmd[cmd.index("--hybrid-encoder-spectral-hidden-scale") + 1] == "1.5"
     assert "--hybrid-encoder-conv-hidden" in cmd
     assert cmd[cmd.index("--hybrid-encoder-conv-hidden") + 1] == "48"
     assert "--hybrid-encoder-spectral-hidden" in cmd
@@ -1975,7 +2006,7 @@ def test_run_candidate_with_runner_forwards_structural_knobs(tmp_path, monkeypat
     assert cmd[cmd.index("--torch-resnet-width") + 1] == "256"
 
 
-def test_run_candidate_with_runner_omits_optional_hidden_widths_when_none(tmp_path, monkeypatch):
+def test_run_candidate_with_runner_forwards_scales_and_omits_hidden_widths_when_none(tmp_path, monkeypatch):
     run_dir = tmp_path / "run"
     train_npz = tmp_path / "train.npz"
     test_npz = tmp_path / "test.npz"
@@ -1998,6 +2029,8 @@ def test_run_candidate_with_runner_omits_optional_hidden_widths_when_none(tmp_pa
         "skip": "off",
         "downsample_schedule": 2,
         "downsample_op": "stride_conv",
+        "encoder_conv_hidden_scale": 0.5,
+        "encoder_spectral_hidden_scale": 2.0,
         "encoder_conv_hidden": "none",
         "encoder_spectral_hidden": "none",
         "resnet_width": "none",
@@ -2029,6 +2062,10 @@ def test_run_candidate_with_runner_omits_optional_hidden_widths_when_none(tmp_pa
     assert "--no-hybrid-skip-connections" in cmd
     assert "--hybrid-downsample-steps" in cmd
     assert "--hybrid-downsample-op" in cmd
+    assert "--hybrid-encoder-conv-hidden-scale" in cmd
+    assert cmd[cmd.index("--hybrid-encoder-conv-hidden-scale") + 1] == "0.5"
+    assert "--hybrid-encoder-spectral-hidden-scale" in cmd
+    assert cmd[cmd.index("--hybrid-encoder-spectral-hidden-scale") + 1] == "2.0"
     assert "--hybrid-resnet-blocks" in cmd
     assert "--hybrid-skip-style" in cmd
     assert "--hybrid-encoder-conv-hidden" not in cmd
