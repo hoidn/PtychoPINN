@@ -39,6 +39,10 @@ DEFAULT_PROMOTION_OBJECTIVES = ("amp_ssim", "train_wall_time_sec")
 REQUIRED_PROMOTION_OBJECTIVES_BY_STAGE = {
     stage_id: DEFAULT_PROMOTION_OBJECTIVES for stage_id in ("A", "B", "C", "D", "E")
 }
+CANONICAL_N256_DATASET_PROFILES = (
+    "cameraman256_halfsplit_v1",
+    "custom_npz_pair_n256",
+)
 OBJECTIVE_DIRECTIONS = {
     "amp_ssim": "max",
     "phase_ssim": "max",
@@ -430,6 +434,19 @@ def validate_stage_configuration(args: argparse.Namespace) -> None:
 
     profiles = _active_profiles(args)
     if args.ns == 256:
+        if args.top_k_n256 > 0 and not args.allow_n256_direct_diagnostic:
+            required_profiles = set(CANONICAL_N256_DATASET_PROFILES)
+            observed_profiles = set(profiles)
+            missing_profiles = sorted(required_profiles - observed_profiles)
+            if missing_profiles:
+                required_text = ",".join(CANONICAL_N256_DATASET_PROFILES)
+                observed_text = ",".join(profiles) if profiles else "<none>"
+                missing_text = ",".join(missing_profiles)
+                raise StageValidationError(
+                    "Canonical non-diagnostic N=256 runs require both dataset profiles "
+                    f"in --dataset-profiles-n256 ({required_text}); missing {missing_text}. "
+                    f"Observed: {observed_text}"
+                )
         if "cameraman256_halfsplit_v1" in profiles and (not args.cameraman_dp or not args.cameraman_para):
             raise StageValidationError(
                 "cameraman256_halfsplit_v1 profile requires --cameraman-dp and --cameraman-para"
@@ -2502,6 +2519,11 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
         if args.ns == 128 and args.top_k_n256 > 0:
             for row in feasible_rows[: args.top_k_n256]:
                 row["promote_to_n256"] = True
+    elif rows:
+        # Seed-rerank singletons can be infeasible under strict caps; still emit a
+        # deterministic anchor row so summary/cleanup artifacts can be written.
+        sorted_rows = sorted(rows, key=_candidate_sort_key)
+        sorted_rows[0]["is_stage_anchor"] = True
 
     _reconcile_retention_tiers(
         rows,

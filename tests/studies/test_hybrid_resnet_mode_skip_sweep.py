@@ -373,6 +373,63 @@ def test_guardrail_rejects_invalid_resnet_width_value(tmp_path, capsys):
     assert "resnet_width must be positive and divisible by 4" in capsys.readouterr().err
 
 
+def test_guardrail_rejects_canonical_n256_missing_dual_profiles(tmp_path, capsys):
+    rc = sweep.main(
+        [
+            "--stage-id",
+            "A",
+            "--ns",
+            "256",
+            "--promotion-source-summary",
+            str(tmp_path / "source.csv"),
+            "--top-k-n256",
+            "2",
+            "--dataset-profiles-n256",
+            "cameraman256_halfsplit_v1",
+            "--cameraman-dp",
+            str(tmp_path / "cameraman_dp.hdf5"),
+            "--cameraman-para",
+            str(tmp_path / "cameraman_para.hdf5"),
+            "--output-root",
+            str(tmp_path / "out"),
+        ]
+    )
+
+    assert rc == 1
+    stderr = capsys.readouterr().err
+    assert "Canonical non-diagnostic N=256 runs require both dataset profiles" in stderr
+    assert "custom_npz_pair_n256" in stderr
+
+
+def test_validate_stage_configuration_accepts_canonical_n256_dual_profiles(tmp_path):
+    args = sweep.parse_args(
+        [
+            "--stage-id",
+            "A",
+            "--ns",
+            "256",
+            "--promotion-source-summary",
+            str(tmp_path / "source.csv"),
+            "--top-k-n256",
+            "2",
+            "--dataset-profiles-n256",
+            "cameraman256_halfsplit_v1,custom_npz_pair_n256",
+            "--cameraman-dp",
+            str(tmp_path / "cameraman_dp.hdf5"),
+            "--cameraman-para",
+            str(tmp_path / "cameraman_para.hdf5"),
+            "--custom-n256-train-npz",
+            str(tmp_path / "train.npz"),
+            "--custom-n256-test-npz",
+            str(tmp_path / "test.npz"),
+            "--output-root",
+            str(tmp_path / "out"),
+        ]
+    )
+
+    sweep.validate_stage_configuration(args)
+
+
 def test_stage_id_parse_defaults_include_branch_scale_axes():
     args = sweep.parse_args(["--stage-id", "A", "--output-root", "tmp/out"])
     assert args.encoder_conv_hidden_scale_values == [1.0]
@@ -1774,6 +1831,16 @@ def test_n256_promotion_deduplicates_rows_by_config(tmp_path, monkeypatch):
         }
 
     monkeypatch.setattr(sweep, "_run_candidate_with_runner", _fake_runner)
+    def _fake_resolve_profile_npz_inputs(args, profile, cache):
+        _ = args
+        train = tmp_path / f"{profile}_train.npz"
+        test = tmp_path / f"{profile}_test.npz"
+        train.write_text("train")
+        test.write_text("test")
+        cache[profile] = (train, test)
+        return cache[profile]
+
+    monkeypatch.setattr(sweep, "_resolve_profile_npz_inputs", _fake_resolve_profile_npz_inputs)
 
     rc = sweep.main(
         [
@@ -1786,7 +1853,11 @@ def test_n256_promotion_deduplicates_rows_by_config(tmp_path, monkeypatch):
             "--top-k-n256",
             "2",
             "--dataset-profiles-n256",
-            "custom_npz_pair_n256",
+            "cameraman256_halfsplit_v1,custom_npz_pair_n256",
+            "--cameraman-dp",
+            str(tmp_path / "cameraman_dp.hdf5"),
+            "--cameraman-para",
+            str(tmp_path / "cameraman_para.hdf5"),
             "--custom-n256-train-npz",
             str(tmp_path / "train.npz"),
             "--custom-n256-test-npz",
@@ -1798,11 +1869,15 @@ def test_n256_promotion_deduplicates_rows_by_config(tmp_path, monkeypatch):
     assert rc == 0
 
     rows = list(csv.DictReader((tmp_path / "out" / "summary.csv").open()))
-    assert len(rows) == 2
+    assert len(rows) == 4
     unique_configs = {
         (row["modes"], row["skip"], row["width"], row["fno_blocks"]) for row in rows
     }
     assert len(unique_configs) == 2
+    assert {row["dataset_profile"] for row in rows} == {
+        "cameraman256_halfsplit_v1",
+        "custom_npz_pair_n256",
+    }
 
 
 def test_seed_rerank_aggregation_deduplicates_boundary_configs(tmp_path):
