@@ -21,6 +21,7 @@ This split document owns Task 14 only (Stage-E implementation/search and artifac
 - Global epoch floor: all Stage-E runs MUST use at least `10` training epochs per run (`--epochs-n128 >= 10`, `--epochs-n256 >= 10`) unless an approved exception is recorded.
 - Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources.
 - Per-profile baseline discoverability rule: Stage-E artifacts MUST include `promotion/default_baselines.csv` and `promotion/default_baselines.md` with exactly one true-default baseline row per active `(N, dataset_profile)` combination.
+- Stage-E default-baseline provenance rule: when Stage-E candidate governance enforces `skip=on` and therefore blocks true-default (`skip=off`) candidate execution, `promotion/default_baselines.*` MUST source true-default rows from canonical Stage-D `promotion/default_baselines.csv`, preserve original `baseline_run_id` values verbatim, and include provenance text in `seed_policy` (no synthetic run IDs).
 - N=256 dual-profile rule: canonical `N=256` evaluation/promotion runs MUST include both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
 - Canonical Stage-E `N=128` progression source MUST be the single-row Stage-D4 champion anchor selected from Stage-D4 `promotion/summary_seed_robust.csv` and passed via `--promotion-source-summary`.
 - Default-control runs stay in the baseline-comparison lane and MUST NOT be used as Stage-E transition anchors.
@@ -93,6 +94,7 @@ Run skip styles on Stage-D champion config (`--promotion-source-summary <stageD4
   - `outputs/<stage_e_root>/promotion/default_baselines.md`
   - Gate: only comparisons recorded as `apples_to_apples=true` are valid evidence for style promotion conclusions.
   - Gate: `default_baselines.*` must contain exactly one true-default baseline row per active `(N, dataset_profile)` combination.
+  - Provenance gate: if Stage-E cannot run true-default candidates because of `skip=on` enforcement, `default_baselines.*` MUST reuse canonical Stage-D true-default rows (same `baseline_run_id`, no fabricated aliases) and document the cross-stage source in `seed_policy`.
 
 Constraint:
 - Stage E must reuse the topology-driven fusion-point mechanism introduced in Task 12 Step 0; do not introduce new hard-coded skip tap indices.

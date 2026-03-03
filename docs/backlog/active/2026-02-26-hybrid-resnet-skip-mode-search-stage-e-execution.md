@@ -15,3 +15,4 @@ Execution mode:
 - one plan slice at a time
 - implementation-vs-plan review gate required
 - fix loop required on `REVISE`
+- enforce Stage-E default-baseline provenance contract from the plan (Stage-D canonical defaults allowed when Stage-E `skip=on` policy blocks true-default runs; no synthetic run IDs)
