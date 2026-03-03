@@ -96,6 +96,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** template, plan, phased, checklist, exit-criteria  
 **Use this when:** Creating or reshaping an initiative plan to match project conventions.
 
+### [Workflow Contract Plan Template](plans/templates/workflow_contract_plan.md)
+**Description:** Minimal template for plans intended for workflow execution, with a strict workflow-level contract surface (`< 3` artifacts), producer/consumer mapping, and required plan-author/workflow-author coordination checklist.  
+**Keywords:** template, workflow-contract, producer-consumer, artifact-lineage, orchestration  
+**Use this when:** Writing plans that must expose only a small, explicit set of workflow-level inputs/outputs.
+
 ### [Debug Task Plan Template (Optional)](plans/templates/debug_task_plan.md)
 **Description:** Optional task-first template for debugging/evidence initiatives with hypothesis ledger, deterministic diagnostics, and decision-gate sections.  
 **Keywords:** template, debug, hypothesis, investigation, decision-gate  
