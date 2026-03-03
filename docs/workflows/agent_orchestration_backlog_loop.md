@@ -2,7 +2,8 @@
 
 This runbook explains how to kick off and monitor the long-running backlog-driven implementation workflow:
 
-- Workflow file: `workflows/agent_orchestration/backlog_plan_slice_impl_review_loop.yaml`
+- Workflow file (recommended): `workflows/agent_orchestration/backlog_plan_slice_impl_dual_review_loop.yaml`
+- Legacy workflow file: `workflows/agent_orchestration/backlog_plan_slice_impl_review_loop.yaml`
 - Prompt set: `prompts/workflows/backlog_plan_loop/*.md`
 
 Execution model:
@@ -62,6 +63,18 @@ mkdir -p logs state artifacts/work artifacts/checks artifacts/review artifacts/f
 
 export PYTHONPATH=~/Documents/agent-orchestration
 python -m orchestrator.cli.main run \
+  workflows/agent_orchestration/backlog_plan_slice_impl_dual_review_loop.yaml \
+  --debug \
+  --step-summaries \
+  --summary-mode async \
+  --summary-provider claude_sonnet_summary \
+  2>&1 | tee logs/backlog-loop-$(date -u +%Y%m%dT%H%M%SZ).log
+```
+
+Legacy single-review launch command:
+
+```bash
+python -m orchestrator.cli.main run \
   workflows/agent_orchestration/backlog_plan_slice_impl_review_loop.yaml \
   --debug \
   --step-summaries \
@@ -90,14 +103,26 @@ For each selected backlog item, it runs:
 7. Run targeted checks
 8. Prepare cycle-scoped review-report output path
 9. Review implementation vs plan (`APPROVE` or `REVISE`)
-10. If `REVISE`:
+10. Review plan-level issues (`APPROVE` or `REVISE`)
+11. Consolidate both decisions
+12. If consolidated decision is `REVISE`:
     - gate on max cycles
     - prepare cycle-scoped fix-session output path
     - run full-plan fix pass (provider: codex)
-    - increment cycle and loop back through checks + review
-11. On success, move backlog item `active -> done`
-12. Run a post-approval commit step (provider: codex)
-13. Recount active queue and continue until no active items remain
+    - if plan/backlog contracts are revised, create a dedicated plan-revision commit
+    - increment cycle and loop back through checks + both review passes
+13. On success, move backlog item `active -> done`
+14. Run a post-approval commit step (provider: codex)
+15. Recount active queue and continue until no active items remain
+
+Plan-revision commit convention:
+- Subject pattern: `plan-revision(<backlog-item-stem>): <short reason>`
+- These commits should contain only plan/backlog contract revisions.
+- Find them quickly with:
+
+```bash
+git log --oneline --grep '^plan-revision('
+```
 
 ## 5) Monitoring
 
@@ -109,6 +134,7 @@ Run artifacts are under `.orchestrate/runs/<run_id>/`.
 - Prompt audit logs (because `--debug`):
   - `ExecutePlan.prompt.txt`
   - `ReviewImplVsPlan.prompt.txt`
+  - `ReviewPlanLevelIssues.prompt.txt`
   - `FixIssues.prompt.txt` (when that step runs)
   - `CommitOnApprove.prompt.txt` (when approval path runs)
 
@@ -116,7 +142,10 @@ Workflow state/output files in repo root:
 - `state/execution_session_log_path.txt` (pointer for current execute/fix session log target)
 - `state/check_log_path.txt` (pointer for current checks log target)
 - `state/code_review_path.txt` (pointer for current review report target)
+- `state/plan_review_path.txt` (pointer for current plan-level review report target)
 - `state/review_decision.txt`
+- `state/plan_review_decision.txt`
+- `state/final_review_decision.txt`
 - `state/review_cycle.txt`
 - `state/commit_sha_path.txt`
 
@@ -124,8 +153,24 @@ Cycle-scoped human artifacts are written under:
 - `artifacts/work/runs/<run_id>/c*-{execute,fix}-session.md`
 - `artifacts/checks/runs/<run_id>/c*-checks.log`
 - `artifacts/review/runs/<run_id>/c*-review.md`
+- `artifacts/review/runs/<run_id>/c*-plan-review.md`
 
-## 6) Resume After Interruption
+## 6) Pointer Contract and Recovery
+
+Pointer ownership:
+- `PrepareExecuteSessionLogPath`, `PrepareCheckLogPath`, `PrepareCodeReviewPath`, and `PreparePlanReviewPath` are the only steps that decide pointer values in `state/*_path.txt`.
+- Provider steps (`ExecutePlan`, `ReviewImplVsPlan`, `ReviewPlanLevelIssues`, `FixIssues`) must read pointer files and write targets, but must not rewrite pointer files.
+
+`relpath` semantics:
+- Pointer values are repository-root-relative paths.
+- For outputs declared `under: artifacts/<kind>`, pointer values must include that prefix (for example `artifacts/review/runs/<run_id>/c0-review.md`), not a bare filename.
+
+Recovery after stale or invalid pointers:
+1. Stop the active workflow process.
+2. Clear stale local workflow state and artifacts for the run you are restarting (`state/*.txt` and stale `artifacts/*/latest-*` files if present).
+3. Relaunch the workflow so `Prepare*Path` steps repopulate deterministic, cycle-scoped pointers.
+
+## 7) Resume After Interruption
 
 If interrupted, resume with the run ID:
 
@@ -152,7 +197,7 @@ Resume options:
 - `--repair`: attempt recovery from `state.json.step_*.bak` if state is corrupted.
 - `--force-restart`: ignore existing state and start a new run from current queue state.
 
-## 7) Safety Notes
+## 8) Safety Notes
 
 - Run from `~/Documents/tmp/PtychoPINN` so relative paths resolve correctly.
 - The workflow will move approved backlog items to `docs/backlog/done/`.

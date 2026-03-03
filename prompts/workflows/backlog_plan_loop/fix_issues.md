@@ -5,12 +5,17 @@ Use the `Consumed Artifacts` section as the authoritative input list, and read t
 Do:
 1. Execute the full plan again, incorporating required fixes from the code review report.
 2. Use the consumed check log to prioritize concrete failing checks first.
-3. Keep changes focused on plan completion.
-4. Do not fabricate or backfill run results.
-5. Read destination path from `state/execution_session_log_path.txt`, then write the execution session log to that path, with:
+3. If the consumed plan-level review requires plan/backlog contract edits, apply those edits first and create a dedicated non-interactive commit for the plan revision before continuing execution.
+   - Commit subject pattern: `plan-revision(<backlog-item-stem>): <short reason>`
+   - Example: `plan-revision(2026-02-26-hybrid-resnet-skip-mode-search-stage-d-execution): clarify N=256 baseline coverage contract`
+   - Include only the plan/backlog revision files in that commit.
+4. Keep changes focused on plan completion.
+5. Do not fabricate or backfill run results.
+6. Read destination path from `state/execution_session_log_path.txt`, then write the execution session log to that path, with:
    - plan path used
    - fixes implemented
    - commands executed and outcomes
+   - plan revision commit(s), if created (subject + SHA)
    - files changed
    - blockers or follow-ups
 

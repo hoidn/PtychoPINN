@@ -1,0 +1,574 @@
+version: "1.3"
+name: "backlog-plan-impl-dual-review-loop-v1"
+context:
+  max_review_cycles: "6"
+providers:
+  codex:
+    command:
+      [
+        "codex",
+        "exec",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "--skip-git-repo-check",
+        "--model",
+        "${model}",
+        "--config",
+        "reasoning_effort=${reasoning_effort}",
+      ]
+    input_mode: stdin
+    defaults:
+      model: "gpt-5.3-codex"
+      reasoning_effort: "high"
+
+steps:
+  - name: CountActiveBacklogItems
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p state docs/backlog/active
+        find docs/backlog/active -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ' > state/active_backlog_count.txt
+    expected_outputs:
+      - name: active_backlog_count
+        path: state/active_backlog_count.txt
+        type: integer
+
+  - name: ActiveBacklogGate
+    command:
+      - bash
+      - -lc
+      - 'test "$(cat state/active_backlog_count.txt)" -gt 0'
+    on:
+      failure:
+        goto: _end
+
+  - name: SelectBacklogItem
+    command:
+      - bash
+      - -lc
+      - |
+        python - <<'PY'
+        import json
+        from pathlib import Path
+
+        ACTIVE_DIR = Path("docs/backlog/active")
+        STATE_DIR = Path("state")
+
+        if not ACTIVE_DIR.exists():
+            raise SystemExit("Missing docs/backlog/active")
+
+        items = sorted(ACTIVE_DIR.glob("*.md"))
+        if not items:
+            raise SystemExit("No active backlog items found in docs/backlog/active")
+
+        def parse_frontmatter(path: Path):
+            text = path.read_text(encoding="utf-8")
+            if not text.startswith("---\n"):
+                raise SystemExit(f"Backlog item missing YAML frontmatter: {path}")
+
+            end = text.find("\n---\n", 4)
+            if end == -1:
+                raise SystemExit(f"Backlog item has unterminated YAML frontmatter: {path}")
+
+            fm = text[4:end]
+            data = {}
+            current_list_key = None
+
+            for line in fm.splitlines():
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#"):
+                    continue
+
+                if line.startswith("  - ") or line.startswith("- "):
+                    if current_list_key is None:
+                        raise SystemExit(f"Invalid list entry in frontmatter ({path}): {line}")
+                    value = line.split("-", 1)[1].strip().strip('"\'')
+                    data[current_list_key].append(value)
+                    continue
+
+                if ":" not in line:
+                    raise SystemExit(f"Invalid frontmatter line ({path}): {line}")
+
+                key, value = line.split(":", 1)
+                key = key.strip()
+                value = value.strip()
+
+                if value == "":
+                    data[key] = []
+                    current_list_key = key
+                else:
+                    data[key] = value.strip('"\'')
+                    current_list_key = None
+
+            if "plan_path" not in data:
+                raise SystemExit(f"Frontmatter missing required key plan_path: {path}")
+            if "priority" not in data:
+                raise SystemExit(f"Frontmatter missing required key priority: {path}")
+            if "check_commands" not in data or not isinstance(data["check_commands"], list) or not data["check_commands"]:
+                raise SystemExit(f"Frontmatter missing non-empty list check_commands: {path}")
+
+            try:
+                priority = int(str(data["priority"]).strip())
+            except ValueError:
+                raise SystemExit(f"priority must be integer in {path}: {data['priority']}")
+
+            return {
+                "path": path,
+                "priority": priority,
+                "plan_path": str(data["plan_path"]).strip(),
+                "check_commands": [str(c).strip() for c in data["check_commands"] if str(c).strip()],
+            }
+
+        parsed = [parse_frontmatter(item) for item in items]
+        parsed.sort(key=lambda row: (row["priority"], row["path"].name))
+        selected = parsed[0]
+
+        plan_target = Path(selected["plan_path"])
+        if not plan_target.exists():
+            raise SystemExit(f"plan_path target does not exist: {selected['plan_path']}")
+
+        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        (STATE_DIR / "backlog_item_path.txt").write_text(str(selected["path"].as_posix()) + "\n", encoding="utf-8")
+        (STATE_DIR / "plan_path.txt").write_text(selected["plan_path"] + "\n", encoding="utf-8")
+        (STATE_DIR / "check_commands.json").write_text(json.dumps(selected["check_commands"], indent=2) + "\n", encoding="utf-8")
+        (STATE_DIR / "check_commands_path.txt").write_text("state/check_commands.json\n", encoding="utf-8")
+        PY
+    expected_outputs:
+      - name: backlog_item_path
+        path: state/backlog_item_path.txt
+        type: relpath
+        under: docs/backlog/active
+        must_exist_target: true
+      - name: plan_path
+        path: state/plan_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: check_commands_path
+        path: state/check_commands_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true
+    publishes:
+      - artifact: plan
+        from: plan_path
+
+  - name: CaptureGitBaseline
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p state
+        git rev-parse HEAD > state/pre_run_head.txt
+        git status --porcelain=v1 > state/pre_run_status.txt
+        git diff --name-only > state/pre_run_tracked_diff.txt
+        git diff --cached --name-only > state/pre_run_index_diff.txt
+
+  - name: InitializeReviewCycle
+    command:
+      - bash
+      - -lc
+      - "mkdir -p state && printf '0\n' > state/review_cycle.txt"
+    expected_outputs:
+      - name: review_cycle
+        path: state/review_cycle.txt
+        type: integer
+
+  - name: PrepareExecuteSessionLogPath
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p state artifacts/work/runs/${run.id}
+        cycle="$(cat state/review_cycle.txt)"
+        target="artifacts/work/runs/${run.id}/c$cycle-execute-session.md"
+        rm -f "$target"
+        printf '%s\n' "$target" > state/execution_session_log_path.txt
+    expected_outputs:
+      - name: execution_session_log_path
+        path: state/execution_session_log_path.txt
+        type: relpath
+        under: artifacts/work
+
+  - name: ExecutePlan
+    provider: codex
+    input_file: prompts/workflows/backlog_plan_loop/execute_plan.md
+    timeout_sec: 43200
+    consumes:
+      - artifact: plan
+        producers: ["SelectBacklogItem"]
+        policy: latest_successful
+        freshness: any
+    inject_consumes: true
+    consumes_injection_position: prepend
+    expected_outputs:
+      - name: execution_session_log_path
+        path: state/execution_session_log_path.txt
+        type: relpath
+        under: artifacts/work
+        must_exist_target: true
+    publishes:
+      - artifact: execution_session_log
+        from: execution_session_log_path
+
+  - name: PrepareCheckLogPath
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p state artifacts/checks/runs/${run.id}
+        cycle="$(cat state/review_cycle.txt)"
+        target="artifacts/checks/runs/${run.id}/c$cycle-checks.log"
+        rm -f "$target"
+        printf '%s\n' "$target" > state/check_log_path.txt
+    expected_outputs:
+      - name: check_log_path
+        path: state/check_log_path.txt
+        type: relpath
+        under: artifacts/checks
+
+  - name: RunTargetedChecks
+    command:
+      - bash
+      - -lc
+      - |
+        python - <<'PY'
+        import json
+        import subprocess
+        from pathlib import Path
+
+        state_dir = Path("state")
+        checks_file = state_dir / "check_commands.json"
+        checks = json.loads(checks_file.read_text(encoding="utf-8"))
+        if not isinstance(checks, list) or not checks:
+            raise SystemExit("state/check_commands.json must contain a non-empty JSON list")
+
+        check_log_rel = (state_dir / "check_log_path.txt").read_text(encoding="utf-8").strip()
+        if not check_log_rel:
+            raise SystemExit("state/check_log_path.txt is empty")
+        log_path = Path(check_log_rel)
+        if log_path.is_absolute() or ".." in log_path.parts:
+            raise SystemExit(f"Refusing unsafe check log path: {check_log_rel}")
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+
+        failures = 0
+        lines = []
+        for idx, cmd in enumerate(checks, start=1):
+            lines.append(f"$ [{idx}/{len(checks)}] {cmd}\n")
+            proc = subprocess.run(
+                ["bash", "-lc", cmd],
+                capture_output=True,
+                text=True,
+            )
+            lines.append(f"exit_code={proc.returncode}\n")
+            if proc.stdout:
+                lines.append("[stdout]\n")
+                lines.append(proc.stdout)
+                if not proc.stdout.endswith("\n"):
+                    lines.append("\n")
+            if proc.stderr:
+                lines.append("[stderr]\n")
+                lines.append(proc.stderr)
+                if not proc.stderr.endswith("\n"):
+                    lines.append("\n")
+            lines.append("\n")
+            if proc.returncode != 0:
+                failures += 1
+
+        lines.append(f"failed_count={failures}\n")
+        log_path.write_text("".join(lines), encoding="utf-8")
+        PY
+    expected_outputs:
+      - name: check_log_path
+        path: state/check_log_path.txt
+        type: relpath
+        under: artifacts/checks
+        must_exist_target: true
+    publishes:
+      - artifact: check_log
+        from: check_log_path
+
+  - name: PrepareCodeReviewPath
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p state artifacts/review/runs/${run.id}
+        cycle="$(cat state/review_cycle.txt)"
+        target="artifacts/review/runs/${run.id}/c$cycle-review.md"
+        rm -f "$target"
+        printf '%s\n' "$target" > state/code_review_path.txt
+    expected_outputs:
+      - name: code_review_path
+        path: state/code_review_path.txt
+        type: relpath
+        under: artifacts/review
+
+  - name: ReviewImplVsPlan
+    provider: codex
+    input_file: prompts/workflows/backlog_plan_loop/review_impl_vs_plan.md
+    timeout_sec: 900
+    consumes:
+      - artifact: plan
+        producers: ["SelectBacklogItem"]
+        policy: latest_successful
+        freshness: any
+      - artifact: execution_session_log
+        producers: ["ExecutePlan", "FixIssues"]
+        policy: latest_successful
+        freshness: since_last_consume
+      - artifact: check_log
+        producers: ["RunTargetedChecks"]
+        policy: latest_successful
+        freshness: since_last_consume
+    inject_consumes: true
+    consumes_injection_position: prepend
+    expected_outputs:
+      - name: review_decision
+        path: state/review_decision.txt
+        type: enum
+        allowed: ["APPROVE", "REVISE"]
+      - name: code_review_path
+        path: state/code_review_path.txt
+        type: relpath
+        under: artifacts/review
+        must_exist_target: true
+    publishes:
+      - artifact: code_review
+        from: code_review_path
+
+  - name: PreparePlanReviewPath
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p state artifacts/review/runs/${run.id}
+        cycle="$(cat state/review_cycle.txt)"
+        target="artifacts/review/runs/${run.id}/c$cycle-plan-review.md"
+        rm -f "$target"
+        printf '%s\n' "$target" > state/plan_review_path.txt
+    expected_outputs:
+      - name: plan_review_path
+        path: state/plan_review_path.txt
+        type: relpath
+        under: artifacts/review
+
+  - name: ReviewPlanLevelIssues
+    provider: codex
+    input_file: prompts/workflows/backlog_plan_loop/review_plan_level_issues.md
+    timeout_sec: 900
+    consumes:
+      - artifact: plan
+        producers: ["SelectBacklogItem"]
+        policy: latest_successful
+        freshness: any
+      - artifact: execution_session_log
+        producers: ["ExecutePlan", "FixIssues"]
+        policy: latest_successful
+        freshness: any
+      - artifact: check_log
+        producers: ["RunTargetedChecks"]
+        policy: latest_successful
+        freshness: any
+      - artifact: code_review
+        producers: ["ReviewImplVsPlan"]
+        policy: latest_successful
+        freshness: any
+    inject_consumes: true
+    consumes_injection_position: prepend
+    expected_outputs:
+      - name: plan_review_decision
+        path: state/plan_review_decision.txt
+        type: enum
+        allowed: ["APPROVE", "REVISE"]
+      - name: plan_review_path
+        path: state/plan_review_path.txt
+        type: relpath
+        under: artifacts/review
+        must_exist_target: true
+    publishes:
+      - artifact: plan_review
+        from: plan_review_path
+
+  - name: ConsolidateReviewDecisions
+    command:
+      - bash
+      - -lc
+      - |
+        impl="$(cat state/review_decision.txt)"
+        plan="$(cat state/plan_review_decision.txt)"
+
+        if [ "$impl" = "APPROVE" ] && [ "$plan" = "APPROVE" ]; then
+          printf 'APPROVE\n' > state/final_review_decision.txt
+        else
+          printf 'REVISE\n' > state/final_review_decision.txt
+        fi
+    expected_outputs:
+      - name: final_review_decision
+        path: state/final_review_decision.txt
+        type: enum
+        allowed: ["APPROVE", "REVISE"]
+
+  - name: ReviewGate
+    command:
+      - bash
+      - -lc
+      - 'test "$(cat state/final_review_decision.txt)" = "APPROVE"'
+    on:
+      success:
+        goto: MarkBacklogDone
+      failure:
+        goto: ReviewCycleGate
+
+  - name: PrepareFixSessionLogPath
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p state artifacts/work/runs/${run.id}
+        cycle="$(cat state/review_cycle.txt)"
+        target="artifacts/work/runs/${run.id}/c$cycle-fix-session.md"
+        rm -f "$target"
+        printf '%s\n' "$target" > state/execution_session_log_path.txt
+    expected_outputs:
+      - name: execution_session_log_path
+        path: state/execution_session_log_path.txt
+        type: relpath
+        under: artifacts/work
+
+  - name: FixIssues
+    provider: codex
+    input_file: prompts/workflows/backlog_plan_loop/fix_issues.md
+    timeout_sec: 43200
+    consumes:
+      - artifact: plan
+        producers: ["SelectBacklogItem"]
+        policy: latest_successful
+        freshness: any
+      - artifact: execution_session_log
+        producers: ["ExecutePlan", "FixIssues"]
+        policy: latest_successful
+        freshness: any
+      - artifact: check_log
+        producers: ["RunTargetedChecks"]
+        policy: latest_successful
+        freshness: any
+      - artifact: code_review
+        producers: ["ReviewImplVsPlan"]
+        policy: latest_successful
+        freshness: since_last_consume
+      - artifact: plan_review
+        producers: ["ReviewPlanLevelIssues"]
+        policy: latest_successful
+        freshness: since_last_consume
+    inject_consumes: true
+    consumes_injection_position: prepend
+    expected_outputs:
+      - name: execution_session_log_path
+        path: state/execution_session_log_path.txt
+        type: relpath
+        under: artifacts/work
+        must_exist_target: true
+    publishes:
+      - artifact: execution_session_log
+        from: execution_session_log_path
+    on:
+      success:
+        goto: IncrementReviewCycle
+
+  - name: IncrementReviewCycle
+    command:
+      - bash
+      - -lc
+      - 'c=$(cat state/review_cycle.txt); printf "%s\n" "$((c+1))" > state/review_cycle.txt'
+    expected_outputs:
+      - name: review_cycle
+        path: state/review_cycle.txt
+        type: integer
+    on:
+      success:
+        goto: PrepareCheckLogPath
+
+  - name: ReviewCycleGate
+    command:
+      - bash
+      - -lc
+      - 'test "$(cat state/review_cycle.txt)" -lt "${context.max_review_cycles}"'
+    on:
+      success:
+        goto: PrepareFixSessionLogPath
+      failure:
+        goto: MaxCyclesExceeded
+
+  - name: MaxCyclesExceeded
+    command:
+      - bash
+      - -lc
+      - 'echo "Reached max review cycles without approval" >&2; exit 1'
+
+  - name: MarkBacklogDone
+    command:
+      - bash
+      - -lc
+      - |
+        src="$(cat state/backlog_item_path.txt)"
+        mkdir -p docs/backlog/done state
+        dst="docs/backlog/done/$(basename "$src")"
+
+        if [ -e "$dst" ]; then
+          echo "Refusing to overwrite existing backlog item: $dst" >&2
+          exit 1
+        fi
+
+        mv "$src" "$dst"
+        printf '%s\n' "$dst" > state/done_backlog_item_path.txt
+    expected_outputs:
+      - name: done_backlog_item_path
+        path: state/done_backlog_item_path.txt
+        type: relpath
+        under: docs/backlog/done
+        must_exist_target: true
+    on:
+      success:
+        goto: CommitOnApprove
+
+  - name: CommitOnApprove
+    provider: codex
+    input_file: prompts/workflows/backlog_plan_loop/commit_on_approve.md
+    timeout_sec: 1800
+    expected_outputs:
+      - name: commit_sha_path
+        path: state/commit_sha_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true
+    on:
+      success:
+        goto: CountActiveBacklogItems
+
+artifacts:
+  plan:
+    pointer: state/plan_path.txt
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  execution_session_log:
+    pointer: state/execution_session_log_path.txt
+    type: relpath
+    under: artifacts/work
+    must_exist_target: true
+  check_log:
+    pointer: state/check_log_path.txt
+    type: relpath
+    under: artifacts/checks
+    must_exist_target: true
+  code_review:
+    pointer: state/code_review_path.txt
+    type: relpath
+    under: artifacts/review
+    must_exist_target: true
+  plan_review:
+    pointer: state/plan_review_path.txt
+    type: relpath
+    under: artifacts/review
+    must_exist_target: true
