@@ -31,6 +31,8 @@ Fix only these issue classes:
 - Replace them with plan-declared artifact references.
 - Add fail-closed language: if required anchor source is missing or ambiguous, stop and report the missing source.
 
+3. Lack of inter-plan back-references in sets of plans that are intended to be executed sequentially
+
 Actions:
 1. Review all in-scope plan files against the two issue classes above.
 2. Edit in-scope plan files in place to fix what can be fixed from available context.
