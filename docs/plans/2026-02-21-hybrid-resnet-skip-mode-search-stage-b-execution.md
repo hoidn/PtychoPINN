@@ -12,6 +12,11 @@
 
 This split document owns Task 11 only (Stage-B execution commands and artifacts).
 
+## Stage Plan Links
+
+- Upstream Plan: `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-a-execution.md`
+- Downstream Plan: `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-c-execution.md`
+
 ## Shared Contracts
 
 - Use promotion and robustness rules from `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-design.md` Section 6.

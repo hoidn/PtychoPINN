@@ -12,6 +12,11 @@
 
 This split document owns Task 14 only (Stage-E implementation/search and artifacts).
 
+## Stage Plan Links
+
+- Upstream Plan: `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-d-execution.md`
+- Downstream Plan: none (terminal stage in this sequence)
+
 ## Shared Contracts
 
 - Use canonical stage semantics and promotion policy from `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-design.md`.
