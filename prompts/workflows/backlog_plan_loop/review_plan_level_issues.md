@@ -1,15 +1,15 @@
 Use the `Consumed Artifacts` section as the authoritative input list and read those files first.
 Also read `state/backlog_item_path.txt` and the referenced backlog item.
 
-Do a second-pass review of the plan itself (not code quality).
-Focus only on blocking plan issues:
-- scope mismatch between backlog item, selected plan, and executed work
+Do a review of the plan validity as evidenced by the session log / transcript, which documents
+an attempt to implement / execute the plan.
+Focus only on blocking plan bugs that caused executio issues:
 - unclear/unsafe canonical promotion source or lane mixing (canonical vs control)
-- missing baseline coverage for active evaluation/promotion contexts
-- tie-break logic that conflicts with the declared primary objective
-- missing guardrail for degenerate optimization evidence (for example uniformly poor quality such as `ssim < 0.5` across all tested conditions)
-- missing unblock path after invalid evidence (revise plan, regenerate artifacts, rerun dependent scopes)
-- missing escalation path when runtime evidence shows plan assumptions are wrong
+- missing baseline coverage for optimization runs
+- confusing lack of dataset provenance documentation
+- degenerate optimization evidence (for example uniformly poor quality such as `ssim < 0.5` across all tested conditions) indicating that a plan-defined metric or optimization target is invalid
+- invalid evidence without a recovery path (regenerate artifacts, rerun dependent scopes)
+- runtime evidence exposing incorrect plan assumptions 
 
 Decision:
 - `APPROVE` if no blocking plan issue is found
