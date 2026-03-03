@@ -1,13 +1,9 @@
 Use the `Consumed Artifacts` section injected above as the authoritative input list.
 Read all consumed artifacts before acting.
 
-Also read:
-- `state/backlog_item_path.txt` if present
-- any backlog item file referenced there
-
 Task:
 Review and revise plan files in one pass so they are safe for canonical stage-to-stage execution.
-This prompt must work for:
+We might be looking at:
 - one plan
 - multiple related plans
 - one or more backlog items that each reference plan files
@@ -16,7 +12,7 @@ Scope resolution:
 - If consumed artifacts include `plan` or `plans`, include those files.
 - If consumed artifacts include `backlog_item` or `backlog_items`, read each item's `plan_path` and include those files.
 - Deduplicate the resulting plan list.
-- If no plan file can be resolved, write a blocker report and set decision to `REVISE`.
+- If no plan file can be resolved, report that as a blocker and set decision to `REVISE`.
 
 Fix only these issue classes:
 1. Inter-stage handoff clarity
@@ -35,20 +31,20 @@ Actions:
 3. If something cannot be resolved from available context, leave that part unchanged and record an explicit blocker.
 
 Outputs:
-1. Read destination path from `state/plan_review_path.txt`, then write a concise report containing:
+1. Write a concise report containing:
    - in-scope plan files
    - files changed
    - what was fixed
    - remaining blockers
    - reruns required (if any)
    - updated stage handoff chain(s) for affected stages
-2. Write decision to `state/plan_review_decision.txt`:
+2. Write decision:
    - `APPROVE` only if no blockers remain
    - `REVISE` if any blocker remains
+3. Write all outputs exactly as specified by the injected output contract for this invocation.
 
 Constraints:
 - Keep edits narrowly scoped to plan correctness and handoff clarity.
 - Do not modify workflow code, DSL code, or unrelated docs.
 - Do not fabricate artifacts, run results, or evidence.
-- Do not modify `state/plan_review_path.txt`.
 - Do not move backlog items.
