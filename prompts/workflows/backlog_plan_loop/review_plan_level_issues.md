@@ -1,8 +1,8 @@
 Use the `Consumed Artifacts` section as the authoritative input list and read those files first.
 Also read `state/backlog_item_path.txt` and the referenced backlog item.
 
-Do a review of the plan validity as evidenced by the session log / transcript, which documents
-an attempt to implement / execute the plan.
+Do a review of the plan validity as evidenced by the session log / transcript, which records
+a recent attempt to implement / execute the plan.
 Focus only on blocking plan bugs that caused executio issues:
 - unclear/unsafe canonical promotion source or lane mixing (canonical vs control)
 - missing baseline coverage for optimization runs
