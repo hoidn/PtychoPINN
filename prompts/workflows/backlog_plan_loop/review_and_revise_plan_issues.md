@@ -12,7 +12,13 @@ Scope resolution:
 - If consumed artifacts include `plan` or `plans`, include those files.
 - If consumed artifacts include `backlog_item` or `backlog_items`, read each item's `plan_path` and include those files.
 - Deduplicate the resulting plan list.
-- If no plan file can be resolved, report that as a blocker and set decision to `REVISE`.
+- If no plan file can be resolved, report that as a blocker and set final decision to `BLOCKED`.
+
+Artifact vocabulary constraint (KISS):
+- Do not introduce new artifact file names, artifact classes, or contract nouns.
+- When replacing hardcoded paths, use only artifact names already present in the in-scope plans (or explicitly cited consumed design docs).
+- If current artifact naming is inconsistent, normalize by selecting from existing names in scope; do not invent a new one.
+- If no existing artifact name can satisfy a required handoff, do not invent one: record a blocker and set final decision to `BLOCKED`.
 
 Fix only these issue classes:
 1. Inter-stage handoff clarity
@@ -30,6 +36,10 @@ Actions:
 2. Edit in-scope plan files in place to fix what can be fixed from available context.
 3. If something cannot be resolved from available context, leave that part unchanged and record an explicit blocker.
 
+Revision mode:
+- Apply minimal textual edits only (reference replacement, clarification, fail-closed wording).
+- Do not redesign artifact schema or naming model in this pass.
+
 Outputs:
 1. Write a concise report containing:
    - in-scope plan files
@@ -38,9 +48,9 @@ Outputs:
    - remaining blockers
    - reruns required (if any)
    - updated stage handoff chain(s) for affected stages
-2. Write decision:
-   - `APPROVE` only if no blockers remain
-   - `REVISE` if any blocker remains
+2. Write final decision (post-revision status):
+   - `READY` only if no blockers remain after this revision pass
+   - `BLOCKED` if any blocker remains after this revision pass
 3. Write all outputs exactly as specified by the injected output contract for this invocation.
 
 Constraints:

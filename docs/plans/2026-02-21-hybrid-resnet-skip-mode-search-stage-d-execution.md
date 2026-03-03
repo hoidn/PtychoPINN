@@ -17,13 +17,16 @@ This split document owns Task 13 only (Stage-D implementation/search and artifac
 - Use canonical stage semantics and promotion policy from `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-design.md`.
 - Follow the Test Evidence Contract in `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-implementation-core.md` for every `pytest` selector in this document.
 - Hub document: `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search.md`.
+- Stage-D transition-anchor source (single upstream artifact): producer is Stage-C2 `N=128` `promotion/champion_anchor_summary.csv` (single-row robust champion selected from Stage-C2 `promotion/summary_seed_robust.csv`), consumer field is `--promotion-source-summary`.
+- Stage-D transition-anchor fail-closed rule: if the Stage-C2 champion anchor source is missing, has zero rows, or has more than one row, stop Stage-D execution and report the missing/ambiguous source; do not substitute `promotion/summary_seed_robust.csv`, `promotion/stage_anchor_summary.csv`, or `promotion/default_baselines.csv`.
 - Between consecutive Stage-D run invocations, delete repo-root `memoized_data/` before launching the next run command (`rm -rf memoized_data/`).
 - Global epoch floor: all Stage-D runs MUST use at least `10` training epochs per run (`--epochs-n128 >= 10`, `--epochs-n256 >= 10`) unless an approved exception is recorded.
 - Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources.
 - Per-profile baseline discoverability rule: Stage-D artifacts MUST include `promotion/default_baselines.csv` and `promotion/default_baselines.md` with exactly one true-default baseline row per active `(N, dataset_profile)` combination.
 - N=256 dual-profile rule: canonical `N=256` evaluation/promotion runs MUST include both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
-- Canonical Stage-D `N=128` progression source MUST be the single-row Stage-C2 champion anchor selected from Stage-C2 `promotion/summary_seed_robust.csv` and passed via `--promotion-source-summary`.
+- Canonical Stage-D `N=128` progression source MUST be `<stage_c2_n128_root>/promotion/champion_anchor_summary.csv`, selected from Stage-C2 `promotion/summary_seed_robust.csv` and passed via `--promotion-source-summary`.
 - Default-control runs stay in the baseline-comparison lane and MUST NOT be used as Stage-D transition anchors.
+- Baseline-lane separation rule: `promotion/default_baselines.csv|.md` remains baseline/default evidence only and MUST NOT be used as Stage-D transition-anchor source.
 
 ---
 
@@ -63,7 +66,7 @@ Semantics:
 - Persist both configured scale values and resolved branch widths in manifest/summary rows for auditability.
 - Reject invalid scale values (`<=0` or non-finite) with actionable errors.
 
-Run sub-stage D1 (conv branch) on the Stage-C2 champion anchor source (`--promotion-source-summary <stageC2_champion_anchor_n128_summary.csv>`):
+Run sub-stage D1 (conv branch) on the Stage-C2 champion anchor source (`--promotion-source-summary <stage_c2_n128_root>/promotion/champion_anchor_summary.csv`):
 - sweep `--encoder-conv-hidden-scale-values 0.5,1,2` with `--encoder-spectral-hidden-scale-values 1`.
 - record provenance with `--stage-id D --substage-id D1`.
 
@@ -117,6 +120,7 @@ Budget rule:
 - N=256 promotion evidence must be aggregated across both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256` profile results.
 - Epoch floor: all Stage-D runs MUST use `--epochs-n128 >= 10` and `--epochs-n256 >= 10`.
 - Before selecting top-4 for `N=256`, apply the boundary seed-rerank policy on the D4 `N=128` source summary (`top-K + next 2`, seeds `11` and `17`) and promote from the resulting robustness summary.
+- Emit one-row `<stage_d4_n128_root>/promotion/champion_anchor_summary.csv` from D4 `promotion/summary_seed_robust.csv`; this is the only canonical Stage-E transition anchor artifact.
 - Between consecutive Stage D invocations (including seed-rerank reruns and promotion runs), run `rm -rf memoized_data/`.
 - After each Stage D invocation, perform heavy-pruning verification and log any retained heavy paths with explicit justification.
 - Persist Stage D apples-to-apples baseline artifacts:

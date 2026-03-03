@@ -121,6 +121,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** orchestrator, workflow, backlog, tmux, review-loop, codex, claude  
 **Use this when:** Kicking off long-running backlog execution in PtychoPINN using `workflows/agent_orchestration/backlog_plan_slice_impl_review_loop.yaml`.
 
+### [Prompt Drafting Guide](PROMPT_DRAFTING_GUIDE.md)
+**Description:** Practical rules for writing orchestration prompts with clean abstraction boundaries, contract-driven inputs/outputs, KISS defaults, and flexible scope handling across single or multiple plan/backlog artifacts.  
+**Keywords:** prompts, orchestration, contracts, consumed-artifacts, output-contract, prompt-engineering  
+**Use this when:** Creating or revising workflow prompt files in `prompts/workflows/backlog_plan_loop/` (or similar orchestration prompt sets).
+
 ## Architecture & Development
 
 ### Core Documentation

@@ -17,14 +17,18 @@ This split document owns Task 14 only (Stage-E implementation/search and artifac
 - Use canonical stage semantics and promotion policy from `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-design.md`.
 - Follow the Test Evidence Contract in `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-implementation-core.md` for every `pytest` selector in this document.
 - Hub document: `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search.md`.
+- Stage-E transition-anchor source (single upstream artifact): producer is Stage-D4 `N=128` `promotion/champion_anchor_summary.csv` (single-row robust champion selected from Stage-D4 `promotion/summary_seed_robust.csv`), consumer field is `--promotion-source-summary`.
+- Stage-E transition-anchor fail-closed rule: if the Stage-D4 champion anchor source is missing, has zero rows, or has more than one row, stop Stage-E execution and report the missing/ambiguous source; do not substitute `promotion/summary_seed_robust.csv`, `promotion/stage_anchor_summary.csv`, or `promotion/default_baselines.csv`.
 - Between consecutive Stage-E run invocations, delete repo-root `memoized_data/` before launching the next run command (`rm -rf memoized_data/`).
 - Global epoch floor: all Stage-E runs MUST use at least `10` training epochs per run (`--epochs-n128 >= 10`, `--epochs-n256 >= 10`) unless an approved exception is recorded.
 - Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources.
 - Per-profile baseline discoverability rule: Stage-E artifacts MUST include `promotion/default_baselines.csv` and `promotion/default_baselines.md` with exactly one true-default baseline row per active `(N, dataset_profile)` combination.
 - Stage-E default-baseline provenance rule: when Stage-E candidate governance enforces `skip=on` and therefore blocks true-default (`skip=off`) candidate execution, `promotion/default_baselines.*` MUST source true-default rows from canonical Stage-D `promotion/default_baselines.csv`, preserve original `baseline_run_id` values verbatim, and include provenance text in `seed_policy` (no synthetic run IDs).
+- Stage-E default-baseline provenance fail-closed rule: if Stage-D `promotion/default_baselines.csv` is missing or does not provide exactly one true-default row per active `(N, dataset_profile)`, stop Stage-E governance reporting and report the blocker; do not fabricate baseline rows or synthetic `baseline_run_id` aliases.
 - N=256 dual-profile rule: canonical `N=256` evaluation/promotion runs MUST include both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
-- Canonical Stage-E `N=128` progression source MUST be the single-row Stage-D4 champion anchor selected from Stage-D4 `promotion/summary_seed_robust.csv` and passed via `--promotion-source-summary`.
+- Canonical Stage-E `N=128` progression source MUST be `<stage_d4_n128_root>/promotion/champion_anchor_summary.csv`, selected from Stage-D4 `promotion/summary_seed_robust.csv` and passed via `--promotion-source-summary`.
 - Default-control runs stay in the baseline-comparison lane and MUST NOT be used as Stage-E transition anchors.
+- Baseline-lane separation rule: `promotion/default_baselines.csv|.md` remains baseline/default evidence only and MUST NOT be used as Stage-E transition-anchor source.
 
 ---
 
@@ -79,7 +83,7 @@ pytest tests/torch/test_grid_lines_torch_runner.py -k "workflow and skip_style a
 
 **Step 3: Execute Stage E**
 
-Run skip styles on Stage-D champion config (`--promotion-source-summary <stageD4_champion_anchor_n128_summary.csv>`), budget:
+Run skip styles on Stage-D champion config (`--promotion-source-summary <stage_d4_n128_root>/promotion/champion_anchor_summary.csv`), budget:
 - N=128: all 3 styles
 - N=256: top 2 feasible Pareto-ranked styles only
 - N=256 promotion evidence must be aggregated across both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256` profile results.

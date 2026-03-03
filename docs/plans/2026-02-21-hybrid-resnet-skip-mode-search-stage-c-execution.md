@@ -17,10 +17,14 @@ This split document owns Task 12 only (Stage-C implementation/search and artifac
 - Use canonical stage semantics and promotion policy from `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-design.md`.
 - Follow the Test Evidence Contract in `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-implementation-core.md` for every `pytest` selector in this document.
 - Hub document: `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search.md`.
+- Stage-C C1 transition-anchor source (single upstream artifact): producer is Stage-B `N=128` `promotion/champion_anchor_summary.csv` (single-row robust champion selected from Stage-B `promotion/summary_seed_robust.csv`), consumer field is `--promotion-source-summary`.
+- Stage-C C2 transition-anchor source (single upstream artifact): producer is Stage-C1 `N=128` `promotion/champion_anchor_summary.csv` (single-row robust champion selected from Stage-C1 `promotion/summary_seed_robust.csv`), consumer field is `--promotion-source-summary`.
+- Stage-C transition-anchor fail-closed rule: if either required champion anchor source is missing, has zero rows, or has more than one row, stop Stage-C execution and report the missing/ambiguous source; do not substitute `promotion/summary_seed_robust.csv`, `promotion/stage_anchor_summary.csv`, or `promotion/default_baselines.csv`.
 - Between consecutive Stage-C run invocations, delete repo-root `memoized_data/` before launching the next run command (`rm -rf memoized_data/`).
 - Global epoch floor: all Stage-C runs MUST use at least `10` training epochs per run (`--epochs-n128 >= 10`, `--epochs-n256 >= 10`) unless an approved exception is recorded.
 - Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources.
 - Per-profile baseline discoverability rule: Stage-C artifacts MUST include `promotion/default_baselines.csv` and `promotion/default_baselines.md` with exactly one true-default baseline row per active `(N, dataset_profile)` combination.
+- Baseline-lane separation rule: `promotion/default_baselines.csv|.md` remains baseline/default evidence only and MUST NOT be used as Stage-C transition-anchor source.
 - N=256 dual-profile rule: canonical `N=256` evaluation/promotion runs MUST include both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
 
 ---
@@ -98,12 +102,13 @@ Pre-step baseline requirement (mandatory before C1/C2 interpretation):
 - Run true-default baseline on the same `custom_npz_pair_n128` dataset pair and same epoch budget as Stage C (`--epochs-n128 10`), and persist baseline outputs under a dedicated path.
 - Do not accept any "better than baseline" interpretation in Stage C until this baseline run is complete and documented.
 
-Sub-stage C1 (schedule): use `--downsample-schedule-values 1,2` while fixing all other structural axes to one Stage-B champion anchor config loaded via `--promotion-source-summary <stageB_champion_anchor_n128_summary.csv>`.
+Sub-stage C1 (schedule): use `--downsample-schedule-values 1,2` while fixing all other structural axes to one Stage-B champion anchor config loaded via `--promotion-source-summary <stage_b_n128_root>/promotion/champion_anchor_summary.csv`.
 Record provenance with `--stage-id C --substage-id C1`.
 
-Sub-stage C2 (operator): lock best schedule from C1 (from `--promotion-source-summary <stageC1_champion_anchor_n128_summary.csv>`), then run:
+Sub-stage C2 (operator): lock best schedule from C1 (from `--promotion-source-summary <stage_c1_n128_root>/promotion/champion_anchor_summary.csv`), then run:
 - `--downsample-op-values stride_conv,avgpool_conv,blurpool_conv`
 Record provenance with `--stage-id C --substage-id C2`.
+Stage-C downstream handoff: Stage-C2 `N=128` seed-rerank collation MUST emit one-row `<stage_c2_n128_root>/promotion/champion_anchor_summary.csv`; this is the only canonical Stage-D transition anchor artifact.
 
 Stage budget:
 - N=128: max 12 runs for C1 + max 12 runs for C2
