@@ -45,8 +45,14 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 
 ### [PtychoViT Workflow Guide](workflows/ptychovit.md)
 **Description:** Source-pinned interop contract for running the `pinn_ptychovit` model arm from grid-lines studies, including paired HDF5 requirements, checkpoint semantics, and troubleshooting notes.
+**Highlights:** Includes `Known Local Dataset Paths (Snapshot: 2026-03-03)` with `scan807`/`cameraman256` path preflight and canonical checkpoint guidance.
 **Keywords:** ptychovit, interop, hdf5, checkpoints, grid-lines, studies
 **Use this when:** Integrating or debugging the PtychoViT backend path in `scripts/studies/grid_lines_compare_wrapper.py`.
+
+### [Studies Index](studies/index.md)
+**Description:** Catalog of active study runbooks, including canonical NERSC scan807+cameraman command lines with concrete `--scan807-*`, `--cameraman-*`, and `--ptychovit-checkpoint` flags.
+**Keywords:** studies, runbooks, nersc, scan807, cameraman, ptychovit
+**Use this when:** You need copy/paste-ready orchestration commands and concrete local dataset/checkpoint flag patterns.
 
 ### [PyTorch Model Loading & Inference Guide](../ptycho_torch/README.md)
 **Description:** Practical guide to loading PyTorch models for inference, including the recommended CLI path and manual reconstruction from state_dict-only `model.pt` files.  

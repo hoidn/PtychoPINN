@@ -223,6 +223,30 @@ use:
 - Companion runbook (`N=256` no-downsample): `scripts/studies/runbooks/run_nersc_scan807_cameraman_study_n256.py`
 - Orchestrator: `scripts/studies/nersc_orchestration.py`
 - Pair adapter: `scripts/studies/nersc_pair_adapter.py`
+- Canonical command catalog: `docs/studies/index.md`
+
+### Known Local Dataset Paths (Snapshot: 2026-03-03)
+
+Use these local paths when running the NERSC scan807+cameraman orchestration on this machine:
+
+- `scan807`:
+  - `dp`: `/home/ollie/Downloads/nersc/testdata/scan807_dp.hdf5`
+  - `para`: `/home/ollie/Downloads/nersc/testdata/scan807_para.hdf5`
+- `cameraman256`:
+  - `dp`: `/home/ollie/Downloads/nersc/data/cameraman256_dp.hdf5`
+  - `para`: `/home/ollie/Downloads/nersc/data/cameraman256_para.hdf5`
+- `pinn_ptychovit` checkpoint:
+  - `/home/ollie/Documents/tmp/PtychoPINN/datasets/run145/best_model.pth`
+
+Quick preflight:
+
+```bash
+test -f /home/ollie/Downloads/nersc/testdata/scan807_dp.hdf5
+test -f /home/ollie/Downloads/nersc/testdata/scan807_para.hdf5
+test -f /home/ollie/Downloads/nersc/data/cameraman256_dp.hdf5
+test -f /home/ollie/Downloads/nersc/data/cameraman256_para.hdf5
+test -f /home/ollie/Documents/tmp/PtychoPINN/datasets/run145/best_model.pth
+```
 
 Checkpoint policy (mandatory for this orchestration):
 
