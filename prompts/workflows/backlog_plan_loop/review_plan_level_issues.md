@@ -26,6 +26,6 @@ Outputs:
 
 Constraints:
 - Keep it concise and evidence-based.
-- Because plan revisions are highly disruptive, any changes require high confidence and solid supporting evidence and causal attribution of the failure mode that the change addresses.
+- Because plan revisions are highly disruptive, any changes require high confidence and solid supporting evidence and causal attribution of the failure mode that the change addresses. When in doubt, APPROVE but document any potential issues that you diagnosed.
 - Do not modify `state/plan_review_path.txt`.
 - Do not move backlog items.
