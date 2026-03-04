@@ -54,6 +54,8 @@ Keep the true-default Stage-A control anchor only in baseline artifacts (`promot
 
 Before each Task 11 run command block (Step 1 and Step 2), run:
 ```bash
+TASK11_EXECUTION_START_EPOCH="$(date +%s)"
+export TASK11_EXECUTION_START_EPOCH
 rm -rf memoized_data/
 ```
 
@@ -276,13 +278,12 @@ Expected:
 
 Run:
 ```bash
-TASK11_CONTRACT_START_EPOCH="$(date +%s)"
 python - <<'PY'
 import csv
 import os
 from pathlib import Path
 
-start_epoch = int(os.environ["TASK11_CONTRACT_START_EPOCH"])
+start_epoch = int(os.environ["TASK11_EXECUTION_START_EPOCH"])
 roots = [
     (128, Path("${STAGE_B_N128_ROOT}")),
     (256, Path("${STAGE_B_N256_ROOT}")),
