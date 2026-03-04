@@ -25,6 +25,7 @@ This split document owns Task 12 only (Stage-C implementation/search and artifac
 - Stage-C C1 transition-anchor source (single upstream artifact): producer is Stage-B `N=128` `promotion/champion_anchor_summary.csv` (single-row robust champion selected from Stage-B `promotion/summary_seed_robust.csv`), consumer field is `--promotion-source-summary`.
 - Stage-C C2 transition-anchor source (single upstream artifact): producer is Stage-C1 `N=128` `promotion/champion_anchor_summary.csv` (single-row robust champion selected from Stage-C1 `promotion/summary_seed_robust.csv`), consumer field is `--promotion-source-summary`.
 - Stage-C transition-anchor fail-closed rule: if either required champion anchor source is missing, has zero rows, or has more than one row, stop Stage-C execution and report the missing/ambiguous source; do not substitute `promotion/summary_seed_robust.csv`, `promotion/stage_anchor_summary.csv`, or `promotion/default_baselines.csv`.
+- Stage-C runbook contract prerequisite: before any C1/C2 execution, `scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py` MUST consume and emit only `promotion/champion_anchor_summary.csv` for Stage-C transition anchors; any Stage-C path that still resolves or emits `promotion/stage_anchor_summary.csv` is non-canonical and must fail this gate.
 - Between consecutive Stage-C run invocations, delete repo-root `memoized_data/` before launching the next run command (`rm -rf memoized_data/`).
 - Global epoch floor: all Stage-C runs MUST use at least `10` training epochs per run (`--epochs-n128 >= 10`, `--epochs-n256 >= 10`) unless an approved exception is recorded.
 - Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources.
@@ -100,6 +101,16 @@ pytest tests/torch/test_grid_lines_torch_runner.py -k "downsample_steps or downs
 pytest tests/torch/test_grid_lines_torch_runner.py -k "workflow and downsample and factory" -v
 ```
 Expected: PASS.
+
+**Step 2.5: Stage-C runbook champion-anchor contract gate (required before C1/C2 runs)**
+
+Validate the runbook implementation before launching Stage-C execution:
+- `scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py` must reject missing/0-row/>1-row `--promotion-source-summary` inputs for Stage-C transitions.
+- Stage-C C1/C2 must read transition anchors from `promotion/champion_anchor_summary.csv` only.
+- Stage-C robust rerank collation must emit `promotion/champion_anchor_summary.csv` (single row) for downstream stage handoff.
+- No Stage-C transition path may fall back to `promotion/stage_anchor_summary.csv`, `promotion/summary_seed_robust.csv`, or `promotion/default_baselines.csv`.
+
+If this gate fails, stop here, patch the runbook first, and restart Step 2.5 until the contract checks pass.
 
 **Step 3: Execute Stage C runs**
 
