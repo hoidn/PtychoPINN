@@ -686,7 +686,10 @@ def _resolve_display_border_pixels(output_dir: Path, override: Optional[int] = N
             inferred_n = int(p.get("N"))
         except Exception:
             inferred_n = 0
-    return max(0, int(inferred_n) // 2)
+    # Keep the auto-crop conservative; N//2 can over-tighten color limits.
+    # Use a small fraction of N, capped to avoid aggressive clipping on large N.
+    border = max(0, int(inferred_n) // 16)
+    return min(border, 32)
 
 
 def _inner_crop_for_display_bounds(array: np.ndarray, border_pixels: int) -> np.ndarray:

@@ -716,7 +716,7 @@ class TestColorbarSharing:
 
     def test_resolve_display_border_from_output_dir_token(self, tmp_path: Path):
         out_dir = tmp_path / "grid_lines_external_fly001_n128_top_train_full_test_e5"
-        assert _resolve_display_border_pixels(out_dir) == 64
+        assert _resolve_display_border_pixels(out_dir) == 8
 
     def test_save_comparison_png_skips_missing(self, tmp_path: Path):
         """save_comparison_png_dynamic should skip missing labels."""
@@ -753,7 +753,7 @@ class TestColorbarSharing:
         )
 
         assert out.exists()
-        assert seen == [64, 64, 64, 64]
+        assert seen == [8, 8, 8, 8]
 
     def test_save_comparison_png_includes_probe_column(self, tmp_path: Path):
         gt_amp = np.ones((8, 8), dtype=np.float32)
