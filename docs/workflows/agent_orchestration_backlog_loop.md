@@ -6,6 +6,8 @@ This runbook explains how to kick off and monitor the long-running backlog-drive
 - Legacy workflow file: `workflows/agent_orchestration/backlog_plan_slice_impl_review_loop.yaml`
 - Prompt set: `prompts/workflows/backlog_plan_loop/*.md`
 
+Before using this runbook, read `docs/workflows/orchestration_start_here.md` for workflow/step/prompt/plan ownership boundaries.
+
 Execution model:
 - one workflow run processes backlog items repeatedly
 - for each backlog item, the full plan is executed in one unit

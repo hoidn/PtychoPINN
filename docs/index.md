@@ -86,10 +86,10 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** ai-agent, conventions, guidelines, critical-rules  
 **Use this when:** Working as an AI agent or need to understand project conventions and critical requirements.
 
-### [Initiative Workflow Guide](INITIATIVE_WORKFLOW_GUIDE.md)
-**Description:** Comprehensive guide for AI-assisted development workflow using structured planning documents and phase-based execution with templates and best practices.  
-**Keywords:** ai-assisted-development, phase-based-workflow, planning, project-management, test-driven  
-**Use this when:** Starting any new development initiative or structuring complex work into manageable phases.
+### [Orchestration Start Here](workflows/orchestration_start_here.md)
+**Description:** Canonical onboarding document for agent-orchestration concepts and boundaries: workflow vs step vs prompt vs plan ownership, plus the minimal plan-to-workflow contract model.  
+**Keywords:** orchestration, workflow, step, prompt, plan, ownership-boundaries, producer-consumer  
+**Use this when:** Starting orchestration work or resolving confusion about where behavior should be defined.
 
 ### [Implementation Plan Template](plans/templates/implementation_plan.md)
 **Description:** Repo-specific phased plan template with initiative header, exit criteria, per‑phase checklists, Do Now block, artifacts index, and plan‑update protocol reminder.  
@@ -455,7 +455,8 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 ## Finding Information
 
 ### By Task
-- **Starting a new feature**: [Developer Guide](DEVELOPER_GUIDE.md) → [Initiative Workflow](INITIATIVE_WORKFLOW_GUIDE.md)
+- **Starting orchestration work**: [Orchestration Start Here](workflows/orchestration_start_here.md) → [Agent-Orchestration Backlog Loop Runbook](workflows/agent_orchestration_backlog_loop.md) → [Prompt Drafting Guide](PROMPT_DRAFTING_GUIDE.md)
+- **Starting a new feature**: [Developer Guide](DEVELOPER_GUIDE.md) → [Workflow Contract Plan Template](plans/templates/workflow_contract_plan.md)
 - **Running experiments**: [Workflow Guide](WORKFLOW_GUIDE.md) → [Commands Reference](COMMANDS_REFERENCE.md)
 - **Debugging issues**: [Troubleshooting](debugging/TROUBLESHOOTING.md) → [Quick Reference Params](debugging/QUICK_REFERENCE_PARAMS.md)
 - **Understanding data**: [Data Contracts](../specs/data_contracts.md) → [Data Normalization](DATA_NORMALIZATION_GUIDE.md)
@@ -467,7 +468,7 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 - **New Users**: [README](../README.md) → [Workflow Guide](WORKFLOW_GUIDE.md) → [Training](../scripts/training/README.md)
 - **Developers**: [Developer Guide](DEVELOPER_GUIDE.md) → [Testing Guide](TESTING_GUIDE.md) → [Architecture](architecture.md)
 - **Researchers**: [Generalization Studies](studies/GENERALIZATION_STUDY_GUIDE.md) → [Model Comparison](../scripts/studies/README.md)
-- **AI Agents**: [CLAUDE.md](../CLAUDE.md) → [Initiative Workflow](INITIATIVE_WORKFLOW_GUIDE.md) → [Developer Guide](DEVELOPER_GUIDE.md)
+- **AI Agents (orchestration)**: [CLAUDE.md](../CLAUDE.md) → [Orchestration Start Here](workflows/orchestration_start_here.md) → [Agent-Orchestration Backlog Loop Runbook](workflows/agent_orchestration_backlog_loop.md)
 
 ## Documentation Standards
 
