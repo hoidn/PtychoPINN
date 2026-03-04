@@ -140,12 +140,14 @@ Stage budget:
 - Between consecutive Stage C invocations (including seed-rerank reruns and promotion runs), run `rm -rf memoized_data/`.
 - After each Stage C invocation, perform heavy-pruning verification and log any retained heavy paths with explicit justification.
 - Artifact-integrity gate (required after every Stage-C invocation):
+  - Emit one machine-readable gate status artifact per invocation (including invocation label, UTC timestamp, evaluated root, gate outcomes, and final exit code); missing status evidence is a gate failure.
   - `summary.csv` run IDs MUST exactly match the run directory IDs present under `runs/`.
   - Required champion artifacts MUST exist and be fresh for the current root:
     - `c1_n128/promotion/summary_seed_robust.csv`
     - `c1_n128/promotion/champion_anchor_summary.csv`
     - `c2_n128/promotion/champion_anchor_summary.csv`
-  - If any mismatch/missing artifact is detected, invalidate the stage package for promotion, stop dependent promotion, and rerun in order: `C1 (N=128) -> C2 (N=128) -> N=256 promotion/evaluation -> baseline/discoverability regeneration`.
+  - Default-baseline provenance gate: `promotion/default_baselines.csv|.md` MUST contain exactly one true-default row per active `(N, dataset_profile)` tuple, and each row MUST trace to baseline-lane outputs (not `C1`/`C2`/promotion summaries).
+  - If any mismatch/missing artifact or default-baseline provenance failure is detected, invalidate the stage package for promotion, stop dependent promotion, and follow this recovery order: `run missing baseline-lane jobs -> regenerate baseline discoverability artifacts from baseline lane only -> rerun integrity gate -> (if still failing) rerun dependent Stage-C execution chain C1 -> C2 -> N=256 -> baseline/discoverability regeneration`.
 - Persist Stage C baseline-comparison artifacts:
   - `outputs/<stage_c_root>/promotion/apples_to_apples_baseline.csv`
   - `outputs/<stage_c_root>/promotion/apples_to_apples_baseline.md`
@@ -153,6 +155,7 @@ Stage budget:
   - `outputs/<stage_c_root>/promotion/default_baselines.md`
   - Gate: only rows marked `apples_to_apples=true` may be used in promotion/governance narrative.
   - Gate: `default_baselines.*` must contain exactly one true-default baseline row per active `(N, dataset_profile)` combination.
+  - Gate: if any true-default row is missing baseline-lane provenance, fail closed and execute the integrity-gate recovery order before promotion/governance use.
 
 **Step 4: Documentation sync for Stage-C knobs**
 
