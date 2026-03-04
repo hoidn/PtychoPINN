@@ -59,6 +59,7 @@ from ptycho import params as p
 from ptycho.nongrid_simulation import generate_simulated_data
 from ptycho.loader import RawData
 from ptycho import probe
+from ptycho.image.cropping import center_crop_spatial
 
 # Lazy imports for training (deferred until after params.cfg is set)
 
@@ -970,10 +971,11 @@ def generate_six_panel_figure(
         """Crop to central region."""
         if img is None:
             return None
-        h, w = img.shape[:2]
-        start_h = max(0, (h - size) // 2)
-        start_w = max(0, (w - size) // 2)
-        return img[start_h:start_h+size, start_w:start_w+size]
+        img_2d = np.squeeze(img)
+        if img_2d.ndim != 2:
+            raise ValueError(f"Expected 2D reconstruction for cropping, got {img_2d.shape}")
+        target = min(int(size), int(img_2d.shape[0]), int(img_2d.shape[1]))
+        return center_crop_spatial(img_2d, target, target)
 
     # Row 1: High Dose
     panels = [

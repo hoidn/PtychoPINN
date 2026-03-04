@@ -28,6 +28,7 @@ if project_root not in sys.path:
 from ptycho.nongrid_simulation import generate_simulated_data
 from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
 from ptycho import params as p
+from ptycho.image.cropping import center_crop_spatial
 from ptycho.metadata import MetadataManager
 import matplotlib.pyplot as plt
 import numpy as np
@@ -165,10 +166,7 @@ def simulate_and_save(
 
 def crop_center(img, cropx, cropy):
     """Helper function to crop the center of an image."""
-    y, x = img.shape
-    startx = x // 2 - cropx // 2
-    starty = y // 2 - cropy // 2
-    return img[starty:starty+cropy, startx:startx+cropx]
+    return center_crop_spatial(np.asarray(img), cropy, cropx)
 
 def visualize_simulation_results(
     object_guess: np.ndarray,

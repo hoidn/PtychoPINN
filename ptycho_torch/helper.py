@@ -10,6 +10,8 @@ import torch.nn.functional as F
 import numpy as np
 import gc
 
+from ptycho.image.cropping import center_crop_spatial
+
 #Configurations
 from ptycho_torch.config_params import ModelConfig, DataConfig # Removed TrainingConfig as it's not used here
 
@@ -836,7 +838,4 @@ def poisson_scale(input: torch.Tensor):
 #Other operations
 
 def center_crop(larger_img, target_size):
-    h, w = larger_img.shape[:2]
-    start_h = (h - target_size) // 2
-    start_w = (w - target_size) // 2
-    return larger_img[start_h:start_h+target_size, start_w:start_w+target_size]
+    return center_crop_spatial(larger_img, target_size, target_size)
