@@ -33,6 +33,8 @@ This split document owns Task 12 only (Stage-C implementation/search and artifac
 - Per-profile baseline discoverability rule: Stage-C artifacts MUST include `promotion/default_baselines.csv` and `promotion/default_baselines.md` with exactly one true-default baseline row per active `(N, dataset_profile)` combination.
 - Baseline-lane separation rule: `promotion/default_baselines.csv|.md` remains baseline/default evidence only and MUST NOT be used as Stage-C transition-anchor source.
 - N=256 dual-profile rule: canonical `N=256` evaluation/promotion runs MUST include both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
+- Stage-C true-default baseline coverage rule: canonical Stage-C packages MUST execute baseline-lane runs for every active `(N, dataset_profile)` tuple used by Stage-C promotion artifacts: `N=128/custom_npz_pair_n128` and `N=256/{cameraman256_halfsplit_v1,custom_npz_pair_n256}`.
+- Stage-C default-baseline provenance rule: `promotion/default_baselines.csv|.md` rows MUST be derived from baseline-lane artifacts only (never `C1`/`C2`/promotion summary rows), and execution MUST fail closed if any active tuple lacks baseline-lane evidence.
 
 ---
 
@@ -116,8 +118,10 @@ If this gate fails, stop here, patch the runbook first, and restart Step 2.5 unt
 **Step 3: Execute Stage C runs**
 
 Pre-step baseline requirement (mandatory before C1/C2 interpretation):
-- Run true-default baseline on the same `custom_npz_pair_n128` dataset pair and same epoch budget as Stage C (`--epochs-n128 10`), and persist baseline outputs under a dedicated path.
-- Do not accept any "better than baseline" interpretation in Stage C until this baseline run is complete and documented.
+- Run true-default baseline on `custom_npz_pair_n128` with the same epoch budget as Stage C (`--epochs-n128 10`) and persist outputs under a dedicated baseline lane.
+- Run true-default `N=256` baselines for both active profiles (`cameraman256_halfsplit_v1`, `custom_npz_pair_n256`) at the canonical Stage-C epoch floor (`--epochs-n256 10`) before baseline discoverability collation.
+- Persist baseline-lane provenance (run IDs + source summaries) for every active `(N, dataset_profile)` tuple consumed by `promotion/default_baselines.csv|.md`.
+- Do not accept any "better than baseline" interpretation in Stage C until all required baseline runs are complete and documented.
 
 Sub-stage C1 (schedule): use `--downsample-schedule-values 1,2` while fixing all other structural axes to one Stage-B champion anchor config loaded via `--promotion-source-summary <stage_b_n128_root>/promotion/champion_anchor_summary.csv`.
 Record provenance with `--stage-id C --substage-id C1`.
