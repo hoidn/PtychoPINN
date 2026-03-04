@@ -5,6 +5,7 @@ check_commands:
   - test -f docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-c-execution.md
   - rg -q "### Task 12: Stage C Search" docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-c-execution.md
   - rg -q "Step 2.5: Stage-C runbook champion-anchor contract gate" docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-c-execution.md
+  - rg -q "Artifact-integrity gate (required after every Stage-C invocation)" docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-c-execution.md
 ---
 
 # Backlog Item: Hybrid ResNet Skip/Mode Search Stage C Execution

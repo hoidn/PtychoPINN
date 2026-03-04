@@ -26,6 +26,7 @@ This split document owns Task 12 only (Stage-C implementation/search and artifac
 - Stage-C C2 transition-anchor source (single upstream artifact): producer is Stage-C1 `N=128` `promotion/champion_anchor_summary.csv` (single-row robust champion selected from Stage-C1 `promotion/summary_seed_robust.csv`), consumer field is `--promotion-source-summary`.
 - Stage-C transition-anchor fail-closed rule: if either required champion anchor source is missing, has zero rows, or has more than one row, stop Stage-C execution and report the missing/ambiguous source; do not substitute `promotion/summary_seed_robust.csv`, `promotion/stage_anchor_summary.csv`, or `promotion/default_baselines.csv`.
 - Stage-C runbook contract prerequisite: before any C1/C2 execution, `scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py` MUST consume and emit only `promotion/champion_anchor_summary.csv` for Stage-C transition anchors; any Stage-C path that still resolves or emits `promotion/stage_anchor_summary.csv` is non-canonical and must fail this gate.
+- Stage-C output-root hygiene rule: canonical reruns MUST target a clean/new output root; if reusing an existing root for debugging, clear stale Stage-C artifacts first and treat that run as non-canonical until integrity gates pass.
 - Between consecutive Stage-C run invocations, delete repo-root `memoized_data/` before launching the next run command (`rm -rf memoized_data/`).
 - Global epoch floor: all Stage-C runs MUST use at least `10` training epochs per run (`--epochs-n128 >= 10`, `--epochs-n256 >= 10`) unless an approved exception is recorded.
 - Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources.
@@ -134,6 +135,13 @@ Stage budget:
 - Before selecting top-4 for `N=256`, apply the boundary seed-rerank policy on the C2 `N=128` source summary (`top-K + next 2`, seeds `11` and `17`) and promote from the resulting robustness summary.
 - Between consecutive Stage C invocations (including seed-rerank reruns and promotion runs), run `rm -rf memoized_data/`.
 - After each Stage C invocation, perform heavy-pruning verification and log any retained heavy paths with explicit justification.
+- Artifact-integrity gate (required after every Stage-C invocation):
+  - `summary.csv` run IDs MUST exactly match the run directory IDs present under `runs/`.
+  - Required champion artifacts MUST exist and be fresh for the current root:
+    - `c1_n128/promotion/summary_seed_robust.csv`
+    - `c1_n128/promotion/champion_anchor_summary.csv`
+    - `c2_n128/promotion/champion_anchor_summary.csv`
+  - If any mismatch/missing artifact is detected, invalidate the stage package for promotion, stop dependent promotion, and rerun in order: `C1 (N=128) -> C2 (N=128) -> N=256 promotion/evaluation -> baseline/discoverability regeneration`.
 - Persist Stage C baseline-comparison artifacts:
   - `outputs/<stage_c_root>/promotion/apples_to_apples_baseline.csv`
   - `outputs/<stage_c_root>/promotion/apples_to_apples_baseline.md`
