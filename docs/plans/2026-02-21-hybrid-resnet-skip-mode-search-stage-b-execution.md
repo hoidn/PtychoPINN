@@ -28,6 +28,9 @@ This split document owns Task 11 only (Stage-B execution commands and artifacts)
 - Epoch floor: all Stage-B runs MUST use at least `10` epochs (`--epochs-n128 >= 10`, `--epochs-n256 >= 10`) unless an approved exception is recorded.
 - Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources.
 - Between consecutive Stage-B run invocations, delete repo-root `memoized_data/` before launching the next command (`rm -rf memoized_data/`).
+- Semantic guardrail validation gate (mandatory): after every Stage-B `N=128` summary generation and before any seed-rerank collation or N=256 promotion run, recompute and verify `phase_ssim_drop_vs_baseline` from baseline provenance and fail closed if any row mismatches persisted values or exceeds `--max-phase-ssim-drop`.
+- Fail-closed invalidation contract: when semantic guardrail validation fails, mark current Stage-B package invalid and stop promotion. Recovery must rerun from the earliest affected scope in order: `N=128 summary -> seed-rerank runs -> robust collation -> champion anchor -> N=256 summary/promotion`.
+- Canonical evidence policy for review reruns: do not pass `--reuse-existing-run-metrics` for canonical Stage-B reruns. Diagnostic reuse is allowed only when guardrail values are recomputed in-run and baseline provenance is persisted in the emitted summary.
 - Per-profile baseline discoverability rule: Stage-B artifacts MUST include `promotion/default_baselines.csv` and `promotion/default_baselines.md` with exactly one true-default baseline row per active `(N, dataset_profile)` combination.
 - Baseline-lane separation rule: `promotion/default_baselines.csv|.md` remains baseline/default evidence only and MUST NOT be used as Stage-B transition-anchor source.
 - N=256 dual-profile rule: canonical `N=256` evaluation/promotion runs MUST include both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
@@ -78,7 +81,25 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --no-torch-mae-pred-l2-match-target
 ```
 Expected: `summary.md` includes `stage_id=B`, `substage_id=none`, and `fno_blocks` column.
+Expected: `summary.csv` guardrail fields are semantically computed from provenance (no placeholder values): `phase_ssim_drop_vs_baseline`, `max_phase_ssim_drop`, `phase_guardrail_pass`, and baseline provenance columns.
 Non-axis knobs (`modes`, `skip`, `width`) come from `--promotion-source-summary`, so canonical Stage-B runs inherit the Stage-A champion context.
+
+**Step 1b: Validate semantic phase guardrail before promotion**
+
+Run:
+```bash
+python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
+  --validate-phase-guardrail \
+  --summary-csv "${STAGE_B_N128_ROOT}/summary.csv" \
+  --baseline-summary "${STAGE_A_CHAMPION_ANCHOR}" \
+  --max-phase-ssim-drop 0.03 \
+  --write-validation-report "${STAGE_B_N128_ROOT}/promotion/phase_guardrail_validation.json"
+```
+
+Expected:
+- Exit code `0` only when recomputed drop values match persisted fields and all feasible rows satisfy `drop <= max_phase_ssim_drop`.
+- Validation report is written under `promotion/` and includes per-row provenance/resolved baseline evidence.
+- If this check fails: stop Task 11 promotion flow, mark Stage-B artifacts invalid, and rerun from Step 1 after applying the implementation fix.
 
 **Step 2: Promote feasible Pareto-ranked top-K and run N=256**
 
@@ -88,6 +109,7 @@ Before this step, run the boundary seed-rerank policy on `${STAGE_B_N128_ROOT}/s
 - use that robustness summary as promotion source.
 - emit `${STAGE_B_N128_ROOT}/promotion/champion_anchor_summary.csv` as the single-row Stage-B champion anchor for downstream Stage-C consumption via `--promotion-source-summary`.
 - ensure `${STAGE_B_N128_ROOT}/promotion/default_baselines.csv` exists before promotion and contains exactly one true-default baseline row per active `N=128` profile.
+- enforce Step 1b semantic guardrail validation gate before launching rerank or downstream promotion.
 
 Run:
 ```bash
@@ -120,6 +142,7 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
 ```
 
 After this run completes, emit `${STAGE_B_N256_ROOT}/promotion/default_baselines.csv` and `.md` with exactly one true-default baseline row per active `N=256` profile.
+For canonical evidence reruns, do not pass `--reuse-existing-run-metrics` in Step 1/Step 2 commands.
 
 **Step 3: Commit**
 

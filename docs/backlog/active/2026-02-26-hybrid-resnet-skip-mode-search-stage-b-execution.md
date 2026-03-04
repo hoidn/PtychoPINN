@@ -4,6 +4,8 @@ plan_path: docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-b-executio
 check_commands:
   - test -f docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-b-execution.md
   - rg -q "### Task 11: Stage B Search" docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-b-execution.md
+  - rg -q "Semantic guardrail validation gate \\(mandatory\\)" docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-b-execution.md
+  - rg -q "do not pass `--reuse-existing-run-metrics`" docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-b-execution.md
 ---
 
 # Backlog Item: Hybrid ResNet Skip/Mode Search Stage B Execution
