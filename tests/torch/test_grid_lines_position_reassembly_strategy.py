@@ -30,6 +30,7 @@ def test_large_external_n128_auto_prefers_shift_sum(monkeypatch):
         M=128,
         backend="auto",
         batch_size=16,
+        position_crop_border=0,
     )
 
     assert out.shape == (128, 128)
@@ -59,6 +60,7 @@ def test_explicit_batched_backend_still_uses_batched(monkeypatch):
         M=128,
         backend="batched",
         batch_size=16,
+        position_crop_border=0,
     )
 
     assert out.shape == (128, 128)

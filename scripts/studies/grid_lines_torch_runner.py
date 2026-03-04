@@ -44,6 +44,8 @@ from typing import Dict, Any, List, Optional, Tuple
 
 import numpy as np
 
+from ptycho.image.cropping import center_crop_spatial_by_border
+
 logger = logging.getLogger(__name__)
 
 
@@ -143,6 +145,8 @@ class TorchRunnerConfig:
     reassembly_mode: str = "grid_lines"  # "grid_lines" | "position"
     position_reassembly_backend: str = "auto"  # "auto" | "shift_sum" | "batched"
     position_reassembly_batch_size: int = 64
+    # None means auto default (min(patch_h, patch_w) // 4).
+    position_crop_border: Optional[int] = None
     single_image_frc: bool = True
     single_image_frc_split_mode: str = "spatial"  # "spatial" | "binomial"
     single_image_frc_rng_seed: Optional[int] = None
@@ -159,6 +163,33 @@ def _validate_position_reassembly_config(cfg: TorchRunnerConfig) -> None:
         raise ValueError(
             f"position_reassembly_batch_size must be > 0 (got {cfg.position_reassembly_batch_size})."
         )
+    if cfg.position_crop_border is not None and int(cfg.position_crop_border) < 0:
+        raise ValueError(
+            f"position_crop_border must be >= 0 when set (got {cfg.position_crop_border})."
+        )
+
+
+def _resolve_position_crop_border(
+    patch_h: int,
+    patch_w: int,
+    configured: Optional[int],
+) -> int:
+    """Resolve and clamp position-reassembly crop border for shared center-crop path."""
+    h = int(patch_h)
+    w = int(patch_w)
+    if h <= 0 or w <= 0:
+        raise ValueError(f"Invalid patch shape for crop resolution: ({h}, {w})")
+
+    if configured is None:
+        crop = min(h, w) // 4
+    else:
+        crop = int(configured)
+
+    if crop < 0:
+        raise ValueError(f"position_crop_border must be >= 0 (got {crop}).")
+
+    crop_max = max(0, (min(h, w) - 1) // 2)
+    return int(max(0, min(crop, crop_max)))
 
 
 def load_cached_dataset(npz_path: Path) -> Dict[str, np.ndarray]:
@@ -281,6 +312,9 @@ def _stitch_for_metrics(
 def _normalize_position_inputs(
     pred_complex: np.ndarray,
     test_data: Dict[str, np.ndarray],
+    *,
+    position_crop_border: Optional[int] = None,
+    runtime_contract_out: Dict[str, object] | None = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Normalize prediction and offset shapes for position reassembly backends."""
     coords_offsets = test_data.get("coords_offsets")
@@ -307,6 +341,22 @@ def _normalize_position_inputs(
     else:
         raise ValueError(f"Unsupported prediction shape for position reassembly: {pred_np.shape}")
 
+    pre_crop_shape = tuple(int(v) for v in patches.shape)
+    if patches.shape[-1] != 1:
+        raise ValueError(
+            f"Position reassembly expects singleton channel patches after normalization, got {patches.shape}."
+        )
+    resolved_crop_border = _resolve_position_crop_border(
+        int(patches.shape[1]),
+        int(patches.shape[2]),
+        position_crop_border,
+    )
+    patches_cropped = center_crop_spatial_by_border(np.squeeze(patches, axis=-1), resolved_crop_border)
+    if patches_cropped.ndim == 2:
+        patches_cropped = patches_cropped[None, ...]
+    patches = np.asarray(patches_cropped, dtype=np.complex64)[..., None]
+    post_crop_shape = tuple(int(v) for v in patches.shape)
+
     offsets_b12c = np.asarray(coords_np).astype(np.float64)  # (B,1,2,C)
     offsets_b112 = np.transpose(offsets_b12c, (0, 1, 3, 2))  # (B,1,C,2) => (B,1,1,2) when C=1
     if offsets_b112.shape[0] != patches.shape[0]:
@@ -317,6 +367,14 @@ def _normalize_position_inputs(
         repeats = patches.shape[0] // offsets_b112.shape[0]
         offsets_b112 = np.repeat(offsets_b112, repeats, axis=0)
         offsets_b12c = np.repeat(offsets_b12c, repeats, axis=0)
+
+    if runtime_contract_out is not None:
+        runtime_contract_out["position_crop_border_configured"] = (
+            None if position_crop_border is None else int(position_crop_border)
+        )
+        runtime_contract_out["position_crop_border_resolved"] = int(resolved_crop_border)
+        runtime_contract_out["position_patch_shape_pre_crop"] = list(pre_crop_shape)
+        runtime_contract_out["position_patch_shape_post_crop"] = list(post_crop_shape)
 
     return patches.astype(np.complex64), offsets_b12c, offsets_b112
 
@@ -371,11 +429,22 @@ def _reassemble_with_coords_offsets(
     M: int = 20,
     backend: str = "shift_sum",
     batch_size: int = 64,
+    position_crop_border: Optional[int] = None,
     allow_oom_fallback: bool = True,
     runtime_contract_out: Dict[str, object] | None = None,
 ) -> np.ndarray:
     """Reassemble predicted patches using coords_offsets (external dataset mode)."""
-    patches, offsets_b12c, offsets_b112 = _normalize_position_inputs(pred_complex, test_data)
+    patches, offsets_b12c, offsets_b112 = _normalize_position_inputs(
+        pred_complex,
+        test_data,
+        position_crop_border=position_crop_border,
+        runtime_contract_out=runtime_contract_out,
+    )
+    effective_m = min(int(M), int(patches.shape[1]), int(patches.shape[2]))
+    if effective_m <= 0:
+        raise ValueError(
+            f"Effective reassembly M must be positive after crop resolution, got {effective_m}"
+        )
     selected_backend = _choose_position_backend(pred_complex, test_data, configured=backend)
     if runtime_contract_out is not None:
         runtime_contract_out.update(
@@ -384,11 +453,13 @@ def _reassemble_with_coords_offsets(
                 "resolved_reassembly_backend": str(selected_backend),
                 "allow_oom_fallback": bool(allow_oom_fallback),
                 "fallback_used": False,
+                "position_reassembly_M_requested": int(M),
+                "position_reassembly_M_effective": int(effective_m),
             }
         )
     if selected_backend == "shift_sum":
         try:
-            return _reassemble_position_shift_sum(patches, offsets_b112, M=M)
+            return _reassemble_position_shift_sum(patches, offsets_b112, M=effective_m)
         except Exception as exc:
             import tensorflow as tf
 
@@ -407,7 +478,7 @@ def _reassemble_with_coords_offsets(
                 return _reassemble_position_batched(
                     patches,
                     offsets_b12c,
-                    M=M,
+                    M=effective_m,
                     batch_size=batch_size,
                 )
             raise
@@ -415,7 +486,7 @@ def _reassemble_with_coords_offsets(
         return _reassemble_position_batched(
             patches,
             offsets_b12c,
-            M=M,
+            M=effective_m,
             batch_size=batch_size,
         )
     raise ValueError(f"Unsupported position reassembly backend: {selected_backend!r}")
@@ -979,6 +1050,7 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
         raise ValueError("Test data must provide one of: YY_ground_truth, YY_full, objectGuess.")
     # Use complex predictions for metrics if available
     pred_for_metrics = predictions_complex if predictions_complex is not None else predictions
+    position_reassembly_runtime_contract: Dict[str, object] = {}
     if cfg.reassembly_mode == "position":
         pred_for_metrics = _reassemble_with_coords_offsets(
             pred_for_metrics,
@@ -986,6 +1058,8 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
             M=cfg.N,
             backend=cfg.position_reassembly_backend,
             batch_size=cfg.position_reassembly_batch_size,
+            position_crop_border=cfg.position_crop_border,
+            runtime_contract_out=position_reassembly_runtime_contract,
         )
     elif pred_for_metrics.ndim >= 3:
         pred_h, pred_w = pred_for_metrics.shape[-3], pred_for_metrics.shape[-2]
@@ -1026,6 +1100,7 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
         'recon_path': str(recon_path),
         'model_params': int(model_params),
         'inference_time_s': float(inference_time_s),
+        'position_reassembly_runtime_contract': position_reassembly_runtime_contract,
     }
 
     # Step 6: Render post-run visuals (best-effort)
@@ -1224,6 +1299,15 @@ def main(argv=None) -> None:
                         help="Patch size N")
     parser.add_argument("--gridsize", type=int, default=1,
                         help="Grid size for stitching")
+    parser.add_argument(
+        "--position-crop-border",
+        type=int,
+        default=None,
+        help=(
+            "Optional border (pixels/side) for shared center-crop in position reassembly. "
+            "Default auto-resolves to min(patch_h, patch_w)//4; set 0 to disable."
+        ),
+    )
     parser.add_argument("--optimizer", choices=['adam', 'adamw', 'sgd'], default='adam',
                         help="Optimizer algorithm")
     parser.add_argument("--weight-decay", type=float, default=0.0,
@@ -1369,6 +1453,7 @@ def main(argv=None) -> None:
         single_image_frc=args.single_image_frc,
         single_image_frc_split_mode=args.single_image_frc_split_mode,
         single_image_frc_rng_seed=args.single_image_frc_rng_seed,
+        position_crop_border=args.position_crop_border,
     )
 
     result = run_grid_lines_torch(cfg)

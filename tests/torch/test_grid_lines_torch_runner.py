@@ -737,7 +737,12 @@ class TestRunGridLinesTorchScaffold:
 
         pred_channel_first = np.ones((4, 1, 64, 64), dtype=np.complex64)
         test_data = {"coords_offsets": np.zeros((4, 1, 2, 1), dtype=np.float64)}
-        _ = _reassemble_with_coords_offsets(pred_channel_first, test_data, M=64)
+        _ = _reassemble_with_coords_offsets(
+            pred_channel_first,
+            test_data,
+            M=64,
+            position_crop_border=0,
+        )
 
         assert captured["obj_shape"] == (4, 64, 64, 1)
         assert captured["offsets_shape"] == (4, 1, 1, 2)
@@ -763,6 +768,7 @@ class TestRunGridLinesTorchScaffold:
             M=64,
             backend="shift_sum",
             batch_size=64,
+            position_crop_border=0,
         )
 
         assert called["shift"] is True
@@ -788,6 +794,7 @@ class TestRunGridLinesTorchScaffold:
             M=64,
             backend="batched",
             batch_size=32,
+            position_crop_border=0,
         )
 
         assert captured["patches_shape"] == (4, 64, 64, 1)
@@ -869,6 +876,7 @@ class TestRunGridLinesTorchScaffold:
             M=64,
             backend=backend,
             batch_size=32,
+            position_crop_border=0,
             runtime_contract_out=runtime_contract,
         )
         assert out.shape == (64, 64)
@@ -941,7 +949,7 @@ class TestRunGridLinesTorchScaffold:
             position_crop_border=None,
             runtime_contract_out=runtime_contract,
         )
-        assert out.shape == (64, 64)
+        assert out.shape == (128, 128)
         assert captured["crop_border"] == 32
         assert captured["pre_shape"] == (4, 128, 128)
         assert runtime_contract["position_crop_border_resolved"] == 32
