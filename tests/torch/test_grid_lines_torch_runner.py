@@ -14,6 +14,7 @@ from scripts.studies.grid_lines_torch_runner import (
     TorchRunnerConfig,
     compute_metrics,
     load_cached_dataset,
+    _resolve_position_crop_border,
     _select_coords_relative,
     _choose_position_backend,
     _harmonize_prediction_shape,
@@ -114,6 +115,17 @@ class TestTorchRunnerConfig:
         )
         assert cfg.position_reassembly_backend == "auto"
         assert cfg.position_reassembly_batch_size == 64
+        assert cfg.position_crop_border is None
+
+    def test_position_crop_auto_default_resolves_to_quarter_patch(self):
+        assert _resolve_position_crop_border(128, 128, None) == 32
+        assert _resolve_position_crop_border(256, 256, None) == 64
+
+    def test_position_crop_explicit_zero_disables_crop(self):
+        assert _resolve_position_crop_border(128, 128, 0) == 0
+
+    def test_position_crop_clamps_to_nonempty_patch(self):
+        assert _resolve_position_crop_border(128, 128, 99) == 63
 
     @pytest.mark.parametrize("backend", ["auto", "shift_sum", "batched"])
     def test_position_strategy_accepts_supported_backends(self, tmp_path, backend):
@@ -899,6 +911,40 @@ class TestRunGridLinesTorchScaffold:
             )
         assert runtime_contract["fallback_used"] is False
         assert runtime_contract["resolved_reassembly_backend"] == "shift_sum"
+
+    def test_position_reassembly_uses_shared_center_crop_utility(self, monkeypatch):
+        captured = {}
+
+        def fake_crop(arr, border):
+            captured["crop_border"] = int(border)
+            captured["pre_shape"] = tuple(np.asarray(arr).shape)
+            return np.asarray(arr)
+
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner.center_crop_spatial_by_border",
+            fake_crop,
+        )
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner._reassemble_position_shift_sum",
+            lambda patches, offsets_b112, M: np.ones((M, M), dtype=np.complex64),
+        )
+
+        pred = np.ones((4, 128, 128, 1), dtype=np.complex64)
+        test_data = {"coords_offsets": np.zeros((4, 1, 2, 1), dtype=np.float32)}
+        runtime_contract = {}
+        out = _reassemble_with_coords_offsets(
+            pred,
+            test_data,
+            M=128,
+            backend="shift_sum",
+            batch_size=64,
+            position_crop_border=None,
+            runtime_contract_out=runtime_contract,
+        )
+        assert out.shape == (64, 64)
+        assert captured["crop_border"] == 32
+        assert captured["pre_shape"] == (4, 128, 128)
+        assert runtime_contract["position_crop_border_resolved"] == 32
 
     def test_grid_lines_mode_keeps_existing_stitching_path(self, synthetic_npz, tmp_path, monkeypatch):
         """grid_lines mode should still use the stitch helper path."""
