@@ -44,8 +44,6 @@ from typing import Dict, Any, List, Optional, Tuple
 
 import numpy as np
 
-from ptycho.image.cropping import center_crop_spatial_by_border
-
 logger = logging.getLogger(__name__)
 
 
@@ -174,7 +172,7 @@ def _resolve_position_crop_border(
     patch_w: int,
     configured: Optional[int],
 ) -> int:
-    """Resolve and clamp position-reassembly crop border for shared center-crop path."""
+    """Resolve and clamp border used to derive the effective reassembly window (M)."""
     h = int(patch_h)
     w = int(patch_w)
     if h <= 0 or w <= 0:
@@ -190,6 +188,34 @@ def _resolve_position_crop_border(
 
     crop_max = max(0, (min(h, w) - 1) // 2)
     return int(max(0, min(crop, crop_max)))
+
+
+def _resolve_position_reassembly_m(
+    requested_m: int,
+    patch_h: int,
+    patch_w: int,
+    crop_border: int,
+) -> int:
+    """Resolve effective M from requested window and border-derived usable patch shape."""
+    req = int(requested_m)
+    h = int(patch_h)
+    w = int(patch_w)
+    crop = int(crop_border)
+    if req <= 0:
+        raise ValueError(f"Requested reassembly M must be positive, got {req}.")
+    if h <= 0 or w <= 0:
+        raise ValueError(f"Patch spatial shape must be positive, got ({h}, {w}).")
+    if crop < 0:
+        raise ValueError(f"Crop border must be >= 0, got {crop}.")
+
+    usable_h = h - 2 * crop
+    usable_w = w - 2 * crop
+    if usable_h <= 0 or usable_w <= 0:
+        raise ValueError(
+            f"Resolved crop border {crop} leaves non-positive usable patch shape "
+            f"({usable_h}, {usable_w}) from ({h}, {w})."
+        )
+    return int(min(req, usable_h, usable_w))
 
 
 def load_cached_dataset(npz_path: Path) -> Dict[str, np.ndarray]:
@@ -315,7 +341,7 @@ def _normalize_position_inputs(
     *,
     position_crop_border: Optional[int] = None,
     runtime_contract_out: Dict[str, object] | None = None,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, int]:
     """Normalize prediction and offset shapes for position reassembly backends."""
     coords_offsets = test_data.get("coords_offsets")
     if coords_offsets is None:
@@ -341,7 +367,7 @@ def _normalize_position_inputs(
     else:
         raise ValueError(f"Unsupported prediction shape for position reassembly: {pred_np.shape}")
 
-    pre_crop_shape = tuple(int(v) for v in patches.shape)
+    forwarded_shape = tuple(int(v) for v in patches.shape)
     if patches.shape[-1] != 1:
         raise ValueError(
             f"Position reassembly expects singleton channel patches after normalization, got {patches.shape}."
@@ -351,11 +377,6 @@ def _normalize_position_inputs(
         int(patches.shape[2]),
         position_crop_border,
     )
-    patches_cropped = center_crop_spatial_by_border(np.squeeze(patches, axis=-1), resolved_crop_border)
-    if patches_cropped.ndim == 2:
-        patches_cropped = patches_cropped[None, ...]
-    patches = np.asarray(patches_cropped, dtype=np.complex64)[..., None]
-    post_crop_shape = tuple(int(v) for v in patches.shape)
 
     offsets_b12c = np.asarray(coords_np).astype(np.float64)  # (B,1,2,C)
     offsets_b112 = np.transpose(offsets_b12c, (0, 1, 3, 2))  # (B,1,C,2) => (B,1,1,2) when C=1
@@ -373,10 +394,12 @@ def _normalize_position_inputs(
             None if position_crop_border is None else int(position_crop_border)
         )
         runtime_contract_out["position_crop_border_resolved"] = int(resolved_crop_border)
-        runtime_contract_out["position_patch_shape_pre_crop"] = list(pre_crop_shape)
-        runtime_contract_out["position_patch_shape_post_crop"] = list(post_crop_shape)
+        # Deprecated pre/post crop keys retained for compatibility; runner no longer pre-crops tensors.
+        runtime_contract_out["position_patch_shape_pre_crop"] = list(forwarded_shape)
+        runtime_contract_out["position_patch_shape_post_crop"] = list(forwarded_shape)
+        runtime_contract_out["position_patch_shape_forwarded"] = list(forwarded_shape)
 
-    return patches.astype(np.complex64), offsets_b12c, offsets_b112
+    return patches.astype(np.complex64), offsets_b12c, offsets_b112, int(resolved_crop_border)
 
 
 def _reassemble_position_shift_sum(
@@ -434,13 +457,18 @@ def _reassemble_with_coords_offsets(
     runtime_contract_out: Dict[str, object] | None = None,
 ) -> np.ndarray:
     """Reassemble predicted patches using coords_offsets (external dataset mode)."""
-    patches, offsets_b12c, offsets_b112 = _normalize_position_inputs(
+    patches, offsets_b12c, offsets_b112, resolved_crop_border = _normalize_position_inputs(
         pred_complex,
         test_data,
         position_crop_border=position_crop_border,
         runtime_contract_out=runtime_contract_out,
     )
-    effective_m = min(int(M), int(patches.shape[1]), int(patches.shape[2]))
+    effective_m = _resolve_position_reassembly_m(
+        requested_m=int(M),
+        patch_h=int(patches.shape[1]),
+        patch_w=int(patches.shape[2]),
+        crop_border=int(resolved_crop_border),
+    )
     if effective_m <= 0:
         raise ValueError(
             f"Effective reassembly M must be positive after crop resolution, got {effective_m}"
@@ -1304,8 +1332,8 @@ def main(argv=None) -> None:
         type=int,
         default=None,
         help=(
-            "Optional border (pixels/side) for shared center-crop in position reassembly. "
-            "Default auto-resolves to min(patch_h, patch_w)//4; set 0 to disable."
+            "Optional border (pixels/side) used to derive effective position-reassembly M. "
+            "Default auto-resolves to min(patch_h, patch_w)//4; set 0 to preserve full-window M."
         ),
     )
     parser.add_argument("--optimizer", choices=['adam', 'adamw', 'sgd'], default='adam',

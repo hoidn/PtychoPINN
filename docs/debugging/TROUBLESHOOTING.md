@@ -112,6 +112,41 @@ autoencoder, _ = create_model_with_gridsize(gridsize=2, N=64)
 
 ---
 
+## Position Reassembly Broadcast Shape Error (`external_raw_npz`)
+
+### Problem: `InvalidArgumentError: required broadcastable shapes` in `shift_and_sum`
+
+**Symptom:**
+```
+InvalidArgumentError: required broadcastable shapes
+```
+This usually appears during position reassembly when running the Torch study runner in
+`external_raw_npz` mode.
+
+**Root Cause:**
+Trim ownership drift. `tf_helper.reassemble_position(..., M=...)` already trims to `M`; if a caller
+also pre-trims patches before passing them in, shape assumptions diverge and broadcast failures occur.
+
+**Contract (required):**
+- Forward full patch tensors into `reassemble_position`.
+- Use `position_crop_border` only to derive `M_effective`.
+- Compute `M_effective` as:
+  - `min(M_requested, patch_h - 2*crop_border_resolved, patch_w - 2*crop_border_resolved)`
+
+**Quick Diagnosis (runner runtime contract):**
+Confirm these fields in the Torch runner `runtime_contract` output:
+- `position_patch_shape_forwarded`: Should be the full normalized patch shape (not pre-cropped).
+- `position_reassembly_M_requested`: Requested `M` value.
+- `position_reassembly_M_effective`: Trim window actually passed to `reassemble_position`.
+- `position_crop_border_resolved`: Effective border used in `M_effective` derivation.
+
+**Expected examples (N=128):**
+- Auto default (`position_crop_border=None`) -> resolved border `32`, `M_effective=64`.
+- Explicit no border (`--position-crop-border 0`) -> `M_effective=128`.
+- Explicit border (`--position-crop-border 16`) -> `M_effective=96`.
+
+---
+
 ## Shape Mismatch Errors
 
 ### Problem: Getting (batch, 64, 64, 1) instead of (batch, 64, 64, 4) with gridsize=2

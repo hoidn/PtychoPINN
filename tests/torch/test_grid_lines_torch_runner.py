@@ -920,21 +920,94 @@ class TestRunGridLinesTorchScaffold:
         assert runtime_contract["fallback_used"] is False
         assert runtime_contract["resolved_reassembly_backend"] == "shift_sum"
 
-    def test_position_reassembly_uses_shared_center_crop_utility(self, monkeypatch):
+    def test_position_reassembly_does_not_pretrim_patch_tensor(self, monkeypatch):
         captured = {}
 
-        def fake_crop(arr, border):
-            captured["crop_border"] = int(border)
-            captured["pre_shape"] = tuple(np.asarray(arr).shape)
-            return np.asarray(arr)
+        def fake_shift_sum(patches, offsets_b112, M):
+            captured["patch_shape"] = tuple(np.asarray(patches).shape)
+            captured["offsets_shape"] = tuple(np.asarray(offsets_b112).shape)
+            captured["M"] = int(M)
+            return np.ones((int(M), int(M)), dtype=np.complex64)
 
         monkeypatch.setattr(
-            "scripts.studies.grid_lines_torch_runner.center_crop_spatial_by_border",
-            fake_crop,
+            "scripts.studies.grid_lines_torch_runner._reassemble_position_shift_sum",
+            fake_shift_sum,
         )
+
+        pred = np.ones((4, 128, 128, 1), dtype=np.complex64)
+        test_data = {"coords_offsets": np.zeros((4, 1, 2, 1), dtype=np.float32)}
+        out = _reassemble_with_coords_offsets(
+            pred,
+            test_data,
+            M=128,
+            backend="shift_sum",
+            batch_size=64,
+            position_crop_border=None,
+        )
+
+        assert out.shape == (64, 64)
+        assert captured["patch_shape"] == (4, 128, 128, 1)
+        assert captured["offsets_shape"] == (4, 1, 1, 2)
+        assert captured["M"] == 64
+
+    def test_position_crop_border_zero_keeps_full_window(self, monkeypatch):
+        captured = {}
+
+        def fake_shift_sum(patches, offsets_b112, M):
+            captured["patch_shape"] = tuple(np.asarray(patches).shape)
+            captured["M"] = int(M)
+            return np.ones((int(M), int(M)), dtype=np.complex64)
+
         monkeypatch.setattr(
             "scripts.studies.grid_lines_torch_runner._reassemble_position_shift_sum",
-            lambda patches, offsets_b112, M: np.ones((M, M), dtype=np.complex64),
+            fake_shift_sum,
+        )
+
+        pred = np.ones((4, 128, 128, 1), dtype=np.complex64)
+        test_data = {"coords_offsets": np.zeros((4, 1, 2, 1), dtype=np.float32)}
+        out = _reassemble_with_coords_offsets(
+            pred,
+            test_data,
+            M=128,
+            backend="shift_sum",
+            batch_size=64,
+            position_crop_border=0,
+        )
+        assert out.shape == (128, 128)
+        assert captured["patch_shape"] == (4, 128, 128, 1)
+        assert captured["M"] == 128
+
+    def test_position_crop_border_positive_reduces_effective_m_not_tensor_shape(self, monkeypatch):
+        captured = {}
+
+        def fake_shift_sum(patches, offsets_b112, M):
+            captured["patch_shape"] = tuple(np.asarray(patches).shape)
+            captured["M"] = int(M)
+            return np.ones((int(M), int(M)), dtype=np.complex64)
+
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner._reassemble_position_shift_sum",
+            fake_shift_sum,
+        )
+
+        pred = np.ones((4, 128, 128, 1), dtype=np.complex64)
+        test_data = {"coords_offsets": np.zeros((4, 1, 2, 1), dtype=np.float32)}
+        out = _reassemble_with_coords_offsets(
+            pred,
+            test_data,
+            M=128,
+            backend="shift_sum",
+            batch_size=64,
+            position_crop_border=16,
+        )
+        assert out.shape == (96, 96)
+        assert captured["patch_shape"] == (4, 128, 128, 1)
+        assert captured["M"] == 96
+
+    def test_runtime_contract_reports_requested_and_effective_m(self, monkeypatch):
+        monkeypatch.setattr(
+            "scripts.studies.grid_lines_torch_runner._reassemble_position_shift_sum",
+            lambda patches, offsets_b112, M: np.ones((int(M), int(M)), dtype=np.complex64),
         )
 
         pred = np.ones((4, 128, 128, 1), dtype=np.complex64)
@@ -949,10 +1022,12 @@ class TestRunGridLinesTorchScaffold:
             position_crop_border=None,
             runtime_contract_out=runtime_contract,
         )
-        assert out.shape == (128, 128)
-        assert captured["crop_border"] == 32
-        assert captured["pre_shape"] == (4, 128, 128)
+        assert out.shape == (64, 64)
+        assert runtime_contract["position_crop_border_configured"] is None
         assert runtime_contract["position_crop_border_resolved"] == 32
+        assert runtime_contract["position_patch_shape_forwarded"] == [4, 128, 128, 1]
+        assert runtime_contract["position_reassembly_M_requested"] == 128
+        assert runtime_contract["position_reassembly_M_effective"] == 64
 
     def test_grid_lines_mode_keeps_existing_stitching_path(self, synthetic_npz, tmp_path, monkeypatch):
         """grid_lines mode should still use the stitch helper path."""
